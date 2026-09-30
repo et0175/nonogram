@@ -1,0 +1,117 @@
+{
+  "card": "CARD-146",
+  "supersedes": "tests/fixtures/book_baseline_card149.json",
+  "recorded_from_commit": "a024b1b067b160130ff50fa833a779a397eb05fb",
+  "recorded_from_commit_note": "CARD-146's fix on card/146-two-up-frame: the commit that strokes each slot's frame in book_pdf_generator._stroke_drawing, and the tree these eleven digests were taken from. A commit cannot carry its own hash, so this field was filled in by the commit that immediately follows a024b1b \u2014 this one, which adds this file and repoints BASELINE_FIXTURE at it and changes no drawing, so it exports the same eleven pages and reproduces them too. a024b1b itself is red on exactly the two assertions this file makes green (TestBookPdfMemory_PagesAreUnchanged's page comparison and its interior-byte length), which is the shape CARD-149 set: a deliberate change to a page's ink, then its new baseline in a commit of its own.",
+  "recorded_on": "2026-09-30",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-146 deliberately changes what interior page 3 prints, which is the one reason the predecessors' warning allows a new baseline to be recorded. CARD-144 gave a book puzzle page's drawing a frame \u2014 one heavy rectangle around clues and grid, the two clue bands boxed off, the corner empty \u2014 and it reached the single-puzzle pages only. The two-up page is composed by book_pdf_generator._stroke_drawing, which reimplements grid stroking from each slot's own line tuples rather than importing across the capability boundary, and which was written before the frame existed: it stopped at the grid and never drew slot.frame, although compute_pair_layout had measured one for both slots all along. CARD-144's own report measured the gap rather than assuming it \u2014 interior 3 was byte-identical to its pre-frame recording while interiors 5 and 7 moved \u2014 and that is precisely the page that moves here. Its two drawings now carry the left and top rules that close each one off; the right and bottom sides land on the grid's outer border and re-stroke identical black in identical pixels. No other page's ink moved, and none was expected to: the change is inside _stroke_drawing, which nothing but a two-up page calls (a single puzzle page is rendered by COMP-007's own render_pages, a divider and the guide page carry no drawing, and the packed answer key is render_answer_page's). The four predecessors are left in place, unregenerated, as the evidence they were recorded to be.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-146. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, which is what G-1 forbids. If a later card deliberately changes a page's content, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "changed_pages": [
+    3
+  ],
+  "changed_pages_note": "The 1-based interior page whose ink moved against the CARD-149 baseline, and the only one: interior 3, the two-up page, whose two drawings CARD-146 framed. The other ten digests are CARD-149's own, byte for byte \u2014 interior 1 is that card's re-typed guide page, 5 and 7 are CARD-144's framed single-puzzle pages, 2, 4, 6 and 8 are the four divider pages (Arial at 60, untouched by G-1) and 9-11 are the packed answer key. That page 3 and only page 3 moved was checked against CARD-149's file page by page before this one was written; if a later card finds another page moved while claiming only the two-up page changed, that is a bug in the change, not something to record here.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "The guide page and every divider page are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against the digests of the pages named in font_dependent_pages. **This value is CARD-149's, unchanged, and was reproduced on this machine before a byte of this card was written.** CARD-146 adds no text and changes no type size: book_corpus.MACHINE_FACE_SIZES is still (92, 46, 60), so the tuple the fingerprint digests is untouched and the digest with it. The one page this card moves is page 3, which is drawn in the bundled band face and Pillow's built-in clue face and carries no system-font lettering at all \u2014 so its new digest is comparable on any machine, and unlike CARD-149's change this card's evidence is checkable even where Arial is missing.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "The 1-based interior pages whose pixels depend on the machine's own font: page 1 is the guide page (Arial at 92 and 46 since CARD-149, load_default at the same sizes as the fallback), pages 2, 4 and 6 are the Easy, Medium and Hard level dividers and page 8 is the SOLUTIONS divider (Arial at 60, unchanged). The list is CARD-149's, unchanged: this card letters nothing. The other six pages are drawn in the bundled band face and Pillow's built-in clue face, so their digests are comparable on any machine and are compared even when font_fingerprint differs \u2014 page 3, the one page this card moved, is among them.",
+  "interior_bytes": 2680175,
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "5b6a12bc77f645906246169ab8c711e19a38d1213c1a4af7816ee47a497c83f8"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "be5e748146944022fb835107269d758aa6c86185d6c50a047ab878ed316e5d96"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "87fd36d4dc043f4af75b83f77fc147186e36dd021194e0b7d62e25028b695ded"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "3f3e7b686bbdb67d942d4244fdedd91d6aec3d511446a3674a19872fd7617955"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bcb474a056c470d6c6818204eec9f0f8ed03e6a9d244570f1e3e71b26b29a113"
+    }
+  ]
+}

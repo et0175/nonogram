@@ -1159,7 +1159,7 @@ class TestBookPdfMemory_PagesAreUnchanged:
     """Every exported page is the page the baseline recorded, to the pixel (G-1).
 
     The evidence is ``tests/helpers/book_corpus.BASELINE_FIXTURE``, currently
-    ``tests/fixtures/book_baseline_card144.json``, recorded by exporting
+    ``tests/fixtures/book_baseline_card146.json``, recorded by exporting
     ``tests/helpers/book_corpus.baseline_puzzles``, reading the pages back
     **out of the PDF** with the shared ``pdf_pages`` helper, and digesting each
     one's raw bitmap. It covers the whole path: draw, JPEG-encode, write,
@@ -1167,14 +1167,17 @@ class TestBookPdfMemory_PagesAreUnchanged:
 
     It was first recorded for CARD-145 at commit ``b4c523d``, the merge-base
     before a line of that card's production change existed, which is the shape
-    of evidence a refactor needs. It has been succeeded twice since, never
-    regenerated: by CARD-128, which made the interior print grouped by level
-    with a divider page opening each, and by CARD-144, whose frame (the
-    owner's decision of 2026-09-23, not yet a formalised requirement)
-    closes a book puzzle page's drawing off with one heavy rectangle. Both are
-    deliberate changes to what a page prints, which is the one case the
-    CARD-145 fixture's own ``warning`` provides for, and each recording names
-    the pages that moved under it.
+    of evidence a refactor needs. It has been succeeded four times since,
+    never regenerated: by CARD-128, which made the interior print grouped by
+    level with a divider page opening each; by CARD-144, whose frame (the
+    owner's decision of 2026-09-23, not yet a formalised requirement) closes a
+    book puzzle page's drawing off with one heavy rectangle; by CARD-149, which
+    set the guide page's type at 11 pt derived from the page's own DPI instead
+    of 6.7 pt of bare pixels (page 1 alone); and by CARD-146, which carried
+    CARD-144's frame onto the printed two-up page, which had still been
+    printing bare (page 3 alone). All four are deliberate changes to what a
+    page prints, which is the one case the CARD-145 fixture's own ``warning``
+    provides for, and each recording names the pages that moved under it.
 
     The comparison is exact — a sha256 of ``Image.tobytes()`` — and
     deliberately not ``pdf_pages.same_page``, which tolerates JPEG noise and a
@@ -1182,10 +1185,12 @@ class TestBookPdfMemory_PagesAreUnchanged:
     exists to catch.
 
     That fixture is never to be regenerated to make this test pass; it says so
-    in its own ``warning`` field. Its two predecessors sit beside it,
-    ``book_baseline_card145.json`` (the merge-base's eight pages) and
+    in its own ``warning`` field. Its four predecessors sit beside it,
+    ``book_baseline_card145.json`` (the merge-base's eight pages),
     ``book_baseline_card128.json`` (the eleven pages the level dividers made),
-    both left unregenerated. Each was superseded for the one reason that
+    ``book_baseline_card144.json`` (the framed single pages) and
+    ``book_baseline_card149.json`` (the guide page at book size), all left
+    unregenerated. Each was superseded for the one reason that
     warning admits — a deliberate change to what a page prints — and every
     file in the chain says so.
 
