@@ -37,18 +37,29 @@ far outside the ~120-190-page model the answer key exists to keep books inside
 one does, the remedy is to record the rest of KDP's table, not to widen this
 one by hand.
 
-**Centimetres, at the precision the column stores.** The ``books`` table keeps
-margins as centimetre strings with two decimals, so the 0.375 in band is
-stored as ``"0.95"`` — 0.9525 cm rounded, and the only way that value can be
-written. A comparison against the exact 0.9525 cm would therefore refuse every
-book that is *on* the profile, so the comparison is made at the column's own
-precision (:data:`STORED_PRECISION`): "0.95" is 0.375 in, because in that
+**Centimetres, at the precision the column stores — and rounded in the safe
+direction.** The ``books`` table keeps margins as centimetre strings with two
+decimals, so the 0.375 in band is stored as ``"0.95"`` — 0.9525 cm rounded,
+and the only way that value can be written. CON-018 writes the band down that
+way itself. A comparison against the exact 0.9525 cm would therefore refuse
+every book that is *on* the profile, so the comparison is made at the column's
+own precision (:data:`STORED_PRECISION`): "0.95" is 0.375 in, because in that
 column it is the same number.
+
+The two sides of that comparison are quantized **differently**, and on
+purpose. A band minimum is rounded half-up (:func:`_rounded`), because that is
+CON-018's own spelling of it. A book's stored gutter is floored
+(:func:`_floored`), because it is the value under test and may only ever read
+narrower than it is. Rounding the stored value up would admit a gutter that is
+genuinely below KDP's minimum — 0.945 cm would read as "0.95" and pass here,
+then be rejected at upload — which is exactly the failure this check exists to
+prevent. So "0.95" passes and "0.945" does not, and no value is ever rounded
+*into* compliance.
 """
 
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP
 from typing import Any, List, Optional, Sequence, Tuple
 
 from nonogram.admin.book_answer_key import Answer, pack_answer_pages
@@ -118,8 +129,29 @@ def _as_cm(inches: Decimal) -> Decimal:
 
 
 def _rounded(centimetres: Decimal) -> Decimal:
-    """``centimetres`` at the precision the ``books`` columns store."""
+    """A **minimum** at the precision the ``books`` columns store.
+
+    Half-up, and only ever applied to one of KDP's own band minima, because
+    that is the arithmetic CON-018 itself performed when it wrote 0.9525 cm
+    down as "0.95 cm" and 1.27 cm as "1.27 cm". Rounding a minimum up would
+    invent a rule stricter than KDP's and refuse every book created on the
+    profile.
+    """
     return centimetres.quantize(STORED_PRECISION, rounding=ROUND_HALF_UP)
+
+
+def _floored(centimetres: Decimal) -> Decimal:
+    """A **stored** gutter at the precision the ``books`` columns store.
+
+    Towards zero, never up: this is the value under test, and a gutter is only
+    ever read as narrower than it is, never wider. Half-up here would round a
+    genuinely short gutter *into* compliance — 0.945 cm would read as "0.95"
+    and pass, then be rejected at upload, which is the one failure this module
+    exists to catch. The 0.0075 cm window that opens is small and reachable
+    only by a hand-edited or legacy row, but the error would point the unsafe
+    way, so the two quantizations are deliberately asymmetric.
+    """
+    return centimetres.quantize(STORED_PRECISION, rounding=ROUND_FLOOR)
 
 
 def _page_count(page_count: object) -> int:
@@ -232,6 +264,12 @@ def gutter_refusal(page_count: int, gutter_cm: float) -> Optional[str]:
     page count, the band it falls in, the minimum KDP asks for there in both
     centimetres and inches, and the value this book stores.
 
+    Both numbers are read at the column's two-decimal precision, but not with
+    the same rounding: the minimum half-up (CON-018's own "0.95 cm" for
+    0.375 in), the stored gutter floored. A stored gutter is therefore never
+    rounded *up* into compliance — "0.95" passes, "0.945" is refused and named
+    as the "0.94 cm" it is at that precision. See the module docstring.
+
     Raises:
         ValueError: ``page_count`` is not a whole number of at least 1.
         KdpPageCountNotModelled: it is above :data:`MAX_MODELLED_PAGE_COUNT`.
@@ -240,13 +278,13 @@ def gutter_refusal(page_count: int, gutter_cm: float) -> Optional[str]:
     minimum_cm = Decimal(str(kdp_min_gutter_cm(page_count)))
     minimum_in = kdp_min_gutter_inches(page_count)
     stored = Decimal(str(gutter_cm))
-    if _rounded(stored) >= _rounded(minimum_cm):
+    if _floored(stored) >= _rounded(minimum_cm):
         return None
     return (
         f"This book's interior runs to {page_count} pages, and KDP asks for a "
         f"gutter margin of at least {_rounded(minimum_cm)} cm ({minimum_in:g} in) "
         f"for {first}-{last} pages. This book stores "
-        f"{_rounded(stored)} cm. Nothing was changed: widen the gutter margin "
+        f"{_floored(stored)} cm. Nothing was changed: widen the gutter margin "
         f"to at least {_rounded(minimum_cm)} cm, or shorten the book, and "
         f"finalise again."
     )

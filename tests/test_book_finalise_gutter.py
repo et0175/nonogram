@@ -379,6 +379,59 @@ class TestKdpGutterTable:
         assert gutter_refusal(1, 0.95) is None
         assert gutter_refusal(150, 0.94) is not None
 
+    @pytest.mark.parametrize(
+        "page_count,minimum_as_the_project_spells_it",
+        [(1, 0.95), (150, 0.95), (151, 1.27), (300, 1.27)],
+    )
+    def test_the_projects_own_spelling_of_each_minimum_still_passes(
+        self, page_count, minimum_as_the_project_spells_it
+    ) -> None:
+        """CON-018 writes 0.375 in as "0.95 cm" and 0.5 in as "1.27 cm".
+
+        Those two strings are the only forms the ``books`` margin columns can
+        hold for those bands, and they are what every book created on the
+        Book 1 profile stores. Refusing them would reject every such book —
+        far worse than the sub-minimum window the flooring below closes — so
+        this is pinned on both sides of the 150-page boundary.
+        """
+        assert gutter_refusal(page_count, minimum_as_the_project_spells_it) is None
+
+    @pytest.mark.parametrize(
+        "page_count,stored_cm,floored_cm",
+        [
+            # Below the two-decimal minimum, but close enough that half-up
+            # rounding of the stored value promoted it to exactly that
+            # minimum and let it through.
+            (150, 0.945, "0.94"),
+            (1, 0.9499, "0.94"),
+            (300, 1.265, "1.26"),
+            (151, 1.2699, "1.26"),
+        ],
+    )
+    def test_a_stored_gutter_is_never_rounded_up_into_compliance(
+        self, page_count, stored_cm, floored_cm
+    ) -> None:
+        """The stored value is floored to two decimals, never rounded half-up.
+
+        Review cycle 1, F-003. Rounding the *stored* gutter half-up let a
+        gutter in [0.945, 0.9525) read as "0.95" and pass the gate, so the
+        book was accepted here and rejected at KDP upload — the exact failure
+        this check exists to catch, and the unsafe direction for the error to
+        point in. The minimum keeps its half-up rounding (that is CON-018's
+        own spelling of it, pinned in the test above); only the value under
+        test is floored, so it can read narrower than it is but never wider.
+
+        The comparison is still made at the column's two decimals, so a stored
+        value in [0.95, 0.9525) is accepted — that is CON-018's spelling of
+        the band, not a hole. What is closed is the half-decimal below it.
+        """
+        refusal = gutter_refusal(page_count, stored_cm)
+        assert refusal is not None, (
+            f"{stored_cm} cm is below KDP's minimum for {page_count} pages "
+            "and must not be rounded up into compliance"
+        )
+        assert f"stores {floored_cm} cm" in refusal
+
     def test_the_refusal_reads_the_stored_column_and_writes_nothing(self) -> None:
         """A book-shaped object, unchanged by being checked (G-1)."""
 
