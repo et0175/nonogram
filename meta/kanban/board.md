@@ -58,7 +58,7 @@ _(none)_
 
 
 ## Review
-- **CARD-148** P1 · The DB driver is named, not inherited from a SQLAlchemy default · score 7.5 (cycle 1/3), 6 findings fixed in f36c4ed · ⚠ BLOCKED: cycle-2 review never ran (reviewer hit an account spend limit); needs an independent review + a rebase onto main before merge · worktree ../PythonProject4-CARD-148
+- **CARD-148** P1 · The DB driver is named, not inherited from a SQLAlchemy default · score 7.5 (cycle 1/3), 6 findings fixed · rebased onto main (e9e0ce6 + b88d74e), cycle-2 review re-running · worktree ../PythonProject4-CARD-148
 
 ## Done
 - **CARD-140** The arrange screen shows the book's real page breaks · score 9.0 (2 cycles) · merged 5d54019

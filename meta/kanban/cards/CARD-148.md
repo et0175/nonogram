@@ -291,6 +291,26 @@ the first time:
 Still owed before merge, unchanged: an independent cycle-2 review (the reviewer died on an
 account spend limit) and a rebase onto main.
 
+### Rebased onto main + gate (2026-09-30)
+
+- [Rebase] Clean, no conflicts. The branch's two commits are now e9e0ce6 (was a776d53) and
+  b88d74e (was f36c4ed) directly on main at 098f92c, so `git diff main..HEAD` finally reads
+  honestly — 7 files, +1249/-21. Before the rebase it falsely showed CARD-140's files as
+  deletions, which is a good way to send a reviewer chasing ghosts. CARD-140 lives in
+  `src/nonogram/admin/**` and this card in `src/nonogram/db/**`, so nothing overlapped;
+  `tests/conftest.py` was the only shared ground and neither card's change to it collided.
+  (The rebase first aborted on an untracked worktree copy of the cycle-1 review report that
+  main now tracks; the two were compared byte-for-byte before the duplicate was removed.)
+- [Build gate] PASSED on the REBASED commits, under both versions, identical:
+  **5344 tests, 5335 passed, 2 failed, 7 skipped** on SQLAlchemy 2.0.52 and on 2.1.1.
+  The arithmetic checks out — 5344 = main's 5307 + this card's 37 new tests — and the two
+  failures are the long-known stale-heading assertions
+  (`test_admin_workflow::test_size_configuration_applied`,
+  `test_wave3_e2e::test_batch_creation_form_renders`), both on the project backlog and
+  neither this card's. Skips are back to the documented 7, now that the `postgres` role and
+  `nonogram_test` exist. This supersedes the 2026-09-29 gate (27 skips), which was measured
+  while the role was missing.
+
 ## Implementation (CARD-148)
 
 ### AC → test mapping
