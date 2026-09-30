@@ -1982,6 +1982,29 @@ links:
     PageSpec is today's A4 exactly, pinned by a golden-byte test. Partial until
     the check ref exists (CON-014 precedent).
   status: partial
+- req: CON-020
+  description: "No interior text is set below 10 pt at the page's resolution; a type size is points or millimetres against the DPI, never bare pixels"
+  capabilities: [CAP-006]
+  contexts: [CTX-001]
+  components: [COMP-009, COMP-007]
+  adrs: [ADR-0036]
+  tests:
+  - TestGuidePage_TypeIsBookSized
+  - TestGuidePage_PointSizeIsIndependentOfDpi
+  - TestGuidePage_LeadingClearsTheType
+  notes: >-
+    Promoted 2026-09-30 from CARD-149's cycle-1 review (F-005). Checked
+    constraint (check: review-lens; scope
+    src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/layout.py).
+    The check is deliberately a lens, not a test ref: the three tests listed
+    are CARD-149's and cover the GUIDE PAGE alone, so naming one as the
+    constraint's check would claim evidence this rule does not have - the
+    defect two reviewers found in ADR-0006/R1 the same week. Measured on the
+    Book 1 profile when the rule was written: band header 5.0 mm = 14.17 pt,
+    dividers 60 px = 14.40 pt, cover 72 px = 17.28 pt, guide body 46 px =
+    11.04 pt (6.72 pt before CARD-149, the sole violation). Partial until a
+    test walks every interior face and asserts the floor.
+  status: partial
 
 components:
 - id: COMP-001

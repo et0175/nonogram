@@ -30,6 +30,15 @@ _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
 ## Backlog
+- Model defect (pre-existing, surfaced by the CON-020 validator run 2026-09-30): the architecture
+  validator reports `[ERROR] ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025 →
+  ADR-0025`. Confirmed present on main with no local change, so it predates today's work — but
+  it is an ERROR, not a warning, and it means the guess-tier ADR chain cannot be resolved by the
+  model. Belongs at /forge:architect.
+- CON-020 is `status: partial`: its check is a review-lens because no test walks every interior
+  face and asserts the 10 pt floor. CARD-149's three tests cover the guide page only. A test that
+  enumerates every `truetype`/`load_default` call on an interior page and asserts the floor would
+  make it `covered`.
 - CARD-135 follow-up: cover download on books list / book detail
 - CARD-135 F-008 export_book docstring
 - Pre-existing failure: test_size_configuration_applied
@@ -56,13 +65,13 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
-- **CARD-149** P2 · The guide page is legible at book size — its body is 6.7 pt today · 0.25d · wave 27
 - **CARD-147** P2 · The book PDF is written black-and-white or in colour (owner, print cost) · 1d · wave 27 · ⏸ blocked: after CARD-146
 - **CARD-146** P2 · The frame reaches the printed two-up page (CARD-144 gap, owner's ruling) · 0.25d · wave 27 · ⏸ blocked: after CARD-128 + CARD-144 merge
 - **CARD-143** P2 · Type a puzzle's position in the arrange step (owner-requested) · 0.5d · wave 27 · after CARD-140
 - **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+- **CARD-149** P2 · The guide page is legible at book size — its body is 6.7 pt today · 0.25d · wave 27 · worktree ../PythonProject4-CARD-149
 
 
 ## Review

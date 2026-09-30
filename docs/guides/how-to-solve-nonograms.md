@@ -106,6 +106,14 @@ This matters beyond looks. The research behind these books recorded a 2★ revie
 competitor — EV-0003 — reading *"Very tiny squares. Not good for older people."* A guide page
 in 6.7 pt aims at exactly that complaint.
 
+**Two corrections to the paragraph above, found when CARD-149 was implemented and re-measured
+rather than trusted.** The usable measure is **2288 px**, not 2250, and the bottom margin sits
+at 3188, not 3187 (frame x 150..2438, y 113..3188 on CON-018's Book 1 profile). And "the text
+occupies the left ~40%" describes the page **after** the fix, not before: it was measured on
+the drafted 40-line text, whereas the eleven lines the book actually ships used only **557 px,
+24.3% of the measure**, at 28 px. The symptom was real — the type was 6.7 pt either way — but
+that particular number described the wrong page.
+
 Measured replacements that fit the same text on one page, verified by rendering:
 
 | | now | proposed | why |
@@ -118,9 +126,24 @@ At those sizes the 40-line draft ends at y=3141 of 3187 usable — it fits on on
 nothing to spare, which is the right density for a guide page. The longest line uses 69% of
 the measure, a comfortable reading width.
 
-**This is a code change to `create_guide_page`, not a copy change, so it needs its own card.**
-Note the same method is the one that would have to change to draw worked example rows, and
-the title text is a one-line edit in it too — all three belong in one card.
+**This is a code change to `create_guide_page`, not a copy change.** It was done as CARD-149
+(merged type fix: body 11 pt, title 22 pt, leading 17 pt, all derived from points and the
+page's DPI rather than set in bare pixels). Worked example rows and the title's wording were
+deliberately left out of it — the first is a feature needing grid drawing on a text-only page,
+the second is copy.
+
+### A constraint on landing this copy, measured during CARD-149
+
+The draft's 65-character lines run to roughly **1400 px** at 11 pt. The narrowest measure a
+stored book can have on CON-018's margins — a 10 cm trim — is **919 px**. So the drafted text
+**would not fit a small-trim book** at the new body size, and landing it carries a wrapping
+question with it: either the guide page starts wrapping to its frame (today `create_guide_page`
+draws the lines it is given and wrapping is the caller's business), or the copy is set to the
+narrowest measure the project supports.
+
+For scale, the eleven lines the book ships today are 908 px at 11 pt — they clear a 10 cm trim
+by **11 px, about 0.9 mm**. That is the margin this page currently has, and it is worth knowing
+before any new sentence is added to it.
 
 **What the current renderer can and cannot do.** `BookPDFGenerator.create_guide_page`
 (`src/nonogram/admin/book_pdf_generator.py`) draws plain left-aligned lines in one size:

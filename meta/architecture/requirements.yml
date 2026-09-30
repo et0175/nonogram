@@ -4533,3 +4533,50 @@ constraints:
       kind: test
       ref: PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry
     severity: mandatory
+  - id: CON-020
+    # New 2026-09-30, promoted from CARD-149's cycle-1 review (F-005, info):
+    # "no standing CON pins the interior's body type - the 11 pt promise is
+    # held only by this card's tests". The defect CARD-149 fixed was a guide
+    # page whose body was 6.72 pt, because its fonts were set in bare pixels
+    # on a 300 DPI surface with no stated relationship to the page. That was
+    # invisible to every test and every baseline for as long as it existed:
+    # a page digest proves a page has not CHANGED, never that it was ever
+    # right. This states the reader-facing property so forge:review checks it
+    # on any diff that sets type on an interior page, not only on the card
+    # that happened to find it.
+    #
+    # Measured 2026-09-30, every interior face at the Book 1 profile:
+    # band header 5.0 mm = 14.17 pt, level/SOLUTIONS divider 60 px = 14.40 pt,
+    # cover 72 px = 17.28 pt, guide body 46 px = 11.04 pt (28 px = 6.72 pt
+    # before CARD-149, the sole violation). The rule holds today with the
+    # guide page fixed and would have failed before it.
+    type: technical
+    statement: >-
+      No text the book's interior prints for the reader is set below 10 pt at
+      the page's own resolution. A type size is a physical measure - points or
+      millimetres converted against the page's DPI - and never a bare pixel
+      count: a page raised from 300 to 600 DPI doubles its glyphs in pixels
+      while its type size in points is unchanged, where a pixel-set face would
+      halve on the printed sheet. 10 pt is the floor, not the target: book
+      body text is normally 10-12 pt, and this project's audience is the one
+      that complains about small print (EV-0003, a 2-star review of a
+      competitor reading "Very tiny squares. Not good for older people.", one
+      of the three observations behind ASM-0001).
+    source: >-
+      CARD-149 cycle-1 review F-005 (meta/review/20260930T154039Z-CARD-149-cycle1.yml);
+      EV-0003, ASM-0001; measured on the Book 1 profile 2026-09-30
+    scope:
+      code:
+        - "src/nonogram/admin/book_pdf_generator.py"
+        - "src/nonogram/export/layout.py"
+    check:
+      kind: review-lens
+      # Deliberately NOT a test ref. The only mechanical evidence today is
+      # CARD-149's TestGuidePage_TypeIsBookSized and
+      # TestGuidePage_PointSizeIsIndependentOfDpi, which cover the guide page
+      # alone - naming them here would claim a check this rule does not have,
+      # which is the defect two reviewers found in ADR-0006/R1 this same week
+      # (its declared ref TestDependencyBaseline_IsExactlyPillowAndNumpy does
+      # not exist). A test that walks every interior face and asserts the
+      # floor is owed; until it is written, the reviewer checks this per diff.
+    severity: mandatory
