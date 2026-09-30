@@ -458,8 +458,14 @@ class TestGuidePage_TextFitsTheUsableFrame:
     def test_the_whole_corpus_of_trims_and_counts_fits(self):
         """Every trim a book may be stored at, with counts from 4 to 999,999."""
         corpus = count_and_trim_corpus()
-        assert len(corpus) >= CORPUS_CASES, (
-            f"the corpus is {len(corpus)} cases and must be at least {CORPUS_CASES}"
+        # Both bounds are load-bearing: the builder sizes the corpus from
+        # CORPUS_CASES, so the first bound alone would hold at any value. The
+        # second pins the constant against a literal, so lowering CORPUS_CASES
+        # is what fails -- the same double bound as
+        # tests/test_books_list_plan_stats.py's corpus floor.
+        assert len(corpus) >= CORPUS_CASES >= 48, (
+            f"the corpus is {len(corpus)} cases at CORPUS_CASES={CORPUS_CASES} "
+            f"and must be at least 48"
         )
         for case in corpus:
             generator = BookPDFGenerator(
