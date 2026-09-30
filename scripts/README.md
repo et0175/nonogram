@@ -35,7 +35,9 @@ After setup, start Flask manually:
 source .venv/bin/activate
 export FLASK_ENV=development
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
-python -m flask --app src.nonogram.admin.app run
+# nonogram.admin.app, never src.nonogram.admin.app: the src.-prefixed spelling
+# loads the admin package a second time and the two copies disagree (CARD-139).
+python -m flask --app nonogram.admin.app run
 ```
 
 ### `run_admin_tests.sh` — Test Runner
@@ -127,11 +129,13 @@ export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
 # Run migrations
 alembic upgrade head
 
-# Start Flask (port 5000)
-python -m flask --app src.nonogram.admin.app run
+# Start Flask (port 5000).
+# nonogram.admin.app, never src.nonogram.admin.app: the src.-prefixed spelling
+# loads the admin package a second time and the two copies disagree (CARD-139).
+python -m flask --app nonogram.admin.app run
 
 # Or use different port
-python -m flask --app src.nonogram.admin.app run --port 8000
+python -m flask --app nonogram.admin.app run --port 8000
 
 # Run all tests
 pytest tests/test_wave1_*.py tests/test_wave2_*.py -v

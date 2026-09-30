@@ -103,6 +103,20 @@ echo ""
 echo -e "${YELLOW}[3/6]${NC} Activating virtual environment..."
 source .venv/bin/activate
 echo -e "${GREEN}✓ Virtual environment activated${NC}"
+
+# The launch line below asks for ``nonogram.admin.app`` (see the comment there),
+# and that name resolves ONLY through the editable install's path entry: the
+# package lives at ``src/nonogram``, so the working directory yields
+# ``src.nonogram`` and never a bare ``nonogram``. Check it here so a venv without
+# the install fails with the command to run instead of a raw ModuleNotFoundError
+# out of flask. Deliberately does not install anything on the developer's behalf.
+if ! python -c 'import nonogram' > /dev/null 2>&1; then
+    echo -e "${RED}✗ Project not installed in the virtual environment${NC}"
+    echo "  'import nonogram' failed, so --app nonogram.admin.app cannot resolve."
+    echo "  Install it with: pip install -e .   (in the activated venv, from $PROJECT_ROOT)"
+    exit 1
+fi
+echo -e "${GREEN}✓ Project importable (editable install present)${NC}"
 echo ""
 
 # Set environment variables
