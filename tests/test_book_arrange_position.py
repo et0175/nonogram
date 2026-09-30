@@ -19,12 +19,15 @@ A typed position is the **existing** move with its offset worked out:
 :func:`~nonogram.admin.book_plan.moved_within_level` through
 :meth:`~nonogram.admin.book_manager.BookManager.move_puzzle_within_level`. So
 there is one ordering rule in the system, not two, and INV-009 is enforced by
-the same function that enforces it for the up/down buttons. That function moves
-a puzzle by **exchanging** it with whatever sits ``offset`` places away in its
-level (for the buttons' ±1 that is exactly a one-step move), and the expected
-orders in this file are written out by hand accordingly — never re-derived by
-calling ``moved_within_level`` on the same input, which would prove only that
-it agrees with itself.
+the same function that enforces it for the up/down buttons. That function
+**inserts**: the puzzle is lifted out and put back ``offset`` places away and
+the puzzles between shift one place to close the gap, so a typed position does
+exactly what clicking the button that many times does (the owner's ruling of
+2026-09-30, CARD-143 fix 1 — it used to exchange the two positions, which
+coincides with insertion only at the buttons' ±1). The expected orders in this
+file are written out by hand accordingly — never re-derived by calling
+``moved_within_level`` on the same input, which would prove only that it agrees
+with itself.
 
 Two numbers live on each row and they are not the same number: ``order`` is the
 puzzle's place in the whole book (unchanged, CARD-126) and the position box is
@@ -126,10 +129,11 @@ class TestArrangePosition_TypedPositionMovesWithinTheLevel:
 
         shown = body(type_position(panel, book_id, e3, 1))
 
-        # The exchange `moved_within_level` makes, written out rather than
-        # re-derived: E3 takes the front and E1 takes the place E3 left.
-        assert panel.ids_of(book_id) == [e3, e2, e1, m1, m2], (
-            "the typed position must put E3 first among the easy puzzles"
+        # The insertion `moved_within_level` makes, written out rather than
+        # re-derived: E3 takes the front and E1, E2 each shift down one.
+        assert panel.ids_of(book_id) == [e3, e1, e2, m1, m2], (
+            "the typed position must put E3 first among the easy puzzles and "
+            "shift the others down, not exchange it with E1"
         )
         assert "Moved puzzle to 1 of 3 in the Easy level" in shown, shown
 
@@ -150,13 +154,17 @@ class TestArrangePosition_TypedPositionMovesWithinTheLevel:
     def test_a_typed_position_inside_a_level_moves_to_that_position(
         self, panel
     ) -> None:
-        """Not only the ends: 2 against the fifth easy puzzle is E2 <-> E5."""
+        """Not only the ends: 2 against the fifth easy puzzle inserts it second.
+
+        E5 goes to position 2 and E2, E3, E4 each shift down one place; E2 is
+        not sent to the back in exchange for the place E5 took.
+        """
         book_id, ids = a_book_of(panel, *(["easy"] * 5))
         e1, e2, e3, e4, e5 = ids
 
         type_position(panel, book_id, e5, 2)
 
-        assert panel.ids_of(book_id) == [e1, e5, e3, e4, e2]
+        assert panel.ids_of(book_id) == [e1, e5, e2, e3, e4]
         markup = panel.arrange(book_id).get_data(as_text=True)
         assert box_of(markup, e5) == "2"
 
@@ -204,7 +212,7 @@ class TestArrangePosition_TypedPositionMovesWithinTheLevel:
 
         assert shelf.books.move_puzzle_within_level(book_id, e3, -2) is True
 
-        assert shelf.ids_of(book_id) == [e3, e2, e1, m1]
+        assert shelf.ids_of(book_id) == [e3, e1, e2, m1]
 
     @pytest.mark.parametrize("mode", MODES)
     def test_the_store_still_refuses_an_offset_that_leaves_the_level(
@@ -224,6 +232,147 @@ class TestArrangePosition_TypedPositionMovesWithinTheLevel:
 
         assert str(refusal.value) == CROSS_LEVEL_REFUSAL
         assert shelf.ids_of(book_id) == [e1, e2, m1, m2], "nothing is written"
+
+
+# --------------------------------------------------------------------------
+# The rule itself: a typed position INSERTS, it does not exchange
+# (the owner's ruling of 2026-09-30 — CARD-143 fix 1)
+# --------------------------------------------------------------------------
+
+
+class TestArrangePosition_ATypedPositionInsertsRatherThanExchanges:
+    """Typing a position does what clicking the button that many times does.
+
+    Why the card's own ACs could not catch this, and why every test here uses
+    an offset of more than one place
+    ---------------------------------------------------------------------
+    Two different rules answer "move this puzzle ``offset`` places": exchange
+    the puzzle with whatever sits ``offset`` places away, or lift the puzzle out
+    and insert it there, shifting the puzzles in between one place to close the
+    gap. **At ±1 the two are the same operation** — there is exactly one puzzle
+    between the two positions, and it is the one being exchanged with — which is
+    why the up/down buttons and all of CARD-126's tests read identically under
+    either rule and cannot discriminate them.
+
+    They diverge from ±2 on, and they diverge in the direction that matters:
+    composing ``n`` one-step moves *is* an insertion, while one ``n``-step
+    exchange is not. AC-1 ("typing 1 against the last puzzle of a level moves it
+    to the front of that level") is satisfied by both, because under either rule
+    the moved puzzle lands where it was told to — the difference is what happens
+    to everything else. Under exchange, typing 1 against the last puzzle of a
+    50-puzzle level flings the puzzle that was **first** to position 50, and
+    nothing in the card's ACs looks there. So each test below asserts the whole
+    level, at an offset beyond ±1, and the first one asserts the equivalence
+    with the buttons directly rather than a hand-written order.
+    """
+
+    def test_a_typed_position_agrees_with_clicking_up_that_many_times(
+        self, panel
+    ) -> None:
+        """Four one-step ups and one typed 1 must leave the same five puzzles.
+
+        The two controls are one operation asked for two ways (G-2, the card's
+        G-1 in spirit); an exchange makes them disagree from the second step on.
+        """
+        clicked_id, clicked = a_book_of(panel, *(["easy"] * 5))
+        for _ in range(4):
+            panel.move(clicked_id, clicked[4], "up")
+        by_button = panel.ids_of(clicked_id)
+
+        typed_id, typed = a_book_of(panel, *(["easy"] * 5))
+        type_position(panel, typed_id, typed[4], 1)
+        by_box = panel.ids_of(typed_id)
+
+        # Compared by place in the original order, so the two books' different
+        # ids line up. Both are written out, so a rule that changed *both*
+        # controls together could not pass this by agreeing with itself.
+        assert [clicked.index(pid) for pid in by_button] == [4, 0, 1, 2, 3], (
+            f"the buttons themselves shift E1..E4 down: {by_button}"
+        )
+        assert [typed.index(pid) for pid in by_box] == [4, 0, 1, 2, 3], (
+            "typing 1 must do what clicking up four times does; an exchange "
+            f"would have given [4, 1, 2, 3, 0]: {by_box}"
+        )
+
+    def test_typing_one_against_the_last_shifts_the_level_and_flings_nobody(
+        self, panel
+    ) -> None:
+        """The owner's case, spelled out: E1..E5, type 1 on E5 -> E5, E1..E4.
+
+        Written by hand, and the order an exchange would have produced is named
+        so the two rules cannot be confused by a later reader.
+        """
+        book_id, (e1, e2, e3, e4, e5) = a_book_of(panel, *(["easy"] * 5))
+
+        type_position(panel, book_id, e5, 1)
+
+        assert panel.ids_of(book_id) == [e5, e1, e2, e3, e4], (
+            "an insertion shifts E1..E4 down one place; an exchange would have "
+            "stored E5, E2, E3, E4, E1 and flung E1 to the back of the level"
+        )
+        assert panel.ids_of(book_id) != [e5, e2, e3, e4, e1], (
+            "the puzzle that was first must not be flung to the end"
+        )
+
+    def test_a_typed_position_agrees_with_clicking_down_that_many_times(
+        self, panel
+    ) -> None:
+        """The other direction, past a level boundary it must not cross.
+
+        E1..E4 then M1: typing 4 against E1 inserts it last among the easy
+        puzzles — E2, E3, E4 shift up one — and the medium level is untouched.
+        An exchange would have stored E4, E2, E3, E1, M1.
+        """
+        book_id, (e1, e2, e3, e4, m1) = a_book_of(
+            panel, "easy", "easy", "easy", "easy", "medium"
+        )
+
+        type_position(panel, book_id, e1, 4)
+
+        assert panel.ids_of(book_id) == [e2, e3, e4, e1, m1], (
+            "an insertion down shifts E2..E4 up one place, and M1 stays put"
+        )
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_the_store_inserts_for_any_offset_in_either_storage_mode(
+        self, mode, tmp_path
+    ) -> None:
+        """One ordering rule: the store inserts however the move was asked for.
+
+        The page can be bypassed, so the rule is asserted at the aggregate too
+        — at an offset of three, where exchange and insertion differ.
+        """
+        shelf = Shelf(mode, tmp_path)
+        book_id, (e1, e2, e3, e4, m1) = a_book_of(
+            shelf, "easy", "easy", "easy", "easy", "medium"
+        )
+
+        assert shelf.books.move_puzzle_within_level(book_id, e4, -3) is True
+
+        assert shelf.ids_of(book_id) == [e4, e1, e2, e3, m1], (
+            "an exchange would have stored E4, E2, E3, E1, M1"
+        )
+
+    @pytest.mark.parametrize("mode", MODES)
+    def test_inserting_over_three_places_still_cannot_leave_the_level(
+        self, mode, tmp_path
+    ) -> None:
+        """INV-009 is enforced by the same function, and by the same guard.
+
+        A level is a contiguous block of the grouped order, so testing the id
+        now sitting at the **destination** is exactly "the insertion stays
+        inside my level" — the guard the exchange used, unchanged. E1, E2 then
+        M1, M2, M3: an offset of +3 from E1 lands on M2, and is refused with
+        nothing written.
+        """
+        shelf = Shelf(mode, tmp_path)
+        book_id, ids = a_book_of(shelf, "easy", "easy", "medium", "medium", "medium")
+
+        with pytest.raises(LevelBoundary) as refusal:
+            shelf.books.move_puzzle_within_level(book_id, ids[0], +3)
+
+        assert str(refusal.value) == CROSS_LEVEL_REFUSAL
+        assert shelf.ids_of(book_id) == list(ids), "nothing is written"
 
 
 # --------------------------------------------------------------------------

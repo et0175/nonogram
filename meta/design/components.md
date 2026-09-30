@@ -158,7 +158,9 @@ than the book's, while the row number still runs 1..n across the whole book.
 Two numbers, and they are not the same number: `.item-order` is the row's place
 in the **book**, and the position box in `.item-info` is its place in its own
 **level** ("Position in <Level>" … "of <count>"), which is what a move is
-confined to. The box is a `form-control form-control-sm num w-auto` sized by
+confined to. Typing a position moves the puzzle there and shifts the rest of
+its level along to make room — the same move as clicking the arrow that many
+times — and the lede says so. The box is a `form-control form-control-sm num w-auto` sized by
 `size="3"`, submitting on `change` as the title field does, and it introduces no
 CSS of its own. Refusals follow FormField exactly: the range is named in prose
 in one page-local `alert alert-danger` with `id="position-error"`, and only the

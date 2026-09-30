@@ -11,7 +11,7 @@
     <div>
         <h1>Arrangement</h1>
         <p class="lede">{{ stepper.book_step_of(3) }} for <strong>{{ book.metadata.title }}</strong>: reading order and a title for each puzzle.</p>
-        <p class="text-muted mb-0">The book runs easy, then medium, then hard. Moves stay inside a level, and a new puzzle lands at the end of its own. Type a position to move a puzzle straight to it: position 1 is <strong>first among that level's puzzles</strong>, and it changes places with the puzzle already there.</p>
+        <p class="text-muted mb-0">The book runs easy, then medium, then hard. Moves stay inside a level, and a new puzzle lands at the end of its own. Type a position to move a puzzle straight to it: position 1 is <strong>first among that level's puzzles</strong>, and the rest of the level shifts along to make room — the same move as clicking the arrow that many times.</p>
     </div>
     <div class="page-actions align-items-center">
         <span class="badge badge-lg" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span>

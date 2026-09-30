@@ -511,6 +511,17 @@ def place_in_level(order, new_ids, tier_of) -> list:
 def moved_within_level(puzzle_ids, puzzle_id, offset, tier_of) -> list | None:
     """The order after moving ``puzzle_id`` by ``offset`` places inside its level.
 
+    The move is an **insertion**: the puzzle is lifted out and put back
+    ``offset`` places away, and everything between the two positions shifts one
+    place to close the gap — which is exactly what clicking the neighbouring
+    move button ``abs(offset)`` times does. At the buttons' ``-1``/``+1`` an
+    insertion and an exchange with the one neighbour are the same operation, so
+    the buttons read the same under either rule; beyond one place they are not,
+    and insertion is the owner's rule (2026-09-30, CARD-143 fix 1). Typing 1
+    against the last of E1..E5 gives ``E5, E1, E2, E3, E4`` — an exchange would
+    have given ``E5, E2, E3, E4, E1``, flinging the puzzle that was first to
+    the back of a level the owner had arranged by hand.
+
     The move is made on the **grouped** view (:func:`book_level_order`), and
     the grouped order is what comes back, so a move on a legacy mixed book
     normalises it — the one point in the system where that happens, and the
@@ -523,14 +534,19 @@ def moved_within_level(puzzle_ids, puzzle_id, offset, tier_of) -> list | None:
         tier_of: as :func:`book_level_order`.
 
     Returns:
-        The new order, or ``None`` when there is no neighbour at all — the
-        puzzle is at the very top or the very bottom of the book, which has
-        always meant "nothing happened" rather than "refused".
+        The new order, or ``None`` when the book holds no position that far
+        away at all — for the buttons, the puzzle is at the very top or the
+        very bottom of the book, which has always meant "nothing happened"
+        rather than "refused".
 
     Raises:
-        LevelBoundary: the neighbour the move would swap with belongs to
-            another level (AC-258). Nothing is returned and nothing is changed;
-            the caller writes nothing.
+        LevelBoundary: the position the move would land on belongs to another
+            level (AC-258). Nothing is returned and nothing is changed; the
+            caller writes nothing. It is the **destination** that is tested,
+            not the puzzles passed over: a level is a contiguous block of the
+            grouped order, so "the id now at the destination is of my level"
+            is exactly "the insertion stays inside my level", and the guard is
+            the same one the exchange used.
     """
     order = book_level_order(puzzle_ids, tier_of)
     index = order.index(puzzle_id)
@@ -539,5 +555,5 @@ def moved_within_level(puzzle_ids, puzzle_id, offset, tier_of) -> list | None:
         return None
     if level_rank(tier_of(order[target])) != level_rank(tier_of(puzzle_id)):
         raise LevelBoundary(CROSS_LEVEL_REFUSAL)
-    order[index], order[target] = order[target], order[index]
+    order.insert(target, order.pop(index))
     return order
