@@ -1,10 +1,23 @@
 {% extends "base.html" %}
 {% import '_icons.html' as icons %}
+{% import '_tier.html' as tier %}
 
 {% block title %}Books - Nonogram admin{% endblock %}
 {% block section %}Books{% endblock %}
 
 {% block content %}
+{#- CARD-132 (FR-039): the two orders this list offers. Real links, not a
+    script — the order is the server's, so the URL is what carries it. -#}
+{% macro sort_head(column, label) -%}
+<a class="sort" href="{{ url_for('books_list', sort=column) }}"{% if sort == column %} aria-current="true"{% endif %}>{{ label }}{% if sort == column %} ↓{% endif %}</a>
+{%- endmacro %}
+
+{#- One planned-vs-actual figure. The planned half is left out for a book with
+    no stored plan, which shows its count alone (ADR-0035 (c)). -#}
+{% macro figure(actual, planned) -%}
+<span class="stat-cell">{{ actual }}{% if planned is not none %} / {{ planned }}{% endif %}</span>
+{%- endmacro %}
+
 <div class="page-head">
     <div>
         <h1>Books</h1>
@@ -18,23 +31,26 @@
 <div class="card">
     <div class="card-header"><h2 class="card-title mb-0">All books <span class="badge count">{{ books|length }}</span></h2></div>
     <div class="card-body">
-        {% if books %}
+        {% if rows %}
         <div class="table-responsive">
             <table class="table table-hover">
                 <thead>
                     <tr>
-                        <th>Title</th>
-                        <th>Theme</th>
-                        <th>Audience</th>
-                        <th class="text-end">Puzzles</th>
-                        <th class="text-end">Pages</th>
-                        <th>Status</th>
-                        <th>Created</th>
-                        <th class="text-end">Actions</th>
+                        <th scope="col">Title</th>
+                        <th scope="col">Theme</th>
+                        <th scope="col">Audience</th>
+                        <th scope="col" class="text-end">{{ sort_head('completeness', 'Puzzles') }}</th>
+                        <th scope="col">Against plan</th>
+                        <th scope="col" class="text-end">Pages</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">{{ sort_head('created', 'Created') }}</th>
+                        <th scope="col" class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for book in books %}
+                    {% for row in rows %}
+                    {% set book = row.book %}
+                    {% set stats = row.stats %}
                     <tr>
                         <td>
                             <a href="/book/{{ book.book_id }}" class="name">{{ book.metadata.title }}</a>
@@ -42,7 +58,37 @@
                         </td>
                         <td>{{ book.metadata.theme|capitalize }}</td>
                         <td>{{ book.metadata.target_audience }}</td>
-                        <td class="text-end">{{ book.puzzle_ids|length }}</td>
+                        <td class="text-end">
+                            {{ figure(stats.actual, stats.planned) }}
+                            {%- if stats.plan_present %}
+                            <div class="progress plan-progress" role="progressbar"
+                                 aria-label="{{ stats.actual }} of {{ stats.planned }} planned puzzles"
+                                 aria-valuenow="{{ stats.percent }}" aria-valuemin="0" aria-valuemax="100">
+                                <div class="progress-bar" data-status="{{ 'complete' if stats.complete else 'generating' }}" style="width: {{ stats.percent }}%"></div>
+                            </div>
+                            {%- endif %}
+                        </td>
+                        <td>
+                            {% if stats.plan_present %}
+                            <p class="stat-line mb-0">
+                                {%- for split in stats.tiers %}{{ tier.badge(split.label) }} {{ figure(split.actual, split.planned) }}{% if not loop.last %} <span class="stat-sep" aria-hidden="true">·</span> {% endif %}{% endfor -%}
+                            </p>
+                            {#- The to-do list: every longest-side x tier cell short of or over
+                                its plan, with the exact count it is off by (G-3, ADR-0035 (d)).
+                                A word says which way, so the hint reads without its tint. -#}
+                            {% if stats.hints %}
+                            <p class="stat-line mb-0">
+                                <span class="visually-hidden">Off plan:</span>
+                                {%- for hint in stats.hints %}<span class="stat-cell" data-off-plan="true">{{ hint }}</span> {% endfor -%}
+                            </p>
+                            {% else %}
+                            <span class="subtle">On plan</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="subtle">No plan yet —
+                                <a href="{{ url_for('setup_print', book_id=book.book_id) }}">set one in Print setup</a></span>
+                            {% endif %}
+                        </td>
                         <td class="text-end">{{ book.metadata.page_count }}</td>
                         <td><span class="badge" data-status="{{ book.status }}">{{ book.status|replace('_', ' ') }}</span></td>
                         <td class="num small">{{ book.created_at.strftime('%Y-%m-%d') }}</td>
