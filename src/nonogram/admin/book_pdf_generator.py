@@ -302,6 +302,73 @@ logger = logging.getLogger(__name__)
 #: line to the picture's title on the answer page.
 BAND_SEPARATOR = " · "
 
+#: Points per inch — the one conversion between the unit type is specified in
+#: and the device pixels a page is drawn in.
+#:
+#: A point is 1/72 in by definition, so at the 300 DPI COMP-007 measures every
+#: page at (:data:`~nonogram.export.layout.DPI`) one point is 4.167 px. It is
+#: written here because the pages this module draws itself — the guide page —
+#: are the only ones that set type in pixels, and a pixel is not a size a
+#: reader of a printed page can judge.
+POINTS_PER_INCH = 72.0
+
+#: The guide page's type, in **points** (CARD-149, AC-236).
+#:
+#: Interior page 1 is the one page of the book that explains how to play it,
+#: and it is set for a reader who may need reading glasses to hold it (EV-0003,
+#: a 2★ review of a competitor: "Very tiny squares. Not good for older
+#: people."). 11 pt is ordinary book body size; 22 pt reads as a title rather
+#: than as body.
+#:
+#: They are points and not pixels **on purpose**. Until CARD-149 the method
+#: asked Pillow for Arial at 28 px and 48 px on a 300 DPI surface, which is
+#: 6.7 pt of body under an 11.5 pt "title" — smaller than a legal footnote,
+#: and set at body size at that. Nothing in those two numbers said what page
+#: they were for, so a book profile rendered at another resolution would have
+#: silently changed the apparent size of the type; sizes stated in points and
+#: converted once, at :func:`type_px`, cannot.
+GUIDE_TITLE_PT = 22.0
+GUIDE_BODY_PT = 11.0
+
+#: The guide page's leading: the distance from one body line's baseline to the
+#: next, in points (CARD-149, AC-239).
+#:
+#: ~1.5x the body size, the ordinary setting for a page of unjustified text.
+#: It has to be stated with the type it leads: the method's previous 50 px
+#: advance is 12 pt, which sets 11 pt type on 12 pt leading and would have put
+#: 46 px of glyph into a 50 px line the moment the body grew to book size.
+GUIDE_LEADING_PT = 17.0
+
+#: The space between the guide page's title and its first body line, in points
+#: — the 150 px the method reserved before CARD-149, restated at 300 DPI in
+#: the unit the rest of the page's type is stated in.
+GUIDE_TITLE_GAP_PT = 36.0
+
+
+def type_px(points: float, dpi: int) -> int:
+    """``points`` of type as the whole device pixels a page at ``dpi`` needs.
+
+    The one place this module turns a type size into pixels. Pillow's
+    ``ImageFont.truetype`` takes its size in pixels — it is the em square in
+    device pixels, not a point size — so every size this module states in
+    points passes through here on its way to a font.
+
+    Args:
+        points: A type size or a leading, in points (1/72 in).
+        dpi: The resolution of the surface the type is drawn on, which for
+            every page of a book is
+            :attr:`BookPDFGenerator.dpi`.
+
+    Raises:
+        ValueError: ``dpi`` is not positive, so the conversion has no meaning,
+            or ``points`` is negative.
+    """
+    if dpi <= 0:
+        raise ValueError(f"a page's resolution is positive, got {dpi}")
+    if points < 0:
+        raise ValueError(f"type has a non-negative size, got {points}")
+    return round(points * dpi / POINTS_PER_INCH)
+
 
 def band_identity(puzzle_number: int, stored_tier: object) -> str:
     """The band line of one book puzzle: ``"Puzzle 12 · Easy"`` (ADR-0037/R1).
@@ -1159,6 +1226,12 @@ class BookPDFGenerator:
 
         Three counts, one per tier, since CARD-098 retired ADR-0025's fourth.
 
+        **Its type is stated in points** — :data:`GUIDE_BODY_PT`,
+        :data:`GUIDE_TITLE_PT`, :data:`GUIDE_LEADING_PT` — and converted to
+        the page's pixels once, against :attr:`dpi`, by :func:`type_px`
+        (CARD-149). The lines are drawn as they are given: this method sets
+        type and never re-wraps its text, which is the caller's business.
+
         Returns:
             Guide page as PIL Image
         """
@@ -1166,13 +1239,31 @@ class BookPDFGenerator:
         guide = Image.new("RGB", (frame.width, frame.height), "white")
         draw = ImageDraw.Draw(guide)
 
-        # Try to load fonts
+        # The page's type, stated in points and converted once against the
+        # resolution this page is drawn at (CARD-149, AC-236/AC-238). Pillow
+        # sizes a face in pixels, so the conversion is the only thing between
+        # "11 pt" and the font: at another resolution the pixels change and
+        # the printed size does not.
+        title_size = type_px(GUIDE_TITLE_PT, self.dpi)
+        body_size = type_px(GUIDE_BODY_PT, self.dpi)
+        leading = type_px(GUIDE_LEADING_PT, self.dpi)
         try:
-            title_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 48)
-            text_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 28)
+            title_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", title_size)
+            text_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", body_size)
         except OSError:
-            title_font = ImageFont.load_default()
-            text_font = ImageFont.load_default()
+            # No Arial on this machine: Pillow's own face, asked for at the
+            # same sizes. A bare ``load_default()`` letters this page at a
+            # 10 px em whatever the page is, which is the defect CARD-149
+            # fixes wearing a fallback's clothes. Pillow sizes its built-in
+            # face from 10.1 on; the declared floor is 10.0, which raises
+            # ``TypeError`` instead, and there the page keeps the unsized
+            # face it has always had.
+            try:
+                title_font = ImageFont.load_default(title_size)
+                text_font = ImageFont.load_default(body_size)
+            except TypeError:  # pragma: no cover - Pillow < 10.1
+                title_font = ImageFont.load_default()
+                text_font = ImageFont.load_default()
 
         # Inside the usable area the layout reported, so the guide page keeps
         # the book's mirrored margins like every other interior page.
@@ -1194,10 +1285,10 @@ class BookPDFGenerator:
             "  3. Have fun!",
         ]
 
-        y = frame.top + 150
+        y = frame.top + type_px(GUIDE_TITLE_GAP_PT, self.dpi)
         for line in guide_text:
             draw.text((frame.left, y), line, fill="black", font=text_font)
-            y += 50
+            y += leading
 
         return guide
 
