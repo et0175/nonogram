@@ -1,0 +1,386 @@
+version: 1
+generated_at: '2026-09-30T15:40:39Z'
+target: card/149-guide-page-type @ 0d20dc2 (two-dot vs main 252cf32), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-149
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: forge 2026.8.17
+coverage:
+  read:
+  - src/nonogram/admin/book_pdf_generator.py (full diff + create_guide_page, create_divider_page, create_cover,
+    page_spec, _write_page)
+  - tests/test_book_guide_page_type.py (all 610 lines)
+  - tests/helpers/book_corpus.py (full diff + font_fingerprint, MACHINE_FACE_SIZES, BASELINE_FIXTURE)
+  - tests/fixtures/book_baseline_card149.json + book_baseline_card144.json (every field, all 11 page records)
+  - meta/kanban/cards/CARD-149.md
+  - meta/architecture/requirements.yml (CON-018, CON-019)
+  - assembled system rules (system_rules.py --card CARD-149, 44 rules)
+  - ~/Documents/nonogram-reviews/CARD-149/guide-page-before-after-top.png, guide-page-after-view.png
+  not_reached:
+  - tests/test_book_pdf_memory.py (read only the two failing assertions' output, not the whole file)
+  - the other ~5380 tests of the suite (the caller's full-suite run was trusted, not re-derived)
+  - behaviour on an Arial-less machine and on Pillow 10.0 (no such machine available; the fallback branch
+    is unreachable here)
+  confidence: high
+metrics:
+  diff:
+    files: 4
+    added: 864
+    removed: 20
+  max_fan_in:
+    symbol: BookPDFGenerator.create_guide_page
+    callers: 13
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/book_pdf_generator.py
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: 'no_eligible_fact — the five 12-month co-change peers (admin/app.py, test_book_export_interior.py,
+      test_book_pdf.py, test_book_export_interior_cover.py, test_book_pdf_memory.py) are all absent from
+      the diff, but each was checked and none needed changing: the baseline fixture is reached through
+      book_corpus.BASELINE_FIXTURE (repointed) rather than named in the tests, and the full suite is green
+      at +11. The empty list is a judgement, not an unmeasured zero.'
+system_contract:
+  rules_checked: 46
+  holds: 8
+  unchecked: 38
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — the diff's four files (git diff --name-only 252cf32..HEAD) include no pyproject.toml
+    and add no import of a non-baseline package; numpy, used by the new test, is already a declared runtime
+    dependency.
+  - 'ADR-0019/R1 ✓ holds — the ast import-direction guard ran green on this head: `pytest -o addopts=""
+    tests/test_cli.py -k import` → 16 passed, 78 deselected.'
+  - 'ADR-0033/R1 ✓ holds — create_guide_page takes four ints and draws text; the diff writes no puzzle
+    field and touches no book-membership code (reviewed the whole hunk set: 7 hunks, all inside the type
+    constants and create_guide_page).'
+  - 'ADR-0036/R1 ✓ holds — nothing under src/nonogram/export/** is in the diff (grep over git diff --name-only:
+    no hits), so compute_layout''s A4 geometry is untouched.'
+  - 'ADR-0036/R2 ✓ holds — review-lens. create_guide_page still takes its frame from page_frame(self.page_spec(page_number));
+    no hunk fits a cell, places a grid line, or names a margin/PageSpec field (grep over the diff for
+    page_frame|PageSpec|margin|page_count: no hits). type_px converts a *type size*, not page geometry.'
+  - INV-013 ✓ holds — the new baseline still records page_count 11 and changed_pages [1]; the guide page
+    is still interior page 1; TestBookPdfMemory_PagesAreUnchanged is green on this head (16 passed with
+    the new test file).
+  - CON-018 ✓ holds — no margin constant appears in the diff, and the guide page's ink is asserted inside
+    page_frame's box on 50 trims (AC-237's three tests, green). Assembled only as diagnostics.no_check,
+    so checked by hand here.
+  - CON-019 ✓ holds — its scope is exactly src/nonogram/export/**, and the diff touches nothing there;
+    tests/fixtures/a4_golden/** likewise untouched. Not in the assembled set (card scope is `touches`),
+    so checked by hand here.
+  - 'ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5,
+    ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1,
+    ADR-0032/R2, ADR-0035/R1, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015,
+    CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011,
+    INV-012 ⚠ unchecked — no_eligible_fact: this card changes only the font size, leading and title gap
+    of one text-only page. It touches no solver, clue, density, grid-extent, image-fit, retry, quality-score,
+    book-plan, membership, ordering, pairing, answer-key or HTTP-binding code path, and draws no puzzle
+    grid or stroke.'
+root_causes: []
+findings:
+- id: F-001
+  severity: low
+  category: tech-debt
+  type: gap
+  file: tests/test_book_guide_page_type.py
+  line: 461
+  title: AC-237's corpus floor cannot fail — the guard and the builder are one constant
+  description: "`count_and_trim_corpus()` builds its cases with `while len(cases) < CORPUS_CASES`,\nso\
+    \ `len(corpus)` is *exactly* `CORPUS_CASES` by construction. The test then asserts\n`len(corpus) >=\
+    \ CORPUS_CASES`, which is true for every possible value of that\nconstant. Verified by re-running\
+    \ the sizing loop at CORPUS_CASES = 48, 12, 2 and 1:\nthe assertion holds in all four cases.\n\nCLAUDE.md's\
+    \ convention is that a seeded corpus \"asserts a minimum case count inside\nthe test itself so the\
+    \ corpus can't silently shrink\". This assertion reads as that\nguard and is inert — which is worse\
+    \ than no guard, because it is invisible. Today the\ncorpus really does run 48 cases and really does\
+    \ exercise AC-237, so nothing is\ncurrently unverified; the defect is that a future edit lowering\
+    \ CORPUS_CASES to 3\nwould shrink the corpus with a green suite.\n\nThe project already has two stronger\
+    \ idioms in tree:\n  * tests/property/test_cli_exports_byte_identity.py:66-73 — two constants,\n \
+    \   REQUIRED_CASES = 60 (the floor) and CORPUS_SIZE = 72 (what is built), with the\n    comment \"\
+    above the floor so the floor is a guard, not the target\";\n  * tests/test_books_list_plan_stats.py:808\
+    \ — `assert checked >= CORPUS_CASES >= 24`,\n    pinning the constant itself against a literal.\n"
+  suggestion: "Either split the constant (CORPUS_CASES = 48 for the builder, REQUIRED_CASES = 40 for\n\
+    the floor, as test_cli_exports_byte_identity.py does), or adopt the double-bound form\nalready used\
+    \ at tests/test_books_list_plan_stats.py:808:\n    assert len(corpus) >= CORPUS_CASES >= 48, f\"the\
+    \ corpus shrank to {len(corpus)}\"\n"
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: fixed
+  fixed_in: b3e900e
+  dismissed_reason: null
+  learned_pattern: null
+  fix_note: 'Closed by the double-bound idiom of tests/test_books_list_plan_stats.py:808 — `assert len(corpus)
+    >= CORPUS_CASES >= 48` — rather than the two-constant split of tests/property/test_cli_exports_byte_identity.py:66-73.
+    The fix agent''s reasoning, which holds: that file keeps REQUIRED_CASES below CORPUS_SIZE because
+    its corpus size is EMERGENT (corners plus filtered draws), so slack absorbs incidental variation;
+    here the size is exact by construction (`while len(cases) < CORPUS_CASES` => len == CORPUS_CASES always),
+    so slack would only weaken the guard and let a silent 48->44 shrink through. Verified by the fix agent
+    at 47/12/1 (red), 48 (green), 60 (green, so growth is still allowed and it is a floor rather than
+    a pin), and independently re-verified by the orchestrator at 12: 1 failed, 10 passed, failing on TestGuidePage_TextFitsTheUsableFrame::test_the_whole_corpus_of_trims_and_counts_fits
+    where before the fix the same value passed silently. Both baseline fixtures byte-identical throughout.
+    [NOTE: this status was RECONSTRUCTED by the orchestrator from the fix agent''s report. The agent''s
+    own write-back to this file was destroyed by an orchestrator cleanup before it was synced; the substance
+    below is the agent''s, the wording is the reconstruction''s.]'
+- id: F-002
+  severity: low
+  category: tech-debt
+  type: gap
+  file: src/nonogram/admin/book_pdf_generator.py
+  line: 368
+  title: type_px's two ValueError branches have no test
+  description: '`type_px` is a new public module-level function carrying two rejection paths
+
+    (`dpi <= 0` and `points < 0`), neither of which any test exercises — the test tree
+
+    never references `type_px` in code (verified: grep over tests/ finds it only inside
+
+    two comment lines of book_corpus.py). Both branches are also unreachable in
+
+    production, since the only caller passes `self.dpi`, set once from
+
+    `nonogram.export.layout.DPI` (300).
+
+
+    This is not a correctness risk today; it is a new error path added with no negative
+
+    test, which the project''s own test policy asks for whenever a change adds a
+
+    validation rule.
+
+    '
+  suggestion: "Two one-line tests in tests/test_book_guide_page_type.py:\n    with pytest.raises(ValueError):\
+    \ book_pdf_generator.type_px(11.0, 0)\n    with pytest.raises(ValueError): book_pdf_generator.type_px(-1.0,\
+    \ 300)\n(Importing `type_px` itself does not weaken the module's no-size-imported discipline:\nthe\
+    \ function is the conversion, not a size.)\n"
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-003
+  severity: low
+  category: tech-debt
+  type: risk
+  file: tests/helpers/book_corpus.py
+  line: 324
+  title: font_fingerprint's new sized fallback does not match the divider's actual fallback
+  description: 'The new fallback in `font_fingerprint()` calls `ImageFont.load_default(size)` for
+
+    **all three** entries of MACHINE_FACE_SIZES, and its comment describes this as "the
+
+    page''s own fallback, transcribed like the sizes". That is true for the guide page''s
+
+    92 and 46 (create_guide_page now does ask for a size, book_pdf_generator.py:1262-1263)
+
+    but not for the divider''s 60: create_divider_page still calls a bare
+
+    `ImageFont.load_default()` (book_pdf_generator.py:1315), as does create_cover
+
+    (line 1195). So on an Arial-less machine the fingerprint''s third sample is drawn at a
+
+    60 px em while the divider pages it stands for are lettered at a 10 px em.
+
+
+    Soundness is not affected, and I checked the direction: if two machines produce the
+
+    same `load_default(60)` sample their built-in face is identical, so their bare
+
+    `load_default()` samples are identical too — the fingerprint can therefore never
+
+    claim comparability it does not have. It can only be over-strict (a Pillow-10.0
+
+    machine, where the TypeError guard fires, gets a different fingerprint from a
+
+    Pillow-10.1+ machine even though both letter the divider identically). Over-strict
+
+    fails safe.
+
+
+    The finding is the comment: this tuple exists precisely because its contents are
+
+    hand-transcribed from the call sites, and one of the three entries is now transcribed
+
+    from a call site that does not look like that.
+
+    '
+  suggestion: 'Narrow the comment to say the sized fallback mirrors the guide page''s two sizes and
+
+    is deliberately over-strict for the divider''s 60 (whose page still uses a bare
+
+    load_default), or size only the first two entries. Do not "fix" the divider page
+
+    itself — that would move pages 2/4/6/8 on an Arial-less machine and is exactly what
+
+    G-1 forbids.
+
+    '
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-004
+  severity: info
+  category: tech-debt
+  type: question
+  file: src/nonogram/admin/book_pdf_generator.py
+  line: 1288
+  title: The title's 36 pt gap is now the tightest white on the page
+  description: 'Confirmed visually in ~/Documents/nonogram-reviews/CARD-149/guide-page-before-after-top.png:
+
+    under a 92 px title, the 150 px (36 pt) gap leaves less white below the title than the
+
+    142 px (2 x 71 px) the text''s own blank lines leave between its sections. A title with
+
+    less air under it than a paragraph break reads slightly wrong.
+
+
+    The implementation flagged this itself on the card ("One judgement left for the
+
+    owner") and deliberately restated 150 px rather than redesigning it, which keeps the
+
+    card to the type. Noted, not a defect of this change — GUIDE_TITLE_GAP_PT is one
+
+    constant if the owner wants more air.
+
+    '
+  suggestion: 'Owner''s call. GUIDE_TITLE_GAP_PT 36.0 -> ~48.0 (200 px) would put the title''s white
+
+    above the body''s paragraph white. Out of this card''s scope.
+
+    '
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-005
+  severity: info
+  category: enabler
+  type: gap
+  file: meta/architecture/requirements.yml
+  line: null
+  title: No standing rule pins interior body type — the 11 pt floor lives only in a card's tests
+  description: '[model] The 46 assembled/hand-checked standing rules contain nothing about type size
+
+    on a printed page. ADR-0037 is titled for print strokes and legibility, but R1 and R2
+
+    as written govern the puzzle page''s band and its grid rules, so both resolve to
+
+    no_eligible_fact here. After this card, the "interior body type is >= 10 pt" promise
+
+    is held only by tests/test_book_guide_page_type.py, which is enough to catch a
+
+    regression but is not a system rule.
+
+
+    Given EV-0003 and ASM-0001 make large print a business promise for this shelf, this
+
+    is a reasonable candidate for a CON with a `check:` pointing at
+
+    TestGuidePage_TypeIsBookSized. Advisory, follow-up card — never a gate on CARD-149.
+
+    '
+  suggestion: 'Consider a CON-0NN: "Every interior page''s body type is at least 10 pt and its title
+
+    at least 1.5x its body, at the book''s own DPI", check kind test, ref
+
+    TestGuidePage_TypeIsBookSized.
+
+    '
+  confidence: medium
+  source: model
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-006
+  severity: info
+  category: tech-debt
+  type: gap
+  file: meta/kanban/cards/CARD-149.md
+  line: 18
+  title: The card's Touches list omits tests/helpers/book_corpus.py, which the diff changes
+  description: '`Touches:` names book_pdf_generator.py, test_book_guide_page_type.py and
+
+    book_baseline_card149.json. The diff also changes tests/helpers/book_corpus.py
+
+    (BASELINE_FIXTURE repointed, MACHINE_FACE_SIZES re-derived, the fingerprint''s
+
+    fallback re-transcribed) — all of it required by G-2, so the work is in scope even
+
+    though the path is not listed. Bookkeeping only; it does affect what
+
+    system_rules.py --card assembles (`card_scope: touches`), which is why CON-018 and
+
+    CON-019 had to be checked by hand here.
+
+    '
+  suggestion: Add tests/helpers/book_corpus.py to the card's Touches line at merge.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+mutation_check:
+  ran: true
+  deferred: false
+  method: 'Mutants were applied in a throwaway `git worktree --detach` at 0d20dc2 under the scratchpad,
+    never in the reviewed worktree, so the tree under review was not edited at any point. Each mutant
+    was restored from a pristine copy and byte-diffed before the next; the final diff against the pristine
+    file was empty and the scratch worktrees were removed. Reviewed tree afterwards: `git status --porcelain`
+    shows only ` M meta/kanban/cards/CARD-149.md` (pre-existing), and `git diff --quiet HEAD -- src/ tests/`
+    is clean.'
+  suite: pytest -o addopts="" tests/test_book_guide_page_type.py tests/test_book_pdf_memory.py::TestBookPdfMemory_PagesAreUnchanged  (16
+    passed unmutated)
+  mutants: 8
+  killed: 8
+  survived: 0
+  results:
+  - 'GUIDE_BODY_PT 11.0 -> 10.0 : KILLED (4 failed) — test_the_bodys_measured_point_size_is_11, test_300_and_600_dpi_print_the_same_point_size,
+    + both baseline assertions'
+  - 'GUIDE_BODY_PT 11.0 -> 12.0 : KILLED (6 failed) — test_the_bodys_measured_point_size_is_11, test_it_fits_the_smallest_trim...,
+    test_the_whole_corpus..., test_300_and_600..., + both baseline assertions'
+  - 'GUIDE_TITLE_PT 22.0 -> 20.0 : KILLED (5 failed) — test_the_titles_glyph_box_is_the_box_of_22pt_type,
+    test_the_titles_measured_point_size_is_22, test_300_and_600..., + both baseline assertions'
+  - 'type_px ignores dpi (round(points*300/72)) : KILLED (2 failed) — test_300_and_600_dpi_print_the_same_point_size,
+    test_the_pixels_do_change_with_the_resolution (AC-238''s two tests are the ONLY thing that kills this
+    mutant)'
+  - 'GUIDE_LEADING_PT 17.0 -> 15.0 : KILLED (3 failed) — test_consecutive_lines_advance_by_at_least_1_4_of_the_body
+    (15 pt < the 15.4 pt floor: the boundary is live), + both baseline assertions'
+  - 'y += leading -> y += body_size : KILLED (3 failed) — test_consecutive_lines_advance_by_at_least_1_4_of_the_body,
+    + both baseline assertions'
+  - 'GUIDE_TITLE_GAP_PT 36.0 -> 0.0 : KILLED (5 failed) — title bands merge into the body''s, both title
+    tests fail, + both baseline assertions'
+  - 'type_px round() -> int() truncation : KILLED (5 failed) — test_the_titles_glyph_box..., test_the_bodys_measured_point_size_is_11,
+    test_300_and_600..., + both baseline assertions'
+  independent_verifications:
+  - '6 of 11 new tests fail against pre-card code (252cf32 + the new test file, in a scratch worktree):
+    EXACTLY 6, as the card claims — the three TypeIsBookSized measurements, both PointSizeIsIndependentOfDpi
+    tests, and the leading test.'
+  - 'ce4adfe alone is red on EXACTLY two assertions: test_every_page_is_pixel_identical_to_the_recorded_one
+    and test_the_interior_file_is_the_length_it_was_recorded_with. As the card claims.'
+  - 'font_fingerprint re-derived from scratch on this machine: (48,28,60) -> 19f6bed7...d710a5 (== CARD-144''s
+    recorded value, machine unchanged); (92,46,60) -> cfa57e76...ba30b (== CARD-149''s recorded value).
+    The fingerprint change is fully explained by MACHINE_FACE_SIZES.'
+  - 'changed_pages [1] verified page by page against CARD-144''s file: page 1''s sha256 differs, pages
+    2-11 are byte-identical.'
+  - interior_bytes delta 2,666,560 - 2,637,748 = 28,812 EXACTLY equals the guide page's JPEG stream growth
+    (164,859 -> 193,671 bytes, re-encoded independently at the old and new sizes with the same JPEG call
+    the exporter makes).
