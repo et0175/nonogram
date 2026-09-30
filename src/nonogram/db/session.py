@@ -3,6 +3,8 @@
 import os
 from contextlib import contextmanager
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ArgumentError
 from sqlalchemy.orm import Session, sessionmaker
 
 engine = None
@@ -35,6 +37,117 @@ CONNECT_TIMEOUT_SECONDS = 10
 #: bargain.
 _TIMEOUT_SCHEMES = ("postgresql", "postgres")
 
+#: The PostgreSQL DBAPI this project installs, and therefore the only one it
+#: may be connected through (CARD-148).
+#:
+#: ``psycopg2-binary`` is what ``requirements.txt`` and pyproject's ``db``
+#: extra ship, and this constant is the code saying so out loud. Before it,
+#: ``DATABASE_URL`` reached :func:`create_engine` exactly as the environment
+#: gave it, so a bare ``postgresql://`` — which is the only shape Render's
+#: managed Postgres hands out — left the choice of DBAPI to whatever
+#: SQLAlchemy's default happened to be on the day of the build. On 2026-09-25
+#: that default moved: SQLAlchemy 2.1.0 resolves a bare ``postgresql://`` to
+#: ``psycopg`` (v3) rather than ``psycopg2``, the next deploy resolved
+#: ``sqlalchemy>=2.0`` to it, and the panel stopped booting with
+#: ``ModuleNotFoundError: No module named 'psycopg'`` without a single line of
+#: this repository having changed.
+#:
+#: Naming the driver is the fix, and it is deliberately *this* driver rather
+#: than psycopg 3: moving the database packages is out of scope here
+#: (ADR-0006/R1 keeps them in the ``db`` extra, and swapping one for another is
+#: a decision, not a defect fix). Upgrading later means changing this one name
+#: and the extra together — which is the whole point of there being one name.
+POSTGRES_DRIVER = "psycopg2"
+
+#: The canonical backend name for every spelling in :data:`_TIMEOUT_SCHEMES`.
+#: Render still issues the legacy ``postgres://`` alias that SQLAlchemy dropped
+#: in 1.4, so normalising the backend is not cosmetic: ``make_url`` parses
+#: ``postgres://`` happily and then ``get_dialect()`` raises ``NoSuchModuleError``.
+_POSTGRES_BACKEND = "postgresql"
+
+
+def normalized_url(database_url: str) -> URL:
+    """``database_url`` as a :class:`~sqlalchemy.engine.URL` that names its driver.
+
+    For a PostgreSQL URL the backend is canonicalised to ``postgresql`` and,
+    when the URL does not already name a DBAPI, :data:`POSTGRES_DRIVER` is
+    filled in — so ``postgres://…`` and ``postgresql://…`` both become
+    ``postgresql+psycopg2://…``. A URL that *does* name one is left with it:
+    the defect this closes is inheriting a default, and an explicit
+    ``postgresql+psycopg://`` is somebody's decision, not an accident. Every
+    non-PostgreSQL URL (SQLite, in every legacy and test path here) is returned
+    untouched.
+
+    Nothing else about the URL moves — host, port, database, query parameters
+    and credentials are carried by the :class:`URL` object itself rather than
+    reassembled from text, which is the only way to be sure of that. Returning
+    the object rather than a string is part of the same care: ``str(url)``
+    renders the password as ``***``, so a caller that went through text would
+    quietly hand :func:`create_engine` a URL it cannot authenticate with.
+
+    Raises:
+        RuntimeError: if ``database_url`` is not a URL SQLAlchemy can parse.
+            The message names the scheme and nothing else, and the underlying
+            exception is deliberately *not* chained: SQLAlchemy has echoed the
+            offending string back in that message before, and that string is
+            the one place a password lives (EC-1).
+
+            "Cannot parse" is two exception types, not one. ``make_url`` raises
+            ``ArgumentError`` for a malformed scheme, and a bare ``ValueError``
+            out of ``int(port)`` when the authority's port is not a number —
+            identically on SQLAlchemy 2.0.52 and 2.1.0. That second family is
+            not exotic: ``postgresql://u:p@2001:db8::1:5432/db``, an IPv6
+            address written without its brackets, is the commonest
+            ``DATABASE_URL`` typo there is, and ``…@host:/db`` is a truncated
+            port. Catching only the first let those spellings escape as
+            ``ValueError: invalid literal for int()``, so for them this
+            docstring was false and neither the scheme-only message nor the
+            ``from None`` shield ran at all.
+    """
+    # Computed *before* the try, so that the handler's body cannot raise. An
+    # exception from inside the handler — from a non-``str`` argument, say —
+    # would resurface SQLAlchemy's own error, which echoes the whole URL and
+    # its password, as an unsuppressed ``__context__``: the exact traceback
+    # ``from None`` exists to block. The handler is therefore kept incapable of
+    # raising rather than merely unlikely to, and :func:`_scheme_of` is total
+    # for the same reason.
+    scheme = _scheme_of(database_url)
+    try:
+        url = make_url(database_url)
+    except (ArgumentError, ValueError):
+        # Both are named because ``ArgumentError`` is not a ``ValueError``.
+        raise RuntimeError(
+            "DATABASE_URL is not a URL SQLAlchemy can parse "
+            f"(scheme: {scheme!r}). "
+            "Expected something like postgresql://user:password@host:5432/dbname"
+        ) from None
+
+    backend, _, driver = url.drivername.partition("+")
+    if backend.lower() not in _TIMEOUT_SCHEMES:
+        return url
+    return url.set(
+        drivername=f"{_POSTGRES_BACKEND}+{(driver or POSTGRES_DRIVER).lower()}"
+    )
+
+
+def _scheme_of(database_url: object) -> str:
+    """The text before ``://``, which is the one part that cannot be a secret.
+
+    Credentials follow the separator, and :meth:`str.partition` splits on its
+    first occurrence, so what comes back is a scheme or nothing at all — never
+    a password, however mangled the rest of the string is.
+
+    Total for *any* input, deliberately: this value goes into the message of an
+    error raised while another one is being handled, and a ``TypeError`` from a
+    ``bytes`` or ``None`` argument there would pull SQLAlchemy's URL-echoing
+    message into the traceback as the context of the new failure. Returning a
+    placeholder is worth more than a type error nobody wanted (EC-1).
+    """
+    if not isinstance(database_url, str):
+        return "<not a string>"
+    scheme, separator, _ = database_url.partition("://")
+    return scheme if separator else "<no scheme>"
+
 
 def _init_engine():
     """Initialize (or reinitialize) the database engine for the current DATABASE_URL.
@@ -54,7 +167,12 @@ def _init_engine():
             "Set DATABASE_URL to enable it (e.g. postgresql://user:pass@localhost/dbname)"
         )
     if engine is None or database_url != _engine_url:
-        engine = create_engine(database_url, **_engine_options(database_url))
+        # The normalised URL goes to create_engine (CARD-148); the raw value
+        # stays the cache key, because it is what the environment will be
+        # compared against on the next call.
+        engine = create_engine(
+            normalized_url(database_url), **_engine_options(database_url)
+        )
         SessionLocal = sessionmaker(bind=engine, class_=Session)
         _engine_url = database_url
 
@@ -64,6 +182,12 @@ def _engine_options(database_url: str) -> dict:
 
     Only the connection deadline today, and only for PostgreSQL — see
     :data:`CONNECT_TIMEOUT_SECONDS` and :data:`_TIMEOUT_SCHEMES`.
+
+    Takes the *raw* ``DATABASE_URL`` rather than the normalised one, so both
+    spellings in :data:`_TIMEOUT_SCHEMES` are still live here. That makes the
+    scheme it reads one step removed from the one :func:`create_engine` ends up
+    with, which is why ``test_the_connect_deadline_still_reaches_a_normalised_url``
+    pins that CARD-097's deadline survived CARD-148's rewrite.
     """
     scheme = database_url.split(":", 1)[0].split("+", 1)[0].lower()
     if scheme in _TIMEOUT_SCHEMES:

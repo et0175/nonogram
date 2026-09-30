@@ -62,7 +62,14 @@ def _unreachable_reason(database_url: str):
     reason = None
     try:
         probe = create_engine(
-            database_url, **db_session._engine_options(database_url)
+            # Through production's driver naming as well as its engine options
+            # (CARD-148). Without this the probe resolves the DBAPI from
+            # SQLAlchemy's default while the panel names one, so on a
+            # SQLAlchemy whose default is not installed every database test
+            # would report "unreachable" and skip green against a database that
+            # is in fact right there.
+            db_session.normalized_url(database_url),
+            **db_session._engine_options(database_url),
         )
         try:
             with probe.connect() as connection:

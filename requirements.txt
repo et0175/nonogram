@@ -18,18 +18,19 @@ gunicorn>=23.0
 
 # Database
 #
-# SQLAlchemy is capped below 2.1 on purpose. 2.1.0 changed the default DBAPI
-# for a bare `postgresql://` URL from psycopg2 to psycopg (v3), and Render's
-# DATABASE_URL is a bare `postgresql://`. Nothing in this repo changed: the
-# unpinned `>=2.0` simply resolved to 2.1.0 on the next build, which then
-# failed at import with `No module named 'psycopg'`. Verified by installing
-# 2.1.0 in isolation: `make_url("postgresql://…").get_dialect().driver` is
-# `psycopg` on 2.1.0 and `psycopg2` on 2.0.x.
+# SQLAlchemy carries no upper bound, and saying so is now safe. It was capped
+# below 2.1 for a day: 2.1.0 changed the default DBAPI for a bare
+# `postgresql://` URL from psycopg2 to psycopg (v3), Render's DATABASE_URL is a
+# bare `postgresql://`, the unpinned `>=2.0` resolved to 2.1.0 on the next
+# build, and the panel stopped booting with `No module named 'psycopg'` without
+# a line of this repository having changed.
 #
-# The lasting fix is to stop depending on SQLAlchemy's default at all and name
-# the driver in the URL (`postgresql+psycopg2://`), or to move to psycopg 3
-# deliberately — CARD-148. This cap is the stopgap that gets the panel back up,
-# not the answer.
+# The cap was the stopgap. The fix is that the driver is no longer inherited
+# from a default at all: `nonogram.db.session.normalized_url` names it in the
+# URL before `create_engine` sees it (`postgresql+psycopg2://`), and
+# tests/test_db_url_driver.py fails if the driver the panel would actually use
+# is not installed — here, where that is cheap, rather than on a deploy
+# (CARD-148).
 psycopg2-binary>=2.9
-sqlalchemy>=2.0,<2.1
+sqlalchemy>=2.0
 alembic>=1.13

@@ -13,6 +13,12 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import our ORM models
 from src.nonogram.db.models import Base
 
+# The same driver-naming the panel uses (CARD-148). `alembic upgrade head` runs
+# in render.yaml's build command against the same bare `postgresql://` that
+# stopped the panel booting on 2026-09-25, so leaving it out would fix the
+# runtime and leave the migration step to fail on the next default change.
+from src.nonogram.db.session import normalized_url
+
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
@@ -44,6 +50,8 @@ def run_migrations_offline() -> None:
 
     """
     url = os.getenv('DATABASE_URL') or config.get_main_option("sqlalchemy.url")
+    if url:
+        url = normalized_url(url).render_as_string(hide_password=False)
     context.configure(
         url=url,
         target_metadata=target_metadata,
@@ -67,7 +75,9 @@ def run_migrations_online() -> None:
 
     if url:
         connectable = engine_from_config(
-            {"sqlalchemy.url": url},
+            {"sqlalchemy.url": normalized_url(url).render_as_string(
+                hide_password=False
+            )},
             prefix="sqlalchemy.",
             poolclass=pool.NullPool,
         )
