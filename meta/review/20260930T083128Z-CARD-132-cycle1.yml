@@ -1,0 +1,363 @@
+version: 1
+generated_at: "2026-09-30T08:31:28Z"
+target: "branch card/132-books-list-plan-stats @ 84728d0, git diff main..HEAD (4 files, +830/-15), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-132"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (CARD-132 section 2125-2285, plus _readable_plan, _plan_context, selection-tab helpers)"
+    - "src/nonogram/admin/templates/books_list.html (whole file)"
+    - "src/nonogram/admin/templates/_tier.html"
+    - "src/nonogram/admin/static/admin.css (touched region + focus/sort/progress rules)"
+    - "src/nonogram/admin/book_plan.py (whole module: bucket_of, planned_cells, selection_cells, BUCKETS, TIERS)"
+    - "src/nonogram/admin/book_manager.py (off_plan_cells, ready_refusal, _selection_records, get_plan, get_all_books, Book)"
+    - "src/nonogram/admin/puzzle_review.py (get_puzzle, PuzzleFilter, filter_puzzles)"
+    - "tests/test_books_list_plan_stats.py (whole file)"
+    - "meta/kanban/cards/CARD-132.md, meta/design/brief.md, meta/design/components.md, pyproject.toml"
+  not_reached:
+    - "src/nonogram/db/** (untouched by the diff; DB-mode read paths inferred from puzzle_review/book_manager only)"
+    - "the rendered /books screen in a browser (review.visual off, no make run target)"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 830, removed: 15 }
+  max_fan_in: { symbol: "books_list (Flask endpoint)", callers: 18 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (134 commits in 12 months across the 3 touched prod files; 62 of the app.py commits are fix/bug/hotfix)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — books_list.html's 12-month history is 4 commits and its only co-change peer is itself; there is no peer set to find an absentee in"
+    production_data_scale: "provider_unavailable — the live panel runs on Postgres nonogram_poc (not to be touched); the repo's nonogram_admin.db snapshot holds 16 puzzles / 0 books, so it cannot bound the per-page read count of F-001"
+
+system_contract:
+  rules_checked: 44
+  holds: 5
+  unchecked: 39
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy exists only as a comment reference (tests/test_export_pdf.py:622,1250) and as the ADR's check ref (0006-dependency-baseline.md:170); no such test is defined. Manual read of this diff found no violation: pyproject.toml is not in the diff, and the one import added is stdlib `fractions` (app.py:35)."
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on 84728d0 (1 passed); the route adds no domain decision: every cell membership verdict comes from book_plan.selection_cells / planned_cells (app.py:2188-2190) and the diff contains no bucket bound, no max(width,height) and no range check (grep over added lines returned only comments and `actual >= total`)."
+    - "ADR-0032/R1 ✓ holds — the diff writes nothing; books_list and both helpers are read-only (book_mgr.get_all_books, get_plan, puzzle_review.get_puzzle), no add_puzzle path touched."
+    - "ADR-0032/R2 ✓ holds — no quality_score or recognizability value is read or rendered by the new column."
+    - "ADR-0033/R1 ✓ holds — no puzzle field is written; the tier is read through selection_cells/tier_of_record and never re-derived (book_plan.py:selection_cells)."
+    - "ADR-0035/R1 ✓ holds — the gate is untouched (book_manager.off_plan_cells / ready_refusal not called and not edited) and the list creates no competing exit-from-draft path. The list's exact-delta off-plan set is a strict superset of the gate's tolerance set (|d|>0 vs |d|*100 > 3*plan.count, and plan.count >= 1 by INV-005), so no book the list calls \"On plan\" can be one the gate refuses."
+    - "INV-007 ✓ holds — same derivation as ADR-0035/R1 above; the ±3 pp tolerance is not reused (grep for toleran|READY_|percentage|_whole_percent|off_plan_cells over added lines: doc-comment references only) and the readiness gate's code and tests are unchanged."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: this diff is one read-only Flask route, one Jinja template and two token-only CSS declarations. It runs no solver, no generation, no export, no layout, no PDF, no migration and no write; it changes no bind address, no request door, no size/density validation, no membership, no order, no pairing and no answer key. Nothing in it bears on these rules."
+
+root_causes:
+  - id: RC-1
+    title: "meta/design/ inventory not updated for the two components this card newly reuses"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 2155
+    title: "/books goes from one query to one store read per member of every book (N+1)"
+    description: |
+      `_book_member_records` (app.py:2155-2171) calls
+      `puzzle_review.get_puzzle(str(puzzle_id))` once per member id, and
+      `books_list` calls it once per book (app.py:2272-2275). In DB mode each
+      `get_puzzle` opens its own session and issues its own query
+      (puzzle_review.py:1105-1116), and `_book_plan_stats` additionally calls
+      `get_plan`, which re-reads the same `books` row `get_all_books` already
+      loaded (book_manager.py:703-712) — the `Book` dataclass carries no plan
+      field (book_manager.py:73-94), so that second read is forced by the
+      existing API.
+
+      Before this diff `/books` was one query (`get_all_books`). It is now
+      1 + B + sum(len(book.puzzle_ids)) round trips; at the DEFAULT_PLAN of
+      150 puzzles a shelf of 10 filled books is ~1500 sessions per render.
+      The route has high fan-in as a destination: 17 `url_for("books_list")`
+      redirects in app.py land on it after create/delete/finalise/arrange
+      actions, so the cost is paid on most book-editing actions, not only on
+      a deliberate visit.
+
+      Graded low, deliberately: no NFR pins admin page latency, `meta/design/brief.md`
+      states the audience is "one Puzzle Creator at a desk ... Nobody else looks
+      at this UI", and the same per-member read pattern is already what the
+      readiness gate (`BookManager._selection_records`) and the selection screen
+      do. The production shelf size could not be measured (see
+      metrics.unmeasured.production_data_scale), so this is a scaling risk with a
+      named mechanism rather than a demonstrated slow page.
+    suggestion: |
+      `PuzzleFilter` already carries `book_id` and `filter_puzzles` exists
+      (puzzle_review.py:102-190, 815), so one filtered read per book — or one
+      for the whole page — could replace the per-id loop; note `filter_puzzles`
+      caps `limit` at 100, so a 150-puzzle book needs paging or a new bulk
+      accessor. Leaving it as is and revisiting when a shelf grows past a
+      handful of full books is also defensible; if so, record the choice in the
+      card's worktree notes so the next reader does not re-derive it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    fix_note: |
+      Left open by decision, not overlooked. Graded low by the reviewer and
+      accepted as such: no NFR pins admin page latency, the panel is one Puzzle
+      Creator at a desk (meta/design/brief.md), and the same per-member read
+      pattern is already what the readiness gate and the selection screen do.
+      Revisit when a shelf grows past a handful of full books, or when CARD-131
+      releases book_manager.py and a bulk selection-records accessor can serve
+      the gate, the selection screen and this list at once. On the backlog.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/design/components.md
+    line: 145
+    title: "ProgressBar and DataTable inventory entries are stale after this reuse"
+    description: |
+      `components.md:144-148` records ProgressBar as "Used by: batch status"
+      with states pending / generating / complete / failed / cancelled. The
+      books list is now a second consumer (books_list.html:64-67) and
+      `.plan-progress` (admin.css:246) is a new variant of it (a table-row-height
+      bar with no in-bar text). `components.md:44-50` records the DataTable
+      sortable head as "real `<a>` links carrying `sort_by`"; the new heads carry
+      `sort` (books_list.html:12), so the inventory now describes one of two
+      query-parameter names in use and a later card reading it will pick the
+      wrong one.
+
+      engineering-standards §11 / Step 8g's static check asks that the inventory
+      match code for touched components; neither entry was updated in this diff.
+    suggestion: |
+      Add the books list to ProgressBar's "Used by" line together with the
+      `.plan-progress` variant and its two states (partial / complete), and note
+      on DataTable that `/books` sorts server-side via `sort` while the puzzle
+      table uses `sort_by`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: f94f29e
+    fix_note: |
+      meta/design/components.md: ProgressBar's "Used by" now names the books list and
+      its `.plan-progress` variant (a table-row-height bar, no in-bar text) with that
+      variant's own two states, partial / complete. DataTable now records that two
+      query-parameter names are genuinely in use — `sort_by` in `_puzzle_table.html`
+      (the older name) and `sort` on /books — names `sort` as the convention going
+      forward, and says the puzzle table keeps `sort_by` until a design-system card
+      renames it. Neither entry rewrites history.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/books_list.html
+    line: 67
+    title: "The plan bar borrows the ProgressBar state word \"generating\" for a partially filled book"
+    description: |
+      `data-status="{{ 'complete' if stats.complete else 'generating' }}"`
+      (books_list.html:67) reuses the batch-job state vocabulary
+      (components.md:146) for a book that is not generating anything — it is
+      partially assembled. It renders correctly, because admin.css has no
+      `[data-status="generating"]` rule and the bar falls through to the default
+      `--bs-progress-bar-bg: var(--color-accent)` (admin.css:112), which is the
+      accent fill the inventory specifies for that state. So this is a
+      vocabulary defect in the DOM, not a visual one: a later CSS rule written
+      for real batch "generating" behaviour (the inventory's "auto-refresh")
+      would silently reach this bar too.
+    suggestion: |
+      Use a state word that names what this bar shows — e.g.
+      `data-status="{{ 'complete' if stats.complete else 'partial' }}"` — and add
+      `partial` to ProgressBar's state list in components.md alongside F-002.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: f94f29e
+    fix_note: |
+      Two parts. Template: the plan bar is `data-status="partial"`, not the batch
+      lifecycle's `generating` — it shows a fill level, not a job in flight, so a
+      future rule written for real batch behaviour cannot reach it. Rendering is
+      byte-identical: neither word has a `.progress-bar[data-status=...]` rule
+      (admin.css:114-115 cover complete / failed / cancelled only), so both fall
+      through to the accent default. Inventory: `partial` is recorded as a
+      `.plan-progress` state in components.md alongside F-002.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/books_list.html
+    line: 12
+    title: "Sortable heads carry no aria-sort and the ↓ glyph is unlabelled"
+    description: |
+      The two new heads are real `<a href>` links that work with JavaScript off
+      (`url_for('books_list', sort=column)`) and get a visible focus ring from
+      `a:focus-visible` (admin.css:38-39) — both verified. State is announced only
+      as `aria-current="true"`, which says "current" but not "sorted, descending";
+      the `<th>` carries no `aria-sort`, and the `↓` is plain link text with no
+      `aria-hidden`, so it is read out as a glyph beside the column name.
+      components.md:48 specifies "current column marked with ↑/↓", but this list
+      offers no ascending order, so ↑ never appears and the arrow carries no
+      information a sighted user could act on either.
+
+      This follows the house pattern (`_puzzle_table.html:21` uses the same
+      `aria-current`, though with `href="#"` and JS, which is strictly worse than
+      what this card did), so it is a systemic nit rather than a regression this
+      card introduced.
+    suggestion: |
+      Put `aria-sort="descending"` on the sorted `<th>` and wrap the arrow in
+      `<span aria-hidden="true">`; if the same is done to `_puzzle_table.html`
+      it belongs in a design-system card rather than this one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    fix_note: |
+      Both heads this card added now carry `aria-sort` on the `<th>` via a new
+      `sort_order()` macro: "descending" for the current column, "none" for the
+      other — sortable but not sorted. The list offers descending order only, so no
+      ascending mode is invented and `aria-sort` states what is true. The ↓ is
+      `<span aria-hidden="true">` and the direction repeats as
+      `<span class="visually-hidden">, sorted descending</span>` — the Bootstrap 5.3
+      utility base.html already relies on and books_list.html already uses (line 81).
+      `_puzzle_table.html` deliberately untouched: the same gap there is systemic and
+      belongs in its own card.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/app.py
+    line: 2254
+    title: "An over-plan book outranks an exactly-on-plan one, and that third ordering decision is unrecorded"
+    description: |
+      The completeness key is `-Fraction(actual, planned)` with no cap
+      (app.py:2251-2256), so a book at 160 / 150 (ratio 16/15) sorts ahead of a
+      book at 150 / 150 (ratio 1) and ahead of everything else. The displayed
+      figures cap at 100 (`percent`, app.py:2226) and `complete` is
+      `actual >= total` (app.py:2227), so both rows draw a full green
+      "complete" bar; only the hint text distinguishes them. For a list the card
+      describes as a to-do list against the plan, the book that is 10 puzzles
+      over its plan arguably has more work outstanding than the one that is
+      exactly on it, so "most complete first" putting it first is at least
+      debatable.
+
+      AC-234 pins only 150/150 > 132/150 > 20/100, and the card records two
+      open decisions (the plan-less tail, one hint list) but not this one. No
+      test covers an over-plan book's position.
+    suggestion: |
+      Decide and record it: either keep the uncapped ratio and say so in the
+      card's "two decisions" section (making it three), or clamp the sort ratio
+      to 1 so exactly-on-plan books lead and over-plan books tie with them,
+      broken by `get_all_books` order. Either way, pin it with a test beside
+      TestBooksList_PlanlessBookSortsLast.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    fix_note: |
+      The owner ruled on 2026-09-30: an over-plan book **ties** with an on-plan one.
+      `_books_by_completeness`'s ratio is now
+      `-min(Fraction(1), Fraction(actual, planned))`, so 160 / 150 no longer sorts
+      ahead of 150 / 150 or of anything else, and the tie keeps `get_all_books`'
+      newest-first order through the existing stable sort. The rationale — /books is
+      a to-do list, and a book ten over its plan still has work to do, namely decide
+      which ten to drop — is recorded as the third decision in the card's worktree
+      notes beside the two already there, and in the function's docstring.
+      The clamp is for the order **only**: the row still reads "160 / 150" and still
+      carries its "over 10" hint, and `percent` / `complete` are untouched (they cap
+      on their own account). Pinned by the new
+      `TestBooksList_OverPlanBookTiesWithOnPlanBook`, three cases beside
+      `TestBooksList_PlanlessBookSortsLast`: the over-plan book does not lead an
+      on-plan one made after it, the tie flips with creation order rather than with
+      the excess (so it is a tie and not a reversed ranking), and the row's figures
+      and hint are unchanged. Verified to fail on the pre-fix uncapped key.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 247
+    title: "Out-of-scope: `.table .stat-line { margin-bottom: 0 }` matches nothing that is not already mb-0"
+    description: |
+      Both `.stat-line` elements the template renders inside the table already
+      carry Bootstrap's `mb-0` (books_list.html:78, 80), whose
+      `margin-bottom: 0 !important` wins regardless; the only other `.stat-line`
+      in the codebase (book_select_puzzles.html:53) is not inside a `.table`.
+      The rule is dead as written. Declared under SCOPE+, so it is worth naming
+      rather than leaving for the next reader of admin.css.
+    suggestion: |
+      Drop either the CSS rule or the two `mb-0` classes, not both.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: f94f29e
+    fix_note: |
+      `.table .stat-line { margin-bottom: 0; }` removed from admin.css. Confirmed
+      dead before deleting: `grep -rn stat-line src/nonogram/admin/templates/`
+      returns four call sites — books_list.html:73 and :80, both already carrying
+      `mb-0`, and book_select_puzzles.html:53 and :160, neither inside a `.table`.
+      The two `mb-0` classes stay (the reviewer asked for one or the other, not
+      both); this card added the rule, so the rule is what goes.
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 2162
+    title: "Out-of-scope: the route drops an unresolvable member id silently where the gate logs it"
+    description: |
+      `_book_member_records` (app.py:2155-2171) is the same loop as
+      `BookManager._selection_records` (book_manager.py:1761-1790) minus its
+      `logger.warning` for an id no row can match, and minus its
+      no-store refusal (with no store the route quietly reports every book as
+      0 / N rather than raising as the gate does; `create_app` wires a store on
+      both branches, so this is a wiring state, not a reachable one). The
+      duplication is forced — G-1 forbids editing book_manager.py, which exposes
+      no public selection-records accessor — but the missing log line means a
+      stale id shows up as an unexplained shortfall on the list and nowhere in
+      the log.
+    suggestion: |
+      When CARD-131 releases book_manager.py, expose the selection-records read
+      as a public method and have both the gate and this route call it; until
+      then, mirroring the gate's warning line costs two lines.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    fix_note: |
+      Out of scope for this fix cycle by instruction. The real remedy is the one
+      the finding names — one public selection-records accessor shared by the
+      gate and this route, once CARD-131 releases book_manager.py (G-1 forbids
+      editing it here) — so a mirrored warning line now would be duplicated
+      logic to delete later. Left open.
+    dismissed_reason: null
+    learned_pattern: null

@@ -1,6 +1,6 @@
 # CARD-132: Books list — actual vs planned count and tier split, exact short/over hints, sort by completeness
 
-**Status:** ready
+**Status:** review
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/132-books-list-plan-stats
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-132
 **Source:** meta/architecture/handoff.md#increment-16 (FR-039)
 **Idea:** —
 **Wave:** 26
 **Depends on:** CARD-123, CARD-124, CARD-130
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/books_list.html, tests/test_books_list_plan_stats.py
-**Review score:** —
-**Started:** —
+**Review score:** 8.0 (cycle 1/3)
+**Started:** 2026-09-30T07:36:59Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -122,4 +122,299 @@
 
 ## Worktree notes
 
-—
+- [Env] forge 2026.8.17
+- [Guardrail provenance] G-1 and G-4 exclude files because CARD-131 and CARD-128 "owned" them
+  "this wave". Both have since merged (293f921, 557c7ac), so the ownership reason has lapsed —
+  but the exclusions stand as scope boundaries: this card is reads-only over the books list and
+  has no business in `book_manager.py`, `book_pdf_generator.py`, `book_detail.html` or
+  `_confirm_membership_change.html` regardless of who last held them.
+- [Seams already in place] `book_plan.bucket_of` (line 128), `planned_cells` (348) and
+  `selection_cells` (353) all exist from CARD-119, so G-2's "one bucketing function" is a reuse
+  requirement, not something to build. The `/books` route is `app.py:2127`, the template has no
+  planned/completeness markup at all today.
+
+### What was built
+
+`/books` now renders every book against its distribution plan. Per row:
+
+* the **count against the plan** — "132 / 150" — with a ProgressBar beneath it
+  whose accessible name repeats both numbers in words, so the figure is never
+  carried by a bar length alone;
+* the **per-tier split**, "easy 50 / 60 · medium 60 / 60 · hard 22 / 30", each
+  tier named by the existing TierChip macro (`_tier.html`);
+* the **to-do list**: one chip per longest-side × tier cell that is off its
+  plan, with the **exact** count it is off by ("26-30 × hard: short 7",
+  "16-20 × hard: over 2"). A book on its plan says "On plan" in words.
+* a plan-less book shows its count alone and points at Print setup
+  (ADR-0035 (c)'s remedy).
+
+The list is **sorted by completeness** (actual / planned, most complete first);
+the order it had before — newest first — stays reachable as `?sort=created`,
+and both column heads are real `<a>` links, which is the DataTable pattern.
+
+Guardrails held: reads only (`src/nonogram/db/**`, `migrations/**`,
+`book_manager.py` untouched — G-1); every count comes from `book_plan`'s
+`planned_cells` / `selection_cells` and the one `bucket_of` (G-2) — the route
+divides two numbers and words a direction, and decides no cell membership;
+the hints are exact counts, never the gate's ±3 pp (G-3); `book_pdf_generator.py`,
+`_confirm_membership_change.html` and `book_detail.html` untouched (G-4).
+
+### AC → test
+
+All in `tests/test_books_list_plan_stats.py`.
+
+| AC | test |
+| --- | --- |
+| AC-230 | `TestBooksList_ShowsActualVsPlannedCount` |
+| AC-231 | `TestBooksList_ShowsPerTierActualVsPlan` |
+| AC-232 | `TestBooksList_HintsShortBucket` |
+| AC-233 | `TestBooksList_NoHintWhenOnPlan` |
+| AC-234 | `TestBooksList_SortsByCompleteness` |
+| AC-235 | `TestBooksList_BookWithoutPlanShowsCountOnly` |
+
+Cross-checks beside them: `TestBooksList_HintsOverBucket` (CK-1, decision 2),
+`TestBooksList_PlanlessBookSortsLast` (CK-2, decision 1),
+`TestBooksList_SortsBackToNewestFirst` (CK-3) and
+`test_PropertyTest_BooksList_HintsAreEveryOffPlanCellExactly` (CK-4) — a
+seeded 24-book corpus (`random.Random`, no `hypothesis`, minimum case count
+asserted in the test) whose expected hints are bucketed by the test file's
+**own** copy of the longest-side bounds, with sizes drawn from anywhere inside
+each range rather than pinned to its top. So "the page uses the one bucketing
+function" is checked by a second opinion that has to meet it on a 17 × 12, not
+only on a 20 × 20.
+
+All 17 tests **execute** in in-memory mode — the route reads a stored plan and
+a stored record per member, and neither read needs a database, so none of them
+can skip for want of `nonogram_test`.
+
+### The decisions the card left open
+
+_Two when the card was built; a third was ruled on in review cycle 1 (F-005)._
+
+1. **A plan-less book sorts last.** FR-039 does not say. It has no
+   completeness at all — there is no denominator — so it cannot be placed
+   among the books that have one, and it goes after every planned book
+   *including one at 0 / 150*: the list is a to-do list against the plan, and
+   a book with no plan yet is not further along than a book that has one and
+   has not started filling it. Chosen, not fallen out of the sort — the key is
+   `(planned is None, -Fraction(actual, planned))`, so the tail is explicit
+   and ties keep `get_all_books`' own order (newest first, stable sort).
+   Pinned by `TestBooksList_PlanlessBookSortsLast`.
+2. **"short" and "over" are one hint list, not two.** AC-232 pins only short.
+   A cell is off its plan in exactly one direction, both directions are work
+   the owner has to do before the book can leave draft, and one list keeps a
+   table row readable; splitting them would put the same cell's two possible
+   states in two places. The direction is a **word** in the chip, so the hint
+   reads without the tint behind it (§11). Pinned by
+   `TestBooksList_HintsOverBucket`, both singly and mixed.
+
+3. **An over-plan book ties with an on-plan one — the sort ratio is clamped
+   at 1.** The owner's ruling (2026-09-30), after review cycle 1 (F-005) found
+   the ratio uncapped: 160 / 150 is 16/15 and was sorting ahead of 150 / 150
+   and ahead of everything else. `/books` is a **to-do list**, and a book ten
+   over its plan still has work to do — decide which ten to drop — so it must
+   not outrank a book that is exactly right. The key is therefore
+   `-min(Fraction(1), Fraction(actual, planned))`, which makes the two one tie,
+   broken by `get_all_books`' own newest-first order through the same stable
+   sort the plan-less tail relies on. The clamp is for the **order only**: the
+   row still reads "160 / 150" and still carries its "over 10" hint, and
+   `percent` / `complete` are untouched — they cap on their own account, so
+   both rows draw a full bar as they did. AC-234 stops at 150 / 150 and does
+   not cover this, so it is pinned by
+   `TestBooksList_OverPlanBookTiesWithOnPlanBook`.
+
+Two smaller calls, recorded so a later reader need not guess:
+
+* The planned total is the plan's own `count`, not the matrix's sum — the same
+  denominator the readiness gate divides by (ADR-0035 (b), `off_plan_cells`).
+  The two differ only for a hand-edited matrix that disagrees with its general
+  plan, and Print setup already warns about that.
+* The actual count is the number of members that fall in a plan cell
+  (`sum(selection_cells(...))`), so the headline figure is always the sum of
+  its own per-tier split and the row cannot contradict itself. A member id no
+  row matches counts towards no cell — the verdict `selection_cells` and
+  `BookManager._selection_records` already make.
+
+### SCOPE+
+
+* `SCOPE+ src/nonogram/admin/static/admin.css` — the hint chip needed an
+  off-plan state and the bar needed a table-row height. Two lines, one of them
+  widening the existing `.stat-cell[data-over="true"]` selector to cover
+  `[data-off-plan="true"]` with the same declarations, plus `.plan-progress`.
+  Tokens only — no new colour, px or font literal; `tests/test_admin_design_tokens.py`
+  stays green. `meta/design/tokens.css` and its served mirror are untouched.
+
+### Suite
+
+`5352 passed, 2 failed, 7 skipped` — the two failures are the known stale
+heading assertions from the 2026-09-14 rename
+(`tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`
+and `tests/test_wave3_e2e.py::TestWave3UIIntegration::test_batch_creation_form_renders`),
+untouched by this card. 17 tests added; nothing else moved.
+
+### Cycle 1 review (2026-09-30)
+
+- [Review 1/3] **8.0** · risk LOW · lane FAST ·
+  `meta/review/20260930T083128Z-CARD-132-cycle1.yml` · 0 critical, 0 important, 4 minor + 2
+  out-of-scope. Meets `min_score: 8`. Mutation ran (not deferred): **6 of 6 killed**, and two of
+  them — the plan-less tail and the per-tier figures — were killed by a single test each, so the
+  tests discriminate individually rather than only en masse. Restore proven by SHA-256 on both
+  mutated files. Nothing the orchestrator pre-verified was wrong.
+- **G-2 ✓ mechanically verified.** No second bucketing rule in production code: no bound, no
+  range check, no `max(w,h)`, no label string encoding a bound, no size sort key. All twelve cell
+  keys come from `selection_cells`/`planned_cells`; the route iterates `PLAN_BUCKETS`/`PLAN_TIERS`
+  and takes labels from `bucket.label`. The template encodes nothing — the hint is built in
+  Python and passed whole.
+- **G-3 ✓, and the second-definition risk is provably safe-directional.** The card does create a
+  second textual definition of "off plan" (exact, in the adapter) beside `book_manager`'s
+  tolerance-based one — G-3 requires exactly that. The list's off-set is `|d| > 0`; the gate's is
+  `|d|·100 > 3·plan.count`; `plan.count >= 1` by INV-005. So every gate-offending cell is also a
+  list hint, and therefore **"On plan" implies the gate passes** — the dangerous direction cannot
+  occur. The reverse (gate passes, hints still shown) is the intended to-do-list semantics.
+- One row-internal inconsistency the card chose deliberately: the headline denominator is
+  `plan.count` (the gate's, per ADR-0035 (b)) while the per-tier denominators are matrix column
+  sums, so a hand-edited matrix that disagrees with its split can read "145 / 150" *and* "On
+  plan". Print setup already warns about that disagreement.
+- Sort verified: no `ZeroDivisionError` reachable (`DistributionPlan.__post_init__` refuses
+  `count < 1` and the key guards anyway), stable so ties and the plan-less tail keep newest-first,
+  and `Fraction` is unnecessary but legal — stdlib, so ADR-0006/R1 is untouched.
+- Accessibility ✓ in substance: the direction is a word in every state ("short 7", "over 2",
+  "On plan", "No plan yet"), the figure is text before the bar and repeated in the bar's
+  `aria-label`, and the new sortable heads are real `<a>` links that work with JavaScript off —
+  better than the house pattern in `_puzzle_table.html`, which uses `href="#"` plus JS.
+  `tests/test_admin_design_tokens.py`: 6 passed.
+- **F-005 (minor, and the one worth a decision):** the sort ratio is uncapped, so **160 / 150
+  sorts ahead of 150 / 150** — and ahead of everything. Both rows draw a full bar, so only the
+  hint text distinguishes an over-plan book from an on-plan one. For a to-do list the book ten
+  over its plan arguably has *more* outstanding work, not less. AC-234 pins only the three
+  under-plan cases; no test covers an over-plan book's position; and the card records two open
+  decisions but not this third one — which matters because "the open decisions are written down"
+  is this card's own standard.
+- F-001 (minor) N+1: `/books` goes from one query to `1 + B + Σ|members|` store reads. Graded low
+  — no NFR, single-user local panel, same pattern as the existing gate.
+- F-002/F-003 (minor, one root cause) `meta/design/components.md` is now stale for the two reused
+  components: it still says ProgressBar is "Used by: batch status", and that DataTable sortable
+  heads carry `sort_by` where these carry `sort`. Also `data-status="generating"` is borrowed for
+  a partially-filled book — renders correctly today by falling through to the accent default, but
+  a future rule written for real batch "generating" would reach this bar.
+- F-004 (minor) no `aria-sort` on the `<th>` and the `↓` is unlabelled link text; systemic (the
+  puzzle table has the same gap), so a nit rather than a regression here.
+- **[Model defect, second sighting] ADR-0006/R1's declared check
+  `TestDependencyBaseline_IsExactlyPillowAndNumpy` does not exist** — it appears only as a comment
+  in `tests/test_export_pdf.py` and in the ADR's own `check:` field. CARD-148's cycle-2 review
+  flagged the same thing independently. The ADR claims a mechanical check it does not have; route
+  to the architect station to write the test or re-type the check as `review-lens`.
+- **Outstanding and not substitutable: nobody has looked at `/books` in a browser.**
+  `review.visual: off` (no `make run` target), so no screenshot, runtime log, axe scan or baseline
+  diff exists for this card. The static checks above are the only mechanical guard it got.
+- [Review sync] 1 report → meta/review/
+
+### [Fix 1] — review cycle 1 (8.0, no Critical, no Important) → f94f29e
+
+Suite after the fix: **5355 passed, 2 failed, 7 skipped** — the same two known
+stale heading assertions, untouched. 3 tests added (20 in the card's file now),
+and all 3 **execute** in in-memory mode; nothing else moved.
+
+* **F-005 fixed** — the completeness sort ratio is clamped at 1, so an over-plan
+  book ties with an on-plan one instead of outranking it. Recorded as decision 3
+  above (the owner's ruling of 2026-09-30) and in `_books_by_completeness`'s
+  docstring. Displayed figures, `percent` and `complete` unchanged. Pinned by
+  `TestBooksList_OverPlanBookTiesWithOnPlanBook` (3 cases: the over-plan book
+  does not lead an on-plan one made after it; the tie flips with creation order
+  rather than with the excess, so it is a tie and not a reversed ranking; and
+  the row still reads "160 / 150" with its "over 10" hint). Verified to fail on
+  the pre-fix uncapped key.
+* **F-003 fixed** — the plan bar is `data-status="partial"`, not the batch
+  lifecycle's `generating`: it shows a fill level, not a job in flight, so a
+  future rule written for real batch behaviour cannot reach it. Rendering is
+  identical — neither word has a `.progress-bar[data-status=…]` rule, so both
+  fall through to the accent default.
+* **F-004 fixed** — both heads this card added carry `aria-sort` on the `<th>`
+  ("descending" when current, "none" otherwise — the list offers no ascending
+  order, so none is invented), the ↓ is `aria-hidden`, and the direction repeats
+  in `visually-hidden` text (the Bootstrap 5.3 utility this template already
+  uses). `_puzzle_table.html` deliberately untouched: the same gap there is
+  systemic and belongs in its own card.
+* **F-006 fixed** — `.table .stat-line { margin-bottom: 0; }` removed from
+  admin.css. Confirmed dead first: the four `.stat-line` call sites are
+  books_list.html:73 / :80, both already `mb-0`, and book_select_puzzles.html:53
+  / :160, neither inside a `.table`. The two `mb-0` classes stay; this card
+  added the rule, so the rule is what goes.
+* **F-002 fixed** — `meta/design/components.md` reconciled (see SCOPE+ below).
+* **F-001 left open** — the N+1 on `/books`. Graded low by the reviewer and
+  accepted: no NFR pins admin page latency, the audience is one Puzzle Creator
+  at a desk, and the same per-member read pattern is already what the readiness
+  gate and the selection screen do. Revisit when a shelf grows past a handful of
+  full books, or when CARD-131 releases `book_manager.py` and one public
+  selection-records accessor can serve the gate, the selection screen and this
+  list at once. On the backlog.
+* **F-007 left open** — the missing warning line for an unresolvable member id.
+  Out of scope: the remedy is the shared accessor above, so a mirrored log line
+  now would be duplicated logic to delete later.
+* **ADR-0006/R1's dead `check:` ref** — not touched. A model defect for the
+  architect station, not a code fix.
+
+Guardrails held again: reads only, no `src/nonogram/db/**`, `migrations/**` or
+`book_manager.py` edit (G-1); every count still comes from `planned_cells` /
+`selection_cells` and the one `bucket_of`, and the clamp introduces no bound,
+range check, `max(w,h)` or bucket label — it divides the two numbers the route
+already had (G-2), and the test file's own `BUCKET_BOUNDS` stays independent;
+the hints are still exact counts and the gate's ±3 pp is not referenced, so the
+list's off-plan set remains a strict superset of the gate's and "On plan" still
+implies the gate passes (G-3); `book_pdf_generator.py`,
+`_confirm_membership_change.html` and `book_detail.html` untouched (G-4). No new
+colour, px or font literal — this fix only deletes one CSS declaration;
+`tests/test_admin_design_tokens.py` green, `meta/design/tokens.css` and its
+served mirror untouched. No existing test weakened, retargeted or deleted, and
+CK-4's asserted floors (`CORPUS_CASES = 24`, `seen_short >= 20`,
+`seen_over >= 20`) are unchanged.
+
+#### SCOPE+ (Fix 1)
+
+* `SCOPE+ meta/design/components.md` — review cycle 1 F-002/F-003 (root cause
+  RC-1): the inventory was stale **because of this card**, which made the books
+  list a second ProgressBar consumer and introduced a second sort-parameter
+  name. ProgressBar's "Used by" now names the books list and its
+  `.plan-progress` variant with that variant's own states (partial / complete,
+  fill levels rather than job lifecycle). DataTable now says honestly that two
+  query-parameter names are in use — `sort_by` in `_puzzle_table.html`, the
+  older one, and `sort` on `/books` — names `sort` as the convention going
+  forward, and notes that the puzzle table keeps `sort_by` until a
+  design-system card renames it. Documentation only; no token, colour, px or
+  font literal, and `meta/design/tokens.css` is untouched.
+
+### Orchestrator gates (2026-09-30)
+
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/templates/books_list.html,
+  src/nonogram/admin/static/admin.css (SCOPE+), tests/test_books_list_plan_stats.py — one
+  commit, 84728d0.
+- [Build gate] PASSED, re-run by the orchestrator: 5361 tests, 5352 passed, 2 failed, 7
+  skipped. The two failures are the known stale-heading assertions, untouched. 5361 = the
+  5344 baseline + this card's 17.
+- [Guard] G-1/G-4 verified mechanically: the diff names no `src/nonogram/db/**`, no
+  `migrations/**`, and neither `book_manager.py`, `book_pdf_generator.py`,
+  `_confirm_membership_change.html` nor `book_detail.html`. G-2: the new route code reads
+  `planned_cells`/`selection_cells` and defines no bucket bounds of its own. G-3: no ±3 pp
+  tolerance anywhere in the new code. The CSS SCOPE+ is token-only — `var(--space-1)`,
+  `var(--space-2)`, one widened selector reusing the existing declarations, and a
+  `margin-bottom: 0` (a zero, not a px literal).
+- [Note] The implementation agent OVERWROTE the `## Worktree notes` section in the worktree
+  card copy rather than appending to it, discarding the orchestrator's `[Env]`,
+  `[Guardrail provenance]` and `[Seams already in place]` bullets. They survived because the
+  main-repo copy is the orchestrator's own and was edited there; the sync appended the agent's
+  sections beneath them. Worth knowing as a card-ownership hazard: had those bullets existed
+  only in the worktree, they would be gone.
+
+### Orchestrator gates after Fix 1 (2026-09-30)
+
+- [Build gate] PASSED on f94f29e, re-run by the orchestrator rather than taken on the agent's
+  word: **5364 tests, 5355 passed, 2 failed, 7 skipped** — exactly the numbers the fix round
+  reported. 5364 = 5361 + the 3 new clamp tests. The two failures are the known stale-heading
+  assertions, untouched.
+- [Card ownership hazard, second occurrence on this card] The fix agent again OVERWROTE the
+  worktree card's notes rather than appending, and this time it cost something: **decision 3 —
+  the owner's clamp ruling — existed only in the worktree copy**, which is deleted at merge,
+  while the main copy still read "The two decisions the card left open". The section was pulled
+  across by hand during the cycle-2 sync. Worth stating plainly because this card's whole value
+  is that its open decisions are written down, and the one the owner personally ruled on was
+  the one at risk of vanishing.
