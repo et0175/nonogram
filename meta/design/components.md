@@ -47,7 +47,10 @@ States: default · row-hover · empty (EmptyState inside the table shell) ·
 rejected row (name and thumbnail at 55% opacity) · sortable head (real
 `<a>` links, current column marked with ↑/↓ and `aria-current="true"`,
 its `<th>` carrying `aria-sort`; the arrow is `aria-hidden` and the
-direction repeats in `visually-hidden` text).
+direction repeats in `visually-hidden` text) — that head treatment is
+`books_list.html` only, and `_puzzle_table.html` has yet to follow: it
+still sorts with `href="#"` plus script, carries no `aria-sort`, and
+leaves its arrow unwrapped and its direction unsaid.
 Two query-parameter names are in use: the puzzle review table sorts with
 `sort_by` (`_puzzle_table.html`, the older name) and `/books` with `sort`
 (`books_list.html`, CARD-132). `sort` is the convention going forward —

@@ -13,6 +13,9 @@ and the cross-checks the card's two open questions and its guardrails need:
     CK-2    TestBooksList_PlanlessBookSortsLast      (the recorded decision)
     CK-3    TestBooksList_SortsBackToNewestFirst     (the order this list had)
     CK-4    PropertyTest_BooksList_HintsAreEveryOffPlanCellExactly  (G-2, G-3)
+    CK-5    TestBooksList_OverPlanBookTiesWithOnPlanBook  (the clamped ratio)
+    CK-6    TestBooksList_SortableHeadsAnnounceTheirOrder  (the aria-sort pair)
+    CK-7    TestBooksList_PlanBarSaysWhichFillItIs        (partial vs complete)
 
 The evidence class is the Flask test client: these are user-facing criteria on
 a server-rendered page and this project has no browser harness, so every test
@@ -289,6 +292,35 @@ def figures_of(row: str) -> list:
         text_of(figure)
         for figure in re.findall(r'<span class="stat-cell">(.*?)</span>', row)
     ]
+
+
+def head_of(html: str, label: str) -> str:
+    """The one ``<th>`` of the books table whose column is ``label``.
+
+    Returned as raw markup, not as text: the ``aria-sort`` these tests read is
+    an attribute, and whether it is an attribute at all is the thing at stake.
+    """
+    head = re.search(r"(?s)<thead>(.*?)</thead>", html)
+    assert head, "the books list rendered no table head"
+    cells = re.findall(r"(?s)<th\b.*?</th>", head.group(1))
+    assert cells, "the books list rendered no column heads"
+    matching = [cell for cell in cells if text_of(cell).startswith(label)]
+    assert len(matching) == 1, f"{len(matching)} heads of /books are the {label} column"
+    return matching[0]
+
+
+def heads_of(html: str) -> list:
+    """Every ``<th>`` of the books table, as raw markup, in rendered order."""
+    head = re.search(r"(?s)<thead>(.*?)</thead>", html)
+    assert head, "the books list rendered no table head"
+    return re.findall(r"(?s)<th\b.*?</th>", head.group(1))
+
+
+def plan_bar_of(row: str) -> str:
+    """The opening tag of the one plan bar a row draws, as raw markup."""
+    bars = re.findall(r'<div class="progress-bar"[^>]*>', row)
+    assert len(bars) == 1, f"the row draws {len(bars)} plan bars"
+    return bars[0]
 
 
 # --------------------------------------------------------------------------
@@ -594,6 +626,114 @@ class TestBooksList_BookWithoutPlanShowsCountOnly:
 
         assert "No plan yet" in text_of(row), text_of(row)
         assert f"/book/{book_id}/setup-print" in row, row
+
+
+# --------------------------------------------------------------------------
+# CK-6 — the sortable heads say which one is sorted, and which way
+# --------------------------------------------------------------------------
+
+
+class TestBooksList_SortableHeadsAnnounceTheirOrder:
+    """CK-6 (review cycle 1, F-004): the `aria-sort` pair on the two heads.
+
+    The list offers descending order only, so the head the page is sorted by
+    says ``descending`` and the other sortable head says ``none`` — sortable,
+    not sorted. Two things are pinned here, both of which a later edit can
+    break in silence:
+
+      * the two values are not interchangeable, and they follow the `sort` the
+        request asked for — so the pair has to **swap** under ``?sort=created``;
+      * the attribute reaches the page as markup. It renders raw only because
+        a Jinja macro returns ``Markup``; a ``|forceescape``, or moving the
+        attribute into a Python-side string the route passes in, would emit
+        ``aria-sort=&#34;descending&#34;`` and drop the attribute altogether,
+        with the page looking untouched. So the raw attribute text is what is
+        asserted, never the readable text of the head. (``|e`` and ``|string``
+        are *not* that failure mode — both are no-ops on ``Markup``, which was
+        checked by mutation rather than assumed.)
+    """
+
+    def test_the_sorted_head_is_descending_and_the_other_is_none(self, shelf):
+        shelf.book(SELECTION_132, plan=PLAN_150)
+
+        body = shelf.listing()
+
+        assert 'aria-sort="descending"' in head_of(body, "Puzzles"), head_of(body, "Puzzles")
+        assert 'aria-sort="none"' in head_of(body, "Created"), head_of(body, "Created")
+
+    def test_the_pair_swaps_when_the_other_column_is_sorted(self, shelf):
+        """``?sort=created`` moves ``descending`` to the Created head."""
+        shelf.book(SELECTION_132, plan=PLAN_150)
+
+        body = shelf.listing(sort="created")
+
+        assert 'aria-sort="descending"' in head_of(body, "Created"), head_of(body, "Created")
+        assert 'aria-sort="none"' in head_of(body, "Puzzles"), head_of(body, "Puzzles")
+
+    def test_only_the_two_sortable_heads_carry_the_attribute(self, shelf):
+        """A head that is not a link claims no sort state at all."""
+        shelf.book(SELECTION_132, plan=PLAN_150)
+
+        body = shelf.listing()
+
+        carrying = [head for head in heads_of(body) if "aria-sort" in head]
+        assert len(carrying) == 2, [text_of(head) for head in carrying]
+        assert sorted(text_of(head).split(" ")[0] for head in carrying) == [
+            "Created",
+            "Puzzles",
+        ], [text_of(head) for head in carrying]
+
+    def test_the_attribute_is_markup_and_not_escaped_text(self, shelf):
+        """The fragile mechanism, asserted directly: nothing is entity-escaped.
+
+        ``aria-sort=&#34;…&#34;`` is what an escaped macro emits, and it is not
+        an attribute — it is visible text inside the tag.
+        """
+        shelf.book(SELECTION_132, plan=PLAN_150)
+
+        body = shelf.listing()
+
+        assert "aria-sort=&" not in body, "the aria-sort attribute rendered escaped"
+        assert body.count('aria-sort="') == 2, body.count('aria-sort="')
+
+
+# --------------------------------------------------------------------------
+# CK-7 — the plan bar's own state word
+# --------------------------------------------------------------------------
+
+
+class TestBooksList_PlanBarSaysWhichFillItIs:
+    """CK-7 (review cycle 1, F-003): the bar's states are `partial` and
+    `complete`, and never the batch lifecycle's `generating`.
+
+    This bar shows a fill level, not a job in flight. The word matters because
+    it is the selector a future CSS or JS rule would be written against: one
+    written for real batch behaviour must not reach a book that is merely
+    half chosen.
+    """
+
+    def test_a_partly_filled_book_is_partial(self, shelf):
+        book_id = shelf.book(SELECTION_132, plan=PLAN_150)
+
+        bar = plan_bar_of(row_of(shelf.listing(), book_id))
+
+        assert 'data-status="partial"' in bar, bar
+        assert "generating" not in bar, bar
+
+    def test_a_book_on_its_plan_is_complete(self, shelf):
+        book_id = shelf.book(PLAN_150_CELLS, plan=PLAN_150)
+
+        bar = plan_bar_of(row_of(shelf.listing(), book_id))
+
+        assert 'data-status="complete"' in bar, bar
+
+    def test_a_book_over_its_plan_is_complete_too(self, shelf):
+        """160 of 150 is not "partial": there is nothing left to add."""
+        book_id = shelf.book(SELECTION_OVER_BY_10, plan=PLAN_150)
+
+        bar = plan_bar_of(row_of(shelf.listing(), book_id))
+
+        assert 'data-status="complete"' in bar, bar
 
 
 # --------------------------------------------------------------------------
