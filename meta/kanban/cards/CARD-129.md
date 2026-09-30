@@ -15,7 +15,7 @@
 **Wave:** 27
 **Depends on:** CARD-128, CARD-123, CARD-134
 **Touches:** src/nonogram/admin/book_kdp.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_finalise_gutter.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-09-30T18:05:00Z
 **Closed:** —
 **Actual:** —
@@ -169,6 +169,74 @@ eye.
 - [Handover from CARD-115, 2026-09-22] AC-179's illustrative 0.60 cm gutter is below book_page_spec's 6.35 mm floor, so the builder refuses it before finalise can name the KDP band. Reconcile here (this card's checkpoint already uses the KDP-legal 0.375 in).
 
 - [Handover from CARD-116, 2026-09-23] The Finalise page count is taken over all members, so it can promise a page the exported file drops. A puzzle that builds a payload but cannot be drawn now raises RuntimeError naming the row id and aborts; one that cannot become a payload is dropped in a first pass before any interior position is handed out.
+### Cycle 1 review (2026-09-30)
+
+- [Review 1/3] **9.0** · risk LOW · lane FAST ·
+  `meta/review/20260930T190612Z-CARD-129-cycle1.yml` · 0 critical, 0 important, 5 minor.
+  The reviewer handled the stale base correctly on instruction — `merge-base` was 524c769
+  against a main head of 8759022, so it reviewed `main...HEAD`, 6 files, +1329/−36.
+- **The gate's core holds by construction, not by fixture luck.** The answer term is structural:
+  `interior_stream` computes `interior_page_count(count, len(plan), len(key), dividers)` where
+  `len(key)` is `pack_answer_pages`' own output — there is **no path to `page_count` that
+  skips the key**. The cover is equally structural: `interior_stream` never sees it, because
+  the cover is a separate call. Both halves of finalise — the POST action and the screen —
+  go through one `_interior_counts`, so the number refused is the number shown.
+- **Nothing is drawn to count pages**, verified by reading: `produce` and `_as_planned` are
+  generator *functions*, so calling them allocates no `Image`; `_interior_counts` never
+  iterates `stream.pages`. Corroborated by the runtime — 40 tests building a 180-page and a
+  150-puzzle book run in **1.29 s**.
+- **The two re-aimed tests were legitimately re-aimed**, and the reviewer distinguished them
+  rather than lumping them: `TestBookFinalise_PageCountIsTheExportsPagePlan` is **strictly
+  stronger** (keeps both old assertions and adds an exact count checked against the page count
+  of the file the download button returns); `TestBookFinalise_OffersBothDownloads` is
+  **comparable, not stronger** — my brief overstated it. Nothing was lost either way, because
+  the old `~11` pinned behaviour this card deliberately replaces.
+- **The `ValueError` choice is the convention applied, not sidestepped**, and the claim was
+  checked against the actual test: `test_the_walked_corpus_is_the_whole_hierarchy` really does
+  refuse an unclassified `NonogramError` subclass, and `AdminConfigurationError(RuntimeError)`
+  at app.py:485 carries the identical reasoning verbatim. `InvalidBookDetails(ValueError)` is
+  the precedent for `ValueError` over `RuntimeError`.
+- **The AC-179 upper-bound argument holds**, checked term by term against the generator: puzzle
+  pages, dividers and answer pages each move *up* in the fallback, so the band it names is ≥
+  the true band — it can over-refuse, never under-refuse. The reviewer could not construct a
+  case naming a band below the true one.
+- **Mutation: 5 of 5 killed**, including both the implementation reported (verified
+  independently) and three of the reviewer's own — the band boundary `<=` → `<`, the unpaired
+  fallback's answer term, and `gutter_refusal`'s `>=` → `>`.
+- **F-003 (medium) — the one worth fixing, and it defeats the card's own purpose.** The stored
+  gutter is rounded **half-up** to 2 dp before comparison, so a stored 0.945 cm is accepted at
+  150 pages though KDP's minimum is 0.9525, and 1.265 is accepted at 300 though the minimum is
+  1.27. Reproduced independently by the orchestrator. The error points the **unsafe** way —
+  accepted here, rejected at upload — which is precisely the failure this gate exists to catch.
+  The window is 0.0075 cm and reachable only by the same hand-edit/legacy route AC-179's 0.60
+  comes from, but a gate that rounds *towards* acceptance is the wrong shape. Note `0.95` must
+  keep passing: **CON-018 itself writes 0.375 in as "0.95 cm"**, so that is the project's own
+  spelling rather than a violation.
+- F-001/F-002/F-005 (minor, left open) — `InteriorCounts.unreadable` is written and never read,
+  and its bare `except Exception` also absorbs `interior_stream`'s two loud plan tripwires, so a
+  real correctness failure renders as "About N" with no trace; `counts is None` lets a book leave
+  draft while the screen says the pages cannot be counted; and the refusal text says "runs to N
+  pages" on the inexact path where the screen says "About N". One root cause between them.
+- F-004 (minor, left open) one vacuous assertion in the re-aimed test —
+  `assert "~" not in body.split('data-interior-page-count')[1][:40]` can never fail, because
+  part `[1]` is always `'="7" '`. Covered in substance by the `-exact="true"` assertion above it.
+- **[Model defect, and it undermines a tool I have been trusting all session]** Four declared
+  `check:` refs do not exist as test functions — `TestDependencyBaseline_IsExactlyPillowAndNumpy`
+  (ADR-0006/R1), `PropertyTest_Solver_NeverFalsePositiveUniqueness` (CON-005),
+  `TestExport_RejectsUnverifiedPuzzle` (INV-002), `TestComputeClues_MatchesGridExactly`
+  (INV-001). They appear only in comments, which is why `--verify-refs` reports
+  `dead_check_ref: []` with `check_refs_verified: true`: **the flag text-matches, so its
+  reassurance is unreliable**. CON-005 is the project's one mandatory correctness property, so
+  this is worth a model-hygiene card, not a note.
+- Checkpoint figures **independently re-measured** rather than read from `MEASUREMENTS.txt`: the
+  12+12 pair at **7.3872 mm** (the card claimed 7.3859, target 7.39 ±0.05 — agreeing to
+  0.0013 mm), 18 interior `/Type /Page` objects and 1 cover page in the PDFs themselves, 3
+  answer pages. One wording correction: "pixel row 254" is the slot origin the layout reports;
+  page-04's 20×20 top rule spans rows 252–257, so *first ink* is 252. Consistent within the
+  stroke, 2 px looser than the phrase suggests. Nothing in this diff renders anything.
+- [Build gate] PASSED, orchestrator's own run: 5432 collected, 5423 passed, 2 failed, 7 skipped.
+- [Review sync] 1 report → meta/review/
+
 - [CARD-129, 2026-09-30] **Where the page count comes from, and the one place it does not.**
   Finalise asks `BookPDFGenerator.interior_stream` — the same page plan the export
   walks — for all three counts and never walks its pages, so the screen reports the

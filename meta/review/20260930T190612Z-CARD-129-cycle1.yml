@@ -1,0 +1,291 @@
+version: 1
+generated_at: "2026-09-30T19:06:12Z"
+target: "CARD-129 cycle 1 — branch card/129-kdp-gutter-gate @ 4641590, three-dot diff against main (merge-base 524c769, main head 8759022)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_kdp.py (whole file)"
+    - "src/nonogram/admin/app.py (diff hunks + InteriorCounts/_interior_counts/_kdp_gutter_refusal/book_finalize route)"
+    - "src/nonogram/admin/templates/book_finalize.html (diff hunks)"
+    - "tests/test_book_finalise_gutter.py (whole file, 649 lines)"
+    - "tests/property/test_book_export_interior.py (diff hunks + corpus floors)"
+    - "tests/test_book_export_interior_cover.py (both changed assertions + _interior_pages)"
+    - "src/nonogram/admin/book_pdf_generator.py (interior_stream, interior_page_count, print_order, _stored_tier, _level_runs, answer_key, puzzle_section divider walk)"
+    - "meta/kanban/cards/CARD-129.md (full, incl. Worktree notes)"
+    - "meta/architecture/requirements.yml (FR-030 header, CON-018, CON-020)"
+    - "src/nonogram/db/models.py:154 (gutter_margin_cm column type)"
+    - "tests/test_web_submission.py::test_the_walked_corpus_is_the_whole_hierarchy"
+    - "~/Documents/nonogram-reviews/CARD-129/ (MEASUREMENTS.txt, interior + cover PDFs, page-03/page-04 PNGs measured with PIL/NumPy)"
+  not_reached:
+    - "src/nonogram/admin/book_answer_key.py (pack_answer_pages read by contract/docstring only, not line by line)"
+    - "src/nonogram/admin/book_page_spec.py (only the MIN_SIDE_MARGIN floor and BOOK1_PROFILE constants)"
+    - "the remaining six checkpoint PNGs (dividers, guide page, answer page) — not measured"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 1329, removed: 36 }
+  max_fan_in: { symbol: "nonogram.admin.book_pdf_generator.interior_page_count", callers: 32 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  churn: { "src/nonogram/admin/app.py": 137, defect_commits: 64 }
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the four peers that co-change with app.py most often
+      (book_manager.py 14/60, puzzle_review.py 10/60, admin.css 9/60,
+      book_pdf_generator.py 7/60) are each explainably absent: G-4 forbids a
+      schema change, the template reuses the existing .kv/.num classes with no
+      new visual literal, and the card's whole design is to reuse
+      book_pdf_generator.interior_stream rather than change it. No peer is a
+      missing-change candidate.
+
+system_contract:
+  rules_checked: 44
+  holds: 8
+  unchecked: 36
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy exists only inside comments (tests/test_export_pdf.py:622, :1250), never as a test function or class; --verify-refs reported it live on that text match, so diagnostics.check_refs_verified: true is over-confident here. Manual read of this diff: pyproject.toml untouched, the only new imports are stdlib typing/decimal and existing nonogram modules; the live equivalent test_the_dependency_baseline_is_still_closed passed in the full run."
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward green in the full-suite run on 4641590 (5423 passed). New module book_kdp.py imports only nonogram.admin.book_answer_key / book_page_spec / book_pdf_generator and nonogram.difficulty — intra-adapter and inward; no capability module gained an import of admin or cli."
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public signature, request field or export field in this diff carries a grid extent; page counts only."
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting, crop or aspect check in this diff."
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing or source fitting in this diff."
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no solver, repair or recovery code in this diff."
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter or retry bound in this diff."
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in this diff."
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice in this diff."
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy in this diff."
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff."
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the new refusal is about a gutter margin and a page count; no stage in this diff rejects on density grounds, and no new docstring claims one does."
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in this diff."
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve or strategies list in this diff."
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no clock, size or density term enters any new computation; book_kdp reads page counts and one stored margin string."
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap masks in this diff."
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff."
+    - "ADR-0032/R1 ✓ holds — grep of the diff: no add_puzzle call and no write to any puzzle row on the production path; book_kdp.py and app.py's new helpers only read rows. The new tests seed an in-memory store directly, the precedent tests/test_book_ready_gate.py's Shelf sets and which the card's module docstring cites; TestStorageBoundary_AsksTheSolverNotTheCaller green in the full run."
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score and recognizability are not read, written or rendered by this diff."
+    - "ADR-0033/R1 ✓ holds — review-lens: the only write anywhere in the changed finalise path is the pre-existing book_mgr.set_book_status in the else branch (app.py:3924); no puzzle grid, clue, tier, strategies or book_id field is written. stored_gutter_cm reads getattr(book, 'gutter_margin_cm') and returns; TestKdpGutterTable::test_the_refusal_reads_the_stored_column_and_writes_nothing asserts the row is unchanged after being checked."
+    - "ADR-0035/R1 ✓ holds — the KDP check is inserted *before* set_book_status, not in place of it (app.py:3915-3929): on no refusal the same set_book_status call runs and still carries the plan gate. TestBookStatus_EveryExitFromDraftIsGatedOnThePlan (tests/test_book_ready_gate.py) green in the full-suite run on 4641590."
+    - "ADR-0036/R1 ✓ holds — src/nonogram/export/** is untouched by the three-dot diff (G-3); TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (tests/test_layout_page_spec.py) green in the full run."
+    - "ADR-0036/R2 ✓ holds — review-lens: book_kdp.py computes page *counts* only, through the generator's own interior_page_count / print_order / pack_answer_pages / tier_of_record; it fits no cell, places no rule and calls no layout function. The single geometry value it reads is BOOK1_PROFILE.gutter_margin_cm, used as the default for an empty column exactly as book_page_spec does."
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no band text is produced or changed by this diff."
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke width is set by this diff."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver or uniqueness code in this diff. Note: its declared check ref PropertyTest_Solver_NeverFalsePositiveUniqueness exists only as a comment mention, never as a test function or class (check_ref_missing) — pre-existing model hygiene, not this card's."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ is untouched; no socket bind in this diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-origin handling in this diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid side is validated or constructed by this diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff."
+    - "CON-015 ✓ holds — no bind address appears anywhere in the diff (grep: no host=, no 0.0.0.0, no app.run); TestAdminPanel_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py) green in the full run."
+    - "CON-016 ✓ holds — the diff adds no route and no before_request/door logic; the finalise route's method set and decorators are unchanged, so both doors still cover it. TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit (tests/test_admin_binding.py) green in the full run."
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue encoding in the production diff (the new tests call clues.compute_clues to build fixtures). Note: its declared check ref TestComputeClues_MatchesGridExactly exists only as a comment mention (check_ref_missing) — pre-existing."
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-readiness marking in this diff. Note: TestExport_RejectsUnverifiedPuzzle exists only as a comment mention (check_ref_missing) — pre-existing."
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff; the refusal is terminal, with no retry or iteration (that absence is G-2, verified separately)."
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan split or bucket count is written by this diff (the test helper plan_of builds a fixture plan through the real DistributionPlan)."
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership floor check in this diff; the new tests add members through the real add_puzzles_to_book, so the floor still applies to them."
+    - "INV-007 ⚠ unchecked — no_eligible_fact: the readiness cell tolerance is neither read nor written by this diff; the gate it guards is untouched (see ADR-0035/R1)."
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book membership change in this diff."
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book_kdp calls print_order without reimplementing it and stores nothing; the order is read, never written."
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing is decided entirely inside book_pdf_generator, which this diff does not change; book_kdp's fallback replaces the pairing term with one page per puzzle rather than making a pairing decision."
+    - "INV-011 ⚠ unchecked — no_eligible_fact: the key's order and capacity are decided by pack_answer_pages, unchanged here; book_kdp calls it rather than reimplementing the capacity rule."
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change outside draft in this diff."
+    - "INV-013 ✓ holds — PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage (tests/property/test_book_export_interior.py) green in the full run on 4641590, and this card *extends* it: the figure finalise reads is now asserted equal to both the independently-derived make-up and len(interior) of the written PDF, over 21 of 28 corpus cases (floors seen['finalise count'] >= 21, with-cover >= 4, without-cover >= 4, shared-page >= 3). Independently corroborated on the checkpoint artefacts: winter-pictures-interior.pdf holds 18 /Type /Page objects and winter-pictures-cover.pdf holds 1."
+
+root_causes:
+  - id: RC-1
+    title: "the no-sheet / uncountable-interior fallback collects diagnostics it then discards"
+    finding_ids: [F-001, F-002, F-005]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 857
+    title: "InteriorCounts.unreadable is written and never read — a genuine export failure is silently degraded to \"About N\""
+    description: |
+      `_interior_counts` wraps `BookPDFGenerator(book).interior_stream(...)` in a bare
+      `except Exception as unreadable` (app.py:884) and stores the reason on
+      `InteriorCounts.unreadable` (app.py:857, set at :895). Nothing consumes it:
+      grep over `src/nonogram/admin/` and `tests/` finds no reader, the route never
+      passes it to the template, and `book_finalize.html` uses only `page_count` and
+      `page_count_exact`.
+
+      That matters because the handler is broader than the case it was written for.
+      `interior_stream` also raises on the two loud plan tripwires it documents
+      ("the page plan prints ..., not puzzles 1..n", "the answer key holds ...") and
+      on `answer_key`'s RuntimeError for an unmeasurable grid. Those are correctness
+      guards, and after this card the Finalise screen answers all of them with
+      "About N interior pages" and no trace — the owner meets the real failure later,
+      at download. app.py's own precedent for exactly this condition is to log it
+      (`app.logger.error("Book %s has an unreadable print specification (%s); ...")`
+      at :3296 and :3339); the new path does not.
+    suggestion: |
+      Either log it — `app.logger.info`/`warning` with the book id and
+      `counts.unreadable`, matching app.py:3296's shape — or pass it to the template
+      beside `page_count_exact` so the "About" figure can say why it is a bound.
+      Narrowing the `except Exception` to the sheet-builder's own ValueError would be
+      better still: a plan tripwire would then surface instead of being absorbed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 919
+    title: "counts is None silently skips the gate, and the book leaves draft while the screen says it cannot be counted"
+    description: |
+      `_kdp_gutter_refusal` returns `None` when `counts is None` (app.py:919-921), so
+      `save_and_finish` falls through to `set_book_status(READY_FOR_PDF)`. That state
+      is reachable: a member row whose `grid` is not a non-empty rectangle makes
+      `interior_stream` raise (through `answer_key`) *and* makes
+      `unpaired_interior_page_count` raise (`_grid_extent`, book_kdp.py:334-345), so
+      both arms of `_interior_counts` fail and it returns `None`.
+
+      The two halves of the route then disagree: the screen renders "The interior's
+      pages cannot be counted — check the book's puzzles and its print setup"
+      (book_finalize.html:88) while the action lets the book out of draft. No AC
+      covers this and the pre-card route had no gate at all, so it is a gap rather
+      than a regression — and the docstring calls it deliberate ("a different
+      complaint and not this one's to make") — but a finalise that cannot count the
+      interior also cannot know whether KDP would take it.
+    suggestion: |
+      Refuse on `counts is None` with the message the template already carries, so
+      the action and the screen tell the owner the same thing. One line in
+      `_kdp_gutter_refusal`, and a test beside AC-179's for a book with a malformed
+      grid row.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_kdp.py
+    line: 232
+    title: "rounding the STORED gutter half-up to two decimals accepts a gutter below KDP's minimum"
+    description: |
+      `gutter_refusal` compares `_rounded(stored) >= _rounded(minimum_cm)`
+      (book_kdp.py:232) with `_rounded` quantizing to two decimals ROUND_HALF_UP
+      (:128). Applied to the *stored* value that rounds it up, so a gutter in
+      [0.945, 0.9525) reads as 0.95 and passes. Reproduced on this head:
+
+          gutter_refusal(150, stored_gutter_cm(row with "0.945"))  -> None
+          gutter_refusal(300, 1.265)                               -> None
+          kdp_min_gutter_cm(150)                                   -> 0.9525
+
+      0.945 cm is below KDP's 0.375 in, so that book is accepted at finalise and
+      rejected at upload — the exact failure this card exists to prevent, admitted
+      through a 0.0075 cm window.
+
+      The docstring's premise is that the window cannot arise: "the `books` table
+      keeps margins as centimetre strings with two decimals". That is a convention,
+      not a constraint — `src/nonogram/db/models.py:154` declares
+      `gutter_margin_cm = Column(String, nullable=True, default='1.27')`, and
+      `stored_gutter_cm` accepts any finite decimal string. The provenance of such a
+      value is the same hand-edited/legacy row AC-179's own 0.60 cm comes from, which
+      the card's test docstring says is the only way a non-profile margin reaches the
+      column at all. Probability is low (a three-decimal hand edit inside a 0.075 mm
+      band); the direction of the error is the unsafe one.
+    suggestion: |
+      Keep the two-decimal minimum (so "0.95" is still 0.375 in) but quantize the
+      stored value *down*: compare
+      `stored.quantize(STORED_PRECISION, rounding=ROUND_FLOOR) >= _rounded(minimum_cm)`.
+      "0.95" still passes, "0.945" refuses. Add the two cases to
+      `TestKdpGutterTable::test_the_stored_two_decimal_form_of_a_band_is_that_band`,
+      which currently pins 0.95 and 0.94 and would not notice either way.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_book_export_interior_cover.py
+    line: 374
+    title: "tautological assertion in a re-aimed test: the \"no ~\" check inspects a five-character slice that can never hold one"
+    description: |
+      `assert "~" not in body.split('data-interior-page-count')[1][:40]`.
+      The attribute name occurs twice in the rendered `<dd>` —
+      `data-interior-page-count="7" data-interior-page-count-exact="true"` — so
+      `split` yields three parts and part [1] is always `'="7" '`: five characters,
+      before the `-exact` attribute and long before the `>` that a `~` would follow.
+      Reproduced both ways on this head: with `exact="false"` and a rendered `~7`,
+      part [1][:40] is still `'="7" '` and the assertion still passes.
+
+      It is one of the two assertions the card deliberately re-aimed, so it deserves
+      the note even though the behaviour is covered in substance by the
+      `data-interior-page-count-exact="true"` assertion on the line above and by
+      `TestBookFinalise_PageCountIsTheExportsPagePlan`, which compares the figure to
+      the downloaded file's page count.
+    suggestion: |
+      Assert on the rendered text instead, e.g.
+      `assert f'-exact="true">{_interior_pages(3, 1)}</dd>' in body`, which pins the
+      absence of the "~" prefix positionally, or split on
+      `'data-interior-page-count-exact="true">'`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_kdp.py
+    line: 235
+    title: "the refusal text states an upper bound as an exact count, where the screen marks it \"About\""
+    description: |
+      On the fallback path (`exact=False`) the count is the sheet-free upper bound,
+      and the template says so — "About 180 interior pages" / "~180". The refusal the
+      same number produces does not: `gutter_refusal` renders "This book's interior
+      runs to {page_count} pages" (book_kdp.py:235), and `_kdp_gutter_refusal` passes
+      `counts.page_count` without consulting `counts.exact`. For AC-179's own corpus
+      the bound is exact (verified below), so the wording is true there; for a book
+      whose interior_stream failed for some other reason it is not.
+
+      The direction is safe — the bound can only name a band at or above the true one,
+      so the gate over-refuses rather than under-refuses — but the owner reads a
+      precise-sounding number on the one surface that is supposed to explain the
+      refusal, and is told "About" that same number two inches below it.
+    suggestion: |
+      Pass `counts.exact` into the refusal and let it say "runs to about N pages"
+      on the fallback path, so the two surfaces the one reader feeds agree in wording
+      as well as in value.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

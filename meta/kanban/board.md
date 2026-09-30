@@ -30,6 +30,21 @@ _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
 ## Backlog
+- **Model hygiene, found 2026-09-30 by CARD-129's review and worth its own card.** Four declared
+  `check:` refs in `meta/architecture/requirements.yml` name test functions that **do not exist**:
+  `TestDependencyBaseline_IsExactlyPillowAndNumpy` (ADR-0006/R1),
+  `PropertyTest_Solver_NeverFalsePositiveUniqueness` (**CON-005** — the project's one mandatory
+  correctness property), `TestExport_RejectsUnverifiedPuzzle` (INV-002) and
+  `TestComputeClues_MatchesGridExactly` (INV-001). Each appears only inside a comment. That is
+  why `system_rules.py --verify-refs` reports `dead_check_ref: []` with
+  `check_refs_verified: true`: **it text-matches, so the flag's reassurance is unreliable** — a
+  rule can claim a mechanical check it does not have and the validator will agree. Two separate
+  reviewers hit the ADR-0006 case this week before this sweep found four. Fix the refs (or
+  re-type them `review-lens`), and fix the matcher so it resolves a collectible node id.
+- Separately, ADR-0029/R4's ref is `test_every_import_in_the_package_points_inward` — the
+  import-graph guard — but its rule is about overlap masks relative to a line's known cells. The
+  ref exists, so no dead-ref check can catch it; a check that cannot test its rule is the same
+  disease.
 - Model defect (pre-existing, surfaced by the CON-020 validator run 2026-09-30): the architecture
   validator reports `[ERROR] ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025 →
   ADR-0025`. Confirmed present on main with no local change, so it predates today's work — but
