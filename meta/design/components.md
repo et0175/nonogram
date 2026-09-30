@@ -45,7 +45,18 @@ Notes: labels are visible text above each control; no `&nbsp;` spacer labels.
 Used by: puzzle review, books list, book detail, re-grade, batch summary.
 States: default · row-hover · empty (EmptyState inside the table shell) ·
 rejected row (name and thumbnail at 55% opacity) · sortable head (real
-`<a>` links carrying `sort_by`, current column marked with ↑/↓).
+`<a>` links, current column marked with ↑/↓ and `aria-current="true"`,
+its `<th>` carrying `aria-sort`; the arrow is `aria-hidden` and the
+direction repeats in `visually-hidden` text) — that head treatment is
+`books_list.html` only, and `_puzzle_table.html` has yet to follow: it
+still sorts with `href="#"` plus script, carries no `aria-sort`, and
+leaves its arrow unwrapped and its direction unsaid.
+Two query-parameter names are in use: the puzzle review table sorts with
+`sort_by` (`_puzzle_table.html`, the older name) and `/books` with `sort`
+(`books_list.html`, CARD-132). `sort` is the convention going forward —
+shorter, and it is the one the server-rendered link pattern uses; the
+puzzle table keeps `sort_by` until a design-system card renames it, so
+read the template before assuming which one a table takes.
 Tokens: --row-h, --font-num for every numeric column (right-aligned,
 tabular-nums), --color-surface-sunken for thead, --color-border for rules.
 
@@ -142,9 +153,14 @@ than the book's, while the row number still runs 1..n across the whole book.
 Tokens: --color-surface, --color-border, --font-num (#order).
 
 ## ProgressBar
-Used by: batch status.
+Used by: batch status; books list (the `.plan-progress` variant — a
+table-row-height bar under the count, no in-bar text, CARD-132).
 States: pending · generating (accent fill, auto-refresh) · complete (success
 fill) · failed / cancelled (danger fill, error text).
+`.plan-progress` states: partial (accent fill, the default) · complete
+(success fill). They are fill levels, not job lifecycle: a books-list bar
+never says `generating`, so a rule written for a batch job in flight does
+not reach it.
 Tokens: --color-accent, --color-success, --color-danger, --color-surface-sunken.
 
 ## Flash / Alert

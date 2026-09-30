@@ -32,6 +32,7 @@ from flask import Flask, Response, abort, render_template, request, jsonify, fla
 from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime
+from fractions import Fraction
 import hmac
 import json
 import os
@@ -2124,11 +2125,174 @@ def create_app(debug=None):
         """
         return BOOK_THEMES
 
+    # ------------------------------------------------------------------
+    # CARD-132: what /books says about a book's plan (FR-039, ADR-0035)
+    # ------------------------------------------------------------------
+    #
+    # Reads only (G-1): the stored plan and the stored record of each member.
+    # Every count comes from CARD-119's ``planned_cells`` / ``selection_cells``
+    # — the one bucketing function (EC-024, G-2) — so the figure on this list,
+    # the figure on the selection tabs and the verdict the readiness gate
+    # makes are one arithmetic over one set of cells, with no second bucketing
+    # rule here to drift away from it. The route decides nothing about which
+    # cell a puzzle belongs to; it divides two numbers for display.
+    #
+    # The hints carry **exact counts**, not the gate's +/-3 pp (G-3,
+    # ADR-0035 (d)). The gate answers "may this book leave draft"; this row
+    # answers "what is still missing", and a to-do list rounded to the gate's
+    # tolerance would report a cell as fine while it is a puzzle short.
+
+    #: One off-plan cell, worded. The direction is a **word** — "short" or
+    #: "over" — so the hint reads without the colour it is tinted with
+    #: (forge:engineering-standards 11, accessibility).
+    _PLAN_HINT = "{bucket} × {tier}: {direction} {count}"
+
+    #: The orders /books offers. ``completeness`` is the default (FR-039);
+    #: ``created`` is the order this list had before CARD-132 — newest first,
+    #: ``get_all_books``'s own — kept as a column the owner can sort back to.
+    _BOOK_SORTS = ("completeness", "created")
+
+    def _book_member_records(book):
+        """The stored record of every member of ``book``. Reads only.
+
+        An id no row matches contributes to no cell — the same verdict
+        ``book_plan.selection_cells`` makes on a record with no recognisable
+        tier or with a side outside the supported range, and the same one
+        ``BookManager._selection_records`` makes for the gate.
+        """
+        records = []
+        for puzzle_id in book.puzzle_ids:
+            try:
+                record = puzzle_review.get_puzzle(str(puzzle_id))
+            except (ValueError, TypeError):
+                continue
+            if record:
+                records.append(record)
+        return records
+
+    def _book_plan_stats(book):
+        """One books-list row's planned-vs-actual figures (FR-039).
+
+        ``planned`` is the plan's own ``count`` — the total the owner set —
+        and ``None`` for a book with no stored plan, which then shows its
+        count alone (ADR-0035 (c)'s plan-less book). It is ``plan.count``
+        rather than the matrix's sum for the same reason the readiness gate
+        divides by ``plan.count`` (ADR-0035 (b), ``off_plan_cells``): the two
+        differ only for a hand-edited matrix that disagrees with its general
+        plan, and the number the owner planned to print is the count.
+
+        ``actual`` is the number of members that fall in a plan cell, so the
+        headline figure is always the sum of its own per-tier split and the
+        row cannot contradict itself.
+        """
+        selected = selection_cells(_book_member_records(book))
+        plan, _damaged = _readable_plan(book.book_id)
+        planned = planned_cells(plan) if plan is not None else None
+
+        tiers = [
+            {
+                "label": tier.value,
+                "actual": sum(selected[(bucket, tier)] for bucket in PLAN_BUCKETS),
+                "planned": (
+                    None
+                    if planned is None
+                    else sum(planned[(bucket, tier)] for bucket in PLAN_BUCKETS)
+                ),
+            }
+            for tier in PLAN_TIERS
+        ]
+
+        hints = []
+        if planned is not None:
+            for bucket in PLAN_BUCKETS:
+                for tier in PLAN_TIERS:
+                    delta = selected[(bucket, tier)] - planned[(bucket, tier)]
+                    if delta:
+                        hints.append(
+                            _PLAN_HINT.format(
+                                bucket=bucket.label,
+                                tier=tier.value,
+                                direction="over" if delta > 0 else "short",
+                                count=abs(delta),
+                            )
+                        )
+
+        actual = sum(selected.values())
+        total = None if plan is None else plan.count
+        return {
+            "plan_present": plan is not None,
+            "actual": actual,
+            "planned": total,
+            "percent": None if not total else min(100, actual * 100 // total),
+            "complete": total is not None and actual >= total,
+            "tiers": tiers,
+            "hints": hints,
+        }
+
+    def _books_by_completeness(rows):
+        """Most complete first, by ``actual / planned`` (FR-039).
+
+        The ratio is an exact :class:`~fractions.Fraction`, so two books at
+        the same completeness on different plans (66 / 150 and 44 / 100) are
+        one tie rather than two float neighbours.
+
+        A book with **no stored plan** has no completeness at all — there is
+        no denominator — so it cannot be placed among the books that have
+        one, and it goes **last**: after every planned book, including one at
+        0 / 150. FR-039 does not say where it goes; this is the choice, and
+        the reason is that the list is a to-do list against the plan, and a
+        book that has no plan yet is not further along than a book that has
+        one and has not started filling it.
+
+        The ratio is **clamped at 1**, so a book over its plan ties with one
+        exactly on it rather than outranking it (review cycle 1, F-005; the
+        owner's ruling of 2026-09-30). ``/books`` is a to-do list, and a book
+        ten over its plan still has work to do — decide which ten to drop —
+        so it must not sort ahead of a book that is exactly right. The clamp
+        is for the **order only**: the row still reads "160 / 150" and still
+        carries its "over 10" hint, and ``percent`` / ``complete`` cap on
+        their own account.
+
+        Ties, and the whole plan-less tail, keep ``get_all_books``'s own order
+        — newest first — because this is a stable sort over it.
+        """
+        return sorted(
+            rows,
+            key=lambda row: (
+                row["stats"]["planned"] is None,
+                -min(
+                    Fraction(1),
+                    Fraction(row["stats"]["actual"], row["stats"]["planned"]),
+                )
+                if row["stats"]["planned"]
+                else Fraction(0),
+            ),
+        )
+
     @app.route("/books")
     def books_list():
-        """List all books."""
-        books = book_mgr.get_all_books()
-        return render_template("books_list.html", books=books)
+        """List all books, each against its distribution plan (FR-039).
+
+        Reads only (G-1): nothing here writes, and no status is recomputed.
+        The default order is completeness; ``?sort=created`` is the order the
+        list had before CARD-132 (newest first). An unknown ``sort`` value is
+        the default rather than an error — a query string is not a form.
+        """
+        sort = request.args.get("sort", "completeness")
+        if sort not in _BOOK_SORTS:
+            sort = "completeness"
+        rows = [
+            {"book": book, "stats": _book_plan_stats(book)}
+            for book in book_mgr.get_all_books()
+        ]
+        if sort == "completeness":
+            rows = _books_by_completeness(rows)
+        return render_template(
+            "books_list.html",
+            books=[row["book"] for row in rows],
+            rows=rows,
+            sort=sort,
+        )
 
     @app.route("/book/create", methods=["GET", "POST"])
     def create_book():
