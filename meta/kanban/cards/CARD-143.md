@@ -1,6 +1,6 @@
 # CARD-143: Type a puzzle's position in the arrange step, not only up and down
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/143-arrange-type-a-position
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-143
 **Source:** owner, 2026-09-23 ("sort puzzles inside the difficulty group after adding new puzzles, and manually change ordinal numbers, not only moving up-down")
 **Idea:** —
 **Wave:** 27
 **Depends on:** CARD-140
 **Touches:** src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/app.py, tests/test_book_arrange_position.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-30T19:05:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -84,6 +84,20 @@ added puzzles land.
 - **Trace:** meta/architecture/trace.yml
 
 ## Worktree notes
+- [Env] forge 2026.8.17
+- [Dependency met] CARD-140 merged at 5d54019.
+- [Hotspot collision, run anyway on the owner's ruling 2026-09-30] CARD-129 is in flight and
+  **both cards edit `src/nonogram/admin/app.py`**, the first entry in `config.yml`'s
+  `conflict.hotspots`, whose rule is that two cards predicted to touch one hotspot are
+  serialized regardless of their overlap score. The owner chose to run them together with this
+  card's `app.py` edit kept **strictly additive and in its own region** near the arrange route —
+  append, never reorder or reformat — so the two cards occupy different parts of a 4,500-line
+  file and a rebase stays trivial. The orchestrator takes the rebase if it is not. Recorded
+  because the rule was overridden deliberately, not overlooked: if this does conflict, the
+  hotspot list was right and the next such call should respect it.
+- [No other overlap] CARD-129's other files are `book_kdp.py` (new), `book_finalize.html` and
+  its own test; this card's are `book_arrange_puzzles.html` and its own test. Only `app.py` is
+  shared.
 
 - [Origin] Owner, 2026-09-23, after the first real arranging session on the deployed panel.
 - [Why it waits for CARD-140] Both rewrite `book_arrange_puzzles.html` — CARD-140 replaces

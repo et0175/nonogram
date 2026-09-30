@@ -66,16 +66,16 @@ _(none)_
 
 ## Ready
 - **CARD-147** P2 · The book PDF is written black-and-white or in colour (owner, print cost) · 1d · wave 27 · ⏸ blocked: after CARD-146
-- **CARD-146** P2 · The frame reaches the printed two-up page (CARD-144 gap, owner's ruling) · 0.25d · wave 27 · ⏸ blocked: after CARD-128 + CARD-144 merge
-- **CARD-143** P2 · Type a puzzle's position in the arrange step (owner-requested) · 0.5d · wave 27 · after CARD-140
-- **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter (cover not counted) · 0.5d · wave 27 · Inc 15 · after CARD-128, CARD-123, CARD-134
 
 ## In Progress
+- **CARD-143** P2 · Type a puzzle's position in the arrange step (owner-requested) · 0.5d · wave 27 · worktree ../PythonProject4-CARD-143
+- **CARD-129** P2 · Finalise refuses when the interior page count needs a larger KDP gutter · 0.5d · wave 27 · Inc 15 · worktree ../PythonProject4-CARD-129
 
 
 ## Review
 
 ## Done
+- **CARD-146** The frame reaches the printed two-up page · score 9.0 (1 cycle + fix) · merged b9a17d3
 - **CARD-149** The guide page is legible at book size (6.7 pt → 11 pt) · score 9.0 (1 cycle + fix) · merged 2a18cf2
 - **CARD-139** One import style in admin/ — a duplicate module tree cannot exist · score 9.0 (1 cycle + fix) · merged a8bdade
 - **CARD-132** Books list — actual vs planned, exact hints, sort by completeness · score 8.5 (2 cycles) · merged 32fcc52

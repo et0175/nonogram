@@ -1,0 +1,279 @@
+version: 1
+generated_at: "2026-09-30T18:30:20Z"
+target: "card/146-two-up-frame @ 43b7a6b (a024b1b fix + 43b7a6b baseline) vs main @ 524c769"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (_stroke_drawing, _two_up page composition, interior/interior_stream)"
+    - "src/nonogram/export/png.py (_draw_frame, render_image draw order)"
+    - "src/nonogram/export/layout.py (PuzzleFrame)"
+    - "tests/test_book_puzzle_frame.py (full diff, 789 added lines)"
+    - "tests/helpers/two_up_ink.py, tests/helpers/page_ink.py (the ink measurers)"
+    - "tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card146.json, .../card149.json"
+    - "tests/test_book_pdf_memory.py::TestBookPdfMemory_PagesAreUnchanged"
+    - "meta/kanban/cards/CARD-146.md, meta/architecture/requirements.yml (CON-019), assembled system rules"
+    - "~/Documents/nonogram-reviews/CARD-146/*.png (4 renders read visually)"
+  not_reached:
+    - "tests/test_book_pdf_two_up.py and tests/property/test_book_pdf_geometry.py were only grepped for their measurer usage, not read in full (both green in the suite run)"
+    - "the concurrent CARD-129 worktree and the main checkout were deliberately not touched"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 959, removed: 20 }
+  max_fan_in: { symbol: "nonogram.admin.book_pdf_generator._stroke_drawing", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing:
+    - "tests/test_book_pdf_memory.py (3/23 commits on book_pdf_generator.py; its baseline-chain docstring is now two recordings stale)"
+    - "tests/test_book_pdf_two_up.py (4/23; already frame-aware via two_up_ink.drawings_of, green)"
+    - "tests/property/test_book_pdf_geometry.py (4/23; same, green)"
+  churn_12mo: 23
+  defect_density_12mo: "10/23 commits on book_pdf_generator.py are fix/bugfix"
+  bus_factor: "single author (Claude Code, 23/23)"
+  unmeasured:
+    learned_false_positives: "provider_unavailable — no .claude/fix-suppress.yaml and no ~/.forge/retro-signals.yml in this environment"
+    audit_findings: "provider_unavailable — meta/audit/ absent"
+    positioning_backing: "no_eligible_fact — meta/business/positioning.md absent, so no pillar backing to weight against"
+    impact_report: "no_eligible_fact — meta/impact/ absent"
+
+system_contract:
+  rules_checked: 45
+  holds: 15
+  unchecked: 30
+  violated: 0
+  note: >-
+    45 rules assembled on the fly with
+    system_rules.py --card CARD-146 (card_scope: touches); the card carries no
+    ## System contract section, so the assembled set is the denominator.
+    --verify-refs reports check_refs_verified: true and dead_check_ref: [],
+    so no rule is unverifiable for a missing ref. Every test-kind rule's named
+    ref ran in the full-suite run on 43b7a6b (5411 collected, 5402 passed,
+    2 failed, 7 skipped); neither failing test is any rule's check ref.
+    CON-019, which the card's G-1 names, is NOT in the assembled set — its
+    scope does not resolve to the touched files — so it is verified in Step 1b
+    as a card guardrail, not here.
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy green on 43b7a6b; the diff adds no import and does not touch pyproject.toml"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on 43b7a6b; git diff shows no import line added or removed in src/, the native-reimplementation convention in _stroke_drawing is preserved (it reads slot.frame, it does not import export/png._draw_frame)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff adds no signature, request field or export field; the four frame coordinates are already per-axis"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in this diff (TestFitImage_RefusesRatioMismatchBeyondTwice green regardless)"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in this diff (PropertyTest_BareSize_DerivesShorterSideFromSourceShape green regardless)"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: solver recovery is untouched (PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound green regardless)"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in this diff (TestRecovery_RepairAttemptsCountAgainstRetryBound green regardless)"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair logic in this diff (TestRecovery_RepairKeepsFilledCountExact green regardless)"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice in this diff (see the out-of-scope note: this rule's check ref points at the import-graph test, which cannot verify it)"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy in this diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in this diff (TestGenerateRandom_RefusesDensityZeroAndHundred green regardless)"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density seam in this diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in this diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solve/strategy recording in this diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no clock reading added; the diff reads only frame coordinates"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap mask logic in this diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in this diff"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage boundary in this diff (TestStorageBoundary_AsksTheSolverNotTheCaller green regardless)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score handling in this diff"
+    - "ADR-0033/R1 ✓ holds — read of the added block at book_pdf_generator.py:593-601: it binds four ints off slot.frame and calls draw.line four times; it writes no puzzle field at all, and the whole diff in src/ is those 15 lines plus docstring"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition in this diff (TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green regardless)"
+    - "ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green on 43b7a6b; _stroke_drawing is reached only from the book two-up page (grep: one src caller, book_pdf_generator.py:1721), never from the CLI/web render path, and tests/fixtures/a4_golden/** is absent from git diff --name-status main...HEAD"
+    - "ADR-0036/R2 ✓ holds — review-lens: the added block is `left, top, right, bottom = frame.left, frame.top, frame.right, frame.bottom` and four draw.line calls at width=frame.width. No arithmetic, no rounding, no offset, no cell fitting, no line placement; every number came from compute_pair_layout. Mutating any coordinate by +1 px (M3/M4) is killed by the card's own tests, so the verbatim consumption is enforced, not merely written"
+    - "ADR-0037/R1 ✓ holds — review-lens: _stroke_drawing draws lines only; no ImageFont, no draw.text added. The band text path (_set_band/band_identity) is untouched by the diff"
+    - "ADR-0037/R2 ✓ holds — review-lens: the only stroke weight introduced is frame.width (= Layout.thick_rule). Verified by measurement, not by reading: TestPuzzleFrame_TwoUpUsesTheHeavyRuleOnly counts run lengths off the rendered page and asserts thick == 2*thin and thin/PX_PER_MM >= MIN_THIN_RULE_MM, and mutant M2 (width=frame.width -> width=slot.thin_rule) is killed by 12 items"
+    - "CON-005 ✓ holds — PropertyTest_Solver_NeverFalsePositiveUniqueness green on 43b7a6b; the diff touches no solver code"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server binding in this diff (TestWebServer_BindsLoopbackOnlyByDefault green regardless)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request handling in this diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size validation in this diff"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in this diff"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: the admin entry point is not touched (TestAdminPanel_BindsLoopbackOnlyByDefault green regardless)"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: no request door logic in this diff"
+    - "CON-020 ✓ holds — review-lens, and this is the rule most at risk of a silent breach on a book_pdf_generator.py diff: the added code draws no text and names no type size; grep of the src diff shows no ImageFont, no draw.text, no point/px size constant. Corroborated by the new baseline — font_fingerprint is CARD-149's cfa57e76…ba30b unchanged, font_dependent_pages is CARD-149's [1,2,4,6,8] unchanged, and the one page that moved (3) is not on that list"
+    - "INV-001 ✓ holds — TestComputeClues_MatchesGridExactly green on 43b7a6b; no clue derivation in this diff"
+    - "INV-002 ✓ holds — TestExport_RejectsUnverifiedPuzzle / ...ForPDF / TestRecovery_RecoveredGridIsReverifiedBySolver green on 43b7a6b"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in this diff (all six named tests green regardless)"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no distribution plan in this diff (all three named tests green regardless)"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no membership/floor logic in this diff (all four named tests green regardless)"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready gate in this diff (all four named tests green regardless)"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-membership change in this diff (all three named tests green regardless)"
+    - "INV-009 ✓ holds — all six named tests green on 43b7a6b, including TestBookPdf_DifficultyOrderWithDividerPerLevel and TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel, which walk the same interior this card re-inks"
+    - "INV-010 ✓ holds — all ten named tests green on 43b7a6b, including PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly and the eight TestBookPdf_* pairing boundary tests; the pairing walk (puzzle_pages) is untouched, and the card's own TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame re-measures the shared cell off the ink and finds it at FR-040's value"
+    - "INV-011 ✓ holds — all eight named answer-key tests green on 43b7a6b; the packed key is render_answer_page's and never calls _stroke_drawing (grep: one src caller)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership/status logic in this diff (all six named tests green regardless)"
+    - "INV-013 ✓ holds — all six named tests green on 43b7a6b, including PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage; the new baseline still records page_count 11 and the same eleven page kinds"
+
+root_causes:
+  - id: RC-1
+    title: "The book baseline's evidence chain is narrated in two places and only one was kept current"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 1158
+    title: "TestBookPdfMemory_PagesAreUnchanged's docstring still names card144.json as the current baseline — now two recordings stale"
+    description: |
+      The class docstring says the evidence is "``tests/helpers/book_corpus.BASELINE_FIXTURE``,
+      currently ``tests/fixtures/book_baseline_card144.json``" and narrates a supersession chain
+      that ends at CARD-144 ("succeeded twice since ... by CARD-128 ... and by CARD-144"). It also
+      says "Its two predecessors sit beside it" when there are now four.
+
+      BASELINE_FIXTURE has pointed at card149.json since 2a18cf2 and points at card146.json after
+      43b7a6b. `git log -L 1158,1200` shows the docstring was last touched by 837075b (CARD-144);
+      CARD-149 introduced the staleness, this card inherits and extends it by one link.
+
+      This is exactly the intent↔reality drift the docstring itself guards against: the aspirational
+      layer names a fixture the test does not read. It is also the strongest co-change signal in the
+      history — tests/test_book_pdf_memory.py changed with book_pdf_generator.py in 3 of the latter's
+      last 23 commits and is absent from this diff — and it stands out because this card updated the
+      *other* narrative of the same chain (tests/helpers/book_corpus.py's BASELINE_FIXTURE comment,
+      "Three recordings" -> "Five recordings") meticulously.
+
+      Not a correctness defect: the test reads BASELINE_FIXTURE, not its own prose, and it is green.
+    suggestion: |
+      In the docstring, say "currently ``tests/fixtures/book_baseline_card146.json``", extend the
+      chain sentence to CARD-149 (guide-page type) and CARD-146 (the two-up frame), and change
+      "Its two predecessors" to name the four. Cheapest done in this card, which already owns the
+      chain's newest link; otherwise a one-line follow-up.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_puzzle_frame.py
+    line: 1218
+    title: "AC-3's cross-presentation comparison does not itself discriminate a 1 px placement error; its sibling does, with 0.49 px of margin"
+    description: |
+      AC-3 is worded "frame placement on a two-up page straddles its boundary exactly as a single
+      page's does, so the two presentations agree", and
+      `test_a_two_up_slot_and_a_single_page_place_the_stroke_alike` is the test that actually
+      compares the two presentations. Measured: with the frame's left side moved 1 px inward
+      (mutant M3), that test PASSES. The mutant is killed only by its sibling
+      `test_each_slots_left_side_straddles_the_drawings_left_edge`, and the margin is thin:
+      `abs(outside - inside)` measures 3.492 against `_STRADDLE_SLACK_PX = 3.0`.
+
+      The cause is structural, not an oversight: `_STRADDLE_SLACK_PX` has to absorb two whole-pixel
+      steps (the fractional boundary and Pillow's even-width centring), and a 1 px offset moves the
+      asymmetry by 2 — inside the budget the cross-page comparison spends on
+      `abs((paired[0]-paired[1]) - (alone[0]-alone[1])) <= 3.0`. Whether the sibling kills it
+      depends on which way this pair's fractional boundary happens to fall; on a corpus whose
+      boundary fell the other way the same 1 px offset would measure ~1.5 and survive both.
+
+      Weight this low, deliberately: a 1 px offset is not a plausible regression mode here, because
+      the code binds the four coordinates verbatim off `slot.frame` with no arithmetic at all — the
+      realistic regressions are a dropped side or a wrong width, and those are killed 12-14 items
+      wide (M1, M2, M5). The finding is that the AC's headline claim rests on a neighbouring test
+      and on a fortunate fraction, not on the comparison the AC names.
+    suggestion: |
+      Optional. If AC-3's own test is to carry the claim, compare the stroke's first pixel against
+      its boundary directly — e.g. assert `abs((paired[0] - alone[0])) <= 1` on top of the existing
+      sum/asymmetry pair, or assert the offset in the same direction on both presentations — rather
+      than only the difference of asymmetries, whose budget is already spent on two unavoidable
+      rounding steps.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  ran: true
+  deferred: false
+  note: >-
+    Run serially, after all other steps, with no Critical/Important findings present (the cost
+    ladder's release condition). Executed entirely on `git archive HEAD` extractions in the
+    scratchpad, never in the reviewed worktree — so the worktree was never mutated and
+    `git status --porcelain` shows only ` M meta/kanban/cards/CARD-146.md` (the orchestrator's
+    own uncommitted card note) before and after.
+  test_command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts=\"\" tests/test_book_puzzle_frame.py"
+  baseline: "66 passed in 1.78s"
+  mutants:
+    - id: M1
+      mutation: "drop the frame's TOP side from the four-side tuple"
+      result: killed
+      detail: "12 failed / 54 passed — AC-1 x5, AC-2 x4, AC-4 x2, property x1"
+    - id: M2
+      mutation: "width=frame.width -> width=slot.thin_rule (off the heavy rule, ADR-0037/R2)"
+      result: killed
+      detail: "12 failed / 54 passed — AC-1 x4, AC-2 x3, AC-3 x2, AC-4 x2, property x1"
+    - id: M3
+      mutation: "frame.left -> frame.left + 1 (one side moved off its boundary by one pixel)"
+      result: killed
+      detail: >-
+        1 failed / 65 passed — TestPuzzleFrame_TwoUpStraddlesItsBoundaryLikeASinglePage::
+        test_each_slots_left_side_straddles_the_drawings_left_edge, at
+        `assert 3.4921259842519703 <= 3.0`. See F-002: the AC's own cross-page comparison passed.
+    - id: M4
+      mutation: "frame.top -> frame.top + 1"
+      result: killed
+      detail: "1 failed / 65 passed — TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame::test_the_upper_slot_still_starts_on_the_fixed_top_row"
+    - id: M5
+      mutation: "drop the frame's LEFT side"
+      result: killed
+      detail: "14 failed / 52 passed — the widest kill; all four AC classes plus the property test"
+    - id: M6
+      mutation: "drop the frame's RIGHT side"
+      result: survived
+      detail: >-
+        66 passed. NOT a test defect: an equivalent mutant. frame.right == Layout.grid_right and
+        the grid's own right border is stroked at the same thick_rule over the same extent
+        (the verticals run the full axis, gutters included), so dropping the frame's right side
+        puts identical black in identical pixels. Both PuzzleFrame's docstring and the new
+        _stroke_drawing docstring state this explicitly ("re-stroking them puts identical black
+        in identical pixels; the ink a frame *adds* is its left and top sides"). Bottom is the
+        same case. No finding filed.
+  control_no_src_change:
+    mutation: "src/nonogram/admin/book_pdf_generator.py replaced with main's (frame block absent)"
+    result: "9 failed / 57 passed"
+    verdict: >-
+      The implementation's claim of "nine red without the src change" is exact, and they span
+      every AC class: AC-1 x3, AC-2 x2, AC-3 x2, AC-4 x1, property x1.
+  restore_proof: "diff -q against the captured originals returned OK after every mutant; the reviewed worktree was never written to (git status --porcelain: ' M meta/kanban/cards/CARD-146.md' only)"
+
+baseline_discipline:
+  fixture_field_structure_identical_to_card149: true
+  supersedes: "tests/fixtures/book_baseline_card149.json"
+  recorded_from_commit: "a024b1b (the fix commit) — the CARD-149 shape"
+  digests_verified_independently: "10 of 11 page digests byte-identical to card149.json; only interior page 3 differs; every page's size stays (2550, 3300)"
+  interior_bytes_delta: 13615
+  older_fixtures_edited: false
+  older_fixtures_check: "git diff --name-status main...HEAD -- tests/fixtures/ returns exactly `A tests/fixtures/book_baseline_card146.json`; card128/144/145/149.json untouched"
+  commit_split: "a024b1b = src + tests only; 43b7a6b = fixture + BASELINE_FIXTURE repoint only. No overlap."
+  red_commit_scope: "TestBookPdfMemory_PagesAreUnchanged::test_every_page_is_pixel_identical_to_the_recorded_one and ::test_the_interior_is_the_length_it_was (line 1301, the interior-byte assertion) are the only assertions in the repo that read BASELINE_FIXTURE's pages/interior_bytes; tests/test_book_guide_page_type.py imports only corpus_book, not the fixture. The claim of 'exactly those two and nothing else' is consistent with that enumeration."
+  page3_font_dependent: false
+  page3_font_dependent_note: "font_dependent_pages is [1,2,4,6,8]; page 3 is not on it, so this card's evidence is reproducible on a machine without Arial — verified against the fixture, claim correct"
+
+visual:
+  status: "unavailable (provider_unavailable) — review.visual is off, no `make run`, no screenshots/runtime.log/a11y.log/visual-diff.log captured by a loop"
+  renders_read_manually:
+    - "before-page3-two-up-thumb.png / after-page3-two-up-thumb.png"
+    - "corner-before-above-after-below.png"
+    - "before-page5-single.png / after-page5-single.png (sha256 identical: 8a74cb6e…6499b)"
+  observation: >-
+    Before: each slot's two clue bands run off into white — the column-clue digits sit under no
+    rule and the row-clue digits beside none, and the top-left region where the two gutters meet
+    is open on its top and left. After: each of the two drawings is a closed rectangle at the
+    heavy weight, the same weight as the grid's own border and the every-5th rules beside it; the
+    corner box is closed on all four sides and empty; both clue bands are boxed, their inner
+    divider being the grid's existing border. The two slots are two separate rectangles — nothing
+    is ruled across the strip between them, and the strip still carries only the lower slot's
+    band. Grid position, cell size and the drawing's right/bottom edges are visually unmoved
+    between the two pages. The independent confirmation is that before-page5-single.png and
+    after-page5-single.png are byte-identical, so the single-puzzle presentation did not move.
+    This agrees with the orchestrator's own description of the same four renders.

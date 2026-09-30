@@ -1,6 +1,6 @@
 # CARD-129: Finalise refuses when the page count needs a larger KDP gutter than the stored one
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/129-finalise-kdp-gutter-check
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-129
 **Source:** meta/architecture/handoff.md#increment-15 (finalise gutter check, ADR-0036 clarification; AC-179 of FR-030; closes Increment 15)
 **Idea:** —
 **Wave:** 27
 **Depends on:** CARD-128, CARD-123, CARD-134
 **Touches:** src/nonogram/admin/book_kdp.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_finalise_gutter.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-09-30T18:05:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -146,9 +146,86 @@ eye.
 - **Standards:** forge:engineering-standards §11
 
 ## Worktree notes
+- [Env] forge 2026.8.17
+- [Dependencies met] CARD-128 (557c7ac), CARD-123 (8b7b78e) and CARD-134 (72f7a3b) are all
+  merged.
+- [Runs in parallel with CARD-146, and the footprints are disjoint] CARD-146 is in flight on
+  `book_pdf_generator.py`, `tests/test_book_puzzle_frame.py`, the baseline fixture and
+  `tests/helpers/book_corpus.py`. This card touches `book_kdp.py` (new), `app.py`,
+  `book_finalize.html` and its own test file. **Zero overlap** — checked file by file, not
+  assumed. The one thing to know: CARD-146 is re-recording the book baseline, so if this card's
+  tests read the interior through `tests/helpers/book_corpus.py`'s `BASELINE_FIXTURE`, the
+  pointer will move under it at merge. Prefer building the interior this card needs directly
+  over depending on the recorded baseline.
+- [Owner's routing, 2026-09-30] CARD-147 was asked for first but declares
+  `Depends on: CARD-146`, which is `in_progress`; both edit `book_pdf_generator.py`, a declared
+  conflict hotspot, and both re-record the baseline. Starting them together would have put two
+  baseline re-recordings against a moving file. The owner chose this card instead.
+- [What this closes] Increment 15's checkpoint, per the card's own section. It is also the
+  defect class that only shows itself at KDP upload — after everything else looks finished.
 
 —
 
 - [Handover from CARD-115, 2026-09-22] AC-179's illustrative 0.60 cm gutter is below book_page_spec's 6.35 mm floor, so the builder refuses it before finalise can name the KDP band. Reconcile here (this card's checkpoint already uses the KDP-legal 0.375 in).
 
 - [Handover from CARD-116, 2026-09-23] The Finalise page count is taken over all members, so it can promise a page the exported file drops. A puzzle that builds a payload but cannot be drawn now raises RuntimeError naming the row id and aborts; one that cannot become a payload is dropped in a first pass before any interior position is handed out.
+- [CARD-129, 2026-09-30] **Where the page count comes from, and the one place it does not.**
+  Finalise asks `BookPDFGenerator.interior_stream` — the same page plan the export
+  walks — for all three counts and never walks its pages, so the screen reports the
+  exported file's real page count without drawing 25.2 MB a page (EC-034). The count
+  is measured on the book's **stored** gutter and the book is never laid out a second
+  time at another one (G-2); the stored gutter is only ever read (G-1).
+  `app.py`'s `_interior_counts` is that one reader, and both halves of the route — the
+  Save-and-finish action and the screen below it — go through it, so the number the
+  gate refuses on is the number the owner was shown.
+
+- [CARD-129, 2026-09-30] **AC-179's 0.60 cm, reconciled (CARD-115's handover).**
+  0.60 cm is below `book_page_spec`'s 0.635 cm side-margin floor, so such a book has
+  no *sheet* and the pairing walk cannot run — the builder refuses before finalise can
+  name the KDP band. Two-up pairing is the **only** term of the interior's make-up
+  that needs a sheet, so `book_kdp.unpaired_interior_page_count` computes the same
+  interior with every puzzle on a page of its own, from the book's real levels and its
+  real **packed** key, with no new arithmetic (it calls `interior_page_count`,
+  `print_order`, `tier_of_record` and `pack_answer_pages` — the generator's own four).
+  That is an upper bound, so it can only name a band at or above the true one, and the
+  refusal is certain either way: a gutter below the sheet builder's floor is below
+  *every* band of KDP's table. AC-179's corpus pairs nothing **at any gutter** (its
+  drawings are 28 cells down, and a pair's shared cell is decided by the page's
+  height, which side margins do not touch), so for that book the bound *is* the
+  interior's page count — 180 on the illegal gutter, 180 on a legal one — and
+  `test_the_scenario_really_has_that_many_pages` measures all three.
+  The screen marks such a count with "About"; an exact one carries no "~" any more.
+
+- [CARD-129, 2026-09-30] **`KdpPageCountNotModelled` is a `ValueError`, not a
+  `NonogramError`.** `tests/test_web_submission.py::test_the_walked_corpus_is_the_whole_hierarchy`
+  refuses any `NonogramError` subclass the CLI's exit-code table does not deliberately
+  classify, and a book's KDP gutter band is not something the CLI can be asked for —
+  the same reasoning `AdminConfigurationError` already carries. `ValueError` is what
+  the book domain's own refusals are (`set_book_status`, `book_page_spec`,
+  `InvalidBookDetails`), so every caller that already guards a book operation catches it.
+
+- [CARD-129, 2026-09-30] **Above 300 pages nothing is guessed.** `KDP_GUTTER_BANDS`
+  holds the two bands the requirements record, in inches, once; every centimetre figure
+  is derived from them. A page count above 300 raises with "KDP gutter table not
+  modelled above 300 pages" rather than inventing a fourth band, and the route turns
+  that into the refusal the owner reads. Recording the rest of KDP's table is the
+  remedy, not widening this one by hand.
+
+- [CARD-129, 2026-09-30] **Two existing assertions moved, both deliberately.**
+  `tests/test_book_export_interior_cover.py`'s `TestBookFinalise_OffersBothDownloads`
+  and `TestBookFinalise_PageCountIsTheExportsPagePlan` pinned the screen's old
+  `~<upper bound>` figure — the very thing `interior_page_count`'s docstring says
+  CARD-129 owns replacing. They now pin the exact count against that module's own
+  arithmetic *and* against the page count of the file its own download button returns.
+
+- [CARD-129, 2026-09-30] **Increment 15 checkpoint, measured.** Renders and figures in
+  `~/Documents/nonogram-reviews/CARD-129/` (guide page, "Easy"/"Medium"/"Hard"
+  dividers, the two-up page, a single 20x20 page, the SOLUTIONS divider, an answer
+  page, the interior PDF and the separate cover file, plus `MEASUREMENTS.txt`).
+  A curated 12-puzzle book on CON-018's profile: **20 pages before pairing, 18 after**
+  (2 saved), **3 answer-key pages**; the 12+12 pair on interior page 3 measures
+  **7.3859 mm** (target 7.39 +/- 0.05) under bands "Puzzle 1 · Easy" / "Puzzle 2 · Easy",
+  and the upper slot's top edge sits on **pixel row 254**, the same row as the single
+  20x20 page's drawing. The 150-puzzle book the gate exists for is measured beside it:
+  125 pages before the key + 30 packed answer pages = **155**, refused at a stored
+  0.375 in gutter, accepted at 125 — which is AC-271 in one line.
