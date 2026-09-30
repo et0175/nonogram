@@ -103,6 +103,20 @@ echo ""
 echo -e "${YELLOW}[3/6]${NC} Activating virtual environment..."
 source .venv/bin/activate
 echo -e "${GREEN}✓ Virtual environment activated${NC}"
+
+# The launch line below asks for ``nonogram.admin.app`` (see the comment there),
+# and that name resolves ONLY through the editable install's path entry: the
+# package lives at ``src/nonogram``, so the working directory yields
+# ``src.nonogram`` and never a bare ``nonogram``. Check it here so a venv without
+# the install fails with the command to run instead of a raw ModuleNotFoundError
+# out of flask. Deliberately does not install anything on the developer's behalf.
+if ! python -c 'import nonogram' > /dev/null 2>&1; then
+    echo -e "${RED}✗ Project not installed in the virtual environment${NC}"
+    echo "  'import nonogram' failed, so --app nonogram.admin.app cannot resolve."
+    echo "  Install it with: pip install -e .   (in the activated venv, from $PROJECT_ROOT)"
+    exit 1
+fi
+echo -e "${GREEN}✓ Project importable (editable install present)${NC}"
 echo ""
 
 # Set environment variables
@@ -143,5 +157,16 @@ echo ""
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 
-# Start Flask
-python -m flask --app src.nonogram.admin.app run --port $PORT
+# Start Flask.
+#
+# ``nonogram.admin.app``, not ``src.nonogram.admin.app`` (CARD-139): the two
+# spellings name the same file but are two different module trees to Python, so
+# launching by the ``src.``-prefixed one loaded the admin package twice and the
+# panel crashed on Print setup with ``ValueError: tuple.index(x): x not in
+# tuple`` out of ``book_plan.Plan.cell``. The package no longer contains a
+# relative import, so the two trees can no longer disagree — but there is
+# nothing to gain from the prefix either, and pointing the repo's own launcher
+# at the spelling that caused a live 500 is how the trap gets rediscovered.
+# ``nonogram`` resolves through the editable install activated above, from any
+# working directory.
+python -m flask --app nonogram.admin.app run --port $PORT
