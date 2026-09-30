@@ -1,0 +1,473 @@
+version: 1
+generated_at: '2026-09-30T12:39:42Z'
+target: CARD-139 cycle 1 — branch card/139-admin-import-consistency @ ba8f6c6 vs main @ 2a010cf (worktree
+  /Users/omelnikova/PycharmProjects/PythonProject4-CARD-139)
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: forge 2026.8.17
+review:
+  mutation_check: true
+  visual: unavailable (not_applicable) — review.visual off and this is not a UI card; no screens rendered,
+    no baselines compared
+coverage:
+  read:
+  - src/nonogram/admin/__init__.py
+  - src/nonogram/admin/app.py (import block + create_app deferral at 4642)
+  - scripts/start_admin_local.sh (all 158 lines)
+  - tests/test_admin_import_consistency.py (all 364 lines)
+  - tests/test_cli.py (layering guard, run green)
+  - migrations/env.py
+  - alembic.ini
+  - src/nonogram/db/{models,session,__init__}.py
+  - scripts/README.md
+  - meta/kanban/cards/CARD-139.md
+  not_reached:
+  - the ~4600 non-import lines of app.py (unchanged by the diff; behaviour equivalence established by
+    identical route tables rather than by reading)
+  - src/nonogram/admin/templates/** (co-change peers; no imports, not touched)
+  confidence: high
+metrics:
+  diff:
+    files: 4
+    added: 392
+    removed: 17
+  max_fan_in:
+    symbol: nonogram.admin package (any spelling)
+    callers: 114
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/app.py — 136 commits/12mo, 64 fix-ish (47% defect density), the repo's highest-churn
+    file
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: 'no_eligible_fact — measured, and genuinely empty: the co-change peers of app.py
+      are templates (image_preview.html 21, puzzles_list.html 13, ...) and sibling admin modules (book_manager
+      17, puzzle_review 15, image_manager 14, batch_generator 14), none of which needs an edit for an
+      import-spelling sweep; an independent ast walk confirms 0 relative imports remain package-wide'
+    bus_factor: not_applicable — all 136 app.py commits are authored 'Claude Code'; single-author is an
+      artefact of an AI-authored repo, not a bus-factor signal
+system_contract:
+  rules_checked: 47
+  holds: 40
+  unchecked: 7
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full suite on ba8f6c6
+    (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this
+    check)
+  - 'ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green in my own run: 94 passed
+    in tests/test_cli.py on ba8f6c6; the guard resolves relative and absolute imports to the same dotted
+    name, so converting 15 relative→absolute changes nothing it sees, and export/ still never imports
+    admin/'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: check.kind is review-lens and this diff changes no signature,
+    policy or layout — import spelling only; route tables byte-identical main vs branch under both spellings'
+  - ADR-0022/R3 ✓ holds — TestFitImage_RefusesRatioMismatchBeyondTwice green in the full suite on ba8f6c6
+    (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this
+    check)
+  - ADR-0022/R4 ✓ holds — PropertyTest_BareSize_DerivesShorterSideFromSourceShape green in the full suite
+    on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - ADR-0024/R1 ✓ holds — PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound green in the
+    full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions,
+    neither is this check)
+  - ADR-0024/R2 ✓ holds — TestRecovery_RepairAttemptsCountAgainstRetryBound green in the full suite on
+    ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - ADR-0024/R3 ✓ holds — TestRecovery_RepairKeepsFilledCountExact green in the full suite on ba8f6c6
+    (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this
+    check)
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: check.kind is review-lens and this diff changes no signature,
+    policy or layout — import spelling only; route tables byte-identical main vs branch under both spellings'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: check.kind is review-lens and this diff changes no signature,
+    policy or layout — import spelling only; route tables byte-identical main vs branch under both spellings'
+  - ADR-0027/R1 ✓ holds — TestGenerateRandom_RefusesDensityZeroAndHundred green in the full suite on ba8f6c6
+    (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this
+    check)
+  - ADR-0027/R2 ✓ holds — TestGenerateRandom_DegenerateDensityVerdictIsMadeAtValidateDensitySeam green
+    in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+  - ADR-0029/R1 ✓ holds — TestScoreDifficulty_DeeperLineReasoningScoresHigher green in the full suite
+    on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - ADR-0029/R2 ✓ holds — TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve green in the full suite
+    on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - ADR-0029/R3 ✓ holds — PropertyTest_ScoreDifficulty_IndependentOfElapsedTime green in the full suite
+    on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - 'ADR-0029/R4 ✓ holds — test_every_import_in_the_package_points_inward green in my own run: 94 passed
+    in tests/test_cli.py on ba8f6c6; the guard resolves relative and absolute imports to the same dotted
+    name, so converting 15 relative→absolute changes nothing it sees, and export/ still never imports
+    admin/'
+  - ADR-0029/R5 ✓ holds — PropertyTest_SolveStrategies_RungsInvariantUnderTransposition green in the full
+    suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions,
+    neither is this check)
+  - ADR-0031/R1 ✓ holds — TestTiers_ThreeBandsAndNoFourthTier green in the full suite on ba8f6c6 (5381
+    collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - ADR-0031/R2 ✓ holds — TestTiers_BranchingIsAStrategyNotATier green in the full suite on ba8f6c6 (5381
+    collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - ADR-0031/R3 ✓ holds — TestTiers_LegacyGuessRowReadsAsHard green in the full suite on ba8f6c6 (5381
+    collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - ADR-0032/R1 ✓ holds — TestStorageBoundary_AsksTheSolverNotTheCaller green in the full suite on ba8f6c6
+    (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this
+    check)
+  - ADR-0032/R2 ✓ holds — TestUnmeasuredQuality_SurvivesTheFilter green in the full suite on ba8f6c6 (5381
+    collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: check.kind is review-lens and this diff changes no signature,
+    policy or layout — import spelling only; route tables byte-identical main vs branch under both spellings'
+  - ADR-0035/R1 ✓ holds — TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green in the full suite on
+    ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - ADR-0036/R1 ✓ holds — TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green in the full suite
+    on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: check.kind is review-lens and this diff changes no signature,
+    policy or layout — import spelling only; route tables byte-identical main vs branch under both spellings'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: check.kind is review-lens and this diff changes no signature,
+    policy or layout — import spelling only; route tables byte-identical main vs branch under both spellings'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: check.kind is review-lens and this diff changes no signature,
+    policy or layout — import spelling only; route tables byte-identical main vs branch under both spellings'
+  - CON-005 ✓ holds — PropertyTest_Solver_NeverFalsePositiveUniqueness green in the full suite on ba8f6c6
+    (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this
+    check)
+  - CON-009 ✓ holds — TestWebServer_BindsLoopbackOnlyByDefault green in the full suite on ba8f6c6 (5381
+    collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - CON-010 ✓ holds — PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest green in the
+    full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions,
+    neither is this check)
+  - CON-011 ✓ holds — PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 green in the
+    full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions,
+    neither is this check)
+  - CON-012 ✓ holds — PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore green in
+    the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+  - CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault green in the full suite on ba8f6c6 (5381
+    collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green in the full suite
+    on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions, neither
+    is this check)
+  - INV-001 ✓ holds — TestComputeClues_MatchesGridExactly green in the full suite on ba8f6c6 (5381 collected,
+    5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - INV-002 ✓ holds — TestExport_RejectsUnverifiedPuzzle, TestExport_RejectsUnverifiedPuzzleForPDF, TestRecovery_RecoveredGridIsReverifiedBySolver
+    green in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+  - INV-003 ✓ holds — PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound, TestNudge_ReportsFailureAtCap,
+    TestRecovery_RepairAttemptsCountAgainstRetryBound, TestRegenerate_StopsAtMaxRetryBound, TestResample_StopsAtMaxRetryBound,
+    TestRetryLoop_BoundedIterations green in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2
+    failed — both pre-existing stale-heading assertions, neither is this check)
+  - INV-005 ✓ holds — PropertyTest_BookPlan_PrefillTotalsMatchGeneralPlan, TestBookCreate_StoresDefaultPlanThatSumsTo100,
+    TestBookPlan_RejectsSplitNotSummingTo100 green in the full suite on ba8f6c6 (5381 collected, 5372
+    passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - INV-006 ✓ holds — PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride, TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride,
+    TestBookAddPuzzles_AcceptsBelowFloorWithOverrideAndRecordsIt, TestBookAddPuzzles_RefusesBelowFloorWithoutOverride
+    green in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+  - INV-007 ✓ holds — PropertyTest_BookReady_GateIffEveryCellWithinTolerance, TestBookReady_AcceptsWhenEveryCellWithinTolerance,
+    TestBookReady_ExactlyThreePointsAccepted, TestBookReady_RefusedBeyondThreePoints green in the full
+    suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading assertions,
+    neither is this check)
+  - INV-008 ✓ holds — TestBookPublished_ConfirmedPuzzleChangeApplied, TestBookPublished_PuzzleChangeRequiresConfirmation,
+    TestBookPublished_UnconfirmedChangeKeepsStatus green in the full suite on ba8f6c6 (5381 collected,
+    5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - INV-009 ✓ holds — PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel,
+    TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder, TestBookPdf_DifficultyOrderWithDividerPerLevel,
+    TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel green in the full suite on ba8f6c6 (5381 collected,
+    5372 passed, 2 failed — both pre-existing stale-heading assertions, neither is this check)
+  - INV-010 ✓ holds — PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly, TestBookPdf_DifferentTiersNeverPair,
+    TestBookPdf_FifteenPlusTwelveDoesNotPair, TestBookPdf_OddPuzzleOutPrintsAlone, TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare,
+    TestBookPdf_PairJustAboveTwoUpMinimumShares, TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare, TestBookPdf_PairingNeverReordersToFindAPartner,
+    TestBookPdf_TwelvePairSharesPageBelowStandardCell, TestBookPdf_TwoSmallSameTierNeighboursShareAPage
+    green in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+  - INV-011 ✓ holds — PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook, TestBookAnswerKey_DefaultPlanTakesThirtyPages,
+    TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages, TestBookAnswerKey_EachLevelStartsNewAnswerPage,
+    TestBookAnswerKey_LargeAnswerThatWouldOverfillStartsNewPage, TestBookAnswerKey_LongestSideTwentyStaysSixUp,
+    TestBookAnswerKey_PageBecomesFourUpOnceItHoldsAnswerAbove20, TestBookAnswerKey_SixUpInPuzzleNumberOrder
+    green in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+  - INV-012 ✓ holds — PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookAddPuzzlesByIds_NonDraftReturnsToDraft,
+    TestBookMembership_AddOnNonDraftReturnsToDraft, TestBookMembership_RemoveOnNonDraftReturnsToDraft,
+    TestBookPublished_ConfirmedChangeReturnsToDraft, TestBookReady_ReturnedToDraftIsCheckedAgainOnNewMembership
+    green in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+  - INV-013 ✓ holds — PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover,
+    TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage,
+    TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover
+    green in the full suite on ba8f6c6 (5381 collected, 5372 passed, 2 failed — both pre-existing stale-heading
+    assertions, neither is this check)
+root_causes: []
+findings:
+- id: F-001
+  severity: medium
+  category: tech-debt
+  type: risk
+  file: scripts/start_admin_local.sh
+  line: 158
+  title: The launcher's new spelling depends on the editable install, and the script never checks for
+    it
+  description: 'The declared SCOPE+ changed line 158 from `--app src.nonogram.admin.app` to `--app nonogram.admin.app`.
+    The two spellings do not resolve by the same mechanism. The old one resolved from the working directory
+    (line 89 does `cd "$PROJECT_ROOT"`, and `python -m` puts cwd on sys.path, where `src/` is a package
+    directory). The new one cannot resolve that way — `nonogram` lives at `src/nonogram`, so cwd on the
+    path yields `src.nonogram`, never `nonogram`. It resolves only through the editable install''s .pth
+    in site-packages.
+
+
+    Measured: with the editable-install path entry dropped from sys.path, `find_spec(''src.nonogram.admin'')`
+    is True and `find_spec(''nonogram'')` is False.
+
+
+    The script never establishes that precondition. Step 2 (lines 92-99) checks only that the `.venv`
+    DIRECTORY exists; there is no `pip install -e .` step and no import check anywhere in the 158 lines.
+    So the script can reach line 158 with a venv that cannot import `nonogram`, where the old spelling
+    would have worked. Secondary effect: the .pth holds an ABSOLUTE path (`/Users/omelnikova/PycharmProjects/PythonProject4/src`),
+    so from any second checkout the launcher now serves whatever tree the install points at rather than
+    the checkout the script lives in. Benign today — worktrees have no `.venv`, so the script exits at
+    step 2 (verified: no `.venv` in the CARD-139 worktree).
+
+
+    The trade is clearly correct: the failure is loud and immediate (ModuleNotFoundError before a single
+    request) where the old spelling''s failure was a silent live 500 on a real screen. The finding is
+    that the card''s worktree note asserts the unprefixed name "resolves from any working directory" without
+    naming the new dependency it introduces — which overstates the safety argument for the one line taken
+    outside the card''s own scope.'
+  suggestion: Add an install check to step 2, e.g. `python -c 'import nonogram' 2>/dev/null || pip install
+    -e .`, so the precondition the new spelling needs is established rather than assumed. Alternatively
+    note the dependency in the line-158 comment, which currently explains only why the prefix was dropped.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: fixed
+  fix_note: 'Added a guard clause to scripts/start_admin_local.sh immediately after the venv is
+    activated (step 3) — the earliest point at which the script''s own name for the venv''s interpreter
+    (bare `python`, as used on the launch line) exists, so no second way of naming the interpreter
+    was introduced. It runs `python -c ''import nonogram''` and, on failure, prints the coloured ✗
+    line, names the command to run (`pip install -e .` in the activated venv, from $PROJECT_ROOT)
+    and exits 1 — matching the register of the existing Python, PostgreSQL and venv checks. It
+    deliberately does NOT install anything on the developer''s behalf. A comment above it states the
+    precondition the reviewer measured: `nonogram` resolves only through the editable install''s path
+    entry, never from the working directory, because the package lives at src/nonogram.
+
+
+    Evidence. `bash -n scripts/start_admin_local.sh` clean (no output, exit 0). Passes correctly:
+    the project venv''s interpreter runs `import nonogram` → exit 0, resolving to
+    /Users/omelnikova/PycharmProjects/PythonProject4/src/nonogram/__init__.py; the guard block itself,
+    run with that interpreter first on PATH, printed "✓ Project importable (editable install present)"
+    and fell through to the launch line, exit 0. Fires correctly: the system python3 with PYTHONPATH
+    unset runs `import nonogram` → ModuleNotFoundError: No module named ''nonogram'', exit 1; the guard
+    block, run with that interpreter symlinked as `python` on PATH, printed "✗ Project not installed
+    in the virtual environment", the pip install -e . instruction, and exited 1 — the launch line was
+    never reached.
+
+
+    Untouched, as required: the launch line, the argument parsing, the Postgres check, the
+    DATABASE_URL export and `alembic upgrade head`. The script was not run end to end (it hardcodes
+    DATABASE_URL=…/nonogram_poc, absent on this machine); no database was created, dropped or
+    recreated. Full suite re-run because AC-1''s guard walks files on disk: 5381 collected, 5372
+    passed, 2 failed, 7 skipped — the two failures are the pre-existing ones. The card''s worktree
+    note that claimed the unprefixed name "resolves from any working directory" was corrected in
+    place to name the editable install as the only resolver, with a pointer to the [Fix 1] block.'
+  fixed_in: meta/kanban/cards/CARD-139.md § Worktree notes → [Fix 1]; scripts/start_admin_local.sh
+    (guard clause after the venv activation in step 3)
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-002
+  severity: medium
+  category: tech-debt
+  type: gap
+  file: scripts/README.md
+  line: 38
+  title: The repo still documents the src.-prefixed launch in three places
+  description: '`scripts/README.md` documents `python -m flask --app src.nonogram.admin.app run` at lines
+    38, 131 and 134 (verified present at exactly those lines) — now the one spelling the repo tells you
+    to avoid, sitting in the README of the very directory whose launcher was just pointed away from it.
+
+
+    This is the same family as the SCOPE+ that was taken, and the orchestrator''s ruling that admitted
+    it applies with equal force: the card''s stated exclusion ("a launch command is not a repo artifact")
+    is false for a committed README exactly as it was false for a committed script, and the card''s origin
+    note says it "removes the trap rather than remembering the workaround". A developer who follows scripts/README.md
+    rather than running scripts/start_admin_local.sh still walks into the 2026-09-23 configuration. The
+    doubling can no longer make the enums disagree (no admin module imports relatively any more), so this
+    is no longer a live 500 — which is why it is medium and not blocking — but it leaves the repo giving
+    two contradictory instructions about how to launch the panel.'
+  suggestion: Change the three occurrences to `--app nonogram.admin.app`. Three lines, no behaviour, same
+    justification already accepted for the launcher.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: fixed
+  fix_note: 'All three occurrences in scripts/README.md changed to `--app nonogram.admin.app`. Read
+    the surrounding prose at each site first, as instructed: none of the three is deliberately showing
+    the old or broken form as a counter-example — line 38 sits in the "After setup, start Flask
+    manually" block under setup_admin_local.sh, and lines 131/134 sit in the "Manual Commands" block;
+    all three are plain run-this instructions, so all three were updated. Each block gained a short
+    `#` comment saying why the prefix is avoided ("never src.nonogram.admin.app: the src.-prefixed
+    spelling loads the admin package a second time and the two copies disagree (CARD-139)"), so the
+    next person does not tidy it back.
+
+
+    One nearby `src/nonogram` reference was deliberately left alone: `pytest ... --cov=src/nonogram/admin`
+    (now line 147) is a filesystem path for coverage measurement, not a module name, and is correct
+    as written.
+
+
+    No behaviour change; documentation only. Full suite re-run anyway (AC-1''s guard walks files on
+    disk): 5381 collected, 5372 passed, 2 failed, 7 skipped — the two failures pre-existing.'
+  fixed_in: meta/kanban/cards/CARD-139.md § Worktree notes → [Fix 1]; scripts/README.md (lines 38,
+    131, 134 → unprefixed --app nonogram.admin.app, each with a why-comment)
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-003
+  severity: low
+  category: tech-debt
+  type: risk
+  file: tests/test_admin_import_consistency.py
+  line: 88
+  title: The AC-1 walk collects modules into a dict keyed by dotted name, which can drop a file
+  description: '`_admin_modules()` returns `{dotted name: path}` and `test_no_module_uses_a_relative_import`
+    iterates `.values()`. Two files mapping to the same dotted name — `admin/foo.py` alongside `admin/foo/__init__.py`
+    — would collapse to one entry, silently exempting one file from the rule. `admin/` has 17 modules
+    and no subpackages today, and `test_the_walk_actually_sees_the_package` pins four names plus a >=12
+    floor, so this is remote rather than live.'
+  suggestion: Iterate the paths from `rglob` directly in the AC-1 test (keep the dotted-name mapping for
+    the reporting label only), so the check is over files rather than over derived keys.
+  confidence: medium
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-004
+  severity: info
+  category: tech-debt
+  type: question
+  file: tests/test_admin_import_consistency.py
+  line: 100
+  title: The guard covers relative imports only, not the wider class of ways the tree can double
+  description: 'AC-1''s rule is `ImportFrom` with `level > 0`. The doubling hazard is broader: `__import__`/`importlib.import_module`
+    on a `src.`-prefixed string, a `sys.path` insert, `sys.modules` aliasing, or a re-export under a second
+    name would all recreate it and all pass the guard.
+
+
+    Verified there is no such vector in the tree today: 0 `src.`-prefixed imports anywhere under `src/`;
+    0 `sys.modules` manipulation anywhere under `src/`; and the only dynamic-import uses under `admin/`
+    are `importlib.resources` for font/asset loading (`book_pdf_generator.py:260`, `book_proof.py:75`)
+    and an inline `__import__(''datetime'')` (`puzzle_review.py:1058`) — stdlib lookups, not package doubling.
+    A new admin module IS covered the day it lands for the relative-import rule (the walk is `rglob` over
+    disk, not a name list). It is not covered for the other vectors.
+
+
+    Noted rather than filed against the card: AC-1 is worded as the relative-import property and the guard
+    implements exactly that. Widening it to the hazard class would be a scope increase, and there is nothing
+    in the tree for it to catch.'
+  suggestion: 'Optional follow-up: extend the same walk to flag a string literal starting `src.nonogram`
+    passed to `importlib.import_module`/`__import__`, and any `sys.path`/`sys.modules` write under `src/nonogram/admin/`.'
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-005
+  severity: info
+  category: tech-debt
+  type: gap
+  file: migrations/env.py
+  line: 14
+  title: 'env.py''s src.-prefixed imports: both deferral claims verified, correctly out of scope'
+  description: 'Both of the agent''s claims check out first-hand.
+
+
+    (a) Not a live hazard today. A subprocess importing `src.nonogram.db.models` and `src.nonogram.db.session`
+    the way env.py does holds `[''src.nonogram.db.models'']` and `[''src.nonogram.db.session'']` with
+    ZERO bare `nonogram.*` entries in sys.modules. The reason is structural: `src/nonogram/__init__.py`
+    contains no imports at all, and an ast walk of `db/models.py` and `db/session.py` shows only stdlib
+    and sqlalchemy imports — nothing under `nonogram/db/` reaches back for an absolute `nonogram.` import.
+    So one `Base`, one metadata object per alembic process.
+
+
+    (b) The `src.` prefix is load-bearing as the file stands. `env.py:11` inserts `dirname(dirname(abspath(__file__)))`
+    = the repo root, and `alembic.ini:21` sets `prepend_sys_path = .` = the repo root. Neither puts `src`
+    on the path, so a bare `from nonogram.db.models import Base` would resolve only through the editable
+    install. Converting it means also adding `src` to the path.
+
+
+    Correctly deferred: it is `migrations/`, not `admin/`, and it needs a real `alembic upgrade head`
+    to prove a change safe — which this review was told not to run and which the card rightly would not
+    attempt.'
+  suggestion: Carry (a) and (b) into the follow-up card as the starting facts; require an `alembic upgrade
+    head` against a real database as its acceptance evidence.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-006
+  severity: info
+  category: tech-debt
+  type: gap
+  file: tests/test_book_manager.py
+  line: 1
+  title: Eight pre-existing test modules import under the src. prefix; the card's note undercounts by
+    one
+  description: 'Measured: 9 test modules import under the `src.` prefix, 8 pre-existing plus the new `tests/test_admin_import_consistency.py`
+    (which does so deliberately, inside subprocesses). The card''s worktree note lists six plus `tests/e2e/test_admin_workflow.py`
+    = seven; it omits `tests/test_card_050_quality_recognizability.py`.
+
+
+    The substance of the note is right: the suite does load both trees in one process, and that is harmless
+    now that no admin module imports relatively — both trees reach the same submodules, which is exactly
+    the property AC-2 pins. It is also why the two new tests are subprocesses, which is the correct design.
+    Only the count is off, and the count is in a note rather than in a test, so nothing depends on it.
+
+
+    Correctly deferred: converting them is test-tree churn with no live defect behind it, and the card''s
+    exclusion of "the rest of the codebase" covers it.'
+  suggestion: If a follow-up card converts them, take the count from a fresh grep rather than from this
+    note.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+mutation_check:
+  ran: true
+  deferred: false
+  mutants: 3
+  killed: 2
+  survived: 1
+  restore_verified: true
+  restore_evidence: shasum after restore matches capture exactly (app.py 56218c98e7bbc96f13ceaaf89fb59eaaa91f8f23,
+    __init__.py 3b948441e9f8d4857dc49a851b46e02977681059, test file d27328309510666d82a09263cb362a7d6fb5f9ff);
+    `git diff HEAD --stat` empty for src/ scripts/ tests/; `git status --porcelain` shows only ` M meta/kanban/cards/CARD-139.md`;
+    test file re-run green (10 passed) after restore
+  results:
+  - 'M0 (production, whole-fix revert — both files restored to main) → KILLED. 4 failed, 4 passed, 2 errors.
+    sys.modules held [''nonogram.admin.book_plan'',''src.nonogram.admin.book_plan''], one_bucket_tuple
+    False, one_enum_class False. AC-3 under the src. name reproduced the owner''s 2026-09-23 traceback
+    exactly: app.py:2862 setup_print → app.py:2510 _plan_context → app.py:2486 cell_value → book_plan.py:240
+    cell → `ValueError: tuple.index(x): x not in tuple`. The agent''s reproduction claim is confirmed
+    first-hand.'
+  - 'M1 (weaken the ast predicate: `node.level > 0` → `node.level > 1`) → KILLED by test_the_rule_catches_a_relative_import
+    (1 failed, 9 passed). The guard-the-guard test means the walk''s predicate cannot be silently weakened.'
+  - 'M2 (make the AC-2 assertion count-insensitive: `== [''nonogram.admin.book_plan'']` → `''nonogram.admin.book_plan''
+    in ...`) → SURVIVED, by design of the experiment: it passed on the fixed source AND on the reverted
+    source. This is not a finding against the code — the test as written uses exact equality, so the discrimination
+    is real; the mutant establishes that the equality is load-bearing and was chosen correctly. Note the
+    redundancy: even weakened, test_both_import_names_share_one_bucket_enum still fails on the defect
+    (one_bucket_tuple False), so AC-2 carries two independent detectors.'

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-09-30
+- CARD-139 (bug): Print setup no longer crashes on a book whose plan has been saved. The admin package could be loaded twice under one launch spelling, which gave the code two separate copies of the size-bucket list; a plan saved through one copy could not be read through the other, and the screen died with an error that looked like bad data rather than a loading problem. Every module in the package now imports the same way, two tests hold it there, and the project's own start script and its README point at the launch spelling that cannot double — the script now also checks the install it depends on, instead of failing with a raw Python error.
 - CARD-132 (feature): The books list now shows each book against its plan instead of just counting what is in it. A row reads "132 / 150", the same split per level, and one hint for every size-and-level cell that is short of or over its plan, with exact counts — a to-do list of what is still missing, not the readiness check's tolerance. A book made before plans existed shows its count alone and links to Print setup. The list is ordered by how complete a book is, most complete first, with a book that is over its plan counting as complete rather than more than complete; "?sort=created" brings back the old newest-first order.
 
 ## 2026-09-25
