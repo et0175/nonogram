@@ -23,7 +23,7 @@ _Updated: 2026-09-25 UTC_
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
 | 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ✅ 9/9 merged · closes Increment 16 |
-| 28 | CARD-150 P2 | ✅ 1/1 merged |
+| 28 | CARD-150 P2, CARD-151 P2 | ⏳ 1/2 — CARD-150 merged, CARD-151 ready |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -86,11 +86,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
   and the refusal text says "runs to N pages" where the screen says "About N".
 - CARD-129 F-004: a vacuous assertion in `test_book_export_interior_cover.py` —
   `"~" not in body.split('data-interior-page-count')[1][:40]` can never fail.
-- CARD-150 F-006 (minor, **the one worth doing next**): `DB_NAME` is derived by string-slicing
-  the URL, so `…:5432/` yields an empty name and a green tick naming no database — the unsafe
-  direction — and a driver-qualified `postgresql+psycopg://` is refused as "not reachable",
-  although that prefix is exactly what `src/nonogram/db/session.py` deliberately preserves after
-  CARD-148. The script would refuse a URL the panel considers correct.
+- CARD-150 F-006 → now **CARD-151**.
 - CARD-150 F-003/F-004/F-005/F-007 (minor): the 14-of-18 figure is an artifact of `--check-only`
   not existing on the old script (13 of them die at argument parsing); the README tests'
   `returncode != 0` precondition is satisfied by any failure; the two Docker branches match on
@@ -118,6 +114,7 @@ _Gantt: [meta/kanban/gantt.md](gantt.md)_
 _(none)_
 
 ## Ready
+- **CARD-151** P2 · The launcher's database check understands the URLs the panel accepts (CARD-150 F-006) · 0.25d · wave 28
 
 ## In Progress
 
