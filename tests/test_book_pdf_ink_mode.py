@@ -354,6 +354,31 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
                 grey_levels(g["image"]), grey_levels(c["image"])
             ), f"interior page {number}: a level moved"
 
+    @pytest.mark.parametrize(
+        "mode,colour_space",
+        [(InkMode.BLACK_AND_WHITE, "DeviceGray"), (InkMode.COLOUR, "DeviceRGB")],
+    )
+    def test_the_file_the_owner_downloads_is_the_one_the_book_chose(
+        self, panel, mode, colour_space
+    ):
+        """End to end, through the route Finalise's button posts to.
+
+        Everything above exports through the generator. This closes the loop
+        the owner actually walks: choose the mode on Print setup's form,
+        press Download interior PDF on Finalise, and read the colour space off
+        the bytes that come back as an attachment. Nothing between the two
+        screens is stubbed.
+        """
+        book_id = panel.book()
+        panel.submit_print_setup(book_id, interior_ink_mode=mode.value)
+
+        downloaded = panel.download_interior(book_id)
+        spaces = {page["colour_space"] for page in pdf_image_objects(downloaded)}
+        assert spaces == {colour_space}
+        assert f'data-interior-ink-mode="{mode.value}"' in panel.finalise(book_id), (
+            "and Finalise names the mode the file was written in"
+        )
+
     def test_the_grayscale_file_is_materially_smaller(self, baseline_exports):
         """Size is one of the card's three stated reasons, so it is measured.
 
@@ -1131,6 +1156,16 @@ class Panel:
         response = self.client.get(f"/book/{book_id}/finalize")
         assert response.status_code == 200, response.status_code
         return response.get_data(as_text=True)
+
+    def download_interior(self, book_id: str) -> bytes:
+        """The interior PDF Finalise's own button posts for (FR-043)."""
+        response = self.client.post(
+            f"/book/{book_id}/finalize",
+            data={"action": "download_pdf", "part": "interior"},
+        )
+        assert response.status_code == 200, response.status_code
+        assert response.mimetype == "application/pdf"
+        return response.get_data()
 
 
 def _plan_of(records) -> DistributionPlan:
