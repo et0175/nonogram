@@ -74,7 +74,13 @@ from nonogram.admin.book_kdp import (
     stored_gutter_cm,
     unpaired_interior_page_count,
 )
-from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
+from nonogram.admin.book_page_spec import (
+    FLOOR_MM,
+    InkMode,
+    book_cell_mm,
+    book_ink_mode,
+    book_page_spec,
+)
 from nonogram.admin.book_plan import (
     BUCKETS as PLAN_BUCKETS,
     DEFAULT_PLAN,
@@ -2851,10 +2857,25 @@ def create_app(debug=None):
                         width_cm = width_input
                         height_cm = height_input
 
+                    # CARD-147 (owner intake, raw-requirements.md,
+                    # 2026-09-25): how the interior is printed, chosen on this
+                    # same form and stored by the same write, so a refused
+                    # plan stores neither it nor the trim (AC-197's posture).
+                    #
+                    # A submission that carries no mode field at all keeps the
+                    # one already stored — "the form said nothing" is not "set
+                    # it to the default", so a client built before this card
+                    # cannot silently turn a colour book black-and-white.
+                    ink_input = request.form.get("interior_ink_mode")
+                    if not (ink_input or "").strip():
+                        stored_mode = _interior_ink_mode(book)
+                        ink_input = stored_mode.value if stored_mode else None
+
                     # Validate and create spec
                     spec, error = PrintSpecValidator.create_spec(
                         width_cm=width_cm,
                         height_cm=height_cm,
+                        interior_ink_mode=ink_input,
                     )
 
                 if error:
@@ -2911,7 +2932,12 @@ def create_app(debug=None):
                         flash("Book not found", "error")
                         return redirect(url_for("books_list"))
 
-                    flash(f"Print specs set: {spec.trim_width_cm} × {spec.trim_height_cm} cm", "success")
+                    flash(
+                        f"Print specs set: {spec.trim_width_cm} × "
+                        f"{spec.trim_height_cm} cm, "
+                        f"{InkMode(spec.interior_ink_mode).label.lower()} interior",
+                        "success",
+                    )
                     # Proceed to Step 2: Puzzle Selection
                     return redirect(url_for("select_puzzles_for_book", book_id=book_id))
 
@@ -2967,12 +2993,25 @@ def create_app(debug=None):
             default_width = submitted.get("width", default_width)
             default_height = submitted.get("height", default_height)
 
+        # CARD-147: the mode the book is stored on, so reopening Print setup
+        # shows the one the file will really be written in. A refused
+        # submission carries the owner's own choice back instead, like the two
+        # trim fields above (F-003). An unreadable stored value shows as no
+        # choice at all, and the two radios then stand unchecked rather than
+        # one of them claiming to be what is stored.
+        stored_ink_mode = _interior_ink_mode(book)
+        interior_ink_mode = stored_ink_mode.value if stored_ink_mode else None
+        if submitted is not None:
+            interior_ink_mode = submitted.get("interior_ink_mode", interior_ink_mode)
+
         context = {
             "book": book,
             "default_width": default_width,
             "default_height": default_height,
             "unit_preference": unit_preference,
             "plan_error": plan_error,
+            "interior_ink_mode": interior_ink_mode,
+            "interior_ink_modes": list(InkMode),
             **_plan_context(book_id, submitted, plan_error_fields),
         }
 
@@ -3343,6 +3382,29 @@ def create_app(debug=None):
             )
             return None, None
         return f"{spec.width_mm / 10:.2f}", f"{spec.height_mm / 10:.2f}"
+
+    def _interior_ink_mode(book):
+        """How this book's interior is printed, for a screen to name (CARD-147).
+
+        Read through ``book_ink_mode`` — the one door onto the stored column —
+        so Print setup, Finalise and the exported file all name one mode.
+
+        ``None`` when the stored value is one nobody can print, the posture
+        ``_trim_cm`` takes for an unreadable trim: the screen says so rather
+        than showing a mode the export would refuse. Owner intake,
+        ``meta/architecture/inputs/raw-requirements.md``, 2026-09-25 — this
+        has no FR and is not traced to one.
+        """
+        try:
+            return book_ink_mode(book)
+        except ValueError as error:
+            app.logger.warning(
+                "Book %s has an unreadable interior ink mode (%s); no mode "
+                "can be shown for it.",
+                book.book_id,
+                error,
+            )
+            return None
 
     def _misses_the_floor(cell_mm):
         """Does this cell miss NFR-008's floor? An unmeasurable one does.
@@ -4096,6 +4158,11 @@ def create_app(debug=None):
         # report one trim.
         trim_width_cm, trim_height_cm = _trim_cm(book)
 
+        # CARD-147: how the interior will be written — the fact that decides
+        # what the interior costs to print, read through the same door the
+        # export reads it through so the screen and the file agree.
+        interior_ink_mode = _interior_ink_mode(book)
+
         # CARD-123 (FR-031, NFR-008; AC-187, AC-188): the members that print
         # below the floor, measured on the book's **current** trim and margins
         # every time this renders. It is not read back from the stored
@@ -4157,6 +4224,13 @@ def create_app(debug=None):
             "cover_uploaded": _uploaded_cover_file(book_id) is not None,
             "trim_width_cm": trim_width_cm,
             "trim_height_cm": trim_height_cm,
+            # CARD-147 (owner intake, raw-requirements.md, 2026-09-25): which
+            # of the two files the owner is about to upload will be — the
+            # interior's colour space is what a print-on-demand interior is
+            # priced on, so it is named on the screen the download sits on.
+            # ``None`` when the stored value cannot be read, which the screen
+            # reports the way it reports an unreadable trim.
+            "interior_ink_mode": interior_ink_mode,
         }
 
         return render_template("book_finalize.html", **context)

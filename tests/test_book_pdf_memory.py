@@ -368,8 +368,12 @@ def _measured(export) -> MeasuredExport:
     original = BookPDFGenerator._write_pdf
     factories = {name: getattr(BookPDFGenerator, name) for name in PAGE_FACTORIES}
 
-    def patched(self, pages, page_count):
-        return original(self, probe.watch(pages), page_count)
+    def patched(self, pages, page_count, **kwargs):
+        # ``**kwargs`` carries CARD-147's required ``mode=`` through unread:
+        # which colour space the file is written in is none of the probe's
+        # business, and swallowing it here would make a measured interior
+        # export write a different file from an unmeasured one.
+        return original(self, probe.watch(pages), page_count, **kwargs)
 
     def tracking(drawn):
         def wrapper(self, *args, **kwargs):
@@ -1616,7 +1620,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             yield blank
 
         with pytest.raises(RuntimeError) as raised:
-            generator._write_pdf(two_of_three(), 3)
+            generator._write_pdf(two_of_three(), 3, mode="RGB")
 
         assert "interior has 2 pages, its page plan says 3" in str(raised.value)
 
@@ -1632,7 +1636,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
                 yield blank
 
         with pytest.raises(RuntimeError) as raised:
-            generator._write_pdf(four_of_three(), 3)
+            generator._write_pdf(four_of_three(), 3, mode="RGB")
 
         assert "interior has at least 4 pages, its page plan says 3" in str(
             raised.value

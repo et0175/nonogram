@@ -33,6 +33,30 @@ form therefore means the profile's exact value (9.525 mm), not 9.5 mm; any
 other stored value is read as the centimetres it says. That keeps "a book
 created on the profile" and "a legacy book whose margins are empty" the same
 sheet to the last micrometre (AC-178, AC-272, AC-273).
+
+How the interior is printed (CARD-147)
+--------------------------------------
+:class:`InkMode` is the second thing a book stores about how it is *printed*
+rather than about how it is *laid out*: **black-and-white** or **colour**, kept
+in ``books.interior_ink_mode`` beside the trim and the margins and read back by
+:func:`book_ink_mode`. It is owner intake
+(``meta/architecture/inputs/raw-requirements.md``, 2026-09-25) and not a
+formalised requirement; there is deliberately no FR to cite for it.
+
+It is **not geometry**, and ADR-0036/R1 is untouched by it: no page's size,
+margin, cell, rule, stroke or count depends on it, and :class:`PageSpec` never
+carries it. What it decides is exactly one thing — the colour space the
+interior's pages are composed and written in — so it lives here, beside the
+other readers of the book's stored print specification, and travels no further
+than ``book_pdf_generator``'s page writer.
+
+An empty or missing column is :data:`DEFAULT_INK_MODE`, black-and-white, which
+is every book that existed before the column did: their interiors have no
+colour in them at all (``export/png.py`` draws one ink on one background), and
+a file that *declares* colour invites the expensive print classification for a
+book that has none. A stored value that is neither of the two is refused the
+way a non-numeric margin is, naming the column — it is not quietly read as one
+of them.
 """
 
 from __future__ import annotations
@@ -40,6 +64,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from enum import Enum
 
 from nonogram.export.layout import (
     OrientationPolicy,
@@ -50,14 +75,19 @@ from nonogram.export.layout import (
 
 __all__ = [
     "BOOK1_PROFILE",
+    "DEFAULT_INK_MODE",
     "FLOOR_MM",
+    "INK_MODE_COLUMN",
+    "InkMode",
     "MAX_TRIM_HEIGHT_CM",
     "MAX_TRIM_WIDTH_CM",
     "MIN_SIDE_MARGIN_MM",
     "MIN_TRIM_CM",
     "PrintProfile",
     "book_cell_mm",
+    "book_ink_mode",
     "book_page_spec",
+    "ink_mode_from_stored",
 ]
 
 _MM_PER_INCH = Decimal("25.4")
@@ -186,6 +216,100 @@ BOOK1_PROFILE = PrintProfile(
     cell_cap_mm=7.5,
     min_thin_rule_mm=0.25,
 )
+
+
+#: The ``books`` column :func:`book_ink_mode` reads, named once so every
+#: refusal message and every writer spells it the same way.
+INK_MODE_COLUMN = "interior_ink_mode"
+
+
+class InkMode(Enum):
+    """How a book's **interior** is printed: black-and-white, or in colour.
+
+    Owner intake, 2026-09-25 (``meta/architecture/inputs/raw-requirements.md``):
+    "2 modes to pdf generator: black/white and colors … we may add colors for
+    book2". Per **book**, not a global default with an override: the mode is
+    stored on the book beside its trim and margins.
+
+    The value is what the column holds, so it is short, lower case and stable:
+    a stored ``"bw"`` must keep meaning black-and-white for as long as there
+    are rows carrying it. :attr:`bitmap_mode` is the one thing the mode
+    decides — the Pillow image mode every page of that interior is composed
+    and JPEG-encoded in — and it is deliberately the *only* thing: the PDF
+    colour space and procset that follow from it are
+    ``PdfImagePlugin``'s business and are transcribed in the page writer, not
+    restated here.
+    """
+
+    BLACK_AND_WHITE = "bw"
+    COLOUR = "colour"
+
+    @property
+    def bitmap_mode(self) -> str:
+        """The Pillow image mode an interior page of this book is written in.
+
+        ``"L"`` is one 8-bit channel and ``"RGB"`` three. The interior's *ink*
+        is the same either way — ``export/png.py`` draws black on white and
+        nothing else, and ``Image.convert("L")``'s ITU-R 601-2 luma maps a grey
+        ``(v, v, v)`` to exactly ``v`` (its three integer coefficients sum to
+        65536), so 0 stays 0, 255 stays 255 and no value between them is
+        invented (ADR-0037/R2: a rule is not softened by the conversion).
+        """
+        return "L" if self is InkMode.BLACK_AND_WHITE else "RGB"
+
+    @property
+    def label(self) -> str:
+        """What the panel calls this mode on Print setup and on Finalise."""
+        return "Black and white" if self is InkMode.BLACK_AND_WHITE else "Colour"
+
+
+#: What a book with nothing stored in :data:`INK_MODE_COLUMN` is printed as —
+#: every book that existed before the column did (CARD-147, AC-3).
+DEFAULT_INK_MODE = InkMode.BLACK_AND_WHITE
+
+
+def ink_mode_from_stored(raw: object) -> InkMode:
+    """One stored ``interior_ink_mode`` value as an :class:`InkMode`.
+
+    ``None`` and an empty string are :data:`DEFAULT_INK_MODE`: no mode was
+    ever stored, which is a legacy book, and a legacy book is
+    black-and-white.
+
+    Raises:
+        ValueError: ``raw`` is neither empty nor one of the two modes. The
+            message names :data:`INK_MODE_COLUMN`, the posture
+            :func:`_stored_mm` already takes for a margin nobody can read: a
+            value nobody can print is reported, not silently read as one of
+            the two.
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return DEFAULT_INK_MODE
+    if isinstance(raw, InkMode):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return InkMode(raw.strip().lower())
+        except ValueError:
+            pass
+    known = ", ".join(repr(mode.value) for mode in InkMode)
+    raise ValueError(f"book {INK_MODE_COLUMN} must be one of {known}, not {raw!r}")
+
+
+def book_ink_mode(book: object) -> InkMode:
+    """How ``book``'s interior is printed (CARD-147).
+
+    Args:
+        book: Anything carrying the ``books`` print columns as attributes — a
+            :class:`~nonogram.admin.book_manager.Book`, a ``books`` row, or
+            ``None``. A missing or empty attribute is
+            :data:`DEFAULT_INK_MODE`, exactly as an empty margin column is the
+            profile's margin.
+
+    Raises:
+        ValueError: the stored value is neither empty nor one of the two
+            modes, naming :data:`INK_MODE_COLUMN`.
+    """
+    return ink_mode_from_stored(getattr(book, INK_MODE_COLUMN, None))
 
 
 def _stored_mm(book: object, column: str, profile_cm: str, profile_mm: float) -> float:

@@ -168,7 +168,16 @@ class TestBookCreate_StoresBook1PrintProfile:
     def test_print_spec_defaults_agree_with_the_profile(self) -> None:
         spec, error = PrintSpecValidator.create_spec()
         assert error is None
-        assert spec.to_dict() == {**CON018_COLUMNS, "outside_margin_bleed_cm": None}
+        # ``interior_ink_mode`` is CARD-147's and is **not** part of CON-018:
+        # the profile states a trim and four margins, and a book's interior
+        # ink mode is a separate fact with a default of its own. It is named
+        # here rather than folded into CON018_COLUMNS so that the two cannot
+        # be confused — a future profile change must not silently move it.
+        assert spec.to_dict() == {
+            **CON018_COLUMNS,
+            "outside_margin_bleed_cm": None,
+            "interior_ink_mode": "bw",
+        }
         assert PrintSpecValidator.DEFAULT_TRIM_WIDTH_CM == BOOK1_PROFILE.trim_width_cm
 
     def test_empty_margin_fields_take_the_profile_but_entered_ones_are_kept(self) -> None:

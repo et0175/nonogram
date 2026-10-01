@@ -443,7 +443,12 @@ def capped_export_report(shape: str) -> Dict[str, Any]:
         written = generator.export_interior(puzzles).getvalue()
     elif shape == MATERIALISED_SHAPE:
         pages = generator.interior_pages(puzzles)  # the shape this card removed
-        written = generator._write_pdf(iter(pages), len(pages)).getvalue()
+        # CARD-147: written in the book's own interior colour space, so the
+        # two shapes under the cap write the same file and differ only in when
+        # they release a page.
+        written = generator._write_pdf(
+            iter(pages), len(pages), mode=generator.interior_bitmap_mode
+        ).getvalue()
         del pages
     else:
         raise ValueError(f"unknown export shape: {shape!r}")

@@ -243,6 +243,44 @@ object — same ``DCTDecode`` stream, same ``MediaBox``, same contents operator,
 same ``Info`` dates — so the file is byte-identical to the old one but for its
 two timestamps, and every reader of a book PDF keeps working unedited.
 
+Black-and-white or colour (CARD-147)
+------------------------------------
+The interior's **content** has always been pure black and white: COMP-007 draws
+``INK = (0, 0, 0)`` on ``BACKGROUND = (255, 255, 255)`` and nothing else, and no
+divider, guide, band, frame or answer page introduces a colour. But the **file**
+declared colour — every page was composed ``"RGB"``, JPEG-encoded in RGB and
+written with ``ColorSpace /DeviceRGB`` — and a print-on-demand interior that
+declares colour invites the colour price for a book that has none in it.
+
+So the book now says what it is. :class:`~nonogram.admin.book_page_spec.InkMode`
+is stored on the book beside its trim (``books.interior_ink_mode``, migration
+013), :attr:`BookPDFGenerator.ink_mode` reads it once in ``__init__``, and
+:meth:`_write_pdf` takes the bitmap mode of the file it is writing as an
+argument — ``"L"`` for a black-and-white interior, ``"RGB"`` for a colour one,
+and ``"RGB"`` always for the **cover**, which is a separate file holding an
+uploaded image that may be anything (CARD-135, out of this card's scope). It is
+an argument and not an attribute read inside the writer precisely because the
+two files of one export do not agree about it.
+
+**The mode changes the colour space and nothing else.** ``Image.convert("L")``
+applies ITU-R 601-2 luma with three integer coefficients that sum to 65536, so a
+grey ``(v, v, v)`` becomes exactly ``v``: 0 stays 0, 255 stays 255, no value
+between them is invented, and the set of inked pixel positions is identical
+(ADR-0037/R2 — a rule is not softened, and no anti-aliasing is introduced).
+Cell size, origin, gutter, rules, frame and page count are all COMP-007's and
+are computed from the :class:`PageSpec`, which does not carry the mode at all.
+Measured end to end on the baseline book, the eleven pages decoded back out of
+a grayscale interior are **byte-identical** to the eleven decoded out of the RGB
+one — JPEG keeps the luma plane and the constant chroma planes decode back to
+it exactly — so the mode moves the file's size, not its ink.
+
+**It is converted per page** (G-3, CARD-145). :meth:`_write_page` converts the
+page it was handed and drops the conversion when it returns, so a grayscale
+interior holds one extra one-channel bitmap (8.4 MB on the Book 1 profile,
+a third of a page) inside a single page's write and never between two pages.
+Nothing collects pages to convert them, and the number of pages the module
+retains is still one, whatever the book's length.
+
 **Nothing half-written escapes.** The output buffer is a local of
 :meth:`_write_pdf` and is returned only after the cross-reference table and
 trailer are written, so a page that will not draw at page *k* of *N* raises
@@ -273,7 +311,7 @@ from nonogram.admin.book_answer_key import (
     answer_title,
     pack_answer_pages,
 )
-from nonogram.admin.book_page_spec import book_page_spec
+from nonogram.admin.book_page_spec import InkMode, book_ink_mode, book_page_spec
 from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.difficulty import Tier, tier_of_record
 from nonogram.export import ExportPayload
@@ -294,6 +332,27 @@ from nonogram.export.png import BACKGROUND, INK, render_answer_page
 #: the only trace the export leaves of a member that did not reach the file,
 #: and a ``print`` of it lands nowhere in a served request.
 logger = logging.getLogger(__name__)
+
+#: ``PdfImagePlugin._write_image``'s two branches, transcribed: the PDF colour
+#: space and the procset Pillow's own writer gives a page of each image mode.
+#:
+#: ``{bitmap mode: (ColorSpace, ProcSet)}``. One table rather than a branch in
+#: :meth:`BookPDFGenerator._write_page`, so that "what this module writes" and
+#: "what the plugin would have written" can be read side by side and checked —
+#: which is the claim ``_write_pdf`` makes and the reason the file stays
+#: readable by every existing reader of a book PDF (CARD-145's F-7, CARD-147).
+#: The plugin's own words for the two: ``"ImageB"  # grayscale`` and
+#: ``"ImageC"  # color images``.
+#:
+#: It holds exactly the two modes a book page can be composed in (CARD-147).
+#: ``"1"``, ``"P"``, ``"CMYK"`` and the alpha modes the plugin also handles are
+#: deliberately absent: no page of a book is drawn in them, and a writer that
+#: silently accepted one would be choosing a colour space the book never asked
+#: for. :meth:`BookPDFGenerator._write_pdf` refuses anything not keyed here.
+_PDF_COLOUR_SPACE = {
+    "L": ("DeviceGray", "ImageB"),
+    "RGB": ("DeviceRGB", "ImageC"),
+}
 
 #: What stands between a puzzle's number and its tier in the band: a middle dot
 #: (U+00B7) with a space either side, exactly as ADR-0037 writes it
@@ -1199,11 +1258,25 @@ class BookPDFGenerator:
     def __init__(self, book: Any = None):
         self.book = book
         self.dpi = DPI  # 300, the resolution COMP-007 measures every page at
+        # CARD-147: how this book's interior is printed, read once from the
+        # stored column. It decides the interior's colour space and nothing
+        # else; the cover file is RGB whatever it says (AC-5, G-4).
+        self.ink_mode = book_ink_mode(self.book)
         # The trim, as the layout reports it for this book's sheet. Parity
         # never changes a page's size, so page 1's frame gives it for all.
         frame = page_frame(self.page_spec(1))
         self.page_width_px = frame.width
         self.page_height_px = frame.height
+
+    @property
+    def interior_bitmap_mode(self) -> str:
+        """The Pillow image mode this book's **interior** pages are written in.
+
+        ``"L"`` for a black-and-white interior, ``"RGB"`` for a colour one
+        (CARD-147). The cover file is not an interior page and is always
+        ``"RGB"`` (AC-5): :meth:`export_cover` says so at its own call.
+        """
+        return self.ink_mode.bitmap_mode
 
     def page_spec(self, page_number: int = 1) -> PageSpec:
         """The book's sheet for interior page ``page_number`` (1-based).
@@ -1426,7 +1499,9 @@ class BookPDFGenerator:
         bound (F-1) — consecutive pages of a multi-page walk — not this one.
         """
         stream = self.interior_stream(puzzles)
-        interior = self._write_pdf(stream.pages, stream.page_count)
+        interior = self._write_pdf(
+            stream.pages, stream.page_count, mode=self.interior_bitmap_mode
+        )
         cover = self.export_cover(book_title, cover_image)
         return BookExport(
             interior=interior,
@@ -1445,7 +1520,9 @@ class BookPDFGenerator:
         list is exactly what a book cannot afford.
         """
         stream = self.interior_stream(puzzles)
-        return self._write_pdf(stream.pages, stream.page_count)
+        return self._write_pdf(
+            stream.pages, stream.page_count, mode=self.interior_bitmap_mode
+        )
 
     def export_cover(
         self, book_title: str, cover_image: Optional[Image.Image] = None
@@ -1465,7 +1542,13 @@ class BookPDFGenerator:
         consecutive pages of a multi-page walk, which is the interior's half
         of the bound (F-1).
         """
-        return self._write_pdf(self._cover_page(book_title, cover_image), 1)
+        # ``mode="RGB"``, stated here and not read off the book: the cover is
+        # a separate file (FR-043, CARD-135) holding an uploaded image that
+        # may be anything, so a black-and-white **interior** leaves a colour
+        # cover in colour (CARD-147 AC-5, G-4).
+        return self._write_pdf(
+            self._cover_page(book_title, cover_image), 1, mode="RGB"
+        )
 
     def _cover_page(
         self, book_title: str, cover_image: Optional[Image.Image] = None
@@ -2323,7 +2406,7 @@ class BookPDFGenerator:
         )
 
     def _write_pdf(
-        self, pages: Iterable[Image.Image], page_count: int
+        self, pages: Iterable[Image.Image], page_count: int, *, mode: str
     ) -> BytesIO:
         """Write ``pages`` as one PDF, one image per page, rewound to 0.
 
@@ -2336,15 +2419,26 @@ class BookPDFGenerator:
         and no page is held after it is written; a caller that wants the pages
         afterwards must keep them itself.
 
-        What is written is ``PdfImagePlugin._save``'s ``mode == "RGB"`` path,
+        ``mode`` is the Pillow image mode this **file**'s pages are written
+        in — one of :data:`_PDF_COLOUR_SPACE`'s keys — and it is a required
+        keyword argument rather than something read off the book inside here
+        (CARD-147). The two files of one export disagree about it: a
+        black-and-white interior is written ``"L"``, and the cover file beside
+        it is written ``"RGB"`` whatever the book's mode says, because it holds
+        an uploaded image that may be anything (AC-5, G-4). Naming it at every
+        call is what makes that disagreement visible at the call rather than
+        hidden in a default.
+
+        What is written is ``PdfImagePlugin._save``'s path for that mode,
         object for object: a ``DCTDecode`` (JPEG) image stream at the book's
         DPI, a page whose ``MediaBox`` is the trim in points, a contents
         stream drawing that one image over the whole page, and an ``Info``
-        dictionary with the two dates Pillow writes. The only difference
-        between this file and the one the old list-at-once call produced is
-        those two timestamps — the same language CON-019 uses for the CLI's
-        own PDFs — so ``tests/helpers/pdf_pages.py`` and every other reader of
-        a book PDF works on it unedited.
+        dictionary with the two dates Pillow writes. For ``"RGB"`` that is the
+        same file this module has always written — the only difference from
+        the one the old list-at-once call produced is those two timestamps, the
+        same language CON-019 uses for the CLI's own PDFs — so
+        ``tests/helpers/pdf_pages.py`` and every other reader of a book PDF
+        works on it unedited, in either colour space.
 
         Returns:
             The finished PDF, rewound to 0. **Only** a finished one: the
@@ -2360,7 +2454,14 @@ class BookPDFGenerator:
                 over whatever iterable this method was actually given, because
                 it is this method's object table that a miscount corrupts.
             Exception: whatever a page raised while being drawn, unchanged.
+            ValueError: ``mode`` is not a colour space this writer knows —
+                raised before the buffer exists, so no partial file is built.
         """
+        if mode not in _PDF_COLOUR_SPACE:
+            known = ", ".join(sorted(_PDF_COLOUR_SPACE))
+            raise ValueError(
+                f"a book PDF is written in one of {known}, not {mode!r}"
+            )
         written = BytesIO()
         pdf = PdfParser.PdfParser(f=written, filename="", mode="w+b")
         # The two dates Pillow's own writer stamps a new file with, so the
@@ -2389,7 +2490,7 @@ class BookPDFGenerator:
         index = 0
         for page in _as_planned(pages, page_count):
             self._write_page(pdf, page, image_refs[index], page_refs[index],
-                             contents_refs[index])
+                             contents_refs[index], mode)
             index += 1
             # Nothing in this frame may outlive the page it wrote: the next
             # one is built by the `next()` at the top of this loop, and this
@@ -2411,18 +2512,41 @@ class BookPDFGenerator:
         image_ref: Any,
         page_ref: Any,
         contents_ref: Any,
+        mode: str = "RGB",
     ) -> None:
         """Write one page's three objects into ``pdf``, at its own object ids.
 
         ``PdfImagePlugin._write_image`` and the body of its ``_save`` loop for
-        an RGB image, side by side here because the plugin only offers them
-        behind a call that wants every page at once. Nothing is chosen: the
-        filter, the colour space, the ``MediaBox`` arithmetic and the contents
-        operator are all taken from it verbatim, which is what keeps the file
-        byte-identical to the one the old call wrote.
+        an image of this ``mode``, side by side here because the plugin only
+        offers them behind a call that wants every page at once. Nothing is
+        chosen: the filter, the colour space, the procset, the ``MediaBox``
+        arithmetic and the contents operator are all taken from it verbatim —
+        see :data:`_PDF_COLOUR_SPACE`, which is the plugin's own two branches
+        transcribed — which is what keeps an RGB file byte-identical to the one
+        the old call wrote and a grayscale one exactly what the plugin would
+        have written for an ``"L"`` page.
+
+        **The conversion happens here, per page** (CARD-147, G-3). The page
+        this method was handed is COMP-007's, drawn ``"RGB"``; a
+        black-and-white interior converts it to ``"L"`` and drops the
+        conversion when this frame returns, so the extra bitmap is one
+        one-channel page (8.4 MB on the Book 1 profile) inside a single page's
+        write and never a term that grows with the book. Nothing collects
+        pages in order to convert them, and the number of pages the module
+        retains across a page boundary is still one.
+
+        The conversion itself loses no ink: ITU-R 601-2 luma's three integer
+        coefficients sum to 65536, so a grey ``(v, v, v)`` becomes exactly
+        ``v`` — 0 stays 0, 255 stays 255, and nothing between them is invented
+        (ADR-0037/R2).
+
+        ``mode`` defaults to ``"RGB"``, the one colour space every book PDF was
+        written in before this card, so a caller that names none gets the old
+        behaviour; :meth:`_write_pdf` always names it.
         """
-        if page.mode != "RGB":
-            page = page.convert("RGB")
+        colour_space, procset = _PDF_COLOUR_SPACE[mode]
+        if page.mode != mode:
+            page = page.convert(mode)
         encoded = BytesIO()
         page.save(encoded, format="JPEG", dpi=(self.dpi, self.dpi))
         pdf.write_obj(
@@ -2434,14 +2558,14 @@ class BookPDFGenerator:
             Height=page.height,
             Filter=PdfParser.PdfName("DCTDecode"),
             BitsPerComponent=8,
-            ColorSpace=PdfParser.PdfName("DeviceRGB"),
+            ColorSpace=PdfParser.PdfName(colour_space),
         )
         width = page.width * 72.0 / self.dpi
         height = page.height * 72.0 / self.dpi
         pdf.write_page(
             page_ref,
             Resources=PdfParser.PdfDict(
-                ProcSet=[PdfParser.PdfName("PDF"), PdfParser.PdfName("ImageC")],
+                ProcSet=[PdfParser.PdfName("PDF"), PdfParser.PdfName(procset)],
                 XObject=PdfParser.PdfDict(image=image_ref),
             ),
             MediaBox=[0, 0, width, height],

@@ -128,6 +128,18 @@
                     {%- else %}
                     <dd>Cannot be read — set it again on Print setup</dd>
                     {%- endif %}
+                    {#- CARD-147 (owner intake, raw-requirements.md,
+                        2026-09-25): which the interior file about to be
+                        downloaded will be. A print-on-demand interior is
+                        priced on exactly this, so it is named on the screen
+                        the download sits on. The cover is a second file and is
+                        in colour whatever this says (FR-043, CARD-135). -#}
+                    <dt>Interior ink</dt>
+                    {%- if interior_ink_mode %}
+                    <dd data-interior-ink-mode="{{ interior_ink_mode.value }}">{{ interior_ink_mode.label }}</dd>
+                    {%- else %}
+                    <dd>Cannot be read — set it again on Print setup</dd>
+                    {%- endif %}
                     <dt>Easy</dt><dd class="num">{{ easy_count }}</dd>
                     <dt>Medium</dt><dd class="num">{{ medium_count }}</dd>
                     <dt>Hard</dt><dd class="num">{{ hard_count }}</dd>

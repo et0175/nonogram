@@ -1154,6 +1154,18 @@ class TestMigration012:
 
         # A pre-012 row reads back as "no override was ever given" — the
         # fail-closed reading INV-006 needs, not an unset attribute.
+        #
+        # Read with the chain at **head**, not at 012. The ORM always
+        # describes head, so a SELECT built from today's model names every
+        # column the chain has ever added — and since CARD-147's migration 013
+        # that includes ``books.interior_ink_mode``, which a database stopped
+        # at 012 does not have. The reading under test is of
+        # ``floor_overrides`` on a row no migration backfilled, and 013
+        # neither writes nor touches that column, so moving the read to head
+        # asks the same question. The chain comes straight back to 012 below,
+        # where the downgrade this test is really about is exercised.
+        command.upgrade(config, "head")
+
         from contextlib import contextmanager
 
         from sqlalchemy.orm import sessionmaker
@@ -1173,6 +1185,10 @@ class TestMigration012:
         legacy, = books.get_all_books()
         assert legacy.floor_overrides == []
         assert books.floor_overrides(legacy.book_id) == []
+
+        command.downgrade(config, "012")
+        assert "floor_overrides" in columns(), "back to the revision under test"
+        assert overrides() == {"Legacy": None}, "and still backfilled nothing"
 
         command.downgrade(config, "011")
         assert "floor_overrides" not in columns(), "012's downgrade left the column"

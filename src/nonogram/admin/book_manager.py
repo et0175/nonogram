@@ -18,6 +18,7 @@ from nonogram.admin.book_page_spec import (
     FLOOR_MM,
     book_cell_mm,
     book_page_spec,
+    ink_mode_from_stored,
 )
 from nonogram.admin.book_plan import (
     BUCKETS,
@@ -88,6 +89,14 @@ class Book:
     gutter_margin_cm: Optional[str] = None
     outside_margin_cm: Optional[str] = None
     outside_margin_bleed_cm: Optional[str] = None
+    # CARD-147 (owner intake, raw-requirements.md, 2026-09-25): how this
+    # book's **interior** is printed — ``'bw'`` or ``'colour'``, the stored
+    # form of an InkMode. ``None`` is an empty column: book_page_spec's
+    # ``book_ink_mode`` reads it as DEFAULT_INK_MODE, black-and-white, which
+    # is every book that existed before the column did (AC-3). Read it through
+    # ``book_ink_mode`` and not off this field, so the default is applied in
+    # one place.
+    interior_ink_mode: Optional[str] = None
     # CARD-121 (FR-031, INV-006): the ids this book admitted below the 4.8 mm
     # floor (TERM-025). Read it through :meth:`BookManager.floor_overrides`
     # rather than off the book, so both storage modes answer the same way.
@@ -658,6 +667,11 @@ class BookManager:
             gutter_margin_cm=book_row.gutter_margin_cm,
             outside_margin_cm=book_row.outside_margin_cm,
             outside_margin_bleed_cm=book_row.outside_margin_bleed_cm,
+            # CARD-147: NULL is a row from before migration 013 (or one its
+            # backfill did not reach), and book_ink_mode reads it as
+            # black-and-white — the same reading the column's own default
+            # writes (AC-3).
+            interior_ink_mode=book_row.interior_ink_mode,
             # NULL is a row from before migration 012: no override was ever
             # given, which is the reading that keeps the floor closed.
             floor_overrides=list(book_row.floor_overrides or []),
@@ -760,7 +774,7 @@ class BookManager:
             return True
 
     def set_print_spec(self, book_id: str, spec: PrintSpec) -> bool:
-        """Store ``spec``'s trim as the book's print size (FR-030, CON-018).
+        """Store ``spec``'s trim and interior ink mode on the book (FR-030, CON-018; CARD-147).
 
         ``spec`` must be a :class:`~nonogram.admin.print_specs.PrintSpec`
         **whose trim this method has itself checked**. A
@@ -780,13 +794,29 @@ class BookManager:
         assurance substitutes for that check (ADR-0032/R1's posture at the one
         boundary that pays for a bad write).
 
-        Writes the two **trim** columns and ``updated_at``, and nothing else
-        (INV-008, the rule :meth:`save_plan` already respects): no puzzle
-        membership, no order, no custom titles, no status — and not the
-        margins either. Print setup offers no margin field, so a book keeps
-        the CON-018 margins :meth:`create_book` stored for it, and a legacy
-        book keeps its empty ones, which :func:`book_page_spec` still reads as
-        the Book 1 profile's.
+        Writes the two **trim** columns, ``interior_ink_mode`` and
+        ``updated_at``, and nothing else (INV-008, the rule :meth:`save_plan`
+        already respects): no puzzle membership, no order, no custom titles,
+        no status — and not the margins either. Print setup offers no margin
+        field, so a book keeps the CON-018 margins :meth:`create_book` stored
+        for it, and a legacy book keeps its empty ones, which
+        :func:`book_page_spec` still reads as the Book 1 profile's.
+
+        **The ink mode is written here rather than by a second setter**
+        (CARD-147; owner intake, ``raw-requirements.md``, 2026-09-25). Print
+        setup is one form and one submission: the trim and the mode are chosen
+        together and must be stored together, in one transaction, so that a
+        refused distribution plan stores neither of them (AC-197) and a book
+        can never be left on the new trim with the old mode. It is re-checked
+        here against :meth:`PrintSpecValidator.validate_interior_ink_mode` for
+        the same reason the trim is: ``PrintSpec`` has no validating
+        construction, so its type proves nothing, and a value
+        :func:`~nonogram.admin.book_page_spec.ink_mode_from_stored` would
+        refuse to read back must not reach the column. A spec that names no
+        mode (``interior_ink_mode=None``) leaves the stored one **unchanged**
+        — it is "the caller said nothing", not "set it to the default", so a
+        caller built before this card cannot silently flip a colour book to
+        black-and-white.
 
         Until CARD-136 the chosen trim was written to ``metadata.size`` — a
         display string on a :class:`Book` snapshot, which in DB mode is
@@ -830,12 +860,27 @@ class BookManager:
                 f"{spec.trim_width_cm!r} x {spec.trim_height_cm!r})"
             )
 
+        is_valid, refusal = PrintSpecValidator.validate_interior_ink_mode(
+            spec.interior_ink_mode
+        )
+        if not is_valid:
+            raise ValueError(f"a book's interior ink mode cannot be stored: {refusal}")
+        # Normalised to the column's own spelling, and None when the caller
+        # named none — which leaves the stored mode where it is.
+        ink_mode = (
+            ink_mode_from_stored(spec.interior_ink_mode).value
+            if spec.interior_ink_mode
+            else None
+        )
+
         if self._session_factory is None:
             book = self.books.get(book_id)
             if not book:
                 return False
             book.trim_width_cm = spec.trim_width_cm
             book.trim_height_cm = spec.trim_height_cm
+            if ink_mode is not None:
+                book.interior_ink_mode = ink_mode
             book.updated_at = datetime.utcnow()
             return True
 
@@ -847,6 +892,8 @@ class BookManager:
                 return False
             book_row.trim_width_cm = spec.trim_width_cm
             book_row.trim_height_cm = spec.trim_height_cm
+            if ink_mode is not None:
+                book_row.interior_ink_mode = ink_mode
             book_row.updated_at = datetime.utcnow()
             db.commit()
             return True
