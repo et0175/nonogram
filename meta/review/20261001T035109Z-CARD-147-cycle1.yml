@@ -1,0 +1,336 @@
+version: 1
+generated_at: "2026-10-01T03:51:09Z"
+target: "CARD-147 cycle 1 — branch card/147-interior-ink-mode @ bd59050, base main @ c931979 (main has NOT moved; merge-base == main head), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-147"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (CARD-147 diff + _write_pdf/_write_page in full)"
+    - "src/nonogram/admin/book_page_spec.py (InkMode, ink_mode_from_stored, book_ink_mode)"
+    - "src/nonogram/admin/print_specs.py"
+    - "src/nonogram/admin/book_manager.py (set_print_spec, Book, _book_from_row)"
+    - "src/nonogram/admin/app.py (print-setup POST/GET, _interior_ink_mode, finalise context)"
+    - "src/nonogram/admin/templates/book_setup_print.html, book_finalize.html"
+    - "src/nonogram/db/models.py (Book)"
+    - "migrations/versions/013_book_interior_ink_mode.py (+ live Postgres nonogram_test round trip, + sqlite)"
+    - "tests/test_book_pdf_ink_mode.py (all 1191 lines)"
+    - "tests/helpers/pdf_pages.py, tests/helpers/book_corpus.py"
+    - "tests/test_book_pdf_memory.py, tests/test_book_floor.py, tests/test_book_page_spec.py (diff + context)"
+    - "tests/fixtures/book_baseline_card147.json + the whole card145->128->144->149->146->147 chain"
+    - "~/Documents/nonogram-reviews/CARD-147/ (both PDFs, 11 diff maps, 2 contact sheets, full-res crop, cover)"
+    - "meta/kanban/cards/CARD-147.md incl. both Worktree notes blocks"
+  not_reached:
+    - "src/nonogram/admin/book_proof.py (read only around render_proof_pdf)"
+    - "the rest of app.py's ~5000 lines outside the two touched routes"
+  confidence: high
+
+metrics:
+  diff: { files: 15, added: 1986, removed: 47 }
+  max_fan_in: { symbol: "BookPDFGenerator._write_pdf", callers: 6 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py"
+    - "src/nonogram/admin/app.py"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — every historical co-change peer of the touched files (book_pdf_generator.py, app.py, book_page_spec.py, models.py, migrations/, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_*.json, tests/test_book_pdf_memory.py) is present in this diff; the set of absent peers is genuinely empty, not uncounted."
+
+system_contract:
+  rules_checked: 45
+  holds: 14
+  unchecked: 31
+  violated: 0
+  verdicts:
+    - "ADR-0019/R1 ✓ holds — the import-direction ast guard (tests/test_cli.py) is green on this head: 94 passed. The new admin imports (book_page_spec -> export.layout, admin -> admin) all point inward; nothing in src/nonogram/export, cli.py or web/ is touched at all (git diff main...HEAD on those paths is empty)."
+    - "ADR-0032/R1 ✓ holds — set_print_spec writes only books.trim_*, books.interior_ink_mode and books.updated_at; no puzzle is created or re-verified by this diff (grep: no add_puzzle / solver call added)."
+    - "ADR-0033/R1 ✓ holds — the diff writes no puzzle field at all; the only new column is on `books` (models.py Book, migration 013)."
+    - "ADR-0035/R1 ✓ holds — no status transition is added or changed; set_print_spec's docstring explicitly keeps INV-008's 'trim columns and updated_at and nothing else' posture, now plus interior_ink_mode. Verified by reading both storage branches."
+    - "ADR-0036/R1 ✓ holds — the ink mode is deliberately NOT on PageSpec: grep for ink_mode/InkMode/interior_ink_mode in src/nonogram/export/ returns nothing, and tests/test_book_pdf_ink_mode.py::test_the_mode_never_reaches_the_sheet asserts grey.page_spec(n) == colour.page_spec(n) over all 14 EC-1 books at pages 1/2/7. CLI and web A4 output cannot move: export/, cli.py, web/ and tests/fixtures/a4_golden/ are untouched by the diff."
+    - "ADR-0036/R2 ✓ holds — no geometry is computed in the admin panel by this diff; _write_page only chooses a colour space from _PDF_COLOUR_SPACE and the MediaBox arithmetic is unchanged (page.width * 72.0 / self.dpi)."
+    - "ADR-0037/R1 ✓ holds — no band text changed; the diff adds no drawing call. Confirmed on the rendered pages: all 11 diff maps in ~/Documents/nonogram-reviews/CARD-147/ are uniformly 255."
+    - "ADR-0037/R2 ✓ holds — measured independently from the two rendered PDFs: on every one of the 11 interior pages the max luma difference between the DeviceGray and the DeviceRGB file is 0, the <128 ink masks are equal, and the pure-black (==0) and pure-white (==255) pixel counts are equal page for page (e.g. page 7: 334333/334333 black, 7413497/7413497 white). No stroke weight moved and no anti-aliasing was introduced."
+    - "CON-015 ✓ holds — no bind address, host or debug flag is touched; app.py's diff is confined to the print-setup POST/GET bodies, _interior_ink_mode and the finalise context dict."
+    - "CON-016 ✓ holds — no route registration, door or ADMIN_ALLOWED_HOST handling changed; the two new form fields ride the existing print-setup POST."
+    - "CON-020 ✓ holds — no type size moved: the diff contains no font, size or draw call (grep for ImageFont/font_size/truetype in the production diff returns nothing), and book_corpus.MACHINE_FACE_SIZES is unchanged at (92, 46, 60). The new text is admin-panel HTML, not interior print."
+    - "INV-008 ✓ holds — set_print_spec touches no membership, order, title or status column in either storage branch (read both)."
+    - "INV-012 ✓ holds — no membership change path is touched."
+    - "INV-013 ✓ holds — the interior still holds no cover page and the cover is still a separate file: tests/test_book_pdf_ink_mode.py::test_export_book_writes_a_grey_interior_beside_a_colour_cover asserts interior_page_count == 11 with every interior page DeviceGray and the single cover page DeviceRGB; independently confirmed on the rendered files."
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy does not exist as a test (only as a comment in tests/test_export_pdf.py:622,1250). Manual read of this diff found no violation: pyproject.toml is not in the diff, and the only new import is `from enum import Enum` (stdlib)."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-009, INV-010, INV-011 ⚠ unchecked — no_eligible_fact: this card touches only the book's stored interior colour space and the two screens that name it; it exercises no solver, difficulty, sourcing, density, grid-extent, web-server-binding, plan, floor, pairing or answer-key behaviour. (Three of these — CON-005, INV-001, INV-002 — additionally carry dead check refs; see the note below.)"
+  note: |
+    Dead check refs, independently confirmed (the lens is unreliable here: --verify-refs
+    reports dead_check_ref: [] with check_refs_verified: true, because it text-matches and
+    these names appear in test-file comments that map them onto differently-named real
+    tests). Four refs in this model name no test definition:
+      ADR-0006/R1 -> TestDependencyBaseline_IsExactlyPillowAndNumpy
+      CON-005     -> PropertyTest_Solver_NeverFalsePositiveUniqueness
+      INV-002     -> TestExport_RejectsUnverifiedPuzzle
+      INV-001     -> TestComputeClues_MatchesGridExactly
+    This is the same set CARD-129's review found (commit ac5573b) — a standing model defect,
+    not introduced by CARD-147, and not re-filed as a finding against this card.
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_ink_mode.py
+    line: 291
+    title: "G-2's pre-encode test re-derives the conversion with the same function it is testing"
+    description: |
+      `test_no_mark_moves_on_any_page_bitmap` computes `grey = np.asarray(page.convert("L"))`
+      itself and compares it to `rgb[:, :, 0]`. It therefore verifies a property of Pillow's
+      `Image.convert("L")`, not a property of `_write_page`'s conversion — even though its
+      docstring says "The conversion is the writer's own".
+
+      Demonstrated by mutation M5a: injecting a softening into `_write_page`
+      (`page = page.convert(mode).point(lambda v: 1 if v == 0 else v)`) leaves this test GREEN.
+      The mutant was killed, but by two other tests —
+      `test_the_two_files_hold_the_same_marks_page_for_page` and EC-1's
+      `test_the_two_modes_agree_on_every_page_of_every_book` — both of which read the levels
+      back off the two written files.
+
+      CLAUDE.md states the convention this crosses: "Prefer an independent second
+      implementation over re-deriving a value with the same function you're testing."
+      G-2 is genuinely enforced; it is enforced one layer out from where this test claims.
+    suggestion: |
+      Either reword the docstring so it does not claim to be testing the writer (it tests that
+      the page has no colour to lose and that ITU-R 601-2 is the identity on such a page —
+      both worth testing), or have it pull the converted page out of the writer, e.g. by
+      capturing the image handed to `pdf.write_obj` via a one-call spy, so the assertion
+      binds to `_write_page`'s own conversion.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2458
+    title: "_write_pdf's new ValueError guard for an unknown mode has no covering test (mutant survived)"
+    description: |
+      `_write_pdf` gained an explicit rejection path:
+        if mode not in _PDF_COLOUR_SPACE: raise ValueError(f"a book PDF is written in one of {known}, not {mode!r}")
+      Mutation M10 replaced that whole block with `pass` and ran
+      tests/test_book_pdf_ink_mode.py + tests/test_book_pdf_memory.py: **68 passed, 1 skipped**
+      — the mutant survived. No test exercises the rejection.
+
+      Impact is small: all three call sites pass either the literal `"RGB"` or
+      `interior_bitmap_mode`, which can only be `"L"` or `"RGB"`, and without the guard
+      `_write_page`'s `_PDF_COLOUR_SPACE[mode]` would raise `KeyError` anyway — so the guard
+      changes the exception type and message, not reachability. But Step 8f's negative-scenario
+      rule applies: a validation rule added by the diff with no test for its rejection case.
+    suggestion: |
+      One line in TestBookInk_* :
+        with pytest.raises(ValueError, match="a book PDF is written in one of"):
+            BookPDFGenerator(book_on(InkMode.BLACK_AND_WHITE))._write_pdf(iter([]), 0, mode="CMYK")
+      and assert nothing was written (the docstring's "raised before the buffer exists" claim).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: migrations/versions/013_book_interior_ink_mode.py
+    line: 82
+    title: "The migration's explicit UPDATE backfill (layer 2) is untested — mutant survived"
+    description: |
+      The migration documents three layers of defence (server_default, an explicit
+      `UPDATE ... WHERE interior_ink_mode IS NULL`, and the reader's own default) and states
+      that only layer 3 is load-bearing. Mutation M8 replaced the whole `op.execute(books.update()...)`
+      with `pass` and ran TestBookInk_Migration013BackfillsEveryExistingBook: **4 passed** —
+      the mutant survived. Layer 2 has no discriminating test.
+
+      The companion mutant M9 (removing `server_default=DEFAULT_INK_MODE`, layer 1) was KILLED
+      by `test_a_book_inserted_after_the_upgrade_is_black_and_white_too`, so layer 1 is covered.
+
+      This is a confirmed-redundant layer rather than an uncovered load-bearing path: on both
+      supported backends `ADD COLUMN ... DEFAULT 'bw'` already backfills (verified live on
+      Postgres 15.19 and on sqlite), so the UPDATE is a no-op there by construction and only
+      fires on a hypothetical third backend. Recorded so the redundancy is a known, measured
+      fact rather than an assumed one.
+    suggestion: |
+      Either accept it as documented belt-and-braces and say in the docstring that layer 2 is
+      untestable on the two supported backends (it is), or add a test that NULLs the column by
+      hand after the upgrade and re-runs just the UPDATE statement, which is what the live
+      Postgres probe did manually.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_floor.py
+    line: 0
+    title: "Migration-012 test pins its ORM detour to \"head\" rather than to \"013\""
+    description: |
+      `TestMigration012` now runs `command.upgrade(config, "head")` before taking its ORM read
+      and `command.downgrade(config, "012")` afterwards. The round trip itself is correct and
+      the change is net-strengthening: two new assertions after the return to 012
+      (`"floor_overrides" in columns()` and `overrides() == {"Legacy": None}`) are exactly the
+      guard for sqlite's batch-mode table recreate in migration 013, and every assertion about
+      012's own behaviour is either before the detour or after the return. The test cannot pass
+      on a broken 012 (every failure mode still fires on a pre-detour assertion).
+
+      The residual risk is the unpinned `"head"`: a future migration 014 that touched
+      `floor_overrides` would silently change what the post-return assertion means, and the
+      verified claim "013 neither reads nor writes that column" would go stale without anyone
+      noticing.
+    suggestion: 'Change `command.upgrade(config, "head")` to `command.upgrade(config, "013")` — the revision whose non-interference was actually verified.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2515
+    title: "_write_page keeps a mode=\"RGB\" default, contradicting the card's own design rationale one layer down"
+    description: |
+      `_write_pdf(..., *, mode: str)` is correctly a required keyword — the stated reason being
+      that the two files of one export disagree about it and "a default would hide that at the
+      one place it matters". `_write_page(..., mode: str = "RGB")` then reinstates exactly such
+      a default on the method that actually performs the conversion. Its only caller is
+      `_write_pdf`, which always names the mode, so the default is currently dead; but a future
+      second caller that omits it would silently write DeviceRGB pages into a black-and-white
+      book's interior, which is precisely the failure the required keyword exists to prevent.
+    suggestion: 'Make `mode` positional-required (or keyword-only without a default) on `_write_page` too; the single call site at :2492 already passes it.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: question
+    file: tests/fixtures/book_baseline_card147.json
+    line: 0
+    title: "The baseline's headline claim conflates two things the digests cannot both show"
+    description: |
+      `changed_pages_note` (and the Worktree notes) say "the unmoved pages are the evidence
+      that the colour space moved and the ink did not". Only the second half follows. Because
+      `tests/helpers/pdf_pages.py` ends with `convert("RGB")`, the digests are computed on
+      (v, v, v) whatever the file declares, so they are blind to the colour space **in
+      principle** — an unmoved digest is evidence about the ink and about nothing else. The
+      colour space is established elsewhere, correctly: by `interior_bytes` (−15.17%) and by
+      `tests/test_book_pdf_ink_mode.py::pdf_image_objects`, an independent non-normalising
+      reader.
+
+      The fixture already states this correctly two keys later, in `interior_colorspace_note`
+      ("A reader checking the colour space must read it off the PDF's image XObjects … because
+      the shared helper normalises exactly this away"), so this is a loose sentence in a
+      document that elsewhere disambiguates itself, not a false claim about the code.
+    suggestion: 'Reword to "the unmoved pages are the evidence that the ink did not move; interior_bytes and interior_colorspace are the evidence that the colour space did."'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: ops
+    type: question
+    file: tests/fixtures/book_baseline_card146.json
+    line: 0
+    title: "superseded_by back-pointers stopped three cards ago; the chain is only navigable backwards"
+    description: |
+      Verified chain (by `supersedes`): card145 (root) -> card128 -> card144 -> card149 ->
+      card146 -> card147 (head). Only card145 and card128 carry a `superseded_by` line;
+      card144, card149 and card146 do not. The implementation's claim is exactly right.
+
+      CARD-147's card body asks for a `superseded_by` line on the superseded file; the
+      orchestrator's instruction says every earlier fixture must stay byte-identical. The
+      implementation followed the orchestrator and **flagged the divergence explicitly** rather
+      than choosing silently — which is the correct behaviour for an implementer caught between
+      two instructions, and `git diff --numstat main...HEAD -- tests/fixtures/` confirms
+      `118 0 tests/fixtures/book_baseline_card147.json`, one file, insertions only.
+
+      On the substance: each fixture's own `warning` ends "…records a NEW baseline in a commit
+      of its own, with its own card number, **and says so here**" — that clause asks for the
+      back-pointer, and the prohibition it sits in is scoped to *regenerating* digests, which a
+      purely additive metadata key is not. So the card body's reading is the better one for this
+      chain, and card146 is the case where it bites hardest: card146 is still **live evidence**,
+      hardcoded as `PRE_CARD_BASELINE` for AC-2's byte-identity check, so a reader landing on it
+      has no way to learn it was superseded as `BASELINE_FIXTURE` while being retained as the
+      DeviceRGB reference.
+
+      This is pre-existing chain-hygiene debt that predates CARD-147 by three cards, not a defect
+      of this diff. Filed so the owner picks one rule.
+    suggestion: 'Owner decision: either add `superseded_by` to card144, card149 and card146 in a separate hygiene card, or drop the clause from the fixtures'' `warning` text so the chain stops asking for something nobody writes.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/book_proof.py
+    line: 519
+    title: "Out of scope: the book's ADR-0037 proof PDF is still written DeviceRGB"
+    description: |
+      `render_proof_pdf` writes the book's own proof pages through Pillow's
+      `save(format="PDF", save_all=True)`, which emits DeviceRGB for RGB pages. A
+      black-and-white book's proof file is therefore still a colour file. This is correctly
+      outside CARD-147's scope — the proof is a measuring aid printed on the owner's own
+      printer, not the interior uploaded to KDP, and its own docstring says the generator's
+      writer is private and out of its reach. Noted only so the inventory of book artifacts
+      that declare a colour space is complete: interior (now mode-aware), cover (always RGB by
+      design, AC-5), proof (always RGB, unexamined).
+    suggestion: 'No action for this card. If the owner ever prints proofs at a shop, a follow-up card could route the proof through `_write_pdf` with the book''s own mode.'
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

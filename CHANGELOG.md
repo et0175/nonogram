@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-01
+- CARD-143 (feature): You can now type a puzzle's position in the Arrangement step instead of clicking the arrows one place at a time — useful after adding a batch, when a new puzzle lands at the end of its level and belongs near the front. The number is the position within that level, not across the whole book, and it is labelled so. Typing a position inserts the puzzle there and the rest of the level shifts along to make room — the same result as clicking the arrow that many times. A number outside the level's range, or anything that is not a number, is refused with the valid range named and the order left alone; nothing is silently moved somewhere near what you meant.
 - CARD-129 (feature): Finalising a book now refuses it when the stored gutter margin is too narrow for how many pages the book actually runs to. KDP needs a wider gutter past 150 pages, and a book laid out for the narrower one is rejected at upload — after everything else looks finished. The check counts the interior as it will be printed, answer key included, and does not count the cover, which is a separate file. The stored margin is never changed for you: the book is refused and told what KDP wants for that page count, so you decide. Above 300 pages the requirements do not say what is needed, so it says that rather than guessing.
 
 ## 2026-09-30

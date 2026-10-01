@@ -1,6 +1,6 @@
 # CARD-143: Type a puzzle's position in the arrange step, not only up and down
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/143-arrange-type-a-position
-**Worktree:** ../PythonProject4-CARD-143
+**Worktree:** —
 **Source:** owner, 2026-09-23 ("sort puzzles inside the difficulty group after adding new puzzles, and manually change ordinal numbers, not only moving up-down")
 **Idea:** —
 **Wave:** 27
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/app.py, tests/test_book_arrange_position.py
 **Review score:** 8.5 (1 cycle + 2 fixes)
 **Started:** 2026-09-30T19:05:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-01T08:40:00Z
+**Actual:** 0.5d
+**Merge commit:** 2bfd6b8
 **Blocked by:** —
 
 ## What to implement

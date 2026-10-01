@@ -1,6 +1,6 @@
 # CARD-147: The book PDF is written black-and-white or in colour, and says which
 
-**Status:** blocked
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -8,19 +8,19 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/147-interior-ink-mode
+**Worktree:** ../PythonProject4-CARD-147
 **Source:** owner, 2026-09-25 ("2 modes to pdf generator: black/white and colors … I was a bit too creative making colored pages for book 1 — then it gets more expensive. But we may add colors for book2")
 **Idea:** —
 **Wave:** 27
 **Depends on:** CARD-146
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_page_spec.py, src/nonogram/db/models.py, migrations/, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_pdf_ink_mode.py
-**Review score:** —
-**Started:** —
+**Review score:** 9.5 (cycle 1/3)
+**Started:** 2026-10-01T07:10:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** waiting on CARD-146 — it is the last wave-26/27 card in book_pdf_generator.py
+**Blocked by:** — (cleared 2026-10-01: CARD-146 merged b9a17d3)
 
 ## What to implement
 
@@ -114,6 +114,30 @@ cited FR-041, the level-divider requirement, at ~15 sites) and it cost a
 finding. If a citation is wanted, name the intake line.
 
 ## Worktree notes
+- [Env] forge 2026.8.17
+- [Blocker cleared] CARD-146 merged at b9a17d3.
+- [The card's baseline note is two recordings stale — read this instead] It names
+  `book_baseline_card144.json`. The live fixture is **`book_baseline_card146.json`**
+  (`tests/helpers/book_corpus.py:100`), and the chain is now card145 → card128 → card144 →
+  card149 → card146. The *instruction* in the note is right and still applies; only the
+  filename is out of date. Supersede the **card146** file, not card144's.
+- [This is the largest baseline change yet, and the card understates it] Every previous card in
+  the chain moved one or two pages — CARD-149 page 1, CARD-146 page 3. Making black-and-white
+  the default changes the colour space of the **whole interior**, so **all eleven digests move**
+  and `interior_bytes` changes substantially. `changed_pages` should name all of them, and the
+  page-by-page verification the precedent demands is still owed: it is the evidence that every
+  page moved *for the stated reason* rather than that something else moved too.
+- [Schema change, and the one that actually ships] This is the first card since CARD-148 to
+  touch `src/nonogram/db/models.py` and `migrations/`. Nothing else is in flight there. Note the
+  live panel runs on Postgres (`nonogram_poc`), not the sqlite file, so the migration has to be
+  good on Postgres — and CARD-148's work means `alembic upgrade head` now resolves its driver
+  explicitly, so the deploy path is sound.
+- [CON-020 does not bite here] The constraint added on 2026-09-30 governs interior **type size**
+  — no text below 10 pt, sizes physical rather than bare pixels. A colour-space change touches
+  no type size. It is listed so nobody has to wonder.
+- [The card's "no FR on purpose" paragraph is load-bearing] CARD-144's review found that card
+  citing FR-041 — the level-divider requirement — at roughly fifteen sites to look traced, and
+  it cost a finding. Do not invent a citation here. Naming the intake line is the honest form.
 
 [Baselines — read before you start] `tests/fixtures/book_baseline_card144.json`
 records sha256 digests of the exported pages' **decoded bitmaps**. Changing the
@@ -136,3 +160,88 @@ override. The mode is stored on the book beside its trim and margins, and
 defaults to black-and-white for any book that has none stored — which is every
 book that exists today, all of them black-and-white in content. Book 1 is
 black-and-white; colour is available per book from Book 2 onward.
+
+### Cycle 1 review (2026-10-01)
+
+- [Review 1/3] **9.5** · risk LOW · lane FAST ·
+  `meta/review/20261001T035109Z-CARD-147-cycle1.yml` · 0 critical, 0 important, 7 minor.
+  **Ready to merge**, no blocking conditions. Suite reproduced exactly: 5500 / 5491 / 2 / 7.
+- **The digest question is settled, and the answer matters.** The reviewer tested both halves
+  by experiment rather than argument. **(b) is load-bearing**: `convert("L")` is the exact
+  identity on all 256 grey levels, and through JPEG at four quality settings a grey RGB image
+  and its `L` counterpart decode to identical luma, max diff 0 — with the arithmetic to match
+  (libjpeg's `19595+38470+7471 = 65536`, so `(65536v+32768)>>16 = v`; a constant chroma plane
+  level-shifts to all-zero DCT and survives quantisation). **(a) cannot be the whole story**:
+  `convert("RGB")` on an `L` image is a lossless `v → (v,v,v)`, so it blinds the digest to the
+  colour-space *declaration* and to nothing else. Proved by counterfactual: **softening one
+  pixel by one level moves the digest.**
+- So the baseline **is** still evidence — of the ink, not of the colour space. The card's
+  sentence welds two claims the digests cannot both carry; only the second follows. The colour
+  space is established separately and correctly, by `interior_bytes` and by `pdf_image_objects`,
+  a deliberate non-normalising second reader. The fixture's own `interior_colorspace_note` says
+  this two keys later, so the document disambiguates itself — Minor (F-006), not a defect.
+- **And AC-1 never rested on the baseline anyway**: its evidence is two tests reading the two
+  written files directly, which the reviewer re-derived itself off the rendered PDFs — all 11
+  pages, max luma diff 0, ink masks equal, pure-black and pure-white counts equal page for page.
+- **Migration 013 verified live on Postgres**, which is the database that matters: Alembic's
+  `PostgresqlImpl` does not override `requires_recreate_in_batch`, so batch mode emits a plain
+  `ALTER TABLE … ADD COLUMN` with no recreate and no FK hazard; `pg_dump --schema-only` before
+  and after a downgrade/upgrade round trip is **identical**; probe rows cleaned up and
+  `nonogram_test` left exactly as found. sqlite's recreate path was exercised separately with
+  two inbound FKs and three indexes — all survived.
+- Mutation: **11 mutants, 9 killed.** Both survivors argued rather than waved away: the
+  migration's explicit `UPDATE` backfill is **confirmed-redundant** (a separate mutant proves
+  the `server_default` layer is covered, and the UPDATE is a provable no-op on both supported
+  backends), and `_write_pdf`'s new `ValueError` guard is unreachable because the dict lookup
+  raises `KeyError` first.
+- **F-001 (minor) is the finding worth remembering**, because it is a convention this project
+  states explicitly: `test_no_mark_moves_on_any_page_bitmap` computes `page.convert("L")`
+  *itself* and compares it to `rgb[:,:,0]` — so it tests Pillow, not the writer, while its
+  docstring claims "the conversion is the writer's own". CLAUDE.md names exactly this
+  ("prefer an independent second implementation over re-deriving a value with the same function
+  you're testing"). G-2 is still genuinely enforced, by the file-level comparisons, and the
+  softening mutant was killed by two other tests.
+- F-004 (minor) `test_book_floor.py` upgrades to `"head"` where it means `"013"` — two
+  characters, and it will silently test the wrong thing as soon as migration 014 exists.
+- F-007 (minor, **an owner decision older than this card**) the `superseded_by` back-pointer:
+  each fixture's `warning` ends "…and **says so here**", and its prohibition is scoped to
+  *regenerating digests*, which an additive key is not — so the card body's reading is the
+  better one and the chain should carry back-pointers. But only card145 and card128 do; card144,
+  card149 and card146 never got one. It bites hardest on card146, which is **still live
+  evidence** (hardcoded as `PRE_CARD_BASELINE` for AC-2). Debt three cards old, flagged not
+  filed against this diff.
+- **No invented FR citation** — confirmed by the reviewer: the three FR ids in added lines are
+  FR-043 about the cover being a separate file (which is what it says), one pre-existing FR-030
+  docstring line edited in place, and one FR-041 *inside a comment explaining why no FR is
+  cited*, naming CARD-144's defect. The mistake was not repeated.
+- System contract: 45 rules — 14 ✓, 31 ⚠, 0 ✗. ADR-0036/R1 holds and was checked the hard way:
+  the mode is genuinely not on `PageSpec` (grep of `src/nonogram/export/` returns nothing, and a
+  test asserts `page_spec()` equality across modes on all 14 EC-1 books).
+- [Review sync] 1 report → meta/review/
+
+### Orchestrator gates (2026-10-01)
+
+- [Build gate] PASSED on bd59050: **5500 collected, 5491 passed, 2 failed, 7 skipped** — main
+  collects 5459, so this card adds exactly its 41 and nothing else. The two failures are the
+  long-known stale-heading assertions.
+- [Guard] The headline claim verified independently: **zero digests moved** (compared page by
+  page against card146's), `changed_pages: []`, and `book_baseline_card128/144/145/146/149.json`
+  are **all five byte-identical**. `interior_bytes` 2,680,175 → 2,273,541, **−15.17%**.
+- [Orchestrator error, corrected by the implementation] My brief gave the baseline as "5450
+  collected, 5441 passed". Both were wrong: 5450 was the *passed* count on main, taken from a
+  merge-gate line reading `2 failed, 5450 passed, 7 skipped`. Main collects **5459**. The agent
+  caught the conflation and did the arithmetic correctly. Worth recording because the same
+  passed-for-collected slip may be in earlier briefs this session.
+- [Prediction wrong, and the agent said so first] Both the card and the orchestrator note
+  predicted all eleven digests would move. None did. That is the card's most interesting result
+  and its central evidential claim — the *unmoved* digests being offered as proof that the
+  colour space changed and the ink did not — so the reviewer has been asked to untangle the two
+  reasons given for it, because only one of them is load-bearing: if the reader's
+  `convert("RGB")` blindness is doing the work rather than the luma-plane identity, the baseline
+  proves far less than it appears to.
+- [Noted, not decided] The implementation followed the orchestrator's instruction (every earlier
+  fixture byte-identical) over the card body's (add a `superseded_by` line to the superseded
+  file), and **flagged the divergence rather than choosing it silently** — observing that
+  card144, card149 and card146 were none of them given that line by their successors, while
+  card145 and card128 were. The chain is already inconsistent; the reviewer decides which way it
+  should settle.
