@@ -362,8 +362,15 @@ def _check_move(shelf, before, after, moving, offset, outcome, context) -> str:
 
     if 0 <= target < len(sequence):
         assert outcome is True, f"a move inside a level must happen ({context}): {outcome!r}"
+        #: CARD-143 fix 2: the rule **inserts** — the puzzle is lifted out and
+        #: put back ``offset`` places away, and the level closes the gap behind
+        #: it. At the ``_move`` dispatch's own +-1 that is the same order an
+        #: exchange of the two neighbours gives, so this oracle is unchanged for
+        #: everything the property draws today; it is written as the insertion so
+        #: that it stays the rule's oracle, and not the rejected one, for any
+        #: wider offset a later card lets ``_draw``/``_move`` produce.
         expected = list(sequence)
-        expected[index], expected[target] = expected[target], expected[index]
+        expected.insert(target, expected.pop(index))
         assert levels_of(shelf, after)[shelf.rank(moving)] == expected, context
         assert_levels_unchanged(shelf, before, after, context, except_rank=shelf.rank(moving))
         return "moved"

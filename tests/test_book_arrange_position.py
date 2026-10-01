@@ -681,6 +681,18 @@ def test_PropertyTest_ArrangePosition_AlwaysAPermutationGroupedByTier(panel) -> 
             f"the puzzle is not at the typed position {target}: "
             f"{groups_after[tier]}"
         )
+        #: CARD-143 fix 2: the moved level's OTHER members keep their relative
+        #: order. That is the owner's insertion rule stated as a property — an
+        #: exchange would reorder them (typing 1 against the last of E1..E5
+        #: would give E5, E2, E3, E4, E1) while leaving membership, grouping,
+        #: the landing position and every other level intact, so without this
+        #: clause the whole corpus cannot tell the two rules apart.
+        assert [p for p in groups_after[tier] if p != puzzle_id] == [
+            p for p in members if p != puzzle_id
+        ], (
+            f"the rest of the {tier} level was reordered by inserting "
+            f"{puzzle_id} at {target}: {members} -> {groups_after[tier]}"
+        )
         for name, members_before in groups_before:
             if name != tier:
                 assert groups_after[name] == members_before, (
