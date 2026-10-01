@@ -76,7 +76,7 @@ OUTSIDE_MM = 0.375 * 25.4
 
 #: Where the recorded per-page evidence of the interior's pages lives.
 #:
-#: Five recordings of this same book now sit side by side, each kept and none
+#: Six recordings of this same book now sit side by side, each kept and none
 #: regenerated, because every change after the first was *deliberate* — the one
 #: reason CARD-145's fixture's own ``warning`` admits a successor:
 #:
@@ -94,10 +94,21 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   — moved on top of CARD-144's eleven;
 #: * ``book_baseline_card146.json`` — CARD-146 carries CARD-144's frame onto the
 #:   **two-up** page, which composes its own drawings and so had never drawn
-#:   one, so interior page 3 — and only page 3 — moved on top of CARD-149's.
+#:   one, so interior page 3 — and only page 3 — moved on top of CARD-149's;
+#: * ``book_baseline_card147.json`` — CARD-147 makes a black-and-white interior
+#:   the book's own stored fact and the default, so every page is now written
+#:   ``"L"`` with ``ColorSpace /DeviceGray``. **No page's digest moved** — the
+#:   luma plane survives the colour-space change exactly, and ``pdf_pages``
+#:   normalises a page to RGB before digesting it anyway — so this is the first
+#:   recording in the chain whose ``changed_pages`` is empty and whose whole
+#:   change is ``interior_bytes``: 2,273,541 where CARD-146 recorded 2,680,175.
+#:   Its ``why_a_new_baseline`` carries the arithmetic, and its
+#:   ``interior_colorspace`` carries the fact that each page entry's ``mode``
+#:   field, still ``"RGB"``, is the reader's normalisation and not the file's
+#:   declaration.
 #:
-#: All five files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card146.json"
+#: All six files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card147.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eight until
@@ -443,7 +454,12 @@ def capped_export_report(shape: str) -> Dict[str, Any]:
         written = generator.export_interior(puzzles).getvalue()
     elif shape == MATERIALISED_SHAPE:
         pages = generator.interior_pages(puzzles)  # the shape this card removed
-        written = generator._write_pdf(iter(pages), len(pages)).getvalue()
+        # CARD-147: written in the book's own interior colour space, so the
+        # two shapes under the cap write the same file and differ only in when
+        # they release a page.
+        written = generator._write_pdf(
+            iter(pages), len(pages), mode=generator.interior_bitmap_mode
+        ).getvalue()
         del pages
     else:
         raise ValueError(f"unknown export shape: {shape!r}")

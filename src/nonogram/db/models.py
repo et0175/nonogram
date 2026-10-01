@@ -154,6 +154,27 @@ class Book(Base):
     gutter_margin_cm = Column(String, nullable=True, default='1.27', server_default='1.27')  # inside margin
     outside_margin_cm = Column(String, nullable=True, default='0.95', server_default='0.95')
     outside_margin_bleed_cm = Column(String, nullable=True)
+    # CARD-147 (owner intake, meta/architecture/inputs/raw-requirements.md,
+    # 2026-09-25; migration 013): how the book's **interior** is printed —
+    # 'bw' or 'colour', the two values of
+    # nonogram.admin.book_page_spec.InkMode. It sits beside the trim and the
+    # margins because it is the same kind of fact: something about the printed
+    # book that the owner chooses once and the export obeys. It is *not*
+    # geometry — no page size, margin, cell, rule or count depends on it, and
+    # ADR-0036/R1 is untouched — it decides only the colour space the
+    # interior's pages are composed and written in.
+    #
+    # Nullable with a server default of 'bw', and migration 013 backfills
+    # every existing row: a book created before the column, and a row written
+    # by code that does not know it, both read as black-and-white
+    # (book_page_spec.DEFAULT_INK_MODE), which is what every book that exists
+    # today is in content. Unlike floor_overrides, whose NULL carries a second
+    # meaning the reader has to interpret fail-closed, this NULL *is* the
+    # default: the backfill and the reader agree rather than one covering for
+    # the other.
+    interior_ink_mode = Column(
+        String, nullable=True, default='bw', server_default='bw'
+    )
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 

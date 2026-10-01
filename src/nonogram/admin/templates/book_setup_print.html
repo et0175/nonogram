@@ -62,6 +62,28 @@
                         <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDefaultSize()">Use the default (8.5 × 11 in / 21.59 × 27.94 cm)</button>
                     </p>
 
+                    {#- CARD-147 (owner intake, raw-requirements.md,
+                        2026-09-25): how the book's interior is printed. It is
+                        stored on the book beside the trim and written by the
+                        same submission, so a refused plan stores neither.
+                        The cover is a separate file and is unaffected: a
+                        colour cover on a black-and-white interior is the
+                        ordinary case (FR-043, CARD-135). -#}
+                    <div class="mb-4">
+                        <span class="form-label d-block" id="ink-mode-label">Interior ink</span>
+                        <div class="btn-group" role="group" aria-labelledby="ink-mode-label">
+                            {% for mode in interior_ink_modes %}
+                            <input type="radio" class="btn-check" name="interior_ink_mode"
+                                   id="ink_{{ mode.value }}" value="{{ mode.value }}"
+                                   {% if interior_ink_mode == mode.value %}checked{% endif %}>
+                            <label class="btn btn-outline-secondary" for="ink_{{ mode.value }}">{{ mode.label }}</label>
+                            {% endfor %}
+                        </div>
+                        <small class="d-block mt-2 text-muted">
+                            {% if interior_ink_mode is none %}This book's stored interior ink mode could not be read — choose one.{% else %}Black and white is cheaper to print, and the puzzles carry no colour. The cover is a separate file and stays in colour either way.{% endif %}
+                        </small>
+                    </div>
+
                     <div class="alert alert-secondary mb-4">
                         <strong>Limits.</strong>
                         <ul class="mb-0 mt-1">
