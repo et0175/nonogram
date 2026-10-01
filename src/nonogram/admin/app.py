@@ -3687,6 +3687,59 @@ def create_app(debug=None):
             )
             return render_template("book_select_puzzles.html", **context)
 
+    def _level_place(book_id, puzzle_id):
+        """Where ``puzzle_id`` sits in its own level: ``(position, count, label)``.
+
+        1-based, read from the store's own grouping (:meth:`puzzle_levels`) —
+        the same grouping the screen numbers, the moves make and the book
+        prints — so a typed position cannot mean something other than the
+        number printed beside the box it was typed in (FR-041, INV-009).
+
+        Returns:
+            The place, or ``None`` when this book does not hold that puzzle.
+        """
+        for tier, ids in book_mgr.puzzle_levels(book_id):
+            if puzzle_id in ids:
+                label = tier.value.title() if tier is not None else "Ungraded"
+                return ids.index(puzzle_id) + 1, len(ids), label
+        return None
+
+    def _typed_position(raw, count, label):
+        """The position the owner typed, or the refusal to show in its place.
+
+        ``(position, None)`` or ``(None, message)``. Adapter work and nothing
+        more (ADR-0019/R1): it reads one form field and says whether the level
+        has such a position at all. Whether the *move* is allowed stays with
+        ``moved_within_level``, which is where it already lives.
+
+        A position below 1, above the level's count, not a number, or simply
+        not typed is refused with the range named in words — never rounded into
+        range, because a typo that silently moved a puzzle somewhere else is
+        worse than a refusal (CARD-143 item 3).
+        """
+        # The range, in words, in every refusal below: the message is the whole
+        # explanation, so a refusal reads as text and does not rest on the red
+        # border beside it.
+        range_named = (
+            f"Type a whole number from 1 to {count} — that is how many puzzles "
+            f"the {label} level holds. The order is unchanged."
+        )
+        typed = (raw or "").strip()
+        if not typed:
+            return None, f"No position was typed. {range_named}"
+        try:
+            position = int(typed)
+        except ValueError:
+            # Echoed back so the owner can see the typo, clipped so a pasted
+            # essay cannot become the page's largest element.
+            return None, f"“{typed[:20]}” is not a position. {range_named}"
+        if not 1 <= position <= count:
+            return None, (
+                f"There is no position {position} in the {label} level. "
+                f"{range_named}"
+            )
+        return position, None
+
     @app.route("/book/<book_id>/arrange-puzzles", methods=["GET", "POST"])
     def arrange_puzzles_in_book(book_id):
         """Arrange and name puzzles — the Arrangement step of scaffolding."""
@@ -3694,6 +3747,15 @@ def create_app(debug=None):
         if not book:
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
+
+        # CARD-143: a typed position the level does not have is refused where it
+        # was typed, not only in the flash stack. Set by the POST below and read
+        # by the render at the bottom of this same request — the route
+        # re-renders rather than redirecting, so the owner's own entry is still
+        # on the screen that carries the refusal.
+        position_error = None
+        position_error_puzzle = None
+        position_error_value = None
 
         # Handle puzzle reordering and title updates via AJAX or form submission
         if request.method == "POST":
@@ -3711,6 +3773,52 @@ def create_app(debug=None):
                     puzzle_id = request.form.get("puzzle_id")
                     if book_mgr.move_puzzle_down(book_id, puzzle_id):
                         flash(f"Moved puzzle down", "success")
+
+                elif action == "set_position":
+                    # CARD-143: typing a position is the move the buttons make
+                    # with the offset worked out for it, not a second way of
+                    # ordering a book. This branch reads the box and subtracts;
+                    # the store's `moved_within_level` decides what the order
+                    # allows, so INV-009 keeps the one enforcement point it has
+                    # today (G-1).
+                    puzzle_id = request.form.get("puzzle_id")
+                    place = _level_place(book_id, puzzle_id)
+                    if place is None:
+                        # Worded as the sibling actions on this screen word it.
+                        flash("Book or puzzle not found", "error")
+                    else:
+                        current, count, label = place
+                        target, refusal = _typed_position(
+                            request.form.get("position"), count, label
+                        )
+                        if refusal:
+                            position_error = refusal
+                            position_error_puzzle = puzzle_id
+                            # FormField: a refusal re-renders what the owner
+                            # submitted, so the typo is there to correct rather
+                            # than to retype. Clipped, so a pasted essay cannot
+                            # become the widest element on the page.
+                            position_error_value = (
+                                request.form.get("position") or ""
+                            )[:20]
+                        elif target == current:
+                            # A position that changes nothing is not an error
+                            # (CARD-143 item 4): nothing is written and the
+                            # owner is told the book already reads that way.
+                            flash(
+                                f"This puzzle is already {target} of "
+                                f"{count} in the {label} level; the order is "
+                                f"unchanged.",
+                                "success",
+                            )
+                        elif book_mgr.move_puzzle_within_level(
+                            book_id, puzzle_id, target - current
+                        ):
+                            flash(
+                                f"Moved puzzle to {target} of {count} in the "
+                                f"{label} level",
+                                "success",
+                            )
 
                 elif action == "set_title":
                     puzzle_id = request.form.get("puzzle_id")
@@ -3785,6 +3893,11 @@ def create_app(debug=None):
                     # refuses, so the page does not offer it.
                     puzzle["can_move_up"] = position > 0
                     puzzle["can_move_down"] = position < len(ids) - 1
+                    # The number in the box beside the row: where this puzzle
+                    # sits in its LEVEL (CARD-143 item 2), which is what a move
+                    # is confined to — `order` above is the book-wide one, and
+                    # typing that would invite the move INV-009 refuses.
+                    puzzle["level_position"] = position + 1
                     rows.append(puzzle)
                     puzzles_in_book.append(puzzle)
             level_groups.append(
@@ -3856,6 +3969,10 @@ def create_app(debug=None):
             "page_count": page_count,
             "puzzle_count": len(puzzles_in_book),
             "page_plan_failed": page_plan_failed,
+            # CARD-143: the refusal and the box that earned it, or None.
+            "position_error": position_error,
+            "position_error_puzzle": position_error_puzzle,
+            "position_error_value": position_error_value,
         }
 
         return render_template("book_arrange_puzzles.html", **context)

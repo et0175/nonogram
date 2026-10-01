@@ -1546,16 +1546,54 @@ class BookManager:
         """
         return self._move_within_level(book_id, puzzle_id, +1)
 
+    def move_puzzle_within_level(self, book_id: str, puzzle_id: str, offset: int) -> bool:
+        """Move a puzzle ``offset`` places inside its own level (FR-036, INV-009).
+
+        The typed-position form of the two move buttons (CARD-143). The arrange
+        route knows where the puzzle sits in its level and what position the
+        owner typed, and subtracts; the move itself is the one the buttons make,
+        through the same
+        :func:`~nonogram.admin.book_plan.moved_within_level`, so INV-009 is
+        enforced in one place however the owner asks for the move — there is no
+        second ordering rule behind the box.
+
+        The move that function makes is an **insertion**: the puzzle is lifted
+        out and put back ``offset`` places away and the puzzles in between
+        shift one place to close the gap, so typing a position does exactly
+        what clicking the neighbouring button that many times does (the owner's
+        ruling of 2026-09-30). At the buttons' ``-1``/``+1`` an insertion and an
+        exchange of the two neighbours coincide, which is why the buttons are
+        unaffected by that being the rule.
+
+        Args:
+            book_id: ID of book
+            puzzle_id: ID of puzzle to move
+            offset: how many places to move it by, signed. Any integer works;
+                ``0`` is a no-op the caller should not bother the store with.
+
+        Returns:
+            True if moved, False if the book holds no position that far away at
+            all (the same answer the buttons give at the book's ends).
+
+        Raises:
+            LevelBoundary: the position the offset lands on belongs to another
+                level. Nothing is written (AC-258).
+            ValueError: If book not found or puzzle not in book
+        """
+        return self._move_within_level(book_id, puzzle_id, offset)
+
     def _move_within_level(self, book_id: str, puzzle_id: str, offset: int) -> bool:
-        """One step of CMD-022 -> EVT-023: the swap both move buttons make.
+        """CMD-022 -> EVT-023: the one move both buttons and the box make.
 
         The two directions were the same forty lines twice over, once per
-        storage mode, and the rule they now share is not a swap of adjacent
-        *stored* positions any more but a swap of adjacent positions in the
-        **level order** (:func:`~nonogram.admin.book_plan.moved_within_level`).
-        On a book that is already grouped those are the same two positions; on
-        a legacy mixed one they are not, and the move is the one place where
-        the grouped order is written back (the card's item 2).
+        storage mode, and the rule they now share moves a puzzle by
+        **inserting** it ``offset`` places away in the **level order**
+        (:func:`~nonogram.admin.book_plan.moved_within_level`) rather than in
+        the *stored* one. On a book that is already grouped the two orders
+        agree; on a legacy mixed one they do not, and the move is the one place
+        where the grouped order is written back (the card's item 2). For the
+        buttons' one place an insertion is a step onto the neighbour's
+        position, as it always was.
 
         The new order goes through :meth:`reorder_puzzles`, so the membership
         check and the storage branch stay in one place and the write is a
