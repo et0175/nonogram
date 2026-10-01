@@ -1,0 +1,460 @@
+version: 1
+generated_at: "2026-10-01T15:54:52Z"
+target: "CARD-150 cycle 1 — branch card/150-launcher-honest-database, commit 8af5d0f, base/target main @ 3750fd8 (main has NOT moved; git diff main...HEAD == the single commit)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "scripts/start_admin_local.sh (full, pristine + 4 mutants)"
+    - "scripts/README.md (full)"
+    - "tests/test_start_admin_local.py (full, 422 lines)"
+    - "meta/kanban/cards/CARD-150.md (full)"
+    - "scripts/setup_admin_local.sh, scripts/run_admin_tests.sh, scripts/diagnose_postgres.sh (sibling launchers)"
+    - "src/nonogram/db/session.py normalized_url (DATABASE_URL shapes the app accepts)"
+    - "meta/architecture/requirements.yml CON-015, CON-016 neighbourhood"
+    - "live psql: database list, nonogram_test alembic_version + pg_stat_user_tables"
+  not_reached:
+    - "the before/after proof harness quoted in the card's Worktree notes — not committed, so its 'drives both scripts without --check-only' claim is unverifiable from the repo"
+    - "the two Docker branches of step [1/6] at runtime — the docker stub always exits 1 by design, so those two changed lines were read, never executed"
+    - "the editable-install failure path (the python stub always exits 0)"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 554, removed: 17 }
+  max_fan_in:
+    symbol: "scripts/start_admin_local.sh"
+    callers: 0
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — the changed artifact is a standalone shell entry point invoked by a human; nothing in the repo execs it (grep over scripts/, Makefile, docs, CI found no caller). The 0 is true and says nothing about risk."
+    hotspots: "no_eligible_fact — 5 commits in 12 months across both touched files (8af5d0f, 895e41f, ba8f6c6, 3a4829c, 96da6ac), 2 of them fix/*; too few for a churn or defect-density signal to mean anything."
+    cochange_missing: "no_eligible_fact — the co-change set of the two touched files is exactly each other (4 of 4 commits changed both) and both are in this diff; there is no third peer for the signal to name."
+
+system_contract:
+  rules_checked: 6
+  holds: 1
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "CON-015 ✓ holds — the launch line is still `python -m flask --app nonogram.admin.app run --port $PORT` with no `--host`, so Flask's 127.0.0.1 default stands; grep over the diff finds no bind address, no `--host`, no `0.0.0.0`. Check ref `TestAdminPanel_BindsLoopbackOnlyByDefault` is LIVE (tests/test_admin_binding.py:136, class declaration)."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: the rule governs the web adapter's listening socket; this card changes a shell launcher and a README and touches no web-server code. (Its ref `TestWebServer_BindsLoopbackOnlyByDefault` is live at tests/test_web_server.py:348.)"
+    - "CON-005 ⚠ unchecked — check_ref_missing: `PropertyTest_Solver_NeverFalsePositiveUniqueness` exists only as a docstring line (tests/property/test_solver_uniqueness.py:3), never as a class/def declaration (searched bare and `test_PropertyTest_`-prefixed). Also no_eligible_fact for this diff: no solver code is touched. Manual read of this diff found no violation."
+    - "CON-010 ⚠ unchecked — check_ref_missing: `PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest` appears only at tests/test_web_server.py:10, :1187, :1791, all prose. Also no_eligible_fact for this diff. Manual read found no violation."
+    - "CON-011 ⚠ unchecked — check_ref_missing: `PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30` appears only at tests/property/test_grid_dimensions.py:13, :255, both prose. Also no_eligible_fact for this diff. Manual read found no violation."
+    - "CON-012 ⚠ unchecked — check_ref_missing: `PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore` appears only at tests/property/test_image_fit.py:4, :358, both prose. Also no_eligible_fact for this diff. Manual read found no violation."
+  assembly_note: >-
+    Assembled fresh with system_rules.py --card CARD-150 --verify-refs (card_scope: touches).
+    The lens returned 5 rules (CON-005, CON-009, CON-010, CON-011, CON-012) and scoped OUT
+    CON-015 — the one CON the card actually cites — because CON-015's scope.code is
+    ["src/nonogram/admin/**"] and this card touches scripts/ and tests/ only. CON-015 is
+    checked here anyway as the card's declared contract, hence 6 rather than 5. The card has
+    no "## System contract" section, so N = assembled set + the card's cited CON.
+    --verify-refs is confirmed unreliable as warned: it printed dead_check_ref: [] with
+    check_refs_verified: true while 4 of the 5 assembled rules' refs do not exist as
+    declarations. The project convention is that the model's ref name lives in the test
+    file's docstring and maps to a differently-named declaration (e.g. tests/test_clues.py:8
+    "AC-014 TestComputeClues_MatchesGridExactly -> test_matches_grid_exactly*"), so the
+    underlying properties ARE covered — the refs, not the tests, are dead. Model/tooling
+    defect, not this card's; filed as an out-of-scope observation, not a finding.
+
+root_causes:
+  - id: RC-1
+    title: "The harness's evidence channel lets non-script output, and non-specific exit codes, satisfy script assertions"
+    finding_ids: [F-001, F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_start_admin_local.py
+    line: 305
+    title: "AC-3's message-capture clause is unverified — the mutant that throws alembic's message away survives all 18 tests"
+    description: |
+      Mutant M3a: remove `2>&1` from
+      `if MIGRATION_OUTPUT="$(alembic upgrade head 2>&1)"; then`
+      (scripts/start_admin_local.sh:186). The script then prints exactly the
+      pre-card defect — alembic's message discarded — and all 18 tests pass.
+
+      Measured side by side with identical stubs (scratchpad harness, stdout and
+      stderr captured separately):
+        pristine  -> stdout: "  alembic upgrade head said:" / "    FAILED: boom from alembic"   stderr: (empty)   exit 1
+        mutant    -> stdout: "  alembic upgrade head said:" / "    (no output)"                 stderr: "FAILED: boom from alembic"   exit 1
+      and `pytest tests/test_start_admin_local.py` on the mutant: 18 passed.
+
+      Mechanism: `_ALEMBIC_STUB` (:73) writes its message with `printf ... >&2`, and
+      `run_script` builds `Run.output` as `completed.stdout + completed.stderr`.
+      So alembic's message is present in `run.output` whether the script quoted
+      it or whether it merely leaked past the script to the terminal.
+      `test_alembics_own_message_reaches_the_output` cannot tell those apart —
+      which is precisely the distinction AC-3 is about ("alembic's own message
+      appears in the output"). It is the only test for that clause.
+
+      The production code is correct (verified live, above), so this is a finding
+      against the test, not the script: the regression it exists to prevent is
+      currently undetectable.
+    suggestion: |
+      Assert the script's OWN quoting rather than the message's presence anywhere.
+      The script pipes the captured text through `sed 's/^/    /'`, so only the
+      script can produce the four-space-indented form:
+
+          for line in self.MESSAGE.splitlines():
+              assert f"    {line.strip()}" in run.output, ...
+          assert "(no output)" not in run.output
+
+      Either assertion alone kills M3a. Alternatively keep stdout and stderr
+      separate in `Run` and assert on stdout only — that also hardens the other
+      17 tests against the same class of leak.
+    confidence: high
+    source: static
+    violates: "AC-3"
+    root_cause: RC-1
+    status: fixed
+    fix_note: |
+      Fixed in the test, as the finding says: the script was already correct
+      and is byte-identical (sha1 ba6aeb47c164f083ed529f4f0aa3e5a8df8e395d).
+      `Run` now carries `stdout` and `stderr` separately alongside the
+      unchanged `output` (= stdout + stderr), so no existing assertion was
+      weakened, retargeted or removed.
+      `test_alembics_own_message_reaches_the_output` keeps its three original
+      assertions and adds two the leak cannot satisfy: every line of
+      `MESSAGE` in the four-space-indented form that only the script's own
+      `sed 's/^/    /'` can produce, asserted against the script's **stdout**,
+      and `"(no output)" not in run.output`.
+      M3a re-run both ways with the pristine snapshot restored by copy and the
+      sha1 re-verified:
+        mutant (`$(alembic upgrade head)`) -> 1 failed, 18 passed; the failure
+          is `assert "    FAILED: Can't locate revision identified by
+          'deadbeef'" in run.stdout`, with stdout showing `    (no output)`
+          and the message sitting in stderr.
+        pristine -> 19 passed.
+      So M3a is now KILLED. The file holds 19 tests, all executing, no
+      skipif/importorskip/marker.
+    fixed_in: "dfe07db (card/150-launcher-honest-database) — tests/test_start_admin_local.py:92-100,171-176,329-348"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: scripts/README.md
+    line: 11
+    title: "AC-4's own fix adds a false statement: 'a DATABASE_URL you exported yourself wins' is untrue for two of the three scripts the section governs"
+    description: |
+      The new Prerequisites bullet (scripts/README.md:9-14) states, unqualified,
+      "a `DATABASE_URL` you exported yourself wins over it". `## Prerequisites`
+      (line 5) precedes `## Scripts` (line 16), which documents three scripts:
+      `start_admin_local.sh` (:18), `setup_admin_local.sh` (:51),
+      `run_admin_tests.sh` (:71). The claim is true only for the first.
+
+        scripts/setup_admin_local.sh:64  export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+        scripts/run_admin_tests.sh:24    export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+
+      Both overwrite the caller exactly as start_admin_local.sh did before this
+      card. setup_admin_local.sh additionally still carries the other two
+      defects verbatim: the bare `psql -c "SELECT 1"` Homebrew branch (:40) and
+      the swallowed migration failure (:70-74, "⚠ Migrations may have issues").
+
+      This is the card's own defect class — its Worktree notes name it: "all
+      three were *descriptions*, and all three passed every test the project
+      had". A reader who follows Prerequisites, exports DATABASE_URL and then
+      runs setup_admin_local.sh gets nonogram_poc silently, which is the harm
+      the card exists to remove. AC-4's test suite cannot see it: every README
+      assertion is driven from a run of start_admin_local.sh only.
+
+      ("**The scripts never create a database**" in the same bullet IS true —
+      verified: grep for createdb/CREATE DATABASE/create_database across
+      scripts/ finds only README prose and advice text in diagnose_postgres.sh.)
+    suggestion: |
+      Scope the sentence to the script it describes, e.g.:
+      "`start_admin_local.sh` honours a `DATABASE_URL` you exported; the other
+      scripts here still hardcode the project default." Fixing the sibling
+      scripts is a separate card (their files are outside this card's Touches).
+    confidence: high
+    source: static
+    violates: "AC-4"
+    root_cause: null
+    status: fixed
+    fix_note: |
+      All three documented scripts read first. `start_admin_local.sh` resolves
+      the URL above the banner and honours an exported value, reporting the
+      source at step [4/6]; `setup_admin_local.sh:64` and
+      `run_admin_tests.sh:24` both still
+      `export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"`
+      over the caller's value. The sentence is scoped to be true, and now
+      states the exception rather than hiding it:
+
+        "The project default is
+        `postgresql://postgres:postgres@localhost:5432/nonogram_poc`. In
+        `start_admin_local.sh`, a `DATABASE_URL` you exported yourself wins
+        over that default; `setup_admin_local.sh` and `run_admin_tests.sh` do
+        not yet honour it — both still export the project default over
+        whatever you exported, so edit them or set the URL afterwards."
+
+      The sibling scripts are NOT touched (separate card). The companion claim
+      "**The scripts never create a database**" is left as it stands: verified
+      true of all three (`createdb`/`CREATE DATABASE` appear only in README
+      prose and in diagnose_postgres.sh advice text).
+      The reviewer's note that AC-4's suite cannot see this class of error is
+      also answered, cheaply:
+      `TestStartAdminLocal_ReadmeMatchesTheScript::test_a_claim_about_the_scripts_names_the_script_it_holds_for`
+      requires the Prerequisites section still to state the precedence, then
+      reads the *source* of every script the README documents under a `###`
+      heading and, for each one matching `^\s*export\s+DATABASE_URL=`,
+      requires Prerequisites to name it. It drives none of them, so G-2 is
+      untouched, and it relaxes by itself as each sibling is fixed. Proved
+      both ways: with the old unqualified sentence restored it FAILS
+      (`assert 'setup_admin_local.sh' in <prerequisites>`); with the scoped
+      sentence, 19 passed.
+    fixed_in: "dfe07db (card/150-launcher-honest-database) — scripts/README.md:9-16, tests/test_start_admin_local.py:412-445"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/kanban/cards/CARD-150.md
+    line: 0
+    title: "The card's headline test claim ('14 of 18 fail against the original script') is an artifact of --check-only, not of the defects"
+    description: |
+      Reproduced exactly: with main's scripts/start_admin_local.sh in place,
+      `pytest tests/test_start_admin_local.py` gives 14 failed, 4 passed — the
+      number is right. But it completes in 2.68s against 23.15s green, and
+      `Unknown option: --check-only` appears 22 times in the failure output.
+      Per-test: 13 of the 14 failures are the original script refusing the flag
+      at argument-parse time and exiting 1 before step [1/6]; only
+      `test_refuses_before_starting_anything` (the one flag-free test) fails for
+      the defect's own reason.
+
+      So the suite cannot distinguish "the pre-card defective script" from "a
+      script that does not know --check-only", and the 14/18 figure is not
+      evidence that the tests discriminate the three defects. The targeted
+      mutants are that evidence (M1 bare-psql killed: 5 failures; M2 URL
+      precedence negated killed: 9 failures; M3b migration `exit 1` removed
+      killed: 2 failures; M3a stderr capture removed SURVIVED — F-001).
+    suggestion: |
+      Correct the Worktree-notes claim to cite the targeted mutants rather than
+      the 14/18 number, or state the 14/18 number with its caveat. No code change.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_start_admin_local.py
+    line: 383
+    title: "'the behaviour being documented' preconditions assert only `returncode != 0`, which any script failure satisfies"
+    description: |
+      `test_it_says_a_missing_database_stops_the_script` (:383) and
+      `test_it_says_a_failed_migration_stops_the_script` (:398) each run the
+      script and assert `run.returncode != 0` as the precondition for the README
+      assertion that follows. Both PASSED against the original, defective
+      script — because its exit 1 came from rejecting `--check-only`, not from
+      refusing a missing database or a failed migration. The precondition is
+      satisfiable by any failure whatsoever, so it does not pin the behaviour it
+      claims to document.
+    suggestion: |
+      Assert the specific refusal alongside the exit code — `"not reachable" in
+      run.output` and `"Migrations failed" in run.output` respectively (both
+      already asserted by the AC-1/AC-3 tests, so the strings are established).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: scripts/start_admin_local.sh
+    line: 117
+    title: "The two Docker branches check the database by NAME only, so they can green-tick a different server than the panel will read"
+    description: |
+      `docker exec nonogram-postgres psql -U postgres -d "$DB_NAME" -c "SELECT 1"`
+      (:117) and the docker-compose equivalent (:119) use only the name sliced
+      out of `$DATABASE_URL`; they discard its host, port, user and password.
+      The Homebrew branch (:121) uses the URL itself. The Docker branches are
+      tried FIRST, so with `DATABASE_URL` exported at a non-Docker server and a
+      container that happens to hold a database of the same name, step [1/6]
+      prints a green tick for a database the panel will never read — the card's
+      own defect, one branch over.
+
+      Narrow in practice (the default URL points at localhost:5432, which is
+      where docker-compose maps the container), and the card puts the Docker
+      paths out of scope "beyond making their check and the Homebrew check
+      agree", so this is a residual rather than a contract breach. Noted because
+      neither Docker branch has any runtime coverage: `_DOCKER_STUB` always
+      exits 1 by design, so these two changed lines are verified by `bash -n`
+      and reading only.
+    suggestion: |
+      Either document the limitation at the branch, or make the Docker branches
+      assert the URL too (e.g. skip them when DATABASE_URL_SOURCE is "exported
+      by the caller" and its host is not localhost). Out of this card's scope —
+      a backlog note is an acceptable resolution.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: scripts/start_admin_local.sh
+    line: 36
+    title: "DB_NAME is string-sliced, so degenerate URL shapes make the tick lie again, and a driver-qualified URL the app accepts is refused"
+    description: |
+      `DB_NAME="${DATABASE_URL##*/}"; DB_NAME="${DB_NAME%%\?*}"` (:36-37) is a
+      textual slice, not a URL parse. Two consequences:
+
+      1. `export DATABASE_URL=postgresql://postgres@localhost:5432/` yields
+         `DB_NAME=""`. `psql "$DATABASE_URL"` then connects to the server's
+         DEFAULT database and succeeds, so step [1/6] prints
+         "✓ PostgreSQL is running, database '' reachable (Homebrew)" — a green
+         tick naming no database, which is the shape of the original defect.
+         This one fails in the UNSAFE direction.
+      2. `src/nonogram/db/session.py:69` `normalized_url` deliberately preserves
+         an explicit driver, documenting that `postgresql+psycopg://` "is
+         somebody's decision". `psql` does not understand that scheme, so the
+         script now refuses a DATABASE_URL the panel would have used, reporting
+         it as "Database 'x' is not reachable" rather than as an unsupported
+         scheme. Fails in the safe direction, but the diagnosis misleads.
+    suggestion: |
+      Reject an empty DB_NAME explicitly ("DATABASE_URL names no database") and,
+      if cheap, warn when the scheme is not one psql accepts
+      (`postgresql://`/`postgres://`). Both are one `case`/`if` each.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_start_admin_local.py
+    line: 181
+    title: "No test pins G-3's launch target, although the harness already records it"
+    description: |
+      G-3 protects `--app nonogram.admin.app` (CARD-139's fix for a live 500).
+      It holds in this diff — verified by reading — but nothing asserts it:
+      every test either stops before step [6/6] or asserts the OPPOSITE
+      (`test_the_harness_reaches_the_end_of_the_script`:169-181 asserts no flask
+      call, since `--check-only` exits first). `_PYTHON_STUB` already logs its
+      argv and exits 0, so a flag-free healthy run terminates and the assertion
+      is about two lines:
+
+          run = run_script(tmp_path)                       # no --check-only
+          assert run.called("python")[-1] == (
+              "python -m flask --app nonogram.admin.app run --port 5000")
+
+      That would pin CARD-139's fix mechanically instead of by reading, and
+      would be the only test exercising the script's tail at all.
+    suggestion: "Add the flag-free launch-line assertion above."
+    confidence: high
+    source: static
+    violates: "G-3"
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+# ---- verification record (non-schema; consumers ignore unknown keys) ----
+verification:
+  suite:
+    command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest -o addopts=\"\" (cwd = worktree)"
+    result: "5557 collected, 5548 passed, 2 failed, 7 skipped in 470.90s"
+    matches_expected: true
+    failures:
+      - "tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied — pre-existing, file untouched by this diff"
+      - "tests/test_wave3_e2e.py::TestWave3UIIntegration::test_batch_creation_form_renders — pre-existing, file untouched by this diff"
+    new_file_alone: "tests/test_start_admin_local.py — 18 passed in 23.15s, 0 skipped (no skipif/importorskip/marker anywhere in the file)"
+    note: >-
+      A first full-suite run reported 11 failed; 9 of those were in
+      tests/test_start_admin_local.py and were self-inflicted — that background run
+      overlapped the mutation step, which temporarily rewrites the script under test.
+      Re-run serially after the last restore: 2 failed, as expected. The first run's
+      numbers are discarded.
+  mutation_check:
+    enabled: true
+    ladder: >-
+      ran, as a deliberate override of the cost ladder. The ladder defers certification
+      when gating findings exist, on the rationale that "the tests it would certify are
+      about to change with the fixes". That rationale does not apply here: the one
+      Important finding standing before the check (F-002) is a README sentence whose fix
+      cannot alter test discrimination, and the caller explicitly required the 14/18
+      claim to be verified. Running it was therefore not wasted work — and it produced
+      F-001, the review's highest finding, which a deferral would have hidden for a cycle.
+    target_decisions: 3
+    mutants: 4
+    killed: 3
+    survived: 1
+    results:
+      - id: "M0 (claim check, not a mutant)"
+        change: "main's scripts/start_admin_local.sh restored wholesale"
+        result: "14 failed, 4 passed in 2.68s — the card's number is numerically correct"
+        verdict: >-
+          misleading. 13 of the 14 failures are `Unknown option: --check-only` (22
+          occurrences in the output); only test_refuses_before_starting_anything, the
+          one flag-free test, fails for the defect's own reason. See F-003.
+      - id: M1
+        decision: "the database check's argument"
+        change: "scripts/start_admin_local.sh:121 `elif psql \"$DATABASE_URL\" -c \"SELECT 1\"` -> `elif psql -c \"SELECT 1\"` (the original defect, with --check-only kept)"
+        result: "KILLED — 5 failed, 13 passed"
+      - id: M2
+        decision: "DATABASE_URL precedence"
+        change: "scripts/start_admin_local.sh:29 `if [ -n \"${DATABASE_URL:-}\" ]` -> `if [ -z ... ]` (caller's value overwritten, as before the card)"
+        result: "KILLED — 9 failed, 9 passed"
+      - id: M3a
+        decision: "the migration's failure branch — the capture"
+        change: "scripts/start_admin_local.sh:186 `$(alembic upgrade head 2>&1)` -> `$(alembic upgrade head)`"
+        result: "SURVIVED — 18 passed. Script prints `    (no output)`; see F-001."
+      - id: M3b
+        decision: "the migration's failure branch — the refusal"
+        change: "scripts/start_admin_local.sh:197 `exit 1` removed from the failure branch"
+        result: "KILLED — 2 failed, 16 passed"
+    restore_proof: >-
+      Every mutant was applied by writing a one-substitution copy of a pristine snapshot
+      (sha1 ba6aeb47c164f083ed529f4f0aa3e5a8df8e395d, captured before any edit) and
+      restored by copying that snapshot back; the sha1 was re-verified after each of the
+      5 restores and matched every time. No git checkout/restore was used. Final
+      `git status --porcelain` shows exactly one entry, ` M meta/kanban/cards/CARD-150.md`,
+      which was already modified before this review began.
+  guardrails:
+    - "G-1 ✓ holds — `bash -n scripts/start_admin_local.sh` clean; the coloured ✓/✗ register, the [n/6] numbering (all six markers printed, asserted by the harness self-check), --port, --no-migrate and --help are all present and unchanged in shape."
+    - "G-2 ✓ holds — measured after all work: psql -l lists only nonogram_dev and nonogram_test; nonogram_poc is still ABSENT. nonogram_test is at alembic_version 013 with every table at 0 live rows (alembic_version 1, batches 0, books 0, generation_history 0, puzzles 0, user_selected_books 0, users 0). No createdb/CREATE DATABASE/DROP anywhere in scripts/ (createdb appears only in README prose and diagnose_postgres.sh advice text). The tests connect to nothing: psql, docker, docker-compose, alembic and python are all stubbed first on PATH and run_script strips DATABASE_URL and every PG* from the environment. All 18 tests execute; none skip — the project's 'DB tests skip silently' hazard does not reappear."
+    - "G-3 ✓ holds — the launch line is still `python -m flask --app nonogram.admin.app run --port $PORT`. The src.-prefixed spelling appears in the script only inside CARD-139's explanatory comment, nowhere executable; across the repo it appears only in files this diff does not touch (ADMIN_SETUP.md, ADMIN_PANEL_IMPLEMENTATION.md, DEPLOYMENT_TEST_REPORT.md, DATABASE_MIGRATIONS.md, migrations/env.py, start.sh's comment, tests/test_admin_import_consistency.py). CARD-139's editable-install check survives verbatim and is exercised. Caveat: nothing ASSERTS the launch target — F-007."
+    - "G-4 ✓ holds — the diff touches exactly scripts/README.md, scripts/start_admin_local.sh, tests/test_start_admin_local.py. No Python under src/."
+  acceptance_criteria:
+    - "AC-1 ✓ met — step [1/6] refuses with `✗ Database 'nonogram_poc' is not reachable`, exit 1, before step [2/6]; test TestStartAdminLocal_RefusesAMissingDatabase present and discriminating (M1 killed)."
+    - "AC-2 ✓ met — resolution at :28-33, `export DATABASE_URL` at :171 exports the resolved value; source reported at [4/6]; test TestStartAdminLocal_RespectsAnExportedDatabaseUrl present and discriminating (M2 killed)."
+    - "AC-3 ⚠ partially verified — the code is correct on both clauses (verified live: exit 1 and `    FAILED: ...` quoted under 'alembic upgrade head said:'), and the exit-code clause is discriminating (M3b killed). The message clause is NOT verified by its test (M3a survived) — F-001."
+    - "AC-4 ⚠ partially met — the README does describe the default URL, the DATABASE_URL precedence, and both refusals, and two of its six assertions are genuinely behaviour-coupled. But the diff also introduces a false statement in the same file (F-002), and four assertions are keyword greps that cannot see it."
+  visual_baseline: "unavailable (not_applicable) — review.visual is off and this is a shell script, a README and a test; no UI surface, no screens, no baselines."
