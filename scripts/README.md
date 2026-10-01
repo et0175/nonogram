@@ -8,8 +8,11 @@ Quick scripts to set up and test the Nonogram Admin Panel locally.
 - PostgreSQL 15+ running locally
 - A database that already exists, and a `DATABASE_URL` pointing at it. The
   project default is
-  `postgresql://postgres:postgres@localhost:5432/nonogram_poc`; a `DATABASE_URL`
-  you exported yourself wins over it. **The scripts never create a database** —
+  `postgresql://postgres:postgres@localhost:5432/nonogram_poc`. In
+  `start_admin_local.sh`, a `DATABASE_URL` you exported yourself wins over that
+  default; `setup_admin_local.sh` and `run_admin_tests.sh` do not yet honour it
+  — both still export the project default over whatever you exported, so edit
+  them or set the URL afterwards. **The scripts never create a database** —
   which one you want is your call. `psql -l` lists the ones you have, and
   `createdb <name>` makes a new one if that is what you want.
 

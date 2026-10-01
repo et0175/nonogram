@@ -92,6 +92,14 @@ class Run:
     returncode: int
     output: str
     calls: list[str]
+    # ``output`` is the two streams concatenated, so it cannot tell the
+    # script's own words from a stub's message that merely leaked past the
+    # script to the terminal -- and that distinction is the whole of AC-3's
+    # message clause (CARD-150, review cycle 1, F-001).  Keep the streams
+    # apart as well, so a test that cares can assert on what the script
+    # itself printed.
+    stdout: str = ""
+    stderr: str = ""
 
     def called(self, program: str) -> list[str]:
         return [c for c in self.calls if c.split(" ", 1)[0] == program]
@@ -163,6 +171,8 @@ def run_script(
         returncode=completed.returncode,
         output=_plain(completed.stdout + completed.stderr),
         calls=[line for line in log.read_text().splitlines() if line.strip()],
+        stdout=_plain(completed.stdout),
+        stderr=_plain(completed.stderr),
     )
 
 
@@ -319,6 +329,25 @@ class TestStartAdminLocal_RefusesAndReportsAFailedMigration:
             )
         assert "may have issues" not in run.output
 
+        # The assertions above are also satisfied by alembic's message merely
+        # leaking past the script: the stub writes it to stderr, and
+        # ``run.output`` is both streams concatenated.  Drop the ``2>&1`` from
+        # the script's capture and they still pass, which is the pre-card
+        # defect surviving its own test (F-001).  Only the script's own
+        # ``sed 's/^/    /'`` can put the message, four-space indented, on the
+        # script's *stdout* -- so that is what pins the quoting.
+        for line in self.MESSAGE.splitlines():
+            assert f"    {line.strip()}" in run.stdout, (
+                f"the script did not quote {line.strip()!r} under its own"
+                f" 'alembic upgrade head said:'; it only reached the terminal."
+                f"\nstdout:\n{run.stdout}\nstderr:\n{run.stderr}"
+            )
+        assert "(no output)" not in run.output, (
+            "the script captured nothing from alembic -- the message went"
+            f" straight to the terminal instead:\nstdout:\n{run.stdout}"
+            f"\nstderr:\n{run.stderr}"
+        )
+
     def test_no_migrate_is_the_explicit_way_past_it(
         self, tmp_path: Path
     ) -> None:
@@ -379,6 +408,41 @@ class TestStartAdminLocal_ReadmeMatchesTheScript:
         lowered = readme.lower()
         assert "exported" in lowered
         assert "wins" in lowered or "takes precedence" in lowered
+
+    def test_a_claim_about_the_scripts_names_the_script_it_holds_for(
+        self,
+    ) -> None:
+        """Prerequisites governs every script the README documents.
+
+        Only ``start_admin_local.sh`` honours an exported ``DATABASE_URL``;
+        ``setup_admin_local.sh`` and ``run_admin_tests.sh`` still
+        ``export DATABASE_URL`` over the caller's value.  This suite drives
+        none of them -- every other assertion in this class comes from a run
+        of ``start_admin_local.sh`` -- so an unqualified precedence claim in
+        Prerequisites was invisible to it (CARD-150 review cycle 1, F-002).
+        Read the siblings' source instead: a documented script that
+        overwrites ``DATABASE_URL`` has to be named where the claim is made.
+        Fixing those scripts is a separate card; when one is fixed it drops
+        out of this check by itself.
+        """
+        readme = README.read_text()
+        prerequisites = readme.split("## Prerequisites", 1)[1].split("\n## ", 1)[0]
+        assert any(
+            word in prerequisites.lower() for word in ("wins", "takes precedence")
+        ), f"Prerequisites no longer states the precedence:\n{prerequisites}"
+
+        documented = re.findall(r"(?m)^### `([A-Za-z0-9_.-]+\.sh)`", readme)
+        assert "start_admin_local.sh" in documented, documented
+        for name in documented:
+            source = (REPO_ROOT / "scripts" / name).read_text()
+            if not re.search(r"(?m)^\s*export\s+DATABASE_URL=", source):
+                continue
+            assert name in prerequisites, (
+                f"{name} exports DATABASE_URL over the caller's value, so the"
+                " precedence claim in Prerequisites is not true of every"
+                " script documented here and has to say which one it means:"
+                f"\n{prerequisites}"
+            )
 
     def test_it_says_a_missing_database_stops_the_script(
         self, tmp_path: Path
