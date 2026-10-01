@@ -52,10 +52,16 @@ Two independent readings, because each would hide something the other catches:
   of what ``tests/helpers/pdf_pages.py`` does, deliberately: that helper
   normalises every page to RGB, which is precisely the fact under test here, so
   it cannot be the instrument.
-* **off the page bitmaps before they are encoded** — ``interior_stream``'s own
-  pages, converted the way the writer converts them. JPEG is lossy, so an
-  exact "no mark moved" claim belongs on the bitmaps; the file-level reading
-  then confirms that the loss is identical in the two colour spaces.
+* **off the page bitmaps before they are encoded** — the two images
+  ``_write_page`` itself works with on one call: the ``"RGB"`` page COMP-007
+  handed it and the page it handed the JPEG encoder. Both are captured off the
+  writer rather than recomputed here, so the comparison is of the writer's own
+  conversion (CLAUDE.md's "prefer an independent second implementation over
+  re-deriving a value with the same function you're testing" — a test that
+  called ``convert("L")`` itself would hold whatever the writer did). JPEG is
+  lossy, so an exact "no mark moved" claim belongs on the bitmaps; the
+  file-level reading then confirms that the loss is identical in the two
+  colour spaces.
 
 No ``hypothesis`` (it is not in the dependency baseline): EC-1's corpus is
 built by hand with stdlib ``random.Random`` and asserts its own size, so it
@@ -288,27 +294,68 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
             assert page["procset"] == ["PDF", "ImageC"], f"interior page {number}"
             assert page["image"].mode == "RGB", f"interior page {number}"
 
-    def test_no_mark_moves_on_any_page_bitmap(self):
-        """The exact half: COMP-007's page, converted, is the same ink (G-2).
+    def test_no_mark_moves_on_any_page_bitmap(self, monkeypatch):
+        """The exact half: the page **the writer encoded** is the same ink (G-2).
 
         Compared before the JPEG encode, where "pixel-for-pixel" can be
-        asserted without a tolerance at all. The conversion is the writer's
-        own — ``Image.convert("L")`` — and what is checked is that it is the
-        identity on luma: the grayscale page equals the RGB page's own
-        ``convert("L")``, every ink position is the same position, and the set
-        of levels is unchanged, so no anti-aliasing was introduced and no rule
+        asserted without a tolerance at all.
+
+        The grayscale page is not computed here. It is the very
+        :class:`~PIL.Image.Image` ``_write_page`` handed to the JPEG encoder,
+        captured off that one call, and the RGB page it is compared against is
+        the one ``_write_page`` was handed on the same call — so both sides of
+        the equality come out of the writer and the assertion binds to the
+        writer's own conversion. Calling ``page.convert("L")`` in this test
+        instead would re-derive the value under test with the same function
+        the writer uses, and would therefore hold whatever the writer did
+        (CLAUDE.md: "prefer an independent second implementation over
+        re-deriving a value with the same function you're testing"; the
+        measured consequence was that a softening injected into ``_write_page``
+        left this test green while the two file-level readings below killed
+        it).
+
+        What is checked is that the writer's conversion is the identity on
+        luma: the encoded grayscale page equals the RGB page's own single
+        channel, every ink position is the same position, and the set of
+        levels is unchanged, so no anti-aliasing was introduced and no rule
         was softened.
+
+        Each page is compared **inside its own write** and both images are
+        dropped when that frame returns, so nothing is collected and
+        CARD-145's streaming property is not traded away to take the
+        measurement (G-3).
         """
         generator = BookPDFGenerator(book_on(InkMode.BLACK_AND_WHITE))
         assert generator.interior_bitmap_mode == "L"
 
+        real_write_page = BookPDFGenerator._write_page
+        real_save = Image.Image.save
+        encoded: List[Image.Image] = []
         checked = 0
-        for number, page in enumerate(
-            generator.interior_stream(baseline_puzzles()).pages, start=1
-        ):
+
+        def recording_save(image, *args, **kwargs):
+            """Every image handed to an encoder, in the order it was handed."""
+            encoded.append(image)
+            return real_save(image, *args, **kwargs)
+
+        def write_page_and_compare(self, pdf, page, *args, **kwargs):
+            """``_write_page``, then compare what it encoded with what it got."""
+            nonlocal checked
+            before = len(encoded)
+            result = real_write_page(self, pdf, page, *args, **kwargs)
+            written = encoded[before:]
+            del encoded[before:]
+
+            assert len(written) == 1, "a book page is encoded exactly once"
+            number = checked + 1
+            grey_page = written[0]
+
             assert page.mode == "RGB", "COMP-007 draws the page in RGB either way"
+            assert grey_page.mode == "L", (
+                f"page {number}: the writer encoded {grey_page.mode!r}"
+            )
             rgb = np.asarray(page)
-            grey = np.asarray(page.convert("L"))
+            grey = np.asarray(grey_page)
 
             # The three channels of a book page are equal to begin with: the
             # interior has no colour to lose. Asserted, not assumed — if a
@@ -329,6 +376,11 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
             assert int((grey == 255).sum()) == int((rgb[:, :, 0] == 255).sum())
             assert int((grey == 0).sum()) > 0, f"page {number} carries no pure black"
             checked += 1
+            return result
+
+        monkeypatch.setattr(Image.Image, "save", recording_save)
+        monkeypatch.setattr(BookPDFGenerator, "_write_page", write_page_and_compare)
+        export_of(generator, baseline_puzzles())
 
         assert checked == BASELINE_PAGE_COUNT == 11, f"only {checked} pages compared"
 
