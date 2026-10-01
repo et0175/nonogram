@@ -109,8 +109,38 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: d4d193f
+    fix_note: |
+      Repaired so the assertion binds to the writer, which was the finding's own
+      default reading. `test_no_mark_moves_on_any_page_bitmap` no longer computes
+      `page.convert("L")`; it compares the two images `_write_page` itself works
+      with on one call — the `"RGB"` page COMP-007 handed it, recorded by a wrapper
+      around `BookPDFGenerator._write_page`, and the page it handed the JPEG
+      encoder, captured by a recorder on `Image.Image.save` scoped to that call's
+      own slice of the record. The comparison runs inside the page's own write and
+      drops both images when the frame returns, so nothing is collected and
+      CARD-145's one-page-bitmap peak (G-3) is not traded away to take the
+      measurement.
+
+      Every existing assertion is kept and retargeted to the captured page:
+      identity on luma, identical ink mask at `INK_LEVEL`, no grey level the RGB
+      page did not have, equal pure-black and pure-white counts, pure black
+      present, and the `checked == BASELINE_PAGE_COUNT == 11` floor (now asserted
+      after the export rather than after the stream). Two assertions were added,
+      not removed: exactly one JPEG encode per page, and `grey_page.mode == "L"`.
+      The docstring no longer claims anything the test does not do, and the module
+      docstring's "off the page bitmaps" bullet — which described the old
+      `interior_stream`-and-convert reading — was re-derived to match.
+
+      Mutation M5a re-run, the reviewer's own (`_write_page` doing
+      `page.convert(mode).point(lambda v: 1 if v == 0 else v)`):
+      BEFORE (test at bd59050) 1 passed — mutant survived, as the finding reported;
+      AFTER (test as repaired) 1 failed — `AssertionError: page 1 moved`.
+      `src/nonogram/admin/book_pdf_generator.py` was restored immediately after and
+      `git diff --stat -- src` is empty. The docstring-only alternative the
+      suggestion offered was not taken: the writer-binding fix was available
+      without restructuring the test.
     dismissed_reason: null
     learned_pattern: null
 
@@ -208,8 +238,25 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: d4d193f
+    fix_note: |
+      `command.upgrade(config, "head")` -> `command.upgrade(config, "013")`, exactly
+      the suggestion: the revision whose non-interference with `floor_overrides` was
+      actually verified. Nothing else in the test moved — the real `upgrade` -> ORM
+      read through `BookManager.get_all_books()`/`floor_overrides()` ->
+      `downgrade 012` -> `downgrade 011` -> `upgrade 012` round trip is intact, and
+      both assertions after the return to 012 (`"floor_overrides" in columns()` and
+      `overrides() == {"Legacy": None}`), which are the guard against sqlite's
+      batch-mode table recreate in 013 losing the column, are untouched. The
+      comment above the call now states why the literal revision is named rather
+      than `"head"`, so the residual risk the finding described is recorded at the
+      line it applies to. The card's Worktree notes sentence saying the read is
+      taken "at head" is superseded in the appended `### [Fix 1]` block.
+
+      The test runs entirely on sqlite under `tmp_path`; no server-side database was
+      touched. `nonogram_test` was verified after the full suite to be still at
+      revision `013` with `books` empty, as found.
     dismissed_reason: null
     learned_pattern: null
 

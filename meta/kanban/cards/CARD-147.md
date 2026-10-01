@@ -1,6 +1,6 @@
 # CARD-147: The book PDF is written black-and-white or in colour, and says which
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/147-interior-ink-mode
-**Worktree:** ../PythonProject4-CARD-147
+**Worktree:** —
 **Source:** owner, 2026-09-25 ("2 modes to pdf generator: black/white and colors … I was a bit too creative making colored pages for book 1 — then it gets more expensive. But we may add colors for book2")
 **Idea:** —
 **Wave:** 27
 **Depends on:** CARD-146
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_page_spec.py, src/nonogram/db/models.py, migrations/, src/nonogram/admin/templates/book_setup_print.html, tests/test_book_pdf_ink_mode.py
-**Review score:** 9.5 (cycle 1/3)
+**Review score:** 9.5 (1 cycle + fix)
 **Started:** 2026-10-01T07:10:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-01T09:30:00Z
+**Actual:** 0.5d
+**Merge commit:** 0fa9302
 **Blocked by:** — (cleared 2026-10-01: CARD-146 merged b9a17d3)
 
 ## What to implement
@@ -245,3 +245,75 @@ black-and-white; colour is available per book from Book 2 onward.
   card144, card149 and card146 were none of them given that line by their successors, while
   card145 and card128 were. The chain is already inconsistent; the reviewer decides which way it
   should settle.
+### [Fix 1] — cycle-1 review, F-001 and F-004 (test-only)
+
+Two low findings, both latent rot rather than present bugs. The card scored 9.5
+with no Critical and no Important, so neither was a gate. `src/`, `migrations/`
+and every fixture are untouched: `git diff --stat -- src migrations
+tests/fixtures` is empty.
+
+**F-004 — the migration-012 detour is pinned to `"013"`, not to `"head"`.**
+`tests/test_book_floor.py::TestMigration012::test_no_backfill_and_a_downgrade_that_drops_the_column`
+took its ORM read at `"head"` where it meant revision `013`. Today those are
+the same revision; the day 014 lands they stop being, and the two assertions
+after the return to 012 — `"floor_overrides" in columns()` and
+`overrides() == {"Legacy": None}`, the guard against sqlite's batch recreate
+losing the column in 013 — would quietly start meaning something else, with
+nothing failing to say so. One string, `"head"` → `"013"`. The round trip is
+otherwise unchanged: real `upgrade` → ORM read through `BookManager` →
+`downgrade 012` → `downgrade 011` → `upgrade 012`, every assertion kept. The
+comment above the call now says why it is the literal revision and not `head`,
+and the Worktree notes sentence above ("takes its ORM read at head") is
+superseded by this block.
+
+**F-001 — the pre-encode G-2 test now bites on the writer.**
+`test_no_mark_moves_on_any_page_bitmap` computed `page.convert("L")` *itself*
+and compared it to `rgb[:, :, 0]`. That re-derives the value under test with
+the same function the writer uses, which CLAUDE.md names explicitly ("prefer an
+independent second implementation over re-deriving a value with the same
+function you're testing") — so the test verified Pillow's determinism while its
+docstring claimed "the conversion is the writer's own".
+
+It now reads what `_write_page` actually produced. A wrapper around
+`BookPDFGenerator._write_page` records the `"RGB"` page the writer was handed,
+and a recorder on `Image.Image.save` captures the image the writer handed to
+the JPEG encoder; the comparison runs inside that page's own write and drops
+both when the frame returns, so nothing is collected and G-3 (peak memory of
+one page bitmap, CARD-145) is not traded away to take the measurement. Every
+existing assertion is kept, retargeted to the captured page: identity on luma,
+identical ink mask at `INK_LEVEL`, no new grey level, equal pure-black and
+pure-white counts, and the `checked == BASELINE_PAGE_COUNT == 11` floor, now
+asserted after the export rather than after the stream.
+
+**Mutation proof, the reviewer's own M5a** — `_write_page` doing
+`page.convert(mode).point(lambda v: 1 if v == 0 else v)`, one new intermediate
+level destroying pure black:
+
+| | mutant applied |
+|---|---|
+| test as it was (commit `bd59050`) | **1 passed** — mutant survives |
+| test as repaired | **1 failed** — `AssertionError: page 1 moved` |
+
+`src/nonogram/admin/book_pdf_generator.py` was restored immediately after;
+`git diff --stat -- src` is empty.
+
+**Suite:** 5500 collected, 5491 passed, 2 failed, 7 skipped — unchanged from
+the card's own baseline. The two failures are the known pre-existing ones
+(`test_size_configuration_applied`, `test_batch_creation_form_renders`).
+
+**Not fixed, left open by the owner:** F-002 (`_write_pdf`'s unreachable
+`ValueError` guard), F-003 (the migration's confirmed-redundant `UPDATE`),
+F-005 (`_write_page`'s `mode="RGB"` default), F-006 (the baseline's conflated
+sentence), F-007 (the `superseded_by` chain), F-008 (`book_proof` still
+DeviceRGB), and the four model-wide dead check refs.
+
+**Databases:** none created, dropped or recreated. `nonogram_test` is still at
+revision `013` with `books` empty, as found (verified after the suite);
+`nonogram_dev` and `nonogram_poc` were not touched. F-004's test runs entirely
+on sqlite under `tmp_path`.
+
+- [Guard] F-001's repair proven by the orchestrator against the reviewer's own mutation
+  (`_write_page` softening pure black by one level): the **repaired** test FAILS on it, and the
+  **old** test — restored from bd59050 and run against the same mutant — **passes**. The hole
+  was genuinely closed rather than moved. Tree restored afterwards; `src/`, `migrations/` and
+  all six fixtures confirmed untouched by the fix commit.
