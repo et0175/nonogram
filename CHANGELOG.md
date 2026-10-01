@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-01
+- CARD-129 (feature): Finalising a book now refuses it when the stored gutter margin is too narrow for how many pages the book actually runs to. KDP needs a wider gutter past 150 pages, and a book laid out for the narrower one is rejected at upload — after everything else looks finished. The check counts the interior as it will be printed, answer key included, and does not count the cover, which is a separate file. The stored margin is never changed for you: the book is refused and told what KDP wants for that page count, so you decide. Above 300 pages the requirements do not say what is needed, so it says that rather than guessing.
+
 ## 2026-09-30
 - CARD-146 (feature): A page holding two small puzzles side by side now prints each of them framed, the way single-puzzle pages already did. Until now the pair printed bare — the clue numbers hung beside the grid with no rule above or to the left of them — so a book mixed the two looks. Each puzzle gets its own closed frame; nothing is ruled between them, so the page reads as two framed puzzles rather than one box around both.
 - CARD-149 (bug): The "How to Use This Book" page at the front of every book was printing in about 6.7 point type — smaller than the fine print in a contract — because its text size was set in screen pixels rather than in the units a printed page uses. Its body is now 11 point and its heading 22 point, with the lines spaced to match, so the page reads like a book page instead of a dense patch in the corner. The sizes are now tied to the page's own resolution, so a book printed at a higher quality setting keeps the same physical type size instead of shrinking.

@@ -217,8 +217,57 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fix_note: |
+      Fixed as suggested, with the asymmetry made explicit. `book_kdp.py` gains
+      `_floored` (quantize to STORED_PRECISION, ROUND_FLOOR) beside the existing
+      `_rounded` (ROUND_HALF_UP), and `gutter_refusal` now compares
+      `_floored(stored) >= _rounded(minimum_cm)`. The minimum keeps its half-up
+      rounding because that is the arithmetic CON-018 itself performed when it
+      wrote 0.375 in as "0.95 cm" and 0.5 in as "1.27 cm" - those strings are
+      what every book on the Book 1 profile stores, so refusing them would have
+      been far worse than the hole closed. Only the value under test is floored,
+      so a stored gutter can read narrower than it is and never wider.
+
+      Verified on the fix (PYTHONPATH=<worktree>/src):
+        gutter_refusal(150, 0.945) -> refused ("stores 0.94 cm")   [was None]
+        gutter_refusal(300, 1.265) -> refused ("stores 1.26 cm")   [was None]
+        gutter_refusal(150, 0.95)  -> None (accepted, CON-018)
+        gutter_refusal(300, 1.27)  -> None (accepted, CON-018)
+      The pre-fix behaviour was re-confirmed by running the same four cases
+      against `git archive HEAD src`: all four returned None.
+
+      The refusal also now names the floored figure rather than the half-up one,
+      so it no longer reads as refusing a book for storing exactly the minimum
+      it names; the sentence's shape is unchanged and AC-179's "stores 0.60 cm"
+      is unaffected. A stored value in [0.95, 0.9525) is still accepted by
+      design - that is CON-018's spelling of the band, not a remaining hole.
+
+      Tests: four parametrized cases added to `TestKdpGutterTable` in
+      tests/test_book_finalise_gutter.py (no new file; no existing assertion
+      weakened, retargeted or deleted) -
+      `test_a_stored_gutter_is_never_rounded_up_into_compliance` (0.945@150,
+      0.9499@1, 1.265@300, 1.2699@151 refused, each asserting the floored figure
+      the refusal prints) and
+      `test_the_projects_own_spelling_of_each_minimum_still_passes` (0.95 and
+      1.27 accepted on both sides of the 150-page boundary, guarding against an
+      over-correction that would reject the profile's own gutter). All four
+      refusal cases fail against the pre-fix comparison (checked by reverting
+      it); the file's original 40 tests still pass (48 total).
+
+      Declarations re-derived: the module docstring's precision paragraph and
+      `gutter_refusal`'s docstring now state the asymmetry and the direction it
+      protects, and `_rounded`/`_floored` each document which side they may be
+      applied to. CON-018, the band table and STORED_PRECISION are unchanged.
+      Guardrails G-1..G-4 untouched (read-only comparison, no iteration, no
+      edit under src/nonogram/export/**, db/** or migrations/**).
+
+      Full suite on the fix: 5440 collected, 5431 passed, 2 failed, 7 skipped -
+      the two failures the pre-existing baseline already carried
+      (tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied,
+      tests/test_wave3_e2e.py::TestWave3UIIntegration::test_batch_creation_form_renders).
+      Collected rose by 8 (the new parametrized cases), passed by 8.
+    fixed_in: "1cdbbef"
     dismissed_reason: null
     learned_pattern: null
 

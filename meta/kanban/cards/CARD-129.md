@@ -1,6 +1,6 @@
 # CARD-129: Finalise refuses when the page count needs a larger KDP gutter than the stored one
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/129-finalise-kdp-gutter-check
-**Worktree:** ../PythonProject4-CARD-129
+**Worktree:** —
 **Source:** meta/architecture/handoff.md#increment-15 (finalise gutter check, ADR-0036 clarification; AC-179 of FR-030; closes Increment 15)
 **Idea:** —
 **Wave:** 27
 **Depends on:** CARD-128, CARD-123, CARD-134
 **Touches:** src/nonogram/admin/book_kdp.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, tests/test_book_finalise_gutter.py
-**Review score:** 9.0 (cycle 1/3)
+**Review score:** 9.0 (1 cycle + fix)
 **Started:** 2026-09-30T18:05:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-01T06:30:00Z
+**Actual:** 0.5d
+**Merge commit:** ce5b3c7
 **Blocked by:** —
 
 ## What to implement
@@ -297,3 +297,64 @@ eye.
   20x20 page's drawing. The 150-puzzle book the gate exists for is measured beside it:
   125 pages before the key + 30 packed answer pages = **155**, refused at a stored
   0.375 in gutter, accepted at 125 — which is AC-271 in one line.
+### [Fix 1] 2026-09-30 — review cycle 1, F-003: the stored gutter is floored, the minimum is not
+
+The gate compared `_rounded(stored) >= _rounded(minimum_cm)` with a single
+half-up quantization to the column's two decimals (`book_kdp.py`), applied to
+*both* sides. On the stored side that rounded a genuinely short gutter **up
+into compliance**: `gutter_refusal(150, 0.945)` and `gutter_refusal(300, 1.265)`
+both returned `None`, so a book below KDP's 0.9525 cm / 1.27 cm minimum was
+accepted at finalise and rejected at upload — the exact failure this card
+exists to prevent, admitted through a 0.0075 cm window.
+
+The two sides are now quantized **asymmetrically, and on purpose**:
+
+- a band **minimum** keeps `_rounded` (ROUND_HALF_UP), because that is the
+  arithmetic **CON-018 itself performed** when it wrote 0.375 in down as
+  "0.95 cm" and 0.5 in as "1.27 cm". Those strings are the only forms the
+  `books` margin columns can hold for those bands and are what every book
+  created on the Book 1 profile stores, so `0.95` and `1.27` must still pass —
+  refusing them would reject every book on the profile, far worse than the
+  window being closed;
+- a **stored** gutter is floored by the new `_floored` (ROUND_FLOOR), because
+  it is the value under test: it may read narrower than it is, never wider.
+
+So `0.945 -> 0.94 < 0.95` refuses, `1.265 -> 1.26 < 1.27` refuses, and `0.95` /
+`1.27` still pass. The refusal now also *names* the floored value ("stores
+0.94 cm"), so it no longer reads as refusing a book for storing exactly the
+minimum it asks for; the sentence's shape is unchanged, and AC-179's
+"stores 0.60 cm" is unaffected (0.60 floors to 0.60).
+
+Nothing else moved: the band table, the page-count arithmetic, the refusal's
+wording, the fallback path and the four guardrails are untouched. A stored
+value in [0.95, 0.9525) is still accepted — that is CON-018's spelling of the
+band, not a remaining hole; what is closed is the half-decimal below it.
+
+**Tests** — four parametrized cases added to `TestKdpGutterTable` in
+`tests/test_book_finalise_gutter.py` (no new file, no existing assertion
+weakened): `test_a_stored_gutter_is_never_rounded_up_into_compliance` pins
+0.945@150, 0.9499@1, 1.265@300 and 1.2699@151 as refused *and* names the
+floored figure the refusal must print, and
+`test_the_projects_own_spelling_of_each_minimum_still_passes` pins 0.95 and
+1.27 as accepted on both sides of the 150-page boundary, so a future
+over-correction that refuses the profile's own gutter fails here. All four
+refusal cases fail against the pre-fix comparison (checked by reverting it);
+the spelling test passes either way, which is what makes it a guard rather
+than a restatement. The file's original 40 tests all still pass (48 now).
+
+DECLARATIONS F-003 — updated: the module docstring's "Centimetres, at the
+precision the column stores" paragraph, which asserted one symmetric
+precision, now states the asymmetry and why the direction matters;
+`gutter_refusal`'s docstring gained the same, naming which side is floored;
+`_rounded` and `_floored` each document the direction they are allowed to be
+used in. No failure-matrix row covers this comparison. Confirmed unchanged:
+CON-018 (unedited — it is the *reason* 0.95 passes), the band table, the
+`STORED_PRECISION` doc comment (the precision itself did not change).
+
+- [Guard] The rounding fix verified by the orchestrator in both directions, on the worktree's
+  own module: 0.945 cm at 150 pages and 1.265 at 300 are now **refused** where both were
+  accepted before, while CON-018's own spellings 0.95 and 1.27 still pass and AC-179's 0.60 is
+  unchanged. The fix agent also caught itself mid-draft — it had `0.9524` down as a refusal
+  case, realised it floors to 0.95 and is accepted **by design**, replaced it with 0.9499 and
+  recorded why in the test docstring, the card and the YAML so the next reader does not read it
+  as an oversight.

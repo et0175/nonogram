@@ -1,0 +1,293 @@
+version: 1
+generated_at: "2026-09-30T20:27:02Z"
+target: "CARD-143 cycle 1 — branch card/143-arrange-type-position, commits 04043df..55f45b6 (merge base b9a17d3; main head ac5573b), worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-143"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_plan.py (moved_within_level, book_level_order, book_levels, level_rank, place_in_level)"
+    - "src/nonogram/admin/book_manager.py (move_puzzle_within_level, _move_within_level, _tier_of, puzzle_levels)"
+    - "src/nonogram/admin/app.py (_level_place, _typed_position, arrange_puzzles_in_book, render loop, context)"
+    - "src/nonogram/admin/templates/book_arrange_puzzles.html (full)"
+    - "tests/test_book_arrange_position.py (full, 714 lines)"
+    - "tests/test_book_level_order.py (move/boundary classes and the direct moved_within_level unit tests)"
+    - "tests/property/test_book_order.py (_draw, _move, _check_move, the property body)"
+    - "meta/design/components.md (ArrangeRow), meta/kanban/cards/CARD-143.md, meta/architecture/requirements.yml (FR-041 AC-253..AC-260, EC-029)"
+    - "docs/BOOK_WORKFLOW_UA.md (arrange section)"
+  not_reached:
+    - "src/nonogram/admin/book_pdf_generator.py (consumes the order; exercised only through the green suite)"
+    - "the rendered screen in a browser — review.visual is off for this project"
+  confidence: high
+metrics:
+  diff: { files: 6, added: 953, removed: 17 }
+  max_fan_in: { symbol: "nonogram.admin.book_plan.moved_within_level", callers: 20 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (148 commits all-time on the four touched files, 40 of them fix/bug — high churn, high defect density)"
+    - "src/nonogram/admin/templates/book_arrange_puzzles.html (12 of the last 40 commits on book_plan/arrange-template)"
+  cochange_missing:
+    - "tests/test_book_plan.py (2/40 co-change with book_plan.py; book_plan's own unit-test home, untouched)"
+    - "tests/property/test_book_plan.py (2/40)"
+    - "src/nonogram/admin/static/admin.css (3/40; correctly absent — the card adds no CSS)"
+  unmeasured:
+    churn_12_month_window: "tooling_failure — `git log --since=12.months` returns 0 commits on every touched file because the repository's commit dates run ahead of the host clock; churn/defect-density were measured all-time instead (148 commits, 40 fix)"
+    cochange_missing_windowed: "tooling_failure — same clock skew; co-change was measured over the last 40 commits touching book_plan.py + the arrange template instead of a 12-month window"
+
+system_contract:
+  rules_checked: 44
+  holds: 8
+  unchecked: 36
+  violated: 0
+  verdicts:
+    - "INV-009 ✓ holds — the load-bearing rule, and it was tested rather than argued. Exhaustive independent check over every book of 1..6 puzzles × every tier assignment (easy/medium/hard/ungraded) × every puzzle × every offset in [-n,n] — 386,540 cases, 0 violations of: permutation, tier grouping, the moved puzzle landing at the destination index, per-level membership sets, other levels byte-identical, and the insertion property (the level's unmoved members keep their relative order). 0 bogus refusals and 0 bogus Nones. The contiguity argument the fix agent offered is therefore verified, not accepted. Named check `PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence` exists as a collectible node (tests/property/test_book_order.py:388, declared `test_PropertyTest_...`) and is green on this head; mutation M2 (guard negated) was killed."
+    - "ADR-0019/R1 ✓ holds — `test_every_import_in_the_package_points_inward` (tests/test_cli.py:934) green on this head; the new route code adds no import and the ordering rule stays in book_plan (the route's whole arithmetic is `target - current`, app.py:3704). `_typed_position` is a form-field parse+range refusal of exactly the class the panel already uses inward of no domain call — `_plan_from_form`/`PlanRejected` (app.py:2399-2451) and `_blank_trim_error` (app.py:2536) — so it is adapter precedent, not new domain logic."
+    - "ADR-0033/R1 ✓ holds (review-lens) — the only write is the book's puzzle_ids order, through the unchanged `reorder_puzzles`; no puzzle grid, clue, tier or strategy field is touched anywhere in the diff."
+    - "CON-015 ✓ holds — `TestAdminPanel_BindsLoopbackOnlyByDefault` (tests/test_admin_binding.py:136) green on this head; the diff adds a POST action inside an existing route and names no bind address."
+    - "CON-016 ✓ holds — `TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit` (tests/test_admin_binding.py:385) green on this head; the new form posts to the same route behind the same door, and no middleware was touched."
+    - "INV-010 ✓ holds — pairing consumes the book order, and the order after any typed position is still a tier-grouped permutation of the same ids (exhaustive check above); tests/test_book_pdf_levels.py and the pairing property are green in the full-suite run on this head."
+    - "INV-011 ✓ holds — same evidence: the answer key consumes the order, whose shape (grouped permutation, same membership) is preserved for every legal and illegal offset; answer-key tests green on this head."
+    - "INV-013 ✓ holds — same evidence; interior/cover separation and parity are untouched by an intra-level reorder, and their property test is green on this head."
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy has no declaration anywhere in tests/ (it appears only in a comment in tests/test_export_pdf.py). Manual read: pyproject.toml is not in the diff and no import was added, so no dependency changed."
+    - "CON-005 ⚠ unchecked — check_ref_missing: PropertyTest_Solver_NeverFalsePositiveUniqueness has no declaration (comment-only mention in tests/property/test_solver_uniqueness.py); also no_eligible_fact — this card touches no solver code."
+    - "INV-001 ⚠ unchecked — check_ref_missing: TestComputeClues_MatchesGridExactly has no declaration (comment-only in tests/test_clues.py); also no_eligible_fact — no clue derivation in the diff."
+    - "INV-002 ⚠ unchecked — check_ref_missing: TestExport_RejectsUnverifiedPuzzle has no declaration (comment-only mentions in three export test files); also no_eligible_fact — no export path in the diff."
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-009, CON-010, CON-011, CON-012, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked — no_eligible_fact: this card changes only the intra-level order of a book's stored id list and the arrange screen's form handling. It touches no grid extent, image fit, retry/repair path, density seam, difficulty scoring, storage-boundary solve, quality score, plan/readiness gate, page layout, printed band, stroke width, socket/cross-origin door for the web adapter, size range, aspect guard, membership or status transition; the code implementing each of those is byte-identical to the merge base."
+
+root_causes:
+  - id: RC-1
+    title: "the insertion ruling was propagated to every artifact the diff touches, but not to the descriptions that live outside it"
+    finding_ids: [F-001, F-002, F-004]
+  - id: RC-2
+    title: "the corpus-scale property grades INV-009 (grouping/permutation/landing), not the owner's insertion rule, so the rule rests on five hand-written examples"
+    finding_ids: [F-003, F-005]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: docs/BOOK_WORKFLOW_UA.md
+    line: 88
+    title: "The owner's workflow guide still says the arrange order can only be changed with the up/down buttons"
+    description: |
+      `### Крок 4. Arrangement`, item 1: «Перетягування немає — порядок
+      змінюється кнопками **вгору / вниз**.» ("There is no drag-and-drop —
+      the order is changed with the up/down buttons.") After this card the
+      order is also changed by typing a position, which is the thing the owner
+      actually asked for on 2026-09-23.
+
+      This is a living document, not a snapshot: it was written 2026-09-25,
+      five days ago, and it is already current with CARD-126 (it states that
+      moves stay inside a level and that a cross-level move is refused) and
+      with CARD-140 (item 4 describes the page-break indicators). This card is
+      the first to leave it false.
+
+      The prose the semantics change *did* rewrite is all truthful — verified
+      one by one: `book_plan.moved_within_level` (the three surviving
+      "exchange" mentions at book_plan.py:518, 521, 549 are all contrastive —
+      "an exchange would have given…", "the same one the exchange used"),
+      `book_manager.move_puzzle_within_level` and `_move_within_level`, the
+      arrange template's lede ("the rest of the level shifts along to make
+      room — the same move as clicking the arrow that many times", which is
+      exactly what the code does), and meta/design/components.md's ArrangeRow
+      entry. A repo-wide grep for exchange/swap/"changes places" over
+      src/nonogram/admin, meta/design, meta/architecture and docs/ found no
+      other stale claim. This one line is the only survivor.
+    suggestion: |
+      One sentence in docs/BOOK_WORKFLOW_UA.md item 1: keep "no drag-and-drop",
+      add that the position can be typed into the box on each row (numbered
+      within the level), and that typing a position shifts the rest of the
+      level to make room — the same move as clicking the arrow that many times.
+      If the owner treats this file as a dated snapshot rather than a living
+      guide, downgrade this to Minor; nothing else in the review blocks.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fix_note: |
+      docs/BOOK_WORKFLOW_UA.md item 1 of `### Крок 4. Arrangement` rewritten in
+      place — the list is not restructured and no other line is touched. It now
+      keeps «Перетягування немає», names the second way of reordering (числом у
+      полі **Position in …** на рядку головоломки), states that the numbering is
+      per level and not per book, and says what typing does: it **вставляє** —
+      решта рівня зсувається, щоб дати їй місце, той самий результат, що й
+      стільки ж натискань на стрілку. Three short Ukrainian sentences, **bold**
+      on the UI label and on the verb that carries the semantics, no English
+      gloss. The visible label on the screen is "Position in <level>"
+      (book_arrange_puzzles.html:120), which is what the doc names.
+    fixed_in: "bd0b015"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_book_order.py
+    line: 366
+    title: "INV-009's own property helper still computes its expected order with the swap formula"
+    description: |
+      `_check_move(shelf, before, after, moving, offset, outcome, context)`
+      takes a general `offset` and builds its oracle as
+      `expected[index], expected[target] = expected[target], expected[index]`
+      — an exchange. It stays green under the new insertion rule only because
+      its caller `_move` (line 335) dispatches exclusively to
+      `move_puzzle_up`/`move_puzzle_down`, i.e. ±1, where the two rules
+      provably coincide (I verified that coincidence exhaustively: 0
+      divergences between insertion and exchange at ±1 over every book of
+      1..6 puzzles and every tier assignment).
+
+      So the helper is a stale oracle with a live parameter. The moment a
+      future card widens `_draw`/`_move` to draw a larger offset — the obvious
+      next step now that a typed position exists — this line asserts the rule
+      the owner rejected, and the failure will read as a regression in
+      `moved_within_level` rather than as a wrong expectation.
+    suggestion: |
+      Replace the two-element swap with the insertion the rule now makes:
+      `expected = list(sequence); expected.insert(target, expected.pop(index))`.
+      Identical for every offset the property currently draws, correct for the
+      ones it will draw next.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fix_note: |
+      `_check_move`'s oracle is now the insertion the rule makes:
+      `expected = list(sequence); expected.insert(target, expected.pop(index))`.
+      The draw is NOT widened — `_draw`/`_move` still dispatch to
+      move_puzzle_up/move_puzzle_down only, which is a different card's call —
+      but the helper is honest for every offset its signature admits. Proven
+      against `moved_within_level` on a five-puzzle easy level: at every offset
+      beyond +-1 the new oracle agrees and the old swap oracle disagrees —
+      -4 code/insert E5,E1,E2,E3,E4 vs swap E5,E2,E3,E4,E1; -3 E1,E5,E2,E3,E4 vs
+      E1,E5,E3,E4,E2; -2 E1,E2,E5,E3,E4 vs E1,E2,E5,E4,E3; +2 E2,E3,E1,E4,E5 vs
+      E3,E2,E1,E4,E5; +3 E2,E3,E4,E1,E5 vs E4,E2,E3,E1,E5; +4 E2,E3,E4,E5,E1 vs
+      E5,E2,E3,E4,E1 (6 of 6 disagreements). At -1 and +1 the two are identical,
+      so nothing the property draws today changes and the suite is unaffected.
+      INV-009 stays enforced by the same guard and no second ordering rule was
+      added.
+    fixed_in: "bd0b015"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_arrange_position.py
+    line: 622
+    title: "AC-4's property is structurally blind to the exchange/insertion difference it exists beside"
+    description: |
+      `test_PropertyTest_ArrangePosition_AlwaysAPermutationGroupedByTier`
+      grades four things: membership unchanged, ranks still sorted, the moved
+      puzzle at the typed position within its level, and every *other* level
+      byte-identical. It never looks at the moved level's remaining members.
+      That is exactly the blind spot the requirement defect lived in — under
+      exchange all four clauses still hold, which is why the property needed
+      no edit when the semantics changed.
+
+      This is not a false green (the property's subject is INV-009, and for
+      that it is sound, with floors that can fire: measured 45 books checked
+      of 48 drawn against a floor of 40, 43 multi-level against 30, 11/11/23
+      up/down/no-op against 8). It is a missed opportunity: the owner's ruling
+      is currently carried by five hand-written examples in
+      `TestArrangePosition_ATypedPositionInsertsRatherThanExchanges` and by
+      nothing at corpus scale.
+    suggestion: |
+      Add one clause to the same loop: the members of the moved level other
+      than the moved puzzle keep their relative order in `groups_after[tier]`
+      (`[p for p in groups_after[tier] if p != puzzle_id]` equals the same
+      filter over `members`). That is the insertion rule stated as a property,
+      it needs no new corpus, and it makes all 45 books discriminate the rule
+      instead of five examples.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fix_note: |
+      One clause added to the same loop in
+      `test_PropertyTest_ArrangePosition_AlwaysAPermutationGroupedByTier`:
+      `[p for p in groups_after[tier] if p != puzzle_id]` must equal the same
+      filter over `members`, i.e. the moved level's unmoved members keep their
+      relative order. No existing assertion was weakened, retargeted or deleted,
+      and the floors (`checked >= 40 >= 24`, `multi_level >= 30 >= 12`,
+      up/down/no-op `>= 8 >= 5`) are untouched, so all 45 checked books now
+      discriminate the owner's insertion rule. The clause bites: with
+      `book_plan.moved_within_level` temporarily reverted to the exchange the
+      test fails at line 690 —
+      "AssertionError: the rest of the hard level was reordered by inserting
+      puzzle_000037 at 2: ['puzzle_000032', 'puzzle_000033', 'puzzle_000036',
+      'puzzle_000037'] -> ['puzzle_000032', 'puzzle_000037', 'puzzle_000036',
+      'puzzle_000033']" — while the pre-fix test file passes under that same
+      revert (1 passed), which is the blindness the finding described. Insertion
+      restored; book_plan.py is byte-identical to 55f45b6.
+    fixed_in: "bd0b015"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-143.md
+    line: 118
+    title: "The card's implementation note still asserts exchange as the shipped behaviour, 40 lines above the correction"
+    description: |
+      `[The semantics this inherits, stated plainly]` (worktree copy, in the
+      uncommitted `## Worktree notes` edit) reads "`moved_within_level` moves a
+      puzzle by **exchanging** it with whatever sits `offset` places away", and
+      quotes the old lede verbatim ("it changes places with the puzzle already
+      there") as what the screen says. Both are now false. The `### [Fix 1]`
+      section below corrects them, but a reader — or a future card mining this
+      card's notes for "why does this code look like this", which CLAUDE.md
+      explicitly recommends as the best source — hits the false statement
+      first and the correction only if they keep reading.
+    suggestion: |
+      One clause in that bullet: mark it superseded by [Fix 1] (e.g. "[The
+      semantics this inherits — SUPERSEDED by [Fix 1] below: the rule now
+      inserts]"). Do not delete the bullet; the wrong reading is the reason
+      the defect existed and is worth keeping on the record.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_plan.py
+    line: 558
+    title: "The one statement that changed has no direct unit test beyond ±1"
+    description: |
+      `moved_within_level` is called directly by exactly three unit tests,
+      all in tests/test_book_level_order.py:642-663, and all at ±1 (the
+      out-of-book None, the boundary refusal, and the grouped-order return).
+      Every test of the new insertion semantics reaches the function through
+      `BookManager.move_puzzle_within_level` or through the Flask route, so
+      the pure function — the single place the ordering rule lives, fan-in 20
+      — has no direct assertion at |offset| >= 2.
+
+      Coverage is real (mutation M1 below kills the revert through the
+      manager- and route-level tests), so this is hygiene, not a hole: it
+      means a future reader of book_plan's own test neighbourhood cannot see
+      the rule stated where the rule lives.
+    suggestion: |
+      Two lines beside the existing direct tests: `moved_within_level(["e1",
+      "e2", "e3"], "e3", -2, tier_of) == ["e3", "e1", "e2"]` and the symmetric
+      +2, with the exchange result named in the message.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
