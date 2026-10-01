@@ -1,0 +1,118 @@
+{
+  "card": "CARD-147",
+  "supersedes": "tests/fixtures/book_baseline_card146.json",
+  "recorded_from_commit": "0b33ac8b8f180f7de00e8078ad9648c512976609",
+  "recorded_from_commit_note": "CARD-147's implementation on card/147-interior-ink-mode: the commit that makes a book's interior ink mode its own stored fact and writes a black-and-white interior as DeviceGray, and the tree this file's interior_bytes was taken from. A commit cannot carry its own hash, so this field was filled in by the commit that immediately follows 0b33ac8 \u2014 this one, which adds this file and repoints BASELINE_FIXTURE at it and changes no drawing and no colour space, so it exports the same eleven pages in the same file and reproduces both. 0b33ac8 itself is red on exactly the one assertion this file makes green (TestBookPdfMemory_PagesAreUnchanged's interior-byte length), which is the shape CARD-149 set and CARD-146 followed: a deliberate change to the exported file, then its new baseline in a commit of its own.",
+  "recorded_on": "2026-10-01",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-147 deliberately changes the colour space of the whole interior: a book that stores no interior ink mode \u2014 which is every book that exists \u2014 is black-and-white, and its pages are now composed \"L\", JPEG-encoded in one channel and written with ColorSpace /DeviceGray and procset /ImageB instead of /DeviceRGB and /ImageC. That is a deliberate change to the exported file, which is the one reason the predecessors' warning allows a new baseline to be recorded.\n\nWHAT MOVED IS THE FILE'S LENGTH AND NOTHING ELSE, AND THAT IS THE OPPOSITE OF WHAT THE CARD PREDICTED. The card expected all eleven digests to move, since the digests are of the exported pages' decoded bitmaps and the colour space of every one of them changed. They did not move: all eleven are CARD-146's, byte for byte. Two facts together make that so. First, tests/helpers/pdf_pages.py reads a page back out of the PDF and normalises it with convert(\"RGB\"), so a grayscale page is digested as (v, v, v). Second, and the substantive one, the luma plane survives the colour-space change exactly: libjpeg's integer RGB->YCbCr maps a grey (v, v, v) to Y = v with Cb = Cr = 128 (its three coefficients sum to 1), the same luma quantisation table is applied either way, and on the way back Cb = Cr = 128 gives R = G = B = Y with no rounding. So the grayscale JPEG and the RGB JPEG of a page that has no colour in it decode to the same pixels. The ink is identical before the encode too \u2014 Image.convert(\"L\")'s ITU-R 601-2 coefficients sum to 65536, so 0 stays 0 and 255 stays 255 and no level between them is invented (G-2, ADR-0037/R2).\n\ninterior_bytes is therefore the whole of the change this file records: 2,680,175 -> 2,273,541, a saving of 406,634 bytes or 15.17%, page for page between 8.4% and 25.2% of each page's JPEG stream. That is this card's second stated reason for the change (size), measured; its third (memory) is that a grayscale page bitmap is 8,415,000 B against 25,245,000 B, exactly a third.\n\nThe page-by-page comparison against CARD-146's file was made before this file was written, and is recorded in changed_pages_note: eleven pages compared, none skipped (this machine reproduces CARD-146's font_fingerprint), eleven unchanged. The five predecessors are left in place, unregenerated, as the evidence they were recorded to be \u2014 and none of them is edited by this card either, not even to add a superseded_by line, which is the practice CARD-149 and CARD-146 already followed for their own predecessors.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-147. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, which is what G-1 forbids, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares, and the fact this recording exists for. It is NOT the same thing as each page entry's \"mode\", which is \"RGB\" below and always will be: that field is what pdf_pages hands back after its own convert(\"RGB\"), not what the file says. A reader checking the colour space must read it off the PDF's image XObjects \u2014 tests/test_book_pdf_ink_mode.py's pdf_image_objects does, deliberately as a second implementation, because the shared helper normalises exactly this away. The paired procset is /ImageB; a colour interior of the same book declares /DeviceRGB and /ImageC and is byte-identical to CARD-146's recording (AC-2).",
+  "changed_pages": [],
+  "changed_pages_note": "EMPTY, AND CHECKED RATHER THAN ASSUMED. The 1-based interior pages whose digest moved against the CARD-146 baseline: none of the eleven. Each page was compared against CARD-146's own entry before this file was written, with the font fingerprint reproduced on this machine first, so all eleven were compared and none was skipped. Every page is drawn by the same code as before \u2014 nothing in CARD-147 touches a drawing: the guide page (1), the three level dividers (2, 4, 6), the two-up page (3), the two single-puzzle pages (5, 7), the SOLUTIONS divider (8) and the three packed answer pages (9-11) are all COMP-007's and this module's exactly as CARD-146 left them. What changed is the colour space the writer encodes them in, and that round-trips to the same pixels (see why_a_new_baseline). This file is therefore a recording of a moved interior_bytes with eleven unmoved pages, and the unmoved pages are the evidence that the colour space moved and the ink did not. If a later card finds a page moved while claiming only the colour space changed, that is a bug in the change, not something to record here.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "The guide page and every divider page are lettered in the system's Arial when Pillow can find it and in Pillow's built-in face when it cannot, so those pages' pixels are machine-dependent. A machine whose fingerprint differs from this one cannot be compared against the digests of the pages named in font_dependent_pages, and cannot check interior_bytes at all. **This value is CARD-149's, unchanged through CARD-146 and through this card, and was reproduced on this machine before a byte of this file was written.** CARD-147 adds no text and changes no type size \u2014 CON-020 governs interior type size and a colour-space change touches none of it \u2014 so book_corpus.MACHINE_FACE_SIZES is still (92, 46, 60) and the digest with it.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "The 1-based interior pages whose pixels depend on the machine's own font: page 1 is the guide page (Arial at 92 and 46 since CARD-149, load_default at the same sizes as the fallback), pages 2, 4 and 6 are the Easy, Medium and Hard level dividers and page 8 is the SOLUTIONS divider (Arial at 60, unchanged). The list is CARD-149's, unchanged: this card letters nothing. The other six pages are drawn in the bundled band face and Pillow's built-in clue face, so their digests are comparable on any machine and are compared even when font_fingerprint differs. Since no page moved under this card, a machine with another Arial still has six pages of evidence here, exactly as it had under CARD-146.",
+  "interior_bytes": 2273541,
+  "interior_bytes_note": "The one number this recording moves: 2,273,541 where CARD-146 recorded 2,680,175, a saving of 406,634 bytes (15.17%) on the same eleven pages of the same book. It is the whole of CARD-147's effect on the file, which is why this baseline exists. Gated on the font fingerprint by the test that asserts it, because the five machine-lettered pages' JPEG streams are inside this length.",
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "5b6a12bc77f645906246169ab8c711e19a38d1213c1a4af7816ee47a497c83f8"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "be5e748146944022fb835107269d758aa6c86185d6c50a047ab878ed316e5d96"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "87fd36d4dc043f4af75b83f77fc147186e36dd021194e0b7d62e25028b695ded"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "3f3e7b686bbdb67d942d4244fdedd91d6aec3d511446a3674a19872fd7617955"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bcb474a056c470d6c6818204eec9f0f8ed03e6a9d244570f1e3e71b26b29a113"
+    }
+  ]
+}

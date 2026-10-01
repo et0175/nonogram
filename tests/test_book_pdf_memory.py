@@ -1163,7 +1163,7 @@ class TestBookPdfMemory_PagesAreUnchanged:
     """Every exported page is the page the baseline recorded, to the pixel (G-1).
 
     The evidence is ``tests/helpers/book_corpus.BASELINE_FIXTURE``, currently
-    ``tests/fixtures/book_baseline_card146.json``, recorded by exporting
+    ``tests/fixtures/book_baseline_card147.json``, recorded by exporting
     ``tests/helpers/book_corpus.baseline_puzzles``, reading the pages back
     **out of the PDF** with the shared ``pdf_pages`` helper, and digesting each
     one's raw bitmap. It covers the whole path: draw, JPEG-encode, write,
@@ -1171,17 +1171,29 @@ class TestBookPdfMemory_PagesAreUnchanged:
 
     It was first recorded for CARD-145 at commit ``b4c523d``, the merge-base
     before a line of that card's production change existed, which is the shape
-    of evidence a refactor needs. It has been succeeded four times since,
+    of evidence a refactor needs. It has been succeeded five times since,
     never regenerated: by CARD-128, which made the interior print grouped by
     level with a divider page opening each; by CARD-144, whose frame (the
     owner's decision of 2026-09-23, not yet a formalised requirement) closes a
     book puzzle page's drawing off with one heavy rectangle; by CARD-149, which
     set the guide page's type at 11 pt derived from the page's own DPI instead
-    of 6.7 pt of bare pixels (page 1 alone); and by CARD-146, which carried
+    of 6.7 pt of bare pixels (page 1 alone); by CARD-146, which carried
     CARD-144's frame onto the printed two-up page, which had still been
-    printing bare (page 3 alone). All four are deliberate changes to what a
-    page prints, which is the one case the CARD-145 fixture's own ``warning``
-    provides for, and each recording names the pages that moved under it.
+    printing bare (page 3 alone); and by CARD-147, which writes a
+    black-and-white interior as ``DeviceGray``. Each is a deliberate change to
+    what the export produces, which is the one case the CARD-145 fixture's own
+    ``warning`` provides for, and each recording names the pages that moved
+    under it.
+
+    **CARD-147's recording is the first in the chain that moves no page at
+    all**, and the test below is where that shows: its page comparison was
+    green at CARD-147's implementation commit and only
+    :meth:`test_the_interior_file_is_the_length_it_was_recorded_with` was red.
+    A colour-space change does not move a page's decoded bitmap — the luma
+    plane survives the JPEG round trip in either space, and ``pdf_pages``
+    normalises a page to RGB before it is digested — so what the new baseline
+    records is ``interior_bytes``, and the eleven unmoved digests are the
+    evidence that the colour space moved and the ink did not.
 
     The comparison is exact — a sha256 of ``Image.tobytes()`` — and
     deliberately not ``pdf_pages.same_page``, which tolerates JPEG noise and a
