@@ -365,10 +365,13 @@ class TestBookFinalise_OffersBothDownloads:
         assert 'name="part" value="cover"' in body
         # The cover is no longer listed as a page of the book.
         assert "Cover page (" not in body
-        # The un-paired, un-packed plan of a 3-puzzle book, with the most
-        # dividers 3 puzzles could open: 1 guide + 3 dividers + 3 puzzles +
-        # SOLUTIONS + 3 answers.
-        assert "~11</dd>" in body
+        # Since CARD-129 the figure is the interior's **own** page count, not
+        # the un-paired, un-packed bound the screen used to print with a "~":
+        # a 3-puzzle book of easy 20x20s is 1 guide + 1 divider + 3 puzzle
+        # pages + SOLUTIONS + 1 six-up answer page.
+        assert f'data-interior-page-count="{_interior_pages(3, 1)}"' in body
+        assert 'data-interior-page-count-exact="true"' in body
+        assert "~" not in body.split('data-interior-page-count')[1][:40]
 
 
 # --- CARD-135 review cycle 1 --------------------------------------------------
@@ -728,12 +731,18 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         pages = pdf_page_count(_download(client, "finalise", book_id, "interior"))
 
         # The figure on the screen, against this module's own arithmetic and
-        # not against the function that produced it: the one-argument call is
-        # the un-paired, un-packed plan, so both of its variable terms are the
-        # puzzle count — one puzzle page and one answer page each.
-        assert (
-            f"~{_interior_pages(puzzle_count, puzzle_count, min(3, puzzle_count))}</dd>"
-            in body
+        # not against the function that produced it. Since CARD-129 it is the
+        # **exact** count of the file the button beside it downloads (EC-034),
+        # so the puzzle-page term is still the count (a 20x20 never pairs
+        # here) but the answer term is the packed key's, not one page each.
+        exact = _interior_pages(
+            puzzle_count, self._answer_pages(puzzle_count), min(1, puzzle_count)
         )
+        assert f'data-interior-page-count="{exact}"' in body
+        assert f'data-unpaired-page-count="{exact}"' in body, (
+            "nothing pairs in this module's books, so the two counts are equal"
+        )
+        assert exact == pages, "the screen's figure is the downloaded file's"
+        # The one-argument bound the screen used to print is still a bound.
         assert interior_page_count(puzzle_count) >= pages
         assert pages == _interior_pages(puzzle_count, self._answer_pages(puzzle_count))

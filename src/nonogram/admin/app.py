@@ -44,6 +44,7 @@ import urllib.parse
 import uuid
 from pathlib import Path
 from io import BytesIO
+from typing import Optional
 
 from nonogram.admin.batch_generator import (
     get_batch_generator,
@@ -66,6 +67,12 @@ from nonogram.admin.book_manager import (
     get_book_manager,
     BookStatus,
     revise_plan,
+)
+from nonogram.admin.book_kdp import (
+    KdpPageCountNotModelled,
+    gutter_refusal,
+    stored_gutter_cm,
+    unpaired_interior_page_count,
 )
 from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
 from nonogram.admin.book_plan import (
@@ -91,7 +98,6 @@ from nonogram.admin.print_specs import PrintSpecValidator
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DividerPagePlan,
-    interior_page_count,
     tier_breakdown,
 )
 from nonogram.admin.book_proof import render_proof_pdf
@@ -817,6 +823,114 @@ def _printed_places(book, puzzles):
                 "shares_page": len(page.numbers) > 1,
             }
     return places, divider_pages
+
+
+@dataclass(frozen=True)
+class InteriorCounts:
+    """The three page counts Finalise reports, and where they came from.
+
+    All three are **interior** counts: the cover is a separate file and is
+    never one of these pages (FR-043, INV-013, AC-288).
+
+    Attributes:
+        page_count: The interior PDF's page count — the guide page, the level
+            dividers, the one- and two-up puzzle pages, the SOLUTIONS divider
+            and the packed answer-key pages (FR-042, AC-271). This is the
+            number the KDP gutter check is made against (EC-034).
+        unpaired_page_count: What the same interior would take with every
+            puzzle on a page of its own — the "before pairing" figure the
+            Increment 15 checkpoint asks for (FR-040).
+        answer_page_count: How many of the pages are answer pages, the
+            SOLUTIONS divider not counted — the checkpoint's other figure.
+            ``None`` when the book has no sheet to count them on.
+        exact: Whether :attr:`page_count` is the page plan's own count.
+            ``False`` means the book's stored print specification could not be
+            laid out at all, and the count is the sheet-free upper bound
+            (:func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`).
+        unreadable: Why the plan could not be built, when it could not.
+    """
+
+    page_count: int
+    unpaired_page_count: int
+    answer_page_count: Optional[int]
+    exact: bool
+    unreadable: Optional[str] = None
+
+
+def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
+    """The interior's page counts for ``book``, or ``None`` when it has none.
+
+    Asked of the **page plan the export itself walks**
+    (:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.interior_stream`),
+    which settles all three counts before a page is drawn — so Finalise reports
+    the file's real page count without building 25.2 MB of bitmap per page, and
+    the number the KDP gutter check is made against is the number the interior
+    holds (EC-034). The pages themselves are never walked here; nothing is
+    drawn and no file is written.
+
+    The plan is measured on the book's **stored** gutter, always, and this call
+    never lays the book out a second time at another one (G-2): the page count
+    is a fact about the book as it is stored.
+
+    ``None`` is a book with no countable interior at all — a row so malformed
+    that even its answers cannot be packed. A book whose stored print
+    specification cannot be laid out (a margin below the sheet builder's
+    minimum, a trim outside KDP's bounds) has no *sheet*, and therefore no
+    two-up pages to measure, but its interior's make-up is still known: that
+    case comes back with ``exact=False`` and the sheet-free upper bound, which
+    is what lets Finalise still name KDP's band for such a book (AC-179).
+    """
+    try:
+        stream = BookPDFGenerator(book).interior_stream(list(puzzles))
+    except Exception as unreadable:
+        try:
+            bound = unpaired_interior_page_count(puzzles)
+        except Exception:
+            return None
+        return InteriorCounts(
+            page_count=bound,
+            unpaired_page_count=bound,
+            answer_page_count=None,
+            exact=False,
+            unreadable=str(unreadable),
+        )
+    return InteriorCounts(
+        page_count=stream.page_count,
+        unpaired_page_count=stream.unpaired_page_count,
+        answer_page_count=stream.answer_page_count,
+        exact=True,
+    )
+
+
+def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]:
+    """Why KDP would refuse this book's gutter margin, or ``None``.
+
+    ADR-0036's clarification, at the one seam it is checked: the interior's
+    page count against the gutter the book **stores** (FR-030, CON-018,
+    AC-179). It reads; it never writes — the stored gutter is not raised,
+    rewritten or re-laid-out here or anywhere else in the finalise path (G-1,
+    G-2).
+
+    ``None`` when there is nothing to refuse — including when the book has no
+    countable interior, which is a different complaint and not this one's to
+    make.
+    """
+    if counts is None:
+        return None
+    try:
+        stored = stored_gutter_cm(book)
+    except ValueError as unreadable:
+        return (
+            f"This book's gutter margin cannot be read, so KDP's minimum for "
+            f"its {counts.page_count} interior pages cannot be checked: "
+            f"{unreadable}. Set the margins again on Print setup."
+        )
+    try:
+        return gutter_refusal(counts.page_count, stored)
+    except KdpPageCountNotModelled as unmodelled:
+        return str(unmodelled)
+    except ValueError:
+        return None
 
 
 def create_app(debug=None):
@@ -3754,6 +3868,22 @@ def create_app(debug=None):
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
 
+        def members_in_order():
+            """The book's rows, in its stored order, each with its book title.
+
+            One reader for both halves of this route: the finalise action has
+            to count the interior's pages before it lets the book leave draft,
+            and the screen below reports those same counts, so both ask the
+            same question of the same list rather than two similar ones.
+            """
+            rows = []
+            for puzzle_id in book.puzzle_ids:
+                row = puzzle_review.get_puzzle(puzzle_id)
+                if row:
+                    row["custom_title"] = book_mgr.get_puzzle_title(book_id, puzzle_id)
+                    rows.append(row)
+            return rows
+
         if request.method == "POST":
             action = request.form.get("action")
 
@@ -3770,10 +3900,32 @@ def create_app(debug=None):
                     flash("Cover image cleared", "success")
 
                 elif action == "save_and_finish":
-                    # Mark book as ready and return to books list
-                    book_mgr.set_book_status(book_id, BookStatus.READY_FOR_PDF.value)
-                    flash(f"Book saved: {book.metadata.title}", "success")
-                    return redirect(url_for("books_list"))
+                    # CARD-129 (FR-030, CON-018, ADR-0036's clarification):
+                    # KDP asks for a wider gutter margin once a book passes
+                    # 150 pages, and a book that goes up with too narrow a one
+                    # is rejected *at upload*, after everything else about it
+                    # looked finished. So the interior's own page count — the
+                    # packed answer key included (AC-271), the separate cover
+                    # file excluded (AC-288) — is checked against the gutter
+                    # the book **stores** before it may leave draft.
+                    #
+                    # Refused, never adjusted: the stored gutter is not raised
+                    # and the book is not laid out again at a wider one to see
+                    # whether it would then fit (G-1, G-2). The screen
+                    # re-renders with the reason and the status unchanged, the
+                    # same shape the plan gate's refusal takes below.
+                    refusal = _kdp_gutter_refusal(
+                        book, _interior_counts(book, members_in_order())
+                    )
+                    if refusal:
+                        flash(refusal, "error")
+                    else:
+                        # Mark book as ready and return to books list
+                        book_mgr.set_book_status(
+                            book_id, BookStatus.READY_FOR_PDF.value
+                        )
+                        flash(f"Book saved: {book.metadata.title}", "success")
+                        return redirect(url_for("books_list"))
 
                 elif action == "download_pdf":
                     # Download one of the export's two files (FR-043): the
@@ -3800,13 +3952,7 @@ def create_app(debug=None):
                     flash(f"Failed to load image: {str(e)}", "error")
 
         # Get puzzles in order
-        puzzles_in_book = []
-        for puzzle_id in book.puzzle_ids:
-            puzzle = puzzle_review.get_puzzle(puzzle_id)
-            if puzzle:
-                custom_title = book_mgr.get_puzzle_title(book_id, puzzle_id)
-                puzzle["custom_title"] = custom_title
-                puzzles_in_book.append(puzzle)
+        puzzles_in_book = members_in_order()
 
         # Calculate difficulty breakdown — the same function the PDF guide
         # page uses, so the screen and the printed book cannot disagree.
@@ -3843,6 +3989,12 @@ def create_app(debug=None):
         # The same verdict the selection tile carries, from the same helper on
         # the same mapping — the floor is compared in one place only (G-1).
         missing_the_floor = _below_floor_ids(book_cells)
+
+        # CARD-129 (FR-030, FR-040, FR-042): the interior's three page counts,
+        # from the page plan the export walks. Read here so the screen reports
+        # the file's real page count and the number the KDP check is made
+        # against is the same number (EC-034).
+        counts = _interior_counts(book, puzzles_in_book)
         below_floor = [
             {
                 "id": puzzle.get("id"),
@@ -3867,12 +4019,24 @@ def create_app(debug=None):
             "easy_count": easy_count,
             "medium_count": medium_count,
             "hard_count": hard_count,
-            # The interior's pages only — guide, puzzles, SOLUTIONS divider and
-            # answers; the cover file is never counted (FR-043, FR-030). The
-            # export's own page plan, so the two share one set of layout
-            # rules; a puzzle that fails to render still makes this an upper
-            # bound — CARD-129 owns the exact equality (EC-034).
-            "page_count": interior_page_count(len(puzzles_in_book)),
+            # The interior's pages only — guide page, level dividers, the one-
+            # and two-up puzzle pages, the SOLUTIONS divider and the packed
+            # answer-key pages; the cover file is a second file and is never
+            # counted (FR-043, FR-030, AC-288). Since CARD-129 this is the
+            # export's own page plan and therefore the count the exported file
+            # really has (EC-034) — and the count the KDP gutter check above is
+            # made against — with the "before pairing" and answer-key figures
+            # the Increment 15 checkpoint asks for beside it. A book whose
+            # stored print specification cannot be laid out has no sheet and so
+            # no pages to count: ``page_count_exact`` is then false and the
+            # figure is the sheet-free upper bound, which the screen marks.
+            "page_count": counts.page_count if counts else None,
+            "page_count_exact": bool(counts and counts.exact),
+            "unpaired_page_count": counts.unpaired_page_count if counts else None,
+            "answer_page_count": counts.answer_page_count if counts else None,
+            "pages_saved_by_pairing": (
+                counts.unpaired_page_count - counts.page_count if counts else None
+            ),
             "cover_uploaded": _uploaded_cover_file(book_id) is not None,
             "trim_width_cm": trim_width_cm,
             "trim_height_cm": trim_height_cm,

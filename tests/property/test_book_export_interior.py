@@ -1,4 +1,4 @@
-"""EC-034 (INV-013), interior/cover half — CARD-135.
+"""EC-034 (INV-013), interior/cover half — CARD-135, extended by CARD-129.
 
     EC-034  PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
 
@@ -17,10 +17,17 @@ the Finalise download, ``POST /book/<id>/download-pdf`` and
   binding side;
 * its page count is today's content without the cover — guide, puzzles,
   SOLUTIONS divider and answers — and equals the count the export reports;
+* **the page count finalise reads equals the interior PDF's page count**, and
+  the cover never changes it (CARD-129's half, added here): the figure the
+  Finalise screen reports — the one KDP's gutter table is read at, and the one
+  a book is refused on when it needs a wider gutter than it stores — is the
+  exported interior's own count, on every book and on both sides of a cover
+  upload, together with the "before pairing" and answer-page figures beside
+  it;
 * exactly one cover file of one 2550 x 3300 px page is produced beside it,
   holding the uploaded cover when one is set, else the generated title cover.
 
-CARD-129 owns the finalise page-count half. The corpus is built by hand with a
+The corpus is built by hand with a
 seeded ``random.Random`` (no hypothesis — ADR-0006) and its size is asserted,
 so it cannot silently shrink. Expected values are derived here, independently
 of the generator: the page count from the book's make-up, the tier counts by
@@ -32,6 +39,7 @@ Pillow's own parser.
 from __future__ import annotations
 
 import random
+import re
 from collections import Counter
 from io import BytesIO
 
@@ -50,6 +58,12 @@ TRIM_PX = (2550, 3300)
 ROUTES = ("generator", "finalise", "download-pdf", "generate-pdf")
 CASES = 28
 SEED = 135
+
+#: How many of :data:`CASES` build a book, and therefore have a Finalise
+#: screen whose page count CARD-129's half of EC-034 is about: every route but
+#: ``generator``. Asserted as a floor at the end, so a corpus that stopped
+#: exercising the book routes cannot make that clause pass vacuously.
+FINALISE_CASES = CASES - CASES // len(ROUTES)
 
 #: CON-018's Book 1 profile in millimetres — every book here is on it —
 #: written out rather than imported, so the expected edge below is a second
@@ -418,13 +432,53 @@ def _divider_pages(puzzles):
     })
 
 
+#: ``data-interior-page-count="N"`` on the Finalise screen: the page count the
+#: finalise step reads and checks KDP's gutter table at (CARD-129, EC-034).
+_FINALISE_PAGE_COUNT = re.compile(r'data-interior-page-count="(\d+)"')
+_FINALISE_UNPAIRED = re.compile(r'data-unpaired-page-count="(\d+)"')
+_FINALISE_ANSWERS = re.compile(r'data-answer-page-count="(\d+)"')
+
+
+def _finalise_figures(client, book_id):
+    """The three interior figures the Finalise screen reports, as ints.
+
+    ``(page count, before pairing, answer pages)``. The page count is the one
+    CARD-129's gutter check is made against, which is why EC-034 asks for it
+    to be the interior PDF's own — read off the screen the owner reads it off,
+    not out of the function that produced it.
+    """
+    response = client.get(f"/book/{book_id}/finalize")
+    assert response.status_code == 200, book_id
+    page = response.get_data(as_text=True)
+    found = [
+        pattern.search(page)
+        for pattern in (_FINALISE_PAGE_COUNT, _FINALISE_UNPAIRED, _FINALISE_ANSWERS)
+    ]
+    assert all(found), f"the Finalise screen reports no page count: {book_id}"
+    return tuple(int(match.group(1)) for match in found)
+
+
 def _export_through_route(app, case):
-    """(interior bytes, cover bytes, reported page count or None) for ``case``."""
+    """What one case's export produced, and what Finalise says about it.
+
+    ``(interior bytes, cover bytes, reported page count or None, finalise)``.
+    ``finalise`` is ``None`` for the ``generator`` route — that route hands
+    ``export_book`` a list with no book behind it, so there is no Finalise
+    screen to ask — and otherwise the figures that screen reports, read
+    **twice**: once before this case's cover is uploaded and once after, which
+    is EC-034's "the cover never changes it" (the two are asserted equal by
+    the caller).
+    """
     if case["route"] == "generator":
         export = BookPDFGenerator().export_book(
             case["puzzles"], case["title"], cover_image=case["cover"]
         )
-        return export.interior.getvalue(), export.cover.getvalue(), export.interior_page_count
+        return (
+            export.interior.getvalue(),
+            export.cover.getvalue(),
+            export.interior_page_count,
+            None,
+        )
 
     book_id = app.book_manager.create_book(
         title=case["title"],
@@ -453,6 +507,7 @@ def _export_through_route(app, case):
         app.book_manager.add_puzzles_to_book(book_id, ids)
 
     client = app.test_client()
+    before_the_cover = _finalise_figures(client, book_id)
     if case["cover"] is not None:
         png = BytesIO()
         case["cover"].save(png, format="PNG")
@@ -462,6 +517,7 @@ def _export_through_route(app, case):
             data={"cover": (png, "cover.png")},
             content_type="multipart/form-data",
         )
+    after_the_cover = _finalise_figures(client, book_id)
 
     parts = []
     for part in ("interior", "cover"):
@@ -474,7 +530,7 @@ def _export_through_route(app, case):
         assert response.status_code == 200, (case["route"], part)
         assert response.mimetype == "application/pdf"
         parts.append(response.get_data())
-    return parts[0], parts[1], None
+    return parts[0], parts[1], None, (before_the_cover, after_the_cover)
 
 
 def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admin_app):
@@ -484,7 +540,9 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
 
     for number, case in enumerate(cases):
         label = f"case {number} ({case['route']}, {len(case['puzzles'])} puzzles, cover={case['cover'] is not None})"
-        interior_bytes, cover_bytes, reported = _export_through_route(admin_app, case)
+        interior_bytes, cover_bytes, reported, finalise = _export_through_route(
+            admin_app, case
+        )
         interior = pdf_pages(interior_bytes)
         cover_pages = pdf_pages(cover_bytes)
         n = len(case["puzzles"])
@@ -513,6 +571,37 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         assert pdf_page_count(interior_bytes) == expected_count, label
         if reported is not None:
             assert reported == expected_count, label
+
+        # CARD-129's half of EC-034: **the page count finalise checks equals
+        # the interior's page count**, for every book, and the cover never
+        # changes it. The figure is read off the Finalise screen, which is
+        # where the KDP gutter check takes it from (FR-030, ADR-0036's
+        # clarification) — so a screen that went back to estimating the count
+        # would fail here rather than at upload, which is the only other place
+        # a wrong count shows up.
+        if finalise is not None:
+            before_the_cover, after_the_cover = finalise
+            assert after_the_cover == before_the_cover, (
+                f"{label}: the cover changed the interior's figures, "
+                f"{before_the_cover} -> {after_the_cover}"
+            )
+            page_count, unpaired, answer_pages = after_the_cover
+            assert page_count == expected_count, label
+            assert page_count == len(interior), label
+            # The other two figures the screen reports, against this module's
+            # own walks: the same interior with every puzzle on a page of its
+            # own, and the pages the packed key takes (FR-040, FR-042).
+            assert answer_pages == len(key), label
+            assert unpaired == 1 + dividers + n + (len(key) + 1 if n else 0), label
+            assert unpaired >= page_count, label
+            seen["finalise count"] += 1
+            seen[
+                "finalise count with cover"
+                if case["cover"] is not None
+                else "finalise count without cover"
+            ] += 1
+            if unpaired > page_count:
+                seen["finalise count with a shared page"] += 1
 
         # Page 1 is the guide page, and no interior page is the cover.
         assert same_page(interior[0], _expected_guide(case["puzzles"])), label
@@ -600,6 +689,19 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
     assert seen["answer page"] >= 20, seen
     assert seen["6-up answer page"] >= 5 and seen["4-up answer page"] >= 5, seen
     assert seen["headed answer page"] >= 10, seen
+    # CARD-129: the finalise page count was really read, on enough books and
+    # on both sides of the cover — a clause that only ran on the one route
+    # that has no Finalise screen would pass vacuously. Three of the four
+    # routes build a book, so 28 cases give 21 of them.
+    assert seen["finalise count"] >= FINALISE_CASES >= 18, (
+        f"the corpus checked the finalise count on only "
+        f"{seen['finalise count']} books"
+    )
+    assert seen["finalise count with cover"] >= 4, seen
+    assert seen["finalise count without cover"] >= 4, seen
+    # And on at least one book whose pairing really shortened the interior, so
+    # "before pairing" is compared against something other than the count.
+    assert seen["finalise count with a shared page"] >= 3, seen
 
 
 def test_page_numbers_start_at_one():
