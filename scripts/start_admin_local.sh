@@ -15,7 +15,26 @@ NC='\033[0m' # No Color
 # Defaults
 PORT=5000
 RUN_MIGRATIONS=true
+CHECK_ONLY=false
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# The database this script will use.
+#
+# An exported DATABASE_URL wins. The hardcoded ``export DATABASE_URL=...`` that
+# used to sit at step [4/6] overwrote whatever the caller had exported, so there
+# was no way to point this script at another database without editing it
+# (CARD-150). The resolution happens here, before the banner, because step [1/6]
+# has to check the database the panel will actually read.
+DEFAULT_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+if [ -n "${DATABASE_URL:-}" ]; then
+    DATABASE_URL_SOURCE="exported by the caller"
+else
+    DATABASE_URL="$DEFAULT_DATABASE_URL"
+    DATABASE_URL_SOURCE="project default"
+fi
+# The database name, for the psql checks and for the message when they fail.
+DB_NAME="${DATABASE_URL##*/}"
+DB_NAME="${DB_NAME%%\?*}"
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -28,18 +47,31 @@ while [[ $# -gt 0 ]]; do
             RUN_MIGRATIONS=false
             shift
             ;;
+        --check-only)
+            CHECK_ONLY=true
+            shift
+            ;;
         --help)
             echo "Usage: ./scripts/start_admin_local.sh [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --port PORT           Flask port (default: 5000)"
             echo "  --no-migrate          Skip database migrations"
+            echo "  --check-only          Run every check, report what would be used, do not start Flask"
             echo "  --help                Show this help message"
+            echo ""
+            echo "Environment:"
+            echo "  DATABASE_URL          Database to use. An exported value wins; otherwise"
+            echo "                        the project default $DEFAULT_DATABASE_URL"
+            echo "                        is used. The database must already exist - this"
+            echo "                        script never creates one. If it is unreachable, or"
+            echo "                        if a migration fails, the script stops."
             echo ""
             echo "Examples:"
             echo "  ./scripts/start_admin_local.sh                # Default (port 5000, run migrations)"
             echo "  ./scripts/start_admin_local.sh --port 8000   # Use port 8000"
             echo "  ./scripts/start_admin_local.sh --no-migrate  # Skip migrations"
+            echo "  ./scripts/start_admin_local.sh --check-only  # Check everything, start nothing"
             exit 0
             ;;
         *)
@@ -71,17 +103,32 @@ if ! command -v psql &> /dev/null; then
 fi
 echo -e "${GREEN}✓ PostgreSQL found${NC}"
 
-# Check PostgreSQL is running (via Docker)
-if docker exec nonogram-postgres psql -U postgres -d nonogram_poc -c "SELECT 1" > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ PostgreSQL is running (Docker)${NC}"
-elif docker-compose exec postgres psql -U postgres -d nonogram_poc -c "SELECT 1" > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ PostgreSQL is running (Docker Compose)${NC}"
-elif psql -c "SELECT 1" > /dev/null 2>&1; then
-    echo -e "${GREEN}✓ PostgreSQL is running (Homebrew)${NC}"
+# Check PostgreSQL is running AND that the database this script will use is
+# reachable -- on every branch, not only the Docker ones.
+#
+# This branch used to run a bare ``psql -c "SELECT 1"``, which connects to the
+# default database ($USER) and says nothing about $DB_NAME. It printed
+# "✓ PostgreSQL is running (Homebrew)" on a machine where nonogram_poc did not
+# exist and then served a panel whose every database read failed (CARD-150).
+# Both Docker branches already asserted the database; now all three agree.
+#
+# Connecting to a database that does not exist fails, it does not create one,
+# and this script creates nothing: which database the owner wants is their call.
+if docker exec nonogram-postgres psql -U postgres -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ PostgreSQL is running, database '$DB_NAME' reachable (Docker)${NC}"
+elif docker-compose exec postgres psql -U postgres -d "$DB_NAME" -c "SELECT 1" > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ PostgreSQL is running, database '$DB_NAME' reachable (Docker Compose)${NC}"
+elif psql "$DATABASE_URL" -c "SELECT 1" > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ PostgreSQL is running, database '$DB_NAME' reachable (Homebrew)${NC}"
 else
-    echo -e "${RED}✗ PostgreSQL is not running${NC}"
-    echo "  Start with: docker-compose up -d postgres"
-    echo "  Or: brew services start postgresql@15"
+    echo -e "${RED}✗ Database '$DB_NAME' is not reachable${NC}"
+    echo "  DATABASE_URL=$DATABASE_URL ($DATABASE_URL_SOURCE)"
+    echo "  Either PostgreSQL is not running, or '$DB_NAME' does not exist."
+    echo "  Start PostgreSQL with: docker-compose up -d postgres"
+    echo "  Or:                    brew services start postgresql@15"
+    echo "  See which databases you have with: psql -l"
+    echo "  Point this script at one of them with: export DATABASE_URL=..."
+    echo "  This script does not create a database."
     exit 1
 fi
 echo ""
@@ -122,19 +169,32 @@ echo ""
 # Set environment variables
 echo -e "${YELLOW}[4/6]${NC} Setting environment variables..."
 export FLASK_ENV=development
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+# Resolved at the top of the script, and already checked at step [1/6].
+export DATABASE_URL
 echo -e "${GREEN}✓ Environment variables set${NC}"
 echo "  FLASK_ENV=$FLASK_ENV"
-echo "  DATABASE_URL=$DATABASE_URL"
+echo "  DATABASE_URL=$DATABASE_URL ($DATABASE_URL_SOURCE)"
 echo ""
 
 # Run migrations (optional)
 if [ "$RUN_MIGRATIONS" = true ]; then
     echo -e "${YELLOW}[5/6]${NC} Running database migrations..."
-    if alembic upgrade head > /dev/null 2>&1; then
+    # A failed migration used to print "⚠ Migrations may have issues (but
+    # continuing)" and discard alembic's output -- the one message that would
+    # have explained the problem (CARD-150). Refuse, and say what alembic said.
+    # --no-migrate is the explicit flag for starting without migrating.
+    if MIGRATION_OUTPUT="$(alembic upgrade head 2>&1)"; then
         echo -e "${GREEN}✓ Migrations completed${NC}"
     else
-        echo -e "${YELLOW}⚠ Migrations may have issues (but continuing)${NC}"
+        echo -e "${RED}✗ Migrations failed${NC}"
+        echo "  alembic upgrade head said:"
+        if [ -n "$MIGRATION_OUTPUT" ]; then
+            echo "$MIGRATION_OUTPUT" | sed 's/^/    /'
+        else
+            echo "    (no output)"
+        fi
+        echo "  Fix it, or start without migrating: ./scripts/start_admin_local.sh --no-migrate"
+        exit 1
     fi
 else
     echo -e "${YELLOW}[5/6]${NC} Skipping migrations (--no-migrate)"
@@ -143,6 +203,13 @@ echo ""
 
 # Start Flask
 echo -e "${YELLOW}[6/6]${NC} Starting Flask application..."
+if [ "$CHECK_ONLY" = true ]; then
+    # Every check above has run for real; the only thing skipped is the
+    # ``flask run`` below, which never returns. This is what makes the script's
+    # decisions testable (tests/test_start_admin_local.py).
+    echo -e "${GREEN}✓ All checks passed; not starting Flask (--check-only)${NC}"
+    exit 0
+fi
 echo -e "${GREEN}✓ Flask starting on port $PORT${NC}"
 echo ""
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"

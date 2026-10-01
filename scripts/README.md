@@ -4,9 +4,17 @@ Quick scripts to set up and test the Nonogram Admin Panel locally.
 
 ## Prerequisites
 
-- Python 3.11+ (with virtual environment activated)
+- Python 3.11+ (with virtual environment activated, project installed with `pip install -e '.[dev]'`)
 - PostgreSQL 15+ running locally
-- Database `nonogram_poc` created
+- A database that already exists, and a `DATABASE_URL` pointing at it. The
+  project default is
+  `postgresql://postgres:postgres@localhost:5432/nonogram_poc`. In
+  `start_admin_local.sh`, a `DATABASE_URL` you exported yourself wins over that
+  default; `setup_admin_local.sh` and `run_admin_tests.sh` do not yet honour it
+  — both still export the project default over whatever you exported, so edit
+  them or set the URL afterwards. **The scripts never create a database** —
+  which one you want is your call. `psql -l` lists the ones you have, and
+  `createdb <name>` makes a new one if that is what you want.
 
 ## Scripts
 
@@ -18,7 +26,28 @@ Quick scripts to set up and test the Nonogram Admin Panel locally.
 ./scripts/start_admin_local.sh              # Default: port 5000
 ./scripts/start_admin_local.sh --port 8000 # Custom port
 ./scripts/start_admin_local.sh --no-migrate # Skip migrations
+./scripts/start_admin_local.sh --check-only # Run every check, start nothing
 ```
+
+**Which database it uses.** A `DATABASE_URL` you exported wins; with none
+exported it falls back to the project default
+`postgresql://postgres:postgres@localhost:5432/nonogram_poc`. Step `[4/6]`
+prints the URL it settled on and where it came from, so there is no guessing:
+
+```bash
+export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_dev"
+./scripts/start_admin_local.sh --check-only   # says: (exported by the caller)
+```
+
+**It stops rather than serving a panel that cannot read anything** (CARD-150):
+
+- If that database is unreachable — the server is down, or the database does not
+  exist — step `[1/6]` names it, exits non-zero, and starts nothing. It does not
+  create the database for you.
+- If `alembic upgrade head` fails, step `[5/6]` prints what alembic said and
+  exits non-zero. `--no-migrate` is the explicit way to start without migrating.
+- `--check-only` runs all six steps except the final `flask run`, which is handy
+  for finding out whether local startup would work at all.
 
 **Access**: http://localhost:5000
 
@@ -34,6 +63,8 @@ After setup, start Flask manually:
 ```bash
 source .venv/bin/activate
 export FLASK_ENV=development
+# The project default; export your own DATABASE_URL instead to use another
+# database. It must already exist — nothing here creates one.
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
 # nonogram.admin.app, never src.nonogram.admin.app: the src.-prefixed spelling
 # loads the admin package a second time and the two copies disagree (CARD-139).
@@ -122,7 +153,9 @@ If you prefer to run commands manually:
 # Activate venv
 source .venv/bin/activate
 
-# Set env vars
+# Set env vars. The URL below is the project default that
+# start_admin_local.sh falls back to; point it at your own database instead if
+# you have one. Either way the database must already exist.
 export FLASK_ENV=development
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
 
@@ -174,7 +207,22 @@ python3 -m venv .venv
 pip install -e '.[dev]'
 ```
 
+### Database not reachable
+
+`start_admin_local.sh` exits at step `[1/6]` naming the database it was asked to
+use. Either PostgreSQL is not running, or that database does not exist:
+
+```bash
+psql -l                                  # which databases do I have?
+export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_dev"
+./scripts/start_admin_local.sh --check-only
+```
+
+The script will not create the database — see Prerequisites.
+
 ### Migration errors
+
+`start_admin_local.sh` exits at step `[5/6]` and prints alembic's own message.
 
 ```bash
 # Check current migration
@@ -183,6 +231,9 @@ alembic current
 # Rollback and retry
 alembic downgrade base
 alembic upgrade head
+
+# Or start the panel without migrating
+./scripts/start_admin_local.sh --no-migrate
 ```
 
 ## Documentation
