@@ -121,7 +121,8 @@ Tests are marked for easy filtering:
 
 Available fixtures (from `conftest.py`):
 
-- `app` — Flask test app
+- `db_session` — `SessionLocal` factory bound to an empty, fully migrated test database (`TEST_DATABASE_URL`, default `…/nonogram_test`). The schema is rebuilt once per session (`DROP SCHEMA public CASCADE`, then `alembic upgrade head`) and every table is truncated before each test. Refuses — as a failure, before connecting — any URL whose database name does not end in `_test` or that overrides it with a `dbname`/`database` query parameter. Skips when the database is unreachable (one cached probe per run).
+- `app` — Flask test app (depends on `db_session`)
 - `client` — Flask test client
 - `puzzle_review_service` — Puzzle review service
 - `batch_generator_service` — Batch generator service
@@ -231,6 +232,9 @@ pip install -e .
 export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_test"
 createdb nonogram_test
 ```
+
+**"Refusing to set up the test database"**
+`TEST_DATABASE_URL` names a database the `db_session` fixture must not erase. Point it at a database whose name ends in `_test`. The role in the URL must own the `public` schema of that database (the fixture drops and recreates it).
 
 **Tests fail with "Connection refused"**
 ```bash
