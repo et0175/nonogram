@@ -135,7 +135,9 @@ def test_create_batch_route_works(client):
     """Verify /batch/create route works with DB-backed app."""
     response = client.get("/batch/create")
     assert response.status_code == 200
-    assert b"Create Batch from Images" in response.data or b"Create Batch" in response.data
+    # The page is "New batch" since the Pressroom redesign (f773015); the old
+    # "Create Batch" copy went unnoticed because this test only ever skipped.
+    assert b"<h1>New batch</h1>" in response.data
 
 
 @pytest.mark.db_required

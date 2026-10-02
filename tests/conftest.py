@@ -174,59 +174,136 @@ def pytest_runtest_setup(item):
             pytest.skip(f"Database not reachable: {reason}")
 
 
-@pytest.fixture(scope="function")
-def db_session(test_db_url, monkeypatch):
-    """Provide a fresh test database session with schema setup and teardown.
+def _refuse_unless_test_database(database_url: str) -> None:
+    """Stop, before any connection, unless ``database_url`` names a ``*_test`` database.
 
-    - Sets DATABASE_URL to the test DB
-    - Ensures schema exists (via alembic or Base.metadata.create_all)
-    - Yields the SessionLocal factory
-    - Truncates tables after test for isolation
+    CARD-156. The fixtures below drop the whole ``public`` schema once per
+    session and truncate every table before each test, so the URL they are
+    given decides which database gets wiped. That must never be anything but a
+    database made for it (G-1: never ``nonogram_dev``), and the decision is
+    made from the URL's text alone — asking the database would already be
+    touching it.
+
+    Stricter than CARD-109's run guard, which only asks that the name
+    *contain* "test": that guard protects against reading and writing, this one
+    against erasing. The name is read with that guard's parser because it never
+    echoes the password.
+
+    A failure, not a skip: a skip is green, and a green run is exactly how
+    "DB mode passes" came to mean "DB mode skipped". Pointing the fixture at a
+    database it must not erase is a configuration mistake somebody has to see.
     """
-    # Asked before the schema work below, and cached for the session: a
-    # database that never answers must cost one deadline for the whole run,
-    # not one per test that wants it (CARD-097).
+    name = _database_guard._database_name(database_url)
+    if not name.endswith("_test"):
+        pytest.fail(
+            f"Refusing to set up the test database: TEST_DATABASE_URL names "
+            f"{name!r}, and the db_session fixture erases the database it is "
+            f"given. Point TEST_DATABASE_URL at a database whose name ends in "
+            f"'_test'.",
+            pytrace=False,
+        )
+
+
+@pytest.fixture(scope="session")
+def _test_database_tables(test_db_url):
+    """Build the schema once per session; yield an engine and the tables to truncate.
+
+    CARD-156. The fixture this replaces dropped ``puzzles`` and ``batches``
+    before every test inside an uncommitted ``engine.begin()`` and called
+    ``Base.metadata.create_all(engine)`` in the same block. ``create_all``
+    checks for the tables on another pooled connection, which still saw them,
+    so it created nothing — and the commit then removed them. Every other test
+    ran without the two tables. ``CASCADE`` also stripped whatever the
+    migrations hung off them, so the schema drifted from what production runs.
+
+    Now: the ``public`` schema is emptied and rebuilt with ``alembic upgrade
+    head``, once. Emptied first because ``alembic_version`` can say head while
+    the tables beneath it are gone or drifted — which is the state the old
+    fixture left ``nonogram_test`` in, and the state any branch still carrying
+    it will leave it in again.
+
+    Alembic runs in a subprocess, not in-process: its ``env.py`` calls
+    ``logging.config.fileConfig``, which disables every logger already created
+    in this process (and so every later ``caplog`` assertion), and imports the
+    models a second time as ``src.nonogram``.
+    """
+    _refuse_unless_test_database(test_db_url)
     reason = _unreachable_reason(test_db_url)
     if reason:
         pytest.skip(f"Could not set up test database: {reason}")
 
-    # Set test DB URL in environment
+    import subprocess
+    import sys
+
+    from sqlalchemy import create_engine
+
+    from nonogram.db import session as db_session
+
+    engine = create_engine(
+        db_session.normalized_url(test_db_url),
+        **db_session._engine_options(test_db_url),
+    )
+    with engine.begin() as connection:
+        connection.execute(text("DROP SCHEMA public CASCADE"))
+        connection.execute(text("CREATE SCHEMA public"))
+
+    repo = Path(__file__).resolve().parent.parent
+    migrated = subprocess.run(
+        [sys.executable, "-m", "alembic", "-c", str(repo / "alembic.ini"), "upgrade", "head"],
+        cwd=repo,
+        env={**os.environ, "DATABASE_URL": test_db_url},
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if migrated.returncode != 0:
+        engine.dispose()
+        pytest.fail(f"alembic upgrade head failed:\n{migrated.stderr}", pytrace=False)
+
+    with engine.connect() as connection:
+        tables = connection.execute(text(
+            "SELECT tablename FROM pg_tables "
+            "WHERE schemaname = 'public' AND tablename <> 'alembic_version'"
+        )).scalars().all()
+    yield engine, tables
+    engine.dispose()
+
+
+@pytest.fixture(scope="function")
+def db_session(test_db_url, request, monkeypatch):
+    """Point ``DATABASE_URL`` at an empty, fully migrated test database.
+
+    Yields the ``SessionLocal`` factory. Isolation is by ``TRUNCATE`` before
+    each test, not by rolling back an outer transaction: the admin app opens
+    and commits its own sessions through ``session_scope``, which a
+    transaction held here would never see. Truncating at setup rather than at
+    teardown means a test always starts empty even when the last one died
+    mid-way.
+    """
+    # The guard and the reachability check come before the session fixture is
+    # even requested — hence getfixturevalue rather than a parameter, which
+    # pytest would resolve before this body ran. A refused URL must not get as
+    # far as a connection, and an unreachable one must cost one cached deadline
+    # for the whole run, not one per test (CARD-097).
+    _refuse_unless_test_database(test_db_url)
+    reason = _unreachable_reason(test_db_url)
+    if reason:
+        pytest.skip(f"Could not set up test database: {reason}")
+    engine, tables = request.getfixturevalue("_test_database_tables")
+
+    with engine.begin() as connection:
+        # A session some earlier test leaked open would make TRUNCATE wait on
+        # its lock forever; this turns that into an error that names it.
+        connection.execute(text("SET LOCAL lock_timeout = '10s'"))
+        connection.execute(text(
+            "TRUNCATE TABLE " + ", ".join(f'"{table}"' for table in tables)
+            + " RESTART IDENTITY CASCADE"
+        ))
+
     monkeypatch.setenv("DATABASE_URL", test_db_url)
-
-    try:
-        from nonogram.db import engine, SessionLocal, Base
-        from nonogram.db.models import Batch, Puzzle
-    except ImportError as e:
-        pytest.skip(f"Database dependencies not installed: {e}")
-
-    # Try to create schema
-    try:
-        # First, try to drop/recreate tables to ensure clean state
-        with engine.begin() as conn:
-            # Drop FK constraints first (Postgres requires this order)
-            conn.execute(text("""
-                SELECT tablename FROM pg_tables
-                WHERE schemaname = 'public'
-                AND tablename IN ('puzzles', 'batches')
-            """))
-            # Use CASCADE to drop dependent objects
-            conn.execute(text("DROP TABLE IF EXISTS puzzles CASCADE"))
-            conn.execute(text("DROP TABLE IF EXISTS batches CASCADE"))
-            # Recreate tables from models
-            Base.metadata.create_all(engine)
-    except Exception as e:
-        # If we can't access the DB, skip DB-dependent tests
-        pytest.skip(f"Could not set up test database: {e}")
+    from nonogram.db import SessionLocal
 
     yield SessionLocal
-
-    # Teardown: truncate tables for next test
-    try:
-        with engine.begin() as conn:
-            conn.execute(text("TRUNCATE TABLE puzzles CASCADE"))
-            conn.execute(text("TRUNCATE TABLE batches CASCADE"))
-    except Exception:
-        pass  # Ignore teardown errors
 
 
 @pytest.fixture(scope="function")
