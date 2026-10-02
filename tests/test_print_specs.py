@@ -302,6 +302,32 @@ class TestPrintSetup_PlanAndTrimCommitTogether:
         missing = str(uuid.uuid4()) if books._session_factory else "book_999999"
         assert books.save_plan(missing, NEW_PLAN, print_spec=PrintSpec(*SIX_BY_NINE_CM)) is False
 
+    # Review cycle 1, F-001: the defect lived in the route, so the AC's named
+    # test drives the route itself. A VALID trim passes the validator and both
+    # writers' checks; the store then refuses the trim's flush. With the
+    # route's old two-commit shape (save_plan, then set_print_spec) the plan
+    # commits first and survives; with one write neither does. Observed on the
+    # raw row in a fresh session, not through a return value.
+    @pytest.mark.parametrize("store", ["sqlite", "postgres"])
+    def test_print_setup_route_stores_neither_when_the_trim_write_fails(self, store, scope, panel) -> None:
+        books = panel.book_manager
+        book_id = _book_on_six_by_nine(books)
+        row_before = _raw_row(scope, book_id)
+        assert row_before[0] == plan_to_json(DEFAULT_PLAN)
+        assert row_before[1:3] == SIX_BY_NINE_CM
+
+        # TESTING mode propagates the route's exception through the client.
+        with _trim_write_fails_at_flush(), pytest.raises(RuntimeError, match="simulated"):
+            panel.test_client().post(
+                f"/book/{book_id}/setup-print",
+                data=_form(NEW_PLAN, width="20.32", height="25.40"),
+            )
+
+        plan_json, width, height, status = _raw_row(scope, book_id)
+        assert plan_json == plan_to_json(DEFAULT_PLAN), "the plan was stored while the trim was refused"
+        assert (width, height) == SIX_BY_NINE_CM
+        assert status == row_before[3]
+
 
 # --------------------------------------------------------------------------
 # AC-3
