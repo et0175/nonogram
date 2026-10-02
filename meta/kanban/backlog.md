@@ -1,45 +1,72 @@
 # Backlog
 
-## Deferred during implementation
-- [ ] CARD-135 follow-up: the single download button on books_list.html and book_detail.html now fetches only the interior PDF — offer the cover file there too (FR-043). Site: src/nonogram/admin/templates/books_list.html, book_detail.html   @feature
-- [ ] CARD-135 minor F-008: export_book docstring still claims every route goes through it. Site: src/nonogram/admin/book_pdf_generator.py   @tech-debt
-- [ ] Pre-existing failure: tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied (red on 89ed292 and after wave 20)   @ops
-- [ ] CARD-120 F-007: typing an edited cell back to its current prefill value does not release the hand-edit mark; a count change judges edits against the old prefill. Site: src/nonogram/admin/book_manager.py (revise_plan)   @tech-debt
-- [ ] CARD-120 F-008: the refusal page's Planned row is read from the stored plan, not the submitted one. Site: src/nonogram/admin/app.py (setup-print)   @tech-debt
-- [ ] CARD-120 F-009: the trim assertion in tests/test_book_plan_storage.py is vacuous in DB mode   @tech-debt
-- [ ] CARD-120 O-2 (pre-existing): in DB mode the trim from Print setup is never saved   @feature
-- [ ] CARD-122 follow-up: bulk PuzzleReviewService.get_puzzles(ids) — _selected_cells opens up to ~300 DB sessions per render; the naive single-query fix is wrong because it reads the puzzles.book_id mirror   @tech-debt
-- [ ] Pre-existing: a hand-typed empty ?status= turns the approved-only default off on the book-selection and puzzle-list routes   @ops
-- [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of" (a Jinja template cannot import); forge:commit's no-Co-Authored-By rule contradicts this session's required attribution line   @tech-debt
-- [ ] CARD-124 follow-up: N+1 selection read — a status change on a 150-puzzle book opens ~150 DB sessions; needs the same batch getter in puzzle_review.py as CARD-122's follow-up   @tech-debt
-- [ ] INV-008's three and INV-012's six declared checks exist nowhere under tests/   @tech-debt
-- [ ] tests/README.md is titled "Admin Panel Test Suite - Wave 1", names no book test file and is ~20 waves stale — needs a rewrite, not a patch   @tech-debt
-- [ ] Six system-contract check refs (ADR-0029/R2, INV-008..INV-012) name tests that do not exist yet — the model claims mechanical checks it does not have   @tech-debt
-- [ ] Test isolation: test_card_037_upload_retry and test_web_upload glob the shared system temp dir for nonogram-upload-*, so two full suites running at once perturb each other   @tech-debt
-- [ ] UX gap (no card): an unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that cannot succeed, and never names the remedy. Fails closed, but unhelpful   @feature
-- [ ] CARD-126 F-002: the order paths resolve tiers one store read at a time (~150 sessions per arrow click on a default-plan book); memoise across the three call paths   @tech-debt
-- [ ] Card-text defect for decompose: CARD-126 G-4 names a test: that a LATER card (CARD-131) creates, so it is unverifiable in every wave before that   @tech-debt
-- [ ] Image-mode difficulty sweep: re-run scripts/measure_difficulty_cutoff.py over image-derived puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt
-- [ ] CARD-137 leftovers: add RUNG_OVERLAP_MAX_SCORE and the new cutoff names to _CUTOFF_NAMES in the AST guard; difficulty.py's docstring still carries the retired "fourth tier" section whose example classify(score, branch_nodes) raises TypeError (CARD-098 residue, pre-existing)   @tech-debt
-- [ ] CARD-136 known limitation (owner-accepted 2026-09-23): in memory-only mode get_book returns the LIVE Book, so a caller can write an invalid trim past set_print_spec's validation; DB mode returns a detached snapshot and book_page_spec refuses a bad value on read. Fix by having memory mode hand out a copy   @tech-debt
-- [ ] CARD-136 handover: book_detail.html's "Size" row is the last display still reading book.metadata.size, which Print setup no longer writes   @tech-debt
-- [ ] CARD-136 handover: book_setup_print.html's unit-blind min="10" max="30"/48 makes the inches path unreachable from the rendered form   @feature
-- [ ] CARD-136 handover: the plan and the trim still commit in two DB transactions; a single-session writer is the follow-up   @tech-debt
-- [ ] CARD-136 handover (real edge case): validate_trim_size accepts the string "nan" — NaN fails every float comparison, so create_spec passes it, save_plan COMMITS and only then does set_print_spec's finiteness guard raise: plan stored, trim not. Fix by moving the finiteness check into validate_trim_size, or by writing both halves in one session   @tech-debt
-- [ ] CARD-118 reviewer minors (non-blocking): the proof route's broad `except Exception` flashes raw exception text to the page; `redirect(request.referrer or ...)` is a caller-controlled redirect target; a new `datetime.utcnow()` deprecation; the `ast` importer guard matches on bare filename rather than relative path   @tech-debt
-- [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5 — real KDP sizes) leaves no room for the proof foot note, so proof_pages raises and the route flashes it. Portrait trims all render   @feature
-- [ ] tests/README.md is a stale "Wave 1" index, unmaintained since wave 20, and no directory under src/ has a README at all — every book card has skipped the docs step for this reason. Decide whether the convention is "no per-directory READMEs" and drop the step, or seed them once   @tech-debt
-- [ ] CARD-138 handover: src/nonogram/analysis/strategy_counter.py:138,140 holds a SECOND easy/medium/hard mapping on bare 30/70 literals. ADR-0031/R1 says classify is the only classifier, but the AST guard in tests/test_difficulty_tiers.py matches cutoff NAMES only and cannot see literals, so this is invisible to it. Pre-existing; worth a card   @tech-debt
-- [ ] CARD-138 handover (gate hazard): from a wave-25 branch, `git diff main` now reports main's newer files as DELETIONS — including admin/book_proof.py, which matches guardrail globs like `book_*.py`. A scope or guardrail check trusting `git diff main` will fail a card that never touched the file. Every verdict must be taken against the MERGE-BASE   @tech-debt
-- [ ] Two full-suite lock conventions are in play: cmd-start-review documents a mkdir-based acquisition of meta/kanban/.full-suite.lock, but the dispatcher (me, this wave) takes it with `exec 9>` + flock, which creates it as a REGULAR FILE — against which the mkdir form can never succeed. One CARD-138 suite waited out siblings by hand instead. Pick one convention   @tech-debt
-- [ ] CARD-138 out of scope: a targeted batch stores no record of the tier it asked for (`batches` has no column), so the panel cannot show what a batch was aiming at. Needs a column + migration   @feature
-- [ ] DEPLOYMENT (found 2026-09-23, cost the owner four redeploys): the Render service is dashboard-managed, so render.yaml is IGNORED — its buildCommand, startCommand and env vars do not apply. Production was running `flask run` on src.nonogram.admin.app (Werkzeug access-log format; venv on python3.14 while render.yaml pins 3.11), which is how CARD-086's gunicorn decision was silently bypassed and how the src.-prefix crash survived every repo fix. Either adopt the Blueprint so render.yaml governs, or annotate the file as non-authoritative and record the dashboard settings somewhere they can drift-check   @ops
-- [ ] CARD-130 handover: book_setup_print.html still renders "Step 1 of 4" beside a 5-step stepper — the last self-contradiction. G-4 barred fixing it there; CARD-118 has since merged, so it can be scheduled. PROSE_CHECKED = (0, 2, 3, 4) carries a comment saying how to re-enable the guard test   @tech-debt
-- [ ] CARD-130 handover: /book/create's own refusal still discards typed input (objective 3 froze creation) — the same defect class that was fixed on edit   @feature
-- [ ] CARD-130 handover: /book/<id> lists member puzzles as raw UUIDs though titles exist; and the books-list table overflows at 390px   @feature
-- [ ] CARD-134 handover -> CARD-129: Finalise's "~N" interior estimate now OVERSTATES the default 150-puzzle book by ~65% (302 against ~182), because it predates both pairing and the packed answer key. The exact value already exists as Interior.page_count / BookExport.answer_page_count — CARD-129's KDP gutter refusal must read that, not the estimate   @tech-debt
-- [ ] CARD-134 handover: answer_page_number() in tests/test_book_pdf_band.py still encodes one-answer-page-per-puzzle in its NAME (correct at both surviving call sites). G-2a froze that class, so it could not be renamed there   @tech-debt
-- [ ] PROCESS (near miss, 2026-09-24): a pipeline fanned out two mutation skeptics over the SAME file concurrently and one started mutating before the serialization warning landed. Caught and re-run under a lock, worktree verified pristine — but the failure mode is a SILENTLY contaminated verdict, not a visible error. The card brief should forbid concurrent mutation skeptics on one file without a lock   @tech-debt
-- [ ] ARCHITECT (CARD-145, 2026-09-24): the deployed panel's memory envelope is not an NFR anywhere. Production enforces 512 MB; nothing in requirements.yml states it, so the export could violate it through five waves with every gate green. Needs an NFR with a check   @tech-debt
-- [ ] ARCHITECT (CARD-145, 2026-09-24): DEAD check refs on mandatory rules — ADR-0006/R1, INV-008 and INV-012 all name a `check:` that does not resolve. Step 8h has been reporting them as COVERED. A mandatory rule whose check does not exist is unverifiable, not satisfied; the adr_integrity validator should fail on a dead ref, not warn   @tech-debt
-- [ ] CARD-145 minors consciously left: a same-length byte change would still pass the interior byte-length assertion, and the uploaded cover's RGBA path is unmeasured for memory   @tech-debt
+_Merged 2026-10-02: this file and the old `## Backlog` notes in `board.md` were
+two overlapping lists. They are now one, here. `board.md` shows only the top of
+this file. Duplicates are folded into one entry, and every item that became a
+card names its card._
+
+## Owner decisions (nothing moves until you answer)
+- [ ] CARD-147 F-007 (three cards old): should the baseline chain's fixtures get `superseded_by` back-pointers? Each fixture's `warning` ends "…and says so here", and its prohibition covers regenerating digests, which an additive key is not. Only card145 and card128 have one; card144, card149 and card146 don't. card146 matters most, because it's still live evidence (hardcoded as `PRE_CARD_BASELINE`)   @tech-debt
+- [ ] Per-directory READMEs: no directory under `src/` has one, so every book card skips the docs step, and `tests/README.md` is still titled "Admin Panel Test Suite - Wave 1" (about 20 waves stale, names no book test file). Either make "no per-directory READMEs" the convention and drop the step, or create them once and rewrite `tests/README.md`   @tech-debt
+- [ ] DEPLOYMENT (found 2026-09-23, cost four redeploys): the Render service is managed in the dashboard, so `render.yaml` is ignored (buildCommand, startCommand, env vars). Production ran `flask run` on python3.14 while `render.yaml` pins 3.11, which bypassed CARD-086's gunicorn decision. Either adopt the Render Blueprint so `render.yaml` governs, or mark the file as not authoritative and record the dashboard settings somewhere they can be drift-checked   @ops
+
+## Architecture model (→ /forge:architect, one session)
+- [ ] Dead `check:` refs on mandatory rules. These name tests that exist nowhere under `tests/`, only inside comments: ADR-0006/R1 `TestDependencyBaseline_IsExactlyPillowAndNumpy`, **CON-005** `PropertyTest_Solver_NeverFalsePositiveUniqueness` (the one mandatory correctness property), INV-001 `TestComputeClues_MatchesGridExactly`, INV-002 `TestExport_RejectsUnverifiedPuzzle`, INV-008 (three checks), INV-012 (six checks), ADR-0029/R2, INV-009..INV-011. Step 8h has been reporting some of them as covered. Fix each ref (write the test, or re-type the check as `review-lens`)   @tech-debt
+- [ ] `system_rules.py --verify-refs` matches text, so a name inside a comment counts as "found": it reports `dead_check_ref: []` with `check_refs_verified: true` while the refs above are dead. Make it resolve a collectible pytest node id, and make `adr_integrity` fail on a dead ref instead of warning (lives in forge_1, outside this repo)   @tech-debt
+- [ ] ADR-0029/R4's ref `test_every_import_in_the_package_points_inward` exists but tests the import graph, not the rule (overlap masks relative to a line's known cells). No dead-ref check can catch a check that can't test its rule   @tech-debt
+- [ ] Validator ERROR, pre-existing on main: `ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025`. The guess-tier ADR chain cannot be resolved   @tech-debt
+- [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor (CARD-149's three tests cover the guide page only). A test enumerating every `truetype`/`load_default` call on an interior page would make it `covered`   @tech-debt
+- [ ] The deployed panel's 512 MB memory limit is not an NFR anywhere (CARD-145). The export could break it through five waves with every gate green. Needs an NFR with a check   @tech-debt
+
+## Bugs and tech debt (not carded yet)
+- [ ] CARD-120 F-007: typing an edited cell back to its current prefill value doesn't release the hand-edit mark; a count change judges edits against the old prefill. Site: `book_manager.py` (`revise_plan`)   @tech-debt
+- [ ] CARD-120 F-008: the refusal page's Planned row is read from the stored plan, not the submitted one. Site: `app.py` (setup-print)   @tech-debt
+- [ ] A hand-typed empty `?status=` turns off the approved-only default on the book-selection and puzzle-list routes (`request.values.get("status", "approved")` defaults only when the key is absent)   @ops
+- [ ] CARD-136 (owner-accepted 2026-09-23): in memory-only mode `get_book` returns the live `Book`, so a caller can write an invalid trim past `set_print_spec`'s validation. Fix by having memory mode return a copy   @tech-debt
+- [ ] CARD-118 reviewer minors: the proof route's broad `except Exception` flashes raw exception text; `redirect(request.referrer or ...)` takes its target from the caller; a new `datetime.utcnow()` deprecation; the `ast` importer guard matches on bare filename, not relative path   @tech-debt
+- [ ] CARD-148 F-001: `db/session.py`'s `_scheme_of` echoes anything before the first `://`, so `postgresql:hunter2://h/db` puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt
+- [ ] CARD-148 F-003: `migrations/env.py`'s plaintext URL is kept out of logs only by configuration (`logger_sqlalchemy = WARNING`, no `echo`), not by an assertion. About 2 lines to pin, using the existing subprocess's stderr   @tech-debt
+- [ ] CARD-150 F-003/F-004/F-005/F-007: the 14-of-18 figure is an artifact of `--check-only` not existing on the old script; the README tests' `returncode != 0` precondition is met by any failure; the two Docker branches match on database name only, dropping host, port and credentials, with no runtime coverage; nothing asserts G-3's launch target though the stub logs it   @tech-debt
+- [ ] CARD-147 F-002/F-003/F-005: `_write_pdf`'s unreachable ValueError guard; the migration's confirmed-redundant UPDATE backfill; `_write_page`'s `mode: str = "RGB"` default one layer below the required keyword (dead today, but exactly the failure the keyword prevents)   @tech-debt
+- [ ] CARD-147 F-006: the card's sentence welds two claims the digests can't both carry. The unmoved digests evidence the ink, not the colour space (the fixture's `interior_colorspace_note` already says so)   @tech-debt
+- [ ] CARD-147 F-008: `book_proof.render_proof_pdf` still writes DeviceRGB. It's now the one interior-like path that does   @tech-debt
+- [ ] CARD-140 F-005: the arrange screen's page labels are keyed by `id(row)`. Safe today, but fails silently if that ever stops holding. Agreed remedy: keep the key and add a count check (labelled rows vs `len(plan.printed)`) that flips `page_plan_failed`   @tech-debt
+- [ ] CARD-140 F-006: `puzzle_section`'s `ValueError("ids must be parallel to payloads")` is a caller precondition but lands in the arrange route's WARNING clause with no traceback. Unreachable today   @tech-debt
+- [ ] CARD-140 F-007: a row the interior can't draw renders between the "page 3" and "page 4" labels with no marker, so the screen implies it prints on page 3   @tech-debt
+- [ ] CARD-145 minors: a same-length byte change would still pass the interior byte-length assertion; the uploaded cover's RGBA path is not measured for memory   @tech-debt
+- [ ] CARD-135 F-008: `export_book`'s docstring still claims every route goes through it. Site: `book_pdf_generator.py`   @tech-debt
+- [ ] CARD-134: `answer_page_number()` in `tests/test_book_pdf_band.py` still encodes one-answer-page-per-puzzle in its name (correct at both remaining call sites)   @tech-debt
+- [ ] Image-mode difficulty sweep: re-run `scripts/measure_difficulty_cutoff.py` over image-derived puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt
+
+## Tests
+- [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops
+- [ ] Stale assertion: `tests/test_wave3_e2e.py:366` expects "Create Batch from Images"; f773015 (2026-09-14) renamed the heading "New batch". The page is fine, the test isn't   @tech-debt
+- [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
+- [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt
+
+## Features and UX (not carded yet)
+- [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5, real KDP sizes) leaves no room for the proof foot note, so `proof_pages` raises. Portrait trims all render. **Revisit when the page layout is finalised**   @feature
+- [ ] Guide page: worked-example rows and the title wording. Both touch `create_guide_page` (same method as CARD-149)   @feature
+- [ ] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that can't succeed, and never names the remedy. Fails closed, but unhelpful   @feature
+- [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so the panel can't show what a batch was aiming at. Needs a column and a migration   @feature
+
+## Process (forge machinery, not this repo's code)
+- [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of" (a Jinja template can't import); CARD-126 G-4 names a test a later card (CARD-131) creates, so it was unverifiable before then; forge:commit's no-Co-Authored-By rule contradicts the required attribution line   @tech-debt
+- [ ] Gate hazard (CARD-138): from an older wave branch, `git diff main` reports main's newer files as deletions, including ones matching guardrail globs like `book_*.py`. Every scope and guardrail verdict must be taken against the merge base   @tech-debt
+- [ ] Two full-suite lock conventions: cmd-start-review documents a `mkdir` lock on `meta/kanban/.full-suite.lock`, but the dispatcher takes it with `exec 9>` + `flock`, which creates a regular file the `mkdir` form can never acquire. Pick one   @tech-debt
+- [ ] Near miss (2026-09-24): two mutation skeptics ran concurrently on the same file. The failure mode is a silently contaminated verdict. The card brief should forbid concurrent mutation skeptics on one file without a lock   @tech-debt
+
+## Carded 2026-10-02
+- [x] `setup_admin_local.sh` (:40, :64, :70-74) and `run_admin_tests.sh:24` repeat CARD-150's three defects → **CARD-152**
+- [x] CARD-129 F-001/F-002/F-005 (`InteriorCounts.unreadable` never read; bare `except` swallows the plan tripwires; an uncountable book can leave draft; "runs to N" vs "About N") and F-004 (vacuous assertion) → **CARD-153**
+- [x] CARD-136: plan and trim commit in two transactions; `validate_trim_size` accepts `"nan"` → **CARD-154**
+- [x] CARD-138: `strategy_counter.py` second classifier on 30/70 literals; CARD-137 leftovers (`_CUTOFF_NAMES`, stale "fourth tier" docstring) → **CARD-155**
+- [x] `tests/conftest.py` `db_session` drops `puzzles`/`batches` per test, causing 3 failures against a real `nonogram_test` → **CARD-156**
+- [x] N+1 reads: CARD-122 `_selected_cells` (~300 sessions per render), CARD-124 status change (~150), CARD-126 F-002 order paths (~150 per click) → **CARD-157**
+- [x] CARD-135 cover download on books list and book detail; CARD-130 raw UUIDs and 390 px overflow; CARD-136 stale "Size" row → **CARD-158**
+- [x] CARD-130 "Step 1 of 4" and `PROSE_CHECKED`; CARD-130 `/book/create` discards input; CARD-136 inches unreachable → **CARD-159**
+- [x] CARD-150 F-006 (launcher's `psql` check and driver-qualified URLs) → **CARD-151**
+
+## Resolved (confirmed on main beaecdd, 2026-10-02)
+- [x] CARD-120 O-2: in DB mode the trim from Print setup was never saved. Fixed by CARD-136 (`set_print_spec` writes the trim columns)
+- [x] CARD-134 → CARD-129: Finalise's "~N" estimate overstated the page count. CARD-129 now reads the plan's exact `page_count` (`InteriorCounts`, `app.py:835`)

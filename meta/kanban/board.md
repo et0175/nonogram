@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-09-25 UTC_
+_Updated: 2026-10-02 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -23,98 +23,37 @@ _Updated: 2026-09-25 UTC_
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
 | 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ✅ 9/9 merged · closes Increment 16 |
-| 28 | CARD-150 P2, CARD-151 P2 | ⏳ 1/2 — CARD-150 merged, CARD-151 ready |
+| 28 | CARD-150 P2, CARD-151 P2, CARD-152 P2 | ⏳ 1/3 — CARD-150 merged, CARD-151 and CARD-152 ready |
+| 29 | CARD-153 P1, CARD-154 P2, CARD-155 P3, CARD-156 P2 | ○ pending — backlog sweep 2026-10-02 |
+| 30 | CARD-157 P2, CARD-158 P2, CARD-159 P2 | ○ pending — CARD-157 waits on CARD-156 |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
 
+_Note (2026-10-02): waves 29–30 come from the backlog sweep (CARD-153..CARD-159). Wave 29 is independent cards. CARD-153 and CARD-154 both edit `admin/app.py` but in different routes (Finalise vs Print setup). Wave 30 holds CARD-157 (depends on CARD-156's fixture) and the two template cards, which also touch `app.py` (book detail vs book create). CARD-158 uses CARD-157's bulk read if it has merged first. No owner checkpoint is declared for either wave; 158 and 159 put renders in ~/Documents/nonogram-reviews/ for the owner's eye._
+
 _Gantt: [meta/kanban/gantt.md](gantt.md)_
 
 ## Backlog
-- **`scripts/setup_admin_local.sh` carries all three CARD-150 defects verbatim** (found by
-  CARD-150's review, 2026-10-01): the bare `psql -c "SELECT 1"` at :40 that checks the default
-  database rather than the one it will use, a hardcoded `DATABASE_URL` export at :64 that
-  overwrites the caller, and the swallowed migration at :70-74. `run_admin_tests.sh:24` also
-  overwrites the caller. CARD-150 fixed only `start_admin_local.sh`; its README fix now makes a
-  claim that is false for these two. Worth one card for both siblings.
-- **Model hygiene, found 2026-09-30 by CARD-129's review and worth its own card.** Four declared
-  `check:` refs in `meta/architecture/requirements.yml` name test functions that **do not exist**:
-  `TestDependencyBaseline_IsExactlyPillowAndNumpy` (ADR-0006/R1),
-  `PropertyTest_Solver_NeverFalsePositiveUniqueness` (**CON-005** — the project's one mandatory
-  correctness property), `TestExport_RejectsUnverifiedPuzzle` (INV-002) and
-  `TestComputeClues_MatchesGridExactly` (INV-001). Each appears only inside a comment. That is
-  why `system_rules.py --verify-refs` reports `dead_check_ref: []` with
-  `check_refs_verified: true`: **it text-matches, so the flag's reassurance is unreliable** — a
-  rule can claim a mechanical check it does not have and the validator will agree. Two separate
-  reviewers hit the ADR-0006 case this week before this sweep found four. Fix the refs (or
-  re-type them `review-lens`), and fix the matcher so it resolves a collectible node id.
-- Separately, ADR-0029/R4's ref is `test_every_import_in_the_package_points_inward` — the
-  import-graph guard — but its rule is about overlap masks relative to a line's known cells. The
-  ref exists, so no dead-ref check can catch it; a check that cannot test its rule is the same
-  disease.
-- Model defect (pre-existing, surfaced by the CON-020 validator run 2026-09-30): the architecture
-  validator reports `[ERROR] ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025 →
-  ADR-0025`. Confirmed present on main with no local change, so it predates today's work — but
-  it is an ERROR, not a warning, and it means the guess-tier ADR chain cannot be resolved by the
-  model. Belongs at /forge:architect.
-- CON-020 is `status: partial`: its check is a review-lens because no test walks every interior
-  face and asserts the 10 pt floor. CARD-149's three tests cover the guide page only. A test that
-  enumerates every `truetype`/`load_default` call on an interior page and asserts the floor would
-  make it `covered`.
-- CARD-135 follow-up: cover download on books list / book detail
-- CARD-135 F-008 export_book docstring
-- Pre-existing failure: test_size_configuration_applied
-- Stale assertion: test_wave3_e2e.py::test_batch_creation_form_renders expects the heading "Create Batch from Images"; f773015 (2026-09-14, Pressroom) renamed it "New batch". The page is fine — the test is not.
-- Guide page worked-example rows, and its title wording — both touch `create_guide_page`, the
-  same method as CARD-149; whoever takes that card should consider folding them in.
-- CARD-148 F-001 (minor): `db/session.py`'s `_scheme_of` echoes anything placed before the first
-  `://` — `postgresql:hunter2://h/db` puts the lot in the RuntimeError, contradicting its own
-  docstring. Unreachable for a realistic DATABASE_URL; one-line fix (`scheme.partition(":")[0]`).
-- CARD-148 F-003 (minor): `migrations/env.py`'s plaintext URL (alembic's `engine_from_config`
-  takes a string-keyed dict, so the password is necessarily rendered) is verified absent from
-  logs and tracebacks, but only by configuration — `logger_sqlalchemy = WARNING` and no `echo` —
-  not by assertion. ~2 lines to pin, using the existing subprocess's stderr.
-- DB fixture isolation (surfaced 2026-09-30, pre-existing): `tests/conftest.py:206` has the
-  `db_session` fixture `DROP TABLE IF EXISTS puzzles/batches CASCADE` then `create_all`. With a
-  real `nonogram_test` present, running the `db_required` set shows 3 failures from tests that
-  use other fixtures hitting the window where those tables are gone. Invisible until now,
-  because without a database every one of them skipped.
-- CARD-129 F-001/F-002/F-005 (one root cause): `InteriorCounts.unreadable` is written and never
-  read, and its bare `except Exception` also swallows `interior_stream`'s two loud plan
-  tripwires — so a real correctness failure renders as "About N" with no trace. Separately,
-  `counts is None` lets a book leave draft while the screen says the pages cannot be counted,
-  and the refusal text says "runs to N pages" where the screen says "About N".
-- CARD-129 F-004: a vacuous assertion in `test_book_export_interior_cover.py` —
-  `"~" not in body.split('data-interior-page-count')[1][:40]` can never fail.
-- CARD-150 F-006 → now **CARD-151**.
-- CARD-150 F-003/F-004/F-005/F-007 (minor): the 14-of-18 figure is an artifact of `--check-only`
-  not existing on the old script (13 of them die at argument parsing); the README tests'
-  `returncode != 0` precondition is satisfied by any failure; the two Docker branches match on
-  database *name* only, discarding the URL's host, port and credentials, with no runtime
-  coverage; and nothing asserts G-3's launch target although the python stub already logs it.
-- CARD-147 F-002/F-003/F-005 (minor): `_write_pdf`'s unreachable ValueError guard; the
-  migration's confirmed-redundant UPDATE backfill; `_write_page`'s `mode: str = "RGB"` default
-  one layer below the required keyword — currently dead, but precisely the failure the keyword
-  exists to prevent.
-- CARD-147 F-006 (minor): the card's sentence welds two claims the digests cannot both carry —
-  the unmoved digests evidence the ink, not the colour space. The fixture's own
-  `interior_colorspace_note` already says so.
-- CARD-147 F-007 (**owner decision, three cards old**): the baseline chain's `superseded_by`
-  back-pointers. Each fixture's `warning` ends "…and says so here", and its prohibition is
-  scoped to regenerating digests — which an additive key is not — so the chain should carry
-  them. Only card145 and card128 do; card144, card149 and card146 never got one. It bites
-  hardest on card146, which is still live evidence (hardcoded as `PRE_CARD_BASELINE`).
-- CARD-147 F-008 (minor): `book_proof.render_proof_pdf` still writes DeviceRGB — correctly out
-  of scope for CARD-147, but now the one interior-ish path that does.
-- CARD-140 F-005: the arrange screen's page labels are keyed by object identity (`id(row)`), which is safe today but fails *silently* if it ever stops holding — no labels and no notice. Remedy judged in review: keep the key, add a count check (labelled rows vs `len(plan.printed)`) that flips the existing `page_plan_failed`. A positional key would fail unsafely instead.
-- CARD-140 F-006: `puzzle_section`'s `ValueError("ids must be parallel to payloads")` is a caller precondition — the seam-bug class the ERROR clause exists for — but lands in the arrange route's WARNING clause with no traceback. Unreachable today.
-- CARD-140 F-007: a row the interior cannot draw renders between the "page 3" and "page 4" labels with no marker, so the screen implies it prints on page 3.
+_Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes that used to live here). Top items:_
+- **Owner decisions:** CARD-147 F-007 baseline back-pointers · per-directory READMEs convention · Render Blueprint vs dashboard
+- **Architecture model (/forge:architect):** dead `check:` refs on mandatory rules (CON-005, ADR-0006/R1, INV-001/002/008..012, ADR-0029/R2) · `--verify-refs` matches text · ADR-0025↔ADR-0031 circular supersession ERROR · CON-020 partial · 512 MB memory NFR missing
+- **Tests:** `test_size_configuration_applied` red · `test_wave3_e2e.py:366` stale heading · two vacuous assertions · shared temp-dir globbing
+- **Features:** square/landscape trim proof page (revisit at page-layout finalisation) · guide page worked example · batch target-tier column
 
 ## Architecture
 _(none)_
 
 ## Ready
 - **CARD-151** P2 · The launcher's database check understands the URLs the panel accepts (CARD-150 F-006) · 0.25d · wave 28
+- **CARD-152** P2 · The setup and test-runner scripts check the database they will use · 0.5d · wave 28 · after CARD-151
+- **CARD-153** P1 · Finalise doesn't hide a broken page plan behind "About N" · 0.5d · wave 29
+- **CARD-154** P2 · Print setup saves the plan and the trim together, and refuses "nan" · 0.5d · wave 29
+- **CARD-155** P3 · One difficulty classifier: retire the prototype's 30/70 tiers · 0.25d · wave 29
+- **CARD-156** P2 · The db_session fixture stops dropping tables other tests are using · 0.5d · wave 29
+- **CARD-157** P2 · Read a book's puzzles in one query, not one session per puzzle · 1d · wave 30 · after CARD-156
+- **CARD-158** P2 · The book list and book page show what the book actually holds · 0.5d · wave 30
+- **CARD-159** P2 · Book forms keep what you typed and say the right step · 0.5d · wave 30
 
 ## In Progress
 
