@@ -10,7 +10,7 @@ Strategies identified:
 """
 
 from dataclasses import dataclass, field
-from typing import Set, List, Tuple
+from typing import Set, List
 from enum import Enum
 
 
@@ -89,16 +89,19 @@ class StrategyCounter:
         }
 
 
-def calculate_difficulty_from_strategies(counter: StrategyCounter) -> Tuple[int, str]:
-    """Convert strategy metrics into difficulty score and tier.
+def calculate_difficulty_from_strategies(counter: StrategyCounter) -> int:
+    """Convert strategy metrics into a 0-100 difficulty score.
 
-    Uses empirical thresholds based on strategy complexity.
+    The score only — no tier. ADR-0031/R1 makes ``nonogram.difficulty.classify``
+    the one place a score becomes a tier, and this prototype's scale is not the
+    solver score ``classify`` reads, so it cannot be routed there either
+    (CARD-155 removed the 30/70 tier mapping this function used to carry).
 
     Args:
         counter: StrategyCounter with metrics from solving
 
     Returns:
-        Tuple of (difficulty_score: 1-100, difficulty_tier: "Easy"|"Medium"|"Hard")
+        The difficulty score, 0-100.
     """
 
     # Scoring components (each out of ~100)
@@ -132,17 +135,7 @@ def calculate_difficulty_from_strategies(counter: StrategyCounter) -> Tuple[int,
     ambiguity_score = min(25, (counter.branch_count * 25) // 10)
 
     # Total score (0-100)
-    difficulty_score = min(100, strategy_score + backtracking_score + ambiguity_score)
-
-    # Determine tier based on score
-    if difficulty_score < 30:
-        tier = "Easy"
-    elif difficulty_score < 70:
-        tier = "Medium"
-    else:
-        tier = "Hard"
-
-    return difficulty_score, tier
+    return min(100, strategy_score + backtracking_score + ambiguity_score)
 
 
 if __name__ == "__main__":
@@ -153,7 +146,6 @@ if __name__ == "__main__":
     counter.set_backtracking_depth(2)
     counter.increment_branches()
 
-    score, tier = calculate_difficulty_from_strategies(counter)
+    score = calculate_difficulty_from_strategies(counter)
     print(f"Difficulty Score: {score}/100")
-    print(f"Difficulty Tier: {tier}")
     print(f"Strategies: {counter.to_dict()}")

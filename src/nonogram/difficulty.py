@@ -108,22 +108,12 @@ scored before; what moved is only which tier a given score is filed under, and
 re-filing stored rows is the admin panel's existing ``POST /regrade`` action
 (ADR-0031/R3: no migration runs, no production database is touched here).
 
-The fourth tier (ADR-0025)
---------------------------
-:class:`Tier` has four members, and only three of them are score bands.
-``Tier.GUESS`` is keyed on a *fact about the solve* — ``branch_nodes > 0`` —
-never on a threshold (EC-015). So a score alone can no longer classify a
-result: :func:`classify` is the single classifier and it takes
-``(score, branch_nodes)``, applying EC-015 first and the bands only to the
-remainder (ADR-0025/R1, R2). ``Tier.EASY``/``MEDIUM``/``HARD`` therefore
-contain only line-solvable puzzles, which is what makes ``--difficulty hard``
-promise "logically solvable, and deep" — the printed-book workflow in one
-word.
-
-There is exactly one implementation of that rule, here. No other module under
-``src/nonogram/`` compares a score against the cutoffs or reads
-``branch_nodes`` to decide a tier; ``tests/test_difficulty_tiers.py`` walks the
-package with ``ast`` and fails if one starts to.
+One classifier (ADR-0031/R1)
+----------------------------
+:func:`classify` is the only place a score becomes a tier. No other module
+under ``src/nonogram/`` compares a score against the cutoffs or binds a tier
+name to decide one; ``tests/test_difficulty_tiers.py`` walks the package with
+``ast`` and fails if one starts to.
 
 No clock, no size, no density (NFR-007, CON-014, ADR-0029/R3)
 -------------------------------------------------------------
@@ -171,7 +161,7 @@ Usage::
     result = solve(*clues)
     if result.solution_count == 1:
         score = score_difficulty(result.signals)
-        tier = classify(score, result.signals.branch_nodes)
+        tier = classify(score)
 """
 
 from __future__ import annotations
@@ -235,7 +225,8 @@ MEDIUM_MAX_SCORE = 90.0
 #: and are pinned against ``solver.RUNG_ORDER`` from the test tree.
 #:
 #: ``guess`` is deliberately **not** a rung. A solve that branched is
-#: ``Tier.GUESS`` by ADR-0025 and is not graded on this ladder at all.
+#: reported as the ``guess`` *strategy* (ADR-0031/R2), never as a tier, and is
+#: not graded on this ladder at all.
 RUNG_SIMPLE_OVERLAP = "simple_overlap"
 RUNG_LINE_DP = "line_dp"
 RUNG_PROBE_CONTRADICTION = "probe_contradiction"
@@ -250,7 +241,7 @@ LADDER: tuple[str, ...] = (
 
 
 class Tier(StrEnum):
-    """FR-008's user-facing difficulty selector: Easy, Medium, Hard or Guess.
+    """FR-008's user-facing difficulty selector: Easy, Medium or Hard.
 
     A :class:`~enum.StrEnum` so the tier *is* its ``--difficulty`` spelling —
     the value a user types, an export payload carries and a PDF filename is
@@ -289,9 +280,9 @@ class Tier(StrEnum):
     def label(self) -> str:
         """The tier as AC-020 writes it — ``"Medium"``, not ``"medium"``.
 
-        Presentational, and ADR-0025 says so explicitly: ``"Guess"`` may be
-        renamed (to ``"Expert"``, say) without touching the enum *value*, which
-        is what every stored row, export payload and filename depends on.
+        Presentational: a label may be renamed (``"Hard"`` to ``"Expert"``,
+        say) without touching the enum *value*, which is what every stored
+        row, export payload and filename depends on.
         """
         return self.value.capitalize()
 
@@ -372,9 +363,10 @@ class SolverSignals(Protocol):
     ``line_logic_cells`` is not here either — it survives on ``SolveSignals``
     for NFR-001 reporting but no longer drives anything graded, since the rung
     tags say which technique settled which cell and it does not. Nor is
-    ``backtracks``: ``branch_nodes`` already answers the one question EC-015
-    asks, and counting refuted assignments beside it would be a second reading
-    of the same event.
+    ``backtracks``: ``branch_nodes`` already answers the one question the
+    ``guess`` strategy asks (formerly EC-015, retired with the tier by
+    ADR-0031), and counting refuted assignments beside it would be a second
+    reading of the same event.
     """
 
     @property
@@ -385,10 +377,10 @@ class SolverSignals(Protocol):
     def branch_nodes(self) -> int:
         """Search nodes the solve expanded past the three deduction phases.
 
-        EC-015's whole input: ``> 0`` means the search really had to branch,
-        and :func:`classify` answers :attr:`Tier.GUESS` on that fact alone,
-        whatever the score. ``0`` exactly when the ladder's three fixed points
-        finished the puzzle by themselves.
+        ``> 0`` means the search really had to branch; that fact is reported
+        as the ``guess`` *strategy* (ADR-0031/R2), never as a tier —
+        :func:`classify` reads the score alone. ``0`` exactly when the
+        ladder's three fixed points finished the puzzle by themselves.
         """
 
     @property
@@ -582,9 +574,9 @@ def parse_tier(text: str) -> Tier:
 
     Raises:
         UnsupportedDifficulty: ``text`` names no supported tier (AC-021). The
-            message lists the tiers that exist — all four of them since
-            ADR-0025, read off the enum rather than spelled out, so the message
-            and the rule cannot drift.
+            message lists the tiers that exist — the three of :class:`Tier`
+            since ADR-0031, read off the enum rather than spelled out, so the
+            message and the rule cannot drift.
     """
     try:
         return Tier(text.strip().lower())

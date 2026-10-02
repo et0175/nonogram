@@ -6,7 +6,9 @@
 > puzzle's grade is the hardest of three rungs its one verifying solve needed —
 > `simple_overlap` < `line_dp` < `probe_contradiction` — and the 0..100 number
 > is a presentation of `(rung, share of the grid that rung settled)`, not a
-> weighted sum. Tiers are **Easy 0–33, Medium 33–66, Hard 66–100**, not the
+> weighted sum. The tier bands are `difficulty.TIER_BANDS` (cut at
+> `EASY_MAX_SCORE` and `MEDIUM_MAX_SCORE`; CARD-137 retuned Medium's top, so
+> read the numbers there rather than from any copy of them), not the
 > 0–29 / 30–69 / 70–100 of the table below. See
 > [`docs/GENERATION_ALGORITHM.md`](../GENERATION_ALGORITHM.md) §7 and that
 > module's docstring, which explains why the bands are not idealised thirds.
@@ -130,6 +132,11 @@ Difficulty score combines three components:
 
 ### Difficulty Tiers
 
+> **Historical (not shipped).** This was the prototype's 30/70 mapping. Since
+> CARD-155 `analysis/strategy_counter.py` returns a score only and maps it to
+> no tier; the one tier classifier is `difficulty.classify`, with bands
+> `difficulty.TIER_BANDS`.
+
 | Tier | Score | Characteristics | Example |
 |------|-------|-----------------|---------|
 | **Easy** | 0-29 | Pure line logic, no backtracking | 10×10 random, dense clues |
@@ -215,9 +222,10 @@ counter.add_strategy(Strategy.LINE_LOGIC, count=5)
 counter.add_strategy(Strategy.CONSTRAINT_PROPAGATION, count=3)
 counter.set_backtracking_depth(2)
 
-# Calculate difficulty
-score, tier = calculate_difficulty_from_strategies(counter)
-print(f"Difficulty: {score}/100 ({tier})")
+# Calculate difficulty (a score only since CARD-155; difficulty.classify is
+# the one place a score becomes a tier, ADR-0031/R1)
+score = calculate_difficulty_from_strategies(counter)
+print(f"Difficulty: {score}/100")
 ```
 
 ### Integration Points
