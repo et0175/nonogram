@@ -25,6 +25,13 @@ The stubs also keep a log of how they were called, which is what makes the
 original defect visible: a bare ``psql -c "SELECT 1"`` and a
 ``psql "$DATABASE_URL" -c "SELECT 1"`` both succeed against a running server,
 and only the recorded argument list tells them apart.
+
+CARD-151 made the ``psql`` stub a *model* rather than a yes-man.  An
+always-succeeding stub passed a check that handed psql a driver-qualified
+``postgresql+psycopg2://`` URL -- which real psql takes whole as a database
+name -- and one that named no database, which real psql answers by connecting
+to a database named after the user.  The model reproduces both measured
+behaviours and logs what it would have connected to.
 """
 
 from __future__ import annotations
@@ -32,7 +39,9 @@ from __future__ import annotations
 import os
 import re
 import shutil
+import shlex
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -48,16 +57,95 @@ def _plain(text: str) -> str:
     return _ANSI.sub("", text)
 
 
-_PSQL_STUB = r"""#!/bin/bash
-# Stands in for psql. Records how it was called, then reports the database in
-# STUB_MISSING_DB as absent -- which is what a real psql does for a database
-# that does not exist: it fails, it does not create one.
-echo "psql $*" >> "$STUB_LOG"
-if [ -n "${STUB_MISSING_DB:-}" ] && [[ "$*" == *"$STUB_MISSING_DB"* ]]; then
-    echo "psql: error: connection to server failed: FATAL:  database \"$STUB_MISSING_DB\" does not exist" >&2
-    exit 2
-fi
-exit 0
+# Stands in for psql.  It is a *model* of how real psql reads its target, not a
+# yes-man: an always-succeeding stub passes a check that hands psql a string it
+# cannot parse, and that is exactly how CARD-151's two defects got past
+# CARD-150's suite.  The behaviours modelled were measured against the real
+# psql on the owner's machine (CARD-151, "What to implement"):
+#
+# * only ``postgresql://`` and ``postgres://`` are URIs.  ``postgresql+psycopg2://``
+#   is not one: with no ``=`` in it, the *whole string* is taken as a database
+#   name ("FATAL: database "postgresql+psycopg://..." does not exist"); with an
+#   ``=`` (a ``?query``) libpq tries to read it as ``key=value`` conninfo and
+#   rejects the keyword;
+# * a URI with no database name falls back to a database named after the user,
+#   and a URI with no user to the login user ($PGUSER, else $USER here -- the
+#   harness pins both, so the developer's own name cannot decide a test).
+#
+# Which databases "exist": every identifier-shaped name except STUB_MISSING_DB,
+# or -- when STUB_EXISTING_DBS is set -- only the names it lists.  No server has
+# a database called "postgresql+psycopg2://...".
+#
+# Written in Python with urllib.parse on purpose: the script under test is bash,
+# and an independent second parser is what makes the cross-check worth having.
+# Besides the raw ``psql ...`` line it logs a ``connect ...`` line -- what this
+# psql would actually have connected to -- so a test can assert on the database,
+# host, port and credentials the check carried.
+_PSQL_MODEL = r"""
+import os
+import re
+import sys
+from urllib.parse import unquote, urlsplit
+
+args = sys.argv[1:]
+log = open(os.environ["STUB_LOG"], "a")
+log.write("psql " + " ".join(args) + "\n")
+
+VALUED = {"-c", "-d", "-h", "-p", "-U", "-f", "-v"}
+opts, positional = {}, []
+i = 0
+while i < len(args):
+    a = args[i]
+    if a in VALUED and i + 1 < len(args):
+        opts[a] = args[i + 1]
+        i += 2
+        continue
+    if not a.startswith("-"):
+        positional.append(a)
+    i += 1
+
+conn = {"user": opts.get("-U", ""), "password": "", "host": opts.get("-h", ""),
+        "port": opts.get("-p", ""), "dbname": opts.get("-d", "")}
+target = positional[0] if positional else ""
+if len(positional) > 1 and not conn["user"]:
+    conn["user"] = positional[1]
+
+KEYWORDS = {"host", "hostaddr", "port", "dbname", "user", "password",
+            "sslmode", "connect_timeout", "application_name", "options"}
+if target.startswith(("postgresql://", "postgres://")):
+    u = urlsplit(target)
+    conn["user"] = unquote(u.username or "") or conn["user"]
+    conn["password"] = unquote(u.password or "")
+    conn["host"] = u.hostname or conn["host"]
+    conn["port"] = str(u.port) if u.port else conn["port"]
+    conn["dbname"] = unquote(u.path[1:]) if u.path.startswith("/") else ""
+elif "=" in target:
+    for token in target.split():
+        key = token.split("=", 1)[0]
+        if "=" not in token or key not in KEYWORDS:
+            sys.stderr.write('psql: error: invalid connection option "%s"\n' % key)
+            sys.exit(1)
+        conn[key] = token.split("=", 1)[1]
+elif target:
+    conn["dbname"] = target
+
+conn["user"] = conn["user"] or os.environ.get("PGUSER") or os.environ.get("USER", "")
+conn["dbname"] = conn["dbname"] or os.environ.get("PGDATABASE") or conn["user"]
+log.write("connect " + " ".join("%s=%s" % kv for kv in conn.items()) + "\n")
+log.close()
+
+listed = os.environ.get("STUB_EXISTING_DBS")
+exists = (conn["dbname"] in listed.split()) if listed is not None else bool(
+    re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", conn["dbname"]))
+if conn["dbname"] == os.environ.get("STUB_MISSING_DB"):
+    exists = False
+if not exists:
+    sys.stderr.write('psql: error: connection to server at "%s", port %s failed: '
+                     'FATAL:  database "%s" does not exist\n'
+                     % (conn["host"] or "localhost", conn["port"] or "5432",
+                        conn["dbname"]))
+    sys.exit(2)
+sys.exit(0)
 """
 
 _DOCKER_STUB = r"""#!/bin/bash
@@ -85,6 +173,7 @@ exit 0
 """
 
 DEFAULT_DB = "nonogram_poc"
+STUB_USER = "stub_owner"
 
 
 @dataclass(frozen=True)
@@ -112,6 +201,7 @@ def run_script(
     missing_db: str | None = None,
     alembic_fails: bool = False,
     alembic_message: str = "",
+    existing_dbs: list[str] | None = None,
 ) -> Run:
     """Run the real script inside a throwaway root, with stubbed tools."""
     root = tmp_path / "project"
@@ -128,8 +218,16 @@ def run_script(
 
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
+    # psql is the Python model above, behind a bash shim: ``python`` itself is
+    # stubbed on PATH, so the shim names this interpreter by absolute path.
+    model = tmp_path / "psql_model.py"
+    model.write_text(_PSQL_MODEL)
+    psql_shim = (
+        "#!/bin/bash\n"
+        f"exec {shlex.quote(sys.executable)} {shlex.quote(str(model))} \"$@\"\n"
+    )
     for name, body in (
-        ("psql", _PSQL_STUB),
+        ("psql", psql_shim),
         ("docker", _DOCKER_STUB),
         ("docker-compose", _DOCKER_STUB),
         ("alembic", _ALEMBIC_STUB),
@@ -151,6 +249,12 @@ def run_script(
     }
     env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
     env["STUB_LOG"] = str(log)
+    # The psql model falls back to a database named after the user, as real
+    # psql does (CARD-151); pin who "the user" is so the developer's login
+    # name cannot decide an outcome.
+    env["USER"] = env["LOGNAME"] = STUB_USER
+    if existing_dbs is not None:
+        env["STUB_EXISTING_DBS"] = " ".join(existing_dbs)
     if missing_db is not None:
         env["STUB_MISSING_DB"] = missing_db
     if alembic_fails:
@@ -484,3 +588,248 @@ class TestStartAdminLocal_ReadmeMatchesTheScript:
         readme = README.read_text()
         prerequisites = readme.split("## Prerequisites", 1)[1].split("\n## ", 1)[0]
         assert "DATABASE_URL" in prerequisites, prerequisites
+
+
+# ---------------------------------------------------------------------------
+# CARD-151: the check understands the URLs the panel accepts
+# ---------------------------------------------------------------------------
+
+
+def connections(run: Run) -> list[dict[str, str]]:
+    """What each psql the script ran would have connected to.
+
+    Read from the psql model's ``connect`` log lines -- its own, independent
+    reading of the argument list -- rather than re-parsed here.
+    """
+    return [
+        dict(pair.split("=", 1) for pair in call.split(" ")[1:])
+        for call in run.called("connect")
+    ]
+
+
+def _refused_naming_no_database(run: Run) -> None:
+    assert run.returncode != 0, run.output
+    assert "names no database" in run.stdout, run.output
+    assert "✓ PostgreSQL is running" not in run.output, run.output
+    assert "reachable" not in run.output.replace("not reachable", ""), run.output
+    assert "[2/6]" not in run.output, run.output
+
+
+class TestStartAdminLocal_AcceptsADriverQualifiedUrl:
+    """AC-1: ``postgresql+psycopg2://`` is what the panel builds; the check takes it.
+
+    ``normalized_url`` (CARD-148) puts the driver into every URL the panel
+    uses, and leaves an explicitly named one alone.  Real psql takes such a
+    string whole as a database name and reports it missing, so the check must
+    not hand it over as is.
+    """
+
+    URL = "postgresql+psycopg2://someone:secret@localhost:5432/nonogram_dev"
+
+    def test_the_check_succeeds_against_a_reachable_database(
+        self, tmp_path: Path
+    ) -> None:
+        run = run_script(tmp_path, "--check-only", database_url=self.URL)
+
+        assert run.returncode == 0, run.output
+        assert "database 'nonogram_dev' reachable" in run.output
+        assert "All checks passed" in run.output
+
+    def test_psql_is_handed_a_url_it_parses(self, tmp_path: Path) -> None:
+        run = run_script(tmp_path, "--check-only", database_url=self.URL)
+
+        assert connections(run) == [
+            {
+                "user": "someone",
+                "password": "secret",
+                "host": "localhost",
+                "port": "5432",
+                "dbname": "nonogram_dev",
+            }
+        ], run.calls
+
+    def test_the_panel_still_gets_the_url_as_exported(
+        self, tmp_path: Path
+    ) -> None:
+        """Only psql's copy loses the driver; the panel's keeps it (G-4)."""
+        run = run_script(tmp_path, "--check-only", database_url=self.URL)
+
+        step4 = run.output.split("[4/6]", 1)[1].split("[5/6]", 1)[0]
+        assert f"DATABASE_URL={self.URL} (exported by the caller)" in step4
+
+    def test_other_drivers_are_accepted_too(self, tmp_path: Path) -> None:
+        for i, driver in enumerate(("psycopg", "asyncpg", "pg8000")):
+            url = f"postgresql+{driver}://someone@localhost:5432/nonogram_dev"
+            run = run_script(tmp_path / str(i), "--check-only", database_url=url)
+            assert run.returncode == 0, (driver, run.output)
+            assert [c["dbname"] for c in connections(run)] == ["nonogram_dev"]
+
+
+class TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase:
+    """AC-2: a URL with no database is a configuration error, never a green tick.
+
+    Given one, real psql connects to a database named after the user.  Where no
+    such database exists the old check failed with "database '' is not
+    reachable"; where one does, it printed a green tick naming no database and
+    started the panel.  Both cases are driven, by telling the psql model which
+    databases exist.
+    """
+
+    URL = "postgresql://someone@localhost:5432/"
+
+    def test_refuses_when_a_database_named_after_the_user_exists(
+        self, tmp_path: Path
+    ) -> None:
+        run = run_script(
+            tmp_path,
+            "--check-only",
+            database_url=self.URL,
+            existing_dbs=["someone", STUB_USER, "nonogram_dev"],
+        )
+        _refused_naming_no_database(run)
+
+    def test_refuses_when_no_database_named_after_the_user_exists(
+        self, tmp_path: Path
+    ) -> None:
+        run = run_script(
+            tmp_path,
+            "--check-only",
+            database_url=self.URL,
+            existing_dbs=["nonogram_dev"],
+        )
+        _refused_naming_no_database(run)
+
+    def test_the_message_names_the_url_its_source_and_creates_nothing(
+        self, tmp_path: Path
+    ) -> None:
+        run = run_script(tmp_path, "--check-only", database_url=self.URL)
+
+        assert f"DATABASE_URL={self.URL} (exported by the caller)" in run.stdout
+        assert "does not create a database" in run.stdout
+
+    def test_refuses_before_any_psql_runs(self, tmp_path: Path) -> None:
+        """psql is never given the chance to substitute a database of its own."""
+        run = run_script(tmp_path, "--check-only", database_url=self.URL)
+
+        assert run.called("psql") == [], run.calls
+        assert run.called("alembic") == []
+        assert [c for c in run.called("python") if "flask" in c] == []
+
+
+class TestStartAdminLocal_StillChecksTheTargetDatabase:
+    """AC-3: what CARD-150 won survives the fix.
+
+    The check still names the database it is about to use and carries the
+    URL's host, port and credentials -- including when the URL had a driver
+    to strip -- and it still fails when that database is absent.
+    """
+
+    PLAIN = "postgresql://someone:secret@db.example:6543/nonogram_dev"
+    DRIVER = "postgresql+psycopg2://someone:secret@db.example:6543/nonogram_dev"
+    EXPECTED = {
+        "user": "someone",
+        "password": "secret",
+        "host": "db.example",
+        "port": "6543",
+        "dbname": "nonogram_dev",
+    }
+
+    def test_the_check_carries_the_urls_host_port_and_credentials(
+        self, tmp_path: Path
+    ) -> None:
+        for i, url in enumerate((self.PLAIN, self.DRIVER)):
+            run = run_script(tmp_path / str(i), "--check-only", database_url=url)
+
+            assert run.returncode == 0, (url, run.output)
+            assert connections(run) == [self.EXPECTED], (url, run.calls)
+            for call in run.called("psql"):
+                assert "nonogram_dev" in call, call
+
+    def test_it_still_fails_when_the_database_is_absent(
+        self, tmp_path: Path
+    ) -> None:
+        for i, url in enumerate((self.PLAIN, self.DRIVER)):
+            run = run_script(
+                tmp_path / str(i),
+                "--check-only",
+                database_url=url,
+                missing_db="nonogram_dev",
+            )
+
+            assert run.returncode != 0, (url, run.output)
+            assert "Database 'nonogram_dev' is not reachable" in run.stdout
+            assert f"DATABASE_URL={url} (exported by the caller)" in run.stdout
+            assert "does not create a database" in run.stdout
+            assert "[2/6]" not in run.output
+
+
+def test_the_decision_over_an_enumerated_corpus_of_url_shapes(
+    tmp_path: Path,
+) -> None:
+    """Every URL shape: refuse when it names no database, else check exactly it.
+
+    The URLs are assembled here from parts, so the expected database, host,
+    port and credentials are the parts themselves -- not something re-derived
+    with the script's own slicing -- and what psql would have connected to is
+    the psql model's independent reading.
+    """
+    schemes = (
+        "postgresql",
+        "postgres",
+        "postgresql+psycopg2",
+        "postgresql+psycopg",
+        "postgresql+asyncpg",
+    )
+    credentials = (("", ""), ("someone", ""), ("someone", "s3cret"))
+    ports = ("", "6543")
+    paths = ("/nonogram_dev", "/", "")
+    queries = ("", "?sslmode=require")
+
+    cases = 0
+    failures: list[str] = []
+    for scheme in schemes:
+        for user, password in credentials:
+            for port in ports:
+                for path in paths:
+                    for query in queries:
+                        userinfo = (
+                            f"{user}:{password}@" if password
+                            else f"{user}@" if user
+                            else ""
+                        )
+                        hostport = f"db.example:{port}" if port else "db.example"
+                        url = f"{scheme}://{userinfo}{hostport}{path}{query}"
+                        dbname = path[1:]
+                        run = run_script(
+                            tmp_path / f"case{cases}",
+                            "--check-only",
+                            "--no-migrate",
+                            database_url=url,
+                        )
+                        cases += 1
+                        if not dbname:
+                            if (
+                                run.returncode == 0
+                                or "names no database" not in run.stdout
+                                or "✓ PostgreSQL is running" in run.output
+                                or run.called("psql")
+                            ):
+                                failures.append(f"{url}: not refused\n{run.output}")
+                            continue
+                        expected = {
+                            "user": user or STUB_USER,
+                            "password": password,
+                            "host": "db.example",
+                            "port": port,
+                            "dbname": dbname,
+                        }
+                        if run.returncode != 0 or connections(run) != [expected]:
+                            failures.append(
+                                f"{url}: expected a check of {expected},"
+                                f" got {connections(run)}\n{run.output}"
+                            )
+
+    assert cases >= 180, f"the corpus shrank to {cases} cases"
+    assert not failures, f"{len(failures)} of {cases} cases wrong:\n" + "\n".join(
+        failures[:5]
+    )
