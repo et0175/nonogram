@@ -1,0 +1,82 @@
+version: 1
+generated_at: "2026-10-02T12:05:11Z"
+target: "CARD-151 cycle 3 (confirmation mode) — branch card/151-launcher-database-check-urls @ ce2574b vs main @ dc26103; fix delta = tests/test_start_admin_local.py (TestStartAdminLocal_CarriesTheUrlsQuery: test_an_empty_dbname_in_the_query_still_names_no_database, test_the_last_dbname_in_the_query_wins)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "scripts/start_admin_local.sh (card diff; byte-identical to cycle 2 — git diff main..HEAD | shasum = ca684936638044953eb93b8630a144579e2084a4)"
+    - "tests/test_start_admin_local.py (psql model, harness, helpers, all CARD-151 classes; fix delta at full depth)"
+    - "meta/review/20261002T110413Z-CARD-151-cycle2.yml"
+  not_reached:
+    - "Docker branches at runtime (stubbed to fail; out of scope, F-005)"
+    - "real psql/server (hard safety rule); libpq behaviour measured offline with psycopg2.extensions.parse_dsn"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 301, removed: 54 }
+  fix_delta: { files: 1, scope: "two test methods in TestStartAdminLocal_CarriesTheUrlsQuery" }
+  max_fan_in: { symbol: "scripts/start_admin_local.sh (entry script)", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  test_file_result: "37 passed (baseline run of the mutation driver)"
+  unmeasured:
+    max_fan_in: "not_applicable — top-level shell entry script; the 1 is its test harness"
+
+task_contract:
+  acceptance_criteria:
+    - "AC-1 ✓ met — TestStartAdminLocal_AcceptsADriverQualifiedUrl green; mutants MF (+driver strip removed) and MG (psql handed DATABASE_URL) killed by test_the_check_succeeds_against_a_reachable_database"
+    - "AC-2 ✓ met — TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase green; MB (empty-name guard off) killed; ME (empty ?dbname= over a non-empty path) now killed"
+    - "AC-3 ✓ met — TestStartAdminLocal_StillChecksTheTargetDatabase green; M8 (query dropped from psql URL) and MH (query dbname ignored) killed"
+  guardrails:
+    - "G-1 ✓ holds — bash -n clean on ce2574b; script byte-identical to cycle 2 (carried(cycle 2, delta-clean) for the register/steps/flags read)"
+    - "G-2 ✓ holds — fix-delta tests use run_script with stubbed psql/docker/alembic only; no DB created/dropped/seeded/migrated"
+    - "G-3 carried(cycle 2, delta-clean) — script unchanged; launch line scripts/start_admin_local.sh:289 still --app nonogram.admin.app"
+    - "G-4 ✓ holds — git diff main..HEAD --name-only = scripts/start_admin_local.sh, tests/test_start_admin_local.py; nothing under src/"
+    - "G-5 ✓ holds — grep 'skipif|importorskip|pytest.mark' tests/test_start_admin_local.py empty; 37 passed with no PostgreSQL"
+
+system_contract:
+  rules_checked: 7
+  holds: 2
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "CON-015 ✓ holds — scripts/start_admin_local.sh:289 `python -m flask --app nonogram.admin.app run --port $PORT`; `git diff main..HEAD | grep -nE -- '--host|0\\.0\\.0\\.0'` empty; tests/test_admin_binding.py (class TestAdminPanel_BindsLoopbackOnlyByDefault at :136) green on ce2574b."
+    - "ADR-0006/R1 ✓ holds — diff touches no pyproject.toml/src; test file imports stdlib only (:37-47, :90-93); tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed green on ce2574b (ref is a docstring alias)."
+    - "CON-005 ⚠ unchecked — check_ref_missing: PropertyTest_Solver_NeverFalsePositiveUniqueness (prose only); no_eligible_fact — no solver code touched. carried(cycle 2, delta-clean): fix delta is one shell-launcher test file, no solver path."
+    - "CON-009 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta touches no web-server file."
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest (prose only); no_eligible_fact — carried(cycle 2, delta-clean)."
+    - "CON-011 ⚠ unchecked — check_ref_missing: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 (prose only); no_eligible_fact — carried(cycle 2, delta-clean)."
+    - "CON-012 ⚠ unchecked — check_ref_missing: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore (prose only); no_eligible_fact — carried(cycle 2, delta-clean)."
+
+previous_findings:
+  - { id: F-006, verdict: resolved, evidence: "test now loops both '…:5432/?dbname=' and '…:5432/nonogram_dev?dbname=' with existing_dbs [someone, stub_owner]; parse_dsn confirms libpq dbname='' for the second; mutant ME killed by test_an_empty_dbname_in_the_query_still_names_no_database" }
+  - { id: F-007, verdict: "left by owner", evidence: "script unchanged; percent-encoded ?dbname= still named undecoded; never an unsafe green" }
+  - { id: F-008, verdict: resolved, evidence: "test_the_last_dbname_in_the_query_wins (dbname=nonogram_first&dbname=nonogram_other, only nonogram_other exists); parse_dsn gives nonogram_other; mutant MC killed. Model KEYWORDS subset note remains optional/unaddressed (non-gating)" }
+
+mutation_check:
+  ran: true
+  scope: "tests/test_start_admin_local.py (full file, -x)"
+  restore: "captured to scratchpad/rev3/orig.sh; each mutant restored by shutil.copyfile and verified with filecmp (byte compare); final cmp of script and test file OK; git diff main..HEAD | shasum = ca684936638044953eb93b8630a144579e2084a4 before and after; git status shows no change under scripts/ or tests/"
+  results:
+    - { id: BASE, mutation: "none", result: "37 passed" }
+    - { id: ME, line: 54, mutation: "regex ([^&]*) -> ([^&]+)", result: killed, by: "test_an_empty_dbname_in_the_query_still_names_no_database" }
+    - { id: MC, line: 54, mutation: "drop leading .* (first ?dbname= wins)", result: killed, by: "test_the_last_dbname_in_the_query_wins" }
+    - { id: MA, line: 152, mutation: "not-a-URL guard -> if false", result: killed, by: "test_each_is_refused_before_any_psql_runs" }
+    - { id: MB, line: 159, mutation: "empty-name guard -> if false", result: killed, by: "test_refuses_when_a_database_named_after_the_user_exists" }
+    - { id: MF, line: 65, mutation: "+driver strip removed", result: killed, by: "test_the_check_succeeds_against_a_reachable_database" }
+    - { id: MG, line: 171, mutation: "psql handed $DATABASE_URL instead of $PSQL_URL", result: killed, by: "test_the_check_succeeds_against_a_reachable_database" }
+    - { id: M8, line: 65, mutation: "PSQL_URL rebuilt from DB_PATH (query stripped)", result: killed, by: "test_a_server_named_only_in_the_query_is_the_one_checked" }
+    - { id: MH, line: 56, mutation: "query dbname override dropped", result: killed, by: "test_a_dbname_in_the_query_is_the_database_named_and_checked" }
+
+root_causes: []
+
+findings: []
+
+out_of_scope:
+  - "scripts/start_admin_local.sh:167,169 — Docker branches' `-d \"$DB_NAME\"` discard host/port/credentials (backlog F-005)."
+  - "F-007 (owner left): percent-encoded ?dbname= named undecoded in the ✓/✗ line."

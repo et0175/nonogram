@@ -1,0 +1,178 @@
+version: 1
+generated_at: "2026-10-02T10:28:35Z"
+target: "CARD-151 cycle 1 — branch card/151-launcher-database-check-urls @ 04116bc vs main @ dc26103 (scripts/start_admin_local.sh, tests/test_start_admin_local.py)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "scripts/start_admin_local.sh (full)"
+    - "tests/test_start_admin_local.py (full)"
+    - "meta/review/20261001T155452Z-CARD-150-cycle1.yml (precedent, system-contract assembly)"
+    - "forge engineering-standards §6 test-suite performance"
+  not_reached:
+    - "the two Docker branches at runtime (docker stub always exits 1; out of scope per card, F-005)"
+    - "real libpq behaviour: no psql was run against any server (hard safety rule); libpq URI parsing judged from knowledge of conninfo_uri_parse_options, not executed"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 392, removed: 15 }
+  max_fan_in: { symbol: "scripts/start_admin_local.sh (entry script)", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  test_file_runtime_s: 96
+  corpus_test_runtime_s: 65.3
+  unmeasured:
+    max_fan_in: "not_applicable — a top-level shell entry script has no programmatic callers; the 1 is its test harness"
+    cochange_missing: "no_eligible_fact — 5 commits in 12 months on the script; only peer is tests/test_start_admin_local.py (present) and scripts/README.md (co-changed in CARD-150, untouched here; this card changes no documented behaviour, so not a missing-change)"
+
+system_contract:
+  rules_checked: 7
+  holds: 2
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "CON-015 ✓ holds — launch line unchanged (scripts/start_admin_local.sh:267 `python -m flask --app nonogram.admin.app run --port $PORT`, no --host); `git diff main...HEAD | grep -E -- '--host|0\\.0\\.0\\.0'` empty; `pytest tests/test_admin_binding.py -k BindsLoopbackOnlyByDefault` green (7 passed) on 04116bc. Check ref live at tests/test_admin_binding.py:136."
+    - "ADR-0006/R1 ✓ holds — `git diff main...HEAD --name-only` touches no pyproject.toml/src; the test file's new imports are stdlib only (os, re, sys, shlex, urllib.parse); test_the_dependency_baseline_is_still_closed (tests/test_export_pdf.py:1249, which carries the ref in its docstring) green. Note: the ref name is a docstring alias, not a declaration."
+    - "CON-005 ⚠ unchecked — check_ref_missing: PropertyTest_Solver_NeverFalsePositiveUniqueness exists only as prose (tests/property/test_solver_uniqueness.py:3); also no_eligible_fact — no solver code touched. Manual read of this diff found no violation."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: governs the web adapter's socket; this diff touches a shell launcher and its test only. (Ref live at tests/test_web_server.py:348.)"
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest appears only as prose (tests/test_web_server.py:10, :1187, :1791); also no_eligible_fact. Manual read found no violation."
+    - "CON-011 ⚠ unchecked — check_ref_missing: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 appears only as prose (tests/property/test_grid_dimensions.py:13, :255); also no_eligible_fact. Manual read found no violation."
+    - "CON-012 ⚠ unchecked — check_ref_missing: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore appears only as prose (tests/property/test_image_fit.py:4, :358); also no_eligible_fact. Manual read found no violation."
+
+mutation_check:
+  ran: true
+  scope: "tests/test_start_admin_local.py (fast selection first, corpus test only when fast survived)"
+  restore: "each mutant restored by copying the byte-exact capture, verified with cmp; final git status shows only ` M meta/kanban/cards/CARD-151.md`; git diff main...HEAD sha1 6bb476c5 unchanged"
+  results:
+    - { id: M1, line: 137, mutation: "empty-name guard -> `if false`", result: killed }
+    - { id: M2, line: 137, mutation: "-z -> -n", result: killed }
+    - { id: M3, line: 53, mutation: "drop the +driver strip", result: killed }
+    - { id: M4, line: 149, mutation: "psql \"$DATABASE_URL\" instead of $PSQL_URL", result: killed }
+    - { id: M5, line: 40, mutation: "remove ?query strip from DB_PATH", result: "killed (corpus only)" }
+    - { id: M6, line: 44, mutation: "no-path URL -> DB_NAME=$DB_PATH (host as db name)", result: "killed (corpus only)" }
+    - { id: M7, line: 42, mutation: "${DB_PATH#*/} -> ${DB_PATH##*/}", result: "survived (near-equivalent for RFC-valid URLs; see F-003)" }
+    - { id: M8, line: 53, mutation: "PSQL_URL rebuilt from DB_PATH, dropping the ?query", result: "survived (see F-001)" }
+
+root_causes:
+  - id: RC-1
+    title: "psql model ignores the URL's ?query, so nothing pins that the check carries it"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_start_admin_local.py
+    line: 115
+    title: "Surviving mutant: the check may drop the URL's ?query (incl. ?host=) and every test still passes"
+    description: |
+      scripts/start_admin_local.sh:49-50 promises the check "still carries the URL's host,
+      port, credentials and query". Mutant M8 rebuilds PSQL_URL from DB_PATH (query
+      stripped) — the full file including the 180-case corpus stays green. Cause: the psql
+      model (tests/test_start_admin_local.py:115-121) reads only username/password/hostname/
+      port/path from urlsplit and never parses the query, and `connections()` therefore
+      cannot see it. This is not cosmetic: libpq takes host/port/user/dbname/sslmode from the
+      query too — `postgresql:///nonogram_dev?host=/var/run/postgresql` names its server only
+      in the query, so a check that dropped it would test a different server (localhost TCP)
+      than the one the panel uses, which is AC-3's "carries the URL's host" clause. The
+      corpus even builds `?sslmode=require` cases, but only the driver-URL variants exercise
+      it (via the conninfo-rejection branch), never the plain ones.
+    suggestion: |
+      In the model, parse the query (urllib.parse.parse_qsl) and let host/port/user/dbname
+      keys override the URI parts as libpq does; log sslmode (or every query key) on the
+      `connect` line. Add one case with `?host=/var/run/postgresql` (or assert sslmode=require
+      reaches the connect line in the corpus). M8 must then be killed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: ce2574b
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_start_admin_local.py
+    line: 766
+    title: "Corpus test costs 65s per run for a 6-line parameter expansion"
+    description: |
+      test_the_decision_over_an_enumerated_corpus_of_url_shapes takes 65.3s (measured,
+      --durations) — the whole file went to ~96s; against the 374s full suite that is ~17% of
+      every future gate run. It is deterministic and bounded (full cartesian 5x3x2x3x2=180,
+      no randomness), so not a flake source; the cost is ~0.36s of bash+python spawn per case,
+      and the cartesian is largely redundant (scheme, credentials, port, path, query are
+      independent in the derivation). Mutation evidence: of 8 mutants only M5/M6 needed the
+      corpus, and both are killed by a single path="" and a single path="/"+query case.
+    suggestion: |
+      Keep the independent-model idea but shrink the cost: e.g. each-choice/pairwise coverage
+      (~15-20 cases), or keep the 180 shapes but evaluate them in one bash process by
+      extracting lines 35-53 and looping, with the psql model invoked once per case only
+      where a connect line is asserted. Keep the >= floor assertion at the new count.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ce2574b
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: scripts/start_admin_local.sh
+    line: 39
+    title: "Malformed-userinfo and ?dbname= URLs are refused with the wrong diagnosis"
+    description: |
+      Measured by running lines 39-45 in bash: a raw '?' in the password
+      (`postgresql://u:p?x@h/db`) yields DB_NAME="" -> "names no database"; a raw '/' in the
+      password (`postgresql://u:a/b@localhost/nonogram_dev`) yields DB_NAME
+      "b@localhost/nonogram_dev" (pre-card code said "nonogram_dev"); a libpq-valid
+      `postgresql://localhost?dbname=nonogram_dev` is refused as naming no database. All
+      fail safe (refusal, never a green tick) and raw '?'/'/' in userinfo is not RFC 3986
+      valid, so this is message accuracy only. M7 (last-segment instead of first) survives
+      because no test has a second '/' in the authority or path. Improvements also measured:
+      `?host=/var/run` no longer corrupts the name (old code gave "run").
+    suggestion: |
+      Optional: strip a userinfo (`${DB_PATH#*@}` before the slash test, or cut the authority
+      at the last '@' preceding the first '/') and mention percent-encoding in the refusal
+      text; or accept as documented behaviour.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Sub-case libpq-valid `postgresql://localhost?dbname=nonogram_dev` is now accepted (fixed under F-001: ?dbname= is honoured). The remaining sub-cases are raw `?`/`/` inside userinfo, which RFC 3986 requires percent-encoded; all are refused (fail-safe, never a green tick), and libpq and the panel's SQLAlchemy disagree on a raw `/` in the password anyway, so no single correct name exists to diagnose. A userinfo strip adds parser logic the card asks to avoid. M7 stays near-equivalent for valid URLs."
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: risk
+    file: scripts/start_admin_local.sh
+    line: 52
+    title: "A non-URL DATABASE_URL gets a garbage PSQL_URL (only reachable with a '/' in it)"
+    description: |
+      With no '://', PSQL_URL becomes e.g. `nonogram_dev://nonogram_dev`; a conninfo string
+      with a '/' (`host=/tmp dbname=x`) survives the empty-name guard (DB_NAME="tmp dbname=x")
+      and psql is handed a mangled string -> refused as not reachable. Fail-safe; the panel
+      (SQLAlchemy) does not accept such values either. Noted, not gating.
+    suggestion: "Optionally refuse a DATABASE_URL without '://' with its own message."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ce2574b
+    dismissed_reason: null
+    learned_pattern: null

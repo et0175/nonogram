@@ -1,0 +1,167 @@
+version: 1
+generated_at: "2026-10-02T11:13:43Z"
+target: "CARD-151 cycle 2 (full mode) — branch card/151-launcher-database-check-urls @ 04116bc + uncommitted fix-1 working tree, vs main @ dc26103 (scripts/start_admin_local.sh, tests/test_start_admin_local.py)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+
+coverage:
+  read:
+    - "scripts/start_admin_local.sh (full, and fix delta)"
+    - "tests/test_start_admin_local.py (full, and fix delta)"
+    - "meta/review/20261002T102835Z-CARD-151-cycle1.yml"
+    - "worktree card CARD-151.md notes (Implementation + Fix 1)"
+    - "src/nonogram/db/session.py normalized_url (read-only, for the panel's view of URLs)"
+    - "scripts/README.md (grep for statements the change could falsify — none)"
+  not_reached:
+    - "the two Docker branches at runtime (docker stub always exits 1; out of scope, F-005)"
+    - "real psql against a server (hard safety rule); libpq behaviour measured offline with psycopg2.extensions.parse_dsn on libpq 17.0.9, SQLAlchemy's view with PGDialect_psycopg2.create_connect_args"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 590, removed: 15 }
+  fix_delta: { files: 2, script_added: 26, tests_changed: "+242/-50" }
+  max_fan_in: { symbol: "scripts/start_admin_local.sh (entry script)", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  test_file_runtime_s: 47.7
+  corpus_test_runtime_s: 13.4
+  unmeasured:
+    max_fan_in: "not_applicable — a top-level shell entry script has no programmatic callers; the 1 is its test harness"
+    cochange_missing: "no_eligible_fact — 6 commits in 12 months across both files; only historical peer scripts/README.md, which this change falsifies nothing in (grep)"
+
+system_contract:
+  rules_checked: 7
+  holds: 2
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "CON-015 ✓ holds — launch line unchanged at scripts/start_admin_local.sh:289 `python -m flask --app nonogram.admin.app run --port $PORT`; `git diff main | grep -nE -- '--host|0\\.0\\.0\\.0'` empty; `pytest tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault` green on the reviewed tree (ref live at tests/test_admin_binding.py:136)."
+    - "ADR-0006/R1 ✓ holds — `git diff main --name-only` touches no pyproject.toml/src; test file imports stdlib only (lines 37-47, 90-93); tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (carries the ref in its docstring, :1250) green. Ref is a docstring alias, not a declaration."
+    - "CON-005 ⚠ unchecked — check_ref_missing: PropertyTest_Solver_NeverFalsePositiveUniqueness exists only as prose (tests/property/test_solver_uniqueness.py:3); also no_eligible_fact — no solver code touched. Manual read of this diff found no violation."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: governs the web adapter's socket; diff touches a shell launcher and its test only (ref live at tests/test_web_server.py:348, green)."
+    - "CON-010 ⚠ unchecked — check_ref_missing: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest appears only as prose (tests/test_web_server.py:10, :1187, :1791); also no_eligible_fact. Manual read found no violation."
+    - "CON-011 ⚠ unchecked — check_ref_missing: PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 appears only as prose (tests/property/test_grid_dimensions.py:13, :255); also no_eligible_fact. Manual read found no violation."
+    - "CON-012 ⚠ unchecked — check_ref_missing: PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore appears only as prose (tests/property/test_image_fit.py:4, :358); also no_eligible_fact. Manual read found no violation."
+
+previous_findings:
+  - { id: F-001, verdict: resolved, evidence: "model parses the query with override semantics (tests:120-134); M8 now killed by TestStartAdminLocal_CarriesTheUrlsQuery::test_a_server_named_only_in_the_query_is_the_one_checked; script DB_NAME honours ?dbname= and matches libpq parse_dsn on plain/driver/repeated/path-less cases" }
+  - { id: F-002, verdict: resolved, evidence: "pairwise array, 20 rows, self-checked covered==wanted, deterministic; corpus 13.4s, file 47.7s (was 65s / 96s)" }
+  - { id: F-003, verdict: "dismissal sound", evidence: "offline: u:p?x@h/db -> script refuses (libpq would connect to db); u:a/b@... -> script == libpq; neither reaches a green tick; postgresql://localhost?dbname=x now accepted" }
+  - { id: F-004, verdict: resolved, evidence: "script:152-158 refuses before any psql; TestStartAdminLocal_RefusesAValueThatIsNotAUrl; MA (guard off) killed. No valid libpq URI lacks '://', so no misfire" }
+
+mutation_check:
+  ran: true
+  scope: "tests/test_start_admin_local.py (full file, -x)"
+  restore: "captured to scratchpad/orig_start_admin_local.sh; each mutant restored by copyfile and verified with filecmp (byte compare); `git diff main | shasum` = 25d5d719354023ed72cdaa04adb977c8b67761fb before and after"
+  results:
+    - { id: MA, line: 152, mutation: "not-a-URL guard -> if false", result: killed }
+    - { id: MB, line: 159, mutation: "empty-name guard -> if false", result: killed }
+    - { id: MH, line: 56, mutation: "drop ?dbname= override (DB_NAME assignment -> :)", result: killed }
+    - { id: M8, line: 65, mutation: "PSQL_URL rebuilt from DB_PATH (query dropped)", result: killed }
+    - { id: ME, line: 54, mutation: "regex ([^&]*) -> ([^&]+): an empty ?dbname= no longer overrides the path", result: "SURVIVED — F-006" }
+    - { id: MC, line: 54, mutation: "drop leading .* (first ?dbname= wins instead of last)", result: "survived — F-008 (exotic; panel rejects repeated keys)" }
+    - { id: MD, line: 54, mutation: "drop & anchor (xdbname= matches)", result: "survived — equivalent in safety terms: libpq rejects an unknown key, so the check refuses either way; only the refusal's name differs" }
+
+root_causes:
+  - id: RC-1
+    title: "the empty-?dbname= override is tested only where the path is empty too"
+    finding_ids: [F-006]
+
+findings:
+  - id: F-006
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_start_admin_local.py
+    line: 858
+    title: "Surviving mutant ME: an empty ?dbname= overriding a non-empty path is untested, and its failure mode is a green tick on an unchecked database (introduced by fix 1, F-001 fix)"
+    description: |
+      scripts/start_admin_local.sh:54 matches `.*&dbname=([^&]*)` so an empty `?dbname=`
+      overrides the path and DB_NAME becomes "" -> refused. That is correct: libpq takes the
+      blank value and falls back to a database named after the user (parse_dsn on
+      `postgresql://u@h:5432/nonogram_dev?dbname=` gives dbname ''). But the only test,
+      test_an_empty_dbname_in_the_query_still_names_no_database (:858), uses
+      `postgresql://someone@localhost:5432/?dbname=` — the path is already empty, so it
+      cannot tell "empty query value overrides" from "empty query value ignored". Mutant ME
+      (`[^&]*` -> `[^&]+`) passes all 36 tests. Demonstrated on a scratch copy through the
+      suite's own run_script: with URL `postgresql://someone@localhost:5432/nonogram_dev?dbname=`
+      and existing_dbs=[someone, stub_owner] (nonogram_dev absent) the real script exits 1
+      "✗ DATABASE_URL names no database"; the ME mutant exits 0 printing
+      "✓ PostgreSQL is running, database 'nonogram_dev' reachable (Homebrew)" while the psql
+      model connected to dbname=someone. That is AC-2's forbidden shape (a green tick that
+      the user-named database bought) and the corollary F-001 was about (named != checked).
+      The corpus has no empty-dbname query value, so it does not catch it either.
+    suggestion: |
+      Change the URL in test_an_empty_dbname_in_the_query_still_names_no_database to
+      `postgresql://someone@localhost:5432/nonogram_dev?dbname=` (keep existing_dbs without
+      nonogram_dev, e.g. ["someone", STUB_USER]) — or add it as a second case beside the
+      trailing-slash one. ME must then be killed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: ce2574b
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: scripts/start_admin_local.sh
+    line: 56
+    title: "A percent-encoded ?dbname= is named undecoded while psql checks the decoded name (fix 1 extends a pre-existing path quirk to the query)"
+    description: |
+      Measured offline: `.../nonogram_dev?dbname=nonogram%5Fother` -> script names
+      'nonogram%5Fother', libpq and the panel connect to 'nonogram_other'; `?dbname=a%26b` ->
+      'a%26b' vs 'a&b'; `?db%6Eame=other` -> script names the path's 'nonogram_dev' while
+      libpq/panel use 'other'. psql still checks the database the panel uses (the full URL is
+      passed), so the outcome is right and never an unsafe green; only the name in the
+      ✓/✗ line is off. The path had the same quirk before this card (CARD-150 `##*/`).
+      Also feeds the out-of-scope Docker `-d "$DB_NAME"`.
+    suggestion: |
+      Accept as documented (exotic spellings), or percent-decode DB_NAME (e.g.
+      `printf '%b' "${DB_NAME//%/\\x}"`) when printing.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_start_admin_local.py
+    line: 118
+    title: "'Last ?dbname= wins' is claimed but untested (MC survives); the psql model's query parser diverges from libpq in untested corners"
+    description: |
+      The script comment (:39) and Fix-1 note claim last-wins like libpq (true: parse_dsn on
+      `?dbname=a&dbname=b` gives 'b', and the script gives 'b'), but mutant MC (first wins)
+      survives — no test repeats the key. Exotic: the panel's SQLAlchemy turns a repeated
+      key into a tuple and fails. Model divergences from libpq, none exercised today:
+      KEYWORDS (:118) is a 10-key subset, so valid libpq keys (target_session_attrs,
+      sslrootcert, client_encoding, keepalives...) would be rejected by the model as unknown;
+      parse_qsl decodes '+' to a space where libpq keeps '+'; an `options=` value containing
+      '=' is accepted by the model and rejected by libpq ("extra key/value separator").
+    suggestion: |
+      Optional: add `?dbname=a&dbname=nonogram_dev` to the CarriesTheUrlsQuery class; widen
+      KEYWORDS to libpq's list (or note the subset in the model's comment).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: ce2574b
+    dismissed_reason: null
+    learned_pattern: null
+
+out_of_scope:
+  - "scripts/start_admin_local.sh:167,169 — Docker branches' `-d \"$DB_NAME\"` now receive the query's dbname too (fix-1 design note). Aligns them with what the panel connects to; they still discard host/port/credentials — backlog F-005."
