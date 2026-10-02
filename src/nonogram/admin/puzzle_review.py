@@ -1115,6 +1115,60 @@ class PuzzleReviewService:
                 puzzle = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
                 return self._row_to_dict(puzzle) if puzzle else None
 
+    def get_puzzles(self, puzzle_ids) -> Dict[Any, Dict[str, Any]]:
+        """The records :meth:`get_puzzle` returns for each of ``puzzle_ids``, in one read.
+
+        Keyed by each id exactly as given, in first-seen order. An id no row
+        matches is left out, and so is one :meth:`get_puzzle` would refuse
+        with ``ValueError`` or ``TypeError`` (a string that is not a UUID, an
+        unhashable value) — the verdict every caller reached by catching those
+        two. In DB mode it is one session and one ``WHERE id IN (...)`` query,
+        and none at all when no id can match a row (CARD-157).
+
+        Reads by **id** only, never by ``puzzles.book_id``: a caller passes the
+        book's own ``puzzle_ids``, because nothing reads membership from that
+        mirror (ADR-0033/R1).
+        """
+        puzzle_ids = list(puzzle_ids)
+        if self._session_factory is None:
+            found: Dict[Any, Dict[str, Any]] = {}
+            for puzzle_id in puzzle_ids:
+                try:
+                    record = self.puzzles.get(puzzle_id)
+                except TypeError:
+                    continue
+                if record is not None:
+                    found[puzzle_id] = record
+            return found
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        wanted: Dict[Any, Any] = {}
+        for puzzle_id in puzzle_ids:
+            if isinstance(puzzle_id, uuid_module.UUID):
+                wanted[puzzle_id] = puzzle_id
+            elif isinstance(puzzle_id, str):
+                try:
+                    wanted[puzzle_id] = uuid_module.UUID(puzzle_id)
+                except ValueError:
+                    continue
+        if not wanted:
+            return {}
+
+        with self._session_factory() as db:
+            rows = {
+                row.id: row
+                for row in db.query(Puzzle).filter(Puzzle.id.in_(set(wanted.values()))).all()
+            }
+            # One dict per id, as one get_puzzle call per id would give: a
+            # caller that writes into a record must not reach another id's.
+            return {
+                puzzle_id: self._row_to_dict(rows[puzzle_uuid])
+                for puzzle_id, puzzle_uuid in wanted.items()
+                if puzzle_uuid in rows
+            }
+
     @staticmethod
     def _clean_puzzle_name(name: Optional[str]) -> Optional[str]:
         """A name as stored: trimmed, and ``None`` when blank.

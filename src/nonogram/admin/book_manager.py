@@ -1732,29 +1732,38 @@ class BookManager:
             :class:`~nonogram.difficulty.Tier` or ``None``.
         """
         tiers: Dict[str, Optional[Tier]] = dict(known or {})
-        for puzzle_id in puzzle_ids:
-            key = str(puzzle_id)
-            if key not in tiers:
-                tiers[key] = self._stored_tier(key)
+        unread = [key for key in dict.fromkeys(str(pid) for pid in puzzle_ids) if key not in tiers]
+        tiers.update(self._stored_tiers(unread))
         return lambda puzzle_id: tiers.get(str(puzzle_id))
 
-    def _stored_tier(self, puzzle_id: str) -> Optional[Tier]:
-        """One row's stored tier, or ``None`` when there is nothing to read."""
+    def _stored_tiers(self, puzzle_ids: List[str]) -> Dict[str, Optional[Tier]]:
+        """Each row's stored tier, read in one go; ``None`` where there is nothing to read.
+
+        One bulk read by id (CARD-157) rather than a session per puzzle. An id
+        no row matches, or that is not even a UUID, answers ``None`` and sorts
+        after the graded ones; both kinds are named in one DEBUG line per read
+        (the old per-puzzle lookup logged one DEBUG line per non-UUID id only,
+        and nothing for a well-formed id whose row is gone).
+        """
         if self.puzzle_store is None:
-            return None
-        try:
-            record = self.puzzle_store.get_puzzle(puzzle_id)
-        except (ValueError, TypeError) as error:
+            return {puzzle_id: None for puzzle_id in puzzle_ids}
+        records = self.puzzle_store.get_puzzles(puzzle_ids)
+        unmatched = [puzzle_id for puzzle_id in puzzle_ids if puzzle_id not in records]
+        if unmatched:
             logger.debug(
-                "Book order: puzzle id %r resolves to no row (%s); it has no level "
-                "and sorts after the graded ones.",
-                puzzle_id,
-                error,
+                "Book order: %d puzzle id(s) resolve to no row (%s); they have no "
+                "level and sort after the graded ones.",
+                len(unmatched),
+                ", ".join(repr(puzzle_id) for puzzle_id in unmatched),
             )
-            return None
-        if not record:
-            return None
-        return tier_of_record(record.get("difficulty_tier"))
+        return {
+            puzzle_id: (
+                tier_of_record(records[puzzle_id].get("difficulty_tier"))
+                if records.get(puzzle_id)
+                else None
+            )
+            for puzzle_id in puzzle_ids
+        }
 
     def puzzle_levels(self, book_id: str) -> List[tuple]:
         """The book's order cut into its levels — the arrange page's view.
@@ -1868,6 +1877,14 @@ class BookManager:
         :func:`~nonogram.admin.book_plan.selection_cells` makes on a record
         with no recognisable tier or a side outside the supported range.
 
+        Every such id is named in one WARNING line per gate run, with no cap
+        on how many it lists. Since CARD-157 that covers *both* kinds of
+        unmatched id: one that is not a UUID at all (the only kind the old
+        per-id read warned about) and a well-formed UUID whose row is gone
+        (which the old read skipped silently). The widening is deliberate —
+        an orphaned id in a book is worth seeing — but a book holding many of
+        them emits one long line on every status change.
+
         A manager built without a puzzle store cannot see the selection at
         all. A book that *holds* ids is then unreadable rather than empty, and
         the gate must not conclude anything about it: this raises, so the
@@ -1897,21 +1914,19 @@ class BookManager:
             )
             raise ValueError(UNREADABLE_SELECTION_REFUSAL)
 
-        records: List[Dict[str, Any]] = []
-        for puzzle_id in puzzle_ids:
-            try:
-                record = self.puzzle_store.get_puzzle(str(puzzle_id))
-            except (ValueError, TypeError) as error:
-                logger.warning(
-                    "Book holds puzzle id %r that no row can match (%s); it counts "
-                    "towards no plan cell.",
-                    puzzle_id,
-                    error,
-                )
-                continue
-            if record is not None:
-                records.append(record)
-        return records
+        # One bulk read by id (CARD-157), over the book's own list — never the
+        # puzzles.book_id mirror (ADR-0033/R1).
+        keys = [str(puzzle_id) for puzzle_id in puzzle_ids]
+        found = self.puzzle_store.get_puzzles(keys)
+        unmatched = [key for key in dict.fromkeys(keys) if key not in found]
+        if unmatched:
+            logger.warning(
+                "Book holds %d puzzle id(s) that no row matches (%s); they count "
+                "towards no plan cell.",
+                len(unmatched),
+                ", ".join(repr(key) for key in unmatched),
+            )
+        return [found[key] for key in keys if key in found]
 
     def _refuse_unless_the_planned_book(
         self, book_id: str, current_status: str, new_status: str, puzzle_ids

@@ -3349,14 +3349,11 @@ def create_app(debug=None):
 
     def _selected_cells(book, kept_ids):
         """``selection_cells`` over what the book holds plus what is ticked."""
-        records = {}
-        for puzzle_id in list(book.puzzle_ids) + list(kept_ids):
-            if puzzle_id in records:
-                continue
-            record = puzzle_review.get_puzzle(puzzle_id)
-            if record:
-                records[puzzle_id] = record
-        return selection_cells(records.values())
+        # One bulk read by id (CARD-157) over the book's own list plus the
+        # ticks — never the puzzles.book_id mirror (ADR-0033/R1).
+        wanted = list(dict.fromkeys(list(book.puzzle_ids) + list(kept_ids)))
+        records = puzzle_review.get_puzzles(wanted)
+        return selection_cells(records[pid] for pid in wanted if records.get(pid))
 
     def _tier_figures(selected, planned, keys_of_tier):
         """``(per-tier figures, total figure)`` for one row of the summary.
@@ -4109,16 +4106,24 @@ def create_app(debug=None):
             )
         }
 
+        # Every row's record in one bulk read by id, and every custom title
+        # from one read of the book, rather than two sessions per row
+        # (CARD-157). The ids are the book's own list, never the
+        # puzzles.book_id mirror (ADR-0033/R1).
+        records = puzzle_review.get_puzzles(list(numbering))
+        titled = book_mgr.get_book(book_id)
+        titles = titled.puzzle_titles if titled else {}
+
         puzzles_in_book = []
         level_groups = []
         for tier, ids in levels:
             rows = []
             for position, puzzle_id in enumerate(ids):
                 # Get puzzle details from puzzle_review service
-                puzzle = puzzle_review.get_puzzle(puzzle_id)
+                puzzle = records.get(puzzle_id)
                 if puzzle:
                     # Add custom title if set
-                    custom_title = book_mgr.get_puzzle_title(book_id, puzzle_id)
+                    custom_title = titles.get(puzzle_id)
                     puzzle["order"] = numbering[puzzle_id]
                     puzzle["custom_title"] = custom_title
                     # The controls stop at the level's own ends, not the
