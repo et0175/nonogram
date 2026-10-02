@@ -1,0 +1,179 @@
+version: 1
+generated_at: "2026-10-02T12:58:00Z"
+target: "card/152-sibling-scripts-check-database (8e6fb93) vs main"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - scripts/setup_admin_local.sh
+    - scripts/run_admin_tests.sh
+    - scripts/start_admin_local.sh
+    - scripts/README.md
+    - tests/helpers/admin_scripts.py
+    - tests/test_setup_admin_local.py
+    - tests/test_run_admin_tests.py
+    - tests/test_start_admin_local.py (README-check class, imported names)
+    - tests/conftest.py (skip behaviour), tests/database_guard.py (name guard)
+    - meta/kanban/cards/CARD-152.md, CARD-151.md, CARD-150.md (Docker F-005 notes)
+  not_reached: []
+  confidence: high
+metrics:
+  diff: { files: 6, added: 966, removed: 24 }
+  max_fan_in: { symbol: "scripts/run_admin_tests.sh", callers: 4 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — both scripts have exactly 1 commit in the 12-month window, so there is no co-change history to mine"
+system_contract:
+  rules_checked: 6
+  holds: 1
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff touches no pyproject.toml/src; new test code imports stdlib only; test_the_dependency_baseline_is_still_closed PASSED on 8e6fb93"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: diff touches only scripts/ and test harness, no solver code"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web server code touched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web server code touched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-sourcing code touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no image-fit code touched"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: scripts/README.md
+    line: 15
+    title: "README claims all three checks verify host, port and credentials; the Docker branches check only the name"
+    description: |
+      The new Prerequisites text says each script "checks that the database it names is
+      reachable — host, port, credentials and name". In all three scripts the first two
+      branches are `docker exec nonogram-postgres psql -U postgres -d "$DB_NAME"` and
+      `docker-compose exec postgres psql -U postgres -d "$DB_NAME"`
+      (setup_admin_local.sh:104-106, run_admin_tests.sh:181-183): they discard the URL's
+      host, port and credentials. With a local container holding a database of the same
+      name, an exported URL pointing at another host/port/user passes the check. This is
+      the known-open F-005 (CARD-151 "Out of scope"), so the code is fine for this card,
+      but the card's "What to do" step 3 requires every README claim about the three
+      scripts to be true, and this one is false on two of three branches.
+    suggestion: |
+      Qualify the sentence: host, port and credentials are checked on the local psql
+      branch; the Docker / Compose branches check only that the named database exists in
+      the container (F-005, backlog). Optionally add the qualifier to the Troubleshooting
+      section too.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: scripts/README.md
+    line: 81
+    title: "'After setup' snippet still unconditionally exports nonogram_poc"
+    description: |
+      The rewritten comment says "The same URL setup used: the project default below, or
+      your own exported DATABASE_URL", but the next line is an unconditional
+      `export DATABASE_URL=".../nonogram_poc"`. A user who exported nonogram_dev, ran
+      setup, then pasted this block would start Flask against a different database from
+      the one setup migrated, which is the defect class this card removes from the scripts.
+    suggestion: |
+      Use `export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/nonogram_poc}"`,
+      or say "skip this line if you exported your own".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: scripts/run_admin_tests.sh
+    line: 163
+    title: "Runner now needs a psql binary and a reachable database for every test type, unit/smoke included"
+    description: |
+      Before, `run_admin_tests.sh unit` / `smoke` ran with no database and no psql client.
+      Now every test type stops at `command -v psql` (163, unpinned by any test, as the notes
+      admit) and at the reachability check. The arguments still parse (G-1 holds literally),
+      but their preconditions changed. The card is ambiguous: it asks for "the same
+      behaviour" and a reachability check in "both scripts", while its defect table lists
+      only the overwrite for this script. The implementer's reason (DB-backed tests skip
+      green) is sound and documented in the README.
+    suggestion: |
+      Owner to confirm. If kept, consider limiting the check to test types that touch the
+      database, or note in --help that unit/smoke now need a reachable database too.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: scripts/setup_admin_local.sh
+    line: 27
+    title: "Nothing enforces 'keep the three copies identical'"
+    description: |
+      The resolution block is copied into three scripts (the code lines are identical today:
+      same md5 with comments removed). Only the two sibling comments ask readers to keep the
+      copies identical; start_admin_local.sh, which is the copy most likely to be edited
+      first, does not mention the copies. Behavioural drift would mostly be caught by the
+      contract suites, but nothing checks the copies structurally. The reason given for
+      copying (test_start_admin_local copies only its own script into a throwaway root) is
+      valid, given the card's Touches list.
+    suggestion: |
+      Add a cheap test that pulls the DEFAULT_DATABASE_URL..PSQL_URL block out of all three
+      scripts, strips comments, and asserts they are equal.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/admin_scripts.py
+    line: 43
+    title: "Helper imports private names from a test module"
+    description: |
+      `from tests.test_start_admin_local import _DOCKER_STUB, _PSQL_MODEL, _all_pairs, _plain`
+      makes a test module a library. There is no double import (tests/ is a package, so
+      pytest and the helper both name it tests.test_start_admin_local), and a rename fails
+      loudly with ImportError. But the underscore names say they are private, and anyone
+      tidying that file has no hint that two other suites rely on them.
+    suggestion: |
+      Move the four objects into tests/helpers/ (e.g. admin_scripts.py or a psql_model.py)
+      and import them from there in all three suites. Or, if test_start_admin_local.py must
+      stay untouched, add a comment at the definitions in a later card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Out of scope for CARD-152: moving the names means editing tests/test_start_admin_local.py, which the card must leave unmodified. Dependency named in a comment at the import in tests/helpers/admin_scripts.py; move in a later card."
+    learned_pattern: null

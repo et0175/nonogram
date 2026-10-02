@@ -43,6 +43,11 @@ card names its card._
 - [ ] CARD-156 F-006 (minor): the second `TestDbFixture_SchemaIsBuiltOncePerSession` test fails by design when run alone (`-k`, node id, `--lf`), because it compares against state recorded by the first   @tech-debt
 - [ ] CARD-156 F-007 (minor): `DROP SCHEMA public` needs the test role to own `public`, and the recreated schema loses its default grants. Documented in tests/README.md, not handled in code   @tech-debt
 - [ ] CARD-156 note: the CARD-097 `db_required` reachability hook still sends a read-only `SELECT 1` to whatever `DATABASE_URL` names, before the `_test` guard applies   @tech-debt
+- [ ] CARD-152 out of scope: `scripts/diagnose_postgres.sh:90` still hardcodes `nonogram_poc`, the same defect CARD-150..152 removed from the other three scripts   @tech-debt
+- [ ] CARD-152 (owner decision): `run_admin_tests.sh`'s default database `nonogram_poc` passes the runner's own check but pytest's `tests/database_guard.py` refuses any name without "test". Pre-existing; the README's examples export a `nonogram_test` URL. Change the default?   @ops
+- [ ] CARD-152 F-006 (minor): the "not reachable" message names only two causes (server down, database missing), not a wrong host, port or credentials; same wording in all three scripts   @tech-debt
+- [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from `tests/test_start_admin_local.py` (`_DOCKER_STUB`, `_PSQL_MODEL`, `_all_pairs`, `_plain`); renaming one breaks both new suites   @tech-debt
+- [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14); stale docstring at `tests/test_start_admin_local.py:533`   @tech-debt
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops

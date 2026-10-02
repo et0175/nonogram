@@ -1,0 +1,86 @@
+version: 1
+generated_at: "2026-10-02T13:27:43Z"
+target: "card/152-sibling-scripts-check-database (8e6fb93 + uncommitted fix-1 delta) vs main — confirmation mode"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - scripts/README.md (whole file, every claim about the three scripts re-checked)
+    - scripts/setup_admin_local.sh (whole)
+    - scripts/run_admin_tests.sh (whole)
+    - scripts/start_admin_local.sh (check/migration/step lines, for README claims)
+    - tests/helpers/admin_scripts.py (run_script, fix delta)
+    - tests/test_setup_admin_local.py (fix delta)
+    - tests/test_run_admin_tests.py (fix delta)
+    - meta/kanban/cards/CARD-152.md
+    - meta/review/20261002T125249Z-CARD-152-cycle1.yml
+  not_reached: []
+  confidence: high
+metrics:
+  diff: { files: 5, added: 110, removed: 19 }   # fix delta only (scripts/ + tests/); card total 6 files +966/-24 at 8e6fb93
+  max_fan_in: { symbol: "tests.helpers.admin_scripts.run_script", callers: 2 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — carried from cycle 1: the touched scripts have one commit each in the 12-month window"
+mutation_check:
+  status: ran
+  mutants: 10
+  killed: 10
+  survived: 0
+  restore_verified: true
+  note: "behavioural kills measured with the F-004 identity test deselected; identity test additionally kills M3, M4, M5, M10"
+system_contract:
+  rules_checked: 6
+  holds: 1
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean): fix delta touches no pyproject.toml/src and adds no import (shutil already imported in tests/helpers/admin_scripts.py)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): no solver code in the delta"
+    - "CON-009 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): no web server code in the delta"
+    - "CON-010 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): no web server code in the delta"
+    - "CON-011 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): no grid-sourcing code in the delta"
+    - "CON-012 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): no image-fit code in the delta"
+
+previous_findings:
+  F-001: "resolved — README:16-25 now says only the local psql branch reads host/port/credentials, Docker branches check the name only; Troubleshooting:256-258 qualified. Matches setup:104-109, run:183-188, start:167-171"
+  F-002: "resolved — README:89 and :201 use ${DATABASE_URL:-...nonogram_poc}"
+  F-003: "resolved — --help (run:134-137) and README:113-116 state the requirement; psql-not-found branch pinned by TestRunAdminTests_NeedsPsqlForEveryTestType (mutant M8 killed)"
+  F-004: "resolved — test_the_three_copies_of_the_url_resolution_are_identical (identity test kills M3/M4/M5/M10)"
+  F-005: "dismissal sound — card keeps tests/test_start_admin_local.py unmodified; comment at the import names the dependency; a rename fails loudly with ImportError"
+
+root_causes: []
+
+findings:
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: scripts/setup_admin_local.sh
+    line: 113
+    title: "Unreachable-database message names two causes; README now names three"
+    description: |
+      setup_admin_local.sh:113 and run_admin_tests.sh:191 print "Either PostgreSQL is not
+      running, or '$DB_NAME' does not exist." The fixed README Troubleshooting (256-258)
+      correctly adds a third cause on the local psql branch: wrong host, port or
+      credentials. A user with a wrong password sees the script blame a database that
+      exists. Wording is copied from start_admin_local.sh, so it is consistent across the
+      three, but the message is now narrower than the documentation.
+    suggestion: |
+      Optionally add "or the URL's host, port or credentials are wrong" to the message in
+      all three scripts (a later card, since start_admin_local.sh is outside this card's
+      Touches).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
