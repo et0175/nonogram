@@ -100,6 +100,10 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); }
 .table .num, .table .text-end { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
 .table-secondary { --bs-table-bg: var(--color-surface-sunken); --bs-table-color: var(--color-text-secondary); }
 .table-hover > tbody > tr:hover > * { --bs-table-accent-bg: var(--color-surface-hover); }
+/* CARD-158: the scroll wrapper is the containing block of what it holds. Bootstrap's
+   .visually-hidden text is position:absolute, so without this it escapes the wrapper's
+   overflow and widens the page (60 px on /books at 390 px). No size or colour here. */
+.table-responsive { position: relative; }
 th a.sort { color: inherit; text-decoration: none; }
 th a.sort:hover, th a.sort[aria-current] { color: var(--color-text); text-decoration: underline; }
 

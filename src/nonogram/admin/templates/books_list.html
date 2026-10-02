@@ -112,9 +112,22 @@ aria-sort="{{ 'descending' if sort == column else 'none' }}"
                         <td class="text-end">
                             <div class="actions justify-content-end">
                                 <a href="/book/{{ book.book_id }}" class="btn btn-sm btn-outline-secondary">Open</a>
+                                {#- CARD-158 (FR-043): the export is two files, so the row
+                                    offers both. A cover the route would refuse — an
+                                    uploaded cover whose file is gone — is a disabled
+                                    button that says why, not a request that bounces. -#}
                                 <form method="POST" action="/book/{{ book.book_id }}/download-pdf">
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Download PDF">{{ icons.icon('download') }} PDF</button>
+                                    <input type="hidden" name="part" value="interior">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-export-part="interior" title="Download interior PDF" aria-label="Download interior PDF of {{ book.metadata.title }}">{{ icons.icon('download') }} Interior</button>
                                 </form>
+                                {% if book.book_id in lost_covers %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-export-part="cover" title="Uploaded cover is no longer on disk — upload it again on Finalise" aria-label="Cover of {{ book.metadata.title }} unavailable: the uploaded cover is no longer on disk; upload it again on Finalise" disabled>{{ icons.icon('download') }} Cover</button>
+                                {% else %}
+                                <form method="POST" action="/book/{{ book.book_id }}/download-pdf">
+                                    <input type="hidden" name="part" value="cover">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" data-export-part="cover" title="Download cover" aria-label="Download cover of {{ book.metadata.title }}">{{ icons.icon('download') }} Cover</button>
+                                </form>
+                                {% endif %}
                                 {% if book.status == 'draft' %}
                                 <form method="POST" action="/book/{{ book.book_id }}/delete" onsubmit="return confirm('Delete this draft book?');">
                                     <button type="submit" class="btn btn-sm btn-outline-danger btn-icon" aria-label="Delete draft {{ book.metadata.title }}" title="Delete draft">{{ icons.icon('trash') }}</button>

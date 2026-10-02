@@ -463,8 +463,9 @@ class TestBooksList_NoHintWhenOnPlan:
         row = row_of(shelf.listing(), book_id)
 
         assert hints_of(row) == [], text_of(row)
-        assert "short" not in text_of(row)
-        assert "over" not in text_of(row)
+        # Whole words: the row's "Cover" download (CARD-158) is not a hint.
+        assert not re.search(r"\bshort\b", text_of(row))
+        assert not re.search(r"\bover\b", text_of(row))
 
     def test_the_row_says_so_in_words(self, shelf):
         """"On plan" is stated, not left to the absence of a hint."""

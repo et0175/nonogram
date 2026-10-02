@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% import '_icons.html' as icons %}
 {% import '_stepper.html' as stepper %}
+{% import '_tier.html' as tier %}
 
 {% block title %}{{ book.metadata.title }} - Nonogram admin{% endblock %}
 {% block section %}Books · {{ book.metadata.title }}{% endblock %}
@@ -39,7 +40,19 @@
                     <dt>Book ID</dt><dd><code>{{ book.book_id }}</code></dd>
                     <dt>Theme</dt><dd>{{ book.metadata.theme|capitalize }}</dd>
                     <dt>Audience</dt><dd>{{ book.metadata.target_audience }}</dd>
-                    <dt>Size</dt><dd>{{ book.metadata.size }}</dd>
+                    {#- CARD-158 (FR-030): the trim Print setup stored on the
+                        book, never metadata.size (which Print setup stopped
+                        writing in CARD-136). A book with no print spec says
+                        so, and one whose stored trim cannot be read says that,
+                        as Finalise does. -#}
+                    <dt>Trim size</dt>
+                    {%- if trim_width_cm %}
+                    <dd class="num" data-trim-width-cm="{{ trim_width_cm }}" data-trim-height-cm="{{ trim_height_cm }}">{{ trim_width_cm }} × {{ trim_height_cm }} cm</dd>
+                    {%- elif trim_set %}
+                    <dd data-trim="unreadable">Cannot be read — <a href="{{ url_for('setup_print', book_id=book.book_id) }}">set it again in Print setup</a></dd>
+                    {%- else %}
+                    <dd data-trim="not-set">Not set — <a href="{{ url_for('setup_print', book_id=book.book_id) }}">set it in Print setup</a></dd>
+                    {%- endif %}
                     <dt>Puzzles</dt><dd class="num">{{ book.puzzle_ids|length }}</dd>
                     <dt>Pages</dt><dd class="num">{{ book.metadata.page_count }}</dd>
                     <dt>Created</dt><dd class="num">{{ book.created_at.strftime('%Y-%m-%d %H:%M') }}</dd>
@@ -68,13 +81,34 @@
 
                 <hr>
 
-                {% if book.puzzle_ids|length > 0 %}
-                <form method="POST" action="/book/{{ book.book_id }}/generate-pdf">
-                    <button type="submit" class="btn btn-primary">{{ icons.icon('download') }} Generate &amp; download PDF</button>
-                </form>
-                {% else %}
-                <button class="btn btn-primary" disabled>{{ icons.icon('download') }} Generate PDF</button>
+                {#- CARD-158 (FR-043): the export is two files, so both are
+                    offered. The cover needs no puzzles; it is refused only when
+                    the session claims an uploaded cover whose file is gone —
+                    the rule the download route applies — and then the button
+                    says why instead of submitting a request that is refused. -#}
+                <div class="actions">
+                    {% if book.puzzle_ids|length > 0 %}
+                    <form method="POST" action="/book/{{ book.book_id }}/generate-pdf">
+                        <input type="hidden" name="part" value="interior">
+                        <button type="submit" class="btn btn-primary" data-export-part="interior">{{ icons.icon('download') }} Generate &amp; download interior PDF</button>
+                    </form>
+                    {% else %}
+                    <button class="btn btn-primary" data-export-part="interior" disabled>{{ icons.icon('download') }} Generate interior PDF</button>
+                    {% endif %}
+                    {% if cover_upload_lost %}
+                    <button type="button" class="btn btn-outline-secondary" data-export-part="cover" aria-describedby="cover-lost" disabled>{{ icons.icon('download') }} Download cover</button>
+                    {% else %}
+                    <form method="POST" action="/book/{{ book.book_id }}/download-pdf">
+                        <input type="hidden" name="part" value="cover">
+                        <button type="submit" class="btn btn-outline-secondary" data-export-part="cover">{{ icons.icon('download') }} Download cover</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% if book.puzzle_ids|length == 0 %}
                 <p class="text-muted small mt-2 mb-0">Add puzzles first.</p>
+                {% endif %}
+                {% if cover_upload_lost %}
+                <p class="text-muted small mt-2 mb-0" id="cover-lost">Your uploaded cover image is no longer on disk. <a href="{{ url_for('finalize_book', book_id=book.book_id) }}">Upload it again on Finalise</a>, or remove it there to use the title cover.</p>
                 {% endif %}
 
                 {% if book.metadata.pdf_url or book.metadata.kdp_asin %}
@@ -109,18 +143,26 @@
                 <thead>
                     <tr>
                         <th class="text-end">#</th>
-                        <th>Puzzle ID</th>
+                        <th>Title</th>
+                        <th>Tier</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for puzzle_id in book.puzzle_ids %}
-                    <tr>
+                    {#- CARD-158: each member by its title (custom title, else the
+                        puzzle's name, as Finalise names it). The id stays under it,
+                        muted, because the "Add puzzles by ID" form below takes ids. -#}
+                    {% for member in members %}
+                    <tr data-puzzle-id="{{ member.id }}">
                         <td class="text-end">{{ loop.index }}</td>
-                        <td><code>{{ puzzle_id }}</code></td>
+                        <td>
+                            <span class="name">{{ member.title }}</span>
+                            <div class="subtle">{{ member.id }}</div>
+                        </td>
+                        <td>{{ tier.badge(member.tier) }}</td>
                         <td class="text-end">
                             <form action="/book/{{ book.book_id }}/remove-puzzle" method="POST" onsubmit="return confirm('Remove this puzzle from the book?')">
-                                <input type="hidden" name="puzzle_id" value="{{ puzzle_id }}">
+                                <input type="hidden" name="puzzle_id" value="{{ member.id }}">
                                 <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
                             </form>
                         </td>

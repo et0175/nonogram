@@ -2578,6 +2578,13 @@ def create_app(debug=None):
             books=[row["book"] for row in rows],
             rows=rows,
             sort=sort,
+            # CARD-158: the books whose cover download the route would refuse
+            # (an uploaded cover whose file is gone), so the button says so.
+            lost_covers={
+                row["book"].book_id
+                for row in rows
+                if _cover_upload_lost(row["book"].book_id)
+            },
         )
 
     @app.route("/book/create", methods=["GET", "POST"])
@@ -4731,7 +4738,42 @@ def create_app(debug=None):
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
 
-        return render_template("book_detail.html", book=book)
+        # CARD-158: each member by its title, read in one pass by id from the
+        # book's own list — never the puzzles.book_id mirror (ADR-0033/R1).
+        # The title falls back exactly as Finalise's does: the book's custom
+        # title, then the puzzle's name, then its id.
+        records = puzzle_review.get_puzzles(book.puzzle_ids)
+        members = []
+        for puzzle_id in book.puzzle_ids:
+            record = records.get(puzzle_id) or {}
+            members.append(
+                {
+                    "id": puzzle_id,
+                    "title": (
+                        book.puzzle_titles.get(puzzle_id)
+                        or record.get("puzzle_name")
+                        or str(puzzle_id)
+                    ),
+                    "tier": record.get("difficulty_tier"),
+                }
+            )
+
+        # CARD-158 (FR-030): the trim Print setup stored on the book, read
+        # through the door Finalise reads it through. A book whose trim
+        # columns are both empty has no print spec: the page says "not set"
+        # rather than showing the profile book_page_spec would fall back to.
+        trim_set = bool(book.trim_width_cm or book.trim_height_cm)
+        trim_width_cm, trim_height_cm = _trim_cm(book) if trim_set else (None, None)
+
+        return render_template(
+            "book_detail.html",
+            book=book,
+            members=members,
+            trim_set=trim_set,
+            trim_width_cm=trim_width_cm,
+            trim_height_cm=trim_height_cm,
+            cover_upload_lost=_cover_upload_lost(book_id),
+        )
 
     @app.route("/book/<book_id>/add-puzzles", methods=["POST"])
     def add_puzzles_to_book(book_id):
