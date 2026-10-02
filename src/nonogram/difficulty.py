@@ -225,7 +225,8 @@ MEDIUM_MAX_SCORE = 90.0
 #: and are pinned against ``solver.RUNG_ORDER`` from the test tree.
 #:
 #: ``guess`` is deliberately **not** a rung. A solve that branched is
-#: ``Tier.GUESS`` by ADR-0025 and is not graded on this ladder at all.
+#: reported as the ``guess`` *strategy* (ADR-0031/R2), never as a tier, and is
+#: not graded on this ladder at all.
 RUNG_SIMPLE_OVERLAP = "simple_overlap"
 RUNG_LINE_DP = "line_dp"
 RUNG_PROBE_CONTRADICTION = "probe_contradiction"
@@ -240,7 +241,7 @@ LADDER: tuple[str, ...] = (
 
 
 class Tier(StrEnum):
-    """FR-008's user-facing difficulty selector: Easy, Medium, Hard or Guess.
+    """FR-008's user-facing difficulty selector: Easy, Medium or Hard.
 
     A :class:`~enum.StrEnum` so the tier *is* its ``--difficulty`` spelling —
     the value a user types, an export payload carries and a PDF filename is
@@ -279,9 +280,9 @@ class Tier(StrEnum):
     def label(self) -> str:
         """The tier as AC-020 writes it — ``"Medium"``, not ``"medium"``.
 
-        Presentational, and ADR-0025 says so explicitly: ``"Guess"`` may be
-        renamed (to ``"Expert"``, say) without touching the enum *value*, which
-        is what every stored row, export payload and filename depends on.
+        Presentational: a label may be renamed (``"Hard"`` to ``"Expert"``,
+        say) without touching the enum *value*, which is what every stored
+        row, export payload and filename depends on.
         """
         return self.value.capitalize()
 
@@ -362,9 +363,10 @@ class SolverSignals(Protocol):
     ``line_logic_cells`` is not here either — it survives on ``SolveSignals``
     for NFR-001 reporting but no longer drives anything graded, since the rung
     tags say which technique settled which cell and it does not. Nor is
-    ``backtracks``: ``branch_nodes`` already answers the one question EC-015
-    asks, and counting refuted assignments beside it would be a second reading
-    of the same event.
+    ``backtracks``: ``branch_nodes`` already answers the one question the
+    ``guess`` strategy asks (formerly EC-015, retired with the tier by
+    ADR-0031), and counting refuted assignments beside it would be a second
+    reading of the same event.
     """
 
     @property
@@ -375,10 +377,10 @@ class SolverSignals(Protocol):
     def branch_nodes(self) -> int:
         """Search nodes the solve expanded past the three deduction phases.
 
-        EC-015's whole input: ``> 0`` means the search really had to branch,
-        and :func:`classify` answers :attr:`Tier.GUESS` on that fact alone,
-        whatever the score. ``0`` exactly when the ladder's three fixed points
-        finished the puzzle by themselves.
+        ``> 0`` means the search really had to branch; that fact is reported
+        as the ``guess`` *strategy* (ADR-0031/R2), never as a tier —
+        :func:`classify` reads the score alone. ``0`` exactly when the
+        ladder's three fixed points finished the puzzle by themselves.
         """
 
     @property
@@ -572,9 +574,9 @@ def parse_tier(text: str) -> Tier:
 
     Raises:
         UnsupportedDifficulty: ``text`` names no supported tier (AC-021). The
-            message lists the tiers that exist — all four of them since
-            ADR-0025, read off the enum rather than spelled out, so the message
-            and the rule cannot drift.
+            message lists the tiers that exist — the three of :class:`Tier`
+            since ADR-0031, read off the enum rather than spelled out, so the
+            message and the rule cannot drift.
     """
     try:
         return Tier(text.strip().lower())

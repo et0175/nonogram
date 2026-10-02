@@ -49,6 +49,7 @@ from __future__ import annotations
 import ast
 import inspect
 import itertools
+import re
 import warnings
 from pathlib import Path
 
@@ -423,7 +424,7 @@ def test_the_help_lists_the_tiers_that_actually_exist(
 
 
 # --------------------------------------------------------------------------
-# EC(ADR-0025/R2) — exactly one tier classifier in the package
+# EC(ADR-0031/R1) — exactly one tier classifier in the package
 # --------------------------------------------------------------------------
 
 #: The package on disk, walked rather than imported, the same way
@@ -434,10 +435,10 @@ _PACKAGE_DIR = Path(__file__).resolve().parents[1] / "src" / "nonogram"
 if not _PACKAGE_DIR.is_dir():  # pragma: no cover - installed-only checkout
     _PACKAGE_DIR = Path(difficulty.__file__).parent
 
-#: The module ADR-0025/R2 puts the one classifier in. Matched by *path* and not
+#: The module ADR-0031/R1 puts the one classifier in. Matched by *path* and not
 #: by basename, so a second ``difficulty.py`` somewhere under the package (an
 #: ``admin/difficulty.py``, say) would be walked like every other module rather
-#: than exempted by its name — which is precisely the shape ADR-0025/R2 forbids.
+#: than exempted by its name — which is precisely the shape ADR-0031/R1 forbids.
 _CLASSIFIER_MODULE = _PACKAGE_DIR / "difficulty.py"
 
 #: Names that would mean "this module is deciding a tier for itself": the two
@@ -457,13 +458,38 @@ _CUTOFF_NAMES = frozenset(
 #: classifier could spell it either way.
 _TIER_NAMES = frozenset({"easy", "medium", "hard"})
 
+#: The same vocabulary as :class:`~nonogram.difficulty.Tier` member names, for
+#: the ``Tier.EASY`` spelling of a binding.
+_TIER_MEMBERS = frozenset({"EASY", "MEDIUM", "HARD"})
+
+
+def _is_tier_member(node: ast.expr) -> bool:
+    """``Tier.EASY`` / ``difficulty.Tier.HARD`` — a tier named through the enum."""
+    if not (isinstance(node, ast.Attribute) and node.attr in _TIER_MEMBERS):
+        return False
+    owner = node.value
+    return (isinstance(owner, ast.Name) and owner.id == "Tier") or (
+        isinstance(owner, ast.Attribute) and owner.attr == "Tier"
+    )
+
 
 def _is_tier_name(node: ast.expr | None) -> bool:
-    """A bare tier-name string, or a conditional expression yielding one."""
+    """A tier name — as a string or as a ``Tier`` member — or an expression yielding one.
+
+    A conditional expression counts if either branch does; a tuple counts if
+    one element does **and** another does not (``return score, "Easy"``). A
+    tuple made only of tier names is the vocabulary listed, not a score mapped
+    to a tier (``TIERS = (Tier.EASY, Tier.MEDIUM, Tier.HARD)``).
+    """
     if isinstance(node, ast.Constant):
         return isinstance(node.value, str) and node.value.lower() in _TIER_NAMES
+    if isinstance(node, ast.Attribute):
+        return _is_tier_member(node)
     if isinstance(node, ast.IfExp):
         return _is_tier_name(node.body) or _is_tier_name(node.orelse)
+    if isinstance(node, ast.Tuple):
+        named = [_is_tier_name(element) for element in node.elts]
+        return any(named) and not all(named)
     return False
 
 
@@ -482,11 +508,14 @@ def _tier_deciding_offences_in_source(source: str, name: str) -> list[str]:
        that would be a second band table, silently left behind by the next
        retune.
     2. **A statement that binds or returns a bare tier name** (CARD-155) — an
-       assignment (plain, annotated or augmented) or a ``return`` whose value is
-       the string ``"easy"``/``"medium"``/``"hard"`` in any case, or a
-       conditional expression yielding one. That is how a band table written
-       on bare numbers looks (``if score < 30: tier = "Easy"``), and a numeric
-       literal rule would be far too noisy to catch it by its numbers.
+       assignment (plain, annotated or augmented), a ``return``, a ``yield``
+       (or ``yield from``), a walrus ``:=`` or a ``lambda`` body whose value is
+       the string ``"easy"``/``"medium"``/``"hard"`` in any case or the
+       ``Tier.EASY``/``MEDIUM``/``HARD`` member, a conditional expression
+       yielding one, or a tuple carrying one beside something else
+       (``return score, "Easy"``). That is how a band table written on bare
+       numbers looks (``if score < 30: tier = "Easy"``), and a numeric literal
+       rule would be far too noisy to catch it by its numbers.
 
     The second rule's boundary, deliberately narrow because the same words are
     legitimate vocabulary elsewhere in the package: a tier name as a **dict
@@ -494,8 +523,14 @@ def _tier_deciding_offences_in_source(source: str, name: str) -> list[str]:
     ``ProofPuzzle(tier="hard")``, the batch form's ``"medium"`` *size*) is not
     an offence — none of those maps a score to anything — and nor is an
     assignment **directly in a class body**, which is how an enum declares its
-    members (``Recognizability.MEDIUM = "medium"``). A dict-based band table
-    would slip past; the guard catches the shape the package actually had.
+    members (``Recognizability.MEDIUM = "medium"``), and nor is a tuple made
+    *only* of tier names (``TIERS = (Tier.EASY, Tier.MEDIUM, Tier.HARD)`` in
+    ``admin/book_plan.py`` lists the vocabulary; it maps nothing). Shapes that
+    still slip past, knowingly: a dict-based band table, a list or set
+    literal, a tier name passed through a helper call (``return pick("easy")``)
+    and one built at run time (``"EA" + "SY"``). The guard catches the shapes
+    the package actually had and the ones a hand-written classifier most
+    plausibly reaches for.
 
     Until CARD-098 a second shape counted too — comparing ``branch_nodes``
     against a number — because ADR-0025 made a branching solve a *tier* and
@@ -528,17 +563,24 @@ def _tier_deciding_offences_in_source(source: str, name: str) -> list[str]:
         elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return)):
             if id(node) not in class_body_statements and _is_tier_name(node.value):
                 offences.append(f"{name}:{node.lineno} binds a tier name")
+        elif isinstance(node, (ast.Yield, ast.YieldFrom, ast.NamedExpr)):
+            if _is_tier_name(node.value):
+                offences.append(f"{name}:{node.lineno} binds a tier name")
+        elif isinstance(node, ast.Lambda):
+            if _is_tier_name(node.body):
+                offences.append(f"{name}:{node.lineno} binds a tier name")
     return offences
 
 
 def test_no_module_but_difficulty_classifies_a_tier() -> None:
-    """EC(ADR-0025/R2) — there is exactly one tier classifier, and it is COMP-006's.
+    """EC(ADR-0031/R1) — there is exactly one tier classifier, and it is COMP-006's.
 
-    ADR-0025 broke ADR-0005's "a tier is a score band" model for one member, so
-    the cost of a *second* classifier went up: a module that compared a score
-    against the cutoffs itself would now be silently wrong for every branching
-    puzzle, not merely duplicated. And a retune of the cutoffs would move the
-    bands without moving that module's classification with them.
+    ADR-0031/R1: every tier is a score band and ``classify`` takes the score
+    alone — so a *second* classifier is a second band table. A retune of the
+    cutoffs (CARD-137 moved Medium's top to 90) would move the bands without
+    moving that module's classification with them, and the two would
+    disagree silently. (The rule predates ADR-0031: ADR-0025/R2 introduced it
+    while a branching solve was still a fourth tier.)
 
     Walked over the package on disk, so a module no card has written yet is
     covered the moment it lands — the same arrangement, and the same reasoning,
@@ -556,7 +598,7 @@ def test_no_module_but_difficulty_classifies_a_tier() -> None:
         "this guard has been exempting nothing and passing vacuously"
     )
     assert offences == [], (
-        "ADR-0025/R2 violation — these modules decide a tier instead of asking "
+        "ADR-0031/R1 violation — these modules decide a tier instead of asking "
         f"difficulty.classify: {offences}"
     )
 
@@ -633,10 +675,18 @@ def test_the_rule_catches_the_retired_prototype_mapping() -> None:
         "label: str = 'HARD'\n",
         "from nonogram.difficulty import RUNG_LINE_DP_MAX_SCORE\n"
         "def f(score):\n    return score > RUNG_LINE_DP_MAX_SCORE\n",
+        # Review F-002 (CARD-155 cycle 1): the shapes the first rule missed.
+        "def f(s):\n    return Tier.EASY\n",
+        "def f(s):\n    return difficulty.Tier.HARD\n",
+        "def f(s):\n    return s, 'Easy'\n",
+        "def f(s):\n    yield 'easy'\n",
+        "pick = lambda s: 'easy' if s < 30 else None\n",
+        "if (t := 'medium'):\n    pass\n",
     ],
 )
 def test_the_rule_catches_each_tier_deciding_shape(source: str) -> None:
-    """Conditional expressions, annotated bindings, any case, the rung cutoffs."""
+    """Conditional expressions, annotated bindings, any case, the rung cutoffs,
+    ``Tier`` members, mixed tuples, ``yield``, ``lambda`` and ``:=``."""
     assert len(_tier_deciding_offences_in_source(source, "probe.py")) == 1
 
 
@@ -646,7 +696,7 @@ def test_the_rule_leaves_the_legitimate_shapes_alone(tmp_path: Path) -> None:
     The orchestrator reads ``branch_nodes`` off the solve and hands it to
     ``classify``; a caller stores it; a test builds a record with it. None of
     those is a decision, and a rule that forbade *touching* the number would
-    make ADR-0025/R2 unimplementable — the one classifier has to be given its
+    make ADR-0031/R1 unimplementable — the one classifier has to be given its
     inputs by somebody.
     """
     allowed = tmp_path / "allowed.py"
@@ -669,11 +719,38 @@ def test_the_rule_leaves_the_legitimate_shapes_alone(tmp_path: Path) -> None:
         "SPLIT = {'easy': 1, 'medium': 2, 'hard': 3}\n"
         "PROOF = ProofPuzzle(tier='hard')\n"
         "default_size = form.get('default_size', 'medium')\n"
-        "count = split['easy']\n",
+        "count = split['easy']\n"
+        "TIERS = (Tier.EASY, Tier.MEDIUM, Tier.HARD)\n"
+        "LABELS = ('easy', 'medium', 'hard')\n",
         encoding="utf-8",
     )
 
     assert _tier_deciding_offences(allowed) == []
+
+
+def test_the_classifier_module_describes_the_guess_tier_only_as_retired() -> None:
+    """ADR-0031/R1, in COMP-006's prose: ``GUESS`` is named only to say it went.
+
+    Review F-001 (CARD-155 cycle 1) found three docstrings still describing
+    ``Tier.GUESS`` as live after the module's "fourth tier" section was cut.
+    Paragraph-level, not line-level, so rewording a retirement note never
+    trips it: any blank-line-separated paragraph of ``difficulty.py`` that
+    names the tier (``GUESS``, ``Tier.GUESS``, ``"... or Guess"``) must also
+    say it was retired. ``STRATEGY_GUESS`` and ``_RETIRED_GUESS_TIER`` are the
+    surviving, legitimate names and are not matched.
+    """
+    source = Path(difficulty.__file__).read_text(encoding="utf-8")
+    live_claims = [
+        paragraph.strip().splitlines()[0]
+        for paragraph in re.split(r"\n\s*\n", source)
+        if re.search(r"(?<![_A-Z])GUESS\b|\bor Guess\b", paragraph)
+        and not re.search(r"retir", paragraph, re.IGNORECASE)
+    ]
+
+    assert live_claims == [], (
+        "difficulty.py describes the retired GUESS tier as live (ADR-0031/R1); "
+        f"paragraphs starting: {live_claims}"
+    )
 
 
 # --------------------------------------------------------------------------
@@ -750,7 +827,7 @@ def test_anything_that_is_not_a_tier_reads_back_as_none(value: object) -> None:
 def test_it_does_not_become_a_second_classifier() -> None:
     """It reads a tier that was already decided; it never decides one.
 
-    ADR-0025/R2 allows exactly one classifier. ``tier_of_record`` takes text,
+    ADR-0031/R1 allows exactly one classifier. ``tier_of_record`` takes text,
     not a score and not a branch count, so it cannot be handed the inputs a
     classification is made from — which is why the ast guard above passes with
     it in the package and would not if it took a score.
