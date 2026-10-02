@@ -1732,29 +1732,27 @@ class BookManager:
             :class:`~nonogram.difficulty.Tier` or ``None``.
         """
         tiers: Dict[str, Optional[Tier]] = dict(known or {})
-        for puzzle_id in puzzle_ids:
-            key = str(puzzle_id)
-            if key not in tiers:
-                tiers[key] = self._stored_tier(key)
+        unread = [key for key in dict.fromkeys(str(pid) for pid in puzzle_ids) if key not in tiers]
+        tiers.update(self._stored_tiers(unread))
         return lambda puzzle_id: tiers.get(str(puzzle_id))
 
-    def _stored_tier(self, puzzle_id: str) -> Optional[Tier]:
-        """One row's stored tier, or ``None`` when there is nothing to read."""
+    def _stored_tiers(self, puzzle_ids: List[str]) -> Dict[str, Optional[Tier]]:
+        """Each row's stored tier, read in one go; ``None`` where there is nothing to read.
+
+        One bulk read by id (CARD-157) rather than a session per puzzle. An id
+        no row matches, or that is not even a UUID, answers ``None``.
+        """
         if self.puzzle_store is None:
-            return None
-        try:
-            record = self.puzzle_store.get_puzzle(puzzle_id)
-        except (ValueError, TypeError) as error:
-            logger.debug(
-                "Book order: puzzle id %r resolves to no row (%s); it has no level "
-                "and sorts after the graded ones.",
-                puzzle_id,
-                error,
+            return {puzzle_id: None for puzzle_id in puzzle_ids}
+        records = self.puzzle_store.get_puzzles(puzzle_ids)
+        return {
+            puzzle_id: (
+                tier_of_record(records[puzzle_id].get("difficulty_tier"))
+                if records.get(puzzle_id)
+                else None
             )
-            return None
-        if not record:
-            return None
-        return tier_of_record(record.get("difficulty_tier"))
+            for puzzle_id in puzzle_ids
+        }
 
     def puzzle_levels(self, book_id: str) -> List[tuple]:
         """The book's order cut into its levels — the arrange page's view.
@@ -1897,21 +1895,19 @@ class BookManager:
             )
             raise ValueError(UNREADABLE_SELECTION_REFUSAL)
 
-        records: List[Dict[str, Any]] = []
-        for puzzle_id in puzzle_ids:
-            try:
-                record = self.puzzle_store.get_puzzle(str(puzzle_id))
-            except (ValueError, TypeError) as error:
-                logger.warning(
-                    "Book holds puzzle id %r that no row can match (%s); it counts "
-                    "towards no plan cell.",
-                    puzzle_id,
-                    error,
-                )
-                continue
-            if record is not None:
-                records.append(record)
-        return records
+        # One bulk read by id (CARD-157), over the book's own list — never the
+        # puzzles.book_id mirror (ADR-0033/R1).
+        keys = [str(puzzle_id) for puzzle_id in puzzle_ids]
+        found = self.puzzle_store.get_puzzles(keys)
+        unmatched = [key for key in dict.fromkeys(keys) if key not in found]
+        if unmatched:
+            logger.warning(
+                "Book holds %d puzzle id(s) that no row matches (%s); they count "
+                "towards no plan cell.",
+                len(unmatched),
+                ", ".join(repr(key) for key in unmatched),
+            )
+        return [found[key] for key in keys if key in found]
 
     def _refuse_unless_the_planned_book(
         self, book_id: str, current_status: str, new_status: str, puzzle_ids
