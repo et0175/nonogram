@@ -16,6 +16,7 @@ generator what it wrote.
 
 from __future__ import annotations
 
+import re
 from io import BytesIO
 
 import pytest
@@ -371,7 +372,18 @@ class TestBookFinalise_OffersBothDownloads:
         # pages + SOLUTIONS + 1 six-up answer page.
         assert f'data-interior-page-count="{_interior_pages(3, 1)}"' in body
         assert 'data-interior-page-count-exact="true"' in body
-        assert "~" not in body.split('data-interior-page-count')[1][:40]
+        # The figure the owner reads, not the attribute beside it: the text of
+        # the very <dd> that carries the count is the bare number, with no
+        # "~" in front (CARD-153, F-004 — the old split-and-slice looked only
+        # at the attribute's own value and could never fail), and the
+        # sentence under the interior's contents does not say "About".
+        pages = _interior_pages(3, 1)
+        (shown,) = re.findall(
+            r'<dd[^>]*\bdata-interior-page-count="\d+"[^>]*>(.*?)</dd>', body, re.S
+        )
+        assert shown.strip() == str(pages)
+        assert f"About {pages} interior pages" not in body
+        assert f"{pages} interior pages" in body
 
 
 # --- CARD-135 review cycle 1 --------------------------------------------------

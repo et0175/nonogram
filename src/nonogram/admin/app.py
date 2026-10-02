@@ -35,6 +35,7 @@ from datetime import datetime
 from fractions import Fraction
 import hmac
 import json
+import logging
 import os
 import secrets
 import tempfile
@@ -878,20 +879,41 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
     never lays the book out a second time at another one (G-2): the page count
     is a fact about the book as it is stored.
 
-    ``None`` is a book with no countable interior at all — a row so malformed
-    that even its answers cannot be packed. A book whose stored print
-    specification cannot be laid out (a margin below the sheet builder's
-    minimum, a trim outside KDP's bounds) has no *sheet*, and therefore no
-    two-up pages to measure, but its interior's make-up is still known: that
-    case comes back with ``exact=False`` and the sheet-free upper bound, which
-    is what lets Finalise still name KDP's band for such a book (AC-179).
+    ``None`` is a book with no countable interior at all: one of its rows is
+    so malformed that even its answers cannot be packed (whether or not its
+    print specification can be laid out). Finalise refuses such a book
+    (:data:`UNCOUNTABLE_INTERIOR_REFUSAL`) rather than let it leave draft.
+
+    A book whose stored print specification cannot be laid out (a margin
+    below the sheet builder's minimum, a trim outside KDP's bounds) has no
+    *sheet*, and therefore no two-up pages to measure, but its interior's
+    make-up is still known: that case comes back with ``exact=False``, the
+    sheet-free upper bound and the builder's own reason in ``unreadable``,
+    which is what lets Finalise still name KDP's band for such a book
+    (AC-179) and tell the owner why the figure is approximate.
+
+    CARD-153: that case, and only that case, is caught — it is the
+    ``ValueError`` :class:`~nonogram.admin.book_pdf_generator.BookPDFGenerator`
+    documents its *constructor* as raising, from
+    :func:`~nonogram.admin.book_page_spec.book_page_spec` (and the ink-mode
+    column beside it), so it is caught around the constructor and nowhere
+    else. Anything :meth:`interior_stream` raises once the sheet exists — the
+    two plan tripwires ("the page plan prints ...", "the answer key holds
+    ...") above all — means the exporter or the book's rows are wrong, not
+    that the count is a guess. It is logged with its traceback and re-raised,
+    so the screen shows an error rather than a plausible "About N" — unless
+    the rows themselves fail the sheet-free count's own check, which is the
+    malformed-row ``None`` above (logged too, with its traceback).
+
+    Raises:
+        Exception: whatever :meth:`interior_stream` raised, unchanged.
     """
     try:
-        stream = BookPDFGenerator(book).interior_stream(list(puzzles))
-    except Exception as unreadable:
+        generator = BookPDFGenerator(book)
+    except ValueError as unreadable:
         try:
             bound = unpaired_interior_page_count(puzzles)
-        except Exception:
+        except ValueError:
             return None
         return InteriorCounts(
             page_count=bound,
@@ -900,12 +922,53 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
             exact=False,
             unreadable=str(unreadable),
         )
+    try:
+        stream = generator.interior_stream(list(puzzles))
+    except Exception:
+        # ``__name__`` is the name Flask gives ``app.logger`` too (the app is
+        # ``Flask(__name__)``), so this is the panel's own logger, reachable
+        # from a module-level helper without an app context.
+        log = logging.getLogger(__name__)
+        book_id = getattr(book, "book_id", None)
+        # The one failure here that is the book's and not the exporter's: a
+        # row whose answer grid cannot be measured at all, which
+        # ``interior_stream`` reports as "puzzle <id> could not be laid out".
+        # It is told apart by asking the rows the same question independently
+        # of the plan — the sheet-free count refuses exactly such a row — and
+        # it stays what it was before CARD-153: no count (``None``), which
+        # Finalise reports and refuses. Every other failure is the exporter's.
+        try:
+            unpaired_interior_page_count(puzzles)
+        except ValueError:
+            log.warning(
+                "The interior of book %s cannot be counted: a row's answer "
+                "cannot be packed",
+                book_id,
+                exc_info=True,
+            )
+            return None
+        log.exception(
+            "The page plan of book %s could not be built; its page count is "
+            "not shown",
+            book_id,
+        )
+        raise
     return InteriorCounts(
         page_count=stream.page_count,
         unpaired_page_count=stream.unpaired_page_count,
         answer_page_count=stream.answer_page_count,
         exact=True,
     )
+
+
+#: Why "Save and finish" refuses a book whose interior cannot be counted at
+#: all (CARD-153, AC-3) — the same words the Finalise screen uses for it, so
+#: the refusal and the screen agree.
+UNCOUNTABLE_INTERIOR_REFUSAL = (
+    "This book's interior pages cannot be counted, so KDP's gutter minimum "
+    "cannot be checked and the book stays in draft. Check the book's puzzles "
+    "and its print setup, then finalise again."
+)
 
 
 def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]:
@@ -919,24 +982,32 @@ def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]
 
     ``None`` when there is nothing to refuse — including when the book has no
     countable interior, which is a different complaint and not this one's to
-    make.
+    make (the finalise route makes it: :data:`UNCOUNTABLE_INTERIOR_REFUSAL`).
     """
     if counts is None:
         return None
+    # CARD-153 (AC-4): the screen says "About N" for an inexact count, so the
+    # refusal says "about N" for the same one — never "runs to N pages".
+    pages = f"{counts.page_count}" if counts.exact else f"about {counts.page_count}"
     try:
         stored = stored_gutter_cm(book)
     except ValueError as unreadable:
         return (
             f"This book's gutter margin cannot be read, so KDP's minimum for "
-            f"its {counts.page_count} interior pages cannot be checked: "
+            f"its {pages} interior pages cannot be checked: "
             f"{unreadable}. Set the margins again on Print setup."
         )
     try:
-        return gutter_refusal(counts.page_count, stored)
+        refusal = gutter_refusal(counts.page_count, stored)
     except KdpPageCountNotModelled as unmodelled:
         return str(unmodelled)
     except ValueError:
         return None
+    if refusal and not counts.exact:
+        refusal = refusal.replace(
+            f"runs to {counts.page_count} pages", f"runs to {pages} pages", 1
+        )
+    return refusal
 
 
 def create_app(debug=None):
@@ -4093,9 +4164,28 @@ def create_app(debug=None):
                     # whether it would then fit (G-1, G-2). The screen
                     # re-renders with the reason and the status unchanged, the
                     # same shape the plan gate's refusal takes below.
-                    refusal = _kdp_gutter_refusal(
-                        book, _interior_counts(book, members_in_order())
-                    )
+                    #
+                    # CARD-153 (AC-3): a book whose interior cannot be counted
+                    # at all is refused too — "no gutter objection" is not
+                    # "nothing to object to" when there is no page count.
+                    #
+                    # The plan gate (ADR-0035/R1) keeps its precedence: it is
+                    # asked first, read-only — the very check
+                    # ``set_book_status`` makes at the exit from draft, which
+                    # raises its refusal into the handler below exactly as
+                    # that call would — so this refusal never hides the
+                    # gate's (G-3).
+                    counts = _interior_counts(book, members_in_order())
+                    if counts is None:
+                        book_mgr._refuse_unless_the_planned_book(
+                            book_id,
+                            book.status,
+                            BookStatus.READY_FOR_PDF.value,
+                            list(book.puzzle_ids),
+                        )
+                        refusal = UNCOUNTABLE_INTERIOR_REFUSAL
+                    else:
+                        refusal = _kdp_gutter_refusal(book, counts)
                     if refusal:
                         flash(refusal, "error")
                     else:
@@ -4216,6 +4306,10 @@ def create_app(debug=None):
             # figure is the sheet-free upper bound, which the screen marks.
             "page_count": counts.page_count if counts else None,
             "page_count_exact": bool(counts and counts.exact),
+            # CARD-153 (AC-2): why the count above is approximate, when it
+            # is — the sheet builder's own reason — shown beside it with the
+            # remedy (Print setup).
+            "page_count_unreadable": counts.unreadable if counts else None,
             "unpaired_page_count": counts.unpaired_page_count if counts else None,
             "answer_page_count": counts.answer_page_count if counts else None,
             "pages_saved_by_pairing": (
