@@ -43,6 +43,7 @@ import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
+from itertools import combinations, product
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -70,7 +71,11 @@ def _plain(text: str) -> str:
 #   rejects the keyword;
 # * a URI with no database name falls back to a database named after the user,
 #   and a URI with no user to the login user ($PGUSER, else $USER here -- the
-#   harness pins both, so the developer's own name cannot decide a test).
+#   harness pins both, so the developer's own name cannot decide a test);
+# * a URI's ``?query`` carries connection keywords too (host, port, user,
+#   dbname, sslmode, ...), and each overrides the URI part it names -- the
+#   documented libpq URI semantics, cross-checked offline against libpq's own
+#   parser in CARD-151's review.
 #
 # Which databases "exist": every identifier-shaped name except STUB_MISSING_DB,
 # or -- when STUB_EXISTING_DBS is set -- only the names it lists.  No server has
@@ -80,12 +85,12 @@ def _plain(text: str) -> str:
 # and an independent second parser is what makes the cross-check worth having.
 # Besides the raw ``psql ...`` line it logs a ``connect ...`` line -- what this
 # psql would actually have connected to -- so a test can assert on the database,
-# host, port and credentials the check carried.
+# host, port, credentials and any query-given keyword the check carried.
 _PSQL_MODEL = r"""
 import os
 import re
 import sys
-from urllib.parse import unquote, urlsplit
+from urllib.parse import parse_qsl, unquote, urlsplit
 
 args = sys.argv[1:]
 log = open(os.environ["STUB_LOG"], "a")
@@ -119,6 +124,14 @@ if target.startswith(("postgresql://", "postgres://")):
     conn["host"] = u.hostname or conn["host"]
     conn["port"] = str(u.port) if u.port else conn["port"]
     conn["dbname"] = unquote(u.path[1:]) if u.path.startswith("/") else ""
+    # libpq reads connection keywords from the query too, and they override
+    # the URI's own parts: ``?host=`` names the server, ``?dbname=`` the
+    # database (CARD-151 review cycle 1, F-001).  An unknown key is an error.
+    for key, value in parse_qsl(u.query, keep_blank_values=True):
+        if key not in KEYWORDS:
+            sys.stderr.write('psql: error: invalid URI query parameter: "%s"\n' % key)
+            sys.exit(1)
+        conn[key] = value
 elif "=" in target:
     for token in target.split():
         key = token.split("=", 1)[0]
@@ -763,15 +776,203 @@ class TestStartAdminLocal_StillChecksTheTargetDatabase:
             assert "[2/6]" not in run.output
 
 
+class TestStartAdminLocal_CarriesTheUrlsQuery:
+    """The check carries the URL's ``?query``, and names the database it selects.
+
+    libpq takes connection keywords from the query as well, and they override
+    the URI's parts.  ``postgresql:///nonogram_dev?host=/var/run/postgresql``
+    names its server *only* there, so a check that dropped the query would test
+    localhost instead of the panel's server; and with ``?dbname=`` psql -- and
+    the panel's driver -- connect to that database, not the path's, so that is
+    the one the script must name (CARD-151 review cycle 1, F-001).
+    """
+
+    def test_a_server_named_only_in_the_query_is_the_one_checked(
+        self, tmp_path: Path
+    ) -> None:
+        url = "postgresql:///nonogram_dev?host=/var/run/postgresql"
+        run = run_script(tmp_path, "--check-only", database_url=url)
+
+        assert run.returncode == 0, run.output
+        assert connections(run) == [
+            {
+                "user": STUB_USER,
+                "password": "",
+                "host": "/var/run/postgresql",
+                "port": "",
+                "dbname": "nonogram_dev",
+            }
+        ], run.calls
+
+    def test_query_keywords_override_the_urls_parts_through_a_driver_url(
+        self, tmp_path: Path
+    ) -> None:
+        url = (
+            "postgresql+psycopg2://someone:secret@localhost:5432/nonogram_dev"
+            "?host=db.example&port=6543&sslmode=require"
+        )
+        run = run_script(tmp_path, "--check-only", database_url=url)
+
+        assert run.returncode == 0, run.output
+        assert connections(run) == [
+            {
+                "user": "someone",
+                "password": "secret",
+                "host": "db.example",
+                "port": "6543",
+                "dbname": "nonogram_dev",
+                "sslmode": "require",
+            }
+        ], run.calls
+
+    def test_a_dbname_in_the_query_is_the_database_named_and_checked(
+        self, tmp_path: Path
+    ) -> None:
+        url = "postgresql://someone@localhost:5432/nonogram_dev?dbname=nonogram_other"
+        run = run_script(tmp_path, "--check-only", database_url=url)
+
+        assert run.returncode == 0, run.output
+        assert [c["dbname"] for c in connections(run)] == ["nonogram_other"]
+        assert "database 'nonogram_other' reachable" in run.stdout, run.output
+
+        missing = run_script(
+            tmp_path / "missing",
+            "--check-only",
+            database_url=url,
+            missing_db="nonogram_other",
+        )
+        assert missing.returncode != 0, missing.output
+        assert "Database 'nonogram_other' is not reachable" in missing.stdout
+        assert "'nonogram_dev'" not in missing.stdout, missing.output
+
+    def test_a_url_naming_its_database_only_in_the_query_is_accepted(
+        self, tmp_path: Path
+    ) -> None:
+        url = "postgresql://someone@localhost:5432?dbname=nonogram_dev"
+        run = run_script(tmp_path, "--check-only", database_url=url)
+
+        assert run.returncode == 0, run.output
+        assert [c["dbname"] for c in connections(run)] == ["nonogram_dev"]
+        assert "database 'nonogram_dev' reachable" in run.stdout
+
+    def test_an_empty_dbname_in_the_query_still_names_no_database(
+        self, tmp_path: Path
+    ) -> None:
+        # The second URL is the one that matters (CARD-151 review cycle 2,
+        # F-006): its path names nonogram_dev, but libpq lets the empty
+        # ``?dbname=`` override it and then connects to the database named
+        # after the user.  With only the first URL, whose path is already
+        # empty, "an empty value overrides the path" and "an empty value is
+        # ignored" both refuse -- and the second reading, given this URL,
+        # printed a green tick for nonogram_dev while psql checked ``someone``.
+        # nonogram_dev is absent and ``someone`` present, so that is the
+        # outcome a regression would produce.
+        for i, url in enumerate(
+            (
+                "postgresql://someone@localhost:5432/?dbname=",
+                "postgresql://someone@localhost:5432/nonogram_dev?dbname=",
+            )
+        ):
+            run = run_script(
+                tmp_path / str(i),
+                "--check-only",
+                database_url=url,
+                existing_dbs=["someone", STUB_USER],
+            )
+            _refused_naming_no_database(run)
+            assert connections(run) == [], (url, run.calls)
+
+    def test_the_last_dbname_in_the_query_wins(self, tmp_path: Path) -> None:
+        # libpq keeps the last of a repeated keyword (F-008).  Only the last
+        # database exists, so a script that took the first would both name
+        # the wrong database and be checked against the right one.
+        url = (
+            "postgresql://someone@localhost:5432/nonogram_dev"
+            "?dbname=nonogram_first&dbname=nonogram_other"
+        )
+        run = run_script(
+            tmp_path, "--check-only", database_url=url, existing_dbs=["nonogram_other"]
+        )
+
+        assert run.returncode == 0, run.output
+        assert [c["dbname"] for c in connections(run)] == ["nonogram_other"]
+        assert "database 'nonogram_other' reachable" in run.stdout, run.output
+        assert "nonogram_first" not in run.stdout.replace(url, ""), run.output
+
+
+class TestStartAdminLocal_RefusesAValueThatIsNotAUrl:
+    """A DATABASE_URL with no ``://`` is refused under its own message (F-004).
+
+    Sliced as a URL it used to give psql a target that was neither the value
+    nor anything else, or be refused as "naming no database" -- the wrong
+    reason.  The panel cannot use such a value either.
+    """
+
+    VALUES = (
+        "nonogram_dev",
+        "localhost/nonogram_dev",
+        "host=/tmp dbname=nonogram_dev",
+    )
+
+    def test_each_is_refused_before_any_psql_runs(self, tmp_path: Path) -> None:
+        for i, value in enumerate(self.VALUES):
+            run = run_script(tmp_path / str(i), "--check-only", database_url=value)
+
+            assert run.returncode != 0, (value, run.output)
+            assert "DATABASE_URL is not a URL" in run.stdout, (value, run.output)
+            assert f"DATABASE_URL={value} (exported by the caller)" in run.stdout
+            assert "does not create a database" in run.stdout
+            assert "✓ PostgreSQL is running" not in run.output, run.output
+            assert run.called("psql") == [], (value, run.calls)
+            assert "[2/6]" not in run.output, run.output
+
+
+# The pairwise array below comes to 20 rows for these parts; a floor at that
+# count keeps the corpus from silently shrinking.
+MIN_CORPUS_CASES = 20
+
+
+def _all_pairs(dimensions: list[tuple]) -> list[tuple]:
+    """A greedy pairwise covering array over ``dimensions``.
+
+    Rows are drawn from the full product until every pair of values of every
+    two dimensions appears in some row.  Deterministic: ``max`` keeps the first
+    best row, and the product is enumerated in a fixed order.
+    """
+    indices = [range(len(d)) for d in dimensions]
+
+    def pairs(row: tuple[int, ...]) -> set:
+        return {
+            ((i, row[i]), (j, row[j]))
+            for i, j in combinations(range(len(row)), 2)
+        }
+
+    uncovered = set().union(*(pairs(r) for r in product(*indices)))
+    candidates = list(product(*indices))
+    rows: list[tuple[int, ...]] = []
+    while uncovered:
+        best = max(candidates, key=lambda r: len(pairs(r) & uncovered))
+        rows.append(best)
+        uncovered -= pairs(best)
+    return [tuple(d[k] for d, k in zip(dimensions, row)) for row in rows]
+
+
 def test_the_decision_over_an_enumerated_corpus_of_url_shapes(
     tmp_path: Path,
 ) -> None:
     """Every URL shape: refuse when it names no database, else check exactly it.
 
     The URLs are assembled here from parts, so the expected database, host,
-    port and credentials are the parts themselves -- not something re-derived
-    with the script's own slicing -- and what psql would have connected to is
-    the psql model's independent reading.
+    port, credentials and query keywords are the parts themselves -- not
+    something re-derived with the script's own slicing -- and what psql would
+    have connected to is the psql model's independent reading.
+
+    The shapes are a pairwise covering array, not the full product: every
+    value of every part meets every value of every other part at least once.
+    The parts are independent in the derivation, so the full product (180
+    cases, ~65s) bought nothing the pairs do not (CARD-151 review cycle 1,
+    F-002); the pairs still include a path with a query, a URL with no path,
+    and a query that names the server or the database.
     """
     schemes = (
         "postgresql",
@@ -783,53 +984,77 @@ def test_the_decision_over_an_enumerated_corpus_of_url_shapes(
     credentials = (("", ""), ("someone", ""), ("someone", "s3cret"))
     ports = ("", "6543")
     paths = ("/nonogram_dev", "/", "")
-    queries = ("", "?sslmode=require")
+    # Each query with the libpq keywords it sets, written out by hand.
+    queries = (
+        ("", {}),
+        ("?sslmode=require", {"sslmode": "require"}),
+        ("?host=other.example&port=7654", {"host": "other.example", "port": "7654"}),
+        ("?dbname=nonogram_other&user=qowner", {"dbname": "nonogram_other", "user": "qowner"}),
+    )
+    dimensions = [schemes, credentials, ports, paths, queries]
+    shapes = _all_pairs(dimensions)
+
+    # Guard on the generator: every pair of part values really is in a row.
+    covered = {
+        (i, a, j, b)
+        for shape in shapes
+        for i, j in combinations(range(len(dimensions)), 2)
+        for a, b in [(dimensions[i].index(shape[i]), dimensions[j].index(shape[j]))]
+    }
+    wanted = {
+        (i, a, j, b)
+        for i, j in combinations(range(len(dimensions)), 2)
+        for a in range(len(dimensions[i]))
+        for b in range(len(dimensions[j]))
+    }
+    assert covered == wanted, sorted(wanted - covered)
 
     cases = 0
     failures: list[str] = []
-    for scheme in schemes:
-        for user, password in credentials:
-            for port in ports:
-                for path in paths:
-                    for query in queries:
-                        userinfo = (
-                            f"{user}:{password}@" if password
-                            else f"{user}@" if user
-                            else ""
-                        )
-                        hostport = f"db.example:{port}" if port else "db.example"
-                        url = f"{scheme}://{userinfo}{hostport}{path}{query}"
-                        dbname = path[1:]
-                        run = run_script(
-                            tmp_path / f"case{cases}",
-                            "--check-only",
-                            "--no-migrate",
-                            database_url=url,
-                        )
-                        cases += 1
-                        if not dbname:
-                            if (
-                                run.returncode == 0
-                                or "names no database" not in run.stdout
-                                or "✓ PostgreSQL is running" in run.output
-                                or run.called("psql")
-                            ):
-                                failures.append(f"{url}: not refused\n{run.output}")
-                            continue
-                        expected = {
-                            "user": user or STUB_USER,
-                            "password": password,
-                            "host": "db.example",
-                            "port": port,
-                            "dbname": dbname,
-                        }
-                        if run.returncode != 0 or connections(run) != [expected]:
-                            failures.append(
-                                f"{url}: expected a check of {expected},"
-                                f" got {connections(run)}\n{run.output}"
-                            )
+    for scheme, (user, password), port, path, (query, keywords) in shapes:
+        userinfo = (
+            f"{user}:{password}@" if password
+            else f"{user}@" if user
+            else ""
+        )
+        hostport = f"db.example:{port}" if port else "db.example"
+        url = f"{scheme}://{userinfo}{hostport}{path}{query}"
+        expected = {
+            "user": user,
+            "password": password,
+            "host": "db.example",
+            "port": port,
+            "dbname": path[1:],
+            **keywords,
+        }
+        expected["user"] = expected["user"] or STUB_USER
+        run = run_script(
+            tmp_path / f"case{cases}",
+            "--check-only",
+            "--no-migrate",
+            database_url=url,
+        )
+        cases += 1
+        if not expected["dbname"]:
+            if (
+                run.returncode == 0
+                or "names no database" not in run.stdout
+                or "✓ PostgreSQL is running" in run.output
+                or run.called("psql")
+            ):
+                failures.append(f"{url}: not refused\n{run.output}")
+            continue
+        if (
+            run.returncode != 0
+            or connections(run) != [expected]
+            or f"database '{expected['dbname']}' reachable" not in run.stdout
+        ):
+            failures.append(
+                f"{url}: expected a check of {expected},"
+                f" got {connections(run)}\n{run.output}"
+            )
 
-    assert cases >= 180, f"the corpus shrank to {cases} cases"
+    assert cases >= MIN_CORPUS_CASES, f"the corpus shrank to {cases} cases"
     assert not failures, f"{len(failures)} of {cases} cases wrong:\n" + "\n".join(
         failures[:5]
     )

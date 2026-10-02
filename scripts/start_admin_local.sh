@@ -33,15 +33,27 @@ else
     DATABASE_URL_SOURCE="project default"
 fi
 # The database name, for the psql checks and for the message when they fail:
-# whatever follows the host, up to any ?query. It is empty when the URL names no
-# database (a trailing slash, or no path at all) -- step [1/6] refuses that
-# rather than let psql substitute a database named after the user (CARD-151).
+# whatever follows the host, up to any ?query -- unless the query names one
+# itself. A ?dbname= overrides the path, for libpq and for the panel's driver
+# alike, so that is the database psql connects to and the one named here (the
+# last one wins, as in libpq). The name is empty when the URL names no database
+# (a trailing slash, or no path at all, and no ?dbname=) -- step [1/6] refuses
+# that rather than let psql substitute a database named after the user
+# (CARD-151).
 DB_PATH="${DATABASE_URL#*://}"
+DB_QUERY=""
+if [[ "$DB_PATH" == *\?* ]]; then
+    DB_QUERY="${DB_PATH#*\?}"
+fi
 DB_PATH="${DB_PATH%%\?*}"
 if [[ "$DB_PATH" == */* ]]; then
     DB_NAME="${DB_PATH#*/}"
 else
     DB_NAME=""
+fi
+DBNAME_IN_QUERY='.*&dbname=([^&]*)'
+if [[ "&$DB_QUERY" =~ $DBNAME_IN_QUERY ]]; then
+    DB_NAME="${BASH_REMATCH[1]}"
 fi
 # The URL as psql is handed it. psql parses only postgresql:// and postgres://;
 # a driver-qualified postgresql+psycopg2:// -- what normalized_url builds for the
@@ -134,10 +146,20 @@ echo -e "${GREEN}✓ PostgreSQL found${NC}"
 # A URL that names no database is refused before any psql runs: given one, psql
 # connects to a database named after the user instead, and where that exists
 # the check used to print a green tick naming no database at all (CARD-151).
+# A value that is not a URL at all is refused first, under its own message:
+# the panel cannot use one either, and sliced as a URL it yields a psql target
+# that is neither the value nor anything else (CARD-151, review cycle 1).
+if [[ "$DATABASE_URL" != *://* ]]; then
+    echo -e "${RED}✗ DATABASE_URL is not a URL${NC}"
+    echo "  DATABASE_URL=$DATABASE_URL ($DATABASE_URL_SOURCE)"
+    echo "  Give it as a URL, e.g. postgresql://postgres@localhost:5432/nonogram_dev"
+    echo "  This script does not create a database."
+    exit 1
+fi
 if [ -z "$DB_NAME" ]; then
     echo -e "${RED}✗ DATABASE_URL names no database${NC}"
     echo "  DATABASE_URL=$DATABASE_URL ($DATABASE_URL_SOURCE)"
-    echo "  Put the database's name after the host, e.g. .../nonogram_dev"
+    echo "  Put the database's name after the host, e.g. .../nonogram_dev (or ?dbname=...)"
     echo "  See which databases you have with: psql -l"
     echo "  This script does not create a database."
     exit 1
