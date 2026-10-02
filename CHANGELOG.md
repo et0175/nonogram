@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-02
+- CARD-155 (tech-debt): A puzzle's difficulty tier now comes from exactly one place. An old prototype scorer still had its own easy/medium/hard rule built on different numbers. Nothing used it yet, but one import would have given the panel a second, disagreeing opinion of how hard a puzzle is, and the test meant to prevent that couldn't see it. The prototype now returns only its score, and the test fails on any tier assigned outside the one classifier. No stored puzzle's tier changes.
 - CARD-151 (bug): The local start script now accepts the database address the panel itself uses. An address naming its driver (`postgresql+psycopg2://…`, which is what the panel builds) used to be reported as an unreachable database, because the check handed it to `psql` as-is and `psql` read the whole thing as a database name. The check now strips only the driver, so the host, port, login and any `?dbname=` still reach it. An address that names no database at all is refused and named as a configuration mistake. It used to fall through to whatever database happened to share your user name, and could show a green tick for a database it never checked.
 
 ## 2026-10-01

@@ -37,6 +37,8 @@ card names its card._
 - [ ] CARD-135 F-008: `export_book`'s docstring still claims every route goes through it. Site: `book_pdf_generator.py`   @tech-debt
 - [ ] CARD-134: `answer_page_number()` in `tests/test_book_pdf_band.py` still encodes one-answer-page-per-puzzle in its name (correct at both remaining call sites)   @tech-debt
 - [ ] Image-mode difficulty sweep: re-run `scripts/measure_difficulty_cutoff.py` over image-derived puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt
+- [ ] CARD-155 out of scope: `meta/architecture/requirements.yml:1834` enum_note still says `difficulty.Tier` has "four members"; older ADR-0025 narrative remains in `tests/test_difficulty_tiers.py` around lines 148-204   @tech-debt
+- [ ] CARD-155 F-005 (minor): the docstring regression test's regex catches only uppercase `GUESS` and the phrase "or Guess"   @tech-debt
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops

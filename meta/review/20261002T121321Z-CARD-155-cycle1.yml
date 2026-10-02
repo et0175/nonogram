@@ -1,0 +1,177 @@
+version: 1
+generated_at: "2026-10-02T12:13:21Z"
+target: "card/155-one-difficulty-classifier (main...HEAD, 3ca551a)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff main...HEAD (5 files)"
+    - "src/nonogram/difficulty.py (docstrings, __all__, cutoffs, classify)"
+    - "src/nonogram/analysis/strategy_counter.py, src/nonogram/analysis/__init__.py"
+    - "src/nonogram/__init__.py package docstring"
+    - "tests/test_difficulty_tiers.py guard section (440-680)"
+    - "tests/test_strategy_counter.py"
+    - "docs/REQUIREMENTS/DIFFICULTY_ENGINE.md header + tier table"
+  not_reached:
+    - "full suite run (orchestrator ran it: 5555 passed, 2 known baseline failures)"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 182, removed: 85 }
+  max_fan_in: { symbol: "nonogram.analysis.calculate_difficulty_from_strategies", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — the prescribed `git log --name-only -- <files>` pathspec filters output to the touched files themselves, so peers outside the pathspec are not listed"
+    max_fan_in: "no_eligible_fact — the one production reference is the analysis/__init__ re-export; zero shipping-path callers (prototype per CARD-053); test callers: tests/test_strategy_counter.py (8 call sites)"
+system_contract:
+  rules_checked: 42
+  holds: 9
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff touches no pyproject/dependency declaration; strategy_counter.py only drops `Tuple` from its stdlib typing import"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature or field touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair/orchestrator untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: RetryCounter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: validate_density untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict or density doc claim touched"
+    - "ADR-0029/R1 ✓ holds — difficulty.py diff is docstring-only (git diff main...HEAD -- src/nonogram/difficulty.py: 2 hunks, both inside the module docstring); score_difficulty untouched"
+    - "ADR-0029/R2 ✓ holds — no second derivation added: the prototype now returns a score only and has no tier; tier derivation stays in difficulty.classify"
+    - "ADR-0029/R3 ✓ holds — no clock/size/density term introduced; scoring code untouched; PropertyTest_ScoreDifficulty_IndependentOfElapsedTime (tests/property/test_difficulty_ladder.py) unaffected"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver package untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0031/R1 ✓ holds — Tier still has 3 members (difficulty.py:274-276), classify(score) single-arg (difficulty.py:462); the prototype's second 30/70 mapping removed (strategy_counter.py:138); guard test_no_module_but_difficulty_classifies_a_tier green, and on main's strategy_counter.py the extended checker reports lines 139/141/143; TestTiers_ThreeBandsAndNoFourthTier green (targeted run: 170 passed)"
+    - "ADR-0031/R2 ✓ holds — code unchanged, TestTiers_BranchingIsAStrategyNotATier green; note F-001: difficulty.py:227-228 prose still says a branched solve 'is Tier.GUESS' (doc drift, not a behavioural violation)"
+    - "ADR-0031/R3 ✓ holds — _RETIRED_GUESS_TIER/legacy read path untouched; TestTiers_LegacyGuessRowReadsAsHard green"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book page band untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: PageSpec strokes untouched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: image aspect handling untouched"
+    - "CON-014 ✓ holds — no clock reading introduced in strategy_counter.py or difficulty.py (diff adds no time/elapsed reference)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership floor untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book membership untouched"
+    - "INV-009 ✓ holds — tier values/classify untouched, so no stored puzzle's tier (which drives book grouping) can move; G-1 checked via difficulty.py diff being docstring-only"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: page pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership/status untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+root_causes:
+  - id: RC-1
+    title: "Retired GUESS tier still described as live in difficulty.py prose outside the removed section"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/difficulty.py
+    line: 379
+    title: "Stale Tier.GUESS claims survive in difficulty.py after the 'fourth tier' section was removed"
+    description: |
+      Objective 3 targets stale fourth-tier documentation in difficulty.py. The module-docstring section
+      was removed, but three present-tense claims about the retired tier remain in the same file:
+      :379 (SolverSignals.branch_nodes docstring) "classify answers Tier.GUESS on that fact alone,
+      whatever the score" — classify takes one argument (:462) and Tier has no GUESS (:274-276);
+      :227-228 "A solve that branched is Tier.GUESS by ADR-0025" — contradicts ADR-0031/R2;
+      :243 Tier docstring summary "Easy, Medium, Hard or Guess" — contradicted by the same docstring's
+      next paragraphs. Same defect class as the classify(score, branch_nodes) example this card removed.
+      The diff's new prose (difficulty.py:111-116) asserts the file is the one classifier, while these
+      lines document a behaviour that does not exist.
+    suggestion: |
+      :379 → "> 0 means the search really had to branch; reported as the guess strategy (ADR-0031/R2), never a tier".
+      :227-228 → "A solve that branched is reported as the guess strategy (ADR-0031/R2) and is not graded on this ladder".
+      :243 → "Easy, Medium or Hard".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "fix cycle 1 (uncommitted): src/nonogram/difficulty.py docstrings/comments (RUNG comment, Tier, Tier.label, SolverSignals.branch_nodes, parse_tier Raises, EC-015 mention) + tests/test_difficulty_tiers.py::test_the_classifier_module_describes_the_guess_tier_only_as_retired"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_difficulty_tiers.py
+    line: 463
+    title: "Tier-name rule misses Tier-member bindings, tuple returns, yield, lambda and walrus"
+    description: |
+      _is_tier_name only matches Constant / IfExp on Assign/AnnAssign/AugAssign/Return. Probed:
+      `if s < 30: return Tier.EASY`, `return s, "Easy"`, `yield "easy"`, `lambda s: "easy" if s<30 else "hard"`,
+      `(t := "easy")` all yield no offence. The card asked for a narrow string rule and the docstring names the
+      dict-table gap honestly; the Tier.EASY shape is the most likely in-package second classifier though.
+    suggestion: |
+      Optional: also treat ast.Attribute whose attr in {EASY, MEDIUM, HARD} on a `Tier` value, recurse into
+      ast.Tuple elements, and include ast.Yield / ast.Lambda body / ast.NamedExpr. Or note these in the boundary paragraph.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "fix cycle 1 (uncommitted): tests/test_difficulty_tiers.py _is_tier_name/_is_tier_member + Yield/YieldFrom/NamedExpr/Lambda; boundary paragraph lists remaining gaps"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: docs/REQUIREMENTS/DIFFICULTY_ENGINE.md
+    line: 9
+    title: "Superseded-doc header states Medium band 33–66; shipped MEDIUM_MAX_SCORE is 90.0"
+    description: |
+      Header says "Tiers are Easy 0–33, Medium 33–66, Hard 66–100"; difficulty.py:221 MEDIUM_MAX_SCORE = 90.0.
+      The card edited this doc but left the header. The tier table at :131-137 also still presents tiers as the
+      prototype's output, which since CARD-155 it no longer produces.
+    suggestion: |
+      Point the header at difficulty.TIER_BANDS instead of restating numbers, and annotate the :131 table as the
+      historical design (the prototype now returns a score only).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "fix cycle 1 (uncommitted): docs/REQUIREMENTS/DIFFICULTY_ENGINE.md header -> difficulty.TIER_BANDS; tier table marked historical"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_difficulty_tiers.py
+    line: 534
+    title: "Guard test docstring and failure message cite retired ADR-0025/R2, not ADR-0031/R1"
+    description: |
+      test_no_module_but_difficulty_classifies_a_tier still explains itself via ADR-0025's branching-tier argument and
+      its assertion message reads "ADR-0025/R2 violation". The rule it now enforces is ADR-0031/R1; a failing run will
+      point a reader at a superseded decision.
+    suggestion: |
+      Re-cite ADR-0031/R1 in the docstring and assertion message.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "fix cycle 1 (uncommitted): tests/test_difficulty_tiers.py guard docstring, assertion message, section header and comments re-cite ADR-0031/R1"
+    dismissed_reason: null
+    learned_pattern: null

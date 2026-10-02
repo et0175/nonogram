@@ -1,0 +1,122 @@
+version: 1
+generated_at: "2026-10-02T12:32:41Z"
+target: "card/155-one-difficulty-classifier (main...HEAD 3ca551a + uncommitted fix delta: docs/REQUIREMENTS/DIFFICULTY_ENGINE.md, src/nonogram/difficulty.py, tests/test_difficulty_tiers.py) — confirmation mode, cycle 2"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff HEAD -- src tests docs (fix delta, 3 files, +124/-38)"
+    - "src/nonogram/difficulty.py (module docstring, RUNG comment, Tier, label, SolverSignals, classify, _RETIRED_GUESS_TIER, tier_of_record, parse_tier)"
+    - "tests/test_difficulty_tiers.py guard section (440-760) incl. new docstring regression test"
+    - "docs/REQUIREMENTS/DIFFICULTY_ENGINE.md header + tier table + tier mentions"
+    - "src/nonogram/analysis/strategy_counter.py calculate_difficulty_from_strategies (mutation target)"
+    - "grep of src/nonogram/** for Tier.EASY/MEDIUM/HARD and tier-string bindings outside difficulty.py (false-positive hunt)"
+    - "meta/architecture/requirements.yml EC-015 retirement note (:1608)"
+  not_reached:
+    - "full suite run (orchestrator ran it after the fix: 5562 passed, 2 known pre-existing baseline failures)"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 124, removed: 38 }
+  max_fan_in: { symbol: "tests/test_difficulty_tiers.py::_is_tier_name", callers: 2 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — confirmation mode: the fix delta is the three files the cycle-1 findings named; co-change mining not re-run"
+    hotspots: "not_applicable — churn/defect-density not re-mined in confirmation mode (cycle 1 reported none)"
+mutation_check:
+  ran: true
+  mutants: 8
+  killed: 8
+  survived: 0
+  results:
+    - "M1 guard: drop Lambda branch — KILLED (test_the_rule_catches_each_tier_deciding_shape[lambda])"
+    - "M2 guard: invert vocabulary-tuple exemption (any and not all -> any) — KILLED (test_no_module_but_difficulty_classifies_a_tier: admin/book_plan.py TIERS)"
+    - "M3 guard: drop Tier-member recognition — KILLED (catches_each_tier_deciding_shape[return Tier.EASY])"
+    - "M4 guard: drop NamedExpr — KILLED (catches_each_tier_deciding_shape[:=])"
+    - "M5 docstring test: restore HEAD's pre-fix difficulty.py prose — KILLED (all three F-001 paragraphs reported)"
+    - "M6 docstring test: re-insert 'Easy, Medium, Hard or Guess' — KILLED"
+    - "M7 calculate_difficulty_from_strategies return +1 — KILLED (test_strategy_counter::test_empty_counter_scores_zero)"
+    - "M8 calculate_difficulty_from_strategies returns (score, 'Easy') — KILLED (test_no_module_but_difficulty_classifies_a_tier)"
+  restore: "each file restored from a pre-mutation copy and sha1-verified; final `git diff` byte-identical to pre-mutation capture; `git diff --stat` unchanged"
+system_contract:
+  rules_checked: 42
+  holds: 9
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — fix delta adds only `import re` (stdlib) to a test file; no pyproject/dependency change (git diff HEAD --stat)"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature or field touched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair/orchestrator untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: RetryCounter untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: validate_density untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict or density doc claim touched — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R1 ✓ holds — re-verified: difficulty.py AST with docstrings blanked is identical to main's (scripted ast.dump compare = True); score_difficulty unchanged"
+    - "ADR-0029/R2 ✓ holds — re-verified: no code change in difficulty.py (AST-identical to main); prototype returns score only (strategy_counter.py:137), tier derivation only in classify"
+    - "ADR-0029/R3 ✓ holds — re-verified: delta is docstring/comment + test only; no clock/size/density term; scoring code AST-identical to main"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver package untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: re-checked — delta touches difficulty.py prose only; no rung-attribution code"
+    - "ADR-0031/R1 ✓ holds — re-verified: Tier has 3 members, classify(score) single-arg (difficulty.py:463-503); test_no_module_but_difficulty_classifies_a_tier green with widened rule (targeted run exit 0); mutants M2/M8 killed by it; stale GUESS prose removed (F-001)"
+    - "ADR-0031/R2 ✓ holds — re-verified: branch_nodes/RUNG docstrings now state guess is a strategy never a tier (difficulty.py:227-229, 380-383); code unchanged"
+    - "ADR-0031/R3 ✓ holds — re-verified: _RETIRED_GUESS_TIER and tier_of_record legacy branch unchanged (AST-identical); TestTiers legacy-guess test in targeted run green"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: layout untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: layout untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book page band untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: PageSpec strokes untouched — carried(cycle 1, delta-clean)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched — carried(cycle 1, delta-clean)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 1, delta-clean)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 1, delta-clean)"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched — carried(cycle 1, delta-clean)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: image aspect handling untouched — carried(cycle 1, delta-clean)"
+    - "CON-014 ✓ holds — re-verified: no clock reading added (delta adds `re` import in a test and prose only); difficulty.py AST-identical to main"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched — carried(cycle 1, delta-clean)"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched — carried(cycle 1, delta-clean)"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched — carried(cycle 1, delta-clean)"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched — carried(cycle 1, delta-clean)"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership floor untouched — carried(cycle 1, delta-clean)"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched — carried(cycle 1, delta-clean)"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book membership untouched — carried(cycle 1, delta-clean)"
+    - "INV-009 ✓ holds — re-verified: classify/cutoffs/Tier values AST-identical to main, so no stored puzzle's tier (book grouping key) can move"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: page pairing untouched — carried(cycle 1, delta-clean)"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched — carried(cycle 1, delta-clean)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership/status untouched — carried(cycle 1, delta-clean)"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched — carried(cycle 1, delta-clean)"
+previous_findings:
+  F-001: "resolved — difficulty.py:227-229, :244, :283-285, :366-369, :380-383, :577-579 reworded; no live GUESS claim remains (grep); regression test added and kills the pre-fix prose (M5)"
+  F-002: "resolved — Tier members, mixed tuples, Yield/YieldFrom/NamedExpr/Lambda covered; remaining gaps listed in the boundary paragraph; no false positives over src/nonogram/** (guard green; near-miss grep clean)"
+  F-003: "resolved — header points at difficulty.TIER_BANDS; tier table marked historical"
+  F-004: "resolved — guard header, docstrings, assertion message re-cite ADR-0031/R1"
+root_causes: []
+findings:
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_difficulty_tiers.py
+    line: 746
+    title: "Docstring regression test only recognises the uppercase GUESS token and the phrase 'or Guess'"
+    description: |
+      test_the_classifier_module_describes_the_guess_tier_only_as_retired matches
+      `(?<![_A-Z])GUESS\b|\bor Guess\b`. A live claim phrased in lowercase or title case without "or"
+      ("a branching solve is the ``guess`` tier", "Easy, Medium, Hard, Guess") passes, and any paragraph
+      containing the substring "retir" anywhere (including the identifier `_RETIRED_GUESS_TIER`) is exempt.
+      It does catch all three cycle-1 claims (mutant M5 killed), so this is a narrowness note, not a defect.
+    suggestion: |
+      Optionally add `\bguess\W{0,4}\s+tier\b` (case-insensitive) to the pattern, or note the narrowness in the docstring.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
