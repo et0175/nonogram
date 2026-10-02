@@ -41,6 +41,11 @@ from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 
+# These four are private names of tests/test_start_admin_local.py, which this
+# card must leave unmodified (CARD-152 Touches). Renaming or moving any of them
+# there breaks tests/test_setup_admin_local.py and tests/test_run_admin_tests.py
+# with an ImportError -- move them here, or to their own tests/helpers/ module,
+# when that file is next open.
 from tests.test_start_admin_local import (
     _DOCKER_STUB,
     _PSQL_MODEL,
@@ -119,8 +124,15 @@ def run_script(
     alembic_fails: bool = False,
     alembic_message: str = "",
     pytest_fails: bool = False,
+    without_psql: bool = False,
 ) -> Run:
-    """Run the real ``scripts/<script_name>`` in a throwaway root, tools stubbed."""
+    """Run the real ``scripts/<script_name>`` in a throwaway root, tools stubbed.
+
+    ``without_psql`` leaves psql off ``PATH`` altogether: no stub is written,
+    and the developer's ``PATH`` (which may hold a real psql) is replaced by the
+    stub directory plus a directory of links to the few programs the scripts
+    need before their psql lookup -- ``dirname`` and ``python3``.
+    """
     root = tmp_path / "project"
     (root / "scripts").mkdir(parents=True)
     script = root / "scripts" / script_name
@@ -139,8 +151,9 @@ def run_script(
         "#!/bin/bash\n"
         f"exec {shlex.quote(sys.executable)} {shlex.quote(str(model))} \"$@\"\n"
     )
+    stubs = [] if without_psql else [("psql", psql_shim)]
     for name, body in (
-        ("psql", psql_shim),
+        *stubs,
         ("docker", _DOCKER_STUB),
         ("docker-compose", _DOCKER_STUB),
         ("alembic", _ALEMBIC_STUB),
@@ -158,7 +171,16 @@ def run_script(
         for k, v in os.environ.items()
         if k not in ("DATABASE_URL", "VIRTUAL_ENV") and not k.startswith("PG")
     }
-    env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
+    if without_psql:
+        tools = tmp_path / "tools"
+        tools.mkdir()
+        for program in ("dirname", "python3"):
+            found = shutil.which(program)
+            assert found, f"{program} is needed to run the script"
+            (tools / program).symlink_to(found)
+        env["PATH"] = f"{bin_dir}{os.pathsep}{tools}"
+    else:
+        env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
     env["STUB_LOG"] = str(log)
     env["USER"] = env["LOGNAME"] = STUB_USER
     if existing_dbs is not None:
@@ -173,8 +195,10 @@ def run_script(
     if database_url is not None:
         env["DATABASE_URL"] = database_url
 
+    bash = shutil.which("bash")
+    assert bash, "bash is needed to run the script"
     completed = subprocess.run(
-        ["bash", str(script), *args],
+        [bash, str(script), *args],
         cwd=str(tmp_path),
         env=env,
         capture_output=True,

@@ -61,6 +61,9 @@ class TestRunAdminTests_KeepsItsArguments:
                      "--verbose", "--coverage", "DATABASE_URL"):
             assert word in run.stdout, word
         assert "nonogram_poc" in run.stdout  # it names the default it falls back to
+        # Every test type -- unit and smoke too -- now checks the database first
+        # (CARD-152 review F-003); --help says so.
+        assert "Every test type, unit and" in run.stdout, run.stdout
         assert run.called("psql") == [] and run.called("pytest") == [], run.calls
 
     def test_an_unknown_option_is_refused_without_a_database(
@@ -98,3 +101,24 @@ class TestRunAdminTests_KeepsItsArguments:
 
         assert run.returncode != 0, run.output
         assert "Tests completed!" not in run.stdout
+
+
+class TestRunAdminTests_NeedsPsqlForEveryTestType:
+    """Review F-003: the check runs for every test type, so psql is required."""
+
+    def test_without_psql_it_stops_before_any_test(self, tmp_path: Path) -> None:
+        # Catches: dropping the ``command -v psql`` guard (under ``set -e`` the
+        # Docker branches would fail and the script would blame the database),
+        # or exempting unit/smoke from the check.
+        for i, test_type in enumerate(("unit", "smoke", "all")):
+            run = run_script(SCRIPT, tmp_path / str(i), test_type, without_psql=True)
+
+            assert run.returncode == 1, (test_type, run.output)
+            assert "psql (PostgreSQL) not found" in run.stdout, (test_type, run.output)
+            assert "Running:" not in run.stdout, (test_type, run.output)
+            assert "Tests completed!" not in run.stdout, (test_type, run.output)
+            assert run.called("pytest") == [], (test_type, run.calls)
+            assert run.called("docker") == [] and run.called("docker-compose") == [], (
+                test_type,
+                run.calls,
+            )

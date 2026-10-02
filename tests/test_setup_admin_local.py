@@ -14,6 +14,7 @@ from pathlib import Path
 
 from tests.helpers.admin_scripts import (
     README,
+    SCRIPTS,
     DatabaseCheckContract,
     ExportedDatabaseUrlContract,
     connections,
@@ -125,3 +126,31 @@ def test_the_readme_no_longer_says_the_siblings_ignore_an_exported_url() -> None
     assert "wins" in prerequisites, prerequisites
     for name in ("start_admin_local.sh", SCRIPT, "run_admin_tests.sh"):
         assert name in prerequisites, f"{name} missing from Prerequisites"
+
+
+def _resolution_block(script: str) -> list[str]:
+    """The DATABASE_URL resolution of ``scripts/<script>``, comments dropped.
+
+    From the ``DEFAULT_DATABASE_URL=`` line through the last ``PSQL_URL=`` line.
+    """
+    lines = (SCRIPTS / script).read_text().splitlines()
+    starts = [i for i, line in enumerate(lines) if line.startswith("DEFAULT_DATABASE_URL=")]
+    ends = [i for i, line in enumerate(lines) if line.startswith("PSQL_URL=")]
+    assert len(starts) == 1, (script, starts)
+    assert ends and ends[-1] > starts[0], (script, ends)
+    return [
+        line
+        for line in lines[starts[0] : ends[-1] + 1]
+        if line.strip() and not line.strip().startswith("#")
+    ]
+
+
+def test_the_three_copies_of_the_url_resolution_are_identical() -> None:
+    # Review F-004: the block is copied, not sourced (start_admin_local.sh's own
+    # suite runs it alone in a throwaway root), so drift is caught here.
+    reference = _resolution_block("start_admin_local.sh")
+    assert len(reference) >= 20, reference  # the block, not a stray line
+    for script in (SCRIPT, "run_admin_tests.sh"):
+        assert _resolution_block(script) == reference, (
+            f"{script}'s DATABASE_URL resolution differs from start_admin_local.sh's"
+        )

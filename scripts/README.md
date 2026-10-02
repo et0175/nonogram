@@ -13,9 +13,16 @@ Quick scripts to set up and test the Nonogram Admin Panel locally.
   `run_admin_tests.sh` — a `DATABASE_URL` you exported yourself wins over that
   default, and each prints the URL it settled on and where it came from
   (`exported by the caller` or `project default`). Each checks that the
-  database it names is reachable — host, port, credentials and name, including a
-  driver-qualified `postgresql+psycopg2://` URL — and stops if it is not, or if
-  the URL names no database at all. **The scripts never create a database** —
+  database it names is reachable and stops if it is not, or if the URL names no
+  database at all. The check tries three ways in turn and the first that
+  answers wins: a `nonogram-postgres` Docker container, then a Docker Compose
+  `postgres` service, then your local `psql`. Only the local `psql` way checks
+  the URL's host, port and credentials (a driver-qualified
+  `postgresql+psycopg2://` URL included); the two Docker ways connect as
+  `postgres` inside the container and check only that a database of that
+  **name** exists there — so with such a container running, a URL aimed at
+  another server passes if the container happens to hold a database of the
+  same name. **The scripts never create a database** —
   which one you want is your call. `psql -l` lists the ones you have, and
   `createdb <name>` makes a new one if that is what you want.
 
@@ -76,9 +83,10 @@ After setup, start Flask manually:
 ```bash
 source .venv/bin/activate
 export FLASK_ENV=development
-# The same URL setup used: the project default below, or your own exported
-# DATABASE_URL. It must already exist — nothing here creates one.
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+# The same URL setup used: your own exported DATABASE_URL if you have one,
+# else the project default below. It must already exist — nothing here
+# creates one.
+export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/nonogram_poc}"
 # nonogram.admin.app, never src.nonogram.admin.app: the src.-prefixed spelling
 # loads the admin package a second time and the two copies disagree (CARD-139).
 python -m flask --app nonogram.admin.app run
@@ -102,8 +110,10 @@ Run tests by type: Wave 1, Wave 2, unit, E2E, smoke, integration.
 default; it says which before running anything. Once the arguments are parsed
 it checks that database is reachable and stops, running no test, if it is not
 or if the URL names no database — the suite's database-backed tests would
-otherwise skip and the run would come back green. `--help` and a mistyped
-option answer without a database.
+otherwise skip and the run would come back green. That holds for every test
+type, `unit` and `smoke` included: each needs `psql` installed and the
+database reachable before any test runs. `--help` and a mistyped option answer
+without a database.
 
 The suite itself refuses a database whose name does not contain `test`
 (`tests/database_guard.py`, CARD-109), so with the project default
@@ -184,11 +194,11 @@ If you prefer to run commands manually:
 # Activate venv
 source .venv/bin/activate
 
-# Set env vars. The URL below is the project default that
-# start_admin_local.sh falls back to; point it at your own database instead if
-# you have one. Either way the database must already exist.
+# Set env vars. A DATABASE_URL you already exported is kept; otherwise the
+# project default that start_admin_local.sh falls back to is used. Either way
+# the database must already exist.
 export FLASK_ENV=development
-export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/nonogram_poc}"
 
 # Run migrations
 alembic upgrade head
@@ -243,7 +253,9 @@ pip install -e '.[dev]'
 All three scripts stop at their database check naming the database they were
 asked to use (`start_admin_local.sh` at step `[1/6]`, `setup_admin_local.sh`
 under "Checking prerequisites", `run_admin_tests.sh` before running any test).
-Either PostgreSQL is not running, or that database does not exist:
+Either PostgreSQL is not running, that database does not exist, or — on the
+local `psql` way, the only one that reads them — the URL's host, port or
+credentials are wrong:
 
 ```bash
 psql -l                                  # which databases do I have?
