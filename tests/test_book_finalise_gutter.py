@@ -1186,3 +1186,134 @@ class TestFinaliseGutter_InexactRefusalSaysAbout:
             "(This book's interior page count is about 7, not exact.)"
         )
         assert _about("It runs to 7 pages.", 7) == "It runs to about 7 pages."
+
+
+# --------------------------------------------------------------------------
+# G-1's second half — the book is laid out on its stored gutter, and only once
+# --------------------------------------------------------------------------
+
+#: A gutter the sheet builder accepts (over its 0.635 cm side-margin floor)
+#: but KDP refuses at every page count: a refusal on an **exact** count, so the
+#: page plan really is built — the case a second layout at a raised gutter
+#: would be tempted to "fix".
+GUTTER_070 = "0.70"
+
+
+class _LayoutSpy:
+    """Every interior layout Finalise asks for, and the gutter it was asked on.
+
+    Replaces ``BookPDFGenerator`` **where the panel looks it up**
+    (``nonogram.admin.app``) with a subclass that records, before the real
+    code runs, the gutter column of the book each generator is built on and
+    the one each :meth:`interior_stream` lays out — read off the generator's
+    own ``book`` at that moment, so a copy of the book carrying another
+    gutter, or the stored one bumped for the call and put back, is caught
+    either way. ``_interior_counts`` is wrapped too, so "laid out once" is
+    asked per count rather than per request: a refused Save-and-finish counts
+    in the action and again in the re-render beneath it, both on the stored
+    gutter, and that is two counts, not a second layout of one.
+    """
+
+    def __init__(self, monkeypatch):
+        import nonogram.admin.app as app_module
+
+        self.built: list = []
+        self.laid_out: list = []
+        self.counts = 0
+        spy = self
+
+        class Spied(app_module.BookPDFGenerator):
+            def __init__(self, book=None):
+                spy.built.append(getattr(book, "gutter_margin_cm", None))
+                super().__init__(book)
+
+            def interior_stream(self, puzzles):
+                spy.laid_out.append(getattr(self.book, "gutter_margin_cm", None))
+                return super().interior_stream(puzzles)
+
+        original_counts = app_module._interior_counts
+
+        def counted(book, puzzles):
+            spy.counts += 1
+            return original_counts(book, puzzles)
+
+        monkeypatch.setattr(app_module, "BookPDFGenerator", Spied)
+        monkeypatch.setattr(app_module, "_interior_counts", counted)
+
+
+class TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter:
+    """G-1 (CARD-129's G-2): one layout per count, on the gutter the book stores.
+
+    The first half of G-1 — the stored gutter is never raised or rewritten —
+    is pinned by :class:`TestKdpGutterTable` and
+    :class:`TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount`. This
+    is the second half: Finalise never answers a refused gutter by laying the
+    book out again at a wider one, on the screen (GET) or on Save-and-finish
+    (POST), for a book whose spec can be laid out and for one whose cannot.
+    """
+
+    CASES = pytest.mark.parametrize(
+        "runs, gutter, sheet",
+        (
+            (SMALL_CORPUS, GUTTER_070, True),
+            (CK1_OVER_CORPUS, GUTTER_0375_IN, True),
+            (SMALL_CORPUS, GUTTER_060, False),
+        ),
+        ids=("refused-exact-small", "refused-exact-151-pages", "no-sheet-inexact"),
+    )
+
+    @staticmethod
+    def _assert_only_the_stored_gutter(spy, gutter, sheet) -> None:
+        assert spy.counts >= 1
+        # Every generator built, and every layout walked, on the stored value.
+        assert spy.built and set(spy.built) == {gutter}, spy.built
+        assert set(spy.laid_out) <= {gutter}, spy.laid_out
+        # One layout per count at most: never a second pass at another gutter.
+        assert len(spy.laid_out) <= spy.counts, (spy.laid_out, spy.counts)
+        if sheet:
+            assert len(spy.laid_out) == spy.counts
+        else:
+            # No sheet, no layout at all — the count is the sheet-free bound,
+            # never a layout on some gutter the builder would accept.
+            assert spy.laid_out == []
+
+    @CASES
+    def test_the_finalise_screen_lays_the_book_out_once_on_its_stored_gutter(
+        self, panel, monkeypatch, runs, gutter, sheet
+    ) -> None:
+        book_id = panel.book(runs, gutter=gutter)
+        spy = _LayoutSpy(monkeypatch)
+
+        panel.shown(book_id)
+
+        assert spy.counts == 1
+        self._assert_only_the_stored_gutter(spy, gutter, sheet)
+        assert len(spy.laid_out) == (1 if sheet else 0)
+        assert panel.gutter(book_id) == gutter
+
+    @CASES
+    def test_a_refused_save_and_finish_never_lays_out_at_another_gutter(
+        self, panel, monkeypatch, runs, gutter, sheet
+    ) -> None:
+        book_id = panel.book(runs, gutter=gutter)
+        spy = _LayoutSpy(monkeypatch)
+
+        response = panel.finalise(book_id)
+
+        assert "KDP" in refusal_of(response)  # refused, not finalised
+        self._assert_only_the_stored_gutter(spy, gutter, sheet)
+        assert panel.gutter(book_id) == gutter
+        assert panel.status(book_id) == DRAFT
+
+    def test_an_uncountable_book_is_not_laid_out_at_another_gutter(
+        self, panel, monkeypatch
+    ) -> None:
+        """AC-3's refusal too: on a sheet, the malformed row is not retried wider."""
+        book_id = _uncountable(panel, GUTTER_0375_IN)
+        spy = _LayoutSpy(monkeypatch)
+
+        shown = refusal_of(panel.finalise(book_id))
+
+        assert "interior pages cannot be counted" in shown
+        self._assert_only_the_stored_gutter(spy, GUTTER_0375_IN, True)
+        assert panel.gutter(book_id) == GUTTER_0375_IN
