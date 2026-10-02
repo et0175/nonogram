@@ -16,6 +16,7 @@ helper under test.
 
 from __future__ import annotations
 
+import re
 from html.parser import HTMLParser
 from io import BytesIO
 from pathlib import Path
@@ -379,6 +380,33 @@ class TestBookPages_OfferBothExportFiles:
         assert not button["disabled"]
         assert form["hidden"] == {"part": "cover"}
 
+    def test_the_list_says_why_a_lost_cover_is_unavailable_in_visible_text(
+        self, admin_app, client
+    ):
+        """The reason is page text, not only a title= a disabled button never shows.
+
+        Only the lost book's row carries it; the intact book's row does not.
+        """
+        lost_id, _ = _make_book(admin_app, title="Lost cover")
+        intact_id, _ = _make_book(admin_app, title="Intact cover")
+        _lose_uploaded_cover(admin_app, client, lost_id)
+
+        body = client.get("/books").get_data(as_text=True)
+
+        def hint(book_id):
+            return re.search(
+                rf'<span class="text-muted small" id="cover-lost-{book_id}">(.*?)</span>',
+                body,
+                re.S,
+            )
+
+        found = hint(lost_id)
+        assert found is not None
+        assert "no longer on disk" in found.group(1)
+        assert f'href="/book/{lost_id}/finalize"' in found.group(1)
+        assert hint(intact_id) is None
+        assert f'id="cover-lost-{intact_id}"' not in body
+
 
 # --------------------------------------------------------------------------
 # AC-2
@@ -432,6 +460,39 @@ class TestBookDetail_ListsPuzzlesByTitle:
         # The id is still on the page, for the "Add puzzles by ID" form.
         for puzzle_id in ids:
             assert puzzle_id in body
+
+    def test_an_unnamed_member_without_a_custom_title_is_labelled_by_its_id(
+        self, admin_app, client
+    ):
+        """The last rung of the fallback: no custom title and no name → the id.
+
+        A blank rename stores ``puzzle_name = None``; without the id rung the
+        label would be the literal text "None".
+        """
+        book_id, ids = _make_book(admin_app)
+        service = admin_app.puzzle_review_service
+        assert service.rename_puzzle(ids[1], "   ")
+        assert service.get_puzzle(ids[1])["puzzle_name"] is None
+
+        page = _read(client, f"/book/{book_id}")
+        labels = [row["name"].strip() for row in page.rows]
+
+        assert labels == [NAMES[0], ids[1], NAMES[2]]
+        assert "None" not in labels
+
+    def test_a_member_whose_puzzle_is_gone_is_labelled_by_its_id(
+        self, admin_app, client
+    ):
+        """A member id no record matches is still listed: by its id, tier N/A."""
+        book_id, ids = _make_book(admin_app)
+        assert admin_app.puzzle_review_service.delete_puzzle(ids[0])
+        assert ids[0] in admin_app.book_manager.get_book(book_id).puzzle_ids
+
+        page = _read(client, f"/book/{book_id}")
+
+        assert [row["id"] for row in page.rows] == ids
+        assert [row["name"].strip() for row in page.rows] == [ids[0], NAMES[1], NAMES[2]]
+        assert [row["tier"].strip() for row in page.rows] == ["N/A", TIERS[1], TIERS[2]]
 
     def test_each_member_shows_its_tier(self, admin_app, client):
         book_id, _ = _make_book(admin_app)

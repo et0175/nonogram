@@ -2579,7 +2579,8 @@ def create_app(debug=None):
             rows=rows,
             sort=sort,
             # CARD-158: the books whose cover download the route would refuse
-            # (an uploaded cover whose file is gone), so the button says so.
+            # (an uploaded cover whose file is gone), so the row disables that
+            # button and says why in visible text beside it.
             lost_covers={
                 row["book"].book_id
                 for row in rows
