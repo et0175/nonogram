@@ -30,6 +30,7 @@ pixel exists, which is why a 180-page book is affordable as a test at all.
 
 from __future__ import annotations
 
+import html
 import uuid
 from decimal import Decimal
 
@@ -700,3 +701,619 @@ class TestBookFinalise_GutterCheckAtHundredFiftyPageBoundary:
 
         assert (at_the_boundary, over_it) == (150, 151)
         assert over_it - at_the_boundary == 1
+
+
+# --------------------------------------------------------------------------
+# CARD-153 — Finalise does not hide a broken page plan behind "About N"
+# --------------------------------------------------------------------------
+#
+#   AC-1  TestFinaliseCounts_PlanTripwireIsNotAnEstimate
+#   AC-2  TestFinaliseCounts_ShowsWhyTheCountIsApproximate
+#   AC-3  TestFinalise_UncountableBookStaysInDraft
+#   AC-4  TestFinaliseGutter_InexactRefusalSaysAbout
+#   AC-5  is ``TestBookFinalise_OffersBothDownloads`` in
+#         ``tests/test_book_export_interior_cover.py``, rewritten.
+
+#: A three-puzzle book of :func:`alone` easy 22x22s, which never pair.
+SMALL_CORPUS = ((alone, "easy", 3),)
+
+#: Its interior, counted by hand rather than by the code under test: 1 guide
+#: page + 1 easy divider + 3 single puzzle pages + the SOLUTIONS divider + 1
+#: four-up answer page (three 22x22 answers). Pairing nothing, this is both its
+#: exact count on a legal sheet and its sheet-free bound on an illegal one.
+SMALL_PAGES = 7
+
+#: The sheet builder's reason for refusing AC-179's 0.60 cm, written out here.
+REASON_060 = "book gutter_margin_cm is 0.6 cm, below the 0.635 cm minimum side margin"
+
+#: The logger the panel logs through (``Flask(__name__)``'s own name).
+PANEL_LOGGER = "nonogram.admin.app"
+
+
+def _drop_last_planned_page(monkeypatch):
+    """Break the section walk so it loses its last puzzle page.
+
+    The real :meth:`interior_stream` then trips its *own* first plan tripwire
+    ("the page plan prints ...") — the exporter bug the tripwire exists for —
+    rather than a stand-in exception this test raised itself.
+    """
+    import dataclasses
+
+    from nonogram.admin.book_pdf_generator import PuzzlePagePlan
+
+    original = BookPDFGenerator.section_plan
+
+    def broken(self, puzzles):
+        plan = original(self, puzzles)
+        last = max(
+            i for i, page in enumerate(plan.pages) if isinstance(page, PuzzlePagePlan)
+        )
+        pages = [page for i, page in enumerate(plan.pages) if i != last]
+        return dataclasses.replace(plan, pages=pages)
+
+    monkeypatch.setattr(BookPDFGenerator, "section_plan", broken)
+    return "the page plan prints"
+
+
+def _drop_last_answer_page(monkeypatch):
+    """Break the answer key so it loses its last page — the second tripwire."""
+    original = BookPDFGenerator.answer_key
+
+    def broken(self, *args, **kwargs):
+        return original(self, *args, **kwargs)[:-1]
+
+    monkeypatch.setattr(BookPDFGenerator, "answer_key", broken)
+    return "the answer key holds"
+
+
+TRIPWIRES = pytest.mark.parametrize(
+    "break_the_plan",
+    (_drop_last_planned_page, _drop_last_answer_page),
+    ids=("page-plan", "answer-key"),
+)
+
+
+def _counts_of(panel, book_id):
+    """What Finalise's own helper reports for ``book_id``."""
+    from nonogram.admin.app import _interior_counts
+
+    book = panel.books.get_book(book_id)
+    return _interior_counts(book, [panel.store.get_puzzle(p) for p in book.puzzle_ids])
+
+
+class TestFinaliseCounts_PlanTripwireIsNotAnEstimate:
+    """AC-1 — a plan tripwire is an exporter bug, not an approximate count."""
+
+    @TRIPWIRES
+    def test_the_helper_logs_the_tripwire_with_its_traceback_and_lets_it_through(
+        self, panel, monkeypatch, caplog, break_the_plan
+    ) -> None:
+        """Asked of the helper itself, outside a request, so the log record
+        can only be the helper's own — not Flask's "Exception on ..." line,
+        which a 500 would add whether or not the helper logged anything."""
+        book_id = panel.book(SMALL_CORPUS)
+        phrase = break_the_plan(monkeypatch)
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            with pytest.raises(RuntimeError, match=phrase) as raised:
+                _counts_of(panel, book_id)
+
+        (record,) = [r for r in caplog.records if r.name == PANEL_LOGGER]
+        assert record.exc_info[1] is raised.value
+        assert record.exc_info[2] is not None  # the traceback itself
+        assert book_id in record.getMessage()
+
+    @TRIPWIRES
+    def test_the_screen_shows_no_count_and_the_error_is_logged_with_its_traceback(
+        self, panel, monkeypatch, caplog, break_the_plan
+    ) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        phrase = break_the_plan(monkeypatch)
+        panel.app.config["PROPAGATE_EXCEPTIONS"] = False
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            response = panel.client.get(f"/book/{book_id}/finalize")
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 500
+        assert "About " not in body
+        assert "interior page" not in body
+        assert "data-interior-page-count" not in body
+        logged = [
+            record
+            for record in caplog.records
+            if record.name == PANEL_LOGGER
+            and record.exc_info
+            and phrase in str(record.exc_info[1])
+        ]
+        assert logged, [r.getMessage() for r in caplog.records]
+        assert isinstance(logged[0].exc_info[1], RuntimeError)
+        assert logged[0].exc_info[2] is not None  # the traceback itself
+
+    @TRIPWIRES
+    def test_save_and_finish_does_not_let_the_book_leave_draft(
+        self, panel, monkeypatch, break_the_plan
+    ) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        break_the_plan(monkeypatch)
+        panel.app.config["PROPAGATE_EXCEPTIONS"] = False
+
+        response = panel.finalise(book_id)
+
+        assert response.status_code != 302
+        assert panel.status(book_id) == DRAFT
+
+    def test_a_tripwire_in_a_book_with_a_malformed_row_is_not_read_as_uncountable(
+        self, panel, monkeypatch, caplog
+    ) -> None:
+        """Review F-002: the rows failing the sheet-free count is not enough.
+
+        A row that cannot build a payload is dropped from the plan before the
+        answer key sees it, so its malformed grid does not stop the walk — but
+        the sheet-free count still reads that grid and refuses it. The real
+        page-plan tripwire then fires in a book whose rows *also* fail the
+        sheet-free check, and it must surface as the exporter's error, logged
+        at ERROR — not as "cannot be counted" (``None``) at WARNING.
+        """
+        book_id = panel.book(SMALL_CORPUS)
+        first = panel.books.get_book(book_id).puzzle_ids[0]
+        panel.store.puzzles[first]["grid"] = []  # sheet-free count refuses it
+        panel.store.puzzles[first]["clues_rows"] = 5  # payload pass drops it
+        phrase = _drop_last_planned_page(monkeypatch)
+
+        with caplog.at_level("WARNING", logger=PANEL_LOGGER):
+            with pytest.raises(RuntimeError, match=phrase) as raised:
+                _counts_of(panel, book_id)
+
+        (record,) = [r for r in caplog.records if r.name == PANEL_LOGGER]
+        assert record.levelname == "ERROR"
+        assert record.exc_info[1] is raised.value
+
+    @TRIPWIRES
+    def test_save_and_finish_names_the_tripwire_on_its_error_page_and_logs_it_once(
+        self, panel, monkeypatch, caplog, break_the_plan
+    ) -> None:
+        """Review F-005: not flashed into a re-render that 500s a second time."""
+        book_id = panel.book(SMALL_CORPUS)
+        phrase = break_the_plan(monkeypatch)
+        panel.app.config["PROPAGATE_EXCEPTIONS"] = False
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            response = panel.finalise(book_id)
+        body = html.unescape(response.get_data(as_text=True))
+
+        assert response.status_code == 500
+        assert phrase in body
+        assert "status is not changed" in body
+        assert panel.status(book_id) == DRAFT
+        logged = [
+            r for r in caplog.records if r.name == PANEL_LOGGER and r.exc_info
+        ]
+        assert len(logged) == 1, [r.getMessage() for r in logged]
+
+    def test_an_error_after_the_sheet_exists_is_not_read_as_an_unlayable_spec(
+        self, panel, monkeypatch
+    ) -> None:
+        """Only the constructor's ``ValueError`` means "cannot be laid out".
+
+        The same exception class raised from the plan itself, on a sheet that
+        exists, propagates — catching ``ValueError`` around the whole call
+        would turn it back into an estimate.
+        """
+        book_id = panel.book(SMALL_CORPUS)
+
+        def raising(self, puzzles):
+            raise ValueError("a bug inside the plan")
+
+        monkeypatch.setattr(BookPDFGenerator, "interior_stream", raising)
+
+        with pytest.raises(ValueError, match="a bug inside the plan"):
+            _counts_of(panel, book_id)
+
+    def test_a_layout_abort_on_clean_rows_is_the_exporters_error(
+        self, panel, monkeypatch, caplog
+    ) -> None:
+        """Review F-008: the cause's shape alone does not make a malformed row.
+
+        The pairing walk wraps any failure of the shared-page layout as
+        "puzzle <id> could not be laid out" — a ``RuntimeError`` caused by
+        the original exception, the very shape a malformed row's abort takes.
+        On rows the sheet-free count accepts, that abort is an exporter bug:
+        it must be re-raised and logged at ERROR, not read as "cannot be
+        counted" (``None``) at WARNING.
+        """
+        import nonogram.admin.book_pdf_generator as generator_module
+
+        book_id = panel.book(((pairs_up, "easy", 2),))
+        book = panel.books.get_book(book_id)
+        rows = [panel.store.get_puzzle(p) for p in book.puzzle_ids]
+        assert unpaired_interior_page_count(rows) > 0  # the rows are well-formed
+
+        def broken_layout(*args, **kwargs):
+            raise ValueError("a layout bug")
+
+        monkeypatch.setattr(generator_module, "compute_pair_layout", broken_layout)
+
+        with caplog.at_level("WARNING", logger=PANEL_LOGGER):
+            with pytest.raises(RuntimeError, match="could not be laid out") as raised:
+                _counts_of(panel, book_id)
+
+        assert isinstance(raised.value.__cause__, ValueError)  # the abort's shape
+        (record,) = [r for r in caplog.records if r.name == PANEL_LOGGER]
+        assert record.levelname == "ERROR"
+        assert record.exc_info[1] is raised.value
+        assert record.exc_info[2] is not None  # the traceback itself
+
+
+def _db_went_away(panel, monkeypatch):
+    """Reading a row's book title fails — a database error, not the plan's."""
+
+    def failing(*args, **kwargs):
+        raise KeyError("db went away")
+
+    monkeypatch.setattr(panel.books, "get_puzzle_title", failing)
+    return KeyError, "db went away"
+
+
+def _generator_cannot_start(panel, monkeypatch):
+    """The generator's constructor fails with something other than its
+    documented ``ValueError`` — the exporter's error, raised before any plan."""
+
+    def failing(self, *args, **kwargs):
+        raise TypeError("the generator could not start")
+
+    monkeypatch.setattr(BookPDFGenerator, "__init__", failing)
+    return TypeError, "the generator could not start"
+
+
+class TestSaveAndFinish_OnlyThePlanFailureIsBlamedOnThePlan:
+    """Review F-007 — Save and finish answers only the helper's own logged
+    page-plan failure with its "page plan could not be built" page; any other
+    error takes the route's ordinary path and is logged with its traceback."""
+
+    @pytest.mark.parametrize(
+        "break_something_else",
+        (_db_went_away, _generator_cannot_start),
+        ids=("row-read", "generator-constructor"),
+    )
+    def test_a_non_plan_error_is_logged_and_not_called_a_page_plan_failure(
+        self, panel, monkeypatch, caplog, break_something_else
+    ) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        error_type, message = break_something_else(panel, monkeypatch)
+        panel.app.config["PROPAGATE_EXCEPTIONS"] = False
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            response = panel.finalise(book_id)
+        body = html.unescape(response.get_data(as_text=True))
+
+        assert response.status_code == 500
+        assert "page plan could not be built" not in body
+        assert panel.status(book_id) == DRAFT
+        logged = [
+            r
+            for r in caplog.records
+            if r.name == PANEL_LOGGER
+            and r.levelname == "ERROR"
+            and r.exc_info
+            and isinstance(r.exc_info[1], error_type)
+            and message in str(r.exc_info[1])
+        ]
+        assert logged, [r.getMessage() for r in caplog.records]
+        assert logged[0].exc_info[2] is not None  # the traceback itself
+
+
+class TestFinaliseCounts_ShowsWhyTheCountIsApproximate:
+    """AC-2 — an unlayable print spec: "About N", the reason, and Print setup."""
+
+    @pytest.mark.parametrize(
+        "column, value, reason",
+        (
+            ("gutter_margin_cm", GUTTER_060, REASON_060),
+            ("trim_width_cm", "5", "book trim_width_cm is 5 cm, outside KDP's 10..30 cm"),
+        ),
+    )
+    def test_the_screen_names_the_reason_and_points_to_print_setup(
+        self, panel, column, value, reason
+    ) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        setattr(panel.books.get_book(book_id), column, value)
+
+        shown = panel.shown(book_id)
+
+        assert f"About {SMALL_PAGES} interior pages" in shown
+        assert 'data-interior-page-count-exact="false"' in shown
+        assert "data-page-count-approximate" in shown
+        assert reason in html.unescape(shown)
+        assert f'href="/book/{book_id}/setup-print"' in shown
+        assert "Print setup</a>" in shown
+
+    def test_the_helper_carries_the_builders_reason(self, panel) -> None:
+        book_id = panel.book(SMALL_CORPUS, gutter=GUTTER_060)
+
+        counts = _counts_of(panel, book_id)
+
+        assert counts.exact is False
+        assert counts.page_count == SMALL_PAGES
+        assert counts.unreadable == REASON_060
+
+    def test_an_exact_count_carries_no_such_note(self, panel) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+
+        shown = panel.shown(book_id)
+
+        assert f"About {SMALL_PAGES}" not in shown
+        assert "data-page-count-approximate" not in shown
+        assert f'data-interior-page-count="{SMALL_PAGES}"' in shown
+
+
+def _uncountable(panel, gutter: str = GUTTER_060) -> str:
+    """A book with a row whose answer cannot be packed — by default on no sheet.
+
+    The row is broken after it was added (``add_puzzles_to_book`` measures
+    every member), the way a legacy or hand-edited row would reach the store.
+    """
+    book_id = panel.book(SMALL_CORPUS, gutter=gutter)
+    first = panel.books.get_book(book_id).puzzle_ids[0]
+    panel.store.puzzles[first]["grid"] = []
+    return book_id
+
+
+class TestFinalise_UncountableBookStaysInDraft:
+    """AC-3 — no page count, no leaving draft; and the screen says why."""
+
+    @pytest.mark.parametrize("gutter", (GUTTER_060, GUTTER_0375_IN), ids=("no-sheet", "sheet"))
+    def test_the_book_cannot_be_counted_at_all(self, panel, gutter) -> None:
+        """On a sheet too: a malformed row is the book's, not a plan tripwire."""
+        assert _counts_of(panel, _uncountable(panel, gutter)) is None
+
+    @pytest.mark.parametrize("gutter", (GUTTER_060, GUTTER_0375_IN), ids=("no-sheet", "sheet"))
+    def test_save_and_finish_refuses_and_the_book_stays_in_draft(
+        self, panel, gutter
+    ) -> None:
+        book_id = _uncountable(panel, gutter)
+
+        shown = refusal_of(panel.finalise(book_id))
+
+        assert panel.status(book_id) == DRAFT
+        assert "interior pages cannot be counted" in shown
+        assert "status is not changed" in shown
+        assert panel.gutter(book_id) == gutter  # G-1: refused, not adjusted
+
+    def test_a_book_past_draft_is_not_told_it_stays_in_draft(self, panel) -> None:
+        """Review F-004: the refusal is true of a ``ready_for_pdf`` book too."""
+        book_id = panel.book(SMALL_CORPUS)
+        assert panel.finalise(book_id).status_code == 302
+        ready = BookStatus.READY_FOR_PDF.value
+        assert panel.status(book_id) == ready
+        first = panel.books.get_book(book_id).puzzle_ids[0]
+        panel.store.puzzles[first]["grid"] = []
+
+        shown = refusal_of(panel.finalise(book_id))
+
+        assert "interior pages cannot be counted" in shown
+        assert "draft" not in shown.split("cannot be counted", 1)[1].split("</", 1)[0]
+        assert "status is not changed" in shown
+        assert panel.status(book_id) == ready
+
+    def test_the_screen_says_the_pages_cannot_be_counted(self, panel) -> None:
+        shown = panel.shown(_uncountable(panel))
+
+        assert "Cannot be counted" in shown
+        assert "data-interior-page-count=" not in shown
+
+
+class TestFinaliseGutter_InexactRefusalSaysAbout:
+    """AC-4 — the refusal and the screen agree on whether the count is exact."""
+
+    def test_an_inexact_count_is_refused_as_about_n_pages(self, panel) -> None:
+        book_id = panel.book(SMALL_CORPUS, gutter=GUTTER_060)
+
+        shown = refusal_of(panel.finalise(book_id))
+
+        assert f"runs to about {SMALL_PAGES} pages" in shown
+        assert f"runs to {SMALL_PAGES} pages" not in shown
+        assert f"About {SMALL_PAGES} interior pages" in shown
+        assert panel.status(book_id) == DRAFT
+
+    def test_an_exact_count_is_refused_without_about(self, panel) -> None:
+        """The word is the count's exactness, not decoration on every refusal."""
+        book_id = panel.book(CK1_OVER_CORPUS)
+
+        shown = refusal_of(panel.finalise(book_id))
+
+        assert f"runs to {CK1_OVER_PAGES} pages" in shown
+        assert "runs to about" not in shown
+        assert f"About {CK1_OVER_PAGES}" not in shown
+
+    def test_an_unreadable_gutter_on_an_inexact_count_says_about(self) -> None:
+        """The other refusal ``_kdp_gutter_refusal`` composes says it too."""
+        from nonogram.admin.app import InteriorCounts, _kdp_gutter_refusal
+
+        class Row:
+            gutter_margin_cm = "wide"
+
+        counts = InteriorCounts(
+            page_count=SMALL_PAGES,
+            unpaired_page_count=SMALL_PAGES,
+            answer_page_count=None,
+            exact=False,
+            unreadable="book gutter_margin_cm must be a number of cm, not 'wide'",
+        )
+
+        refusal = _kdp_gutter_refusal(Row(), counts)
+
+        assert f"its about {SMALL_PAGES} interior pages" in refusal
+
+    @pytest.mark.parametrize("exact", (False, True), ids=("inexact", "exact"))
+    def test_above_the_table_an_inexact_count_says_about(self, exact) -> None:
+        """Review F-001: the not-modelled refusal says "about N" too.
+
+        Above :data:`MAX_MODELLED_PAGE_COUNT` an inexact count is the
+        sheet-free upper bound; "runs to 350." would state it as a fact.
+        """
+        from nonogram.admin.app import InteriorCounts, _kdp_gutter_refusal
+        from nonogram.admin.book_kdp import MAX_MODELLED_PAGE_COUNT
+
+        pages = MAX_MODELLED_PAGE_COUNT + 50
+
+        class Row:
+            gutter_margin_cm = GUTTER_060
+
+        counts = InteriorCounts(
+            page_count=pages,
+            unpaired_page_count=pages,
+            answer_page_count=None,
+            exact=exact,
+            unreadable=None if exact else REASON_060,
+        )
+
+        refusal = _kdp_gutter_refusal(Row(), counts)
+
+        assert f"not modelled above {MAX_MODELLED_PAGE_COUNT} pages" in refusal
+        if exact:
+            assert f"runs to {pages}." in refusal
+            assert "about" not in refusal
+        else:
+            assert f"runs to about {pages}." in refusal
+            assert f"runs to {pages}" not in refusal
+
+    def test_a_reworded_refusal_still_says_about(self) -> None:
+        """Should ``book_kdp`` stop saying "runs to N", "about" is not lost."""
+        from nonogram.admin.app import _about
+
+        assert _about("KDP wants 0.95 cm for 7 pages.", 7).endswith(
+            "(This book's interior page count is about 7, not exact.)"
+        )
+        assert _about("It runs to 7 pages.", 7) == "It runs to about 7 pages."
+
+
+# --------------------------------------------------------------------------
+# G-1's second half — the book is laid out on its stored gutter, and only once
+# --------------------------------------------------------------------------
+
+#: A gutter the sheet builder accepts (over its 0.635 cm side-margin floor)
+#: but KDP refuses at every page count: a refusal on an **exact** count, so the
+#: page plan really is built — the case a second layout at a raised gutter
+#: would be tempted to "fix".
+GUTTER_070 = "0.70"
+
+
+class _LayoutSpy:
+    """Every interior layout Finalise asks for, and the gutter it was asked on.
+
+    Replaces ``BookPDFGenerator`` **where the panel looks it up**
+    (``nonogram.admin.app``) with a subclass that records, before the real
+    code runs, the gutter column of the book each generator is built on and
+    the one each :meth:`interior_stream` lays out — read off the generator's
+    own ``book`` at that moment, so a copy of the book carrying another
+    gutter, or the stored one bumped for the call and put back, is caught
+    either way. ``_interior_counts`` is wrapped too, so "laid out once" is
+    asked per count rather than per request: a refused Save-and-finish counts
+    in the action and again in the re-render beneath it, both on the stored
+    gutter, and that is two counts, not a second layout of one.
+    """
+
+    def __init__(self, monkeypatch):
+        import nonogram.admin.app as app_module
+
+        self.built: list = []
+        self.laid_out: list = []
+        self.counts = 0
+        spy = self
+
+        class Spied(app_module.BookPDFGenerator):
+            def __init__(self, book=None):
+                spy.built.append(getattr(book, "gutter_margin_cm", None))
+                super().__init__(book)
+
+            def interior_stream(self, puzzles):
+                spy.laid_out.append(getattr(self.book, "gutter_margin_cm", None))
+                return super().interior_stream(puzzles)
+
+        original_counts = app_module._interior_counts
+
+        def counted(book, puzzles):
+            spy.counts += 1
+            return original_counts(book, puzzles)
+
+        monkeypatch.setattr(app_module, "BookPDFGenerator", Spied)
+        monkeypatch.setattr(app_module, "_interior_counts", counted)
+
+
+class TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter:
+    """G-1 (CARD-129's G-2): one layout per count, on the gutter the book stores.
+
+    The first half of G-1 — the stored gutter is never raised or rewritten —
+    is pinned by :class:`TestKdpGutterTable` and
+    :class:`TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount`. This
+    is the second half: Finalise never answers a refused gutter by laying the
+    book out again at a wider one, on the screen (GET) or on Save-and-finish
+    (POST), for a book whose spec can be laid out and for one whose cannot.
+    """
+
+    CASES = pytest.mark.parametrize(
+        "runs, gutter, sheet",
+        (
+            (SMALL_CORPUS, GUTTER_070, True),
+            (CK1_OVER_CORPUS, GUTTER_0375_IN, True),
+            (SMALL_CORPUS, GUTTER_060, False),
+        ),
+        ids=("refused-exact-small", "refused-exact-151-pages", "no-sheet-inexact"),
+    )
+
+    @staticmethod
+    def _assert_only_the_stored_gutter(spy, gutter, sheet) -> None:
+        assert spy.counts >= 1
+        # Every generator built, and every layout walked, on the stored value.
+        assert spy.built and set(spy.built) == {gutter}, spy.built
+        assert set(spy.laid_out) <= {gutter}, spy.laid_out
+        # One layout per count at most: never a second pass at another gutter.
+        assert len(spy.laid_out) <= spy.counts, (spy.laid_out, spy.counts)
+        if sheet:
+            assert len(spy.laid_out) == spy.counts
+        else:
+            # No sheet, no layout at all — the count is the sheet-free bound,
+            # never a layout on some gutter the builder would accept.
+            assert spy.laid_out == []
+
+    @CASES
+    def test_the_finalise_screen_lays_the_book_out_once_on_its_stored_gutter(
+        self, panel, monkeypatch, runs, gutter, sheet
+    ) -> None:
+        book_id = panel.book(runs, gutter=gutter)
+        spy = _LayoutSpy(monkeypatch)
+
+        panel.shown(book_id)
+
+        assert spy.counts == 1
+        self._assert_only_the_stored_gutter(spy, gutter, sheet)
+        assert len(spy.laid_out) == (1 if sheet else 0)
+        assert panel.gutter(book_id) == gutter
+
+    @CASES
+    def test_a_refused_save_and_finish_never_lays_out_at_another_gutter(
+        self, panel, monkeypatch, runs, gutter, sheet
+    ) -> None:
+        book_id = panel.book(runs, gutter=gutter)
+        spy = _LayoutSpy(monkeypatch)
+
+        response = panel.finalise(book_id)
+
+        assert "KDP" in refusal_of(response)  # refused, not finalised
+        self._assert_only_the_stored_gutter(spy, gutter, sheet)
+        assert panel.gutter(book_id) == gutter
+        assert panel.status(book_id) == DRAFT
+
+    def test_an_uncountable_book_is_not_laid_out_at_another_gutter(
+        self, panel, monkeypatch
+    ) -> None:
+        """AC-3's refusal too: on a sheet, the malformed row is not retried wider."""
+        book_id = _uncountable(panel, GUTTER_0375_IN)
+        spy = _LayoutSpy(monkeypatch)
+
+        shown = refusal_of(panel.finalise(book_id))
+
+        assert "interior pages cannot be counted" in shown
+        self._assert_only_the_stored_gutter(spy, GUTTER_0375_IN, True)
+        assert panel.gutter(book_id) == GUTTER_0375_IN
