@@ -1584,6 +1584,9 @@ links:
   - TestFinalise_UncountableBookStaysInDraft
   - TestFinaliseGutter_InexactRefusalSaysAbout
   - TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter
+  - TestTrimValidation_RefusesNonFiniteValues
+  - TestPrintSetup_PlanAndTrimCommitTogether
+  - TestPrintSetup_NanWidthChangesNothing
   notes: >-
     Amended 2026-09-22 (d): parity counts from INTERIOR page 1 — the guide
     page, the cover being a separate file (FR-043); AC-179's page count is the
@@ -1619,6 +1622,9 @@ links:
   - TestBookFinalize_SummaryCountsPuzzlesBelowFloor
   - TestBookFinalize_SummaryRecountsBelowFloorAfterTrimChange
   - PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride
+  - TestTrimValidation_RefusesNonFiniteValues
+  - TestPrintSetup_PlanAndTrimCommitTogether
+  - TestPrintSetup_NanWidthChangesNothing
   notes: >-
     Story US-023, INV-006, EC-021. The tile cell, the add refusal and the
     finalise count all call COMP-007's compute_layout with the book's PageSpec —

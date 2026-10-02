@@ -1,0 +1,118 @@
+version: 1
+generated_at: "2026-10-02T14:41:54Z"
+target: "card/154-plan-and-trim-together — commit 3ee27fb (git diff main...HEAD) + uncommitted fix delta tests/test_print_specs.py — CARD-154 cycle 2 (confirmation mode)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+review_mode: "confirmation (fix delta = tests/test_print_specs.py, +26/-0)"
+
+coverage:
+  read:
+    - tests/test_print_specs.py (full; fix delta at :305-329)
+    - src/nonogram/admin/app.py (setup_print route 2960-3125)
+    - src/nonogram/admin/book_manager.py (save_plan 728-793, set_print_spec, _checked_print_spec, _apply_print_spec)
+    - src/nonogram/admin/print_specs.py (validate_trim_size, validate_margins, create_spec)
+    - tests/test_book_trim_persistence.py (edited hunk)
+    - meta/review/20261002T142605Z-CARD-154-cycle1.yml
+  not_reached:
+    - tests/conftest.py db_session internals (relied on: postgres cases ran, 0 skipped)
+  confidence: high
+metrics:
+  diff: { files: 5, added: 556, removed: 48 }
+  max_fan_in: { symbol: "BookManager.save_plan", callers: "1 src call site (app.py:3061)" }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (142 commits/12mo, 64 fix — cycle 1 measurement)"]
+  cochange_missing: []
+  test_runs:
+    - "tests/test_print_specs.py + test_book_trim_persistence.py + test_book_plan_storage.py: 288 passed, 0 skipped (memory, sqlite, nonogram_test postgres)"
+    - "F-001 revert probe (route two-commit shape) vs the new route test: 2 failed (sqlite, postgres) — killed"
+  unmeasured:
+    cochange_missing: "not_applicable — carried from cycle 1; fix delta is one test file"
+    hotspots: "not_applicable — not re-mined this cycle; carried from cycle 1"
+
+previous_findings:
+  - "F-001 ✓ resolved — reproduced: probe `if not (book_mgr.save_plan(book_id, new_plan) and book_mgr.set_print_spec(book_id, spec)):` at app.py:3061 makes test_print_setup_route_stores_neither_when_the_trim_write_fails fail 2/2 (sqlite, postgres) with 'the plan was stored while the trim was refused'; restored, app.py md5 3da4edd8ebcde685b128c81f7bc26ff7 verified"
+  - "F-002 dismissed (cycle 1) — intended per AC-1; not re-raised"
+
+task_contract:
+  - "AC-1 ✓ holds — TestTrimValidation_RefusesNonFiniteValues green (22 parametrized spellings x 2 dimensions); mutants M1/M2 killed"
+  - "AC-2 ✓ holds — TestPrintSetup_PlanAndTrimCommitTogether green incl. new route-level case; M6 (commit plan before spec), M8 and F-001 probe killed"
+  - "AC-3 ✓ holds — TestPrintSetup_NanWidthChangesNothing green (memory, sqlite, postgres)"
+  - "G-1 ✓ holds — fix delta is additive (+26/-0) to a new file; no existing Print setup test touched by the delta; seeded G-1 corpus + valid-pair tests green"
+  - "G-2 ✓ holds — git diff main --stat lists no models/migrations file"
+  - "G-3 ✓ holds — new route test parametrized sqlite (sqlite_session_scope) + postgres (nonogram_test); 0 skipped"
+
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 33
+  violated: 0
+  carry_basis: "fix delta = tests/test_print_specs.py only; no rule's scope (src globs) or named check test lives in that file (grep of its 14 test functions: only TestTrimValidation_/TestMarginValidation_/TestPrintSetup_ classes) — all 44 delta-clean"
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds only stdlib `import math` (print_specs.py:13); pyproject.toml untouched (git diff main...HEAD --stat lists 5 files, none a manifest); TestDependencyBaseline_IsExactlyPillowAndNumpy passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "ADR-0019/R1 ✓ holds — git diff main...HEAD -- src/nonogram/web is empty; test_every_import_in_the_package_points_inward passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: diff touches book trim/plan storage only, no grid-extent signature — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code touched — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/solver path touched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter touched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery touched — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdicts touched — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies touched — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver package file touched — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution touched — carried(cycle 1, delta-clean)"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle and puzzle rows untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0033/R1 ✓ holds — the combined writer touches only books columns: book_manager.py:788-792 (distribution_plan, status, updated_at) + _apply_print_spec (trim_width_cm, trim_height_cm, interior_ink_mode, updated_at); no Puzzle model referenced in the diff — carried(cycle 1, delta-clean)"
+    - "ADR-0035/R1 ✓ holds — save_plan only ever sets status to DRAFT (book_manager.py:776, :789), never out of it; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout/PageSpec untouched — carried(cycle 1, delta-clean)"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no geometry code touched — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no page band rendering touched — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke code touched — carried(cycle 1, delta-clean)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched — carried(cycle 1, delta-clean)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 1, delta-clean)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 1, delta-clean)"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched — carried(cycle 1, delta-clean)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched — carried(cycle 1, delta-clean)"
+    - "CON-015 ✓ holds — diff to app.py is confined to setup_print body (hunks @@2939 docstring, @@3055, @@3080); no bind address/debug change; TestAdminPanel_BindsLoopbackOnlyByDefault passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "CON-016 ✓ holds — no before_request/door code in the diff (hunks confined to setup_print); TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched — carried(cycle 1, delta-clean)"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched — carried(cycle 1, delta-clean)"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched — carried(cycle 1, delta-clean)"
+    - "INV-005 ✓ holds — save_plan still refuses a non-DistributionPlan before any check or write (book_manager.py:767-768); TestBookPlan_RejectsSplitNotSummingTo100, TestBookCreate_StoresDefaultPlanThatSumsTo100 passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "INV-006 ✓ holds — diff adds no new trim-writing path: the plan-edit branch writes the same columns set_print_spec wrote before (same route, same spec); no membership/override code touched; PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "INV-007 ✓ holds — readiness gate untouched; save_plan still returns the book to draft (book_manager.py:789); PropertyTest_BookReady_GateIffEveryCellWithinTolerance passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "INV-008 ✓ holds — combined writer writes no puzzle_ids/membership (book_manager.py:788-792, _apply_print_spec); TestBookPublished_PuzzleChangeRequiresConfirmation passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched — carried(cycle 1, delta-clean)"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched — carried(cycle 1, delta-clean)"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched — carried(cycle 1, delta-clean)"
+    - "INV-012 ✓ holds — membership writers untouched; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists passed on 3ee27fb — carried(cycle 1, delta-clean)"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF untouched — carried(cycle 1, delta-clean)"
+
+root_causes: []
+
+findings: []
+
+mutation_check:
+  status: ran
+  scope: "tests/test_print_specs.py tests/test_book_trim_persistence.py tests/test_book_plan_storage.py via locked_pytest.py"
+  killed: 9
+  survived: 0
+  mutants:
+    - "M1 print_specs.py validate_trim_size isfinite `and`->`or`: killed (35 failed)"
+    - "M2 print_specs.py validate_trim_size isfinite guard removed: killed (39 failed)"
+    - "M3 print_specs.py validate_margins isfinite check removed: killed (33 failed)"
+    - "M4 print_specs.py create_spec passes None margins to validate_margins: killed (36 failed)"
+    - "M5 book_manager.py save_plan skips _checked_print_spec: killed (15 failed)"
+    - "M6 book_manager.py save_plan DB mode commits plan before applying spec: killed (4 failed)"
+    - "M7 book_manager.py memory mode assigns plan before checking spec: killed (5 failed)"
+    - "M8 app.py route save_plan without print_spec: killed (5 failed)"
+    - "M9 app.py route no-plan-edit branch skips set_print_spec: killed (58 failed)"
+  restore: "every mutated file restored from captured bytes and md5-verified; git diff main md5 96427b74b2bb9c46f72ee99348c62b97 and git diff main -- src tests md5 5a40a20fef16f2f559915ceb7445f37e identical before/after; git status --porcelain md5 2ab720bfb6292b4b6bb5f6d9d718a967 identical before writing this report"

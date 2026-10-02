@@ -1,0 +1,163 @@
+version: 1
+generated_at: "2026-10-02T14:26:05Z"
+target: "card/154-plan-and-trim-together (git diff main...HEAD, commit 3ee27fb) — CARD-154 cycle 1"
+overall_score: 8.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/print_specs.py (full)
+    - src/nonogram/admin/book_manager.py (save_plan, set_print_spec, _checked_print_spec, _apply_print_spec, get_book_manager)
+    - src/nonogram/admin/app.py (setup_print route 2807-3130 incl. _stored_trim_cm, _blank_trim_error, _submitted_trim_cm)
+    - src/nonogram/admin/book_page_spec.py (_stored_mm, book_page_spec margin/trim checks)
+    - src/nonogram/db/session.py (session_scope)
+    - tests/helpers/db.py
+    - tests/test_print_specs.py (full, new)
+    - tests/test_book_trim_persistence.py (edited test + context)
+    - meta/kanban/cards/CARD-154.md (Worktree notes)
+  not_reached:
+    - tests/conftest.py db_session internals (relied on: Postgres cases ran, 0 skipped)
+    - templates (book_setup_print.html) — unchanged by the diff
+  confidence: high
+metrics:
+  diff: { files: 5, added: 530, removed: 48 }
+  max_fan_in: { symbol: "BookManager.save_plan", callers: "1 src call site (app.py:3061); referenced by 12 test files" }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (142 commits/12mo, 64 fix)", "src/nonogram/admin/book_manager.py (26 commits/12mo, 11 fix)"]
+  cochange_missing: []
+  test_runs:
+    - "tests/test_print_specs.py + tests/test_book_trim_persistence.py: 214 passed, 0 skipped (memory, sqlite, real nonogram_test Postgres)"
+    - "route two-write revert probe over 9 related files: 692 passed (mutant survived) — evidence for F-001"
+    - "system-contract cited tests (-k filter over 10 files): 99 passed on 3ee27fb"
+  unmeasured:
+    cochange_missing: "not_applicable — peers models.py (9 co-changes) and book_setup_print.html (5) are absent by design: G-2 forbids schema change and the refusal reuses the existing flash"
+
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds only stdlib `import math` (print_specs.py:13); pyproject.toml untouched (git diff main...HEAD --stat lists 5 files, none a manifest); TestDependencyBaseline_IsExactlyPillowAndNumpy passed on 3ee27fb"
+    - "ADR-0019/R1 ✓ holds — git diff main...HEAD -- src/nonogram/web is empty; test_every_import_in_the_package_points_inward passed on 3ee27fb"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: diff touches book trim/plan storage only, no grid-extent signature"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/solver path touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdicts touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver package file touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle and puzzle rows untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — the combined writer touches only books columns: book_manager.py:788-792 (distribution_plan, status, updated_at) + _apply_print_spec (trim_width_cm, trim_height_cm, interior_ink_mode, updated_at); no Puzzle model referenced in the diff"
+    - "ADR-0035/R1 ✓ holds — save_plan only ever sets status to DRAFT (book_manager.py:776, :789), never out of it; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan passed on 3ee27fb"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout/PageSpec untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no geometry code touched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no page band rendering touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke code touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ✓ holds — diff to app.py is confined to setup_print body (hunks @@2939 docstring, @@3055, @@3080); no bind address/debug change; TestAdminPanel_BindsLoopbackOnlyByDefault passed on 3ee27fb"
+    - "CON-016 ✓ holds — no before_request/door code in the diff (hunks confined to setup_print); TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit passed on 3ee27fb"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ✓ holds — save_plan still refuses a non-DistributionPlan before any check or write (book_manager.py:767-768); TestBookPlan_RejectsSplitNotSummingTo100, TestBookCreate_StoresDefaultPlanThatSumsTo100 passed on 3ee27fb"
+    - "INV-006 ✓ holds — diff adds no new trim-writing path: the plan-edit branch writes the same columns set_print_spec wrote before (same route, same spec); no membership/override code touched; PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride passed on 3ee27fb"
+    - "INV-007 ✓ holds — readiness gate untouched; save_plan still returns the book to draft (book_manager.py:789); PropertyTest_BookReady_GateIffEveryCellWithinTolerance passed on 3ee27fb"
+    - "INV-008 ✓ holds — combined writer writes no puzzle_ids/membership (book_manager.py:788-792, _apply_print_spec); TestBookPublished_PuzzleChangeRequiresConfirmation passed on 3ee27fb"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ✓ holds — membership writers untouched; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists passed on 3ee27fb"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF untouched"
+
+root_causes:
+  - id: RC-1
+    title: "AC-2's atomicity is pinned at BookManager level only; the route wiring that carried the defect is unpinned"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 3061
+    title: "Print setup's one-write wiring is untested — reverting the route to save_plan + set_print_spec survives all 692 related tests"
+    description: |
+      The defect this card fixes lived in the route (two writers, two commits). The fix moves the
+      trim into save_plan(..., print_spec=spec) at app.py:3061, but no test pins that wiring.
+      AC-2's test (TestPrintSetup_PlanAndTrimCommitTogether, tests/test_print_specs.py:250) calls
+      BookManager.save_plan directly — its name says "PrintSetup" but it never POSTs to
+      /book/<id>/setup-print. AC-3's route test refuses "nan" in the validator before any writer
+      runs, so it cannot see the transaction shape either; and the edited F-004 test now sends the
+      unchanged plan to the set_print_spec parametrization. Probe (applied, run, restored by md5):
+      replacing app.py:3061 with
+        if not (book_mgr.save_plan(book_id, new_plan) and book_mgr.set_print_spec(book_id, spec)):
+      i.e. exactly the pre-card two-commit shape, leaves tests/test_print_specs.py,
+      test_book_trim_persistence.py, test_book_finalise_gutter.py, test_book_published_confirm.py,
+      test_book_plan_storage.py, test_book_workflow_steps.py, test_book_pdf_ink_mode.py,
+      test_book_ready_gate.py and property/test_book_workflow.py all green (692 passed).
+      So AC-2 ("if writing the trim fails after the plan has been accepted, the stored plan is
+      unchanged") is unverified at the place where the plan is accepted — the aspirational-green
+      pattern of Step 8c. app.py has 142 commits / 64 fix commits in 12 months, the hottest file
+      in the diff.
+    suggestion: |
+      Add a route-level AC-2 case to TestPrintSetup_PlanAndTrimCommitTogether (sqlite + postgres
+      stores, reusing the `panel` fixture and `_trim_write_fails_at_flush`): POST a plan edit with a
+      valid trim to /book/<id>/setup-print while the before_flush listener refuses a dirty trim, and
+      assert the stored plan (raw row) is still DEFAULT_PLAN and the trim still 6x9. The listener
+      raises RuntimeError, which the route does not catch — either assert the raised error via
+      the test client (app.testing propagates) or wrap; the point is the post-state. With the
+      two-write route the plan's own commit succeeds first and the test fails.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "tests/test_print_specs.py::TestPrintSetup_PlanAndTrimCommitTogether::test_print_setup_route_stores_neither_when_the_trim_write_fails"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/print_specs.py
+    line: 158
+    title: "\"inf\"/\"-inf\" refusal message changed from the bound message to \"numeric values\""
+    description: |
+      Before the card, "inf" was already refused by the max check ("Trim width cannot exceed 30 cm")
+      and "-inf" by the min check; only "nan" slipped through (the card's "The same goes for inf"
+      is inaccurate). The new guard changes those two messages to "Trim size must be numeric
+      values". AC-1 asks for exactly this, so it is intended; noted so G-1's "invalid input"
+      reading is explicit. A huge finite inches entry ("1e308") now also reads "must be numeric"
+      after inches_to_cm overflows it to "inf".
+    suggestion: "No change required; optionally note the inf message change in the card close-out."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Intended per AC-1; no code change. Message change recorded in CARD-154 Worktree notes close-out."
+    learned_pattern: null
+
+mutation_check:
+  status: "deferred(cost) — gating findings present; certify on the stable cycle"
+  note: "One diagnostic probe was run as evidence for F-001 (route two-write revert: survived). Restored by copy of captured content; md5 3da4edd8ebcde685b128c81f7bc26ff7 identical before/after; git diff main...HEAD md5 4bd1abd71d93a33eeb1220b61bdc32e5 identical; git status unchanged."
