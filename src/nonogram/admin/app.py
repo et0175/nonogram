@@ -882,7 +882,8 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
     ``None`` is a book with no countable interior at all: one of its rows is
     so malformed that even its answers cannot be packed (whether or not its
     print specification can be laid out). Finalise refuses such a book
-    (:data:`UNCOUNTABLE_INTERIOR_REFUSAL`) rather than let it leave draft.
+    (:data:`UNCOUNTABLE_INTERIOR_REFUSAL`) and leaves its status as it is —
+    a draft does not leave draft.
 
     A book whose stored print specification cannot be laid out (a margin
     below the sheet builder's minimum, a trim outside KDP's bounds) has no
@@ -902,11 +903,23 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
     ...") above all — means the exporter or the book's rows are wrong, not
     that the count is a guess. It is logged with its traceback and re-raised,
     so the screen shows an error rather than a plausible "About N" — unless
-    the rows themselves fail the sheet-free count's own check, which is the
-    malformed-row ``None`` above (logged too, with its traceback).
+    it is the generator's "could not be laid out" abort (a ``RuntimeError``
+    caused by a ``ValueError``) *and* the rows themselves fail the sheet-free
+    count's own check, which is the malformed-row ``None`` above (logged at
+    WARNING, with its traceback): see :func:`_is_an_unpackable_row`. A
+    tripwire in a book that also holds a malformed row is still re-raised.
+
+    The exception re-raised from :meth:`interior_stream` is the very one
+    raised there — its type, message and traceback untouched — stamped as
+    already logged (:func:`_is_a_logged_plan_failure`), so a caller that
+    answers it itself does not log it again and can tell it from an error
+    this helper never logged (review F-007). Nothing else is caught or logged
+    here: anything else the constructor raises propagates unlogged, for the
+    request's own exception handling to log.
 
     Raises:
-        Exception: whatever :meth:`interior_stream` raised, unchanged.
+        Exception: whatever :meth:`interior_stream` raised, unchanged but for
+            the stamp; or whatever non-``ValueError`` the constructor raised.
     """
     try:
         generator = BookPDFGenerator(book)
@@ -924,7 +937,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
         )
     try:
         stream = generator.interior_stream(list(puzzles))
-    except Exception:
+    except Exception as error:
         # ``__name__`` is the name Flask gives ``app.logger`` too (the app is
         # ``Flask(__name__)``), so this is the panel's own logger, reachable
         # from a module-level helper without an app context.
@@ -933,13 +946,9 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
         # The one failure here that is the book's and not the exporter's: a
         # row whose answer grid cannot be measured at all, which
         # ``interior_stream`` reports as "puzzle <id> could not be laid out".
-        # It is told apart by asking the rows the same question independently
-        # of the plan — the sheet-free count refuses exactly such a row — and
-        # it stays what it was before CARD-153: no count (``None``), which
+        # It stays what it was before CARD-153: no count (``None``), which
         # Finalise reports and refuses. Every other failure is the exporter's.
-        try:
-            unpaired_interior_page_count(puzzles)
-        except ValueError:
+        if _is_an_unpackable_row(error, puzzles):
             log.warning(
                 "The interior of book %s cannot be counted: a row's answer "
                 "cannot be packed",
@@ -952,6 +961,9 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
             "not shown",
             book_id,
         )
+        # Stamped only here, after the one log line above, so the stamp means
+        # exactly "this is the page-plan failure, and it has been logged".
+        setattr(error, _PLAN_FAILURE_LOGGED, True)
         raise
     return InteriorCounts(
         page_count=stream.page_count,
@@ -961,14 +973,93 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
     )
 
 
+#: The attribute :func:`_interior_counts` sets on the exception it re-raises
+#: from the page plan, right after logging it with its traceback (review F-007).
+_PLAN_FAILURE_LOGGED = "_nonogram_page_plan_failure_logged"
+
+
+def _is_a_logged_plan_failure(error: BaseException) -> bool:
+    """Whether ``error`` is the page-plan failure :func:`_interior_counts` logged.
+
+    The signal is the helper's own stamp, set at the one place it logs a plan
+    failure — not the exception's class: a plan tripwire is a ``RuntimeError``,
+    but so is many another error (a database driver's, the generator's
+    constructor's), and the page plan itself can fail with a ``ValueError``.
+    Only the stamp says both things a caller needs: this *is* the page plan's
+    failure, and it has *already* been logged.
+    """
+    return getattr(error, _PLAN_FAILURE_LOGGED, False) is True
+
+
+def _is_an_unpackable_row(error: BaseException, puzzles) -> bool:
+    """Whether ``interior_stream``'s ``error`` is a malformed row, not a bug.
+
+    Two signals, and both must hold (CARD-153 review F-002):
+
+    * **The exception's own shape.** The generator documents its "puzzle <id>
+      could not be laid out" abort as a ``RuntimeError`` carrying the original
+      measurement failure as its ``__cause__`` — for a grid that is not a
+      non-empty rectangle, the ``ValueError`` its answer-extent check raises
+      (:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.answer_key`).
+      The two plan tripwires ("the page plan prints ...", "the answer key
+      holds ...") are raised bare, with no cause, so they never match. The
+      pairing walk's shared-page layout failure *does* take this shape, on
+      rows that are well-formed (review F-008) — hence the second signal.
+    * **The rows themselves.** The sheet-free count
+      (:func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`) asks the
+      same question of the rows independently of the plan and refuses exactly
+      such a row.
+
+    The second alone is a correlated neighbour, not the state: a book can hold
+    a malformed row *and* hit a tripwire — a row whose payload cannot be built
+    is dropped from the plan before the answer key sees it, yet the sheet-free
+    count still reads its grid — and the tripwire must then surface as the
+    exporter's error, not be downgraded to "cannot be counted". The first
+    alone would trust the generator's wording of the cause without checking
+    the rows. The message text is not read at all.
+    """
+    if not (
+        isinstance(error, RuntimeError) and isinstance(error.__cause__, ValueError)
+    ):
+        return False
+    try:
+        unpaired_interior_page_count(puzzles)
+    except ValueError:
+        return True
+    return False
+
+
 #: Why "Save and finish" refuses a book whose interior cannot be counted at
 #: all (CARD-153, AC-3) — the same words the Finalise screen uses for it, so
-#: the refusal and the screen agree.
+#: the refusal and the screen agree. Worded for every status the route can
+#: refuse it on: a draft stays in draft, and a book already past the plan
+#: gate (``ready_for_pdf`` and later) keeps the status it has — "stays in
+#: draft" would be false for that book (review F-004).
 UNCOUNTABLE_INTERIOR_REFUSAL = (
     "This book's interior pages cannot be counted, so KDP's gutter minimum "
-    "cannot be checked and the book stays in draft. Check the book's puzzles "
-    "and its print setup, then finalise again."
+    "cannot be checked and the book's status is not changed. Check the "
+    "book's puzzles and its print setup, then finalise again."
 )
+
+
+def _about(refusal: str, page_count: int) -> str:
+    """``refusal`` with its page count said as "about N" (CARD-153, AC-4).
+
+    Both of ``book_kdp``'s refusals the finalise path passes on name the
+    interior as "runs to N" — "runs to N pages" (:func:`gutter_refusal`) and
+    "runs to N." (:class:`KdpPageCountNotModelled`) — and both are rewritten
+    here, once, for an inexact count. Their prose lives in ``book_kdp`` (out
+    of this card's scope), so should it ever stop saying "runs to N" the
+    rewrite cannot silently no-op: the approximation is then stated in a
+    sentence of its own instead.
+    """
+    exact = f"runs to {page_count}"
+    if exact in refusal:
+        return refusal.replace(exact, f"runs to about {page_count}", 1)
+    return (
+        f"{refusal} (This book's interior page count is about {page_count}, "
+        f"not exact.)"
+    )
 
 
 def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]:
@@ -983,11 +1074,15 @@ def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]
     ``None`` when there is nothing to refuse — including when the book has no
     countable interior, which is a different complaint and not this one's to
     make (the finalise route makes it: :data:`UNCOUNTABLE_INTERIOR_REFUSAL`).
+
+    For an inexact count (``counts.exact`` false) every refusal it returns —
+    the unreadable gutter, the band minimum and the not-modelled table alike —
+    names the page count as "about N", the way the screen does (AC-4).
     """
     if counts is None:
         return None
     # CARD-153 (AC-4): the screen says "About N" for an inexact count, so the
-    # refusal says "about N" for the same one — never "runs to N pages".
+    # refusal says "about N" for the same one — never "runs to N".
     pages = f"{counts.page_count}" if counts.exact else f"about {counts.page_count}"
     try:
         stored = stored_gutter_cm(book)
@@ -1000,13 +1095,13 @@ def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]
     try:
         refusal = gutter_refusal(counts.page_count, stored)
     except KdpPageCountNotModelled as unmodelled:
-        return str(unmodelled)
+        # An inexact count above KDP's table is the sheet-free *upper bound*,
+        # so "runs to 350" would state a guess as a fact (review F-001).
+        refusal = str(unmodelled)
     except ValueError:
         return None
     if refusal and not counts.exact:
-        refusal = refusal.replace(
-            f"runs to {counts.page_count} pages", f"runs to {pages} pages", 1
-        )
+        refusal = _about(refusal, counts.page_count)
     return refusal
 
 
@@ -4175,8 +4270,47 @@ def create_app(debug=None):
                     # raises its refusal into the handler below exactly as
                     # that call would — so this refusal never hides the
                     # gate's (G-3).
-                    counts = _interior_counts(book, members_in_order())
+                    #
+                    # A plan tripwire (AC-1) is answered here, once: the helper
+                    # has already logged it with its traceback, and falling
+                    # through to the outer handler would flash it only for the
+                    # re-render below to ask the plan again, log it a second
+                    # time and 500 with the flash unseen (review F-005). So the
+                    # error page is rendered now, naming the error, and the
+                    # status is not touched.
+                    #
+                    # Only that failure (review F-007): the rows are read
+                    # outside the ``try``, and an exception the helper did not
+                    # stamp as its logged plan failure is re-raised untouched
+                    # — a database error reading a row, the generator's own
+                    # constructor failing — to take the route's ordinary path
+                    # (the handler below, then the re-render, whose failure
+                    # Flask logs with its traceback), never shown as a
+                    # page-plan failure.
+                    rows = members_in_order()
+                    try:
+                        counts = _interior_counts(book, rows)
+                    except Exception as broken_plan:
+                        if not _is_a_logged_plan_failure(broken_plan):
+                            raise
+                        return (
+                            render_template(
+                                "500.html",
+                                error=(
+                                    "This book's page plan could not be "
+                                    "built, so its interior cannot be counted "
+                                    "and its status is not changed: "
+                                    f"{broken_plan}"
+                                ),
+                            ),
+                            500,
+                        )
                     if counts is None:
+                        # A private BookManager method, called across modules
+                        # on purpose: book_manager.py has no public read-only
+                        # form of the gate yet (review F-003, follow-up). Only
+                        # the gate is asked — not set_book_status's other
+                        # checks — and only to keep its refusal first.
                         book_mgr._refuse_unless_the_planned_book(
                             book_id,
                             book.status,
