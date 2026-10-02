@@ -562,6 +562,79 @@ class TestBulkRead_TheCallersKeepTheirVerdicts:
         ), summary
 
 
+    def test_the_order_lookup_names_what_it_could_not_place_at_debug(
+        self, store, caplog
+    ) -> None:
+        """Review cycle 1, F-002: the unplaceable ids are named, once, at DEBUG."""
+        books = BookManager(session_factory=store._session_factory, puzzle_store=store)
+        (easy,) = seed(store, [EASY], store._session_factory)
+        absent = str(uuid.uuid4())
+        with caplog.at_level("DEBUG", logger="nonogram.admin.book_manager"):
+            books._tier_of([easy, "not-a-uuid", absent])
+        logged = [r for r in caplog.records if "resolve to no row" in r.getMessage()]
+        assert len(logged) == 1, [r.getMessage() for r in logged]
+        assert logged[0].levelname == "DEBUG"
+        message = logged[0].getMessage()
+        assert "'not-a-uuid'" in message and repr(absent) in message, message
+        assert repr(easy) not in message, message
+
+    def test_the_order_lookup_logs_nothing_when_every_id_resolves(
+        self, store, caplog
+    ) -> None:
+        books = BookManager(session_factory=store._session_factory, puzzle_store=store)
+        ids = seed(store, [EASY, HARD], store._session_factory)
+        with caplog.at_level("DEBUG", logger="nonogram.admin.book_manager"):
+            books._tier_of(ids)
+        assert not [r for r in caplog.records if "resolve to no row" in r.getMessage()]
+
+
+# --------------------------------------------------------------------------
+# review cycle 1, F-001: the arrange screen shows each row's custom title
+# --------------------------------------------------------------------------
+
+
+def _name(panel, puzzle_id, name) -> None:
+    """Give a stored puzzle a ``puzzle_name``, straight into the store."""
+    if panel.factory is None:
+        panel.store.puzzles[puzzle_id]["puzzle_name"] = name
+        return
+    from nonogram.db.models import Puzzle
+
+    with panel.factory() as db:
+        db.query(Puzzle).filter(Puzzle.id == uuid.UUID(puzzle_id)).update(
+            {"puzzle_name": name}
+        )
+        db.commit()
+
+
+def _title_value(page: str, puzzle_id: str) -> str:
+    """The value of the arrange row's title input for ``puzzle_id``."""
+    match = re.search(
+        r'<input[^>]*id="title_' + re.escape(puzzle_id) + r'"[^>]*>', page, re.S
+    )
+    assert match, f"the arrange screen rendered no title input for {puzzle_id}"
+    value = re.search(r'value="([^"]*)"', match.group(0))
+    assert value, match.group(0)
+    return html_module.unescape(value.group(1))
+
+
+class TestBookArrange_ShowsTheCustomTitleOfEachRow:
+    """The titles now come from one read of the book; each row still shows its own."""
+
+    def test_a_custom_title_shows_and_an_untitled_row_falls_back_to_its_name(
+        self, panel
+    ) -> None:
+        book_id, (titled, untitled) = panel.book([EASY, EASY])
+        _name(panel, titled, "Stored name of the titled one")
+        _name(panel, untitled, "Stored name of the untitled one")
+        assert panel.books.set_puzzle_title(book_id, titled, "Snow & Stars")
+
+        page = body(panel.client.get(f"/book/{book_id}/arrange-puzzles"))
+
+        assert _title_value(page, titled) == "Snow & Stars"
+        assert _title_value(page, untitled) == "Stored name of the untitled one"
+
+
 def body(response) -> str:
     assert response.status_code == 200, response.status_code
     return response.get_data(as_text=True)

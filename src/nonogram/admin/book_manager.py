@@ -1740,11 +1740,22 @@ class BookManager:
         """Each row's stored tier, read in one go; ``None`` where there is nothing to read.
 
         One bulk read by id (CARD-157) rather than a session per puzzle. An id
-        no row matches, or that is not even a UUID, answers ``None``.
+        no row matches, or that is not even a UUID, answers ``None`` and sorts
+        after the graded ones; both kinds are named in one DEBUG line per read
+        (the old per-puzzle lookup logged one DEBUG line per non-UUID id only,
+        and nothing for a well-formed id whose row is gone).
         """
         if self.puzzle_store is None:
             return {puzzle_id: None for puzzle_id in puzzle_ids}
         records = self.puzzle_store.get_puzzles(puzzle_ids)
+        unmatched = [puzzle_id for puzzle_id in puzzle_ids if puzzle_id not in records]
+        if unmatched:
+            logger.debug(
+                "Book order: %d puzzle id(s) resolve to no row (%s); they have no "
+                "level and sort after the graded ones.",
+                len(unmatched),
+                ", ".join(repr(puzzle_id) for puzzle_id in unmatched),
+            )
         return {
             puzzle_id: (
                 tier_of_record(records[puzzle_id].get("difficulty_tier"))
@@ -1865,6 +1876,14 @@ class BookManager:
         A puzzle id no row matches contributes to no cell — the same verdict
         :func:`~nonogram.admin.book_plan.selection_cells` makes on a record
         with no recognisable tier or a side outside the supported range.
+
+        Every such id is named in one WARNING line per gate run, with no cap
+        on how many it lists. Since CARD-157 that covers *both* kinds of
+        unmatched id: one that is not a UUID at all (the only kind the old
+        per-id read warned about) and a well-formed UUID whose row is gone
+        (which the old read skipped silently). The widening is deliberate —
+        an orphaned id in a book is worth seeing — but a book holding many of
+        them emits one long line on every status change.
 
         A manager built without a puzzle store cannot see the selection at
         all. A book that *holds* ids is then unreadable rather than empty, and
