@@ -2939,10 +2939,10 @@ def create_app(debug=None):
           cosmetic and is left as it stands (cycle 2, F-103).
         * Each write is followed on its own return value: a book that went
           away between the read at the top and a write is reported as "Book
-          not found" rather than flashed as saved (F-004). The plan and the
-          trim are still two writes in DB mode, so a failure *between* the two
-          commits can leave the plan stored and the trim not; that window is
-          the reason the success flash now stands for a committed write.
+          not found" rather than flashed as saved (F-004). Since CARD-154 a
+          plan edit and the trim are one write (``save_plan`` with
+          ``print_spec``), so a refused trim leaves the stored plan unchanged
+          too, and the success flash stands for a committed write.
 
         And one settled in review cycle 2:
 
@@ -3055,7 +3055,10 @@ def create_app(debug=None):
                         # gets (ADR-0035 "Membership change after draft").
                         # Read before the save, which is what returns it.
                         had_left_draft = book.status != BookStatus.DRAFT.value
-                        if not book_mgr.save_plan(book_id, new_plan):
+                        # CARD-154: the plan and the trim in one write, so a
+                        # trim the store refuses leaves the plan unchanged too
+                        # — not the new plan beside the old trim.
+                        if not book_mgr.save_plan(book_id, new_plan, print_spec=spec):
                             # The book went away between the read above and
                             # this write; nothing was stored (F-004).
                             flash("Book not found", "error")
@@ -3080,23 +3083,25 @@ def create_app(debug=None):
                                 f" {planned}. The plan was saved as entered.",
                                 "warning",
                             )
-                    # CARD-136 (FR-030, CON-018): the chosen trim is stored on
-                    # the book — the print columns book_page_spec measures
-                    # every cell on and the export prints from. Until this
-                    # card it was written to metadata.size, a display string
-                    # on a snapshot DB mode drops on the floor, so a book
-                    # whose trim the owner changed still printed on the Book 1
-                    # profile. The write happens here, beside save_plan, so a
-                    # refused plan stores neither (AC-197).
-                    #
-                    # A writer's False is "no such book", and the success
-                    # flash below is about a committed write, not an attempted
-                    # one: saying "Print specs set" over a book that is not
-                    # there is how a half-applied submission goes unnoticed
-                    # (F-004).
-                    if not book_mgr.set_print_spec(book_id, spec):
-                        flash("Book not found", "error")
-                        return redirect(url_for("books_list"))
+                    else:
+                        # CARD-136 (FR-030, CON-018): the chosen trim is stored
+                        # on the book — the print columns book_page_spec
+                        # measures every cell on and the export prints from.
+                        # Until that card it was written to metadata.size, a
+                        # display string on a snapshot DB mode drops on the
+                        # floor. A plan edit stores the trim in the plan's own
+                        # write above (CARD-154); without one it is stored here
+                        # alone. Either way a refused plan stores neither
+                        # (AC-197).
+                        #
+                        # A writer's False is "no such book", and the success
+                        # flash below is about a committed write, not an
+                        # attempted one: saying "Print specs set" over a book
+                        # that is not there is how a half-applied submission
+                        # goes unnoticed (F-004).
+                        if not book_mgr.set_print_spec(book_id, spec):
+                            flash("Book not found", "error")
+                            return redirect(url_for("books_list"))
 
                     flash(
                         f"Print specs set: {spec.trim_width_cm} × "

@@ -10,6 +10,7 @@ what lets one submission of that form store the trim and the mode in one write,
 so a refused plan stores neither (AC-197's posture, extended to the mode).
 """
 
+import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
 from decimal import Decimal, InvalidOperation
@@ -151,6 +152,12 @@ class PrintSpecValidator:
         except (ValueError, TypeError):
             return False, "Trim size must be numeric values"
 
+        # CARD-154: "nan" fails every comparison below, so it would pass both
+        # bounds; "inf" and "1e999" parse too. None of them is a measurement,
+        # so they earn the same refusal as "abc" — before anything is stored.
+        if not (math.isfinite(width) and math.isfinite(height)):
+            return False, "Trim size must be numeric values"
+
         # Check minimums
         if width < PrintSpecValidator.MIN_TRIM_CM or height < PrintSpecValidator.MIN_TRIM_CM:
             return (
@@ -171,6 +178,40 @@ class PrintSpecValidator:
                 f"Trim height cannot exceed {PrintSpecValidator.MAX_TRIM_HEIGHT_CM} cm (Amazon KDP limit)",
             )
 
+        return True, None
+
+    @staticmethod
+    def validate_margins(
+        gutter_margin_cm: Optional[str],
+        outside_margin_cm: Optional[str],
+        outside_margin_bleed_cm: Optional[str] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """Validate that each given margin is a finite number of cm (CARD-154).
+
+        ``None`` and the empty string are "the caller named none" and are
+        valid (:meth:`create_spec` fills the gutter and outside margins with
+        the profile's). Anything else must parse to a finite number:
+        ``"nan"``, ``"inf"`` and ``"1e999"`` are refused like ``"abc"``. The
+        side-margin minimum is not restated here — it is
+        :func:`~nonogram.admin.book_page_spec.book_page_spec`'s verdict on a
+        stored margin, which already refuses a non-finite one on the way out.
+
+        Returns:
+            Tuple of (is_valid, error_message).
+        """
+        for label, value in (
+            ("Gutter margin", gutter_margin_cm),
+            ("Outside margin", outside_margin_cm),
+            ("Outside margin with bleed", outside_margin_bleed_cm),
+        ):
+            if value is None or (isinstance(value, str) and not value.strip()):
+                continue
+            try:
+                number = float(value)
+            except (ValueError, TypeError):
+                return False, f"{label} must be a numeric value"
+            if not math.isfinite(number):
+                return False, f"{label} must be a numeric value"
         return True, None
 
     @staticmethod
@@ -205,6 +246,14 @@ class PrintSpecValidator:
 
         # Validate trim size
         is_valid, error = PrintSpecValidator.validate_trim_size(width_cm, height_cm)
+        if not is_valid:
+            return None, error
+
+        # CARD-154: and the margins, which until now were not checked at all,
+        # so "nan" or "inf" went into the spec as given.
+        is_valid, error = PrintSpecValidator.validate_margins(
+            gutter_margin_cm, outside_margin_cm, outside_margin_bleed_cm
+        )
         if not is_valid:
             return None, error
 
