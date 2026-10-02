@@ -53,6 +53,7 @@ card names its card._
 - [ ] CARD-153 F-003: the Finalise route calls BookManager's private `_refuse_unless_the_planned_book`; needs a public read-only gate in `book_manager.py`   @tech-debt
 - [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper + Flask); the G-1 "never laid out again" spy only sees layouts through `BookPDFGenerator` (the only path today, per ADR-0036/R2)   @tech-debt
 - [ ] Wave-29 goal-check: `PrintSpecValidator.validate_margins` (CARD-154) refuses nan/inf but not a margin below the 0.635 cm minimum (accepts "0.5"). Unreachable today (no margin field on Print setup, `set_print_spec` writes no margins); a stored small margin makes Finalise fall back to "about N"   @tech-debt
+- [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the /books list, app.py) and the floor-check loop (`book_manager.py` ~:1050). Both can use `PuzzleReviewService.get_puzzles`   @tech-debt
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops

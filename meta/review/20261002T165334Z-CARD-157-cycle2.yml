@@ -1,0 +1,119 @@
+version: 1
+generated_at: "2026-10-02T16:53:34Z"
+target: "card/157-bulk-puzzle-read (fd3a82f + uncommitted fix delta: book_manager.py, tests/test_puzzle_review_bulk_read.py) vs main 3c3c3ac - CARD-157 cycle 2 (confirmation mode)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "fix delta in full: book_manager.py (_stored_tiers DEBUG line, _selection_records docstring) and tests/test_puzzle_review_bulk_read.py (3 new tests + _name/_title_value helpers)"
+    - "whole card diff vs main for src/nonogram/admin/{app.py,book_manager.py,puzzle_review.py}"
+    - "src/nonogram/admin/app.py arrange render loop 4095-4135; templates/book_arrange_puzzles.html:135-138"
+    - "src/nonogram/admin/puzzle_review.py get_puzzle/get_puzzles 1096-1170"
+    - "test fixtures store/db_store/panel/memory_panel/db_panel"
+    - "cycle-1 report and findings"
+  not_reached:
+    - "set_book_status route body in app.py (unchanged by the delta; measured via AC-2 session counts in cycle 1)"
+  confidence: high
+metrics:
+  diff: { files: 4, added: 757, removed: 43 }
+  fix_delta: { files: 2, added: 94, removed: 1 }
+  max_fan_in: { symbol: "BookManager._tier_of", callers: 4 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  tests_run:
+    - "tests/test_puzzle_review_bulk_read.py: 35 passed (29 + 6 new; memory and real Postgres nonogram_test, none skipped)"
+    - "15 system-contract test files + test_book_floor/select_tabs/workflow_steps/scaffolding: 887 passed, none skipped"
+    - "orchestrator full suite on this state: 5809 passed, 9 skipped, 2 failed = known main baseline"
+
+system_contract:
+  rules_checked: 47
+  holds: 14
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — card diff adds only stdlib uuid imports; pyproject.toml not in diff; TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green this cycle"
+    - "ADR-0019/R1 ✓ holds — diff touches nothing under src/nonogram/web/; tests/test_cli.py::test_every_import_in_the_package_points_inward green this cycle"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature in the card diff or fix delta"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting not touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing not touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair/retry pipeline not touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: RetryCounter not touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair not touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair not touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy not touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation not touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation not touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: solver/strategies not touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "ADR-0031/R1 ⚠ unchecked — no_eligible_fact: tier classification not touched"
+    - "ADR-0031/R2 ⚠ unchecked — no_eligible_fact: strategies list not touched"
+    - "ADR-0031/R3 ✓ holds — _stored_tiers (book_manager.py:1739-1766) still maps each record through unchanged tier_of_record; fix delta adds only a DEBUG line; no write path; TestTiers_LegacyGuessRowReadsAsHard green this cycle"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle/storage boundary not touched; get_puzzles is read-only (TestStorageBoundary_AsksTheSolverNotTheCaller green anyway)"
+    - "ADR-0032/R2 ✓ holds — get_puzzles returns the same _row_to_dict shape as get_puzzle (AC-1 corpus, both modes, green); TestUnmeasuredQuality_SurvivesTheFilter green this cycle"
+    - "ADR-0033/R1 ✓ holds — every added `.book_id` occurrence in the card src diff is a comment (grep of `^+.*\\.book_id`: 4 hits, all comments/docstrings); bulk reads filter Puzzle.id.in_ only (puzzle_review.py:1158); fix delta writes nothing; AC-3 tests green"
+    - "ADR-0035/R1 ✓ holds — gate path unchanged by delta (docstring only in _selection_records); TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green; mutant M14 (dedup of repeats) killed"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout not touched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: page geometry not touched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book PDF band not touched (arrange custom title is screen-only)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: PDF strokes not touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server not touched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server not touched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: size limits not touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not touched"
+    - "CON-015 ✓ holds — bind code not in card diff; TestAdminPanel_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py) green this cycle"
+    - "CON-016 ✓ holds — door code not in card diff; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green this cycle"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues not touched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness not touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters not touched"
+    - "INV-005 ✓ holds — plan code not in diff; TestBookCreate_StoresDefaultPlanThatSumsTo100 green this cycle"
+    - "INV-006 ✓ holds — floor loop keeps _tier_of(..., known=); test_the_order_lookup_is_total_and_reads_only_what_it_was_not_told green; PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride + tests/test_book_floor.py green this cycle"
+    - "INV-007 ✓ holds — selection read equivalence (AC-1) + PropertyTest_BookReady_GateIffEveryCellWithinTolerance and tests/test_book_ready_gate.py green; mutant M14 killed"
+    - "INV-008 ✓ holds — membership-change paths not in diff; TestBookPublished_PuzzleChangeRequiresConfirmation green this cycle"
+    - "INV-009 ✓ holds — tiers from one bulk read through unchanged tier_of_record; unplaced ids still None (mutant M13 -> HARD killed); PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence + TestBookArrange_MoveAcrossLevelBoundaryRefused green"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing not touched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key not touched"
+    - "INV-012 ✓ holds — membership writes not in diff; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists green this cycle"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export not touched"
+
+guardrails:
+  - "G-1 ✓ holds — no read of puzzles.book_id in the card diff (all 4 added `.book_id` hits are comments); ids from book.puzzle_ids (+ ticks); AC-3 green both modes"
+  - "G-2 ✓ holds — `git diff main --stat -- tests` lists only the new test file (no existing test edited); 887 existing book/system tests green; F-001 evidence gap closed: TestBookArrange_ShowsTheCustomTitleOfEachRow kills M7 in memory AND db"
+  - "G-3 ✓ holds — no db/models, migration or index file in diff"
+acceptance_criteria:
+  - "AC-1 ✓ — test_PropertyTest_BulkRead_MatchesPerIdReads green both modes; mutants M11 (malformed -> nil UUID) and M12 (unhashable raises) killed"
+  - "AC-2 ✓ — TestBookPaths_SessionCountDoesNotScaleWithBookSize green on real Postgres; delta adds no session (DEBUG line works on the already-read dict)"
+  - "AC-3 ✓ — TestBulkRead_IgnoresTheMembershipMirror green both modes; delta does not touch these paths' reads"
+
+previous_findings:
+  - "F-001 ✓ resolved — new test TestBookArrange_ShowsTheCustomTitleOfEachRow; re-ran M7 (custom_title = None): KILLED in [memory] and [db]"
+  - "F-002 ✓ resolved — _stored_tiers logs one DEBUG line naming unmatched ids (book_manager.py:1751-1758); both branch directions tested; mutants M9 (guard negated) and M10 (names matched ids) killed"
+  - "F-003 ✓ resolved (doc) — _selection_records docstring (book_manager.py:1880-1886) records the widened, uncapped trigger; accepted as deliberate"
+  - "F-004 dismissed (out of scope, backlog) — not re-raised"
+
+mutation_check:
+  ran: true
+  mutants: 7
+  killed: 7
+  survived: 0
+  results:
+    - "M7 app.py arrange render custom_title = None — KILLED (TestBookArrange_ShowsTheCustomTitleOfEachRow [memory] and [db])"
+    - "M9 _stored_tiers `if unmatched` -> `if not unmatched` — KILLED (test_the_order_lookup_names_what_it_could_not_place_at_debug)"
+    - "M10 _stored_tiers names matched ids — KILLED (same test, `repr(easy) not in message`)"
+    - "M11 get_puzzles DB malformed id mapped to nil UUID instead of skipped — KILLED (test_a_list_of_malformed_ids_opens_no_session)"
+    - "M12 get_puzzles memory unhashable id re-raises TypeError — KILLED (test_PropertyTest_BulkRead_MatchesPerIdReads[memory])"
+    - "M13 _stored_tiers unplaced id answers Tier.HARD — KILLED (test_the_order_lookup_is_total_and_reads_only_what_it_was_not_told)"
+    - "M14 _selection_records dedups repeated ids — KILLED (test_the_gate_reads_in_book_order_with_repeats_and_names_what_it_skipped)"
+  restore_verified: "md5 of app.py/book_manager.py/puzzle_review.py equal pre-check values; full `git diff` byte-identical to the pre-check capture"
+
+root_causes: []
+
+findings: []
