@@ -1,0 +1,173 @@
+version: 1
+generated_at: "2026-10-02T12:29:54Z"
+target: "card/156-db-session-fixture-isolation: git diff dc26103...HEAD (542b0ac)"
+overall_score: 7.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/conftest.py (full)
+    - tests/test_card_156_db_fixture.py (full)
+    - tests/test_db_e2e_smoke.py (diff + context)
+    - tests/database_guard.py (_database_name)
+    - src/nonogram/db/__init__.py, src/nonogram/db/session.py (engine/SessionLocal binding)
+    - migrations/env.py, alembic.ini
+    - alembic-using tests (test_book_plan_storage, test_book_pdf_ink_mode, test_book_page_spec, test_book_floor) — all sqlite, no conflict
+    - meta/kanban/cards/CARD-156.md Worktree notes
+  not_reached: []
+  confidence: high
+  executed:
+    - "db_required set against nonogram_test under lock: 8 passed (incl. the 3 formerly failing smoke tests + 2 AC-3)"
+    - "tests/test_card_156_db_fixture.py with no DATABASE_URL under lock: AC-2 tests passed, 2 AC-3 skipped"
+
+metrics:
+  diff: { files: 3, added: 263, removed: 44 }
+  max_fan_in: { symbol: "db_session fixture (via app/client)", callers: 12 }
+  tests_cover_change: true
+  hotspots: ["tests/conftest.py"]   # 12 commits / 12 months, 5 fix
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — conftest.py's 12-month co-change log lists no peer files (each commit touched conftest alone among tracked peers)"
+
+system_contract:
+  rules_checked: 5
+  holds: 0
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "CON-005, CON-009, CON-010, CON-011, CON-012 ⚠ unchecked — no_eligible_fact: the diff touches only tests/conftest.py, tests/test_card_156_db_fixture.py and tests/test_db_e2e_smoke.py (git diff --stat dc26103...HEAD); no solver, web-server, grid-size or aspect-guard code, and none of the five rules' named check tests, is in the diff"
+
+root_causes:
+  - id: RC-1
+    title: "The card's own tests are shaped so the regressions they name cannot reach their assertions"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_card_156_db_fixture.py
+    line: 104
+    title: "AC-3 test cannot detect a per-test schema rebuild (session scope -> function scope survives)"
+    description: |
+      Both AC-3 tests list `_test_database_tables` as their first parameter, before `per_test_sql`
+      starts listening, by design ("what per_test_sql sees is exactly db_session's own per-test work").
+      If `_test_database_tables` (conftest.py:207) were function-scoped, pytest would build it — DROP
+      SCHEMA public CASCADE + alembic upgrade head — for every test, still before the listener, and
+      `db_session`'s `request.getfixturevalue("_test_database_tables")` (conftest.py:292) would return the
+      per-item cached instance. No DROP is ever observed, TRUNCATE is still seen, batches count is 0,
+      alembic_version == heads: both tests pass. The class is named SchemaIsBuiltOncePerSession and is
+      the sole test for AC-3 ("no DROP per test"), yet the one regression that reintroduces a per-test
+      DROP is invisible to it.
+    suggestion: |
+      Observe the session fixture across tests: e.g. record the yielded engine (or a module-level build
+      counter incremented inside _test_database_tables) on the class in test 1 and assert identity/count==1
+      in test 2; or in test 2 drop `_test_database_tables` from the signature, start `per_test_sql` first
+      and assert no DROP/CREATE while db_session resolves (the session fixture is already built by test 1;
+      guard with a skip if test 2 runs alone).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_card_156_db_fixture.py
+    line: 54
+    title: "AC-2 spy is swallowed by _unreachable_reason, so a guard moved after the probe makes the test skip, not fail"
+    description: |
+      The spies raise AssertionError. `_unreachable_reason` (conftest.py:79) catches `Exception` and turns
+      it into an "unreachable" reason, after which db_session calls pytest.skip (conftest.py:289-291). If
+      the guard at conftest.py:288 were moved below the reachability check (i.e. a connection attempt
+      before the refusal — exactly what AC-2 forbids), `request.getfixturevalue("db_session")` raises
+      Skipped, which `pytest.raises(pytest.fail.Exception)` does not catch (Skipped and Failed are sibling
+      OutcomeExceptions). The test is reported SKIPPED — green in a "0 failed" gate — and
+      `assert connection_attempts == []` is never reached although the list is non-empty.
+    suggestion: |
+      Make the spy record and return a failing stub without raising into the code under test, or convert a
+      skip into a failure in the test (catch pytest.skip.Exception and pytest.fail on it), and assert
+      `connection_attempts == []` in a finally/teardown so it runs whatever the fixture raised.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/conftest.py
+    line: 246
+    title: "Session-level DROP SCHEMA has no lock_timeout and leaks the engine on failure"
+    description: |
+      The per-test TRUNCATE sets `lock_timeout = '10s'` so a leaked session errors instead of hanging, but
+      the once-per-session `DROP SCHEMA public CASCADE` does not; with four pipelines sharing nonogram_test,
+      any open connection holding a lock on a public table blocks it until the hang guard kills the run.
+      If the DROP raises, `engine` is never disposed (only the alembic-failure branch disposes it).
+    suggestion: "SET LOCAL lock_timeout in the same engine.begin() block; wrap setup in try/except that disposes the engine."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: compliance
+    type: risk
+    file: tests/conftest.py
+    line: 196
+    title: "Guard reads only the URL path; a query-string dbname could redirect the connection"
+    description: |
+      `_database_name` takes the last path segment minus the query. A URL like
+      `postgresql://u@h/nonogram_test?dbname=nonogram_dev` passes the guard while libpq/psycopg2 may honour
+      the query parameter. Exotic and requires a deliberately odd TEST_DATABASE_URL; noted for G-1 hardening.
+    suggestion: "Parse with sqlalchemy.engine.make_url and refuse when url.query carries dbname/database, or compare make_url(...).database."
+    confidence: low
+    source: inferred
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: info
+    category: ops
+    type: risk
+    file: tests/conftest.py
+    line: 247
+    title: "Concurrent runs sharing nonogram_test wipe each other's schema (pre-existing class)"
+    description: |
+      One run's DROP SCHEMA public CASCADE / TRUNCATE lands mid-run in another pipeline using the same
+      database. Pre-existing (the old fixture dropped per test) and narrowed by this card; currently
+      mitigated only by the external lock script. Follow-up card: per-worktree test database names.
+    suggestion: "Follow-up card."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check: "deferred(cost) — gating findings present; certify on the stable cycle"

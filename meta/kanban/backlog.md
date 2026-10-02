@@ -39,6 +39,10 @@ card names its card._
 - [ ] Image-mode difficulty sweep: re-run `scripts/measure_difficulty_cutoff.py` over image-derived puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt
 - [ ] CARD-155 out of scope: `meta/architecture/requirements.yml:1834` enum_note still says `difficulty.Tier` has "four members"; older ADR-0025 narrative remains in `tests/test_difficulty_tiers.py` around lines 148-204   @tech-debt
 - [ ] CARD-155 F-005 (minor): the docstring regression test's regex catches only uppercase `GUESS` and the phrase "or Guess"   @tech-debt
+- [ ] CARD-156 F-005: two test runs at once share `nonogram_test`, and the per-session `DROP SCHEMA public` wipes the other run's schema mid-flight. Only the full-suite lock prevents it today. Per-run databases or a session-level advisory lock would make it safe   @tech-debt
+- [ ] CARD-156 F-006 (minor): the second `TestDbFixture_SchemaIsBuiltOncePerSession` test fails by design when run alone (`-k`, node id, `--lf`), because it compares against state recorded by the first   @tech-debt
+- [ ] CARD-156 F-007 (minor): `DROP SCHEMA public` needs the test role to own `public`, and the recreated schema loses its default grants. Documented in tests/README.md, not handled in code   @tech-debt
+- [ ] CARD-156 note: the CARD-097 `db_required` reachability hook still sends a read-only `SELECT 1` to whatever `DATABASE_URL` names, before the `_test` guard applies   @tech-debt
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops

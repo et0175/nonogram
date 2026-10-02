@@ -1,0 +1,110 @@
+version: 1
+generated_at: "2026-10-02T13:24:34Z"
+target: "card/156-db-session-fixture-isolation: git diff dc26103 -- tests/ (542b0ac + uncommitted fix edits)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+previous_findings:
+  - {id: F-001, status: fixed, evidence: "mutant M5 (_test_database_tables scope=function) KILLED by test_the_next_test_starts_empty_on_the_migrated_schema (engine identity + batches OID)"}
+  - {id: F-002, status: fixed, evidence: "mutants M2 (db_session guard below reachability) and M7 (guard removed from both fixtures) KILLED: 8 failed each, not skipped"}
+  - {id: F-003, status: fixed, evidence: "tests/conftest.py:303 SET LOCAL lock_timeout before DROP SCHEMA; try/finally engine.dispose() at :296-325"}
+  - {id: F-004, status: fixed, evidence: "make_url-based guard; offline probe of PGDialect_psycopg2.create_connect_args confirms query dbname/database are the only override vectors (dsn= and service= lose to the explicit dbname kwarg); mutant M3 KILLED (3 failed)"}
+  - {id: F-005, status: out_of_scope, evidence: "backlogged by coordinator"}
+coverage:
+  read: ["tests/conftest.py", "tests/test_card_156_db_fixture.py", "tests/test_db_e2e_smoke.py", "tests/database_guard.py", "src/nonogram/db/__init__.py", "src/nonogram/db/session.py", "migrations/env.py", "migrations/versions/013_book_interior_ink_mode.py", "src/nonogram/admin/templates/batch_create.html", "meta/kanban/cards/CARD-156.md"]
+  not_reached: ["other test files defining their own app/client fixtures (not in file scope)"]
+  confidence: high
+metrics:
+  diff: { files: 3, added: 391, removed: 43 }
+  max_fan_in: { symbol: "tests/conftest.py::db_session (via app fixture)", callers: 10 }
+  tests_cover_change: true
+  hotspots: ["tests/conftest.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — test-harness card; co-change peers of tests/conftest.py are other test files outside the declared file scope, not mined"
+    max_fan_in: "tooling_failure — counted files whose test signatures name app/client/db_session; several define local fixtures of the same name, so this is an upper bound, not a caller count"
+runs:
+  ac1_db_required: "DATABASE_URL=TEST_DATABASE_URL=postgresql://omelnikova@localhost:5432/nonogram_test pytest -m db_required -p no:cacheprovider -> 8 passed, 5562 deselected, 7 warnings in 2.99s"
+  card_file_with_db: "tests/test_card_156_db_fixture.py -> 12 passed, 1 warning in 0.84s"
+  ac3_second_test_alone: "1 failed (pair dependency, by design; see F-006)"
+mutation_check:
+  ran: true
+  command: "locked.py pytest tests/test_card_156_db_fixture.py tests/test_db_e2e_smoke.py (DB env = nonogram_test)"
+  restore_verified: "cmp against backup OK; git diff --stat dc26103 unchanged"
+  mutants:
+    - {id: M1, change: "guard endswith('_test') -> 'test' in name", result: killed, detail: "2 failed (test_nonogram, nonogram_test_backup)"}
+    - {id: M2, change: "db_session guard moved below reachability check", result: killed, detail: "8 failed"}
+    - {id: M3, change: "query-override check disabled", result: killed, detail: "3 failed (dbname, database, DBNAME)"}
+    - {id: M4, change: "per-test TRUNCATE -> DROP TABLE + create_all", result: killed, detail: "2 failed (both AC-3 tests)"}
+    - {id: M5, change: "_test_database_tables scope=function", result: killed, detail: "1 failed (engine/OID comparison)"}
+    - {id: M6, change: "lock_timeout line removed", result: untestable, detail: "equivalent without a concurrent lock holder; not run"}
+    - {id: M7, change: "guard removed from both fixtures", result: killed, detail: "8 failed"}
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-005 ✓ holds — tests/property/test_solver_uniqueness.py: 2 passed in 1.58s (hosts PropertyTest_Solver_NeverFalsePositiveUniqueness); diff touches no solver code"
+    - "CON-009 ✓ holds — tests/test_web_server.py::TestWebServer_BindsLoopbackOnlyByDefault: 6 PASSED; diff touches no server code"
+    - "CON-010 ✓ holds — tests/test_web_server.py: 154 passed in 8.56s (hosts PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest, :1791)"
+    - "CON-011 ✓ holds — tests/property/test_grid_dimensions.py: 22 passed in 1.83s (hosts PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30)"
+    - "CON-012 ✓ holds — tests/property/test_image_fit.py: 10 passed in 0.72s (hosts PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore, :358)"
+guardrails:
+  - "G-1 ✓ holds — guard at tests/conftest.py:186-248 runs first in both fixtures; alembic subprocess gets DATABASE_URL=test_db_url (env.py:69 reads it); M1/M3/M7 killed"
+  - "G-2 ✓ holds — reachability check still cached via _unreachable_reason, called before session fixture is requested (conftest.py:345-349); orchestrator no-DB run 10 passed 2 skipped; notes record 8 skipped in 1.11s"
+  - "G-3 ✓ holds — git diff dc26103 --stat touches tests/ only (3 files)"
+root_causes: []
+findings:
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_card_156_db_fixture.py
+    line: 190
+    title: "AC-3 second test fails when selected alone (introduced by the F-001 fix)"
+    description: |
+      test_the_next_test_starts_empty_on_the_migrated_schema asserts len(_SESSION_SCHEMA_SEEN) == 1,
+      filled only by the sibling test. Run on its own (node id, PyCharm "run test", -k next_test,
+      --lf after a failure) it reports FAILED. Verified: 1 failed in 0.70s. It fails red, not
+      green, with an explicit message, and xdist/randomly are not installed, so it does not gate.
+    suggestion: |
+      Either skip (not fail) when the witness is empty and the sibling was deselected — e.g. check
+      request.session.items for the sibling's nodeid and fail only if it was collected — or make
+      the witness a session-scoped fixture that records the first engine/OID it sees, so any
+      second db_session test in the session compares against it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/conftest.py
+    line: 304
+    title: "DROP SCHEMA public resets schema ownership/ACL and needs schema ownership"
+    description: |
+      The old fixture needed only table ownership; DROP SCHEMA public CASCADE + CREATE SCHEMA public
+      needs ownership of public (pg_database_owner on PG15+) and recreates it owned by the
+      connecting role, without the original default grants. A contributor whose test role owns the
+      tables but not the database gets a hard fixture error, and a second role sharing nonogram_test
+      loses access to the recreated schema. Works on this machine for both omelnikova and postgres.
+    suggestion: |
+      Document the requirement (test role must own nonogram_test), or drop the tables/types
+      owned by the role (DROP OWNED BY CURRENT_USER) instead of the schema.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
