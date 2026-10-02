@@ -48,6 +48,10 @@ card names its card._
 - [ ] CARD-152 F-006 (minor): the "not reachable" message names only two causes (server down, database missing), not a wrong host, port or credentials; same wording in all three scripts   @tech-debt
 - [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from `tests/test_start_admin_local.py` (`_DOCKER_STUB`, `_PSQL_MODEL`, `_all_pairs`, `_plain`); renaming one breaks both new suites   @tech-debt
 - [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14); stale docstring at `tests/test_start_admin_local.py:533`   @tech-debt
+- [ ] CARD-153 F-010 (pre-existing): `finalize_book`'s outer `except Exception` only flashes, so a transient non-plan error on any Finalise POST action is never logged   @tech-debt
+- [ ] CARD-153 F-006: the global 500 handler shows Flask's generic text, so a page-plan error on GET Finalise isn't named on screen   @feature
+- [ ] CARD-153 F-003: the Finalise route calls BookManager's private `_refuse_unless_the_planned_book`; needs a public read-only gate in `book_manager.py`   @tech-debt
+- [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper + Flask); the G-1 "never laid out again" spy only sees layouts through `BookPDFGenerator` (the only path today, per ADR-0036/R2)   @tech-debt
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops

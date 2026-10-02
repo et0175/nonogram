@@ -1,0 +1,141 @@
+version: 1
+generated_at: "2026-10-02T13:42:52Z"
+target: "card/153-finalise-broken-page-plan — CONFIRMATION MODE re-entry: fix delta = uncommitted tests/test_book_finalise_gutter.py (append-only, +131/-0) over ff781b1 + 0773bed"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+cycle: 3
+previous_report: meta/review/20261002T132240Z-CARD-153-cycle3.yml
+fix_delta:
+  files: [tests/test_book_finalise_gutter.py]
+  production_code_changed: false   # `git diff --stat -- src` empty
+  addresses: G-1
+coverage:
+  read:
+    - tests/test_book_finalise_gutter.py (full fix delta: GUTTER_070, _LayoutSpy, TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter)
+    - src/nonogram/admin/app.py (_book_places section_plan call :819, _interior_counts :867-973, _kdp_gutter_refusal :1065, finalize_book POST :4290-4322 and GET :4405)
+    - src/nonogram/admin/book_pdf_generator.py (__init__ stores self.book :1259; page spec read lazily from self.book :1287)
+  not_reached: []
+  confidence: high
+g1_reverification:
+  verdict: "✓ holds"
+  evidence:
+    - "7/7 new tests green in 0.37s (slowest 0.10s); the two card test files 139/139 green"
+    - "Spy soundness: records book.gutter_margin_cm at BookPDFGenerator.__init__ (before super) and self.book.gutter_margin_cm at interior_stream call time; the generator reads its page spec lazily from self.book, so bump-and-restore on the same object and a copy with another gutter are both observed. Patched at nonogram.admin.app where the routes look both names up at call time; pytest monkeypatch undoes both at teardown; spy installed after panel.book() so setup is not counted."
+    - "Count semantics honest: _interior_counts wrapped per call; a refused POST counts twice (action + re-render), both on the stored gutter, and len(laid_out) == counts == 2 there; the no-sheet case asserts zero layouts and a constructor attempt only at the stored gutter."
+    - "Revert check A (mine, byte copy + cmp restore): in _kdp_gutter_refusal bump the SAME book object to '1.27', BookPDFGenerator(book).interior_stream([]), restore -> 3 failed (all 3 POST cases; the GET cases and the uncountable case legitimately pass since _kdp_gutter_refusal is POST-only and returns early on counts None)"
+    - "Revert check B (mine): a second interior_stream on the same generator at the stored gutter inside _interior_counts -> 4 failed (the len == counts bound)"
+    - "First half (stored gutter never rewritten) still pinned by panel.gutter(book_id) == gutter in every new test plus TestKdpGutterTable / TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount"
+  restore_verified: "cmp scratchpad/c3r/app.py.orig src/nonogram/admin/app.py identical; `git diff --stat -- src` empty after both mutants"
+task_contract:
+  - "AC-1 ✓ holds — re-verified (delta file holds its test): TestFinaliseCounts_PlanTripwireIsNotAnEstimate green; delta append-only, 0 removed lines"
+  - "AC-2 ✓ holds — re-verified: TestFinaliseCounts_ShowsWhyTheCountIsApproximate green"
+  - "AC-3 ✓ holds — re-verified: TestFinalise_UncountableBookStaysInDraft green"
+  - "AC-4 ✓ holds — re-verified: TestFinaliseGutter_InexactRefusalSaysAbout green"
+  - "AC-5 ✓ holds — carried(cycle 3, delta-clean): scope tests/test_book_export_interior_cover.py + book_finalize.html, not in delta"
+  - "G-1 ✓ holds — re-verified fresh, see g1_reverification"
+  - "G-2 ✓ holds — carried(cycle 3, delta-clean): scope = export/PDF code + golden A4 test; delta touches no src and no export test"
+  - "G-3 ✓ holds — carried(cycle 3, delta-clean): scope = finalize_book gate + tests/test_book_ready_gate.py; delta touches neither (gate tests re-run green anyway, 109 passed with answer-key property)"
+mutation_check:
+  ran: false
+  carried: "certified this cycle (12/12 killed) on production code unchanged since — `git diff --stat -- src` empty; carried(cycle 3, delta-clean). Two fresh revert checks on the new test both killed (A: 3 failed, B: 4 failed)."
+previous_findings:
+  F-009: "still present — open Minor (duplicate log of GET tripwire), production code unchanged"
+  F-010: "out of scope, unchanged"
+  F-003: "still present — dismissed/deferred, outside file scope"
+  F-006: "out of scope, unchanged"
+system_contract:
+  rules_checked: 44
+  holds: 12
+  unchecked: 32
+  violated: 0
+  scope_intersection_note: "delta = tests/test_book_finalise_gutter.py only. INV-011's previous evidence cites a class in that file -> re-verified. Every other rule's scope (src files, other test files, solver/web/CLI areas) does not intersect the delta -> carried."
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 3, delta-clean)"
+    - "ADR-0019/R1 ✓ holds — carried(cycle 3, delta-clean)"
+    - "ADR-0022/R1 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0022/R3 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0022/R4 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0024/R1 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0024/R2 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0024/R3 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0024/R4 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0024/R5 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0027/R1 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0027/R2 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0029/R1 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0029/R2 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0029/R3 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0029/R4 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0029/R5 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0032/R1 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0032/R2 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0033/R1 ✓ holds — carried(cycle 3, delta-clean)"
+    - "ADR-0035/R1 ✓ holds — carried(cycle 3, delta-clean)"
+    - "ADR-0036/R1 ✓ holds — carried(cycle 3, delta-clean)"
+    - "ADR-0036/R2 ✓ holds — carried(cycle 3, delta-clean)"
+    - "ADR-0037/R1 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "ADR-0037/R2 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "CON-005 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "CON-009 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "CON-010 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "CON-011 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "CON-012 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "CON-015 ✓ holds — carried(cycle 3, delta-clean)"
+    - "CON-016 ✓ holds — carried(cycle 3, delta-clean)"
+    - "INV-001 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-002 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-003 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-005 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-006 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-007 ✓ holds — carried(cycle 3, delta-clean)"
+    - "INV-008 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-009 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-010 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-011 ✓ holds — re-verified (evidence class lives in the delta file): TestFinaliseCounts_PlanTripwireIsNotAnEstimate[answer-key] green; tests/property/test_book_answer_key.py green (109 passed with test_book_ready_gate.py)"
+    - "INV-012 ⚠ unchecked — carried(cycle 3, delta-clean) no_eligible_fact"
+    - "INV-013 ✓ holds — carried(cycle 3, delta-clean)"
+root_causes: []
+findings:
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 4405
+    title: "A plan tripwire on the Finalise GET is logged twice with the same traceback"
+    description: "Carried unchanged from the previous report; production code unchanged."
+    suggestion: "Answer the stamped exception on GET as POST does, or accept the duplicate."
+    confidence: high
+    source: static
+    status: open
+  - id: F-011
+    severity: low
+    category: test-quality
+    type: gap
+    file: tests/test_book_finalise_gutter.py
+    line: 1202
+    title: "The layout spy only sees layouts that go through BookPDFGenerator"
+    description: |
+      _LayoutSpy observes every BookPDFGenerator built and every interior_stream walked, so a
+      second layout via that class at any other gutter (copy or bump-and-restore) is caught —
+      confirmed by two revert checks. A second layout that bypassed the class (e.g. calling the
+      book page-spec / sheet builder directly with a raised gutter) would not be seen. Today app.py
+      lays out only through BookPDFGenerator and ADR-0036/R2 forbids the panel computing geometry
+      itself, so this is a residual blind spot, not a hole in the current guardrail.
+    suggestion: "Optional: also wrap book_page_spec as imported into the generator module, or leave it to ADR-0036/R2's review lens."
+    confidence: medium
+    source: static
+    status: open
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 4340
+    title: "[out-of-scope, pre-existing] finalize_book's outer except only flashes"
+    status: open
+verdict: "Confirmation passes: the fix delta is test-only, append-only, sound and non-tautological; G-1 now ✓. No new Critical/Important finding."

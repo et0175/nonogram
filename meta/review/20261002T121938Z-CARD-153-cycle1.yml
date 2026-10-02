@@ -1,0 +1,227 @@
+version: 1
+generated_at: "2026-10-02T12:19:38Z"
+target: "card/153-finalise-broken-page-plan (git diff main...HEAD, ff781b1)"
+overall_score: 8.0
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/app.py (_interior_counts, InteriorCounts, _kdp_gutter_refusal, finalize_book route, errorhandler 500)
+    - src/nonogram/admin/templates/book_finalize.html
+    - tests/test_book_finalise_gutter.py (CARD-153 block + fixtures)
+    - tests/test_book_export_interior_cover.py (AC-5 hunk)
+    - src/nonogram/admin/book_pdf_generator.py (__init__, interior_stream, answer_key, puzzle_pages, puzzle_section)
+    - src/nonogram/admin/book_kdp.py (unpaired_interior_page_count, _grid_extent, gutter_refusal, KdpPageCountNotModelled)
+    - src/nonogram/admin/book_manager.py (_refuse_unless_the_planned_book, set_book_status)
+    - tests/test_book_ready_gate.py::test_the_finalize_route_flashes_it
+    - ~/Documents/nonogram-reviews/CARD-153/*.png (renders 1, 3, 5)
+  not_reached:
+    - live browser capture / runtime console / a11y scan (none available)
+  confidence: high
+metrics:
+  diff: { files: 4, added: 421, removed: 18 }
+  max_fan_in: { symbol: "app._interior_counts", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: ["src/nonogram/admin/book_pdf_generator.py"]
+  unmeasured:
+    cochange_missing: "not_applicable — book_pdf_generator.py (5/12 co-changes) is absent by design: G-2 forbids touching the exporter"
+system_contract:
+  rules_checked: 44
+  holds: 11
+  unchecked: 33
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — only new import is stdlib `logging` (app.py:38); `git diff main...HEAD -- pyproject.toml` is empty"
+    - "ADR-0019/R1 ✓ holds — diff touches nothing under src/nonogram/web/; tests/test_cli.py (import-direction guard) green in this review's 555-test run"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size handling touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/orchestrator code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no source-mode recovery touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: solver/strategies untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver package untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no puzzle-storage path in the diff (tests/test_admin_uniqueness_boundary.py green regardless)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score rendering touched"
+    - "ADR-0033/R1 ✓ holds — production diff writes no puzzle field (only test fixture `_uncountable` mutates a stored grid); grep of `git diff main...HEAD -- src` for puzzle writes finds none"
+    - "ADR-0035/R1 ✓ holds — the only status write in finalize_book is still book_mgr.set_book_status (app.py:4193); the new branch only refuses; book_manager.py unchanged; tests/test_book_ready_gate.py, tests/property/test_book_ready_gate.py, tests/test_book_published_confirm.py green"
+    - "ADR-0036/R1 ✓ holds — no layout/export file in diff (`git diff --stat main...HEAD -- src/nonogram/export src/nonogram/admin/book_pdf_generator.py` empty); tests/test_export_a4_golden.py + tests/test_layout_page_spec.py green"
+    - "ADR-0036/R2 ✓ holds — diff adds no geometry computation; it only constructs BookPDFGenerator and calls interior_stream (app.py:913,926)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no PDF page drawing touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke geometry touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ✓ holds — diff names no bind address (grep '127.0.0.1\\|host=' over src diff: none); tests/test_admin_binding.py green"
+    - "CON-016 ✓ holds — diff adds no route and no request-admission code (grep '@app.route\\|before_request' over src diff: none); tests/test_admin_binding.py green"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness of puzzles untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan write"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership untouched"
+    - "INV-007 ✓ holds — same evidence as ADR-0035/R1: gate path unchanged, ready-gate unit+property tests green"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published membership untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: ordering untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched"
+    - "INV-011 ✓ holds — the answer-key tripwire guarding it now surfaces instead of being masked: TestFinaliseCounts_PlanTripwireIsNotAnEstimate[answer-key] (3 tests) green"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership paths untouched (tests/property/test_book_workflow.py green regardless)"
+    - "INV-013 ✓ holds — exact page_count still the interior plan's own (app.py:956-961 unchanged in meaning); generator untouched; tests/property/test_book_export_interior.py + tests/test_book_export_interior_cover.py green"
+root_causes:
+  - id: RC-1
+    title: "AC-4 'about' wording is patched onto book_kdp's prose after the fact, one refusal text at a time"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 1003
+    title: "AC-4 incomplete: the not-modelled refusal for an inexact count still says 'runs to N'"
+    description: |
+      _kdp_gutter_refusal composes three refusal texts. Two now say "about N" for an inexact
+      count, but the KdpPageCountNotModelled branch returns str(unmodelled) unchanged:
+      "KDP gutter table not modelled above 300 pages: this interior runs to 350. ..."
+      Reproduced: InteriorCounts(page_count=350, exact=False, ...) with gutter '0.6' returns that
+      text. MAX_MODELLED_PAGE_COUNT is 300, so any book with ~250+ puzzles and an unlayable print
+      spec hits it, while the screen says "About 350". AC-4 ("the refusal for an inexact count
+      uses the same 'about' wording as the screen") is not met on this branch, and the sheet-free
+      upper bound is stated as a fact. The rewrite is also done by str.replace on book_kdp's prose
+      (app.py:1006-1009), which silently no-ops on a rewording.
+    suggestion: |
+      Apply the same treatment to the not-modelled text when not counts.exact (e.g. replace
+      f"runs to {n}." with f"runs to about {n}.", or build the message in app.py), and add a test
+      in TestFinaliseGutter_InexactRefusalSaysAbout with page_count > MAX_MODELLED_PAGE_COUNT and
+      exact=False asserting "about".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 940
+    title: "Malformed-row discrimination can downgrade a real tripwire to a WARNING and None"
+    description: |
+      Any exception from interior_stream is classified as 'malformed row' if
+      unpaired_interior_page_count(puzzles) raises ValueError, regardless of what interior_stream
+      actually raised. A book holding a malformed row AND hitting an exporter tripwire is logged
+      at WARNING with the misleading message "a row's answer cannot be packed". The book still
+      cannot leave draft and no "About N" is shown, so AC-1 holds, but the exporter bug is
+      misattributed.
+    suggestion: |
+      Classify by the exception itself (RuntimeError whose __cause__ is ValueError from
+      answer_key's "could not be laid out"), or log at ERROR when the caught exception is not that one.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 4180
+    title: "Plan gate asked through BookManager's private _refuse_unless_the_planned_book"
+    description: |
+      The route calls a private method of the aggregate's manager across modules to keep the gate
+      first (G-3). It skips set_book_status's own earlier checks (published / no puzzles) and
+      couples the route to a private signature. Behaviour is correct today
+      (tests/test_book_ready_gate.py::test_the_finalize_route_flashes_it covers it).
+    suggestion: |
+      Follow-up: expose a public read-only BookManager.exit_from_draft_refusal(book_id, status)
+      used by both set_book_status and the route.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "deferred, not a false positive: the fix is a public read-only gate query on BookManager, and book_manager.py is outside CARD-153's scope; the coupling is now documented at the call site in app.py. Follow-up card."
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 967
+    title: "Uncountable refusal says 'stays in draft' for a book that is not in draft"
+    description: |
+      For a book already ready_for_pdf / pdf_generated, Save and finish on an uncountable interior
+      now flashes "...and the book stays in draft", which is false for that book (the gate returns
+      early for non-draft, then UNCOUNTABLE_INTERIOR_REFUSAL is flashed).
+    suggestion: |
+      Word it status-neutrally ("...so the book cannot be marked ready") or only mention draft
+      when book.status is draft.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 4178
+    title: "A tripwire on Save and finish is logged twice and its flash is lost behind the re-render 500"
+    description: |
+      On POST save_and_finish the tripwire is logged+re-raised by _interior_counts, flashed by the
+      route's outer except, then the GET half calls _interior_counts again (app.py:4271), which
+      logs and raises again, so the owner gets the generic 500 page without the flashed message.
+    suggestion: |
+      Return early (redirect or render a minimal error) after the flash on this path, or accept
+      and document it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 5160
+    title: "[out-of-scope] Global 500 handler shows Flask's generic text, not the original exception"
+    description: |
+      render_template("500.html", error=str(e)) prints InternalServerError's boilerplate, so the
+      tripwire's text never reaches the owner (render 5-plan-tripwire-500.png). Unchanged line;
+      noted for a follow-up card.
+    suggestion: "Use getattr(e, 'original_exception', e) in the handler (follow-up card)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

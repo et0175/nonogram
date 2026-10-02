@@ -1579,6 +1579,11 @@ links:
   - TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden
   - TestBookPageSpec_OddPageGutterOnLeft
   - TestBookPageSpec_EvenPageGutterOnRight
+  - TestFinaliseCounts_PlanTripwireIsNotAnEstimate
+  - TestFinaliseCounts_ShowsWhyTheCountIsApproximate
+  - TestFinalise_UncountableBookStaysInDraft
+  - TestFinaliseGutter_InexactRefusalSaysAbout
+  - TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter
   notes: >-
     Amended 2026-09-22 (d): parity counts from INTERIOR page 1 — the guide
     page, the cover being a separate file (FR-043); AC-179's page count is the
@@ -1822,6 +1827,9 @@ links:
   - TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge
   - PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly
   - PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea
+  - TestFinaliseCounts_PlanTripwireIsNotAnEstimate
+  - TestFinaliseCounts_ShowsWhyTheCountIsApproximate
+  - TestFinalise_UncountableBookStaysInDraft
   notes: >-
     Story US-023, INV-010, EC-027, EC-028. ADR-0036 clarification: a pair-aware
     COMP-007 call takes both clue sets and the book PageSpec and returns both
@@ -1884,6 +1892,9 @@ links:
   - TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages
   - TestBookAnswerKey_SmallAnswerCellCappedAtFiveMm
   - TestBookAnswerKey_HeadingPageTwentyInSixUpTileCellSize
+  - TestFinaliseCounts_PlanTripwireIsNotAnEstimate
+  - TestFinaliseCounts_ShowsWhyTheCountIsApproximate
+  - TestFinalise_UncountableBookStaysInDraft
   notes: >-
     Amended 2026-09-22 (d) (owner, BK-8 details): a SOLUTIONS divider page
     precedes the answer key; each level starts a new answer page under a small

@@ -1,0 +1,155 @@
+version: 1
+generated_at: "2026-10-02T13:22:40Z"
+target: "card/153-finalise-broken-page-plan — git diff $(git merge-base main HEAD)...HEAD (merge-base dc26103; commits ff781b1 + 0773bed), scoped to app.py, book_finalize.html, test_book_export_interior_cover.py, test_book_finalise_gutter.py"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: full
+cycle: 3
+coverage:
+  read:
+    - src/nonogram/admin/app.py (_interior_counts, _PLAN_FAILURE_LOGGED, _is_a_logged_plan_failure, _is_an_unpackable_row, UNCOUNTABLE_INTERIOR_REFUSAL, _about, _kdp_gutter_refusal, finalize_book POST+GET incl. members_in_order and outer except, errorhandler(500))
+    - src/nonogram/admin/templates/book_finalize.html (count dd, approximate note, print-setup links)
+    - src/nonogram/admin/templates/500.html
+    - src/nonogram/admin/book_kdp.py (unpaired_interior_page_count, _grid_extent — every malformed shape raises ValueError)
+    - tests/test_book_finalise_gutter.py (CARD-153 block + Panel fixture)
+    - tests/test_book_export_interior_cover.py (AC-5 hunk)
+    - ~/Documents/nonogram-reviews/CARD-153/1-approximate-count-with-reason.png, 7-save-and-finish-non-plan-error.png
+    - meta/review cycle-1 and cycle-2 reports
+  not_reached:
+    - live browser capture / runtime console log / a11y scan (none available)
+    - visual baseline diff (no meta/design/baselines/ and no visual-diff.log for this project)
+  confidence: high
+metrics:
+  diff: { files: 4, added: 754, removed: 19 }
+  max_fan_in: { symbol: "app._interior_counts", callers: 2 }
+  new_symbol_fan_in: { "_about": 1, "_is_an_unpackable_row": 1, "_is_a_logged_plan_failure": 1, "UNCOUNTABLE_INTERIOR_REFUSAL": 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (142 commits / 12 months, 82 fix|bug)"]
+  cochange_missing: ["src/nonogram/admin/book_pdf_generator.py (10 co-changes) — intentionally absent: G-2 forbids changing PDF bytes"]
+mutation_check:
+  ran: true
+  command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest tests/test_book_finalise_gutter.py tests/test_book_export_interior_cover.py tests/test_book_ready_gate.py -p no:cacheprovider -W ignore -x"
+  capture_restore: "byte copies in scratchpad (app.py is ~5.3k lines, beyond a faithful Read/Write round-trip); restored with copy + byte-compare after each mutant; no git checkout/restore/stash used"
+  restore_verified: "shasum app.py 0868e27c… and book_finalize.html 5a6d2ad8… identical before/after; `git status --porcelain` identical; `git diff | shasum` 82e6a8f5… identical; `git diff --stat -- src tests` empty"
+  note: "12 mutants (2 above the 5-10 cap) because the orchestrator enumerated each target explicitly"
+  mutants:
+    - "M1b constructor-only catch: interior_stream also called inside the `except ValueError` try — KILLED (test_the_helper_logs_the_tripwire_with_its_traceback_and_lets_it_through[page-plan])"
+    - "M2 tripwire `raise` -> `return None` — KILLED (same test)"
+    - "M3 log.exception -> log.debug — KILLED (same test)"
+    - "M4 _PLAN_FAILURE_LOGGED setattr removed — KILLED (test_save_and_finish_names_the_tripwire_on_its_error_page_and_logs_it_once[page-plan])"
+    - "M5 `if not _is_a_logged_plan_failure(...)` -> `if False` — KILLED (TestSaveAndFinish_OnlyThePlanFailureIsBlamedOnThePlan[generator-constructor])"
+    - "M6 _is_an_unpackable_row first condition -> True — KILLED (test_a_tripwire_in_a_book_with_a_malformed_row_is_not_read_as_uncountable)"
+    - "M7 _is_an_unpackable_row second condition (clean rows -> True) — KILLED (test_a_layout_abort_on_clean_rows_is_the_exporters_error)"
+    - "M8 uncountable refusal -> None in save_and_finish — KILLED (test_save_and_finish_refuses_and_the_book_stays_in_draft[no-sheet])"
+    - "M9 gate-first _refuse_unless_the_planned_book call neutralised — KILLED (test_book_ready_gate.py::TestBookReady_RefusalNamesOffendingCell::test_the_finalize_route_flashes_it)"
+    - "M10a _about main rewrite returns refusal unchanged — KILLED (test_an_inexact_count_is_refused_as_about_n_pages)"
+    - "M10b _about fallback returns refusal unchanged — KILLED (test_a_reworded_refusal_still_says_about)"
+    - "M11 template always prints '~' before the count — KILLED (test_book_export_interior_cover.py::TestBookFinalise_OffersBothDownloads::test_the_screen_renders_an_interior_and_a_cover_download)"
+previous_findings:
+  F-007: "resolved — rows read before the try (app.py:4290); only stamped exceptions get the page-plan 500 (app.py:4294-4295); TestSaveAndFinish_OnlyThePlanFailureIsBlamedOnThePlan[row-read, generator-constructor] green; mutants M4/M5 killed. setattr on exceptions verified safe: BaseException carries __dict__, so __slots__ subclasses, builtins (RuntimeError/ValueError/KeyError/OSError/MemoryError/RecursionError), sqlite3.OperationalError and psycopg2.OperationalError all accept the attribute (probe on Python 3.14.3)"
+  F-008: "resolved — test_a_layout_abort_on_clean_rows_is_the_exporters_error green; mutant M7 killed"
+  F-003: "still present — dismissed/deferred: needs a public read-only gate in book_manager.py (outside file scope); call-site comment at app.py:4308-4313, call at app.py:4314"
+  F-006: "out of scope, unchanged — global errorhandler(500) shows Flask's generic text"
+system_contract:
+  rules_checked: 44
+  holds: 12
+  unchecked: 32
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — `git diff $(git merge-base main HEAD)...HEAD -- src | grep -E '^[+-]\\s*(import|from) '` → only `+import logging` (stdlib); pyproject.toml not in the diff; tests/test_export_pdf.py (TestDependencyBaseline_IsExactlyPillowAndNumpy) green in this review's 607-test run"
+    - "ADR-0019/R1 ✓ holds — diff names no file under src/nonogram/web/ (`git diff --name-only` = 4 files); tests/test_cli.py::test_every_import_in_the_package_points_inward green (607-test run)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature/field added (new signatures: _about(refusal, page_count), _is_an_unpackable_row(error, puzzles), _is_a_logged_plan_failure(error))"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting not in the diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing not in the diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: random-mode repair not in the diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter not in the diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair flips not in the diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair choice not in the diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy not in the diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation not in the diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density rejection added"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring not in the diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: solver/strategies not in the diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score not in the diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver package not in the diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution not in the diff"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no puzzle write added (grep of src diff for store.puzzles|update_puzzle: comments only)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score/recognizability rendering in the diff"
+    - "ADR-0033/R1 ✓ holds — `git diff MB...HEAD -- src | grep -E '^\\+.*(store\\.puzzles|update_puzzle)'` → no hit; production diff writes no puzzle field"
+    - "ADR-0035/R1 ✓ holds — the only status write in finalize_book stays book_mgr.set_book_status (app.py:4327), reached only when refusal is falsy; new branches refuse, raise or 500; mutant M9 killed by tests/test_book_ready_gate.py::TestBookReady_RefusalNamesOffendingCell::test_the_finalize_route_flashes_it; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green"
+    - "ADR-0036/R1 ✓ holds — no export/layout file in the diff; tests/test_export_a4_golden.py + tests/test_layout_page_spec.py green (607-test run)"
+    - "ADR-0036/R2 ✓ holds — diff computes no geometry: grep of src diff for compute_layout|compute_pair_layout → no added line; it only constructs BookPDFGenerator and calls interior_stream (app.py:925,939)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: PDF page drawing (book_pdf_generator.py) not in the diff"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: grid strokes not in the diff"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver not in the diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server not in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server not in the diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grep of src diff for MIN_SIZE|MAX_SIZE → none"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not in the diff"
+    - "CON-015 ✓ holds — grep of src diff for 127.0.0.1 → none; tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault green"
+    - "CON-016 ✓ holds — grep of src diff for @app.route|before_request → none (no route or admission code added); tests/test_admin_binding.py::TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue derivation not in the diff"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness of puzzles not in the diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters not in the diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan write in the diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership/floor untouched"
+    - "INV-007 ✓ holds — same evidence as ADR-0035/R1: M9 killed; tests/property/test_book_ready_gate.py green (607-test run)"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published membership untouched (tests/test_book_published_confirm.py green regardless)"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book ordering untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched"
+    - "INV-011 ✓ holds — the answer-key tripwire now surfaces instead of being swallowed: TestFinaliseCounts_PlanTripwireIsNotAnEstimate[answer-key] green; M2/M3 killed; tests/property/test_book_answer_key.py green"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership paths untouched"
+    - "INV-013 ✓ holds — exact page_count still stream.page_count (app.py:968-973); tests/property/test_book_export_interior.py + tests/test_book_export_interior_cover.py green; M11 killed"
+root_causes: []
+findings:
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 4405
+    title: "A plan tripwire on the Finalise GET is logged twice with the same traceback"
+    description: |
+      _interior_counts logs the tripwire with log.exception and re-raises it; the GET half of
+      finalize_book (app.py:4405) does not answer it, so Flask's handle_exception logs it again
+      ("Exception on /book/<id>/finalize [GET]") through the same logger. Probe with
+      _drop_last_planned_page + PROPAGATE_EXCEPTIONS=False: two ERROR records with exc_info for one
+      failure. F-005 removed exactly this duplication on POST; GET still has it. AC-1 holds (it is
+      logged with its traceback); this is log noise only. The helper's docstring ("so a caller that
+      answers it itself does not log it again") is accurate but no caller on GET does.
+    suggestion: |
+      Either answer the stamped exception on GET as POST does (render 500.html naming the error), or
+      leave it and accept the duplicate; if fixed, pin the count with a len(logged) == 1 assertion in
+      test_the_screen_shows_no_count_and_the_error_is_logged_with_its_traceback.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 4340
+    title: "[out-of-scope, pre-existing] finalize_book's outer `except Exception` only flashes — a transient non-plan error on any POST action is never logged"
+    description: |
+      Probe: a BookPDFGenerator constructor TypeError raised once on Save and finish → 200, flash
+      "Error: transient", status draft, zero log records. On main the same failure was swallowed
+      entirely by the bare except in _interior_counts, and a row-read error inside members_in_order
+      was flash-only too, so this card does not regress it; it affects every POST action of the route.
+    suggestion: "Follow-up card: log (app.logger.exception) in the route's outer handler before flashing."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
