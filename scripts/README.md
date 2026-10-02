@@ -8,11 +8,14 @@ Quick scripts to set up and test the Nonogram Admin Panel locally.
 - PostgreSQL 15+ running locally
 - A database that already exists, and a `DATABASE_URL` pointing at it. The
   project default is
-  `postgresql://postgres:postgres@localhost:5432/nonogram_poc`. In
-  `start_admin_local.sh`, a `DATABASE_URL` you exported yourself wins over that
-  default; `setup_admin_local.sh` and `run_admin_tests.sh` do not yet honour it
-  — both still export the project default over whatever you exported, so edit
-  them or set the URL afterwards. **The scripts never create a database** —
+  `postgresql://postgres:postgres@localhost:5432/nonogram_poc`. In all three
+  scripts — `start_admin_local.sh`, `setup_admin_local.sh` and
+  `run_admin_tests.sh` — a `DATABASE_URL` you exported yourself wins over that
+  default, and each prints the URL it settled on and where it came from
+  (`exported by the caller` or `project default`). Each checks that the
+  database it names is reachable — host, port, credentials and name, including a
+  driver-qualified `postgresql+psycopg2://` URL — and stops if it is not, or if
+  the URL names no database at all. **The scripts never create a database** —
   which one you want is your call. `psql -l` lists the ones you have, and
   `createdb <name>` makes a new one if that is what you want.
 
@@ -57,14 +60,24 @@ Setup without starting Flask. Use for one-time setup or CI/CD.
 
 ```bash
 ./scripts/setup_admin_local.sh
+export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_dev"
+./scripts/setup_admin_local.sh               # says: (exported by the caller)
 ```
+
+It uses the same database as `start_admin_local.sh` would — your exported
+`DATABASE_URL`, else the project default — and stops the same way (CARD-152):
+
+- If that database is unreachable, it names it, exits non-zero, and migrates
+  nothing. It does not create the database for you.
+- If `alembic upgrade head` fails, it prints what alembic said, exits non-zero,
+  and does not print "Setup complete!".
 
 After setup, start Flask manually:
 ```bash
 source .venv/bin/activate
 export FLASK_ENV=development
-# The project default; export your own DATABASE_URL instead to use another
-# database. It must already exist — nothing here creates one.
+# The same URL setup used: the project default below, or your own exported
+# DATABASE_URL. It must already exist — nothing here creates one.
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
 # nonogram.admin.app, never src.nonogram.admin.app: the src.-prefixed spelling
 # loads the admin package a second time and the two copies disagree (CARD-139).
@@ -83,6 +96,22 @@ Run tests by type: Wave 1, Wave 2, unit, E2E, smoke, integration.
 ./scripts/run_admin_tests.sh unit                   # Unit tests only
 ./scripts/run_admin_tests.sh smoke                  # Quick smoke tests
 ./scripts/run_admin_tests.sh --help                 # Show options
+```
+
+**Which database the tests get.** Your exported `DATABASE_URL`, else the project
+default; it says which before running anything. Once the arguments are parsed
+it checks that database is reachable and stops, running no test, if it is not
+or if the URL names no database — the suite's database-backed tests would
+otherwise skip and the run would come back green. `--help` and a mistyped
+option answer without a database.
+
+The suite itself refuses a database whose name does not contain `test`
+(`tests/database_guard.py`, CARD-109), so with the project default
+`nonogram_poc` pytest stops at start-up. Point it at a test database:
+
+```bash
+export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_test"
+./scripts/run_admin_tests.sh wave1
 ```
 
 ## Measurement scripts
@@ -118,7 +147,9 @@ constant again.
 # Full setup + start Flask
 ./scripts/start_admin_local.sh
 
-# In another terminal, run Wave 1 tests
+# In another terminal, run Wave 1 tests -- against a test database
+# (see run_admin_tests.sh above for why not the panel's)
+export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_test"
 ./scripts/run_admin_tests.sh wave1
 ```
 
@@ -128,7 +159,7 @@ constant again.
 # Start Flask (setup already done)
 ./scripts/start_admin_local.sh --no-migrate
 
-# Run tests
+# Run tests (DATABASE_URL exported to a test database, as on day 1)
 ./scripts/run_admin_tests.sh wave1 -v
 ```
 
@@ -209,8 +240,10 @@ pip install -e '.[dev]'
 
 ### Database not reachable
 
-`start_admin_local.sh` exits at step `[1/6]` naming the database it was asked to
-use. Either PostgreSQL is not running, or that database does not exist:
+All three scripts stop at their database check naming the database they were
+asked to use (`start_admin_local.sh` at step `[1/6]`, `setup_admin_local.sh`
+under "Checking prerequisites", `run_admin_tests.sh` before running any test).
+Either PostgreSQL is not running, or that database does not exist:
 
 ```bash
 psql -l                                  # which databases do I have?
@@ -222,7 +255,8 @@ The script will not create the database — see Prerequisites.
 
 ### Migration errors
 
-`start_admin_local.sh` exits at step `[5/6]` and prints alembic's own message.
+`start_admin_local.sh` exits at step `[5/6]`, and `setup_admin_local.sh` at
+"Running database migrations", each printing alembic's own message.
 
 ```bash
 # Check current migration
