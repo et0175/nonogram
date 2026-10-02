@@ -792,9 +792,13 @@ class TestBookTrim_AWriteThatStoredNothingIsReported:
 
         monkeypatch.setattr(app.book_manager, writer, vanish)
 
+        # CARD-154: a plan edit now stores the trim inside save_plan's own
+        # write, so set_print_spec is the writer only of a submission that
+        # leaves the plan as stored — the default plan, sent back unchanged.
+        plan = (120, (30, 45, 25)) if writer == "save_plan" else (150, (40, 40, 20))
         response = client.post(
             f"/book/{book_id}/setup-print",
-            data=_form(120, (30, 45, 25), AC198_MATRIX,
+            data=_form(*plan, AC198_MATRIX,
                        width=SIX_BY_NINE_CM[0], height=SIX_BY_NINE_CM[1]),
         )
 

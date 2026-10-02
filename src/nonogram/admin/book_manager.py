@@ -725,7 +725,9 @@ class BookManager:
                 return None
             return plan_from_json(book_row.distribution_plan)
 
-    def save_plan(self, book_id: str, plan: DistributionPlan) -> bool:
+    def save_plan(
+        self, book_id: str, plan: DistributionPlan, print_spec: Optional[PrintSpec] = None
+    ) -> bool:
         """Store ``plan`` as the book's distribution plan (FR-034, FR-035).
 
         ``plan`` must be a :class:`DistributionPlan`: the aggregate has already
@@ -743,14 +745,28 @@ class BookManager:
         no longer known must be judged again before a PDF or a KDP upload is
         built from it. A book already in draft is left where it is.
 
+        **With ``print_spec``, the plan and the trim are stored together or not
+        at all** (CARD-154). Print setup is one submission carrying both; as
+        two writers' two commits, a trim refused after the plan had committed
+        left the book on the new plan and the old trim. The spec is checked
+        first, exactly as :meth:`set_print_spec` checks it, so a refusal
+        raises before anything is written; in DB mode both are then written in
+        one session and one commit, so a failure inside that transaction rolls
+        the plan back with the trim. In memory-only mode nothing can fail
+        between the checks and the two assignments, so the outcome is the same
+        all-or-nothing.
+
         Returns:
             True if stored, False if the book does not exist.
 
         Raises:
             InvalidPlan: ``plan`` is not a DistributionPlan.
+            ValueError: ``print_spec`` is given and :meth:`set_print_spec`
+                would refuse it. Nothing — neither plan nor trim — is written.
         """
         if not isinstance(plan, DistributionPlan):
             raise InvalidPlan(f"a book's plan must be a DistributionPlan, got {type(plan).__name__}")
+        ink_mode = self._checked_print_spec(print_spec) if print_spec is not None else None
 
         if self._session_factory is None:
             book = self.books.get(book_id)
@@ -759,6 +775,8 @@ class BookManager:
             self._plans[book_id] = plan
             book.status = BookStatus.DRAFT.value
             book.updated_at = datetime.utcnow()
+            if print_spec is not None:
+                self._apply_print_spec(book, print_spec, ink_mode)
             return True
 
         from nonogram.db.models import Book as DBBook
@@ -770,6 +788,8 @@ class BookManager:
             book_row.distribution_plan = plan_to_json(plan)
             book_row.status = BookStatus.DRAFT.value
             book_row.updated_at = datetime.utcnow()
+            if print_spec is not None:
+                self._apply_print_spec(book_row, print_spec, ink_mode)
             db.commit()
             return True
 
@@ -833,6 +853,40 @@ class BookManager:
                 ``None``, ``"abc"``, ``"nan"`` and ``"999"`` alike. Nothing is
                 written when it is raised.
         """
+        ink_mode = self._checked_print_spec(spec)
+
+        if self._session_factory is None:
+            book = self.books.get(book_id)
+            if not book:
+                return False
+            self._apply_print_spec(book, spec, ink_mode)
+            return True
+
+        from nonogram.db.models import Book as DBBook
+
+        with self._session_factory() as db:
+            book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
+            if not book_row:
+                return False
+            self._apply_print_spec(book_row, spec, ink_mode)
+            db.commit()
+            return True
+
+    @staticmethod
+    def _checked_print_spec(spec: PrintSpec) -> Optional[str]:
+        """Refuse a ``spec`` the print columns must not hold; return its ink mode.
+
+        The storage-boundary checks :meth:`set_print_spec` documents, made
+        **before anything is written** — which is what lets :meth:`save_plan`
+        run them ahead of storing a plan beside the trim (CARD-154).
+
+        Returns:
+            The ink mode normalised to the column's own spelling, or ``None``
+            when the spec names none (the stored mode is then left alone).
+
+        Raises:
+            ValueError: as :meth:`set_print_spec` describes.
+        """
         if not isinstance(spec, PrintSpec):
             raise ValueError(
                 f"a book's print specification must be a PrintSpec, got {type(spec).__name__}"
@@ -867,36 +921,24 @@ class BookManager:
             raise ValueError(f"a book's interior ink mode cannot be stored: {refusal}")
         # Normalised to the column's own spelling, and None when the caller
         # named none — which leaves the stored mode where it is.
-        ink_mode = (
+        return (
             ink_mode_from_stored(spec.interior_ink_mode).value
             if spec.interior_ink_mode
             else None
         )
 
-        if self._session_factory is None:
-            book = self.books.get(book_id)
-            if not book:
-                return False
-            book.trim_width_cm = spec.trim_width_cm
-            book.trim_height_cm = spec.trim_height_cm
-            if ink_mode is not None:
-                book.interior_ink_mode = ink_mode
-            book.updated_at = datetime.utcnow()
-            return True
+    @staticmethod
+    def _apply_print_spec(book: Any, spec: PrintSpec, ink_mode: Optional[str]) -> None:
+        """Write a checked ``spec`` onto ``book`` (a :class:`Book` or a ``books`` row).
 
-        from nonogram.db.models import Book as DBBook
-
-        with self._session_factory() as db:
-            book_row = db.query(DBBook).filter(DBBook.id == uuid_module.UUID(book_id)).first()
-            if not book_row:
-                return False
-            book_row.trim_width_cm = spec.trim_width_cm
-            book_row.trim_height_cm = spec.trim_height_cm
-            if ink_mode is not None:
-                book_row.interior_ink_mode = ink_mode
-            book_row.updated_at = datetime.utcnow()
-            db.commit()
-            return True
+        The trim columns, the ink mode when one was named, and ``updated_at`` —
+        nothing else (see :meth:`set_print_spec`).
+        """
+        book.trim_width_cm = spec.trim_width_cm
+        book.trim_height_cm = spec.trim_height_cm
+        if ink_mode is not None:
+            book.interior_ink_mode = ink_mode
+        book.updated_at = datetime.utcnow()
 
     def floor_overrides(self, book_id: str) -> List[str]:
         """The ids this book has stored an under-floor override for (TERM-025).
