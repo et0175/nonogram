@@ -1587,6 +1587,7 @@ links:
   - TestTrimValidation_RefusesNonFiniteValues
   - TestPrintSetup_PlanAndTrimCommitTogether
   - TestPrintSetup_NanWidthChangesNothing
+  - TestBookDetail_ShowsTheStoredTrim
   notes: >-
     Amended 2026-09-22 (d): parity counts from INTERIOR page 1 — the guide
     page, the cover being a separate file (FR-043); AC-179's page count is the
@@ -1935,6 +1936,8 @@ links:
   - TestBookFinalise_PageCountExcludesCoverFile
   - TestBookExport_EveryRouteSeparatesInteriorAndCover
   - PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
+  - TestBookPages_OfferBothExportFiles
+  - TestBookDetail_ListsPuzzlesByTitle
   notes: >-
     New 2026-09-22 (d). Story US-023; INV-013, EC-034; owner decision BK-9
     (not a DEC). COMP-009 (book_pdf_generator.py and the three export routes)

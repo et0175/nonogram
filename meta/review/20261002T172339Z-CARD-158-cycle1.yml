@@ -1,0 +1,192 @@
+version: 1
+generated_at: "2026-10-02T17:23:39Z"
+target: "card/158-book-pages-show-contents @ bc1281b vs main 96bf6e8 (CARD-158, cycle 1)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/app.py (books_list, book_detail, _trim_cm, _cover_upload_lost, generate_book_pdf_download, download_book_pdf, generate_book_pdf)
+    - src/nonogram/admin/templates/book_detail.html
+    - src/nonogram/admin/templates/books_list.html
+    - src/nonogram/admin/templates/_tier.html
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/puzzle_review.py (get_puzzles)
+    - src/nonogram/admin/book_page_spec.py (book_page_spec)
+    - tests/test_book_detail_page.py
+    - tests/test_books_list_plan_stats.py (edited hunk + helpers)
+    - meta/design/components.md (grep)
+    - implementer screenshots ~/Documents/nonogram-reviews/CARD-158/ (4 of 17 viewed)
+  not_reached:
+    - DB-mode rendering of /book/<id> (tests are in-memory only; get_puzzles DB path covered by CARD-157)
+    - runtime.log / a11y scan (visual loop off)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 635, removed: 16 }
+  max_fan_in: { symbol: "_cover_upload_lost (app.py, closure)", callers: 6 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (144 commits / 12 mo, 67 fix/bug)"]
+  cochange_missing: []
+  mutation: { run: true, mutants: 9, killed: 8, survived: 1 }
+system_contract:
+  rules_checked: 44
+  holds: 19
+  unchecked: 25
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from `git diff 96bf6e8...HEAD --stat`; TestDependencyBaseline_IsExactlyPillowAndNumpy passed (run by reviewer, 87-test -k selection)"
+    - "ADR-0019/R1 ✓ holds — diff adds no import anywhere; test_every_import_in_the_package_points_inward passed (reviewer run)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing untouched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair loop untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched (page only displays stored difficulty_tier)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: scoring untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "ADR-0032/R1 ✓ holds — diff writes no puzzle row (app.py hunks 2581-2587, 4741-4776 only read); TestStorageBoundary_AsksTheSolverNotTheCaller passed (reviewer run)"
+    - "ADR-0032/R2 ✓ holds — no quality_score/recognizability rendered or compared in the diff (grep of diff: 0 hits); TestUnmeasuredQuality_SurvivesTheFilter passed (reviewer run)"
+    - "ADR-0033/R1 ✓ holds — app.py:4745 reads members via puzzle_review.get_puzzles(book.puzzle_ids) (by id, never puzzles.book_id); no write to any puzzle field in the diff"
+    - "ADR-0035/R1 ✓ holds — no status transition code in diff; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan passed (reviewer run)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout/PageSpec untouched (no export/ file in diff)"
+    - "ADR-0036/R2 ✓ holds — book PDF path untouched; cover button posts to existing download_book_pdf → _export_part (app.py:4652, 4605); no geometry in admin diff"
+    - "ADR-0037/R1 ✓ holds — puzzle titles shown on the admin screen only (book_detail.html:158); BookPDFGenerator untouched (not in diff stat)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: PDF strokes untouched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: src/nonogram/web untouched (empty diff stat on that path)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: src/nonogram/web untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ✓ holds — no bind/run code in diff; TestAdminPanel_BindsLoopbackOnlyByDefault passed (reviewer run)"
+    - "CON-016 ✓ holds — no host/door code in diff; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit passed (reviewer run)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: CLI/web export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry bounds untouched"
+    - "INV-005 ✓ holds — plan code untouched (book_manager.py not in diff); full suite green on bc1281b (orchestrator run)"
+    - "INV-006 ✓ holds — no membership write in diff; PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride passed (reviewer run)"
+    - "INV-007 ✓ holds — no status/ready code in diff; full suite green on bc1281b (orchestrator run)"
+    - "INV-008 ✓ holds — no membership write in diff; TestBookPublished_PuzzleChangeRequiresConfirmation passed (reviewer run)"
+    - "INV-009 ✓ holds — order not changed (page iterates book.puzzle_ids read-only, app.py:4747); PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence passed (reviewer run)"
+    - "INV-010 ✓ holds — pairing code untouched; full suite green on bc1281b (orchestrator run)"
+    - "INV-011 ✓ holds — answer-key code untouched; full suite green on bc1281b (orchestrator run)"
+    - "INV-012 ✓ holds — no membership write; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists passed (reviewer run)"
+    - "INV-013 ✓ holds — cover button posts part=cover to the unchanged download route; TestBookExport_EveryRouteSeparatesInteriorAndCover and PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage passed (reviewer run); test_the_cover_form_as_rendered_downloads_the_cover_file passed"
+root_causes: []
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 4755
+    title: "Title fallback to the id is untested (mutant survived)"
+    description: |
+      Mutant M9 deleted `or str(puzzle_id)` from the member-title chain; tests/test_book_detail_page.py
+      stayed green (22 passed). That rung is reachable in normal use: puzzles.puzzle_name is
+      nullable (src/nonogram/db/models.py:71), so an unnamed puzzle with no custom title would
+      render the literal "None" as its label with nothing failing. Every AC-2 test names all
+      puzzles (NAMES), and none covers a member whose record is missing.
+    suggestion: |
+      Add to TestBookDetail_ListsPuzzlesByTitle: a member added with name=None (the helper
+      already supports it) whose label must equal its id, and optionally a member whose
+      record is absent from get_puzzles (label = id, tier badge "N/A").
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: medium
+    category: feature
+    type: risk
+    file: src/nonogram/admin/templates/books_list.html
+    line: 124
+    title: "Lost-cover reason on /books is invisible to sighted users"
+    description: |
+      The disabled Cover button gives its reason only through title= and aria-label. Bootstrap
+      5.3 (base.html) sets `.btn:disabled { pointer-events: none }`, so the tooltip never shows
+      and the owner sees an unexplained greyed "Cover" (after-books-lost-cover-1440.png). The
+      template comment says the button "says why". book_detail.html does show visible text.
+    suggestion: |
+      Add a visible muted hint next to it in the actions cell (e.g. "Cover lost — re-upload"
+      linking to Finalise), or replace the disabled button with that link.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 4766
+    title: "One stored trim column shows a mixed stored/profile size"
+    description: |
+      trim_set is `width or height`; if only one column is stored, book_page_spec fills the
+      other from BOOK1_PROFILE and the row shows e.g. "15.24 × 27.94 cm" as if both were set.
+      Print setup writes both, so this is reachable only from legacy/hand-edited rows.
+    suggestion: "Treat a half-set trim as unreadable, or leave as is and note it."
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Skipped by fix cycle 1: legacy/hand-edited rows only (Print setup writes both trim columns); a half-set branch would add a new untested path for a state the app never writes."
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_detail.html
+    line: 157
+    title: "Out-of-scope: # column is list order, not the printed puzzle number"
+    description: |
+      `loop.index` over book.puzzle_ids, while Arrange and the PDF number puzzles from
+      puzzle_levels (INV-009 grouping). For a legacy mixed arrangement the number on this page
+      differs from the printed one; the new Tier column makes that visible. Pre-existing.
+    suggestion: "Follow-up card: number members from book_mgr.puzzle_levels as Arrange does."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/books_list.html
+    line: 88
+    title: "Out-of-scope: /books rows are ~650 px tall at 390 px"
+    description: |
+      The Against-plan hint column stacks every off-plan cell, making each row very tall at
+      390 px (before-books-390.png and after-books-390.png alike). The page-overflow fix works;
+      this is a separate, pre-existing density issue.
+    suggestion: "Follow-up card: collapse hints on narrow viewports."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

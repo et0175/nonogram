@@ -1,0 +1,167 @@
+version: 1
+generated_at: "2026-10-02T17:37:22Z"
+target: "card/158-book-pages-show-contents @ bc1281b + uncommitted fix delta (cycle-1 fixes), vs main 96bf6e8; confirmation mode"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "git diff 96bf6e8 -- src tests (full card diff + fix delta)"
+    - "src/nonogram/admin/app.py (books_list hunk 2578-2590, book_detail hunk 4739-4777)"
+    - "src/nonogram/admin/templates/books_list.html:95-145"
+    - "src/nonogram/admin/templates/book_detail.html (cover/lost-cover/trim branches)"
+    - "src/nonogram/admin/static/admin.css (.text-muted :28, .subtle :190, .actions :207)"
+    - "tests/test_book_detail_page.py (new tests in the fix delta)"
+    - "meta/review/20261002T172339Z-CARD-158-cycle1.yml"
+    - "~/Documents/nonogram-reviews/CARD-158/after-books-lost-cover-1440.png (implementer-produced)"
+  not_reached:
+    - "runtime.log / a11y.log (visual loop off; none exist)"
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 700, removed: 16 }
+  fix_delta: { files: 3, note: "app.py comment-only; books_list.html +1 span, comment; tests +2 AC-2 tests, +1 AC-1 test" }
+  tests_cover_change: true
+  mutation: { mutants: 9, killed: 9, survived: 0 }
+  unmeasured:
+    max_fan_in: "not_applicable — fix delta adds no exported symbol; template + tests only"
+    hotspots: "not_applicable — confirmation cycle; history signals measured in cycle 1 and the delta adds no file"
+    cochange_missing: "not_applicable — same file set as cycle 1"
+
+system_contract:
+  rules_checked: 44
+  holds: 19
+  unchecked: 25
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean): pyproject.toml not in fix delta; TestDependencyBaseline_IsExactlyPillowAndNumpy also re-passed this cycle (96-test -k run)"
+    - "ADR-0019/R1 ✓ holds — fix delta adds only `import re` in tests/; test_every_import_in_the_package_points_inward passed (reviewer run, this cycle)"
+    - "ADR-0022/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0022/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0022/R4 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0024/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0024/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0024/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0024/R4 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0024/R5 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0027/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0027/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0029/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0029/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0029/R3 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0029/R4 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0029/R5 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "ADR-0032/R1 ✓ holds — fix delta writes no puzzle row (app.py change is a comment at :2581-2583); TestStorageBoundary_AsksTheSolverNotTheCaller passed (reviewer run, this cycle)"
+    - "ADR-0032/R2 ✓ holds — no quality_score/recognizability rendered in src/ diff (only test fixture args); TestUnmeasuredQuality_SurvivesTheFilter passed (reviewer run, this cycle)"
+    - "ADR-0033/R1 ✓ holds — app.py:4746 reads members via puzzle_review.get_puzzles(book.puzzle_ids); fix delta adds no write; new test deletes a puzzle only in the test fixture"
+    - "ADR-0035/R1 ✓ holds — no status transition in diff; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan passed (reviewer run, this cycle)"
+    - "ADR-0036/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact (no export/ file)"
+    - "ADR-0036/R2 ✓ holds — new span is a link to finalize_book (books_list.html:127); no geometry code; cover form unchanged posting to download route"
+    - "ADR-0037/R1 ✓ holds — titles only on the admin screen; BookPDFGenerator not in diff stat (git diff 96bf6e8 --stat -- src)"
+    - "ADR-0037/R2 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "CON-005 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "CON-009 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact (src/nonogram/web untouched)"
+    - "CON-010 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "CON-011 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "CON-012 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "CON-015 ✓ holds — no bind/run code in diff; TestAdminPanel_BindsLoopbackOnlyByDefault passed (reviewer run, this cycle)"
+    - "CON-016 ✓ holds — no host/door code in diff; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit passed (reviewer run, this cycle)"
+    - "INV-001 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "INV-002 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "INV-003 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+    - "INV-005 ✓ holds — book_manager.py not in diff; TestBookCreate_StoresDefaultPlanThatSumsTo100 passed (reviewer run, this cycle)"
+    - "INV-006 ✓ holds — no membership write; PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride passed (reviewer run, this cycle)"
+    - "INV-007 ✓ holds — no ready-gate code; PropertyTest_BookReady_GateIffEveryCellWithinTolerance passed (reviewer run, this cycle)"
+    - "INV-008 ✓ holds — no membership write; TestBookPublished_PuzzleChangeRequiresConfirmation passed (reviewer run, this cycle)"
+    - "INV-009 ✓ holds — page iterates book.puzzle_ids read-only (app.py:4748); PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence passed (reviewer run, this cycle)"
+    - "INV-010 ✓ holds — pairing untouched; PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly passed (reviewer run, this cycle)"
+    - "INV-011 ✓ holds — answer key untouched; PropertyTest_BookAnswerKey_OrderAndCapacityForAnyBook passed (reviewer run, this cycle)"
+    - "INV-012 ✓ holds — no membership write; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists passed (reviewer run, this cycle)"
+    - "INV-013 ✓ holds — cover forms submit part=cover (mutants M5/M6 killed); TestBookExport_EveryRouteSeparatesInteriorAndCover and PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage passed (reviewer run, this cycle)"
+
+previous_findings:
+  F-001: "resolved — mutant M1 (drop `or str(puzzle_id)`) now KILLED by test_an_unnamed_member_without_a_custom_title_is_labelled_by_its_id"
+  F-002: "resolved — visible span books_list.html:127 with Finalise link; mutant M4 (remove span) KILLED"
+  F-003: "still present — dismissed by fix cycle 1 (legacy-only state); Minor, non-gating"
+
+root_causes: []
+
+findings:
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 4767
+    title: "One stored trim column shows a mixed stored/profile size"
+    description: |
+      Unchanged since cycle 1: trim_set = width or height; a half-set legacy row shows a
+      profile-filled dimension as if stored. Print setup writes both columns.
+    suggestion: "Leave as is (dismissed) or treat a half-set trim as unreadable in a later card."
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Skipped by fix cycle 1: legacy/hand-edited rows only."
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/templates/books_list.html
+    line: 127
+    title: "Owner screenshots of the /books lost-cover row predate the F-002 hint"
+    description: |
+      after-books-lost-cover-1440.png / -390.png were rendered at 20:08, before the fix delta
+      (tests file 20:27); the 1440 image shows the greyed Cover button with no hint. The new
+      sentence-long span sits in the ~100 px .actions column (flex-wrap, admin.css:207), so
+      its wrapped layout has not been seen by anyone. G-3 relies on the owner checking these
+      renders.
+    suggestion: "Re-render after-books-lost-cover-{1440,390}.png into ~/Documents/nonogram-reviews/CARD-158/ before the owner check."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/book_detail.html
+    line: 157
+    title: "Out-of-scope: # column is list order, not the printed puzzle number"
+    description: "Carried from cycle 1; pre-existing."
+    suggestion: "Follow-up card."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: info
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/templates/books_list.html
+    line: 88
+    title: "Out-of-scope: /books rows are ~650 px tall at 390 px"
+    description: "Carried from cycle 1; pre-existing."
+    suggestion: "Follow-up card."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
