@@ -440,21 +440,62 @@ if not _PACKAGE_DIR.is_dir():  # pragma: no cover - installed-only checkout
 #: than exempted by its name — which is precisely the shape ADR-0025/R2 forbids.
 _CLASSIFIER_MODULE = _PACKAGE_DIR / "difficulty.py"
 
-#: Names that would mean "this module is deciding a tier for itself". The two
-#: cutoffs are the score half of the rule; ``branch_nodes`` is the solve-fact
-#: half, and EC-015 is precisely the claim that no second module may read it to
-#: reach a tier.
-_CUTOFF_NAMES = frozenset({"EASY_MAX_SCORE", "MEDIUM_MAX_SCORE"})
-_SOLVE_FACT = "branch_nodes"
+#: Names that would mean "this module is deciding a tier for itself": the two
+#: tier cutoffs, and CARD-137's rung cutoffs — a module comparing a score
+#: against a rung edge is cutting the same scale into its own bands.
+_CUTOFF_NAMES = frozenset(
+    {
+        "EASY_MAX_SCORE",
+        "MEDIUM_MAX_SCORE",
+        "RUNG_OVERLAP_MAX_SCORE",
+        "RUNG_LINE_DP_MAX_SCORE",
+    }
+)
+
+#: The tier vocabulary, compared case-insensitively: ``Tier``'s values are
+#: lowercase, the prototype CARD-155 retired wrote ``"Easy"``, and a second
+#: classifier could spell it either way.
+_TIER_NAMES = frozenset({"easy", "medium", "hard"})
+
+
+def _is_tier_name(node: ast.expr | None) -> bool:
+    """A bare tier-name string, or a conditional expression yielding one."""
+    if isinstance(node, ast.Constant):
+        return isinstance(node.value, str) and node.value.lower() in _TIER_NAMES
+    if isinstance(node, ast.IfExp):
+        return _is_tier_name(node.body) or _is_tier_name(node.orelse)
+    return False
 
 
 def _tier_deciding_offences(path: Path) -> list[str]:
-    """Places in one source file that decide a tier without asking COMP-006.
+    """Places in one source file that decide a tier without asking COMP-006."""
+    return _tier_deciding_offences_in_source(path.read_text(encoding="utf-8"), path.name)
 
-    One shape is looked for, as ``ast`` rather than as text so that a comment
-    or a docstring mentioning a cutoff is not an offence: **a comparison
-    against one of the cutoff constants.** A module that did that would be a
-    second band table, silently left behind by the next retune.
+
+def _tier_deciding_offences_in_source(source: str, name: str) -> list[str]:
+    """Places in one module's source that decide a tier without asking COMP-006.
+
+    Two shapes are looked for, as ``ast`` rather than as text so that a comment
+    or a docstring mentioning either is not an offence:
+
+    1. **A comparison against one of the cutoff constants.** A module that did
+       that would be a second band table, silently left behind by the next
+       retune.
+    2. **A statement that binds or returns a bare tier name** (CARD-155) — an
+       assignment (plain, annotated or augmented) or a ``return`` whose value is
+       the string ``"easy"``/``"medium"``/``"hard"`` in any case, or a
+       conditional expression yielding one. That is how a band table written
+       on bare numbers looks (``if score < 30: tier = "Easy"``), and a numeric
+       literal rule would be far too noisy to catch it by its numbers.
+
+    The second rule's boundary, deliberately narrow because the same words are
+    legitimate vocabulary elsewhere in the package: a tier name as a **dict
+    key**, a **call argument** or **keyword default** (``plan.split`` keys,
+    ``ProofPuzzle(tier="hard")``, the batch form's ``"medium"`` *size*) is not
+    an offence — none of those maps a score to anything — and nor is an
+    assignment **directly in a class body**, which is how an enum declares its
+    members (``Recognizability.MEDIUM = "medium"``). A dict-based band table
+    would slip past; the guard catches the shape the package actually had.
 
     Until CARD-098 a second shape counted too — comparing ``branch_nodes``
     against a number — because ADR-0025 made a branching solve a *tier* and
@@ -470,16 +511,23 @@ def _tier_deciding_offences(path: Path) -> list[str]:
         # (``sourcing/templates/``), which ``ast.parse`` flags. Not this rule's
         # business, and not worth a line of noise per run.
         warnings.simplefilter("ignore", SyntaxWarning)
-        tree = ast.parse(path.read_text(encoding="utf-8"))
+        tree = ast.parse(source)
+    class_body_statements = {
+        id(statement)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ClassDef)
+        for statement in node.body
+    }
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Compare):
-            continue
-        operands = [node.left, *node.comparators]
-        for operand in operands:
-            if isinstance(operand, ast.Name) and operand.id in _CUTOFF_NAMES:
-                offences.append(f"{path.name}:{node.lineno} compares against {operand.id}")
-            if isinstance(operand, ast.Attribute) and operand.attr in _CUTOFF_NAMES:
-                offences.append(f"{path.name}:{node.lineno} compares against {operand.attr}")
+        if isinstance(node, ast.Compare):
+            for operand in [node.left, *node.comparators]:
+                if isinstance(operand, ast.Name) and operand.id in _CUTOFF_NAMES:
+                    offences.append(f"{name}:{node.lineno} compares against {operand.id}")
+                if isinstance(operand, ast.Attribute) and operand.attr in _CUTOFF_NAMES:
+                    offences.append(f"{name}:{node.lineno} compares against {operand.attr}")
+        elif isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign, ast.Return)):
+            if id(node) not in class_body_statements and _is_tier_name(node.value):
+                offences.append(f"{name}:{node.lineno} binds a tier name")
     return offences
 
 
@@ -535,8 +583,61 @@ def test_the_rule_catches_a_module_that_started_classifying(tmp_path: Path) -> N
     finally:
         offending.unlink()
 
-    assert len(offences) == 1
-    assert any("EASY_MAX_SCORE" in offence for offence in offences)
+    # One comparison, plus the two ``return`` statements that bind tier names.
+    assert len(offences) == 3
+    assert sum("EASY_MAX_SCORE" in offence for offence in offences) == 1
+    assert sum("binds a tier name" in offence for offence in offences) == 2
+
+
+#: CARD-155's AC-2, kept in the suite rather than only checked by hand: the
+#: 30/70 tier mapping ``analysis/strategy_counter.py`` carried until CARD-155,
+#: verbatim, inside the function it lived in.
+_RETIRED_PROTOTYPE_MAPPING = """
+def calculate_difficulty_from_strategies(counter):
+    difficulty_score = min(100, counter.strategy_count)
+
+    # Determine tier based on score
+    if difficulty_score < 30:
+        tier = "Easy"
+    elif difficulty_score < 70:
+        tier = "Medium"
+    else:
+        tier = "Hard"
+
+    return difficulty_score, tier
+"""
+
+
+def test_the_rule_catches_the_retired_prototype_mapping() -> None:
+    """AC-2 (CARD-155): restoring the old 30/70 mapping fails the guard.
+
+    It compares against bare ``30``/``70``, which the cutoff-name rule cannot
+    see — so this is the tier-name rule's reason to exist, pinned.
+    """
+    offences = _tier_deciding_offences_in_source(
+        _RETIRED_PROTOTYPE_MAPPING, "strategy_counter.py"
+    )
+
+    assert offences == [
+        "strategy_counter.py:7 binds a tier name",
+        "strategy_counter.py:9 binds a tier name",
+        "strategy_counter.py:11 binds a tier name",
+    ]
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "tier = 'easy' if score < 30 else 'hard'\n",
+        "def f(score):\n    return 'Medium' if score else None\n",
+        "label: str = 'HARD'\n",
+        "from nonogram.difficulty import RUNG_LINE_DP_MAX_SCORE\n"
+        "def f(score):\n    return score > RUNG_LINE_DP_MAX_SCORE\n",
+    ],
+)
+def test_the_rule_catches_each_tier_deciding_shape(source: str) -> None:
+    """Conditional expressions, annotated bindings, any case, the rung cutoffs."""
+    assert len(_tier_deciding_offences_in_source(source, "probe.py")) == 1
 
 
 def test_the_rule_leaves_the_legitimate_shapes_alone(tmp_path: Path) -> None:
@@ -559,7 +660,16 @@ def test_the_rule_leaves_the_legitimate_shapes_alone(tmp_path: Path) -> None:
         "    puzzle.branch_nodes = signals.branch_nodes\n"
         "\n"
         "def describe(tier):\n"
-        "    return tier is difficulty.Tier.GUESS\n",
+        "    return tier is difficulty.Tier.GUESS\n"
+        "\n"
+        "# The tier-name rule's boundary (CARD-155): vocabulary, not mapping.\n"
+        "class Recognizability(Enum):\n"
+        "    MEDIUM = 'medium'\n"
+        "\n"
+        "SPLIT = {'easy': 1, 'medium': 2, 'hard': 3}\n"
+        "PROOF = ProofPuzzle(tier='hard')\n"
+        "default_size = form.get('default_size', 'medium')\n"
+        "count = split['easy']\n",
         encoding="utf-8",
     )
 

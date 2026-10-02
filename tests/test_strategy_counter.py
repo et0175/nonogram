@@ -87,33 +87,36 @@ class TestStrategyCounter:
 
 
 class TestDifficultyCalculation:
-    """Test difficulty score calculation from strategies."""
+    """Test difficulty score calculation from strategies.
 
-    def test_easy_puzzle_no_backtracking(self):
-        """Easy puzzle: few strategies, no backtracking."""
+    Score only: the prototype no longer names a tier (CARD-155, ADR-0031/R1 —
+    ``difficulty.classify`` is the one classifier). The 30/70 bounds below are
+    the prototype's own scoring design, pinned as numbers, not as tiers.
+    """
+
+    def test_few_strategies_no_backtracking_scores_low(self):
+        """Few strategies, no backtracking: the bottom of the scale."""
         counter = StrategyCounter()
         counter.add_strategy(Strategy.LINE_LOGIC, 2)
 
-        score, tier = calculate_difficulty_from_strategies(counter)
+        score = calculate_difficulty_from_strategies(counter)
 
-        assert tier == "Easy"
         assert score < 30
 
-    def test_medium_puzzle_shallow_backtracking(self):
-        """Medium puzzle: moderate strategies, shallow backtracking."""
+    def test_moderate_strategies_shallow_backtracking_scores_mid(self):
+        """Moderate strategies, shallow backtracking: the middle of the scale."""
         counter = StrategyCounter()
         counter.add_strategy(Strategy.LINE_LOGIC, 3)
         counter.add_strategy(Strategy.CONSTRAINT_PROPAGATION, 3)
         counter.add_strategy(Strategy.POINTING_PAIRS, 2)
         counter.set_backtracking_depth(2)
 
-        score, tier = calculate_difficulty_from_strategies(counter)
+        score = calculate_difficulty_from_strategies(counter)
 
-        assert tier == "Medium"
         assert 30 <= score < 70
 
-    def test_hard_puzzle_deep_backtracking(self):
-        """Hard puzzle: many strategies, deep backtracking."""
+    def test_many_strategies_deep_backtracking_scores_high(self):
+        """Many strategies, deep backtracking: the top of the scale."""
         counter = StrategyCounter()
         counter.add_strategy(Strategy.LINE_LOGIC, 5)
         counter.add_strategy(Strategy.CONSTRAINT_PROPAGATION, 5)
@@ -124,9 +127,8 @@ class TestDifficultyCalculation:
         for _ in range(5):
             counter.increment_branches()
 
-        score, tier = calculate_difficulty_from_strategies(counter)
+        score = calculate_difficulty_from_strategies(counter)
 
-        assert tier == "Hard"
         assert score >= 70
 
     def test_score_is_normalized_0_to_100(self):
@@ -140,17 +142,19 @@ class TestDifficultyCalculation:
         for _ in range(100):
             counter.increment_branches()
 
-        score, tier = calculate_difficulty_from_strategies(counter)
+        score = calculate_difficulty_from_strategies(counter)
 
         assert 0 <= score <= 100
 
-    def test_empty_puzzle_is_easy(self):
-        """A puzzle with no strategies is Easy."""
+    def test_empty_counter_scores_zero(self):
+        """A puzzle with no strategies scores zero."""
         counter = StrategyCounter()
-        score, tier = calculate_difficulty_from_strategies(counter)
 
-        assert tier == "Easy"
-        assert score == 0
+        assert calculate_difficulty_from_strategies(counter) == 0
+
+    def test_returns_a_bare_score_not_a_tier(self):
+        """CARD-155: the score is the whole answer; no tier rides along."""
+        assert isinstance(calculate_difficulty_from_strategies(StrategyCounter()), int)
 
     def test_backtracking_matters(self):
         """Backtracking depth significantly affects difficulty."""
@@ -161,8 +165,8 @@ class TestDifficultyCalculation:
         counter2.add_strategy(Strategy.LINE_LOGIC, 3)
         counter2.set_backtracking_depth(4)
 
-        score1, _ = calculate_difficulty_from_strategies(counter1)
-        score2, _ = calculate_difficulty_from_strategies(counter2)
+        score1 = calculate_difficulty_from_strategies(counter1)
+        score2 = calculate_difficulty_from_strategies(counter2)
 
         assert score2 > score1
 
@@ -176,7 +180,7 @@ class TestDifficultyCalculation:
         for _ in range(5):
             counter2.increment_branches()
 
-        score1, _ = calculate_difficulty_from_strategies(counter1)
-        score2, _ = calculate_difficulty_from_strategies(counter2)
+        score1 = calculate_difficulty_from_strategies(counter1)
+        score2 = calculate_difficulty_from_strategies(counter2)
 
         assert score2 > score1

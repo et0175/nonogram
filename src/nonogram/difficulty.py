@@ -108,22 +108,12 @@ scored before; what moved is only which tier a given score is filed under, and
 re-filing stored rows is the admin panel's existing ``POST /regrade`` action
 (ADR-0031/R3: no migration runs, no production database is touched here).
 
-The fourth tier (ADR-0025)
---------------------------
-:class:`Tier` has four members, and only three of them are score bands.
-``Tier.GUESS`` is keyed on a *fact about the solve* — ``branch_nodes > 0`` —
-never on a threshold (EC-015). So a score alone can no longer classify a
-result: :func:`classify` is the single classifier and it takes
-``(score, branch_nodes)``, applying EC-015 first and the bands only to the
-remainder (ADR-0025/R1, R2). ``Tier.EASY``/``MEDIUM``/``HARD`` therefore
-contain only line-solvable puzzles, which is what makes ``--difficulty hard``
-promise "logically solvable, and deep" — the printed-book workflow in one
-word.
-
-There is exactly one implementation of that rule, here. No other module under
-``src/nonogram/`` compares a score against the cutoffs or reads
-``branch_nodes`` to decide a tier; ``tests/test_difficulty_tiers.py`` walks the
-package with ``ast`` and fails if one starts to.
+One classifier (ADR-0031/R1)
+----------------------------
+:func:`classify` is the only place a score becomes a tier. No other module
+under ``src/nonogram/`` compares a score against the cutoffs or binds a tier
+name to decide one; ``tests/test_difficulty_tiers.py`` walks the package with
+``ast`` and fails if one starts to.
 
 No clock, no size, no density (NFR-007, CON-014, ADR-0029/R3)
 -------------------------------------------------------------
@@ -171,7 +161,7 @@ Usage::
     result = solve(*clues)
     if result.solution_count == 1:
         score = score_difficulty(result.signals)
-        tier = classify(score, result.signals.branch_nodes)
+        tier = classify(score)
 """
 
 from __future__ import annotations

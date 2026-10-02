@@ -215,9 +215,10 @@ counter.add_strategy(Strategy.LINE_LOGIC, count=5)
 counter.add_strategy(Strategy.CONSTRAINT_PROPAGATION, count=3)
 counter.set_backtracking_depth(2)
 
-# Calculate difficulty
-score, tier = calculate_difficulty_from_strategies(counter)
-print(f"Difficulty: {score}/100 ({tier})")
+# Calculate difficulty (a score only since CARD-155; difficulty.classify is
+# the one place a score becomes a tier, ADR-0031/R1)
+score = calculate_difficulty_from_strategies(counter)
+print(f"Difficulty: {score}/100")
 ```
 
 ### Integration Points
