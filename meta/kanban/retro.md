@@ -65,3 +65,55 @@ _First retrospective on this board; one combined section for the run of 2026-10-
 - Test suite ~3.2× since wave 20 (125s → ~400s) with `test_scope: full`; with 4 parallel pipelines, lock waits reached ~6 min. Consider pytest-testmon + `test_scope: impact` (config.yml already describes the route)
 - Retag CARD-151..154 `Category: bug` → `ops`; decompose/quick should not emit `bug`
 - Dispatcher hygiene: give each pipeline's helper scripts card-scoped names — a pipeline overwrote the dispatcher's shared lock script in the scratchpad, voiding the first wave-30 smoke run
+
+## Wave 31 — 2026-10-03
+
+_The admin puzzle player (FR-044, ADR-0038): CARD-160..CARD-163._
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-160 | Player page with clues | 0.5d | 0.5d | 1.0× | 4 ⚠ | 8.5 | escalated c3 (family regression) → owner-granted 4th cycle |
+| CARD-161 | Marking, undo/redo | 1d | 0.2d | 0.2× | 2 | 9.0 | overestimated (actual) |
+| CARD-162 | Errors, solved state, reset | 0.5d | 0.3d | 0.6× | 3 ⚠ | 9.5 | stalled c2 → owner-directed test |
+| CARD-163 | Hide the name until solved | 0.25d | 0.1d | 0.4× | 1 | 9.3 | overestimated (actual) |
+
+### Metrics
+
+- cards: 4, escalated: 2 (CARD-160, CARD-162), split: 0, actual_time: 4
+- total_estimate: 2.25d, total_actual: 1.1d
+- avg_accuracy: 0.55× (estimates ~45% high; waves 28–31 combined 0.55× over 12 timed cards)
+- avg_cycles: 1.5 (2 non-escalated); escalated cards used 4 and 3
+- avg_final_score: 9.08 (→ −0.16 vs waves 28–30, stable)
+- score_improvement: +0.5 (8.55 → 9.08)
+- test_cost: gate_total ~86m (11 cycle-gate runs, full_share 100%), suite 522s (+31% vs wave 30's 398s ⚠ — ~180 real-Chromium browser tests added)
+- conflicts: 0 (the four cards ran serially by dependency)
+- data quality: CARD-162's cycle-3 review YAML was unparseable (unquoted colon in `prior_findings`); quoted at retro time, content unchanged — the kanban report sync copies without validating
+
+### Complexity breakdown
+
+- trivial (1 card): avg cycles 1.0, avg score 9.3, 0 escalated
+- standard (2 cards): avg cycles 2.0, avg score 9.25, 1 escalated
+- architectural (1 card): avg cycles 4.0, avg score 8.5, 1 escalated → verdict: (insufficient data — accumulating: 1 architectural card incl. history)
+
+### Calibration signals
+
+- python-pro: avg_accuracy 0.55× (4 timed cards) → estimates too high (actual); consistent with waves 28–30 (0.56×)
+
+### Process shortcuts
+
+- other:review-past-max-cycles (CARD-160 cycle 4, owner-granted) → clean
+
+### Finding families
+
+- "a declaration (header comment, failure-matrix row, docstring) outran what the code and its tests demonstrate" — 5 gating in 3 cards (CARD-160 F-009/F-011 c2-c3, CARD-161 F-001 c1, CARD-162 F-001 c1 + F-008 c2) → not a system rule (no model truth); hand-off/fix discipline — routed as a Suggestion. It caused both escalations and continues waves 28–30's "branch with no test that would fail if it broke" (CARD-160 F-001/F-002)
+- fix-induced share: 3 of 3 gating findings after cycle 1 (CARD-160 F-009, F-011; CARD-162 F-008) — 100%; waves 28–31: 5 of 5. The wave-30 rule (no widened handlers, no untested branches) removed one shape; the new shape is fixes WRITING CLAIMS the next review refutes
+
+### Suggestions
+
+- python-pro effort scale: ×0.55 (12 timed cards across waves 28–31). Still no backlog-scored.yml; apply at the next decompose — 0.5d cards merge in ~0.2–0.3d wall-clock
+- Fix-agent prompt: forbid adding or broadening a claim (comment, docstring, failure-matrix row) unless the same fix adds the test that demonstrates it; a fix that only needs to narrow a claim should narrow it. Both wave-31 escalations were exactly this. Also tell fix agents not to be asked to "decide explicitly" about inputs outside the card's stated trust boundary (CARD-160's origin)
+- Implementation hand-off: keep the self-mutation step (it worked: implementers killed 23–44 of their own mutants per card), and extend it to every claim in a header or failure matrix — each claim names the test that would fail without it
+- Test suite +31% in one wave (398s → 522s) with test_scope: full: mark the real-Chromium player tests (pytest marker) so per-cycle gates can run the browser tier only for player cards, or adopt pytest-testmon + test_scope: impact
+- Report hygiene: validate review YAML when kanban syncs it (one unparseable report made CARD-162's final cycle invisible to fix/commit/retro)

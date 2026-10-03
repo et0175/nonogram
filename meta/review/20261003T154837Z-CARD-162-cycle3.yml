@@ -112,6 +112,6 @@ findings:
     dismissed_reason: null
     learned_pattern: null
 prior_findings:
-  F-008: resolved (re-derived: M7 applied by reviewer → only [redo-key-noop] fails; restored sha1 e929be51)
-  F-009: resolved (admin.css:424-426 comment now "just inside the table's edge")
-  F-007: out-of-scope (owner; follow-up CARD-163)
+  F-008: "resolved (re-derived: M7 applied by reviewer → only [redo-key-noop] fails; restored sha1 e929be51)"
+  F-009: "resolved (admin.css:424-426 comment now \"just inside the table's edge\")"
+  F-007: "out-of-scope (owner; follow-up CARD-163)"
