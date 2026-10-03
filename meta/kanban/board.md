@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-02 UTC_
+_Updated: 2026-10-03 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -23,9 +23,9 @@ _Updated: 2026-10-02 UTC_
 | 24 | CARD-117 P1, CARD-123 P1, CARD-126 P2, CARD-136 P1, CARD-137 P1 | ✓ done · closes Increment 14 |
 | 25 | CARD-118 P1, CARD-127 P2, CARD-130 P2, CARD-134 P2, CARD-138 P1 | ✅ all 5 merged · ⏳ Increment 13 waits on the owner's printed proof measurement |
 | 26 | CARD-145 P0, CARD-128 P2, CARD-131 P2, CARD-132 P3, CARD-139 P1, CARD-140 P1, CARD-141 P2, CARD-142 P1, CARD-144 P2 | ✅ 9/9 merged · closes Increment 16 |
-| 28 | CARD-150 P2, CARD-151 P2, CARD-152 P2 | ⏳ 1/3 — CARD-150 merged, CARD-151 and CARD-152 ready |
-| 29 | CARD-153 P1, CARD-154 P2, CARD-155 P3, CARD-156 P2 | ○ pending — backlog sweep 2026-10-02 |
-| 30 | CARD-157 P2, CARD-158 P2, CARD-159 P2 | ○ pending — CARD-157 waits on CARD-156 |
+| 28 | CARD-150 P2, CARD-151 P2, CARD-152 P2 | ✓ done — all 3 merged |
+| 29 | CARD-153 P1, CARD-154 P2, CARD-155 P3, CARD-156 P2 | ✓ done — all 4 merged |
+| 30 | CARD-157 P2, CARD-158 P2, CARD-159 P2 | ✓ done — all 3 merged |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -45,22 +45,22 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-- **CARD-151** P2 · The launcher's database check understands the URLs the panel accepts (CARD-150 F-006) · 0.25d · wave 28
-- **CARD-152** P2 · The setup and test-runner scripts check the database they will use · 0.5d · wave 28 · after CARD-151
-- **CARD-153** P1 · Finalise doesn't hide a broken page plan behind "About N" · 0.5d · wave 29
-- **CARD-154** P2 · Print setup saves the plan and the trim together, and refuses "nan" · 0.5d · wave 29
-- **CARD-155** P3 · One difficulty classifier: retire the prototype's 30/70 tiers · 0.25d · wave 29
-- **CARD-156** P2 · The db_session fixture stops dropping tables other tests are using · 0.5d · wave 29
-- **CARD-157** P2 · Read a book's puzzles in one query, not one session per puzzle · 1d · wave 30 · after CARD-156
-- **CARD-158** P2 · The book list and book page show what the book actually holds · 0.5d · wave 30
-- **CARD-159** P2 · Book forms keep what you typed and say the right step · 0.5d · wave 30
+_(none — run of 2026-10-02/03 complete: CARD-151..CARD-159 merged)_
 
 ## In Progress
-
 
 ## Review
 
 ## Done
+- **CARD-159** Book forms keep what you typed and say the right step · score 9.4 (1 cycle; G-3 owner check pending) · merged 7101fbf
+- **CARD-158** The book list and book page show what the book actually holds · score 9.5 (2 cycles; G-3 owner-confirmed) · merged 66214c1
+- **CARD-157** Read a book's puzzles in one query, not one session per puzzle · score 9.5 (2 cycles) · merged 32e30b9
+- **CARD-154** Print setup saves the plan and the trim together, and refuses "nan" · score 9.5 (2 cycles) · merged 677744c
+- **CARD-153** Finalise doesn't hide a broken page plan behind "About N" · score 9.5 (3 cycles; escalated at cycle 2, owner-directed fix) · merged 11bea97
+- **CARD-152** The setup and test-runner scripts check the database they will use · score 9.5 (2 cycles) · merged 02ea77a
+- **CARD-156** The db_session fixture stops dropping tables other tests are using · score 9.0 (2 cycles) · merged c095b22
+- **CARD-155** One difficulty classifier: retire the prototype's 30/70 tiers · score 9.5 (2 cycles) · merged 05a4ff6
+- **CARD-151** The launcher's database check understands the URLs the panel accepts · score 9.0 (3 cycles; escalated at cycle 2, owner-directed fix) · merged 4fc5821
 - **CARD-150** The local launcher refuses a database it cannot use · score 8.0 (1 cycle + fix) · merged 0aab707
 - **CARD-147** The interior is written black-and-white or in colour · score 9.5 (1 cycle + fix) · merged 0fa9302
 - **CARD-143** Type a puzzle's position in the arrange step · score 8.5 (1 cycle + 2 fixes) · merged 2bfd6b8
