@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-03
+- CARD-160 (feature): First piece of the online puzzle player. In the admin panel, "Solve" on any puzzle now opens it as an empty board of the right size, with the row and column clues in boxes and every fifth line drawn heavier, like the printed pages. Marking cells, the error count and the solved celebration come in the next two cards.
+
 ## 2026-10-02
 - CARD-159 (bug): The book forms now say the right step and keep what you typed. Print setup said "Step 1 of 4" next to a five-step progress bar; it now reads its step from the bar itself, so the two can't disagree again. Choosing inches works: a real 8.5 × 11 in trim used to be blocked by the browser, because the boxes only knew centimetre limits. The server still enforces KDP's limits. A refused New book form now comes back with everything you typed and only the problem field marked, instead of an empty form.
 - CARD-158 (feature): The book list and the book page now show what a book actually holds. Both offer the cover download next to the interior. Since the export became two files you could only get the cover from Finalise; if the uploaded cover has gone missing, the button says why and points you to Finalise. The book page lists its puzzles by title and difficulty instead of raw ids, and its size row shows the trim Print setup actually stored, or "Not set" with a link, where it used to show a field nothing writes any more. The books table also fits a phone-width screen now.

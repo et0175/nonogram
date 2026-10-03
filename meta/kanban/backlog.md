@@ -62,6 +62,9 @@ card names its card._
 - [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims now the browser min is gone (the server refuses them); a refused New book shows the edit-mode alert ("General info not saved… Nothing stored was changed")   @tech-debt
 - [ ] CARD-159 owner check pending: G-3, the owner's look at ~/Documents/nonogram-reviews/CARD-159/ renders (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the plan-table inputs clip "20" to "2("   @feature
 - [ ] Wave-30 goal-check: on a book with no puzzles, /books offers the interior download (returns a 200 PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt
+- [ ] CARD-160 F-004 (minor): the player's cell bounds (14px/28px) and thin-rule color-mix live as local custom properties in admin.css; promote them to tokens.css   @tech-debt
+- [ ] CARD-160 F-006 (minor): the /puzzle/<id>/solve route calls the private `PuzzleReviewService._as_readable_grid`; expose a public read   @tech-debt
+- [ ] CARD-160 F-012 (minor): `isBoard` reads `value.cells` instead of own data (mutant survived); outside the trusted-in-page scope the owner set, still refused before painting   @tech-debt
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops

@@ -1,0 +1,313 @@
+version: 1
+generated_at: "2026-10-03T09:15:00Z"
+target: "card/160-solver-page-with-clues — working tree vs main (c79e41d + uncommitted fix delta: solver.js, solver_state.js, tests/test_puzzle_solver_page.py); confirmation mode, cycle 2/3"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - git diff HEAD (fix delta, full) and git diff main --stat
+    - src/nonogram/admin/static/solver_state.js (full)
+    - src/nonogram/admin/static/solver.js (setBoard/start, header)
+    - src/nonogram/admin/app.py (route 5281-5331)
+    - tests/test_puzzle_solver_page.py (fix-delta hunks, live fixture, snapshot helpers)
+    - src/nonogram/db/models.py (GenerationHistory)
+    - meta/review/20261003T084948Z-CARD-160-cycle1.yml
+    - system_rules.py --scope for each fix-delta file (52/53 rules intersect; only ADR-0038/R5 does not)
+    - ran tests/test_puzzle_solver_page.py on the working tree: 59 passed
+    - ran tests/test_admin_binding.py, tests/test_cli.py::test_every_import_in_the_package_points_inward, tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed, tests/test_clues.py: 421 passed
+    - node probe of isBoard (holey array, zero side)
+  not_reached:
+    - rendered result not verified by the pipeline (review.visual off; no screenshots/runtime/a11y logs); 8g static only
+    - files outside the fix delta (pyproject.toml, app.py, admin.css, templates) re-read only where a re-verified rule needed them
+    - missing-Chromium path (F14) not reproduced
+  confidence: high
+metrics:
+  diff: { files: 3, added: 85, removed: 11 }
+  max_fan_in: { symbol: "solver_state.isBoard (new export)", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — isBoard is new; its only production caller is solver.js setBoard (added in the same delta); the test file is the other consumer"
+    hotspots: "no_eligible_fact — the three delta files are new in this card (1 commit each); app.py hotspot from cycle 1 is outside the delta"
+    cochange_missing: "no_eligible_fact — delta files are new on this branch; no history to mine"
+
+system_contract:
+  rules_checked: 53
+  holds: 14
+  unchecked: 39
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed green on working tree (c79e41d+delta); git diff HEAD -- pyproject.toml empty"
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward green on working tree; git diff main -- src/nonogram/web empty"
+    - "ADR-0022/R1 ✓ holds — payload width/height pair unchanged (app.py:5320-5321, untouched by delta); setBoard compares width and height separately (solver.js:182)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in the diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair path touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies list untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no score computed"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: git diff main -- src/nonogram/solver empty"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: route stores nothing; delta adds a GenerationHistory seed in a tmp sqlite test db only"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score not read or written"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book assembly"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status change"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout not called"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: screen player, no page geometry"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: scoped to printed book page"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no PageSpec strokes"
+    - "ADR-0038/R1 ✓ holds — solver.js's only import is ./solver_state.js (now {createBoard, isBoard}, solver.js:44); no build config in the diff; test_the_scripts_are_served_as_javascript green"
+    - "ADR-0038/R2 ⚠ unchecked — check_ref_missing: TestSolverMarking_NoRequestPerMark (CARD-161); manual read: grep for fetch/XMLHttpRequest/sendBeacon/WebSocket in solver.js and solver_state.js is empty, TestSolverPage_WritesNothing asserts requests == [] (green)"
+    - "ADR-0038/R3 ✓ holds — app.py:5315 compute_clues(grid) unchanged; delta adds no clue derivation in JS; TestSolverPage_ShowsTheClues green on working tree"
+    - "ADR-0038/R4 ✓ holds — new isBoard (solver_state.js:49-55) is pure (no DOM/global/IO; grep for document./window. in solver_state.js empty); test_the_state_module_touches_no_dom green"
+    - "ADR-0038/R5 ✓ holds — no new static file in the delta; test_every_admin_asset_ships_in_the_wheel green on working tree"
+    - "ADR-0038/R6 ✓ holds — solution still shipped only by the admin route inside create_app after the before_request door; delta does not touch app.py or add a route"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml untouched by delta; test_pytest_playwright_is_a_dev_only_dependency green"
+    - "ADR-0038/R8 ✓ holds — browser_type/browser_page fixtures unchanged by the delta (pytest.fail with named reason); new browser test uses the same fixtures; not reproduced"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: uniqueness solver untouched (git diff main -- src/nonogram/solver empty)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no size validation; tests use limits"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard"
+    - "CON-015 ✓ holds — tests/test_admin_binding.py green on working tree; delta adds no bind"
+    - "CON-016 ✓ holds — tests/test_admin_binding.py (TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit) green on working tree; no door exemption added"
+    - "CON-021 ✓ holds — delta adds no route or entry point; play stays inside the admin app"
+    - "INV-001 ✓ holds — clues from compute_clues of the read grid (app.py:5315, untouched); tests/test_clues.py and test_stale_stored_clues_and_sizes_are_never_shown green"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export readiness"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no book plan"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no book membership"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no book status"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no book membership"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book order"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no book pairing"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer key"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no book membership"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no book export"
+
+mutation_check:
+  ran: true
+  mutants: 9
+  killed: 8
+  survived: 1
+  diff_hash_before: "3660fb982c9f7ca92c5287f61c2aa733a9e8397c"
+  diff_hash_after: "3660fb982c9f7ca92c5287f61c2aa733a9e8397c"
+  results:
+    - "M8 app.py:5324 solution = puzzle.get('grid') — KILLED by test_a_legacy_zero_one_grid_is_read_as_booleans"
+    - "M6 solver_state.js:68 withCell returns unfrozen board — KILLED (property test alone: 'withCell returned a board that is not frozen'; also by test_the_board_is_painted_from_state via isBoard)"
+    - "M9 isBoard drops Object.isFrozen(value) — KILLED by test_set_board_refuses_a_value_that_is_not_a_board"
+    - "M10 isBoard drops Object.isFrozen(cells) — KILLED by same"
+    - "M11 isBoard drops length check — KILLED by same"
+    - "M12 isBoard drops known-state check — KILLED by same"
+    - "M13 isBoard drops null guard — KILLED by same"
+    - "M14 setBoard isBoard guard removed — KILLED by same"
+    - "M15 isBoard drops isSide(width)/isSide(height) — SURVIVED (equivalent through setBoard, which re-checks dimensions against the payload; observable on the exported predicate) -> F-010"
+
+root_causes:
+  - id: RC-2
+    title: "isBoard's tests cover only the five setBoard rejection shapes; two inputs the predicate gets wrong or never sees escape"
+    finding_ids: [F-009, F-010]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 338
+    title: "Legacy 0/1 grid test cannot tell booleans from ints"
+    description: "RESOLVED: type(cell) is bool assertion added; mutant M8 now killed."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1b869aa
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 788
+    title: "No test checks that withCell returns a frozen board"
+    description: "RESOLVED: property test records and asserts frozen per step; M6 killed by the property test alone."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1b869aa
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 179
+    title: "setBoard validates only the dimensions"
+    description: "RESOLVED for the five declared shapes (isBoard guard before the dimension check; M9-M14 killed). A residual gap (holey cells array) is filed as F-009."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1b869aa
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 349
+    title: "Thin grid rule is a new derived colour; cell bounds are local px values, not tokens"
+    description: "Still present (skipped: tokens.css outside fix scope). Unchanged from cycle 1; agree it stays Minor."
+    suggestion: "Promote via /forge:ui or reuse --color-border; re-check 3:1 at CARD-161."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/static/admin.css
+    line: 357
+    title: "\"Fits a laptop screen\" pinned to 1440x900"
+    description: "Still present (owner decision). Unchanged from cycle 1."
+    suggestion: "Owner records the target viewport in FR-044/F12 or lowers the floor."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 5312
+    title: "Route calls private PuzzleReviewService._as_readable_grid"
+    description: "Still present (puzzle_review.py outside fix scope). Unchanged from cycle 1."
+    suggestion: "Expose a public reader in a follow-up."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 830
+    title: "AC-302 test filler assertion and empty generation_history"
+    description: "RESOLVED: filler removed; generation_history seeded with one row; all four tables snapshot as full rows (SELECT * ORDER BY id); seeded counts asserted 2/1/1/1. Test runs on a tmp sqlite db (live fixture, line 472)."
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1b869aa
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/design/components.md
+    line: 1
+    title: "SolverBoard / ClueBox not registered in components.md; ADR-0038/R2 check ref missing"
+    description: "Still present, out of file scope; apply DESIGN-REGISTER lines at merge; TestSolverMarking_NoRequestPerMark belongs to CARD-161."
+    suggestion: "Apply at the CARD-160 merge."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/static/solver_state.js
+    line: 54
+    title: "isBoard accepts a frozen cells array with holes, so setBoard paints data-state=\"undefined\" (failure-matrix F17 refuted)"
+    description: |
+      F17 declares that setBoard refuses, before any paint, a right-sized value with "a cell
+      state outside unknown/filled/empty", so no cell ever gets data-state="undefined".
+      isBoard checks states with `value.cells.every(...)`, and Array.prototype.every skips
+      holes. Reproduced with node on the working tree:
+      `isBoard(Object.freeze({width:20,height:20,cells:Object.freeze(new Array(400))}))` → true.
+      setBoard would then accept that value and paint(...) writes cells[i] === undefined into
+      every td's data-state. This is the symptom F-003 was raised for. It is reached only by a
+      deliberately holey array (new Array(n) without fill), so the practical reach is small,
+      but it is a declared bound the code does not hold, and the new test's five shapes do not
+      include it.
+    suggestion: |
+      Check states by index so holes read as undefined, e.g.
+      `Array.from(value.cells).every((s) => CELL_STATES.includes(s))` or a plain for-loop over
+      0..length-1. Add `holeyCells: Object.freeze({ width: 20, height: 20, cells: Object.freeze(new Array(400)) })`
+      to the `bad` map in test_set_board_refuses_a_value_that_is_not_a_board.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: 1b869aa
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 676
+    title: "isBoard's positive-integer-side clause is untested (mutant M15 survived)"
+    description: |
+      Removing `isSide(value.width) && isSide(value.height)` from isBoard leaves all 59 tests
+      green. Through setBoard the mutant is equivalent, because the dimension check against
+      the payload rejects any bad side. But isBoard is exported for CARD-161/162, and its
+      comment promises "positive integer sides". Without the clause,
+      `isBoard(Object.freeze({width:0,height:5,cells:Object.freeze([])}))` would be true.
+    suggestion: |
+      Add direct isBoard cases in the browser test, e.g. width 0, width 2.5, width "20" with a
+      matching cells array, and assert false.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: 1b869aa
+    dismissed_reason: null
+    learned_pattern: null

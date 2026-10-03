@@ -1,0 +1,262 @@
+version: 1
+generated_at: "2026-10-03T11:32:40Z"
+target: "card/160-solver-page-with-clues — git diff main...HEAD (c79e41d + 1b869aa); full review, cycle 4/4 (owner-granted final)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - git diff main...HEAD, all 8 in-scope files (diff hash 9f599a8cd4a2b1b3b241b74eb638964b7c188c6e)
+    - src/nonogram/admin/static/solver_state.js (full), src/nonogram/admin/static/solver.js (full)
+    - src/nonogram/admin/templates/puzzle_solve.html (full), _puzzle_table.html hunk
+    - src/nonogram/admin/app.py puzzle_solve route; puzzle_review.get_puzzle and _as_readable_grid
+    - src/nonogram/admin/static/admin.css player block; meta/design/tokens.css (tokens used)
+    - pyproject.toml hunks
+    - tests/test_puzzle_solver_page.py (full, 1216 lines)
+    - meta/review cycle1-3 reports; CARD-160 Worktree notes; contracts file (AC-296..302, G-1..G-4, F1..F17, 53 rules, owner decisions)
+    - node probe of isBoard (own-getter cells, inherited cells, -0 side) and withCell/copyBoard closure (500 edits)
+    - ran tests/test_puzzle_solver_page.py (62 passed), dependency-baseline test (1 passed), test_cli import guard + test_admin_binding + test_admin_auth + test_clues (500 passed)
+  not_reached:
+    - rendered result not verified by the pipeline (review.visual off; no screenshots/runtime/a11y logs); 8g static only
+    - missing-Chromium path (F14) not reproduced this cycle (read only)
+  confidence: high
+metrics:
+  diff: { files: 8, added: 1695, removed: 5 }
+  max_fan_in: { symbol: "solver_state.isBoard", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]   # 147 commits / 12 months, 69 fix-tagged
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — all new symbols; the only production caller is solver.js setBoard in this same diff"
+    cochange_missing: "no_eligible_fact — solver.js/solver_state.js/puzzle_solve.html/test file are new on this branch; app.py is a 147-commit monolith with no meaningful pair signal for an additive route"
+
+system_contract:
+  rules_checked: 53
+  holds: 14
+  unchecked: 39
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — tests/test_export_pdf.py -k dependency_baseline green on 1b869aa (1 passed); pyproject.toml adds pytest-playwright only to the dev extra; test_pytest_playwright_is_a_dev_only_dependency green"
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward green on 1b869aa; git diff main...HEAD -- src/nonogram/web is empty (0 lines)"
+    - "ADR-0022/R1 ✓ holds — payload carries width and height as a pair (app.py puzzle_solve payload); setBoard compares both (solver.js:188)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in the diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair path touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density handling"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies list untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no score computed"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: git diff main...HEAD -- src/nonogram/solver is empty"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the route stores nothing (mutant M4 shows TestSolverPage_WritesNothing catches a write)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score not read or written"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book assembly"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status change"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout not called"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: screen player, no page geometry"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: scoped to the printed book page"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no PageSpec strokes"
+    - "ADR-0038/R1 ✓ holds — solver.js imports only ./solver_state.js (solver.js:50); no build config/framework/npm file in the diff; test_the_scripts_are_served_as_javascript green"
+    - "ADR-0038/R2 ⚠ unchecked — check_ref_missing: TestSolverMarking_NoRequestPerMark (CARD-161); manual read: grep fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource over solver.js and solver_state.js → 0 hits; TestSolverPage_WritesNothing asserts requests == [] (green)"
+    - "ADR-0038/R3 ✓ holds — app.py puzzle_solve: clues.compute_clues(grid) is the only clue source; solver.js never derives clues; mutant M2 (stored clue columns) killed by test_stale_stored_clues_and_sizes_are_never_shown; test_PropertyTest_SolverPage_EmbeddedCluesAreTheGridsEncoding green"
+    - "ADR-0038/R4 ✓ holds — solver_state.js has no document/window/globalThis/fetch/import (test_the_state_module_touches_no_dom green); rendering only in solver.js"
+    - "ADR-0038/R5 ✓ holds — pyproject.toml package-data adds static/*.js; test_every_admin_asset_ships_in_the_wheel green"
+    - "ADR-0038/R6 ✓ holds — the solution ships only from the puzzle_solve route registered inside create_app behind the before_request door; no other route added (git diff main...HEAD -- src/nonogram/admin/app.py: one @app.route)"
+    - "ADR-0038/R7 ✓ holds — pytest-playwright only in the dev extra (pyproject.toml); test_pytest_playwright_is_a_dev_only_dependency green"
+    - "ADR-0038/R8 ✓ holds — browser_type/browser_page fixtures pytest.fail with a named reason (tests/test_puzzle_solver_page.py:434-454); not reproduced this cycle"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: git diff main...HEAD -- src/nonogram/solver is empty"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no size validation added; tests import limits"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard"
+    - "CON-015 ✓ holds — tests/test_admin_binding.py green on 1b869aa (in the 500-passed run); no bind change in the diff"
+    - "CON-016 ✓ holds — tests/test_admin_binding.py + tests/test_admin_auth.py green on 1b869aa; no door exemption added for /puzzle/<id>/solve"
+    - "CON-021 ✓ holds — the only play surface is the admin route; no public app, route or hosting in the diff"
+    - "INV-001 ✓ holds — clues = compute_clues(read grid); stored clue columns never read; mutant M2 killed by test_stale_stored_clues_and_sizes_are_never_shown"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export readiness"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no book plan"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no book membership"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no book status"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no book membership"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book order"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no book pairing"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer key"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no book membership"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no book export"
+
+mutation_check:
+  ran: true
+  status: "ran — 10 mutants, 9 killed, 1 survived (M6 → F-012, Minor)"
+  test_command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest <narrowest nodes of tests/test_puzzle_solver_page.py> -x"
+  restore: "exact-content capture/restore per mutant, sha256 verified after each"
+  diff_hash_before: "2fa125b87ab08e064eae554fbe89ada1bab3c51d"   # git diff main | shasum
+  diff_hash_after: "2fa125b87ab08e064eae554fbe89ada1bab3c51d"
+  status_hash_before: "6fb626b097d21ca4cee12beb436bc2987dc002a3"  # git status --porcelain | shasum
+  status_hash_after: "6fb626b097d21ca4cee12beb436bc2987dc002a3"
+  mutants:
+    - "M1 app.py route: except ValueError → except KeyError — KILLED (test_no_such_puzzle_is_the_panels_404[sqlite])"
+    - "M2 app.py route: clues from stored clues_rows/clues_cols — KILLED (test_stale_stored_clues_and_sizes_are_never_shown, assertion diff on clues)"
+    - "M3 app.py route: solution = raw stored grid (no bool coercion) — KILLED (test_a_legacy_zero_one_grid_is_read_as_booleans)"
+    - "M4 app.py route: rename_puzzle on page open — KILLED (TestSolverPage_WritesNothing, snapshot assertion)"
+    - "M5 solver.js majorAfter: index + 1 <= length (heavy rule on the frame line) — KILLED (TestSolverPage_EmphasisesEveryFifthLine::test_the_25x15_board)"
+    - "M6 solver_state.js isBoard: cells = value.cells (not own-data) — SURVIVED (refusal table + isBoard property test)"
+    - "M7 solver_state.js isBoard: !Object.isFrozen(cells) clause dropped — KILLED (test_set_board_refuses_a_value_that_is_not_a_board)"
+    - "M8 solver_state.js copyBoard: copied cells left unfrozen — KILLED (test_set_board_keeps_and_paints_its_own_copy)"
+    - "M9 solver_state.js withCell: cells = board.cells.slice() — KILLED (test_with_cell_builds_its_cells_by_index_not_by_slice)"
+    - "M10 solver.js setBoard: dimension check moved before isBoard — KILLED (test_set_board_refuses_a_value_that_is_not_a_board)"
+
+root_causes:
+  - id: RC-4
+    title: "isBoard's refusal table has one row per clause, but the own-data reading of `cells` has no row of its own (every inherited/getter row is refused earlier by the side clause)"
+    finding_ids: [F-012]
+
+findings:
+  - id: F-011
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/static/solver_state.js
+    line: 116
+    title: "F17 row refuted: the prototype is read (withCell) and an accepted Proxy is retained"
+    description: |
+      RESOLVED (cycle 4 evidence). withCell builds cells with Array.from by index (solver_state.js:121-122), no
+      cells.slice(); setBoard stores and paints copyBoard(next) (solver.js:192-193), never the caller's object;
+      F17, the solver_state.js header (:15-19), isBoard doc (:57-76), copyBoard doc (:96-98) and solver.js seam
+      comment (:25-38) are narrowed to trusted in-page values with the Proxy/prototype claims removed. Mutants M8
+      (copy unfrozen), M9 (slice reverted) and M10 (guard order) killed; node probe: 500 withCell/copyBoard outputs
+      all pass isBoard.
+    suggestion: null
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: 1b869aa
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-012
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 703
+    title: "isBoard's own-data `cells` clause has no refusal row (mutant M6 survived)"
+    description: |
+      F17 and the test docstring promise "one row per clause"; clause 3 is "its own DATA property `cells`". Replacing
+      `ownData(value, "cells")` with `value.cells` (solver_state.js:83) passes every test: the only rows that would
+      exercise it (inheritedBoard, the property test's 'inherited' kind) are refused first by the width/height
+      clause, and widthGetter covers the side getter only. The production code holds the clause (node: a frozen
+      {width:20,height:20,get cells()} and an object inheriting `cells` with own sides are both refused). Under the
+      mutant, setBoard on such a value throws TypeError from copyBoard instead of RangeError, still before any
+      paint and without storing it — no observable state damage, and such values are outside the owner's trusted
+      in-page scope. Filed Minor, not the 8f default Important, for that reason and for consistency with this
+      card's F-010 (an untested isBoard clause, filed low in cycle 2).
+    suggestion: |
+      Add two rows to the `bad` table: cellsGetter: F({ width: 20, height: 20, get cells() { return good.cells; } })
+      and inheritedCells: F(Object.assign(Object.create({ cells: good.cells }), { width: 20, height: 20 })). M6 then dies.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-4
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-013
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 356
+    title: "F12's chrome arithmetic is misstated (204 px declared; the tokens sum to 176 px)"
+    description: |
+      F12 declares chrome = topbar 52px + space-6 + space-12 + space-8 = 204px. With tokens.css (16px root):
+      52 + 28 (1.75rem) + 56 (3.5rem) + 40 (2.5rem) = 176px. The declared behaviour still holds — the derived bound is
+      looser than stated (644 ≤ 900 − 176 = 724, not 696) and test_the_largest_board_fits_a_laptop_screen measures the
+      real box at 1440x900 — so this is a wrong number in the declaration, not a refuted bound.
+    suggestion: "Correct the F12 row's sum to 176px / 724px when the card is closed (card text only; no code change)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 353
+    title: "Thin grid rule is a new derived colour; cell bounds are local px values, not tokens"
+    description: "Still present (tokens.css outside the card's file scope). --player-thin color-mix and --player-cell-min/max 14px/28px are not tokens.css roles."
+    suggestion: "Promote via /forge:ui (DESIGN-REGISTER candidates already listed in the card) or reuse --color-border."
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: { pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong.", dismissed_count: 3 }
+  - id: F-005
+    severity: info
+    category: feature
+    type: question
+    file: src/nonogram/admin/static/admin.css
+    line: 362
+    title: "\"Fits a laptop screen\" pinned to 1440x900"
+    description: "OWNER-ACCEPTED 2026-10-03: a 30x30 board with deep clues may scroll vertically on 1366x768 for the admin POC; the fit target is 1440x900. Not re-filed."
+    suggestion: null
+    confidence: high
+    source: inferred
+    violates: null
+    root_cause: null
+    status: wontfix
+    fixed_in: null
+    dismissed_reason: "owner-accepted for the admin POC (dispatcher, 2026-10-03)"
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 5309
+    title: "Route calls private PuzzleReviewService._as_readable_grid"
+    description: "Still present (puzzle_review.py outside the card's file scope)."
+    suggestion: "Expose a public read-side reader in a follow-up."
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: { pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong.", dismissed_count: 3 }
+  - id: F-008
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/design/components.md
+    line: 1
+    title: "SolverBoard / ClueBox not registered in components.md; ADR-0038/R2 check ref missing"
+    description: "Out of file scope; apply the card's DESIGN-REGISTER lines at merge; TestSolverMarking_NoRequestPerMark belongs to CARD-161."
+    suggestion: "Apply at the CARD-160 merge."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

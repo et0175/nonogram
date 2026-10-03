@@ -189,6 +189,7 @@ Used by: puzzle review.
 States: closed · loading (spinner) · loaded · load-error (danger alert,
 Close still works) · with assign-to-book form (only when unassigned).
 Tokens: --shadow-modal, --color-surface, --radius-container, --duration-base.
+- Actions: a "Solve" action (btn-outline-primary, first in the downloads row) links to /puzzle/<id>/solve — the puzzle player (CARD-160, FR-044).
 
 ## EmptyState
 Used by: every list/table when there is nothing to show.
@@ -205,3 +206,17 @@ Tokens: --font-num, --text-2xl, --color-danger (500 only).
 Used by: puzzle review.
 Markup pinned by tests (`page-item`, `page-link`, `aria-current`).
 Tokens: --color-accent, --color-on-accent, --radius-control.
+
+## SolverBoard
+
+Used by: the puzzle player (`puzzle_solve.html`, drawn by `static/solver.js`; CARD-160, FR-044, ADR-0038).
+- Parts: column-clue boxes above, row-clue boxes left, W×H cells; a heavy rule after every 5th line on both axes and on the frame (the printed page's counting aid); the clue area carries the same rules.
+- States: loading / no-script (fallback sentence "…the player script did not load") · error (danger alert, no board, when the payload is unreadable) · drawn — each cell `unknown` (bare --grid-paper), `filled` (--grid-ink) or `empty` (small --color-text-secondary dot).
+- Sizing: cell side clamp(14px, fit, 28px) from the board size and clue depth; fits 1440×900 at 30×30; below the floor it scrolls inside `.player-stage`, and the page never scrolls sideways (1366×768 scroll for deep-clue 30×30 is owner-accepted for the admin POC).
+- Tokens: --grid-paper, --grid-ink, --color-surface, --color-text-secondary, --border-width, --font-num, --topbar-h, --space-*. Candidate tokens still local custom properties in admin.css (CARD-160 F-004): --player-cell-min 14px, --player-cell-max 28px, thin rule = color-mix(--grid-ink 28%, --grid-paper).
+
+## ClueBox
+
+Used by: SolverBoard. One box per line (a row's to the left, a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
+- States: default only (CARD-161/162 may add "line satisfied").
+- Tokens: --color-surface, --font-num, --grid-ink.
