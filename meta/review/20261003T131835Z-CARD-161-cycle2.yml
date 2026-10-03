@@ -1,0 +1,213 @@
+version: 1
+generated_at: "2026-10-03T13:25:24Z"
+target: "card/161-solver-marking-undo-redo — confirmation review (cycle 2 repeat) of the AC-310 gate fix; fix delta = tests/test_puzzle_solver_marking.py (uncommitted, on top of 753e023)"
+card: CARD-161
+cycle: 2
+mode: confirmation
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "git diff 753e023 -- src: content matches the fix-1 description in meta/review/20261003T124849Z-CARD-161-cycle2.yml line for line (gesture.tool at solver.js:282/:293/:302, isZ :333-336, hint :346, solver_state.js comment-only, admin.css var(--space-4), template comment) — no product file changed by this fix"
+    - "tests/test_puzzle_solver_marking.py: _tab_to, _PRIOR_TOOL, test_each_tool_acts_on_a_single_key_press, test_each_history_control_acts_on_a_single_key_press, plus the surrounding class, helpers (_button/_tool/_states/_marked/TOOLS) and fixtures (browser_page/live are function-scoped)"
+    - "src/nonogram/admin/static/solver.js control wiring (:311-327) and template toolbar (native <button> elements)"
+    - "meta/kanban/cards/CARD-161.md AC-fix note (line 230) — claims verified"
+  not_reached:
+    - "rendered capture gate (review.visual off) — no visual context captured; 8g static only"
+    - "runtime.log / a11y.log / visual-diff.log (not provided by the pipeline)"
+  confidence: high
+  tests_run:
+    - "tests/test_puzzle_solver_marking.py -> 65 passed (real Chromium)"
+    - "-k single_key_press -> 12/12 passed, three consecutive runs"
+  certification:
+    mutation_check: "ran (delta-targeted) — 4 keyboard mutants on solver.js against the 12 new cases, 4 killed, 0 survived; each kill hit exactly the expected cases (K1 Enter dead -> 6 Enter cases; K2 Space dead -> 6 Space cases; K3 tools on mouseup -> 6 tool cases; K4 history on mouseup -> 6 history cases). Restored by re-writing saved content; git diff 753e023 --stat and full-diff sha identical before/after. Previous run of this cycle: 10 mutants, 9 killed (M10 survived -> F-008, product unchanged so still open)"
+    baseline_acceptance: "not applicable — no visual-diff log provided (review.visual off)"
+
+metrics:
+  diff: { files: 5, added: 187, removed: 15 }
+  fix_delta: { files: 1, added: 59, removed: 0, note: "tests only; approximate (test file now +157 vs 753e023)" }
+  max_fan_in: { symbol: "_tab_to (test helper)", callers: 2 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+
+system_contract:
+  rules_checked: 53
+  holds: 9
+  unchecked: 44
+  violated: 0
+  note: "intersection check: the fix delta is the single file tests/test_puzzle_solver_marking.py. Rules whose check test lives in that file (ADR-0038/R2, R4, R6, R8) are re-verified; every other rule's scope (src/nonogram/web, solver/, export/, books, Python admin, pyproject.toml) does not include it -> carried(cycle 2, delta-clean)"
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed run green this cycle and git diff main --name-only -- pyproject.toml is empty; manual read found no violation — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: scope src/nonogram/web/, delta touches none (test_every_import_in_the_package_points_inward also re-run green) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: admin storage boundary is Python; git diff main --name-only -- 'src/**/*.py' is empty (re-verified, admin-scoped) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: same evidence (no .py under src changed) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly Python untouched (no .py under src changed) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: export layout, delta touches none — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: admin book geometry Python untouched (no .py under src changed) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0038/R1 ✓ holds — grep '^import\\|from \"' solver.js solver_state.js -> only solver.js:69-72 importing ./solver_state.js; git diff main --name-only lists no package.json/build file — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0038/R2 ✓ holds — re-verified (its check test TestSolverMarking_NoRequestPerMark lives in the delta file): 65/65 passed this run; grep fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource over solver.js/solver_state.js -> 0"
+    - "ADR-0038/R3 ✓ holds — delta touches no clue embedding; TestSolverPage_ShowsTheClues (+InTheBrowser) passed in tests/test_puzzle_solver_page.py this cycle — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0038/R4 ✓ holds — re-verified (TestSolverHistoryModule lives in the delta file): passed this run; solver_state.js byte-identical to the state cycle-2 run 1 reviewed (git diff 753e023 -- src matches fix-1 exactly)"
+    - "ADR-0038/R5 ✓ holds: scope pyproject.toml (pyproject.toml:80 static/*.js), delta touches none — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0038/R6 ✓ holds — re-verified (TestSolverMarking_RevealsNoCorrectness lives in the delta file): passed this run; the new tests read only data-state/aria-pressed, never the solution"
+    - "ADR-0038/R7 ✓ holds: scope pyproject.toml extras, delta touches none — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "ADR-0038/R8 ✓ holds — re-verified: the 12 new cases sit in class TestSolverMarking_KeyboardAndLabels, decorated @pytest.mark.browser, and use the function-scoped browser_page fixture; all ran in real Chromium this run"
+    - "CON-005 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "CON-009 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "CON-010 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "CON-011 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "CON-012 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin bind is Python; no .py under src changed (re-verified, admin-scoped) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin door is Python; no .py under src changed (re-verified, admin-scoped) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "CON-021 ✓ holds — delta adds no route/page (no .py changed); marking stays inside the existing admin player (puzzle_solve.html, solver.js) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-001 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-002 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-003 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan Python untouched (no .py under src changed) — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export Python untouched — carried(cycle 2, delta-clean): fix delta = tests/test_puzzle_solver_marking.py only; rule scope does not include it"
+
+guardrails:
+  - "G-1 ✓ holds — re-verified: delta is a test file; git diff main --name-only has no pyproject/package file"
+  - "G-2 ✓ holds — re-verified: TestSolverMarking_RevealsNoCorrectness passed this run; no product change"
+  - "G-3 ✓ holds — re-verified: TestSolverMarking_NoRequestPerMark passed this run; no product change"
+
+acceptance_criteria:
+  - "AC-303 ✓ — re-run (test in delta file): TestSolverMarking_ClickCycles passed; M6 kill carried (product unchanged)"
+  - "AC-304 ✓ — re-run: TestSolverMarking_ClickIgnoresTheSelectedTool passed"
+  - "AC-305 ✓ — re-run: TestSolverMarking_DragMarksOneLine passed; M5 kill carried"
+  - "AC-306 ✓ — re-run: DragMarksOneLine wander/jump passed; M4 kill carried"
+  - "AC-307 ✓ — re-run: test_three_undos_then_three_redos passed; M3 kill carried"
+  - "AC-308 ✓ — re-run: test_a_new_stroke_after_undo_drops_redo passed; M2 kill carried"
+  - "AC-309 ✓ — re-run: ctrl_z tests [Control, Meta] + layout tests passed; M7 kill carried"
+  - "AC-310 ✓ — RESOLVED (was ⚠ partial at the AC gate): names + Tab order test, plus 12 new cases — each of the six controls reached by Tab alone (_tab_to), then ONE Enter or ONE Space on a fresh page, effect asserted right after (tools: aria-pressed exactly on that tool AND the next drag leaves that tool's state, with _PRIOR_TOOL chosen so a dead key leaves a different board; Undo: board minus last stroke; Redo: undone stroke back; Reset: blank, then undoable). Dead-key mutants K1-K4 each killed exactly their cases"
+  - "AC-311 ✓ — re-run: test_twenty_strokes_issue_no_request passed"
+  - "EC-035 ✓ — re-run: test_PropertyTest_SolverHistory_ReplayReproducesTheBoard passed; M1 kill carried"
+
+previous_findings:
+  - "AC-310 partial (AC gate) ✓ resolved — see acceptance_criteria AC-310"
+  - "F-008 open — still present: no test asserts #puzzle-player-hint visible after a normal load (grep player-hint tests/ -> only the is_hidden() at test_puzzle_solver_marking.py:739); not in this fix's scope"
+  - "F-009 open — still present: solver.js:48-49 still says a drag uses 'the selected tool'; not in this fix's scope"
+  - "F-006, F-007 — carried, dismissed (out of scope)"
+
+root_causes: []
+
+findings:
+  - id: F-008
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_marking.py
+    line: 739
+    title: "Usage hint is never asserted visible after a normal load — mutant 'hint never shown' survives"
+    description: "Carried open from the previous run of cycle 2 (M10 survived). Product and the relevant tests unchanged."
+    suggestion: "Add a normal-load test asserting #puzzle-player-controls and #puzzle-player-hint are visible (anchors the two is_hidden() checks)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 48
+    title: "MARKING header still says a drag uses 'the selected tool' after F-003 pinned it to pointerdown"
+    description: "Carried open. solver.js:48-49 unchanged; isZ comment (:329-332) still says 'non-Latin character' while the regex accepts any non a-z key."
+    suggestion: "Comment-only: 'dragStroke with the tool selected at pointerdown'; optionally 'a key that is not a Latin letter'."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-010
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_marking.py
+    line: 563
+    title: "Older test_each_control_acts_on_enter_or_space claims 'keyboard alone' but focuses by script; now superseded"
+    description: |
+      Its docstring says "operate every control with the keyboard alone", yet it reaches each control with
+      locator.focus() (not Tab) and chains presses so a later assertion can mask an earlier dead key (e.g.
+      "Undo Space" then "Redo Enter" asserts only the end state). The two new parametrized tests now cover
+      AC-310's then fully and strictly, so this test adds no AC evidence and over-claims what it checks.
+    suggestion: "Delete it, or rename/redocument it as a chained smoke test ('focus set by script')."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: info
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 352
+    title: "[out-of-scope, carried] Phone-width cells ~18px"
+    description: "Carried from cycle 1 (dismissed: CARD-160 cell sizing)."
+    suggestion: "Follow-up card when phone play is scoped."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "carried from cycle 1"
+    learned_pattern: null
+  - id: F-007
+    severity: info
+    category: compliance
+    type: gap
+    file: meta/architecture
+    line: null
+    title: "[out-of-scope, carried] ADR-0006/R1 check ref names a nonexistent test"
+    description: "Carried from cycle 1; real test is tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed."
+    suggestion: "Model fix."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "carried from cycle 1"
+    learned_pattern: null

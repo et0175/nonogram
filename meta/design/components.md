@@ -214,9 +214,22 @@ Used by: the puzzle player (`puzzle_solve.html`, drawn by `static/solver.js`; CA
 - States: loading / no-script (fallback sentence "…the player script did not load") · error (danger alert, no board, when the payload is unreadable) · drawn — each cell `unknown` (bare --grid-paper), `filled` (--grid-ink) or `empty` (small --color-text-secondary dot).
 - Sizing: cell side clamp(14px, fit, 28px) from the board size and clue depth; fits 1440×900 at 30×30; below the floor it scrolls inside `.player-stage`, and the page never scrolls sideways (1366×768 scroll for deep-clue 30×30 is owner-accepted for the admin POC).
 - Tokens: --grid-paper, --grid-ink, --color-surface, --color-text-secondary, --border-width, --font-num, --topbar-h, --space-*. Candidate tokens still local custom properties in admin.css (CARD-160 F-004): --player-cell-min 14px, --player-cell-max 28px, thin rule = color-mix(--grid-ink 28%, --grid-paper).
+- Interactive states (CARD-161): cells are interactive (cursor: pointer, touch-action none, no text selection); a drag in progress shows a live preview (cells take the tool's state as the pointer passes, recorded on release). No hover tint (it would hide the state while the pointer rests on a cell). Error and solved states arrive with CARD-162.
 
 ## ClueBox
 
 Used by: SolverBoard. One box per line (a row's to the left, a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
 - States: default only (CARD-161/162 may add "line satisfied").
 - Tokens: --color-surface, --font-num, --grid-ink.
+
+## ToolPicker
+
+Used by: the puzzle player (CARD-161, FR-044). `div.player-tools[role=group][aria-label="Marking tool for drags"]` holding three toggle buttons (`button.btn.btn-outline-secondary.player-tool[data-player-tool][aria-pressed]`), each a mini-cell swatch (`span.player-swatch[data-state]`: paper / ink / paper with dot) plus a visible label Black / White / Undecided (accessible name = visible label). Exactly one is pressed; each is a Tab stop and acts on Enter and Space. The tool governs drags only — a click always cycles.
+- States: default (quiet button) · hover · selected (aria-pressed=true: --color-accent-tint ground, --color-accent border and text, 1px inset accent ring) · focus-visible (2px --color-focus ring). No disabled state.
+- Tokens: --color-accent, --color-accent-tint, --color-border-strong, --grid-paper, --grid-ink, --color-text-secondary, --border-width, --control-h, --space-2, --space-4.
+
+## HistoryControls
+
+Used by: the puzzle player (CARD-161). `div.player-history[role=group][aria-label="History"]` with Undo, Redo (the undo icon mirrored via `.player-mirror` — a real redo icon in _icons.html is a candidate) and Reset (refresh icon), quiet buttons with text labels; Undo/Redo carry aria-keyshortcuts.
+- States: default · hover · focus-visible · disabled = aria-disabled="true" (55% opacity, not-allowed cursor, still focusable; pressing it changes nothing).
+- Layout: ToolPicker and HistoryControls share one `.player-toolbar` row above the board (wraps to two rows at 390 px); a usage hint (`.player-hint`, --text-sm, secondary) sits below the board.

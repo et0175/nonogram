@@ -1,0 +1,284 @@
+version: 1
+generated_at: "2026-10-03T12:19:43Z"
+target: "card/161-solver-marking-undo-redo (git diff main...HEAD, implementation commit 753e023)"
+card: CARD-161
+cycle: 1
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/solver.js (full)
+    - src/nonogram/admin/static/solver_state.js (full)
+    - src/nonogram/admin/static/admin.css (diff + player section)
+    - src/nonogram/admin/templates/puzzle_solve.html (full diff)
+    - src/nonogram/admin/templates/_icons.html (undo/refresh icons)
+    - tests/test_puzzle_solver_marking.py (full)
+    - tests/test_puzzle_solver_page.py (fixtures browser_type/browser_page, 1440x900 fit test)
+    - meta/kanban/cards/CARD-161.md (Worktree notes)
+    - meta/design/tokens.css, components.md (disabled-state convention)
+    - ~/Documents/nonogram-reviews/CARD-161/player-mid-solve-{1440,390}.png (supplementary, not a gate)
+  not_reached:
+    - "rendered capture gate (review.visual off) - rendered result not verified by a capture gate"
+    - "runtime.log / a11y.log / visual-diff.log (not provided by the pipeline)"
+  confidence: high
+  tests_run:
+    - "tests/test_puzzle_solver_marking.py tests/test_puzzle_solver_page.py tests/test_admin_design_tokens.py tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed tests/test_cli.py -> 211 passed (real Chromium)"
+  certification:
+    mutation_check: "deferred(cost) - gating findings present; certify on the stable cycle"
+    baseline_acceptance: "not applicable - no visual-diff log provided (review.visual off)"
+
+metrics:
+  diff: { files: 5, added: 1273, removed: 6 }
+  max_fan_in: { symbol: "solver_state.js new exports (record/undo/redo/clickStroke/dragStroke/applyStroke)", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]   # 11 commits / 4 fix in 12 months
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact - the new exports are introduced in this card; their only production caller is solver.js (same diff); CARD-162 is the announced second consumer"
+    cochange_missing: "no_eligible_fact - solver.js/solver_state.js are 2 commits old (CARD-160); the only co-change peer, tests/test_puzzle_solver_page.py, is imported unchanged and was run green"
+
+system_contract:
+  rules_checked: 53
+  holds: 13
+  unchecked: 40
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy (no test of that name; the equivalent tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed was run and passed, and git diff main...HEAD --stat touches no pyproject.toml; manual read found no violation)"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: diff touches nothing under src/nonogram/web/ (tests/test_cli.py::test_every_import_in_the_package_points_inward passed)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no Python signature/request/export field changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size handling untouched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: orchestrator repair untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: scoring untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver overlap masks untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book geometry untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book pages untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: book rules untouched"
+    - "ADR-0038/R1 ✓ holds — solver.js imports only ./solver_state.js (solver.js:69-72), solver_state.js has no import; diff adds no package.json/build file (git diff main...HEAD --stat: 5 files, all static/template/test)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark (2 tests: 20 real strokes + undo/redo/reset, requests == []) passed on 753e023; grep -nE 'fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource' solver.js solver_state.js -> 0 hits"
+    - "ADR-0038/R3 ✓ holds — diff does not touch clue embedding or app.py; TestSolverPage_ShowsTheClues (+ InTheBrowser) passed in tests/test_puzzle_solver_page.py run"
+    - "ADR-0038/R4 ✓ holds — new strokes/history code is in solver_state.js:126-277; grep -nE 'document|window|globalThis' solver_state.js -> 0 hits; TestSolverHistoryModule (11) exercises it without the renderer"
+    - "ADR-0038/R5 ✓ holds — pyproject.toml:80 package-data includes static/*.js; pyproject untouched by the diff"
+    - "ADR-0038/R6 ✓ holds — payload/route untouched; TestSolverMarking_RevealsNoCorrectness::test_the_marking_code_reads_no_solution passed (no 'solution' in wireMarking or solver_state.js)"
+    - "ADR-0038/R7 ✓ holds — pyproject untouched; new tests reuse CARD-160's pytest-playwright fixtures (dev extra, pyproject.toml:25-27)"
+    - "ADR-0038/R8 ✓ holds — all new browser tests carry @pytest.mark.browser and depend on browser_page / browser -> the module-imported browser_type fixture (tests/test_puzzle_solver_page.py:435-446) that pytest.fail()s loudly when Chromium is absent"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: uniqueness solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin bind untouched (no Python file in diff)"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin door untouched (no Python file in diff)"
+    - "CON-021 ✓ holds — diff adds no route or page; marking lives only in the existing admin player page (puzzle_solve.html, solver.js), served behind the unchanged door"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues/grid untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+
+guardrails:
+  - "G-1 ✓ holds — no pyproject/package change; plain ES modules only"
+  - "G-2 ✓ holds — test_marking_the_solution_changes_nothing_but_cell_states + test_the_marking_code_reads_no_solution passed"
+  - "G-3 ✓ holds — TestSolverMarking_NoRequestPerMark passed; no network API in the changed JS"
+
+acceptance_criteria:
+  - "AC-303 ✓ — TestSolverMarking_ClickCycles (real clicks, computed colours vs --grid-ink/--grid-paper) passed"
+  - "AC-304 ✓ — TestSolverMarking_ClickIgnoresTheSelectedTool passed"
+  - "AC-305 ✓ — TestSolverMarking_DragMarksOneLine::test_row_2_columns_3_to_7 passed"
+  - "AC-306 ✓ — test_a_drag_that_wanders_off_marks_only_its_row + _jumps_off_ passed"
+  - "AC-307 ✓ — TestSolverMarking_UndoRedoByStroke::test_three_undos_then_three_redos passed"
+  - "AC-308 ✓ — test_a_new_stroke_after_undo_drops_redo passed (disabled role + forced click + shortcut)"
+  - "AC-309 ✓ — TestSolverMarking_KeyboardAndLabels::test_ctrl_z_undoes_and_shift_ctrl_z_redoes[Control,Meta] passed"
+  - "AC-310 ✓ — names, Tab order, Enter/Space tests passed"
+  - "AC-311 ✓ — test_twenty_strokes_issue_no_request passed"
+  - "EC-035 ✓ — test_PropertyTest_SolverHistory_ReplayReproducesTheBoard (seed 35, 1300 ops, >=500 strokes asserted in-test, replay + independent Python model at every op) passed"
+
+root_causes:
+  - id: RC-1
+    title: "Append-only SCOPE+ kept CARD-160 header prose that CARD-161 has now made false"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver_state.js
+    line: 15
+    title: "Module header still declares CARD-161 routes clicks through withCell/setBoard and keeps a history of boards"
+    description: |
+      solver_state.js:14-17 (CARD-160 header, left untouched by the append-only SCOPE+) states
+      "a history of boards (CARD-161's undo) is just an array of values" and "CARD-161 routes
+      clicks through withCell/setBoard". The code this card ships contradicts both: clicks go
+      clickStroke -> record -> applyStroke (solver.js:300-304), setBoard is not on the marking
+      path at all (it now RESETS the history, solver.js:228-231), withCell is not called by any
+      marking code (grep withCell src/nonogram/admin/static/solver.js -> 0 hits), and the history
+      is {board, done: [{stroke, before}], undone: [stroke]} (solver_state.js:139-146), not an
+      array of boards. The appended section below is accurate, so the file now carries two
+      contradicting descriptions of the same design - exactly the declared-vs-demonstrated drift
+      CARD-160 escalated on, and CARD-162 will read this header first.
+    suggestion: |
+      Comment-only edit of solver_state.js:14-17 (and the "history of boards" phrase at :72):
+      say boards are never mutated, so a history can hold them as values (see "Strokes and
+      history" below), and that CARD-161 routes clicks and drags through strokes and record /
+      undo / redo. Amend the SCOPE+ Worktree note from "CARD-160's comments untouched" to
+      "two stale CARD-160 header sentences corrected". No code change.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 329
+    title: "Ctrl/Cmd+Z matched on event.key only - dead on a Cyrillic layout"
+    description: |
+      The shortcut requires event.key.toLowerCase() === "z". With a Russian (JCUKEN) layout
+      active, the Z key reports event.key "я", so Ctrl+Z / Shift+Ctrl+Z do nothing while the
+      buttons still work. Not covered by AC-309 (which presses Latin "z").
+    suggestion: |
+      Accept event.code === "KeyZ" when event.key is not a Latin letter (keeps QWERTZ correct,
+      fixes Cyrillic): `const isZ = event.key.toLowerCase() === "z" || (!/^[a-z]$/i.test(event.key) && event.code === "KeyZ");`
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: bug
+    file: src/nonogram/admin/static/solver.js
+    line: 310
+    title: "Tool can change mid-drag via keyboard: preview drawn with one tool, stroke recorded with another"
+    description: |
+      The tool buttons' click handler (solver.js:310-313) does not check `gesture`, unlike the
+      history buttons (:322-324) and the shortcut (:328). With a tool button focused, pressing
+      Enter/Space while the pointer is held on the board switches `tool`; pointerup then records
+      dragStroke(..., tool) with the new tool although the preview so far showed the old one.
+    suggestion: |
+      Capture the tool into the gesture at pointerdown (gesture.tool = tool) and use it for the
+      preview and the recorded stroke, or ignore tool clicks while a gesture is active.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/templates/puzzle_solve.html
+    line: 15
+    title: "'No dead buttons when the script did not run / payload refused' is declared but not tested"
+    description: |
+      The template comment (and the card's STRUCTURE note) declares the controls and hint stay
+      hidden unless the board is drawn. The code does this (controls.hidden=false only at the end
+      of wireMarking, solver.js:333-335, reached only after readPayload succeeds), but no test
+      asserts #puzzle-player-controls / #puzzle-player-hint stay hidden on the refusal path.
+    suggestion: |
+      Add one browser assertion on a refused payload (CARD-160's bad-payload setup) that both
+      elements are not visible, and one that they are visible after a normal load.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 407
+    title: "Swatch size is a literal 1rem, not a token"
+    description: |
+      .player-swatch uses width/height 1rem - an ad-hoc size outside tokens.css (opacity 0.55 and
+      the 1px inset ring follow existing admin.css/components.md conventions and are fine).
+    suggestion: "Use an existing token (e.g. var(--space-4), same value) or promote an icon/swatch size token."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: info
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 352
+    title: "[out-of-scope] Phone-width cells are ~18px - below a comfortable tap target"
+    description: |
+      At 390px the 15x15 board renders cells of roughly 18px (owner render player-mid-solve-390.png).
+      Cell sizing is CARD-160's; the card text names phones as the later QR-code target.
+    suggestion: "Follow-up card when phone play is scoped (cell min size / zoom)."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "out of scope for this fix (cell sizing is CARD-160 code, not a file this card changed); route to a follow-up card when phone play is scoped"
+    learned_pattern: null
+  - id: F-007
+    severity: info
+    category: compliance
+    type: gap
+    file: meta/architecture
+    line: null
+    title: "[out-of-scope] ADR-0006/R1 check ref names a test that does not exist"
+    description: |
+      check: test: TestDependencyBaseline_IsExactlyPillowAndNumpy has no test of that name; the
+      real test is tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed.
+      Pre-existing model defect.
+    suggestion: "Point the ADR-0006/R1 check at the real test id (model fix)."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "out of scope for this fix (pre-existing architecture-model defect under meta/architecture, not a file this card changed); needs a model fix pointing ADR-0006/R1 at tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed"
+    learned_pattern: null

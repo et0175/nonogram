@@ -1,0 +1,222 @@
+version: 1
+generated_at: "2026-10-03T13:01:02Z"
+target: "card/161-solver-marking-undo-redo — confirmation review of fix delta 753e023 -> working tree (uncommitted); card diff = git diff main"
+card: CARD-161
+cycle: 2
+mode: confirmation
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "git diff 753e023 -- src tests (full fix delta, 5 files, +128/-16)"
+    - src/nonogram/admin/static/solver.js (header + wireMarking + start, full marking path)
+    - src/nonogram/admin/static/solver_state.js (header + strokes/history section)
+    - src/nonogram/admin/templates/puzzle_solve.html (controls/hint/fallback ids)
+    - tests/test_puzzle_solver_marking.py (new tests in the delta)
+    - tests/test_puzzle_solver_page.py (_PAYLOAD, _embed, refused-payload cases)
+    - meta/design/tokens.css (--space-4)
+    - meta/kanban/cards/CARD-161.md (fix-1 Worktree notes — claims verified)
+    - meta/review/20261003T121943Z-CARD-161-cycle1.yml
+  not_reached:
+    - "rendered capture gate (review.visual off) — rendered result not verified by a capture gate"
+    - "runtime.log / a11y.log / visual-diff.log (not provided by the pipeline)"
+  confidence: high
+  tests_run:
+    - "tests/test_puzzle_solver_marking.py -> 53 passed (real Chromium)"
+    - "tests/test_puzzle_solver_page.py tests/test_admin_design_tokens.py tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed tests/test_cli.py -> 163 passed"
+  certification:
+    mutation_check: "ran — 10 mutants, 9 killed, 1 survived (M10 usage hint never shown -> F-008); git diff 753e023 --stat and full-diff sha identical before/after"
+    baseline_acceptance: "not applicable — no visual-diff log provided (review.visual off)"
+
+metrics:
+  diff: { files: 5, added: 1392, removed: 13 }
+  fix_delta: { files: 5, added: 128, removed: 16 }
+  max_fan_in: { symbol: "isZ (solver.js, module-private)", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — the delta adds only a module-private function (isZ) and a gesture field; no exported symbol changed"
+    cochange_missing: "no_eligible_fact — carried from cycle 1 (solver.js/solver_state.js are CARD-160-young; only peer tests/test_puzzle_solver_page.py was run green)"
+
+system_contract:
+  rules_checked: 53
+  holds: 9
+  unchecked: 44
+  violated: 0
+  note: "cycle 1's prose count line said 13 holds / 40 unchecked, but its own verdict list carries 9 ✓ and 44 ⚠; this count is re-derived from the list"
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed run green this cycle and git diff main --name-only -- pyproject.toml is empty; manual read found no violation"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): scope src/nonogram/web/, delta touches none (test_every_import_in_the_package_points_inward also re-run green)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: admin storage boundary is Python; git diff main --name-only -- 'src/**/*.py' is empty (re-verified, admin-scoped)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: same evidence (no .py under src changed)"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly Python untouched (no .py under src changed)"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status Python untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): export layout, delta touches none"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: admin book geometry Python untouched (no .py under src changed)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R1 ✓ holds — grep '^import\\|from \"' solver.js solver_state.js -> only solver.js:69-72 importing ./solver_state.js; git diff main --name-only lists no package.json/build file"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark (2 tests) passed this cycle; grep -nE 'fetch|XMLHttpRequest|sendBeacon|WebSocket|EventSource' solver.js solver_state.js -> 0"
+    - "ADR-0038/R3 ✓ holds — delta touches no clue embedding; TestSolverPage_ShowsTheClues (+InTheBrowser) passed in tests/test_puzzle_solver_page.py this cycle"
+    - "ADR-0038/R4 ✓ holds — grep -nE 'document|window|globalThis' solver_state.js -> 0; delta to solver_state.js is comment-only (git diff 753e023 -- solver_state.js); TestSolverHistoryModule passed"
+    - "ADR-0038/R5 ✓ holds — carried(cycle 1, delta-clean): scope pyproject.toml (pyproject.toml:80 static/*.js), delta touches none"
+    - "ADR-0038/R6 ✓ holds — grep -n solution solver_state.js -> 0; TestSolverMarking_RevealsNoCorrectness::test_the_marking_code_reads_no_solution passed this cycle"
+    - "ADR-0038/R7 ✓ holds — carried(cycle 1, delta-clean): scope pyproject.toml extras, delta touches none"
+    - "ADR-0038/R8 ✓ holds — the 5 new tests carry @pytest.mark.browser (class-level) and use browser_page -> browser_type fixture that pytest.fail()s without Chromium (tests/test_puzzle_solver_page.py); all ran in real Chromium this cycle"
+    - "CON-005 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-011 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin bind is Python; no .py under src changed (re-verified, admin-scoped)"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin door is Python; no .py under src changed (re-verified, admin-scoped)"
+    - "CON-021 ✓ holds — delta adds no route/page (no .py changed); marking stays inside the existing admin player (puzzle_solve.html, solver.js)"
+    - "INV-001 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-002 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-003 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan Python untouched (no .py under src changed)"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership Python untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate Python untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book Python untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order Python untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing Python untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key Python untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership Python untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export Python untouched"
+
+guardrails:
+  - "G-1 ✓ holds — git diff main --name-only: no pyproject/package file; plain ES modules only"
+  - "G-2 ✓ holds — TestSolverMarking_RevealsNoCorrectness (2) passed this cycle; delta adds no solution read"
+  - "G-3 ✓ holds — TestSolverMarking_NoRequestPerMark passed this cycle; isZ/gesture.tool add no I/O"
+
+acceptance_criteria:
+  - "AC-303 ✓ — TestSolverMarking_ClickCycles passed; mutant M6 (cycle order) killed"
+  - "AC-304 ✓ — TestSolverMarking_ClickIgnoresTheSelectedTool passed"
+  - "AC-305 ✓ — TestSolverMarking_DragMarksOneLine passed; M5 (interpolation) killed"
+  - "AC-306 ✓ — DragMarksOneLine wander/jump tests passed; M4 (tie axis) killed"
+  - "AC-307 ✓ — test_three_undos_then_three_redos passed; M3 (undo order) killed"
+  - "AC-308 ✓ — test_a_new_stroke_after_undo_drops_redo passed; M2 (redo-stack drop) killed"
+  - "AC-309 ✓ — test_ctrl_z_undoes_and_shift_ctrl_z_redoes[Control,Meta] + new non-Latin-layout test passed; M7 killed"
+  - "AC-310 ✓ — KeyboardAndLabels names/Tab/Enter-Space tests passed; M9 (undo aria-disabled) killed"
+  - "AC-311 ✓ — test_twenty_strokes_issue_no_request passed"
+  - "EC-035 ✓ — test_PropertyTest_SolverHistory_ReplayReproducesTheBoard passed; M1 (no-op guard) killed"
+
+previous_findings:
+  - "F-001 ✓ resolved — solver_state.js:13-22 and :74-76 now describe strokes/record/undo/redo and the {board, done:[{stroke,before}], undone:[stroke]} history; checked against record/undo/redo (solver_state.js:255-287) and setBoard -> createHistory (solver.js:228-230)"
+  - "F-002 ✓ resolved — isZ (solver.js:333-336); test_ctrl_z_works_when_the_layout_puts_a_non_latin_letter_on_z and test_a_latin_letter_on_the_z_position_is_that_letter_not_z pass; M7 killed"
+  - "F-003 ✓ resolved — gesture.tool captured at pointerdown (solver.js:282), used at :293 and :302; test_a_tool_picked_mid_drag_applies_to_the_next_drag passes; M8 killed"
+  - "F-004 ✓ resolved — TestSolverMarking_ControlsStayHiddenWithoutABoard (2 tests) pass; residual: hint shown-after-load untested (F-008)"
+  - "F-005 ✓ resolved — admin.css:407 uses var(--space-4) (tokens.css:66 = 1rem)"
+
+root_causes: []
+
+findings:
+  - id: F-008
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_marking.py
+    line: 674
+    title: "Usage hint is never asserted visible after a normal load — mutant 'hint never shown' survives"
+    description: |
+      puzzle_solve.html:13-17 declares the controls and the usage hint are shown once the board is
+      drawn; solver.js:346 sets #puzzle-player-hint hidden=false. No test anywhere asserts the hint
+      is visible on a normal load (grep -rn 'player-hint' tests/ -> only the is_hidden() check at
+      :679). Mutant M10 (delete solver.js:346) SURVIVED tests/test_puzzle_solver_marking.py +
+      tests/test_puzzle_solver_page.py. Also: Playwright is_hidden() is true for a selector that
+      matches nothing, so the hidden assertion on the hint is not anchored by any positive check
+      (the controls are, via the Undo role count and every other test that finds Undo).
+      Severity departs from Step 8f's Important default on purpose: the hint is static help text
+      outside every AC/EC, and cycle 1 rated the sibling claim (F-004) Minor.
+    suggestion: |
+      In TestSolverMarking_ControlsStayHiddenWithoutABoard add a normal-load test asserting
+      #puzzle-player-controls and #puzzle-player-hint are visible (this also anchors the two
+      is_hidden() checks).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 48
+    title: "MARKING header still says a drag uses 'the selected tool' after F-003 pinned it to pointerdown"
+    description: |
+      solver.js:48-49 "a drag: dragStroke with the selected tool, previewed on every move" — since
+      fix 1 the drag uses the tool selected at pointerdown (gesture.tool, :282), and a tool picked
+      mid-drag does not apply. The card note says the correction "supersedes" the old wording, but
+      the file header CARD-162 reads was not updated (the inline comment at :280 is correct).
+      Separately, isZ's comment (:329-332) says the code fallback is for a "non-Latin character";
+      the regex accepts any non a-z key, so on Dvorak (KeyZ -> ";") Ctrl+; also undoes — harmless,
+      but undeclared.
+    suggestion: |
+      Comment-only: "dragStroke with the tool selected at pointerdown"; optionally say "a key that
+      is not a Latin letter" in the isZ comment.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: info
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 352
+    title: "[out-of-scope, carried] Phone-width cells ~18px"
+    description: "Carried from cycle 1 (dismissed: CARD-160 cell sizing)."
+    suggestion: "Follow-up card when phone play is scoped."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "carried from cycle 1"
+    learned_pattern: null
+  - id: F-007
+    severity: info
+    category: compliance
+    type: gap
+    file: meta/architecture
+    line: null
+    title: "[out-of-scope, carried] ADR-0006/R1 check ref names a nonexistent test"
+    description: "Carried from cycle 1; real test is tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed."
+    suggestion: "Model fix."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "carried from cycle 1"
+    learned_pattern: null

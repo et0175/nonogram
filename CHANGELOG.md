@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-03
+- CARD-161 (feature): The puzzle player is now playable. Click a cell to cycle it black, then white (a dot), then blank. Pick black, white or undecided and drag along a row or column to mark several cells at once. Undo and redo work by button or Ctrl/Cmd+Z, one click or one drag at a time. Every control works from the keyboard, and touch works on a tablet. Nothing is sent to the server while you mark.
 - CARD-160 (feature): First piece of the online puzzle player. In the admin panel, "Solve" on any puzzle now opens it as an empty board of the right size, with the row and column clues in boxes and every fifth line drawn heavier, like the printed pages. Marking cells, the error count and the solved celebration come in the next two cards.
 
 ## 2026-10-02
