@@ -254,7 +254,7 @@ function wireMarking(table, player) {
   const actions = Object.fromEntries(
     [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
   let tool = FILLED;
-  let gesture = null; // { pointerId, start, path, dragging }
+  let gesture = null; // { pointerId, start, path, dragging, tool }
 
   function refresh() {
     const { board, done, undone } = player.getHistory();
@@ -277,7 +277,9 @@ function wireMarking(table, player) {
     if (!start) return;
     event.preventDefault();
     table.setPointerCapture(event.pointerId);
-    gesture = { pointerId: event.pointerId, start, path: [], dragging: false };
+    // The tool is taken here, at pointerdown: picking another tool mid-drag
+    // applies to the next drag, not this one.
+    gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool };
   });
 
   table.addEventListener("pointermove", (event) => {
@@ -288,7 +290,7 @@ function wireMarking(table, player) {
     gesture.path.push(position);
     gesture.dragging = gesture.dragging || !isAt(position, gesture.start);
     if (gesture.dragging) {
-      player.show(applyStroke(player.getHistory().board, dragStroke(gesture.start, gesture.path, tool)));
+      player.show(applyStroke(player.getHistory().board, dragStroke(gesture.start, gesture.path, gesture.tool)));
     }
   });
 
@@ -297,7 +299,7 @@ function wireMarking(table, player) {
     const done = gesture;
     gesture = null;
     const history = player.getHistory();
-    commit(record(history, done.dragging ? dragStroke(done.start, done.path, tool) : clickStroke(history.board, ...done.start)));
+    commit(record(history, done.dragging ? dragStroke(done.start, done.path, done.tool) : clickStroke(history.board, ...done.start)));
   });
 
   table.addEventListener("pointercancel", (event) => {
@@ -324,9 +326,17 @@ function wireMarking(table, player) {
     });
   }
 
+  // The Z key: event.key "z"/"Z", or — when the layout gives that key a
+  // non-Latin character (e.g. Russian "я") — event.code "KeyZ". A layout that
+  // puts another Latin letter on the KeyZ position (German "y") is matched by
+  // its letter, so Ctrl+Y there does not undo.
+  function isZ(event) {
+    const key = event.key.toLowerCase();
+    return key === "z" || (!/^[a-z]$/.test(key) && event.code === "KeyZ");
+  }
+
   document.addEventListener("keydown", (event) => {
-    if (gesture || !(event.ctrlKey || event.metaKey) || event.altKey
-        || event.key.toLowerCase() !== "z") return;
+    if (gesture || !(event.ctrlKey || event.metaKey) || event.altKey || !isZ(event)) return;
     event.preventDefault();
     commit(event.shiftKey ? step.redo() : step.undo());
   });

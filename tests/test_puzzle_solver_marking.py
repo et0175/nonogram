@@ -26,6 +26,8 @@ from pathlib import Path
 import pytest
 
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
+    _PAYLOAD,
+    _embed,
     _open,
     _unique_grid,
     browser_page,
@@ -589,6 +591,66 @@ class TestSolverMarking_KeyboardAndLabels:
         press("Reset", "Space")
         assert _marked(_states(browser_page)) == {}
 
+    @staticmethod
+    def _tab_to(page, name):
+        """Move keyboard focus to the control by Tab presses alone."""
+        page.evaluate("document.activeElement && document.activeElement.blur()")
+        for _ in range(80):
+            page.keyboard.press("Tab")
+            if page.evaluate(_FOCUSED) == name:
+                return
+        raise AssertionError(f"Tab never reached {name}")
+
+    #: The tool selected (by mouse) before the key press — one whose drag
+    #: would leave a different state, so a key that does nothing is visible.
+    _PRIOR_TOOL = {"Black": "White", "White": "Undecided", "Undecided": "White"}
+
+    @pytest.mark.parametrize("key", ["Enter", "Space"])
+    @pytest.mark.parametrize("name", ["Black", "White", "Undecided"])
+    def test_each_tool_acts_on_a_single_key_press(self, browser_page, live, name, key) -> None:
+        """AC-310 — one Enter or one Space on a Tab-focused tool selects it, and
+        the next drag uses it."""
+        _open(browser_page, live, live.store(GRID))
+        _drag(browser_page, [(0, 0), (0, 3)])  # Black: row 0 filled, so Undecided shows
+        _tool(browser_page, self._PRIOR_TOOL[name])
+
+        self._tab_to(browser_page, name)
+        browser_page.keyboard.press(key)
+
+        pressed = {t: _button(browser_page, t).get_attribute("aria-pressed") for t in TOOLS}
+        assert pressed == {t: "true" if t == name else "false" for t in TOOLS}
+        _drag(browser_page, [(0, 0), (0, 3)])
+        expected = {(0, c): TOOLS[name] for c in range(4)} if TOOLS[name] != U else {}
+        assert _marked(_states(browser_page)) == expected
+
+    @pytest.mark.parametrize("key", ["Enter", "Space"])
+    @pytest.mark.parametrize("name", ["Undo", "Redo", "Reset"])
+    def test_each_history_control_acts_on_a_single_key_press(self, browser_page, live, name, key) -> None:
+        """AC-310 — one Enter or one Space on a Tab-focused Undo / Redo / Reset
+        acts, asserted after that single press."""
+        _open(browser_page, live, live.store(GRID))
+        _drag(browser_page, [(1, 2), (1, 6)])
+        _cell(browser_page, 8, 8).click()
+        drag = {(1, c): F for c in range(2, 7)}
+        two = {**drag, (8, 8): F}
+        assert _marked(_states(browser_page)) == two
+        if name == "Redo":
+            _button(browser_page, "Undo").click()
+            assert _marked(_states(browser_page)) == drag
+
+        self._tab_to(browser_page, name)
+        browser_page.keyboard.press(key)
+
+        after = _marked(_states(browser_page))
+        if name == "Undo":
+            assert after == drag  # the board minus the last stroke
+        elif name == "Redo":
+            assert after == two  # the undone stroke is back
+        else:
+            assert after == {}
+            _button(browser_page, "Undo").click()  # the reset is one undoable step
+            assert _marked(_states(browser_page)) == two
+
     def test_the_tool_picked_by_keyboard_governs_the_next_drag(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         _button(browser_page, "White").focus()
@@ -602,6 +664,101 @@ class TestSolverMarking_KeyboardAndLabels:
         _open(browser_page, live, live.store(GRID))
         assert "Control+Z" in _button(browser_page, "Undo").get_attribute("aria-keyshortcuts")
         assert "Shift+Meta+Z" in _button(browser_page, "Redo").get_attribute("aria-keyshortcuts")
+
+    @staticmethod
+    def _press_layout_key(page, key, code, modifiers):
+        """A real key press through CDP with an explicit key and code — what a
+        non-US layout sends (Playwright's keyboard derives code from key)."""
+        cdp = page.context.new_cdp_session(page)
+        for kind in ("rawKeyDown", "keyUp"):
+            cdp.send("Input.dispatchKeyEvent", {
+                "type": kind, "key": key, "code": code,
+                "windowsVirtualKeyCode": 90 if code == "KeyZ" else 89, "modifiers": modifiers,
+            })
+
+    def test_ctrl_z_works_when_the_layout_puts_a_non_latin_letter_on_z(self, browser_page, live) -> None:
+        """F-002 — a Russian layout: the Z key reports key "я", code "KeyZ"."""
+        ctrl, shift = 2, 8
+        _open(browser_page, live, live.store(GRID))
+        _drag(browser_page, [(1, 2), (1, 6)])
+        _cell(browser_page, 8, 8).click()
+        two = _marked(_states(browser_page))
+        browser_page.locator("h1").click()
+
+        self._press_layout_key(browser_page, "я", "KeyZ", ctrl)
+        after_undo = _marked(_states(browser_page))
+        self._press_layout_key(browser_page, "Я", "KeyZ", ctrl | shift)
+        after_redo = _marked(_states(browser_page))
+
+        assert after_undo == {(1, c): F for c in range(2, 7)}
+        assert after_redo == two
+
+    def test_a_latin_letter_on_the_z_position_is_that_letter_not_z(self, browser_page, live) -> None:
+        """F-002 — a German layout: the KeyZ position reports "y"; Ctrl+Y must not undo."""
+        _open(browser_page, live, live.store(GRID))
+        _cell(browser_page, 8, 8).click()
+        browser_page.locator("h1").click()
+
+        self._press_layout_key(browser_page, "y", "KeyZ", 2)
+
+        assert _marked(_states(browser_page)) == {(8, 8): F}
+        assert not _is_disabled(browser_page, "Undo")
+
+    def test_a_tool_picked_mid_drag_applies_to_the_next_drag(self, browser_page, live) -> None:
+        """F-003 — the drag keeps the tool it started with, in its preview and
+        in the stroke recorded on release; the new tool governs the next drag."""
+        _open(browser_page, live, live.store(GRID))
+        browser_page.mouse.move(*_centre(browser_page, 0, 0))
+        browser_page.mouse.down()
+        browser_page.mouse.move(*_centre(browser_page, 0, 3), steps=4)
+
+        _button(browser_page, "White").focus()
+        browser_page.keyboard.press("Enter")
+        assert _button(browser_page, "White").get_attribute("aria-pressed") == "true"
+
+        browser_page.mouse.move(*_centre(browser_page, 0, 6), steps=4)
+        preview = _marked(_states(browser_page))
+        browser_page.mouse.up()
+        recorded = _marked(_states(browser_page))
+        _drag(browser_page, [(4, 0), (4, 2)])
+        after_next = _marked(_states(browser_page))
+
+        line = {(0, c): F for c in range(7)}
+        assert preview == line
+        assert recorded == line
+        assert after_next == line | {(4, c): E for c in range(3)}
+
+
+@pytest.mark.browser
+class TestSolverMarking_ControlsStayHiddenWithoutABoard:
+    """F-004 — the template's claim: the controls and the usage hint are shown
+    only once the board is drawn, so no dead buttons appear without one."""
+
+    def _assert_hidden(self, page):
+        assert page.locator("#puzzle-player-controls").is_hidden()
+        assert page.locator("#puzzle-player-hint").is_hidden()
+        assert page.get_by_role("button", name="Undo", exact=True).count() == 0
+
+    def test_a_refused_payload_shows_no_controls(self, browser_page, live) -> None:
+        puzzle_id = live.store(GRID)
+
+        def serve_corrupted(route):
+            response = route.fetch()
+            route.fulfill(response=response, body=_PAYLOAD.sub(_embed("null"), response.text()))
+
+        browser_page.route(f"**/puzzle/{puzzle_id}/solve", serve_corrupted)
+        browser_page.goto(f"{live.url}/puzzle/{puzzle_id}/solve")
+        browser_page.get_by_role("alert").wait_for()
+
+        self._assert_hidden(browser_page)
+
+    def test_a_page_whose_script_never_ran_shows_no_controls(self, browser_page, live) -> None:
+        browser_page.route("**/static/solver.js", lambda route: route.abort())
+        browser_page.goto(f"{live.url}/puzzle/{live.store(GRID)}/solve")
+        browser_page.wait_for_load_state("networkidle")
+
+        assert browser_page.locator("[data-player-fallback]").is_visible()
+        self._assert_hidden(browser_page)
 
 
 # ==========================================================================

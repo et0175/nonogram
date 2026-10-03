@@ -13,7 +13,8 @@
 
   The marking controls (CARD-161) are rendered here and start hidden;
   solver.js wires them and shows them once the board is drawn, so a page whose
-  script never ran shows no dead buttons (nor the usage hint below the board). Tools are toggle buttons
+  script never ran, or whose payload solver.js refused, shows no dead buttons
+  (nor the usage hint below the board). Tools are toggle buttons
   (aria-pressed, exactly one pressed); undo, redo and reset stay focusable and
   say aria-disabled="true" when they have nothing to do.
 #}

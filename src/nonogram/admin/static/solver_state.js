@@ -11,12 +11,15 @@
 //     cells: frozen array of width*height cell states, row-major
 //            (the cell at row r, column c is cells[r * width + c]) }
 // A cell state is one of UNKNOWN ("undecided"), FILLED or EMPTY ("marked
-// empty"). Boards are never mutated: withCell returns a new one, so a history
-// of boards (CARD-161's undo) is just an array of values. Boards are trusted
-// in-page values: only this page's own code builds and passes them (CARD-160
-// takes no input; CARD-161 routes clicks through withCell/setBoard). isBoard
-// (below) says what a board is; solver.js setBoard asks it, then keeps and
-// paints its own copy (copyBoard), never the value it was handed.
+// empty"). Boards are never mutated: withCell (the single-cell primitive) and
+// applyStroke return a new one. Boards are trusted in-page values: only this
+// page's own code builds and passes them. In solver.js a click, a drag or a
+// reset becomes a stroke, recorded into a history value with record (which
+// applies it with applyStroke); undo and redo move along that history. A
+// history is {board, done: [{stroke, before}], undone: [stroke]} — see
+// "Strokes and history" below. isBoard (below) says what a board is;
+// solver.js setBoard asks it, then keeps and paints its own copy (copyBoard),
+// never the value it was handed, and starts a new history at that copy.
 
 export const UNKNOWN = "unknown";
 export const FILLED = "filled";
@@ -69,7 +72,8 @@ function ownData(object, key) {
 //      skips holes; a hole, an accessor element or any other value
 //      ("Filled", null, undefined, 1) is refused.
 // Frozen with own data properties, a board never changes afterwards — what
-// lets CARD-161 keep a history of boards and CARD-162 count errors over one.
+// lets a history keep each stroke's `before` board and CARD-162 count errors
+// over one.
 // Nothing else is checked: other own properties of the board or of `cells`
 // are not looked at, and copyBoard / withCell do not carry them over.
 // createBoard, copyBoard and withCell only ever return values for which this
