@@ -111,7 +111,10 @@ contexts:
       Book; placement decided by ADR-0033). Two aggregates:
       Puzzle, and Book, which references puzzles by id and never modifies
       them. One owner (the tool itself, run by its single human actor).
-    capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005, CAP-006]
+    # 2026-10-03 (a): CAP-007 Puzzle play added (admin-panel puzzle player,
+    # FR-044) — no boundary signal: it reads AGG-001's stored puzzle through
+    # the admin panel already in CTX-001 and adds no aggregate.
+    capabilities: [CAP-001, CAP-002, CAP-003, CAP-004, CAP-005, CAP-006, CAP-007]
     aggregates: [AGG-001, AGG-002]
     ubiquitous_language:
       [TERM-001, TERM-002, TERM-003, TERM-004, TERM-005, TERM-006, TERM-007,
@@ -120,7 +123,9 @@ contexts:
        # print-production terms of (CTX-001 per ADR-0033)
        # CAP-006 / AGG-002; move with them if Book assembly is split out.
        TERM-018, TERM-019, TERM-020, TERM-021, TERM-022, TERM-023, TERM-024,
-       TERM-025, TERM-026, TERM-027, TERM-028, TERM-029]
+       TERM-025, TERM-026, TERM-027, TERM-028, TERM-029,
+       # puzzle-player terms (CAP-007, 2026-10-03 (a))
+       TERM-037, TERM-038, TERM-039]
 
 # No context_map: a single context with no other contexts and no external
 # systems (external_systems.yml: []) has nothing to integrate with.

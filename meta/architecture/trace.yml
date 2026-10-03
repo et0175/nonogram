@@ -1,6 +1,21 @@
 # generated_by: forge:architect-synthesis
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-10-03 (b) (--trace-only, forge:architect-synthesis —
+#   DEC-040/DEC-041 resolved by ADR-0038: rows AMENDED for FR-044 and CON-021,
+#   adrs: [] -> [ADR-0038] (CON-021 also ADR-0030, the deployed panel's door
+#   CON-016 rests on). components CONFIRMED as COMP-009 (Admin Panel, the
+#   Flask adapter in c4/components-CTX-001.puml) — NOT COMP-008, which is the
+#   stdlib http.server Web UI Adapter of `nonogram serve` (ADR-0019); the
+#   decision-surfacing note's "COMP-008" was a mislabel. No C4 element added
+#   or removed: the player is a route, template and static assets of the
+#   existing Admin Panel container/COMP-009. Every existing row and id
+#   preserved.)
+# updated_at: 2026-10-03 (a) (delta mode, written by domain-extraction to keep
+#   the model closed — rows ADDED for FR-044 and CON-021 on CAP-007 Puzzle
+#   play / COMP-009; CON-002 row marked SUPERSEDED by CON-021. adrs empty
+#   pending the client-approach DEC. Every existing row and id preserved.
+#   forge:architect-synthesis --trace-only should confirm.)
 # updated_at: 2026-09-22 (d) (delta mode, --trace-only — interior PDF without
 #   the cover, answer-key details: row ADDED for FR-043 (CAP-006; COMP-009
 #   assembles the interior from the guide page and writes the cover file,
@@ -566,16 +581,41 @@ links:
 
 - req: CON-002
   description: "No playable/interactive puzzle output in v1 — static PNG/SVG and JSON/CSV
-    only"
+    only — SUPERSEDED by CON-021 (2026-10-03)"
   capabilities: [CAP-005]
   contexts: [CTX-001]
   components: [COMP-007]
   adrs: [ADR-0007]
   tests: []
   notes: >-
-    Satisfied by design: COMP-007 renders four static formats and has no
-    interactive surface. Deferred candidate in meta/kanban/backlog.md.
+    HISTORY ONLY — retained because supersession preserves history, not
+    because the constraint still binds. requirements.yml marks CON-002
+    `status: superseded, superseded_by: CON-021`; read the CON-021 entry
+    for the live rule. The note this replaces read "satisfied by design:
+    COMP-007 renders four static formats and has no interactive surface" —
+    still true of COMP-007, but the owner confirmed an interactive puzzle
+    player in the admin panel on 2026-10-03 (FR-044).
   status: covered
+
+- req: CON-021
+  description: "Interactive play only as the admin panel's puzzle player (behind CON-015/CON-016); no public player, no persisted play state, no accounts; the admin player may ship the solution to the browser, a public one may not"
+  capabilities: [CAP-007]
+  contexts: [CTX-001]
+  components: [COMP-009]
+  adrs: [ADR-0038, ADR-0030]
+  tests: [TestSolverPage_WritesNothing]
+  notes: >-
+    New 2026-10-03 (a), superseding CON-002. Checked by review lens: its
+    clauses are absences (no public route, no play-state table, no account)
+    no single test proves; TestSolverPage_WritesNothing (FR-044 AC-302)
+    covers the persistence clause only. The client-approach ADR (DEC
+    expected, FR-044 _meta) should restate the solution-in-the-page clause.
+    Planned test name; no code yet. AMENDED 2026-10-03 (b): ADR-0038
+    (DEC-040) restates the solution-in-the-page clause as ADR-0038/R6
+    (review-lens; admin player only, a public phase reopens ADR-0038).
+    ADR-0030 cited for the credentialed door of CON-016 the clause relies
+    on. Status stays partial until FR-044 ships.
+  status: partial
 
 - req: CON-003
   description: "No multiplayer, user accounts, or persistence beyond local file export — SUPERSEDED by CON-017 (2026-09-22)"
@@ -1951,6 +1991,49 @@ links:
     (FR-030 AC-179, FR-042 AC-271) is the interior's. Full KDP cover wrap
     (spine, back) DEFERRED. Planned test names from requirements.yml; no code
     yet.
+  status: partial
+
+- req: FR-044
+  description: "Admin-panel puzzle player at /puzzle/<id>/solve: clue boxes from compute_clues, click cycle, tool-governed line drags, stroke-level undo/redo, live error count, solved state, reset; nothing persisted"
+  capabilities: [CAP-007]
+  contexts: [CTX-001]
+  components: [COMP-009]
+  adrs: [ADR-0038]
+  tests:
+  - TestSolverPage_ShowsTheClues
+  - TestSolverPage_EmphasisesEveryFifthLine
+  - TestSolverPage_UnknownPuzzleIs404
+  - TestPuzzleDetail_OffersSolve
+  - TestSolverPage_AllCellsStartUndecided
+  - TestSolverPage_WritesNothing
+  - TestSolverMarking_ClickCycles
+  - TestSolverMarking_ClickIgnoresTheSelectedTool
+  - TestSolverMarking_DragMarksOneLine
+  - TestSolverMarking_UndoRedoByStroke
+  - TestSolverMarking_KeyboardAndLabels
+  - TestSolverMarking_NoRequestPerMark
+  - TestSolverProgress_LiveErrorCount
+  - TestSolverProgress_SolvedWhenBlacksMatch
+  - TestSolverProgress_LockedUntilReset
+  - TestSolverProgress_ReducedMotion
+  - TestSolverProgress_ResetAfterConfirm
+  - PropertyTest_SolverHistory_ReplayReproducesTheBoard
+  - PropertyTest_SolverProgress_SolvedMatchesTheSolution
+  - PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition
+  notes: >-
+    New 2026-10-03 (a). Story US-028; owner decision (not a DEC) for scope,
+    click semantics and error count. COMP-009 only — a new route, template
+    and static script in the admin panel; COMP-005 (the uniqueness solver)
+    is untouched. adrs: [] until the client-approach DEC (FR-044 _meta) is
+    resolved. Planned test names from requirements.yml; no code yet
+    (CARD-160..CARD-162). AMENDED 2026-10-03 (b): DEC-040/DEC-041 resolved
+    by ADR-0038 — hand-written JS + CSS as static files of COMP-009 (clues
+    from compute_clues and the solution embedded as JSON; pure state module
+    separate from rendering; package-data must add static/*.js, R5), browser
+    tests by pytest-playwright + Chromium in a dev-only extra, skipping
+    loudly without Chromium (R7, R8). ADR-0038/R2 is checked by
+    TestSolverMarking_NoRequestPerMark and R3 by TestSolverPage_ShowsTheClues
+    (both planned, not yet written).
   status: partial
 
 - req: NFR-008

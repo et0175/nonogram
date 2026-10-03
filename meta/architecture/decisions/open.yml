@@ -232,6 +232,56 @@
 #       system is added (KDP is a print spec, not an integration). No pattern
 #       library present, so no prior_pattern fields.
 
+# updated_at: 2026-10-03 (delta mode — the 2026-10-03 online-solver delta
+#   only: FR-044 (AC-296..AC-321, EC-035..EC-037), US-028, CON-021
+#   (supersedes CON-002), CAP-007, TERM-037..TERM-039; owner answers in
+#   inputs/raw-requirements.md "## Delta 2026-10-03 (a)"). Two DECs surfaced,
+#   DEC-040 and DEC-041; none decided here. Scope notes:
+#     * SPLIT, NOT MERGED. FR-044 _meta carries one combined dec_question and
+#       the intake says "the same ADR should settle browser-level testing".
+#       They are surfaced as two DECs because the option spaces are distinct
+#       (a separate front end would bring its own JS-native test runner, so
+#       the testing options only make sense once the client is known) —
+#       DEC-041 therefore `depends_on: [DEC-040]`. Nothing stops
+#       forge:architect-adr-writer from resolving both in ONE ADR, which is
+#       what the owner asked for; recommended.
+#     * BLOCKS. Both carry `blocks: [decompose]`: CARD-160..CARD-162 are
+#       blocked on this delta and must be re-decomposed against the outcome.
+#       Neither lists synthesis — c4/ exists, and the DEC-025 precedent
+#       (header above) applies: an open synthesis-blocking DEC is a hard
+#       validator ERROR while c4/ is present. Under DEC-040's recommended
+#       alternative no C4 element changes (the player is a page + static
+#       asset of the existing admin container, COMP-008), so only a
+#       trace-only synthesis follows (FR-044 -> COMP-008, CAP-007). If
+#       DEC-040 instead picks the separate front end, a new container
+#       appears and c4/ becomes STALE — re-run full synthesis then.
+#     * Already decided, NOT surfaced:
+#         - Whether interactive play is allowed at all, and where: CON-021
+#           (owner, supersedes CON-002). Constraint, not decision.
+#         - Shipping the solution grid to the browser for the admin POC:
+#           CON-021's own clause (one option only). Not a DEC; DEC-040's
+#           ADR must restate it as a consequence and as the line a public
+#           player must not cross.
+#         - Click/drag/undo semantics, error-count definition, solved
+#           predicate, no persistence, no per-mark request: owner answers,
+#           formalised as FR-044 ACs and EC-035..EC-037.
+#         - Route shape /puzzle/<id>/solve and the 404: FR-044 _meta
+#           assumption following the panel's existing routes — a detail.
+#         - Hints: out of scope (FR-044).
+#         - Public hosting / QR codes / URL namespace: still pending owner
+#           confirmation (2026-09-24 delta), not in this delta's scope.
+#     * Category 0 VERIFIED against platform.yml: stack (ADR-0006, R1 =
+#       runtime deps stdlib + Pillow + NumPy; admin extras Flask/Werkzeug
+#       already outside it), style (ADR-0007 layered pipeline; the admin
+#       panel is a rank-0 adapter per ADR-0019 / tests/test_cli.py) and
+#       runtime (ADR-0008; the admin panel's deployment is ADR-0030/0032)
+#       are all `confirmed`. The player adds a browser-side client to an
+#       existing adapter; it moves no axis. The browser-client choice is
+#       surfaced as DEC-040 (kind: technology, axis: null), not as a
+#       re-opening of the stack axis. No external system added. No pattern
+#       library present (~/.forge/decision-patterns.yml absent), so no
+#       prior_pattern fields.
+
 open:
   # ANNOTATED 2026-09-13 (CARD-076), NOT resolved. ADR-0025 added a fourth
   # difficulty tier (`guess`), so the `<difficulty>` component of both the
@@ -312,3 +362,15 @@ open:
   # an owner-chosen alternative not in the surfaced list: "Puzzle N · Tier" in the
   # band + book-only stroke minimum 0.25 mm, heavy = 2x thin, pure black, confirmed
   # on printed proofs) — moved to resolved.yml.
+
+  # ---------------------------------------------------------------------------
+  # 2026-10-03 online-solver delta (DEC-040..DEC-041). See the header note.
+  # ---------------------------------------------------------------------------
+  # DEC-040 resolved 2026-10-03 by ADR-0038 (plain_js_static_files_in_flask —
+  # hand-written JS + CSS as static files of the Flask admin panel, clues and
+  # solution embedded as JSON, no framework / build step / vendored library;
+  # CON-021's solution-in-the-page clause restated as ADR-0038/R6) — moved to resolved.yml.
+
+  # DEC-041 resolved 2026-10-03 by ADR-0038 (pytest_playwright_dev_extra —
+  # pytest-playwright + Chromium declared as a dev-only extra; browser tests
+  # skip loudly when Chromium is missing) — moved to resolved.yml.

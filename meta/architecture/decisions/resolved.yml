@@ -180,3 +180,13 @@ resolved:
     resolved_by: ADR-0037
     resolution_label: number_and_tier_in_band_book_min_stroke
     date: 2026-09-22
+  - id: DEC-040
+    question: "How is the client of the admin-panel puzzle player (FR-044, TERM-037) built and delivered?"
+    resolved_by: ADR-0038
+    resolution_label: plain_js_static_files_in_flask
+    date: 2026-10-03
+  - id: DEC-041
+    question: "Which test tooling verifies browser-only behaviour (FR-044 ACs, EC-035..EC-037)?"
+    resolved_by: ADR-0038
+    resolution_label: pytest_playwright_dev_extra
+    date: 2026-10-03

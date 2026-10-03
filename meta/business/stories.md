@@ -155,3 +155,18 @@ US-027: As a Puzzle Creator, I want to reopen any book in the same step
         back, and to see each book's progress against its plan in the books
         list, so finishing a book across several sessions is safe and easy
         to track.
+
+## Online solver — admin-panel puzzle player POC (2026-10-03)
+
+<!-- Written by forge:architect-domain-extraction (delta, 2026-10-03) from the
+     owner's confirmation in raw-requirements.md "## Delta 2026-10-03 (a)" and
+     the "ONLINE SOLVER" bullet of "## Delta 2026-09-24 (a)" (owner design doc
+     "Online solver" / "V1" sections). Restates owner scope, adds none. The
+     public, reader-facing solver and Book 1's QR codes are later phases. -->
+
+US-028: As a Puzzle Creator, I want to open any stored puzzle from the admin
+        panel and solve it in the browser — filling and crossing out cells by
+        click or by dragging along a line, undoing and redoing, watching a
+        live count of my current mistakes and seeing the picture's name and a
+        short animation when I finish — so I can play Book 1's puzzles the way
+        a reader will before any public solver exists.

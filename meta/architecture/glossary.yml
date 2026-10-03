@@ -15,6 +15,10 @@ terms:
   - id: TERM-003
     term: Solution grid
     definition: The underlying black/white pixel grid a puzzle's clues are derived from; hidden from the player, used to verify solving.
+    # AMENDED 2026-10-03 (CON-021, FR-044): "hidden from the player" holds for
+    # the reader. The admin panel's puzzle player (TERM-037) ships the solution
+    # grid to the browser to compute its error count; CON-021 permits that for
+    # the admin panel only and forbids it for any public player.
     context: shared
     source: [US-001]
   - id: TERM-004
@@ -30,7 +34,12 @@ terms:
       grid that is not equal by this definition to the first one found,
       and stops searching further once a second distinct grid is found
       (fail-fast on ambiguity, FR-006).
+    # AMENDED 2026-10-03 (FR-044): "solver" unqualified, in this model and in
+    # cards and ADRs, means the uniqueness solver of this term — COMP-005,
+    # src/nonogram/solver/. The page a person solves a puzzle on is the
+    # puzzle player (TERM-037), never "the solver".
     context: shared
+    aliases: [uniqueness solver, solver]
     source: [US-005]
   - id: TERM-005
     # AMENDED 2026-09-12: "solver time" is no longer a scoring signal
@@ -386,3 +395,37 @@ terms:
     context: CTX-001
     aliases: [cover, front cover, cover PDF]
     source: [US-023, FR-043]
+  # New 2026-10-03 (a) (delta — the online solver as an admin-panel POC;
+  # owner decision). context: CTX-001 (COMP-009, admin panel).
+  - id: TERM-037
+    term: Puzzle player
+    definition: >-
+      The admin panel page on which a person solves a stored puzzle by hand —
+      a board with the puzzle's clues, cell marking by click and drag, undo
+      and redo, a live error count and a solved state (FR-044). Distinct from
+      the uniqueness solver (TERM-004, COMP-005), which is code that counts a
+      puzzle's solutions; the player is a page a human plays on and never
+      calls it.
+    context: CTX-001
+    aliases: [solver page, online solver, admin solver, player]
+    source: [US-028, FR-044]
+  - id: TERM-038
+    term: Error count
+    definition: >-
+      On the puzzle player, the current number of wrong marks: cells marked
+      filled whose solution is empty plus cells marked empty whose solution
+      is filled. Undecided cells never count, and the number falls when a
+      mistake is corrected or undone — it is not a running total of mistakes
+      ever made.
+    context: CTX-001
+    aliases: [errors, mistake count]
+    source: [US-028, FR-044]
+  - id: TERM-039
+    term: Stroke
+    definition: >-
+      One marking action on the puzzle player — a single click on a cell, or
+      one press-and-drag along a row or column — and the unit of undo and
+      redo: one stroke is one undo step however many cells it changed.
+    context: CTX-001
+    aliases: [undo step, history step]
+    source: [US-028, FR-044]

@@ -14,6 +14,10 @@ actors:
     # books in the admin panel (US-023..US-027, CMD-015..CMD-019, CMD-021) —
     # c4/context.puml already draws puzzleCreator -> admin panel. Not a
     # second actor: one person, one role, two surfaces.
+    # NOTE 2026-10-03 (puzzle player delta): the same human also solves
+    # stored puzzles on the admin panel's puzzle player (US-028, FR-044).
+    # No command: playing changes no system state (marks are browser-local,
+    # CON-021), so it adds neither an actor nor a CMD.
   - id: ACT-002
     name: System
     type: system

@@ -1,6 +1,16 @@
 # generated_by: forge:architect-capability-mapping
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-10-03 (a) (delta mode, tier small — the online solver as an
+#   admin-panel POC: FR-044, US-028 -> NEW capability CAP-007 "Puzzle play".
+#   No existing capability fits: CAP-001..CAP-005 produce a puzzle (sourcing,
+#   clues, uniqueness, difficulty, files) and CAP-006 assembles books; none
+#   lets a person solve one. CAP-005 Puzzle export was considered — CON-002
+#   framed playable output beside the static exports — and rejected: the
+#   player emits no artifact and runs in the admin panel, not COMP-007. No
+#   event, command or aggregate: playing changes no system state (all marks
+#   are browser-local, CON-021). CON-021 constrains CAP-007; per this file's
+#   convention it is not listed under `requirements:` — trace.yml carries it.)
 # updated_at: 2026-09-22 (delta mode — book generator: AGG-002 Book,
 #   CMD-015..CMD-021, EVT-016..EVT-022, POL-007, FR-030..FR-039, NFR-008,
 #   US-023..US-027 -> NEW capability CAP-006 "Book assembly". No existing
@@ -168,3 +178,21 @@ capabilities:
     requirements: [FR-030, FR-031, FR-032, FR-033, FR-034, FR-035, FR-036,
                    FR-037, FR-038, FR-039, FR-040, FR-041, FR-042,
                    FR-043, NFR-008]
+
+  - id: CAP-007
+    name: Puzzle play
+    description: >-
+      Letting a person solve a stored puzzle by hand in the admin panel's
+      puzzle player (TERM-037): a board of the puzzle's clues, marking
+      cells by click cycle and line drags, stroke-level undo and redo, a
+      live error count against the solution, a solved state with the
+      picture's name, and reset. A read of a stored puzzle only — nothing
+      about a play session is persisted, and interactive play exists
+      nowhere else (CON-021). Hints are out of V1.
+    # New 2026-10-03 (a). No events/commands/aggregates by design (see the
+    # header note).
+    events: []
+    commands: []
+    aggregates: []
+    stories: [US-028]
+    requirements: [FR-044]

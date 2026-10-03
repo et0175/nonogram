@@ -233,6 +233,23 @@
 #   Domain: INV-013 (new) on AGG-002, INV-011 amended; CMD-019
 #   preconditions and EVT-020 payload amended; TERM-035, TERM-036 (new),
 #   TERM-033 and TERM-034 amended. No new command, event, actor or policy.
+# updated_at: 2026-10-03 (a) (delta mode, tier small — ONLY the
+#   raw-requirements.md section "## Delta 2026-10-03 (a) — Owner confirms the
+#   online solver (admin-panel POC)" (its last bullet, QR/URL/mapping, left
+#   pending) plus the "ONLINE SOLVER" bullet of "## Delta 2026-09-24 (a)";
+#   every other 2026-09-24 bullet untouched. DECIDED by the owner:
+#     1. FR-044 (new) — the admin panel's puzzle player (TERM-037) at
+#        /puzzle/<id>/solve: page and clues, click cycle / tool-governed
+#        line drags / stroke-level undo-redo, live error count, solved
+#        state, reset; AC-296..AC-321, EC-035..EC-037. Client approach and
+#        browser-test extra: DEC EXPECTED (recorded in FR-044 _meta, owner
+#        preference noted, not decided here).
+#     2. CON-002 SUPERSEDED by CON-021 (new) — interactive play only as the
+#        admin player; no public player, no persisted play state, no
+#        accounts; the admin POC may ship the solution, a public one may not.
+#   Domain: no command, event, aggregate or policy (a read of a stored
+#   puzzle; all marks are browser-local). Glossary TERM-037..TERM-039 (new),
+#   TERM-003, TERM-004 amended. Story US-028.
 # tier: medium
 functional:
   - id: FR-001
@@ -3588,6 +3605,272 @@ functional:
         invariant: INV-013
         instances: [AC-283, AC-284, AC-287, AC-288, AC-289]
         test: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
+  - id: FR-044
+    # RESOLVED 2026-10-03 by ADR-0038 (DEC-040 + DEC-041, one ADR): the
+    # player's client is hand-written JS + CSS served as static files by the
+    # Flask admin panel (clues from compute_clues and the solution embedded
+    # as JSON; no framework, build step or vendored library), and its browser
+    # behaviour is tested with pytest-playwright + Chromium declared as a
+    # dev-only extra, skipping loudly when Chromium is missing. The
+    # dec_question / dec_alternatives in _meta below are kept as the record
+    # of what was open (FR-035 / ADR-0034 precedent).
+    # New 2026-10-03 (a) (raw-requirements.md "## Delta 2026-10-03 (a)",
+    # every bullet but the last, plus the "ONLINE SOLVER" bullet of
+    # "## Delta 2026-09-24 (a)"). DECIDED by the owner 2026-10-03: build the
+    # online solver now, as a POC inside the admin panel reached from a
+    # puzzle; public hosting is the next phase. The three OWNER ANSWER lines
+    # (click semantics, error count, approach) are folded into the
+    # statement and the criteria below.
+    # NAMING: this is the PUZZLE PLAYER (TERM-037), a page a person solves a
+    # puzzle on. It is NOT the uniqueness solver (COMP-005,
+    # src/nonogram/solver/, TERM-004), and nothing here changes that
+    # component. "Solver" unqualified keeps meaning COMP-005.
+    # Relations:
+    #  - CON-002 SUPERSEDED by CON-021 (this delta): interactive play is now
+    #    allowed, but only as this admin-panel page.
+    #  - CON-015 / CON-016: the page is one more admin route, behind the same
+    #    door as every other admin page; it adds no public route.
+    #  - CON-017: nothing about a play session is persisted (no progress,
+    #    score, time or account).
+    #  - FR-005 / compute_clues: the page's clues come from the stored grid
+    #    through the one encoder, never re-derived.
+    #  - FR-041 / ADR-0037: "every fifth line heavier" mirrors the printed
+    #    page's counting aid.
+    #  - Domain: no command, event or aggregate. Opening the page is a read
+    #    of a stored puzzle, and every mark lives in the browser and is gone
+    #    when the page closes; nothing in the system changes state.
+    #  - Hints are OUT of V1 (owner: "or we can go without hints for now").
+    statement: >-
+      From the puzzle detail modal the admin panel opens any stored puzzle
+      in a puzzle player page (TERM-037) at /puzzle/<puzzle_id>/solve. The
+      page shows a board of the puzzle's exact width x height with every
+      fifth grid line heavier on both axes, row clues in boxes to the left
+      and column clues in boxes above, each equal to compute_clues of the
+      stored grid, with an empty line's (0,) shown as "0". Every cell starts
+      undecided. A single click on a cell always cycles it undecided ->
+      filled -> marked empty -> undecided, whatever tool is selected. The
+      selected tool (filled, empty or undecided) governs drags: pressing on
+      a cell and dragging sets every cell passed to the tool's state,
+      constrained to the row or column the drag started on. One click or one
+      drag is one stroke (TERM-039) and one undo step; undo and redo work by
+      button and by keyboard, and a new stroke after an undo discards the
+      redo history. Every control is reachable from the keyboard and has an
+      accessible name. The page shows a live error count (TERM-038): the
+      number of cells currently marked filled whose solution is empty plus
+      cells currently marked empty whose solution is filled; undecided cells
+      never count, and the count falls when a mistake is corrected or undone.
+      The puzzle is solved when every solution-filled cell is marked filled
+      and no solution-empty cell is marked filled, empty marks being
+      optional. On solve the page shows the puzzle's picture name and plays
+      a short animation, replaced by a non-animated reveal when the browser
+      asks for reduced motion, and accepts no further marks until the board
+      is reset. Reset clears the board after an in-page confirmation. Opening
+      the page writes nothing, marking makes no server request, and no play
+      state is persisted. Hints are out of scope.
+    source: [US-028]
+    _meta:
+      source: authored
+      decided_by: "owner, 2026-10-03 — 'make cards for the solver'; OWNER ANSWER lines (click semantics, error count, approach), raw-requirements.md Delta 2026-10-03 (a)"
+      priority: should
+      relates_to: [CON-021, CON-015, CON-016, CON-017, FR-005, FR-041, ADR-0006, ADR-0037, ADR-0038]
+      dec_expected: true
+      dec_question: "Client approach for the puzzle player and its browser-level tests: plain JavaScript and CSS served as static files by the Flask admin panel (no framework, no build step, no new runtime dependency) with pytest-playwright + Chromium declared as a dev-only extra — or a separate front end, or plain JS with no browser tests? The owner's stated preference is the first (OWNER ANSWER (approach), 2026-10-03); not decided here."
+      dec_alternatives: [plain_js_in_flask_with_playwright_dev_extra, separate_react_nextjs_front_end, plain_js_without_browser_tests]
+      assumptions: "The route path /puzzle/<puzzle_id>/solve, the header (title and tier) and the 404 for an unknown id follow CARD-160 and the panel's existing /puzzle/<puzzle_id>/... routes; the owner named only 'reached by clicking a puzzle'. 'Locked until reset' is read as: clicks, drags, undo and redo change no cell while the solved state is showing (CARD-162: 'stop accepting marks until the person chooses to keep looking or reset')."
+      evidence: ["src/nonogram/admin/app.py:2213", "src/nonogram/admin/book_proof.py:268-272", "src/nonogram/admin/image_to_puzzle.py:63", "meta/kanban/cards/CARD-160.md", "meta/kanban/cards/CARD-161.md", "meta/kanban/cards/CARD-162.md"]
+    acceptance:
+      # --- page and clues (CARD-160) ---
+      - id: AC-296
+        given: a stored puzzle 25 cells wide and 15 cells high
+        when: the admin opens /puzzle/<its id>/solve
+        then: the board shows exactly 15 rows of 25 cells
+        kind: happy
+        test: TestSolverPage_ShowsTheClues
+      - id: AC-297
+        given: the stored 25x15 puzzle of AC-296, whose row 3 has no filled cell
+        when: the admin opens its player page
+        then: each of the 40 clue boxes shows its line's compute_clues(grid) entry, row 3's (0,) appearing as the single number "0"
+        kind: boundary
+        test: TestSolverPage_ShowsTheClues
+      - id: AC-298
+        given: the stored 25x15 puzzle of AC-296
+        when: the admin opens its player page
+        then: every fifth grid line on both axes (after columns 5, 10, 15, 20; after rows 5, 10) is drawn heavier than the other interior lines
+        kind: boundary
+        test: TestSolverPage_EmphasisesEveryFifthLine
+      - id: AC-299
+        given: no stored puzzle has the id "no-such-puzzle"
+        when: the admin opens /puzzle/no-such-puzzle/solve
+        then: the response is the panel's 404 page with status 404
+        kind: negative
+        test: TestSolverPage_UnknownPuzzleIs404
+      - id: AC-300
+        given: a stored puzzle shown in the puzzle detail modal
+        when: the modal is rendered
+        then: it holds a "Solve" action linking to /puzzle/<that puzzle's id>/solve
+        kind: happy
+        test: TestPuzzleDetail_OffersSolve
+      - id: AC-301
+        given: the player page of a stored 20x20 puzzle has just loaded
+        when: the board state and the rendered board are read
+        then: all 400 cells are undecided in the page's state and none is drawn filled or marked empty
+        kind: happy
+        test: TestSolverPage_AllCellsStartUndecided
+      - id: AC-302
+        given: the puzzles, books, batches and generation-history tables hold a known number of rows each
+        when: the admin opens a puzzle's player page, makes 10 strokes and solves it
+        then: every table's row count and every puzzle row's stored fields are unchanged
+        kind: negative
+        test: TestSolverPage_WritesNothing
+      # --- marking, undo and redo (CARD-161) ---
+      - id: AC-303
+        given: an undecided cell on the player page with the filled tool selected
+        when: the cell is clicked three times
+        then: its state goes filled, then marked empty, then undecided, drawn black, then as a dot or small cross, then blank
+        kind: happy
+        test: TestSolverMarking_ClickCycles
+      - id: AC-304
+        given: an undecided cell with the empty tool selected
+        when: the cell is clicked once
+        then: the cell becomes filled, not marked empty — a click cycles whatever tool is selected
+        kind: boundary
+        test: TestSolverMarking_ClickIgnoresTheSelectedTool
+      - id: AC-305
+        given: a blank board with the filled tool selected
+        when: the pointer is pressed on row 2 column 3 and dragged along row 2 to column 7
+        then: exactly the five cells row 2 columns 3-7 are filled and every other cell is undecided
+        kind: happy
+        test: TestSolverMarking_DragMarksOneLine
+      - id: AC-306
+        given: a blank board with the filled tool selected
+        when: a drag starts on row 2 column 3 and wanders through row 3 column 5 to row 4 column 7
+        then: only cells of row 2 are marked, and no cell of rows 3 or 4 changes
+        kind: boundary
+        test: TestSolverMarking_DragMarksOneLine
+      - id: AC-307
+        given: a blank board on which one five-cell drag and then two single clicks on other cells are made
+        when: undo is pressed three times and then redo three times
+        then: after the undos the board is entirely undecided, and after the redos it shows all seven marks again
+        kind: happy
+        test: TestSolverMarking_UndoRedoByStroke
+      - id: AC-308
+        given: the board of AC-307 after one undo
+        when: a new single click marks another cell
+        then: redo is disabled and pressing it changes no cell — the undone stroke cannot be restored
+        kind: negative
+        test: TestSolverMarking_UndoRedoByStroke
+      - id: AC-309
+        given: a board with two strokes and keyboard focus on the page
+        when: Ctrl+Z (Cmd+Z on macOS) is pressed, then Shift+Ctrl+Z (Shift+Cmd+Z)
+        then: the first key undoes the last stroke and the second redoes it
+        kind: happy
+        test: TestSolverMarking_KeyboardAndLabels
+      - id: AC-310
+        given: the player page of a stored puzzle
+        when: the filled, empty and undecided tools and the undo, redo and reset controls are inspected and operated from the keyboard alone
+        then: each control has a non-empty accessible name, is reachable by Tab, and acts on Enter or Space
+        kind: boundary
+        test: TestSolverMarking_KeyboardAndLabels
+      - id: AC-311
+        given: the player page has finished loading
+        when: 20 strokes of clicks and drags are made
+        then: the browser issues no network request
+        kind: negative
+        test: TestSolverMarking_NoRequestPerMark
+      # --- error count, solved state and reset (CARD-162) ---
+      - id: AC-312
+        given: a board with error count 0
+        when: one cell whose solution is empty is marked filled
+        then: the error count reads 1
+        kind: happy
+        test: TestSolverProgress_LiveErrorCount
+      - id: AC-313
+        given: a board with error count 0
+        when: one cell whose solution is filled is marked empty by a drag with the empty tool
+        then: the error count reads 1
+        kind: happy
+        test: TestSolverProgress_LiveErrorCount
+      - id: AC-314
+        given: the board of AC-312 showing error count 1
+        when: that stroke is undone
+        then: the error count reads 0 — the count is the current number of wrong marks, not a running total
+        kind: boundary
+        test: TestSolverProgress_LiveErrorCount
+      - id: AC-315
+        given: a freshly loaded board, every cell undecided, whose solution has 120 filled cells
+        when: the error count is read
+        then: it reads 0 — undecided cells never count
+        kind: boundary
+        test: TestSolverProgress_LiveErrorCount
+      - id: AC-316
+        given: a board on which exactly the solution's filled cells are marked filled and some, none or all solution-empty cells are marked empty
+        when: the stroke completing the last solution-filled cell is made
+        then: the solved state appears showing the puzzle's picture name
+        kind: happy
+        test: TestSolverProgress_SolvedWhenBlacksMatch
+      - id: AC-317
+        given: a board on which every solution-filled cell is marked filled and one solution-empty cell is also marked filled
+        when: the board is checked
+        then: the solved state does not appear
+        kind: negative
+        test: TestSolverProgress_SolvedWhenBlacksMatch
+      - id: AC-318
+        given: a board in the solved state
+        when: a cell is clicked, a drag is made, and undo and redo are pressed
+        then: no cell changes state
+        kind: boundary
+        test: TestSolverProgress_LockedUntilReset
+      - id: AC-319
+        given: a browser reporting prefers-reduced-motion reduce
+        when: the puzzle is solved
+        then: the solved state and picture name appear with no CSS animation or transition running
+        kind: boundary
+        test: TestSolverProgress_ReducedMotion
+      - id: AC-320
+        given: a board with 30 marks, or a board in the solved state
+        when: reset is pressed and the in-page confirmation is accepted
+        then: every cell is undecided, the error count reads 0, and marks are accepted again
+        kind: happy
+        test: TestSolverProgress_ResetAfterConfirm
+      - id: AC-321
+        given: a board with 30 marks
+        when: reset is pressed and the in-page confirmation is cancelled
+        then: all 30 marks remain and no browser confirm() dialog was opened at any point
+        kind: negative
+        test: TestSolverProgress_ResetAfterConfirm
+    engineering_constraints:
+      - id: EC-035
+        statement: >-
+          For any sequence of strokes, undos and redos, replaying the
+          remaining undo history from a blank board reproduces the current
+          board exactly, cell for cell — verified over a seeded random
+          sequence of at least 500 strokes mixing clicks, drags with each
+          tool, undos and redos, with the minimum count asserted in the test.
+        kind: consistency
+        instances: [AC-307, AC-308]
+        test: PropertyTest_SolverHistory_ReplayReproducesTheBoard
+      - id: EC-036
+        statement: >-
+          For any board and any solution grid of matching width and height, the player's
+          solved check is true if and only if a direct cell-by-cell comparison
+          finds every solution-filled cell marked filled and no
+          solution-empty cell marked filled — verified over a seeded corpus
+          of at least 200 random boards per grid shape tried, including
+          non-square shapes, with the minimum count asserted in the test.
+        kind: consistency
+        instances: [AC-316, AC-317]
+        test: PropertyTest_SolverProgress_SolvedMatchesTheSolution
+      - id: EC-037
+        statement: >-
+          For any board and any solution grid of matching width and height, the error
+          count equals the number of cells marked filled whose solution is
+          empty plus the number marked empty whose solution is filled,
+          computed independently cell by cell — verified over EC-036's
+          seeded corpus, so the count can never drift into a
+          running total or count an undecided cell.
+        kind: consistency
+        instances: [AC-312, AC-313, AC-314, AC-315]
+        test: PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition
 
 non_functional:
   - id: NFR-001
@@ -4225,6 +4508,8 @@ constraints:
       JSON/CSV, and PDF exports (FR-011, FR-012, FR-016). Deferred; see
       meta/kanban/backlog.md.
     source: intake requirements document, FR-14, Decisions Log #1
+    status: superseded  # superseded 2026-10-03 by CON-021 (raw-requirements.md Delta 2026-10-03 (a)): the owner confirmed an interactive puzzle player as an admin-panel POC (FR-044); the statement is preserved verbatim because what it forbade outside that one page is exactly what CON-021 keeps forbidding
+    superseded_by: CON-021
   - id: CON-003
     type: organizational
     statement: >-
@@ -4579,4 +4864,55 @@ constraints:
       # (its declared ref TestDependencyBaseline_IsExactlyPillowAndNumpy does
       # not exist). A test that walks every interior face and asserts the
       # floor is owed; until it is written, the reviewer checks this per diff.
+    severity: mandatory
+  - id: CON-021
+    # LINKED 2026-10-03 to ADR-0038 (DEC-040): the client-approach ADR
+    # restates this constraint's solution-in-the-page clause as ADR-0038/R6
+    # (admin player only; a public phase reopens ADR-0038). This entry's
+    # statement and review-lens check are unchanged.
+    # New 2026-10-03 (a), superseding CON-002 (raw-requirements.md
+    # "## Delta 2026-10-03 (a)", bullets 1-3). CON-002 said "no
+    # playable/interactive puzzle output in v1"; the owner confirmed an
+    # online solver POC inside the admin panel (FR-044), so the constraint had
+    # to either forbid the card or describe it — resolved the way CON-016 and
+    # CON-017 resolved theirs: describe the one exception precisely and keep
+    # forbidding everything else.
+    #
+    # Two clauses CON-002 never needed, because there was nothing to play:
+    #  - the admin POC ships the puzzle's SOLUTION to the browser (the error
+    #    count and solved check run client-side, FR-044). That is acceptable
+    #    only because the page sits behind the admin panel's door; a public
+    #    player must not do it, and saying so here stops the POC's page from
+    #    being re-hosted publicly as-is.
+    #  - "behind the admin panel's door" means CON-015 (loopback bind) AND
+    #    CON-016 (the deployed panel's credentialed hostname mode, ADR-0030):
+    #    the panel is not loopback-only in production, so the guarantee is
+    #    "admin-only", not "local-only".
+    #
+    # check: review-lens, deliberately. The forbidden things are absences (no
+    # public route, no play-state table, no account) that no single named
+    # test proves; FR-044's TestSolverPage_WritesNothing (AC-302) covers the
+    # persistence clause only, and naming it here would claim more than it
+    # checks — the defect CON-020's comment records for ADR-0006/R1.
+    type: technical
+    statement: >-
+      Interactive play exists only as the admin panel's puzzle player
+      (TERM-037, FR-044), served behind the door that guards every other
+      admin page (CON-015, CON-016). No other surface — the CLI, the web UI, or any
+      public or hosted page — offers an interactive or playable puzzle. Play
+      state is never persisted: no progress, marks, error count, score or
+      solve time is written to a database, file or server, and no user
+      account exists for playing (CON-017). The admin player ships the
+      puzzle's solution grid to the browser to compute the error count and
+      the solved state; this is permitted for the admin panel only, and a
+      public or reader-facing player must not send a puzzle's solution to the
+      browser before the puzzle is solved.
+    source: >-
+      owner, 2026-10-03 (raw-requirements.md Delta 2026-10-03 (a));
+      supersedes CON-002 (intake requirements document, FR-14, Decisions
+      Log #1); FR-044
+    scope:
+      code: ["src/nonogram/**"]
+    check:
+      kind: review-lens
     severity: mandatory
