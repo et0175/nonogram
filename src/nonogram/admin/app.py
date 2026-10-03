@@ -2590,7 +2590,18 @@ def create_app(debug=None):
 
     @app.route("/book/create", methods=["GET", "POST"])
     def create_book():
-        """Create a new book."""
+        """Create a new book.
+
+        CARD-159: a refused creation comes back carrying **what the owner
+        typed**, with the field the domain refused marked — the pattern
+        :func:`edit_book` follows since CARD-130. It used to re-render an
+        empty form, so a title of spaces (which the browser's ``required``
+        lets through and the domain refuses) threw away the description and
+        audience typed beside it. Nothing is stored on a refusal.
+        """
+        submitted = None
+        error_fields = frozenset()
+
         if request.method == "POST":
             try:
                 title = request.form.get("title")
@@ -2610,8 +2621,14 @@ def create_app(debug=None):
 
             except ValueError as e:
                 flash(f"Error: {str(e)}", "error")
+                submitted = request.form
+                error_fields = e.fields if isinstance(e, InvalidBookDetails) else frozenset()
 
-        return render_template("book_create.html")
+        return render_template(
+            "book_create.html",
+            submitted=submitted,
+            error_fields=error_fields,
+        )
 
     @app.route("/book/<book_id>/edit", methods=["GET", "POST"])
     def edit_book(book_id):

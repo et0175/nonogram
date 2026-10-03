@@ -10,8 +10,8 @@
 
 {#- CARD-130 review cycle 1 (F-002): a refused revision re-renders from what
     the owner **submitted**, not from what storage still holds. `submitted` is
-    that refused form (`edit_book` passes it); it is absent on a GET and on
-    creation, so creation's behaviour is exactly what it was. -#}
+    that refused form (`edit_book` passes it, and since CARD-159 so does
+    `create_book`); it is absent on a GET. -#}
 {#- Cycle 2 (F-012): the test is `is not none`, not truthiness. An empty form
     is still a submission — it is what the owner sent — and reading it as
     "nothing submitted" would quietly restore the pre-F-002 behaviour. -#}
@@ -24,9 +24,9 @@
 
 {#- CARD-130 review cycle 2 (F-006): the refused control is **marked**, not
     only refilled. `error_fields` names the one input the domain refused
-    (`InvalidBookDetails.fields`); the create route passes none, so the
-    create screen renders exactly as it did. Same pattern as the Print setup
-    page's `plan_error_fields`. -#}
+    (`InvalidBookDetails.fields`); edit and, since CARD-159, create both
+    pass it on a refusal. Same pattern as the Print setup page's
+    `plan_error_fields`. -#}
 {% set invalid_fields = error_fields if error_fields is defined and error_fields is not none else [] %}
 
 {% block title %}{% if editing %}{{ book.metadata.title }} · general info{% else %}New book{% endif %} - Nonogram admin{% endblock %}

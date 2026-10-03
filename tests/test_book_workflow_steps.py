@@ -12,7 +12,7 @@
     F-006   TestBookGeneralInfo_EditsExistingBook             (cycle 2)
             ::test_a_refused_edit_marks_exactly_the_offending_field
             ::test_a_saved_submission_marks_nothing
-            ::test_the_create_screen_is_untouched_by_the_marking
+            ::test_the_create_screen_marks_like_the_edit_screen (CARD-159)
     F-007   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 2)
     F-008   ::test_the_create_lede_counts_the_steps_that_follow
     F-009   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 2)
@@ -21,6 +21,7 @@
             ::test_an_empty_submission_is_still_a_submission
     F-105   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 2)
             ::test_the_breadcrumb_names_the_page_s_own_step
+    AC-2    TestPrintSetup_InchesTrimIsReachable              (CARD-159)
 
 The user-facing half is driven through the Flask test client against the real
 routes, because this project has no browser harness — the same convention
@@ -783,13 +784,14 @@ class TestBookGeneralInfo_EditsExistingBook:
         assert read.marked() == {"title"}
         assert shelf.details(book_id)[0] == "Winter Animals"
 
-    def test_the_create_screen_is_untouched_by_the_marking(self, panel) -> None:
-        """F-006 — objective 3: creation renders exactly as it did.
+    def test_the_create_screen_marks_like_the_edit_screen(self, panel) -> None:
+        """F-006, revised by CARD-159: a fresh create marks nothing, and a
+        refused create marks exactly the refused field, as a refused edit does.
 
-        The create route passes no ``error_fields``, so the template's
-        marking is inert on that path — on a fresh GET and on a refused
-        create alike (whose own discard-of-input is a separate, out-of-scope
-        defect and is deliberately not addressed here).
+        CARD-130 left creation inert here on purpose (its objective 3);
+        CARD-159 gave the create route the edit route's refusal handling, so
+        the two screens now mark the same way. What the refusal carries back
+        is ``tests/test_book_create.py``'s subject.
         """
         app, _shelf = panel
 
@@ -807,10 +809,10 @@ class TestBookGeneralInfo_EditsExistingBook:
 
         assert fresh.status_code == 200
         assert refused.status_code == 200
-        for response in (fresh, refused):
-            body = response.get_data(as_text=True)
-            assert controls_of(body).marked() == set()
-            assert "general-info-error" not in body
+        fresh_body = fresh.get_data(as_text=True)
+        assert controls_of(fresh_body).marked() == set()
+        assert "general-info-error" not in fresh_body
+        assert controls_of(refused.get_data(as_text=True)).marked() == {"title"}
 
     def test_an_unknown_book_is_reported_not_created(self, shelf) -> None:
         assert (
@@ -1043,13 +1045,11 @@ class TestBookStepper_KeysAreTheOnesTheStepPagesStillPass:
 #: "Step 3 of 5", wherever a page says it.
 STEP_PROSE = re.compile(r"Step\s+(\d+)\s+of\s+(\d+)")
 
-#: The steps whose page prose this checks, by the key the stepper matches on.
-#:
-#: ``1`` — Print setup — is deliberately absent: its page still reads "Step 1
-#: of 4" and ``book_setup_print.html`` is owned by another card this wave
-#: (G-4), so it cannot be corrected here. Put ``1`` back the moment that file
-#: is renumbered; nothing else about this test has to change.
-PROSE_CHECKED = (0, 2, 3, 4)
+#: The steps whose page prose this checks, by the key the stepper matches on:
+#: every one of them. Print setup (``1``) was left out while another card
+#: owned its template; CARD-159 derived its prose from ``book_step_of`` and
+#: restored it.
+PROSE_CHECKED = (0, 1, 2, 3, 4)
 
 
 class TestBookStepPages_ProseAgreesWithTheStepper:
@@ -1169,3 +1169,174 @@ class TestBookStepPages_ProseAgreesWithTheStepper:
         said = re.search(r"·\s*step\s+(\d+)\s*$", crumb.group(1).strip())
         assert said, f"the breadcrumb {crumb.group(1).strip()!r} names no step"
         assert int(said.group(1)) == read.current[0] + 1
+
+
+# --------------------------------------------------------------------------
+# CARD-159 AC-2 — an inches trim inside KDP's bounds can be submitted
+# --------------------------------------------------------------------------
+
+
+class _TrimInputs(HTMLParser):
+    """Print setup's two trim inputs and its unit radios, as the browser reads them."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.inputs: dict = {}
+        self.checked_unit = []
+
+    def handle_starttag(self, tag, attrs) -> None:
+        if tag != "input":
+            return
+        attributes = dict(attrs)
+        if attributes.get("id") in ("width", "height"):
+            self.inputs[attributes["id"]] = attributes
+        elif attributes.get("name") == "unit" and "checked" in attributes:
+            self.checked_unit.append(attributes.get("value"))
+
+
+def _browser_admits(attributes: dict, value: str) -> bool:
+    """Whether a browser's constraint validation lets ``value`` through.
+
+    An independent statement of the HTML number-input rules the form is
+    judged by (rangeUnderflow, rangeOverflow, stepMismatch), not a reading
+    of the template: a ``min`` above the value, a ``max`` below it, or a
+    value off the ``step`` grid (based on ``min``, else 0) blocks submission.
+    """
+    from decimal import Decimal
+
+    v = Decimal(value)
+    if attributes.get("min") not in (None, "") and v < Decimal(attributes["min"]):
+        return False
+    if attributes.get("max") not in (None, "") and v > Decimal(attributes["max"]):
+        return False
+    step = attributes.get("step")
+    if step not in (None, "", "any"):
+        base = Decimal(attributes.get("min") or "0")
+        if (v - base) % Decimal(step) != 0:
+            return False
+    return True
+
+
+class TestPrintSetup_InchesTrimIsReachable:
+    """AC-2 — with inches chosen, 8.5 x 11 in passes the form and the server.
+
+    The trim inputs used to carry fixed centimetre bounds (``min="10"``,
+    ``max="30"``/``48``), so the browser blocked an 8.5 in width before it
+    was sent. CARD-159 dropped the browser bounds; the server's trim
+    validation (unchanged, G-1) is the one statement of KDP's limits.
+
+    Both initial render states are read — a page opening in inches (the
+    remembered unit) and one opening in centimetres — because the bounds a
+    browser applies are the ones on the page as rendered, not as they would
+    be after a radio change.
+    """
+
+    #: KDP trims in inches, and their centimetres worked out by hand
+    #: (x 2.54), not by the converter under test.
+    INCH_TRIMS = (
+        (("8.5", "11"), ("21.59", "27.94")),
+        (("8", "10"), ("20.32", "25.40")),
+        (("6", "9"), ("15.24", "22.86")),
+    )
+
+    @staticmethod
+    def _prefer(client, unit: str) -> None:
+        with client.session_transaction() as sess:
+            sess["unit_preference"] = unit
+
+    def _form(self, client, book_id) -> _TrimInputs:
+        response = client.get(f"/book/{book_id}/setup-print")
+        assert response.status_code == 200
+        read = _TrimInputs()
+        read.feed(response.get_data(as_text=True))
+        assert set(read.inputs) == {"width", "height"}
+        return read
+
+    @pytest.mark.parametrize("inches,_cm", INCH_TRIMS)
+    def test_the_inches_form_admits_the_trim(self, panel, inches, _cm) -> None:
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            self._prefer(client, "inches")
+            read = self._form(client, book_id)
+
+        assert read.checked_unit == ["inches"]
+        assert _browser_admits(read.inputs["width"], inches[0])
+        assert _browser_admits(read.inputs["height"], inches[1])
+
+    def test_the_cm_form_admits_the_same_trim_in_cm(self, panel) -> None:
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            self._prefer(client, "cm")
+            read = self._form(client, book_id)
+
+        assert read.checked_unit == ["cm"]
+        assert _browser_admits(read.inputs["width"], "21.59")
+        assert _browser_admits(read.inputs["height"], "27.94")
+
+    def test_a_page_reopened_on_an_inches_trim_admits_its_own_values(self, panel) -> None:
+        """Saved in inches, reopened in inches: the prefilled values pass too."""
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            saved = client.post(
+                f"/book/{book_id}/setup-print",
+                data={"unit": "inches", "width": "8.5", "height": "11"},
+            )
+            assert saved.status_code == 302
+            read = self._form(client, book_id)
+
+        assert read.checked_unit == ["inches"]
+        for field in ("width", "height"):
+            attributes = read.inputs[field]
+            assert _browser_admits(attributes, attributes["value"]), attributes
+
+    @pytest.mark.parametrize("inches,cm", INCH_TRIMS)
+    def test_the_server_stores_the_inches_trim(self, panel, inches, cm) -> None:
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            response = client.post(
+                f"/book/{book_id}/setup-print",
+                data={"unit": "inches", "width": inches[0], "height": inches[1]},
+            )
+
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/select-puzzles")
+        book = shelf.books.get_book(book_id)
+        assert (float(book.trim_width_cm), float(book.trim_height_cm)) == (
+            float(cm[0]),
+            float(cm[1]),
+        )
+
+    def test_the_server_still_refuses_an_inches_trim_beyond_kdp(self, panel) -> None:
+        """With the browser bounds gone, the server is the guard — and it holds.
+
+        12 in is 30.48 cm, past KDP's 30 cm width: refused, nothing stored,
+        the entries carried back in inches.
+        """
+        app, shelf = panel
+        book_id = shelf.book()
+        before = shelf.books.get_book(book_id)
+        stored = (before.trim_width_cm, before.trim_height_cm)
+
+        with app.test_client() as client:
+            response = client.post(
+                f"/book/{book_id}/setup-print",
+                data={"unit": "inches", "width": "12", "height": "11"},
+            )
+            body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "Trim width cannot exceed" in body
+        after = shelf.books.get_book(book_id)
+        assert (after.trim_width_cm, after.trim_height_cm) == stored
+        read = _TrimInputs()
+        read.feed(body)
+        assert read.checked_unit == ["inches"]
+        assert read.inputs["width"]["value"] == "12"
