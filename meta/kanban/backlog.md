@@ -71,6 +71,10 @@ card names its card._
 - [ ] Flake watch: `tests/test_book_ready_gate.py::…test_save_plan_returns_the_book_to_draft[db-ready_for_pdf]` failed once in CARD-161's gate 0 and passed 3x in isolation and in every later gate   @tech-debt
 - [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…" no longer clearly refers to the banner; the redo-button-noop case doesn't assert Redo is aria-disabled before the click   @tech-debt
 - [ ] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323's literal) where the rest of the admin uses "×"   @feature
+- [ ] Wave-31 goal-check: the player passes `tier.value.upper()` (app.py ~:5332), so its header badge and tab title say "MEDIUM" where every other screen shows the stored "medium"   @tech-debt
+- [ ] Wave-31 goal-check: the picture name is in the player's page source before solve (hidden solved banner, puzzle_solve.html ~:55) — not visible, AC-322 holds, and CON-021 already ships the solution in the page; matters only for a public player   @feature
+- [ ] Wave-31 goal-check (requirements incomplete): FR-044 leaves two player rules unstated — a drag follows the line of its FIRST move away from the start cell (a drag that slips down first follows the column), and board cells are pointer-only (the statement says "every control" is keyboard-reachable; AC-310 covers only tools/undo/redo/reset). Formalise at /forge:architect   @tech-debt
+- [ ] ADR-0038/R8 requires CI to run `playwright install chromium`, but the repo has no CI configuration; add it when CI exists (or record the rule as local-only)   @ops
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops
