@@ -1588,6 +1588,7 @@ links:
   - TestPrintSetup_PlanAndTrimCommitTogether
   - TestPrintSetup_NanWidthChangesNothing
   - TestBookDetail_ShowsTheStoredTrim
+  - TestPrintSetup_InchesTrimIsReachable
   notes: >-
     Amended 2026-09-22 (d): parity counts from INTERIOR page 1 — the guide
     page, the cover being a separate file (FR-043); AC-179's page count is the
@@ -1787,6 +1788,8 @@ links:
   - TestBookPublished_UnconfirmedChangeKeepsStatus
   - TestBookAddPuzzlesByIds_NonDraftReturnsToDraft
   - PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists
+  - TestBookStepPages_ProseAgreesWithTheStepper
+  - TestBookCreate_RefusalKeepsTypedInput
   notes: >-
     Amended 2026-09-22 (c): an add or remove on a book that has left draft
     (confirmed, for a published one) sets it to draft in the same store write

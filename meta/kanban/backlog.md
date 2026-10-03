@@ -56,6 +56,10 @@ card names its card._
 - [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the /books list, app.py) and the floor-check loop (`book_manager.py` ~:1050). Both can use `PuzzleReviewService.get_puzzles`   @tech-debt
 - [ ] CARD-158 F-004 (pre-existing): the book page's # column is list order, not the printed puzzle number   @feature
 - [ ] CARD-158 F-005 (pre-existing): /books rows are ~650 px tall at 390 px because of the Against-plan hint list   @feature
+- [ ] CARD-159 F-001: Print setup's Limits box says "Maximum height 48 cm (18.90 in)"; 18.90 in is 48.006 cm, which the server refuses (18.89 in is the real maximum). Now the page's only statement of the inch limits   @tech-debt
+- [ ] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it means editing `print_specs.py`   @feature
+- [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims now the browser min is gone (the server refuses them); a refused New book shows the edit-mode alert ("General info not saved… Nothing stored was changed")   @tech-debt
+- [ ] CARD-159 owner check pending: G-3, the owner's look at ~/Documents/nonogram-reviews/CARD-159/ renders (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the plan-table inputs clip "20" to "2("   @feature
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops

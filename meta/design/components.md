@@ -131,9 +131,8 @@ for how many there are, `book_step_of(key)` for the "Step 3 of 5" lede (it
 asks `book_step_count()` for the total) — rather than being written into each
 page's prose. That includes counts *about* the list: New book's "the 4 steps
 that follow" is `book_step_count() - 1`. So adding a step renumbers the prose
-with the list. (`book_setup_print.html` still carries hand-written "Step 1 of
-4" copy, owned by CARD-118. Route docstrings **name** their step rather than
-numbering it, for the same reason.)
+with the list — Print setup included since CARD-159. (Route docstrings
+**name** their step rather than numbering it, for the same reason.)
 
 ## PuzzleTile
 Used by: book puzzle selection.
