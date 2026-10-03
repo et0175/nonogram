@@ -17,6 +17,7 @@ card names its card._
 - [ ] Validator ERROR, pre-existing on main: `ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025`. The guess-tier ADR chain cannot be resolved   @tech-debt
 - [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor (CARD-149's three tests cover the guide page only). A test enumerating every `truetype`/`load_default` call on an interior page would make it `covered`   @tech-debt
 - [ ] The deployed panel's 512 MB memory limit is not an NFR anywhere (CARD-145). The export could break it through five waves with every gate green. Needs an NFR with a check   @tech-debt
+- [ ] Wave-30 goal-check (lean b, requirements incomplete): behaviours shipped by CARD-158/159 exist only as card ACs, not in requirements.yml: inches trims reachable on Print setup, the stored trim on the book page ("Not set"/"Cannot be read"), step prose agreeing with the stepper, /book/create keeping typed input, two download buttons per page, lost-cover handling (FR-043 has no AC for it). Formalise as ACs   @tech-debt
 
 ## Bugs and tech debt (not carded yet)
 - [ ] CARD-120 F-007: typing an edited cell back to its current prefill value doesn't release the hand-edit mark; a count change judges edits against the old prefill. Site: `book_manager.py` (`revise_plan`)   @tech-debt
@@ -60,6 +61,7 @@ card names its card._
 - [ ] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it means editing `print_specs.py`   @feature
 - [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims now the browser min is gone (the server refuses them); a refused New book shows the edit-mode alert ("General info not saved… Nothing stored was changed")   @tech-debt
 - [ ] CARD-159 owner check pending: G-3, the owner's look at ~/Documents/nonogram-reviews/CARD-159/ renders (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the plan-table inputs clip "20" to "2("   @feature
+- [ ] Wave-30 goal-check: on a book with no puzzles, /books offers the interior download (returns a 200 PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops
