@@ -352,8 +352,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   --player-rule-major: calc(2 * var(--border-width));
   --player-thin: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper));
   /* What stands above the board: top bar, the main column's top padding, the
-     header and its margin, and some air below. */
-  --player-chrome-h: calc(var(--topbar-h) + var(--space-6) + var(--space-12) + var(--space-8));
+     header and its margin, the marking toolbar's one row and its margin
+     (CARD-161), and some air below. */
+  --player-chrome-h: calc(var(--topbar-h) + var(--space-6) + var(--space-12)
+    + var(--control-h) + var(--space-4) + var(--space-8));
   container-type: inline-size;
   overflow-x: auto;
 }
@@ -384,3 +386,26 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-board .major-below, .player-board tbody tr:last-child > * { border-bottom: var(--player-rule-major) solid var(--grid-ink); }
 .player-cell[data-state="filled"] { background: var(--grid-ink); }
 .player-cell[data-state="empty"]::after { content: ""; display: block; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
+/* Marking (CARD-161): cells take pointer input; touch-action none keeps a
+   touch drag from scrolling the page, user-select none keeps a mouse drag
+   from selecting clue numbers. */
+.player-board { user-select: none; -webkit-user-select: none; }
+.player-cell { cursor: pointer; touch-action: none; }
+/* ToolPicker + history controls: one row above the board (wrapping on a phone);
+   the usage hint sits below the board. A tool is a
+   toggle button (aria-pressed); the pressed one takes the accent. Undo, redo
+   and reset stay focusable when there is nothing to do (aria-disabled). */
+.player-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-4); }
+.player-toolbar[hidden] { display: none; }
+.player-tools, .player-history { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.player-toolbar .btn { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); }
+.player-tool[aria-pressed="true"], .player-tool[aria-pressed="true"]:hover {
+  background: var(--color-accent-tint); border-color: var(--color-accent); color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+.player-toolbar .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; background: var(--color-surface); }
+.player-swatch { position: relative; flex: none; width: 1rem; height: 1rem; background: var(--grid-paper); border: var(--border-width) solid var(--color-border-strong); }
+.player-swatch[data-state="filled"] { background: var(--grid-ink); border-color: var(--grid-ink); }
+.player-swatch[data-state="empty"]::after { content: ""; position: absolute; inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
+.player-mirror { display: inline-flex; transform: scaleX(-1); }
+.player-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }

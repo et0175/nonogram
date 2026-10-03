@@ -34,10 +34,29 @@
 //                      dimensions is refused with RangeError before anything
 //                      is painted, and the current board and DOM are kept;
 //                      an accepted board is copied (copyBoard) and the copy
-//                      is stored and painted
+//                      is stored and painted; it also starts a new marking
+//                      history at that board (nothing to undo or redo)
 // Boards are trusted in-page values (see solver_state.js).
-// CARD-160 has no input handling: setBoard is the one way the board changes,
-// and CARD-161's click/drag/undo will go through it.
+//
+// MARKING (CARD-161, FR-044 AC-303..AC-311). The strokes and the undo/redo
+// history are solver_state.js values (clickStroke, dragStroke, resetStroke,
+// record, undo, redo); this file only turns input into those calls and
+// paints the resulting board. Nothing here reads payload.solution and no mark
+// sends a request (ADR-0038/R2).
+//   pointer   pointerdown on a cell, then pointerup without having been over
+//             another cell = a click: the cell cycles whatever the tool.
+//             Having been over another cell = a drag: dragStroke with the
+//             selected tool, previewed on every move, recorded on pointerup;
+//             pointercancel drops it. Mouse (main button), pen and touch alike;
+//             the board's cells set touch-action: none (admin.css).
+//   tools     #puzzle-player-controls [data-player-tool] — toggle buttons,
+//             aria-pressed, exactly one pressed; FILLED at load.
+//   history   [data-player-action] undo / redo / reset (reset = resetStroke,
+//             one undoable step); aria-disabled="true" while there is nothing
+//             to do — pressing one then leaves the board as it is, because
+//             undo/redo with an empty stack and a reset of a blank board
+//             return the history unchanged. Ctrl/Cmd+Z undoes,
+//             Shift+Ctrl/Cmd+Z redoes.
 //
 // DOM / CSS (admin.css, "Puzzle player"): table.player-board inside
 // .player-stage; th.player-clue.is-col (one box per column, above) and
@@ -47,7 +66,10 @@
 // a cell or clue box after one carries .major-right / .major-below (never the
 // last line, which is the board's frame).
 
-import { copyBoard, createBoard, isBoard } from "./solver_state.js";
+import {
+  FILLED, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
+  dragStroke, isBoard, record, redo, resetStroke, undo,
+} from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -176,7 +198,21 @@ function start() {
 
   const cellElements = drawBoard(stage, payload);
   let board = createBoard(payload.width, payload.height);
+  let history = createHistory(board);
   paint(cellElements, board);
+
+  const marking = wireMarking(stage.querySelector(".player-board"), {
+    getHistory: () => history,
+    show(next) {
+      board = next;
+      paint(cellElements, board);
+    },
+    commit(next) {
+      history = next;
+      board = history.board;
+      paint(cellElements, board);
+    },
+  });
 
   window.puzzlePlayer = Object.freeze({
     payload,
@@ -190,9 +226,115 @@ function start() {
           `a ${next.width}x${next.height} board does not fit this ${payload.width}x${payload.height} puzzle`);
       }
       board = copyBoard(next);
+      history = createHistory(board);
       paint(cellElements, board);
+      marking.refresh();
     },
   });
+}
+
+// The [row, col] of the board cell under the viewport point (x, y), or null.
+function cellUnder(table, x, y) {
+  const cell = document.elementFromPoint(x, y)?.closest("td.player-cell");
+  if (!cell || !table.contains(cell)) return null;
+  return [Number(cell.dataset.row), Number(cell.dataset.col)];
+}
+
+function isAt(position, [row, col]) {
+  return position[0] === row && position[1] === col;
+}
+
+// Attach pointer, tool, history and keyboard input to `table`. `player` gives
+// the current history (getHistory), paints a board without recording it
+// (show — a drag's preview) and records a new history (commit). Returns
+// { refresh } to re-sync the controls after the history changed elsewhere.
+function wireMarking(table, player) {
+  const controls = document.getElementById("puzzle-player-controls");
+  const tools = [...controls.querySelectorAll("[data-player-tool]")];
+  const actions = Object.fromEntries(
+    [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
+  let tool = FILLED;
+  let gesture = null; // { pointerId, start, path, dragging }
+
+  function refresh() {
+    const { board, done, undone } = player.getHistory();
+    for (const button of tools) {
+      button.setAttribute("aria-pressed", String(button.dataset.playerTool === tool));
+    }
+    actions.undo.setAttribute("aria-disabled", String(done.length === 0));
+    actions.redo.setAttribute("aria-disabled", String(undone.length === 0));
+    actions.reset.setAttribute("aria-disabled", String(board.cells.every((s) => s === UNKNOWN)));
+  }
+
+  function commit(next) {
+    player.commit(next);
+    refresh();
+  }
+
+  table.addEventListener("pointerdown", (event) => {
+    if (gesture || (event.pointerType === "mouse" && event.button !== 0)) return;
+    const start = cellUnder(table, event.clientX, event.clientY);
+    if (!start) return;
+    event.preventDefault();
+    table.setPointerCapture(event.pointerId);
+    gesture = { pointerId: event.pointerId, start, path: [], dragging: false };
+  });
+
+  table.addEventListener("pointermove", (event) => {
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+    const position = cellUnder(table, event.clientX, event.clientY);
+    const previous = gesture.path.at(-1) ?? gesture.start;
+    if (!position || isAt(position, previous)) return;
+    gesture.path.push(position);
+    gesture.dragging = gesture.dragging || !isAt(position, gesture.start);
+    if (gesture.dragging) {
+      player.show(applyStroke(player.getHistory().board, dragStroke(gesture.start, gesture.path, tool)));
+    }
+  });
+
+  table.addEventListener("pointerup", (event) => {
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+    const done = gesture;
+    gesture = null;
+    const history = player.getHistory();
+    commit(record(history, done.dragging ? dragStroke(done.start, done.path, tool) : clickStroke(history.board, ...done.start)));
+  });
+
+  table.addEventListener("pointercancel", (event) => {
+    if (!gesture || event.pointerId !== gesture.pointerId) return;
+    gesture = null;
+    player.show(player.getHistory().board);
+  });
+
+  for (const button of tools) {
+    button.addEventListener("click", () => {
+      tool = button.dataset.playerTool;
+      refresh();
+    });
+  }
+
+  const step = {
+    undo: () => undo(player.getHistory()),
+    redo: () => redo(player.getHistory()),
+    reset: () => record(player.getHistory(), resetStroke(player.getHistory().board)),
+  };
+  for (const [name, button] of Object.entries(actions)) {
+    button.addEventListener("click", () => {
+      if (!gesture) commit(step[name]());
+    });
+  }
+
+  document.addEventListener("keydown", (event) => {
+    if (gesture || !(event.ctrlKey || event.metaKey) || event.altKey
+        || event.key.toLowerCase() !== "z") return;
+    event.preventDefault();
+    commit(event.shiftKey ? step.redo() : step.undo());
+  });
+
+  refresh();
+  controls.hidden = false;
+  document.getElementById("puzzle-player-hint").hidden = false;
+  return { refresh };
 }
 
 start();

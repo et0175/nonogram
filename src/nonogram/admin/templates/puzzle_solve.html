@@ -10,9 +10,16 @@
   The payload carries the solution grid. That is allowed for this admin page
   only, behind the panel's door (ADR-0038/R6, CON-021); a public player must
   not ship it.
+
+  The marking controls (CARD-161) are rendered here and start hidden;
+  solver.js wires them and shows them once the board is drawn, so a page whose
+  script never ran shows no dead buttons (nor the usage hint below the board). Tools are toggle buttons
+  (aria-pressed, exactly one pressed); undo, redo and reset stay focusable and
+  say aria-disabled="true" when they have nothing to do.
 #}
 {% extends "base.html" %}
 {% import '_tier.html' as tier %}
+{% import '_icons.html' as icons %}
 
 {% block title %}Puzzle {{ title }} - Nonogram admin{% endblock %}
 {% block section %}Puzzles{% endblock %}
@@ -23,12 +30,27 @@
     {% if tier_label %}<span class="player-tier">{{ tier.badge(tier_label) }}</span>{% endif %}
 </div>
 
+<div class="player-toolbar" id="puzzle-player-controls" hidden>
+    <div class="player-tools" role="group" aria-label="Marking tool for drags">
+        <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="filled" aria-pressed="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
+        <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="empty" aria-pressed="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
+        <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="unknown" aria-pressed="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Undecided</button>
+    </div>
+    <div class="player-history" role="group" aria-label="History">
+        <button type="button" class="btn btn-outline-secondary" data-player-action="undo" aria-keyshortcuts="Control+Z Meta+Z" aria-disabled="true">{{ icons.icon('undo') }}Undo</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-action="redo" aria-keyshortcuts="Shift+Control+Z Shift+Meta+Z" aria-disabled="true"><span class="player-mirror">{{ icons.icon('undo') }}</span>Redo</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-action="reset" aria-disabled="true">{{ icons.icon('refresh') }}Reset</button>
+    </div>
+</div>
+
 <div class="player-stage" id="puzzle-player">
     <p class="player-fallback" data-player-fallback>
         Drawing the board&hellip; If this message stays, the player script
         (static/solver.js) did not load.
     </p>
 </div>
+
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to cycle black, white, undecided. Drag along a row or column to apply the selected tool.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}
