@@ -3621,6 +3621,13 @@ functional:
     # puzzle; public hosting is the next phase. The three OWNER ANSWER lines
     # (click semantics, error count, approach) are folded into the
     # statement and the criteria below.
+    # AMENDED 2026-10-03 (b) (raw-requirements.md "## Delta 2026-10-03 (b)"):
+    # the player does not spoil the picture — before solve, neither the
+    # visible header nor the document title carries the picture name; the
+    # header shows size and tier (AC-322, AC-323). The solved-state reveal of the
+    # name is unchanged (AC-316 / AC-319). Owner decision 2026-10-03 on
+    # CARD-162 review finding F-007; parallels ADR-0037/R1 (a printed book
+    # puzzle page never prints the picture's title).
     # NAMING: this is the PUZZLE PLAYER (TERM-037), a page a person solves a
     # puzzle on. It is NOT the uniqueness solver (COMP-005,
     # src/nonogram/solver/, TERM-004), and nothing here changes that
@@ -3661,7 +3668,10 @@ functional:
       never count, and the count falls when a mistake is corrected or undone.
       The puzzle is solved when every solution-filled cell is marked filled
       and no solution-empty cell is marked filled, empty marks being
-      optional. On solve the page shows the puzzle's picture name and plays
+      optional. Until the puzzle is solved the page never shows the picture's
+      name — neither in its visible header, which shows the puzzle's size and
+      tier instead, nor in the document title. On solve the page shows the
+      puzzle's picture name and plays
       a short animation, replaced by a non-animated reveal when the browser
       asks for reduced motion, and accepts no further marks until the board
       is reset. Reset clears the board after an in-page confirmation. Opening
@@ -3676,7 +3686,8 @@ functional:
       dec_expected: true
       dec_question: "Client approach for the puzzle player and its browser-level tests: plain JavaScript and CSS served as static files by the Flask admin panel (no framework, no build step, no new runtime dependency) with pytest-playwright + Chromium declared as a dev-only extra — or a separate front end, or plain JS with no browser tests? The owner's stated preference is the first (OWNER ANSWER (approach), 2026-10-03); not decided here."
       dec_alternatives: [plain_js_in_flask_with_playwright_dev_extra, separate_react_nextjs_front_end, plain_js_without_browser_tests]
-      assumptions: "The route path /puzzle/<puzzle_id>/solve, the header (title and tier) and the 404 for an unknown id follow CARD-160 and the panel's existing /puzzle/<puzzle_id>/... routes; the owner named only 'reached by clicking a puzzle'. 'Locked until reset' is read as: clicks, drags, undo and redo change no cell while the solved state is showing (CARD-162: 'stop accepting marks until the person chooses to keep looking or reset')."
+      amended: "2026-10-03 (b) — AC-322 / AC-323 added: no picture name in the visible header or document title before solve (AC-322); header shows size and tier instead (AC-323). Source: owner decision 2026-10-03 on CARD-162 review finding F-007 (raw-requirements.md Delta 2026-10-03 (b)); the online parallel of ADR-0037/R1 (book puzzle page never prints the title). Supersedes the 'header (title and tier)' reading in assumptions below."
+      assumptions: "The route path /puzzle/<puzzle_id>/solve, the header (title and tier — SUPERSEDED 2026-10-03 (b) by AC-322/AC-323: size and tier until solved) and the 404 for an unknown id follow CARD-160 and the panel's existing /puzzle/<puzzle_id>/... routes; the owner named only 'reached by clicking a puzzle'. 'Locked until reset' is read as: clicks, drags, undo and redo change no cell while the solved state is showing (CARD-162: 'stop accepting marks until the person chooses to keep looking or reset')."
       evidence: ["src/nonogram/admin/app.py:2213", "src/nonogram/admin/book_proof.py:268-272", "src/nonogram/admin/image_to_puzzle.py:63", "meta/kanban/cards/CARD-160.md", "meta/kanban/cards/CARD-161.md", "meta/kanban/cards/CARD-162.md"]
     acceptance:
       # --- page and clues (CARD-160) ---
@@ -3838,6 +3849,19 @@ functional:
         then: all 30 marks remain and no browser confirm() dialog was opened at any point
         kind: negative
         test: TestSolverProgress_ResetAfterConfirm
+      # --- no spoiler before solve (Delta 2026-10-03 (b), CARD-162 F-007) ---
+      - id: AC-322
+        given: a stored puzzle with a picture name, whose player page is loaded and not yet solved
+        when: the page's visible header and the browser document title are read
+        then: neither contains the picture name
+        kind: negative
+        test: TestSolverPage_HidesThePictureNameUntilSolved
+      - id: AC-323
+        given: the unsolved player page of AC-322, for a 25x15 puzzle of tier "medium"
+        when: the page's visible header is read
+        then: it shows the puzzle's size "25x15" and its tier "medium" in place of the name
+        kind: happy
+        test: TestSolverPage_HidesThePictureNameUntilSolved
     engineering_constraints:
       - id: EC-035
         statement: >-
