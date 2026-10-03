@@ -24,9 +24,18 @@
 //
 // THE LIVE PLAYER — window.puzzlePlayer, set once the board is drawn:
 //   payload            the parsed payload above
-//   getBoard()         the current board (a solver_state.js value)
-//   setBoard(board)    replace the board and repaint; a board of other
-//                      dimensions is refused with RangeError
+//   getBoard()         the current board (a solver_state.js value) — the
+//                      player's own copy, never an object passed to setBoard
+//   setBoard(board)    replace the board and repaint; a value that is not a
+//                      board (solver_state.js isBoard: frozen, own data
+//                      integer sides >= 1, a frozen genuine Array of exactly
+//                      width*height cells, every index an own element holding
+//                      a known state — no holes) or a board of other
+//                      dimensions is refused with RangeError before anything
+//                      is painted, and the current board and DOM are kept;
+//                      an accepted board is copied (copyBoard) and the copy
+//                      is stored and painted
+// Boards are trusted in-page values (see solver_state.js).
 // CARD-160 has no input handling: setBoard is the one way the board changes,
 // and CARD-161's click/drag/undo will go through it.
 //
@@ -38,7 +47,7 @@
 // a cell or clue box after one carries .major-right / .major-below (never the
 // last line, which is the board's frame).
 
-import { createBoard } from "./solver_state.js";
+import { copyBoard, createBoard, isBoard } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -173,11 +182,14 @@ function start() {
     payload,
     getBoard: () => board,
     setBoard(next) {
+      if (!isBoard(next)) {
+        throw new RangeError("setBoard needs a board from solver_state.js (see isBoard: frozen, width*height known cell states, no holes)");
+      }
       if (next.width !== payload.width || next.height !== payload.height) {
         throw new RangeError(
           `a ${next.width}x${next.height} board does not fit this ${payload.width}x${payload.height} puzzle`);
       }
-      board = next;
+      board = copyBoard(next);
       paint(cellElements, board);
     },
   });

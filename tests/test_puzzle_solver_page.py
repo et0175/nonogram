@@ -332,7 +332,10 @@ class TestSolverPageStoredRows:
 
         payload = _payload(_page(panel, puzzle_id))
 
+        # `1 == True` in Python, so equality alone would pass on ints too; the
+        # renderer's isSolution refuses anything but JSON booleans.
         assert payload["solution"] == AC_GRID
+        assert all(type(cell) is bool for row in payload["solution"] for cell in row)
         assert (payload["rows"], payload["columns"]) == _expected_clues(AC_GRID)
 
     @pytest.mark.parametrize(
@@ -670,6 +673,142 @@ class TestSolverPage_AllCellsStartUndecided:
 
         assert outcome == {"error": "RangeError", "kept": True, "drawn": "unknown"}
 
+    def test_set_board_refuses_a_value_that_is_not_a_board(self, browser_page, live) -> None:
+        """F17: right dimensions or not, a value outside isBoard's declared
+        definition is refused before it is painted — so the page never shows a
+        ``data-state="undefined"`` cell (F-009: a frozen cells array with holes
+        used to pass ``cells.every`` and paint exactly that). One row per
+        clause of the definition; each must also be refused by isBoard itself
+        (F-010: the side clause is masked through setBoard by the payload
+        dimension check, so it is asserted on isBoard directly)."""
+        _open(browser_page, live, live.store(AC301_GRID))
+
+        outcome = browser_page.evaluate(
+            """async () => {
+              const S = await import('/static/solver_state.js');
+              const player = window.puzzlePlayer;
+              const before = player.getBoard();
+              const good = S.withCell(before, 0, 0, S.FILLED);
+              const F = Object.freeze;
+              const filled = (n, state) => F(new Array(n).fill(state));
+              const board = (cells, extra = {}) => F({ width: 20, height: 20, cells, ...extra });
+              const holeAt = (i) => { const c = good.cells.slice(); delete c[i]; return F(c); };
+              const stateAt = (i, v) => { const c = good.cells.slice(); c[i] = v; return F(c); };
+              const getterCell = () => {
+                const c = good.cells.slice();
+                Object.defineProperty(c, 5, { get: () => S.FILLED, enumerable: true });
+                return F(c);
+              };
+              const sides = (width, height, n) => F({ width, height, cells: filled(n, S.UNKNOWN) });
+              const bad = {
+                allHoles: board(F(new Array(400))),
+                holeAtStart: board(holeAt(0)),
+                holeInMiddle: board(holeAt(200)),
+                holeAtEnd: board(holeAt(399)),
+                arrayLikeCells: board(F(Object.assign({ length: 400 }, good.cells))),
+                unfrozenCells: board(good.cells.slice()),
+                unfrozenBoard: { ...good },
+                widthZero: sides(0, 20, 0),
+                sidesNegative: sides(-20, -20, 400),
+                widthFractional: sides(2.5, 160, 400),
+                heightFractional: sides(160, 2.5, 400),
+                widthNaN: sides(NaN, 20, 400),
+                widthInfinity: sides(Infinity, 20, 400),
+                widthString: sides('20', 20, 400),
+                heightString: sides(20, '20', 400),
+                widthMissing: F({ height: 20, cells: good.cells }),
+                heightMissing: F({ width: 20, cells: good.cells }),
+                cellsMissing: F({ width: 20, height: 20 }),
+                widthGetter: F({ get width() { return 20; }, height: 20, cells: good.cells }),
+                inheritedBoard: F(Object.create(good)),
+                cellGetter: board(getterCell()),
+                lengthShort: board(filled(399, S.FILLED)),
+                lengthLong: board(filled(401, S.FILLED)),
+                sidesDoNotMultiply: F({ width: 20, height: 21, cells: good.cells }),
+                stateCapitalised: board(stateAt(7, 'Filled')),
+                stateNull: board(stateAt(7, null)),
+                stateUndefined: board(stateAt(7, undefined)),
+                stateNumber: board(stateAt(7, 1)),
+                stateUnknownWord: board(filled(400, 'crossed')),
+                aFunction: F(Object.assign(function () {}, { width: 20, height: 20, cells: good.cells })),
+                isNull: null,
+                isUndefined: undefined,
+                isNumber: 400,
+              };
+              const drawn = () => [...new Set(
+                [...document.querySelectorAll('td.player-cell')].map((td) => td.dataset.state))];
+              const attempt = (value) => {
+                let error = null;
+                try { player.setBoard(value); } catch (e) { error = e.name; }
+                return error;
+              };
+              const refused = {};
+              for (const [name, value] of Object.entries(bad)) {
+                const error = attempt(value);
+                refused[name] = { error, isBoard: S.isBoard(value),
+                                  kept: player.getBoard() === before, drawn: drawn() };
+              }
+              // Other own properties are not checked: such a value is a board,
+              // and the player keeps a copy without them.
+              const withExtra = F({ ...good, note: 'ignored' });
+              const extraError = attempt(withExtra);
+              const kept = player.getBoard();
+              const accepted = {
+                madeBoards: S.isBoard(before) && S.isBoard(good),
+                extra: [S.isBoard(withExtra), extraError, kept !== withExtra,
+                        S.isBoard(kept), 'note' in kept,
+                        JSON.stringify(kept.cells) === JSON.stringify(good.cells), drawn().sort()],
+              };
+              return { refused, accepted };
+            }"""
+        )
+
+        expected = {"error": "RangeError", "isBoard": False, "kept": True, "drawn": ["unknown"]}
+        refused = outcome["refused"]
+        assert len(refused) >= 33
+        assert {name: row for name, row in refused.items() if row != expected} == {}
+        assert outcome["accepted"] == {
+            "madeBoards": True,
+            "extra": [True, None, True, True, False, True, ["filled", "unknown"]],
+        }
+
+    def test_set_board_keeps_and_paints_its_own_copy(self, browser_page, live) -> None:
+        """F17 / F-011: setBoard stores and paints a fresh frozen copy of the
+        board it accepted — getBoard() is never the caller's object, yet equals
+        it cell for cell, side for side, and is itself a board."""
+        _open(browser_page, live, live.store(AC301_GRID))
+
+        outcome = browser_page.evaluate(
+            """async () => {
+              const S = await import('/static/solver_state.js');
+              const player = window.puzzlePlayer;
+              let given = S.withCell(player.getBoard(), 0, 0, S.FILLED);
+              given = S.withCell(given, 19, 19, S.EMPTY);
+              given = S.withCell(given, 7, 3, S.FILLED);
+              player.setBoard(given);
+              const kept = player.getBoard();
+              return {
+                same: kept === given,
+                sameCells: kept.cells === given.cells,
+                sides: [kept.width, kept.height],
+                cells: kept.cells.slice(),
+                given: given.cells.slice(),
+                frozen: Object.isFrozen(kept) && Object.isFrozen(kept.cells),
+                isBoard: S.isBoard(kept),
+                drawn: [...document.querySelectorAll('td.player-cell')].map((td) => td.dataset.state),
+              };
+            }"""
+        )
+
+        assert outcome["same"] is False, "getBoard() returned the object passed to setBoard"
+        assert outcome["sameCells"] is False
+        assert outcome["sides"] == [20, 20]
+        assert outcome["cells"] == outcome["given"]
+        assert len(outcome["cells"]) == 400
+        assert outcome["frozen"] is True
+        assert outcome["isBoard"] is True
+        assert outcome["drawn"] == outcome["given"]
+
 
 @pytest.mark.browser
 class TestSolverStateModule:
@@ -728,6 +867,7 @@ class TestSolverStateModule:
                   const before = board.cells.slice();
                   const next = S.withCell(board, row, col, state);
                   steps.push({ inputKept: board.cells.every((c, i) => c === before[i]),
+                               frozen: Object.isFrozen(next) && Object.isFrozen(next.cells),
                                cells: next.cells.slice(), read: S.cellAt(next, row, col) });
                   board = next;
                 }
@@ -743,27 +883,150 @@ class TestSolverStateModule:
             for (row, col, state), step in zip(case["edits"], steps):
                 model[row * case["width"] + col] = state
                 assert step["inputKept"]
+                assert step["frozen"], "withCell returned a board that is not frozen"
                 assert step["cells"] == model
                 assert step["read"] == state
                 checked += 1
         assert len(cases) >= 60 and checked >= 300
 
 
-_COUNT_TABLES = ("puzzles", "books", "batches", "generation_history")
+    def test_with_cell_builds_its_cells_by_index_not_by_slice(self, browser_page, live) -> None:
+        """F-011: withCell builds the new cells Array index by index. A board
+        whose frozen cells Array carries an own ``constructor`` with a
+        ``Symbol.species`` (which ``slice()`` would consult) or an own ``slice``
+        that throws is still a board, and withCell on it returns a board with
+        exactly the expected cells."""
+        _open(browser_page, live, live.store(AC_GRID))
+
+        outcome = browser_page.evaluate(
+            """async () => {
+              const S = await import('/static/solver_state.js');
+              const base = S.withCell(S.createBoard(3, 2), 1, 2, S.FILLED);
+              const cellsWith = (props) => Object.freeze(Object.assign(base.cells.slice(), props));
+              class NotAnArray { constructor() { return {}; } }
+              const variants = {
+                species: cellsWith({ constructor: { [Symbol.species]: NotAnArray } }),
+                throwingSlice: cellsWith({ slice() { throw new Error('slice was called'); } }),
+              };
+              const out = {};
+              for (const [name, cells] of Object.entries(variants)) {
+                const board = Object.freeze({ width: 3, height: 2, cells });
+                let next = null, error = null;
+                try { next = S.withCell(board, 0, 1, S.EMPTY); } catch (e) { error = e.message; }
+                out[name] = {
+                  inputIsBoard: S.isBoard(board), error,
+                  resultIsBoard: next !== null && S.isBoard(next),
+                  cells: next && Array.isArray(next.cells) ? Array.from(next.cells) : null,
+                };
+              }
+              return out;
+            }"""
+        )
+
+        expected_cells = ["unknown", "empty", "unknown", "unknown", "unknown", "filled"]
+        for name in ("species", "throwingSlice"):
+            assert outcome[name] == {"inputIsBoard": True, "error": None, "resultIsBoard": True,
+                                     "cells": expected_cells}, name
+
+    def test_PropertyTest_StateModule_IsBoardIsExactlyTheDeclaration(self, browser_page, live) -> None:
+        """F17 / F-009: over a seeded corpus, every board built by createBoard
+        and any sequence of withCell is accepted by isBoard, and every single
+        corruption of one of those boards — one per clause of isBoard's
+        declared definition — is refused."""
+        _open(browser_page, live, live.store(AC_GRID))
+        rng = random.Random(160)
+        states = ["unknown", "filled", "empty"]
+        kinds = ["hole", "badState", "short", "long", "unfrozenBoard", "unfrozenCells",
+                 "arrayLike", "widthOff", "cellGetter", "inherited"]
+        cases = []
+        for n in range(240):
+            width, height = rng.randint(1, MAX_SIZE), rng.randint(1, MAX_SIZE)
+            edits = [(rng.randrange(height), rng.randrange(width), rng.choice(states))
+                     for _ in range(rng.randint(0, 15))]
+            cases.append({"width": width, "height": height, "edits": edits,
+                          "kind": kinds[n % len(kinds)], "index": rng.randrange(width * height),
+                          "badState": rng.randrange(7), "extra": rng.choice(states)})
+
+        results = browser_page.evaluate(
+            """async (cases) => {
+              const S = await import('/static/solver_state.js');
+              const F = Object.freeze;
+              const badStates = ['Filled', null, undefined, 1, '', 'crossed', 'UNKNOWN'];
+              const corrupt = (b, { kind, index, badState, extra }) => {
+                const c = b.cells.slice();
+                const at = (cells) => F({ width: b.width, height: b.height, cells });
+                switch (kind) {
+                  case 'hole': delete c[index]; return at(F(c));
+                  case 'badState': c[index] = badStates[badState]; return at(F(c));
+                  case 'short': c.pop(); return at(F(c));
+                  case 'long': c.push(extra); return at(F(c));
+                  case 'unfrozenBoard': return { width: b.width, height: b.height, cells: b.cells };
+                  case 'unfrozenCells': return at(c);
+                  case 'arrayLike': return at(F(Object.assign({ length: c.length }, c)));
+                  case 'widthOff': return F({ width: b.width + 1, height: b.height, cells: b.cells });
+                  case 'cellGetter': {
+                    const v = c[index];
+                    Object.defineProperty(c, index, { get: () => v, enumerable: true });
+                    return at(F(c));
+                  }
+                  case 'inherited': return F(Object.create(b));
+                }
+                throw new Error(`no corruption ${kind}`);
+              };
+              return cases.map((one) => {
+                let board = S.createBoard(one.width, one.height);
+                let allBoards = S.isBoard(board);
+                let boards = 1;
+                for (const [row, col, state] of one.edits) {
+                  board = S.withCell(board, row, col, state);
+                  allBoards = allBoards && S.isBoard(board);
+                  boards += 1;
+                }
+                return { allBoards, boards, corruptIsBoard: S.isBoard(corrupt(board, one)) };
+              });
+            }""",
+            cases,
+        )
+
+        accepted = refused = 0
+        per_kind = {kind: 0 for kind in kinds}
+        for case, result in zip(cases, results, strict=True):
+            assert result["allBoards"], f"a made board was refused: {case}"
+            assert result["corruptIsBoard"] is False, f"a corrupted board was accepted: {case}"
+            accepted += result["boards"]
+            refused += 1
+            per_kind[case["kind"]] += 1
+        assert len(cases) >= 200 and accepted >= 1000 and refused >= 200
+        assert min(per_kind.values()) >= 20, per_kind
+
+
+_WATCHED_TABLES = ("puzzles", "books", "batches", "generation_history")
 
 
 def _snapshot(scope):
+    """Every row of every watched table, so an INSERT, a DELETE and an UPDATE
+    all show up as a difference (each table is seeded with at least one row)."""
     from sqlalchemy import text
 
     with scope() as db:
-        counts = {t: db.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar_one() for t in _COUNT_TABLES}
-        rows = [tuple(row) for row in db.execute(text("SELECT * FROM puzzles ORDER BY id")).all()]
-    return counts, rows
+        return {
+            table: [tuple(row) for row in db.execute(text(f"SELECT * FROM {table} ORDER BY id")).all()]
+            for table in _WATCHED_TABLES
+        }
+
+
+def _seed_history(scope, puzzle_id: str) -> None:
+    import uuid
+
+    from nonogram.db.models import GenerationHistory
+
+    with scope() as db:
+        db.add(GenerationHistory(puzzle_id=uuid.UUID(puzzle_id), image_url="owl.png"))
 
 
 @pytest.mark.browser
 class TestSolverPage_WritesNothing:
-    """AC-302 — open, 10 strokes, solve: no table's count and no puzzle row changes.
+    """AC-302 — open, 10 strokes, solve: no row of puzzles, books, batches or generation_history changes.
 
     CARD-160 has no input handling (marking is CARD-161), so the strokes are
     driven through the page's own seam: each stroke is one
@@ -775,10 +1038,13 @@ class TestSolverPage_WritesNothing:
     def test_ten_strokes_and_a_solve_write_nothing(self, browser_page, live) -> None:
         batch_id = make_batch(live.scope)
         make_book(live.scope)
-        other = live.store(AC301_GRID)
+        live.store(AC301_GRID)  # a second puzzle row, so a write to the wrong row shows too
         puzzle_id = live.store(AC_GRID, batch_id=batch_id)
+        _seed_history(live.scope, puzzle_id)
         before = _snapshot(live.scope)
-        assert before[0]["puzzles"] == 2 and before[0]["books"] == 1 and before[0]["batches"] == 1
+        assert {table: len(rows) for table, rows in before.items()} == {
+            "puzzles": 2, "books": 1, "batches": 1, "generation_history": 1,
+        }
 
         _open(browser_page, live, puzzle_id)
         browser_page.wait_for_load_state("networkidle")
@@ -809,7 +1075,6 @@ class TestSolverPage_WritesNothing:
         assert final["cells"] == solved and final["drawn"] == solved
         assert requests == []
         assert _snapshot(live.scope) == before
-        assert other != puzzle_id
 
 
 @pytest.mark.browser
