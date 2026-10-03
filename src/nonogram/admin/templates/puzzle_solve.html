@@ -1,0 +1,38 @@
+{#
+  The puzzle player (TERM-037, FR-044, CARD-160) — not the uniqueness solver.
+
+  The server renders the header and hands the puzzle to static/solver.js as one
+  JSON payload (its shape is documented once, in solver.js's header). The
+  board itself is drawn by solver.js from that payload and from the pure state
+  module static/solver_state.js; the fallback paragraph below is what stays on
+  screen when the script never ran.
+
+  The payload carries the solution grid. That is allowed for this admin page
+  only, behind the panel's door (ADR-0038/R6, CON-021); a public player must
+  not ship it.
+#}
+{% extends "base.html" %}
+{% import '_tier.html' as tier %}
+
+{% block title %}Puzzle {{ title }} - Nonogram admin{% endblock %}
+{% block section %}Puzzles{% endblock %}
+
+{% block content %}
+<div class="page-head player-head">
+    <h1>Puzzle {{ title }}</h1>
+    {% if tier_label %}<span class="player-tier">{{ tier.badge(tier_label) }}</span>{% endif %}
+</div>
+
+<div class="player-stage" id="puzzle-player">
+    <p class="player-fallback" data-player-fallback>
+        Drawing the board&hellip; If this message stays, the player script
+        (static/solver.js) did not load.
+    </p>
+</div>
+
+<script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='solver.js') }}"></script>
+{% endblock %}

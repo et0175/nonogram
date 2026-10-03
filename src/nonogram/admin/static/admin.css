@@ -333,3 +333,54 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .main { padding: var(--space-4); }
   .puzzle-list-item { grid-template-columns: 2.5rem 80px 1fr auto; }
 }
+
+/* ---------- Puzzle player (CARD-160, FR-044; board drawn by solver.js) ----------
+   One table: column-clue boxes above, row-clue boxes left, W x H cells. Each
+   cell and clue box draws only its right and bottom rule (border-spacing 0),
+   so a rule's weight is that one element's border: thin between cells, heavy
+   after every fifth line (.major-right / .major-below) and on the frame. The
+   cell side is computed here from the board's size and clue depth (set as
+   custom properties by solver.js), so the largest board — limits.MAX_SIZE per
+   side — fits a laptop screen; below the floor the board scrolls inside
+   .player-stage and the page never does. */
+.player-head { align-items: center; margin-bottom: var(--space-4); }
+.player-head .badge { font-size: var(--text-sm); }
+.player-stage {
+  --player-cell-min: 14px;
+  --player-cell-max: 28px;
+  --player-rule: var(--border-width);
+  --player-rule-major: calc(2 * var(--border-width));
+  --player-thin: color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper));
+  /* What stands above the board: top bar, the main column's top padding, the
+     header and its margin, and some air below. */
+  --player-chrome-h: calc(var(--topbar-h) + var(--space-6) + var(--space-12) + var(--space-8));
+  container-type: inline-size;
+  overflow-x: auto;
+}
+.player-fallback { color: var(--color-text-secondary); font-style: italic; }
+.player-board {
+  --player-cell: clamp(var(--player-cell-min),
+    min(100cqi / (var(--player-cols) + var(--player-row-depth) + 1),
+        (100svh - var(--player-chrome-h)) / (var(--player-rows) + var(--player-col-depth) + 1)),
+    var(--player-cell-max));
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: calc(var(--player-cell) * 0.6);
+  line-height: 1;
+  color: var(--grid-ink);
+  margin-bottom: var(--space-4);
+}
+.player-board th, .player-board td { padding: 0; box-sizing: border-box; font-weight: 400; }
+.player-corner { border-right: var(--player-rule-major) solid var(--grid-ink); border-bottom: var(--player-rule-major) solid var(--grid-ink); }
+.player-clue { background: var(--color-surface); }
+.player-clue.is-col { vertical-align: bottom; text-align: center; border-top: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule-major) solid var(--grid-ink); padding-top: calc(var(--player-cell) * 0.2); }
+.player-clue.is-col .player-clue-num { display: block; height: var(--player-cell); line-height: var(--player-cell); }
+.player-clue.is-row { text-align: right; white-space: nowrap; border-left: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule-major) solid var(--grid-ink); padding-left: calc(var(--player-cell) * 0.2); }
+.player-clue.is-row .player-clue-num { display: inline-block; min-width: var(--player-cell); text-align: center; }
+.player-cell { width: var(--player-cell); min-width: var(--player-cell); height: var(--player-cell); background: var(--grid-paper); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); vertical-align: middle; }
+.player-board .major-right, .player-clue.is-col:last-child, .player-cell:last-child { border-right: var(--player-rule-major) solid var(--grid-ink); }
+.player-board .major-below, .player-board tbody tr:last-child > * { border-bottom: var(--player-rule-major) solid var(--grid-ink); }
+.player-cell[data-state="filled"] { background: var(--grid-ink); }
+.player-cell[data-state="empty"]::after { content: ""; display: block; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
