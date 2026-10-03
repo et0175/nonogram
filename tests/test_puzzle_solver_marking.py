@@ -481,6 +481,7 @@ class TestSolverMarking_UndoRedoByStroke:
         assert len(marks) == 11
 
         _button(browser_page, "Reset").click()
+        _button(browser_page, "Clear board").click()  # CARD-162's in-page confirmation
         assert _marked(_states(browser_page)) == {}
         assert _is_disabled(browser_page, "Reset")
 
@@ -586,9 +587,13 @@ class TestSolverMarking_KeyboardAndLabels:
         press("Redo", "Enter")
         assert _marked(_states(browser_page)) == two
         press("Reset", "Enter")
+        browser_page.keyboard.press("Shift+Tab")  # CARD-162's confirmation: focus is on
+        browser_page.keyboard.press("Enter")  # "Keep marks"; "Clear board" is before it
         assert _marked(_states(browser_page)) == {}
         press("Undo", "Enter")
         press("Reset", "Space")
+        browser_page.keyboard.press("Shift+Tab")
+        browser_page.keyboard.press("Space")
         assert _marked(_states(browser_page)) == {}
 
     @staticmethod
@@ -647,7 +652,13 @@ class TestSolverMarking_KeyboardAndLabels:
         elif name == "Redo":
             assert after == two  # the undone stroke is back
         else:
-            assert after == {}
+            # CARD-162: Reset opens the in-page confirmation with focus on
+            # "Keep marks"; one more press of the same key on "Clear board".
+            assert after == two
+            assert browser_page.evaluate(_FOCUSED) == "Keep marks"
+            browser_page.keyboard.press("Shift+Tab")
+            browser_page.keyboard.press(key)
+            assert _marked(_states(browser_page)) == {}
             _button(browser_page, "Undo").click()  # the reset is one undoable step
             assert _marked(_states(browser_page)) == two
 
@@ -802,6 +813,7 @@ class TestSolverMarking_NoRequestPerMark:
         _button(browser_page, "Redo").click()
         model.redo()
         _button(browser_page, "Reset").click()
+        _button(browser_page, "Clear board").click()  # CARD-162's in-page confirmation
         model.reset()
 
         assert _states(browser_page) == model.cells()
@@ -834,12 +846,19 @@ _STRIPPED = """() => document.body.outerHTML
 
 @pytest.mark.browser
 class TestSolverMarking_RevealsNoCorrectness:
-    """G-2 — marking, even marking the whole solution, shows nothing but the marks."""
+    """G-2 — marking shows nothing but the marks. Narrowed by CARD-162, which
+    adds the error count and the solved state (FR-044 AC-312..AC-317, tested in
+    test_puzzle_solver_progress.py): correct marks that do not yet solve the
+    puzzle still change nothing on the page but the cells."""
 
-    def test_marking_the_solution_changes_nothing_but_cell_states(self, browser_page, live) -> None:
+    def test_marking_all_but_the_last_solution_cell_changes_nothing_but_cell_states(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         before = browser_page.evaluate(_STRIPPED)
 
+        expected = [F if cell else U for row in GRID for cell in row]
+        last_r = max(r for r, row in enumerate(GRID) if any(row))
+        last_c = max(c for c, cell in enumerate(GRID[last_r]) if cell)
+        expected[last_r * SIDE + last_c] = U
         for r, row in enumerate(GRID):  # every filled run, by drag or click
             c = 0
             while c < SIDE:
@@ -847,22 +866,30 @@ class TestSolverMarking_RevealsNoCorrectness:
                     end = c
                     while end + 1 < SIDE and row[end + 1]:
                         end += 1
+                    if r == last_r and end == last_c:
+                        end -= 1  # leave the very last solution cell undecided
                     if end > c:
                         _drag(browser_page, [(r, c), (r, end)])
-                    else:
+                    elif end == c:
                         _cell(browser_page, r, c).click()
-                    c = end
+                    c = end + 1 if end >= c else c
                 c += 1
 
-        assert _states(browser_page) == [F if cell else U for row in GRID for cell in row]
+        assert _states(browser_page) == expected
         assert browser_page.evaluate(_STRIPPED) == before
 
     def test_the_marking_code_reads_no_solution(self) -> None:
+        """The input code and everything in solver_state.js before its
+        Progress section (the board and the stroke/history functions) never
+        read the solution; only CARD-162's progress code does (solver.js
+        start(), solver_state.js errorCount / isSolved)."""
         code = re.sub(r"//[^\n]*", "", (_STATIC / "solver.js").read_text(encoding="utf-8"))
         marking = code[code.index("function wireMarking"):]
         assert "solution" not in marking
-        state = re.sub(r"//[^\n]*", "", (_STATIC / "solver_state.js").read_text(encoding="utf-8"))
-        assert "solution" not in state
+        text = (_STATIC / "solver_state.js").read_text(encoding="utf-8")
+        before_progress = text[:text.index("// Progress against the solution")]
+        assert "// Strokes and history" in before_progress
+        assert "solution" not in re.sub(r"//[^\n]*", "", before_progress)
 
 
 # ==========================================================================

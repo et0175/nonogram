@@ -4,7 +4,8 @@
 // page a person solves a stored puzzle on. Plain JavaScript, no framework, no
 // build step (ADR-0038/R1). Board state lives in the pure module
 // solver_state.js (ADR-0038/R4); this file is the only one that touches the
-// DOM, and it only ever *reads* a board to paint it.
+// DOM, and it only ever *reads* a board to paint it — and, since CARD-162,
+// reads payload.solution to show the error count and the solved state.
 //
 // THE PAYLOAD — the page's whole contract with the server. puzzle_solve.html
 // embeds it as JSON in <script type="application/json" id="puzzle-player-data">,
@@ -35,28 +36,64 @@
 //                      is painted, and the current board and DOM are kept;
 //                      an accepted board is copied (copyBoard) and the copy
 //                      is stored and painted; it also starts a new marking
-//                      history at that board (nothing to undo or redo)
+//                      history at that board (nothing to undo or redo), the
+//                      error count and solved state are re-derived from it,
+//                      and an open reset confirmation is closed (see "reset")
 // Boards are trusted in-page values (see solver_state.js).
 //
 // MARKING (CARD-161, FR-044 AC-303..AC-311). The strokes and the undo/redo
 // history are solver_state.js values (clickStroke, dragStroke, resetStroke,
 // record, undo, redo); this file only turns input into those calls and
-// paints the resulting board. Nothing here reads payload.solution and no mark
-// sends a request (ADR-0038/R2).
+// paints the resulting board. The marking code (wireMarking) does not read
+// payload.solution — it only asks start() whether the board is locked — and
+// no mark sends a request (ADR-0038/R2).
 //   pointer   pointerdown on a cell, then pointerup without having been over
 //             another cell = a click: the cell cycles whatever the tool.
 //             Having been over another cell = a drag: dragStroke with the
-//             selected tool, previewed on every move, recorded on pointerup;
-//             pointercancel drops it. Mouse (main button), pen and touch alike;
-//             the board's cells set touch-action: none (admin.css).
+//             tool selected at pointerdown, previewed on every move, recorded
+//             on pointerup; pointercancel drops it. Mouse (main button), pen
+//             and touch alike; the board's cells set touch-action: none
+//             (admin.css).
 //   tools     #puzzle-player-controls [data-player-tool] — toggle buttons,
 //             aria-pressed, exactly one pressed; FILLED at load.
-//   history   [data-player-action] undo / redo / reset (reset = resetStroke,
-//             one undoable step); aria-disabled="true" while there is nothing
-//             to do — pressing one then leaves the board as it is, because
-//             undo/redo with an empty stack and a reset of a blank board
-//             return the history unchanged. Ctrl/Cmd+Z undoes,
-//             Shift+Ctrl/Cmd+Z redoes.
+//   history   [data-player-action] undo / redo / reset; aria-disabled="true"
+//             while there is nothing to do — pressing one then leaves the
+//             board as it is, because undo/redo with an empty stack and a
+//             reset of a blank board return the history unchanged.
+//             Ctrl/Cmd+Z undoes, Shift+Ctrl/Cmd+Z redoes.
+//
+// PROGRESS (CARD-162, FR-044 AC-312..AC-321). After every recorded stroke,
+// undo, redo, reset and setBoard, start() re-derives both from the current
+// (recorded) board and payload.solution with solver_state.js errorCount and
+// isSolved — nothing is accumulated, so the count is the live number of
+// wrong marks. A drag's preview is not counted until it is recorded.
+//   errors    [data-player-errors] in the toolbar (inside a role=status
+//             region): errorCount of the current board.
+//   solved    while isSolved(current board) holds: the banner
+//             #puzzle-player-solved (the picture's name, server-rendered) is
+//             shown in place of the tools and its text is put into the live
+//             region #puzzle-player-announce (cleared when unsolved), the board carries .is-solved (a
+//             short CSS animation on the transition into solved; none under
+//             prefers-reduced-motion, admin.css), and the board is LOCKED —
+//             pointer input, undo and redo (buttons and keys) change nothing;
+//             undo and redo say aria-disabled="true". Of the player's
+//             controls only reset acts. The lock is a function of the
+//             current board, not a separate flag: whatever makes the board
+//             solved (a stroke, an undo, a redo, setBoard) locks it, and
+//             whatever makes it unsolved unlocks it — once locked, that is
+//             reset, or the setBoard seam, which replaces the board.
+//   reset     pressing Reset opens the in-page confirmation
+//             #puzzle-player-confirm (role=alertdialog; never window.confirm)
+//             and moves focus to its "Keep marks" button. "Clear board"
+//             records resetStroke through record — one undoable step, also
+//             from the solved state; "Keep marks" or Escape changes nothing.
+//             Any of these closes it and returns focus to Reset. So does
+//             every recorded stroke, undo or redo (button or key — even one
+//             that changes nothing) and setBoard while it is open: the board
+//             it asked about is gone, so it closes as "Keep marks" does,
+//             after that change is recorded. Undoing a reset
+//             made from the solved state brings the solved board back, and
+//             with it the lock (see "solved").
 //
 // DOM / CSS (admin.css, "Puzzle player"): table.player-board inside
 // .player-stage; th.player-clue.is-col (one box per column, above) and
@@ -68,7 +105,7 @@
 
 import {
   FILLED, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
-  dragStroke, isBoard, record, redo, resetStroke, undo,
+  dragStroke, errorCount, isBoard, isSolved, record, redo, resetStroke, undo,
 } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
@@ -163,6 +200,8 @@ function drawBoard(stage, payload) {
       cell.dataset.col = String(col);
       if (majorAfter(col, width)) cell.classList.add("major-right");
       if (majorAfter(row, height)) cell.classList.add("major-below");
+      // The solved animation's per-cell delay (a diagonal sweep, admin.css).
+      cell.style.setProperty("--player-wave", row + col);
       cells.push(cell);
     }
   });
@@ -201,8 +240,29 @@ function start() {
   let history = createHistory(board);
   paint(cellElements, board);
 
-  const marking = wireMarking(stage.querySelector(".player-board"), {
+  const table = stage.querySelector(".player-board");
+  const toolbar = document.getElementById("puzzle-player-controls");
+  const errorsOut = toolbar.querySelector("[data-player-errors]");
+  const banner = document.getElementById("puzzle-player-solved");
+  const announce = document.getElementById("puzzle-player-announce");
+  let solved = false;
+
+  // Error count and solved state of the recorded board (see PROGRESS).
+  function showProgress() {
+    const errors = String(errorCount(history.board, payload.solution));
+    // Rewriting the same text would make the live region announce it again.
+    if (errorsOut.textContent !== errors) errorsOut.textContent = errors;
+    const now = isSolved(history.board, payload.solution);
+    if (now !== solved) announce.textContent = now ? banner.textContent.trim() : "";
+    solved = now;
+    banner.hidden = !solved;
+    toolbar.classList.toggle("is-solved", solved);
+    table.classList.toggle("is-solved", solved);
+  }
+
+  const marking = wireMarking(table, {
     getHistory: () => history,
+    locked: () => solved,
     show(next) {
       board = next;
       paint(cellElements, board);
@@ -211,8 +271,11 @@ function start() {
       history = next;
       board = history.board;
       paint(cellElements, board);
+      showProgress();
     },
   });
+  showProgress();
+  marking.refresh();
 
   window.puzzlePlayer = Object.freeze({
     payload,
@@ -225,10 +288,9 @@ function start() {
         throw new RangeError(
           `a ${next.width}x${next.height} board does not fit this ${payload.width}x${payload.height} puzzle`);
       }
-      board = copyBoard(next);
-      history = createHistory(board);
-      paint(cellElements, board);
-      marking.refresh();
+      // Recorded like any other change (paint, progress, controls, and the
+      // reset confirmation closed), as a fresh history.
+      marking.commit(createHistory(copyBoard(next)));
     },
   });
 }
@@ -245,14 +307,19 @@ function isAt(position, [row, col]) {
 }
 
 // Attach pointer, tool, history and keyboard input to `table`. `player` gives
-// the current history (getHistory), paints a board without recording it
-// (show — a drag's preview) and records a new history (commit). Returns
-// { refresh } to re-sync the controls after the history changed elsewhere.
+// the current history (getHistory), says whether the board is locked (locked
+// — solved, see PROGRESS), paints a board without recording it (show — a
+// drag's preview) and records a new history (commit). Returns { refresh,
+// commit }: refresh re-syncs the controls after the lock changed elsewhere;
+// commit records a history from elsewhere (setBoard) exactly as an input does.
 function wireMarking(table, player) {
   const controls = document.getElementById("puzzle-player-controls");
   const tools = [...controls.querySelectorAll("[data-player-tool]")];
   const actions = Object.fromEntries(
     [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
+  // The reset confirmation (see PROGRESS "reset").
+  const confirm = document.getElementById("puzzle-player-confirm");
+  const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   let tool = FILLED;
   let gesture = null; // { pointerId, start, path, dragging, tool }
 
@@ -261,18 +328,20 @@ function wireMarking(table, player) {
     for (const button of tools) {
       button.setAttribute("aria-pressed", String(button.dataset.playerTool === tool));
     }
-    actions.undo.setAttribute("aria-disabled", String(done.length === 0));
-    actions.redo.setAttribute("aria-disabled", String(undone.length === 0));
+    const locked = player.locked();
+    actions.undo.setAttribute("aria-disabled", String(locked || done.length === 0));
+    actions.redo.setAttribute("aria-disabled", String(locked || undone.length === 0));
     actions.reset.setAttribute("aria-disabled", String(board.cells.every((s) => s === UNKNOWN)));
   }
 
   function commit(next) {
     player.commit(next);
+    if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
   }
 
   table.addEventListener("pointerdown", (event) => {
-    if (gesture || (event.pointerType === "mouse" && event.button !== 0)) return;
+    if (gesture || player.locked() || (event.pointerType === "mouse" && event.button !== 0)) return;
     const start = cellUnder(table, event.clientX, event.clientY);
     if (!start) return;
     event.preventDefault();
@@ -315,16 +384,39 @@ function wireMarking(table, player) {
     });
   }
 
+  // Undo and redo change nothing while the board is locked (solved).
   const step = {
-    undo: () => undo(player.getHistory()),
-    redo: () => redo(player.getHistory()),
-    reset: () => record(player.getHistory(), resetStroke(player.getHistory().board)),
+    undo: () => (player.locked() ? player.getHistory() : undo(player.getHistory())),
+    redo: () => (player.locked() ? player.getHistory() : redo(player.getHistory())),
   };
-  for (const [name, button] of Object.entries(actions)) {
-    button.addEventListener("click", () => {
+  for (const name of ["undo", "redo"]) {
+    actions[name].addEventListener("click", () => {
       if (!gesture) commit(step[name]());
     });
   }
+
+  // Reset asks first, in the page (see PROGRESS "reset").
+  function closeConfirm() {
+    confirm.hidden = true;
+    actions.reset.setAttribute("aria-expanded", "false");
+    actions.reset.focus();
+  }
+  actions.reset.addEventListener("click", () => {
+    if (gesture || actions.reset.getAttribute("aria-disabled") === "true") return;
+    confirm.hidden = false;
+    actions.reset.setAttribute("aria-expanded", "true");
+    keep.focus();
+  });
+  // commit closes the confirmation (and returns focus to Reset).
+  confirm.querySelector('[data-player-confirm="accept"]').addEventListener("click", () => {
+    commit(record(player.getHistory(), resetStroke(player.getHistory().board)));
+  });
+  keep.addEventListener("click", closeConfirm);
+  confirm.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") return;
+    event.preventDefault();
+    closeConfirm();
+  });
 
   // The Z key: event.key "z"/"Z", or — when the layout gives that key a
   // non-Latin character (e.g. Russian "я") — event.code "KeyZ". A layout that
@@ -344,7 +436,7 @@ function wireMarking(table, player) {
   refresh();
   controls.hidden = false;
   document.getElementById("puzzle-player-hint").hidden = false;
-  return { refresh };
+  return { refresh, commit };
 }
 
 start();

@@ -409,3 +409,38 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-swatch[data-state="empty"]::after { content: ""; position: absolute; inset: 0; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
 .player-mirror { display: inline-flex; transform: scaleX(-1); }
 .player-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
+/* Progress (CARD-162, FR-044): the error counter closes the toolbar row; the
+   solved banner takes the tools' place in that row while the board is solved
+   (so the board never moves); the reset confirmation drops down under the
+   history controls, over the board, without moving it. */
+.player-errors { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.player-errors-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
+.player-toolbar.is-solved .player-tools { display: none; }
+.player-announce { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.player-solved { margin: 0; display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: 0 var(--space-3); border: var(--border-width) solid var(--color-success); border-left-width: 3px; border-radius: var(--radius-control); background: var(--color-success-tint); color: var(--color-text); }
+.player-solved[hidden] { display: none; }
+.player-solved .icon { color: var(--color-success); }
+.player-solved-name { font-weight: 600; }
+/* The success frame is drawn just inside the table's edge: .player-stage
+   scrolls (overflow-x: auto) and would clip a frame drawn outside it on the
+   top and left. */
+.player-board.is-solved { outline: var(--player-rule-major) solid var(--color-success); outline-offset: calc(-1 * var(--player-rule-major)); }
+.player-history { position: relative; }
+.player-confirm { position: absolute; top: calc(100% + var(--space-2)); left: 0; z-index: 10; width: max-content; max-width: min(22rem, calc(100vw - 2 * var(--space-4))); padding: var(--space-3) var(--space-4); background: var(--color-surface); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-container); box-shadow: var(--shadow-modal); }
+.player-confirm[hidden] { display: none; }
+.player-confirm-title { margin: 0 0 var(--space-1); font-weight: 600; }
+.player-confirm-text { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.player-confirm-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* The solved animation: the banner settles in, and the filled cells flash the
+   success colour in a diagonal sweep (--player-wave = row + col, solver.js),
+   ending in ink — about a second in all, played on the transition into
+   solved. */
+@keyframes player-solved-in { from { opacity: 0; transform: translateY(calc(-1 * var(--space-1))); } }
+@keyframes player-solved-flash { 50% { background: var(--color-success); } }
+.player-solved:not([hidden]) { animation: player-solved-in var(--duration-base) var(--ease); }
+.player-board.is-solved .player-cell[data-state="filled"] { animation: player-solved-flash calc(2 * var(--duration-base)) var(--ease) calc(var(--player-wave) * 12ms); }
+/* prefers-reduced-motion: the same reveal (banner, name, success frame) with
+   no animation or transition anywhere in the player. */
+@media (prefers-reduced-motion: reduce) {
+  .player-toolbar, .player-toolbar *, .player-stage, .player-stage *, .player-board.is-solved .player-cell[data-state="filled"] { animation: none !important; transition: none !important; }
+}
