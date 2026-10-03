@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-03
+- CARD-162 (feature): The puzzle player is complete. An error counter shows how many marks are currently wrong. It goes down when you fix or undo one, and blank cells never count. When the picture is finished, the board locks, a banner names the picture and a short animation plays, or no animation if your computer asks for reduced motion. Reset now asks first, in the page itself, and can still be undone.
 - CARD-161 (feature): The puzzle player is now playable. Click a cell to cycle it black, then white (a dot), then blank. Pick black, white or undecided and drag along a row or column to mark several cells at once. Undo and redo work by button or Ctrl/Cmd+Z, one click or one drag at a time. Every control works from the keyboard, and touch works on a tablet. Nothing is sent to the server while you mark.
 - CARD-160 (feature): First piece of the online puzzle player. In the admin panel, "Solve" on any puzzle now opens it as an empty board of the right size, with the row and column clues in boxes and every fifth line drawn heavier, like the printed pages. Marking cells, the error count and the solved celebration come in the next two cards.
 

@@ -1,0 +1,117 @@
+version: 1
+generated_at: "2026-10-03T15:48:37Z"
+target: "card/162-solver-errors-and-solved (git diff main...HEAD: b72e7d7 + e1b8837) — confirmation mode, fix delta = tests/test_puzzle_solver_progress.py + admin.css comment"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+coverage:
+  read:
+    - git show e1b8837 (admin.css, test_puzzle_solver_marking.py, test_puzzle_solver_progress.py hunks)
+    - src/nonogram/admin/static/solver.js (full; sha1 e929be51 == cycle-2 reviewed state)
+    - src/nonogram/admin/static/solver_state.js (Progress section, history functions; not in e1b8837 → identical to b72e7d7 reviewed in cycle 2)
+    - src/nonogram/admin/static/admin.css (player solved/reduced-motion block 418-446)
+    - meta/kanban/cards/CARD-162.md Worktree notes incl. [Fix cycle 2]
+    - meta/review/20261003T145514Z-CARD-162-cycle2.yml
+    - ~/Documents/nonogram-reviews/CARD-162/solved-390.png (implementer-produced, supplementary)
+  not_reached:
+    - rendered result not verified by this review (review.visual off; static 8g only)
+    - full suite not run by reviewer (orchestrator on e1b8837: 6028 passed, 2 failed = main baseline, 9 skipped none in solver tests)
+    - puzzle_solve.html and test_puzzle_solver_marking.py not re-read in full (outside fix delta; carried from cycle 2)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1156, removed: 40 }
+  fix_delta: { files: 2, note: "tests/test_puzzle_solver_progress.py (F-008 case), admin.css (F-009 comment only)" }
+  tests_cover_change: true
+  test_run: "3 solver files: 170 passed, 0 skipped (116s) on HEAD e1b8837"
+  hotspots: ["src/nonogram/admin/static/admin.css"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — fix delta adds no production symbol (test case + CSS comment only)"
+system_contract:
+  rules_checked: 53
+  holds: 12
+  unchecked: 41
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — fresh: admin.css hunk in e1b8837 is comment-only plus outline-offset value (no import/build artefact); solver.js:106-109 sole import ./solver_state.js; git diff main...HEAD --name-only lists only the 6 card files (no package.json/build config)"
+    - "ADR-0038/R2 ✓ holds — fresh: 3 solver files 170 passed on e1b8837 incl. TestSolverMarking_NoRequestPerMark and test_solve_and_reset_issue_no_request_store_nothing_and_log_nothing; grep fetch(|XMLHttpRequest|localStorage|sessionStorage|sendBeacon on solver.js/solver_state.js: no hits"
+    - "ADR-0038/R7 ✓ holds — fresh: git diff main...HEAD -- pyproject.toml empty; new case uses the existing browser_page fixture"
+    - "ADR-0038/R8 ✓ holds — fresh: browser_page pytest.fail()s without Chromium (tests/test_puzzle_solver_page.py:453); this run 0 skipped"
+    - "CON-021 ✓ holds — fresh: git diff main...HEAD --name-only = admin static/template + 2 test files; no new route or player"
+    - "ADR-0006/R1 ✓ holds — carried(cycle 2, delta-clean)"
+    - "ADR-0038/R3 ✓ holds — carried(cycle 2, delta-clean)"
+    - "ADR-0038/R4 ✓ holds — carried(cycle 2, delta-clean); solver_state.js sha1 b2ec9b42 untouched by e1b8837"
+    - "ADR-0038/R5 ✓ holds — carried(cycle 2, delta-clean)"
+    - "ADR-0038/R6 ✓ holds — carried(cycle 2, delta-clean)"
+    - "CON-015 ✓ holds — carried(cycle 2, delta-clean)"
+    - "CON-016 ✓ holds — carried(cycle 2, delta-clean)"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): scopes are web adapter/generation/solver/storage/book/layout/export; fix delta (one admin test file + admin.css comment) intersects none"
+task_contract:
+  - "AC-312 ✓ — carried(cycle 2, delta-clean); test_ac312 green; M3 killed by it"
+  - "AC-313 ✓ — carried(cycle 2, delta-clean); test_ac313 green; M2 killed by it"
+  - "AC-314 ✓ — carried(cycle 2, delta-clean); test_ac314 green"
+  - "AC-315 ✓ — carried(cycle 2, delta-clean); test_ac315 green"
+  - "AC-316 ✓ — carried(cycle 2, delta-clean); test_ac316[none] killed M1"
+  - "AC-317 ✓ — carried(cycle 2, delta-clean); test_ac317 green"
+  - "AC-318 ✓ — carried(cycle 2, delta-clean); M4/M5/M6 killed by LockedUntilReset"
+  - "AC-319 ✓ — fresh: reduced-motion block admin.css:444-445 unchanged by the comment hunk; M9 killed by test_ac319"
+  - "AC-320 ✓ — fresh (test file in delta): test_ac320 x2 green; M10 killed"
+  - "AC-321 ✓ — fresh (test file in delta): test_ac321 green, dialogs == []"
+  - "EC-036 ✓ — fresh (test file in delta): PropertyTest_SolverProgress_SolvedMatchesTheSolution green"
+  - "EC-037 ✓ — fresh (test file in delta): PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition green, undecided on both solution kinds >= 100 asserted"
+  - "G-1 ✓ — pyproject.toml not in diff; no new import"
+  - "G-2 ✓ — grep hint: only the pre-existing usage hint #puzzle-player-hint (CARD-160/161), no hint feature"
+  - "G-3 ✓ — no request/storage APIs in solver files; test_solve_and_reset_issue_no_request_store_nothing_and_log_nothing green"
+mutation_check:
+  ran: true
+  command: "PYTHONPATH=src .venv/bin/python -m pytest <solver test files> -x -q"
+  restore_verified: "every mutant restored by exact bytes with sha1 check: solver.js e929be51…, solver_state.js b2ec9b42…, admin.css 71f36677…; git diff HEAD -- src tests empty; git status clean except meta/"
+  mutants:
+    - { id: M1, target: "isSolved: UNKNOWN counts as filled", result: killed, by: "test_ac316_the_completing_click_shows_the_picture_name[none]" }
+    - { id: M2, target: "errorCount drops EMPTY-on-filled term", result: killed, by: "test_ac313_a_white_drag_over_a_solution_filled_cell_reads_one" }
+    - { id: M3, target: "errorCount counts UNKNOWN on solution-empty", result: killed, by: "test_ac312_marking_a_solution_empty_cell_filled_reads_one" }
+    - { id: M4, target: "pointerdown lock guard removed", result: killed, by: "test_ac318_click_drag_undo_redo_change_nothing" }
+    - { id: M5, target: "undo lock removed", result: killed, by: "test_undo_changes_nothing" }
+    - { id: M6, target: "redo lock removed", result: killed, by: "test_redo_changes_nothing" }
+    - { id: M7, target: "commit closes confirm only when history changed", result: killed, by: "test_a_board_change_while_asking_closes_the_confirmation[redo-key-noop] (only that case fails)" }
+    - { id: M8, target: "setBoard keeps the old undo/redo stacks", result: killed, by: "test_set_board_starts_a_new_history" }
+    - { id: M9, target: "reduced-motion media block never applies under reduce", result: killed, by: "test_ac319_solved_with_no_animation_or_transition" }
+    - { id: M10, target: "Clear board bypasses record (createHistory)", result: killed, by: "test_redo_changes_nothing" }
+    - { id: M11, target: "undo/redo BUTTON skips commit while aria-disabled", result: survived, by: null }
+root_causes: []
+findings:
+  - id: F-010
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 91
+    title: "'button or key — even one that changes nothing': only the key no-op is pinned (mutant M11 survived)"
+    description: |
+      The PROGRESS header (solver.js:90-92) claims the confirmation closes on every undo/redo
+      "(button or key — even one that changes nothing)". F-008's new case covers the key path
+      (redo-key-noop). Mutant M11 — the undo/redo click handler (solver.js:400) skipping commit
+      while the button is aria-disabled — passed all of test_puzzle_solver_progress.py, so the
+      button half of the no-op clause rests on code reading (one unconditional path into commit(),
+      which M7 does pin), not on a test. Rated Minor, not the default Important: M11 is an additive
+      guard outside 8f's operator set, the handler has no branch to pin today, and the cycle-2
+      suggested fix was applied as specified.
+    suggestion: |
+      Add "redo-button-noop": lambda page: _button(page, "Redo").click() to _CHANGES and treat it
+      like redo-key-noop in the no-op branch; or narrow the header clause to "(button or key; a key
+      press that changes nothing too)".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+prior_findings:
+  F-008: resolved (re-derived: M7 applied by reviewer → only [redo-key-noop] fails; restored sha1 e929be51)
+  F-009: resolved (admin.css:424-426 comment now "just inside the table's edge")
+  F-007: out-of-scope (owner; follow-up CARD-163)

@@ -1,0 +1,126 @@
+version: 1
+generated_at: "2026-10-03T15:14:07Z"
+target: "card/162-solver-errors-and-solved (git diff main: b72e7d7 + uncommitted fix-cycle-1 edits)"
+overall_score: 8.8
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/static/solver.js (full)
+    - src/nonogram/admin/static/solver_state.js (header, createHistory/record/copyBoard, Progress section)
+    - src/nonogram/admin/static/admin.css (player section 340-446)
+    - src/nonogram/admin/templates/puzzle_solve.html (diff)
+    - tests/test_puzzle_solver_progress.py (fix diff + helpers)
+    - tests/test_puzzle_solver_marking.py (fix diff, test_set_board_starts_a_new_history)
+    - tests/test_puzzle_solver_page.py (setBoard copy/refusal tests)
+    - meta/kanban/cards/CARD-162.md Worktree notes incl. [Fix cycle 1]
+    - previous report 20261003T142336Z-CARD-162-cycle1.yml
+    - ~/Documents/nonogram-reviews/CARD-162/solved-390.png (implementer-produced, supplementary)
+  not_reached:
+    - rendered result not verified by this review (review.visual off; static 8g only)
+    - full suite not run by reviewer (orchestrator: 6027 passed, 2 failed = main baseline)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1145, removed: 40 }
+  fix_delta: { files: 4, added: 100, removed: 27 }
+  max_fan_in: { symbol: "wireMarking().commit (newly returned)", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]   # 14 commits/12mo, 7 fix
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — commit's only external caller is setBoard, added in this same fix"
+system_contract:
+  rules_checked: 53
+  holds: 12
+  unchecked: 41
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml not in git diff main --name-only; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed and test_admin_serving.py::...::test_the_core_dependency_baseline_is_untouched PASSED on this head (-k dependency, 6 passed)"
+    - "ADR-0038/R1 ✓ holds — solver.js:106-109 sole import is ./solver_state.js; no package.json/build config in git diff main --name-only"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark and TestSolverProgress_StaysInThePage green (169 passed in the three solver files); grep fetch(/XMLHttpRequest/localStorage/sessionStorage on solver.js: no hits"
+    - "ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues green; errorCount/isSolved (solver_state.js Progress section) compare cells only, no clue derivation"
+    - "ADR-0038/R4 ✓ holds — errorCount/isSolved in solver_state.js; grep document|window|fetch|^import on solver_state.js: no hits; fix delta adds no logic to solver_state.js"
+    - "ADR-0038/R5 ✓ holds — pyproject.toml:80 nonogram.admin = [templates/*.html, static/*.css, static/*.js]; no new static file type"
+    - "ADR-0038/R6 ✓ holds — app.py/routes not in diff; solution read only at solver.js:252,255 (admin page)"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml not in diff; new tests use existing pytest-playwright fixtures"
+    - "ADR-0038/R8 ✓ holds — new tests use browser_page fixture which pytest.fail()s without Chromium (tests/test_puzzle_solver_page.py:439,453); run showed 0 skipped"
+    - "CON-021 ✓ holds — diff limited to admin static/template + tests (git diff main --name-only); no new route or player"
+    - "CON-015 ✓ holds — admin entry point/bind not in diff (git diff main --name-only)"
+    - "CON-016 ✓ holds — door code/app.py not in diff; player served by existing guarded route"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: diff touches only the admin player's client JS/CSS/template and its browser tests (git diff main --name-only); no web adapter, generation, solver, storage, book, layout or export code"
+mutation_check:
+  ran: true
+  restore_verified: "sha1 of all 7 files identical to pre-check; git diff main -- src tests sha1 2044b7b0 unchanged"
+  mutants:
+    - { id: M1, target: "isSolved treats EMPTY as filled", result: killed, by: "test_ac316_the_completing_click_shows_the_picture_name[some]" }
+    - { id: M2, target: "errorCount skips last row", result: killed, by: "TestSolverProgressModule::test_cases" }
+    - { id: M3, target: "pointerdown lock guard removed", result: killed, by: "test_ac318_click_drag_undo_redo_change_nothing" }
+    - { id: M4, target: "undo lock removed", result: killed, by: "test_undo_changes_nothing" }
+    - { id: M5, target: "redo lock removed", result: killed, by: "test_redo_changes_nothing" }
+    - { id: M6, target: "commit never closes confirm", result: killed, by: "test_ac320_thirty_marks_cleared_after_accepting" }
+    - { id: M7, target: "commit closes confirm only when the history changed", result: survived, by: null }
+    - { id: M8, target: "setBoard keeps the old undo stack", result: killed, by: "test_set_board_starts_a_new_history" }
+    - { id: M9, target: "setBoard stores the caller's object (no copyBoard)", result: killed, by: "test_set_board_refuses_a_value_that_is_not_a_board" }
+    - { id: M10, target: "reduced-motion media block never applies", result: killed, by: "test_ac319_solved_with_no_animation_or_transition" }
+root_causes: []
+findings:
+  - id: F-008
+    severity: medium
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 91
+    title: "Declared 'even one that changes nothing' confirm-close is not pinned by any test (mutant M7 survived)"
+    description: |
+      The PROGRESS header (solver.js:90-94) and the Worktree note [Fix cycle 1] declare that the
+      reset confirmation closes on every recorded stroke, undo or redo "(button or key — even one
+      that changes nothing)". The code does this (commit() at solver.js:337-341 closes
+      unconditionally), but no test exercises a no-op change: the four
+      test_a_board_change_while_asking_closes_the_confirmation cases (tests/test_puzzle_solver_progress.py:634-655)
+      all change the board. Mutant M7 (close only when next !== player.getHistory()) passed all
+      ResetAfterConfirm tests. A declared behaviour of new (fix-introduced) code with no test
+      demonstrating it — the owner's bar is that declarations state only what code+tests demonstrate.
+    suggestion: |
+      Add a _CHANGES case that changes nothing, e.g. "redo-key" (Shift+Control+Z with an empty redo
+      stack) or a locked undo from the solved state with the confirmation open, asserting the
+      confirmation closes and focus returns to Reset. Or drop the "even one that changes nothing"
+      clause from the header and Worktree note.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 424
+    title: "Success-frame comment says 'over its outer rules'; on top/left the table edge carries thin clue-box rules (and none at the corner cell)"
+    description: |
+      .player-board is the whole table incl. clue boxes; its top/left edges are the clue boxes'
+      thin --player-rule borders and the borderless .player-corner, so a 2px inset outline covers
+      the thin rule plus 1px of clue box there, and only on right/bottom the heavy frame rule.
+      Cosmetic wording; the render shows all four sides.
+    suggestion: "Reword to 'just inside the table's edge'."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+prior_findings:
+  F-001: resolved
+  F-002: resolved
+  F-003: resolved
+  F-004: resolved
+  F-005: resolved
+  F-006: skipped (optional; not re-raised)
+  F-007: out-of-scope (owner)

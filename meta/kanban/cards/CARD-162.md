@@ -1,6 +1,6 @@
 # CARD-162: The solver counts errors and celebrates a solved puzzle
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
+**Branch:** card/162-solver-errors-and-solved
 **Worktree:** —
 **Source:** owner design doc "Nonograms - Print layout" (Google Doc 1pJKF2qX6mC9qw4Cf9Nv3hblTDmtoHwP5Tb8wzK1_WqM), section "Online solver"
 **Idea:** —
 **Wave:** 31
 **Depends on:** CARD-161
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_progress.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 3/3)
+**Started:** 2026-10-03T13:31:15Z
+**Closed:** 2026-10-03T16:12:45Z
+**Actual:** 0.3d
+**Merge commit:** 4b5ed9d
 **Blocked by:** —
 
 ## What to implement
@@ -89,7 +89,7 @@ _Verbatim from FR-044._
 
 ## System contract
 
-_Assembled 2026-10-03 by `system_rules.py --card CARD-162` (52 rules). A projection — fix the source artifact, never this list._
+_Assembled 2026-10-03 by `system_rules.py --card CARD-162` (52 rules; refreshed 2026-10-03 at start: 53). A projection — fix the source artifact, never this list._
 
 - ADR-0006/R1 — The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-party package joins the installed dependencies without revising this ADR. Non-executable… (check: test: TestDependencyBaseline_IsExactlyPillowAndNumpy)
 - ADR-0019/R1 — The web UI adapter (src/nonogram/web/) contains HTTP concerns only — routing, form rendering, request parsing, and mapping onto orchestrator.GenerationRequest — and… (check: test: test_every_import_in_the_package_points_inward)
@@ -120,6 +120,7 @@ _Assembled 2026-10-03 by `system_rules.py --card CARD-162` (52 rules). A project
 - ADR-0038/R2 — Marking, undo, redo, the error count and the solved check run entirely in the browser. A loaded player page issues no network request per mark. (check: test: TestSolverMarking_NoRequestPerMark)
 - ADR-0038/R3 — The player page's clues are embedded as JSON from compute_clues of the stored grid (the one encoder). The client never re-derives clues from the solution. (check: test: TestSolverPage_ShowsTheClues)
 - ADR-0038/R4 — The player's state logic (board, strokes, undo/redo history, error count, solved predicate) lives in a pure module with no DOM access, separate from rendering. (check: review-lens)
+- ADR-0038/R5 — pyproject.toml package-data for nonogram.admin includes static/*.js alongside templates/*.html and static/*.css, so the player's script ships in every built wheel. (check: review-lens)
 - ADR-0038/R6 — Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution grid to the browser. A public or reader-facing player must not send the… (check: review-lens)
 - ADR-0038/R7 — Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in pyproject.toml. It is never added to project.dependencies or to the admin extra. (check: review-lens)
 - ADR-0038/R8 — When Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible in the run summary. They never pass silently. CI installs Chromium… (check: review-lens)
@@ -161,3 +162,90 @@ _Assembled 2026-10-03 by `system_rules.py --card CARD-162` (52 rules). A project
 
 - [Origin] Cut 2026-10-03 from the owner's design doc at the owner's request.
 - [Architect delta] 2026-10-03 — unblocked: CON-002 superseded by CON-021; FR-044 (US-028, CAP-007) and ADR-0038 (resolving DEC-040/041) now exist; acceptance criteria re-cut verbatim from FR-044 and the system contract assembled. Owner answers folded in: a click always cycles, tools govern drags; the error count is the live number of wrong marks.
+- [Env] forge 2026.8.17
+- [System contract] section stale — refreshed from the model: +ADR-0038/R5 / −none
+- [Implementation 2026-10-03] Built: live error counter in the toolbar row (`Errors: N`, role=status), solved state (banner "Solved: <picture name>" in place of the tools, success frame on the board, short diagonal success-flash animation over the filled cells plus banner settle-in, board locked), reduced-motion reveal (same banner/frame, no animation or transition anywhere in the player), Reset behind an in-page confirmation (role=alertdialog, "Clear board" / "Keep marks", Escape cancels, focus moved in to "Keep marks" and back to Reset; never window.confirm). Hints not built (G-2); nothing persisted, no request, no storage (G-3, ADR-0038/R2).
+- STRUCTURE: pure logic in solver_state.js — `errorCount(board, solution)` (FILLED on solution-empty + EMPTY on solution-filled; UNKNOWN never) and `isSolved(board, solution)` ((cell === FILLED) === solution cell, for every cell; EMPTY marks optional). solution = the payload's [[bool]] grid, trusted in-page value like boards (no hostile-value defences claimed).
+- STRUCTURE: solver.js start() re-derives both from the RECORDED board (history.board) after every commit (stroke, undo, redo, reset) and setBoard; nothing accumulates, so the count is live. A drag preview is not counted until recorded. wireMarking still never reads payload.solution — it asks `player.locked()`. Header comment of solver.js updated (it previously said nothing reads payload.solution).
+- STRUCTURE: the lock is a function of the current board (locked iff isSolved), not a separate flag. Locked: pointerdown ignored (no click, no drag, no preview), undo/redo buttons and Ctrl/Cmd+Z / Shift+Ctrl/Cmd+Z return the history unchanged, Undo/Redo show aria-disabled. Reset stays active. setBoard to a solved board locks; to an unsolved one unlocks.
+- DECISION (reset from solved): reset stays ONE undoable step (record(history, resetStroke(...)), as in CARD-161), also from the solved state. Undoing it brings the solved board back and, because the lock is derived from the board, the lock with it; the reset then sits on the redo stack but redo is locked, so only Reset leaves the solved state again. Tested: TestSolverProgress_LockedUntilReset::test_redo_changes_nothing, TestSolverProgress_ResetAfterConfirm::test_the_reset_from_solved_is_one_undoable_step.
+- Picture name: the template's existing `title` (route data: puzzle_name or source_image or short id) rendered into the hidden banner; app.py NOT changed, payload keys unchanged.
+- A11y: error counter is a role=status region (text rewritten only when the number changes); the solved text goes into an always-present visually hidden live region #puzzle-player-announce (cleared when unsolved), since a region that only appears is not reliably read. Confirm keyboard-operable (tested Enter/Space/Shift+Tab/Escape).
+- SCOPE+ src/nonogram/admin/static/solver_state.js — ADR-0038/R4 puts the error count and solved predicate in the pure module. Strictly additive: one appended section + two header lines; no existing code touched.
+- SCOPE+ tests/test_puzzle_solver_marking.py — CARD-161 tests pinned behaviour this card changes by design: (a) 5 reset tests now accept the in-page confirmation ("Clear board" / Shift+Tab + key) before asserting the cleared board; the Reset single-key AC-310 case now asserts the press opens the confirmation with focus on "Keep marks", then one more press of the same key clears; (b) TestSolverMarking_RevealsNoCorrectness (G-2 of CARD-161) narrowed: marking all but the LAST solution cell still changes nothing but cell states (renamed test_marking_all_but_the_last_solution_cell_changes_nothing_but_cell_states); test_the_marking_code_reads_no_solution now checks wireMarking + the stroke/history section of solver_state.js only. 65/65 green.
+- TESTS: tests/test_puzzle_solver_progress.py — 36 tests, all green (real Chromium): TestSolverProgress_LiveErrorCount 8 (AC-312..315 + corrections/undo/redo, live region, setBoard), TestSolverProgress_SolvedWhenBlacksMatch 8 (AC-316 whites none/some/all + completing drag, AC-317 stray black, missing black with 0 errors, board does not move, setBoard), TestSolverProgress_LockedUntilReset 6 (AC-318 combined + click / drag incl. no preview / undo / redo-after-undone-reset / reset available), TestSolverProgress_ReducedMotion 2 (AC-319: getAnimations()==0, animation-name none and transition-duration 0 on every player element; control: without reduced motion every filled cell and the banner animate, all finished < 2 s), TestSolverProgress_ResetAfterConfirm 7 (AC-320 30 marks + solved, AC-321 cancel; page.on("dialog") never fires; Escape; keyboard; disabled Reset opens nothing; reset-from-solved undo), TestSolverProgress_StaysInThePage 1 (no request, no local/sessionStorage, console clean through solve + reset flows), TestSolverProgressModule 1 (12 hand cases), test_PropertyTest_SolverProgress_SolvedMatchesTheSolution (EC-036), test_PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition (EC-037), test_PropertyTest_SolverProgress_PageShowsWhatTheDefinitionSays (40 boards through setBoard, DOM vs oracle). AC-315 uses GRID_120: 20x10 tight rows, exactly 120 filled (asserted from the payload).
+- EC corpus: random.Random(36); shapes 10x10, 15x10, 10x25, 30x30; 300 boards per shape over 6 solutions (4 random densities + all-empty + all-filled); kinds random / solved / near-miss (one wrong or missing cell) / missing (1-5 blacks undecided, no error) / noisy. In-test minima per shape: >= 200 boards, >= 50 solved and >= 150 unsolved, >= 50 near misses, >= 20 unsolved-with-zero-errors, >= 100 with errors, >= 20 with exactly one error, >= 100 with undecided solution-filled cells. Oracle: explicit Python cell-by-cell loops (_errors_of, _solved_of), never the JS. One page.evaluate per shape.
+- Neighbours green: tests/test_puzzle_solver_page.py (58), tests/test_puzzle_solver_marking.py (65), tests/test_admin_design_tokens.py — 169 passed with the progress file.
+- MUTANT M1 errorCount counts UNKNOWN on a solution-filled cell → caught by TestSolverProgress_LiveErrorCount (14 tests incl. test_ac315…, EC-037)
+- MUTANT M2 errorCount drops the EMPTY-where-filled term → caught by test_ac313_a_white_drag_over_a_solution_filled_cell_reads_one (+6, EC-037)
+- MUTANT M3 errorCount drops the FILLED-where-empty term → caught by test_ac312_marking_a_solution_empty_cell_filled_reads_one (+9, EC-037)
+- MUTANT M4 isSolved ignores stray fills → caught by test_ac317_a_stray_black_on_a_solution_empty_cell_is_not_solved (+EC-036, page property)
+- MUTANT M5 isSolved requires white marks → caught by test_ac316_the_completing_click_shows_the_picture_name[none|some] (+8, EC-036)
+- MUTANT M6 error count never goes down (running maximum in the DOM) → caught by test_ac314_undoing_the_wrong_stroke_reads_zero (+5)
+- MUTANT M7 pointer input not locked → caught by TestSolverProgress_LockedUntilReset test_ac318…, test_a_click_changes_nothing, test_a_drag_changes_nothing_not_even_as_a_preview (+1)
+- MUTANT M8 undo not locked → caught by TestSolverProgress_LockedUntilReset::test_undo_changes_nothing
+- MUTANT M9 redo not locked → caught by TestSolverProgress_LockedUntilReset::test_redo_changes_nothing
+- MUTANT M10 keyboard shortcuts bypass the lock → caught by test_ac318_click_drag_undo_redo_change_nothing, test_undo_changes_nothing
+- MUTANT M11 reset skips the confirmation → caught by TestSolverProgress_ResetAfterConfirm (8 tests incl. test_ac321_cancelling_keeps_all_thirty_marks)
+- MUTANT M12 reset asks window.confirm → caught by TestSolverProgress_ResetAfterConfirm (8 tests; dialog list non-empty / marks kept)
+- MUTANT M13 accept bypasses record (fresh history) → caught by test_the_reset_from_solved_is_one_undoable_step, test_redo_changes_nothing (+1)
+- MUTANT M14 Escape does not cancel → caught by test_escape_cancels_and_focus_returns_to_reset
+- MUTANT M15 focus not moved into the confirmation → caught by test_escape_cancels_and_focus_returns_to_reset, test_the_confirmation_is_keyboard_operable
+- MUTANT M16 focus not returned to Reset → caught by the same two tests
+- MUTANT M17 setBoard does not re-derive progress → caught by test_set_board_rederives_the_count, test_set_board_to_a_solved_board_shows_it…, page property test
+- MUTANT M18 solved not announced (live region left empty) → caught by test_ac316_the_completing_click_shows_the_picture_name[*]
+- MUTANT M19 tools stay visible when solved → caught by test_the_banner_takes_the_tools_place_and_the_board_does_not_move
+- MUTANT M20 undo/redo not aria-disabled while locked → caught by test_ac318…, test_redo_changes_nothing
+- MUTANT M21 a disabled Reset still opens the confirmation → caught by test_a_disabled_reset_opens_no_confirmation
+- MUTANT M22 reduced motion still animates (media query disabled) → caught by TestSolverProgress_ReducedMotion::test_ac319_solved_with_no_animation_or_transition
+- MUTANT M23 no solved board animation at all → first SURVIVED (the control only counted page animations; the banner's still ran); control test strengthened to require every filled cell and the banner to animate → now caught by test_without_reduced_motion_the_solve_is_animated
+- MUTANT M24 reduced motion keeps transitions → caught by test_ac319_solved_with_no_animation_or_transition
+- MUTANT M25 progress not re-derived after a commit → caught by 23 tests
+- DESIGN-REGISTER ErrorCounter — new: "Errors: N" at the end of the player toolbar row (margin-left auto; wraps under the history controls on a phone); label --text-sm --color-text-secondary, number --font-num tabular --text-base --color-text; role=status, aria-atomic; states: default only (0 is shown, not hidden) — admin.css:.player-errors, .player-errors-count
+- DESIGN-REGISTER SolvedBanner — new: check icon (--color-success) + "Solved: <strong>picture name</strong>", --color-success-tint ground, 1px --color-success border with 3px left rule, --radius-control, min-height --control-h; shown only while the board is solved, in place of the ToolPicker (the board does not move); settles in over --duration-base --ease; text mirrored into a visually hidden live region — admin.css:.player-solved, .player-announce
+- DESIGN-REGISTER SolverBoard (new state "solved") — 2px --color-success outline at --space-1 offset while solved; on the transition into solved the filled cells flash --color-success in a diagonal sweep (delay (row+col)·12ms, 2×--duration-base each, ~1 s total) ending in ink; cells locked (no input) — admin.css:.player-board.is-solved
+- DESIGN-REGISTER SolverBoard (reduced-motion solved state) — prefers-reduced-motion: reduce → same banner, name and success outline, no animation or transition on any player element — admin.css:@media (prefers-reduced-motion: reduce)
+- DESIGN-REGISTER ResetConfirm — new: in-page popover under the history controls (left-anchored, overlays the board, no layout shift), --color-surface, --color-border-strong border, --radius-container, --shadow-modal, max 22rem; title (600) "Clear the board?", secondary --text-sm line, actions "Clear board" (btn-danger) + "Keep marks" (quiet); role=alertdialog labelled/described; Reset carries aria-haspopup=dialog + aria-expanded; focus to "Keep marks" on open, back to Reset on close; Escape = Keep marks — admin.css:.player-confirm
+- DESIGN-REGISTER HistoryControls (new state) — Undo/Redo aria-disabled while the board is solved (locked); Reset opens ResetConfirm instead of acting at once — templates/puzzle_solve.html:[data-player-action]
+- RENDERS: ~/Documents/nonogram-reviews/CARD-162/ (script card162_render.py; Duck 15×15 through the real image pipeline, real mouse strokes; console clean at 1440 and 390, both motion settings; 0 running animations under reduced motion): errors-mid-solve-1440.png, errors-mid-solve-390.png (3 errors), reset-confirm-1440.png, reset-confirm-390.png, solved-animating-1440.png, solved-animating-390.png (mid-sweep frame), solved-1440.png, solved-390.png, solved-reduced-motion-1440.png, solved-reduced-motion-390.png. The 390 render first showed the confirm clipped off the left edge → anchored left; re-rendered.
+- CONCERN (not changed, outside this card): the page header already reads "Puzzle <title>" (CARD-160), so the picture name the solved state "reveals" is visible before solving whenever the puzzle has a name. Owner call whether the header should hide it until solved.
+- [Scope] src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_progress.py
+- [Scope gate] ⚠ grown: +0 components · 2 files outside Touches (src/nonogram/admin/static/solver_state.js — additive, ADR-0038/R4; tests/test_puzzle_solver_marking.py — CARD-161 tests pinned the unconfirmed reset), both declared SCOPE+
+- [Build gate] PASSED (full, 521s) — 6021 passed, 9 skipped, 2 failed = exactly the main-branch baseline (test_size_configuration_applied, test_batch_creation_form_renders); run with PYTHONPATH=<worktree>/src (bare interpreter resolves nonogram to the main repo)
+- [Review 1/3] Score: 8.4 — crit: 0, imp: 1 (F-001, pending adversarial verification)
+- [Review sync] 1 report(s) → meta/review/
+- [Adversarial] F-001 CONFIRMED — setBoard (solver.js:277-290) re-derives progress without the lock, so it unlocks a solved board; header solver.js:79-82 says only reset can
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Fix cycle 1 2026-10-03] F-001: solver.js PROGRESS header no longer says only reset can unlock a solved board — once locked, reset or the setBoard seam (which replaces the board) unlocks it; "Only reset acts" now reads "Of the player's controls only reset acts".
+- [Fix cycle 1] F-003 CHANGES the reset confirmation's lifecycle: it now also closes (as "Keep marks": aria-expanded=false, focus back to Reset) on every recorded stroke, undo or redo (button or key, even one that changes nothing) and setBoard while it is open, after the change is recorded. setBoard now records through wireMarking's commit (returned as { refresh, commit }) instead of its own paint/showProgress/refresh sequence; the "Clear board" accept relies on commit to close it. Tests: TestSolverProgress_ResetAfterConfirm::test_a_board_change_while_asking_closes_the_confirmation[undo-key|undo-button|stroke|set-board], ::test_a_board_change_with_the_confirmation_closed_leaves_focus_alone.
+- [Fix cycle 1] F-004 CORRECTS the DESIGN-REGISTER SolverBoard "solved" line above: the success outline is now drawn just inside the board's edge (outline-offset = -rule-major, over the outer rules), not at --space-1 outside it — .player-stage's overflow-x:auto clipped the outside frame on top and left. Test: TestSolverProgress_SolvedWhenBlacksMatch::test_the_success_frame_is_not_clipped_by_the_stage. Re-rendered solved-1440/390 and solved-reduced-motion-1440/390 (and the rest of the set) into ~/Documents/nonogram-reviews/CARD-162/; all four sides of the frame show.
+- [Fix cycle 1] F-002 CORRECTS the SCOPE+ note above: test_the_marking_code_reads_no_solution checks everything in solver_state.js before "// Progress against the solution" (board section included), not only the stroke/history section.
+- [Fix cycle 1] F-005 ADDS to the EC corpus minima above: >= 100 boards per shape with an undecided solution-empty cell (alongside the solution-filled one).
+- [Fix cycle 1] F-006 skipped (literals 12ms / 22rem / 2ch / 3px left as is: one-off values; 3px has precedent in .side a).
+- [Fix cycle 1] MUTANTS: commit no longer closes the confirm → killed (board_change[undo-key]); closes unconditionally → killed (leaves_focus_alone); setBoard back on its own path → killed (board_change[set-board]); frame offset back to --space-1 → killed (success_frame); corpus never leaves solution-empty cells undecided → killed (EC-037 property); a "solution" read in solver_state.js's board section → killed (reads_no_solution).
+- [Fix 1] pre-gate: 9/9 named tests passed (F-001 n/a doc-only, F-002..F-005 named tests); F-006 SKIPPED (optional token nit); declarations: 5 updated (solver.js header ×2, test docstring, admin.css comment, EC corpus note), 0 confirmed, 0 none
+- [Build gate] PASSED (full, 505s) — 6027 passed, 9 skipped, 2 failed = main baseline
+- [Review 2/3] Score: 8.8 — crit: 0, imp: 1 (F-008, pending adversarial verification); cycle-1 F-001..F-005 ✓ resolved; 8f mutation ran: 9 killed / 1 survived (M7 → F-008)
+- [Review sync] 2 report(s) → meta/review/
+- [Adversarial] F-008 CONFIRMED — header solver.js:90-93 promises the confirm closes even on a no-op undo/redo; _CHANGES (tests/test_puzzle_solver_progress.py:634-656) holds only board-changing cases; mutant "close only when history changed" passes all 107 progress+marking tests
+- [Severity gate 2/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Review 2/3] family regression streak 1 (F-008 attributed to the F-003 fix; first occurrence) — below the escalation threshold of 2
+- [Review 2/3] ⚠ improvement stalled — Δscore: 0.4, Δcrit+imp: 0
+- [Escalated] 2026-10-03T15:18:37Z — review stalled at 8.8 (Δscore 0.4 < min_improvement 0.5, Δcrit+imp 0); the one gating finding F-008 is a fix-introduced header claim (reset confirm closes 'even on a change that does nothing') with no test — killed mutant M7 survived. Changes NOT committed beyond implementation commit b72e7d7: fix-cycle-1 edits (F-001..F-005) are UNCOMMITTED in the worktree · station: implementation · route: manual fix (add a no-op redo/undo case to _CHANGES in TestSolverProgress_ResetAfterConfirm::test_a_board_change_while_asking_closes_the_confirmation asserting close + focus to Reset, OR drop the 'even one that changes nothing' clause from solver.js header and the [Fix cycle 1] note; optionally F-009 comment wording), then /kanban review CARD-162
+- [Unblocked] 2026-10-03 — owner chose: add the no-op test for F-008 + final review cycle (3/3) (dispatcher)
+- [F-007] owner decision → follow-up card (player header must hide the picture name until solved); not changed in CARD-162
+- [Fix cycle 2] F-008: the PROGRESS "reset" claim that the confirmation closes on a recorded step "even one that changes nothing" is now demonstrated: board_change[redo-key-noop] (Control+Shift+Z with an empty redo stack, confirm open) asserts it closes, aria-expanded="false", focus back on Reset, board unchanged. No production change. MUTANT M7 (close only when the history changed) → killed by board_change[redo-key-noop] only; solver.js restored byte-exact (sha1 e929be51 before/after).
+- [Fix cycle 2] F-009: admin.css comment reworded — the success frame sits "just inside the table's edge" (top/left edge is clue boxes / corner cell, not outer rules). Comment only.
+- [Fix 2] pre-gate: 5/5 passed incl. test_a_board_change_while_asking_closes_the_confirmation[redo-key-noop]; mutant M7 killed by it (solver.js sha1 e929be51… identical before/after); F-009 comment-only; declarations: 0 updated, 1 confirmed (solver.js header F-008 claim now tested), 1 comment (F-009)
+- [Build gate] PASSED (full, 548s) — 6028 passed, 9 skipped, 2 failed = main baseline (after commit e1b8837)
+- [Review 3/3] confirmation mode per owner/dispatcher direction (scope verdict still GROWN on the same two declared SCOPE+ files — no new excess since cycle 1; fix delta = tests/test_puzzle_solver_progress.py + admin.css comment)
+- [Review 3/3] Score: 9.5 — crit: 0, imp: 0 (Minor F-010 open; F-008/F-009 ✓ resolved, re-derived)
+- [Review 3/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Review 3/3] 8f mutation check ran (certification on the passing cycle): 10/11 killed; M11 (undo/redo button skips commit while aria-disabled) survived → Minor F-010
+- [Review sync] 3 report(s) → meta/review/
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0038/R2, ADR-0038/R8, ADR-0038/R1); R8 precision: the missing-Chromium fail is tests/test_puzzle_solver_page.py:439 (browser_type override), :453 is the missing-plugin fail — substance holds
+- [AC/EC/G check] All criteria/constraints ✓ (evidence): AC-312..AC-321 ✓ demonstrated (named TestSolverProgress_* tests PASSED on real Chromium, 108 passed marking+progress); EC-036 ✓ / EC-037 ✓ demonstrated (random.Random(36), 300 boards × 10x10/15x10/10x25/30x30, >=200 asserted, independent Python oracles _solved_of/_errors_of); G-1 ✓ (no manifest change, only relative import), G-2 ✓ (no hint feature; only pre-existing #puzzle-player-hint), G-3 ✓ (no request/storage APIs; test_solve_and_reset_issue_no_request_store_nothing_and_log_nothing + TestSolverMarking_NoRequestPerMark PASSED, NoRequestPerMark only gained the confirm click)
+- [Docs] skipped — no per-directory READMEs under src/ (convention is an open owner decision, backlog); tests/README.md is the stale Wave-1 doc tracked in backlog
+- [Commit] success state = e1b8837 (fix delta committed before cycle 3 at the dispatcher's direction; no remaining non-meta changes, so no further commit). Branch: b72e7d7 + e1b8837
+- [Review 3/3] open: F-010 Minor (redo/undo BUTTON no-op close untested; M11 survived) · F-006 Minor dismissed · F-007 → owner decision, follow-up card CARD-163
+- [Merged] 2026-10-03 — 4b5ed9d into main (--no-ff). Merge gate: the branch's src/tests are exactly e1b8837, the tree that passed the cycle-3 full suite (6028 passed, only the 2 baseline failures); main had moved since 1513c3c by 27490ad only, which touches meta/ alone, so the code under test is unchanged — not re-run. Gate evidence is the `[AC/EC/G check] All criteria/constraints ✓` line (the newer spelling of the done gate's `[AC/EC check]`). Deferral scan: 0 hits. Trace: FR-044 already lists the card's tests. DESIGN-REGISTER applied at close-out (ErrorCounter, SolvedBanner, ResetConfirm, SolverBoard solved + reduced-motion states with the F-004 inside-edge correction, HistoryControls solved/confirm states). F-010 folded into CARD-163; F-007 → CARD-163. Note on the report's PYTHONPATH claim: verified 2026-10-03 that pytest run from a worktree imports the worktree's src/nonogram with or without PYTHONPATH=src (only a bare `python -c` resolves to the main repo's editable install).

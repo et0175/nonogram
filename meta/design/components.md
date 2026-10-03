@@ -215,6 +215,8 @@ Used by: the puzzle player (`puzzle_solve.html`, drawn by `static/solver.js`; CA
 - Sizing: cell side clamp(14px, fit, 28px) from the board size and clue depth; fits 1440×900 at 30×30; below the floor it scrolls inside `.player-stage`, and the page never scrolls sideways (1366×768 scroll for deep-clue 30×30 is owner-accepted for the admin POC).
 - Tokens: --grid-paper, --grid-ink, --color-surface, --color-text-secondary, --border-width, --font-num, --topbar-h, --space-*. Candidate tokens still local custom properties in admin.css (CARD-160 F-004): --player-cell-min 14px, --player-cell-max 28px, thin rule = color-mix(--grid-ink 28%, --grid-paper).
 - Interactive states (CARD-161): cells are interactive (cursor: pointer, touch-action none, no text selection); a drag in progress shows a live preview (cells take the tool's state as the pointer passes, recorded on release). No hover tint (it would hide the state while the pointer rests on a cell). Error and solved states arrive with CARD-162.
+- Solved state (CARD-162): a 2px --color-success outline drawn just inside the table's edge (outline-offset = minus the major rule width — outside, the stage clipped it), a ~1s diagonal success sweep over the filled cells, and the board locked (`.player-board.is-solved`).
+- Reduced-motion solved state: under prefers-reduced-motion the same banner, name and outline appear with no animation or transition.
 
 ## ClueBox
 
@@ -233,3 +235,16 @@ Used by: the puzzle player (CARD-161, FR-044). `div.player-tools[role=group][ari
 Used by: the puzzle player (CARD-161). `div.player-history[role=group][aria-label="History"]` with Undo, Redo (the undo icon mirrored via `.player-mirror` — a real redo icon in _icons.html is a candidate) and Reset (refresh icon), quiet buttons with text labels; Undo/Redo carry aria-keyshortcuts.
 - States: default · hover · focus-visible · disabled = aria-disabled="true" (55% opacity, not-allowed cursor, still focusable; pressing it changes nothing).
 - Layout: ToolPicker and HistoryControls share one `.player-toolbar` row above the board (wraps to two rows at 390 px); a usage hint (`.player-hint`, --text-sm, secondary) sits below the board.
+- Solved / confirm states (CARD-162): Undo and Redo are aria-disabled while the board is solved; Reset opens ResetConfirm, and a reset stays one undoable step (undo brings the solved board and its lock back).
+
+## ErrorCounter
+
+Used by: the puzzle player (CARD-162, FR-044). "Errors: N" at the end of the player toolbar row (`.player-errors`, `.player-errors-count`), role=status. N is the live number of wrong marks — filled where the solution is empty plus empty where it is filled; undecided never counts; it falls when a mistake is undone or corrected.
+
+## SolvedBanner
+
+Used by: the puzzle player (CARD-162). A check icon (--color-success) and "Solved: <picture name>" on the success tint, shown in place of the ToolPicker so the board does not move; mirrored into a visually hidden live region (`.player-solved`, `.player-announce`). The only place the player shows the picture name (FR-044 AC-316, AC-322).
+
+## ResetConfirm
+
+Used by: the puzzle player (CARD-162). An in-page alertdialog popover under the history controls: "Clear the board?" with "Clear board" / "Keep marks"; focus goes to "Keep marks", Escape cancels, and it also closes on any recorded stroke, undo, redo or setBoard while open (`.player-confirm`). Never a browser confirm() dialog.

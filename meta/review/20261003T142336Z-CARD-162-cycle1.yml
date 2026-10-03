@@ -1,0 +1,202 @@
+version: 1
+generated_at: "2026-10-03T14:23:36Z"
+target: "card/162-solver-errors-and-solved (git diff main...HEAD, b72e7d7)"
+overall_score: 8.4
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/static/solver.js
+    - src/nonogram/admin/static/solver_state.js
+    - src/nonogram/admin/static/admin.css (player section)
+    - src/nonogram/admin/templates/puzzle_solve.html
+    - tests/test_puzzle_solver_progress.py
+    - tests/test_puzzle_solver_marking.py (diff + helpers)
+    - meta/kanban/cards/CARD-162.md
+    - ~/Documents/nonogram-reviews/CARD-162/reset-confirm-390.png, solved-1440.png (implementer-produced)
+  not_reached:
+    - rendered result not verified by the review (review.visual off; only implementer renders seen)
+    - full suite not run by reviewer (orchestrator ran it)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1067, removed: 35 }
+  max_fan_in: { symbol: "solver_state.errorCount / isSolved", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — new exports; the one production caller is solver.js start() added in this diff (plus test-tree page.evaluate imports)"
+system_contract:
+  rules_checked: 53
+  holds: 12
+  unchecked: 41
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml not in diff; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed green on worktree head (PYTHONPATH=src, -k dependency: 2 passed)"
+    - "ADR-0038/R1 ✓ holds — solver.js:100-103 only import is ./solver_state.js; no package.json/build config in diff (git diff main...HEAD --name-only)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark and TestSolverProgress_StaysInThePage (requests == [] through solve + reset) green, 163 passed in the three solver files"
+    - "ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues green; errorCount/isSolved (solver_state.js:297,312) compare cells only, no clue derivation added"
+    - "ADR-0038/R4 ✓ holds — errorCount/isSolved live in solver_state.js:297-319; grep -nE 'document|window|fetch|import ' on solver_state.js code lines: no hits"
+    - "ADR-0038/R5 ✓ holds — pyproject.toml:80 \"nonogram.admin\" = [templates/*.html, static/*.css, static/*.js]; diff adds no new static file type"
+    - "ADR-0038/R6 ✓ holds — app.py/routes not in diff; payload keys unchanged; solution consumed only in the admin page's solver.js:246,249"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml not in diff; new tests use pytest-playwright fixtures only"
+    - "ADR-0038/R8 ✓ holds — new tests use CARD-160 browser_page fixture which pytest.fail()s when Chromium is missing (tests/test_puzzle_solver_page.py:439,453); ReducedMotion tests use pytest-playwright `browser`, which errors on launch failure"
+    - "CON-021 ✓ holds — no route or player outside the admin panel added (diff limited to admin static/templates + tests)"
+    - "CON-015 ✓ holds — admin entry point/bind not in diff (git diff main...HEAD --name-only)"
+    - "CON-016 ✓ holds — door code not in diff; player page still served by the existing guarded route (no app.py change)"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: diff touches only the admin player's client JS/CSS/template and its browser tests; no web adapter, generation, solver, storage, book, layout or export code"
+root_causes:
+  - id: RC-1
+    title: "Declarations drift from the code's actual unlock paths / corpus guarantees"
+    finding_ids: [F-001, F-005]
+findings:
+  - id: F-001
+    severity: medium
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 81
+    title: "Header overclaims the lock: '(only reset can, once locked)' unlock the board, but setBoard also does"
+    description: |
+      The PROGRESS header (solver.js:80-82) says "whatever makes it unsolved (only reset can,
+      once locked) unlocks it". setBoard (solver.js:278-290) replaces the board and calls
+      showProgress() with no lock check, so setBoard to an unsolved board unlocks a solved one.
+      The card's own test test_set_board_to_a_solved_board_shows_it_and_to_another_hides_it
+      (tests/test_puzzle_solver_progress.py) and the Worktree note "setBoard ... to an unsolved
+      one unlocks" both demonstrate the contrary. A declaration claiming a stronger lock than the
+      code has — same class as CARD-161's gating stale header.
+    suggestion: |
+      Reword to "(once locked, only reset — or the setBoard seam, which replaces the board — can)"
+      or drop the parenthetical.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_marking.py
+    line: 889
+    title: "reads-no-solution guard narrowed more than needed: board section of solver_state.js (lines 1-131) no longer checked"
+    description: |
+      CARD-161 asserted 'solution' appears nowhere in solver_state.js code. The edit slices only
+      '// Strokes and history' .. '// Progress against the solution', dropping createBoard/isBoard/
+      copyBoard/withCell (lines 1-131) from the guard. Only the Progress section needed excluding.
+    suggestion: |
+      strokes = text[:text.index("// Progress against the solution")]
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 390
+    title: "Reset confirmation stays open while the board changes under it"
+    description: |
+      With the alertdialog open, Ctrl/Cmd+Z (document keydown), board strokes and setBoard all still
+      act; the confirm is not closed or re-validated. E.g. undo to a blank board leaves "Clear the
+      board?" open beside a now aria-disabled Reset (accept is then a harmless no-op).
+    suggestion: |
+      Close the confirmation in commit()/setBoard, or ignore board input while it is open.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 424
+    title: "Solved success outline clipped on top/left by .player-stage overflow-x:auto"
+    description: |
+      .player-board.is-solved draws an outline at --space-1 offset, but .player-stage has
+      overflow-x:auto (admin.css:360), which clips it; the implementer's solved-1440.png shows the
+      green frame on the right and bottom edges only. Not verified by this review's own render.
+    suggestion: |
+      Use outline-offset 0/negative, a box-shadow inset, or padding on .player-stage equal to the offset.
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_progress.py
+    line: 806
+    title: "EC-037 corpus comment claims undecided cells on both kinds of solution cell; assertion checks solution-filled only"
+    description: |
+      The comment says "undecided cells on both kinds of solution cell"; the minimum asserted is
+      only boards with an undecided solution-filled cell (`if s`).
+    suggestion: |
+      Add the solution-empty-undecided minimum or correct the comment.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 438
+    title: "Ad-hoc literals outside tokens: 12ms sweep step, 22rem confirm width, 3px left rule"
+    description: |
+      12ms (per-cell delay), 22rem, 2ch and border-left-width:3px are literals; 3px has precedent
+      (.side a, admin.css:150). Token-discipline nit.
+    suggestion: |
+      Promote to player custom properties next to --player-cell-* or reuse existing tokens.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Optional token nit: one-off literals (12ms sweep step, 22rem confirm width, 2ch counter width); 3px left rule has precedent (.side a). Promoting them needs a new shared player scope across toolbar and stage — churn beyond the finding."
+    learned_pattern: null
+  - id: F-007
+    severity: info
+    category: feature
+    type: question
+    file: src/nonogram/admin/templates/puzzle_solve.html
+    line: 40
+    title: "Out-of-scope: header shows the picture title before solving (CARD-160)"
+    description: |
+      The solved-state 'reveal' is already visible in the h1 'Puzzle <title>'. Owner call, outside this card.
+    suggestion: |
+      Follow-up card if the owner wants the name hidden until solved.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

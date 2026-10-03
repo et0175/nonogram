@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 31
 **Depends on:** CARD-162
-**Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/app.py, tests/test_puzzle_solver_page.py
+**Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/app.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_progress.py, src/nonogram/admin/static/solver.js
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -41,6 +41,13 @@ on a puzzle page (ADR-0037/R1).
    player). The requirement is about what the page **shows**.
 4. Update the CARD-160 tests that assert the old "Puzzle <title>" header.
    Update them for the new behaviour; don't weaken them.
+5. **Ride-along, CARD-162 F-010 (Minor):** the solver.js header says the reset
+   confirmation closes on an undo or redo "button or key — even one that
+   changes nothing", but only the key no-op is tested, so mutant M11 survives.
+   Add a `redo-button-noop` case to `_CHANGES` in
+   `TestSolverProgress_ResetAfterConfirm::test_a_board_change_while_asking_closes_the_confirmation`
+   (tests/test_puzzle_solver_progress.py) and show it kills M11. Test-only;
+   no behaviour change.
 
 ## Acceptance criteria
 
@@ -133,3 +140,4 @@ _Assembled 2026-10-03 by `system_rules.py --card CARD-163` (53 rules). A project
 ## Worktree notes
 
 - [Origin] Cut 2026-10-03 at the owner's decision on CARD-162 F-007 ("hide it until solved"). Runs after CARD-162 because both edit the player page.
+- [Scope] 2026-10-03 — CARD-162 F-010 folded in at the dispatcher (one test case, same file area); Touches gains tests/test_puzzle_solver_progress.py and solver.js (header comment only, if the wording needs it).
