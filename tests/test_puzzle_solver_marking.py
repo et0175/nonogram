@@ -879,15 +879,17 @@ class TestSolverMarking_RevealsNoCorrectness:
         assert browser_page.evaluate(_STRIPPED) == before
 
     def test_the_marking_code_reads_no_solution(self) -> None:
-        """The input code and the stroke/history functions never read the
-        solution; only CARD-162's progress code does (solver.js start(),
-        solver_state.js errorCount / isSolved)."""
+        """The input code and everything in solver_state.js before its
+        Progress section (the board and the stroke/history functions) never
+        read the solution; only CARD-162's progress code does (solver.js
+        start(), solver_state.js errorCount / isSolved)."""
         code = re.sub(r"//[^\n]*", "", (_STATIC / "solver.js").read_text(encoding="utf-8"))
         marking = code[code.index("function wireMarking"):]
         assert "solution" not in marking
         text = (_STATIC / "solver_state.js").read_text(encoding="utf-8")
-        strokes = text[text.index("// Strokes and history"):text.index("// Progress against the solution")]
-        assert "solution" not in re.sub(r"//[^\n]*", "", strokes)
+        before_progress = text[:text.index("// Progress against the solution")]
+        assert "// Strokes and history" in before_progress
+        assert "solution" not in re.sub(r"//[^\n]*", "", before_progress)
 
 
 # ==========================================================================

@@ -421,7 +421,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-solved[hidden] { display: none; }
 .player-solved .icon { color: var(--color-success); }
 .player-solved-name { font-weight: 600; }
-.player-board.is-solved { outline: var(--player-rule-major) solid var(--color-success); outline-offset: var(--space-1); }
+/* The success frame is drawn just inside the table's edge: .player-stage
+   scrolls (overflow-x: auto) and would clip a frame drawn outside it on the
+   top and left. */
+.player-board.is-solved { outline: var(--player-rule-major) solid var(--color-success); outline-offset: calc(-1 * var(--player-rule-major)); }
 .player-history { position: relative; }
 .player-confirm { position: absolute; top: calc(100% + var(--space-2)); left: 0; z-index: 10; width: max-content; max-width: min(22rem, calc(100vw - 2 * var(--space-4))); padding: var(--space-3) var(--space-4); background: var(--color-surface); border: var(--border-width) solid var(--color-border-strong); border-radius: var(--radius-container); box-shadow: var(--shadow-modal); }
 .player-confirm[hidden] { display: none; }

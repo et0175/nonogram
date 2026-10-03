@@ -36,8 +36,9 @@
 //                      is painted, and the current board and DOM are kept;
 //                      an accepted board is copied (copyBoard) and the copy
 //                      is stored and painted; it also starts a new marking
-//                      history at that board (nothing to undo or redo), and
-//                      the error count and solved state are re-derived from it
+//                      history at that board (nothing to undo or redo), the
+//                      error count and solved state are re-derived from it,
+//                      and an open reset confirmation is closed (see "reset")
 // Boards are trusted in-page values (see solver_state.js).
 //
 // MARKING (CARD-161, FR-044 AC-303..AC-311). The strokes and the undo/redo
@@ -75,17 +76,22 @@
 //             short CSS animation on the transition into solved; none under
 //             prefers-reduced-motion, admin.css), and the board is LOCKED —
 //             pointer input, undo and redo (buttons and keys) change nothing;
-//             undo and redo say aria-disabled="true". Only reset acts.
-//             The lock is a function of the current board, not a separate
-//             flag: whatever makes the board solved (a stroke, an undo, a
-//             redo, setBoard) locks it, and whatever makes it unsolved (only
-//             reset can, once locked) unlocks it.
+//             undo and redo say aria-disabled="true". Of the player's
+//             controls only reset acts. The lock is a function of the
+//             current board, not a separate flag: whatever makes the board
+//             solved (a stroke, an undo, a redo, setBoard) locks it, and
+//             whatever makes it unsolved unlocks it — once locked, that is
+//             reset, or the setBoard seam, which replaces the board.
 //   reset     pressing Reset opens the in-page confirmation
 //             #puzzle-player-confirm (role=alertdialog; never window.confirm)
 //             and moves focus to its "Keep marks" button. "Clear board"
 //             records resetStroke through record — one undoable step, also
 //             from the solved state; "Keep marks" or Escape changes nothing.
-//             Either closes it and returns focus to Reset. Undoing a reset
+//             Any of these closes it and returns focus to Reset. So does
+//             every recorded stroke, undo or redo (button or key — even one
+//             that changes nothing) and setBoard while it is open: the board
+//             it asked about is gone, so it closes as "Keep marks" does,
+//             after that change is recorded. Undoing a reset
 //             made from the solved state brings the solved board back, and
 //             with it the lock (see "solved").
 //
@@ -282,11 +288,9 @@ function start() {
         throw new RangeError(
           `a ${next.width}x${next.height} board does not fit this ${payload.width}x${payload.height} puzzle`);
       }
-      board = copyBoard(next);
-      history = createHistory(board);
-      paint(cellElements, board);
-      showProgress();
-      marking.refresh();
+      // Recorded like any other change (paint, progress, controls, and the
+      // reset confirmation closed), as a fresh history.
+      marking.commit(createHistory(copyBoard(next)));
     },
   });
 }
@@ -305,13 +309,17 @@ function isAt(position, [row, col]) {
 // Attach pointer, tool, history and keyboard input to `table`. `player` gives
 // the current history (getHistory), says whether the board is locked (locked
 // — solved, see PROGRESS), paints a board without recording it (show — a
-// drag's preview) and records a new history (commit). Returns { refresh } to
-// re-sync the controls after the history or the lock changed elsewhere.
+// drag's preview) and records a new history (commit). Returns { refresh,
+// commit }: refresh re-syncs the controls after the lock changed elsewhere;
+// commit records a history from elsewhere (setBoard) exactly as an input does.
 function wireMarking(table, player) {
   const controls = document.getElementById("puzzle-player-controls");
   const tools = [...controls.querySelectorAll("[data-player-tool]")];
   const actions = Object.fromEntries(
     [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
+  // The reset confirmation (see PROGRESS "reset").
+  const confirm = document.getElementById("puzzle-player-confirm");
+  const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   let tool = FILLED;
   let gesture = null; // { pointerId, start, path, dragging, tool }
 
@@ -328,6 +336,7 @@ function wireMarking(table, player) {
 
   function commit(next) {
     player.commit(next);
+    if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
   }
 
@@ -387,8 +396,6 @@ function wireMarking(table, player) {
   }
 
   // Reset asks first, in the page (see PROGRESS "reset").
-  const confirm = document.getElementById("puzzle-player-confirm");
-  const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   function closeConfirm() {
     confirm.hidden = true;
     actions.reset.setAttribute("aria-expanded", "false");
@@ -400,9 +407,9 @@ function wireMarking(table, player) {
     actions.reset.setAttribute("aria-expanded", "true");
     keep.focus();
   });
+  // commit closes the confirmation (and returns focus to Reset).
   confirm.querySelector('[data-player-confirm="accept"]').addEventListener("click", () => {
     commit(record(player.getHistory(), resetStroke(player.getHistory().board)));
-    closeConfirm();
   });
   keep.addEventListener("click", closeConfirm);
   confirm.addEventListener("keydown", (event) => {
@@ -429,7 +436,7 @@ function wireMarking(table, player) {
   refresh();
   controls.hidden = false;
   document.getElementById("puzzle-player-hint").hidden = false;
-  return { refresh };
+  return { refresh, commit };
 }
 
 start();

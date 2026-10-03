@@ -349,6 +349,30 @@ class TestSolverProgress_SolvedWhenBlacksMatch:
         assert not browser_page.locator(".player-tools").is_visible()
         assert browser_page.locator(".player-board").bounding_box() == before
 
+    def test_the_success_frame_is_not_clipped_by_the_stage(self, browser_page, live) -> None:
+        """The frame's outer edge, on every side, lies inside .player-stage,
+        which scrolls and so clips whatever is drawn beyond its padding box."""
+        _open_named(browser_page, live)
+        _solve(browser_page)
+        sides = browser_page.evaluate("""() => {
+          const board = document.querySelector('.player-board');
+          const stage = board.closest('.player-stage');
+          const style = getComputedStyle(board);
+          const out = parseFloat(style.outlineOffset) + parseFloat(style.outlineWidth);
+          const b = board.getBoundingClientRect();
+          const s = stage.getBoundingClientRect();
+          const clip = { left: s.left + stage.clientLeft, top: s.top + stage.clientTop };
+          clip.right = clip.left + stage.clientWidth;
+          clip.bottom = clip.top + stage.clientHeight;
+          return {
+            width: parseFloat(style.outlineWidth),
+            left: b.left - out >= clip.left, top: b.top - out >= clip.top,
+            right: b.right + out <= clip.right, bottom: b.bottom + out <= clip.bottom,
+          };
+        }""")
+        assert sides == {"width": sides["width"], "left": True, "top": True, "right": True, "bottom": True}
+        assert sides["width"] > 0
+
     def test_set_board_to_a_solved_board_shows_it_and_to_another_hides_it(self, browser_page, live) -> None:
         _open_named(browser_page, live)
         _set(browser_page, _solution_cells(GRID, E))
@@ -605,6 +629,51 @@ class TestSolverProgress_ResetAfterConfirm:
         assert browser_page.evaluate(_FOCUSED) == "Reset"
         assert dialogs == []
 
+    # A change to the board while the confirmation is open closes it, as
+    # "Keep marks" does (focus back to Reset), after recording the change.
+    # "redo-key-noop" is a redo with an empty redo stack (the precondition
+    # click below drops it): the history does not change, and the
+    # confirmation still closes (PROGRESS "reset": "even one that changes
+    # nothing").
+    _CHANGES = {
+        "undo-key": lambda page: page.keyboard.press("Control+z"),
+        "undo-button": lambda page: _button(page, "Undo").click(),
+        "stroke": lambda page: _cell(page, SIDE - 1, SIDE - 1).click(),
+        "set-board": lambda page: _set(page, [U] * (SIDE * SIDE)),
+        "redo-key-noop": lambda page: page.keyboard.press("Control+Shift+z"),
+    }
+
+    @pytest.mark.parametrize("change", list(_CHANGES))
+    def test_a_board_change_while_asking_closes_the_confirmation(self, browser_page, live, change) -> None:
+        _open_named(browser_page, live)
+        _cell(browser_page, SIDE - 1, 0).click()
+        reset = _button(browser_page, "Reset")
+        reset.click()
+        assert browser_page.locator("#puzzle-player-confirm").is_visible()
+        before = _states(browser_page)
+
+        self._CHANGES[change](browser_page)
+
+        assert not browser_page.locator("#puzzle-player-confirm").is_visible()
+        assert reset.get_attribute("aria-expanded") == "false"
+        assert browser_page.evaluate(_FOCUSED) == "Reset"
+        if change == "redo-key-noop":
+            assert _states(browser_page) == before  # really a no-op
+            assert _is_disabled(browser_page, "Redo")
+            assert not _is_disabled(browser_page, "Reset")
+            return
+        expected = {(SIDE - 1, 0): F, (SIDE - 1, SIDE - 1): F} if change == "stroke" else {}
+        assert _marked(_states(browser_page)) == expected
+        assert _is_disabled(browser_page, "Reset") is (change != "stroke")
+
+    def test_a_board_change_with_the_confirmation_closed_leaves_focus_alone(self, browser_page, live) -> None:
+        _open_named(browser_page, live)
+        _cell(browser_page, SIDE - 1, 0).click()
+        _button(browser_page, "Undo").click()
+        assert browser_page.evaluate(_FOCUSED) == "Undo"
+        _cell(browser_page, SIDE - 1, 0).click()
+        assert browser_page.evaluate(_FOCUSED) == "Undo"
+
     def test_a_disabled_reset_opens_no_confirmation(self, browser_page, live) -> None:
         _open_named(browser_page, live)
         assert _is_disabled(browser_page, "Reset")
@@ -805,8 +874,11 @@ def test_PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition(browser_page
         assert sum(e == 1 for e in expected) >= 20, shape  # near misses with one wrong mark
         # Boards with undecided cells on both kinds of solution cell, so an
         # undecided cell counted as an error would show.
-        assert sum(any(c == U for c, s in zip(cells, (x for r in solutions[si] for x in r)) if s)
-                   for si, cells, _ in boards) >= 100, shape
+        def undecided_on(want, si, cells):
+            flat = (x for r in solutions[si] for x in r)
+            return any(c == U for c, s in zip(cells, flat) if s is want)
+        assert sum(undecided_on(True, si, cells) for si, cells, _ in boards) >= 100, shape
+        assert sum(undecided_on(False, si, cells) for si, cells, _ in boards) >= 100, shape
         for index, ((si, cells, kind), (count, _)) in enumerate(zip(boards, got)):
             assert count == expected[index], (shape, index, kind)
 
