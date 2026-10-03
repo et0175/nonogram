@@ -294,6 +294,7 @@ async function openPuzzleDetail(puzzleId) {
                 ${assign}
             </div>
             <div class="actions">
+                <a href="/puzzle/${escapeAttr(puzzle.id)}/solve" class="btn btn-sm btn-outline-primary">Solve</a>
                 <a href="/api/puzzle/${escapeAttr(puzzle.id)}/grid/download" class="btn btn-sm btn-outline-secondary" download>Download SVG</a>
                 <a href="/api/puzzle/${escapeAttr(puzzle.id)}/grid/download-pdf" class="btn btn-sm btn-outline-secondary" download>Download PDF</a>
                 <button type="button" class="btn btn-sm btn-outline-secondary ms-auto" onclick="closePuzzleDetail()">Close</button>

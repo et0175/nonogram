@@ -22,8 +22,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Development-only dependencies
-dev = ["pytest>=8.3"]
+# Development-only dependencies. pytest-playwright drives the admin panel's
+# puzzle player in a real Chromium (ADR-0038/R7): dev-only, never in
+# `dependencies` above nor in the `admin` extra. pip does not install the
+# browser itself — run `playwright install chromium` once per checkout and as
+# a CI step before the suite (ADR-0038/R8); without it the `browser`-marked
+# tests fail with that instruction rather than skipping green.
+dev = ["pytest>=8.3", "pytest-playwright>=0.7"]
 # Admin panel dependencies. ReportLab lives here, not in core dependencies
 # above: it is used only by admin/pdf_generator.py's book-PDF feature
 # (CARD-008), the same reason Flask/Werkzeug are extras rather than core -
@@ -68,12 +73,17 @@ where = ["src"]
 # glob that happens to catch it.
 [tool.setuptools.package-data]
 "nonogram.export" = ["fonts/*.ttf", "fonts/LICENSE"]
-# The admin panel's Jinja templates and stylesheet: the same rule as the font —
-# absent from every wheel unless named here.
-"nonogram.admin" = ["templates/*.html", "static/*.css"]
+# The admin panel's Jinja templates, stylesheets and scripts: the same rule as
+# the font — absent from every wheel unless named here. `static/*.js` is the
+# puzzle player's client (ADR-0038/R5); without it an editable install works
+# and a built wheel serves a player page with no script.
+"nonogram.admin" = ["templates/*.html", "static/*.css", "static/*.js"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["tests"]
 addopts = "-q"
 pythonpath = ["src"]
+markers = [
+  "browser: drives the admin panel in Chromium through pytest-playwright (needs `playwright install chromium`; ADR-0038/R8)",
+]

@@ -5279,6 +5279,58 @@ def create_app(debug=None):
         return _back_to_puzzles_list()
 
     # ----------------------------------------------------------------------
+    # CARD-160 — the puzzle player (TERM-037, FR-044), read-only
+    # ----------------------------------------------------------------------
+
+    @app.route("/puzzle/<puzzle_id>/solve")
+    def puzzle_solve(puzzle_id):
+        """The page a person solves a stored puzzle on (FR-044, ADR-0038).
+
+        Not the uniqueness solver (COMP-005): this only *reads* one puzzle and
+        hands it to ``static/solver.js``, which does everything else in the
+        browser. Nothing is written (G-3, CON-017).
+
+        The clues come from the stored grid through the one encoder
+        (``compute_clues``, ADR-0038/R3); the row's stored clue and size columns
+        are never read, so a stale row cannot show clues that disagree with its
+        own grid. The solution grid ships in the payload for CARD-162's error
+        count — allowed for the admin player only, behind the panel's door
+        (ADR-0038/R6, CON-021); a public player must not do this.
+        """
+        try:
+            puzzle = puzzle_review.get_puzzle(puzzle_id)
+        except ValueError:
+            # DB mode parses the id as a UUID; one that does not parse names
+            # no puzzle, which is a 404 like any other unknown id.
+            puzzle = None
+        if puzzle is None:
+            abort(404)
+
+        grid = PuzzleReviewService._as_readable_grid(puzzle.get("grid"))
+        if grid is None:
+            abort(500, description=f"Puzzle {puzzle_id} has no readable grid")
+
+        row_clues, column_clues = clues.compute_clues(grid)
+        tier = tier_of_record(puzzle.get("difficulty_tier"))
+        title = puzzle.get("puzzle_name") or puzzle.get("source_image") or str(puzzle["id"])[:8]
+        # The page's whole contract with solver.js; its shape is documented
+        # once, in solver.js's header.
+        payload = {
+            "id": str(puzzle["id"]),
+            "width": len(grid[0]),
+            "height": len(grid),
+            "rows": row_clues,
+            "columns": column_clues,
+            "solution": grid,
+        }
+        return render_template(
+            "puzzle_solve.html",
+            title=title,
+            tier_label=tier.value.upper() if tier else None,
+            payload=payload,
+        )
+
+    # ----------------------------------------------------------------------
     # CARD-077 — the re-grade batch, behind a confirmation page
     # ----------------------------------------------------------------------
 
