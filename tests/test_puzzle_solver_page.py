@@ -276,14 +276,15 @@ def test_PropertyTest_SolverPage_EmbeddedCluesAreTheGridsEncoding(monkeypatch) -
 
 
 class TestSolverPageHeader:
-    """Item 3 — "Puzzle <title>" and the tier, as the printed header reads."""
+    """Item 3 (CARD-160), as CARD-163 changed it: "Puzzle <width>x<height>" and
+    the tier — the picture name is the answer, so only the solved banner says it."""
 
-    def test_header_reads_puzzle_title_and_the_tier(self, panel) -> None:
+    def test_header_reads_puzzle_size_and_the_tier(self, panel) -> None:
         puzzle_id = _store(panel.puzzle_review_service, AC_GRID, tier="medium", name="Snowy owl")
 
         html = _page(panel, puzzle_id)
 
-        assert re.search(r"<h1>\s*Puzzle Snowy owl\s*</h1>", html)
+        assert re.search(r"<h1>\s*Puzzle 25x15\s*</h1>", html)
         assert re.search(r'<span class="player-tier"><span class="badge tier"[^>]*>MEDIUM</span>', html)
 
     def test_header_reads_a_display_label_tier_too(self, panel) -> None:
@@ -294,15 +295,123 @@ class TestSolverPageHeader:
     def test_header_without_a_tier_shows_no_chip(self, panel) -> None:
         puzzle_id = _store(panel.puzzle_review_service, AC_GRID, tier="")
 
-        assert "player-tier" not in _page(panel, puzzle_id)
+        html = _page(panel, puzzle_id)
 
-    def test_header_falls_back_to_source_then_id(self, panel) -> None:
+        assert "player-tier" not in html
+        assert _tab_title(html) == "Puzzle 25x15 - Nonogram admin"
+
+    def test_the_banner_falls_back_to_source_then_id_and_the_header_never_shows_either(self, panel) -> None:
         service = panel.puzzle_review_service
         from_source = _store(service, AC_GRID, source="heron.png")
         from_id = _store(service, AC_GRID, source=None)
 
-        assert re.search(r"<h1>\s*Puzzle heron.png\s*</h1>", _page(panel, from_source))
-        assert re.search(rf"<h1>\s*Puzzle {re.escape(from_id[:8])}\s*</h1>", _page(panel, from_id))
+        for puzzle_id, shown in ((from_source, "heron.png"), (from_id, from_id[:8])):
+            html = _page(panel, puzzle_id)
+            assert _banner_name(html) == shown
+            assert shown not in _header_text(html)
+            assert shown not in _tab_title(html)
+
+
+_HEADER = re.compile(r'<div class="page-head player-head">(.*?)</div>', re.S)
+_TITLE = re.compile(r"<title>(.*?)</title>", re.S)
+_BANNER_NAME = re.compile(r"<strong[^>]*data-player-solved-name[^>]*>(.*?)</strong>", re.S)
+
+
+def _text(fragment: str) -> str:
+    """What a reader sees of an HTML fragment: tags dropped, spaces collapsed."""
+    return " ".join(re.sub(r"<[^>]+>", " ", fragment).split())
+
+
+def _header_text(html: str) -> str:
+    match = _HEADER.search(html)
+    assert match, "the player page has no header"
+    return _text(match.group(1))
+
+
+def _tab_title(html: str) -> str:
+    match = _TITLE.search(html)
+    assert match, "the player page has no <title>"
+    return _text(match.group(1))
+
+
+def _banner_name(html: str) -> str:
+    match = _BANNER_NAME.search(html)
+    assert match, "the player page has no solved banner name"
+    return _text(match.group(1))
+
+
+#: A picture name no size, tier, fixture or page text can contain by accident.
+SECRET_NAME = "Quokka lantern"
+SECRET_SOURCE = "quokka-lantern.png"
+
+
+class TestSolverPage_HidesThePictureNameUntilSolved:
+    """FR-044 AC-322 / AC-323 (CARD-163): the name is the answer.
+
+    Before the puzzle is solved the header and the tab title show the size and
+    the tier; the solved banner (hidden until solved, CARD-162) is the only
+    place the page shows the name. Each negative check is paired with a
+    positive one on the same page — the name *is* in the banner — so an
+    absence cannot pass because the fixture never had a name.
+    """
+
+    def test_ac322_neither_the_header_nor_the_tab_title_contains_the_name(self, panel) -> None:
+        puzzle_id = _store(
+            panel.puzzle_review_service, AC_GRID, tier="medium", name=SECRET_NAME, source=SECRET_SOURCE
+        )
+
+        html = _page(panel, puzzle_id)
+
+        assert _banner_name(html) == SECRET_NAME  # the fixture's name is real
+        assert re.search(r'id="puzzle-player-solved" hidden', html)  # and unshown until solved
+        for shown in (_header_text(html), _tab_title(html)):
+            assert SECRET_NAME.lower() not in shown.lower()
+            assert "quokka" not in shown.lower()  # nor the file it came from
+
+    def test_ac323_the_header_shows_25x15_and_medium_in_place_of_the_name(self, panel) -> None:
+        """The size is the literal "25x15" (width first, ADR-0022/R1). The tier
+        badge renders the stored tier upper-cased ("MEDIUM", the admin badge's
+        spelling), so the tier is compared case-insensitively — and pinned
+        exactly as rendered."""
+        puzzle_id = _store(panel.puzzle_review_service, AC_GRID, tier="medium", name=SECRET_NAME)
+
+        html = _page(panel, puzzle_id)
+
+        header = _header_text(html)
+        assert "25x15" in header
+        assert "medium" in header.lower().split()
+        assert header == "Puzzle 25x15 MEDIUM"
+        assert _tab_title(html) == "Puzzle 25x15 · MEDIUM - Nonogram admin"
+
+    @pytest.mark.browser
+    def test_the_drawn_page_keeps_the_name_out_of_the_header_until_the_banner_reveals_it(
+        self, browser_page, live
+    ) -> None:
+        """solver.js rewrites neither the header nor the tab title: they read
+        the same after the board is drawn and after it is solved, while the
+        banner appears with the name."""
+        _open(browser_page, live, live.store(AC_GRID, tier="medium", name=SECRET_NAME))
+        head = browser_page.locator(".player-head")
+        banner = browser_page.locator("#puzzle-player-solved")
+
+        assert not banner.is_visible()
+        assert " ".join(head.inner_text().split()) == "Puzzle 25x15 MEDIUM"
+        assert browser_page.title() == "Puzzle 25x15 · MEDIUM - Nonogram admin"
+
+        browser_page.evaluate(
+            """async (solution) => {
+              const S = await import('/static/solver_state.js');
+              const { width, height } = window.puzzlePlayer.payload;
+              const cells = solution.flat().map((filled) => (filled ? S.FILLED : S.EMPTY));
+              window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells: Object.freeze(cells) }));
+            }""",
+            AC_GRID,
+        )
+
+        assert banner.is_visible()
+        assert SECRET_NAME in banner.inner_text()
+        assert " ".join(head.inner_text().split()) == "Puzzle 25x15 MEDIUM"
+        assert browser_page.title() == "Puzzle 25x15 · MEDIUM - Nonogram admin"
 
 
 class TestSolverPageStoredRows:

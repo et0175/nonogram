@@ -634,13 +634,17 @@ class TestSolverProgress_ResetAfterConfirm:
     # "redo-key-noop" is a redo with an empty redo stack (the precondition
     # click below drops it): the history does not change, and the
     # confirmation still closes (PROGRESS "reset": "even one that changes
-    # nothing").
+    # nothing"). "redo-button-noop" is the same no-op from the Redo button,
+    # clicked while it says aria-disabled="true" (force: Playwright treats
+    # aria-disabled as not clickable) — the header promises "button or key"
+    # (CARD-162 F-010).
     _CHANGES = {
         "undo-key": lambda page: page.keyboard.press("Control+z"),
         "undo-button": lambda page: _button(page, "Undo").click(),
         "stroke": lambda page: _cell(page, SIDE - 1, SIDE - 1).click(),
         "set-board": lambda page: _set(page, [U] * (SIDE * SIDE)),
         "redo-key-noop": lambda page: page.keyboard.press("Control+Shift+z"),
+        "redo-button-noop": lambda page: _button(page, "Redo").click(force=True),
     }
 
     @pytest.mark.parametrize("change", list(_CHANGES))
@@ -657,7 +661,7 @@ class TestSolverProgress_ResetAfterConfirm:
         assert not browser_page.locator("#puzzle-player-confirm").is_visible()
         assert reset.get_attribute("aria-expanded") == "false"
         assert browser_page.evaluate(_FOCUSED) == "Reset"
-        if change == "redo-key-noop":
+        if change in ("redo-key-noop", "redo-button-noop"):
             assert _states(browser_page) == before  # really a no-op
             assert _is_disabled(browser_page, "Redo")
             assert not _is_disabled(browser_page, "Reset")

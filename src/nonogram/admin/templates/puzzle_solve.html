@@ -21,8 +21,13 @@
   Progress (CARD-162): the error counter sits in the toolbar row and is a
   live region (role=status), updated by solver.js after every recorded
   stroke. The solved banner is rendered here, hidden; it names the picture
-  with the same title as the header and takes the tools' place in the row
-  while the board is solved (so the board does not move). Its text is
+  and takes the tools' place in the row while the board is solved (so the
+  board does not move).
+
+  The picture name is the answer (CARD-163, FR-044 AC-322/AC-323): the
+  header and the tab title show the grid's width x height and its tier,
+  never the name; the solved banner is the only place this page shows it.
+  solver.js touches neither the header nor the tab title. Its text is
   announced through #puzzle-player-announce, a visually hidden live region
   that is always present (a region that only appears is not reliably read). Reset opens the
   in-page confirmation under it (role=alertdialog) instead of a browser
@@ -32,12 +37,12 @@
 {% import '_tier.html' as tier %}
 {% import '_icons.html' as icons %}
 
-{% block title %}Puzzle {{ title }} - Nonogram admin{% endblock %}
+{% block title %}Puzzle {{ extent[0] }}x{{ extent[1] }}{% if tier_label %} · {{ tier_label }}{% endif %} - Nonogram admin{% endblock %}
 {% block section %}Puzzles{% endblock %}
 
 {% block content %}
 <div class="page-head player-head">
-    <h1>Puzzle {{ title }}</h1>
+    <h1>Puzzle {{ extent[0] }}x{{ extent[1] }}</h1>
     {% if tier_label %}<span class="player-tier">{{ tier.badge(tier_label) }}</span>{% endif %}
 </div>
 

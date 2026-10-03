@@ -5296,6 +5296,10 @@ def create_app(debug=None):
         own grid. The solution grid ships in the payload for CARD-162's error
         count — allowed for the admin player only, behind the panel's door
         (ADR-0038/R6, CON-021); a public player must not do this.
+
+        The picture's name is the answer, so the header and the tab title show
+        the grid's width x height and tier instead (FR-044 AC-322, AC-323);
+        ``title`` reaches only the solved banner, which reveals it (AC-316).
         """
         try:
             puzzle = puzzle_review.get_puzzle(puzzle_id)
@@ -5326,6 +5330,7 @@ def create_app(debug=None):
         return render_template(
             "puzzle_solve.html",
             title=title,
+            extent=(payload["width"], payload["height"]),
             tier_label=tier.value.upper() if tier else None,
             payload=payload,
         )
