@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-03 UTC_
+_Updated: 2026-10-03 16:52 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -26,7 +26,7 @@ _Updated: 2026-10-03 UTC_
 | 28 | CARD-150 P2, CARD-151 P2, CARD-152 P2 | ✓ done — all 3 merged |
 | 29 | CARD-153 P1, CARD-154 P2, CARD-155 P3, CARD-156 P2 | ✓ done — all 4 merged |
 | 30 | CARD-157 P2, CARD-158 P2, CARD-159 P2 | ✓ done — all 3 merged |
-| 31 | CARD-160 P2, CARD-161 P2, CARD-162 P2 | ○ pending — online solver (FR-044, ADR-0038); 160 → 161 → 162 |
+| 31 | CARD-160 P2, CARD-161 P2, CARD-162 P2, CARD-163 P2 | ✓ done — all 4 merged |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -46,15 +46,18 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-- **CARD-160** P2 · The admin panel opens any puzzle in a solver page with its clues · 0.5d · wave 31 · FR-044
-- **CARD-161** P2 · Mark cells in the solver: tools, click cycle, drag, undo and redo · 1d · wave 31 · after CARD-160
-- **CARD-162** P2 · The solver counts errors and celebrates a solved puzzle · 0.5d · wave 31 · after CARD-161
+_(none — run of 2026-10-03 complete: CARD-160..CARD-163 merged)_
 
 ## In Progress
+_(none)_
 
 ## Review
 
 ## Done
+- **CARD-163** The puzzle player keeps the picture name hidden until it's solved · score 9.3 (1 cycle) · merged 159d6ad
+- **CARD-162** The solver counts errors and celebrates a solved puzzle · score 9.5 (3 cycles; stalled at cycle 2, owner-directed test) · merged 4b5ed9d
+- **CARD-161** Mark cells in the solver: tools, click cycle, drag, undo and redo · score 9.0 (2 cycles) · merged 8b485cc
+- **CARD-160** The admin panel opens any puzzle in a solver page with its clues · score 8.5 (4 cycles; escalated at cycle 3, owner-directed fix) · merged 625ce14
 - **CARD-159** Book forms keep what you typed and say the right step · score 9.4 (1 cycle; G-3 owner check pending) · merged 7101fbf
 - **CARD-158** The book list and book page show what the book actually holds · score 9.5 (2 cycles; G-3 owner-confirmed) · merged 66214c1
 - **CARD-157** Read a book's puzzles in one query, not one session per puzzle · score 9.5 (2 cycles) · merged 32e30b9
