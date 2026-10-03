@@ -74,6 +74,8 @@ card names its card._
 - [ ] Guide page: worked-example rows and the title wording. Both touch `create_guide_page` (same method as CARD-149)   @feature
 - [ ] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that can't succeed, and never names the remedy. Fails closed, but unhelpful   @feature
 - [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so the panel can't show what a batch was aiming at. Needs a column and a migration   @feature
+- [ ] Online solver: a hint button (the owner's doc makes it optional; left out of CARD-160..162)   @feature
+- [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the persisted puzzle-number mapping (raw-requirements Delta 2026-09-24 (a)); the admin POC ships the solution inside the page, which a public solver must not   @feature
 
 ## Process (forge machinery, not this repo's code)
 - [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of" (a Jinja template can't import); CARD-126 G-4 names a test a later card (CARD-131) creates, so it was unverifiable before then; forge:commit's no-Co-Authored-By rule contradicts the required attribution line   @tech-debt
