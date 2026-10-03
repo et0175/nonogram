@@ -20,6 +20,8 @@
 // "Strokes and history" below. isBoard (below) says what a board is;
 // solver.js setBoard asks it, then keeps and paints its own copy (copyBoard),
 // never the value it was handed, and starts a new history at that copy.
+// errorCount and isSolved ("Progress against the solution", at the end)
+// compare a board with the payload's solution grid; solver.js shows both.
 
 export const UNKNOWN = "unknown";
 export const FILLED = "filled";
@@ -278,4 +280,40 @@ export function redo(history) {
   const entry = Object.freeze({ stroke, before: history.board });
   return historyOf(applyStroke(history.board, stroke), [...history.done, entry],
     history.undone.slice(0, -1));
+}
+
+// ---------------------------------------------------------------------------
+// Progress against the solution (CARD-162, FR-044 AC-312..AC-317, EC-036/037)
+//
+// `solution` is the payload's grid: `height` rows of `width` booleans, true =
+// the cell is filled in the answer. Both functions read only the board's
+// current cells, so they are functions of the current board, not of how it
+// was reached: an undone or corrected mark stops counting at once. Like
+// boards, the solution is a trusted in-page value; its sides are taken to
+// match the board's (solver.js checks the payload's shape at load).
+
+// The number of wrong marks: cells marked FILLED whose solution is empty,
+// plus cells marked EMPTY whose solution is filled. UNKNOWN never counts.
+export function errorCount(board, solution) {
+  let errors = 0;
+  for (let row = 0; row < board.height; row += 1) {
+    for (let col = 0; col < board.width; col += 1) {
+      const state = board.cells[row * board.width + col];
+      const filled = solution[row][col];
+      if ((state === FILLED && !filled) || (state === EMPTY && filled)) errors += 1;
+    }
+  }
+  return errors;
+}
+
+// Whether the board solves the puzzle: every solution-filled cell is marked
+// FILLED and no solution-empty cell is. EMPTY marks are optional, as on
+// paper: a solution-empty cell may be EMPTY or UNKNOWN.
+export function isSolved(board, solution) {
+  for (let row = 0; row < board.height; row += 1) {
+    for (let col = 0; col < board.width; col += 1) {
+      if ((board.cells[row * board.width + col] === FILLED) !== solution[row][col]) return false;
+    }
+  }
+  return true;
 }
