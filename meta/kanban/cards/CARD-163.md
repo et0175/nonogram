@@ -1,6 +1,6 @@
 # CARD-163: The puzzle player keeps the picture name hidden until it's solved
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
+**Branch:** card/163-player-hides-picture-name
 **Worktree:** —
 **Source:** owner decision 2026-10-03 on CARD-162 review finding F-007; raw-requirements.md Delta 2026-10-03 (b); FR-044 amended (AC-322, AC-323)
 **Idea:** —
 **Wave:** 31
 **Depends on:** CARD-162
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/app.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_progress.py, src/nonogram/admin/static/solver.js
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.3 (cycle 1/3)
+**Started:** 2026-10-03T16:13:13Z
+**Closed:** 2026-10-03T16:54:33Z
+**Actual:** 0.1d
+**Merge commit:** 159d6ad
 **Blocked by:** —
 
 ## What to implement
@@ -141,3 +141,40 @@ _Assembled 2026-10-03 by `system_rules.py --card CARD-163` (53 rules). A project
 
 - [Origin] Cut 2026-10-03 at the owner's decision on CARD-162 F-007 ("hide it until solved"). Runs after CARD-162 because both edit the player page.
 - [Scope] 2026-10-03 — CARD-162 F-010 folded in at the dispatcher (one test case, same file area); Touches gains tests/test_puzzle_solver_progress.py and solver.js (header comment only, if the wording needs it).
+- [Env] forge 2026.8.17
+- [Impl] 2026-10-03 — commit 0f668fc. `puzzle_solve` passes `extent=(width, height)` from the payload (len(grid[0]), len(grid); ADR-0022/R1 width first). Header is `<h1>Puzzle {{ extent[0] }}x{{ extent[1] }}</h1>` + the unchanged tier badge; tab title is `Puzzle 25x15 · MEDIUM - Nonogram admin` (no tier → `Puzzle 25x15 - Nonogram admin`). `title` now reaches only the solved banner (`data-player-solved-name`), unchanged. Payload unchanged (it never carried the name). Template header comment fixed (the banner no longer "names the picture with the same title as the header"); route docstring says where the name goes.
+- [Impl] Size uses ASCII "x" to match AC-323's literal "25x15" (other admin screens use "×"). The tier badge renders `tier.value.upper()` = "MEDIUM" (CARD-160's existing spelling, kept); AC-323's "medium" is therefore asserted case-insensitively (`"medium" in header.lower().split()`) and pinned exactly as rendered (`header == "Puzzle 25x15 MEDIUM"`).
+- [Tests] New `TestSolverPage_HidesThePictureNameUntilSolved` (tests/test_puzzle_solver_page.py): AC-322 (memory+sqlite) — name "Quokka lantern"/source "quokka-lantern.png" absent from header text and <title>, paired with a positive check that the same name IS in the (hidden) solved banner; AC-323 (memory+sqlite); one browser test — after the board is drawn and after setBoard solves it, header and document.title are unchanged and the banner shows the name (backs the template claim that solver.js rewrites neither; solver.js has no reference to h1/document.title and was not edited). CARD-160 `TestSolverPageHeader` updated: "Puzzle 25x15" instead of "Puzzle Snowy owl"; the no-tier case now also pins the title; the source/id fallback test now asserts the fallback lands in the banner and never in header/title.
+- [Tests] F-010: `redo-button-noop` added to `_CHANGES` (Redo clicked with force=True — it is aria-disabled, which Playwright treats as unclickable). The no-op branch condition changed from `change == "redo-key-noop"` to `change in ("redo-key-noop", "redo-button-noop")` so the new case takes the existing no-op assertions; no existing assertion or case changed.
+- [Tests] Ran tests/test_puzzle_solver_page.py + test_puzzle_solver_progress.py + test_puzzle_solver_marking.py: 176 passed, 0 skipped (browser tests executed under Chromium; new ones confirmed PASSED with -rA).
+- M11 (undo/redo click handler skips commit while aria-disabled: `if (!gesture && actions[name].getAttribute("aria-disabled") !== "true") commit(...)`) → test_a_board_change_while_asking_closes_the_confirmation[redo-button-noop] FAILED (other 5 cases passed); reverted, `git diff --stat solver.js` empty, the case PASSED.
+- MUTATION name back in <h1> → TestSolverPage_HidesThePictureNameUntilSolved (ac322, ac323, browser) + TestSolverPageHeader failed (9)
+- MUTATION name back in <title> → ac322, ac323, browser, header no-tier + fallback tests failed (9)
+- MUTATION width/height swapped in extent → ac323, browser, header size tests failed (7)
+- MUTATION tier badge dropped from header → ac323, browser, header tier tests failed (7)
+- MUTATION tier dropped from <title> → ac323 (both stores) + browser failed (3)
+- MUTATION banner loses the name → ac322 (both stores), browser, fallback test failed (5) — the negative check is not vacuous
+- [Scope] Files: puzzle_solve.html, app.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_progress.py. solver.js untouched (its header claim "button or key — even one that changes nothing" is now true as tested). No SCOPE+. Not done: tab title gaining the name on solve (optional; skipped).
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_progress.py
+- [Build gate] test_scope: full (config) — cycle gate runs the full suite under the repo flock
+- [Build gate] PASSED (full, 527s) — 6034 passed, 9 skipped, 2 failed = exactly the two known main-baseline failures (test_size_configuration_applied, test_batch_creation_form_renders)
+- [System contract] fresh system_rules.py --card CARD-163 = card section (53 rules, no drift)
+- [Scope gate] cycle 1: IN_SCOPE — 4 files, all in Touches; comp_spread none (COMP-009); no structural guardrail hit (solver.js / solver_state.js untouched); no ready sibling to poach
+- [Review 1/3] Score: 9.3 — crit: 0, imp: 0 (minor: 3 — F-001 template comment 'Its' antecedent, F-002 ASCII 'x' vs '×' owner call, F-003 Redo aria-disabled precondition unasserted; mutation check ran: 6/6 killed incl. M11)
+- [Review sync] 1 report(s) → meta/review/ (20261003T163239Z-CARD-163-cycle1.yml)
+- [Adversarial] no gating findings in cycle 1 — nothing to verify
+- [Review 1/3] Step 8h coverage: 53/53 card rule ids have a verdict line (12 ✓, 41 ⚠ no_eligible_fact, 0 ✗); count line present
+- [Review 1/3] Score: 9.3 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0022/R1) — ADR-0006/R1's named ref is carried by tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (docstring alias; requirements.yml:4888 still calls the ref nonexistent — model note, not this card); ADR-0022/R1 swap mutant re-killed (7 failures), file restored byte-exact
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-322 ✓ demonstrated — evidence: TestSolverPage_HidesThePictureNameUntilSolved::test_ac322_neither_the_header_nor_the_tab_title_contains_the_name PASSED [memory] + [sqlite] (header text and <title> lack name and source file; name present in hidden banner); browser case test_the_drawn_page_keeps_the_name_out_of_the_header_until_the_banner_reveals_it PASSED (Chromium, 0 skipped)
+  AC-323 ✓ demonstrated — evidence: test_ac323_the_header_shows_25x15_and_medium_in_place_of_the_name PASSED [memory] + [sqlite] (header == 'Puzzle 25x15 MEDIUM', 'medium' case-insensitive; title == 'Puzzle 25x15 · MEDIUM - Nonogram admin')
+  G-1 ✓ demonstrated — evidence: tests/test_puzzle_solver_progress.py 44 passed incl. TestSolverProgress_SolvedWhenBlacksMatch (AC-316) and TestSolverProgress_ReducedMotion::test_ac319_… (AC-319); diff additive only (one _CHANGES entry, comment, condition widened to route the new case to the existing no-op assertions); no existing case/assertion removed, weakened or retargeted
+  G-2 ✓ demonstrated — evidence: git diff main...HEAD -- src/nonogram/admin/static/ = 0 lines (committed + uncommitted); marking+page 132 passed, progress 44 passed
+  G-3 ✓ demonstrated — evidence: no list/modal/book template or details handler in the diff; rename/list, detail API, TestBookDetail_ListsPuzzlesByTitle, TestBookArrange_ShowsTheCustomTitleOfEachRow passed (bounded: no test asserts the modal's #puzzleDetailTitle text)
+  G-4 ✓ demonstrated — evidence: pyproject.toml not in diff, no new import; test_the_dependency_baseline_is_still_closed (realises TestDependencyBaseline_IsExactlyPillowAndNumpy), test_the_core_dependency_baseline_is_untouched, test_pytest_playwright_is_a_dev_only_dependency passed
+- [Docs] forge:readme on changed dirs (src/nonogram/admin, src/nonogram/admin/templates, tests): no README in the admin dirs (per-directory README convention is an open owner decision — not created); tests/README.md does not describe the player and no file was added/removed — skipped, current
+- [Mutation] 8f ran in cycle 1 (passing cycle): 6/6 killed — M11 (redo-button-noop kills it; other 5 cases survive it), M-E solver.js writes name to document.title, M-C extent swapped, M-F name in visually-hidden span in <h1>, M-G id in tab title; plus the implementer's 6 MUTATION lines
+- [Renders] ~/Documents/nonogram-reviews/CARD-163/: unsolved-header-1440.png, unsolved-header-390.png, unsolved-tab-title-annotated-1440.png (tab title overlaid as a labelled annotation), solved-1440.png, solved-390.png, titles.txt — eyeballed: header 'Puzzle 25x15' + MEDIUM badge, banner 'Solved: Snowy owl'; tab title stays size·tier after solve (optional reveal not done)
+- [Commit] success commit 0f668fc (implementation commit; review cycle 1 passed with no fix changes, so /commit had nothing further to commit). Open Minor: F-001 template comment 'Its' antecedent, F-002 '25x15' ASCII vs design '×' (owner call), F-003 Redo aria-disabled precondition unasserted before the click
+- [Merged] 2026-10-03 — 159d6ad into main (--no-ff). Merge gate: rebase was a no-op (main still at 19acc73 = branch base); the merged tree is the one that passed the full suite (6034 passed, only the 2 baseline failures); not re-run — the wave-31 smoke test runs next. Deferral scan: 0 hits. Trace: FR-044 already lists TestSolverPage_HidesThePictureNameUntilSolved. F-001/F-003 to backlog; F-002 ("25x15" vs "25×15") raised to the owner.

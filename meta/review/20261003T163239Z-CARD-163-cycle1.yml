@@ -1,0 +1,166 @@
+version: 1
+generated_at: "2026-10-03T16:32:39Z"
+target: "card/163-player-hides-picture-name vs main (0f668fc) — CARD-163 cycle 1"
+overall_score: 9.3
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/app.py (puzzle_solve route 5279-5336)
+    - src/nonogram/admin/templates/puzzle_solve.html (full)
+    - src/nonogram/admin/templates/_tier.html
+    - src/nonogram/admin/templates/base.html (title block)
+    - src/nonogram/admin/static/solver.js (header PROGRESS, showProgress, wireControls)
+    - tests/test_puzzle_solver_page.py (diff + helpers)
+    - tests/test_puzzle_solver_progress.py (ResetAfterConfirm)
+    - meta/architecture/requirements.yml (FR-044 AC-322/323, amendment)
+    - meta/design/components.md (SolverBoard, HistoryControls, SolvedBanner, ResetConfirm)
+    - meta/kanban/cards/CARD-163.md (Worktree notes)
+  not_reached:
+    - rendered screens (review.visual off — no screenshots; rendered result not verified)
+  confidence: high
+metrics:
+  diff: { files: 4, added: 136, removed: 13 }
+  max_fan_in: { symbol: "puzzle_solve (route)", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]   # 149 commits / 82 fix-tagged in 12 months; change here is a 5-line additive kwarg + docstring
+  cochange_missing:
+    - src/nonogram/admin/static/solver.js        # 4/4 co-changes; absence intended (G-2, header claim already true)
+    - src/nonogram/admin/static/solver_state.js  # 4/4; absence required by G-2
+    - src/nonogram/admin/static/admin.css        # 4/4; header markup class unchanged, no style need
+system_contract:
+  rules_checked: 53
+  holds: 12
+  unchecked: 41
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green on 0f668fc; diff touches no pyproject.toml (git diff main...HEAD --stat)"
+    - "ADR-0019/R1 ✓ holds — test_every_import_in_the_package_points_inward green on 0f668fc; diff touches no file under src/nonogram/web/"
+    - "ADR-0022/R1 ✓ holds — extent crosses route→template as a (width, height) pair, app.py:5333 extent=(payload['width'], payload['height']); non-square 25x15 pinned by test_ac323_the_header_shows_25x15_and_medium_in_place_of_the_name; reviewer mutant swapping the pair was killed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing untouched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair/recovery untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched (page only displays the stored tier)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver overlap masks untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: route is read-only, storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book geometry untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book/PDF file in the diff (this card is its online parallel, not a change to it)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: grid strokes untouched"
+    - "ADR-0038/R1 ✓ holds — diff adds no JS/CSS file, no package.json, no build step (git diff main...HEAD --stat: 2 src files, both Python/Jinja)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark green on 0f668fc; solver.js unchanged (git diff main...HEAD -- src/nonogram/admin/static empty)"
+    - "ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues and PropertyTest_SolverPage_EmbeddedCluesAreTheGridsEncoding green on 0f668fc; payload build (app.py:5321-5328) unchanged"
+    - "ADR-0038/R4 ✓ holds — solver_state.js unchanged (git diff main...HEAD -- src/nonogram/admin/static empty)"
+    - "ADR-0038/R5 ⚠ unchecked — no_eligible_fact: pyproject.toml / package-data not in the diff"
+    - "ADR-0038/R6 ✓ holds — no new route; payload keys unchanged and carry no name (app.py:5321-5328); the only admin player route stays behind the door (CON-016 test green)"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no dependency/extra change"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: browser-test skip machinery unchanged (new browser test reuses existing fixtures; ran unskipped)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: uniqueness solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault green on 0f668fc; diff adds no bind/entry point"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green on 0f668fc; diff adds no route"
+    - "CON-021 ✓ holds — no new play surface: the diff edits only the existing admin route's render call and its template (git diff main...HEAD --stat)"
+    - "INV-001 ✓ holds — clues still from compute_clues of the stored grid (app.py:5316, unchanged); PropertyTest_SolverPage_EmbeddedCluesAreTheGridsEncoding green on 0f668fc"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/templates/puzzle_solve.html
+    line: 30
+    title: "Template header comment: 'Its text is announced' lost its antecedent"
+    description: |
+      The new CARD-163 paragraph was inserted between "The solved banner ... (so the board does not move)."
+      and "Its text is announced through #puzzle-player-announce". "Its" now follows "solver.js touches
+      neither the header nor the tab title.", so read literally it says the tab title's (or solver.js's)
+      text is announced. The fact intended (the banner's text goes to the live region, solver.js:256) is
+      true and documented in solver.js and components.md; only the comment's referent is broken.
+    suggestion: |
+      Change "Its text is announced" to "The banner's text is announced", or move the CARD-163 paragraph
+      after the banner/announce/reset sentences.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/templates/puzzle_solve.html
+    line: 40
+    title: "Size shown as ASCII '25x15' where every other visible admin size uses '×'"
+    description: |
+      Header (line 45) and tab title (line 40) render "Puzzle 25x15". Every other user-visible size in the
+      admin uses U+00D7 (_puzzle_table.html:66, :261, batch_status.html:85, book_arrange_puzzles.html:104,
+      book_select_puzzles.html:208, generated_puzzles.html:60, generate_batch.html:43/46, _size_fit_prediction.html:13,
+      image_preview.html:123); ASCII x appears only in data-attributes/URLs. The card's objective example is
+      "25×15 · Medium". AC-323 says "25x15", but requirements.yml writes sizes in ASCII throughout (AC-297
+      "the stored 25x15 puzzle"), so the AC literal is ambiguous: reading A (exact ASCII string, as implemented
+      and documented in the Worktree note) vs reading B (the size 25-by-15 in the design system's spelling).
+    suggestion: |
+      Owner call. If B: render {{ extent[0] }}×{{ extent[1] }} in header and title and assert "25×15" (the
+      AC-323 docstring can note the YAML's ASCII spelling). If A stands, no change.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_progress.py
+    line: 638
+    title: "redo-button-noop: 'clicked while it says aria-disabled' is not asserted before the click"
+    description: |
+      The comment states the Redo button is clicked while aria-disabled="true", and that precondition is what
+      makes the case kill M11 (the mutant only skips commit when aria-disabled). The test asserts
+      _is_disabled(Redo) only AFTER the change (line 666). It holds today by construction (one stroke, empty
+      redo stack) and the post-state plus unchanged board make it inferable, but a fixture change that leaves
+      the redo stack non-empty would silently turn the case into an ordinary redo.
+    suggestion: |
+      For the two no-op cases, assert _is_disabled(browser_page, "Redo") before self._CHANGES[change](...).
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

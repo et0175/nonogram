@@ -69,6 +69,8 @@ card names its card._
 - [ ] CARD-161 F-006: player cells are ~18 px at 390 px width, a small tap target for phones (CARD-160 cell sizing)   @feature
 - [ ] Puzzle player: cells cannot be marked from the keyboard (no AC asks for it; controls are keyboard-reachable). Needs its own card if wanted   @feature
 - [ ] Flake watch: `tests/test_book_ready_gate.py::…test_save_plan_returns_the_book_to_draft[db-ready_for_pdf]` failed once in CARD-161's gate 0 and passed 3x in isolation and in every later gate   @tech-debt
+- [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…" no longer clearly refers to the banner; the redo-button-noop case doesn't assert Redo is aria-disabled before the click   @tech-debt
+- [ ] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323's literal) where the rest of the admin uses "×"   @feature
 
 ## Tests
 - [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops
