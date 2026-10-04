@@ -79,6 +79,7 @@ card names its card._
 - [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked in pt elsewhere)   @tech-debt
 - [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing, pinned by CARD-166's G-2) — should "all" list every status there, or be removed?   @feature
 - [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap's literal .5rem padding (equal by value only); both new test files import private helpers and browser fixtures from tests/test_puzzle_solver_page.py — move shared fixtures to conftest/helpers   @tech-debt
+- [ ] Wave-32 goal-check: a recording PDF canvas saw the highest-tier answer-key band ("Puzzle 5 · Hard") drawn twice during an export — likely the fitting loop measuring before drawing, not a printed duplicate; confirm visually on a rendered answer page (book_pdf_generator answer-key path)   @tech-debt
 
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
