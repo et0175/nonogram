@@ -28,7 +28,11 @@ fi
 # arguments are parsed so --help can name the default. Copied rather than
 # sourced from a shared file: tests/test_start_admin_local.py runs that script
 # alone in a throwaway root, where a sourced helper would not exist.
-DEFAULT_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_poc"
+# Only the default differs from the other two: theirs is the panel's
+# nonogram_poc, this one is nonogram_test, because the suite's own guard
+# (tests/database_guard.py, CARD-109) refuses a database whose name lacks
+# "test" (CARD-168).
+DEFAULT_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_test"
 if [ -n "${DATABASE_URL:-}" ]; then
     DATABASE_URL_SOURCE="exported by the caller"
 else

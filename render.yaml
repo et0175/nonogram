@@ -1,3 +1,13 @@
+# NOT AUTHORITATIVE. Production does not read this file.
+#
+# The deployed panel's Render service (nonogram-admin) was created in the
+# Render dashboard, not from a Blueprint, so Render ignores render.yaml: the
+# buildCommand, startCommand and envVars below do not apply, and editing them
+# changes nothing in production. The dashboard's settings are the ones that
+# run (owner decision 2026-10-04, IDEA-003). They are recorded, with what is
+# known and what is not, in docs/deploy/render.md -- change a deploy setting
+# in the dashboard, then update that doc.
+#
 services:
   - type: web
     name: nonogram-admin

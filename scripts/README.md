@@ -8,7 +8,10 @@ Quick scripts to set up and test the Nonogram Admin Panel locally.
 - PostgreSQL 15+ running locally
 - A database that already exists, and a `DATABASE_URL` pointing at it. The
   project default is
-  `postgresql://postgres:postgres@localhost:5432/nonogram_poc`. In all three
+  `postgresql://postgres:postgres@localhost:5432/nonogram_poc` for the panel's
+  two scripts, and
+  `postgresql://postgres:postgres@localhost:5432/nonogram_test` for
+  `run_admin_tests.sh` (see below for why). In all three
   scripts — `start_admin_local.sh`, `setup_admin_local.sh` and
   `run_admin_tests.sh` — a `DATABASE_URL` you exported yourself wins over that
   default, and each prints the URL it settled on and where it came from
@@ -115,12 +118,15 @@ type, `unit` and `smoke` included: each needs `psql` installed and the
 database reachable before any test runs. `--help` and a mistyped option answer
 without a database.
 
-The suite itself refuses a database whose name does not contain `test`
-(`tests/database_guard.py`, CARD-109), so with the project default
-`nonogram_poc` pytest stops at start-up. Point it at a test database:
+Its project default is
+`postgresql://postgres:postgres@localhost:5432/nonogram_test`, not the panel's
+`nonogram_poc`: the suite itself refuses a database whose name does not contain
+`test` (`tests/database_guard.py`, CARD-109), so the panel's database would
+stop pytest at start-up. `nonogram_test` must already exist (`createdb
+nonogram_test` if you want it). To use another test database, export it:
 
 ```bash
-export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_test"
+export DATABASE_URL="postgresql://postgres@localhost:5432/my_other_test"
 ./scripts/run_admin_tests.sh wave1
 ```
 
@@ -157,9 +163,8 @@ constant again.
 # Full setup + start Flask
 ./scripts/start_admin_local.sh
 
-# In another terminal, run Wave 1 tests -- against a test database
-# (see run_admin_tests.sh above for why not the panel's)
-export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_test"
+# In another terminal, run Wave 1 tests. With no DATABASE_URL exported they
+# use nonogram_test, not the panel's database (see run_admin_tests.sh above).
 ./scripts/run_admin_tests.sh wave1
 ```
 
@@ -169,7 +174,7 @@ export DATABASE_URL="postgresql://postgres@localhost:5432/nonogram_test"
 # Start Flask (setup already done)
 ./scripts/start_admin_local.sh --no-migrate
 
-# Run tests (DATABASE_URL exported to a test database, as on day 1)
+# Run tests (nonogram_test, unless you exported another DATABASE_URL)
 ./scripts/run_admin_tests.sh wave1 -v
 ```
 
