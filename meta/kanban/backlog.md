@@ -76,6 +76,9 @@ card names its card._
 - [ ] CARD-171 drafting (pre-existing): Finalise's outer handler flashes `str(e)`, so a DB error's text (possibly connection details) can reach the screen on a panel the public can reach (ADR-0030). Flash a generic message, log the detail   @compliance
 - [ ] CARD-170 drafting: a puzzle printed alone goes through `_blank_page` → COMP-007 `render_pages`, which also renders the solved page that `_blank_page` throws away: one wasted full-size page image per lone puzzle (memory/time). Needs a `render_pages` change in COMP-007   @tech-debt
 
+- [ ] CARD-176 F-001/F-002 (minor): no test row pins the documented echo of a bare leading token (`hunter2://`); AC-1's echo check accepts any corpus scheme rather than the one drawn for that case   @tech-debt
+- [ ] CARD-176 F-003: a URL with leading whitespace (`' postgresql://…'`) now gets `<malformed scheme>` — a weaker operator hint than before; consider stripping before the grammar check   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

@@ -1,0 +1,97 @@
+version: 1
+generated_at: "2026-10-04T14:48:35Z"
+target: "card/176-scheme-of-never-echoes-a-secret vs main (cdc3ade)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read: ["src/nonogram/db/session.py", "tests/test_db_url_driver.py", "meta/kanban/cards/CARD-176.md"]
+  not_reached: []
+  confidence: high
+metrics:
+  diff: { files: 2, added: 219, removed: 7 }
+  max_fan_in: { symbol: "nonogram.db.session.normalized_url", callers: 3 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: ["tests/conftest.py"]
+  mutation_check: "6 mutants on _scheme_of, 6 killed; AC-1 property alone kills the partition(':')-only weak fix; restore byte-verified"
+system_contract:
+  rules_checked: 46
+  holds: 1
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — git diff main...HEAD --stat touches only session.py and tests/test_db_url_driver.py (no pyproject.toml); only new import is stdlib ast; corpus uses stdlib random.Random(176); TestDependencyBaseline_IsExactlyPillowAndNumpy green in orchestrator full-suite run (6102 passed)"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: the diff changes only db/session.py::_scheme_of (a private error-message helper) and adds tests; no web adapter, solver, grid, retry, density, difficulty, layout, book, or player code is touched"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_db_url_driver.py
+    line: 956
+    title: "Docstring's bare leading-token limit ('hunter2://…') has no pinning case"
+    description: |
+      _scheme_of's docstring (session.py:143-149) states that 'hunter2://…', 'hunter2:x://…',
+      'postgresqlhunter2://…' and a username before ':' are echoed. The unit table pins
+      'hunter2:x://h/db', 'postgresqlhunter2://h/db' and 'u:hunter2@h://x', but not the bare
+      'hunter2://…' shape the docstring names first. Behaviour is obvious from the code, so this
+      is only a claim/test symmetry nit.
+    suggestion: |
+      Add ("hunter2://h:x/db", "hunter2") to the parametrize table of
+      test_scheme_of_returns_a_grammatical_scheme_or_a_placeholder.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_db_url_driver.py
+    line: 1057
+    title: "AC-1 echoed-scheme check accepts any corpus scheme, not the case's own"
+    description: |
+      The property asserts echoed in _SECRET_CORPUS_SCHEMES or a placeholder, which is exactly
+      what AC-1 says, but a defect echoing a wrong-yet-listed scheme (e.g. a cached or default
+      'postgresql') would pass. _secret_corpus does not return the drawn scheme, so the test
+      cannot assert the stronger 'echoed == drawn scheme or placeholder'.
+    suggestion: |
+      Return the drawn scheme from _secret_corpus and assert echoed in {scheme} | placeholders.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/db/session.py
+    line: 159
+    title: "Leading whitespace in DATABASE_URL now reports '<malformed scheme>' (out of scope)"
+    description: |
+      ' postgresql://…' (a common copy-paste slip) previously echoed ' postgresql'; under the
+      RFC 3986 grammar it becomes '<malformed scheme>', which is safe and is what the card
+      mandates, but gives the operator less of a hint. Noted for a possible follow-up message hint.
+    suggestion: |
+      Follow-up card only if operators hit it: e.g. note 'leading/trailing whitespace' in the
+      message when database_url != database_url.strip().
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

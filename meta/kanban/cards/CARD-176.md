@@ -1,6 +1,6 @@
 # CARD-176: A malformed DATABASE_URL's error never echoes text that could hold the password
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.25d
@@ -15,11 +15,11 @@
 **Wave:** 33
 **Depends on:** —
 **Touches:** src/nonogram/db/session.py, tests/test_db_url_driver.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (1 cycle)
+**Started:** 2026-10-04T14:28:25Z
+**Closed:** 2026-10-04T14:52:39Z
+**Actual:** 0.1d
+**Merge commit:** 62ea1eb
 **Blocked by:** —
 
 ## What to implement
@@ -136,3 +136,28 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-176` (46 rules). A project
 - [Fact] Existing parametrised test `test_an_unparseable_url_is_rejected_without_quoting_the_password` (`tests/test_db_url_driver.py:772-830`) puts the secret only after `://`, which is why F-001 survived. Its `no-scheme` case (`"://panel:…"`) currently echoes `''`; under the grammar check it becomes the placeholder. That test asserts only `"DATABASE_URL" in message`, so it needs no edit.
 - [Fact] Checked with the current code: the one-line `partition(':')[0]` fix still returns `'hunter2@h'` for `"hunter2@h://x/db"`. Use the grammar check.
 - [Limit] A secret that IS the leading token (`"hunter2://…"`, `"hunter2:x://…"`) is indistinguishable from a scheme and is out of scope. AC-1's corpus never puts the secret at position 0. For `"panel:pw@h://x"` the echo is the username `panel`, which EC-1 does not treat as secret.
+- [Env] forge 2026.8.17
+- [Impl] `_scheme_of` (src/nonogram/db/session.py) now cuts the pre-`://` text at its first `:` and returns it only if it matches RFC 3986 `[A-Za-z][A-Za-z0-9+.-]*` (checked with inline ASCII character sets, no new import or module constant — G-3); otherwise `"<malformed scheme>"`. `"<no scheme>"` / `"<not a string>"` kept; still total and still computed before the `try` (G-2). Docstring rewritten to state the [Limit] honestly (leading-token secret, scheme-chars-only secret glued to the scheme, and a username before `:` are echoed) — each claim pinned by a case in the unit test below.
+- [Impl] Tests per AC (tests/test_db_url_driver.py): AC-1 → `test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret` (module-level function, following the repo's `test_PropertyTest_*` convention because pytest does not collect a `PropertyTest_` class); seed 176, 8 insertion positions × 90 = 720 cases, all raising; asserts ≥ 500 *raising* cases, every position present among them, the secret absent from `str(error)` and `traceback.format_exception(error)`, echoed scheme ∈ corpus schemes ∪ placeholders, and that the `@`-shape is reached with both an alphanumeric and a punctuated secret. Secrets carry the marker `QXSECRET`, never sit at position 0, and in the `scheme-glued` position always carry a non-scheme character (else they are the [Limit] case). AC-2 → `TestDbUrl_SchemeOfEchoesOnlyARealScheme::test_text_before_the_separator_that_holds_a_secret_is_not_echoed`; AC-3 → `TestDbUrl_SchemeOfEchoesOnlyARealScheme::test_a_well_formed_scheme_with_a_broken_rest_is_still_named`; plus `TestDbUrl_SchemeOfEchoesOnlyARealScheme::test_scheme_of_returns_a_grammatical_scheme_or_a_placeholder` (grammar edges + documented limit). Existing CARD-148 tests untouched (G-1, G-2). File: 56 passed.
+- [Impl] Mutation: M1 `partition(':')[0]` with no grammar → caught by AC-2 test [secret-behind-an-at], AC-1 property, unit test. M2 return raw pre-`://` text → caught by AC-2 (both), AC-1 property, unit test. M3 grammar admits `@` → caught by AC-2 [secret-behind-an-at], AC-1 property (alnum secret in the `@` position), unit test. M4 drop leading-letter check → caught by unit test [1postgres]. M5 no `:` cut → caught by unit test [postgresql:hunter2, u:hunter2]. M6 always placeholder → caught by AC-3 test (both) and unit test. M7 drop emptiness guard → caught by unit test [://panel] and CARD-148's [no-scheme] case (IndexError). Every new test fails on at least one mutant; all reverted.
+- [Scope] src/nonogram/db/session.py, tests/test_db_url_driver.py
+- [Build gate] impact underivable (test_scope: full) — full suite
+- [Build gate] PASSED (full, 597s) — 6102 passed, 9 skipped
+- [Scope gate] IN_SCOPE cycle 1 — 2 files, both in Touches; no guardrail hits; no comp spread
+- [System contract] fresh lens == card section (46 rules) — no refresh
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h coverage: 46/46 card rules named (1 ✓, 45 ⚠ no_eligible_fact); count line present
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Review 1/3] mutation check: 6/6 mutants killed (reviewer, passing cycle)
+- [8h spot-check] 1/1 sampled holds reproduced (ADR-0006/R1 — diff touches no manifest, only new import stdlib ast, test_the_dependency_baseline_is_still_closed 2 passed)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-1 ✓ demonstrated — evidence: PASSED tests/test_db_url_driver.py::test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret (seed 176, 720 cases all raising, ≥500 asserted in-test, all 8 positions asserted, secret absent from str(error) and format_exception, echo ∈ schemes ∪ placeholders)
+  AC-2 ✓ demonstrated — evidence: PASSED TestDbUrl_SchemeOfEchoesOnlyARealScheme::test_text_before_the_separator_that_holds_a_secret_is_not_echoed[secret-behind-a-colon] and [secret-behind-an-at]
+  AC-3 ✓ demonstrated — evidence: PASSED TestDbUrl_SchemeOfEchoesOnlyARealScheme::test_a_well_formed_scheme_with_a_broken_rest_is_still_named[bare-scheme] and [scheme-with-driver]
+  G-1 ✓ demonstrated — evidence: TestDbUrl_DriverIsNamedNotInherited + TestDbUrl_NormalisationChangesNothingElse PASSED; git diff main...HEAD -- tests/ has no '-' lines
+  G-2 ✓ demonstrated — evidence: test_an_unparseable_url_is_rejected_without_quoting_the_password (7 params) + test_a_non_string_cannot_resurface_sqlalchemys_url_echoing_message PASSED; _scheme_of still before try, raise … from None unchanged
+  G-3 ✓ demonstrated — evidence: diff --name-only = session.py + test file; session.py 2 hunks, both inside _scheme_of (docstring + body)
+  G-4 ✓ demonstrated — evidence: pyproject.toml not in diff; only new import stdlib ast (test); corpus uses random.Random; no hypothesis
+- [Docs] forge:readme on changed dirs: src/nonogram/db/ — no file added/removed, no purpose change, no README exists (per-directory README convention is an open owner decision) — skipped; tests/ — no file added/removed, tests/README.md current — skipped
+- [Commit] success commit cdc3ade (the implementation commit — review cycle 1 passed with no fix and no README change, so /commit had nothing further to stage; meta/ excluded). Open Minor: F-001 bare leading-token limit (hunter2://) has no pinning case; F-002 AC-1 echo check accepts any corpus scheme, not the case's own. Out-of-scope F-003: leading whitespace now reports <malformed scheme> (less operator hint). Card stays review until done.
