@@ -309,6 +309,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .guide-preview h3 { margin-top: 0; font-size: var(--text-lg); font-style: italic; }
 .guide-preview h4 { font-size: var(--text-base); margin-top: var(--space-4); }
 .guide-preview ul, .guide-preview ol { margin-bottom: var(--space-2); padding-left: var(--space-5); }
+/* The worked example's line under each step (CARD-169): square cells, filled
+   in ink, crossed with an X, thin rules between cells and a heavier frame —
+   the printed example's drawing, in the grid tokens. */
+.guide-preview .guide-steps { list-style: none; padding-left: 0; }
+.guide-step + .guide-step { margin-top: var(--space-3); }
+.guide-step-caption { margin-bottom: var(--space-1); }
+.guide-strip { --strip-cell: 1.5rem; display: inline-flex; border: calc(2 * var(--border-width)) solid var(--grid-ink); background: var(--grid-paper); }
+.guide-strip-cell { position: relative; width: var(--strip-cell); height: var(--strip-cell); background: var(--grid-paper); }
+.guide-strip-cell + .guide-strip-cell { border-left: var(--border-width) solid color-mix(in srgb, var(--grid-ink) 28%, var(--grid-paper)); }
+.guide-strip-cell[data-state="filled"] { background: var(--grid-ink); }
+.guide-strip-cell[data-state="crossed"]::before, .guide-strip-cell[data-state="crossed"]::after { content: ""; position: absolute; left: 18%; right: 18%; top: 50%; height: var(--border-width); background: var(--grid-ink); }
+.guide-strip-cell[data-state="crossed"]::before { transform: rotate(45deg); }
+.guide-strip-cell[data-state="crossed"]::after { transform: rotate(-45deg); }
 
 /* ---------- Puzzle detail modal ---------- */
 .puzzle-detail-modal { display: none; position: fixed; inset: 0; z-index: 1050; background: rgb(28 35 51 / 0.45); }

@@ -422,6 +422,31 @@ GUIDE_TITLE = "How to Solve Nonograms"
 WORKED_EXAMPLE_CLUE: Tuple[int, ...] = (3, 1)
 WORKED_EXAMPLE_LENGTH = 6
 
+#: The guide page's opening paragraph, printed under the title on the page's
+#: full form (CARD-167). A module constant since CARD-169 so the Finalise
+#: screen's preview reads the same text.
+GUIDE_INTRO = (
+    "Each number beside a row or above a column is a run of "
+    "filled squares in that line, in order, with at least one "
+    "empty square between runs. Fill the squares you are sure "
+    "of, and cross out the ones you are sure are empty."
+)
+
+#: The line that introduces the worked example on the page's full form,
+#: built from the clue and the row length it names (CARD-169).
+GUIDE_EXAMPLE_HEADING = (
+    "Worked example: the clue "
+    + " ".join(str(run) for run in WORKED_EXAMPLE_CLUE)
+    + f" on a row of {WORKED_EXAMPLE_LENGTH} squares."
+)
+
+#: The guide page's closing sentence, printed on the page's full form
+#: (CARD-167; a module constant since CARD-169).
+GUIDE_CLOSING = (
+    "Every puzzle in this book has exactly one solution. The "
+    "answers are at the back of the book."
+)
+
 
 @dataclass(frozen=True)
 class ExampleStep:
@@ -1574,19 +1599,14 @@ class BookPDFGenerator:
                     y += leading
 
             if full:
-                paragraph(
-                    "Each number beside a row or above a column is a run of "
-                    "filled squares in that line, in order, with at least one "
-                    "empty square between runs. Fill the squares you are sure "
-                    "of, and cross out the ones you are sure are empty."
-                )
+                paragraph(GUIDE_INTRO)
                 y += leading
                 paragraph(f"This book contains {puzzle_count} puzzles:")
                 paragraph(f"Easy: {easy_count}")
                 paragraph(f"Medium: {medium_count}")
                 paragraph(f"Hard: {hard_count}")
                 y += leading
-                paragraph("Worked example: the clue 3 1 on a row of 6 squares.")
+                paragraph(GUIDE_EXAMPLE_HEADING)
             for step, image in zip(WORKED_EXAMPLE_STEPS, lines):
                 paragraph(step.caption if captions else step.label)
                 marks.append((y, image))
@@ -1594,10 +1614,7 @@ class BookPDFGenerator:
                 y = bottom + leading // 2
             if full:
                 y += leading // 2
-                paragraph(
-                    "Every puzzle in this book has exactly one solution. The "
-                    "answers are at the back of the book."
-                )
+                paragraph(GUIDE_CLOSING)
             return marks, bottom
 
         for full, captions in ((True, True), (False, True), (False, False)):

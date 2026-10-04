@@ -107,6 +107,7 @@ from nonogram.admin.book_pdf_generator import (
     DividerPagePlan,
     tier_breakdown,
 )
+from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_proof import render_proof_pdf
 
 # Import the professional export PDF module
@@ -4497,6 +4498,15 @@ def create_app(debug=None):
             # ``None`` when the stored value cannot be read, which the screen
             # reports the way it reports an unreadable trim.
             "interior_ink_mode": interior_ink_mode,
+            # CARD-169: the guide page's text and worked example, read
+            # through the generator module on every request so the preview
+            # shows what create_guide_page prints rather than a copy of it.
+            "guide_title": book_pdf_generator.GUIDE_TITLE,
+            "guide_intro": book_pdf_generator.GUIDE_INTRO,
+            "guide_example_heading": book_pdf_generator.GUIDE_EXAMPLE_HEADING,
+            "guide_example_length": book_pdf_generator.WORKED_EXAMPLE_LENGTH,
+            "guide_steps": book_pdf_generator.WORKED_EXAMPLE_STEPS,
+            "guide_closing": book_pdf_generator.GUIDE_CLOSING,
         }
 
         return render_template("book_finalize.html", **context)

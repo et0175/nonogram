@@ -46,25 +46,33 @@
         <div class="card">
             <div class="card-header"><h2 class="card-title mb-0">Guide page <small class="text-muted fw-normal fs-6">generated</small></h2></div>
             <div class="card-body">
-                <div class="guide-preview">
-                    <h3>How to use this book</h3>
-                    <p>This book contains <strong>{{ puzzle_count }}</strong> puzzles.</p>
+                {#- CARD-169: every sentence below is the generator's own
+                    (guide_* from book_pdf_generator), so the preview reads as
+                    the printed page's full form. -#}
+                <div class="guide-preview" data-guide-preview>
+                    <h3 data-guide-title>{{ guide_title }}</h3>
+                    <p data-guide-intro>{{ guide_intro }}</p>
 
-                    <h4>Difficulty levels</h4>
+                    <p class="mb-1">This book contains <strong data-guide-count="total">{{ puzzle_count }}</strong> puzzles:</p>
                     <ul>
-                        <li><strong>Easy:</strong> {{ easy_count }} puzzles</li>
-                        <li><strong>Medium:</strong> {{ medium_count }} puzzles</li>
-                        <li><strong>Hard:</strong> {{ hard_count }} puzzles</li>
-                        {# ADR-0025's fourth tier. Shown only when the book has one, so a
-                           book of line-solvable puzzles reads as it did before. #}
+                        <li><strong>Easy:</strong> <span data-guide-count="easy">{{ easy_count }}</span></li>
+                        <li><strong>Medium:</strong> <span data-guide-count="medium">{{ medium_count }}</span></li>
+                        <li><strong>Hard:</strong> <span data-guide-count="hard">{{ hard_count }}</span></li>
                     </ul>
 
-                    <h4>Instructions</h4>
-                    <ol>
-                        <li>Fill in the grid based on the clues</li>
-                        <li>Check your work against the answer key</li>
-                        <li>Have fun!</li>
+                    <p data-guide-example-heading>{{ guide_example_heading }}</p>
+                    <ol class="guide-steps">
+                        {% for step in guide_steps %}
+                        <li class="guide-step" data-guide-step="{{ loop.index0 }}">
+                            <p class="guide-step-caption">{{ step.caption }}</p>
+                            <div class="guide-strip" role="img" aria-label="{{ step.label }}">
+                                {%- for square in range(guide_example_length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in step.filled else ('crossed' if square in step.crossed else 'blank') }}"></span>{% endfor -%}
+                            </div>
+                        </li>
+                        {% endfor %}
                     </ol>
+
+                    <p class="mb-0" data-guide-closing>{{ guide_closing }}</p>
                 </div>
                 <small class="text-muted d-block mt-2">Page 1 of the interior PDF — a right-hand page — before the first puzzle.</small>
             </div>
@@ -75,7 +83,7 @@
             <div class="card-body">
                 <h3 class="h6">Interior PDF</h3>
                 <ol class="mb-2">
-                    <li>Guide page (instructions and difficulty summary)</li>
+                    <li>Guide page (how to solve, a worked example, and the difficulty summary)</li>
                     <li>{{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }}, in your order, with their titles</li>
                     {% if puzzle_count %}<li>Solutions divider and answer pages</li>{% endif %}
                 </ol>
