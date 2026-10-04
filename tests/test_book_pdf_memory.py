@@ -1343,8 +1343,9 @@ class TestBookPdfMemory_PagesAreUnchanged:
           ink** (``drawing_of``), not asked of the layout — in that order,
           because the levels print in that order;
         * pages 9, 10 and 11 are answer pages, one per level: each carries
-          solid blocks of ink a filled cell wide, which no blank puzzle page,
-          guide or divider has anywhere on it.
+          solid blocks of ink a filled cell wide, which no blank puzzle page or
+          divider has anywhere on it (the guide page has, since CARD-167:
+          its worked example).
         """
         assert len(exported) == BASELINE_PAGE_COUNT
         generator = BookPDFGenerator(corpus_book())
@@ -1377,7 +1378,11 @@ class TestBookPdfMemory_PagesAreUnchanged:
                 f"interior page {number} should be an answer page, whose "
                 "filled cells are solid blocks of ink"
             )
-        for number in (1, 2, 3, 4, 5, 6, 7, 8):
+        # Not page 1: since CARD-167 the guide page's worked example draws
+        # filled squares too. It is identified positively above, as the page
+        # the generator draws for the guide, so it cannot pass for an answer
+        # page here.
+        for number in (2, 3, 4, 5, 6, 7, 8):
             assert not solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} carries filled cells — it is an "
                 "answer page, and the baseline no longer covers its kind"

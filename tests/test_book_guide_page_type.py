@@ -80,14 +80,16 @@ BODY_PX_BEFORE = 28
 #: — 12 pt, less than the 46 px of type it would have had to clear.
 LEADING_PX_BEFORE = 50
 
-#: The guide page's title **as it stands**. This card does not touch the
+#: The guide page's title **as it stands** (CARD-167 retitled it from "How to
+#: Use This Book"; its "g" reaches a descender, which the ratio below measures
+#: off the same string, so nothing else here changes). CARD-149 did not touch the
 #: wording (it is copy, and out of scope), and the string is transcribed here
 #: because a glyph box only says what size type is when you know which glyphs
 #: were set: "How to Use This Book" reaches from cap height to the baseline
 #: and no lower. A card that changes the wording re-derives it here — the
 #: first test in :class:`TestGuidePage_TypeIsBookSized` fails loudly if the
 #: page no longer says this, rather than quietly measuring the wrong ratio.
-TITLE_AS_IT_STANDS = "How to Use This Book"
+TITLE_AS_IT_STANDS = "How to Solve Nonograms"
 
 #: A probe that reaches from cap height to the bottom of a descender, which is
 #: the tallest ink an ordinary line of body text can make. The guide page's
@@ -157,6 +159,36 @@ def ink_bands(page: Image.Image) -> List[Tuple[int, int]]:
     if start is not None:
         bands.append((start, previous))
     return bands
+
+
+#: A row whose ink runs unbroken for longer than this many pixels is a ruled
+#: line, not type: no glyph of the guide page's faces is this wide, and a
+#: ruled line of the worked example is the width of its drawing.
+RULE_RUN_PX = 300
+
+
+def longest_run(row: np.ndarray) -> int:
+    """The longest unbroken run of ``True`` in a boolean row."""
+    padded = np.concatenate(([False], row, [False])).astype(np.int8)
+    edges = np.flatnonzero(np.diff(padded))
+    return int((edges[1::2] - edges[0::2]).max()) if edges.size else 0
+
+
+def type_bands(page: Image.Image) -> List[Tuple[int, int]]:
+    """:func:`ink_bands` without the drawn ones — the bands that are type.
+
+    Since CARD-167 the guide page also carries the worked example's ruled
+    lines, each a band of ink taller than a line of body text. A band with a
+    ruled row in it (an unbroken run longer than :data:`RULE_RUN_PX`) is one of
+    those drawings, and every other band is a line of type, measured as
+    before.
+    """
+    dark = np.asarray(page.convert("L")) < INK_THRESHOLD
+    return [
+        (top, bottom)
+        for top, bottom in ink_bands(page)
+        if max(longest_run(dark[row]) for row in range(top, bottom + 1)) <= RULE_RUN_PX
+    ]
 
 
 def ink_box(page: Image.Image) -> Tuple[int, int, int, int]:
@@ -315,8 +347,8 @@ def guide_page(book1_generator) -> Image.Image:
 
 @pytest.fixture(scope="module")
 def guide_bands(guide_page) -> List[Tuple[int, int]]:
-    """Its inked bands: the title first, then one per body line."""
-    bands = ink_bands(guide_page)
+    """Its lines of type: the title first, then one per body line."""
+    bands = type_bands(guide_page)
     assert len(bands) >= 9, (
         "the guide page draws a title and eight or more body lines; only "
         f"{len(bands)} bands of ink were found, so either the page's text "
@@ -514,7 +546,7 @@ class TestGuidePage_PointSizeIsIndependentOfDpi:
     def measure(self, dpi: int, monkeypatch) -> Dict[str, float]:
         """The point sizes and glyph boxes of a guide page drawn at ``dpi``."""
         page = self.generator_at(dpi, monkeypatch).create_guide_page(4, 2, 1, 1)
-        bands = ink_bands(page)
+        bands = type_bands(page)
         assert len(bands) >= 9, f"only {len(bands)} lines of ink at {dpi} DPI"
         title_px = bands[0][1] - bands[0][0] + 1
         body_px = max(bottom - top + 1 for top, bottom in bands[1:])
@@ -608,9 +640,13 @@ class TestGuidePage_LeadingClearsTheType:
         Which is also what makes :func:`ink_bands` a line count rather than a
         guess: the bands are separated, so counting them counts lines.
         """
-        for (_, bottom), (top, _) in zip(guide_bands, guide_bands[1:]):
+        # Over every band of ink, the worked example's drawings included
+        # (CARD-167): a caption whose descenders touched its drawing would
+        # merge into the drawing's band and drop out of the type count.
+        every_band = ink_bands(guide_page)
+        for (_, bottom), (top, _) in zip(every_band, every_band[1:]):
             assert bottom < top - 1, (
                 f"a line's ink ends at y={bottom} and the next's begins at "
                 f"y={top}: they touch"
             )
-        assert len(guide_bands) == len(ink_bands(guide_page))
+        assert set(guide_bands) <= set(every_band)
