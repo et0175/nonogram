@@ -276,7 +276,7 @@ def test_PropertyTest_SolverPage_EmbeddedCluesAreTheGridsEncoding(monkeypatch) -
 
 
 class TestSolverPageHeader:
-    """Item 3 (CARD-160), as CARD-163 changed it: "Puzzle <width>x<height>" and
+    """Item 3 (CARD-160), as CARD-163 changed it: "Puzzle <width>×<height>" and
     the tier — the picture name is the answer, so only the solved banner says it."""
 
     def test_header_reads_puzzle_size_and_the_tier(self, panel) -> None:
@@ -284,7 +284,7 @@ class TestSolverPageHeader:
 
         html = _page(panel, puzzle_id)
 
-        assert re.search(r"<h1>\s*Puzzle 25x15\s*</h1>", html)
+        assert re.search(r"<h1>\s*Puzzle 25×15\s*</h1>", html)
         assert re.search(r'<span class="player-tier"><span class="badge tier"[^>]*>MEDIUM</span>', html)
 
     def test_header_reads_a_display_label_tier_too(self, panel) -> None:
@@ -298,7 +298,7 @@ class TestSolverPageHeader:
         html = _page(panel, puzzle_id)
 
         assert "player-tier" not in html
-        assert _tab_title(html) == "Puzzle 25x15 - Nonogram admin"
+        assert _tab_title(html) == "Puzzle 25×15 - Nonogram admin"
 
     def test_the_banner_falls_back_to_source_then_id_and_the_header_never_shows_either(self, panel) -> None:
         service = panel.puzzle_review_service
@@ -369,19 +369,22 @@ class TestSolverPage_HidesThePictureNameUntilSolved:
             assert "quokka" not in shown.lower()  # nor the file it came from
 
     def test_ac323_the_header_shows_25x15_and_medium_in_place_of_the_name(self, panel) -> None:
-        """The size is the literal "25x15" (width first, ADR-0022/R1). The tier
-        badge renders the stored tier upper-cased ("MEDIUM", the admin badge's
-        spelling), so the tier is compared case-insensitively — and pinned
-        exactly as rendered."""
+        """The size is "25×15" with the multiplication sign U+00D7, never the
+        letter "x" (width first, ADR-0022/R1; AC-323 as amended 2026-10-04,
+        CARD-166). The tier badge renders the stored tier upper-cased
+        ("MEDIUM", the admin badge's spelling), so the tier is compared
+        case-insensitively — and pinned exactly as rendered."""
         puzzle_id = _store(panel.puzzle_review_service, AC_GRID, tier="medium", name=SECRET_NAME)
 
         html = _page(panel, puzzle_id)
 
         header = _header_text(html)
-        assert "25x15" in header
+        assert "25\u00d715" in header  # U+00D7 MULTIPLICATION SIGN
+        for shown in (header, _tab_title(html)):
+            assert "25x15" not in shown.lower()
         assert "medium" in header.lower().split()
-        assert header == "Puzzle 25x15 MEDIUM"
-        assert _tab_title(html) == "Puzzle 25x15 · MEDIUM - Nonogram admin"
+        assert header == "Puzzle 25×15 MEDIUM"
+        assert _tab_title(html) == "Puzzle 25×15 · MEDIUM - Nonogram admin"
 
     @pytest.mark.browser
     def test_the_drawn_page_keeps_the_name_out_of_the_header_until_the_banner_reveals_it(
@@ -395,8 +398,8 @@ class TestSolverPage_HidesThePictureNameUntilSolved:
         banner = browser_page.locator("#puzzle-player-solved")
 
         assert not banner.is_visible()
-        assert " ".join(head.inner_text().split()) == "Puzzle 25x15 MEDIUM"
-        assert browser_page.title() == "Puzzle 25x15 · MEDIUM - Nonogram admin"
+        assert " ".join(head.inner_text().split()) == "Puzzle 25×15 MEDIUM"
+        assert browser_page.title() == "Puzzle 25×15 · MEDIUM - Nonogram admin"
 
         browser_page.evaluate(
             """async (solution) => {
@@ -410,8 +413,8 @@ class TestSolverPage_HidesThePictureNameUntilSolved:
 
         assert banner.is_visible()
         assert SECRET_NAME in banner.inner_text()
-        assert " ".join(head.inner_text().split()) == "Puzzle 25x15 MEDIUM"
-        assert browser_page.title() == "Puzzle 25x15 · MEDIUM - Nonogram admin"
+        assert " ".join(head.inner_text().split()) == "Puzzle 25×15 MEDIUM"
+        assert browser_page.title() == "Puzzle 25×15 · MEDIUM - Nonogram admin"
 
 
 class TestSolverPageStoredRows:

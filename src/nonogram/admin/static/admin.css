@@ -98,6 +98,10 @@ h1, h2, h3, h4, h5, h6 { font-family: var(--font-display); }
 .table > :not(caption) > * > * { padding: var(--space-2) var(--space-3); vertical-align: middle; }
 .table-sm > :not(caption) > * > * { padding: var(--space-1) var(--space-2); }
 .table .num, .table .text-end { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+/* CARD-166: a plan-matrix cell holds a three-digit count in full on a 390 px phone.
+   3ch is three digits in the input's own monospace numerals; then the sm control's
+   inline padding and borders, and room for Chromium's number spin button. */
+.plan-matrix input { min-inline-size: calc(3ch + 2 * var(--space-2) + 2 * var(--border-width) + var(--space-4)); }
 .table-secondary { --bs-table-bg: var(--color-surface-sunken); --bs-table-color: var(--color-text-secondary); }
 .table-hover > tbody > tr:hover > * { --bs-table-accent-bg: var(--color-surface-hover); }
 /* CARD-158: the scroll wrapper is the containing block of what it holds. Bootstrap's
