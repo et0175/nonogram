@@ -65,8 +65,9 @@ class GuideCard(HTMLParser):
         title, intro, example_heading, closing: the text of the element
             carrying that ``data-guide-*`` marker (``None`` if absent).
         counts: ``{"total"|"easy"|"medium"|"hard": text}``.
-        steps: one ``{"caption": text, "cells": [state, ...]}`` per
-            ``data-guide-step``, in document order.
+        steps: one ``{"caption": text, "cells": [state, ...], "strip":
+            attrs}`` per ``data-guide-step``, in document order (``strip``
+            is the ``.guide-strip`` element's attribute dict).
         text: every text node inside the guide preview, joined.
     """
 
@@ -102,9 +103,11 @@ class GuideCard(HTMLParser):
         if "data-guide-count" in attrs:
             self._capture.append((self._depth, "count:" + attrs["data-guide-count"], []))
         if "data-guide-step" in attrs:
-            self.steps.append({"caption": None, "cells": []})
+            self.steps.append({"caption": None, "cells": [], "strip": None})
         if "guide-step-caption" in (attrs.get("class") or "").split():
             self._capture.append((self._depth, "caption", []))
+        if "guide-strip" in (attrs.get("class") or "").split():
+            self.steps[-1]["strip"] = attrs
         if "guide-strip-cell" in (attrs.get("class") or "").split():
             self.steps[-1]["cells"].append(attrs.get("data-state"))
 
@@ -273,6 +276,15 @@ class TestFinaliseGuidePreview_ShowsTheWorkedExampleStepByStep:
         )
         assert drawn == SHIPPED_STRIPS
 
+    def test_strips_are_hidden_behind_their_captions(self, card):
+        """The caption is each strip's text equivalent: the strip is
+        aria-hidden and carries no accessible name of its own."""
+        for step in card.steps:
+            assert step["caption"]
+            assert step["strip"].get("aria-hidden") == "true"
+            assert "role" not in step["strip"]
+            assert "aria-label" not in step["strip"]
+
     def test_example_heading_names_the_clue_and_length(self, card):
         assert card.example_heading == (
             "Worked example: the clue 3 1 on a row of 6 squares."
@@ -281,8 +293,9 @@ class TestFinaliseGuidePreview_ShowsTheWorkedExampleStepByStep:
 
 
 class TestFinaliseGuidePreview_ReadsTheGeneratorsText:
-    """AC-3: with the generator's title and first caption replaced, the
-    preview shows the replacements — it has no copy of its own."""
+    """AC-3: with the generator's title, captions, intro, closing, example
+    heading and row length replaced, the preview shows the replacements — it
+    has no copy of its own."""
 
     def test_sentinels_render(self, panel, monkeypatch):
         book_id = panel.book("easy", "easy", "easy")
@@ -302,6 +315,34 @@ class TestFinaliseGuidePreview_ReadsTheGeneratorsText:
         assert card.steps[0]["caption"] == caption
         assert TITLE not in card.text
         assert steps[0].caption not in card.text
+
+    def test_intro_closing_heading_and_length_sentinels_render(self, panel, monkeypatch):
+        """The rest of the generator's text, and the row length the strips
+        are drawn at, are read at request time too: a literal copy of any of
+        them in the route would show the shipped value, not the sentinel."""
+        book_id = panel.book("easy", "easy", "easy")
+        intro = "SENTINEL-INTRO-169"
+        closing = "SENTINEL-CLOSING-169"
+        heading = "SENTINEL-HEADING-169"
+        length = generator.WORKED_EXAMPLE_LENGTH + 1  # the shipped sets still fit
+        shipped = (generator.GUIDE_INTRO, generator.GUIDE_CLOSING,
+                   generator.GUIDE_EXAMPLE_HEADING)
+        monkeypatch.setattr(generator, "GUIDE_INTRO", intro)
+        monkeypatch.setattr(generator, "GUIDE_CLOSING", closing)
+        monkeypatch.setattr(generator, "GUIDE_EXAMPLE_HEADING", heading)
+        monkeypatch.setattr(generator, "WORKED_EXAMPLE_LENGTH", length)
+
+        card = GuideCard(panel.shown(book_id))
+
+        assert card.intro == intro
+        assert card.closing == closing
+        assert card.example_heading == heading
+        for text in shipped:
+            assert text not in card.text
+        assert [len(step["cells"]) for step in card.steps] == (
+            [length] * len(generator.WORKED_EXAMPLE_STEPS)
+        )
+        assert all(step["cells"][-1] == "blank" for step in card.steps)
 
 
 class TestFinaliseGuidePreview_CountsIntroAndClosing:

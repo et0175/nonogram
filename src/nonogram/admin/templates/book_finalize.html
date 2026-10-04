@@ -65,7 +65,9 @@
                         {% for step in guide_steps %}
                         <li class="guide-step" data-guide-step="{{ loop.index0 }}">
                             <p class="guide-step-caption">{{ step.caption }}</p>
-                            <div class="guide-strip" role="img" aria-label="{{ step.label }}">
+                            {#- The caption above is the strip's text equivalent, so the strip
+                                itself is hidden from assistive technology. -#}
+                            <div class="guide-strip" aria-hidden="true">
                                 {%- for square in range(guide_example_length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in step.filled else ('crossed' if square in step.crossed else 'blank') }}"></span>{% endfor -%}
                             </div>
                         </li>
