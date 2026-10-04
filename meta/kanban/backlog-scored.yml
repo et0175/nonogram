@@ -204,6 +204,7 @@ ideas:
   source_line: 17
   wave: 1
   rank: 9
+  route: architect station (cards cannot commit under meta/)
 - id: IDEA-008
   title: 'CON-020: test 10 pt floor on every interior face'
   raw: '- [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor (CARD-149''s
@@ -391,7 +392,7 @@ ideas:
     puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -408,6 +409,7 @@ ideas:
   source_line: 28
   wave: 1
   rank: 10
+  card: CARD-176
 - id: IDEA-017
   title: Pin migrations/env.py URL-not-logged by assertion (CARD-148)
   raw: '- [ ] CARD-148 F-003: `migrations/env.py`''s plaintext URL is kept out of logs only by configuration (`logger_sqlalchemy
@@ -942,7 +944,7 @@ ideas:
     non-plan error on any Finalise POST action is never logged   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -959,13 +961,14 @@ ideas:
   source_line: 52
   wave: 1
   rank: 11
+  card: CARD-171
 - id: IDEA-041
   title: Name page-plan error on GET Finalise (500 handler)
   raw: '- [ ] CARD-153 F-006: the global 500 handler shows Flask''s generic text, so a page-plan error on GET Finalise
     isn''t named on screen   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -982,6 +985,7 @@ ideas:
   source_line: 53
   wave: 1
   rank: 4
+  card: CARD-171
 - id: IDEA-042
   title: Public read-only gate instead of private BookManager call
   raw: '- [ ] CARD-153 F-003: the Finalise route calls BookManager''s private `_refuse_unless_the_planned_book`;
@@ -1104,7 +1108,7 @@ ideas:
     hint list   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -1121,13 +1125,14 @@ ideas:
   source_line: 59
   wave: 1
   rank: 7
+  card: CARD-175
 - id: IDEA-048
   title: Limits box '18.90 in' exceeds the real 18.89 in max
   raw: '- [ ] CARD-159 F-001: Print setup''s Limits box says "Maximum height 48 cm (18.90 in)"; 18.90 in is 48.006
     cm, which the server refuses (18.89 in is the real maximum). Now the page''s only statement of the inch limits   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -1144,13 +1149,14 @@ ideas:
   source_line: 60
   wave: 4
   rank: 37
+  card: CARD-174
 - id: IDEA-049
   title: Trim refusals worded in cm after inches submission
   raw: '- [ ] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it means editing
     `print_specs.py`   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -1167,6 +1173,7 @@ ideas:
   source_line: 61
   wave: 1
   rank: 6
+  card: CARD-174
 - id: IDEA-050
   title: Route tests for below-min trims; wrong alert on New book
   raw: '- [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims now the browser
@@ -1533,6 +1540,7 @@ ideas:
   source_line: 77
   wave: 1
   rank: 12
+  route: 'architect station: no CI exists — record ADR-0038/R8 as local-only, or add CI (owner call)'
 - id: IDEA-066
   title: 'Red on main: test_size_configuration_applied'
   raw: '- [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`
@@ -1634,7 +1642,7 @@ ideas:
     when the page layout is finalised**   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -1651,6 +1659,7 @@ ideas:
   source_line: 86
   wave: 1
   rank: 3
+  card: CARD-172
 - id: IDEA-071
   title: 'Guide page: worked-example rows and title wording'
   raw: '- [ ] Guide page: worked-example rows and the title wording. Both touch `create_guide_page` (same method
@@ -1682,7 +1691,7 @@ ideas:
     that can''t succeed, and never names the remedy. Fails closed, but unhelpful   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -1699,6 +1708,7 @@ ideas:
   source_line: 88
   wave: 1
   rank: 5
+  card: CARD-173
 - id: IDEA-073
   title: Store a targeted batch's requested tier (column+migration)
   raw: '- [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so
@@ -1955,7 +1965,7 @@ ideas:
   raw: '- [ ] CARD-167 follow-up: the Finalise screen''s guide preview (book_finalize.html) still says "How to use
     this book" with the old instructions — make it match the new guide page   @feature'
   category: feature
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -1972,6 +1982,7 @@ ideas:
   scored_at: '2026-10-04'
   wave: 1
   rank: 1
+  card: CARD-169
 - id: IDEA-086
   title: Guide 10 pt test measures top-to-baseline; spacing untested; stale docstrings
   raw: '- [ ] CARD-167 F-101/F-103 (minor): the 10 pt floor test measures top-to-baseline, so wrapped lines without
@@ -2040,6 +2051,7 @@ ideas:
   scored_at: '2026-10-04'
   wave: 1
   rank: 2
+  held: 'owner call pending: list every status, or remove the "all" option'
 - id: IDEA-089
   title: Plan-input CSS comment accuracy; shared test fixtures to conftest/helpers
   raw: '- [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap''s literal .5rem
@@ -2069,7 +2081,7 @@ ideas:
     drawn twice during an export — likely the fitting loop measuring before drawing, not a printed duplicate; confirm
     visually on a rendered answer page (book_pdf_generator answer-key path)   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -2086,3 +2098,4 @@ ideas:
   scored_at: '2026-10-04'
   wave: 1
   rank: 8
+  card: CARD-170

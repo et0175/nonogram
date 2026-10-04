@@ -28,6 +28,7 @@ _Updated: 2026-10-04 UTC_
 | 30 | CARD-157 P2, CARD-158 P2, CARD-159 P2 | ✓ done — all 3 merged |
 | 31 | CARD-160 P2, CARD-161 P2, CARD-162 P2, CARD-163 P2 | ✓ done — all 4 merged |
 | 32 | CARD-164 P1, CARD-165 P2, CARD-166 P2, CARD-167 P2, CARD-168 P2 | ✓ done — all 5 merged; full suite exit 0 |
+| 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ready — roadmap wave 1 (re-plan 2026-10-04) |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -47,7 +48,14 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-_(none)_
+- [CARD-169](cards/CARD-169.md) P1 · 0.5d · wave 33 — The Finalise screen's guide preview shows "How to Solve Nonograms" and its worked example, read from the generator
+- [CARD-170](cards/CARD-170.md) P1 · 0.5d · wave 33 — Prove from the PDF's pixels that a puzzle's band prints once ("Puzzle 5 · Hard" drawn twice?)
+- [CARD-171](cards/CARD-171.md) P2 · 0.5d · wave 33 — Finalise names a page-plan error on screen, and logs every other error it flashes
+- [CARD-172](cards/CARD-172.md) P2 · 0.5d · wave 33 — Proof pages render on square and landscape trims, with the note in a clear spot inside the frame
+- [CARD-173](cards/CARD-173.md) P2 · 0.5d · wave 33 — An unreadable stored print setup says so once, names the remedy, and offers no override that cannot work
+- [CARD-174](cards/CARD-174.md) P2 · 0.75d · wave 33 — Trim refusals and the Limits box speak the same inches
+- [CARD-175](cards/CARD-175.md) P3 · 0.5d · wave 33 — On a phone, a /books row folds its off-plan hints behind one summary line
+- [CARD-176](cards/CARD-176.md) P2 · 0.25d · wave 33 — A malformed DATABASE_URL's error never echoes text that could hold the password
 
 ## In Progress
 

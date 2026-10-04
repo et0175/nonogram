@@ -23,7 +23,6 @@ card names its card._
 - [ ] CARD-120 F-008: the refusal page's Planned row is read from the stored plan, not the submitted one. Site: `app.py` (setup-print)   @tech-debt
 - [ ] CARD-136 (owner-accepted 2026-09-23): in memory-only mode `get_book` returns the live `Book`, so a caller can write an invalid trim past `set_print_spec`'s validation. Fix by having memory mode return a copy   @tech-debt
 - [ ] CARD-118 reviewer minors: the proof route's broad `except Exception` flashes raw exception text; `redirect(request.referrer or ...)` takes its target from the caller; a new `datetime.utcnow()` deprecation; the `ast` importer guard matches on bare filename, not relative path   @tech-debt
-- [ ] CARD-148 F-001: `db/session.py`'s `_scheme_of` echoes anything before the first `://`, so `postgresql:hunter2://h/db` puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt
 - [ ] CARD-148 F-003: `migrations/env.py`'s plaintext URL is kept out of logs only by configuration (`logger_sqlalchemy = WARNING`, no `echo`), not by an assertion. About 2 lines to pin, using the existing subprocess's stderr   @tech-debt
 - [ ] CARD-150 F-003/F-004/F-005/F-007: the 14-of-18 figure is an artifact of `--check-only` not existing on the old script; the README tests' `returncode != 0` precondition is met by any failure; the two Docker branches match on database name only, dropping host, port and credentials, with no runtime coverage; nothing asserts G-3's launch target though the stub logs it   @tech-debt
 - [ ] CARD-147 F-002/F-003/F-005: `_write_pdf`'s unreachable ValueError guard; the migration's confirmed-redundant UPDATE backfill; `_write_page`'s `mode: str = "RGB"` default one layer below the required keyword (dead today, but exactly the failure the keyword prevents)   @tech-debt
@@ -46,15 +45,10 @@ card names its card._
 - [ ] CARD-152 F-006 (minor): the "not reachable" message names only two causes (server down, database missing), not a wrong host, port or credentials; same wording in all three scripts   @tech-debt
 - [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from `tests/test_start_admin_local.py` (`_DOCKER_STUB`, `_PSQL_MODEL`, `_all_pairs`, `_plain`); renaming one breaks both new suites   @tech-debt
 - [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14); stale docstring at `tests/test_start_admin_local.py:533`   @tech-debt
-- [ ] CARD-153 F-010 (pre-existing): `finalize_book`'s outer `except Exception` only flashes, so a transient non-plan error on any Finalise POST action is never logged   @tech-debt
-- [ ] CARD-153 F-006: the global 500 handler shows Flask's generic text, so a page-plan error on GET Finalise isn't named on screen   @feature
 - [ ] CARD-153 F-003: the Finalise route calls BookManager's private `_refuse_unless_the_planned_book`; needs a public read-only gate in `book_manager.py`   @tech-debt
 - [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper + Flask); the G-1 "never laid out again" spy only sees layouts through `BookPDFGenerator` (the only path today, per ADR-0036/R2)   @tech-debt
 - [ ] Wave-29 goal-check: `PrintSpecValidator.validate_margins` (CARD-154) refuses nan/inf but not a margin below the 0.635 cm minimum (accepts "0.5"). Unreachable today (no margin field on Print setup, `set_print_spec` writes no margins); a stored small margin makes Finalise fall back to "about N"   @tech-debt
 - [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the /books list, app.py) and the floor-check loop (`book_manager.py` ~:1050). Both can use `PuzzleReviewService.get_puzzles`   @tech-debt
-- [ ] CARD-158 F-005 (pre-existing): /books rows are ~650 px tall at 390 px because of the Against-plan hint list   @feature
-- [ ] CARD-159 F-001: Print setup's Limits box says "Maximum height 48 cm (18.90 in)"; 18.90 in is 48.006 cm, which the server refuses (18.89 in is the real maximum). Now the page's only statement of the inch limits   @tech-debt
-- [ ] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it means editing `print_specs.py`   @feature
 - [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims now the browser min is gone (the server refuses them); a refused New book shows the edit-mode alert ("General info not saved… Nothing stored was changed")   @tech-debt
 - [ ] Wave-30 goal-check: on a book with no puzzles, /books offers the interior download (returns a 200 PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt
 - [ ] CARD-160 F-004 (minor): the player's cell bounds (14px/28px) and thin-rule color-mix live as local custom properties in admin.css; promote them to tokens.css   @tech-debt
@@ -74,20 +68,19 @@ card names its card._
 - [ ] CARD-164 F-002: five sibling tests in tests/e2e/test_admin_workflow.py (test_tc_001, test_preview_page_displays_original_image, test_metadata_shown_on_preview, test_tc_002, test_tc_003 — lines ~86/100/112/130/170) still post the dead `images` field and pass on the "No images selected" redirect — hollow the same way test_size_configuration_applied was   @tech-debt
 - [ ] CARD-164 F-001 (minor): test_size_configuration_applied posts field names straight to the route, so renaming the step-1 form's `default_size` select leaves it green (mutant M8) — GET /batch/create and assert the field names, or narrow the docstring   @tech-debt
 - [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the single-puzzle-page path (no shared two-up fixture); the no-plan banner points to Finalise even when the cause is a code bug; the stored-order fallback with a repeated id is untested (mutant survived)   @tech-debt
-- [ ] CARD-167 follow-up: the Finalise screen's guide preview (book_finalize.html) still says "How to use this book" with the old instructions — make it match the new guide page   @feature
 - [ ] CARD-167 F-101/F-103 (minor): the 10 pt floor test measures top-to-baseline, so wrapped lines without capitals under-read (~8.4 pt for 11 pt type; at 11x17 cm "way." wraps alone); the spacing after each example drawing is untested; CARD-149's type-test docstrings quote the old guide text   @tech-debt
 - [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked in pt elsewhere)   @tech-debt
 - [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing, pinned by CARD-166's G-2) — should "all" list every status there, or be removed?   @feature
 - [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap's literal .5rem padding (equal by value only); both new test files import private helpers and browser fixtures from tests/test_puzzle_solver_page.py — move shared fixtures to conftest/helpers   @tech-debt
-- [ ] Wave-32 goal-check: a recording PDF canvas saw the highest-tier answer-key band ("Puzzle 5 · Hard") drawn twice during an export — likely the fitting loop measuring before drawing, not a printed duplicate; confirm visually on a rendered answer page (book_pdf_generator answer-key path)   @tech-debt
+
+- [ ] CARD-171 drafting (pre-existing): Finalise's outer handler flashes `str(e)`, so a DB error's text (possibly connection details) can reach the screen on a panel the public can reach (ADR-0030). Flash a generic message, log the detail   @compliance
+- [ ] CARD-170 drafting: a puzzle printed alone goes through `_blank_page` → COMP-007 `render_pages`, which also renders the solved page that `_blank_page` throws away: one wasted full-size page image per lone puzzle (memory/time). Needs a `render_pages` change in COMP-007   @tech-debt
 
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt
 
 ## Features and UX (not carded yet)
-- [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5, real KDP sizes) leaves no room for the proof foot note, so `proof_pages` raises. Portrait trims all render. **Revisit when the page layout is finalised**   @feature
-- [ ] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that can't succeed, and never names the remedy. Fails closed, but unhelpful   @feature
 - [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so the panel can't show what a batch was aiming at. Needs a column and a migration   @feature
 - [ ] Online solver: a hint button (the owner's doc makes it optional; left out of CARD-160..162)   @feature
 - [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the persisted puzzle-number mapping (raw-requirements Delta 2026-09-24 (a)); the admin POC ships the solution inside the page, which a public solver must not   @feature
@@ -97,6 +90,18 @@ card names its card._
 - [ ] Gate hazard (CARD-138): from an older wave branch, `git diff main` reports main's newer files as deletions, including ones matching guardrail globs like `book_*.py`. Every scope and guardrail verdict must be taken against the merge base   @tech-debt
 - [ ] Two full-suite lock conventions: cmd-start-review documents a `mkdir` lock on `meta/kanban/.full-suite.lock`, but the dispatcher takes it with `exec 9>` + `flock`, which creates a regular file the `mkdir` form can never acquire. Pick one   @tech-debt
 - [ ] Near miss (2026-09-24): two mutation skeptics ran concurrently on the same file. The failure mode is a silently contaminated verdict. The card brief should forbid concurrent mutation skeptics on one file without a lock   @tech-debt
+
+## Carded 2026-10-04 (roadmap wave 1 → kanban wave 33)
+- [x] CARD-148 F-001: `db/session.py`'s `_scheme_of` echoes anything before the first `://`, so `postgresql:hunter2://h/db` puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt → **CARD-176**
+- [x] CARD-153 F-010 (pre-existing): `finalize_book`'s outer `except Exception` only flashes, so a transient non-plan error on any Finalise POST action is never logged   @tech-debt → **CARD-171**
+- [x] CARD-153 F-006: the global 500 handler shows Flask's generic text, so a page-plan error on GET Finalise isn't named on screen   @feature → **CARD-171**
+- [x] CARD-158 F-005 (pre-existing): /books rows are ~650 px tall at 390 px because of the Against-plan hint list   @feature → **CARD-175**
+- [x] CARD-159 F-001: Print setup's Limits box says "Maximum height 48 cm (18.90 in)"; 18.90 in is 48.006 cm, which the server refuses (18.89 in is the real maximum). Now the page's only statement of the inch limits   @tech-debt → **CARD-174**
+- [x] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it means editing `print_specs.py`   @feature → **CARD-174**
+- [x] CARD-167 follow-up: the Finalise screen's guide preview (book_finalize.html) still says "How to use this book" with the old instructions — make it match the new guide page   @feature → **CARD-169**
+- [x] Wave-32 goal-check: a recording PDF canvas saw the highest-tier answer-key band ("Puzzle 5 · Hard") drawn twice during an export — likely the fitting loop measuring before drawing, not a printed duplicate; confirm visually on a rendered answer page (book_pdf_generator answer-key path)   @tech-debt → **CARD-170**
+- [x] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5, real KDP sizes) leaves no room for the proof foot note, so `proof_pages` raises. Portrait trims all render. **Revisit when the page layout is finalised**   @feature → **CARD-172**
+- [x] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that can't succeed, and never names the remedy. Fails closed, but unhelpful   @feature → **CARD-173**
 
 ## Carded 2026-10-04 (roadmap wave 1 → kanban wave 32)
 - [x] CARD-159 owner check pending: G-3, the owner's look at ~/Documents/nonogram-reviews/CARD-159/ renders (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the plan-table inputs clip "20" to "2("   @feature → **CARD-166 (clipped plan inputs; the owner look stays yours)**
