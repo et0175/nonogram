@@ -146,8 +146,8 @@ class _Page(HTMLParser):
     * ``loose_buttons``: export buttons that sit in no form, with whether
       they are disabled.
     * ``rows``: each ``<tr data-puzzle-id>`` — its id attribute, the text of
-      its ``.name`` label, the text of its ``.tier`` badge and the text of any
-      ``<code>`` in it.
+      its ``.name`` label, the text of its ``.tier`` badge, the text of any
+      ``<code>`` in it, and the text of its first cell, the "#" (``hash``).
     * ``trim``: the text and links of the ``<dd>`` that follows
       ``<dt>Trim size</dt>``.
     """
@@ -184,10 +184,16 @@ class _Page(HTMLParser):
                     {"part": a["data-export-part"], "disabled": "disabled" in a}
                 )
         elif tag == "tr" and "data-puzzle-id" in a:
-            self._row = {"id": a["data-puzzle-id"], "name": "", "tier": "", "code": ""}
+            self._row = {
+                "id": a["data-puzzle-id"], "name": "", "tier": "", "code": "", "hash": ""
+            }
             self.rows.append(self._row)
         elif self._row is not None and self._capture is None:
-            if "name" in classes:
+            if tag == "td" and not self._row.get("_hash_seen"):
+                # The first cell of a member row is its "#".
+                self._row["_hash_seen"] = True
+                self._capture = [self._row, "hash", tag, 0]
+            elif "name" in classes:
                 self._capture = [self._row, "name", tag, 0]
             elif "tier" in classes:
                 self._capture = [self._row, "tier", tag, 0]
@@ -490,9 +496,11 @@ class TestBookDetail_ListsPuzzlesByTitle:
 
         page = _read(client, f"/book/{book_id}")
 
-        assert [row["id"] for row in page.rows] == ids
-        assert [row["name"].strip() for row in page.rows] == [ids[0], NAMES[1], NAMES[2]]
-        assert [row["tier"].strip() for row in page.rows] == ["N/A", TIERS[1], TIERS[2]]
+        # CARD-165: the rows are in print order now, and a member with no
+        # record is not printed, so it is listed after the printed ones.
+        assert [row["id"] for row in page.rows] == [ids[1], ids[2], ids[0]]
+        assert [row["name"].strip() for row in page.rows] == [NAMES[1], NAMES[2], ids[0]]
+        assert [row["tier"].strip() for row in page.rows] == [TIERS[1], TIERS[2], "N/A"]
 
     def test_each_member_shows_its_tier(self, admin_app, client):
         book_id, _ = _make_book(admin_app)
@@ -576,3 +584,310 @@ class TestBookDetail_ShowsTheStoredTrim:
 
         assert page.trim["text"].startswith("Cannot be read")
         assert f"/book/{book_id}/setup-print" in page.trim["links"]
+
+
+# --------------------------------------------------------------------------
+# CARD-165 — the "#" is the number the printed book gives each puzzle
+# --------------------------------------------------------------------------
+
+#: ADR-0037's band, written out rather than imported from ``band_identity``.
+BAND = "Puzzle {number} · {tier}"
+TIER_LABELS = {"easy": "Easy", "medium": "Medium", "hard": "Hard"}
+#: Print rank of a level (FR-041), restated for the test's own oracle.
+LEVEL_RANK = {"easy": 0, "medium": 1, "hard": 2}
+
+#: A stored order that mixes the levels, as a book stored before INV-009 can.
+MIXED = (("M1", "medium"), ("E1", "easy"), ("H1", "hard"), ("E2", "easy"), ("M2", "medium"))
+
+
+def _book_stored_as(app, members, title="Mixed levels"):
+    """A book whose stored ``puzzle_ids`` are exactly ``members``' order.
+
+    ``add_puzzles_to_book`` files each puzzle inside its level (INV-009), so the
+    mixed order is written onto the in-memory book afterwards — the shape of a
+    book stored before the grouping existed (AC-260).
+    """
+    book_id, ids = _make_book(
+        app,
+        title=title,
+        names=[name for name, _ in members],
+        tiers=[tier for _, tier in members],
+    )
+    app.book_manager.get_book(book_id).puzzle_ids = list(ids)
+    return book_id, ids
+
+
+def _hash_cell(row):
+    """A row's "#" cell as one line: the dash and its reason space-separated."""
+    return " ".join(row["hash"].replace("—", " — ").split())
+
+
+def _make_undrawable(app, puzzle_id):
+    """A record the export cannot build a payload from: it logs and drops it."""
+    app.puzzle_review_service.puzzles[puzzle_id]["clues_rows"] = 12
+
+
+def _bands_the_export_prints(app, client, monkeypatch, book_id):
+    """``{puzzle id: band text}`` as the real interior download draws them.
+
+    Spies on the step that writes the band onto a puzzle page's payload while
+    ``/book/<id>/download-pdf`` renders the interior, and names each page's
+    puzzle by its row clues, which differ from member to member.
+    """
+    from nonogram.admin.book_pdf_generator import BookPDFGenerator
+
+    real = BookPDFGenerator._puzzle_payload
+    drawn = []
+
+    def spy(payload, puzzle_number):
+        banded = real(payload, puzzle_number)
+        drawn.append((payload.row_clues, banded.difficulty))
+        return banded
+
+    monkeypatch.setattr(BookPDFGenerator, "_puzzle_payload", staticmethod(spy))
+    response = client.post(f"/book/{book_id}/download-pdf", data={"part": "interior"})
+    assert response.status_code == 200
+    assert response.data.startswith(b"%PDF")
+
+    service = app.puzzle_review_service
+    by_clues = {}
+    for puzzle_id in app.book_manager.get_book(book_id).puzzle_ids:
+        record = service.puzzles.get(puzzle_id)
+        if record is not None and isinstance(record["clues_rows"], list):
+            by_clues[tuple(tuple(c) for c in record["clues_rows"])] = puzzle_id
+    assert len(by_clues) == len(set(by_clues.values())), "members share clues"
+    return {by_clues[row_clues]: band for row_clues, band in drawn}
+
+
+class TestBookDetail_NumbersPuzzlesLikeTheBook:
+    """AC-1 — print order on screen, and each "#" is the PDF band's number."""
+
+    def test_lists_a_mixed_stored_order_in_print_order(self, admin_app, client):
+        book_id, ids = _book_stored_as(admin_app, MIXED)
+        page = _read(client, f"/book/{book_id}")
+
+        assert [row["name"].strip() for row in page.rows] == ["E1", "E2", "M1", "M2", "H1"]
+        assert [row["tier"].strip() for row in page.rows] == [
+            "easy", "easy", "medium", "medium", "hard",
+        ]
+
+    def test_numbers_run_from_one_down_the_table(self, admin_app, client):
+        book_id, _ = _book_stored_as(admin_app, MIXED)
+        page = _read(client, f"/book/{book_id}")
+        assert [row["hash"].strip() for row in page.rows] == ["1", "2", "3", "4", "5"]
+
+    def test_each_number_is_the_band_the_exported_interior_prints(
+        self, admin_app, client, monkeypatch
+    ):
+        book_id, ids = _book_stored_as(admin_app, MIXED)
+        page = _read(client, f"/book/{book_id}")
+
+        bands = _bands_the_export_prints(admin_app, client, monkeypatch, book_id)
+
+        assert set(bands) == set(ids), "every member drew one page"
+        for row in page.rows:
+            tier = row["tier"].strip()
+            assert bands[row["id"]] == BAND.format(
+                number=row["hash"].strip(), tier=TIER_LABELS[tier]
+            ), row
+
+    def test_a_repeated_member_is_numbered_at_each_place_it_prints(
+        self, admin_app, client
+    ):
+        """An id stored twice is two rows to the export (``_book_puzzles``)."""
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator
+
+        book_id, ids = _book_stored_as(admin_app, (("E1", "easy"), ("M1", "medium")))
+        book = admin_app.book_manager.get_book(book_id)
+        book.puzzle_ids = [ids[1], ids[0], ids[0]]
+        service = admin_app.puzzle_review_service
+        plan = BookPDFGenerator(book).section_plan(
+            [service.get_puzzle(p) for p in book.puzzle_ids]
+        )
+        assert plan.ids == [ids[0], ids[0], ids[1]]
+
+        page = _read(client, f"/book/{book_id}")
+
+        assert [(row["id"], row["hash"].strip()) for row in page.rows] == [
+            (ids[0], "1"), (ids[0], "2"), (ids[1], "3"),
+        ]
+
+    def test_showing_the_page_does_not_rewrite_the_stored_order(self, admin_app, client):
+        """G-1: the page reads the print order; it stores nothing."""
+        book_id, ids = _book_stored_as(admin_app, MIXED)
+        _read(client, f"/book/{book_id}")
+        assert admin_app.book_manager.get_book(book_id).puzzle_ids == ids
+
+    def test_numbers_equal_the_export_over_a_seeded_corpus(self, admin_app, client):
+        """Property: for any mix of levels, undrawable and missing members.
+
+        Two oracles, neither the page's code: a stable sort by level written
+        here (FR-041), skipping undrawable rows when counting and listing
+        missing ones last; and the export side's own coordinates — the page
+        plan's ``numbers`` resolved through ``SectionPlan.ids`` over rows read
+        one at a time with ``get_puzzle``, as ``_book_puzzles`` reads them.
+        """
+        import random
+
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator, PuzzlePagePlan
+
+        rng = random.Random(165)
+        service = admin_app.puzzle_review_service
+        books = undrawn = missing = 0
+        for b in range(14):
+            size = rng.randint(2, 7)
+            tiers = [rng.choice(TIERS) for _ in range(size)]
+            members = [(f"P{b}-{i}", tier) for i, tier in enumerate(tiers)]
+            book_id, ids = _book_stored_as(admin_app, members, title=f"Corpus {b}")
+            stored = list(ids)
+            rng.shuffle(stored)
+            admin_app.book_manager.get_book(book_id).puzzle_ids = stored
+            tier_of = dict(zip(ids, tiers))
+            gone, broken = set(), set()
+            for puzzle_id in stored:
+                roll = rng.random()
+                if roll < 0.12:
+                    assert service.delete_puzzle(puzzle_id)
+                    gone.add(puzzle_id)
+                elif roll < 0.27:
+                    _make_undrawable(admin_app, puzzle_id)
+                    broken.add(puzzle_id)
+
+            # Oracle 1: written here.
+            present = [p for p in stored if p not in gone]
+            ordered = sorted(present, key=lambda p: LEVEL_RANK[tier_of[p]])
+            expected, n = [], 0
+            for p in ordered:
+                if p in broken:
+                    expected.append((p, None))
+                else:
+                    n += 1
+                    expected.append((p, n))
+            expected += [(p, None) for p in stored if p in gone]
+
+            # Oracle 2: the export side's own numbering.
+            book = admin_app.book_manager.get_book(book_id)
+            rows = [service.get_puzzle(p) for p in book.puzzle_ids]
+            plan = BookPDFGenerator(book).section_plan([r for r in rows if r])
+            exported = {
+                plan.ids[number - 1]: number
+                for entry in plan.pages
+                if isinstance(entry, PuzzlePagePlan)
+                for number in entry.numbers
+            }
+
+            page = _read(client, f"/book/{book_id}")
+            shown = [
+                (row["id"], int(row["hash"]) if row["hash"].strip().isdigit() else None)
+                for row in page.rows
+            ]
+            assert shown == expected, (b, shown, expected)
+            assert {p: n for p, n in shown if n is not None} == exported, b
+            for row in page.rows:
+                if row["id"] in broken | gone:
+                    assert "—" in row["hash"] and "Not printed" in row["hash"], row
+
+            books += 1
+            undrawn += len(broken)
+            missing += len(gone)
+
+        assert books >= 14
+        assert undrawn >= 3 and missing >= 3, (undrawn, missing)
+
+
+class TestBookDetail_UndrawableMemberHasNoNumber:
+    """AC-2 — a member the interior cannot draw shows "—" and why; no gap."""
+
+    MEMBERS = (("E1", "easy"), ("E2", "easy"), ("E3", "easy"), ("M1", "medium"))
+
+    def test_shows_a_dash_and_a_reason_instead_of_a_number(self, admin_app, client):
+        book_id, ids = _book_stored_as(admin_app, self.MEMBERS)
+        _make_undrawable(admin_app, ids[1])
+
+        page = _read(client, f"/book/{book_id}")
+
+        assert [row["id"] for row in page.rows] == ids, "still listed, in place"
+        hashes = [_hash_cell(row) for row in page.rows]
+        assert hashes[0] == "1"
+        assert hashes[1] == "— Not printed: cannot be drawn"
+        assert hashes[2:] == ["2", "3"], "the next row takes the next number"
+
+    def test_the_other_numbers_still_match_the_pdf(self, admin_app, client, monkeypatch):
+        book_id, ids = _book_stored_as(admin_app, self.MEMBERS)
+        _make_undrawable(admin_app, ids[1])
+        page = _read(client, f"/book/{book_id}")
+
+        bands = _bands_the_export_prints(admin_app, client, monkeypatch, book_id)
+
+        assert ids[1] not in bands, "the export drops the undrawable member"
+        printed = [row for row in page.rows if row["id"] != ids[1]]
+        assert {row["id"]: bands[row["id"]] for row in printed} == {
+            row["id"]: BAND.format(
+                number=row["hash"].strip(), tier=TIER_LABELS[row["tier"].strip()]
+            )
+            for row in printed
+        }
+
+    def test_a_member_with_no_record_has_no_number(self, admin_app, client):
+        """The export skips an id with no record, so the page numbers none."""
+        book_id, ids = _book_stored_as(admin_app, self.MEMBERS)
+        assert admin_app.puzzle_review_service.delete_puzzle(ids[0])
+
+        page = _read(client, f"/book/{book_id}")
+
+        assert [row["id"] for row in page.rows] == [ids[1], ids[2], ids[3], ids[0]]
+        hashes = [_hash_cell(row) for row in page.rows]
+        assert hashes == ["1", "2", "3", "— Not printed: puzzle not found"]
+
+    def test_a_book_whose_page_plan_cannot_be_built_shows_no_numbers(
+        self, admin_app, client, caplog
+    ):
+        """An unreadable trim: no plan, so no numbers — and the page says so."""
+        book_id, ids = _book_stored_as(admin_app, MIXED)
+        admin_app.book_manager.get_book(book_id).trim_width_cm = "not-a-number"
+
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            body = client.get(f"/book/{book_id}").get_data(as_text=True)
+        # A failure the seam declares is a one-line warning, not a traceback,
+        # so it can be told apart from a bug in the page's own code.
+        assert any(
+            r.levelno == logging.WARNING and "No page plan" in r.getMessage()
+            for r in caplog.records
+        ), caplog.text
+        assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+        page = _Page()
+        page.feed(body)
+
+        assert 'id="numbers-unavailable"' in body
+        assert [row["id"] for row in page.rows] == ids, "stored order, as stored"
+        assert all(not row["hash"].strip()[:1].isdigit() for row in page.rows)
+        assert all(
+            _hash_cell(row) == "— Number unknown: no page plan" for row in page.rows
+        )
+
+    def test_an_unexpected_plan_failure_is_logged_with_its_traceback(
+        self, admin_app, client, caplog, monkeypatch
+    ):
+        import logging
+
+        from nonogram.admin.book_pdf_generator import BookPDFGenerator
+
+        def broken(self, puzzles):
+            raise KeyError("renamed field")
+
+        monkeypatch.setattr(BookPDFGenerator, "section_plan", broken)
+        book_id, ids = _book_stored_as(admin_app, MIXED)
+
+        with caplog.at_level(logging.WARNING):
+            body = client.get(f"/book/{book_id}").get_data(as_text=True)
+
+        assert 'id="numbers-unavailable"' in body
+        errors = [r for r in caplog.records if r.levelno >= logging.ERROR]
+        assert errors and any(r.exc_info for r in errors), caplog.text
+
+    def test_an_intact_book_carries_no_numbers_unavailable_note(self, admin_app, client):
+        book_id, _ = _book_stored_as(admin_app, MIXED)
+        body = client.get(f"/book/{book_id}").get_data(as_text=True)
+        assert 'id="numbers-unavailable"' not in body
