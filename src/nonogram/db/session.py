@@ -131,11 +131,22 @@ def normalized_url(database_url: str) -> URL:
 
 
 def _scheme_of(database_url: object) -> str:
-    """The text before ``://``, which is the one part that cannot be a secret.
+    """The URL's scheme when it has a real one, otherwise a fixed placeholder.
 
-    Credentials follow the separator, and :meth:`str.partition` splits on its
-    first occurrence, so what comes back is a scheme or nothing at all — never
-    a password, however mangled the rest of the string is.
+    The candidate is the text before the first ``://``, cut again at its first
+    ``:``, and it is returned only if it matches RFC 3986 scheme grammar,
+    ``[A-Za-z][A-Za-z0-9+.-]*`` (which admits ``postgresql+psycopg2``).
+    Anything else becomes ``"<malformed scheme>"``; a string with no ``://``
+    is ``"<no scheme>"`` and a non-string is ``"<not a string>"``.
+
+    So nothing after ``://`` is ever returned, and of the text before it only
+    a leading, scheme-shaped token is: a secret glued on with a ``:``
+    (``postgresql:hunter2://…``) is cut off, and one behind an ``@``
+    (``hunter2@h://…``) fails the grammar. Two shapes remain beyond any
+    check, because they *are* scheme-shaped: a secret that is the leading token
+    itself (``hunter2://…``, ``hunter2:x://…``) and one appended to the scheme
+    using only scheme characters (``postgresqlhunter2://…``). Those are
+    echoed; a username before the first ``:`` (``panel:pw@h://…``) is too.
 
     Total for *any* input, deliberately: this value goes into the message of an
     error raised while another one is being handled, and a ``TypeError`` from a
@@ -145,8 +156,18 @@ def _scheme_of(database_url: object) -> str:
     """
     if not isinstance(database_url, str):
         return "<not a string>"
-    scheme, separator, _ = database_url.partition("://")
-    return scheme if separator else "<no scheme>"
+    before, separator, _ = database_url.partition("://")
+    if not separator:
+        return "<no scheme>"
+    candidate = before.partition(":")[0]
+    ascii_letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    if (
+        candidate
+        and candidate[0] in ascii_letters
+        and all(c in ascii_letters or c in "0123456789+.-" for c in candidate)
+    ):
+        return candidate
+    return "<malformed scheme>"
 
 
 def _init_engine():

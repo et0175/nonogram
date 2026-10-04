@@ -30,6 +30,7 @@ on exactly the days it should.
 
 from __future__ import annotations
 
+import ast
 import json
 import logging
 import os
@@ -879,6 +880,196 @@ class TestDbUrl_NormalisationChangesNothingElse:
             assert "During handling of the above exception" not in rendered
             assert failure.value.__cause__ is None
             assert failure.value.__suppress_context__ is True
+
+
+# --------------------------------------------------------------------------
+# CARD-176 — the echoed scheme is a real scheme or a placeholder
+#
+# CARD-148's tests above put the secret only after `://`. `_scheme_of` used to
+# return everything before it, so a secret typed *there* came back verbatim in
+# the error message (CARD-148 review finding F-001).
+# --------------------------------------------------------------------------
+
+
+#: The placeholders `_scheme_of` may return instead of a scheme.
+_SCHEME_PLACEHOLDERS = frozenset({"<malformed scheme>", "<no scheme>", "<not a string>"})
+
+
+def _echoed_scheme(error: BaseException) -> str:
+    """The value `normalized_url` put after ``scheme:`` in its message."""
+    message = str(error)
+    marker = "(scheme: "
+    start = message.index(marker) + len(marker)
+    end = message.index("). ", start)
+    echoed = ast.literal_eval(message[start:end])  # a repr() of a str
+    assert isinstance(echoed, str), message
+    return echoed
+
+
+class TestDbUrl_SchemeOfEchoesOnlyARealScheme:
+    """AC-2 and AC-3: the named leaks are closed and a real scheme still shows."""
+
+    @pytest.mark.parametrize(
+        "malformed",
+        ["postgresql:hunter2://h/db", "hunter2@h://x/db"],
+        ids=["secret-behind-a-colon", "secret-behind-an-at"],
+    )
+    def test_text_before_the_separator_that_holds_a_secret_is_not_echoed(
+        self, malformed: str
+    ) -> None:
+        """AC-2. The second shape is the one a `partition(':')` fix misses."""
+        with pytest.raises(RuntimeError) as failure:
+            db_session.normalized_url(malformed)
+
+        message = str(failure.value)
+        assert "hunter2" not in message
+        assert "DATABASE_URL" in message
+
+    @pytest.mark.parametrize(
+        ("broken", "scheme"),
+        [
+            ("postgresql://panel:pw@db:notaport/nono", "postgresql"),
+            ("postgresql+psycopg2://panel:pw@db:/nono", "postgresql+psycopg2"),
+        ],
+        ids=["bare-scheme", "scheme-with-driver"],
+    )
+    def test_a_well_formed_scheme_with_a_broken_rest_is_still_named(
+        self, broken: str, scheme: str
+    ) -> None:
+        """AC-3. A placeholder for *every* failure would also hide the secret,
+        and would leave the operator nothing to go on."""
+        with pytest.raises(RuntimeError) as failure:
+            db_session.normalized_url(broken)
+
+        assert _echoed_scheme(failure.value) == scheme
+        assert f"'{scheme}'" in str(failure.value)
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("postgresql:hunter2://h/db", "postgresql"),
+            ("hunter2@h://x/db", "<malformed scheme>"),
+            ("u:hunter2@h://x", "u"),
+            # The documented limit: scheme-shaped text cannot be told from a
+            # scheme, so these are echoed (CARD-176 [Limit]).
+            ("hunter2:x://h/db", "hunter2"),
+            ("postgresqlhunter2://h/db", "postgresqlhunter2"),
+            ("://panel:pw@h/db", "<malformed scheme>"),
+            ("1postgres://h/db", "<malformed scheme>"),
+            ("postgres ql://h/db", "<malformed scheme>"),
+            ("pöstgres://h/db", "<malformed scheme>"),
+            ("sqlite:///nono.db", "sqlite"),
+            ("db.v2-x+y://h", "db.v2-x+y"),
+            ("postgresql", "<no scheme>"),
+            (b"postgresql://h/db", "<not a string>"),
+            (None, "<not a string>"),
+        ],
+    )
+    def test_scheme_of_returns_a_grammatical_scheme_or_a_placeholder(
+        self, raw: object, expected: str
+    ) -> None:
+        """The function directly, including the grammar's edges: a leading
+        digit, a space and a non-ASCII letter are all outside RFC 3986's
+        ``ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )``."""
+        assert db_session._scheme_of(raw) == expected
+
+
+#: Fixed, so a failure names a reproducible case.
+_SECRET_CORPUS_SEED = 176
+
+#: Asserted inside the test, so the corpus cannot silently shrink.
+_MINIMUM_SECRET_CORPUS = 500
+
+#: The schemes the corpus is built from — and so the only scheme text the
+#: error may echo besides a placeholder.
+_SECRET_CORPUS_SCHEMES = (*_SCHEMES, "sqlite", "mysql+pymysql")
+
+#: Characters outside the scheme grammar that a password can plausibly hold.
+#: None of `@ / : ? #`, which would only move the secret into another of the
+#: positions the corpus already covers.
+_NON_SCHEME_CHARACTERS = "!~*$&;=,'()"
+
+#: Where the secret goes. Every template puts it after the first character —
+#: a secret that *is* the leading token cannot be told from a scheme (CARD-176
+#: [Limit]) — and every rest-of-URL is broken (`notaport`, an empty port, or
+#: the secret itself as the port) so that `make_url` has a reason to raise even
+#: where the secret alone would parse.
+_SECRET_POSITIONS = {
+    # between the scheme and `://`, behind a `:` — the F-001 example
+    "scheme-colon": "{scheme}:{secret}://panel:pw@{host}:notaport/{db}",
+    # between the scheme and `://`, glued on with no `:`
+    "scheme-glued": "{scheme}{secret}://panel:pw@{host}:5432/{db}",
+    "userinfo": "{scheme}://panel:{secret}@{host}:notaport/{db}",
+    "host": "{scheme}://panel:pw@{host}{secret}:/{db}",
+    "port": "{scheme}://panel:pw@{host}:{secret}/{db}",
+    "path": "{scheme}://panel:pw@{host}:notaport/{db}{secret}",
+    "query": "{scheme}://panel:pw@{host}:/{db}?sslmode={secret}",
+    # before `://` behind an `@` with no `:` — what a `partition(':')` fix misses
+    "before-separator-behind-at": "{user}{secret}@{host}://x/{db}",
+}
+
+#: Positions where a secret made only of scheme characters would itself be
+#: scheme-shaped text glued to the scheme, which no check can tell from a
+#: scheme (CARD-176 [Limit]); the secret there always carries one character
+#: outside the grammar.
+_NEEDS_A_NON_SCHEME_CHARACTER = frozenset({"scheme-glued"})
+
+
+def _secret_corpus() -> list[tuple[str, str, str, bool]]:
+    """``(position, secret, raw_url, secret_is_alphanumeric)``, seeded."""
+    rng = random.Random(_SECRET_CORPUS_SEED)
+    alphanumeric = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    cases: list[tuple[str, str, str, bool]] = []
+    for position, template in _SECRET_POSITIONS.items():
+        for _ in range(90):
+            # The marker makes a chance collision with scheme, host or database
+            # text impossible, so "not in the message" means what it says.
+            secret = "QXSECRET" + "".join(
+                rng.choice(alphanumeric) for _ in range(rng.randint(4, 12))
+            )
+            plain = position not in _NEEDS_A_NON_SCHEME_CHARACTER and rng.random() < 0.5
+            if not plain:
+                at = rng.randint(1, len(secret))
+                secret = secret[:at] + rng.choice(_NON_SCHEME_CHARACTERS) + secret[at:]
+            raw = template.format(
+                scheme=rng.choice(_SECRET_CORPUS_SCHEMES),
+                secret=secret,
+                host=rng.choice(("db", "db.example.com", "10.0.0.7", "h")),
+                db=rng.choice(("nono", "nonogram_test", "d")),
+                user=rng.choice(("panel", "u", "admin")),
+            )
+            cases.append((position, secret, raw, plain))
+    return cases
+
+
+def test_PropertyTest_DbUrl_MalformedUrlErrorNeverEchoesASecret() -> None:
+    """AC-1 / CARD-148 EC-1: for any malformed URL, the secret never surfaces —
+    not in the message and not in the rendered traceback (`from None`)."""
+    raised: list[tuple[str, bool]] = []
+    for position, secret, raw, plain in _secret_corpus():
+        assert raw.index(secret) > 0, f"secret at position 0: {raw!r}"
+        try:
+            db_session.normalized_url(raw)
+        except RuntimeError as error:
+            rendered = "".join(traceback.format_exception(error))
+            assert secret not in str(error), (position, raw, str(error))
+            assert secret not in rendered, (position, raw)
+            echoed = _echoed_scheme(error)
+            assert echoed in _SECRET_CORPUS_SCHEMES or echoed in _SCHEME_PLACEHOLDERS, (
+                position,
+                raw,
+                echoed,
+            )
+            raised.append((position, plain))
+
+    # Only raising cases prove anything, so it is *those* that are counted.
+    assert len(raised) >= _MINIMUM_SECRET_CORPUS, len(raised)
+    # Every insertion position actually occurs among them.
+    assert {position for position, _ in raised} == set(_SECRET_POSITIONS)
+    # Both kinds of secret reach the `@` shape: a purely alphanumeric one
+    # there is rejected only by the grammar's ban on `@`.
+    assert ("before-separator-behind-at", True) in raised
+    assert ("before-separator-behind-at", False) in raised
 
 
 # --------------------------------------------------------------------------
