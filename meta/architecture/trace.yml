@@ -1905,6 +1905,9 @@ links:
   - TestBookAddPuzzles_PlacesNewPuzzleInsideItsLevel
   - TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
   - PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence
+  - TestGuidePage_TitledHowToSolveNonograms
+  - TestGuidePage_CarriesAWorkedExampleOnOnePage
+  - TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged
   notes: >-
     Story US-024, INV-009, CMD-022 -> EVT-023, EC-029. Owner answers 2026-09-22:
     an added puzzle lands at the END of its level; the answer key carries small

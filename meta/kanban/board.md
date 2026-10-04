@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-03 16:52 UTC_
+_Updated: 2026-10-04 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -27,6 +27,7 @@ _Updated: 2026-10-03 16:52 UTC_
 | 29 | CARD-153 P1, CARD-154 P2, CARD-155 P3, CARD-156 P2 | ✓ done — all 4 merged |
 | 30 | CARD-157 P2, CARD-158 P2, CARD-159 P2 | ✓ done — all 3 merged |
 | 31 | CARD-160 P2, CARD-161 P2, CARD-162 P2, CARD-163 P2 | ✓ done — all 4 merged |
+| 32 | CARD-164 P1, CARD-165 P2, CARD-166 P2, CARD-167 P2, CARD-168 P2 | ○ pending — roadmap wave 1; 164 → 165 → 166 serialized (admin/app.py), 167 and 168 parallel |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -46,7 +47,11 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-_(none — run of 2026-10-03 complete: CARD-160..CARD-163 merged)_
+- **CARD-164** P1 · Main goes green: fix the two tests that have been red for weeks · 0.5d · wave 32
+- **CARD-165** P2 · The book page numbers puzzles the way the printed book will · 0.5d · wave 32
+- **CARD-166** P2 · Admin paper cuts: "25×15", unclipped plan inputs, empty status filter · 0.5d · wave 32 · FR-044 AC-323
+- **CARD-167** P2 · The guide page becomes "How to Solve Nonograms" with a worked example · 0.75d · wave 32 · FR-041 AC-324..326
+- **CARD-168** P2 · Ops housekeeping: Render settings doc, test runner defaults to nonogram_test · 0.5d · wave 32
 
 ## In Progress
 _(none)_

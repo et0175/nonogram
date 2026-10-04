@@ -87,16 +87,17 @@ ideas:
     they can be drift-checked   @ops'
   category: ops
   intent: null
-  status: backlog
+  status: in_kanban
   method: fifo
   scores: null
   created_at: 3
   priority_score: null
   depends_on: []
-  needs_owner_decision: true
   source_line: 11
   wave: 1
   rank: 7
+  card: CARD-168
+  owner_decision: dashboard stays authoritative; document it (2026-10-04)
 - id: IDEA-004
   title: 'Fix dead check: refs on mandatory rules (CON-005, INV-*)'
   raw: '- [ ] Dead `check:` refs on mandatory rules. These name tests that exist nowhere under `tests/`, only inside
@@ -315,7 +316,7 @@ ideas:
     routes (`request.values.get("status", "approved")` defaults only when the key is absent)   @ops'
   category: ops
   intent: null
-  status: backlog
+  status: in_kanban
   method: fifo
   scores: null
   created_at: 13
@@ -324,6 +325,7 @@ ideas:
   source_line: 25
   wave: 1
   rank: 8
+  card: CARD-166
 - id: IDEA-014
   title: Memory mode get_book returns live Book (CARD-136)
   raw: '- [ ] CARD-136 (owner-accepted 2026-09-23): in memory-only mode `get_book` returns the live `Book`, so a
@@ -842,16 +844,17 @@ ideas:
     examples export a `nonogram_test` URL. Change the default?   @ops'
   category: ops
   intent: null
-  status: backlog
+  status: in_kanban
   method: fifo
   scores: null
   created_at: 36
   priority_score: null
   depends_on: []
-  needs_owner_decision: true
   source_line: 48
   wave: 1
   rank: 9
+  card: CARD-168
+  owner_decision: default to nonogram_test (2026-10-04)
 - id: IDEA-037
   title: '''Not reachable'' message names only two causes'
   raw: '- [ ] CARD-152 F-006 (minor): the "not reachable" message names only two causes (server down, database missing),
@@ -1065,7 +1068,7 @@ ideas:
   raw: '- [ ] CARD-158 F-004 (pre-existing): the book page''s # column is list order, not the printed puzzle number   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -1082,6 +1085,7 @@ ideas:
   source_line: 58
   wave: 1
   rank: 3
+  card: CARD-165
 - id: IDEA-047
   title: /books rows ~650 px tall at 390 px
   raw: '- [ ] CARD-158 F-005 (pre-existing): /books rows are ~650 px tall at 390 px because of the Against-plan
@@ -1182,7 +1186,7 @@ ideas:
     clip "20" to "2("   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -1200,6 +1204,7 @@ ideas:
   source_line: 63
   wave: 1
   rank: 1
+  card: CARD-166
 - id: IDEA-052
   title: 'No-puzzle book: /books offers download /book disables'
   raw: '- [ ] Wave-30 goal-check: on a book with no puzzles, /books offers the interior download (returns a 200
@@ -1415,7 +1420,7 @@ ideas:
     the rest of the admin uses "×"   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 1
@@ -1429,10 +1434,11 @@ ideas:
     job_size: Literal + AC-323 amend
   priority_score: 3.0
   depends_on: []
-  needs_owner_decision: true
   source_line: 73
   wave: 1
   rank: 4
+  card: CARD-166
+  owner_decision: use × (2026-10-04)
 - id: IDEA-062
   title: Player shows tier 'MEDIUM' upper-case
   raw: '- [ ] Wave-31 goal-check: the player passes `tier.value.upper()` (app.py ~:5332), so its header badge and
@@ -1521,7 +1527,7 @@ ideas:
     (red on 89ed292 and since wave 20)   @ops'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -1539,13 +1545,14 @@ ideas:
   category_note: re-categorised @ops → tech-debt by owner 2026-10-04 (backlog.md tag unchanged)
   wave: 1
   rank: 5
+  card: CARD-164
 - id: IDEA-067
   title: Stale assertion test_wave3_e2e:366 ('New batch')
   raw: '- [ ] Stale assertion: `tests/test_wave3_e2e.py:366` expects "Create Batch from Images"; f773015 (2026-09-14)
     renamed the heading "New batch". The page is fine, the test isn''t   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -1562,6 +1569,7 @@ ideas:
   source_line: 81
   wave: 1
   rank: 6
+  card: CARD-164
 - id: IDEA-068
   title: Vacuous trim assertion in DB mode (CARD-120 F-009)
   raw: '- [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt'
@@ -1637,7 +1645,7 @@ ideas:
     as CARD-149)   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 5
@@ -1654,6 +1662,8 @@ ideas:
   source_line: 87
   wave: 1
   rank: 2
+  card: CARD-167
+  owner_decision: small fix now, full tutorial later (2026-10-04)
 - id: IDEA-072
   title: 'Unreadable stored print spec: name the remedy'
   raw: '- [ ] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override

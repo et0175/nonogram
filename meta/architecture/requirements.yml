@@ -3122,6 +3122,18 @@ functional:
     # the order changes only through an explicit add, remove or move) and
     # FR-040 (pairs never span a level). The tier is the solver's tier
     # (FR-009), three tiers per ADR-0031.
+    # AMENDED 2026-10-04 (a) (raw-requirements.md "## Delta 2026-10-04 (a)",
+    # bullet 2; IDEA-071; owner decision, roadmap wave 1). No FR owned the
+    # guide page's CONTENT (FR-043 owns only its position: interior page 1,
+    # right-hand; CON-020 owns its type floor), so its content criteria are
+    # added here, to the FR that orders the interior's sections. The guide
+    # page (create_guide_page, today titled "How to Use This Book") is
+    # retitled "How to Solve Nonograms" and carries a worked example — one
+    # line solved step by step from its clue — on the same single page
+    # (AC-324..AC-326). Page count, parity (FR-043) and the 10 pt floor
+    # (CON-020) are unchanged and are referenced, not restated. The full 1-2
+    # page tutorial is NOT this change; it gets its own requirement once the
+    # page layout is final. Statement: last sentence appended.
     statement: >-
       A book's order (TERM-032) runs easy -> medium -> hard: every easy
       puzzle comes before every medium one and every medium before every
@@ -3138,7 +3150,10 @@ functional:
       in the rule's order, keeping its stored order within each level.
       The answer key has no level divider pages: its levels are marked by
       a small heading at the top of each level's first answer page
-      (FR-042).
+      (FR-042). The interior's guide page (interior page 1, FR-043) is
+      titled "How to Solve Nonograms" and carries a worked example - one
+      line solved step by step from its clue - on that same single page;
+      the guide page stays exactly one page.
     source: [US-024]
     _meta:
       source: authored
@@ -3146,6 +3161,7 @@ functional:
       relates_to: [FR-038, FR-040, FR-033, FR-009, ADR-0037, ADR-0031]
       open_question: "Where inside its level an added puzzle lands (end of the level vs by selection order) is unstated; the criteria assert only that it lands inside its level. Whether the answer key also carries level dividers is unstated (the answer key keeps puzzle-number order either way). [CLOSED 2026-09-22 (d) — both halves answered by the owner: end of its level (owner answer above); the answer key has no level dividers, each level starts a new answer page with a small heading (FR-042, AC-290/AC-291).]"
       evidence: ["src/nonogram/admin/book_manager.py:373-520", "src/nonogram/admin/app.py:2093-2130", "src/nonogram/admin/book_pdf_generator.py:148-210", "docs/book_generation_req/book_generation_admin_panel.md#3"]
+      amended: "2026-10-04 (a) — AC-324..AC-326 added: the guide page is titled \"How to Solve Nonograms\" (was \"How to Use This Book\") and carries a worked example (one line solved step by step from its clue) on the same single page; interior page count and parity unchanged. Placed here because no FR owned the guide page's content; FR-043 (position/parity) and CON-020 (10 pt floor) are referenced, not duplicated. The full 1-2 page tutorial is deferred to its own requirement. Source: owner decision 2026-10-04, roadmap wave 1, IDEA-071 (raw-requirements.md Delta 2026-10-04 (a))."
     acceptance:
       - id: AC-253
         given: a Book 1 profile book arranged easy E1, easy E2, medium M1, medium M2, hard H1, all 20x20 (no pairs)
@@ -3200,6 +3216,25 @@ functional:
         kind: boundary
         invariant: INV-009
         test: TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
+      # --- guide page content (2026-10-04 (a), IDEA-071) ---
+      - id: AC-324
+        given: a Book 1 profile book with 3 easy 20x20 puzzles
+        when: the book is exported and the interior PDF's page 1 (the guide page, FR-043) is read
+        then: its title reads "How to Solve Nonograms" and the old title "How to Use This Book" appears nowhere on it
+        kind: happy
+        test: TestGuidePage_TitledHowToSolveNonograms
+      - id: AC-325
+        given: the book of AC-324
+        when: the guide page is read
+        then: the same single page carries a worked example - one line with its clue, shown solved step by step from that clue to the finished line - with no part of the example continuing onto interior page 2, and its text holds CON-020's 10 pt floor
+        kind: happy
+        test: TestGuidePage_CarriesAWorkedExampleOnOnePage
+      - id: AC-326
+        given: one Book 1 profile book exported with the "How to Use This Book" guide page and again with the "How to Solve Nonograms" guide page carrying its worked example
+        when: the two interior PDFs are compared
+        then: both hold the same number of pages, the guide page is exactly one page (interior page 1) in each, and every later page keeps its parity (FR-043)
+        kind: boundary
+        test: TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged
     engineering_constraints:
       - id: EC-029
         statement: >-
@@ -3687,6 +3722,7 @@ functional:
       dec_question: "Client approach for the puzzle player and its browser-level tests: plain JavaScript and CSS served as static files by the Flask admin panel (no framework, no build step, no new runtime dependency) with pytest-playwright + Chromium declared as a dev-only extra — or a separate front end, or plain JS with no browser tests? The owner's stated preference is the first (OWNER ANSWER (approach), 2026-10-03); not decided here."
       dec_alternatives: [plain_js_in_flask_with_playwright_dev_extra, separate_react_nextjs_front_end, plain_js_without_browser_tests]
       amended: "2026-10-03 (b) — AC-322 / AC-323 added: no picture name in the visible header or document title before solve (AC-322); header shows size and tier instead (AC-323). Source: owner decision 2026-10-03 on CARD-162 review finding F-007 (raw-requirements.md Delta 2026-10-03 (b)); the online parallel of ADR-0037/R1 (book puzzle page never prints the title). Supersedes the 'header (title and tier)' reading in assumptions below."
+      amended_2026_10_04: "2026-10-04 (a) — AC-323 amended: the header's size is written \"25×15\" with the multiplication sign (U+00D7), like every other admin screen, not the ASCII \"25x15\" the AC first named. Applies wherever the player shows the size (header, and the document title if it carries the size). Test name unchanged (TestSolverPage_HidesThePictureNameUntilSolved). Source: owner decision 2026-10-04, roadmap wave 1, IDEA-061 (CARD-163 review F-002); raw-requirements.md Delta 2026-10-04 (a)."
       assumptions: "The route path /puzzle/<puzzle_id>/solve, the header (title and tier — SUPERSEDED 2026-10-03 (b) by AC-322/AC-323: size and tier until solved) and the 404 for an unknown id follow CARD-160 and the panel's existing /puzzle/<puzzle_id>/... routes; the owner named only 'reached by clicking a puzzle'. 'Locked until reset' is read as: clicks, drags, undo and redo change no cell while the solved state is showing (CARD-162: 'stop accepting marks until the person chooses to keep looking or reset')."
       evidence: ["src/nonogram/admin/app.py:2213", "src/nonogram/admin/book_proof.py:268-272", "src/nonogram/admin/image_to_puzzle.py:63", "meta/kanban/cards/CARD-160.md", "meta/kanban/cards/CARD-161.md", "meta/kanban/cards/CARD-162.md"]
     acceptance:
@@ -3859,7 +3895,10 @@ functional:
       - id: AC-323
         given: the unsolved player page of AC-322, for a 25x15 puzzle of tier "medium"
         when: the page's visible header is read
-        then: it shows the puzzle's size "25x15" and its tier "medium" in place of the name
+        # AMENDED 2026-10-04 (a) (IDEA-061): the size literal is written with
+        # the multiplication sign U+00D7, "25×15", as on every other admin
+        # screen — was the ASCII "25x15". Test name unchanged.
+        then: it shows the puzzle's size "25×15" (multiplication sign U+00D7, not the letter "x") and its tier "medium" in place of the name
         kind: happy
         test: TestSolverPage_HidesThePictureNameUntilSolved
     engineering_constraints:

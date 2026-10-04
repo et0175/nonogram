@@ -8,7 +8,6 @@ card names its card._
 ## Owner decisions (nothing moves until you answer)
 - [ ] CARD-147 F-007 (three cards old): should the baseline chain's fixtures get `superseded_by` back-pointers? Each fixture's `warning` ends "…and says so here", and its prohibition covers regenerating digests, which an additive key is not. Only card145 and card128 have one; card144, card149 and card146 don't. card146 matters most, because it's still live evidence (hardcoded as `PRE_CARD_BASELINE`)   @tech-debt
 - [ ] Per-directory READMEs: no directory under `src/` has one, so every book card skips the docs step, and `tests/README.md` is still titled "Admin Panel Test Suite - Wave 1" (about 20 waves stale, names no book test file). Either make "no per-directory READMEs" the convention and drop the step, or create them once and rewrite `tests/README.md`   @tech-debt
-- [ ] DEPLOYMENT (found 2026-09-23, cost four redeploys): the Render service is managed in the dashboard, so `render.yaml` is ignored (buildCommand, startCommand, env vars). Production ran `flask run` on python3.14 while `render.yaml` pins 3.11, which bypassed CARD-086's gunicorn decision. Either adopt the Render Blueprint so `render.yaml` governs, or mark the file as not authoritative and record the dashboard settings somewhere they can be drift-checked   @ops
 
 ## Architecture model (→ /forge:architect, one session)
 - [ ] Dead `check:` refs on mandatory rules. These name tests that exist nowhere under `tests/`, only inside comments: ADR-0006/R1 `TestDependencyBaseline_IsExactlyPillowAndNumpy` (the real test is `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`, per CARD-161 F-007), **CON-005** `PropertyTest_Solver_NeverFalsePositiveUniqueness` (the one mandatory correctness property), INV-001 `TestComputeClues_MatchesGridExactly`, INV-002 `TestExport_RejectsUnverifiedPuzzle`, INV-008 (three checks), INV-012 (six checks), ADR-0029/R2, INV-009..INV-011. Step 8h has been reporting some of them as covered. Fix each ref (write the test, or re-type the check as `review-lens`)   @tech-debt
@@ -22,7 +21,6 @@ card names its card._
 ## Bugs and tech debt (not carded yet)
 - [ ] CARD-120 F-007: typing an edited cell back to its current prefill value doesn't release the hand-edit mark; a count change judges edits against the old prefill. Site: `book_manager.py` (`revise_plan`)   @tech-debt
 - [ ] CARD-120 F-008: the refusal page's Planned row is read from the stored plan, not the submitted one. Site: `app.py` (setup-print)   @tech-debt
-- [ ] A hand-typed empty `?status=` turns off the approved-only default on the book-selection and puzzle-list routes (`request.values.get("status", "approved")` defaults only when the key is absent)   @ops
 - [ ] CARD-136 (owner-accepted 2026-09-23): in memory-only mode `get_book` returns the live `Book`, so a caller can write an invalid trim past `set_print_spec`'s validation. Fix by having memory mode return a copy   @tech-debt
 - [ ] CARD-118 reviewer minors: the proof route's broad `except Exception` flashes raw exception text; `redirect(request.referrer or ...)` takes its target from the caller; a new `datetime.utcnow()` deprecation; the `ast` importer guard matches on bare filename, not relative path   @tech-debt
 - [ ] CARD-148 F-001: `db/session.py`'s `_scheme_of` echoes anything before the first `://`, so `postgresql:hunter2://h/db` puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt
@@ -45,7 +43,6 @@ card names its card._
 - [ ] CARD-156 F-007 (minor): `DROP SCHEMA public` needs the test role to own `public`, and the recreated schema loses its default grants. Documented in tests/README.md, not handled in code   @tech-debt
 - [ ] CARD-156 note: the CARD-097 `db_required` reachability hook still sends a read-only `SELECT 1` to whatever `DATABASE_URL` names, before the `_test` guard applies   @tech-debt
 - [ ] CARD-152 out of scope: `scripts/diagnose_postgres.sh:90` still hardcodes `nonogram_poc`, the same defect CARD-150..152 removed from the other three scripts   @tech-debt
-- [ ] CARD-152 (owner decision): `run_admin_tests.sh`'s default database `nonogram_poc` passes the runner's own check but pytest's `tests/database_guard.py` refuses any name without "test". Pre-existing; the README's examples export a `nonogram_test` URL. Change the default?   @ops
 - [ ] CARD-152 F-006 (minor): the "not reachable" message names only two causes (server down, database missing), not a wrong host, port or credentials; same wording in all three scripts   @tech-debt
 - [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from `tests/test_start_admin_local.py` (`_DOCKER_STUB`, `_PSQL_MODEL`, `_all_pairs`, `_plain`); renaming one breaks both new suites   @tech-debt
 - [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14); stale docstring at `tests/test_start_admin_local.py:533`   @tech-debt
@@ -55,12 +52,10 @@ card names its card._
 - [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper + Flask); the G-1 "never laid out again" spy only sees layouts through `BookPDFGenerator` (the only path today, per ADR-0036/R2)   @tech-debt
 - [ ] Wave-29 goal-check: `PrintSpecValidator.validate_margins` (CARD-154) refuses nan/inf but not a margin below the 0.635 cm minimum (accepts "0.5"). Unreachable today (no margin field on Print setup, `set_print_spec` writes no margins); a stored small margin makes Finalise fall back to "about N"   @tech-debt
 - [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the /books list, app.py) and the floor-check loop (`book_manager.py` ~:1050). Both can use `PuzzleReviewService.get_puzzles`   @tech-debt
-- [ ] CARD-158 F-004 (pre-existing): the book page's # column is list order, not the printed puzzle number   @feature
 - [ ] CARD-158 F-005 (pre-existing): /books rows are ~650 px tall at 390 px because of the Against-plan hint list   @feature
 - [ ] CARD-159 F-001: Print setup's Limits box says "Maximum height 48 cm (18.90 in)"; 18.90 in is 48.006 cm, which the server refuses (18.89 in is the real maximum). Now the page's only statement of the inch limits   @tech-debt
 - [ ] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it means editing `print_specs.py`   @feature
 - [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims now the browser min is gone (the server refuses them); a refused New book shows the edit-mode alert ("General info not saved… Nothing stored was changed")   @tech-debt
-- [ ] CARD-159 owner check pending: G-3, the owner's look at ~/Documents/nonogram-reviews/CARD-159/ renders (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the plan-table inputs clip "20" to "2("   @feature
 - [ ] Wave-30 goal-check: on a book with no puzzles, /books offers the interior download (returns a 200 PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt
 - [ ] CARD-160 F-004 (minor): the player's cell bounds (14px/28px) and thin-rule color-mix live as local custom properties in admin.css; promote them to tokens.css   @tech-debt
 - [ ] CARD-160 F-006 (minor): the /puzzle/<id>/solve route calls the private `PuzzleReviewService._as_readable_grid`; expose a public read   @tech-debt
@@ -70,21 +65,17 @@ card names its card._
 - [ ] Puzzle player: cells cannot be marked from the keyboard (no AC asks for it; controls are keyboard-reachable). Needs its own card if wanted   @feature
 - [ ] Flake watch: `tests/test_book_ready_gate.py::…test_save_plan_returns_the_book_to_draft[db-ready_for_pdf]` failed once in CARD-161's gate 0 and passed 3x in isolation and in every later gate   @tech-debt
 - [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…" no longer clearly refers to the banner; the redo-button-noop case doesn't assert Redo is aria-disabled before the click   @tech-debt
-- [ ] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323's literal) where the rest of the admin uses "×"   @feature
 - [ ] Wave-31 goal-check: the player passes `tier.value.upper()` (app.py ~:5332), so its header badge and tab title say "MEDIUM" where every other screen shows the stored "medium"   @tech-debt
 - [ ] Wave-31 goal-check: the picture name is in the player's page source before solve (hidden solved banner, puzzle_solve.html ~:55) — not visible, AC-322 holds, and CON-021 already ships the solution in the page; matters only for a public player   @feature
 - [ ] Wave-31 goal-check (requirements incomplete): FR-044 leaves two player rules unstated — a drag follows the line of its FIRST move away from the start cell (a drag that slips down first follows the column), and board cells are pointer-only (the statement says "every control" is keyboard-reachable; AC-310 covers only tools/undo/redo/reset). Formalise at /forge:architect   @tech-debt
 - [ ] ADR-0038/R8 requires CI to run `playwright install chromium`, but the repo has no CI configuration; add it when CI exists (or record the rule as local-only)   @ops
 
 ## Tests
-- [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops
-- [ ] Stale assertion: `tests/test_wave3_e2e.py:366` expects "Create Batch from Images"; f773015 (2026-09-14) renamed the heading "New batch". The page is fine, the test isn't   @tech-debt
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt
 
 ## Features and UX (not carded yet)
 - [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5, real KDP sizes) leaves no room for the proof foot note, so `proof_pages` raises. Portrait trims all render. **Revisit when the page layout is finalised**   @feature
-- [ ] Guide page: worked-example rows and the title wording. Both touch `create_guide_page` (same method as CARD-149)   @feature
 - [ ] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override that can't succeed, and never names the remedy. Fails closed, but unhelpful   @feature
 - [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so the panel can't show what a batch was aiming at. Needs a column and a migration   @feature
 - [ ] Online solver: a hint button (the owner's doc makes it optional; left out of CARD-160..162)   @feature
@@ -95,6 +86,17 @@ card names its card._
 - [ ] Gate hazard (CARD-138): from an older wave branch, `git diff main` reports main's newer files as deletions, including ones matching guardrail globs like `book_*.py`. Every scope and guardrail verdict must be taken against the merge base   @tech-debt
 - [ ] Two full-suite lock conventions: cmd-start-review documents a `mkdir` lock on `meta/kanban/.full-suite.lock`, but the dispatcher takes it with `exec 9>` + `flock`, which creates a regular file the `mkdir` form can never acquire. Pick one   @tech-debt
 - [ ] Near miss (2026-09-24): two mutation skeptics ran concurrently on the same file. The failure mode is a silently contaminated verdict. The card brief should forbid concurrent mutation skeptics on one file without a lock   @tech-debt
+
+## Carded 2026-10-04 (roadmap wave 1 → kanban wave 32)
+- [x] CARD-159 owner check pending: G-3, the owner's look at ~/Documents/nonogram-reviews/CARD-159/ renders (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the plan-table inputs clip "20" to "2("   @feature → **CARD-166 (clipped plan inputs; the owner look stays yours)**
+- [x] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323's literal) where the rest of the admin uses "×"   @feature → **CARD-166 (owner: use ×)**
+- [x] A hand-typed empty `?status=` turns off the approved-only default on the book-selection and puzzle-list routes (`request.values.get("status", "approved")` defaults only when the key is absent)   @ops → **CARD-166**
+- [x] CARD-158 F-004 (pre-existing): the book page's # column is list order, not the printed puzzle number   @feature → **CARD-165**
+- [x] Guide page: worked-example rows and the title wording. Both touch `create_guide_page` (same method as CARD-149)   @feature → **CARD-167 (owner: small fix now, tutorial later)**
+- [x] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` (red on 89ed292 and since wave 20)   @ops → **CARD-164**
+- [x] Stale assertion: `tests/test_wave3_e2e.py:366` expects "Create Batch from Images"; f773015 (2026-09-14) renamed the heading "New batch". The page is fine, the test isn't   @tech-debt → **CARD-164**
+- [x] DEPLOYMENT (found 2026-09-23, cost four redeploys): the Render service is managed in the dashboard, so `render.yaml` is ignored (buildCommand, startCommand, env vars). Production ran `flask run` on python3.14 while `render.yaml` pins 3.11, which bypassed CARD-086's gunicorn decision. Either adopt the Render Blueprint so `render.yaml` governs, or mark the file as not authoritative and record the dashboard settings somewhere they can be drift-checked   @ops → **CARD-168 (owner: dashboard stays, document it)**
+- [x] CARD-152 (owner decision): `run_admin_tests.sh`'s default database `nonogram_poc` passes the runner's own check but pytest's `tests/database_guard.py` refuses any name without "test". Pre-existing; the README's examples export a `nonogram_test` URL. Change the default?   @ops → **CARD-168 (owner: default to nonogram_test)**
 
 ## Carded 2026-10-02
 - [x] `setup_admin_local.sh` (:40, :64, :70-74) and `run_admin_tests.sh:24` repeat CARD-150's three defects → **CARD-152**
