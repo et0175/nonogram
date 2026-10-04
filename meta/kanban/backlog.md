@@ -82,6 +82,10 @@ card names its card._
 - [ ] CARD-169 F-002 (minor): the guide strip's cell size `--strip-cell: 1.5rem` is a local value in admin.css — promote it to a design token or record it as a deliberate local value   @tech-debt
 - [ ] CARD-169 owner check pending: look at ~/Documents/nonogram-reviews/CARD-169/finalise-guide-preview.png beside CARD-167's guide-book1-8.5x11.png (merged on pipeline evidence by owner choice)   @feature
 
+- [ ] CARD-172 F-001/F-002 (minor): a test comment credits the 1493/2048 cap-height ratio to an OS/2 field the bundled font lacks (value correct); `_annotate`'s docstring claims square page 2 keeps its foot note but only 11×8.5 is asserted   @tech-debt
+- [ ] CARD-172 F-003: `_annotate` takes a narrow outer side strip before a clue corner that fits — on e.g. an 8.5×8 trim with a small outside margin the note becomes 30+ one-word lines. Not reached on the card's trims; prefer the corner when the strip is narrower than N mm   @tech-debt
+- [ ] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start a line with "×" — keep units and × with their numbers (owner accepted the current renders)   @feature
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

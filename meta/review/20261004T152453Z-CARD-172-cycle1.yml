@@ -1,0 +1,216 @@
+version: 1
+generated_at: "2026-10-04T15:24:53Z"
+target: "card/172-proof-pages-square-landscape (git diff main...HEAD; 6275b66, 6c21c9d)"
+card: CARD-172
+cycle: 1
+overall_score: 9.2
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/book_proof.py (full diff + annotation/font/fit functions)"
+    - "tests/test_book_proof_pages.py (full diff + helpers)"
+    - "tests/fixtures/proof_baseline_card172.json"
+    - "src/nonogram/export/png.py (_draw_grid, _draw_frame) and layout.py PagePlacement fields (read-only, to verify rule-overhang claims)"
+    - "~/Documents/nonogram-reviews/CARD-172/README.txt and two PNGs (8.25x8.25 p1 corner crop, 8.25x6 p2)"
+  not_reached:
+    - "app capture of the proof route (visual capture off; rendered result not verified by an app capture)"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 573, removed: 57 }
+  max_fan_in: { symbol: "book_proof._annotate (private; reached via proof_pages -> render_proof_pdf)", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — book_proof.py has 2 commits in 12 months, 0 fix commits; too little history to call a hotspot"
+    cochange_missing: "no_eligible_fact — the only co-change peer of book_proof.py in 12 months is itself (2 commits)"
+task_contract:
+  ac:
+    - "AC-1 ✓ — TestBookProof_SquareTrimsCarryTheNote green; page 1 note inside corner interior with 1 mm clear of plain ink; probe: 8.25 p1 corner 38.7 mm holds 9 lines/38.1 mm, 8.5 p1 40.1 mm"
+    - "AC-2 ✓ (with card-wording defect) — 8.25x6 p1+p2 and 11x8.5 p1 in outer side strip, both parities; 11x8.5 p2 keeps foot (19.9 mm) per the card's own ordering rule; AC-2 wording is a decomposition defect, not a code defect"
+    - "AC-3 ✓ — first-P cap height 31 px >= 30.38 px floor on all 5 fallback pages; 9 pt mutant killed"
+    - "AC-4 ✓ — four trims forced into the corpus, MIN_BOOKS 36 / MIN_PAGES 72 / trims_seen >= 10 + all fallback trims asserted"
+    - "AC-5 ✓ — both refusal tests re-pointed to 15x15 cm; message still matches"
+    - "AC-6 ✓ — fixture committed alone in 6275b66 before 6c21c9d; digests independently recomputed from git archive of b05c443: 9/9 trims match"
+    - "AC-7 ⚠ pending owner (review-lens) — renders and README exist and match the code"
+  guardrails:
+    - "G-1 ✓ — _NOTE_MM/_NOTE_FLOOR_MM/_NOTE_LEADING/_NOTE_GAP_MM not in diff; foot path unchanged in else branch; AC-6 byte identity independently re-derived"
+    - "G-2 ✓ — no src/nonogram/export/** or compute_layout edit; _fallback_spots only reads layout/PagePlacement/page_frame; A4 golden green"
+    - "G-3 ✓ — test_the_proof_is_exactly_two_pages green; clearance tests on all 8 Book-1 pages of the 4 trims"
+    - "G-4 ✓ — book_pdf_generator.py not in diff; TestBookProof_AnnotationIsProofOnly green"
+    - "G-5 ✓ — annotation_lines not in diff; fallback joins its two lines verbatim with _NOTE_SEPARATOR"
+    - "G-6 ✓ — only new import is PageParity from nonogram.export.layout; note uses _note_font"
+mutation_check:
+  status: ran
+  mutants: 8
+  killed: 7
+  survived_equivalent: 1
+  details:
+    - "M1 side-strip parity flipped — killed (property test)"
+    - "M2 spot height check dropped — killed (refusal test)"
+    - "M3 _FALLBACK_NOTE_PT 10 -> 9 — killed"
+    - "M4 corner bottom inset dropped (grid_top - clear -> grid_top) — survived; judged equivalent: corner is square, width (line count) binds before height; sweep 20.70..21.59 cm squares produced identical output and no overprint with the mutant"
+    - "M5 separator glue dropped — killed (test_no_wrapped_line_starts_with_a_separator_dot[21.59-21.59-0])"
+    - "M6 side strip top -> frame.top — killed"
+    - "M7 even-page side inset dropped — killed"
+    - "M8 corner right inset dropped — killed"
+  restore: "book_proof.py restored by content; sha256 verified after each mutant; git diff --stat identical before/after"
+system_contract:
+  rules_checked: 52
+  holds: 8
+  unchecked: 44
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — the only new import is PageParity from nonogram.export.layout; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (the test that names itself TestDependencyBaseline_IsExactlyPillowAndNumpy) green on 6c21c9d"
+    - "ADR-0019/R1 ✓ holds — diff touches no src/nonogram/web/; tests/test_cli.py::test_every_import_in_the_package_points_inward green on 6c21c9d"
+    - "ADR-0022/R1 ✓ holds — no new public signature; new private _Spot/_fallback_spots/_wrapped/_fallback_note take no grid extent; the 10 pt face is a type size"
+    - "ADR-0033/R1 ✓ holds — book_proof.py writes nothing; proof puzzles are frozen fixtures, no book or puzzle row touched"
+    - "ADR-0036/R1 ✓ holds — no export/** edit; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green on 6c21c9d"
+    - "ADR-0036/R2 ✓ holds — book_proof.py:476-523 _fallback_spots reads PagePlacement/grid_left/grid_top/thick_rule/page_frame only; no cell fitted, no rule placed"
+    - "ADR-0037/R1 ✓ holds — band path unchanged (render_pages payload untouched); proof pages are not book pages"
+    - "ADR-0037/R2 ✓ holds — rules drawn by COMP-007 unchanged; property test asserts thin >= 3 px and heavy == 2 x thin on all 80 pages incl. new trims"
+    - "ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0035/R1, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: the diff only changes where the proof-only note is drawn on a proof page (book_proof.py) and its tests; no image fitting, generation, solver, difficulty, storage, book status/membership/order/pairing/answer key/interior PDF, player, web server or admin door code is touched (book_pdf_generator.py and app.py are not in the diff)"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_proof_pages.py
+    line: 984
+    title: "F-001 Cap-height ratio attributed to an OS/2 field the bundled face does not have"
+    description: |
+      The comment says DEJAVU_CAP_HEIGHT_RATIO is "OS/2 sCapHeight 1493 over unitsPerEm 2048 in the
+      bundled face". The bundled DejaVu Sans OS/2 table is version 1 (86 bytes) and carries no
+      sCapHeight field. The value 1493/2048 is still right: it is the ink height of H, P and E
+      (getbbox at 2048 px gives -1493). The number is correct, but the stated source is wrong.
+    suggestion: |
+      Change the comment to "the ink height of the face's capitals (H/P/E: 1493 of 2048 units)".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_proof.py
+    line: 585
+    title: "F-002 Square-trim page 2 foot placement is claimed in the docstring but only 11x8.5 is asserted"
+    description: |
+      The _annotate docstring says the 15 x 15 on 8.25 x 8.25, 8.5 x 8.5 and 11 x 8.5 in keeps its
+      foot note. A probe confirms it (13.5 / 19.9 / 19.9 mm of foot). Only 11 x 8.5 has a test for
+      it (test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note). On the squares,
+      page 2 is only checked for staying inside the margins and clear of the drawing. A regression
+      that moved the note into the side strip or the corner would still pass.
+    suggestion: |
+      Parametrize the keeps-its-foot-note test over ("20.96","20.96"), ("21.59","21.59") and
+      ("27.94","21.59"), asserting that the note's top is below the drawing's bottom.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_proof.py
+    line: 566
+    title: "F-003 A narrow side strip is accepted and wins over a corner that fits, leaving a column of one-word lines"
+    description: |
+      _fallback_note accepts any spot where every word fits the width. Probe: on 8.5 x 8 in
+      (21.59 x 20.32 cm) with a 0.64 cm gutter and an outside margin of 0.95 cm or less, page 1
+      takes the 13-14 mm side strip at 30-32 lines, one or two words each. The clue corner on that
+      page would hold the note in 9 lines. This follows the card (fixed order, no minimum width),
+      and the implementer's Worktree note says the same, so it is not a contract defect. The owner
+      would still see a poor result on a trim the panel accepts.
+    suggestion: |
+      Raise a follow-up/owner question: either set a minimum side-strip width, for example the
+      width that holds the note in at most N lines, or choose the spot that gives the fewest lines.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/book_proof.py
+    line: 523
+    title: "F-004 Greedy wrap splits a measurement from its unit and starts lines with x-signs"
+    description: |
+      The owner renders show "cell 4.58 / mm", "thin rule 0.25 / mm", "heavy rule 0.51 / mm"
+      (8.25x8.25 p1) and a line starting "x 6.00 in)" (8.25x6 p2). The note is read with a ruler in
+      hand, so a number on one line and its unit on the next is harder to read. This is an AC-7
+      readability question for the owner, not a correctness defect.
+    suggestion: |
+      In _wrapped only, without touching annotation_lines (G-5), glue "<number> mm", "<n> x <n>" and
+      "(<n> x <n> in)" into unbreakable tokens, the same way the separator dot is glued. Check that
+      the 8.25x8.25 corner still fits in 9 lines.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: O-001
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-172.md
+    line: null
+    title: "O-001 AC-2 wording is a decomposition defect (11x8.5 page 2), not a code defect"
+    description: |
+      AC-2 says each note on 11x8.5 is in the side strip. The card's What-to-implement says to keep
+      the foot placement wherever it fits and to try the foot strip first, unchanged. Its own table
+      and probe measured page 1 only. 11x8.5 page 2 has 19.9 mm of foot, so the ordering rule
+      correctly keeps the note there. That is what the implementer did, and a test pins it.
+    suggestion: |
+      Amend AC-2 at close-out to read "11x8.5 page 1 in the side strip; page 2 keeps its foot".
+      Fold this into the AC-7 owner acknowledgement.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: O-002
+    severity: info
+    category: tech-debt
+    type: gap
+    file: tests/test_export_pdf.py
+    line: 1249
+    title: "O-002 ADR-0006/R1 check ref names a test that exists only as a docstring alias"
+    description: |
+      The system contract names the check TestDependencyBaseline_IsExactlyPillowAndNumpy. The
+      actual test is test_the_dependency_baseline_is_still_closed, which only mentions that name
+      in its docstring. A strict ref resolver would report check_ref_missing.
+    suggestion: |
+      Model hygiene: point the ADR-0006/R1 check at the real test name.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

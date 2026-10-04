@@ -1,6 +1,6 @@
 # CARD-172: Proof pages render on square and landscape trims, with the note in a clear spot inside the frame
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 33
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_proof.py, tests/test_book_proof_pages.py, tests/fixtures/proof_baseline_card172.json (new)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.2 (cycle 1/3)
+**Started:** 2026-10-04T14:28:03Z
+**Closed:** 2026-10-04T16:38:07Z
+**Actual:** 0.3d
+**Merge commit:** 0d6fb58
 **Blocked by:** —
 
 ## What to implement
@@ -88,7 +88,7 @@ Replace the pinned raise test. Do not delete it silently:
 
 - **AC-1:** Given books at 8.25×8.25 and 8.5×8.5 in (Book 1 margins), when `proof_pages` runs, then it returns 2 trim-sized pages, and on each page the note's ink lies inside the frame and touches no grid rule or clue digit (page 1's note sits inside the blank clue corner's interior).
   *test: TestBookProof_SquareTrimsCarryTheNote (in tests/test_book_proof_pages.py)*
-- **AC-2:** Given books at 8.25×6 in and 11×8.5 in, when `proof_pages` runs, then both pages render and each note lies in the outer side strip, inside the outer margin, clear of the drawing's bounding box on both parities.
+- **AC-2:** Given books at 8.25×6 in and 11×8.5 in, when `proof_pages` runs, then both pages render; the foot note stays at the foot wherever it fits (11×8.5 page 2, the 15×15, keeps its foot note), and every other note (8.25×6 both pages, 11×8.5 page 1) lies in the outer side strip, inside the outer margin, clear of the drawing's bounding box on both parities. _(Amended 2026-10-04, owner decision (a): foot first, as built.)_
   *test: TestBookProof_LandscapeTrimsCarryTheNote (in tests/test_book_proof_pages.py)*
 - **AC-3:** Given any note placed in the side strip or clue corner, when its first line's capital-letter ink height is measured, then it is at least 10 pt × DejaVu Sans's cap-height ratio at 300 dpi (fails if the fallback reuses the 2.6 mm / 1.6 mm sizing).
   *test: TestBookProof_FallbackNoteHoldsTheTenPointFloor (in tests/test_book_proof_pages.py)*
@@ -189,3 +189,32 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-172` (52 rules). A project
 - [Facts] 10 pt at 300 dpi = 41.67 px → 42 px face. At leading 1.35 the corner needs 43.4 mm on 8.25×8.25 and does not fit (39.2 mm); leading 1.2 needs 38.1 mm and fits. Re-measure if the wrap rule differs.
 - [Owner decision] CON-020 governs "text the book's interior prints for the reader"; a proof page is not interior. The existing portrait foot note is 2.6 mm ≈ 7.4 pt (floor 1.6 mm ≈ 4.5 pt), below 10 pt, and G-1 keeps it so. This card holds the new placements at 10 pt as asked. Lifting the portrait note to 10 pt would break byte-identity and is a separate decision.
 - [Baseline] Record AC-6's digests from main **before** changing `book_proof.py`.
+- [Env] forge 2026.8.17
+- [Built] Commits 6275b66 (AC-6 baseline fixture alone, recorded from unmodified b05c443 with the Book 1 margins stored as "1.27"/"0.95") and 6c21c9d (implementation + tests). `book_proof._annotate` tries the unchanged foot path first; when `_fitted_note_font` refuses, `_fallback_note` tries `_fallback_spots` (outer side strip, then blank clue corner), each read off `layout`/`PagePlacement`/`page_frame` only, at a fixed 42 px face (10 pt @ 300 dpi), leading 1.2 (50 px), the two note lines run together as one paragraph (joined by " · ") and greedily word-wrapped to the spot width, a " ·" kept on the end of the word before it. Spot edges are half a heavy rule + 1 mm off each rule's coordinate; the margin side runs to the usable edge; the side strip starts at the drawing top (below the band). No spot -> ValueError = the foot message + ", and neither the outer side strip nor the blank clue corner holds it at 10 pt".
+- [Measured] (Book 1 margins; spot = clear box after inset) 8.25x8.25 p1 corner 38.7x38.7 mm -> 9 lines, 38.1 mm; p2 foot. 8.5x8.5 p1 corner 40.1 mm -> 9 lines, 38.1 mm; p2 foot. 8.25x6 p1 side 31.8x121.4 mm -> 12 lines, 50.8 mm; p2 side 31.7x121.4 -> 12 lines. 11x8.5 p1 side 35.0x184.9 -> 10 lines, 42.3 mm; p2 foot (19.9 mm). 15x15 cm: p1 corner 24.9 mm / p2 corner 35.3 mm (needs 63.5 / 42.3) -> refused. Wrapping each source line separately would give 10 lines in the 8.25x8.25 corner (does not fit), hence the single paragraph. Measured cap height of the first "P" on every fallback page: 31 px (floor 30.38 px).
+- [Deviation] AC-2 says both 11x8.5 pages carry the note in the side strip. Page 2 (15x15) has 19.9 mm of foot, so by "keep the foot placement exactly as it is wherever it fits" its note stays at the foot (the card's probe table measured page 1 only). AC-2 test asserts side strip for 8.25x6 p1+p2 and 11x8.5 p1, plus `test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note`. Needs reviewer/owner ack; changing it would need a landscape-specific ordering the card does not describe.
+- [Tests] tests/test_book_proof_pages.py: 77 passed (was 43). New: TestBookProof_SquareTrimsCarryTheNote (incl. test_no_wrapped_line_starts_with_a_separator_dot over all 5 fallback pages), TestBookProof_LandscapeTrimsCarryTheNote, TestBookProof_FallbackNoteHoldsTheTenPointFloor, TestBookProof_PortraitProofsAreByteIdentical. Property corpus: +FALLBACK_TRIMS_CM (4 trims, each forced once up front), MIN_BOOKS 24->36, MIN_PAGES 48->72, trims_seen >=6 -> >=10 and all four fallback trims seen. Refusal tests re-pointed to 15x15 cm / "15.00","15.00". Guardrail tests green: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, TestBookProof_AnnotationIsProofOnly, test_the_proof_is_exactly_two_pages (66 passed together). Only test file importing book_proof is tests/test_book_proof_pages.py. Full suite not run (orchestrator).
+- [Mutation] spot order swapped (corner first) -> test_the_note_is_in_the_outer_side_strip_clear_of_the_drawing[27.94-21.59-0]; side strip dropped -> 7 fail (landscape render/side, AC-3 8.25x6, property); corner dropped -> 11 fail (square classes, AC-3, property); outer-side parity flipped -> side-strip test x3 + property; fallback face = old 2.6 mm sizing -> AC-3 x5; face 9 pt -> AC-3 x5 + property; no wrap -> 20 fail; height check dropped -> both refusal tests; refusal returns last spot -> both refusal tests; inset 0 mm -> corner test x2, side test x2, property; rule overhang dropped -> corner x2, side x2; foot path skipped -> 23 fail incl. all 9 AC-6 digests; separator glue dropped -> test_no_wrapped_line_starts_with_a_separator_dot[21.59-21.59-0] (initially survived, test added); fallback leading 1.35 -> 11 fail. All reverted.
+- [Renders] ~/Documents/nonogram-reviews/CARD-172/: proof-pages-{8.25x8.25,8.5x8.5,8.25x6,11x8.5}.pdf, proof-pages-<trim>-page{1,2}.png, README.txt. Looked at 8.25x8.25 p1 (corner), 8.25x6 p2 (left strip), 11x8.5 p1 (right strip): note clear of rules and digits. Script: scratchpad card172_render.py.
+- [Note] A narrow side strip that is still wide enough for single words would be accepted (e.g. 8.5x8.5 p2's 14 mm strip would wrap to 31 one-word lines) — never reached on the trims above because the foot holds first; no minimum strip width was specified, so none was added.
+- [Owner default] CON-020 scope (proof page not interior; portrait foot note stays at 2.6 mm) — implemented as drafted
+- [Scope] src/nonogram/admin/book_proof.py, tests/fixtures/proof_baseline_card172.json, tests/test_book_proof_pages.py
+- [Build gate] impact underivable (test_scope: full) — full suite
+- [Build gate] PASSED (full, 9m38s; 6117 passed, 9 skipped)
+- [Scope gate] cycle 1: IN_SCOPE — 3 files, all inside Touches; no guarded glob hit (export/**, book_pdf_generator.py untouched)
+- [Review 1/3] Score: 9.2 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h coverage: 52/52 card rules have a verdict line (8 ✓, 44 ⚠ no_eligible_fact, 0 ✗)
+- [Review 1/3] Score: 9.2 ✓ threshold reached + no critical/important
+- [Review 1/3] mutation check (8f): 8 mutants, 7 killed, 1 survivor (corner bottom inset) argued equivalent by sweep
+- [Review 1/3] reviewer on AC-2 deviation: card (decomposition) defect in AC-2's wording, not a code defect — What to implement keeps the foot wherever it fits; 11x8.5 p2 has 19.9 mm of foot (O-001)
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0036/R1) — note: ADR-0006/R1's 'only new import is PageParity' holds for src/ only (tests add stdlib hashlib/json)
+- [AC/EC check] Failed: AC-2 ⚠ partial — side strip demonstrated for 8.25×6 p1+p2 and 11×8.5 p1 (test_the_note_is_in_the_outer_side_strip_clear_of_the_drawing ×3), but 11×8.5 p2 (15×15, 19.9 mm of foot) keeps the foot note, asserted by test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note — contradicts AC-2's 'each note lies in the outer side strip … on both parities'; AC-7 ✗ unverified — owner visual check not yet performed (renders present: ~/Documents/nonogram-reviews/CARD-172/, 4 PDFs + 8 PNGs + README.txt). Demonstrated: AC-1, AC-3, AC-4, AC-5, AC-6, G-1..G-6 (AC-6 digests re-verified against main's book_proof.py).
+- [AC/EC check] ruling: AC-7 follows the CARD-158/159 precedent (a human act at done; handed to the dispatcher as a pre-merge owner check, no fix loop). AC-2 is NOT routed to /fix: the implementation follows 'What to implement' (foot first, 'keep the foot placement exactly as it is wherever it fits'), the cycle-1 reviewer independently judged it a card defect (O-001), and a fix could make AC-2 demonstrated only by overriding that ordering rule — the fix loop would be choosing between two halves of the card. What to implement contradicts its own AC → decomposition defect.
+- [Escalated] 2026-10-04T15:32:11Z — AC-2 ⚠ partial: card's AC-2 ('each note lies in the outer side strip … on both parities' for 11×8.5) contradicts its own What-to-implement order (foot first wherever it fits; 11×8.5 page 2 has 19.9 mm of foot, so its note stays at the foot); code, tests and review otherwise clean (review 9.2, 0 crit/imp, 8h 52/52, mutation 7/8 + 1 equivalent, full suite 6117 passed/9 skipped, AC-1/3/4/5/6 + G-1..G-6 demonstrated); AC-7 owner check pending. Implementation committed on the branch (6275b66 baseline, 6c21c9d change); no fix edits, worktree clean apart from meta/ · station: decompose · route: owner picks one — (a) amend AC-2 to '8.25×6 both pages and 11×8.5 page 1 in the outer side strip; 11×8.5 page 2 keeps its foot note (foot first wherever it fits)' (matches the code; reviewer's O-001), then /kanban review CARD-172 → AC check + success commit; or (b) state that landscape trims prefer the side strip over the foot, then /kanban review CARD-172 with a fix that changes the order and re-points test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note. Either way the owner also looks at the renders (AC-7) before merge.
+- [Owner decision] 2026-10-04 — AC-2 amended per route (a): foot first wherever it fits; 11×8.5 page 2 keeps its foot note. Unblocked → review.
+- [Owner check] AC-7 accepted by owner 2026-10-04 (renders in ~/Documents/nonogram-reviews/CARD-172/; placement accepted as rendered).
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ TestBookProof_SquareTrimsCarryTheNote 13 passed · AC-2 ✓ (amended text) TestBookProof_LandscapeTrimsCarryTheNote 6 passed incl. test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note · AC-3 ✓ TestBookProof_FallbackNoteHoldsTheTenPointFloor 5 passed · AC-4 ✓ test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet passed · AC-5 ✓ both re-pointed refusal tests passed · AC-6 ✓ TestBookProof_PortraitProofsAreByteIdentical 10 passed + independent digest recompute from main 9/9 · AC-7 ✓ owner-recorded ([Owner check] 2026-10-04) · G-1..G-6 ✓ (165 named tests passed; no export/**, book_pdf_generator.py, pyproject.toml or book_baseline edits; annotation_lines identical). No EC section.
+- [Docs] no README change: no admin/ or tests/fixtures/ README exists (per-directory README convention is an open owner decision); tests/README.md unaffected
+- [Commit] success commit 4323166 (empty marker; change in 6275b66 + 6c21c9d) — diff vs main: 3 files, +573/−57
+- [Merge gate] rebased onto 594cd7b; full suite 6152 passed, 9 skipped, exit 0 (591s, under the lock). Merged 0d6fb58.
