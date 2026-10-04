@@ -809,3 +809,133 @@ def test_PropertyTest_BooksList_HintsAreEveryOffPlanCellExactly(shelf) -> None:
     assert checked >= CORPUS_CASES >= 24, f"the corpus shrank to {checked} books"
     assert seen_short >= 20, f"the corpus holds only {seen_short} short cells"
     assert seen_over >= 20, f"the corpus holds only {seen_over} over cells"
+
+
+# --------------------------------------------------------------------------
+# CARD-175 — on a phone the hints fold behind one summary line
+# --------------------------------------------------------------------------
+#
+# Presentation evidence, not new FR-039 criteria: the hint data is the same
+# list the tests above pin (G-1); these read where the page puts it. Whether a
+# disclosure is open or closed at a given width is a browser's call, so that
+# half lives in ``tests/test_books_list_mobile.py``.
+
+#: CARD-175 AC-1: four easy <=15 puzzles against PLAN_150. Every one of the
+#: plan's ten non-zero cells is then short, and its two zero cells are on plan.
+SELECTION_4 = (
+    (4, 0, 0),
+    (0, 0, 0),
+    (0, 0, 0),
+    (0, 0, 0),
+)
+
+#: The ten hints SELECTION_4 earns, written out in bucket-then-tier order.
+HINTS_OF_SELECTION_4 = [
+    "<=15 × easy: short 16",
+    "<=15 × medium: short 7",
+    "16-20 × easy: short 30",
+    "16-20 × medium: short 27",
+    "16-20 × hard: short 6",
+    "21-25 × easy: short 10",
+    "21-25 × medium: short 20",
+    "21-25 × hard: short 12",
+    "26-30 × medium: short 6",
+    "26-30 × hard: short 12",
+]
+
+
+def disclosures_of(row: str) -> list:
+    """Every ``<details …>…</details>`` one row carries, as raw markup."""
+    return re.findall(r"(?s)<details\b.*?</details>", row)
+
+
+def summary_of(disclosure: str) -> str:
+    """The text of a disclosure's one ``<summary>``."""
+    summaries = re.findall(r"(?s)<summary\b[^>]*>(.*?)</summary>", disclosure)
+    assert len(summaries) == 1, f"the disclosure has {len(summaries)} summaries"
+    return text_of(summaries[0])
+
+
+class TestBooksList_HintsFoldBehindASummary:
+    """CARD-175 AC-1: ten off-plan cells sit inside one disclosure whose
+    summary counts them."""
+
+    def test_the_row_holds_exactly_one_plan_hints_disclosure(self, shelf):
+        book_id = shelf.book(SELECTION_4, plan=PLAN_150)
+
+        row = row_of(shelf.listing(), book_id)
+
+        found = disclosures_of(row)
+        assert len(found) == 1, found
+        assert found[0].startswith('<details class="plan-hints">'), found[0]
+
+    def test_the_summary_counts_the_cells_in_words(self, shelf):
+        book_id = shelf.book(SELECTION_4, plan=PLAN_150)
+
+        (disclosure,) = disclosures_of(row_of(shelf.listing(), book_id))
+
+        assert summary_of(disclosure) == "10 cells off plan"
+
+    def test_every_chip_is_inside_the_disclosure_in_order(self, shelf):
+        book_id = shelf.book(SELECTION_4, plan=PLAN_150)
+
+        row = row_of(shelf.listing(), book_id)
+        (disclosure,) = disclosures_of(row)
+
+        assert hints_of(disclosure) == HINTS_OF_SELECTION_4, text_of(disclosure)
+        # ...and none outside it: the whole row carries the same ten.
+        assert hints_of(row) == HINTS_OF_SELECTION_4, text_of(row)
+
+    def test_the_summary_is_not_itself_a_hint(self, shelf):
+        """The summary carries no `data-off-plan` and neither direction word."""
+        book_id = shelf.book(SELECTION_4, plan=PLAN_150)
+
+        (disclosure,) = disclosures_of(row_of(shelf.listing(), book_id))
+        summary = re.search(r"(?s)<summary\b.*?</summary>", disclosure).group(0)
+
+        assert "data-off-plan" not in summary, summary
+        assert not re.search(r"\b(short|over)\b", text_of(summary)), summary
+
+
+class TestBooksList_HintSummaryCountsAndAbsence:
+    """CARD-175 AC-2: one cell is singular; no hints, no disclosure."""
+
+    def test_one_off_plan_cell_reads_singular(self, shelf):
+        book_id = shelf.book(SELECTION_SHORT_BY_7, plan=PLAN_150)
+
+        row = row_of(shelf.listing(), book_id)
+        (disclosure,) = disclosures_of(row)
+
+        assert summary_of(disclosure) == "1 cell off plan"
+        assert hints_of(disclosure) == ["26-30 × hard: short 7"]
+
+    def test_two_off_plan_cells_read_plural(self, shelf):
+        selection = (
+            (20, 7, 0),
+            (30, 27, 8),   # 16-20 x hard: 2 over its 6
+            (10, 20, 12),
+            (0, 6, 5),     # 26-30 x hard: 7 short of its 12
+        )
+        book_id = shelf.book(selection, plan=PLAN_150)
+
+        (disclosure,) = disclosures_of(row_of(shelf.listing(), book_id))
+
+        assert summary_of(disclosure) == "2 cells off plan"
+
+    def test_an_on_plan_row_has_no_disclosure(self, shelf):
+        book_id = shelf.book(PLAN_150_CELLS, plan=PLAN_150)
+
+        row = row_of(shelf.listing(), book_id)
+
+        assert disclosures_of(row) == [], row
+        assert "<summary" not in row, row
+        assert "On plan" in text_of(row), text_of(row)
+
+    def test_a_planless_row_has_no_disclosure(self, shelf):
+        book_id = shelf.book(SELECTION_40, plan=None)
+
+        row = row_of(shelf.listing(), book_id)
+
+        assert disclosures_of(row) == [], row
+        assert "<summary" not in row, row
+        assert "No plan yet" in text_of(row), text_of(row)

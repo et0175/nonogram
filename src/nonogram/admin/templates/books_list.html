@@ -92,12 +92,22 @@ aria-sort="{{ 'descending' if sort == column else 'none' }}"
                             </p>
                             {#- The to-do list: every longest-side x tier cell short of or over
                                 its plan, with the exact count it is off by (G-3, ADR-0035 (d)).
-                                A word says which way, so the hint reads without its tint. -#}
+                                A word says which way, so the hint reads without its tint.
+
+                                CARD-175: the list sits in a native disclosure whose summary
+                                gives the exact count in words. It is closed by default, which
+                                is what a phone sees; above 820 px admin.css shows the list and
+                                hides the summary inside `@supports selector(::details-content)`,
+                                so a browser without it gets the plain disclosure. No script. -#}
                             {% if stats.hints %}
-                            <p class="stat-line mb-0">
-                                <span class="visually-hidden">Off plan:</span>
-                                {%- for hint in stats.hints %}<span class="stat-cell" data-off-plan="true">{{ hint }}</span> {% endfor -%}
-                            </p>
+                            {% set off = stats.hints|length %}
+                            <details class="plan-hints">
+                                <summary>{{ off }} {{ 'cell' if off == 1 else 'cells' }} off plan</summary>
+                                <p class="stat-line mb-0">
+                                    <span class="visually-hidden">Off plan:</span>
+                                    {%- for hint in stats.hints %}<span class="stat-cell" data-off-plan="true">{{ hint }}</span> {% endfor -%}
+                                </p>
+                            </details>
                             {% else %}
                             <span class="subtle">On plan</span>
                             {% endif %}
