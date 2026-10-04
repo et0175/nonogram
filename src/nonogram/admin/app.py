@@ -998,8 +998,9 @@ def _page_plan_failure_page(error: BaseException):
     The one wording both halves of Finalise use (CARD-171), so GET and Save
     and finish cannot drift. Only for ``error`` that
     :func:`_is_a_logged_plan_failure` accepts: the exception's text is put on
-    screen, and the stamp is what says that text is the exporter's own
-    tripwire message. The global 500 handler stays generic (ADR-0030).
+    screen, and the stamp is what says it is the page plan's own failure,
+    already logged by :func:`_interior_counts`. The global 500 handler stays
+    generic (ADR-0030).
     """
     return (
         render_template(
