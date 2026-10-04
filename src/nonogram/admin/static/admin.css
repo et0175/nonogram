@@ -254,12 +254,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .plan-progress { --bs-progress-height: var(--space-2); margin-top: var(--space-1); }
 
 /* CARD-175: the books list's to-do hints fold behind one summary line
-   ("10 cells off plan"), so a phone row is the tier split plus that line. A
-   chip never breaks mid-text. Above the panel's 820 px breakpoint the list is
-   forced open and the summary hidden, inside @supports ::details-content; a
+   ("10 cells off plan"), so a phone row is the tier split plus that line.
+   The closed summary stays on one line, and a chip never breaks mid-text.
+   Above the panel's 820 px breakpoint the list is forced open and the
+   summary hidden, inside @supports ::details-content; a
    browser without it gets the plain native disclosure. Only Chromium (which
    supports it) is tested: tests/test_books_list_mobile.py. */
-.plan-hints > summary { font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; }
+.plan-hints > summary { font-size: var(--text-sm); color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; }
 .plan-hints > .stat-line { margin-top: var(--space-1); }
 .plan-hints .stat-cell { white-space: nowrap; }
 @supports selector(::details-content) {

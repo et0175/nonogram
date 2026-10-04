@@ -144,6 +144,20 @@ class TestBooksListMobile_RowIsCompactAtPhoneWidth:
         assert summary.inner_text().strip() == f"{HINTS} cells off plan"
         assert _visible_chips(phone_page) == 0
 
+    def test_the_closed_summary_is_one_line(self, phone_page) -> None:
+        # The closed summary does not wrap ("10 cells off / plan" was F-003):
+        # a Range over its text yields one rect per line the text occupies,
+        # the technique the chip check below uses.
+        lines = phone_page.evaluate(
+            """() => {
+                 const summary = document.querySelector('tbody tr .plan-hints > summary');
+                 const range = document.createRange();
+                 range.selectNodeContents(summary);
+                 return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size;
+               }"""
+        )
+        assert lines == 1, lines
+
     def test_the_closed_row_is_short(self, phone_page) -> None:
         height = phone_page.locator("tbody tr").first.bounding_box()["height"]
         assert height <= ROW_HEIGHT_MAX, height
