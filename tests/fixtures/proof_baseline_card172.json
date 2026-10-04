@@ -1,0 +1,45 @@
+{
+  "card": "CARD-172",
+  "source_commit": "b05c443",
+  "produced_by": "proof_pages(book) on unmodified src/ at source_commit, for each CORPUS_TRIMS_CM trim stored as-is with the Book 1 margins stored as gutter_margin_cm='1.27', outside_margin_cm='0.95' (tests' _book_cm); digest = SHA-256 of page.tobytes() for proof pages 1 and 2",
+  "gutter_margin_cm": "1.27",
+  "outside_margin_cm": "0.95",
+  "digests": {
+    "12.70x20.32": [
+      "449d29f1759b30acfa590f5db4bedce8a78fb0094546ad2eb9c9743d5ea961fb",
+      "319384a14f7ce9783afa4e30f60800edd6eb7d678a047c5981d8c1e87e134f44"
+    ],
+    "13.34x20.32": [
+      "2c662120d721b4e3cc2be01e4a18529e2db452a1791fd4a8a30d448b50ffcbcb",
+      "f9cc82a7993b369b8f49fa71f3685bc3de9bcc61f388b56ae5347ab71e3fd02b"
+    ],
+    "13.97x21.59": [
+      "bd633dc39f1431f08377158bccafd8be0e3467dc0713c235cbf5cdd5f8da2754",
+      "2d5326e9f1a20d59f3ab754ecccd2aac6c8293392f83ca3dab7b46d74c5589e0"
+    ],
+    "15.24x22.86": [
+      "439f5a54b573072de7ef2982dc01f40921c370b05c46242c117f4056bc3aed94",
+      "04cef929519adfa1b94405104fe357f70b9955dda856112a0dfaee50c333bd7b"
+    ],
+    "15.60x23.39": [
+      "13a7bcc7f06ed481fe4f00147cb6505fa3ff7e36714433cc62239ba69a0e7366",
+      "1fff92930e0a716e86beea910f41ed511bce9210ee19a3993719052916245ec9"
+    ],
+    "17.78x25.40": [
+      "8aa5cd51bdc8e6a2b3ab2924ad0ebc899f5592343c73e18ffd4d7d1df1520204",
+      "033c2c008c0c93c8dc21266a21af4e31de4bc7cf9403ee52b67f9f7ba7be85ec"
+    ],
+    "19.05x23.50": [
+      "d4620048d24a8d4ccfc7a4557eab760c67e3a989cc3ff8b55c3fbe95055d67a6",
+      "ad2ba4783775bfd8cd2d7966f6565b3e2371a2961b73792b543e0fe2296d7df2"
+    ],
+    "20.32x25.40": [
+      "2c4b3113eb682fe8df426998ac70564f7cfea04fe73257a9ffc109325a6579ff",
+      "3244c65ba33d2b0772c43f8e8dfed8000f0db31a616433c5bb45914893801b29"
+    ],
+    "21.59x27.94": [
+      "21f091f0f5b0ba68039e34a29ae2d558b37c5c462f495f0d1fd8adcf6063278c",
+      "4d45b87cda5963d4b82975bbb8cea0761c3ef2fe77bf970df2a54abdbc41192a"
+    ]
+  }
+}
