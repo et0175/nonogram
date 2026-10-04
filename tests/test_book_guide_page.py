@@ -106,6 +106,30 @@ def six_by_nine_book() -> Book:
     )
 
 
+#: The smallest trim a book may be stored with (``book_page_spec.MIN_TRIM_CM``),
+#: written out rather than imported.
+MIN_TRIM_CM = 10.0
+
+
+def ten_cm_wide_book(height_cm: float) -> Book:
+    """A book at the minimum 10 cm width on CON-018's margins."""
+    return Book(
+        book_id=f"card-167-10x{height_cm:g}",
+        metadata=BookMetadata(
+            title="Ten Wide",
+            description="CARD-167's narrowest trim.",
+            theme="generic",
+            target_audience="adults",
+            size="",
+            page_count=0,
+        ),
+        trim_width_cm=f"{MIN_TRIM_CM:.2f}",
+        trim_height_cm=f"{height_cm:.2f}",
+        gutter_margin_cm="1.27",
+        outside_margin_cm="0.95",
+    )
+
+
 def old_guide_page(
     self: BookPDFGenerator,
     puzzle_count: int,
@@ -526,7 +550,10 @@ class TestGuidePage_CarriesAWorkedExampleOnOnePage:
 
     def test_every_clue_digit_holds_10pt(self, lines):
         reference = digit_reference()
+        assert len(lines) == 4
         for number, line in enumerate(lines, start=1):
+            # "3" and "1": a gutter read as empty must not pass for small type.
+            assert len(line["glyphs"]) == 2, f"step {number}: {len(line['glyphs'])} clue glyphs"
             for glyph in line["glyphs"]:
                 points = glyph.shape[0] / reference * POINTS_PER_INCH / BOOK_DPI
                 assert points >= FLOOR_PT, f"step {number}: a clue digit is {points:.2f} pt"
@@ -549,6 +576,60 @@ class TestGuidePage_CarriesAWorkedExampleOnOnePage:
         sizes = [cap_height_points(mask, band, reference) for band in type_bands(mask)]
         assert min(sizes) >= FLOOR_PT
         assert occurrences(mask, probe(NEW_TITLE, face(TITLE_PX))) == 1
+        # The clue digits hold the floor and the rules are the book's (thin
+        # >= 0.25 mm, heavy = 2 x thin) on this trim too.
+        digit_ref = digit_reference()
+        for number, line in enumerate(lines, start=1):
+            assert len(line["glyphs"]) == 2, f"step {number}: {len(line['glyphs'])} clue glyphs"
+            for glyph in line["glyphs"]:
+                points = glyph.shape[0] / digit_ref * POINTS_PER_INCH / BOOK_DPI
+                assert points >= FLOOR_PT, f"step {number}: a clue digit is {points:.2f} pt"
+        widths = lines[0]["rule_widths"]
+        thin = min(widths)
+        assert thin >= 0.25 / 25.4 * BOOK_DPI, f"the thin rule is {thin} px"
+        heavy = 2 * thin
+        assert widths == [heavy, heavy, thin, thin, thin, thin, heavy, heavy], widths
+
+    @pytest.mark.parametrize(
+        ("height_cm", "type_lines", "form"),
+        [
+            # 10 x 10 cm: only the short labels fit -- the title and the
+            # four one-line labels ("1. The clue" .. "4. Solved").
+            (10.0, 5, "short labels"),
+            # 10 x 14 cm: the full captions fit without the explanation --
+            # the title and the captions wrapped to 3, 3, 3 and 1 lines.
+            (14.0, 11, "full captions alone"),
+        ],
+    )
+    def test_the_10cm_trim_holds_10pt_in_its_fallback_forms(self, height_cm, type_lines, form):
+        """CON-020 on the two fallback forms, at the minimum 10 cm width.
+
+        The line count identifies the form measured, so the floor is shown on
+        each form rather than on whichever one the page happened to pick. The
+        title is set below 22 pt here (it is wider than a 10 cm measure); this
+        test does not reach the clamp that keeps it at or above the body size,
+        which no stored trim is narrow enough to engage.
+        """
+        page = BookPDFGenerator(ten_cm_wide_book(height_cm)).create_guide_page(
+            999_999, 333_333, 333_333, 333_333
+        )
+        mask = dark(page)
+        found = type_bands(mask)
+        assert len(found) == type_lines, (
+            f"10 x {height_cm:g} cm sets {len(found)} lines of type, not the "
+            f"{type_lines} of the {form} form"
+        )
+        reference = text_reference()
+        sizes = [cap_height_points(mask, band, reference) for band in found]
+        assert min(sizes) >= FLOOR_PT, f"a line of type measures {min(sizes):.2f} pt"
+        lines = read_lines(mask)
+        assert len(lines) == 4
+        digit_ref = digit_reference()
+        for number, line in enumerate(lines, start=1):
+            assert len(line["glyphs"]) == 2, f"step {number}: {len(line['glyphs'])} clue glyphs"
+            for glyph in line["glyphs"]:
+                points = glyph.shape[0] / digit_ref * POINTS_PER_INCH / BOOK_DPI
+                assert points >= FLOOR_PT, f"step {number}: a clue digit is {points:.2f} pt"
 
 
 # --------------------------------------------------------------------------

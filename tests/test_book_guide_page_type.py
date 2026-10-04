@@ -446,20 +446,14 @@ class TestGuidePage_TypeIsBookSized:
 class TestGuidePage_TextFitsTheUsableFrame:
     """AC-237 — the longest text the book ships fits inside the frame.
 
-    Bigger type is only a fix if it still fits. The page draws its lines as
-    they are given and never re-wraps them (that is the caller's business, and
-    CARD-149 kept it that way), so "it fits" has to be measured on the page
-    rather than reasoned about: every mark inside the usable area COMP-007
-    reported, and the last line above the bottom margin.
-
-    Measured headroom at 11 pt: the page's longest line ("  2. Check your work
-    against the answer key") is 908 px, and the narrowest measure a stored book
-    can have on CON-018's margins — a 10 cm trim — is 919 px. It fits by 11 px,
-    which is 0.9 mm. That is the number to look at before this page's text
-    grows: the 65-character lines drafted in
-    ``docs/guides/how-to-solve-nonograms.md`` would not fit a 10 cm trim at
-    11 pt, and landing them is a copy decision with a wrapping question
-    attached (both out of CARD-149's scope).
+    Bigger type is only a fix if it still fits. Since CARD-167 the page wraps
+    its text at spaces to the usable measure and is set in the first of three
+    forms (full text; the worked example with full captions; the example with
+    short labels) whose last mark sits above the bottom margin. Neither the
+    wrapping nor the choice of form is trusted here: "it fits" is measured on
+    the page — every mark inside the usable area COMP-007 reported, and the
+    last mark above the bottom margin — on Book 1, on the 10 cm minimum trim,
+    and across the corpus of trims and counts below.
     """
 
     def test_every_mark_sits_inside_the_usable_area(self, book1_generator, book1_frame):
@@ -637,16 +631,35 @@ class TestGuidePage_LeadingClearsTheType:
     def test_no_two_lines_ink_runs_together(self, guide_page, guide_bands):
         """Every line has white above and below it, the title included.
 
-        Which is also what makes :func:`ink_bands` a line count rather than a
-        guess: the bands are separated, so counting them counts lines.
+        :func:`ink_bands` starts a new band only after a blank row, so bands
+        are separated by construction and comparing neighbouring bands proves
+        nothing. What does is the count: two lines whose ink touches come out
+        as one band, so the page has fewer bands than it has lines. The counts
+        are pinned for the four-puzzle Book 1 page (the full form, CARD-167),
+        written out rather than derived from the generator's text:
+
+        * 14 lines of type — the title; the explanation (2 lines); the four
+          count lines; "Worked example: ..."; the four step captions (1, 1, 2
+          and 1 lines); the closing line;
+        * 4 drawings — one per step of the worked example, each the same
+          one-row line, so all four bands are the same height.
+
+        A caption touching its drawing merges into the drawing's band: the
+        type count drops to 13 and that drawing's band grows taller than the
+        other three. Two lines of type touching drop the type count.
         """
-        # Over every band of ink, the worked example's drawings included
-        # (CARD-167): a caption whose descenders touched its drawing would
-        # merge into the drawing's band and drop out of the type count.
         every_band = ink_bands(guide_page)
-        for (_, bottom), (top, _) in zip(every_band, every_band[1:]):
-            assert bottom < top - 1, (
-                f"a line's ink ends at y={bottom} and the next's begins at "
-                f"y={top}: they touch"
-            )
-        assert set(guide_bands) <= set(every_band)
+        drawings = [band for band in every_band if band not in guide_bands]
+        assert len(guide_bands) == 14, (
+            f"{len(guide_bands)} lines of type found where the page sets 14: "
+            "a line was lost, or two lines' ink ran together"
+        )
+        assert len(drawings) == 4, (
+            f"{len(drawings)} drawn bands found where the worked example "
+            "draws 4"
+        )
+        heights = {bottom - top + 1 for top, bottom in drawings}
+        assert len(heights) == 1, (
+            f"the worked example's four lines are {sorted(heights)} px tall: "
+            "one has merged with the ink next to it"
+        )

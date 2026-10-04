@@ -30,7 +30,11 @@ called with the book's spec: the trim and the usable area through
 text the layout knows nothing about — the guide page's lines and the divider's
 word — and it is positioned against the usable area the layout reported. The
 guide page's worked example (CARD-167) is laid out by ``compute_layout`` on the
-page's own spec; this module only chooses where on the page it is pasted.
+page's own spec — cell pitch, rule positions and widths, frame and clue size.
+This module trims that layout to a single row (the vertical rules and the
+frame start at the grid's top; no column clue is written), draws each step's
+filled and crossed squares in its cells, and chooses where on the page the
+drawing is pasted.
 
 What the band says (ADR-0037/R1, CARD-117)
 ------------------------------------------
