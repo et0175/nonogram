@@ -1,0 +1,101 @@
+version: 1
+generated_at: "2026-10-04T07:29:02Z"
+target: "card/164-main-goes-green (7e57b1c...1dea73e)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "tests/e2e/test_admin_workflow.py"
+    - "tests/test_wave3_e2e.py"
+    - "src/nonogram/admin/app.py (batch_from_images, preview_batch_images)"
+    - "src/nonogram/admin/image_manager.py (SIZE_PRESETS, ImageFile size fields, _size_fit_for, update_image_size)"
+    - "src/nonogram/admin/templates/batch_create.html"
+    - "src/nonogram/admin/templates/image_preview.html"
+    - "src/nonogram/admin/templates/_size_fit_box.html"
+    - "git history: c57deb5, 0ac224b, f773015"
+  not_reached: []
+  confidence: high
+metrics:
+  diff: { files: 2, added: 17, removed: 6 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — diff changes no exported symbol (test files only)"
+mutation_check:
+  ran: true
+  mutants:
+    - { id: M1, mutant: "batch_create.html <h1>New batch</h1> -> <h1>Create batch</h1>", test: "test_batch_creation_form_renders", result: killed }
+    - { id: M2, mutant: "app.py batch_from_images default_size forced to 'medium'", test: "test_size_configuration_applied", result: killed }
+    - { id: M3, mutant: "SIZE_PRESETS large -> (30, 'max')", test: "test_size_configuration_applied", result: killed }
+    - { id: M4, mutant: "SIZE_PRESETS large -> (20, 'fixed')", test: "test_size_configuration_applied", result: killed }
+    - { id: M5, mutant: "app.py reads request.files 'images' instead of 'image_files'", test: "test_size_configuration_applied", result: killed }
+    - { id: M6, mutant: "app.py 'if default_size in size_mapping' negated", test: "test_size_configuration_applied", result: killed }
+    - { id: M7, mutant: "SIZE_PRESETS medium/large values swapped", test: "test_size_configuration_applied", result: killed }
+    - { id: M8, mutant: "batch_create.html select name default_size -> size_preset", test: "test_size_configuration_applied", result: survived }
+  restore_verified: true
+system_contract:
+  rules_checked: 52
+  holds: 2
+  unchecked: 50
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — git diff 7e57b1c...HEAD --stat touches only tests/e2e/test_admin_workflow.py and tests/test_wave3_e2e.py; pyproject.toml unchanged, no import of a new package"
+    - "ADR-0022/R1 ✓ holds — review-lens: diff changes no public signature, request field or export field (test files only, same --stat scan)"
+    - "ADR-0019/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: diff touches no production code (two test files only); none of these rules' covering tests is modified by the diff"
+root_causes:
+  - id: RC-1
+    title: "Admin batch tests post hand-written form field names that nothing ties to the step-1 form"
+    finding_ids: [F-001, F-002]
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/e2e/test_admin_workflow.py
+    line: 139
+    title: "Docstring says 'size chosen on the upload form' but the form-to-route field contract is unprotected (mutant M8 survives)"
+    description: |
+      The test posts 'image_files' and 'default_size' directly to /batch/from-images. Renaming the
+      step-1 select in batch_create.html:62 (name="default_size" -> name="size_preset") leaves the test
+      green, while a real user's choice would silently fall back to "medium". No test in tests/ pins
+      name="default_size" or name="image_files" on /batch/create. This is the drift class that kept
+      the old test vacuous for about four weeks (c57deb5 to f773015). It goes beyond AC-2/G-1, which
+      the route-level assertions do satisfy (M2-M7 killed).
+    suggestion: |
+      In the same test, first GET /batch/create and assert b'name="image_files"', b'name="default_size"'
+      and b'<option value="large"' are present. Or narrow the docstring to "posted to the route".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: info
+    category: tech-debt
+    type: gap
+    file: tests/e2e/test_admin_workflow.py
+    line: 86
+    title: "Five sibling tests still post the dead 'images' field and pass on the 'No images selected' redirect (out of scope)"
+    description: |
+      Lines 86, 100, 112, 130 and 170 (test_tc_001, test_preview_page_displays_original_image,
+      test_metadata_shown_on_preview, test_tc_002, test_tc_003) post {'images': ...}. The route reads only
+      image_files/directory (app.py:1506-1507), so each one gets the step-1 redirect.
+      test_tc_001's assertion (302 and 'batch' in location) is met by the /batch/select-images redirect.
+      This is the same root cause CARD-164 diagnosed, and it is not in backlog.md.
+    suggestion: |
+      Follow-up backlog card: switch them to image_files and assert on /batch/preview-images.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

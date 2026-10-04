@@ -1,6 +1,6 @@
 # CARD-164: Main goes green: fix the two tests that have been red for weeks
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
+**Branch:** card/164-main-goes-green
 **Worktree:** —
 **Source:** roadmap wave 1 (meta/kanban/roadmap.md), 2026-10-04
 **Idea:** IDEA-066, IDEA-067
 **Wave:** 32
 **Depends on:** —
 **Touches:** tests/test_wave3_e2e.py, tests/e2e/test_admin_workflow.py, src/nonogram/admin/templates/batch_create.html, src/nonogram/admin/app.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 1/3)
+**Started:** 2026-10-04T07:04:24Z
+**Closed:** 2026-10-04T08:13:03Z
+**Actual:** 0.1d
+**Merge commit:** 4f3226e
 **Blocked by:** —
 
 ## What to implement
@@ -127,3 +127,35 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-164` (52 rules). A project
 ## Worktree notes
 
 - [Origin] Roadmap wave 1, the two highest-scored ideas (WSJF 24 each). Once this merges, the kanban test-gate baseline is "no failures", and every later card's gate gets stricter.
+- [Env] forge 2026.8.17
+- [Diagnosis IDEA-066] Stale test, not a code regression. Introducing commit: f773015 "feat(admin): adopt the Pressroom design system and fix the panel's broken flows" (2026-09-14). Evidence: the test at f773015~1 passes, at f773015 fails (`git worktree add --detach <scratch> f773015~1|f773015` + `env -u DATABASE_URL pytest tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied` → "1 passed" / "1 failed"). `git log -i -G fixed` on the step-1 templates names only f773015 (and the 96da6ac creation); its diff removes `<small class="text-muted">Adjust puzzle sizes (Fixed/Min/Max)</small>`. "Red since 89ed292 / wave 20" is when the gate first recorded it, not the cause.
+- [Diagnosis IDEA-066] What the test expected vs what the app does: the test POSTed its file as `images`; `/batch/from-images` (app.py batch_from_images) reads only `image_files` and `directory` — since the test was written (c57deb5, 2026-09-08). So no upload ever happened: the route flashed "No images selected" and redirected to step 1, and the test's `b'fixed' in data.lower()` matched that page's help text. It never exercised size application. The route's size handling (`default_size` → SIZE_PRESETS → update_image_size) works and has its own coverage (tests/test_image_batch_size_fix.py).
+- [Change] tests/e2e/test_admin_workflow.py::test_size_configuration_applied now uploads via `image_files` with `default_size=large` and asserts it lands on /batch/preview-images with `<option value="fixed" selected>` and `extent=30x30`. "large" (30, fixed) differs from the route's "medium" (20, fixed) fallback, so 30x30 can only come from the submitted choice. No app code changed (G-2/G-3 untouched; nothing under sourcing/).
+- [Change] tests/test_wave3_e2e.py::test_batch_creation_form_renders asserts `b'<h1>New batch</h1>'`, same literal as CARD-156's fix in tests/test_db_e2e_smoke.py (9390d40).
+- [Mutant] batch_create.html `<h1>New batch</h1>` → `<h1>Create batch</h1>`: test_batch_creation_form_renders FAILED — `E assert b'<h1>New batch</h1>' in b'<!DOCTYPE html>...'` (tests/test_wave3_e2e.py:368). Reverted, passes.
+- [Mutant] app.py batch_from_images `default_size = request.form.get("default_size", "medium")` → `default_size = "medium"` (route ignores the submitted size): test_size_configuration_applied FAILED — `E assert b'extent=30x30' in b'<!DOCTYPE html>...'` (tests/e2e/test_admin_workflow.py:158). Reverted, passes.
+- [Commit] 1dea73e test(CARD-164): bring the two weeks-red admin tests up to the current pages.
+- [Handback] orchestrator handed back by harness enforcement while the implementation agent's locked full-suite run was still in progress; review cycle not started.
+- [Full suite] Locked full run on 1dea73e: exit 0 — "6036 passed, 9 skipped, 15060 warnings in 555.50s (0:09:15)". No xfails; this card adds no skip/xfail markers (the 9 skips are environment-gated, pre-existing).
+- [Resume] dispatcher resumed the pipeline at step 8 after the interim hand-back.
+- [Build gate] PASSED (full, 555s) — implementation agent's locked run on 1dea73e: 6036 passed, 9 skipped, 0 failed, 0 xfailed. Baseline wave-31 smoke: 2 failed, 6034 passed, 9 skipped → the two targets turned green, skip count unchanged (9→9), diff adds no skip/xfail marker.
+- [Scope] tests/e2e/test_admin_workflow.py, tests/test_wave3_e2e.py
+- [Scope gate] in_scope — both files inside Touches; no G-3 hit (nothing under src/nonogram/sourcing/); comp_spread 0 (test files only).
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/ (20261004T072902Z-CARD-164-cycle1.yml, yaml.safe_load OK)
+- [Adversarial] no gating findings in cycle 1 — nothing to verify (F-001 Minor, F-002 out-of-scope)
+- [Review 1/3] Step 8h coverage: 52/52 card rules have a verdict line (2 ✓, 0 ✗, 50 ⚠ no_eligible_fact)
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Mutation check] cycle 1 (passing cycle): 8 mutants, 7 killed, 1 survived — M8 (batch_create.html select renamed default_size→size_preset) survives: the test posts field names directly to the route, nothing pins the step-1 form's names (F-001, Minor).
+- [Retro] IDEA-066 test was hollow from birth: since c57deb5 (2026-09-08) it posted the dead field `images`, so it only ever saw the 'No images selected' redirect and passed on help text; f773015 removing that text merely exposed it. Five sibling tests in tests/e2e/test_admin_workflow.py (lines 86/100/112/130/170) still post `images` and pass on the redirect (F-002, out of scope → backlog candidate).
+- [8h spot-check] 2/2 sampled holds reproduced (ADR-0006/R1 — diff --stat 2 test files, pyproject unchanged, tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed 1 passed; ADR-0022/R1 — no src/ change, extent=30x30 is the WxH pair from _size_fit_box.html)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-1 ✓ demonstrated — evidence: PASSED tests/test_wave3_e2e.py::TestWave3UIIntegration::test_batch_creation_form_renders; asserts b'<h1>New batch</h1>'
+  AC-2 ✓ demonstrated — evidence: PASSED tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied; stale-test diagnosis reproduced (old tests: 2 passed at 97597b1 = f773015~1, 2 failed at f773015; new test passes at both)
+  AC-3 ✓ demonstrated — evidence: locked full run exit 0, "6036 passed, 9 skipped, 15060 warnings in 524.13s"; 0 failed/xfail/xpass; skips 9 = baseline 9 (1 setrlimit, 8 DATABASE_URL unset); diff adds no skip/xfail
+  G-1 ✓ demonstrated — evidence: independent mutants killed (h1 → "New Batch": heading test 1 failed; default_size forced "medium": size test failed on extent=30x30; `if False and default_size in size_mapping`: failed); new assertions strictly stronger than old
+  G-2 ✓ demonstrated — evidence: no app code changed; stale test confirmed by bisect pair at f773015
+  G-3 ✓ demonstrated — evidence: git diff --name-only 7e57b1c...HEAD = 2 test files; nothing under src/nonogram/sourcing/
+- [Docs] forge:readme on tests/ and tests/e2e/: no structure/purpose change (no file added/removed/renamed; neither README names the changed tests) — skipped as current.
+- [Commit] no uncommitted code after review (cycle 1 passed with no fix); success commit = 1dea73e "test(CARD-164): bring the two weeks-red admin tests up to the current pages". Diff stat vs 7e57b1c: 2 files changed, 17 insertions(+), 6 deletions(-).
+- [Merged] 2026-10-04 — 4f3226e into main (--no-ff). Rebased onto 14eb2b7 (CARD-168) cleanly → 7357658; merge gate: full suite under the lock, EXIT 0 — 6040 passed, 9 skipped, 0 failed (first clean full suite since wave 20). From now on the kanban test-gate baseline is NO failures. Deferral scan: 0 hits. F-001 (M8) and F-002 (five sibling tests post the dead `images` field) captured to backlog.

@@ -1527,7 +1527,7 @@ ideas:
     (red on 89ed292 and since wave 20)   @ops'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
@@ -1552,7 +1552,7 @@ ideas:
     renamed the heading "New batch". The page is fine, the test isn''t   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
