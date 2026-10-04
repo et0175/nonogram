@@ -363,7 +363,9 @@ class TestWave3UIIntegration:
         """Test that batch creation page loads."""
         response = client.get('/batch/create')
         assert response.status_code == 200
-        assert b'Create Batch from Images' in response.data
+        # The page is "New batch" since the Pressroom redesign (f773015);
+        # same fix as test_db_e2e_smoke.test_create_batch_route_works (CARD-156).
+        assert b'<h1>New batch</h1>' in response.data
 
     def test_batch_creation_includes_size_options(self, client):
         """Test that size option dropdown is visible."""

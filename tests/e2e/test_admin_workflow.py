@@ -136,17 +136,26 @@ class TestFlow2BatchImageUpload:
         assert b'preview' in response.data.lower() or b'image' in response.data.lower()
 
     def test_size_configuration_applied(self, client, test_image):
-        """Verify size configuration is applied."""
+        """Verify the size chosen on the upload form is applied to the picture.
+
+        CARD-164: this posted the file as ``images``, a field the route never
+        read, so it only ever saw the "No images selected" redirect back to
+        step 1 and passed on that page's "(Fixed/Min/Max)" help text — until
+        the Pressroom redesign (f773015) removed it. It now uploads through
+        the route's real field and picks "large" (30, fixed) rather than the
+        route's "medium" (20, fixed) fallback, so the preview's 30x30 can only
+        come from the submitted choice.
+        """
         with open(test_image, 'rb') as f:
             response = client.post(
                 '/batch/from-images',
-                data={'images': (f, 'test.png')},
+                data={'image_files': (f, 'test.png'), 'default_size': 'large'},
                 follow_redirects=True
             )
 
-        # Check for size controls
-        assert b'Size' in response.data or b'size' in response.data.lower()
-        assert b'Fixed' in response.data or b'fixed' in response.data.lower()
+        assert response.request.path == '/batch/preview-images'
+        assert b'<option value="fixed" selected>' in response.data
+        assert b'extent=30x30' in response.data
 
 
 class TestFlow3PuzzleGeneration:
