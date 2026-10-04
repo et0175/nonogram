@@ -74,6 +74,9 @@ card names its card._
 - [ ] CARD-164 F-002: five sibling tests in tests/e2e/test_admin_workflow.py (test_tc_001, test_preview_page_displays_original_image, test_metadata_shown_on_preview, test_tc_002, test_tc_003 — lines ~86/100/112/130/170) still post the dead `images` field and pass on the "No images selected" redirect — hollow the same way test_size_configuration_applied was   @tech-debt
 - [ ] CARD-164 F-001 (minor): test_size_configuration_applied posts field names straight to the route, so renaming the step-1 form's `default_size` select leaves it green (mutant M8) — GET /batch/create and assert the field names, or narrow the docstring   @tech-debt
 - [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the single-puzzle-page path (no shared two-up fixture); the no-plan banner points to Finalise even when the cause is a code bug; the stored-order fallback with a repeated id is untested (mutant survived)   @tech-debt
+- [ ] CARD-167 follow-up: the Finalise screen's guide preview (book_finalize.html) still says "How to use this book" with the old instructions — make it match the new guide page   @feature
+- [ ] CARD-167 F-101/F-103 (minor): the 10 pt floor test measures top-to-baseline, so wrapped lines without capitals under-read (~8.4 pt for 11 pt type; at 11x17 cm "way." wraps alone); the spacing after each example drawing is untested; CARD-149's type-test docstrings quote the old guide text   @tech-debt
+- [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked in pt elsewhere)   @tech-debt
 
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt

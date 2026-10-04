@@ -1,0 +1,177 @@
+version: 1
+generated_at: "2026-10-04T08:13:20Z"
+target: "card/167-guide-page-how-to-solve (main...HEAD, 8e2c4bd + 3d0f2bf)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (full diff + _stroke_drawing/_write_clues)"
+    - "src/nonogram/export/png.py (_draw_grid/_draw_frame/_draw_answer, for the reuse claim)"
+    - "tests/test_book_guide_page.py (all)"
+    - "tests/test_book_guide_page_type.py (diff + fit/leading/DPI tests)"
+    - "tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/helpers/book_corpus.py (diffs)"
+    - "tests/fixtures/book_baseline_card167.json vs book_baseline_card147.json (key-by-key, page-by-page)"
+    - "meta/architecture/decisions/adr/0036, 0037 (Rules blocks)"
+    - "~/Documents/nonogram-reviews/CARD-167/*.png (Book 1, 6x9, 10 cm)"
+  not_reached: []
+  confidence: high
+metrics:
+  diff: { files: 7, added: 1034, removed: 59 }
+  max_fan_in: { symbol: "BookPDFGenerator.create_guide_page", callers: 22 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: ["src/nonogram/admin/templates/book_finalize.html"]
+system_contract:
+  rules_checked: 53
+  holds: 11
+  unchecked: 42
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml not in diff; new code imports only stdlib/PIL/numpy (git diff main...HEAD --stat); TestDependencyBaseline_IsExactlyPillowAndNumpy in full-suite run"
+    - "ADR-0033/R1 ✓ holds — create_guide_page receives only counts; no puzzle field read or written (book_pdf_generator.py:1486-1610)"
+    - "ADR-0036/R1 ✓ holds — no file under src/nonogram/export in diff; tests/test_export_a4_golden.py + tests/test_layout_page_spec.py green on HEAD"
+    - "ADR-0036/R2 ✓ holds — example_line_layout (book_pdf_generator.py:1129) gets pitch/rule positions/widths/clue size from compute_layout on the book spec; admin only clips vertical-rule starts and frame top to layout.grid_top (a layout coordinate) and pastes the crop; no cell fitting"
+    - "ADR-0037/R1 ✓ holds — band code untouched; pages 2-11 digest-identical to CARD-147 (book_baseline_card167.json vs card147, verified page-by-page)"
+    - "ADR-0037/R2 ✓ holds — example stroked by _stroke_drawing at layout thin 3 px / heavy 6 px in INK (measured); TestGuidePage_CarriesAWorkedExampleOnOnePage::test_the_lines_are_ruled_like_the_books_puzzle_pages"
+    - "CON-020 ✓ holds — test_every_line_of_type_on_page_1_holds_10pt, test_every_clue_digit_holds_10pt, 6x9 test; reviewer measurement of 10 cm labels form: title 20.07 pt, body 11.04-11.37 pt, clue digits 12.76-13.43 pt"
+    - "INV-009 ✓ holds — page order unchanged: TestBookPdfMemory_PagesAreUnchanged against card167 baseline (pages 2-11 = card147)"
+    - "INV-010 ✓ holds — two-up page 3 digest unchanged vs card147 baseline"
+    - "INV-011 ✓ holds — answer pages 9-11 digest unchanged vs card147 baseline"
+    - "INV-013 ✓ holds — TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged (3 tests) + tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py green on HEAD"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0035/R1, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked — no_eligible_fact: diff touches only the guide-page drawing in book_pdf_generator.py and book-PDF tests; no web/solver/generation/storage/plan/player/server code"
+root_causes:
+  - id: RC-1
+    title: "SCOPE+ test edits and doc text not brought fully in line with the new page"
+    finding_ids: [F-001, F-006]
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_book_guide_page_type.py
+    line: 652
+    title: "CARD-149 band-count guard replaced by a tautology"
+    description: |
+      The pre-existing assertion `len(guide_bands) == len(ink_bands(guide_page))` (every inked band is a
+      counted line of type) was replaced by `assert set(guide_bands) <= set(every_band)`. guide_bands is
+      type_bands(), which is by construction a filter of ink_bands() (line 177-191), so the subset holds
+      for any page: the assertion cannot fail. The new comment (lines 643-645) says a caption touching its
+      drawing "would merge into the drawing's band and drop out of the type count", implying that is
+      detected - no assertion in this module checks the type count (guide_bands only asserts >= 9; Book 1
+      has 14 type bands of 18 ink bands, measured). The Worktree note's "No floor/geometry assertion
+      weakened ... (stronger)" therefore over-claims for this SCOPE+ edit.
+    suggestion: |
+      Pin the excluded bands: `assert len(every_band) == len(guide_bands) + 4` (exactly the four example
+      drawings are non-type), and either add a count/identity check that would catch a merged caption or
+      reword the comment to say what is actually checked.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "Fix 1 (uncommitted): test_no_two_lines_ink_runs_together pins 14 type lines, 4 drawings, equal drawing heights"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 33
+    title: "Module docstring over-claims: 'this module only chooses where it is pasted'"
+    description: |
+      example_line_layout (line 1147) rewrites the layout's vertical-rule starts and frame top and drops
+      column clues; draw_example_line draws fills and a new X mark. The module does more than paste.
+    suggestion: "Reword: laid out by compute_layout; this module trims it to one row, marks squares and places it."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "Fix 1 (uncommitted): module docstring reworded"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1545
+    title: "Fallback forms' 10 pt floor and the title-shrink clamp are untested"
+    description: |
+      CON-020 holds by construction (body size fixed at 11 pt; title loop stops at body size) and by
+      reviewer measurement at 10 cm (title 20.07 pt, body >= 11.04 pt, clue >= 12.76 pt), but no test
+      measures the labels form or captions-only form, and the `title_size > body_size` clamp never engages
+      on any tested trim, so a mutation of it survives.
+    suggestion: "Add a 10 cm-trim floor assertion (type lines + clue digits) to the min-trim test."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "Fix 1 (uncommitted): test_the_10cm_trim_holds_10pt_in_its_fallback_forms; title clamp still uncovered (no stored trim reaches it)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_guide_page.py
+    line: 527
+    title: "Clue-digit floor test can pass vacuously; 6x9 test skips clue/rule checks"
+    description: |
+      test_every_clue_digit_holds_10pt iterates line['glyphs'] without asserting two glyphs per line, so an
+      empty gutter read passes it (mitigated by test_every_step_carries_the_clue_3_1). The 6x9 test (line
+      534) checks states/frame/type floor but not clue digits or rule widths.
+    suggestion: "assert len(line['glyphs']) == 2 in the floor test; reuse the clue/rule checks on the 6x9 page."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "Fix 1 (uncommitted): 2 glyphs per line asserted; 6x9 test checks clue digits and rule widths"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: info
+    category: feature
+    type: question
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 460
+    title: "Step 3 imports a fact from an unseen column (AC-325 'from that clue')"
+    description: |
+      3 1 on 6 squares has slack 1, so the clue alone never decides the line; step 3 uses 'the column
+      crossing square 1 shows it is empty'. This follows the owner's own example and the caption is honest,
+      but AC-325 reads 'solved step by step from that clue'; in the short-label form ('3. Gap', 10 cm trim)
+      square 1 is crossed with no stated reason.
+    suggestion: "Owner to confirm the example, or pick a clue/length the line logic alone completes with an overlap step."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Deferred to owner: AC-325 wording question; the example logic is not changed by forge:fix"
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_guide_page_type.py
+    line: 446
+    title: "TextFitsTheUsableFrame docstring now false"
+    description: |
+      It says the page 'draws its lines as they are given and never re-wraps them' and quotes the 908 px
+      'Check your work against the answer key' headroom; CARD-167 wraps text and that line is gone.
+    suggestion: "Update the docstring to the wrapped, three-form page."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "Fix 1 (uncommitted): TextFitsTheUsableFrame docstring rewritten"
+    dismissed_reason: null
+    learned_pattern: null

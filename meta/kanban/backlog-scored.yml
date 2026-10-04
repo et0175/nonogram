@@ -1645,7 +1645,7 @@ ideas:
     as CARD-149)   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 5

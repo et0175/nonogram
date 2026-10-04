@@ -1,0 +1,139 @@
+version: 1
+generated_at: "2026-10-04T08:39:49Z"
+target: "card/167-guide-page-how-to-solve (main...HEAD 8e2c4bd+3d0f2bf, plus uncommitted Fix 1 working tree)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 2
+mode: full
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (full diff vs main incl. working tree)"
+    - "tests/test_book_guide_page.py (all, 679 lines)"
+    - "tests/test_book_guide_page_type.py (diff + module docstring + fixtures + fit/corpus/leading tests)"
+    - "tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/helpers/book_corpus.py (diffs)"
+    - "tests/fixtures/book_baseline_card167.json vs book_baseline_card147.json (key-by-key; only page 1 digest differs)"
+    - "meta/kanban/cards/CARD-167.md worktree notes; cycle-1 report"
+    - "~/Documents/nonogram-reviews/CARD-167/guide-book1-8.5x11.png, guide-min-10cm.png"
+  not_reached: ["full suite (not run by instruction; orchestrator run 6051 passed / 2 known pre-existing failures)"]
+  confidence: high
+metrics:
+  diff: { files: 7, added: 1034, removed: 59, working_tree_delta: "4 files +202/-30 (incl. card)" }
+  max_fan_in: { symbol: "BookPDFGenerator.create_guide_page", callers: 22 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: ["src/nonogram/admin/templates/book_finalize.html"]
+  unmeasured:
+    max_fan_in: "carried from cycle 1 (fix delta changed no exported symbol)"
+    hotspots: "carried from cycle 1"
+mutation_check:
+  ran: true
+  target_file: src/nonogram/admin/book_pdf_generator.py
+  tests: ["tests/test_book_guide_page.py", "tests/test_book_guide_page_type.py"]
+  killed: 3
+  survived: 4
+  mutants:
+    - "form order swapped (labels before captions-only) - KILLED by test_the_10cm_trim_holds_10pt_in_its_fallback_forms[14.0]"
+    - "X inset //4 -> //2 - KILLED by test_the_steps_solve_the_line_from_the_clue_to_the_finished_line"
+    - "Hard count line dropped - KILLED by test_no_two_lines_ink_runs_together (14-line pin)"
+    - "title clamp > body_size -> > 1 - SURVIVED (declared uncovered; unreachable on stored trims, equivalent on the domain)"
+    - "wrap_words > -> >= - SURVIVED (equivalent unless a line measures exactly the measure)"
+    - "form fit <= -> < - SURVIVED (equivalent unless the last mark lands exactly on the margin)"
+    - "y = bottom + leading // 2 -> y = bottom (no space after a drawing) - SURVIVED, see F-103"
+  restore: "each mutant restored by writing saved bytes; byte-compared; final git diff cmp-identical to pre-check capture"
+system_contract:
+  rules_checked: 53
+  holds: 11
+  unchecked: 42
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from git diff main...HEAD; no import line added/removed in book_pdf_generator.py (grep of diff for ^[-+]from|import: none)"
+    - "ADR-0033/R1 ✓ holds — create_guide_page takes only counts; no puzzle field read/written (book_pdf_generator.py:1491-1614)"
+    - "ADR-0036/R1 ✓ holds — no file under src/nonogram/export in diff (git diff --stat main...HEAD -- src/nonogram/export empty); tests/test_export_a4_golden.py + tests/test_layout_page_spec.py green on this tree"
+    - "ADR-0036/R2 ✓ holds — example_line_layout (book_pdf_generator.py:1133) takes pitch/rules/frame/clue size from compute_layout on the guide spec; admin only clips rule starts/frame top to layout.grid_top and places the crop"
+    - "ADR-0037/R1 ✓ holds — band code untouched; card167 baseline differs from card147 only on page 1 (key-by-key compare this cycle)"
+    - "ADR-0037/R2 ✓ holds — test_the_lines_are_ruled_like_the_books_puzzle_pages and 6x9 test assert thin >= 0.25 mm, heavy = 2x thin; green this cycle"
+    - "CON-020 ✓ holds — body text_font fixed at type_px(11pt) for every form, title clamped >= body (book_pdf_generator.py:1544-1551); measured >= 10 pt by test_every_line_of_type_on_page_1_holds_10pt, test_every_clue_digit_holds_10pt, 6x9 test, test_the_10cm_trim_holds_10pt_in_its_fallback_forms[10,14]; measurement premise fails on 20/80 swept trims (8.36 pt under-read of x-height-only lines), see F-101"
+    - "INV-009 ✓ holds — pages 2-11 digest-identical to CARD-147 baseline; TestBookPdfMemory_PagesAreUnchanged green"
+    - "INV-010 ✓ holds — two-up page 3 digest unchanged vs card147 baseline"
+    - "INV-011 ✓ holds — answer pages 9-11 digest unchanged vs card147 baseline"
+    - "INV-013 ✓ holds — TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged (3 tests), tests/property/test_book_export_interior.py, tests/test_book_export_interior_cover.py green this cycle"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0035/R1, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked — no_eligible_fact: diff (committed + working tree) touches only guide-page drawing in book_pdf_generator.py and book-PDF tests/fixtures; no web/solver/generation/storage/plan/player/server code"
+task_contract:
+  AC-324: "met — TestGuidePage_TitledHowToSolveNonograms (3 tests incl. control finding old title on old page) green"
+  AC-325: "met — TestGuidePage_CarriesAWorkedExampleOnOnePage (10 tests) green; F-005 wording question still with owner"
+  AC-326: "met — TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged (3 tests) green"
+  G-1: "holds — no export/CLI/web file in diff; test_export_a4_golden.py, test_layout_page_spec.py green"
+  G-2: "holds — card167 vs card147 fixture: only page 1 digest differs; TestGuidePage page-2..N digest comparison green"
+  G-3: "holds — no page-plan code in diff; test_book_finalise_gutter.py, test_book_pdf_levels.py, property/test_book_order.py green"
+  G-4: "holds — example drawn in INK/black on white; test_book_pdf_ink_mode.py green (DeviceGray)"
+previous_findings:
+  F-001: "resolved — exact 14 type / 4 drawn / equal heights; mutation (Hard line dropped) killed by it; note corrected"
+  F-002: "resolved — module docstring now accurate (book_pdf_generator.py:31-37)"
+  F-003: "resolved — 10x10 and 10x14 cm fallback forms measured; title clamp declared uncovered (true: no stored trim engages it)"
+  F-004: "resolved — 4 lines x 2 glyphs asserted; 6x9 test adds clue floor and rule widths"
+  F-005: "still open (owner decision, dismissed by fix) — not re-raised"
+  F-006: "resolved — TextFitsTheUsableFrame docstring accurate"
+root_causes: []
+findings:
+  - id: F-101
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_guide_page.py
+    line: 536
+    title: "CON-020 floor measurement premise fails on a quarter of trims; docstring calls it a copy problem"
+    description: |
+      cap_height_points measures top-to-baseline, so a wrapped line of x-height letters reads ~8.36 pt though set at
+      11 pt. A sweep of 80 trims (widths 10-30, heights 14-48 cm, counts 150/50/50/50) under-reads on 20 (e.g. 11x17,
+      10x25, 20x14 cm). CON-020 itself holds by construction (one 11 pt face for all body text, title >= body), so this
+      is not a breach, but the floor test can only be applied to hand-picked trims, and its docstring frames the failure
+      as "a copy problem to fix" while the same orphan ("way." alone) still prints on 11x17 cm.
+    suggestion: |
+      Either measure per-line size with a reference matched to the line's own tallest glyph class (x-height vs cap), or
+      state in the docstring that the measurement is valid only where every line reaches cap height and list the trims
+      it is applied to; optionally note the orphan as copy follow-up.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+  - id: F-102
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_guide_page_type.py
+    line: 28
+    title: "Stale CARD-149 docstrings describe the old title and copy"
+    description: |
+      Module docstring line 28 says '"How to Use This Book" has no descender, so its box measures 67 px'; line 412 says
+      '"1. Fill in the grid based on the clues" is such a line, and the page draws several'; line ~433 cites the 67 px cap
+      height. The title now has a descender and that line no longer exists. Tests still pass (they measure the live text),
+      but the explanations are false.
+    suggestion: "Update the three passages to the current title/copy, or point them at CARD-149 as historical."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+  - id: F-103
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1594
+    title: "Space after each example drawing is unpinned (mutant survived)"
+    description: |
+      Mutating `y = bottom + leading // 2` to `y = bottom` (next caption set flush under the drawing) passes both guide
+      test modules: Arial's internal leading keeps a blank row between ink, so band counts and heights are unchanged.
+      No AC or rule requires the spacing; the owner's visual check is the only guard.
+    suggestion: "Optionally assert a minimum white gap (e.g. >= 0.25 x body) between each drawn band and the next type band."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+out_of_scope:
+  - "src/nonogram/admin/templates/book_finalize.html guide preview still reads 'How to use this book' (co-change peer, outside file scope; already in card follow-ups)"
