@@ -117,3 +117,63 @@ _The admin puzzle player (FR-044, ADR-0038): CARD-160..CARD-163._
 - Implementation hand-off: keep the self-mutation step (it worked: implementers killed 23–44 of their own mutants per card), and extend it to every claim in a header or failure matrix — each claim names the test that would fail without it
 - Test suite +31% in one wave (398s → 522s) with test_scope: full: mark the real-Chromium player tests (pytest marker) so per-cycle gates can run the browser tier only for player cards, or adopt pytest-testmon + test_scope: impact
 - Report hygiene: validate review YAML when kanban syncs it (one unparseable report made CARD-162's final cycle invisible to fix/commit/retro)
+
+## Wave 32 — 2026-10-04
+
+_Roadmap wave 1 (meta/kanban/roadmap.md): CARD-164..CARD-168._
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-164 | Main goes green | 0.5d | 0.1d | 0.2× | 1 | 9.5 | overestimated (actual) |
+| CARD-165 | Printed numbers on the book page | 0.5d | 0.1d | 0.2× | 1 | 9.0 | overestimated (actual) |
+| CARD-166 | Admin paper cuts | 0.5d | 0.1d | 0.2× | 1 | 9.5 | overestimated (actual) |
+| CARD-167 | Guide page "How to Solve Nonograms" | 0.75d | 0.3d | 0.4× | 2 | 9.0 | overestimated (actual) |
+| CARD-168 | Ops housekeeping | 0.5d | 0.1d | 0.2× | 1 | 9.5 | overestimated (actual) |
+
+### Metrics
+
+- cards: 5, escalated: 0, split: 0, actual_time: 5
+- total_estimate: 2.75d, total_actual: 0.7d
+- avg_accuracy: 0.24× (estimates ~4× high; waves 28–32 combined ~0.45× over 17 timed cards)
+- avg_cycles: 1.2 (↑ from 1.5); 4 of 5 cards passed on the first review
+- avg_final_score: 9.3 (↑ +0.22 vs wave 31)
+- score_improvement: +0.2 (9.1 → 9.3)
+- test_cost: gate_total ~54m (6 runs, full_share 100%), suite 587s (+12% vs wave 31, stable)
+- the full suite EXITS 0 on main for the first time since wave 20 (CARD-164); every gate this wave required no failures
+- conflicts: 0 (5 clean rebases; app.py serialization held)
+- review reports: all parsed (the brief's safe_load check held)
+
+### Complexity breakdown
+
+- trivial (1 card): avg cycles 1.0, avg score 9.5, 0 escalated
+- standard (4 cards): avg cycles 1.25, avg score 9.25, 0 escalated
+- architectural (0 cards) → verdict: (insufficient data — accumulating: 1 architectural card incl. history)
+
+### Calibration signals
+
+- python-pro: avg_accuracy 0.24× (5 timed cards) → estimates too high (actual); the skill rule says ×0.7, the data says nearer ×0.4
+
+### Process shortcuts
+
+- other:merge-gate-not-rerun-on-identical-tree (CARD-165, CARD-168: main had not moved) → clean
+- other:smoke-on-merge-gate-tree (the owner's choice to record it; the wave smoke did run on main, 6083 passed) → clean
+
+### Finding families
+
+- watch: "a test that can never fail" — 1 gating this wave (CARD-167 F-001, a band-count guard rewritten as a tautology), but recurring as non-gating evidence across waves: CARD-164's root cause (a test hollow since written), five sibling hollow tests in tests/e2e/test_admin_workflow.py, CARD-129 F-004, CARD-120 F-009. Below threshold; not a model rule (test discipline)
+- fix-induced share: 0 of 0 gating findings after cycle 1 — the first wave since the count began with none (waves 28–31: 5 of 5). The pipeline brief's rules (declare only what tests demonstrate; a fix adds a claim only with its test; implementer self-mutation; YAML validation) are the change that moved it
+
+### Scope growth
+
+- CARD-167 grown: +5 test files (the book-baseline fixture chain: tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card167.json, three page tests)
+- CARD-168 grown: +2 shared script-test helpers (tests/helpers/admin_scripts.py, tests/test_setup_admin_local.py)
+- CARD-164 over-predicted: listed batch_create.html and app.py, edited neither
+
+### Suggestions
+
+- Decompose / Touches rule (owner-approved 2026-10-04): a card that changes book PDF pixels lists `tests/helpers/book_corpus.py` and `tests/fixtures/book_baseline_*.json` in Touches (a new baseline is recorded in its own commit); a card that changes a launch script lists `tests/helpers/admin_scripts.py` and the three script test files
+- Keep the wave-32 pipeline brief as the standard card brief — it is what took the fix-induced share from 100% to 0% and escalations from 50% to 0%
+- Test discipline, mechanical: add a cheap guard for "a test that can never fail" — e.g. require every new test file to be shown failing on at least one mutant in the implementer's notes (already in the brief), and sweep the five hollow `images`-field tests in tests/e2e/test_admin_workflow.py (backlog CARD-164 F-002)
+- Wave budget: the roadmap assumed 3 d/wave of card work; wave 32 shipped 2.75 d of estimates in ~0.7 d wall-clock. Re-plan with ~×0.4 day calibration at the next /forge:roadmap plan
