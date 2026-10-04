@@ -28,7 +28,13 @@ called with the book's spec: the trim and the usable area through
 :func:`page_frame`, the placed drawing through
 :func:`~nonogram.export.pdf.render_pages`. The only thing positioned here is
 text the layout knows nothing about — the guide page's lines and the divider's
-word — and it is positioned against the usable area the layout reported.
+word — and it is positioned against the usable area the layout reported. The
+guide page's worked example (CARD-167) is laid out by ``compute_layout`` on the
+page's own spec — cell pitch, rule positions and widths, frame and clue size.
+This module trims that layout to a single row (the vertical rules and the
+frame start at the grid's top; no column clue is written), draws each step's
+filled and crossed squares in its cells, and chooses where on the page the
+drawing is pasted.
 
 What the band says (ADR-0037/R1, CARD-117)
 ------------------------------------------
@@ -407,6 +413,68 @@ GUIDE_LEADING_PT = 17.0
 #: the unit the rest of the page's type is stated in.
 GUIDE_TITLE_GAP_PT = 36.0
 
+#: The guide page's title (FR-041, AC-324, CARD-167). It was "How to Use This
+#: Book" until the page started teaching how to solve.
+GUIDE_TITLE = "How to Solve Nonograms"
+
+#: The line the guide page's worked example solves (FR-041, AC-325): the clue
+#: ``3 1`` on a row of six squares.
+WORKED_EXAMPLE_CLUE: Tuple[int, ...] = (3, 1)
+WORKED_EXAMPLE_LENGTH = 6
+
+
+@dataclass(frozen=True)
+class ExampleStep:
+    """One step of the guide page's worked example (CARD-167).
+
+    Attributes:
+        caption: The sentence printed above the step's line when the page has
+            room for the full text.
+        label: The short caption printed instead when it does not.
+        filled: The 0-based squares drawn filled at this step.
+        crossed: The 0-based squares drawn crossed out (known empty).
+    """
+
+    caption: str
+    label: str
+    filled: frozenset
+    crossed: frozenset
+
+
+#: The worked example, from the bare clue to the finished line. Step 2 is the
+#: overlap of the clue's two extreme placements; step 3 takes one fact from
+#: the crossing column (square 1 is empty), after which the line has exactly
+#: one arrangement.
+WORKED_EXAMPLE_STEPS: Tuple[ExampleStep, ...] = (
+    ExampleStep(
+        "1. The clue 3 1 means a run of 3 filled squares, then at least one "
+        "empty square, then a run of 1.",
+        "1. The clue",
+        frozenset(),
+        frozenset(),
+    ),
+    ExampleStep(
+        "2. Overlap: pushed left, the 3 covers squares 1-3; pushed right, "
+        "2-4. Squares 2 and 3 are filled either way.",
+        "2. Overlap",
+        frozenset({1, 2}),
+        frozenset(),
+    ),
+    ExampleStep(
+        "3. Gap: the column crossing square 1 shows it is empty, so the 3 "
+        "covers squares 2-4 and square 5 is the gap. Cross out 1 and 5.",
+        "3. Gap",
+        frozenset({1, 2, 3}),
+        frozenset({0, 4}),
+    ),
+    ExampleStep(
+        "4. Solved: the 1 fills square 6.",
+        "4. Solved",
+        frozenset({1, 2, 3, 5}),
+        frozenset({0, 4}),
+    ),
+)
+
 
 def type_px(points: float, dpi: int) -> int:
     """``points`` of type as the whole device pixels a page at ``dpi`` needs.
@@ -431,6 +499,25 @@ def type_px(points: float, dpi: int) -> int:
     if points < 0:
         raise ValueError(f"type has a non-negative size, got {points}")
     return round(points * dpi / POINTS_PER_INCH)
+
+
+def _guide_face(size: int) -> Any:
+    """The face the guide page letters in, at ``size`` device pixels.
+
+    Arial by path; on a machine without it, Pillow's own face asked for at the
+    same size. A bare ``load_default()`` letters a page at a 10 px em whatever
+    the page is, which is the defect CARD-149 fixed wearing a fallback's
+    clothes. Pillow sizes its built-in face from 10.1 on; the declared floor
+    is 10.0, which raises ``TypeError`` instead, and there the page keeps the
+    unsized face it has always had.
+    """
+    try:
+        return ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
+    except OSError:
+        try:
+            return ImageFont.load_default(size)
+        except TypeError:  # pragma: no cover - Pillow < 10.1
+            return ImageFont.load_default()
 
 
 def band_identity(puzzle_number: int, stored_tier: object) -> str:
@@ -1043,6 +1130,81 @@ def page_frame(spec: PageSpec) -> PageFrame:
     )
 
 
+def example_line_layout(spec: PageSpec) -> Layout:
+    """The worked example's line, laid out by COMP-007 on the guide page's sheet.
+
+    :func:`~nonogram.export.layout.compute_layout` is asked for a one-row
+    puzzle whose row clue is :data:`WORKED_EXAMPLE_CLUE`, on ``spec`` — the
+    book's own sheet — so the cell pitch, the thin and heavy rules, the frame
+    and the clue size are the ones a puzzle on this book's page gets. The
+    column clues are placeholders that only give the layout its six columns:
+    the column gutter they occupy is not drawn (:func:`draw_example_line`).
+    """
+    columns = ((0,),) * WORKED_EXAMPLE_LENGTH
+    layout = compute_layout((WORKED_EXAMPLE_CLUE,), columns, spec)
+    # A single row: the vertical rules and the frame start at the grid's top
+    # instead of running up through the column gutter, and no column clue is
+    # written.
+    top = layout.grid_top
+    return replace(
+        layout,
+        vertical_lines=tuple(replace(line, start=top) for line in layout.vertical_lines),
+        column_clues=(),
+        frame=None if layout.frame is None else replace(layout.frame, top=top),
+    )
+
+
+def draw_example_line(layout: Layout, step: ExampleStep) -> Image.Image:
+    """One step of the worked example, cropped tight around its ink.
+
+    Filled squares first, then crosses, then the rules and frame over them
+    (:func:`_stroke_drawing`, the two-up page's stroking) and the clue numbers
+    (:func:`_write_clues`) — the same order a puzzle's answer is drawn in, so a
+    heavy rule stays continuous across a filled square. A cross is drawn
+    corner to corner at the layout's thin rule.
+
+    The image returned starts at the drawing's left edge (minus a heavy rule
+    of white) and at the grid's top edge (minus a heavy rule of white).
+    """
+    pad = layout.thick_rule
+    xs = [line.position for line in layout.vertical_lines]
+    ys = [line.position for line in layout.horizontal_lines]
+    left = (layout.frame.left if layout.frame is not None else xs[0]) - pad
+    top = layout.grid_top - pad
+    canvas = Image.new("RGB", (layout.width, layout.grid_bottom + pad + 1), BACKGROUND)
+    draw = ImageDraw.Draw(canvas)
+    for column in step.filled:
+        draw.rectangle((xs[column], ys[0], xs[column + 1], ys[1]), fill=INK)
+    for column in step.crossed:
+        inset = (xs[column + 1] - xs[column]) // 4
+        x0, x1 = xs[column] + inset, xs[column + 1] - inset
+        y0, y1 = ys[0] + inset, ys[1] - inset
+        draw.line([(x0, y0), (x1, y1)], fill=INK, width=layout.thin_rule)
+        draw.line([(x0, y1), (x1, y0)], fill=INK, width=layout.thin_rule)
+    _stroke_drawing(draw, layout)
+    _write_clues(draw, layout)
+    return canvas.crop((left, top, layout.grid_right + pad + 1, layout.grid_bottom + pad + 1))
+
+
+def wrap_words(text: str, font: Any, measure: int) -> List[str]:
+    """``text`` broken greedily at spaces into lines no wider than ``measure``.
+
+    A single word wider than ``measure`` stays on a line of its own.
+    """
+    lines: List[str] = []
+    current = ""
+    for word in text.split():
+        candidate = f"{current} {word}" if current else word
+        if current and font.getlength(candidate) > measure:
+            lines.append(current)
+            current = word
+        else:
+            current = candidate
+    if current:
+        lines.append(current)
+    return lines
+
+
 def page_is_right_hand(page_number: int) -> bool:
     """Whether interior page ``page_number`` (1-based) is a right-hand page.
 
@@ -1333,7 +1495,7 @@ class BookPDFGenerator:
         hard_count: int,
         page_number: int = 1,
     ) -> Image.Image:
-        """Create guide page image with difficulty summary.
+        """The guide page: "How to Solve Nonograms" and a worked example (FR-041).
 
         Args:
             puzzle_count: Total number of puzzles
@@ -1350,13 +1512,24 @@ class BookPDFGenerator:
         **Its type is stated in points** — :data:`GUIDE_BODY_PT`,
         :data:`GUIDE_TITLE_PT`, :data:`GUIDE_LEADING_PT` — and converted to
         the page's pixels once, against :attr:`dpi`, by :func:`type_px`
-        (CARD-149). The lines are drawn as they are given: this method sets
-        type and never re-wraps its text, which is the caller's business.
+        (CARD-149). The title is set smaller only when it is wider than the
+        usable measure, and never below the body size.
+
+        **The worked example (CARD-167).** :data:`WORKED_EXAMPLE_STEPS`, each
+        step a caption over the line drawn by :func:`draw_example_line` from
+        :func:`example_line_layout` — the book's own cell, rules and clue
+        size. Text is wrapped to the usable measure. The page is set in the
+        first of three forms whose last mark sits above the bottom margin: the
+        full one (a short explanation, the puzzle counts, the example with
+        full captions, a closing line); the example with full captions alone;
+        or the example with short labels, which is drawn whatever happens. It
+        is always one page.
 
         Returns:
             Guide page as PIL Image
         """
-        frame = page_frame(self.page_spec(page_number))
+        spec = self.page_spec(page_number)
+        frame = page_frame(spec)
         guide = Image.new("RGB", (frame.width, frame.height), "white")
         draw = ImageDraw.Draw(guide)
 
@@ -1368,48 +1541,74 @@ class BookPDFGenerator:
         title_size = type_px(GUIDE_TITLE_PT, self.dpi)
         body_size = type_px(GUIDE_BODY_PT, self.dpi)
         leading = type_px(GUIDE_LEADING_PT, self.dpi)
-        try:
-            title_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", title_size)
-            text_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", body_size)
-        except OSError:
-            # No Arial on this machine: Pillow's own face, asked for at the
-            # same sizes. A bare ``load_default()`` letters this page at a
-            # 10 px em whatever the page is, which is the defect CARD-149
-            # fixes wearing a fallback's clothes. Pillow sizes its built-in
-            # face from 10.1 on; the declared floor is 10.0, which raises
-            # ``TypeError`` instead, and there the page keeps the unsized
-            # face it has always had.
-            try:
-                title_font = ImageFont.load_default(title_size)
-                text_font = ImageFont.load_default(body_size)
-            except TypeError:  # pragma: no cover - Pillow < 10.1
-                title_font = ImageFont.load_default()
-                text_font = ImageFont.load_default()
+        measure = frame.right - frame.left
+        title_font = _guide_face(title_size)
+        text_font = _guide_face(body_size)
+        # On a narrow trim the title is wider than the measure: set it a pixel
+        # smaller at a time until it fits, never below the body size.
+        while title_size > body_size and title_font.getlength(GUIDE_TITLE) > measure:
+            title_size -= 1
+            title_font = _guide_face(title_size)
 
         # Inside the usable area the layout reported, so the guide page keeps
         # the book's mirrored margins like every other interior page.
-        title = "How to Use This Book"
-        draw.text((frame.left, frame.top), title, fill="black", font=title_font)
+        draw.text((frame.left, frame.top), GUIDE_TITLE, fill="black", font=title_font)
 
-        # Draw guide text
-        guide_text = [
-            f"This book contains {puzzle_count} puzzles.",
-            "",
-            "Difficulty Levels:",
-            f"  Easy:   {easy_count} puzzles",
-            f"  Medium: {medium_count} puzzles",
-            f"  Hard:   {hard_count} puzzles",
-            "",
-            "Instructions:",
-            "  1. Fill in the grid based on the clues",
-            "  2. Check your work against the answer key",
-            "  3. Have fun!",
-        ]
+        example = example_line_layout(spec)
+        lines = [draw_example_line(example, step) for step in WORKED_EXAMPLE_STEPS]
+        first = frame.top + type_px(GUIDE_TITLE_GAP_PT, self.dpi)
+        ascent, descent = text_font.getmetrics()
 
-        y = frame.top + type_px(GUIDE_TITLE_GAP_PT, self.dpi)
-        for line in guide_text:
-            draw.text((frame.left, y), line, fill="black", font=text_font)
-            y += leading
+        def set_page(full: bool, captions: bool) -> Tuple[List[Tuple[int, Any]], int]:
+            """Every mark below the title as ``(y, text or image)``, and the
+            lowest pixel they reach."""
+            marks: List[Tuple[int, Any]] = []
+            y = first
+            bottom = y
+
+            def paragraph(text: str) -> None:
+                nonlocal y, bottom
+                for line in wrap_words(text, text_font, measure):
+                    marks.append((y, line))
+                    bottom = y + ascent + descent
+                    y += leading
+
+            if full:
+                paragraph(
+                    "Each number beside a row or above a column is a run of "
+                    "filled squares in that line, in order, with at least one "
+                    "empty square between runs. Fill the squares you are sure "
+                    "of, and cross out the ones you are sure are empty."
+                )
+                y += leading
+                paragraph(f"This book contains {puzzle_count} puzzles:")
+                paragraph(f"Easy: {easy_count}")
+                paragraph(f"Medium: {medium_count}")
+                paragraph(f"Hard: {hard_count}")
+                y += leading
+                paragraph("Worked example: the clue 3 1 on a row of 6 squares.")
+            for step, image in zip(WORKED_EXAMPLE_STEPS, lines):
+                paragraph(step.caption if captions else step.label)
+                marks.append((y, image))
+                bottom = y + image.height
+                y = bottom + leading // 2
+            if full:
+                y += leading // 2
+                paragraph(
+                    "Every puzzle in this book has exactly one solution. The "
+                    "answers are at the back of the book."
+                )
+            return marks, bottom
+
+        for full, captions in ((True, True), (False, True), (False, False)):
+            marks, bottom = set_page(full, captions)
+            if bottom <= frame.bottom:
+                break
+        for y, mark in marks:
+            if isinstance(mark, str):
+                draw.text((frame.left, y), mark, fill="black", font=text_font)
+            else:
+                guide.paste(mark, (frame.left, y))
 
         return guide
 

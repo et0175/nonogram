@@ -112,6 +112,12 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 #: evidence of what a colour interior was, recorded when it was the only kind.
 PRE_CARD_BASELINE = REPO_ROOT / "tests" / "fixtures" / "book_baseline_card146.json"
 
+#: CARD-167 deliberately moved interior page 1 (the guide page) of every
+#: interior, colour included; its recording holds that page's digest and the
+#: colour interior's new length. Every other page is still checked against
+#: :data:`PRE_CARD_BASELINE`.
+GUIDE_PAGE_BASELINE = REPO_ROOT / "tests" / "fixtures" / "book_baseline_card167.json"
+
 #: A pixel darker than this (0..255 grey) is ink — the level every other reader
 #: of a book page in this suite uses.
 INK_LEVEL = 128
@@ -475,8 +481,12 @@ class TestBookInk_ColourInteriorIsUnchanged:
     ):
         _bw, colour = baseline_exports
         now = page_digests(pdf_pages(colour))
-        recorded = pre_card_baseline["pages"]
+        recorded = list(pre_card_baseline["pages"])
         machine_face = set(pre_card_baseline["font_dependent_pages"])
+        with GUIDE_PAGE_BASELINE.open(encoding="utf-8") as handle:
+            guide_moved = json.load(handle)
+        assert guide_moved["changed_pages"] == [1]
+        recorded[0] = guide_moved["pages"][0]
 
         assert len(now) == len(recorded) == BASELINE_PAGE_COUNT
         compared = 0
@@ -499,7 +509,9 @@ class TestBookInk_ColourInteriorIsUnchanged:
                 "another face, so the file's length is not the recorded one"
             )
         _bw, colour = baseline_exports
-        assert len(colour) == pre_card_baseline["interior_bytes"]
+        with GUIDE_PAGE_BASELINE.open(encoding="utf-8") as handle:
+            guide_moved = json.load(handle)
+        assert len(colour) == guide_moved["colour_interior_bytes"]
 
     def test_the_black_and_white_interior_is_not_that_length(
         self, baseline_exports, pre_card_baseline, same_face
@@ -508,7 +520,9 @@ class TestBookInk_ColourInteriorIsUnchanged:
         if not same_face:
             pytest.skip("see the test above")
         bw, _colour = baseline_exports
-        assert len(bw) != pre_card_baseline["interior_bytes"]
+        with GUIDE_PAGE_BASELINE.open(encoding="utf-8") as handle:
+            guide_moved = json.load(handle)
+        assert len(bw) != guide_moved["colour_interior_bytes"]
 
 
 # --------------------------------------------------------------------------
