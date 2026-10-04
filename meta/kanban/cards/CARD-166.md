@@ -1,6 +1,6 @@
 # CARD-166: Admin paper cuts: "25×15" in the player, unclipped plan inputs on a phone, and an empty status filter that keeps its default
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
+**Branch:** card/166-admin-paper-cuts
 **Worktree:** —
 **Source:** roadmap wave 1, 2026-10-04 (owner decision on IDEA-061; FR-044 AC-323 amended)
 **Idea:** IDEA-061, IDEA-051, IDEA-013
 **Wave:** 32
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_solver_page.py, tests/test_book_setup_print_mobile.py, tests/test_status_filter_default.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 1/3)
+**Started:** 2026-10-04T08:53:25Z
+**Closed:** 2026-10-04T09:42:44Z
+**Actual:** 0.1d
+**Merge commit:** 570241f
 **Blocked by:** —
 
 ## What to implement
@@ -132,3 +132,34 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-166` (52 rules). A project
 ## Worktree notes
 
 - [Origin] Roadmap wave 1: IDEA-061 (owner: use ×), IDEA-051 (clipped inputs; the owner-look half is the owner's), IDEA-013.
+- [Env] forge 2026.8.17
+- [Impl] Commit caf0484. Files: src/nonogram/admin/templates/puzzle_solve.html (title + h1 use "×"), src/nonogram/admin/templates/book_setup_print.html (matrix table gets class `plan-matrix`), src/nonogram/admin/static/admin.css (`.plan-matrix input { min-inline-size: calc(3ch + 2*var(--space-2) + 2*var(--border-width) + var(--space-4)) }` — 3ch = three digits in the input's own monospace numerals, plus sm-control padding, borders and the Chromium spin button; tokens only, no new token), src/nonogram/admin/app.py (book selection: `request.values.get("status") or "approved"`), tests/test_puzzle_solver_page.py (x → × only, plus AC-323's letter-x-absent assertion on header and title), new tests/test_book_setup_print_mobile.py, new tests/test_status_filter_default.py.
+- [AC-323] TestSolverPage_HidesThePictureNameUntilSolved asserts "25×15" in the header and that "25x15" appears in neither header nor tab title; AC-322 assertions unchanged (G-1). No other test in tests/ asserted the player's "25x15" text — no SCOPE+.
+- [AC-2] Before the fix (recorded): TestPrintSetupMobile_PlanInputsShowThreeDigits::test_every_plan_input_shows_a_three_digit_value_in_full FAILED — the Easy and Hard matrix inputs clipped (8 of 16; e.g. cell_0_easy scrollWidth 56 > clientWidth 44); the Medium column was wide enough only because of its header. The no-horizontal-scroll test passed before and after. The test reuses test_puzzle_solver_page's browser_type/browser_page fixtures (loud pytest.fail when Playwright/Chromium is missing, ADR-0038/R8) and also asserts a clean console (no pageerror / console error) on the page.
+- [AC-3] Puzzle-list route (app.py `puzzles_list`, `request.args.get("status") or None`) LEFT UNCHANGED: its intended default is every status, not approved-only — CARD-066 AC-1 ("no status lists every status, as before", tests/test_card_066_status_filter.py), the form's status select offers `<option value="">Any</option>` (so an empty value IS the "Any" choice), and an unknown value is flashed as "showing every status instead". Only book selection (FR-036, approved-only default) changed.
+- [G-2] TestStatusFilter_ExplicitValuesFilterAsBefore: approved/draft/rejected each offer exactly their puzzles (both stores). `?status=all` is not a status and was never special-cased in book selection, so before and after this card it offers no puzzle; pinned literally. Observation for the owner (not changed, G-2): `all` on book selection is effectively an empty filter today.
+- [G-3] Print setup POST handling / validation / CARD-154 save untouched (only one class attribute added to the matrix <table>).
+- [Mutations] M1 template × → x: test_ac323_the_header_shows_25x15_and_medium_in_place_of_the_name fails ([memory], [sqlite]). M2 revert to `request.values.get("status", "approved")`: 4 TestStatusFilter_EmptyValueKeepsTheApprovedDefault tests fail. M3 delete the `.plan-matrix input` rule: test_every_plan_input_shows_a_three_digit_value_in_full fails. M4 widen to "unknown status means approved": test_all_is_matched_literally_as_before fails (both stores). All restored; green after.
+- [Tests] Targeted run: test_status_filter_default, test_book_setup_print_mobile, test_puzzle_solver_page, test_puzzle_solver_marking, test_puzzle_solver_progress, test_book_select_tabs, test_book_select_floor_tiles, test_card_066_status_filter, test_book_plan_storage, test_admin_design_tokens — 357 passed. Full suite not run (orchestrator).
+- [Renders] ~/Documents/nonogram-reviews/CARD-166/player-header-after-fix.png (1280 px, header "Puzzle 25×15" + MEDIUM before solve; tab title "Puzzle 25×15 · MEDIUM - Nonogram admin"), print-setup-390-after-fix.png (390 px, all plan inputs at 100), print-setup-390-before-fix.png (390 px, Easy/Hard columns clipped "10"). Console clean on both screens.
+- [Design] No new component or state; no DESIGN-REGISTER entry.
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/book_setup_print.html, src/nonogram/admin/templates/puzzle_solve.html, tests/test_book_setup_print_mobile.py, tests/test_puzzle_solver_page.py, tests/test_status_filter_default.py
+- [System contract] fresh assembly (system_rules.py --card CARD-166) matches the card section: 52 rules, no change
+- [Build gate] PASSED (full, 539s) — 6066 passed, 9 skipped, 0 failed
+- [Scope gate] in_scope — all 7 changed files inside Touches; no guardrail globs (G-1..G-3 behavioral)
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h coverage: 52/52 card rules have verdict lines (15 ✓, 37 ⚠, 0 ✗)
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Review 1/3] 8f mutation check ran: 5 mutants, 5 killed (status line revert, CSS spin-room drop, 3ch→2ch, title ×→x, header ×→x); files restored (md5-verified)
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0038/R2, ADR-0038/R3, CON-015)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-323 ✓ demonstrated — evidence: TestSolverPage_HidesThePictureNameUntilSolved 5 PASSED incl. test_ac323_the_header_shows_25x15_and_medium_in_place_of_the_name[memory|sqlite] and the real-Chromium name-out-of-header test (executed, not skipped)
+  AC-2 ✓ demonstrated — evidence: TestPrintSetupMobile_PlanInputsShowThreeDigits: test_every_plan_input_shows_a_three_digit_value_in_full PASSED, test_the_page_does_not_scroll_sideways PASSED (real Chromium, 390×844, 16 inputs filled with 100)
+  AC-3 ✓ demonstrated — evidence: TestStatusFilter_EmptyValueKeepsTheApprovedDefault 4 PASSED (memory|sqlite)
+  G-1 ✓ demonstrated — evidence: test_puzzle_solver_page/marking/progress 176 passed, 0 skipped; diff of test_puzzle_solver_page.py is x→× plus added letter-x-absent assertions; AC-322 test untouched and green
+  G-2 ✓ demonstrated — evidence: TestStatusFilter_ExplicitValuesFilterAsBefore + test_all_is_matched_literally_as_before + book_select_tabs/floor_tiles/admin_filter_side_range_and_name: 108 passed
+  G-3 ✓ demonstrated — evidence: no diff lines in the setup-print POST/validation/save path; test_book_trim_persistence, test_print_specs, test_book_plan_storage, test_book_plan, property/test_book_plan, test_book_workflow_steps, test_book_create: 465 passed
+- [Inline fallback] docs step (forge:readme judgement run inline by the orchestrator): no README change — no new directory, no module purpose change; tests/README.md is a wave-1 index that does not list per-card test files
+- [Commit] no fix or docs edits after implementation — the implementation commit caf0484 is the success commit (forge:commit not re-run: nothing to stage; meta/ never committed from the worktree)
+- [Merged] 2026-10-04 — 570241f into main (--no-ff). Rebased onto b3cfcc5 (CARD-167) cleanly → 0c1ed6f; merge gate: full suite exit 0 — 6083 passed, 0 failed. Deferral scan: 0 hits. Puzzle-list ?status default deliberately unchanged (every status, CARD-066 AC-1). F-001/F-002 and the ?status=all-shows-nothing observation captured to backlog.

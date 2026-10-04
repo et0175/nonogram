@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-04
+- CARD-166 (bug): Three small admin fixes. The puzzle player writes sizes as "25×15" like every other screen. On a phone, Print setup's plan boxes no longer cut "20" off to "2(". An empty status filter on the puzzle-selection page no longer quietly starts showing rejected and draft puzzles; it keeps its approved-only default.
 - CARD-167 (feature): The book's first page is now "How to Solve Nonograms". Instead of a short welcome, it walks through one line, clue "3 1" on six squares, solved step by step and drawn exactly like the puzzles. It still fits on one page, so page numbering and which side each page falls on are unchanged, and every other page of the book is identical.
 - CARD-165 (feature): The book page now numbers its puzzles the way the printed book will. They're listed in print order, Easy, then Medium, then Hard, and each "#" is the number that puzzle carries on its printed page. A puzzle that can't be printed says so instead of showing a number it won't get.
 - CARD-164 (tech-debt): The full test suite passes with no failures for the first time since mid-September. The two tests that had been failing were out of date, not catching real bugs. One expected an old page heading. The other had never actually uploaded an image, because it used a field name the app ignores. It now really uploads one and checks the chosen grid size is applied.

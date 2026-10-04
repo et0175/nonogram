@@ -316,7 +316,7 @@ ideas:
     routes (`request.values.get("status", "approved")` defaults only when the key is absent)   @ops'
   category: ops
   intent: null
-  status: in_kanban
+  status: done
   method: fifo
   scores: null
   created_at: 13
@@ -1186,7 +1186,7 @@ ideas:
     clip "20" to "2("   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -1420,7 +1420,7 @@ ideas:
     the rest of the admin uses "×"   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1

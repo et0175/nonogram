@@ -77,6 +77,8 @@ card names its card._
 - [ ] CARD-167 follow-up: the Finalise screen's guide preview (book_finalize.html) still says "How to use this book" with the old instructions — make it match the new guide page   @feature
 - [ ] CARD-167 F-101/F-103 (minor): the 10 pt floor test measures top-to-baseline, so wrapped lines without capitals under-read (~8.4 pt for 11 pt type; at 11x17 cm "way." wraps alone); the spacing after each example drawing is untested; CARD-149's type-test docstrings quote the old guide text   @tech-debt
 - [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked in pt elsewhere)   @tech-debt
+- [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing, pinned by CARD-166's G-2) — should "all" list every status there, or be removed?   @feature
+- [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap's literal .5rem padding (equal by value only); both new test files import private helpers and browser fixtures from tests/test_puzzle_solver_page.py — move shared fixtures to conftest/helpers   @tech-debt
 
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt

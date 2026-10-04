@@ -1,0 +1,171 @@
+version: 1
+generated_at: "2026-10-04T09:16:08Z"
+target: "card/166-admin-paper-cuts (main...caf0484)"
+card: CARD-166
+cycle: 1
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff main...HEAD (7 files, +249/-19)"
+    - "src/nonogram/admin/app.py (select-puzzles route ~3780-3920, puzzles_list ~2120-2175)"
+    - "src/nonogram/admin/static/admin.css (form-control/num/table rules), tokens.css"
+    - "src/nonogram/admin/templates/book_setup_print.html, book_select_puzzles.html, puzzle_solve.html, puzzles template status select"
+    - "src/nonogram/admin/puzzle_review.py status filter (lines 919, 1031-1032)"
+    - "tests/test_book_setup_print_mobile.py, tests/test_status_filter_default.py, tests/test_puzzle_solver_page.py, tests/test_card_066_status_filter.py header"
+    - "meta/design/brief.md, components.md (grep), card Worktree notes"
+    - "~/Documents/nonogram-reviews/CARD-166 renders (390 px before/after plan matrix, crops viewed)"
+  not_reached:
+    - "player-header-after-fix.png not opened (header verified by tests incl. a Chromium test instead)"
+    - "viewports narrower than 390 px"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 249, removed: 19 }
+  max_fan_in: { symbol: "select_puzzles_for_book route (status local)", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — co-change mining not run; change is three local edits (one line in app.py, one CSS rule, two template lines) with no exported symbol changed"
+tests_run:
+  - "tests/test_book_setup_print_mobile.py tests/test_status_filter_default.py tests/test_puzzle_solver_page.py tests/test_card_066_status_filter.py — 93 passed, 0 skipped (browser tests ran in Chromium)"
+  - "tests/test_admin_design_tokens.py tests/test_book_select_tabs.py — 48 passed"
+  - "tests/test_admin_binding.py tests/test_puzzle_solver_marking.py::TestSolverMarking_NoRequestPerMark tests/test_book_plan_storage.py — 107 passed"
+mutation_check:
+  ran: true
+  mutants: 5
+  killed: 5
+  survived: 0
+  results:
+    - "A app.py status line reverted to request.values.get('status', 'approved') — KILLED by test_status_filter_default.py"
+    - "B admin.css drop '+ var(--space-4)' (spin-button room) — KILLED (cells clientWidth 48 < scrollWidth 56)"
+    - "C admin.css 3ch -> 2ch — KILLED by test_book_setup_print_mobile.py"
+    - "D puzzle_solve.html title × -> x — KILLED by TestSolverPage_HidesThePictureNameUntilSolved"
+    - "E puzzle_solve.html h1 × -> x — KILLED by TestSolverPage_HidesThePictureNameUntilSolved"
+  restore: "verified by md5 per file and git diff main...HEAD md5 identical before/after (41448af8cb5e3f1fe0849ef9ffe25728)"
+task_contract:
+  - "AC-323 ✓ — puzzle_solve.html:40,45 render extent[0]×extent[1]; test_ac323 asserts U+00D7 and absence of 25x15 in header and title; Chromium test also green"
+  - "AC-2 ✓ — admin.css:104 + book_setup_print.html:152 class plan-matrix; TestPrintSetupMobile_PlanInputsShowThreeDigits green in Chromium (16 inputs at 100, none clipped, no sideways scroll); mutants B and C killed; 390 px render shows all cells reading 100"
+  - "AC-3 ✓ — app.py:3827 'or \"approved\"'; TestStatusFilter_EmptyValueKeepsTheApprovedDefault green on memory and sqlite; mutant A killed"
+  - "Objective 3 puzzle-list check ✓ — puzzles_list left as 'or None'; justified by CARD-066 AC-1 (tests/test_card_066_status_filter.py:3-4) and the status select's <option value=\"\">Any</option>"
+  - "G-1 ✓ — AC-322 assertions unchanged in test_puzzle_solver_page.py; only x -> × edits"
+  - "G-2 ✓ — explicit approved/draft/rejected parametrized; all pinned to empty set, matching pre-change pass-through to equality filter (puzzle_review.py:919,1032)"
+  - "G-3 ✓ — book_setup_print.html change is a class attribute only; no POST/validation/save code in diff; test_book_plan_storage.py green"
+system_contract:
+  rules_checked: 52
+  holds: 15
+  unchecked: 37
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy (named only in comments/docstring, tests/test_export_pdf.py:622,1250); manual read: pyproject.toml not in the diff, no new import of a third-party package"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not in the diff"
+    - "ADR-0022/R1 ✓ holds — extent stays a (width, height) pair; puzzle_solve.html:40,45 render extent[0]×extent[1]; no signature/field change; test_ac323 pins width-first 25×15"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting not touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing not touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: generation/repair not touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter not touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair not touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair not touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy not touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation not touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation not touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: solver strategies not touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver overlap masks not touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution not touched"
+    - "ADR-0032/R1 ✓ holds — the only store writes in the diff are test fixtures calling add_puzzle (tests/test_status_filter_default.py stocked), which goes through the storage-boundary solver; no app storage path changed"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_min handling in the select route unchanged (app.py:3822)"
+    - "ADR-0033/R1 ✓ holds — app.py:3827 changes only the read-side status filter value; no puzzle field write in the changed lines"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status transitions not touched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout not touched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book page geometry not touched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book puzzle page rendering not touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: grid stroke widths not touched"
+    - "ADR-0038/R1 ✓ holds — diff adds one CSS rule and template text only; no framework, build step or npm (git diff --stat)"
+    - "ADR-0038/R2 ✓ holds — solver.js/solver_state.js not in the diff; TestSolverMarking_NoRequestPerMark green (this review's run)"
+    - "ADR-0038/R3 ✓ holds — clue embedding unchanged; TestSolverPage_ShowsTheClues green in tests/test_puzzle_solver_page.py (93 passed run)"
+    - "ADR-0038/R4 ✓ holds — solver_state.js not in the diff"
+    - "ADR-0038/R6 ✓ holds — no new route or player surface; player page served by the same admin route behind the door"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml not in the diff; new browser test uses the existing pytest-playwright dev extra"
+    - "ADR-0038/R8 ✓ holds — tests/test_book_setup_print_mobile.py reuses browser_type/browser_page from tests/test_puzzle_solver_page.py:547-565, which pytest.fail loudly; the browser tests ran (0 skipped) here"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server not touched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server not touched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits not touched (test grids 10..15 x 10 within range)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not touched"
+    - "CON-015 ✓ holds — admin entry point not in the diff; TestAdminPanel_BindsLoopbackOnlyByDefault green; new test server binds 127.0.0.1 in-test only"
+    - "CON-016 ✓ holds — door logic not in the diff; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green (tests/test_admin_binding.py run)"
+    - "CON-021 ✓ holds — no new play surface; only header text of the existing admin player changed"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding not touched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness not touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters not touched"
+    - "INV-005 ✓ holds — Print setup plan handling not in the diff (class attribute only, book_setup_print.html:152); tests/test_book_plan_storage.py incl. TestBookPlan_RejectsSplitNotSummingTo100 green"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: add-to-book POST path (app.py ~3780-3812) not in the diff"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate not touched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published confirmation path not touched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order not touched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing not touched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key not touched"
+    - "INV-012 ✓ holds — the changed select-route line only narrows which tiles are offered; membership-change code not in the diff; test_book_select_tabs.py green"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF not touched"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 101
+    title: "Comment ties --space-2 to the sm control's padding, which is Bootstrap's literal .5rem"
+    description: |
+      The calc() uses 2 * var(--space-2) for "the sm control's inline padding", but the
+      padding actually applied is Bootstrap 5.3's .form-control-sm literal (.25rem .5rem);
+      admin.css:43 overrides only min-height. The two are equal today by value, not by
+      reference, so a change to --space-2 would silently change the reserved width
+      without changing the real padding. The test (390 px, Chromium) would catch a
+      shrink, not an over-wide growth.
+    suggestion: |
+      Either set .plan-matrix input's padding-inline to var(--space-2) explicitly so the
+      calc and the padding share one source, or reword the comment to "Bootstrap's sm
+      padding (.5rem, equal to --space-2)".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_status_filter_default.py
+    line: 23
+    title: "New tests import private helpers and fixtures from another test module"
+    description: |
+      tests/test_status_filter_default.py:23 imports _build_app/_unique_grid and
+      tests/test_book_setup_print_mobile.py:23 imports _build_app, browser_page,
+      browser_type from tests/test_puzzle_solver_page.py. A rename or refactor in the
+      player test module now breaks two unrelated suites; fixture re-export by import
+      also hides where the fixture lives.
+    suggestion: |
+      Move _build_app/_unique_grid to tests/helpers/ and the browser fixtures to a
+      conftest.py (or tests/helpers/browser.py) shared by both browser suites.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+out_of_scope:
+  - file: src/nonogram/admin/app.py
+    line: 3827
+    title: "?status=all on book selection matches no puzzle"
+    note: "Pre-existing, pinned by G-2 (test_all_is_matched_literally_as_before); the puzzle list treats unknown values with a flash. Owner decision whether book selection should accept 'all'. Follow-up card."
