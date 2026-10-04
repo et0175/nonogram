@@ -107,8 +107,14 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   field, still ``"RGB"``, is the reader's normalisation and not the file's
 #:   declaration.
 #:
-#: All six files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card147.json"
+#: * ``book_baseline_card167.json`` — CARD-167 retitles the guide page "How to
+#:   Solve Nonograms" and adds its worked example, so interior page 1 — and
+#:   only page 1 — moved on top of CARD-147's eleven, with ``interior_bytes``;
+#:   it also records ``colour_interior_bytes`` for the colour export of the
+#:   same book, which ``tests/test_book_pdf_ink_mode.py`` reads.
+#:
+#: All seven files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card167.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eight until

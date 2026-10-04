@@ -1,0 +1,122 @@
+{
+  "card": "CARD-167",
+  "supersedes": "tests/fixtures/book_baseline_card147.json",
+  "recorded_from_commit": "8e2c4bd",
+  "recorded_from_commit_note": "CARD-167's implementation on card/167-guide-page-how-to-solve: the commit that retitles the guide page \"How to Solve Nonograms\" and adds its worked example. This file is added by the commit that follows it, which changes no drawing; 8e2c4bd itself is red on exactly the assertions this file makes green (TestBookPdfMemory_PagesAreUnchanged's page-1 digest and interior-byte length, TestBookInk_ColourInteriorIsUnchanged's page 1 and colour length) - the shape CARD-149, CARD-146 and CARD-147 set.",
+  "recorded_on": "2026-10-04",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-167 (FR-041 AC-324..AC-326, owner decision 2026-10-04, IDEA-071) deliberately changes interior page 1, the guide page: it is retitled \"How to Solve Nonograms\" (was \"How to Use This Book\") and carries a worked example - the clue 3 1 on a row of six squares, drawn four times from the bare clue to the finished line - on the same single page. That is a deliberate change to what a page prints, the one reason the predecessors' warning allows a new baseline.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-167. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares, and the fact this recording exists for. It is NOT the same thing as each page entry's \"mode\", which is \"RGB\" below and always will be: that field is what pdf_pages hands back after its own convert(\"RGB\"), not what the file says. A reader checking the colour space must read it off the PDF's image XObjects — tests/test_book_pdf_ink_mode.py's pdf_image_objects does, deliberately as a second implementation, because the shared helper normalises exactly this away. The paired procset is /ImageB; a colour interior of the same book declares /DeviceRGB and /ImageC and is byte-identical to CARD-146's recording (AC-2).",
+  "changed_pages": [
+    1
+  ],
+  "changed_pages_note": "CHECKED, NOT ASSUMED: every page was compared against CARD-147's entry before this file was written, with the font fingerprint reproduced on this machine first, so all eleven were compared and none skipped. Only page 1 (the guide page) moved; pages 2-11 (the three level dividers, the two-up page, the two single-puzzle pages, the SOLUTIONS divider and the three answer pages) are CARD-147's digests byte for byte (CARD-167 G-2).",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "CARD-149's value, unchanged and reproduced on this machine before this file was written. At the Book 1 trim the guide page still letters its title at 92 px and its body (now including the example's captions) at 46 px, so book_corpus.MACHINE_FACE_SIZES is still (92, 46, 60). The example's clue digits are in Pillow's built-in face at the layout's clue size, which does not depend on the machine.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "Unchanged from CARD-147: page 1 is the guide page (Arial, with the load_default fallback), pages 2, 4, 6 and 8 the dividers.",
+  "interior_bytes": 2436675,
+  "interior_bytes_note": "The black-and-white interior of this book: 2,436,675 bytes where CARD-147 recorded 2,273,541. The difference is page 1's JPEG stream alone, since no other page moved.",
+  "colour_interior_bytes": 2845318,
+  "colour_interior_bytes_note": "The same book with a COLOUR interior: 2,845,318 bytes where CARD-146 recorded 2,680,175. Read by tests/test_book_pdf_ink_mode.py's TestBookInk_ColourInteriorIsUnchanged, which still compares pages 2-11 of the colour interior against CARD-146's recording and page 1 against this file's. Its page digests are the same as the black-and-white ones (pdf_pages normalises to RGB, and the luma plane survives either colour space - see CARD-147's recording).",
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "13d283759948858fc09e96d485cd093766b5e9f41a5d891481f3810760e883e1"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "be5e748146944022fb835107269d758aa6c86185d6c50a047ab878ed316e5d96"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "87fd36d4dc043f4af75b83f77fc147186e36dd021194e0b7d62e25028b695ded"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "3f3e7b686bbdb67d942d4244fdedd91d6aec3d511446a3674a19872fd7617955"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bcb474a056c470d6c6818204eec9f0f8ed03e6a9d244570f1e3e71b26b29a113"
+    }
+  ]
+}
