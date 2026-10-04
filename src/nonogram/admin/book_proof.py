@@ -53,9 +53,15 @@ measure the same geometry the book will print.
 
 The annotation, and why it lives only here
 ------------------------------------------
-Each proof page carries one two-line note in small type at the page foot,
-inside the margins: the trim, the printed cell in millimetres, and the thin
-and heavy rule widths in millimetres. Every figure is **read back off the
+Each proof page carries one note inside the margins: the trim, the printed
+cell in millimetres, and the thin and heavy rule widths in millimetres. On a
+portrait trim it is two lines of small type at the page foot. On a square or
+landscape trim the drawing reaches the bottom margin and leaves no foot, so
+the note moves to the first clear spot that holds it at 10 pt — the outer
+side strip beside the drawing (landscape) or the 30 x 30's blank clue corner
+(square) — word-wrapped to fit (CARD-172). A trim with no such spot, such as a
+15 x 15 cm square, is refused. :func:`_annotate` says how each spot is chosen.
+Every figure is **read back off the
 layout** (:func:`annotation_lines`), never restated from a profile constant,
 so the note and the ink beside it cannot disagree — the owner puts a ruler on
 the grid and compares it with the page's own claim.
@@ -86,7 +92,7 @@ from nonogram.admin.book_pdf_generator import (
     page_frame,
 )
 from nonogram.export import ExportPayload
-from nonogram.export.layout import DPI, Layout, compute_layout
+from nonogram.export.layout import DPI, Layout, PageParity, compute_layout
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
@@ -117,6 +123,25 @@ _NOTE_LEADING = 1.35
 #: millimetres. Without it a note on a sheet the drawing nearly fills would
 #: sit against the grid's bottom border and read as part of the puzzle.
 _NOTE_GAP_MM = 2.0
+
+#: The fallback note's type size, in points (CARD-172). Where the foot strip
+#: cannot hold the note — a square or landscape trim, whose drawing reaches the
+#: bottom margin — the note moves to the outer side strip or the blank clue
+#: corner and is set at a fixed 10 pt, CON-020's floor for printed text: 42 px
+#: of face at 300 dpi. It never shrinks; a spot too small for it is skipped.
+_FALLBACK_NOTE_PT = 10
+
+#: Line spacing of the fallback note, as a multiple of its type size. Tighter
+#: than :data:`_NOTE_LEADING` because the fallback is a wrapped block in a
+#: bounded box: at 1.35 the 30 x 30's clue corner on an 8.25 x 8.25 in trim
+#: does not hold it, at 1.2 it does (CARD-172 Worktree notes).
+_FALLBACK_NOTE_LEADING = 1.2
+
+#: The clear air the fallback note keeps from the drawing's rules, in
+#: millimetres, measured from the rule's ink rather than its centre line.
+_FALLBACK_INSET_MM = 1.0
+
+_POINTS_PER_INCH = 72
 
 #: What separates the fields of the note's second line. The same middle dot
 #: the band joins a puzzle's number to its tier with (``BAND_SEPARATOR``),
@@ -405,8 +430,8 @@ def _fitted_note_font(
 
     Raises:
         ValueError: the strip cannot hold the note even at
-            :data:`_NOTE_FLOOR_MM`. See :func:`_annotate` for why this is a
-            refusal and not an overprinted grid.
+            :data:`_NOTE_FLOOR_MM`. :func:`_annotate` then tries the
+            fallback spots, and refuses with this message if none holds it.
     """
     nominal = max(1, round(_NOTE_MM * dpi / _MM_PER_INCH))
     floor = max(1, round(_NOTE_FLOOR_MM * dpi / _MM_PER_INCH))
@@ -435,48 +460,177 @@ def _fitted_note_font(
     return _note_font(face_px)
 
 
+@dataclass(frozen=True)
+class _Spot:
+    """A clear box on the page the fallback note may be set in, in device pixels."""
+
+    name: str
+    left: int
+    top: int
+    right: int
+    bottom: int
+
+
+def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
+    """The outer side strip and the blank clue corner, in that order.
+
+    Every edge is read off ``layout`` and ``frame`` — COMP-007's own answer for
+    this page — and nothing is fitted or moved (ADR-0036/R2). The rules either
+    spot borders on are heavy rules stroked centred on their coordinate, so a
+    spot starts half a heavy rule plus :data:`_FALLBACK_INSET_MM` away from
+    each rule's coordinate; on its margin side it runs to the usable area's
+    edge, as the foot note does.
+
+    * **Outer side strip**: between the drawing and the outer margin — right of
+      the grid on an odd (right-hand) page, left of the drawing on an even one —
+      from the drawing's top, which is below the band, down to the bottom
+      margin.
+    * **Blank clue corner**: the empty box at the drawing's top-left where the
+      row and column clue gutters meet, bounded by the frame's left and top
+      sides and the grid's left and top borders. No clue digit and no grid rule
+      enters it.
+    """
+    placement = layout.page
+    assert placement is not None  # annotation_lines has already refused None
+    overhang = -(-layout.thick_rule // 2)
+    clear = overhang + round(_FALLBACK_INSET_MM * layout.dpi / _MM_PER_INCH)
+    if placement.parity is PageParity.ODD:
+        side = _Spot(
+            "outer side strip",
+            placement.drawing_right + clear,
+            placement.drawing_top,
+            frame.right,
+            frame.bottom,
+        )
+    else:
+        side = _Spot(
+            "outer side strip",
+            frame.left,
+            placement.drawing_top,
+            placement.drawing_left - clear,
+            frame.bottom,
+        )
+    corner = _Spot(
+        "blank clue corner",
+        placement.drawing_left + clear,
+        placement.drawing_top + clear,
+        layout.grid_left - clear,
+        layout.grid_top - clear,
+    )
+    return side, corner
+
+
+def _wrapped(text: str, font: ImageFont.FreeTypeFont, width: int) -> list[str] | None:
+    """``text`` word-wrapped to ``width`` pixels, or ``None`` if a word is wider.
+
+    Greedy: each printed line takes as many words as fit. A separator dot is
+    kept on the end of the word before it, so a wrapped line never starts
+    with one.
+    """
+    words: list[str] = []
+    for token in text.split(" "):
+        if token == _NOTE_SEPARATOR.strip() and words:
+            words[-1] = f"{words[-1]} {token}"
+        else:
+            words.append(token)
+    wrapped: list[str] = []
+    current = ""
+    for word in words:
+        candidate = f"{current} {word}" if current else word
+        if font.getlength(candidate) <= width:
+            current = candidate
+        elif current and font.getlength(word) <= width:
+            wrapped.append(current)
+            current = word
+        else:
+            return None
+    wrapped.append(current)
+    return wrapped
+
+
+def _fallback_note(
+    lines: Sequence[str], layout: Layout, frame: PageFrame
+) -> tuple[_Spot, list[str], ImageFont.FreeTypeFont, int] | None:
+    """The first fallback spot that holds the note at 10 pt, wrapped to fit.
+
+    The note's two lines are run together as one paragraph, joined by the
+    same separator its fields are, and wrapped to the spot's width: a narrow
+    box fills better that way than with each line wrapped on its own (on the
+    30 x 30's clue corner at 8.25 x 8.25 in, 9 lines instead of 10).
+
+    Returns the spot, the wrapped lines, the face and the leading in pixels;
+    ``None`` when neither spot holds it.
+    """
+    font = _note_font(round(_FALLBACK_NOTE_PT * layout.dpi / _POINTS_PER_INCH))
+    leading = round(font.size * _FALLBACK_NOTE_LEADING)
+    for spot in _fallback_spots(layout, frame):
+        block = _wrapped(_NOTE_SEPARATOR.join(lines), font, spot.right - spot.left)
+        if block is not None and leading * len(block) <= spot.bottom - spot.top:
+            return spot, block, font, leading
+    return None
+
+
 def _annotate(page: Image.Image, layout: Layout, frame: PageFrame) -> Image.Image:
-    """Print the proof note at ``page``'s foot, inside ``frame``.
+    """Print the proof note inside ``frame``, in the first clear spot that holds it.
 
-    The block's bottom sits on the usable area's bottom edge and its left on
-    the usable area's left edge, so the note is inside the book's own margins
-    on both parities — mirrored with the rest of the page, because ``frame``
-    is this page's frame and not page 1's.
+    **At the foot, wherever it fits** (CARD-118). The block's bottom sits on
+    the usable area's bottom edge and its left on the usable area's left edge,
+    so the note is inside the book's own margins on both parities — mirrored
+    with the rest of the page, because ``frame`` is this page's frame and not
+    page 1's. It is fitted to the strip the drawing leaves between its own
+    bottom edge and the bottom margin, less :data:`_NOTE_GAP_MM` of air, at
+    :data:`_NOTE_MM` shrinking to :data:`_NOTE_FLOOR_MM`. The portrait KDP
+    trims of the test corpus all take this path, and their pages are
+    unchanged by CARD-172 (pinned by
+    ``TestBookProof_PortraitProofsAreByteIdentical``). So does the 15 x 15 on
+    the 8.25 x 8.25, 8.5 x 8.5 and 11 x 8.5 in trims, which leave room at
+    its foot.
 
-    **The note never overprints the grid.** It is fitted to the strip the
-    drawing leaves between its own bottom edge and the bottom margin, less
-    :data:`_NOTE_GAP_MM` of air, and a strip too shallow for the note at its
-    floor size raises rather than printing over the puzzle. That case is a
-    sheet the drawing fills top to bottom, which happens when the trim is
-    close to square — the drawing is then limited by the page's *height*
-    instead of its width, and both proof fixtures are square, so there is
-    nothing left at the foot. A proof page whose own measurements were printed
-    across its grid would be unreadable exactly where it has to be read, and a
-    note pushed into the margin would break the rule it is printed to
-    demonstrate; so the refusal names the trim and the route reports it. Every
-    portrait book trim (every KDP paperback size taller than it is wide by more
-    than about a centimetre) leaves tens of millimetres of clear strip.
+    **Otherwise in the outer side strip, then the blank clue corner**
+    (CARD-172). On a square or landscape trim the drawing is limited by the
+    page's *height* and reaches the bottom margin, so there is no foot strip.
+    The note is then word-wrapped to the width of the first of
+    :func:`_fallback_spots` that holds it at a fixed
+    :data:`_FALLBACK_NOTE_PT` pt and set at that spot's top-left: landscape
+    trims leave a wide side strip, square trims leave the 30 x 30's clue
+    corner.
+
+    **The note never overprints the grid or enters a margin.** If no spot holds
+    it — a small square such as 15 x 15 cm — the export refuses rather than
+    printing over the puzzle, and the route reports the refusal.
 
     Raises:
-        ValueError: the sheet leaves no room for the note (see above), or
-            ``layout`` is not a placed page.
+        ValueError: no spot on the sheet holds the note (the message says "no
+            room for the proof note"), or ``layout`` is not a placed page.
     """
     lines = annotation_lines(layout)
     placement = layout.page
     assert placement is not None  # annotation_lines has already refused None
     gap = round(_NOTE_GAP_MM * layout.dpi / _MM_PER_INCH)
-    font = _fitted_note_font(
-        lines,
-        frame.right - frame.left,
-        frame.bottom - placement.drawing_bottom - gap,
-        layout.dpi,
-    )
-    leading = max(1, round(font.size * _NOTE_LEADING))
-    top = frame.bottom - leading * len(lines)
+    try:
+        font = _fitted_note_font(
+            lines,
+            frame.right - frame.left,
+            frame.bottom - placement.drawing_bottom - gap,
+            layout.dpi,
+        )
+    except ValueError as foot_refusal:
+        fallback = _fallback_note(lines, layout, frame)
+        if fallback is None:
+            raise ValueError(
+                f"{foot_refusal}, and neither the outer side strip nor the blank "
+                f"clue corner holds it at {_FALLBACK_NOTE_PT} pt"
+            ) from foot_refusal
+        spot, block, font, leading = fallback
+        left, top = spot.left, spot.top
+    else:
+        block = list(lines)
+        leading = max(1, round(font.size * _NOTE_LEADING))
+        left, top = frame.left, frame.bottom - leading * len(lines)
     draw = ImageDraw.Draw(page)
-    for index, line in enumerate(lines):
+    for index, line in enumerate(block):
         draw.text(
-            (frame.left, top + index * leading),
+            (left, top + index * leading),
             line,
             fill="black",
             font=font,

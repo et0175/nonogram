@@ -5,6 +5,16 @@
     CK-3  TestBookProof_StrokesMeetBookMinimum
     EC    test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet
 
+CARD-172 — square and landscape trims carry the note in a clear spot:
+
+    AC-1  TestBookProof_SquareTrimsCarryTheNote
+    AC-2  TestBookProof_LandscapeTrimsCarryTheNote
+    AC-3  TestBookProof_FallbackNoteHoldsTheTenPointFloor
+    AC-4  test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet (extended)
+    AC-5  test_a_trim_with_no_room_for_the_note_is_refused_and_says_so,
+          test_a_trim_with_no_room_for_the_note_is_reported_not_served
+    AC-6  TestBookProof_PortraitProofsAreByteIdentical
+
 ADR-0037 makes the band's wording and the book's stroke minimum final only
 once the owner has measured them on printed paper. These tests cover the
 automatable half of that: that the paper the panel produces *is* the book's
@@ -47,6 +57,8 @@ trim is required to change that ink, so the note cannot be a fixed picture.
 from __future__ import annotations
 
 import ast
+import hashlib
+import json
 import random
 import re
 import warnings
@@ -612,16 +624,18 @@ class TestBookProof_BandAndAnnotation:
         assert top >= 0
 
     def test_a_trim_with_no_room_for_the_note_is_refused_and_says_so(self) -> None:
-        """A near-square trim: the drawing fills the sheet top to bottom.
+        """A small square (15 x 15 cm): no spot on the sheet holds the note.
 
-        Both fixtures are square, so on a trim that is barely taller than it is
-        wide the page's *height* is what limits the drawing and nothing is left
-        at the foot. Printing the note across the grid would make it unreadable
-        where it has to be read, and printing it in the margin would break the
-        rule it exists to demonstrate, so the export refuses and names the
-        room it needed. Documented in CARD-118's Worktree notes.
+        The drawing fills the sheet top to bottom, so there is no foot strip;
+        the side strips are 4.4 mm, too narrow for a 10 pt word; and the 30 x
+        30's blank clue corner is about 27 mm square, too small for the note
+        wrapped at 10 pt (CARD-172). Printing the note across the grid would
+        make it unreadable where it has to be read, and printing it in the
+        margin would break the rule it exists to demonstrate, so the export
+        refuses. The 8.5 x 8.5 in trim this test used to pin now carries the
+        note in its clue corner (``TestBookProof_SquareTrimsCarryTheNote``).
         """
-        square = _book(8.5 * 25.4, 8.5 * 25.4)
+        square = _book(150.0, 150.0)
         with pytest.raises(ValueError, match="no room for the proof note"):
             proof_pages(square)
 
@@ -756,12 +770,12 @@ class TestBookProof_ProofPagesRoute:
     def test_a_trim_with_no_room_for_the_note_is_reported_not_served(
         self, admin_app
     ) -> None:
-        """The near-square refusal reaches the owner as a message, not a 500.
+        """A trim no spot fits (15 x 15 cm) reaches the owner as a message, not a 500.
 
         The route sends them back to Print setup, which is where the trim that
         caused it is changed.
         """
-        book_id = _draft_book(admin_app, "21.59", "21.59")
+        book_id = _draft_book(admin_app, "15.00", "15.00")
         client = admin_app.test_client()
 
         response = client.get(f"/book/{book_id}/proof-pages")
@@ -793,8 +807,10 @@ class TestBookProof_ProofPagesRoute:
 # --------------------------------------------------------------------------
 
 #: KDP paperback trims a puzzle book is actually printed on, **as the two
-#: ``books`` columns store them** — portrait sheets, the case a proof page
-#: exists for. Near-square trims are covered by
+#: ``books`` columns store them** — portrait sheets, whose note sits at the
+#: foot. These nine are also the trims ``TestBookProof_PortraitProofsAreByteIdentical``
+#: pins to main's pixels (CARD-172 AC-6). Square and landscape trims are
+#: :data:`FALLBACK_TRIMS_CM`; a small square that fits no spot is covered by
 #: ``TestBookProof_BandAndAnnotation.test_a_trim_with_no_room_for_the_note_is_refused_and_says_so``.
 CORPUS_TRIMS_CM: tuple[tuple[str, str], ...] = (
     ("12.70", "20.32"),  # 5 x 8 in
@@ -806,6 +822,16 @@ CORPUS_TRIMS_CM: tuple[tuple[str, str], ...] = (
     ("19.05", "23.50"),  # 7.5 x 9.25 in
     ("20.32", "25.40"),  # 8 x 10 in
     ("21.59", "27.94"),  # 8.5 x 11 in (CON-018's Book 1 profile)
+)
+
+#: Square and landscape trims, stored the same way (CARD-172): the drawing
+#: reaches the bottom margin, so the note moves to the outer side strip or the
+#: 30 x 30's blank clue corner.
+FALLBACK_TRIMS_CM: tuple[tuple[str, str], ...] = (
+    ("20.96", "20.96"),  # 8.25 x 8.25 in
+    ("21.59", "21.59"),  # 8.5 x 8.5 in
+    ("20.96", "15.24"),  # 8.25 x 6 in (KDP landscape)
+    ("27.94", "21.59"),  # 11 x 8.5 in
 )
 
 #: Side margins the corpus draws from, stored the same way: KDP's 0.25 in
@@ -840,15 +866,16 @@ def _book_cm(
 
 #: The corpus cannot silently shrink: no ``hypothesis`` in the dependency
 #: baseline, so the floor is asserted inside the test (CLAUDE.md).
-MIN_BOOKS = 24
-MIN_PAGES = 48
+MIN_BOOKS = 36
+MIN_PAGES = 72
 
 
 def test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet() -> None:
     """EC — for any stored print spec, a proof page *is* that book's page.
 
-    A seeded corpus of books across KDP's portrait trims and margin range. For
-    every book, both proof pages are required to be:
+    A seeded corpus of books across KDP's portrait trims, the square and
+    landscape trims of CARD-172, and the margin range. For every book, both
+    proof pages are required to be:
 
     * the stored trim, to within half a device pixel, measured off the rendered
       image and converted here at 300 DPI;
@@ -869,7 +896,14 @@ def test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet() -> None:
     trims_seen: set[tuple[float, float]] = set()
 
     for index in range(MIN_BOOKS + 4):
-        width_cm, height_cm = random_source.choice(CORPUS_TRIMS_CM)
+        # Every square and landscape trim is taken once up front, so the
+        # corpus covers each of them whatever the seed draws afterwards.
+        if index < len(FALLBACK_TRIMS_CM):
+            width_cm, height_cm = FALLBACK_TRIMS_CM[index]
+        else:
+            width_cm, height_cm = random_source.choice(
+                CORPUS_TRIMS_CM + FALLBACK_TRIMS_CM
+            )
         gutter_cm = random_source.choice(CORPUS_MARGINS_CM)
         outside_cm = random_source.choice(CORPUS_MARGINS_CM)
         book = _book_cm(width_cm, height_cm, gutter_cm, outside_cm, f"corpus-{index}")
@@ -919,6 +953,289 @@ def test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet() -> None:
 
     assert books >= MIN_BOOKS, books
     assert pages_checked >= MIN_PAGES, pages_checked
-    assert len(trims_seen) >= 6, trims_seen
+    assert len(trims_seen) >= 10, trims_seen
+    fallback_mm = {(_stored_mm(w), _stored_mm(h)) for w, h in FALLBACK_TRIMS_CM}
+    assert fallback_mm <= trims_seen, fallback_mm - trims_seen
     assert len(cells_seen) >= 8, cells_seen
     assert min(cells_seen) < 4.8 <= max(cells_seen), cells_seen
+
+
+# --------------------------------------------------------------------------
+# CARD-172 — square and landscape trims carry the note in a clear spot
+# --------------------------------------------------------------------------
+#
+# The note is found on the page as the ink a proof page carries and COMP-007's
+# own page of the same payload on the same spec does not: everything else on a
+# proof page *is* that page (the band test above pins it). The plain page's ink
+# is then exactly the drawing, its clue digits and the band — what the note
+# must never touch.
+
+#: CON-018's Book 1 margins as the ``books`` columns store them.
+BOOK1_GUTTER_CM = "1.27"
+BOOK1_OUTSIDE_CM = "0.95"
+
+#: The clear air CARD-172 asks the fallback note to keep from the drawing's
+#: rules, and what it is in whole pixels at 300 DPI, rounded down so a note
+#: placed a full millimetre away always passes.
+FALLBACK_INSET_MM = 1.0
+FALLBACK_INSET_PX = int(FALLBACK_INSET_MM * PX_PER_MM)
+
+#: CON-020's floor, and DejaVu Sans's cap height as a share of its em
+#: (OS/2 sCapHeight 1493 over unitsPerEm 2048 in the bundled face).
+FLOOR_PT = 10
+DEJAVU_CAP_HEIGHT_RATIO = 1493 / 2048
+FLOOR_CAP_PX = FLOOR_PT * 300 / 72 * DEJAVU_CAP_HEIGHT_RATIO
+
+SQUARE_TRIMS_CM = (("20.96", "20.96"), ("21.59", "21.59"))
+LANDSCAPE_TRIMS_CM = (("20.96", "15.24"), ("27.94", "21.59"))
+
+#: The pages whose foot strip cannot hold the note, so it falls back: the
+#: 30 x 30 on every square and landscape trim, and the 15 x 15 on 8.25 x 6 in,
+#: whose drawing also reaches the bottom margin. On the squares and on
+#: 11 x 8.5 in the 15 x 15 leaves 13.5 to 19.9 mm of foot, so its note stays
+#: at the foot (CARD-172 Worktree notes).
+FALLBACK_PAGES = (
+    ("20.96", "20.96", 0),
+    ("21.59", "21.59", 0),
+    ("20.96", "15.24", 0),
+    ("20.96", "15.24", 1),
+    ("27.94", "21.59", 0),
+)
+
+
+def _book1_margins(width_cm: str, height_cm: str) -> Book:
+    return _book_cm(
+        width_cm, height_cm, BOOK1_GUTTER_CM, BOOK1_OUTSIDE_CM, f"card172-{width_cm}x{height_cm}"
+    )
+
+
+def _plain_page(book: Book, index: int) -> Image.Image:
+    """COMP-007's page of proof puzzle ``index`` on ``book``'s sheet, no note."""
+    plain, _ = render_pages(
+        PROOF_PUZZLES[index].payload(EXPECTED_BANDS[index]),
+        page_spec=book_page_spec(book, index + 1),
+    )
+    return plain
+
+
+def _note_box(page: Image.Image, plain: Image.Image) -> tuple[int, int, int, int]:
+    """The ink box of what the proof page adds to COMP-007's page."""
+    added = _dark(page) & ~_dark(plain)
+    ys, xs = np.nonzero(added)
+    assert len(xs), "the page carries no note"
+    return int(xs.min()), int(ys.min()), int(xs.max()), int(ys.max())
+
+
+def _plain_ink_near(
+    plain: Image.Image, box: tuple[int, int, int, int], pad: int
+) -> int:
+    """How many of the plain page's ink pixels lie within ``pad`` of ``box``."""
+    left, top, right, bottom = box
+    region = _dark(plain)[
+        max(0, top - pad) : bottom + pad + 1, max(0, left - pad) : right + pad + 1
+    ]
+    return int(region.sum())
+
+
+def _margins_px(page: Image.Image, index: int) -> tuple[int, int, int, int]:
+    """The usable area from the stored Book 1 margins, mirrored by parity."""
+    gutter, outside = _px(GUTTER_MM), _px(OUTSIDE_MM)
+    inner_left = gutter if index % 2 == 0 else outside
+    inner_right = page.width - (outside if index % 2 == 0 else gutter)
+    return inner_left, _px(TOP_MM), inner_right, page.height - _px(BOTTOM_MM)
+
+
+def _drawing_ink_box(plain: Image.Image) -> tuple[int, int, int, int]:
+    """The drawing's ink box on the plain page: its ink from the drawing's top down."""
+    drawing = drawing_of(plain)
+    below_band = plain.crop((0, drawing.top - MIN_THIN_RULE_PX, plain.width, plain.height))
+    left, top, right, bottom = _ink_box(below_band)
+    offset = drawing.top - MIN_THIN_RULE_PX
+    return left, top + offset, right, bottom + offset
+
+
+def _assert_note_inside_margins_and_clear(
+    page: Image.Image, plain: Image.Image, index: int
+) -> tuple[int, int, int, int]:
+    """The note is inside the book's own margins and touches no ink of the page."""
+    box = _note_box(page, plain)
+    inner_left, inner_top, inner_right, inner_bottom = _margins_px(page, index)
+    left, top, right, bottom = box
+    assert left >= inner_left and right < inner_right, (box, inner_left, inner_right)
+    assert top >= inner_top and bottom < inner_bottom, (box, inner_top, inner_bottom)
+    assert _plain_ink_near(plain, box, 0) == 0, "the note overprints the page's ink"
+    erased = _dark(plain) & ~_dark(page)
+    assert not erased.any(), "the note erased ink of the page"
+    return box
+
+
+class TestBookProof_SquareTrimsCarryTheNote:
+    """AC-1 — 8.25 x 8.25 and 8.5 x 8.5 in: two pages, each note clear of the puzzle."""
+
+    @pytest.mark.parametrize("width_cm,height_cm", SQUARE_TRIMS_CM)
+    def test_both_pages_render_at_the_trim(self, width_cm: str, height_cm: str) -> None:
+        pages = proof_pages(_book1_margins(width_cm, height_cm))
+        side = _px(_stored_mm(width_cm))
+        assert [page.size for page in pages] == [(side, side)] * 2
+
+    @pytest.mark.parametrize("index", [0, 1])
+    @pytest.mark.parametrize("width_cm,height_cm", SQUARE_TRIMS_CM)
+    def test_the_note_is_inside_the_margins_and_touches_no_rule_or_digit(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        book = _book1_margins(width_cm, height_cm)
+        page = proof_pages(book)[index]
+        _assert_note_inside_margins_and_clear(page, _plain_page(book, index), index)
+
+    @pytest.mark.parametrize("width_cm,height_cm", SQUARE_TRIMS_CM)
+    def test_page_one_note_sits_inside_the_blank_clue_corner(
+        self, width_cm: str, height_cm: str
+    ) -> None:
+        """Inside the box where the clue gutters meet, a millimetre off its rules.
+
+        The corner is read off the plain page's ink: the drawing's outer edges
+        and the grid's top-left border. Nothing of the plain page — no rule,
+        no digit — lies within 1 mm of the note's ink.
+        """
+        book = _book1_margins(width_cm, height_cm)
+        page = proof_pages(book)[0]
+        plain = _plain_page(book, 0)
+        drawing = drawing_of(plain)
+        left, top, right, bottom = _note_box(page, plain)
+
+        assert drawing.left < left and right < drawing.grid_left
+        assert drawing.top < top and bottom < drawing.grid_top
+        assert _plain_ink_near(plain, (left, top, right, bottom), FALLBACK_INSET_PX) == 0
+
+
+    @pytest.mark.parametrize("width_cm,height_cm,index", FALLBACK_PAGES)
+    def test_no_wrapped_line_starts_with_a_separator_dot(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        """The wrap keeps each " · " on the end of the line before it.
+
+        Read off the ink: the note's printed lines are its bands of ink rows,
+        and each line's first glyph — its first run of ink columns — must be
+        a letter, digit or bracket, never the separator's dot. At 10 pt the
+        dot is a few pixels tall; every other first glyph the note can start a
+        line with is at least the face's x-height, so half the cap height
+        tells them apart. On 8.5 x 8.5 in a plain greedy wrap would start a
+        line with the dot.
+        """
+        book = _book1_margins(width_cm, height_cm)
+        page = proof_pages(book)[index]
+        added = _dark(page) & ~_dark(_plain_page(book, index))
+        lines = _runs(added.any(axis=1))
+        assert len(lines) >= 2, "the note did not wrap"
+        for rows in lines:
+            band = added[rows[0] : rows[-1] + 1]
+            columns = _runs(band.any(axis=0))[0]
+            first = band[:, columns[0] : columns[-1] + 1]
+            glyph_rows = np.nonzero(first.any(axis=1))[0]
+            height = int(glyph_rows.max() - glyph_rows.min() + 1)
+            assert height >= FLOOR_CAP_PX / 2, (rows[0], height)
+
+
+class TestBookProof_LandscapeTrimsCarryTheNote:
+    """AC-2 — 8.25 x 6 and 11 x 8.5 in: the note in the outer side strip.
+
+    Right of the drawing on the odd (right-hand) page, left of it on the even
+    one: the outer margin's side, never the gutter's. On 11 x 8.5 in the
+    15 x 15 page leaves 19.9 mm of foot, so its note keeps the foot placement
+    that is unchanged wherever it fits.
+    """
+
+    SIDE_PAGES = (
+        ("20.96", "15.24", 0),
+        ("20.96", "15.24", 1),
+        ("27.94", "21.59", 0),
+    )
+
+    @pytest.mark.parametrize("width_cm,height_cm", LANDSCAPE_TRIMS_CM)
+    def test_both_pages_render_at_the_trim(self, width_cm: str, height_cm: str) -> None:
+        pages = proof_pages(_book1_margins(width_cm, height_cm))
+        size = (_px(_stored_mm(width_cm)), _px(_stored_mm(height_cm)))
+        assert [page.size for page in pages] == [size] * 2
+
+    @pytest.mark.parametrize("width_cm,height_cm,index", SIDE_PAGES)
+    def test_the_note_is_in_the_outer_side_strip_clear_of_the_drawing(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        book = _book1_margins(width_cm, height_cm)
+        page = proof_pages(book)[index]
+        plain = _plain_page(book, index)
+        left, top, right, bottom = _assert_note_inside_margins_and_clear(
+            page, plain, index
+        )
+        d_left, d_top, d_right, d_bottom = _drawing_ink_box(plain)
+
+        if index % 2 == 0:  # odd page: the outer margin is on the right
+            assert left > d_right + FALLBACK_INSET_PX, (left, d_right)
+        else:  # even page: the outer margin is on the left
+            assert right < d_left - FALLBACK_INSET_PX, (right, d_left)
+        assert top >= d_top, "the note rises into the band"
+
+    def test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note(self) -> None:
+        book = _book1_margins("27.94", "21.59")
+        page = proof_pages(book)[1]
+        plain = _plain_page(book, 1)
+        _, top, _, _ = _assert_note_inside_margins_and_clear(page, plain, 1)
+        assert top > _drawing_ink_box(plain)[3], "the note is not below the drawing"
+
+
+class TestBookProof_FallbackNoteHoldsTheTenPointFloor:
+    """AC-3 — a side-strip or corner note is set at no less than 10 pt.
+
+    Measured on the ink: the first glyph of the note is the capital P of
+    "PROOF", whose height is the face's cap height. At 10 pt and 300 DPI that
+    is 41.7 px of em times DejaVu Sans's 0.729 cap ratio, 30.4 px. The foot
+    note's 2.6 mm (31 px of em) would give 22.6 px.
+    """
+
+    @pytest.mark.parametrize("width_cm,height_cm,index", FALLBACK_PAGES)
+    def test_the_first_capital_is_at_least_ten_point_cap_height(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        book = _book1_margins(width_cm, height_cm)
+        page = proof_pages(book)[index]
+        plain = _plain_page(book, index)
+        added = _dark(page) & ~_dark(plain)
+        left, top, _, _ = _note_box(page, plain)
+
+        # The P's columns: the first run of note-ink columns from the left of
+        # the first line. Its height: the first run of ink rows in them.
+        line = added[top : top + round(FLOOR_PT * 300 / 72 * 1.2)]
+        columns = _runs(line.any(axis=0))
+        first_glyph = line[:, columns[0][0] : columns[0][-1] + 1]
+        cap_height = len(_runs(first_glyph.any(axis=1))[0])
+
+        assert cap_height >= FLOOR_CAP_PX, (cap_height, FLOOR_CAP_PX)
+
+
+class TestBookProof_PortraitProofsAreByteIdentical:
+    """AC-6 — every portrait corpus trim prints exactly the pixels main printed.
+
+    The digests were recorded from main (b05c443) before CARD-172 changed
+    ``book_proof.py``; the fixture says how.
+    """
+
+    BASELINE = json.loads(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card172.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    def test_the_baseline_covers_every_portrait_corpus_trim(self) -> None:
+        assert set(self.BASELINE["digests"]) == {f"{w}x{h}" for w, h in CORPUS_TRIMS_CM}
+
+    @pytest.mark.parametrize("width_cm,height_cm", CORPUS_TRIMS_CM)
+    def test_both_pages_match_mains_pixels(self, width_cm: str, height_cm: str) -> None:
+        book = _book_cm(
+            width_cm,
+            height_cm,
+            self.BASELINE["gutter_margin_cm"],
+            self.BASELINE["outside_margin_cm"],
+            f"baseline-{width_cm}x{height_cm}",
+        )
+        digests = [hashlib.sha256(page.tobytes()).hexdigest() for page in proof_pages(book)]
+        assert digests == self.BASELINE["digests"][f"{width_cm}x{height_cm}"]
