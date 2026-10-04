@@ -86,6 +86,8 @@ card names its card._
 - [ ] CARD-172 F-003: `_annotate` takes a narrow outer side strip before a clue corner that fits — on e.g. an 8.5×8 trim with a small outside margin the note becomes 30+ one-word lines. Not reached on the card's trims; prefer the corner when the strip is narrower than N mm   @tech-debt
 - [ ] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start a line with "×" — keep units and × with their numbers (owner accepted the current renders)   @feature
 
+- [ ] CARD-175 F-001/F-002/F-004 (minor): the plan-hints summary uses the browser's default focus ring, not the `--color-focus` ring; plural-test comments name per-cell hints the test doesn't assert; a test comment still says ~176 px (now ~169 px)   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

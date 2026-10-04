@@ -1,0 +1,109 @@
+version: 1
+generated_at: "2026-10-04T15:06:19Z"
+target: "card/175-books-hints-compact-on-phone (f6a8a65) vs main"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/templates/books_list.html
+    - tests/test_books_list_mobile.py
+    - tests/test_books_list_plan_stats.py
+    - tests/test_puzzle_solver_page.py (browser fixtures)
+    - meta/design/components.md
+    - meta/design/tokens.css
+    - meta/design/brief.md
+    - meta/kanban/cards/CARD-175.md
+  not_reached:
+    - "rendered result in non-Chromium engines (fallback disclosure path untested by design)"
+  confidence: high
+metrics:
+  diff: { files: 4, added: 351, removed: 5 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — no exported Python symbol changed; template/CSS/test-only diff"
+system_contract:
+  rules_checked: 52
+  holds: 4
+  unchecked: 48
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — git diff main...HEAD --numstat lists 4 files, pyproject.toml absent; no dependency added"
+    - "ADR-0038/R1 ✓ holds — diff adds hand-written CSS only (admin.css:256-271); grep '<script' books_list.html = 0 hits; no build step or framework"
+    - "ADR-0038/R7 ✓ holds — new browser tests use pytest-playwright from the dev extra (pyproject.toml:31), pyproject unchanged by the diff"
+    - "ADR-0038/R8 ✓ holds — tests/test_books_list_mobile.py imports browser_page/browser_type from tests/test_puzzle_solver_page.py:547-565 which pytest.fail when Playwright/Chromium is missing; targeted run 84 passed, 0 skipped"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: diff changes only books_list.html presentation markup, admin.css rules and tests; no Python source, route, storage, solver, PDF, player or server-binding code is touched"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 262
+    title: "New interactive summary has no design-system focus-visible ring"
+    description: |
+      The <summary> is a new keyboard-focusable control on phones. admin.css:38 and
+      components.md (Button, Tab: 2px --color-focus ring) give every interactive control the
+      token focus ring; the summary is not in that list and relies on the UA default outline.
+      Focus is still visible in Chromium, so this is consistency, not a broken control.
+    suggestion: |
+      Add `.plan-hints > summary:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }`
+      (or add the selector to the admin.css:38 rule).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_books_list_plan_stats.py
+    line: 913
+    title: "Plural test's inline comments claim specific hints the test never asserts"
+    description: |
+      test_two_off_plan_cells_read_plural annotates its selection with "16-20 x hard: 2 over its 6"
+      and "26-30 x hard: 7 short of its 12" but asserts only the summary text "2 cells off plan".
+      The comments go beyond what the test demonstrates (project lesson lens).
+    suggestion: |
+      Add `assert hints_of(disclosure) == ["16-20 × hard: over 2", "26-30 × hard: short 7"]`
+      (exact _PLAN_HINT wording) or drop the per-cell claims from the comments.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/static/admin.css
+    line: 262
+    title: "Closed summary wraps to two lines at 390 px"
+    description: |
+      In the implementer's render (~/Documents/nonogram-reviews/CARD-175/after-books-390.png) the
+      summary reads "10 cells off / plan" across two lines in the narrow column. AC-3 still holds
+      (row 175.9 px measured vs 220 bound); this is a polish call for the owner (G-6).
+    suggestion: |
+      Owner to judge; if wanted, `white-space: nowrap` on `.plan-hints > summary`, then re-check AC-3
+      and the no-sideways-scroll assertion.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

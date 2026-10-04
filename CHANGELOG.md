@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-04
+- CARD-175 (feature): On a phone, the Books list is compact again. A book whose puzzle mix is off plan used to make its row about 670 px tall; the off-plan hints now fold behind a one-line "10 cells off plan" you can tap open, and the row is about 170 px. The desktop view is unchanged.
 - CARD-172 (feature): Proof pages now work on square and landscape KDP trims (8.25×8.25, 8.5×8.5, 8.25×6, 11×8.5) instead of stopping with an error. The measurement note stays at the foot wherever it fits; otherwise it goes in the outer side strip or, on square trims, the empty top-left clue corner, always inside the frame and at 10 pt. Portrait proofs are unchanged.
 - CARD-169 (feature): The Finalise screen's guide preview now matches the printed first page: "How to Solve Nonograms", the intro, the puzzle counts and the four worked-example steps, each drawn as a small row of squares. It reads the text from the code that prints the page, so the two can no longer drift apart.
 - CARD-176 (tech-debt): If the database address is mistyped, the start-up error no longer repeats text that could hold the password. It names the address type (like "postgresql") only when it really is one, and otherwise says "<malformed scheme>".

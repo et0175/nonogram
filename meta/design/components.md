@@ -60,6 +60,14 @@ read the template before assuming which one a table takes.
 Tokens: --row-h, --font-num for every numeric column (right-aligned,
 tabular-nums), --color-surface-sunken for thead, --color-border for rules.
 
+Plan hints (CARD-175): on /books the "Against plan" off-plan chips sit in a native
+`<details class="plan-hints">` disclosure, closed by default, with a one-line
+(`white-space: nowrap`) count summary ("N cells off plan" / "1 cell off plan").
+Closed at ≤ 820 px; above 820 px, inside `@supports selector(::details-content)`,
+the summary is hidden and the list forced open. Chips keep stat-cell /
+data-off-plan markup and are nowrap inside it. On-plan and plan-less rows carry
+no disclosure.
+
 ## Thumbnail
 Used by: puzzle review, batch results, book selection, arrangement.
 States: default · loading (paper square) · failed (paper square with

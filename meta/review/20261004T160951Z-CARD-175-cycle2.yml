@@ -1,0 +1,110 @@
+version: 1
+generated_at: "2026-10-04T16:09:51Z"
+target: "card/175-books-hints-compact-on-phone (f6a8a65 + uncommitted fix delta) vs main"
+mode: confirmation
+cycle: 2
+previous_report: meta/review/20261004T150619Z-CARD-175-cycle1.yml
+overall_score: 9.6
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+fix_delta:
+  - src/nonogram/admin/static/admin.css
+  - tests/test_books_list_mobile.py
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/templates/books_list.html (plan-hints block)
+    - tests/test_books_list_mobile.py
+    - tests/test_puzzle_solver_page.py (browser_page scope)
+    - meta/kanban/cards/CARD-175.md (Worktree notes, Fix 1)
+    - meta/review/20261004T150619Z-CARD-175-cycle1.yml
+    - ~/Documents/nonogram-reviews/CARD-175/after-books-390.png (supporting evidence)
+  not_reached:
+    - "non-Chromium engines (fallback disclosure path untested by design)"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 19, removed: 4 }
+  tests_cover_change: true
+  targeted_run: "tests/test_books_list_mobile.py tests/test_books_list_plan_stats.py tests/test_admin_design_tokens.py: 48 passed, 0 skipped, 0 failed"
+  probe_390: "Chromium 390x844 (throwaway probe in scratchpad): closed row 168.8 px; summary 116.0 px wide x 22.3 px tall inside a 140.0 px td (summary right 567.4 <= td right 579.4, no overflow); documentElement.scrollWidth 390 = innerWidth; .table-responsive scrolls internally (893 vs 324), as before"
+resolved_findings:
+  - id: F-003
+    status: resolved
+    evidence: |
+      admin.css:263 `.plan-hints > summary { ...; white-space: nowrap; }` (unconditional, so it
+      applies at <= 820 px where the summary is shown). New test
+      test_the_closed_summary_is_one_line counts distinct line-box tops of a Range over the
+      summary's contents; browser_page is function-scoped and phone_page never clicks, so the
+      disclosure is closed when measured (its sibling test asserts 0 visible chips on the same
+      fresh page). Mutants removing the nowrap, restricting it to >= 821 px, or overriding it with
+      white-space normal at <= 820 px each fail it with `AssertionError: 2`. AC-3 still holds:
+      row 168.8 px <= 220, scrollWidth 390 <= 390. The re-render shows "10 cells off plan" on one line.
+mutation_check:
+  result: pass
+  mutants:
+    - "M1 summary nowrap removed — KILLED (test_the_closed_summary_is_one_line, AssertionError: 2; 6 others passed)"
+    - "M2 summary nowrap only inside @media (min-width: 821px) — KILLED (same test, AssertionError: 2)"
+    - "M3 @media (max-width: 820px) { .plan-hints > summary { white-space: normal } } added — KILLED (same test, AssertionError: 2)"
+  revert: "admin.css restored from backup; shasum 5483e41beee208de5274bd898d9f4d7c9ebb1065 before and after; git status --porcelain identical to the pre-review listing"
+acceptance_criteria:
+  - "AC-1 ✓ holds — carried(cycle 1, delta-clean): books_list.html and test_books_list_plan_stats.py untouched by the delta"
+  - "AC-2 ✓ holds — carried(cycle 1, delta-clean): same scope, untouched"
+  - "AC-3 ✓ holds — re-verified: TestBooksListMobile_RowIsCompactAtPhoneWidth 5/5 pass; row 168.8 px <= 220; scrollWidth 390 <= innerWidth 390; click shows 10 chips, each one line"
+  - "AC-4 ✓ holds — re-verified: TestBooksListMobile_DesktopShowsEveryHint passes; the >= 821 px display:none on the summary is unchanged by the nowrap"
+guardrails:
+  - "G-1 ✓ holds — carried(cycle 1, delta-clean): app.py and test_books_list_plan_stats.py not in the delta; plan_stats tests pass"
+  - "G-2 ✓ holds — carried(cycle 1, delta-clean): no route/export/PDF file in the delta"
+  - "G-3 ✓ holds — re-verified: the delta adds only `white-space: nowrap` (keyword, no literal, no hex); test_admin_design_tokens passes; no <style>/<script> added"
+  - "G-4 ✓ holds — re-verified: .table-responsive { position: relative } untouched; test_the_page_does_not_scroll_sideways passes; probe scrollWidth 390"
+  - "G-5 ✓ holds — re-verified: the new test runs on phone_page -> browser_page imported from test_puzzle_solver_page (fails loudly without Chromium); 0 skipped"
+  - "G-6 ⚠ unchecked — owner_pending: the owner asked for the one-line summary; the re-render at ~/Documents/nonogram-reviews/CARD-175/after-books-390.png is ready for the owner's eyeball before merge"
+system_contract:
+  rules_checked: 52
+  holds: 4
+  unchecked: 48
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean): pyproject.toml not in the delta"
+    - "ADR-0038/R1 ✓ holds — re-verified: the delta is one hand-written CSS declaration; no framework, build step or JS"
+    - "ADR-0038/R7 ✓ holds — re-verified: the new test uses pytest-playwright from the dev extra; pyproject unchanged"
+    - "ADR-0038/R8 ✓ holds — re-verified: the new test depends on browser_page (pytest.fail when Chromium is missing); targeted run 48 passed, 0 skipped"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact (re-derived, not carried; scope globs unknown): the delta is one CSS declaration on .plan-hints > summary plus one browser test; no Python source, route, storage, solver, PDF, player or server-binding code touched"
+step_8g_static:
+  - "Tokens only ✓ — no new colour, size or literal; the summary keeps --text-sm / --color-text-secondary"
+  - "Overflow ✓ — nowrap summary (116 px) fits its 140 px cell at 390 px; the wider min-content goes to the table's own horizontal scroller, never the page"
+  - "Comment honesty ✓ — the CSS comment's new claim (closed summary stays on one line) is pinned by test_the_closed_summary_is_one_line, and the comment still says only Chromium is tested"
+  - "Disclosure affordance ✓ — native marker and 'N cells off plan' remain on one line in the render"
+root_causes: []
+findings:
+  - id: F-001
+    status: open
+    note: "still open by owner decision (focus-visible token ring on the summary); not re-raised"
+  - id: F-002
+    status: open
+    note: "still open by owner decision (plural test comments); not re-raised"
+  - id: F-003
+    status: resolved
+    fixed_in: "uncommitted fix delta on f6a8a65"
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_books_list_mobile.py
+    line: 39
+    title: "ROW_HEIGHT_MAX comment quotes a row height the fix made stale"
+    description: |
+      The comment above ROW_HEIGHT_MAX still says the closed row "is about 176 px tall". With the
+      one-line summary the row measures 168.8 px (Worktree notes [Fix 1] and this review's probe).
+      The 220 px bound is unaffected; only the measured figure is out of date.
+    suggestion: "Change the figure to about 169 px (actions column 148 px)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+verdict: "F-003 resolved; no new Critical/Important finding. Confirmation passes; one new Minor (F-004). F-001/F-002 remain open by decision. G-6 owner eyeball of the re-render is still pending."
