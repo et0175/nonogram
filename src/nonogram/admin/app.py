@@ -992,6 +992,27 @@ def _is_a_logged_plan_failure(error: BaseException) -> bool:
     return getattr(error, _PLAN_FAILURE_LOGGED, False) is True
 
 
+def _page_plan_failure_page(error: BaseException):
+    """Finalise's error page for the page-plan failure, as ``(body, 500)``.
+
+    The one wording both halves of Finalise use (CARD-171), so GET and Save
+    and finish cannot drift. Only for ``error`` that
+    :func:`_is_a_logged_plan_failure` accepts: the exception's text is put on
+    screen, and the stamp is what says that text is the exporter's own
+    tripwire message. The global 500 handler stays generic (ADR-0030).
+    """
+    return (
+        render_template(
+            "500.html",
+            error=(
+                "This book's page plan could not be built, so its interior "
+                f"cannot be counted and its status is not changed: {error}"
+            ),
+        ),
+        500,
+    )
+
+
 def _is_an_unpackable_row(error: BaseException, puzzles) -> bool:
     """Whether ``interior_stream``'s ``error`` is a malformed row, not a bug.
 
@@ -4332,42 +4353,48 @@ def create_app(debug=None):
                     except Exception as broken_plan:
                         if not _is_a_logged_plan_failure(broken_plan):
                             raise
-                        return (
-                            render_template(
-                                "500.html",
-                                error=(
-                                    "This book's page plan could not be "
-                                    "built, so its interior cannot be counted "
-                                    "and its status is not changed: "
-                                    f"{broken_plan}"
-                                ),
-                            ),
-                            500,
-                        )
+                        return _page_plan_failure_page(broken_plan)
                     if counts is None:
                         # A private BookManager method, called across modules
                         # on purpose: book_manager.py has no public read-only
                         # form of the gate yet (review F-003, follow-up). Only
                         # the gate is asked — not set_book_status's other
                         # checks — and only to keep its refusal first.
-                        book_mgr._refuse_unless_the_planned_book(
-                            book_id,
-                            book.status,
-                            BookStatus.READY_FOR_PDF.value,
-                            list(book.puzzle_ids),
-                        )
-                        refusal = UNCOUNTABLE_INTERIOR_REFUSAL
+                        #
+                        # CARD-171: the gate's refusal is flashed here, with
+                        # the text the outer handler gave it, and not logged:
+                        # it is the owner's answer, not an error.
+                        try:
+                            book_mgr._refuse_unless_the_planned_book(
+                                book_id,
+                                book.status,
+                                BookStatus.READY_FOR_PDF.value,
+                                list(book.puzzle_ids),
+                            )
+                        except ValueError as gate_refusal:
+                            refusal = f"Error: {gate_refusal}"
+                        else:
+                            refusal = UNCOUNTABLE_INTERIOR_REFUSAL
                     else:
                         refusal = _kdp_gutter_refusal(book, counts)
                     if refusal:
                         flash(refusal, "error")
                     else:
-                        # Mark book as ready and return to books list
-                        book_mgr.set_book_status(
-                            book_id, BookStatus.READY_FOR_PDF.value
-                        )
-                        flash(f"Book saved: {book.metadata.title}", "success")
-                        return redirect(url_for("books_list"))
+                        # Mark book as ready and return to books list. A
+                        # ValueError here is set_book_status's refusal (the
+                        # plan gate's among them): flashed as before, not
+                        # logged (CARD-171).
+                        try:
+                            book_mgr.set_book_status(
+                                book_id, BookStatus.READY_FOR_PDF.value
+                            )
+                        except ValueError as gate_refusal:
+                            flash(f"Error: {gate_refusal}", "error")
+                        else:
+                            flash(
+                                f"Book saved: {book.metadata.title}", "success"
+                            )
+                            return redirect(url_for("books_list"))
 
                 elif action == "download_pdf":
                     # Download one of the export's two files (FR-043): the
@@ -4377,6 +4404,9 @@ def create_app(debug=None):
                     )
 
             except Exception as e:
+                # CARD-171: logged with its traceback before it is flashed, so
+                # an error that clears before the re-render is not lost.
+                app.logger.exception("A Finalise action on book %s failed", book_id)
                 flash(f"Error: {str(e)}", "error")
 
         # Handle cover upload
@@ -4441,7 +4471,16 @@ def create_app(debug=None):
         # from the page plan the export walks. Read here so the screen reports
         # the file's real page count and the number the KDP check is made
         # against is the same number (EC-034).
-        counts = _interior_counts(book, puzzles_in_book)
+        #
+        # CARD-171: the helper's own logged page-plan failure is answered
+        # here with the page Save and finish shows, naming it; anything the
+        # helper did not stamp is re-raised to the global handler unchanged.
+        try:
+            counts = _interior_counts(book, puzzles_in_book)
+        except Exception as broken_plan:
+            if not _is_a_logged_plan_failure(broken_plan):
+                raise
+            return _page_plan_failure_page(broken_plan)
         below_floor = [
             {
                 "id": puzzle.get("id"),
@@ -4677,6 +4716,8 @@ def create_app(debug=None):
             return _send_export_part(pdf_bytes, requested, f"book_{timestamp}")
 
         except Exception as e:
+            # CARD-171: logged with its traceback before it is flashed.
+            app.logger.exception("The PDF of book %s could not be generated", book.book_id)
             flash(f"Failed to generate PDF: {str(e)}", "error")
             return redirect(back)
 
