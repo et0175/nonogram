@@ -225,6 +225,9 @@ class _SiblingScript:
     PAST_THE_CHECK: str
     #: Printed only when the script ran to its end.
     FINISHED: str
+    #: The database the script falls back to with nothing exported. The panel's
+    #: scripts share ``nonogram_poc``; run_admin_tests.sh overrides it (CARD-168).
+    DEFAULT_DB: str = DEFAULT_DB
 
     def run(self, tmp_path: Path, **kwargs) -> Run:
         return run_script(self.SCRIPT, tmp_path, **kwargs)
@@ -256,7 +259,7 @@ class ExportedDatabaseUrlContract(_SiblingScript):
         self.assert_went_on(run, self.URL)
         assert f"DATABASE_URL={self.URL} (exported by the caller)" in run.stdout
         assert "project default" not in run.stdout
-        assert DEFAULT_DB not in run.output
+        assert self.DEFAULT_DB not in run.output
         assert [c["dbname"] for c in connections(run)] == ["nonogram_dev"]
 
     def test_with_nothing_exported_it_says_it_used_the_project_default(
@@ -269,8 +272,8 @@ class ExportedDatabaseUrlContract(_SiblingScript):
         assert "exported by the caller" not in run.stdout
         [handed] = run.handed(self.CONSUMER)
         assert f"DATABASE_URL={handed} (project default)" in run.stdout
-        assert handed.endswith(f"/{DEFAULT_DB}"), handed
-        assert [c["dbname"] for c in connections(run)] == [DEFAULT_DB]
+        assert handed.endswith(f"/{self.DEFAULT_DB}"), handed
+        assert [c["dbname"] for c in connections(run)] == [self.DEFAULT_DB]
 
     def test_a_driver_qualified_url_reaches_the_consumer_as_exported(
         self, tmp_path: Path

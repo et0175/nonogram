@@ -128,19 +128,21 @@ def test_the_readme_no_longer_says_the_siblings_ignore_an_exported_url() -> None
         assert name in prerequisites, f"{name} missing from Prerequisites"
 
 
-def _resolution_block(script: str) -> list[str]:
+def _resolution_block(script: str) -> tuple[str, list[str]]:
     """The DATABASE_URL resolution of ``scripts/<script>``, comments dropped.
 
-    From the ``DEFAULT_DATABASE_URL=`` line through the last ``PSQL_URL=`` line.
+    Returned as (the ``DEFAULT_DATABASE_URL=`` line, every line after it through
+    the last ``PSQL_URL=`` line): the default is the one line the scripts may
+    differ on (CARD-168), so it is split off to be pinned on its own.
     """
     lines = (SCRIPTS / script).read_text().splitlines()
     starts = [i for i, line in enumerate(lines) if line.startswith("DEFAULT_DATABASE_URL=")]
     ends = [i for i, line in enumerate(lines) if line.startswith("PSQL_URL=")]
     assert len(starts) == 1, (script, starts)
     assert ends and ends[-1] > starts[0], (script, ends)
-    return [
+    return lines[starts[0]], [
         line
-        for line in lines[starts[0] : ends[-1] + 1]
+        for line in lines[starts[0] + 1 : ends[-1] + 1]
         if line.strip() and not line.strip().startswith("#")
     ]
 
@@ -148,9 +150,24 @@ def _resolution_block(script: str) -> list[str]:
 def test_the_three_copies_of_the_url_resolution_are_identical() -> None:
     # Review F-004: the block is copied, not sourced (start_admin_local.sh's own
     # suite runs it alone in a throwaway root), so drift is caught here.
-    reference = _resolution_block("start_admin_local.sh")
+    _, reference = _resolution_block("start_admin_local.sh")
     assert len(reference) >= 20, reference  # the block, not a stray line
     for script in (SCRIPT, "run_admin_tests.sh"):
-        assert _resolution_block(script) == reference, (
+        assert _resolution_block(script)[1] == reference, (
             f"{script}'s DATABASE_URL resolution differs from start_admin_local.sh's"
         )
+
+
+def test_each_script_defaults_to_its_own_database() -> None:
+    # CARD-168: the panel's two scripts default to the panel's database; the
+    # test runner defaults to a test database, because the suite's guard
+    # (tests/database_guard.py) refuses any other name. Exact lines, so the one
+    # line left out of the identity check above is still pinned.
+    url = "postgresql://postgres:postgres@localhost:5432/"
+    expected = {
+        "start_admin_local.sh": f'DEFAULT_DATABASE_URL="{url}nonogram_poc"',
+        SCRIPT: f'DEFAULT_DATABASE_URL="{url}nonogram_poc"',
+        "run_admin_tests.sh": f'DEFAULT_DATABASE_URL="{url}nonogram_test"',
+    }
+    for script, line in expected.items():
+        assert _resolution_block(script)[0] == line, script
