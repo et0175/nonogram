@@ -252,3 +252,7 @@ Used by: the puzzle player (CARD-162). An in-page alertdialog popover under the 
 ## Book detail puzzle table — printed number (CARD-165)
 
 Used by: /book/<id>. The "#" cell is the puzzle's printed number from the export's page plan (rows in print order). Unprinted state: "—" (aria-hidden) over a subtle one-line reason ("Not printed: cannot be drawn" / "puzzle not found"). When no page plan can be built, every "#" is "—" and an `alert alert-warning` sits above the table (same pattern as the arrange screen's #page-plan-unavailable).
+
+## Guide strip (CARD-169)
+
+Used by: /book/<id>/finalize, the guide-page preview. One worked-example line drawn as a row of square cells: `.guide-strip` (heavier ink frame) > `.guide-strip-cell[data-state=filled|crossed|blank]` (ink fill / X / paper), thin separators; grid tokens only. Hidden from screen readers (`aria-hidden`); the step caption above it is its text. The cell size `--strip-cell: 1.5rem` is a local value in admin.css: a candidate token.

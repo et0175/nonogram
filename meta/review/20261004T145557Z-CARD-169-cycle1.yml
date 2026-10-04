@@ -1,0 +1,194 @@
+version: 1
+generated_at: "2026-10-04T14:55:57Z"
+target: "card/169-finalise-guide-preview (main...HEAD, commit 5f0fc74)"
+card: CARD-169
+cycle: 1
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/app.py (finalize GET handler, import block)
+    - src/nonogram/admin/book_pdf_generator.py (constants, ExampleStep, WORKED_EXAMPLE_STEPS, create_guide_page, draw_example_line)
+    - src/nonogram/admin/static/admin.css (guide-preview block, player block)
+    - src/nonogram/admin/templates/book_finalize.html (main and branch)
+    - tests/test_book_finalise_guide_preview.py
+    - meta/design/brief.md
+    - meta/design/tokens.css
+    - meta/design/components.md (player entries)
+    - "~/Documents/nonogram-reviews/CARD-169/finalise-guide-preview.png (owner render, supplementary)"
+  not_reached:
+    - "rendered page via the pipeline visual loop (review.visual off; no runtime/a11y logs)"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 417, removed: 26 }
+  max_fan_in: { symbol: "book_pdf_generator.GUIDE_TITLE / WORKED_EXAMPLE_STEPS", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (151 commits/12mo, 70 fix)"]
+  cochange_missing: ["src/nonogram/admin/templates/book_select_puzzles.html (5 co-changes; unrelated screen, not a missing change)"]
+  tests_run:
+    - "tests/test_book_finalise_guide_preview.py tests/test_book_guide_page.py tests/test_book_guide_page_type.py tests/test_book_finalise_gutter.py -> 126 passed"
+    - "tests/test_book_pdf_ink_mode.py tests/test_book_pdf_memory.py -> 68 passed, 1 skipped"
+    - "tests/test_cli.py::test_every_import_in_the_package_points_inward -> passed"
+mutation_check:
+  ran: true
+  mutants: 8
+  killed: 7
+  survived: 1
+  results:
+    - "M1 strip one cell short (template) -> KILLED"
+    - "M2 filled branch reads crossed set (template) -> KILLED"
+    - "M3 last step dropped in route (app.py) -> KILLED"
+    - "M4 guide_intro is a screen-side literal copy (app.py) -> SURVIVED (14 passed)"
+    - "M5 easy count renders medium_count (template) -> KILLED"
+    - "M6 GUIDE_CLOSING text altered (generator; pixel guard) -> KILLED"
+    - "M7 GUIDE_EXAMPLE_HEADING text altered (generator; pixel guard) -> KILLED"
+    - "M8 closing omitted from preview (template) -> KILLED"
+  restore_verified: "shasum of all 3 mutated files matches pre-check; git status shows only meta/kanban/cards/CARD-169.md"
+system_contract:
+  rules_checked: 54
+  holds: 12
+  unchecked: 42
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from main...HEAD; new imports are stdlib (html.parser, dataclasses, uuid) and in-package only"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not touched"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting not touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing not touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair loop not touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter not touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair not touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair not touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy not touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation not touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density seam not touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies not touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score not touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver overlap masks not touched (its check test_every_import_in_the_package_points_inward passed on this head)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution not touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle storage boundary not touched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score not touched"
+    - "ADR-0033/R1 ✓ holds — app.py diff adds only read-only context keys (app.py:4501-4509); no puzzle field written"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status transitions not touched"
+    - "ADR-0036/R1 ✓ holds — no layout/export file in main...HEAD (git diff --name-only = 5 listed files); G-4 bounded check"
+    - "ADR-0036/R2 ✓ holds — no page geometry computed in the diff; create_guide_page layout lines unchanged except 3 literal->constant swaps (book_pdf_generator.py:1602,1609,1617)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: puzzle page band not touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: grid strokes not touched"
+    - "ADR-0038/R1 ✓ holds — book_finalize.html has 0 <script> tags (grep -c on main and branch); strip is plain HTML + hand-written CSS (admin.css:312-324), no build step"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player marking not touched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player clue embedding not touched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player state module not touched"
+    - "ADR-0038/R5 ✓ holds — no new static file type added; only admin.css (already in package-data) and a template edited"
+    - "ADR-0038/R6 ✓ holds — the Finalise page ships only the fixed worked-example sets, no puzzle solution grid (book_finalize.html:64-72)"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser tests or pyproject extras touched"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server bind not touched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server origin checks not touched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits not touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not touched"
+    - "CON-015 ✓ holds — no new route or entry point; existing /book/<id>/finalize GET only gains context keys"
+    - "CON-016 ✓ holds — no new route; door middleware not touched (diff limited to the 5 files)"
+    - "CON-020 ✓ holds — printed text unchanged: hoisted constants byte-equal the old literals (verified in python), test_book_guide_page_type.py + book_baseline_card167 (test_book_pdf_ink_mode.py) green on this head"
+    - "CON-021 ✓ holds — no interactive play added; the strip is static markup with no JS"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: puzzle clues not touched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness not touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters not touched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan not touched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership floor not touched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate not touched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published membership not touched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order not touched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing not touched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key not touched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership outside draft not touched"
+    - "INV-013 ✓ holds — interior page plan untouched; guide page pixels match book_baseline_card167 (test_book_pdf_ink_mode.py green)"
+task_contract:
+  - "AC-1 ✓ — book_finalize.html:53 heading = guide_title; old phrases absent (test_old_preview_text_appears_nowhere x4)"
+  - "AC-2 ✓ — book_finalize.html:63-72; test_every_caption_in_step_order, test_every_strip_matches_its_steps_sets, test_strips_draw_the_shipped_example"
+  - "AC-3 ✓ — app.py:4504,4508 read via module at request time; test_sentinels_render (title + first caption only, see F-001)"
+  - "AC-4 ✓ — counts 4/2/1/1 and intro/closing equality; Contents line changed (book_finalize.html:86)"
+  - "AC-5 ✓ — constants byte-equal old literals; book_baseline_card167 + test_book_guide_page.py green unedited"
+  - "G-1 ✓ — no fixture or guide-page test in diff; baseline green"
+  - "G-2 ✓ — test_book_finalise_gutter.py untouched and green"
+  - "G-3 ✓ — only 3 literal->constant swaps in create_guide_page"
+  - "G-4 ✓ — no layout/export code in diff"
+  - "G-5 ✓ — single in-package import; inward-import test green; no JS"
+root_causes: []
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_book_finalise_guide_preview.py
+    line: 287
+    title: "Intro/closing/example-heading 'one source of text' is unverified — screen-side copy mutant survives"
+    description: |
+      Objective 2 requires the route to read title, intro, steps and closing through
+      book_pdf_generator at request time so the preview cannot drift. Only GUIDE_TITLE and
+      WORKED_EXAMPLE_STEPS are monkeypatched in test_sentinels_render. Mutant M4 replaced
+      app.py:4505 "guide_intro": book_pdf_generator.GUIDE_INTRO with the literal string and the
+      whole new file stayed green (14 passed); AC-4's equality check cannot tell a copy from
+      the constant. Same blind spot applies to guide_closing, guide_example_heading and
+      guide_example_length. AC-3's literal wording is met; the card objective is not tested.
+    suggestion: |
+      In TestFinaliseGuidePreview_ReadsTheGeneratorsText also monkeypatch GUIDE_INTRO,
+      GUIDE_CLOSING, GUIDE_EXAMPLE_HEADING to sentinels (and WORKED_EXAMPLE_LENGTH to e.g. 7
+      with steps adjusted, or assert strip length follows it) and assert the card shows them.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 318
+    title: "Guide strip cell size is a local literal and the component is not registered in components.md"
+    description: |
+      --strip-cell: 1.5rem is a magic size outside tokens.css (precedent: the player's
+      --player-cell-min/max are listed as candidate tokens in components.md). The new
+      GuideStrip component exists only as a DESIGN-REGISTER worktree note; meta/design/components.md
+      is not in the diff (card made this optional).
+    suggestion: |
+      Add a short components.md entry (states filled/crossed/blank, tokens used, candidate
+      token --strip-cell 1.5rem), or confirm the DESIGN-REGISTER note is picked up at merge.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/templates/book_finalize.html
+    line: 67
+    title: "Strip's accessible name is the short label, not the drawn state"
+    description: |
+      role="img" aria-label="{{ step.label }}" gives screen readers e.g. "2. Overlap" with no
+      statement of which squares are filled or crossed; the caption above carries the prose,
+      so impact is small for a single-owner admin tool.
+    suggestion: |
+      Either aria-hidden the strip (the caption already explains it) or build the label from
+      the sets, e.g. "squares 2 and 3 filled".
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

@@ -79,6 +79,9 @@ card names its card._
 - [ ] CARD-176 F-001/F-002 (minor): no test row pins the documented echo of a bare leading token (`hunter2://`); AC-1's echo check accepts any corpus scheme rather than the one drawn for that case   @tech-debt
 - [ ] CARD-176 F-003: a URL with leading whitespace (`' postgresql://…'`) now gets `<malformed scheme>` — a weaker operator hint than before; consider stripping before the grammar check   @tech-debt
 
+- [ ] CARD-169 F-002 (minor): the guide strip's cell size `--strip-cell: 1.5rem` is a local value in admin.css — promote it to a design token or record it as a deliberate local value   @tech-debt
+- [ ] CARD-169 owner check pending: look at ~/Documents/nonogram-reviews/CARD-169/finalise-guide-preview.png beside CARD-167's guide-book1-8.5x11.png (merged on pipeline evidence by owner choice)   @feature
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

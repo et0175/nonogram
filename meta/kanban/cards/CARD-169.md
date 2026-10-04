@@ -1,6 +1,6 @@
 # CARD-169: The Finalise screen's guide preview shows "How to Solve Nonograms" and its worked example, read from the generator
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 33
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/app.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/static/admin.css, tests/test_book_finalise_guide_preview.py (new)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (2 cycles)
+**Started:** 2026-10-04T14:28:56Z
+**Closed:** 2026-10-04T16:18:22Z
+**Actual:** 0.2d
+**Merge commit:** cd13b6a
 **Blocked by:** —
 
 ## What to implement
@@ -185,3 +185,61 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-169` (54 rules). A project
 - [Verified] No existing test asserts the old preview text ("How to use this book", "Have fun!", "Difficulty levels" grep over tests/ hits only tests/test_book_guide_page.py, which is about the PDF's OLD_TITLE). So no test needs updating for the removal.
 - [Test fixture] `tests/test_book_finalise_gutter.py`'s `panel` fixture / `Shelf.shown(book_id)` (GET finalize, records written straight to the store) is the cheapest way to render the page without uniqueness proofs; reuse its pattern, do not import across test modules unless via tests/helpers/.
 - [Pixel check] Before and after the hoist, run tests/test_book_guide_page.py and the book baseline test (tests/helpers/book_corpus.py users); the fingerprint must reproduce card167's recording unchanged.
+- [Env] forge 2026.8.17
+- [System contract] fresh assembly (system_rules.py --card CARD-169) = 54 rules, identical id set to the card section; the main copy had been overwritten on disk with a placeholder ('_To be assembled by the dispatcher._') and an indented H1 — restored from HEAD, no ids added or removed
+- [Implemented 2026-10-04, commit 5f0fc74] book_pdf_generator.py: hoisted `GUIDE_INTRO`, `GUIDE_EXAMPLE_HEADING` (built from `WORKED_EXAMPLE_CLUE` / `WORKED_EXAMPLE_LENGTH`, equals the old literal exactly) and `GUIDE_CLOSING` to module constants beside `GUIDE_TITLE`; `create_guide_page`'s `set_page` calls `paragraph(<constant>)` in their place. No other line touched (fallback forms, title shrink, `example_line_layout` unchanged; the "This book contains N puzzles:" / tier lines stay inline f-strings).
+- app.py: one import line `from nonogram.admin import book_pdf_generator` beside the existing import from that module; the finalize GET context gains `guide_title`, `guide_intro`, `guide_example_heading`, `guide_example_length`, `guide_steps`, `guide_closing`, each read as `book_pdf_generator.<NAME>` at request time.
+- book_finalize.html: the guide card renders title, intro, counts (`data-guide-count=total|easy|medium|hard`), the example heading, an `<ol class="guide-steps">` with each step's caption and a `.guide-strip` of `WORKED_EXAMPLE_LENGTH` `.guide-strip-cell` spans carrying `data-state="filled|crossed|blank"`, and the closing. Old "How to use this book" / Instructions list removed. Contents line now "Guide page (how to solve, a worked example, and the difficulty summary)". No JavaScript.
+- admin.css: `.guide-steps` / `.guide-step` / `.guide-strip` / `.guide-strip-cell` rules under the existing guide-preview block — `--grid-ink` / `--grid-paper` / `--border-width` / `--space-*` tokens only; thin separators reuse the player's `color-mix(--grid-ink 28%, --grid-paper)`; no new colour.
+- tests/test_book_finalise_guide_preview.py (new, 14 tests): the four AC classes; HTML read with a stdlib `html.parser` reader over the `data-guide-*` markers and each cell's `data-state`. AC-2 checks every step's cells against its filled/crossed sets AND against hand-written strips ("......", ".##...", "x###x.", "x###x#"). AC-4 adds a 1/2/3 book so a count shown under the wrong tier cannot pass. Panel fixture copied from test_book_finalise_gutter.py's pattern (no cross-module import).
+- [Pixel check] BEFORE hoist: test_book_guide_page.py + test_book_guide_page_type.py + test_book_pdf_memory.py + test_book_pdf_ink_mode.py (book_baseline_card167.json user) + test_book_finalise_gutter.py → 180 passed, 1 skipped (platform RLIMIT_AS skip). AFTER: same files + new file + tests/test_cli.py → 288 passed, 1 skipped (same skip); card167 baseline matched unchanged, no fixture written or edited.
+- [Tests] Also green after the change: test_admin_tier_surfaces, test_book_export_interior_cover, test_book_trim_persistence, test_book_workflow_steps, test_book_select_floor_tiles, test_book_ready_gate, test_book_detail_page, property/test_book_workflow, property/test_book_membership_floor, property/test_book_export_interior → 491 passed.
+- [Mutation] template hard-codes old title → caught by TitledLikeThePrintedPage, ReadsTheGeneratorsText
+- [Mutation] template hard-codes "How to Solve Nonograms" literally → caught by ReadsTheGeneratorsText
+- [Mutation] GUIDE_TITLE bound at import in app.py → caught by ReadsTheGeneratorsText
+- [Mutation] WORKED_EXAMPLE_STEPS bound at import in app.py → caught by ReadsTheGeneratorsText
+- [Mutation] filled/crossed swapped in the strip → caught by ShowsTheWorkedExampleStepByStep
+- [Mutation] last step dropped → caught by ShowsTheWorkedExampleStepByStep
+- [Mutation] strip one cell short → caught by ShowsTheWorkedExampleStepByStep
+- [Mutation] label rendered instead of caption → caught by ShowsTheWorkedExampleStepByStep, ReadsTheGeneratorsText
+- [Mutation] medium count shows hard_count → first SURVIVED (AC-4's book has medium == hard == 1); added test_counts_are_not_swapped_between_tiers → caught by CountsIntroAndClosing
+- [Mutation] Contents line reverted → caught by CountsIntroAndClosing
+- [Mutation] closing omitted / intro omitted → caught by CountsIntroAndClosing
+- [Mutation] "Have fun!" re-added → caught by TitledLikeThePrintedPage
+- [Render] ~/Documents/nonogram-reviews/CARD-169/finalise-guide-preview.html (static CSS linked by absolute file:// path; bootstrap from CDN) and finalise-guide-preview.png (headless Chrome, 1440x1800); sample book 2 easy / 1 medium / 1 hard. Owner to compare beside CARD-167's guide-book1-8.5x11.png.
+- [Owner default] The preview shows the page's full form only (no captions-only / labels-only fallback imitation) — implemented as drafted.
+- DESIGN-REGISTER Guide strip — one worked-example line as a row of square cells: `.guide-strip` (heavier ink frame) > `.guide-strip-cell[data-state=filled|crossed|blank]` (ink fill / X / paper), thin separators; grid tokens only.
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/book_finalize.html, tests/test_book_finalise_guide_preview.py
+- [Scope gate] in_scope — 5/5 files inside Touches; no guarded path (G-1 fixtures/guide-page tests, G-2 gutter test, G-4 layout/export) in the diff
+- [Build gate] PASSED (full, 602s; 6097 passed, 9 skipped = baseline 6083 + 14 new; waited 497s for the full-suite lock)
+- [Build gate] PASSED (full, 602s; 6097 passed, 9 skipped = baseline 6083 + 14 new; waited 497s for the full-suite lock)
+- [Review 1/3] Score: 8.0 — crit: 0, imp: 1 (F-001, pre-adversarial)
+- [Review sync] 1 report(s) → meta/review/ (20261004T145557Z-CARD-169-cycle1.yml, yaml.safe_load OK)
+- [Review 1/3] Step 8h coverage: count line present, 54/54 card rule ids have a verdict line (12 ✓, 42 ⚠ no_eligible_fact, 0 ✗)
+- [Adversarial] F-001 CONFIRMED — literal copies of intro/closing/heading/length in app.py survive all 14 tests; objective 'one source of text' (What to implement 1–2) names intro and closing
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Fix 1, review cycle 1, F-001] New test `TestFinaliseGuidePreview_ReadsTheGeneratorsText::test_intro_closing_heading_and_length_sentinels_render` monkeypatches `GUIDE_INTRO`, `GUIDE_CLOSING`, `GUIDE_EXAMPLE_HEADING` to sentinels and `WORKED_EXAMPLE_LENGTH` to 7 (the shipped steps' sets still fit), and asserts the card shows the sentinels, none of the shipped texts, and 7-cell strips ending blank. AC-3 class docstring widened to name the keys it now covers. No production code changed for F-001.
+- [Fix 1] mutant app.py `guide_intro` → literal copy of the intro → caught by test_intro_closing_heading_and_length_sentinels_render
+- [Fix 1] mutant app.py `guide_closing` → literal copy → caught by test_intro_closing_heading_and_length_sentinels_render
+- [Fix 1] mutant app.py `guide_example_heading` → literal copy → caught by test_intro_closing_heading_and_length_sentinels_render
+- [Fix 1] mutant app.py `guide_example_length` → literal `6` → caught by test_intro_closing_heading_and_length_sentinels_render (each mutant restored byte-exactly, sha256 checked)
+- [Fix 2, F-003] book_finalize.html: the strip is now `aria-hidden="true"` (role="img" / aria-label="{{ step.label }}" dropped) — the caption above is its text equivalent. Test `TestFinaliseGuidePreview_ShowsTheWorkedExampleStepByStep::test_strips_are_hidden_behind_their_captions` (parser now records each `.guide-strip`'s attributes). `ExampleStep.label` is still used by the printed page's labels-only fallback; only the screen stopped reading it.
+- [Fix 2] mutant strip markup reverted to role="img" aria-label="{{ step.label }}" → caught by test_strips_are_hidden_behind_their_captions
+- [F-002 skipped] `--strip-cell: 1.5rem` stays a local custom property on `.guide-strip`; candidate token for the DESIGN-REGISTER Guide strip entry above (meta/design/ not editable in this worktree).
+- [Tests after fix] new file + test_book_guide_page + test_book_guide_page_type + test_book_finalise_gutter + test_book_pdf_ink_mode → 169 passed (167 before + the 2 new tests).
+- [Fix 1] pre-gate: 2/2 named tests pass (F-001, F-003); declarations: 0 updated, 0 confirmed, 2 none/doc-local (F-001 test-class docstring; F-003 template comment); F-002 skipped (meta/design not editable in worktree)
+- [Build gate] PASSED (full, 564s; 6099 passed, 9 skipped)
+- [Scope gate] cycle 2: in_scope (5 files, all in Touches; fix delta = book_finalize.html, test_book_finalise_guide_preview.py)
+- [Review 2/3] Score: 9.5 — crit: 0, imp: 0 (confirmation mode; F-001 ✓ resolved, F-003 ✓ resolved, F-002 Minor open)
+- [Review sync] 2 report(s) → meta/review/ (cycle2 yaml.safe_load OK)
+- [Review 2/3] Step 8h coverage: count line present, 54/54 ids with verdict lines (12 ✓ — 4 fresh, 8 carried; 42 ⚠ no_eligible_fact; 0 ✗)
+- [Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Review 2/3] Step 8f mutation check ran: 10/10 mutants killed
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0038/R1, ADR-0038/R5, ADR-0038/R6; R6 note: template grep has one pre-existing static hit 'Solutions divider and answer pages' — conclusion unchanged)
+- [AC/EC check] first pass: AC-1..AC-5 ✓ demonstrated, G-1/G-2/G-3/G-5 ✓ demonstrated, G-4 ⚠ partial — A4 goldens (test_export_a4_golden.py, test_layout_page_spec.py) green and no layout/export/page_spec path changed, but the agent read book_pdf_generator.py (the admin book PDF module, in the card's own Touches, edited by What-to-implement 1 / AC-5) as 'export code'. Structural-guardrail evidence re-run for G-4 alone with the procedure's own-footprint rule (guarded paths minus the card's Touches — SCOPE GATE 'WHY THE SUBTRACTION'); no fix agent spawned for a wording reading the code cannot change
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ demonstrated — TitledLikeThePrintedPage 5/5 PASSED; AC-2 ✓ demonstrated — ShowsTheWorkedExampleStepByStep 5/5 PASSED; AC-3 ✓ demonstrated — ReadsTheGeneratorsText 2/2 PASSED; AC-4 ✓ demonstrated — CountsIntroAndClosing 4/4 PASSED (file: 16 passed); AC-5 ✓ demonstrated — test_book_guide_page.py 17 passed + card167 baseline readers in test_book_pdf_ink_mode.py green, fixture/book_corpus/guide-page test unchanged vs main, hoisted constants equal old literals; G-1 ✓ demonstrated — guide_page 17 + guide_page_type 11 passed, no fixture diff; G-2 ✓ demonstrated — test_book_finalise_gutter.py 12 passed, unedited; G-3 ✓ demonstrated — generator diff = 3 constants + 3 literal swaps; G-4 ✓ demonstrated (re-run) — no changed file under src/nonogram/export/** (ADR-0036/R1 + CON-019 scope), A4/byte-identity goldens 171 passed, unchanged vs main; G-5 ✓ demonstrated — inward-import test PASSED, 0 <script> in book_finalize.html on main and branch. No Engineering constraints section.
+- [Docs] forge:readme step: src/nonogram/admin/, templates/, static/ have no README (per-directory README convention is an open owner decision on the backlog — not created); tests/README.md does not enumerate book test modules — current, no change
+- [Commit] success commit e7db9eb (fix delta) on top of implementation 5f0fc74; branch card/169-finalise-guide-preview; diff vs main: 5 files, +460/−26; nothing under meta/ committed
+- [Merge gate] rebased onto 87ad674; full suite 6118 passed, 9 skipped, exit 0 (611s, under the lock). Merged cd13b6a.
+- [Owner check] "Merge now, I'll check later" (2026-10-04): the owner's look at ~/Documents/nonogram-reviews/CARD-169/finalise-guide-preview.png is pending.
+- [Design] DESIGN-REGISTER applied to meta/design/components.md (Guide strip).

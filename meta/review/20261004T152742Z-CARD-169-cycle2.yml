@@ -1,0 +1,157 @@
+version: 1
+generated_at: '2026-10-04T15:27:42Z'
+target: 'card/169-finalise-guide-preview (main...HEAD 5f0fc74 + uncommitted fix delta: book_finalize.html, tests/test_book_finalise_guide_preview.py)'
+card: CARD-169
+cycle: 2
+mode: confirmation
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - src/nonogram/admin/app.py (finalize context block)
+  - src/nonogram/admin/book_pdf_generator.py (guide constants, create_guide_page diff)
+  - src/nonogram/admin/static/admin.css (guide strip block)
+  - src/nonogram/admin/templates/book_finalize.html (guide + contents cards)
+  - tests/test_book_finalise_guide_preview.py (fix delta in full)
+  - meta/design/ (components.md grep)
+  - meta/review/20261004T145557Z-CARD-169-cycle1.yml
+  not_reached:
+  - rendered page via the pipeline visual loop (review.visual off; no screenshots, runtime or a11y logs) — rendered result not verified by the pipeline
+  confidence: high
+metrics:
+  diff:
+    files: 5
+    added: 417 committed + 45 fix delta
+    removed: 26 committed + 6 fix delta
+  max_fan_in:
+    symbol: book_pdf_generator.GUIDE_TITLE / WORKED_EXAMPLE_STEPS
+    callers: 2
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/app.py (151 commits/12mo, 70 fix; carried from cycle 1 — app.py not in fix delta)
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: not_applicable — confirmation cycle; fix delta is a template attribute swap + test additions, co-change set carried from cycle 1 (book_select_puzzles.html, judged unrelated)
+  tests_run:
+  - tests/test_book_finalise_guide_preview.py tests/test_book_guide_page.py tests/test_book_guide_page_type.py tests/test_book_finalise_gutter.py tests/test_cli.py::test_every_import_in_the_package_points_inward
+    -> 129 passed
+previous_findings:
+- F-001 ✓ resolved — the four literal-copy mutants on app.py (guide_intro, guide_closing, guide_example_heading, guide_example_length=6) are each KILLED by test_intro_closing_heading_and_length_sentinels_render
+- 'F-002 ✗ still present — --strip-cell: 1.5rem local literal and no GuideStrip entry in meta/design/components.md (skipped by fix agent; meta/design out of worktree scope; Minor, non-gating)'
+- F-003 ✓ resolved — book_finalize.html:70 strip is aria-hidden="true" with no role/aria-label; caption text precedes it; mutants restoring role/aria-label or setting aria-hidden=false are KILLED by test_strips_are_hidden_behind_their_captions
+mutation_check:
+  ran: true
+  mutants: 10
+  killed: 10
+  survived: 0
+  results:
+  - M1 guide_intro literal copy (app.py) -> KILLED
+  - M2 guide_closing literal copy (app.py) -> KILLED
+  - M3 guide_example_heading literal copy (app.py) -> KILLED
+  - M4 guide_example_length literal 6 (app.py) -> KILLED
+  - M5 strip role=img aria-label restored, aria-hidden removed (template) -> KILLED
+  - M6 aria-hidden=false (template) -> KILLED
+  - M7 crossed branch renders blank (template) -> KILLED
+  - M8 strip one cell short (template) -> KILLED
+  - M9 guide_title literal copy (app.py) -> KILLED
+  - M10 hard count renders medium_count (template) -> KILLED
+  restore_verified: sha256 of app.py, book_finalize.html and the test file match the pre-check values; sha256 of full git diff unchanged (68b5d3af...); git status unchanged
+system_contract:
+  rules_checked: 54
+  holds: 12
+  unchecked: 42
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — pyproject.toml absent from main...HEAD; new imports are stdlib (html.parser, dataclasses, uuid) and in-package only — carried(cycle 1, delta-clean)
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair loop not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density seam not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver overlap masks not touched (its check test_every_import_in_the_package_points_inward passed on this head) — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle storage boundary not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score not touched — carried(cycle 1, delta-clean)'
+  - ADR-0033/R1 ✓ holds — app.py diff adds only read-only context keys (app.py:4501-4509); no puzzle field written — carried(cycle 1, delta-clean)
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status transitions not touched — carried(cycle 1, delta-clean)'
+  - ADR-0036/R1 ✓ holds — no layout/export file in main...HEAD (git diff --name-only = 5 listed files); G-4 bounded check — carried(cycle 1, delta-clean)
+  - ADR-0036/R2 ✓ holds — no page geometry computed in the diff; create_guide_page layout lines unchanged except 3 literal->constant swaps (book_pdf_generator.py:1602,1609,1617) — carried(cycle 1, delta-clean)
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: puzzle page band not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: grid strokes not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R1 ✓ holds — re-verified on the fix delta: book_finalize.html has 0 <script> tags (grep -c = 0); strip remains plain HTML, delta only swaps role/aria-label for aria-hidden="true" (book_finalize.html:70)'
+  - 'ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player marking not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player clue embedding not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player state module not touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R5 ✓ holds — re-verified: fix delta adds no static file (git status: only book_finalize.html and the test file modified)'
+  - 'ADR-0038/R6 ✓ holds — re-verified: template still ships only the fixed WORKED_EXAMPLE_STEPS sets; grep for solution/grid in book_finalize.html finds nothing'
+  - 'ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser tests or pyproject extras touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests touched — carried(cycle 1, delta-clean)'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: solver not touched — carried(cycle 1, delta-clean)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: web server bind not touched — carried(cycle 1, delta-clean)'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: web server origin checks not touched — carried(cycle 1, delta-clean)'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: grid size limits not touched — carried(cycle 1, delta-clean)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not touched — carried(cycle 1, delta-clean)'
+  - CON-015 ✓ holds — no new route or entry point; existing /book/<id>/finalize GET only gains context keys — carried(cycle 1, delta-clean)
+  - CON-016 ✓ holds — no new route; door middleware not touched (diff limited to the 5 files) — carried(cycle 1, delta-clean)
+  - 'CON-020 ✓ holds — printed text unchanged: hoisted constants byte-equal the old literals (verified in python), test_book_guide_page_type.py + book_baseline_card167 (test_book_pdf_ink_mode.py) green
+    on this head — carried(cycle 1, delta-clean)'
+  - 'CON-021 ✓ holds — re-verified: strip stays static, aria-hidden markup, no JS (0 <script>)'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: puzzle clues not touched — carried(cycle 1, delta-clean)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: export readiness not touched — carried(cycle 1, delta-clean)'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: retry counters not touched — carried(cycle 1, delta-clean)'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: book plan not touched — carried(cycle 1, delta-clean)'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: membership floor not touched — carried(cycle 1, delta-clean)'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: ready gate not touched — carried(cycle 1, delta-clean)'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: published membership not touched — carried(cycle 1, delta-clean)'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: book order not touched — carried(cycle 1, delta-clean)'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: pairing not touched — carried(cycle 1, delta-clean)'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: answer key not touched — carried(cycle 1, delta-clean)'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: membership outside draft not touched — carried(cycle 1, delta-clean)'
+  - INV-013 ✓ holds — interior page plan untouched; guide page pixels match book_baseline_card167 (test_book_pdf_ink_mode.py green) — carried(cycle 1, delta-clean)
+task_contract:
+- 'AC-1 ✓ — re-run: TestFinaliseGuidePreview_TitledLikeThePrintedPage green; heading = guide_title (book_finalize.html:53)'
+- 'AC-2 ✓ — re-run: TestFinaliseGuidePreview_ShowsTheWorkedExampleStepByStep green; mutants M7/M8 killed'
+- 'AC-3 ✓ — re-run: title + first caption sentinels (M9 killed) and now intro/closing/heading/length sentinels (M1-M4 killed)'
+- 'AC-4 ✓ — re-run: TestFinaliseGuidePreview_CountsIntroAndClosing green; M10 killed; Contents line book_finalize.html:88'
+- 'AC-5 ✓ — carried(cycle 1, delta-clean): book_pdf_generator.py not in fix delta; test_book_guide_page.py re-run green'
+- 'G-1 ✓ — re-verified: no diff vs main on fixtures/test_book_guide_page*.py; both guide-page test files green'
+- 'G-2 ✓ — re-verified: test_book_finalise_gutter.py unedited and green'
+- 'G-3 ✓ — carried(cycle 1, delta-clean): generator not in fix delta'
+- 'G-4 ✓ — carried(cycle 1, delta-clean): no layout/export file in either diff'
+- 'G-5 ✓ — re-verified: 0 <script> in book_finalize.html; inward-import test green'
+root_causes: []
+findings:
+- id: F-002
+  severity: low
+  category: feature
+  type: gap
+  file: src/nonogram/admin/static/admin.css
+  line: 318
+  title: Guide strip cell size is a local literal and the component is not registered in components.md (carried from cycle 1)
+  description: '--strip-cell: 1.5rem is a magic size outside tokens.css and the GuideStrip component has no meta/design/components.md entry; the fix agent skipped it because meta/design is not editable
+    from the worktree and left a DESIGN-REGISTER note for the dispatcher.
+
+    '
+  suggestion: 'At merge, add a components.md entry (states filled/crossed/blank, tokens, candidate token --strip-cell 1.5rem) per the DESIGN-REGISTER note.
+
+    '
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
