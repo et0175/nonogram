@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-04
+- CARD-165 (feature): The book page now numbers its puzzles the way the printed book will. They're listed in print order, Easy, then Medium, then Hard, and each "#" is the number that puzzle carries on its printed page. A puzzle that can't be printed says so instead of showing a number it won't get.
 - CARD-164 (tech-debt): The full test suite passes with no failures for the first time since mid-September. The two tests that had been failing were out of date, not catching real bugs. One expected an old page heading. The other had never actually uploaded an image, because it used a field name the app ignores. It now really uploads one and checks the chosen grid size is applied.
 - CARD-168 (ops): `render.yaml` now says plainly that it isn't what production runs. The Render service is set up in the dashboard, which is how four redeploys on 2026-09-23 changed nothing. A new `docs/deploy/render.md` records what production actually uses, with the dashboard-only values marked for you to copy in, and a check to run after any deploy change. The test-runner script now defaults to the `nonogram_test` database, which the test suite accepts, instead of one the tests refuse.
 

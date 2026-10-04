@@ -248,3 +248,7 @@ Used by: the puzzle player (CARD-162). A check icon (--color-success) and "Solve
 ## ResetConfirm
 
 Used by: the puzzle player (CARD-162). An in-page alertdialog popover under the history controls: "Clear the board?" with "Clear board" / "Keep marks"; focus goes to "Keep marks", Escape cancels, and it also closes on any recorded stroke, undo, redo or setBoard while open (`.player-confirm`). Never a browser confirm() dialog.
+
+## Book detail puzzle table — printed number (CARD-165)
+
+Used by: /book/<id>. The "#" cell is the puzzle's printed number from the export's page plan (rows in print order). Unprinted state: "—" (aria-hidden) over a subtle one-line reason ("Not printed: cannot be drawn" / "puzzle not found"). When no page plan can be built, every "#" is "—" and an `alert alert-warning` sits above the table (same pattern as the arrange screen's #page-plan-unavailable).

@@ -1,0 +1,191 @@
+version: 1
+generated_at: "2026-10-04T08:40:51Z"
+target: "card/165-book-page-printed-numbers 4899076..6b71dec (CARD-165 cycle 1)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (book_detail 4751-4847, _printed_places 781-834, arrange route 4170-4215, _book_puzzles 4589-4601)"
+    - "src/nonogram/admin/book_pdf_generator.py (print_order 521, _payload/_puzzle_payload 1579-1645, _two_up_page 1771-1811, SectionPlan, section_plan 2016-2110, interior_stream 2240-2300)"
+    - "src/nonogram/admin/puzzle_review.py (get_puzzle/get_puzzles 1096-1160)"
+    - "src/nonogram/admin/templates/book_detail.html, book_arrange_puzzles.html:42"
+    - "tests/test_book_detail_page.py (whole)"
+    - "meta/design/components.md, src/nonogram/admin/static/admin.css (.num, .subtle)"
+    - "~/Documents/nonogram-reviews/CARD-165/b-undrawable-and-missing.png (implementer render, viewed)"
+  not_reached:
+    - "DB-mode rendering of /book/<id> (tests run in-memory mode; get_puzzles DB branch read, not executed)"
+    - "rendered result not verified by the gate (review.visual off)"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 401, removed: 21 }
+  max_fan_in: { symbol: "book_detail (route endpoint)", callers: 11 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (149 commits since 2026-09-06, 69 fix/bug)"]
+  cochange_missing: []
+  unmeasured:
+    history_window: "no_eligible_fact — repository history starts 2026-09-06, younger than the 12-month window; churn counts are whole-history"
+system_contract:
+  rules_checked: 52
+  holds: 11
+  unchecked: 41
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff touches no pyproject.toml (git diff --stat 4899076..HEAD); TestDependencyBaseline_IsExactlyPillowAndNumpy passed (tests/test_export_pdf.py)"
+    - "ADR-0019/R1 ✓ holds — src/nonogram/web untouched (git diff --stat empty); test_every_import_in_the_package_points_inward passed (tests/test_cli.py)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature or field changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size handling touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/generation code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies code touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage boundary touched (page only reads)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score not read or written"
+    - "ADR-0033/R1 ✓ holds — book_detail copies records (app.py:4787 dict(records[puzzle_id])) and makes no write call (scan of app.py:4751-4847: only book_mgr.get_book); test_showing_the_page_does_not_rewrite_the_stored_order passed"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no status transition touched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout/PageSpec untouched"
+    - "ADR-0036/R2 ✓ holds — page computes no geometry; it calls BookPDFGenerator(book).section_plan(rows) (app.py:4793) and reads plan.printed/plan.puzzles only; book_pdf_generator.py unchanged"
+    - "ADR-0037/R1 ✓ holds — band code untouched (book_pdf_generator.py not in diff); test_each_number_is_the_band_the_exported_interior_prints asserts band == 'Puzzle N · Tier' for every member"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke code touched"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: player client untouched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R6 ✓ holds — the template receives only member() dicts with keys id/title/tier/number/unprinted (app.py:4765-4777); full records (with grid) never reach the template context"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser-test dependency added"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests added"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid size limits touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard touched"
+    - "CON-015 ✓ holds — no new route or bind change; TestAdminPanel_BindsLoopbackOnlyByDefault passed (tests/test_admin_binding.py)"
+    - "CON-016 ✓ holds — existing /book/<id> route only, no new door bypass; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit passed"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no interactive play surface touched"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues not computed or written"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership not written"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate untouched"
+    - "INV-008 ✓ holds — GET handler writes no membership (scan app.py:4751-4847); test_showing_the_page_does_not_rewrite_the_stored_order passed"
+    - "INV-009 ✓ holds — page reads print_order through section_plan and stores nothing; TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel and PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence passed; test_lists_a_mixed_stored_order_in_print_order passed"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing walk untouched (book_pdf_generator.py not in diff)"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ✓ holds — GET handler writes no membership and no status (scan app.py:4751-4847)"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior assembly untouched"
+root_causes: []
+mutation_check:
+  ran: true
+  test_command: "/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest tests/test_book_detail_page.py -x"
+  mutants: 7
+  killed: 6
+  survived: ["M4 fallback dedupes repeated ids (app.py:4809-4811)"]
+  restore_verified: true
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_detail_page.py
+    line: 630
+    title: "Export cross-check spies a path only one-up pages take; no AC test ever forms a two-up page"
+    description: |
+      _bands_the_export_prints spies BookPDFGenerator._puzzle_payload, which only _blank_page calls
+      (book_pdf_generator.py:1640). Two-up pages write their bands via band_identity directly
+      (book_pdf_generator.py:1809) and are invisible to the spy. All fixtures are 20x20 grids, which
+      never pair on the 8x10 trim (measured: 0 two-up pages on a 120-puzzle book of the same
+      fixture), so neither the band cross-check nor the corpus oracle exercises paired pages. The
+      failure is loud, not a false green (assert set(bands) == set(ids) would fail if a pair formed),
+      and the page's number does not depend on pairing (enumerate(plan.printed) is pinned to the
+      band numbers by interior_stream's 1..count tripwire), so the correctness risk is low. The
+      helper docstring ("as the real interior download draws them") overstates what it observes.
+    suggestion: |
+      Add one book of small same-tier neighbours that pair and capture bands on both paths (e.g.
+      wrap module-level band_identity, or read the PDF text), or narrow the docstring to one-up pages.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/templates/book_detail.html
+    line: 143
+    title: "Banner sends the owner to Finalise even when the failure is a code bug"
+    description: |
+      #numbers-unavailable says "Finalise reports what the book's print setup cannot lay out". That
+      is true of the declared (RuntimeError, ValueError) path, but the same banner shows on the
+      except-Exception path (app.py:4797-4802), where the cause is a defect and Finalise has nothing
+      about print setup to report. Same wording as the arrange screen's precedent
+      (book_arrange_puzzles.html:44), so it is consistent, but it goes further than the tests show.
+    suggestion: |
+      Pass which clause fired and soften the second sentence on the unexpected path, or accept it as
+      the precedent's wording.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 4809
+    title: "Plan-failure fallback with a repeated id is untested (mutant M4 survived)"
+    description: |
+      Changing the fallback to iterate dict.fromkeys(book.puzzle_ids), which drops the repeated row,
+      leaves all 37 tests in tests/test_book_detail_page.py green. The fallback promises "stored
+      order, as stored" (test_a_book_whose_page_plan_cannot_be_built_shows_no_numbers uses only
+      distinct ids). The store dedups ids on add (book_manager.py:1310, 1349), so the case arises only
+      from legacy or direct data. That is why this is Minor and not Important.
+    suggestion: |
+      Add a repeated id to the unreadable-trim test's book and assert two rows.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: feature
+    type: gap
+    file: meta/design/components.md
+    line: 44
+    title: "DataTable states do not list the new unprinted '#' cell or the numbers-unavailable banner (out of scope)"
+    description: |
+      The implementer flagged DESIGN-REGISTER in the card. components.md is outside this card's file
+      scope, so this is noted for the orchestrator's register step only.
+    suggestion: |
+      Register the state in components.md' DataTable entry at merge.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

@@ -1068,7 +1068,7 @@ ideas:
   raw: '- [ ] CARD-158 F-004 (pre-existing): the book page''s # column is list order, not the printed puzzle number   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3

@@ -1,6 +1,6 @@
 # CARD-165: The book page numbers puzzles the way the printed book will
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -8,18 +8,18 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
+**Branch:** card/165-book-page-printed-numbers
 **Worktree:** —
 **Source:** roadmap wave 1, 2026-10-04 (CARD-158 review F-004)
 **Idea:** IDEA-046
 **Wave:** 32
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/book_detail.html, src/nonogram/admin/app.py, tests/test_book_detail_page.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 1/3)
+**Started:** 2026-10-04T08:14:04Z
+**Closed:** 2026-10-04T08:52:42Z
+**Actual:** 0.1d
+**Merge commit:** 3e14de2
 **Blocked by:** —
 
 ## What to implement
@@ -123,3 +123,42 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-165` (52 rules). A project
 ## Worktree notes
 
 - [Origin] Roadmap wave 1 (IDEA-046, CARD-158 F-004).
+- [Env] forge 2026.8.17
+- [Impl] `book_detail` (src/nonogram/admin/app.py) now asks `BookPDFGenerator(book).section_plan(rows)` — the seam `interior_stream` calls — for the order and the numbers. `rows` = copies of the `get_puzzles` records that exist, in `book.puzzle_ids` order (what `_book_puzzles` feeds the export; still one bulk read, G-3). Members are listed in `plan.puzzles` order; "#" of `plan.printed[k]` is k+1, matched by row identity (CARD-140 F-003 precedent). Undrawable row → "— Not printed: cannot be drawn" in place; member with no record → listed after the planned rows, "— Not printed: puzzle not found". Plan failure follows the arrange-route precedent: (RuntimeError, ValueError) logged as warning, anything else logged with traceback; rows fall back to stored order with "— Number unknown: no page plan" and an `alert-warning` (#numbers-unavailable) pointing to Finalise. No change to book_pdf_generator.py, print order or band text (G-1).
+- [Impl] Template book_detail.html: "#" cell prints `member.number` (`data-printed-number`) or "—" + `subtle` reason (`data-unprinted`); the banner reuses the arrange screen's `alert alert-warning` pattern. No new tokens/classes.
+- [G-2] One CARD-158 test updated: `TestBookDetail_ListsPuzzlesByTitle::test_a_member_whose_puzzle_is_gone_is_labelled_by_its_id` asserted the stored-order listing with the missing member first; under AC-1 (print order) a member with no record is not printed and is listed last. Only the expected order of its three assertions changed (title/tier/id checks kept). `_Page` parser extended additively to read the "#" cell (`hash`).
+- [AC map] AC-1 → TestBookDetail_NumbersPuzzlesLikeTheBook (print-order listing; 1..n; each "#" equals the band text the real `/download-pdf` interior draws, captured by spying `_puzzle_payload` and identifying pages by row clues; repeated id numbered twice; stored order not rewritten; seeded 14-book corpus vs two oracles — a stable level sort written in the test, and the export plan's `numbers` resolved via `SectionPlan.ids` over `get_puzzle` rows — asserting ≥3 undrawable and ≥3 missing cases). AC-2 → TestBookDetail_UndrawableMemberHasNoNumber (dash + reason, next row takes next number; other numbers equal the exported bands; no-record member; unreadable trim → banner + warning, no traceback; unexpected failure → traceback logged; intact book has no banner).
+- [Tests] tests/test_book_detail_page.py (37), tests/test_book_arrange_page_breaks.py, tests/test_cli.py, tests/test_book_pdf_levels.py — 169 passed.
+- Mutation self-check: number from 0 → caught by test_numbers_run_from_one_down_the_table (+6)
+- Mutation self-check: stored order instead of print order (iterate rows, not plan.puzzles) → caught by test_lists_a_mixed_stored_order_in_print_order (+3)
+- Mutation self-check: number undrawable rows (enumerate plan.puzzles) → caught by test_shows_a_dash_and_a_reason_instead_of_a_number, test_the_other_numbers_still_match_the_pdf, corpus test
+- Mutation self-check: skip the no-record case → caught by test_a_member_with_no_record_has_no_number, corpus test, CARD-158's gone-member test
+- Mutation self-check: no copy of records (repeated id collides) → caught by test_a_repeated_member_is_numbered_at_each_place_it_prints
+- Mutation self-check: template prints loop.index → caught by AC-2 tests + corpus test
+- Mutation self-check: template shows a number for an unprinted row → caught by AC-2 tests + corpus test
+- Mutation self-check: drop the (RuntimeError, ValueError) clause → caught by test_a_book_whose_page_plan_cannot_be_built_shows_no_numbers
+- Mutation self-check: unexpected failure logged as warning → caught by test_an_unexpected_plan_failure_is_logged_with_its_traceback
+- Mutation self-check: no failure banner → caught by both plan-failure tests
+- [Renders] ~/Documents/nonogram-reviews/CARD-165/a-mixed-levels.{html,png}, b-undrawable-and-missing.{html,png}, c-no-page-plan.{html,png} (CSS inlined; PNG via playwright chromium). Script: scratchpad card165_render.py.
+- DESIGN-REGISTER book-detail puzzle table "#" cell, unprinted state — "—" (aria-hidden) over a `subtle` one-line reason; plus a "numbers unavailable" `alert alert-warning` above the table (same pattern as the arrange screen's #page-plan-unavailable).
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/templates/book_detail.html, tests/test_book_detail_page.py
+- [System contract] fresh assembly (system_rules.py --card CARD-165) = card section, 52 rules — no refresh needed
+- [Build gate] impact underivable (python-pro, no pytest-testmon; test_scope full) — full suite
+- [Build gate] PASSED (full, 498s) — 6052 passed, 9 skipped, 0 failed
+- [Scope gate] in_scope — 3/3 files within Touches; book_pdf_generator.py untouched (G-1)
+- [Review 1/3] Score: 9.0 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h coverage: 52/52 card rules have a verdict line (11 holds, 41 unchecked no_eligible_fact, 0 violated)
+- [Review 1/3] Mutation check (reviewer): 7 mutants, 6 killed, 1 survived (M4 fallback de-dup of repeated ids → F-003 Minor)
+- [Review 1/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0033/R1) — caveats: ADR-0033/R1 copy cited at app.py:4787 is at :4788; its cited test checks order only, the hold rests on the code read
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-1 ✓ demonstrated — TestBookDetail_NumbersPuzzlesLikeTheBook 6/6 PASSED (print-order listing; band "Puzzle N · Tier" spied from a real /download-pdf; 14-book seeded corpus vs two oracles)
+  AC-2 ✓ demonstrated — TestBookDetail_UndrawableMemberHasNoNumber 6/6 PASSED (cells 1, — Not printed: cannot be drawn, 2, 3; other rows equal exported bands)
+  G-1 ✓ demonstrated — no diff under book_pdf_generator.py / book_plan.py / export/**; test_book_pdf_levels, test_book_pdf_band, test_book_level_order green (141 passed)
+  G-2 ✓ demonstrated — test_book_detail_page.py 37 passed; one CARD-158 test re-ordered only (missing member last, per AC-1), all title/tier/id assertions kept
+  G-3 ✓ demonstrated — test_titles_are_read_in_one_pass PASSED (one get_puzzles, get_puzzle raises); section_plan does no DB work; in-memory mode only
+- [Docs] forge:readme — no structural change (no new files/dirs); src/nonogram/admin has no README (per-directory README convention is an open owner decision); tests/README.md current
+- [Commit] success commit 6b71dec (implementation commit; no further card changes outside meta/ — nothing left for /commit)
+- [Review] open Minor findings: F-001 (AC-1 band spy sees one-up pages only; no pairing fixture), F-002 (banner points to Finalise on the unexpected-failure path too), F-003 (fallback with repeated id untested, mutant M4 survived); out-of-scope F-004 (components.md DataTable state — DESIGN-REGISTER at merge)
+- [Merged] 2026-10-04 — 3e14de2 into main (--no-ff). Merge gate: rebase was a no-op (main still at 4899076 = branch base); the merged tree is the one that passed the full suite (6052 passed, 0 failed); not re-run. Deferral scan: 0 hits. DESIGN-REGISTER applied (components.md: book detail printed-number cell + no-plan banner). F-001..F-003 captured to backlog.

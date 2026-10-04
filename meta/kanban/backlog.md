@@ -73,6 +73,7 @@ card names its card._
 - [ ] CARD-168 F-002 (pre-existing): scripts/README.md "Manual Commands" still runs bare `pytest` with DATABASE_URL defaulting to nonogram_poc, which the test guard refuses; F-001: render.md's env table omits PYTHONUNBUFFERED (set in render.yaml); F-003: the 2026-09-23 incident evidence render.md cites is recorded nowhere in the repo   @tech-debt
 - [ ] CARD-164 F-002: five sibling tests in tests/e2e/test_admin_workflow.py (test_tc_001, test_preview_page_displays_original_image, test_metadata_shown_on_preview, test_tc_002, test_tc_003 — lines ~86/100/112/130/170) still post the dead `images` field and pass on the "No images selected" redirect — hollow the same way test_size_configuration_applied was   @tech-debt
 - [ ] CARD-164 F-001 (minor): test_size_configuration_applied posts field names straight to the route, so renaming the step-1 form's `default_size` select leaves it green (mutant M8) — GET /batch/create and assert the field names, or narrow the docstring   @tech-debt
+- [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the single-puzzle-page path (no shared two-up fixture); the no-plan banner points to Finalise even when the cause is a code bug; the stored-order fallback with a repeated id is untested (mutant survived)   @tech-debt
 
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
