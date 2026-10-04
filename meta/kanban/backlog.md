@@ -69,6 +69,8 @@ card names its card._
 - [ ] Wave-31 goal-check: the picture name is in the player's page source before solve (hidden solved banner, puzzle_solve.html ~:55) — not visible, AC-322 holds, and CON-021 already ships the solution in the page; matters only for a public player   @feature
 - [ ] Wave-31 goal-check (requirements incomplete): FR-044 leaves two player rules unstated — a drag follows the line of its FIRST move away from the start cell (a drag that slips down first follows the column), and board cells are pointer-only (the statement says "every control" is keyboard-reachable; AC-310 covers only tools/undo/redo/reset). Formalise at /forge:architect   @tech-debt
 - [ ] ADR-0038/R8 requires CI to run `playwright install chromium`, but the repo has no CI configuration; add it when CI exists (or record the rule as local-only)   @ops
+- [ ] CARD-168 owner action: fill the TODO(owner) rows in docs/deploy/render.md from the Render dashboard (service type, Python version, Build/Start Command, env var names, migrations on deploy)   @ops
+- [ ] CARD-168 F-002 (pre-existing): scripts/README.md "Manual Commands" still runs bare `pytest` with DATABASE_URL defaulting to nonogram_poc, which the test guard refuses; F-001: render.md's env table omits PYTHONUNBUFFERED (set in render.yaml); F-003: the 2026-09-23 incident evidence render.md cites is recorded nowhere in the repo   @tech-debt
 
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt

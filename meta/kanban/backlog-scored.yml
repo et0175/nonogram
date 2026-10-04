@@ -87,7 +87,7 @@ ideas:
     they can be drift-checked   @ops'
   category: ops
   intent: null
-  status: in_kanban
+  status: done
   method: fifo
   scores: null
   created_at: 3
@@ -844,7 +844,7 @@ ideas:
     examples export a `nonogram_test` URL. Change the default?   @ops'
   category: ops
   intent: null
-  status: in_kanban
+  status: done
   method: fifo
   scores: null
   created_at: 36

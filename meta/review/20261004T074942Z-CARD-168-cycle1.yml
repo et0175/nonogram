@@ -1,0 +1,138 @@
+version: 1
+generated_at: "2026-10-04T07:49:42Z"
+target: "card/168-ops-housekeeping (7e57b1c...edc3de8)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "docs/deploy/render.md"
+    - "render.yaml"
+    - "scripts/README.md"
+    - "scripts/run_admin_tests.sh"
+    - "tests/helpers/admin_scripts.py"
+    - "tests/test_run_admin_tests.py"
+    - "tests/test_setup_admin_local.py"
+    - "Procfile"
+    - "start.sh"
+    - "runtime.txt"
+    - "src/nonogram/admin/app.py (env reads)"
+    - "src/nonogram/db/session.py (env reads)"
+    - "migrations/env.py (env reads)"
+    - "meta/kanban/cards/CARD-168.md"
+  not_reached:
+    - "Render dashboard (by design; doc marks every dashboard value TODO(owner))"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 206, removed: 20 }
+  max_fan_in: { symbol: "ExportedDatabaseUrlContract.DEFAULT_DB", callers: 2 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable - shell scripts/docs/tests; the declared co-change peers (setup_admin_local.sh, start_admin_local.sh) are intentionally untouched per G-4"
+
+mutation_check:
+  ran: true
+  mutants:
+    - "run_admin_tests.sh default reverted to nonogram_poc -> killed (DefaultsToTheTestDatabase failures)"
+    - "run_admin_tests.sh exported source relabelled 'project default' -> killed (test_an_exported_url_still_wins_and_is_named_as_the_source)"
+    - "setup_admin_local.sh default changed to nonogram_test -> killed (test_each_script_defaults_to_its_own_database)"
+  tree_restored: true
+
+task_contract:
+  - "AC-1 ✓ met - render.yaml lines 1-10 header says NOT AUTHORITATIVE and names docs/deploy/render.md; render.md lists service type, Python version, Build/Start/Pre-Deploy commands, Auto-Deploy, migrations-on-deploy, env var names; every dashboard value is TODO(owner)"
+  - "AC-2 ✓ met - run_admin_tests.sh:35 default nonogram_test; TestRunAdminTests_DefaultsToTheTestDatabase (3 tests) passes and kills the revert/relabel mutants"
+  - "G-1 ✓ holds - tail -n +11 render.yaml | cmp against 7e57b1c:render.yaml -> identical"
+  - "G-2 ✓ holds - render.md contains env var names only; no values, no credentials (grep for password/secret/postgres: found none)"
+  - "G-3 ✓ holds - new tests use run_script's psql model + pytest stub; DATABASE_URL/PG* stripped from env"
+  - "G-4 ✓ holds - setup_admin_local.sh/start_admin_local.sh not in diff; identity check still compares the full resolution body (>=20 lines, exact) and the excluded DEFAULT line is now pinned exactly per script (strictly stronger for the defaults)"
+  - "SCOPE+ necessary - shared ExportedDatabaseUrlContract and CARD-152 identity check both hard-coded the poc default line; without the change AC-2 is untestable against the shared contract"
+
+system_contract:
+  rules_checked: 7
+  holds: 0
+  unchecked: 7
+  violated: 0
+  verdicts:
+    - "ADR-0038/R7 ⚠ unchecked - no_eligible_fact: diff does not touch pyproject.toml or browser tests"
+    - "ADR-0038/R8 ⚠ unchecked - no_eligible_fact: no browser tests touched"
+    - "CON-005 ⚠ unchecked - no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked - no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked - no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked - no_eligible_fact: grid-size validation untouched"
+    - "CON-012 ⚠ unchecked - no_eligible_fact: aspect guard untouched"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: ops
+    type: gap
+    file: docs/deploy/render.md
+    line: 46
+    title: "Env var table omits PYTHONUNBUFFERED"
+    description: |
+      render.yaml sets PYTHONUNBUFFERED=1 alongside PYTHON_VERSION; the doc lists PYTHON_VERSION
+      (read by Render's runtime) but not PYTHONUNBUFFERED (read by the Python interpreter), so the
+      drift check's name comparison starts from an incomplete list. Covered loosely by the
+      "add any other names" TODO.
+    suggestion: |
+      Add a PYTHONUNBUFFERED row (read by the Python interpreter; dashboard presence TODO(owner)).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: ops
+    type: gap
+    file: scripts/README.md
+    line: 206
+    title: "Manual Commands still runs bare pytest against nonogram_poc"
+    description: |
+      The Manual Commands block exports DATABASE_URL defaulting to nonogram_poc and then runs
+      pytest (lines 218-225), which tests/database_guard.py refuses at start-up -- the same
+      failure this card fixed for run_admin_tests.sh. Pre-existing and noted in Worktree notes
+      as a backlog candidate; not part of the card's AC.
+    suggestion: |
+      Either add a note before the pytest lines to export a *_test DATABASE_URL, or file the
+      backlog item the Worktree notes mention.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: ops
+    type: question
+    file: docs/deploy/render.md
+    line: 49
+    title: "Incident evidence is dated but its record is not in the repo"
+    description: |
+      The sample Werkzeug log line, "three redeploys", and the python3.14 venv path are dated
+      2026-09-23 observations; they match the owner's incident notes but no repo artifact holds
+      them, so a later reader cannot trace them.
+    suggestion: |
+      Name the source of the observation (owner's 2026-09-23 incident notes / CARD-139 era) in
+      one clause.
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

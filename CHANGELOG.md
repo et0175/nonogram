@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-04
+- CARD-168 (ops): `render.yaml` now says plainly that it isn't what production runs. The Render service is set up in the dashboard, which is how four redeploys on 2026-09-23 changed nothing. A new `docs/deploy/render.md` records what production actually uses, with the dashboard-only values marked for you to copy in, and a check to run after any deploy change. The test-runner script now defaults to the `nonogram_test` database, which the test suite accepts, instead of one the tests refuse.
+
 ## 2026-10-03
 - CARD-163 (feature): The puzzle player no longer gives the answer away. The page header and browser tab used to show the picture's name before you'd even started. Now they show the size and difficulty ("Puzzle 25x15 · MEDIUM"), and the name appears only when you solve it, the same way the printed book keeps titles off the puzzle pages.
 - CARD-162 (feature): The puzzle player is complete. An error counter shows how many marks are currently wrong. It goes down when you fix or undo one, and blank cells never count. When the picture is finished, the board locks, a banner names the picture and a short animation plays, or no animation if your computer asks for reduced motion. Reset now asks first, in the page itself, and can still be undone.
