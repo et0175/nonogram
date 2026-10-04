@@ -137,6 +137,12 @@
         </div>
         {% endif %}
 
+        {% if book.puzzle_ids and number_plan_failed %}
+        <div class="alert alert-warning" role="status" id="numbers-unavailable">
+            <strong>The printed puzzle numbers could not be worked out for this book.</strong>
+            The puzzles are listed in stored order, with no numbers. <a href="{{ url_for('finalize_book', book_id=book.book_id) }}">Finalise</a> reports what the book's print setup cannot lay out.
+        </div>
+        {% endif %}
         {% if book.puzzle_ids %}
         <div class="table-responsive">
             <table class="table table-sm">
@@ -151,10 +157,17 @@
                 <tbody>
                     {#- CARD-158: each member by its title (custom title, else the
                         puzzle's name, as Finalise names it). The id stays under it,
-                        muted, because the "Add puzzles by ID" form below takes ids. -#}
+                        muted, because the "Add puzzles by ID" form below takes ids.
+                        CARD-165: rows come in print order and "#" is the number the
+                        printed band carries; a row with no number we can vouch for
+                        shows "—" and why. -#}
                     {% for member in members %}
                     <tr data-puzzle-id="{{ member.id }}">
-                        <td class="text-end">{{ loop.index }}</td>
+                        {%- if member.number %}
+                        <td class="text-end num" data-printed-number="{{ member.number }}">{{ member.number }}</td>
+                        {%- else %}
+                        <td class="text-end" data-unprinted="{{ member.unprinted }}"><span aria-hidden="true">—</span><div class="subtle">{{ member.unprinted }}</div></td>
+                        {%- endif %}
                         <td>
                             <span class="name">{{ member.title }}</span>
                             <div class="subtle">{{ member.id }}</div>

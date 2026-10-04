@@ -4761,20 +4761,71 @@ def create_app(debug=None):
         # The title falls back exactly as Finalise's does: the book's custom
         # title, then the puzzle's name, then its id.
         records = puzzle_review.get_puzzles(book.puzzle_ids)
-        members = []
+
+        def member(puzzle_id, record, number=None, unprinted=None):
+            return {
+                "id": puzzle_id,
+                "title": (
+                    book.puzzle_titles.get(puzzle_id)
+                    or record.get("puzzle_name")
+                    or str(puzzle_id)
+                ),
+                "tier": record.get("difficulty_tier"),
+                # The "Puzzle N" its band prints, or None and the reason shown.
+                "number": number,
+                "unprinted": unprinted,
+            }
+
+        # CARD-165 (FR-041, FR-043): the "#" is the number the printed band
+        # carries, read from the plan the export draws from (`section_plan`);
+        # the page decides no order of its own. The plan is fed what
+        # `_book_puzzles` feeds the export — the records that exist, in
+        # book.puzzle_ids order. Each is a copy, so a repeated id is two rows
+        # here as it is two rows there; rows are matched back by identity.
+        rows, row_ids = [], {}
         for puzzle_id in book.puzzle_ids:
-            record = records.get(puzzle_id) or {}
-            members.append(
-                {
-                    "id": puzzle_id,
-                    "title": (
-                        book.puzzle_titles.get(puzzle_id)
-                        or record.get("puzzle_name")
-                        or str(puzzle_id)
-                    ),
-                    "tier": record.get("difficulty_tier"),
-                }
+            if puzzle_id in records:
+                row = dict(records[puzzle_id])
+                rows.append(row)
+                row_ids[id(row)] = puzzle_id
+        number_plan_failed = False
+        try:
+            plan = BookPDFGenerator(book).section_plan(rows)
+        except (RuntimeError, ValueError) as e:
+            # The failures the seam declares (see the arrange route).
+            app.logger.warning("No page plan for book %s's page: %s", book_id, e)
+            number_plan_failed = True
+        except Exception:
+            app.logger.exception(
+                "The book page's page plan failed unexpectedly for book %s",
+                book_id,
             )
+            number_plan_failed = True
+
+        if number_plan_failed:
+            # No numbers we can vouch for: the stored order, every "#" a dash.
+            members = [
+                member(p, records.get(p) or {}, unprinted="Number unknown: no page plan")
+                for p in book.puzzle_ids
+            ]
+        else:
+            numbers = {id(row): n for n, row in enumerate(plan.printed, start=1)}
+            members = [
+                member(
+                    row_ids[id(row)],
+                    row,
+                    numbers.get(id(row)),
+                    None if id(row) in numbers else "Not printed: cannot be drawn",
+                )
+                for row in plan.puzzles
+            ]
+            # A member with no record is not in the export at all
+            # (`_book_puzzles` skips it); listed after the planned rows.
+            members += [
+                member(p, {}, unprinted="Not printed: puzzle not found")
+                for p in book.puzzle_ids
+                if p not in records
+            ]
 
         # CARD-158 (FR-030): the trim Print setup stored on the book, read
         # through the door Finalise reads it through. A book whose trim
@@ -4787,6 +4838,7 @@ def create_app(debug=None):
             "book_detail.html",
             book=book,
             members=members,
+            number_plan_failed=number_plan_failed,
             trim_set=trim_set,
             trim_width_cm=trim_width_cm,
             trim_height_cm=trim_height_cm,
