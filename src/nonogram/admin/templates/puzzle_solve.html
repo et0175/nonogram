@@ -25,7 +25,7 @@
   board does not move).
 
   The picture name is the answer (CARD-163, FR-044 AC-322/AC-323): the
-  header and the tab title show the grid's width x height and its tier,
+  header and the tab title show the grid's width × height and its tier,
   never the name; the solved banner is the only place this page shows it.
   solver.js touches neither the header nor the tab title. Its text is
   announced through #puzzle-player-announce, a visually hidden live region
@@ -37,12 +37,12 @@
 {% import '_tier.html' as tier %}
 {% import '_icons.html' as icons %}
 
-{% block title %}Puzzle {{ extent[0] }}x{{ extent[1] }}{% if tier_label %} · {{ tier_label }}{% endif %} - Nonogram admin{% endblock %}
+{% block title %}Puzzle {{ extent[0] }}×{{ extent[1] }}{% if tier_label %} · {{ tier_label }}{% endif %} - Nonogram admin{% endblock %}
 {% block section %}Puzzles{% endblock %}
 
 {% block content %}
 <div class="page-head player-head">
-    <h1>Puzzle {{ extent[0] }}x{{ extent[1] }}</h1>
+    <h1>Puzzle {{ extent[0] }}×{{ extent[1] }}</h1>
     {% if tier_label %}<span class="player-tier">{{ tier.badge(tier_label) }}</span>{% endif %}
 </div>
 

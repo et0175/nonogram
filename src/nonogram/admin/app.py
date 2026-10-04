@@ -3821,7 +3821,10 @@ def create_app(debug=None):
         difficulty = request.values.get("difficulty")
         quality_min = request.values.get("quality_min", type=int)
         theme = request.values.get("theme")
-        status = request.values.get("status", "approved")  # Default to approved only
+        # Approved only by default — and an empty ``?status=`` is no status,
+        # so it keeps that default instead of switching the filter off
+        # (CARD-166, IDEA-013). An explicit value filters as given.
+        status = request.values.get("status") or "approved"
         puzzle_name = request.values.get("puzzle_name")
         limit = request.values.get("limit", _SELECT_PAGE, type=int)
         offset = request.values.get("offset", 0, type=int)
