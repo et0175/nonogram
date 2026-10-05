@@ -1,0 +1,177 @@
+version: 1
+generated_at: "2026-10-05T12:54:42Z"
+target: "card/188-player-circle-solved-clues (main...HEAD c1241c4, 5060056) + uncommitted fix-cycle-1 delta (admin.css, solver.js, tests/test_puzzle_solver_clues.py)"
+mode: "confirmation (differential re-review, cycle 2 of 3)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff (fix delta) in full: admin.css 487-511, solver.js 310-316, tests/test_puzzle_solver_clues.py 20-25, 469-675"
+    - "admin.css player block 372-511 (board sizing clamp, clue box rules)"
+    - "CARD-188 Worktree notes [Fix 1] lines 298-316, DESIGN-REGISTER lines 268/297/316"
+    - "meta/design/components.md ClueBox"
+    - "previous report meta/review/20261005T114751Z-CARD-188-cycle1.yml"
+    - "~/Documents/nonogram-reviews/CARD-188/30x30-* renders (board, row-clue, col-clues-0, zoomed crop)"
+    - "scratch probes (temp test file created and deleted; git status verified clean): 30x30 at 1440x900, 1100x700, 900x600, 390x844 + a 1100x700 screenshot in the scratchpad"
+  not_reached:
+    - "runtime.log / a11y.log / baseline diffs (review.visual off)"
+    - "browsers other than Chromium; DPR other than 1 (probe) and 2 (owner renders)"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 117, removed: 40 }
+  max_fan_in: { symbol: "admin.css .player-board .player-clue-num::before", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css (23 commits / 12 months, 8 fix-tagged)"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — CSS rule and a comment-only JS change; no exported symbol changed in the delta"
+    cochange_missing: "not_applicable — confirmation mode: the co-change gate was run on the card diff in cycle 1; the delta adds no file"
+tests_run:
+  - "tests/test_puzzle_solver_clues.py, _marking.py, _page.py, _progress.py, _phone.py, tests/test_admin_design_tokens.py: 213 passed, exit 0"
+  - "probe 30x30 1440x900: cell 17.67, min digit clearance 0.92 px, min ring gap 0.53 px, column ring laps 0.50 px onto vertical rules, geometry unchanged by circling"
+  - "probe 30x30 1100x700 and 900x600: cell 14 (--player-cell-min), min clearance 0.69 px, min ring gap 0.00 px (4 touching pairs, e.g. '30' col rings 335.55-349.05 | 349.05-362.55), column ring laps 0.75 px onto vertical rules, row ring laps 0.16 px onto horizontal rules; unsolved board: 83 circled, 0 boxes changed"
+  - "probe 30x30 390x844: cell 24, min clearance 1.63 px, min ring gap 0.91 px, lap 0.31 px; unsolved board: 0 boxes changed"
+mutation_check: "8f-mutation: deferred(cost) — gating findings present; certify on the stable cycle"
+previous_findings:
+  - "F-001 ✓ resolved — ring is .player-clue-num::before, width max(circle, digits*1ch + 2*(0.05 cell + ring)); pill at every measured size (1440: 16.66x15.55, floor 14 px: 13.5x12.31, 390: 22.61x21.11), digit clearance >= 0.69 px everywhere; new test_two_digit_rings_clear_their_digits_on_a_30x30[desktop,phone] passed; 30x30 renders added. Residual crowding at the 14 px floor is the new F-004."
+  - "F-002 ✓ resolved — test_the_outline resolves --grid-ink via a probe element (_GRID_INK) and asserts look['colour'] == ink (tests/test_puzzle_solver_clues.py:623-630)"
+  - "F-003 ✓ resolved — git diff shows every round() removed from admin.css; grep 'round(' in the player block: none"
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean): delta touches no pyproject.toml"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): src/nonogram/web/ not in delta"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: re-checked, the delta changes no function signature or request field (CSS + comment + test only)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): image fitting not in delta"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): --size parsing not in delta"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): orchestrator not in delta"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): sourcing not in delta"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): difficulty/solver not in delta"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): admin storage .py not in delta"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): books not in delta"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): layout not in delta"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "ADR-0038/R1 ✓ holds — re-verified: delta is hand-written static CSS/JS + one test file (git diff --stat); no package.json/bundler"
+    - "ADR-0038/R2 ✓ holds — re-verified: delta adds no fetch (solver.js delta is one comment line); TestSolverMarking_NoRequestPerMark in the 213-passed run"
+    - "ADR-0038/R3 ✓ holds — re-verified: circledClues call unchanged (solver.js delta comment-only); TestSolverPage_ShowsTheClues in the 213-passed run"
+    - "ADR-0038/R4 ✓ holds — re-verified: solver_state.js not in delta; test_the_state_module_touches_no_dom in the 213-passed run"
+    - "ADR-0038/R6 ✓ holds — re-verified: git diff main...HEAD and git diff of src/nonogram/admin/*.py and templates/ empty; payload unchanged"
+    - "ADR-0038/R7 ✓ holds — re-verified: pyproject.toml unchanged; new 30x30 test uses existing browser_page fixture"
+    - "ADR-0038/R8 ✓ holds — re-verified: test_two_digit_rings_clear_their_digits_on_a_30x30 takes browser_page (loud pytest.fail without pytest_playwright, per cycle 1)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): solver not in delta"
+    - "CON-009 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: re-checked (scope project-wide, not carriable); delta changes no size limit, only renders the existing 30x30 maximum"
+    - "CON-012 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "CON-015 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): admin entry point not in delta"
+    - "CON-016 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "CON-021 ✓ holds — re-verified: circles remain a class toggle in the admin player; delta adds no route/template/Python; nothing stored or sent"
+    - "INV-001 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): clues.py not in delta"
+    - "INV-002 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-003 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-005 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-006 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-007 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-008 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-009 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-010 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-011 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+    - "INV-013 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean)"
+task_contract:
+  - "AC-1 ✓ — re-run (test file in delta): test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot passed in the 213 run; solver_state.js unchanged"
+  - "AC-2 ✓ — re-run: TestSolverClues_RuleExamples passed"
+  - "AC-3 ✓ — re-run: test_PropertyTest_SolverClues_AFullyMarkedLineCirclesEverything passed"
+  - "AC-4 ✓ — re-run: test_PropertyTest_SolverClues_BoardIsLineByLine passed"
+  - "AC-5 ✓ — re-run: TestSolverClues_CirclesFollowEveryCommit passed"
+  - "AC-6 ✓ — re-run: TestSolverClues_AmbiguousRunStaysUncircled passed"
+  - "AC-7 ✓ — re-run: TestSolverClues_DragPreviewDoesNotCircle passed"
+  - "AC-8 ✓ — TestSolverClues_CirclingMovesNothing[desktop,phone] passed (15x15); probe: unsolved 30x30 with 83 circles changes 0 cell/clue/number/digit boxes at 1100, 900 and 390; ring is position:absolute so circling is a colour change only"
+  - "AC-9 ✓ — test_the_outline reads the ::before computed style: border>0 solid, round radius, colour == resolved --grid-ink != background, width >= text; two-digit pill border-box width >= text + 2 borders and > height; passed at 1440 and 390"
+  - "AC-10 ✓ — 15x15 renders (desktop + 390, two-digit pills, owner's 2 2 uncircled) plus 30x30 board/row/col renders at 1440 and 390 present and looked at; rings visibly lap the vertical rules at 1440 (F-005); no render at the 14 px cell floor (F-004)"
+  - "G-1 ✓ — carried(cycle 1, delta-clean) for test_puzzle_solver_marking.py / _page.py / _progress.py (not in delta, git diff empty); behavioural half re-verified: all three files in the 213-passed run"
+  - "G-2 ✓ — re-verified: solver_state.js not in delta; colour-literal scan of the src delta: no hex/rgb/hsl/px; test_the_scripts_carry_no_colour_literals passed"
+  - "G-3 ✓ — re-verified: solver.js delta is one comment line; no request, payload unchanged"
+  - "G-4 ✓ — re-verified: delta changes CSS only; marking/progress files passed"
+  - "G-5 ✓ — git diff main...HEAD and git diff -- src/nonogram/solver src/nonogram/clues.py: empty"
+  - "G-6 ✓ — re-verified: circles are still only a class on spans; nothing stored or sent"
+root_causes:
+  - id: RC-1
+    title: "The out-of-layout ring is sized from the cell and digits only, not bounded by the column's content box or pitch, and is centred on the span (half a rule-width off the column centre); only 1440 and 390 are tested, not the 14 px cell floor"
+    finding_ids: [F-004, F-005]
+findings:
+  - id: F-004
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_clues.py
+    line: 606
+    title: "The 30x30 ring test claims the smallest desktop cell (about 17 px) but the floor is 14 px, where neighbouring two-digit rings touch"
+    description: |
+      The class docstring says the 30x30 at 1440 is "the smallest desktop cell, about 17 px", and the
+      test asserts there that no two rings touch (the CSS comment admin.css:496-498 likewise ties
+      "touches no other ring" to 17 px / 24 px cells). But the board clamps the cell at
+      --player-cell-min: 14px (admin.css:384, used by the clamp at 399-402), and a 30x30 reaches it
+      on ordinary desktop windows: probe at 1100x700 and 900x600 measured cell 14, ring 13.5 x 12.31,
+      min ring gap 0.00 px with 4 touching pairs (e.g. adjacent "30" column rings at 335.55-349.05 and
+      349.05-362.55), digit clearance 0.69 px, column rings lapping 0.75 px onto the vertical rules
+      and row rings 0.16 px onto the horizontal rules. Cause: the ring is centred on the span, whose
+      box excludes the th's right rule, so the column before a heavy rule and the heavy column sit
+      13.5 px apart centre-to-centre while the ring is 13.5 px wide. A DPR-1 screenshot at 1100x700
+      (scratchpad c188_1100_cols_x6.png) shows the fused pairs. The docstring makes the 17 px case
+      read as the worst case and hides the untested floor (intent vs reality drift, fix-introduced).
+    suggestion: |
+      Add the 14 px floor to test_two_digit_rings_clear_their_digits_on_a_30x30 (e.g. a 1100x700
+      viewport, assert cell == 14) and correct the docstring. Then make the ring fit it: centre the ring
+      on the column rather than the span (offset left by half the th's right border), and/or cap
+      --player-ring at the cell pitch less a small gap (min(..., cell - 2*ring width)) while keeping
+      the 0.5 px digit clearance. Add a floor-size render for the owner (AC-10).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 505
+    title: "Column pills lap onto the vertical column rules (0.5 px at 1440, 0.75 px at the floor); owner call"
+    description: |
+      The known limitation in the [Fix 1] notes, confirmed by measurement and visible in
+      30x30-desktop-1440-board.png: next to a heavy rule the "30" and "22" pills both cross it and
+      read as joined. Spec 8 does not forbid it and the CSS comment does not claim otherwise, so this
+      is an owner-visible trade-off (keeping the ring inside the content box leaves about 0.45 px of
+      digit clearance), not a contract break.
+    suggestion: "Ask the owner at AC-10 whether lapping the rules is acceptable; if not, the F-004 re-centring/cap addresses both."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

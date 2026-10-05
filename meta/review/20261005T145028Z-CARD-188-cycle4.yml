@@ -1,0 +1,180 @@
+version: 1
+generated_at: '2026-10-05T14:50:28Z'
+target: card/188-player-circle-solved-clues vs main 5567118 (git diff main...HEAD, head c38f9e1)
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+cycle: 4
+mode: confirmation
+coverage:
+  read:
+  - src/nonogram/admin/static/admin.css (card block + player block 378-430)
+  - src/nonogram/admin/static/solver.js (diff)
+  - src/nonogram/admin/static/solver_state.js (diff)
+  - tests/test_puzzle_solver_clues.py (full)
+  - tests/test_puzzle_solver_marking.py (diff)
+  - meta/kanban/cards/CARD-188.md (Fix 3/Fix 4 notes, DESIGN-REGISTER lines)
+  - meta/design/components.md ClueBox
+  - ~/Documents/nonogram-reviews/CARD-188/ (mid-solve 1440/390 board, 30x30 floor/1440/390 row-clue crops, floor col-clues zoom)
+  not_reached:
+  - 'full suite not re-run by reviewer (orchestrator at c38f9e1: 6440 passed, 9 skipped)'
+  - no automated screenshot/runtime.log/a11y scan (review.visual off); no device-scale-1 render (F-008)
+  confidence: high
+  tests_run:
+  - 'tests/test_puzzle_solver_{clues,marking,page,progress,phone}.py + tests/test_admin_design_tokens.py: 142 passed, 0 skipped, exit 0 (incl. TestSolverPageFits, CARD-182 phone tests)'
+metrics:
+  diff:
+    files: 5
+    added: 871
+    removed: 2
+  fix_delta:
+    files: 3
+    added: 167
+    removed: 40
+    range: 1b42098..c38f9e1
+  max_fan_in:
+    symbol: solver_state.js circledClues
+    callers: 1
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/static/admin.css (21 commits/12mo on main, 8 fix)
+  cochange_missing: []
+  main_overlap: git diff 2e40c96..main touches admin.css (+5, CARD-182 phone floor, outside the card block) and adds tests/test_puzzle_solver_phone.py; phone tests pass on the card head
+previous_findings:
+- 'F-006 resolved — fresh: test_two_digit_rings_clear_their_digits_on_a_30x30 asserts 30 row clue boxes one cell tall (±0.001) and every ring''s h/v centre within 0.5 px of its digits'' text box at 14/17.67/24
+  px cells; reviewer mutants M6 (top +1px), M7 (left -1px), M8 (margin /-2 -> /-4), M9 (row line-height removed) all KILLED'
+- 'F-007 resolved — fresh: STOPS rows ((1,2) WWWWWWWWWD, (2,1) DWWWWWWWWW) present; reviewer mutant M2 end<length -> end<=length KILLED by test_a_mismatched_closed_run_stops_its_walk'
+- 'F-009 resolved — fresh: tolerance is _RING_GAP - 1/64 and the comment says one 1/64 px layout unit (tests/test_puzzle_solver_clues.py:701-707)'
+- F-005 still open (owner call, Minor) — floor col-clues zoom still shows pills lapping onto column rules; recorded [Known, not claimed]
+- F-008 still open (Minor) — all renders still device scale 2
+mutation_check:
+  status: ran
+  runner: scratchpad/card188_rev4_mutate.py (exact string replace, pytest -x on narrowest test, restore captured bytes, sha1 + cmp verify)
+  restore_verified: true
+  whole_diff_sanity: git diff HEAD sha1 821de9c9... and git diff --cached (empty) identical before and after; cmp of all three static files against captured copies OK; git status --short shows no src/tests
+    change
+  mutants:
+  - 'M1 solver_state.js walkIn mismatch !== -> < : KILLED by TestSolverClues_RuleExamples::test_a_mismatched_closed_run_stops_its_walk'
+  - 'M2 solver_state.js walkIn end<length -> end<=length : KILLED by test_a_mismatched_closed_run_stops_its_walk'
+  - 'M3 solver_state.js 0-clue every(EMPTY) -> every(!== FILLED) : KILLED by test_each_row_circles_what_the_table_says'
+  - 'M4 solver_state.js rule B closedRight = true : KILLED by test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot'
+  - 'M5 solver.js paintCircles toggle -> add only (never clears) : KILLED by TestSolverClues_CirclesFollowEveryCommit'
+  - 'M6 admin.css ring top +1px : KILLED by test_two_digit_rings_clear_their_digits_on_a_30x30[floor]'
+  - 'M7 admin.css ring left -1px : KILLED by test_two_digit_rings_clear_their_digits_on_a_30x30[floor]'
+  - 'M8 admin.css row margin /-2 -> /-4 : KILLED by test_two_digit_rings_clear_their_digits_on_a_30x30[floor]'
+  - 'M9 admin.css row line-height removed : KILLED by test_two_digit_rings_clear_their_digits_on_a_30x30[floor]'
+  - 'M10 admin.css ring cap - --player-ring-gap removed : KILLED by test_two_digit_rings_clear_their_digits_on_a_30x30[floor]'
+task_contract:
+- 'AC-1 ✓ fresh: test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot passed (6000 seeded lines, in-test minimums); M4 killed'
+- 'AC-2 ✓ fresh: TestSolverClues_RuleExamples ROWS equal the card table; M1, M2, M3 killed'
+- 'AC-3 ✓ fresh: test_PropertyTest_SolverClues_AFullyMarkedLineCirclesEverything passed'
+- 'AC-4 ✓ fresh: test_PropertyTest_SolverClues_BoardIsLineByLine passed'
+- 'AC-5 ✓ fresh: TestSolverClues_CirclesFollowEveryCommit passed; M5 killed'
+- 'AC-6 ✓ fresh: TestSolverClues_AmbiguousRunStaysUncircled passed'
+- 'AC-7 ✓ fresh: TestSolverClues_DragPreviewDoesNotCircle passed'
+- 'AC-8 ✓ fresh: TestSolverClues_CirclingMovesNothing[desktop,phone] passed on the fix-4 CSS; row clue boxes one cell tall asserted on the 30x30; EveryNumberKeepsAOneCellSlot passed'
+- 'AC-9 ✓ fresh: TestSolverClues_TheCircleIsVisible passed incl. vertical centring; M6-M10 killed'
+- 'AC-10 ✓ owner renders refreshed 17:26 after fix 4, viewed: mid-solve 1440/390 (row+column circles, 12 pill, owner 2 2 row uncircled), 30x30 floor/1440/390 row-clue crops show 16/13 pills vertically centred;
+  device scale 2 only (F-008)'
+- 'G-1 ✓ fresh: git diff main...HEAD on test_puzzle_solver_page/progress/phone empty; marking diff is exactly the amended _STRIPPED strip + docstring; all six files 142 passed'
+- 'G-2 ✓ fresh: test_the_state_module_touches_no_dom and test_the_scripts_carry_no_colour_literals passed'
+- 'G-3 ✓ fresh: no network API in added lines; circledClues takes payload clues only'
+- 'G-4 ✓ fresh: showProgress only appends paintCircles; marking/progress tests unchanged and green'
+- 'G-5 ✓ fresh: git diff main...HEAD -- src/nonogram/solver src/nonogram/clues.py empty'
+- 'G-6 ✓ fresh: circles are classList toggles; no storage/network in added lines'
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — git diff main...HEAD -- pyproject.toml empty (re-run at c38f9e1); no import added; orchestrator full run at c38f9e1 6440 passed incl. TestDependencyBaseline_IsExactlyPillowAndNumpy
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact: no file under src/nonogram/web/ changed — carried(cycle 3, delta-clean)'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public grid-extent signature changed — carried(cycle 3, delta-clean)'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair loop untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density seam untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: overlap masks untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: storage boundary untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book page geometry untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book puzzle page untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: book PageSpec strokes untouched — carried(cycle 3, delta-clean)'
+  - 'ADR-0038/R1 ✓ holds — fresh: card diff is 5 hand-written static/test files (git diff main...HEAD --stat); fix delta adds one CSS rule; no package.json/build step'
+  - 'ADR-0038/R2 ✓ holds — fresh: grep of added src lines finds no fetch/XHR/sendBeacon; TestSolverMarking_NoRequestPerMark passed in reviewer run (142 passed)'
+  - 'ADR-0038/R3 ✓ holds — fresh: solver.js showProgress calls circledClues(history.board, payload.rows, payload.columns); TestSolverPage_ShowsTheClues passed'
+  - 'ADR-0038/R4 ✓ holds — fresh: rule in pure solver_state.js; test_the_state_module_touches_no_dom passed; mutants M1-M4 in solver_state.js killed'
+  - 'ADR-0038/R6 ✓ holds — fresh: git diff main...HEAD on admin templates/*.py empty; solution shipping unchanged'
+  - 'ADR-0038/R7 ✓ holds — fresh: pyproject.toml unchanged by the card'
+  - 'ADR-0038/R8 ✓ holds — fresh: browser tests ran (no skips) in reviewer run of 6 player files, 142 passed'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/ untouched (G-5) — carried(cycle 3, delta-clean)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 3, delta-clean)'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 3, delta-clean)'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: grid limits untouched — carried(cycle 3, delta-clean)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched — carried(cycle 3, delta-clean)'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact: admin entry point untouched — carried(cycle 3, delta-clean)'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact: admin doors untouched — carried(cycle 3, delta-clean)'
+  - 'CON-021 ✓ holds — fresh: no new play surface; circles are classList toggles in the existing admin player (solver.js paintCircles); grep finds no storage/network API in added lines'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched; client reads payload clues — carried(cycle 3, delta-clean)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: export untouched — carried(cycle 3, delta-clean)'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched — carried(cycle 3, delta-clean)'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched — carried(cycle 3, delta-clean)'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched — carried(cycle 3, delta-clean)'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched — carried(cycle 3, delta-clean)'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: published book untouched — carried(cycle 3, delta-clean)'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: book order untouched — carried(cycle 3, delta-clean)'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched — carried(cycle 3, delta-clean)'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched — carried(cycle 3, delta-clean)'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched — carried(cycle 3, delta-clean)'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: book export untouched — carried(cycle 3, delta-clean)'
+root_causes: []
+findings:
+- id: F-005
+  severity: low
+  category: tech-debt
+  type: risk
+  file: src/nonogram/admin/static/admin.css
+  line: 523
+  title: Column pills lap ~0.5-0.6 px onto vertical column rules at the 14 px floor (carried, owner call)
+  description: Unchanged since cycle 2; visible in 30x30-desktop-1100x700-col-clues-zoom.png. Recorded [Known, not claimed].
+  suggestion: Owner call; no change required for merge.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-008
+  severity: low
+  category: tech-debt
+  type: risk
+  file: src/nonogram/admin/static/admin.css
+  line: 523
+  title: No device-scale-1 render of the 14 px floor case (carried)
+  description: All AC-10 renders, including the refreshed fix-4 set, are device scale 2.
+  suggestion: Add one device-scale-1 render of 30x30-desktop-1100x700 for the owner.
+  confidence: medium
+  source: inferred
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null

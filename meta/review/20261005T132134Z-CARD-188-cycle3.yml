@@ -1,0 +1,246 @@
+version: 1
+generated_at: "2026-10-05T13:21:34Z"
+target: "card/188-player-circle-solved-clues vs main (git diff main...HEAD c1241c4,5060056 + uncommitted fix-cycle-1/2 edits)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+cycle: 3
+mode: full
+
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/solver.js
+    - src/nonogram/admin/static/solver_state.js
+    - tests/test_puzzle_solver_clues.py
+    - tests/test_puzzle_solver_marking.py
+    - meta/kanban/cards/CARD-188.md (Worktree notes, Fix 1/Fix 2 claims, DESIGN-REGISTER lines)
+    - meta/design/components.md (ClueBox), meta/design/tokens.css
+    - tests/test_puzzle_solver_page.py (static guard tests 524-533)
+    - ~/Documents/nonogram-reviews/CARD-188/ (mid-solve 1440/390, 30x30 floor 1100x700, 1440, 390 renders)
+  not_reached:
+    - "full suite not re-run by reviewer (orchestrator: 6359 passed, 9 skipped on this tree)"
+    - "no automated screenshot/runtime.log/a11y scan (review.visual off)"
+  confidence: high
+  tests_run:
+    - "tests/test_puzzle_solver_clues.py + tests/test_puzzle_solver_marking.py: all passed (exit 0)"
+    - "tests/test_puzzle_solver_page.py -k 'state_module or colour_literals or ShowsTheClues' + tests/test_admin_design_tokens.py: 16 passed"
+    - "reviewer DPR-1 probe (scratchpad/card188_rev3_probe.py): 1100x700, 830x500, 1000x760 -> cell 14.00, ring 13.25x12.31, min digit clearance 0.562, min ring gap 0.250; 1600x1000 cell 20.31 gap 0.703; 2400x1400 cell 28 gap 1.141"
+
+metrics:
+  diff: { files: 5, added: 744, removed: 2, uncommitted_files: 3, uncommitted_added: 131, uncommitted_removed: 31 }
+  max_fan_in: { symbol: "solver_state.js circledClues", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css (23 commits/12mo, 10 fix)"]
+  cochange_missing: []
+
+previous_findings:
+  - "F-001 resolved (cycle 2) - ring is ::before out of layout; test_two_digit_rings_clear_their_digits_on_a_30x30 passes"
+  - "F-002 resolved (cycle 2) - ring colour asserted == resolved --grid-ink (test_the_outline)"
+  - "F-003 resolved (cycle 2)"
+  - "F-004 resolved - [floor] case asserts cell == 14 at 1100x700 and every ring pair >= 0.24 px apart; passes; reviewer probe at 3 floor viewports measures gap 0.250, clearance 0.562; mutant cap /2->/4 killed by [floor]"
+  - "F-005 still present - owner call (SKIPPED in cycle 2, recorded as [Fix 2][Known, not claimed]); not re-filed"
+
+mutation_check:
+  status: ran
+  runner: "scratchpad/card188_rev3_mutate.py (exact string replace, restore captured bytes, byte-compare)"
+  restore_verified: true
+  whole_diff_sanity: "git diff + git diff --cached sha1 03daf51b... identical before and after"
+  mutants:
+    - "M1 solver_state.js:357 rule A mismatch !== -> > : KILLED by TestSolverClues_RuleExamples::test_each_row_circles_what_the_table_says"
+    - "M2 solver_state.js:351 rule A undecided skipped instead of stop : KILLED by test_each_row_circles_what_the_table_says"
+    - "M3 solver_state.js:354 closed check end<length -> end<=length : SURVIVED (equivalent on fitting lines; see F-007)"
+    - "M4 solver_state.js rule B run count not compared : KILLED by test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot"
+    - "M5 solver_state.js 0-clue undecided counts as white : KILLED by test_each_row_circles_what_the_table_says"
+    - "M6 solver.js clueNumbersOf columns reversed : KILLED by TestSolverClues_CirclesFollowEveryCommit"
+    - "M7 admin.css:518 ring top: 0 : SURVIVED whole clues file (see F-006)"
+    - "M8 admin.css cap (major-rule)/2 -> /4 : KILLED by test_two_digit_rings_clear_their_digits_on_a_30x30[floor]"
+    - "M9 admin.css:518 ring top: calc(-1 * circle) (ring wholly above its number) : SURVIVED whole clues file (see F-006)"
+
+task_contract:
+  - "AC-1 ✓ test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot passes (6000 seeded lines, min counts asserted in-test; brute force on line_candidates); M4 killed"
+  - "AC-2 ✓ TestSolverClues_RuleExamples ROWS equal the card table row for row; M1, M2, M5 killed"
+  - "AC-3 ✓ test_PropertyTest_SolverClues_AFullyMarkedLineCirclesEverything passes (600 lines, >=100 with >=3 numbers)"
+  - "AC-4 ✓ test_PropertyTest_SolverClues_BoardIsLineByLine passes (shapes 10x10, 15x10, 10x25, 120 boards each, transposition)"
+  - "AC-5 ✓ TestSolverClues_CirclesFollowEveryCommit passes (drag, clicks, Undo/Redo buttons, Ctrl+Z/Shift+Z, Reset; exact circled-set equality); M6 killed"
+  - "AC-6 ✓ TestSolverClues_AmbiguousRunStaysUncircled passes"
+  - "AC-7 ✓ TestSolverClues_DragPreviewDoesNotCircle passes"
+  - "AC-8 ✓ TestSolverClues_CirclingMovesNothing passes at 1440 and 390 (cells, clue boxes, numbers, digit text boxes, texts, labels)"
+  - "AC-9 ✓ TestSolverClues_TheCircleIsVisible passes (as worded: border>0, round, colour != background, == --grid-ink, two-digit ring >= text width); vertical placement untested - F-006"
+  - "AC-10 ✓ owner renders present and viewed: mid-solve-desktop-1440(-board).png, mid-solve-phone-390.png (12 pill circled, owner 2 2 row uncircled, row + column circles), 30x30 floor/1440/390 renders; all at device scale 2 - F-008"
+  - "G-1 ✓ test_puzzle_solver_page.py and test_puzzle_solver_progress.py: no diff (main...HEAD and working tree); test_puzzle_solver_marking.py diff is exactly the amended _STRIPPED is-circled strip + docstring; marking file passes"
+  - "G-2 ✓ circledNumbers/circledClues in solver_state.js; test_the_state_module_touches_no_dom and test_the_scripts_carry_no_colour_literals pass"
+  - "G-3 ✓ circledClues(history.board, payload.rows, payload.columns) at solver.js:264, no solution argument; no fetch/XHR in diff; payload untouched; TestSolverMarking_NoRequestPerMark passes"
+  - "G-4 ✓ showProgress only appends paintCircles; error/solved/lock code unchanged; marking/progress tests unchanged and green"
+  - "G-5 ✓ no diff under src/nonogram/solver/ or src/nonogram/clues.py"
+  - "G-6 ✓ circles are classList toggles only; nothing stored or sent (grep of diff: no storage/network API)"
+
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — git diff main...HEAD -- pyproject.toml empty; no import added; TestDependencyBaseline_IsExactlyPillowAndNumpy in orchestrator's full run (6359 passed)"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: no file under src/nonogram/web/ changed"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public grid-extent signature changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing untouched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair loop untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density seam untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: overlap masks untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book page geometry untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book puzzle page untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: book PageSpec strokes untouched"
+    - "ADR-0038/R1 ✓ holds — diff touches only hand-written static solver.js/solver_state.js/admin.css; no package.json/build step added (git diff main...HEAD --stat: 5 files)"
+    - "ADR-0038/R2 ✓ holds — circles computed in-browser in showProgress (solver.js:264); TestSolverMarking_NoRequestPerMark passes"
+    - "ADR-0038/R3 ✓ holds — circledClues takes payload.rows/payload.columns, never the solution (solver.js:264, solver_state.js circledClues signature); TestSolverPage_ShowsTheClues passes"
+    - "ADR-0038/R4 ✓ holds — rule lives in pure solver_state.js; test_the_state_module_touches_no_dom passes"
+    - "ADR-0038/R6 ✓ holds — no template/app/payload change in the card diff; solution shipping unchanged"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml unchanged by the card"
+    - "ADR-0038/R8 ✓ holds — new browser tests reuse test_puzzle_solver_page fixtures (loud skip); reviewer run executed them (passed, not skipped)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/ untouched (G-5)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin entry point untouched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin doors untouched"
+    - "CON-021 ✓ holds — no new play surface; circles are a derived view inside the existing admin player (solver.js paintCircles), nothing stored"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched; client reads payload clues"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+
+root_causes:
+  - id: RC-1
+    title: "Ring geometry tests assert only the horizontal axis"
+    finding_ids: [F-006]
+
+findings:
+  - id: F-006
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_clues.py
+    line: 670
+    title: "No test pins the ring's vertical position: a ring moved off (even wholly above) its number passes the whole clues suite"
+    description: |
+      Step 8f mutation check. admin.css:518 `top: calc(50% - var(--player-circle) / 2)` -> `top: 0`
+      (M7) and -> `top: calc(-1 * var(--player-circle))` (M9, the ring drawn entirely above its
+      digits) both SURVIVE tests/test_puzzle_solver_clues.py in full. _RINGS computes ring top/bottom
+      but the asserts use them only for pairwise gaps (a uniform per-axis shift leaves every gap
+      unchanged) and the pill aspect; digit clearance is asserted left/right only (lines 670-671),
+      _LOOK reads no position at all. So the CSS comment's "centred on the number" (admin.css:490)
+      and "the pill clears its digits by at least 0.5 px" (admin.css:502), and the docstring's
+      "clears its digits by at least half a pixel on each side" (line 615), hold vertically only by
+      the owner's eyeball. This is the F-001 defect class (ring crossing the digits) on the untested
+      axis. Current code is correct (all renders show centred rings) - the gap is regression
+      protection; fix is test-only.
+    suggestion: |
+      Add textTop/textBottom to _RINGS and assert, for every ring (or every circled ring) in
+      test_two_digit_rings_clear_their_digits_on_a_30x30 at all three viewports, that the ring's
+      vertical centre equals the digits' text-box centre within ~0.5 px (the range rect uses the
+      font's content area, about 1.3em, which can exceed the ring's inner height, so assert centring,
+      not containment). Re-run M7/M9: both must be killed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/solver_state.js
+    line: 354
+    title: "Rule A at the far edge is untested: `end < length` -> `end <= length` survives"
+    description: |
+      M3 survives every pure-tier test. The mutant stops a walk at a closed run that reaches the
+      walk's far edge. On fitting lines it is equivalent (rule B or the other walk circles the same
+      numbers), so AC-1/AC-3 cannot see it. It differs only on marks that fit no placement,
+      e.g. clue (1, 2), marks "WWWWWWWWWD": the card's rule A circles the "1", the mutant circles
+      nothing. The card says circles on such lines carry no claim, but the STOPS table was added
+      to pin rule A on exactly these lines, and this boundary is missing from it.
+    suggestion: |
+      Add ((1, 2), "WWWWWWWWWD", [True, False]) (and its mirror ((2, 1), "DWWWWWWWWW", [False, True]))
+      to TestSolverClues_RuleExamples.STOPS.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 512
+    title: "At the 14 px floor on a 1x display the capped pill's 0.56 px digit clearance and 0.25 px ring gap are sub-pixel; every owner render is device scale 2"
+    description: |
+      Reviewer probe at device scale 1, 1100x700 (cell 14, ring 13.25x12.31): upscaled crop shows the
+      "0" of "30" anti-aliasing into the ring and neighbouring rings separated only by the column rule.
+      The geometry claims hold (clearance 0.562, gap 0.250), but AC-10's renders are all at device
+      scale 2, so the owner has not seen the 1x appearance of the floor case.
+    suggestion: |
+      Owner call: add one device-scale-1 render of 30x30-desktop-1100x700 to the review folder; if it
+      reads poorly, the lever is the floor cell or digit size, not the ring.
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: question
+    file: tests/test_puzzle_solver_clues.py
+    line: 679
+    title: "The ring-gap tolerance (0.01 px) is smaller than the 1/64 px layout rounding the comment cites for it"
+    description: |
+      The comment says layout rounds to 1/64 px (0.0156) "hence the tolerance", but the tolerance is
+      0.01. A one-quantum rounding would make the test fail on a correct layout; today the measured gap is
+      exactly 0.250, so nothing fails.
+    suggestion: |
+      Use 1 / 64 as the tolerance, or reword the comment.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

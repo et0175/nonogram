@@ -115,6 +115,9 @@ card names its card._
 - [ ] OWNER ACTION (CARD-181): back up nonogram_poc and apply migration 014 (`alembic upgrade head`) before using the panel; check Render's database (`alembic current` → 014) before deploying — batch pages 500 at 013   @ops
 - [ ] CARD-181 F-001..F-003 (minor): requested_tier_label docstring says unknown → None but 'guess' reads Hard; no test pins Tier.label; migration 014 'no puzzle row touched' claim untested   @tech-debt
 
+- [ ] CARD-188 owner check pending: clue-circle renders in ~/Documents/nonogram-reviews/CARD-188/ incl. the ~0.5 px pill/heavy-rule overlap on 30×30 (F-005) (merged on evidence by owner choice)   @feature
+- [ ] CARD-188 F-008 (minor): no render at device scale 1 for the 14 px floor   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

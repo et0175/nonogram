@@ -1,0 +1,185 @@
+version: 1
+generated_at: "2026-10-05T11:57:54Z"
+target: "card/188-player-circle-solved-clues (main...HEAD: c1241c4, 5060056)"
+overall_score: 7.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/static/admin.css (player block 380-515)"
+    - "src/nonogram/admin/static/solver.js (diff + start/showProgress)"
+    - "src/nonogram/admin/static/solver_state.js (diff)"
+    - "tests/test_puzzle_solver_clues.py (full)"
+    - "tests/test_puzzle_solver_marking.py (diff + _STRIPPED usages)"
+    - "meta/design/components.md ClueBox, tokens.css, brief.md anti-patterns"
+    - "~/Documents/nonogram-reviews/CARD-188/*.png (7 renders)"
+  not_reached:
+    - "runtime.log / a11y.log (review.visual off)"
+    - "browsers other than Chromium"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 744, removed: 2 }
+  max_fan_in: { symbol: "solver_state.js circledClues", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]
+  cochange_missing: ["src/nonogram/admin/templates/puzzle_solve.html"]
+  unmeasured:
+    max_fan_in: "no_eligible_fact — circledClues/circledNumbers are new; the only production caller is solver.js showProgress (same diff)"
+tests_run:
+  - "tests/test_puzzle_solver_clues.py + tests/test_puzzle_solver_marking.py: 79 passed"
+  - "tests/test_puzzle_solver_page.py -k 'touches_no_dom or colour_literals or ShowsTheClues': 9 passed"
+  - "scratchpad probe (not committed): 30x30 board, two-digit numbers at 1440 and 390 px"
+mutation_check: "deferred(cost) — gating findings present; certify on the stable cycle"
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — git diff main...HEAD -- pyproject.toml is empty; orchestrator full suite (incl. TestDependencyBaseline_IsExactlyPillowAndNumpy) green at 5060056"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing untouched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: orchestrator recovery untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: difficulty untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver untouched (G-5 diff stat empty)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book pages untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: book strokes untouched"
+    - "ADR-0038/R1 ✓ holds — diff adds only hand-written static JS/CSS (git diff --stat: admin.css, solver.js, solver_state.js); no package.json, bundler or build step"
+    - "ADR-0038/R2 ✓ holds — circles computed client-side in showProgress (solver.js:264); TestSolverMarking_NoRequestPerMark passed (79-passed run)"
+    - "ADR-0038/R3 ✓ holds — circledClues(board, rows, columns) takes payload.rows/columns, no solution argument (solver_state.js:395, solver.js:264); TestSolverPage_ShowsTheClues passed"
+    - "ADR-0038/R4 ✓ holds — logic in solver_state.js; test_the_state_module_touches_no_dom passed; grep of the solver_state.js diff for document/window/import/fetch: no hits"
+    - "ADR-0038/R6 ✓ holds — payload and templates unchanged (git diff main...HEAD -- src/nonogram/admin/*.py src/nonogram/admin/templates: empty)"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml unchanged; new tests use the existing pytest-playwright fixtures"
+    - "ADR-0038/R8 ✓ holds — every new browser test takes browser_page (tests/test_puzzle_solver_page.py:561-566), which pytest.fail()s loudly when pytest_playwright is missing"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no size limit touched (30x30 rendering is F-001, not a limit change)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin entry point untouched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin doors untouched"
+    - "CON-021 ✓ holds — circles are derived in the existing admin player only; no route, template or Python file changed (diff stat); nothing stored or sent"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched (clues.py diff empty)"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: books untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: books untouched"
+task_contract:
+  - "AC-1 ✓ — test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot: 6000 lines, asserts fitting>=3000, circle>=1000, zero/white>=300, brute-only>=100, 0 violations; passed"
+  - "AC-2 ✓ — TestSolverClues_RuleExamples::test_each_row_circles_what_the_table_says: all 10 rows verbatim; passed"
+  - "AC-3 ✓ — test_PropertyTest_SolverClues_AFullyMarkedLineCirclesEverything: 600 lines; passed"
+  - "AC-4 ✓ — test_PropertyTest_SolverClues_BoardIsLineByLine: 120 boards per shape, line-by-line + transposition; passed"
+  - "AC-5 ✓ — TestSolverClues_CirclesFollowEveryCommit: real clicks/drag, Undo/Redo/Ctrl+Z/Reset, exact circled set; passed"
+  - "AC-6 ✓ — TestSolverClues_AmbiguousRunStaysUncircled; passed"
+  - "AC-7 ✓ — TestSolverClues_DragPreviewDoesNotCircle; passed"
+  - "AC-8 ✓ — TestSolverClues_CirclingMovesNothing[desktop,phone] on 15x15; passed"
+  - "AC-9 ✓ as worded (15x15, 1440 and 390) — but the spec clause it serves (two-digit numbers up to 30 get a pill that clears the digits) fails on a 30x30 board at 1440: F-001"
+  - "AC-10 ✓ — 7 renders present, desktop + 390, two-digit row pills, owner's 2 2 row uncircled; no 30x30 render (where F-001 lives)"
+  - "G-1 ✓ — only _STRIPPED (+ is-circled strip) and the docstring changed in test_puzzle_solver_marking.py; _STRIPPED used only by RevealsNoCorrectness (lines 859, 882); page/progress tests untouched"
+  - "G-2 ✓ — test_the_state_module_touches_no_dom and test_the_scripts_carry_no_colour_literals passed; colour scan of src diff: none"
+  - "G-3 ✓ — no fetch; payload unchanged; solution not an argument"
+  - "G-4 ✓ — showProgress only appends paintCircles; marking/progress tests green (orchestrator full suite)"
+  - "G-5 ✓ — git diff main...HEAD -- src/nonogram/solver src/nonogram/clues.py: empty"
+  - "G-6 ✓ — circles live only as a class toggled on spans; never stored or sent"
+root_causes:
+  - id: RC-1
+    title: "Pill width is capped/rounded down to the circle diameter at small cells, and no test or render covers small cells"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/static/admin.css
+    line: 508
+    title: "Two-digit clue numbers turn into circles their digits do not clear on a 30x30 board at 1440 px"
+    description: |
+      Spec 8 says two-digit numbers (up to 30) get a pill that still clears the digits. On a 30x30
+      board at 1440x900 (cell 18.16 px) a probe measured every two-digit row AND column number at
+      w = h = 16.16 px (a circle, not a pill), text width 13.1 px, digits 0.7 px inside the 1 px ring
+      at the midline, so the digit corners cross the ring (zoomed screenshot confirms "12" touching it).
+      Row: --player-clue-w = 16.6 px, but --player-clue-m rounds (18.16-16.6)/2 = 0.78 to 1 px, so
+      width = cell - 2 = 16.16 = the circle. Column: the cap min(..., cell - rule-major) = 16.16 px.
+      At 390 px (cell 24) the pill is 22x20 with 1.3 px clearance - marginal. AC-9 and AC-10 only
+      exercise a 15x15 board (cells 28/24 px), so neither catches it; the CSS comment
+      "or a pill as wide as its digits need" is not true at the board size CON-011 allows.
+    suggestion: |
+      Keep the one-cell slot but let multi-digit numbers clear their digits at small cells, e.g. for
+      --player-clue-digits >= 2 reduce the box height (or the letter-spacing) so w > h, or round
+      --player-clue-m down (round(down, ...)) and accept a negative margin only where needed. Add a
+      30x30 case (1440 and 390) to TestSolverClues_TheCircleIsVisible asserting a two-digit row and
+      column number is a pill clearing its text plus both borders, and add a 30x30 render to AC-10.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_clues.py
+    line: 576
+    title: "The --grid-ink value is read but never compared"
+    description: |
+      `ink` (the resolved --grid-ink) is only asserted non-empty (line 585); the "grid-ink, as the
+      digit" check compares the border colour with the span's text colour, which would also pass
+      if both moved off the token.
+    suggestion: "Compare look['colour'] with the rgb of --grid-ink (resolve via a probe element), or drop the unused read."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 500
+    title: "CSS round() makes the clue layout depend on Chrome 125+ / Firefox 118+ / Safari 15.4+"
+    description: |
+      If round() is unsupported, --player-circle-k and --player-clue-m are invalid at computed time,
+      so the clue numbers lose their height, line-height and margins together. Admin-only POC, owner
+      uses a current browser, so low risk; not stated anywhere.
+    suggestion: "Note the browser floor in the comment, or give height/margin a fallback declaration before the round()-based one."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
