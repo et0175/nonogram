@@ -1,0 +1,124 @@
+{
+  "card": "CARD-184",
+  "supersedes": "tests/fixtures/book_baseline_card167.json",
+  "recorded_from_commit": "2b1ef03",
+  "recorded_from_commit_note": "CARD-184's implementation on card/184-interior-type-floor: the commit that states the answer key's heading and caption size as 10 pt (ANSWER_TEXT_FONT_MM, 41 px -> 42 px at 300 DPI) and sizes the divider as DIVIDER_PT = 14.4 through type_px and the sized _guide_face fallback (still 60 px at 300 DPI). This file is added by the commit that follows it, which changes no drawing; 2b1ef03 itself is red on exactly the assertions this file makes green (TestBookPdfMemory_PagesAreUnchanged's page 9-11 digests and interior-byte length, TestBookInk_ColourInteriorIsUnchanged's pages 9-11 and colour length) - the shape CARD-149, CARD-146, CARD-147 and CARD-167 set.",
+  "recorded_on": "2026-10-05",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-184 (CON-020, IDEA-008) deliberately changes interior pages 9, 10 and 11, the three answer-key pages: their level heading and puzzle captions were set at 3.5 mm, which rounds to 41 px = 9.84 pt at 300 DPI, below CON-020's 10 pt floor, and are now set at 10 pt (42 px = 10.08 pt). The 6 mm heading and caption lines (71 px) do not bind, so no tile, line or capacity moved - only the lettering's size. That is a deliberate change to what a page prints, the one reason the predecessors' warning allows a new baseline.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-184. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares, and the fact this recording exists for. It is NOT the same thing as each page entry's \"mode\", which is \"RGB\" below and always will be: that field is what pdf_pages hands back after its own convert(\"RGB\"), not what the file says. A reader checking the colour space must read it off the PDF's image XObjects \u2014 tests/test_book_pdf_ink_mode.py's pdf_image_objects does, deliberately as a second implementation, because the shared helper normalises exactly this away. The paired procset is /ImageB; a colour interior of the same book declares /DeviceRGB and /ImageC and is byte-identical to CARD-146's recording (AC-2).",
+  "changed_pages": [
+    9,
+    10,
+    11
+  ],
+  "changed_pages_note": "CHECKED, NOT ASSUMED: every page was compared against CARD-167's entry before this file was written, with the font fingerprint reproduced on this machine first, so all eleven were compared and none skipped. Only pages 9, 10 and 11 (the answer pages) moved; pages 1-8 (the guide page, the three level dividers, the two-up page, the two single-puzzle pages and the SOLUTIONS divider) are CARD-167's digests byte for byte (CARD-184 G-1) - including the four dividers, whose face is now type_px(14.4, 300) = 60 px, the size it always was.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "CARD-149's value, unchanged and reproduced on this machine before this file was written. The guide page still letters its title at 92 px and its body at 46 px, and the divider at type_px(DIVIDER_PT, 300) = 60 px, so book_corpus.MACHINE_FACE_SIZES is still (92, 46, 60). The answer pages letter in the packaged DejaVu Sans, which does not depend on the machine.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "Unchanged from CARD-147: page 1 is the guide page (Arial, with the load_default fallback), pages 2, 4, 6 and 8 the dividers.",
+  "interior_bytes": 2437097,
+  "interior_bytes_note": "The black-and-white interior of this book: 2,437,097 bytes where CARD-167 recorded 2,436,675. The difference is pages 9-11's JPEG streams alone, since no other page moved.",
+  "colour_interior_bytes": 2845507,
+  "colour_interior_bytes_note": "The same book with a COLOUR interior: 2,845,507 bytes where CARD-167 recorded 2,845,318. Read by tests/test_book_pdf_ink_mode.py's TestBookInk_ColourInteriorIsUnchanged, which still compares pages 2-8 of the colour interior against CARD-146's recording, page 1 against CARD-167's and pages 9-11 against this file's. Its page digests are the same as the black-and-white ones (checked when this file was written: pdf_pages normalises to RGB, and the luma plane survives either colour space - see CARD-147's recording).",
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "13d283759948858fc09e96d485cd093766b5e9f41a5d891481f3810760e883e1"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "be5e748146944022fb835107269d758aa6c86185d6c50a047ab878ed316e5d96"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "7df25d734fd9b3d8ad32a035132dff9f0907877c118a9f790ea9d42d55ab25fc"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bbe379d2ce56ffd224d03c37427f99e0b30f45e07e4ac30a7f5685d26ca243d0"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "030cb3e093bc30d892c49970edd7d84a70d2ae3c0b5fd8b248512812888a8c13"
+    }
+  ]
+}

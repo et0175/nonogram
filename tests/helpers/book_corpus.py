@@ -113,8 +113,14 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   it also records ``colour_interior_bytes`` for the colour export of the
 #:   same book, which ``tests/test_book_pdf_ink_mode.py`` reads.
 #:
-#: All seven files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card167.json"
+#: * ``book_baseline_card184.json`` — CARD-184 sets the answer key's level
+#:   heading and captions at CON-020's 10 pt (42 px) instead of 3.5 mm (41 px,
+#:   9.84 pt), so interior pages 9, 10 and 11 — the answer pages, and only
+#:   those — moved on top of CARD-167's eleven, with ``interior_bytes`` and
+#:   ``colour_interior_bytes``.
+#:
+#: All eight files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card184.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eight until
