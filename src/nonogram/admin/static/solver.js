@@ -310,7 +310,7 @@ function clueNumbersOf(table) {
   const spans = (kind) => [...table.querySelectorAll(`th.player-clue.is-${kind}`)]
     .map((box) => [...box.querySelectorAll(".player-clue-num")]);
   const numbers = { rows: spans("row"), columns: spans("col") };
-  // The pill's width comes from the digit count (admin.css, --player-clue-w).
+  // The ring's pill width comes from the digit count (admin.css, --player-ring).
   for (const span of [...numbers.rows, ...numbers.columns].flat()) {
     span.style.setProperty("--player-clue-digits", span.textContent.length);
   }

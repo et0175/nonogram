@@ -20,7 +20,8 @@ What each tier shows:
 * **Player page** (real clicks and drags, CARD-160's loopback panel over a
   temp SQLite store): circles follow every commit and not a drag's preview
   (AC-5, AC-7), the owner's "2 2" case stays uncircled (AC-6), circling moves
-  nothing (AC-8), and the circle is a visible round outline (AC-9).
+  nothing (AC-8), and the circle is a visible round ring that clears its
+  digits (AC-9).
 """
 
 from __future__ import annotations
@@ -156,6 +157,8 @@ class TestSolverClues_RuleExamples:
         ((1, 1), "DDW.......", [False, False]),  # longer than c1: no circle
         ((1, 2), "DDWDW.....", [False, False]),  # stop, not skip to the next run
         ((2, 1), ".....WDWDD", [False, False]),  # the same from the right edge
+        ((1, 2), "WWWWWWWWWD", [True, False]),  # a closed run may end at the far edge
+        ((2, 1), "DWWWWWWWWW", [False, True]),  # the same, walking from the right
     ]
 
     def test_a_mismatched_closed_run_stops_its_walk(self, browser_page, live) -> None:
@@ -522,8 +525,8 @@ _SLOTS = """() => {
 
 @pytest.mark.browser
 class TestSolverClues_EveryNumberKeepsAOneCellSlot:
-    """The reserved circle keeps each number's slot exactly one cell — a row
-    number's margin box as wide as a cell, a column number's as tall — for
+    """The ring (out of layout) leaves each number's slot exactly one cell — a
+    row number's margin box as wide as a cell, a column number's as tall — for
     one- and two-digit numbers, at 1440 px and at 390 px, so a long clue
     does not drift by sub-pixel amounts."""
 
@@ -538,28 +541,85 @@ class TestSolverClues_EveryNumberKeepsAOneCellSlot:
         assert [t for t, h in seen["columns"] if abs(h - height) > 0.001] == []
 
 
+#: A number's ring is its ::before (admin.css): read the ring's computed style.
 _LOOK = """(span) => {
-  const s = getComputedStyle(span);
+  const s = getComputedStyle(span), ring = getComputedStyle(span, '::before');
   const box = span.getBoundingClientRect();
   const range = document.createRange();
   range.selectNodeContents(span);
   const text = range.getBoundingClientRect();
   return {
-    border: parseFloat(s.borderTopWidth), radius: parseFloat(s.borderTopLeftRadius),
-    style: s.borderTopStyle, colour: s.borderTopColor, ink: s.color,
-    width: box.width, height: box.height, textWidth: text.width,
+    border: parseFloat(ring.borderTopWidth), radius: parseFloat(ring.borderTopLeftRadius),
+    style: ring.borderTopStyle, colour: ring.borderTopColor, ink: s.color,
+    width: parseFloat(ring.width), height: parseFloat(ring.height), sizing: ring.boxSizing,
+    textWidth: text.width, numberWidth: box.width,
     background: getComputedStyle(span.closest('th')).backgroundColor,
-    animation: s.animationName, transition: s.transitionDuration,
+    animation: ring.animationName, transition: ring.transitionDuration,
   };
 }"""
+
+#: The --grid-ink token, resolved to a colour inside the board.
+_GRID_INK = """() => {
+  const probe = document.createElement('i');
+  probe.style.color = 'var(--grid-ink)';
+  document.querySelector('.player-board').append(probe);
+  const colour = getComputedStyle(probe).color;
+  probe.remove();
+  return colour;
+}"""
+
+#: Every number's ring as a viewport rectangle (from the ::before's computed
+#: box and offsets against the number's box), and its digits' text box.
+_RINGS = """() => [...document.querySelectorAll('.player-clue-num')].map((n) => {
+  const b = n.getBoundingClientRect(), ring = getComputedStyle(n, '::before'), s = getComputedStyle(n);
+  const range = document.createRange(); range.selectNodeContents(n); const t = range.getBoundingClientRect();
+  const bw = parseFloat(ring.borderTopWidth);
+  const extra = ring.boxSizing === 'border-box' ? 0 : 2 * bw;
+  const left = b.left + parseFloat(s.borderLeftWidth) + parseFloat(ring.left);
+  const top = b.top + parseFloat(s.borderTopWidth) + parseFloat(ring.top);
+  return {
+    axis: n.closest('th').classList.contains('is-row') ? 'row' : 'col', text: n.textContent,
+    circled: n.classList.contains('is-circled'), position: ring.position, border: bw,
+    left, top, right: left + parseFloat(ring.width) + extra, bottom: top + parseFloat(ring.height) + extra,
+    textLeft: t.left, textRight: t.right, textTop: t.top, textBottom: t.bottom,
+  };
+})"""
+
+
+#: admin.css --player-ring-gap: the least distance between any two rings.
+_RING_GAP = 0.25
+
+#: The 30 x 30 ring check's windows: the desktop cell floor, 1440, 390.
+_RING_VIEWPORTS = [{"width": 1100, "height": 700}, *_VIEWPORTS]
+
+
+def _two_run_row(first, second, side=30):
+    return [True] * first + [False] + [True] * second + [False] * (side - first - second - 1)
+
+
+def _two_digit_grid():
+    """30 x 30 whose row clues are pairs of two-digit numbers ("12 17", ...)
+    and whose first ten columns read "30"/two-digit numbers side by side."""
+    rng = random.Random(7)
+    rows = [_two_run_row(a, 29 - a) for a in (rng.randint(10, 19) for _ in range(30))]
+    rows[0] = [True] * 30
+    return rows
 
 
 @pytest.mark.browser
 class TestSolverClues_TheCircleIsVisible:
-    """AC-9 — a circled number has a round outline in a colour other than the
-    clue box background; a two-digit row number's outline is a pill (wider
-    than tall) at least as wide as its text plus both border widths. Checked
-    at 1440 px and at 390 px."""
+    """AC-9 — a circled number has a round ring (its ::before) in the
+    --grid-ink colour, other than the clue box background; a two-digit row
+    number's ring is a pill (wider than tall) at least as wide as its text
+    plus both border widths. Checked at 1440 px and at 390 px on the 15 x 15,
+    and on a 30 x 30 at the 14 px cell floor (a 1100 x 700 window), at
+    1440 px (about 17 px) and at 390 px (24 px), where every circled
+    two-digit row and column number's ring clears its digits' text box by
+    at least half a pixel on the left and on the right, every row and column
+    number's ring has its horizontal and vertical centre within half a pixel
+    of its digits' text-box centre (the Range box of the number's text),
+    every row clue box is one cell tall, and any two rings are at least
+    _RING_GAP (admin.css --player-ring-gap) apart."""
 
     @pytest.mark.parametrize("viewport", _VIEWPORTS, ids=["desktop", "phone"])
     def test_the_outline(self, browser_page, live, viewport) -> None:
@@ -573,24 +633,77 @@ class TestSolverClues_TheCircleIsVisible:
         bare = page.locator("th.player-clue.is-row").nth(0).locator(".player-clue-num").first
         assert _circles(page)["rows"][TWO_DIGIT_ROW] == [True, True]
 
-        ink = page.evaluate("getComputedStyle(document.documentElement).getPropertyValue('--grid-ink')")
+        ink = page.evaluate(_GRID_INK)
+        assert ink.startswith("rgb"), ink
         for span in (row.nth(0), row.nth(1), owner.nth(0)):
             look = span.evaluate(_LOOK)
             assert look["border"] > 0 and look["style"] == "solid", look
             assert look["radius"] >= min(look["width"], look["height"]) / 2 - 0.5, look
             assert look["colour"] != look["background"], look
-            assert look["colour"] == look["ink"], look  # grid-ink, as the digit
+            assert look["colour"] == ink, look  # the --grid-ink token
+            assert look["colour"] == look["ink"], look  # as the digit
             assert look["width"] >= look["textWidth"], look
             assert look["animation"] == "none" and look["transition"] == "0s", look
-        assert ink.strip()
 
         two_digit = row.nth(0).evaluate(_LOOK)
+        assert two_digit["sizing"] == "border-box", two_digit
         assert two_digit["textWidth"] > row.nth(1).evaluate(_LOOK)["textWidth"]  # really two digits
         assert two_digit["width"] >= two_digit["textWidth"] + 2 * two_digit["border"]
         assert two_digit["width"] > two_digit["height"]  # a pill, not the one-digit circle
 
-        # An uncircled number keeps the same border width, in a transparent colour.
+        # An uncircled number keeps the same ring, in a transparent colour.
         plain = bare.evaluate(_LOOK)
         assert _circles(page)["rows"][0] == [False] * len(ROW_CLUES[0])
         assert plain["border"] == look["border"]
         assert plain["colour"] == "rgba(0, 0, 0, 0)", plain
+
+    @pytest.mark.parametrize("viewport", _RING_VIEWPORTS, ids=["floor", "desktop", "phone"])
+    def test_two_digit_rings_clear_their_digits_on_a_30x30(self, browser_page, live, viewport) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        grid = _two_digit_grid()
+        _open(page, live, live.store(grid))
+        cell = page.evaluate("document.querySelector('td.player-cell').getBoundingClientRect().width")
+        assert cell == {1100: 14, 1440: pytest.approx(17.67, abs=0.1), 390: 24}[viewport["width"]], cell
+        # The row numbers' height, line-height and negative margins (admin.css)
+        # leave every row clue box, so every row, one cell tall, also the rows
+        # that end in a heavy rule.
+        rows = page.evaluate("[...document.querySelectorAll('th.player-clue.is-row')].map((th) => th.getBoundingClientRect().height)")
+        assert len(rows) == 30 and [h for h in rows if abs(h - cell) > 0.001] == [], rows
+        # The whole solution: every line fully marked, so every number is
+        # circled (a solved board is not special-cased).
+        _set(page, [F if on else E for line in grid for on in line])
+        rings = page.evaluate(_RINGS)
+        assert {ring["position"] for ring in rings} == {"absolute"}  # out of layout
+        circled = [ring for ring in rings if ring["circled"] and len(ring["text"]) == 2]
+        for axis in ("row", "col"):
+            assert sum(ring["axis"] == axis for ring in circled) >= 20, axis
+
+        # Every ring (one and two digits, rows and columns) is centred on its
+        # digits' text box, horizontally and vertically, within half a pixel.
+        for axis in ("row", "col"):
+            assert sum(ring["axis"] == axis for ring in rings) >= 30, axis
+        offsets = [
+            (ring["axis"], ring["text"],
+             round((ring["left"] + ring["right"] - ring["textLeft"] - ring["textRight"]) / 2, 3),
+             round((ring["top"] + ring["bottom"] - ring["textTop"] - ring["textBottom"]) / 2, 3))
+            for ring in rings
+        ]
+        off_centre = [o for o in offsets if abs(o[2]) > 0.5 or abs(o[3]) > 0.5]
+        assert off_centre == [], off_centre[:5]
+
+        for ring in circled:
+            inner_left, inner_right = ring["left"] + ring["border"], ring["right"] - ring["border"]
+            assert ring["textLeft"] - inner_left >= 0.5, ring
+            assert inner_right - ring["textRight"] >= 0.5, ring
+            assert ring["right"] - ring["left"] > ring["bottom"] - ring["top"], ring  # a pill
+
+        # Any two rings are at least _RING_GAP apart on one axis, less one
+        # 1/64 px layout unit (layout rounds to 1/64 px, hence the tolerance).
+        close = [
+            (a["text"], b["text"], a["axis"], b["axis"], round(gap, 3))
+            for i, a in enumerate(rings) for b in rings[i + 1:]
+            if (gap := max(b["left"] - a["right"], a["left"] - b["right"], b["top"] - a["bottom"], a["top"] - b["bottom"]))
+            < _RING_GAP - 1 / 64
+        ]
+        assert close == [], close[:5]

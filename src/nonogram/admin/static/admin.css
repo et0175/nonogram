@@ -485,31 +485,45 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   .player-toolbar, .player-toolbar *, .player-stage, .player-stage *, .player-board.is-solved .player-cell[data-state="filled"] { animation: none !important; transition: none !important; }
 }
 /* Clue circles (CARD-188): a clue number the player's marks settle carries
-   .is-circled (solver.js) and gets a thin round grid-ink outline; the digit
-   keeps its ink and size. Every number reserves the outline as a transparent
-   border, so circling moves nothing. A number's box is a circle of diameter
-   --player-circle (the cell less a whole number of pixels per side), or a
-   pill as wide as its digits need (--player-clue-digits, set by solver.js at
-   draw time); a column clue's box is never wider than its column less a
-   heavy rule. Its slot stays exactly one cell: the gaps are whole pixels, so
-   sub-pixel rounding cannot drift a long clue. Column clues take the gap
-   above as margin and are lifted back by half of it (position: relative,
-   layout unmoved); row clues split what the box leaves of the cell into
-   their side margins. No transition. */
+   .is-circled (solver.js) and gets a thin round grid-ink ring; the digit
+   keeps its ink and size. The ring is the number's ::before, absolutely
+   positioned and centred on the number's box, so it takes no part in
+   layout. A row number's box is a cell tall with a cell's line-height, as a
+   column number's is, so on a 30 x 30 (14 px cell floor, about 17 px at
+   1440 px, 24 px at 390 px) the ring's centre is within 0.5 px of the
+   digits' text box centre, across and down. A negative margin of half the
+   heavy rule above and below keeps each row clue box a cell tall, also in a
+   row that ends in a heavy rule. Each number keeps main's one-cell slot,
+   and circling (a border colour change on a ring every number always has)
+   moves nothing. The ring is
+   --player-circle tall and as wide as the digits (--player-clue-digits, set
+   by solver.js at draw time, in ch) plus a clearance and the ring on each
+   side, never narrower than a circle: a two-digit number gets a pill. That
+   width may exceed the number's own box and reach toward a neighbouring
+   number. Two column numbers sit closest where the second column ends in a
+   heavy rule: their digits are a cell less half the difference between the
+   heavy and the thin rule apart. The ring is capped at that distance less
+   --player-ring-gap (so --player-rule and --player-rule-major also size
+   the ring). On a 30 x 30 (14 px cell floor, about 17 px at 1440 px, 24 px
+   at 390 px) the pill clears its digits by at least 0.5 px on the left and
+   on the right, and any two rings are at least --player-ring-gap apart.
+   No transition. */
 .player-board {
-  --player-circle-k: round(nearest, calc(var(--player-cell) * 0.07), 1px);
-  --player-circle: calc(var(--player-cell) - 2 * var(--player-circle-k));
+  --player-circle: calc(var(--player-cell) * 0.88);
   --player-circle-w: max(var(--border-width), calc(var(--player-cell) * 0.06));
-  --player-circle-pad: calc(var(--player-cell) * 0.04);
+  --player-circle-clear: calc(var(--player-cell) * 0.05);
+  --player-ring-gap: 0.25px;
 }
-.player-board .player-clue-num {
-  --player-clue-w: max(var(--player-circle),
-    calc(var(--player-clue-digits, 1) * 1ch + 2 * var(--player-circle-pad) + 2 * var(--player-circle-w)));
-  --player-clue-m: round(nearest, calc((var(--player-cell) - var(--player-clue-w)) / 2), 1px);
-  box-sizing: border-box; height: var(--player-circle);
-  padding: 0 var(--player-circle-pad); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w));
+.player-board .player-clue-num { position: relative; }
+.player-board .player-clue.is-row .player-clue-num { height: var(--player-cell); line-height: var(--player-cell); margin: calc(var(--player-rule-major) / -2) 0; }
+.player-board .player-clue-num::before {
+  --player-ring: min(
+    max(var(--player-circle),
+      calc(var(--player-clue-digits, 1) * 1ch + 2 * (var(--player-circle-clear) + var(--player-circle-w)))),
+    calc(var(--player-cell) - (var(--player-rule-major) - var(--player-rule)) / 2 - var(--player-ring-gap)));
+  content: ""; position: absolute; pointer-events: none; box-sizing: border-box;
+  width: var(--player-ring); height: var(--player-circle);
+  left: calc(50% - var(--player-ring) / 2); top: calc(50% - var(--player-circle) / 2);
   border: var(--player-circle-w) solid transparent; border-radius: calc(var(--player-circle) / 2);
 }
-.player-clue.is-col .player-clue-num { width: min(var(--player-clue-w), calc(var(--player-cell) - var(--player-rule-major))); height: var(--player-circle); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w)); margin: calc(2 * var(--player-circle-k)) auto 0; position: relative; top: calc(-1 * var(--player-circle-k)); }
-.player-clue.is-row .player-clue-num { width: calc(var(--player-cell) - 2 * var(--player-clue-m)); min-width: 0; margin: 0 var(--player-clue-m); vertical-align: middle; }
-.player-board .player-clue-num.is-circled { border-color: var(--grid-ink); }
+.player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }
