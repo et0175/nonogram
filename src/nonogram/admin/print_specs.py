@@ -13,7 +13,7 @@ so a refused plan stores neither (AC-197's posture, extended to the mode).
 import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal, InvalidOperation
 
 from nonogram.admin.book_page_spec import (
     BOOK1_PROFILE,
@@ -50,6 +50,37 @@ class PrintSpec:
             "outside_margin_bleed_cm": self.outside_margin_bleed_cm,
             "interior_ink_mode": self.interior_ink_mode,
         }
+
+
+@dataclass(frozen=True)
+class TrimLimits:
+    """KDP's trim bounds in cm, and in the inches that are always accepted (CARD-174).
+
+    The cm figures are ``book_page_spec``'s constants as they are. Each inch
+    figure is the cm bound divided by 2.54 and cut to two decimals **inward**
+    — a maximum rounded down, the minimum rounded up — so that typing the
+    stated figure back in passes :meth:`PrintSpecValidator.validate_trim_size`
+    (48 cm is 18.898 in: 18.90 in would convert to 48.01 cm and be refused,
+    18.89 in converts to 47.98 cm). That guarantee is shown only for cm bounds
+    that are whole hundredths of a cm, as KDP's 10 / 30 / 48 are: for a bound
+    such as 15.875 cm the stated 6.25 in converts to 15.88 cm and is refused.
+    The inch refusals and Print setup's
+    Limits box both read these, so the page and the server cannot state
+    different limits.
+    """
+
+    min_cm: float
+    max_width_cm: float
+    max_height_cm: float
+    min_in: str
+    max_width_in: str
+    max_height_in: str
+
+
+def _inches_inward(cm: float, rounding: str) -> str:
+    """``cm`` in inches, to two decimals, rounded by ``rounding`` (floor or ceiling)."""
+    inches = Decimal(str(cm)) / Decimal("2.54")
+    return str(inches.quantize(Decimal("0.01"), rounding=rounding))
 
 
 class PrintSpecValidator:
@@ -113,6 +144,18 @@ class PrintSpecValidator:
             raise ValueError(f"Invalid inch value: {inches}") from e
 
     @staticmethod
+    def trim_limits() -> TrimLimits:
+        """The one statement of the trim limits Print setup shows and refuses with."""
+        return TrimLimits(
+            min_cm=PrintSpecValidator.MIN_TRIM_CM,
+            max_width_cm=PrintSpecValidator.MAX_TRIM_WIDTH_CM,
+            max_height_cm=PrintSpecValidator.MAX_TRIM_HEIGHT_CM,
+            min_in=_inches_inward(PrintSpecValidator.MIN_TRIM_CM, ROUND_CEILING),
+            max_width_in=_inches_inward(PrintSpecValidator.MAX_TRIM_WIDTH_CM, ROUND_FLOOR),
+            max_height_in=_inches_inward(PrintSpecValidator.MAX_TRIM_HEIGHT_CM, ROUND_FLOOR),
+        )
+
+    @staticmethod
     def validate_interior_ink_mode(mode: Optional[str]) -> Tuple[bool, Optional[str]]:
         """Validate one submitted interior ink mode (CARD-147).
 
@@ -136,12 +179,24 @@ class PrintSpecValidator:
         return True, None
 
     @staticmethod
-    def validate_trim_size(width_cm: str, height_cm: str) -> Tuple[bool, Optional[str]]:
+    def validate_trim_size(
+        width_cm: str,
+        height_cm: str,
+        *,
+        entered_inches: Optional[Tuple[str, str]] = None,
+    ) -> Tuple[bool, Optional[str]]:
         """Validate trim size bounds.
+
+        The verdict is always made on the cm values. Only the wording of a
+        bound refusal depends on ``entered_inches``.
 
         Args:
             width_cm: Trim width in cm
             height_cm: Trim height in cm
+            entered_inches: The (width, height) the owner typed, when they
+                typed inches (CARD-174). A bound refusal then states the limit
+                in inches (:meth:`trim_limits`) and quotes the failing entry.
+                ``None`` (the default) keeps the cm wording.
 
         Returns:
             Tuple of (is_valid, error_message)
@@ -158,27 +213,76 @@ class PrintSpecValidator:
         if not (math.isfinite(width) and math.isfinite(height)):
             return False, "Trim size must be numeric values"
 
+        # The verdict is made here, once, by these three comparisons on the cm
+        # values. ``entered_inches`` only chooses the wording of the branch
+        # that failed (CARD-174 review F-001: no second set of comparisons).
+        inches = (
+            None
+            if entered_inches is None
+            else tuple(str(value).strip() for value in entered_inches)
+        )
+
         # Check minimums
-        if width < PrintSpecValidator.MIN_TRIM_CM or height < PrintSpecValidator.MIN_TRIM_CM:
-            return (
-                False,
-                f"Trim size must be at least {PrintSpecValidator.MIN_TRIM_CM} cm in both dimensions",
+        width_too_small = width < PrintSpecValidator.MIN_TRIM_CM
+        height_too_small = height < PrintSpecValidator.MIN_TRIM_CM
+        if width_too_small or height_too_small:
+            if inches is None:
+                return (
+                    False,
+                    f"Trim size must be at least {PrintSpecValidator.MIN_TRIM_CM} cm in both dimensions",
+                )
+            return False, PrintSpecValidator._inch_min_refusal(
+                inches, width_too_small, height_too_small
             )
 
         # Check maximums
         if width > PrintSpecValidator.MAX_TRIM_WIDTH_CM:
+            if inches is None:
+                return (
+                    False,
+                    f"Trim width cannot exceed {PrintSpecValidator.MAX_TRIM_WIDTH_CM} cm (Amazon KDP limit)",
+                )
             return (
                 False,
-                f"Trim width cannot exceed {PrintSpecValidator.MAX_TRIM_WIDTH_CM} cm (Amazon KDP limit)",
+                f"Trim width cannot exceed {PrintSpecValidator.trim_limits().max_width_in} in "
+                f"(Amazon KDP limit); you entered {inches[0]} in",
             )
 
         if height > PrintSpecValidator.MAX_TRIM_HEIGHT_CM:
+            if inches is None:
+                return (
+                    False,
+                    f"Trim height cannot exceed {PrintSpecValidator.MAX_TRIM_HEIGHT_CM} cm (Amazon KDP limit)",
+                )
             return (
                 False,
-                f"Trim height cannot exceed {PrintSpecValidator.MAX_TRIM_HEIGHT_CM} cm (Amazon KDP limit)",
+                f"Trim height cannot exceed {PrintSpecValidator.trim_limits().max_height_in} in "
+                f"(Amazon KDP limit); you entered {inches[1]} in",
             )
 
         return True, None
+
+    @staticmethod
+    def _inch_min_refusal(
+        inches: Tuple[str, str], width_too_small: bool, height_too_small: bool
+    ) -> str:
+        """The minimum refusal worded in inches, quoting only the side(s) that failed.
+
+        Wording only: which sides failed is decided by the caller's cm
+        comparisons. ``inches`` is the (width, height) as typed, stripped.
+        """
+        too_small = [
+            f"{entry} in for the {label}"
+            for label, entry, failed in (
+                ("width", inches[0], width_too_small),
+                ("height", inches[1], height_too_small),
+            )
+            if failed
+        ]
+        return (
+            f"Trim size must be at least {PrintSpecValidator.trim_limits().min_in} in on both sides; "
+            f"you entered {' and '.join(too_small)}"
+        )
 
     @staticmethod
     def validate_margins(
@@ -222,6 +326,8 @@ class PrintSpecValidator:
         outside_margin_cm: Optional[str] = None,
         outside_margin_bleed_cm: Optional[str] = None,
         interior_ink_mode: Optional[str] = None,
+        *,
+        entered_inches: Optional[Tuple[str, str]] = None,
     ) -> Tuple[Optional[PrintSpec], Optional[str]]:
         """Create a print spec with validation.
 
@@ -234,6 +340,9 @@ class PrintSpecValidator:
             interior_ink_mode: How the interior is printed (CARD-147) —
                 ``'bw'`` or ``'colour'``; defaults to black-and-white, which is
                 what every book that exists today is in content.
+            entered_inches: The (width, height) the owner typed in inches, if
+                they did; passed to :meth:`validate_trim_size` so a bound
+                refusal is worded in inches (CARD-174). Defaults to cm wording.
 
         Returns:
             Tuple of (PrintSpec or None, error_message or None)
@@ -245,7 +354,9 @@ class PrintSpecValidator:
         outside_margin_cm = outside_margin_cm or PrintSpecValidator.DEFAULT_OUTSIDE_MARGIN_CM
 
         # Validate trim size
-        is_valid, error = PrintSpecValidator.validate_trim_size(width_cm, height_cm)
+        is_valid, error = PrintSpecValidator.validate_trim_size(
+            width_cm, height_cm, entered_inches=entered_inches
+        )
         if not is_valid:
             return None, error
 

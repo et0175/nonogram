@@ -6,6 +6,11 @@
     (3)   TestMarginValidation_RefusesNonFiniteValues — the margin half of the
           same NaN gap ("What to do", item 3)
 
+CARD-174 (inch refusals; the cm wording unchanged):
+
+    AC-3     TestTrimRefusal_StatedInchLimitIsAccepted
+    AC-4/5   TestTrimRefusal_CmWordingUnchanged
+
 ``float("nan")`` fails every ``<``/``>`` comparison, so ``validate_trim_size``
 used to accept ``"nan"`` (and ``"inf"`` past the minimum check); Print setup
 then committed the plan in one transaction and had the trim refused by
@@ -406,3 +411,236 @@ class TestPrintSetup_NanWidthChangesNothing:
         # Compared by content: a plan read off the form marks its cells edited.
         assert (plan.count, plan.split, plan.cells) == (NEW_PLAN.count, NEW_PLAN.split, NEW_PLAN.cells)
         assert trim == ("20.32", "25.40")
+
+
+# --------------------------------------------------------------------------
+# CARD-174 — trim refusals worded in the unit typed; the cm wording unchanged
+# --------------------------------------------------------------------------
+
+#: CARD-174 AC-3/AC-6: the inch limits the refusals and the Limits box state,
+#: worked out by hand — 10 / 2.54 = 3.937 rounded up, 30 / 2.54 = 11.811 and
+#: 48 / 2.54 = 18.898 rounded down — not read back from the code under test.
+STATED_INCH_LIMITS = {"min": "3.94", "max_width": "11.81", "max_height": "18.89"}
+
+
+class TestTrimRefusal_StatedInchLimitIsAccepted:
+    """CARD-174 AC-3 — every inch limit a refusal states is accepted when typed.
+
+    18.90 in, the figure the Limits box used to print, converts to 48.01 cm
+    and is refused; the limits are cut inward so this cannot happen.
+    """
+
+    def test_the_shared_source_states_the_hand_worked_limits(self) -> None:
+        limits = PrintSpecValidator.trim_limits()
+        assert (limits.min_in, limits.max_width_in, limits.max_height_in) == (
+            STATED_INCH_LIMITS["min"],
+            STATED_INCH_LIMITS["max_width"],
+            STATED_INCH_LIMITS["max_height"],
+        )
+        assert (limits.min_cm, limits.max_width_cm, limits.max_height_cm) == (10.0, 30.0, 48.0)
+
+    @pytest.mark.parametrize(
+        "inches",
+        [
+            (STATED_INCH_LIMITS["max_width"], STATED_INCH_LIMITS["max_height"]),
+            (STATED_INCH_LIMITS["min"], STATED_INCH_LIMITS["min"]),
+        ],
+    )
+    def test_each_stated_limit_converts_to_an_accepted_trim(self, inches) -> None:
+        width_cm, height_cm = (PrintSpecValidator.inches_to_cm(v) for v in inches)
+        assert PrintSpecValidator.validate_trim_size(width_cm, height_cm) == (True, None)
+        assert PrintSpecValidator.validate_trim_size(
+            width_cm, height_cm, entered_inches=inches
+        ) == (True, None)
+
+    @pytest.mark.parametrize(
+        "inches, prefix",
+        [
+            (("11.82", "11"), "Trim width cannot exceed 11.81 in"),
+            (("8.5", "18.90"), "Trim height cannot exceed 18.89 in"),
+            (("3.93", "11"), "Trim size must be at least 3.94 in"),
+            (("8.5", "3.93"), "Trim size must be at least 3.94 in"),
+        ],
+    )
+    def test_one_hundredth_beyond_each_limit_is_refused_naming_it(self, inches, prefix) -> None:
+        """The boundary just past each stated figure is refused — so it is the edge."""
+        width_cm, height_cm = (PrintSpecValidator.inches_to_cm(v) for v in inches)
+        ok, message = PrintSpecValidator.validate_trim_size(
+            width_cm, height_cm, entered_inches=inches
+        )
+        assert ok is False
+        assert message.startswith(prefix), message
+
+    def test_seeded_corpus_of_hundredth_cm_bounds_states_only_accepted_inches(self, monkeypatch) -> None:
+        """The inward rounding holds for cm bounds on a 0.01 cm grid, not just KDP's three.
+
+        Only such bounds are drawn (rounded to 2 dp); for a bound off that grid,
+        e.g. 15.875 cm, the stated 6.25 in converts to 15.88 cm and is refused,
+        so the claim is not made for it. For each bound the class constants are moved, and the inch figures
+        trim_limits() then states are typed back through inches_to_cm: each
+        must pass validate_trim_size against the very bounds it was cut from.
+        """
+        rng = random.Random(174)
+        cases = 0
+        for _ in range(1500):
+            low = round(rng.uniform(1.0, 20.0), 2)
+            high_w = round(rng.uniform(low + 1.0, 60.0), 2)
+            high_h = round(rng.uniform(low + 1.0, 80.0), 2)
+            monkeypatch.setattr(PrintSpecValidator, "MIN_TRIM_CM", low)
+            monkeypatch.setattr(PrintSpecValidator, "MAX_TRIM_WIDTH_CM", high_w)
+            monkeypatch.setattr(PrintSpecValidator, "MAX_TRIM_HEIGHT_CM", high_h)
+            limits = PrintSpecValidator.trim_limits()
+            for inches in ((limits.max_width_in, limits.max_height_in), (limits.min_in, limits.min_in)):
+                width_cm, height_cm = (PrintSpecValidator.inches_to_cm(v) for v in inches)
+                assert PrintSpecValidator.validate_trim_size(width_cm, height_cm) == (True, None), (
+                    low, high_w, high_h, inches
+                )
+                cases += 1
+        assert cases >= 3000
+
+    @pytest.mark.parametrize(
+        "inches, cm",
+        [
+            ((STATED_INCH_LIMITS["max_width"], STATED_INCH_LIMITS["max_height"]), ("30.00", "47.98")),
+            ((STATED_INCH_LIMITS["min"], STATED_INCH_LIMITS["min"]), ("10.01", "10.01")),
+        ],
+    )
+    def test_the_route_stores_each_stated_limit(self, store, panel, inches, cm) -> None:
+        books = panel.book_manager
+        book_id = _book_on_six_by_nine(books)
+
+        response = panel.test_client().post(
+            f"/book/{book_id}/setup-print",
+            data={"unit": "inches", "width": inches[0], "height": inches[1]},
+        )
+
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/select-puzzles")
+        assert _stored(books, book_id)[1] == cm
+
+
+#: CARD-174 review F-001: inch entries that convert to exactly the cm bound
+#: (10.00 / 30.00 / 48.00 cm, hand-checked: 3.937 x 2.54 = 9.99998,
+#: 11.811 x 2.54 = 29.99994, 18.8976 x 2.54 = 48.0) — accepted on main, so
+#: G-1 requires they stay accepted — and the entries 0.01 in beyond them
+#: (9.97 / 30.03 / 48.03 cm), which stay refused. One axis per case, so each
+#: bound comparison is pinned at equality on its own.
+EXACT_BOUNDARY_INCHES = {
+    ("3.937", "11"): ("10.00", "27.94"),
+    ("8.5", "3.937"): ("21.59", "10.00"),
+    ("11.811", "11"): ("30.00", "27.94"),
+    ("8.5", "18.8976"): ("21.59", "48.00"),
+}
+BEYOND_BOUNDARY_INCHES = {
+    ("3.927", "11"): ("Trim size must be at least 3.94 in", "Trim size must be at least 10.0 cm"),
+    ("8.5", "3.927"): ("Trim size must be at least 3.94 in", "Trim size must be at least 10.0 cm"),
+    ("11.821", "11"): ("Trim width cannot exceed 11.81 in", "Trim width cannot exceed 30.0 cm"),
+    ("8.5", "18.9076"): ("Trim height cannot exceed 18.89 in", "Trim height cannot exceed 48.0 cm"),
+}
+
+
+class TestTrimRefusal_ExactCmBoundaryInInchesIsAccepted:
+    """CARD-174 review F-001 / G-1 — a trim at exactly a KDP bound is accepted in either wording.
+
+    The inch wording must not move the verdict at equality: each bound is a
+    strict comparison, so an entry converting to exactly 10.00 / 30.00 /
+    48.00 cm is accepted with and without ``entered_inches``, and through
+    the route; 0.01 in beyond it is refused in both.
+    """
+
+    @pytest.mark.parametrize("inches", list(EXACT_BOUNDARY_INCHES))
+    def test_the_exact_bound_is_accepted_with_and_without_entered_inches(self, inches) -> None:
+        width_cm, height_cm = (PrintSpecValidator.inches_to_cm(v) for v in inches)
+        assert (width_cm, height_cm) == EXACT_BOUNDARY_INCHES[inches]
+        assert PrintSpecValidator.validate_trim_size(width_cm, height_cm) == (True, None)
+        assert PrintSpecValidator.validate_trim_size(
+            width_cm, height_cm, entered_inches=inches
+        ) == (True, None)
+
+    @pytest.mark.parametrize("inches", list(BEYOND_BOUNDARY_INCHES))
+    def test_one_hundredth_of_an_inch_beyond_is_refused_in_both_wordings(self, inches) -> None:
+        inch_prefix, cm_prefix = BEYOND_BOUNDARY_INCHES[inches]
+        width_cm, height_cm = (PrintSpecValidator.inches_to_cm(v) for v in inches)
+        ok, message = PrintSpecValidator.validate_trim_size(width_cm, height_cm)
+        assert ok is False and message.startswith(cm_prefix), message
+        ok, message = PrintSpecValidator.validate_trim_size(
+            width_cm, height_cm, entered_inches=inches
+        )
+        assert ok is False and message.startswith(inch_prefix), message
+
+    @pytest.mark.parametrize("inches", list(EXACT_BOUNDARY_INCHES))
+    def test_the_route_stores_the_exact_bound(self, store, panel, inches) -> None:
+        books = panel.book_manager
+        book_id = _book_on_six_by_nine(books)
+
+        response = panel.test_client().post(
+            f"/book/{book_id}/setup-print",
+            data={"unit": "inches", "width": inches[0], "height": inches[1]},
+        )
+
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/select-puzzles")
+        assert _stored(books, book_id)[1] == EXACT_BOUNDARY_INCHES[inches]
+
+    @pytest.mark.parametrize("inches", list(BEYOND_BOUNDARY_INCHES))
+    def test_the_route_refuses_one_hundredth_beyond_and_stores_nothing(self, store, panel, inches) -> None:
+        books = panel.book_manager
+        book_id = _book_on_six_by_nine(books)
+        before = _stored(books, book_id)
+
+        response = panel.test_client().post(
+            f"/book/{book_id}/setup-print",
+            data={"unit": "inches", "width": inches[0], "height": inches[1]},
+        )
+
+        assert response.status_code == 200
+        assert f"Error: {BEYOND_BOUNDARY_INCHES[inches][0]}" in response.get_data(as_text=True)
+        assert _stored(books, book_id) == before
+
+
+#: CARD-174 AC-4/AC-5: today's three cm refusals, byte for byte — written out,
+#: not rebuilt from the constants, so a change of wording or format is caught.
+CM_REFUSALS = {
+    ("31", "20"): "Trim width cannot exceed 30.0 cm (Amazon KDP limit)",
+    ("20", "49"): "Trim height cannot exceed 48.0 cm (Amazon KDP limit)",
+    ("9", "20"): "Trim size must be at least 10.0 cm in both dimensions",
+}
+
+
+class TestTrimRefusal_CmWordingUnchanged:
+    """CARD-174 AC-4/AC-5 — a cm submission, and BookManager, keep today's wording."""
+
+    @pytest.mark.parametrize("trim, message", list(CM_REFUSALS.items()))
+    def test_validate_trim_size_without_a_unit_says_cm(self, trim, message) -> None:
+        """AC-5: called as BookManager calls it — two cm strings, no keyword."""
+        assert PrintSpecValidator.validate_trim_size(*trim) == (False, message)
+        assert PrintSpecValidator.create_spec(width_cm=trim[0], height_cm=trim[1]) == (None, message)
+
+    @pytest.mark.parametrize("trim, message", list(CM_REFUSALS.items()))
+    def test_the_route_flashes_the_cm_message_for_a_cm_submission(self, store, panel, trim, message) -> None:
+        """AC-4: through Print setup in cm; nothing stored."""
+        books = panel.book_manager
+        book_id = _book_on_six_by_nine(books)
+        before = _stored(books, book_id)
+
+        response = panel.test_client().post(
+            f"/book/{book_id}/setup-print", data={"unit": "cm", "width": trim[0], "height": trim[1]}
+        )
+
+        assert response.status_code == 200
+        html = response.get_data(as_text=True)
+        assert f"Error: {message}\n" in html
+        assert "you entered" not in html
+        assert _stored(books, book_id) == before
+
+    def test_a_storage_refusal_still_reads_in_cm(self, books) -> None:
+        """AC-5: BookManager's storage-boundary refusal quotes the cm message."""
+        book_id = _book_on_six_by_nine(books)
+
+        with pytest.raises(ValueError) as refused:
+            books.set_print_spec(book_id, PrintSpec("31", "20"))
+
+        assert str(refused.value).startswith(
+            "a book's trim cannot be stored: Trim width cannot exceed 30.0 cm (Amazon KDP limit) (got "
+        )
+        assert books.get_book(book_id).trim_width_cm == SIX_BY_NINE_CM[0]

@@ -3087,10 +3087,16 @@ def create_app(debug=None):
                         ink_input = stored_mode.value if stored_mode else None
 
                     # Validate and create spec
+                    # CARD-174: a bound refusal of an inches submission is
+                    # worded in inches and quotes what the owner typed; the
+                    # verdict is still made on the cm values above.
                     spec, error = PrintSpecValidator.create_spec(
                         width_cm=width_cm,
                         height_cm=height_cm,
                         interior_ink_mode=ink_input,
+                        entered_inches=(
+                            (width_input, height_input) if unit == "inches" else None
+                        ),
                     )
 
                 if error:
@@ -3232,6 +3238,8 @@ def create_app(debug=None):
             "plan_error": plan_error,
             "interior_ink_mode": interior_ink_mode,
             "interior_ink_modes": list(InkMode),
+            # CARD-174: the Limits box prints the same figures the refusals state.
+            "trim_limits": PrintSpecValidator.trim_limits(),
             **_plan_context(book_id, submitted, plan_error_fields),
         }
 
