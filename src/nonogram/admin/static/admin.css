@@ -484,3 +484,23 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
   .player-toolbar, .player-toolbar *, .player-stage, .player-stage *, .player-board.is-solved .player-cell[data-state="filled"] { animation: none !important; transition: none !important; }
 }
+/* Clue circles (CARD-188): a clue number the player's marks settle carries
+   .is-circled (solver.js) and gets a thin round grid-ink outline; the digit
+   keeps its ink and size. Every number reserves the outline as a transparent
+   border, so circling moves nothing. A number's box is --player-circle
+   square, a pill when two digits need more; its slot stays one cell (column
+   clues: the gap above as margin, the box lifted back by half of it without
+   moving layout; row clues: half the gap on each side). No transition. */
+.player-board {
+  --player-circle: calc(var(--player-cell) * 0.86);
+  --player-circle-w: max(var(--border-width), calc(var(--player-cell) * 0.06));
+  --player-circle-gap: calc(var(--player-cell) - var(--player-circle));
+}
+.player-board .player-clue-num {
+  box-sizing: border-box; min-width: var(--player-circle); height: var(--player-circle);
+  padding: 0 calc(var(--player-cell) * 0.06); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w));
+  border: var(--player-circle-w) solid transparent; border-radius: calc(var(--player-circle) / 2);
+}
+.player-clue.is-col .player-clue-num { width: fit-content; height: var(--player-circle); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w)); margin: var(--player-circle-gap) auto 0; position: relative; top: calc(var(--player-circle-gap) / -2); }
+.player-clue.is-row .player-clue-num { min-width: var(--player-circle); margin: 0 calc(var(--player-circle-gap) / 2); vertical-align: middle; }
+.player-board .player-clue-num.is-circled { border-color: var(--grid-ink); }

@@ -107,6 +107,8 @@ import {
   FILLED, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
   dragStroke, errorCount, isBoard, isSolved, record, redo, resetStroke, undo,
 } from "./solver_state.js";
+// Clue circles (CARD-188): see paintCircles below.
+import { circledClues } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -245,6 +247,7 @@ function start() {
   const errorsOut = toolbar.querySelector("[data-player-errors]");
   const banner = document.getElementById("puzzle-player-solved");
   const announce = document.getElementById("puzzle-player-announce");
+  const clueNumbers = clueNumbersOf(table);
   let solved = false;
 
   // Error count and solved state of the recorded board (see PROGRESS).
@@ -258,6 +261,7 @@ function start() {
     banner.hidden = !solved;
     toolbar.classList.toggle("is-solved", solved);
     table.classList.toggle("is-solved", solved);
+    paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
   }
 
   const marking = wireMarking(table, {
@@ -293,6 +297,26 @@ function start() {
       marking.commit(createHistory(copyBoard(next)));
     },
   });
+}
+
+// CLUE CIRCLES (CARD-188). showProgress, run on every commit (stroke, undo,
+// redo, reset, setBoard) and never for a drag's preview, sets
+// .is-circled on each span.player-clue-num that solver_state.js circledClues
+// circles for the recorded board, and clears it on the rest. The spans are
+// collected once, here, at draw time: { rows: [[span...]] per row,
+// columns: [[span...]] per column }. Text and aria-labels are left alone.
+function clueNumbersOf(table) {
+  const spans = (kind) => [...table.querySelectorAll(`th.player-clue.is-${kind}`)]
+    .map((box) => [...box.querySelectorAll(".player-clue-num")]);
+  return { rows: spans("row"), columns: spans("col") };
+}
+
+function paintCircles(clueNumbers, circled) {
+  for (const axis of ["rows", "columns"]) {
+    clueNumbers[axis].forEach((spans, line) => {
+      spans.forEach((span, k) => span.classList.toggle("is-circled", circled[axis][line][k]));
+    });
+  }
 }
 
 // The [row, col] of the board cell under the viewport point (x, y), or null.
