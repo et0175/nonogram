@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-05
+- CARD-181 (feature): A targeted batch now records the difficulty tier it asked for, and the batch list and batch pages show it under "Tier asked" ("—" for batches made before this change or without a target). Needs database migration 014: back up and run `alembic upgrade head` on the panel's database before using this version.
 - CARD-180 (feature): On the book's puzzle-selection page, ?status=all now lists puzzles of every status instead of none; a puzzle that isn't approved shows a small Status row, and the same add rules (cell floor, override) still apply. The default view is unchanged.
 - CARD-178 (feature): A book stored at the 48 cm maximum height now reopens in inches as 18.89 (it showed 18.90, which Print setup then refused), and saving it untouched keeps 48 cm. Every other stored size reads as before.
 - CARD-182 (feature): On a phone, puzzle player cells are now at least 24 px wide, a comfortable tap target. A board too wide for the screen scrolls sideways inside the player (start a pan on the clues); the desktop view is unchanged.

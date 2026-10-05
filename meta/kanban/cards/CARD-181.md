@@ -1,6 +1,6 @@
 # CARD-181: A batch remembers the tier it asked for, and its pages show it
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** migrations/versions/014_batch_requested_tier.py, src/nonogram/db/models.py, src/nonogram/admin/batch_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/batches_list.html, src/nonogram/admin/templates/batch_puzzles.html, src/nonogram/admin/templates/batch_status.html, tests/test_batch_requested_tier.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.4 (cycle 1/3)
+**Started:** 2026-10-05T12:33:02Z
+**Closed:** 2026-10-05T13:14:05Z
+**Actual:** 0.1d
+**Merge commit:** 5e96945
 **Blocked by:** —
 
 ## What to implement
@@ -201,3 +201,70 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-181` (55 rules). A project
   Render: `docs/deploy/render.md` marks "Migrations on deploy" as TODO(owner), because the service is dashboard-managed and `render.yaml` is ignored. After deploying, check read-only with `DATABASE_URL="<render external URL>" ./.venv/bin/alembic current`. If it is not at 014, run `alembic upgrade head` with that URL yourself.
   Rollback: `alembic downgrade 013` drops only the column. Recorded tiers are lost, and no puzzle or batch row is otherwise touched. Roll the code back first, or the pages 500 on the missing column.
 - [AC cross-check] All ACs were re-read against the body. AC-3's image-batch-stores-NULL rule and AC-5's `—`-not-"Any" rule match target items 3 and 5. No change was needed.
+- [Env] forge 2026.8.17
+- [Migration numbering] `alembic heads` on main 311f30d → `013 (head)`; this card takes `014`.
+- [System contract] fresh lens (system_rules.py --card CARD-181) = card section: 55/55 ids, no drift.
+- [Impl 2026-10-05] Commit 17d37ed on card/181-batch-requested-tier. `alembic heads` in the worktree (DATABASE_URL = temp SQLite in scratchpad) printed `013 (head)` before writing; 014 used. Files: migrations/versions/014_batch_requested_tier.py (new), src/nonogram/db/models.py (`Batch.requested_tier`), src/nonogram/admin/batch_generator.py (`BatchJob.requested_tier`; `recorded_tier = requested_tier if source == "random" else None` written on BatchJob and Batch row; both DB readers copy it; CARD-138 comment rewritten; generation still receives `requested_tier` as an argument), src/nonogram/admin/app.py (module-level `requested_tier_label` = `tier_of_record(value)` → `.label` or None, registered as Jinja filter `requested_tier_label` next to `strategy_label`), the three templates, tests/test_batch_requested_tier.py (new). No file outside Touches edited.
+- [Tests] `tests/test_batch_requested_tier.py`: 26 passed (classes TestBatchRequestedTier_MemoryModeRecordsTheTier, _DbModeStoresAndReadsBackTheTier, _UntargetedAndImageBatchesStoreNull, _Migration014IsReversible, _PagesShowWhatTheBatchAskedFor, plus _LabelFilter). Guardrails (under the suite lock): test_batch_requested_tier + test_batch_difficulty_target + test_book_floor + test_difficulty_tiers + test_admin_tier_surfaces + test_card_156_db_fixture + test_cli → `344 passed, 2 skipped in 4.36s` (the 2 skips = test_card_156 db_required without DATABASE_URL; re-run below with it set); `tests/test_book_pdf_ink_mode.py -k Migration013` → `4 passed, 37 deselected in 0.38s`. Batch/template-related files (test_batch_generator, test_batch_history, test_batch_keeps_partial_work, test_card_068_batch_curation, test_admin_rename_strategies_batches, test_wave1_e2e, test_wave2_async_generation, image-batch files, etc., 19 files) → `342 passed in 12.25s`. test_admin_design_tokens/import_consistency/error_text/serving/auth → `136 passed in 2.94s`.
+- [AC-6] `DATABASE_URL=TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/nonogram_test pytest tests/test_card_156_db_fixture.py` (under lock) → `12 passed in 1.47s` — the session fixture's `alembic upgrade head` rebuilt nonogram_test to 014. Manual round trip (under lock, DATABASE_URL set explicitly on every alembic command to nonogram_test; information_schema check after each step):
+  `alembic current` → `014 (head)` (already at head from the fixture run); `alembic upgrade head` → `014 (head)`, column `requested_tier | YES | character varying`;
+  `alembic downgrade 013` → `Running downgrade 014 -> 013, Store the tier a random batch asked for (CARD-181; IDEA-073).` → `013`, column query `(0 rows)`;
+  `alembic upgrade head` → `Running upgrade 013 -> 014, Store the tier a random batch asked for (CARD-181; IDEA-073).` → `014 (head)`, column `requested_tier | YES | character varying`. nonogram_test left at 014. No command targeted nonogram_poc, nonogram_dev, Render or nonogram_admin.db.
+- [Mutation] memory-mode write dropped → killed by MemoryModeRecordsTheTier::test_the_canonical_tier_is_on_the_job_and_in_the_list (and the page tests)
+- [Mutation] DB-mode write dropped (Batch row) → killed by DbModeStoresAndReadsBackTheTier::test_the_row_holds_the_canonical_tier_and_both_readers_return_it
+- [Mutation] image→None dropped (record tier for any source) → killed by UntargetedAndImageBatchesStoreNull::test_memory_mode[images-with-a-tier], ::test_db_mode[images-with-a-tier]
+- [Mutation] untargeted stores "any" instead of None → killed by UntargetedAndImageBatchesStoreNull::test_memory_mode[random-untargeted], ::test_db_mode[random-untargeted]
+- [Mutation] operator spelling stored instead of canonical value → killed by MemoryModeRecordsTheTier::test_the_canonical_tier_is_on_the_job_and_in_the_list, DbMode…::test_the_row_holds_the_canonical_tier_and_both_readers_return_it
+- [Mutation] get_batch_status copy dropped → killed by DbMode…::test_the_row_holds_the_canonical_tier_and_both_readers_return_it
+- [Mutation] list_batches copy dropped → killed by DbMode…::test_the_row_holds_the_canonical_tier_and_both_readers_return_it
+- [Mutation] tier no longer passed to _generate_random_batch (DB mode, G-1) → killed by DbMode…::test_the_tier_still_reaches_generation_as_an_argument
+- [Mutation] filter: unknown value passes through → killed by LabelFilter::test_stored_value_to_label[-None], [extreme-None], [any-None]
+- [Mutation] filter: enum value instead of label → killed by all four PagesShow… tests and LabelFilter cases
+- [Mutation] list: NULL shows "Any" → killed by PagesShow…::test_the_list_has_a_tier_asked_column_after_source
+- [Mutation] list: header removed → killed by PagesShow…::test_the_list_has_a_tier_asked_column_after_source, ::test_the_tier_is_plain_text_not_the_graded_tier_badge
+- [Mutation] list: raw stored value without the filter → killed by PagesShow…::test_the_list_has_a_tier_asked_column_after_source
+- [Mutation] list: value wrapped in a `badge tier` span → killed by PagesShow…::test_the_tier_is_plain_text_not_the_graded_tier_badge
+- [Mutation] lede: phrase always shown (", asked for Any" for NULL) → killed by PagesShow…::test_the_batch_puzzles_lede_says_what_was_asked_for
+- [Mutation] lede: phrase never shown → killed by PagesShow…::test_the_batch_puzzles_lede_says_what_was_asked_for
+- [Mutation] status page: NULL shows "Any" → killed by PagesShow…::test_the_batch_status_page_has_a_tier_asked_row
+- [Mutation] status page: value branch shows "—" → killed by PagesShow…::test_the_batch_status_page_has_a_tier_asked_row
+- [Mutation] migration downgrade is a no-op → killed by Migration014IsReversible::test_up_down_up
+- [Mutation] migration adds server_default='easy' (backfill) → killed by Migration014IsReversible::test_up_down_up
+- [Mutation] migration column NOT NULL → killed by Migration014IsReversible::test_up_down_up
+  (all 21 mutants applied one at a time by a scratch script, test file run, file restored; 21/21 killed)
+- [Owner default] column header "Tier asked" — implemented as drafted
+- [Owner default] lede wording ", asked for Medium" after the sizes, nothing when NULL — implemented as drafted
+- [Owner default] "—" for NULL, never "Any" — implemented as drafted
+- [Owner default] plain text, not the `_tier.html` badge — implemented as drafted
+- [Renders] ~/Documents/nonogram-reviews/CARD-181/: after-batches-list.png (targeted Medium + NULL batch), after-batch-puzzles-targeted-medium.png, after-batch-status-targeted-medium.png, after-batch-puzzles-null.png, after-batch-status-null.png, before-batches-list-main.png (main's code, read-only via PYTHONPATH; no Tier asked column). Rendered from memory-mode apps on 127.0.0.1:5181/5180 (no DATABASE_URL, no ADMIN_ALLOWED_HOST → loopback door), each with one real random batch asked for "medium" and one untargeted (10 puzzles each, sizes 10/15), captured with playwright Chromium; both servers killed afterwards.
+- DESIGN-REGISTER: BatchTable "Tier asked" column — plain-text tier label after Source on /batches; "—" when no tier is recorded. Not the tier badge.
+- DESIGN-REGISTER: BatchStatus kv list "Tier asked" row — plain text label or "—", after Updated on /batch/<id>; /batches/<id> lede gains ", asked for <Tier>" only when recorded.
+- [Note] The migration docstring claims only what the AC-4 test shows (nullable, old row NULL, downgrade leaves the row's other columns unchanged) plus what is plain from the code (only the batches table is altered; the ORM selects the column, so code must roll back before the migration).
+- [Scope] migrations/versions/014_batch_requested_tier.py, src/nonogram/admin/app.py, src/nonogram/admin/batch_generator.py, src/nonogram/admin/templates/batch_puzzles.html, src/nonogram/admin/templates/batch_status.html, src/nonogram/admin/templates/batches_list.html, src/nonogram/db/models.py, tests/test_batch_requested_tier.py
+- [Build gate] PASSED (full, 11m03s) — `6423 passed, 9 skipped, 15988 warnings in 663.31s (0:11:03)`, exit 0; run under the full-suite lock with TEST_DATABASE_URL=nonogram_test, DATABASE_URL unset.
+- [Scope gate] cycle 1: IN_SCOPE — 8/8 changed files inside Touches; 0 guardrail hits (migrations 001-013, _tier.html untouched); components COMP-009 + its db storage only.
+- [Review 1/3] Score: 9.4 — crit: 0, imp: 0 (minor: F-001 filter docstring overclaims on "guess", F-002 no test pins Tier.label, F-003 migration docstring "no puzzle row is touched" untested; out-of-scope F-004)
+- [Review 1/3] Step 8h coverage: 55/55 card rule ids have a verdict line (12 ✓, 43 ⚠ no_eligible_fact, 0 ✗); no extra ids.
+- [Review 1/3] Score: 9.4 ✓ threshold reached + no critical/important
+- [Adversarial] no gating findings in cycle 1 — nothing to verify.
+- [Review sync] 1 report(s) → meta/review/
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0031/R1) — skeptics re-ran test_the_dependency_baseline_is_still_closed (`1 passed in 0.03s`), test_every_import_in_the_package_points_inward (`1 passed, 1 warning in 0.20s`), test_tiers_three_bands_and_no_fourth_tier + test_no_module_but_difficulty_classifies_a_tier (`2 passed in 0.33s`).
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-1 ✓ demonstrated — evidence: TestBatchRequestedTier_MemoryModeRecordsTheTier::test_the_canonical_tier_is_on_the_job_and_in_the_list PASSED
+  AC-2 ✓ demonstrated — evidence: TestBatchRequestedTier_DbModeStoresAndReadsBackTheTier::test_the_row_holds_the_canonical_tier_and_both_readers_return_it PASSED (sqlite_session_scope)
+  AC-3 ✓ demonstrated — evidence: TestBatchRequestedTier_UntargetedAndImageBatchesStoreNull::test_memory_mode[×3] + test_db_mode[×3] PASSED
+  AC-4 ✓ demonstrated — evidence: TestBatchRequestedTier_Migration014IsReversible::test_up_down_up / test_the_fixture_really_is_a_pre_014_database / test_014_revises_013_and_is_the_only_head PASSED
+  AC-5 ✓ demonstrated — evidence: TestBatchRequestedTier_PagesShowWhatTheBatchAskedFor (4 tests) PASSED
+  AC-6 ✓ demonstrated — evidence: tests/test_card_156_db_fixture.py on nonogram_test under the lock `12 passed in 1.89s` (0 skipped); `alembic heads` → `014 (head)`; nonogram_test `alembic current` → `014 (head)`; manual round trip recorded above
+  G-1 ✓ demonstrated — test_batch_difficulty_target.py `31 passed in 0.33s`, 0 diff lines; call `_generate_random_batch(batch_id, requested_tier)` unchanged
+  G-2 ✓ demonstrated — no 001-013 file in diff; test_book_floor.py `77 passed in 1.85s`; test_book_pdf_ink_mode.py -k Migration013 `4 passed, 37 deselected in 0.31s`
+  G-3 ✓ demonstrated — nonogram_admin.db not in branch changes; no line names nonogram_poc/Render; only nonogram_test touched, under the lock (bounded check)
+  G-4 ✓ demonstrated — test_difficulty_tiers.py `68 passed in 0.34s` incl. AST guard; no easy/medium/hard literals in added non-comment src lines
+  G-5 ✓ demonstrated — test_admin_tier_surfaces.py `38 passed in 0.25s`; no _tier.html/.css in diff
+  G-6 ✓ demonstrated — /batch/generate-puzzles untouched; 11 test files hitting it `154 passed in 2.53s`
+  G-7 ✓ demonstrated — no manifest in diff; test_the_dependency_baseline_is_still_closed PASSED
+- [Docs] forge:readme: changed dirs (migrations/versions, src/nonogram/admin, src/nonogram/admin/templates, src/nonogram/db) have no README.md; tests/README.md is a hand-picked feature list, not an index — structure/purpose unchanged, no README update.
+- [Commit] success commit 17d37ed (implementation commit, explicit pathspecs, 8 files +515/−5); review/fix produced no further changes, so no additional commit. Nothing under meta/ committed from the worktree.
+- [Mutation check] implementer 21/21 killed; reviewer cycle 1 sampled 8 more, 7 killed, 1 equivalent survivor (filter `tier.value.title()` vs `tier.label` — F-002, Minor, left open).
+- [Open minors] F-001 (requested_tier_label docstring: "guess" reads as Hard, not None), F-002 (no test pins Tier.label), F-003 (014 docstring "no puzzle row is touched" untested) — Minor, non-gating, left open for the dispatcher/owner; out-of-scope F-004 (editable install points at main checkout; ad-hoc probes need PYTHONPATH=src).
+- [Merge gate] branched from 311f30d (= main at merge); pipeline full suite 6423 passed, 9 skipped (same tree, not re-run). Owner: "Merge; I'll migrate" — owner applies 014 to nonogram_poc / Render (commands in Worktree notes). Merged 5e96945.

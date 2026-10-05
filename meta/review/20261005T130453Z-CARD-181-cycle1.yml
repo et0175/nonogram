@@ -1,0 +1,185 @@
+version: 1
+generated_at: "2026-10-05T13:04:53Z"
+target: "card/181-batch-requested-tier (main...17d37ed)"
+overall_score: 9.4
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - migrations/versions/014_batch_requested_tier.py
+    - src/nonogram/admin/app.py (requested_tier_label, filter registration, batch routes 2150-2330)
+    - src/nonogram/admin/batch_generator.py (BatchJob, create_batch, get_batch_status, list_batches)
+    - src/nonogram/admin/templates/batches_list.html
+    - src/nonogram/admin/templates/batch_puzzles.html
+    - src/nonogram/admin/templates/batch_status.html
+    - src/nonogram/db/models.py
+    - tests/test_batch_requested_tier.py
+    - src/nonogram/difficulty.py (tier_of_record, parse_tier, Tier.label)
+    - meta/design/ (static check), implementer renders in ~/Documents/nonogram-reviews/CARD-181/
+  not_reached:
+    - "rendered result verified only via implementer renders (review.visual off)"
+    - "full suite not re-run by reviewer (orchestrator evidence: 6423 passed, 9 skipped in 663.31s, exit 0)"
+  confidence: high
+metrics:
+  diff: { files: 8, added: 515, removed: 5 }
+  max_fan_in: { symbol: "BatchJob / Batch model", callers: 3 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (159 commits/12mo, 71 fix)"
+    - "src/nonogram/admin/batch_generator.py (27 commits/12mo, 15 fix)"
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — requested_tier_label and BatchJob.requested_tier are new; only callers are the 3 templates + 3 BatchJob construction sites in this diff"
+
+system_contract:
+  rules_checked: 55
+  holds: 12
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed PASSED; diff touches no pyproject.toml"
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED; diff touches nothing under src/nonogram/web/"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature/field changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair/acceptance path untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: recovery policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: validate_density untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: diff adds no density check to the batch layer (grep of diff for 'density' = 0 hits)"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies list untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: score/tier decision untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver masks untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0031/R1 ✓ holds — test_difficulty_tiers.py::test_tiers_three_bands_and_no_fourth_tier and ::test_no_module_but_difficulty_classifies_a_tier PASSED; filter uses tier_of_record/Tier.label (app.py:1144-1154), no easy/medium/hard literal in diff's src/templates"
+    - "ADR-0031/R2 ✓ holds — test_difficulty_tiers.py::test_tiers_branching_is_a_strategy_not_a_tier PASSED"
+    - "ADR-0031/R3 ✓ holds — test_difficulty_tiers.py::test_tiers_legacy_guess_row_reads_as_hard PASSED; migration 014 alters only batches, no puzzle difficulty_tier rewrite"
+    - "ADR-0032/R1 ✓ holds — test_admin_uniqueness_boundary.py -k TestStorageBoundary_AsksTheSolverNotTheCaller: 2 passed; add_puzzle not in diff"
+    - "ADR-0032/R2 ✓ holds — test_card_056_unmeasured_quality.py -k TestUnmeasuredQuality_SurvivesTheFilter: 4 passed; quality code untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: page geometry untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book puzzle page untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: grid rules untouched"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: player client untouched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player clues untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player state module untouched"
+    - "ADR-0038/R6 ✓ holds — diff scan: the three templates add only a tier label cell/row/phrase; no solution grid emitted; no new route"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser-test dependency change"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests added"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: size bounds untouched (create_batch validation lines unchanged)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ✓ holds — test_admin_binding.py -k 'TestAdminPanel_BindsLoopbackOnlyByDefault or TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit': 16 passed; diff adds no route or bind change"
+    - "CON-016 ✓ holds — same run (16 passed); new filter registration does not alter the door"
+    - "CON-021 ✓ holds — diff scan: no new route/player; changes are 3 existing admin templates behind the existing door"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched (tier still passed as argument; test_batch_difficulty_target.py 31 passed)"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book floor untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book membership untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+
+mutation_check:
+  implementer_mutants: "21/21 killed (per card Worktree notes)"
+  reviewer_mutants:
+    - "M1 migration down_revision '013'->'012': KILLED by test_up_down_up"
+    - "M2 migration upgrade alters 'books' instead of 'batches': KILLED by test_up_down_up"
+    - "M3 memory-mode BatchJob gets requested_tier (image tier leaks): KILLED by test_memory_mode[images-with-a-tier]"
+    - "M4 batch_status.html raw value without filter: KILLED by test_the_batch_status_page_has_a_tier_asked_row"
+    - "M5 batch_puzzles.html lede raw value without filter: KILLED by test_the_batch_puzzles_lede_says_what_was_asked_for"
+    - "M6 filter returns tier.value.title() instead of tier.label: SURVIVED (94 passed) — equivalent today (Tier.label is value.capitalize()); see F-002"
+    - "M7 'Tier asked' header moved before Source: KILLED by test_the_list_has_a_tier_asked_column_after_source"
+    - "M8 DB Batch row gets requested_tier (image tier leaks): KILLED by test_db_mode[images-with-a-tier]"
+  restore_verified: "sha256 equality per file + git status --porcelain shows only meta/kanban/cards/CARD-181.md"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 1149
+    title: "requested_tier_label docstring overclaims: 'guess' is not a tier but labels as Hard"
+    description: |
+      The docstring says the filter returns None "for None or any value that is not a tier".
+      tier_of_record reads the retired word "guess" as Tier.HARD (ADR-0031/R3), so
+      requested_tier_label("guess") == "Hard" (reviewer probe with worktree src on PYTHONPATH).
+      create_batch can never store "guess" (parse_tier refuses it), so no user impact, but the
+      claim goes beyond what the code does and what TestBatchRequestedTier_LabelFilter shows.
+    suggestion: |
+      Narrow to "None for None or any value tier_of_record does not read as a tier", or add a
+      ("guess", "Hard") case to the LabelFilter parametrization and say so.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_batch_requested_tier.py
+    line: 404
+    title: "No test pins the filter's delegation to Tier.label (equivalent mutant survives)"
+    description: |
+      Mutant M6 (filter returns tier.value.title() instead of tier.label) passes all 94 tests in
+      test_batch_requested_tier.py + test_difficulty_tiers.py. Equivalent today, but Tier.label is
+      documented as presentational and renameable ("Hard" to "Expert"); a rename would leave a
+      bypassing filter green. The card's target item 5 names Tier.label as the source.
+    suggestion: |
+      Assert requested_tier_label(t.value) == t.label for each Tier member (or monkeypatch
+      Tier.label and check the filter follows it).
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: migrations/versions/014_batch_requested_tier.py
+    line: 23
+    title: "Migration docstring claims 'no puzzle row is touched' beyond what AC-4 demonstrates"
+    description: |
+      The rollback paragraph says no puzzle row is touched; the AC-4 fixture inserts no puzzle
+      row, so no test shows it. It is structurally true (only batches is altered; puzzles.batch_id
+      FK has no ON DELETE and env.py enables no SQLite foreign_keys pragma, so the SQLite batch-mode
+      table recreate on downgrade cannot cascade), but under the project's test-claim rule it is
+      unevidenced.
+    suggestion: |
+      Cheapest: insert one puzzle row with batch_id = _OLD_ROW_ID in the pre_014_db fixture and
+      assert it is unchanged after downgrade; or narrow the sentence to "only the batches table is altered".
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
