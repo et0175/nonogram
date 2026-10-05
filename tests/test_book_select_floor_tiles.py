@@ -38,7 +38,7 @@ import pytest
 
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
-from nonogram.admin.book_manager import BookManager
+from nonogram.admin.book_manager import BookManager, unreadable_print_setup_refusal
 from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
 from tests.test_book_floor import Panel, clues_of, dotted_grid, text_of
 
@@ -566,6 +566,14 @@ class TestBookSelect_UnreadablePrintSetupIsOneBookLevelMessage:
         assert f'href="/book/{book_id}/setup-print"' in alerts[0]
         assert "Print setup" in text_of(alerts[0])
         assert "trim_width_cm" in text_of(alerts[0])
+        # The card's one wording, not the raw reason alone (review cycle 1,
+        # F-001): the reason is taken from book_page_spec itself, so its text
+        # is never pinned here (G-4).
+        with pytest.raises(ValueError) as unreadable:
+            book_page_spec(panel.books.get_book(book_id))
+        assert unreadable_print_setup_refusal(str(unreadable.value)) in text_of(
+            alerts[0]
+        )
 
     def test_no_tile_carries_a_flag_note_or_an_override(self, panel) -> None:
         book_id, puzzle_ids = self._book_of_three_tiles(panel)
