@@ -11,6 +11,12 @@ CARD-174 (inch refusals; the cm wording unchanged):
     AC-3     TestTrimRefusal_StatedInchLimitIsAccepted
     AC-4/5   TestTrimRefusal_CmWordingUnchanged
 
+CARD-178 (the inch figure a stored trim reopens with):
+
+    AC-3/4/5 TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted (the
+             card's PropertyTest_TrimInchesShown_InsideLimitsAndAccepted;
+             prefixed Test so pytest collects the class)
+
 ``float("nan")`` fails every ``<``/``>`` comparison, so ``validate_trim_size``
 used to accept ``"nan"`` (and ``"inf"`` past the minimum check); Print setup
 then committed the plan in one transaction and had the trim refused by
@@ -644,3 +650,123 @@ class TestTrimRefusal_CmWordingUnchanged:
             "a book's trim cannot be stored: Trim width cannot exceed 30.0 cm (Amazon KDP limit) (got "
         )
         assert books.get_book(book_id).trim_width_cm == SIX_BY_NINE_CM[0]
+
+
+# --------------------------------------------------------------------------
+# CARD-178 — the inch figure a stored trim reopens with
+# --------------------------------------------------------------------------
+
+
+def _hundredths(low_cm: float, high_cm: float) -> list[str]:
+    """Every cm value from ``low_cm`` to ``high_cm`` inclusive on a 0.01 grid, as text.
+
+    Built from whole hundredths, so no float step can skip or repeat a value.
+    """
+    return [f"{n // 100}.{n % 100:02d}" for n in range(round(low_cm * 100), round(high_cm * 100) + 1)]
+
+
+def _shown_is_inside_and_accepted(stored: str, axis: str) -> tuple[bool, str]:
+    """AC-3's two properties for one stored value, judged by trim_limits() and the validator.
+
+    The other side is set to the minimum cm bound, which the validator always
+    accepts, so a refusal can only be about ``axis``.
+    """
+    limits = PrintSpecValidator.trim_limits()
+    shown = PrintSpecValidator.trim_inches_shown(stored, axis)
+    high_in = limits.max_width_in if axis == "width" else limits.max_height_in
+    inside = float(limits.min_in) <= float(shown) <= float(high_in)
+    converted = PrintSpecValidator.inches_to_cm(shown)
+    other = f"{limits.min_cm:.2f}"
+    trim = (converted, other) if axis == "width" else (other, converted)
+    accepted = PrintSpecValidator.validate_trim_size(*trim) == (True, None)
+    return inside and accepted, shown
+
+
+class TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted:
+    """CARD-178 AC-3/AC-4/AC-5 — a stored trim inside the limits reopens in inches inside them.
+
+    ``cm_to_inches`` rounds to the nearest hundredth, so 48.00 cm showed as
+    18.90 in beside a Limits box stating 18.89 in, and 18.90 in converts to
+    48.01 cm, which is refused. ``trim_inches_shown`` holds the figure at the
+    stated limit for a stored value inside the cm limits, and only then.
+    """
+
+    def test_every_stored_hundredth_inside_kdp_bounds_shows_an_accepted_figure(self) -> None:
+        """AC-3: the whole 0.01 cm grid of both axes, on KDP's bounds."""
+        limits = PrintSpecValidator.trim_limits()
+        cases = 0
+        for axis, high_cm in (("width", limits.max_width_cm), ("height", limits.max_height_cm)):
+            for stored in _hundredths(limits.min_cm, high_cm):
+                ok, shown = _shown_is_inside_and_accepted(stored, axis)
+                assert ok, (axis, stored, shown)
+                cases += 1
+        assert cases >= 5800
+
+    def test_only_forty_eight_cm_high_differs_from_cm_to_inches(self) -> None:
+        """AC-4: every other value on the grid shows exactly what cm_to_inches gives."""
+        limits = PrintSpecValidator.trim_limits()
+        differing = []
+        cases = 0
+        for axis, high_cm in (("width", limits.max_width_cm), ("height", limits.max_height_cm)):
+            for stored in _hundredths(limits.min_cm, high_cm):
+                shown = PrintSpecValidator.trim_inches_shown(stored, axis)
+                if shown != PrintSpecValidator.cm_to_inches(stored):
+                    differing.append((axis, stored, shown))
+                cases += 1
+        assert cases >= 5800
+        # 48 / 2.54 = 18.8976: the stated limit, 18.89, rather than the nearest 18.90.
+        assert differing == [("height", "48.00", STATED_INCH_LIMITS["max_height"])]
+
+    @pytest.mark.parametrize(
+        "stored, axis, plain",
+        [
+            # Worked by hand: 50 / 2.54 = 19.685, 9 / 2.54 = 3.543,
+            # 48.01 / 2.54 = 18.9016, 30.01 / 2.54 = 11.8150, 9.99 / 2.54 = 3.9331.
+            ("50.00", "height", "19.69"),
+            ("9.00", "width", "3.54"),
+            ("48.01", "height", "18.90"),
+            ("30.01", "width", "11.81"),
+            ("9.99", "width", "3.93"),
+            ("9.99", "height", "3.93"),
+        ],
+    )
+    def test_a_stored_value_outside_the_limits_shows_the_plain_figure(self, stored, axis, plain) -> None:
+        """AC-4: a legacy out-of-range trim is not pulled inward to look valid.
+
+        48.01 and 9.99 are one hundredth outside a bound, so the "inside"
+        comparison is pinned at its edge on both sides.
+        """
+        assert PrintSpecValidator.trim_inches_shown(stored, axis) == plain
+        assert PrintSpecValidator.cm_to_inches(stored) == plain
+
+    def test_moved_bounds_on_a_hundredth_grid_keep_both_properties(self, monkeypatch) -> None:
+        """AC-5: the held figure follows trim_limits(), not a literal.
+
+        For each seeded draw the class bounds are moved and the values where a
+        clamp can matter (each bound and its inside neighbour) plus a seeded
+        sample of inside values are checked for AC-3's two properties. The
+        corpus must reach both the maximum and the minimum clamp, counted as
+        values whose shown figure differs from cm_to_inches.
+        """
+        rng = random.Random(178)
+        cases = clamped_high = clamped_low = 0
+        for _ in range(400):
+            low = round(rng.uniform(1.0, 20.0), 2)
+            high_w = round(rng.uniform(low + 1.0, 60.0), 2)
+            high_h = round(rng.uniform(low + 1.0, 80.0), 2)
+            monkeypatch.setattr(PrintSpecValidator, "MIN_TRIM_CM", low)
+            monkeypatch.setattr(PrintSpecValidator, "MAX_TRIM_WIDTH_CM", high_w)
+            monkeypatch.setattr(PrintSpecValidator, "MAX_TRIM_HEIGHT_CM", high_h)
+            for axis, high in (("width", high_w), ("height", high_h)):
+                grid = _hundredths(low, high)
+                for stored in grid[:2] + grid[-2:] + rng.sample(grid, 10):
+                    ok, shown = _shown_is_inside_and_accepted(stored, axis)
+                    assert ok, (low, high_w, high_h, axis, stored, shown)
+                    if shown != PrintSpecValidator.cm_to_inches(stored):
+                        if float(stored) > (low + high) / 2:
+                            clamped_high += 1
+                        else:
+                            clamped_low += 1
+                    cases += 1
+        assert cases >= 11000
+        assert clamped_high >= 20 and clamped_low >= 20, (clamped_high, clamped_low)

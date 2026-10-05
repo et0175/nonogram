@@ -12,7 +12,7 @@ so a refused plan stores neither (AC-197's posture, extended to the mode).
 
 import math
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Literal, Optional, Tuple
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal, InvalidOperation
 
 from nonogram.admin.book_page_spec import (
@@ -154,6 +154,35 @@ class PrintSpecValidator:
             max_width_in=_inches_inward(PrintSpecValidator.MAX_TRIM_WIDTH_CM, ROUND_FLOOR),
             max_height_in=_inches_inward(PrintSpecValidator.MAX_TRIM_HEIGHT_CM, ROUND_FLOOR),
         )
+
+    @staticmethod
+    def trim_inches_shown(cm: str, axis: Literal["width", "height"]) -> str:
+        """The inch figure Print setup shows for one stored trim side (CARD-178).
+
+        ``cm_to_inches(cm)``, except for a stored value at or inside ``axis``'s
+        cm limits whose nearest-hundredth figure lies outside the matching
+        :meth:`trim_limits` inch figure: that limit figure is shown instead.
+        On KDP's bounds this changes one value, 48.00 cm high, from 18.90 in
+        to the 18.89 in the Limits box states. A stored value outside the cm
+        limits keeps the plain ``cm_to_inches`` figure, so a bad stored trim is
+        not shown as a valid one.
+
+        Raises:
+            ValueError: As ``cm_to_inches``, for a value that is not a number.
+        """
+        shown = PrintSpecValidator.cm_to_inches(cm)
+        limits = PrintSpecValidator.trim_limits()
+        max_cm, max_in = {
+            "width": (limits.max_width_cm, limits.max_width_in),
+            "height": (limits.max_height_cm, limits.max_height_in),
+        }[axis]
+        if not limits.min_cm <= float(cm) <= max_cm:
+            return shown
+        if Decimal(shown) > Decimal(max_in):
+            return max_in
+        if Decimal(shown) < Decimal(limits.min_in):
+            return limits.min_in
+        return shown
 
     @staticmethod
     def validate_interior_ink_mode(mode: Optional[str]) -> Tuple[bool, Optional[str]]:
