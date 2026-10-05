@@ -48,6 +48,7 @@
                         <th scope="col">Created</th>
                         <th scope="col">Contents</th>
                         <th scope="col">Source</th>
+                        <th scope="col">Tier asked</th>
                         <th scope="col" class="text-end">Sizes</th>
                         <th scope="col" class="text-end">Puzzles</th>
                         <th scope="col">Review</th>
@@ -67,6 +68,7 @@
                             <div class="subtle">{{ job.batch_id|first_n(8) }}</div>
                         </td>
                         <td>{{ job.source or '—' }}</td>
+                        <td>{{ job.requested_tier|requested_tier_label or '—' }}</td>
                         <td class="text-end num">{{ (job.sizes or [])|join(', ') or '—' }}</td>
                         <td class="text-end num"><strong>{{ summary.total }}</strong></td>
                         <td>

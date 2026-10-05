@@ -1141,6 +1141,18 @@ def _kdp_gutter_refusal(book, counts: Optional[InteriorCounts]) -> Optional[str]
     return refusal
 
 
+def requested_tier_label(value: object) -> str | None:
+    """A batch's stored ``requested_tier`` as its display label (CARD-181).
+
+    COMP-006's output rule (ADR-0031/R1): ``tier_of_record`` reads the stored
+    text, ``Tier.label`` names it, so no template spells a tier itself.
+    ``None`` for ``None`` or any value that is not a tier, which the batch
+    pages show as an em dash ("no tier recorded"), never as "Any".
+    """
+    tier = tier_of_record(value)
+    return tier.label if tier is not None else None
+
+
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
@@ -1345,6 +1357,8 @@ def create_app(debug=None):
         MIN_RANDOM_BATCH_COUNT=MIN_RANDOM_BATCH_COUNT,
     )
     app.jinja_env.filters['strategy_label'] = lambda name: STRATEGY_LABELS.get(name, name)
+    # A batch's requested tier, as a label or None (CARD-181).
+    app.jinja_env.filters['requested_tier_label'] = requested_tier_label
 
     # Construct service instances
     # If DATABASE_URL is set, use DB-backed persistence; otherwise use in-memory mode

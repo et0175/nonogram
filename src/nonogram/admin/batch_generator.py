@@ -96,6 +96,9 @@ class BatchJob:
     theme: Optional[str] = None  # Store theme for retry
     puzzle_count: int = 0  # Number of puzzles actually stored
     source: Optional[str] = None  # "random" | "images"
+    # CARD-181: the canonical tier a random batch asked for ("medium"), or
+    # None when no tier is recorded (untargeted, image, or pre-014 batch).
+    requested_tier: Optional[str] = None
 
     def __post_init__(self):
         """Set count alias after initialization."""
@@ -262,6 +265,10 @@ class BatchGenerator:
             if difficulty_tier is not None
             else None
         )
+        # What the batch records as having asked for (CARD-181). An image
+        # batch ignores the tier (it runs no resample loop), so recording one
+        # would claim a target the batch never acted on: it stores None.
+        recorded_tier = requested_tier if source == "random" else None
 
         batch_uuid = uuid.uuid4()
         batch_id = str(batch_uuid)  # Keep string version for legacy mode + return value
@@ -276,6 +283,7 @@ class BatchGenerator:
                 sizes=sizes,
                 theme=theme,
                 source=source,
+                requested_tier=recorded_tier,
             )
             self.jobs[batch_id] = job
 
@@ -310,16 +318,17 @@ class BatchGenerator:
                         sizes=sizes,
                         theme=theme,
                         quality_filter=quality_filter,
+                        requested_tier=recorded_tier,
                     )
                     db.add(batch)
                     db.flush()
 
                 # 2. Generate puzzles (each one commits individually)
                 #
-                # The requested tier travels as an argument rather than on the
-                # Batch row: it is a property of this request, the row has no
-                # column for it, and inventing one would mean a migration
-                # against a database this card is not allowed to touch.
+                # The requested tier travels to the generator as an argument.
+                # Since CARD-181 it is also stored on the Batch row above
+                # (``requested_tier``, migration 014), but only so the batch
+                # pages can show it: generation reads the argument, not the row.
                 if source == "random":
                     self._generate_random_batch(batch_id, requested_tier)
                 # TODO: else if source == "images": self._generate_from_images(...)
@@ -709,6 +718,7 @@ class BatchGenerator:
                     sizes=batch.sizes,
                     theme=batch.theme,
                     source=batch.source,
+                    requested_tier=batch.requested_tier,
                 )
 
     @staticmethod
@@ -778,6 +788,7 @@ class BatchGenerator:
                     sizes=batch.sizes,
                     theme=batch.theme,
                     source=batch.source,
+                    requested_tier=batch.requested_tier,
                 )
                 for batch in query.order_by(Batch.created_at.desc()).all()
             ]
