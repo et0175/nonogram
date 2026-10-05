@@ -413,6 +413,17 @@ GUIDE_LEADING_PT = 17.0
 #: the unit the rest of the page's type is stated in.
 GUIDE_TITLE_GAP_PT = 36.0
 
+#: A divider page's one word, in points (TERM-031, CARD-184).
+#:
+#: The 60 px the divider has always been lettered at on a 300 DPI page, stated
+#: in the unit a reader can judge: ``type_px(14.4, 300) == 60``, so a book
+#: drawn at 300 DPI prints its dividers exactly as before, and a page at
+#: another resolution prints them at the same 14.4 pt instead of 60 px of
+#: whatever size that is. It letters through :func:`_guide_face`, whose
+#: fallback is sized, so a machine without Arial no longer prints the word at
+#: Pillow's 10 px default (2.4 pt).
+DIVIDER_PT = 14.4
+
 #: The guide page's title (FR-041, AC-324, CARD-167). It was "How to Use This
 #: Book" until the page started teaching how to solve.
 GUIDE_TITLE = "How to Solve Nonograms"
@@ -527,7 +538,7 @@ def type_px(points: float, dpi: int) -> int:
 
 
 def _guide_face(size: int) -> Any:
-    """The face the guide page letters in, at ``size`` device pixels.
+    """The face the guide page and the divider pages letter in, at ``size`` px.
 
     Arial by path; on a machine without it, Pillow's own face asked for at the
     same size. A bare ``load_default()`` letters a page at a 10 px em whatever
@@ -1646,10 +1657,7 @@ class BookPDFGenerator:
         frame = page_frame(self.page_spec(page_number))
         divider = Image.new("RGB", (frame.width, frame.height), "white")
         draw = ImageDraw.Draw(divider)
-        try:
-            divider_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 60)
-        except OSError:
-            divider_font = ImageFont.load_default()
+        divider_font = _guide_face(type_px(DIVIDER_PT, self.dpi))
 
         bbox = draw.textbbox((0, 0), text, font=divider_font)
         x = (frame.width - (bbox[2] - bbox[0])) // 2

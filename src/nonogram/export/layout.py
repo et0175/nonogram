@@ -2001,10 +2001,14 @@ ANSWER_MAX_CELL_MM = 5.0
 
 #: The type size a caption and a level heading are set in, in millimetres —
 #: physical, like :data:`HEADER_FONT_MM`, not a fraction of the cell. One size
-#: for both because both sit on a 6 mm line: 3.5 mm is roughly 10 pt, which
-#: leaves a clear quarter-line of white above and below, and is the "small"
-#: FR-042 asks the heading to be set in.
-ANSWER_TEXT_FONT_MM = 3.5
+#: for both because both sit on a 6 mm line: 10 pt (3.53 mm, 42 px at 300 DPI)
+#: is CON-020's floor for interior text, leaves white above and below on the
+#: 6 mm (71 px) line, and is the "small" FR-042 asks the heading to be set in.
+#:
+#: Stated as 10 pt converted to millimetres here, so COMP-007 needs no import
+#: to say it (CARD-184). Until then it was 3.5 mm, "roughly 10 pt": 9.92 pt,
+#: which :func:`_mm_to_px` rounds to 41 px = 9.84 pt at 300 DPI — under the floor.
+ANSWER_TEXT_FONT_MM = 10 * 25.4 / 72
 
 #: The two page capacities FR-042 defines: six answers as 2 columns x 3 rows,
 #: or four as 2 x 2. Always two columns; the capacity chooses the row count.
