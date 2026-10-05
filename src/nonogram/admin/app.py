@@ -3882,8 +3882,13 @@ def create_app(debug=None):
         theme = request.values.get("theme")
         # Approved only by default — and an empty ``?status=`` is no status,
         # so it keeps that default instead of switching the filter off
-        # (CARD-166, IDEA-013). An explicit value filters as given.
+        # (CARD-166, IDEA-013). An explicit value filters as given, except
+        # the exact value ``all``, which asks the store for every status
+        # (CARD-180, IDEA-088). ``status`` itself stays ``all`` so the hidden
+        # field and ``_tab_query`` carry it on; an unknown value still
+        # matches nothing.
         status = request.values.get("status") or "approved"
+        store_status = None if status == "all" else status
         puzzle_name = request.values.get("puzzle_name")
         limit = request.values.get("limit", _SELECT_PAGE, type=int)
         offset = request.values.get("offset", 0, type=int)
@@ -3951,7 +3956,7 @@ def create_app(debug=None):
                 difficulty=difficulty,
                 quality_min=quality_min,
                 theme=theme,
-                status=status,
+                status=store_status,
                 puzzle_name=puzzle_name,
                 book_id="unassigned",  # Only show puzzles NOT in any book
                 limit=limit,
