@@ -74,6 +74,7 @@ def test_a_database_that_never_answers_fails_instead_of_hanging(
         monkeypatch.setattr(db_session, "CONNECT_TIMEOUT_SECONDS", 2)
         monkeypatch.setattr(db_session, "engine", None)
         monkeypatch.setattr(db_session, "_engine_url", None)
+        monkeypatch.setattr(db_session, "SessionLocal", db_session.SessionLocal)
 
         started = time.monotonic()
         with pytest.raises(Exception):
@@ -104,6 +105,7 @@ def test_a_sqlite_url_is_not_given_a_postgres_connect_option(
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'x.db'}")
     monkeypatch.setattr(db_session, "engine", None)
     monkeypatch.setattr(db_session, "_engine_url", None)
+    monkeypatch.setattr(db_session, "SessionLocal", db_session.SessionLocal)
 
     db_session._init_engine()
     with db_session.engine.connect() as opened:
