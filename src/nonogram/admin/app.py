@@ -1065,6 +1065,18 @@ UNCOUNTABLE_INTERIOR_REFUSAL = (
     "book's puzzles and its print setup, then finalise again."
 )
 
+#: What a failed Finalise action shows (CARD-177). Fixed text, never the
+#: exception's: the panel can be reached at a public hostname (ADR-0030), and
+#: a database driver's message can name hosts and users. The exception itself
+#: goes to the panel's log.
+FINALISE_ACTION_FAILED = (
+    "Error: that action could not be completed. The details are in the "
+    "panel's log."
+)
+
+#: What a failed book PDF export shows, on each of its three routes (CARD-177).
+PDF_EXPORT_FAILED = "Failed to generate PDF. The details are in the panel's log."
+
 
 def _about(refusal: str, page_count: int) -> str:
     """``refusal`` with its page count said as "about N" (CARD-153, AC-4).
@@ -4433,11 +4445,11 @@ def create_app(debug=None):
                         book, puzzle_review, request.form.get("part")
                     )
 
-            except Exception as e:
+            except Exception:
                 # CARD-171: logged with its traceback before it is flashed, so
                 # an error that clears before the re-render is not lost.
                 app.logger.exception("A Finalise action on book %s failed", book_id)
-                flash(f"Error: {str(e)}", "error")
+                flash(FINALISE_ACTION_FAILED, "error")
 
         # Handle cover upload
         if "cover" in request.files:
@@ -4749,10 +4761,10 @@ def create_app(debug=None):
             timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
             return _send_export_part(pdf_bytes, requested, f"book_{timestamp}")
 
-        except Exception as e:
+        except Exception:
             # CARD-171: logged with its traceback before it is flashed.
             app.logger.exception("The PDF of book %s could not be generated", book.book_id)
-            flash(f"Failed to generate PDF: {str(e)}", "error")
+            flash(PDF_EXPORT_FAILED, "error")
             return redirect(back)
 
     @app.route("/book/<book_id>/download-pdf", methods=["POST"])
@@ -5077,8 +5089,9 @@ def create_app(debug=None):
                 pdf_bytes, part, book.metadata.title.replace(" ", "_")
             )
 
-        except Exception as e:
-            flash(f"Error generating PDF: {str(e)}", "error")
+        except Exception:
+            app.logger.exception("The PDF of book %s could not be generated", book_id)
+            flash(PDF_EXPORT_FAILED, "error")
             return redirect(url_for("book_detail", book_id=book_id))
 
     @app.route("/api/batch/<batch_id>/status")

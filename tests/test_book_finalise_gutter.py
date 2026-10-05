@@ -48,6 +48,7 @@ from nonogram.admin.book_kdp import (
     stored_gutter_cm,
     unpaired_interior_page_count,
 )
+from nonogram.admin.app import FINALISE_ACTION_FAILED, PDF_EXPORT_FAILED
 from nonogram.admin.book_manager import BookManager, BookStatus
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.admin.book_plan import BUCKETS, TIERS, DistributionPlan, Split, bucket_of
@@ -1428,23 +1429,27 @@ def _clear_cover_fails_once(panel, monkeypatch, tmp_path, book_id, error):
         session[f"book_{book_id}_cover_path"] = str(cover)
         session[f"book_{book_id}_cover_data"] = True
     _raise_once(monkeypatch, Path, "unlink", error)
-    return {"action": "clear_cover"}, 200, f"Error: {error}"
+    return {"action": "clear_cover"}, 200, FINALISE_ACTION_FAILED
 
 
 def _save_and_finish_fails_once(panel, monkeypatch, tmp_path, book_id, error):
     """The generator's constructor fails once — CARD-153's cycle-3 probe."""
     _raise_once(monkeypatch, BookPDFGenerator, "__init__", error)
-    return {"action": "save_and_finish"}, 200, f"Error: {error}"
+    return {"action": "save_and_finish"}, 200, FINALISE_ACTION_FAILED
 
 
 def _download_pdf_fails_once(panel, monkeypatch, tmp_path, book_id, error):
     """The export's generator fails once."""
     _raise_once(monkeypatch, BookPDFGenerator, "__init__", error)
-    return {"action": "download_pdf"}, 302, f"Failed to generate PDF: {error}"
+    return {"action": "download_pdf"}, 302, PDF_EXPORT_FAILED
 
 
 class TestFinalisePost_TransientErrorIsLogged:
-    """AC-4 — an error that clears before the re-render is still logged once."""
+    """AC-4 — an error that clears before the re-render is still logged once.
+
+    CARD-177 AC-1: the flash is the fixed text, and the exception's own
+    message (``marker``) is not on the screen.
+    """
 
     @pytest.mark.parametrize(
         "fail_once",
@@ -1455,7 +1460,8 @@ class TestFinalisePost_TransientErrorIsLogged:
         self, panel, monkeypatch, caplog, tmp_path, fail_once
     ) -> None:
         book_id = panel.book(SMALL_CORPUS)
-        error = TypeError("transient")
+        marker = "transient-card177-marker"
+        error = TypeError(marker)
         form, status, flashed = fail_once(panel, monkeypatch, tmp_path, book_id, error)
 
         with caplog.at_level("ERROR", logger=PANEL_LOGGER):
@@ -1463,10 +1469,15 @@ class TestFinalisePost_TransientErrorIsLogged:
 
         assert response.status_code == status
         if status == 200:
-            assert flashed in html.unescape(response.get_data(as_text=True))
+            body = response.get_data(as_text=True)
+            assert flashed in html.unescape(body)
+            assert marker not in body and marker not in html.unescape(body)
         else:
             with panel.client.session_transaction() as session:
-                assert ("error", flashed) in session.get("_flashes", [])
+                flashes = session.get("_flashes", [])
+            assert ("error", flashed) in flashes
+            assert not any(marker in message for _, message in flashes)
+            assert marker not in response.headers.get("Location", "")
         (record,) = _panel_errors(caplog)
         assert record.exc_info[1] is error
         assert record.exc_info[2] is not None  # the traceback itself
