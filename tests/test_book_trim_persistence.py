@@ -13,6 +13,10 @@
     TestBookTrim_ReopeningInInchesDoesNotShiftIt  review cycle 1 (F-002) — a
             trim field submitted exactly as the page rendered it stores the
             centimetres already there, so reopening in inches cannot move it
+    TestBookTrim_ReopenInInchesStaysInsideLimits  CARD-178 AC-1/AC-2/AC-6 —
+            a trim stored at a limit reopens in inches at the stated limit
+            figure, and an untouched Save keeps the stored centimetres, in
+            memory, SQLite and Postgres ``nonogram_test``
     TestBookTrim_ThePageCarriesOneUnit  review cycle 1 (F-003) — a stored
             column with no inch form puts the whole page back in centimetres,
             rather than one field in each unit under one label
@@ -687,6 +691,100 @@ class TestBookTrim_ReopeningInInchesDoesNotShiftIt:
         ).status_code == 302
 
         assert _stored_columns(app.book_manager, book_id) == ("15.00", "22.86")
+
+
+@pytest.fixture(params=("memory", "sqlite", "postgres"))
+def three_store_app(request, scope, monkeypatch):
+    """The admin app in memory, over a SQLite file, or over Postgres ``nonogram_test``.
+
+    Postgres comes through ``tests/conftest.py``'s ``db_session``, which
+    refuses any database not ending in ``_test`` and skips, visibly, when
+    that database is unreachable.
+    """
+    if request.param != "postgres":
+        return _build_app("memory" if request.param == "memory" else "db", scope, monkeypatch)
+    from nonogram.admin.app import create_app
+
+    request.getfixturevalue("db_session")
+    monkeypatch.setenv("TESTING", "true")
+    app = create_app()
+    app.config["TESTING"] = True
+    return app
+
+
+class TestBookTrim_ReopenInInchesStaysInsideLimits:
+    """CARD-178 AC-1/AC-2/AC-6 — reopening in inches never shows a trim past the stated limit.
+
+    ``cm_to_inches`` rounds 48.00 cm to 18.90 in, beside a Limits box that
+    states 18.89 in; 18.90 in typed back converts to 48.01 cm and is refused.
+    The page now shows the stated limit, and an untouched Save still keeps the
+    stored centimetres because the submission is compared with that same
+    shown figure.
+    """
+
+    #: 21.59 / 2.54 = 8.5000 and 48.00 / 2.54 = 18.8976, the height cut down
+    #: to the 18.89 the Limits box states — worked out here.
+    STORED_CM = ("21.59", "48.00")
+    SHOWN_IN = ("8.50", "18.89")
+
+    def test_the_fields_show_the_stated_limit_not_eighteen_ninety(self, three_store_app) -> None:
+        """AC-1."""
+        app = three_store_app
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        assert _set_trim(client, book_id, *self.STORED_CM).status_code == 302
+        _prefer(client, "inches")
+
+        html = _page(client, book_id)
+
+        assert _shown_trim(html) == self.SHOWN_IN
+        assert "18.90" not in html
+
+    def test_five_untouched_saves_keep_the_stored_trim_exactly(self, three_store_app) -> None:
+        """AC-2: not 47.98, which 18.89 converts to."""
+        app = three_store_app
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        assert _set_trim(client, book_id, *self.STORED_CM).status_code == 302
+        _prefer(client, "inches")
+
+        for _ in range(5):
+            shown = _shown_trim(_page(client, book_id))
+            assert shown == self.SHOWN_IN
+            assert _set_trim(client, book_id, *shown, unit="inches").status_code == 302
+            assert _stored_columns(app.book_manager, book_id) == self.STORED_CM
+
+    def test_typing_the_stated_limit_on_another_height_stores_it(self, three_store_app) -> None:
+        """AC-2: on a book stored at 27.94 cm high, 18.89 in is an edit: 18.89 x 2.54 = 47.98."""
+        app = three_store_app
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        assert _stored_columns(app.book_manager, book_id) == BOOK1_CM
+        _prefer(client, "inches")
+
+        assert _set_trim(client, book_id, "8.50", "18.89", unit="inches").status_code == 302
+
+        assert _stored_columns(app.book_manager, book_id) == ("21.59", "47.98")
+
+    @pytest.mark.parametrize(
+        "stored",
+        [("10.00", "10.00"), ("30.00", "48.00"), ("15.00", "27.94")],
+        ids=["minimum", "maxima", "inside"],
+    )
+    def test_an_untouched_resubmission_at_each_limit_stores_the_original(
+        self, three_store_app, stored
+    ) -> None:
+        """AC-6: each KDP bound, and one value inside them, survives an untouched inches Save."""
+        app = three_store_app
+        client = app.test_client()
+        book_id = _new_book(app.book_manager)
+        assert _set_trim(client, book_id, *stored).status_code == 302
+        _prefer(client, "inches")
+
+        shown = _shown_trim(_page(client, book_id))
+        assert _set_trim(client, book_id, *shown, unit="inches").status_code == 302
+
+        assert _stored_columns(app.book_manager, book_id) == stored
 
 
 class TestBookTrim_ThePageCarriesOneUnit:

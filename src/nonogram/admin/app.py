@@ -2914,19 +2914,21 @@ def create_app(debug=None):
             " size, so nothing was stored and the book keeps the trim it is on."
         )
 
-    def _submitted_trim_cm(submitted_inches, stored_cm):
+    def _submitted_trim_cm(submitted_inches, stored_cm, axis):
         """One inches field as the centimetres to store (CARD-136 cycle 1, F-002).
 
-        Reopening Print setup in inches shows ``cm_to_inches(stored_cm)``,
-        rounded to two decimals; converting that back with ``inches_to_cm``
+        Reopening Print setup in inches shows
+        ``trim_inches_shown(stored_cm, axis)`` — ``cm_to_inches(stored_cm)``,
+        rounded to two decimals, held inside the stated inch limits for a
+        stored value inside the cm limits (CARD-178); converting that back with ``inches_to_cm``
         does not land on ``stored_cm`` again (15.00 cm shows as 5.91 in and
         comes back as 15.01 cm), so pressing Save without touching the field
         silently moved the trim every page and every cell is measured on.
 
         A field the owner did not edit therefore stores the value that was
         already there: the submission is an edit only when it differs from
-        **the inch form of the stored trim** — ``cm_to_inches(stored_cm)``,
-        computed here and compared as a string. The discriminator is that
+        **the inch form of the stored trim** — the same
+        ``trim_inches_shown(stored_cm, axis)`` the page shows, computed here and compared as a string. The discriminator is that
         string, not a tolerance: "the owner sent back the stored trim as we
         show it" is the question, and a 0.1 mm window would also swallow a
         deliberate one-step edit.
@@ -2950,7 +2952,7 @@ def create_app(debug=None):
         """
         submitted = str(submitted_inches).strip()
         try:
-            if PrintSpecValidator.cm_to_inches(stored_cm) == submitted:
+            if PrintSpecValidator.trim_inches_shown(stored_cm, axis) == submitted:
                 return stored_cm
         except (ValueError, TypeError):
             pass
@@ -3078,8 +3080,8 @@ def create_app(debug=None):
                     # value rounded through inches and back (F-002).
                     if unit == "inches":
                         stored_width_cm, stored_height_cm = _stored_trim_cm(book)
-                        width_cm = _submitted_trim_cm(width_input, stored_width_cm)
-                        height_cm = _submitted_trim_cm(height_input, stored_height_cm)
+                        width_cm = _submitted_trim_cm(width_input, stored_width_cm, "width")
+                        height_cm = _submitted_trim_cm(height_input, stored_height_cm, "height")
                     else:
                         width_cm = width_input
                         height_cm = height_input
@@ -3202,8 +3204,8 @@ def create_app(debug=None):
         # would then be read in the wrong unit and stored (F-003).
         if unit_preference == "inches":
             try:
-                width_in = PrintSpecValidator.cm_to_inches(default_width)
-                height_in = PrintSpecValidator.cm_to_inches(default_height)
+                width_in = PrintSpecValidator.trim_inches_shown(default_width, "width")
+                height_in = PrintSpecValidator.trim_inches_shown(default_height, "height")
             except ValueError:
                 if submitted is None:
                     # A prefill from storage. After a refused submission the

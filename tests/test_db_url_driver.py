@@ -174,6 +174,7 @@ class TestDbUrl_DriverIsNamedNotInherited:
         monkeypatch.setattr(db_session, "sessionmaker", lambda **kwargs: None)
         monkeypatch.setattr(db_session, "engine", None)
         monkeypatch.setattr(db_session, "_engine_url", None)
+        monkeypatch.setattr(db_session, "SessionLocal", db_session.SessionLocal)
 
         db_session._init_engine()
 
