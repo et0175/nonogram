@@ -228,6 +228,17 @@
                             <span class="info-label">Book cell</span>
                             <span class="info-value">{% if cell_mm is none %}not measurable{% else %}{{ '%.2f'|format(cell_mm) }} mm{% endif %}</span>
                         </div>
+                        {#- CARD-180: under `?status=all` a draft or rejected
+                            tile would look like an approved one, so every
+                            tile that is not approved names its status. An
+                            approved tile gets no row, so the default page is
+                            unchanged. -#}
+                        {% if puzzle.status != 'approved' %}
+                        <div class="info-row">
+                            <span class="info-label">Status</span>
+                            <span class="info-value">{{ puzzle.status|replace('_', ' ') }}</span>
+                        </div>
+                        {% endif %}
                     </div>
                     {#- The floor is the only thing that flags a tile: a wide
                         grid that clears it carries no flag of its own (FR-032
@@ -255,6 +266,8 @@
             {#- The tab has members; this page of it does not. Only a hand-typed
                 offset past the end gets here, and it is not an empty tab. -#}
             <p class="empty">This page is past the end of the {{ current_bucket.label }} tab's {{ total_count }} puzzle{{ '' if total_count == 1 else 's' }}. Go back to the first page below.</p>
+            {% elif status == 'all' %}
+            <p class="empty">No puzzles with a longest side of {{ current_bucket.label }} match these filters. Try another tab.</p>
             {% else %}
             <p class="empty">No approved puzzles with a longest side of {{ current_bucket.label }} match these filters. Try another tab, or approve some in <a href="/puzzles?status=draft">puzzle review</a> first.</p>
             {% endif %}
