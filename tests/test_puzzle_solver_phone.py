@@ -4,8 +4,9 @@ Below the shell's 820 px breakpoint ``admin.css`` raises the player's cell
 floor (``--player-cell-min``) from 14 px to 24 px; the clamp, its 28 px cap and
 everything above 820 px are unchanged. A board wider than the stage scrolls
 inside ``.player-stage``; the page never scrolls sideways. Cells keep
-``touch-action: none`` (a touch drag marks), clue boxes keep the default (a
-swipe that starts on them pans the board).
+``touch-action: none`` (a touch drag marks); every clue box (column, row,
+corner) keeps the default ``auto``, and a swipe that starts on the column-clue
+band (a column clue or the corner) pans the board.
 
 Browser tests only (pytest-playwright + Chromium, ADR-0038/R7), refusing loudly
 when Chromium is absent (ADR-0038/R8) through CARD-160's fixtures, imported
@@ -320,4 +321,4 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
 
         assert actions["cells"] == ["none"]
         for kind in ("colClues", "rowClues", "corner"):
-            assert actions[kind] and "none" not in actions[kind], actions
+            assert actions[kind] == ["auto"], actions
