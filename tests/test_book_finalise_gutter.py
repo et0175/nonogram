@@ -826,7 +826,8 @@ class TestFinaliseCounts_PlanTripwireIsNotAnEstimate:
             and record.exc_info
             and phrase in str(record.exc_info[1])
         ]
-        assert logged, [r.getMessage() for r in caplog.records]
+        # CARD-171 AC-2: once — by the helper; Flask no longer logs it again.
+        assert len(logged) == 1, [r.getMessage() for r in caplog.records]
         assert isinstance(logged[0].exc_info[1], RuntimeError)
         assert logged[0].exc_info[2] is not None  # the traceback itself
 
@@ -1317,3 +1318,185 @@ class TestFinaliseGutter_NeverLaidOutAgainAtAnotherGutter:
         assert "interior pages cannot be counted" in shown
         self._assert_only_the_stored_gutter(spy, GUTTER_0375_IN, True)
         assert panel.gutter(book_id) == GUTTER_0375_IN
+
+
+# --------------------------------------------------------------------------
+# CARD-171 — Finalise names a page-plan error on GET, and logs what it flashes
+# --------------------------------------------------------------------------
+#
+#   AC-1  TestFinaliseGet_NamesThePagePlanFailure
+#   AC-2  TestFinaliseGet_NamesThePagePlanFailure::test_logs_it_once, and
+#         ``test_the_screen_shows_no_count_and_the_error_is_logged_with_its_traceback``
+#         above, tightened to one record
+#   AC-3  TestFinaliseGet_OtherErrorsStayGeneric
+#   AC-4  TestFinalisePost_TransientErrorIsLogged
+#   AC-5  TestFinalisePost_PlanGateRefusalIsNotAnError
+
+#: The text the panel's error page uses for the page-plan failure, written out.
+PLAN_FAILURE_TEXT = "page plan could not be built"
+
+
+def _panel_errors(caplog) -> list:
+    """The ERROR records on the panel's logger."""
+    return [
+        r for r in caplog.records if r.name == PANEL_LOGGER and r.levelname == "ERROR"
+    ]
+
+
+class TestFinaliseGet_NamesThePagePlanFailure:
+    """AC-1, AC-2 — GET answers the helper's logged plan failure itself."""
+
+    @TRIPWIRES
+    def test_the_page_names_the_failure_and_shows_no_count(
+        self, panel, monkeypatch, break_the_plan
+    ) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        phrase = break_the_plan(monkeypatch)
+        panel.app.config["PROPAGATE_EXCEPTIONS"] = False
+
+        response = panel.client.get(f"/book/{book_id}/finalize")
+        body = html.unescape(response.get_data(as_text=True))
+
+        assert response.status_code == 500
+        assert PLAN_FAILURE_TEXT in body
+        assert phrase in body
+        assert "data-interior-page-count" not in body
+        assert "interior page" not in body
+
+    @TRIPWIRES
+    def test_logs_it_once(self, panel, monkeypatch, caplog, break_the_plan) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        phrase = break_the_plan(monkeypatch)
+        panel.app.config["PROPAGATE_EXCEPTIONS"] = False
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            panel.client.get(f"/book/{book_id}/finalize")
+
+        (record,) = _panel_errors(caplog)
+        assert isinstance(record.exc_info[1], RuntimeError)
+        assert phrase in str(record.exc_info[1])
+        assert record.exc_info[2] is not None  # the traceback itself
+
+
+class TestFinaliseGet_OtherErrorsStayGeneric:
+    """AC-3 — an error the helper did not stamp keeps the global handler."""
+
+    def test_a_non_plan_error_is_not_named_on_screen(
+        self, panel, monkeypatch, caplog
+    ) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        _error_type, marker = _generator_cannot_start(panel, monkeypatch)
+        panel.app.config["PROPAGATE_EXCEPTIONS"] = False
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            response = panel.client.get(f"/book/{book_id}/finalize")
+        body = html.unescape(response.get_data(as_text=True))
+
+        assert response.status_code == 500
+        assert PLAN_FAILURE_TEXT not in body
+        assert marker not in body
+        # Re-raised unchanged: Flask's own log line carries it.
+        assert any(
+            isinstance(r.exc_info[1], TypeError) and marker in str(r.exc_info[1])
+            for r in _panel_errors(caplog)
+            if r.exc_info
+        )
+
+
+def _raise_once(monkeypatch, owner, name, error):
+    """Make ``owner.name`` raise ``error`` on its first call, then behave."""
+    original = getattr(owner, name)
+    calls = []
+
+    def once(*args, **kwargs):
+        calls.append(1)
+        if len(calls) == 1:
+            raise error
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(owner, name, once)
+
+
+def _clear_cover_fails_once(panel, monkeypatch, tmp_path, book_id, error):
+    """A stored cover whose removal fails once."""
+    from pathlib import Path
+
+    panel.app.config["BOOK_COVER_DIR"] = str(tmp_path)
+    cover = tmp_path / f"{book_id}_cover.png"
+    cover.write_bytes(b"not read")
+    with panel.client.session_transaction() as session:
+        session[f"book_{book_id}_cover_path"] = str(cover)
+        session[f"book_{book_id}_cover_data"] = True
+    _raise_once(monkeypatch, Path, "unlink", error)
+    return {"action": "clear_cover"}, 200, f"Error: {error}"
+
+
+def _save_and_finish_fails_once(panel, monkeypatch, tmp_path, book_id, error):
+    """The generator's constructor fails once — CARD-153's cycle-3 probe."""
+    _raise_once(monkeypatch, BookPDFGenerator, "__init__", error)
+    return {"action": "save_and_finish"}, 200, f"Error: {error}"
+
+
+def _download_pdf_fails_once(panel, monkeypatch, tmp_path, book_id, error):
+    """The export's generator fails once."""
+    _raise_once(monkeypatch, BookPDFGenerator, "__init__", error)
+    return {"action": "download_pdf"}, 302, f"Failed to generate PDF: {error}"
+
+
+class TestFinalisePost_TransientErrorIsLogged:
+    """AC-4 — an error that clears before the re-render is still logged once."""
+
+    @pytest.mark.parametrize(
+        "fail_once",
+        (_clear_cover_fails_once, _save_and_finish_fails_once, _download_pdf_fails_once),
+        ids=("clear_cover", "save_and_finish", "download_pdf"),
+    )
+    def test_the_flash_is_shown_and_the_error_is_logged_once(
+        self, panel, monkeypatch, caplog, tmp_path, fail_once
+    ) -> None:
+        book_id = panel.book(SMALL_CORPUS)
+        error = TypeError("transient")
+        form, status, flashed = fail_once(panel, monkeypatch, tmp_path, book_id, error)
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            response = panel.client.post(f"/book/{book_id}/finalize", data=form)
+
+        assert response.status_code == status
+        if status == 200:
+            assert flashed in html.unescape(response.get_data(as_text=True))
+        else:
+            with panel.client.session_transaction() as session:
+                assert ("error", flashed) in session.get("_flashes", [])
+        (record,) = _panel_errors(caplog)
+        assert record.exc_info[1] is error
+        assert record.exc_info[2] is not None  # the traceback itself
+        assert book_id in record.getMessage()
+        assert panel.status(book_id) == DRAFT
+
+
+class TestFinalisePost_PlanGateRefusalIsNotAnError:
+    """AC-5 — the plan gate's refusal is flashed, and is not an ERROR."""
+
+    @pytest.mark.parametrize(
+        "make_book",
+        (
+            lambda panel: panel.book(SMALL_CORPUS),
+            lambda panel: _uncountable(panel),
+        ),
+        ids=("countable", "uncountable"),
+    )
+    def test_the_refusal_is_flashed_and_nothing_is_logged(
+        self, panel, caplog, make_book
+    ) -> None:
+        book_id = make_book(panel)
+        # A plan for three medium puzzles against a selection of three easy
+        # ones: the gate (ADR-0035/R1) refuses the easy and the medium cell.
+        panel.books.save_plan(book_id, plan_of(corpus((alone, "medium", 3))))
+
+        with caplog.at_level("ERROR", logger=PANEL_LOGGER):
+            response = panel.finalise(book_id)
+        shown = html.unescape(refusal_of(response))
+
+        assert "x medium: 0% against 100%" in shown, shown
+        assert panel.status(book_id) == DRAFT
+        assert _panel_errors(caplog) == []
