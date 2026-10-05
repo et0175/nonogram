@@ -1,0 +1,192 @@
+version: 1
+generated_at: '2026-10-05T14:46:24Z'
+target: 'card/183-player-hint-button (git diff main: f1bcac2 + uncommitted fix-1 edits)'
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: 2026.8.17
+cycle: 2
+coverage:
+  read:
+  - src/nonogram/admin/static/solver.js (diff + wireMarking in full)
+  - src/nonogram/admin/static/solver_state.js (hint section)
+  - src/nonogram/admin/static/admin.css (player block 380-500)
+  - src/nonogram/admin/templates/puzzle_solve.html
+  - tests/test_puzzle_solver_hint.py (full)
+  - meta/design/components.md, brief.md, tokens.css
+  - CARD-183 worktree notes
+  - cycle-1 report
+  - renders 03-after-one-hint-390, 04a-fallback-board-before-hint-390, 04b-fallback-hint-with-announcement-1440
+  not_reached:
+  - renders 01, 02, 05 and the other-width 03/04a/04b not opened
+  - dark mode N/A (brief has none)
+  confidence: high
+metrics:
+  diff:
+    files: 5
+    added: 1077
+    removed: 15
+  max_fan_in:
+    symbol: solver_state.js hintCell
+    callers: 1
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/static/admin.css (22 commits/12mo, 10 fix-tagged)
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: not_applicable — the only absent peer, tests/test_puzzle_solver_marking.py (4 co-changes), is frozen by guardrail G-1
+tests_run: '202 passed, 2 warnings in 149.84s: tests/test_puzzle_solver_hint.py, test_puzzle_solver_page.py, test_puzzle_solver_marking.py, test_puzzle_solver_progress.py, test_cli.py::test_every_import_in_the_package_points_inward,
+  test_export_pdf.py::test_the_dependency_baseline_is_still_closed'
+diagnostic_mutants:
+- 'D1 admin.css adds ''.player-cell.is-hinted + .player-cell { outline: 2px solid var(--color-accent) }'' — SURVIVED TestSolverHint_RevealsOneCell (3 passed); restored, sha1 verified'
+- 'D2 admin.css keyframes ''from { outline-color: transparent }'' -> ''from { outline-offset: 0 }'' — SURVIVED TestSolverHint_RevealsOneCell + TestSolverHint_ReducedMotion (5 passed); restored, sha1 verified'
+mutation_check: deferred(cost) — gating findings present; certify on the stable cycle
+visual_baseline: N/A — review.visual off; static 8g run; owner renders read
+previous_findings:
+  F-001: resolved
+  F-002: resolved for colour/width/offset/ring; the new docstring overclaims (F-009)
+  F-003: resolved
+  F-004: resolved
+  F-005: still present — skipped with recorded rationale (Minor F-011)
+system_contract:
+  rules_checked: 52
+  holds: 10
+  unchecked: 42
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — the check ref TestDependencyBaseline_IsExactlyPillowAndNumpy is implemented as tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (its docstring names the ref);
+    passed in this review's run (202 passed); pyproject.toml not in git diff main
+  - ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward passed (202 passed run); nothing under src/nonogram/web/ in git diff main
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff is the admin player''s static JS/CSS/template plus one test file; no public signature, request or export field carries grid extent'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the diff'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no random-mode repair/acceptance code in the diff'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no RetryCounter code in the diff'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair pair choice in the diff'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy code in the diff'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no pipeline stage judging density in the diff'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff (the player''s lineForced is not a grading rung)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no strategies list in the diff'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty score in the diff'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/ untouched (git diff main --stat empty for it); the player''s DP is client-side and grades nothing'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage-boundary code in the diff'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score code in the diff'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book assembly code in the diff'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status code in the diff'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no compute_layout / PageSpec code in the diff'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no book page geometry in the diff'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book page band code in the diff'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no book PageSpec strokes in the diff'
+  - 'ADR-0038/R1 ✓ holds — review-lens: solver.js / solver_state.js stay hand-written ES modules under static/; git diff main --stat lists no package.json, bundler or framework file'
+  - ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark and TestSolverHint_KeyboardAndNoRequest (requests == [] over three hints) passed in this review's run; the added solver.js lines contain no fetch/XMLHttpRequest/sendBeacon
+  - ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues passed; solver.js nextHint passes payload.rows / payload.columns to hintCell; hintCell reads the solution only per cell (truth(row, col)), never encodes
+    it
+  - ADR-0038/R4 ✓ holds — test_the_state_module_touches_no_dom and test_the_scripts_carry_no_colour_literals passed; lineForced / hintCell / hintStroke / hintCount are in solver_state.js, which gained no
+    DOM, global or import
+  - 'ADR-0038/R6 ✓ holds — review-lens: the fallback reads payload.solution, already shipped only on the admin /puzzle/<id>/solve page; payload-shape test (no more, no fewer keys) passed; no route added'
+  - 'ADR-0038/R7 ✓ holds — review-lens: pyproject.toml not in git diff main; new tests use the existing pytest-playwright fixtures'
+  - 'ADR-0038/R8 ✓ holds — review-lens: the new tests use browser_page / browser from the existing harness (same skip path); this run reported 0 skipped with Chromium present'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/ untouched; only imported from the test tree as an oracle'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: no web UI server code in the diff'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: no web UI request filtering in the diff'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: no grid size validation in the diff (lineForced takes any line length)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact: no admin entry point / bind code in the diff (app.py untouched)'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact: no route or door code in the diff; the hint runs inside the already-served player page'
+  - 'CON-021 ✓ holds — review-lens + TestSolverHint_KeyboardAndNoRequest (passed): the hint exists only in the admin player; localStorage + sessionStorage length 0 and no request over three hints; no new
+    entry point'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: the player reads payload clues and never writes or re-derives clues'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: no export readiness code in the diff'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: no retry counter in the diff'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: no book plan code in the diff'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: no book membership code in the diff'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: no book ready gate in the diff'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: no published-book code in the diff'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: no book order code in the diff'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: no book pairing code in the diff'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: no answer key code in the diff'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: no book membership code in the diff'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: no book export code in the diff'
+root_causes:
+- id: RC-1
+  title: Fix-1 reworded claims (test docstring, CSS comment) assert more than the tests check
+  finding_ids:
+  - F-009
+  - F-010
+findings:
+- status: fixed
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+  id: F-009
+  severity: medium
+  category: tech-debt
+  type: gap
+  file: tests/test_puzzle_solver_hint.py
+  line: 550
+  title: Outline test docstring claims 'any other cell has no outline' but samples only cell (14, 14)
+  description: 'The fix-1 docstring of test_the_hinted_cell_carries_an_accent_outline says any other cell has no outline; the test reads one cell, (14, 14). Diagnostic mutant D1 (outline the hinted cell''s
+    right neighbour as well) survived: 3 passed. This breaks the project''s test-claim rule.'
+  suggestion: Assert outlineStyle == 'none' for every td.player-cell except the hinted one (one page.evaluate over all cells), or narrow the docstring to 'a far cell (14, 14) has no outline'.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: RC-1
+- status: fixed
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+  id: F-010
+  severity: medium
+  category: tech-debt
+  type: gap
+  file: src/nonogram/admin/static/admin.css
+  line: 463
+  title: CSS comment's 'fading in' claim is not asserted by any test
+  description: 'The fix-1 rewrite of the Hints comment keeps ''fading in''. The tests only show that one animation exists (getAnimations().length == 1) and that it has finished. Diagnostic mutant D2 changed
+    the keyframe from an outline-colour fade to ''from { outline-offset: 0 }'' and survived: 5 passed across RevealsOneCell and ReducedMotion.'
+  suggestion: In test_without_reduced_motion_the_hinted_cell_animates, assert td.getAnimations()[0].animationName == 'player-hinted-in' and that effect.getKeyframes()[0].outlineColor resolves to transparent
+    (rgba(0, 0, 0, 0)). Or drop 'fading in' from the comment.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: RC-1
+- status: dismissed
+  fixed_in: null
+  dismissed_reason: 'Skipped on the final cycle: behaviour change out of bounds; same as F-005 (counter keeps its own role=status region per card item 4, AC-6 reads #puzzle-player-announce). Owner decides at review.'
+  learned_pattern: null
+  id: F-011
+  severity: low
+  category: tech-debt
+  type: risk
+  file: src/nonogram/admin/static/solver.js
+  line: 276
+  title: One hint still produces two polite live-region updates (F-005, skipped)
+  description: '#puzzle-player-announce and the role=status counter #puzzle-player-hints both change on each hint, and the order is not guaranteed. The skip rationale is recorded (card item 4, AC-6).'
+  suggestion: Put it to the owner at review, or fold the count into the announce text and give the counter aria-live=off in a follow-up.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+- status: dismissed
+  fixed_in: null
+  dismissed_reason: 'Skipped on the final cycle: solver.js out of scope, behaviour change out of bounds. Recorded as an owner note in CARD-183 Worktree notes ([Fix 2] F-012).'
+  learned_pattern: null
+  id: F-012
+  severity: low
+  category: tech-debt
+  type: risk
+  file: src/nonogram/admin/templates/puzzle_solve.html
+  line: 76
+  title: 'Hint after the reset confirmation: keyboard Hint while the confirmation is open moves focus to Reset'
+  description: Hint sits after the confirmation in the DOM, so Tab from 'Keep marks' reaches Hint. Pressing it commits, and commit calls closeConfirm, which focuses Reset (solver.js closeConfirm). A second
+    Enter then opens the reset confirmation instead of a second hint.
+  suggestion: Return focus to Reset only when the confirmation itself had focus, or accept it and record the behaviour.
+  confidence: medium
+  source: static
+  violates: null
+  root_cause: null

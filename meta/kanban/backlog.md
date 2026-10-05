@@ -118,6 +118,9 @@ card names its card._
 - [ ] CARD-188 owner check pending: clue-circle renders in ~/Documents/nonogram-reviews/CARD-188/ incl. the ~0.5 px pill/heavy-rule overlap on 30×30 (F-005) (merged on evidence by owner choice)   @feature
 - [ ] CARD-188 F-008 (minor): no render at device scale 1 for the 14 px floor   @tech-debt
 
+- [ ] Flake watch (CARD-183 merge gate): tests/test_puzzle_solver_page.py::TestSolverPageFits::test_the_largest_board_fits_a_laptop_screen[row-clues] returned a server 500 reading the puzzle with DATABASE_URL set, once; passed 3/3 alone   @tech-debt
+- [ ] CARD-183 minors F-011..F-014: two polite announcements per hint; Hint by keyboard during the reset confirm moves focus to Reset; 440 ms animation-test window; after Undo the announce region keeps the old hint text   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

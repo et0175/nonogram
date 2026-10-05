@@ -1,0 +1,205 @@
+version: 1
+generated_at: "2026-10-05T15:17:21Z"
+target: "card/183-player-hint-button — git diff main (commit f1bcac2 + uncommitted fix-1 and fix-2), cycle 3 of 3, full review"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css (Hints block, reduced-motion rule, tokens it uses)
+    - src/nonogram/admin/static/solver.js (start, showProgress, wireMarking in full)
+    - src/nonogram/admin/static/solver_state.js (hint section in full)
+    - src/nonogram/admin/templates/puzzle_solve.html (diff and toolbar)
+    - tests/test_puzzle_solver_hint.py (all 915 lines)
+    - meta/kanban/cards/CARD-183.md Worktree notes
+    - meta/review/20261005T144624Z-CARD-183-cycle2.yml (F-009..F-012)
+    - meta/design/components.md (HistoryControls, ErrorCounter)
+    - ~/Documents/nonogram-reviews/CARD-183/03-after-one-hint-390.png, 04b-fallback-hint-with-announcement-1440.png
+  not_reached:
+    - the other 10 owner renders (listed, not opened)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 1179, removed: 15 }
+  max_fan_in: { symbol: "solver_state.js hintCell / lineForced / hintStroke / hintCount", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — co-change peers of admin.css are other admin pages' templates; none is in this card's file scope, and the four player test files were checked directly (G-1)"
+tests_run:
+  - "tests/test_puzzle_solver_hint.py + page + marking + progress: 200 passed, 1 warning in 158.47s (no skips reported with -rs)"
+  - "12 mutants (R1..R12): all killed, each restore sha1-equal; git diff main --stat and full-diff sha1 86ec1d50 identical before and after"
+previous_findings:
+  - "F-009 ✓ resolved — test_the_hinted_cell_carries_an_accent_outline asserts outline-style none on all 224 other td.player-cell (count asserted, line 559/567); my mutant R12 (outline on the row below the hinted cell, the vertical axis not tried by fix 2) killed: 15 extra cells listed"
+  - "F-010 ✓ resolved — test asserts animationName player-hinted-in and keyframe[0] offset 0 with outlineColor transparent; CSS comment narrowed to 'the outline colour fades in from transparent'; my edge mutant R11 (from -> to, a fade OUT to transparent) killed: offset-0 keyframe read 'rgb(31, 95, 91)'"
+  - "F-011 ✗ not resolved — skipped as a behaviour change; remains an owner note (Minor, non-gating), see F-014"
+  - "F-012 ✗ not resolved — skipped as a behaviour change; remains an owner note (Minor, non-gating), see F-014"
+acceptance_criteria:
+  - "AC-1 ✓ — test_PropertyTest_SolverHint_LineForcedMatchesThePythonLineSolver passed (2,700 lines, every length 1–30, ≥200 null asserted); R1/R2 killed by it"
+  - "AC-2 ✓ — test_PropertyTest_SolverHint_LineForcedMatchesBruteForce passed (700 lines ≤12)"
+  - "AC-3 ✓ — test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell passed; R3/R4/R5 killed by it"
+  - "AC-4 ✓ — TestSolverHint_RevealsOneCell::test_one_click_reveals_the_oracles_cell passed"
+  - "AC-5 ✓ — TestSolverHint_IgnoresWrongMarks passed"
+  - "AC-6 ✓ — TestSolverHint_FallsBackToTheSolution passed"
+  - "AC-7 ✓ — TestSolverHint_IsOneUndoableStroke (buttons, Control, Meta) passed"
+  - "AC-8 ✓ — TestSolverHint_CanSolveAndThenLocks passed; R8 killed by test_locked_with_cells_still_undecided"
+  - "AC-9 ✓ — TestSolverHint_DisabledWithNothingToReveal::test_no_undecided_cell passed; R6 killed by it"
+  - "AC-10 ✓ — TestSolverHint_KeyboardAndNoRequest passed (Tab, Enter, Space, accessible name, requests == [], storage 0)"
+  - "AC-11 ✓ — TestSolverHint_ReducedMotion::test_reduced_motion passed, with its control test passing"
+  - "AC-12 ⚠ review-lens — 12 renders present in ~/Documents/nonogram-reviews/CARD-183/; 03-after-one-hint-390 and 04b-fallback-hint-with-announcement-1440 opened and match the claims; the owner's visual verdict is still pending"
+guardrails:
+  - "G-1 ✓ — git diff main on the three player test files is empty; they passed in the 200-test run (incl. test_each_control_has_a_name_and_is_reachable_by_tab, test_PropertyTest_SolverHistory_ReplayReproducesTheBoard, TestSolverMarking_NoRequestPerMark, test_ac319..., test_the_banner_takes_the_tools_place_and_the_board_does_not_move). Known deviation (Hint after Reset) is stated in the card, the template comment and the DESIGN-REGISTER line: handled honestly"
+  - "G-2 ✓ — all four functions are in solver_state.js; TestPlayerAssets::test_the_state_module_touches_no_dom and ::test_the_scripts_carry_no_colour_literals passed"
+  - "G-3 ✓ — hintCell gets payload.rows/payload.columns (solver.js nextHint); TestSolverPage_ShowsTheClues::test_the_payload_has_exactly_the_documented_shape passed; AC-10 test requests == []"
+  - "G-4 ✓ — grep for fetch|XMLHttpRequest|localStorage|sessionStorage|sendBeacon in solver.js and solver_state.js: no hits; AC-10 test asserts storage length 0"
+  - "G-5 ✓ — no change to clickStroke/dragStroke/errorCount/isSolved/resetStroke/record; marking and progress files passed unchanged; the only new wiring in pointerdown/pointercancel is refresh() (aria state)"
+  - "G-6 ✓ — git diff main -- src/nonogram/solver: 0 lines"
+  - "G-7 ✓ — puzzle_solve.html:89 keeps <p class=\"player-hint\" id=\"puzzle-player-hint\"> unchanged; new names are .player-hints / data-player-hints / #puzzle-player-hints as the card prescribes"
+mutation_check:
+  result: "12 run, 12 killed, 0 survived"
+  mutants:
+    - "R1 lineForced fit edge <= -> < — KILLED by test_PropertyTest_SolverHint_LineForcedMatchesThePythonLineSolver"
+    - "R2 lineForced separator check dropped — KILLED by ...LineForcedMatchesThePythonLineSolver"
+    - "R3 hintCell wrong marks taken at face value — KILLED by test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell"
+    - "R4 hintCell fallback = last UNKNOWN — KILLED by ...RevealsTheFirstDeducibleCell"
+    - "R5 hintCell row OR column -> row AND column — KILLED by ...RevealsTheFirstDeducibleCell"
+    - "R6 aria-disabled ignores hintCell null — KILLED by TestSolverHint_DisabledWithNothingToReveal::test_no_undecided_cell"
+    - "R7 aria-disabled ignores a gesture — KILLED by ...::test_disabled_during_a_drag"
+    - "R8 aria-disabled ignores the lock — KILLED by TestSolverHint_CanSolveAndThenLocks::test_locked_with_cells_still_undecided"
+    - "R9 .is-hinted never removed — KILLED by TestSolverHint_RevealsOneCell::test_the_outline_moves_on_with_the_next_commit"
+    - "R10 hintCount counts every done stroke — KILLED by TestSolverHintModule::test_cases"
+    - "R11 keyframe from -> to (F-010 claim edge) — KILLED by TestSolverHint_ReducedMotion::test_without_reduced_motion_the_hinted_cell_animates"
+    - "R12 outline also on the row below the hinted cell (F-009 claim, vertical axis) — KILLED by TestSolverHint_RevealsOneCell::test_the_hinted_cell_carries_an_accent_outline"
+visual:
+  - "8g static ✓ — no hex/rgb/px literal in the src diff (grep of added lines); new rules use tokens only (--color-accent, --grid-paper, --player-rule-major, --duration-base, --ease, --space-1, --control-h, --text-sm/base, --font-num); Hint inherits .player-toolbar .btn[aria-disabled=true] and .btn:focus-visible"
+  - "8g inventory — components.md HistoryControls/HintCounter/PlayerBoard entries are carried as DESIGN-REGISTER lines in the card for the merge step (the project's convention); meta/design is outside this card's file scope"
+  - "8g rendered — 2 of 12 owner renders opened (390 px one-hint, 1440 fallback): outline on the revealed cell, Hints: 1, Hint on its own row at 390 px; the others not opened; no automated screenshots (review.visual off); runtime log / a11y scan not available"
+  - "8g baseline — not applicable (no visual-diff log)"
+system_contract:
+  rules_checked: 52
+  holds: 10
+  unchecked: 42
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — git diff main -- pyproject.toml is empty; no dependency added"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not touched"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public Python signature or export field changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/generation code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched (client lineForced does not grade)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies list untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: COMP-005 overlap masks untouched (git diff main -- src/nonogram/solver: 0 lines)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book page geometry untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book puzzle page untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: book PageSpec strokes untouched"
+    - "ADR-0038/R1 ✓ holds — the diff adds plain ES-module JS and CSS under static/ only; no package.json, bundler or framework import (solver.js imports only ./solver_state.js)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark and TestSolverHint_KeyboardAndNoRequest (requests == [] over three hints) passed in this review's run"
+    - "ADR-0038/R3 ✓ holds — solver.js nextHint passes payload.rows/payload.columns to hintCell; no encoder in solver_state.js; TestSolverPage_ShowsTheClues passed"
+    - "ADR-0038/R4 ✓ holds — lineForced/hintCell/hintStroke/hintCount live in solver_state.js; TestPlayerAssets::test_the_state_module_touches_no_dom passed"
+    - "ADR-0038/R6 ✓ holds — the hint reads payload.solution, which only the admin player already ships; the diff adds no route, template or payload key (test_the_payload_has_exactly_the_documented_shape passed)"
+    - "ADR-0038/R7 ✓ holds — git diff main -- pyproject.toml empty; no playwright dependency moved"
+    - "ADR-0038/R8 ✓ holds — new tests use the existing browser_page fixture or pytest-playwright's browser fixture (marked @pytest.mark.browser); the 200-test run reported no skips under -rs; no silent-pass path added"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: uniqueness solver untouched (0-line diff); the client lineForced is not a uniqueness check"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server bind untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server origin checks untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched (lineForced handles any length; tests cover 1–30)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin entry point bind untouched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin door untouched (no route added)"
+    - "CON-021 ✓ holds — play remains the admin player only; no new route or page; no hint count persisted or sent (G-4 grep empty; AC-10 test storage length 0, requests [])"
+    - "INV-001 ✓ holds — the hint never changes clues or the stored grid; it reads payload clues only (solver.js nextHint); payload shape test passed"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book membership untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership outside draft untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF untouched"
+root_causes: []
+findings:
+  - id: F-013
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_puzzle_solver_hint.py
+    line: 909
+    title: "Control test reads a 440 ms animation across two round trips after the click"
+    description: |
+      test_without_reduced_motion_the_hinted_cell_animates asserts getAnimations().length == 1 (line 909) and then,
+      in a second evaluate, destructures getAnimations()[0] (_FADE, line 876). player-hinted-in runs for
+      2 x --duration-base = 440 ms with no fill, so once it ends getAnimations() is empty and the test fails
+      (TypeError on a.animationName). Fix 2 added the second round trip. Measured in this review: 5-43 ms
+      from click to the last read over 12 hints (about 10x headroom), so not flaky in practice, and the same
+      pattern already exists in test_puzzle_solver_progress.py (220 ms banner). The Worktree note's
+      "no mid-animation sampling" is literally true, but the read still needs the animation to be running.
+    suggestion: |
+      Read the length, the name and the keyframes in one evaluate, or pause the animation first
+      (td.getAnimations().forEach(a => a.pause())) so the read no longer depends on time.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-014
+    severity: low
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/static/solver.js
+    line: 436
+    title: "Owner decisions still open: F-011 (two polite live updates per hint) and F-012 (Hint with reset confirmation open moves focus to Reset)"
+    description: |
+      Both were skipped in fix 2 as behaviour changes and recorded as owner notes in the card. They are unchanged:
+      showProgress writes #puzzle-player-announce while the counter's own role=status updates too; commit() calls
+      closeConfirm(), which focuses Reset after a keyboard Hint pressed with the confirmation open.
+    suggestion: |
+      Owner decides at merge; if changed, do it in a follow-up card with tests.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-015
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-183.md
+    line: 1
+    title: "Out of scope: architect delta owed for FR-044 'Hints are out of scope'"
+    description: |
+      FR-044's statement still contradicts this card; the card's [Spec] note records the debt (and default (e) placement change).
+    suggestion: |
+      Raise the architect delta at the next architecture pass.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

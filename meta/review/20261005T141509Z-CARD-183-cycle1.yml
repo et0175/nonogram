@@ -1,0 +1,189 @@
+version: 1
+generated_at: '2026-10-05T14:15:09Z'
+target: card/183-player-hint-button (git diff main...HEAD, f1bcac2)
+overall_score: 6.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - src/nonogram/admin/static/solver.js
+  - src/nonogram/admin/static/solver_state.js
+  - src/nonogram/admin/static/admin.css (player block)
+  - src/nonogram/admin/templates/puzzle_solve.html
+  - tests/test_puzzle_solver_hint.py
+  - meta/design/brief.md
+  - meta/design/tokens.css
+  - meta/design/components.md
+  - CARD-183 worktree notes
+  - owner renders 03-after-one-hint-1440/390, 04b-fallback-390
+  not_reached:
+  - renders 01,02,04a,05 not opened
+  - 'dark mode N/A (brief: none)'
+  confidence: high
+metrics:
+  diff:
+    files: 5
+    added: 977
+    removed: 12
+  max_fan_in:
+    symbol: solver_state.js hintCell
+    callers: 1
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/static/admin.css (22 commits/12mo, 8 fix)
+  cochange_missing: []
+tests_run: '233 passed, 2 warnings in 146.97s: test_puzzle_solver_hint.py (22), test_puzzle_solver_page.py, test_puzzle_solver_marking.py, test_puzzle_solver_progress.py, test_export_pdf.py::test_the_dependency_baseline_is_still_closed, test_cli.py::test_every_import_in_the_package_points_inward, test_admin_binding.py'
+mutation_check: deferred(cost) — gating findings present; certify on the stable cycle
+system_contract:
+  rules_checked: 52
+  holds: 12
+  unchecked: 40
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed passed in this review (233 passed run); diff touches no pyproject.toml
+  - ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward passed; diff touches nothing under src/nonogram/web/
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on grid extent / image fitting'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on grid extent / image fitting'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on grid extent / image fitting'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on random-mode repair'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on random-mode repair'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on random-mode repair'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on random-mode repair'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on random-mode repair'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on density validation'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on density validation'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on difficulty rungs (COMP-005/006 untouched, G-6)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on difficulty rungs (COMP-005/006 untouched, G-6)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on difficulty rungs (COMP-005/006 untouched, G-6)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on difficulty rungs (COMP-005/006 untouched, G-6)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on difficulty rungs (COMP-005/006 untouched, G-6)'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on storage boundary / quality_score'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on storage boundary / quality_score'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book assembly'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book status gate'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book page geometry'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book page geometry'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book page print rules'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book page print rules'
+  - 'ADR-0038/R1 ✓ holds — review-lens: solver.js/solver_state.js remain hand-written ES modules served from static/; no framework, build step or npm file added (git diff main...HEAD --stat: 5 files)'
+  - 'ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark and TestSolverHint_KeyboardAndNoRequest (requests == [] over three hints) passed; grep of added lines for fetch/XMLHttp/sendBeacon: no hit'
+  - ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues passed; solver.js nextHint passes payload.rows/payload.columns to hintCell; solver_state.js hintCell never encodes the solution (truth() is per cell only)
+  - ADR-0038/R4 ✓ holds — test_the_state_module_touches_no_dom and test_the_scripts_carry_no_colour_literals passed; lineForced/hintCell/hintStroke/hintCount live in solver_state.js (grep -c 'import ' = 0)
+  - 'ADR-0038/R6 ✓ holds — review-lens: the fallback reads payload.solution, already shipped only on the admin /puzzle/<id>/solve page; no new route or payload key (payload-shape test passed)'
+  - 'ADR-0038/R7 ✓ holds — review-lens: pyproject.toml not in the diff; new browser tests use the existing pytest-playwright fixtures'
+  - 'ADR-0038/R8 ✓ holds — review-lens: the 22 new tests reuse the browser_page/browser fixtures of test_puzzle_solver_page.py (same skip path); this review''s run reported 0 skipped with Chromium present'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on solver uniqueness (src/nonogram/solver/ untouched; only imported as a test oracle)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on web UI bind'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on web UI cross-site refusal'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on grid side range (lineForced handles any length; extent untouched)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on image aspect guard'
+  - CON-015 ✓ holds — tests/test_admin_binding.py (33 tests incl. TestAdminPanel_BindsLoopbackOnlyByDefault) passed; no server code touched
+  - CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit passed; no route added
+  - 'CON-021 ✓ holds — review-lens: the hint lives only in the admin player; AC-10 test asserts localStorage+sessionStorage length 0 and no request; no new entry point'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on stored clues = encoding of the grid (the player reads clues, never writes them)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on export readiness'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on retry counters'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: the diff touches only the admin player''s static JS/CSS/template and one test file; nothing bears on book membership/order/answer key/export'
+root_causes:
+- id: RC-1
+  title: Comment / test-name claims outrun what the new tests assert
+  finding_ids:
+  - F-001
+  - F-002
+  - F-003
+findings:
+- id: F-001
+  severity: high
+  type: gap
+  file: tests/test_puzzle_solver_hint.py
+  line: 362
+  title: AC-3 'wrong mark hides a deduction' minimum is asserted with a weaker predicate than the AC and the comment state
+  description: 'AC-3 requires >= 20 boards where a wrong mark hides a deduction, and line 366 comments ''a wrong mark taken at face value would hide this deduction''. The counted predicate (line 362-363) is _face_value_hint(...) != want, which also counts boards where a face-value wrong mark creates a spurious EARLIER deduction while the oracle''s cell stays deducible. Re-running the test''s own seeded corpus (seed 1833) in Python: 181 boards counted, of which only 112 truly hide the cell (its row and column no longer force it at face value); 91 are spurious-earlier cases. The AC holds on this seed, but the assertion does not demonstrate it - a corpus change could keep ''hidden >= 20'' green with zero real hides.'
+  suggestion: Count a board only when, at face value, neither the row nor the column of want's cell forces it (or narrow the comment and the AC wording to 'changes the deduction' via the owner).
+  confidence: high
+  source: static
+  violates: null
+  root_cause: RC-1
+  category: feature
+  status: fixed
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-002
+  severity: high
+  type: gap
+  file: tests/test_puzzle_solver_hint.py
+  line: 507
+  title: test_the_hinted_cell_carries_an_accent_outline never checks the accent colour, the inset offset or the paper ring
+  description: The test name and the admin.css:458-462 comment claim an accent outline 'just inside the cell' with a paper ring. The assertions (514-515) read only outlineStyle == solid and outlineWidth > 0. Swapping var(--color-accent) for any other colour, dropping outline-offset (outline drawn outside the cell, under neighbours), or deleting the box-shadow ring all leave the test green - the claimed region has no killing assertion (TEST-CLAIM RULE).
+  suggestion: Assert getComputedStyle(td).outlineColor equals the resolved --color-accent, outlineOffset equals minus the major rule width, and boxShadow carries the --grid-paper inset ring; or narrow the test name and CSS comment to what is asserted.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: RC-1
+  category: feature
+  status: fixed
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-003
+  severity: high
+  type: gap
+  file: src/nonogram/admin/static/admin.css
+  line: 458
+  title: Positional claims for the Hints counter and Hint button have no test on any axis
+  description: 'admin.css:458 says ''"Hints: N" follows "Errors: N"''; puzzle_solve.html:36-38 says the Hint button ''closes the history group'' and the counter ''follows the error counter''; the card asks for the counter ''next to Errors:''. No test checks the counter''s box relative to the error counter (same row, to its right) at 1440 or 390, nor that Hint is inside .player-history. Only the owner renders (03-after-one-hint-1440/390.png) show it. Owner rule: positional claims need tests on every axis they claim.'
+  suggestion: 'Add a bounding-box test: hints counter top within the error counter''s row band and left >= errors right, at desktop and 390 px; and assert the Hint button''s closest(''.player-history'') is the History group. Or reword the comments to DOM order only.'
+  confidence: medium
+  source: static
+  violates: null
+  root_cause: RC-1
+  category: feature
+  status: fixed
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-004
+  severity: medium
+  type: gap
+  file: tests/test_puzzle_solver_hint.py
+  line: 561
+  title: AC-12 fallback render uses a 10x10 board, not the 15x15 board the AC names
+  description: AC-12 asks for a 15x15 board before, during and after a fallback hint. 04a/04b renders are 10x10 (the seeded _fallback_grid). Before/during renders are 15x15. Review-lens AC for the owner; the deviation is not called out as such in the card's [Renders] note.
+  suggestion: Either render a 15x15 fallback board (search a 15x15 non-line-solvable grid) or state the 10x10 substitution for the owner.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  category: feature
+  status: fixed
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-005
+  severity: low
+  type: risk
+  file: src/nonogram/admin/static/solver.js
+  line: 274
+  title: One hint triggers two polite live-region announcements
+  description: 'A hint updates both #puzzle-player-hints (role=status, aria-atomic) and #puzzle-player-announce, so a screen reader reads ''Hints: 1'' and ''Hint: row R, column C is black.'' back to back (order not guaranteed).'
+  suggestion: Consider folding the count into the announcement and dropping role=status on the counter, or accept as is.
+  confidence: medium
+  source: inferred
+  violates: null
+  root_cause: null
+  category: feature
+  status: dismissed
+  fixed_in: null
+  dismissed_reason: 'Skipped by fix cycle 1: the counter must stay its own role=status region (card item 4) and AC-6''s announcement test reads #puzzle-player-announce; dropping either live region changes accepted behaviour. Two polite updates per hint accepted.'
+  learned_pattern: null

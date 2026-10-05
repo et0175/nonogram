@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-05
+- CARD-183 (feature): The puzzle player has a Hint button. It reveals one cell you could work out right now from a single row or column, outlines it and counts it ("Hints: N"). If no cell follows from one line, it reveals a cell from the answer and says so. Undo takes a hint back.
 - CARD-188 (feature): The puzzle player now circles a clue number once your marks settle its run: the run is all dark with a white dot or the edge on both sides, and it's clear which number it belongs to. Two-digit numbers get a pill. Circles follow your marks, not the answer, so a wrong mark can circle a number.
 - CARD-181 (feature): A targeted batch now records the difficulty tier it asked for, and the batch list and batch pages show it under "Tier asked" ("—" for batches made before this change or without a target). Needs database migration 014: back up and run `alembic upgrade head` on the panel's database before using this version.
 - CARD-180 (feature): On the book's puzzle-selection page, ?status=all now lists puzzles of every status instead of none; a puzzle that isn't approved shows a small Status row, and the same add rules (cell floor, override) still apply. The default view is unchanged.

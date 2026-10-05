@@ -1,6 +1,6 @@
 # CARD-183: The puzzle player gets a Hint button that reveals one deducible cell
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.75d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_hint.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 3/3)
+**Started:** 2026-10-05T13:41:10Z
+**Closed:** 2026-10-05T17:32:39Z
+**Actual:** 0.5d
+**Merge commit:** bd8eccb
 **Blocked by:** —
 
 ## What to implement
@@ -250,3 +250,123 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-183` (52 rules). A project
 - [Conflict] CARD-182 also edits the player's CSS/JS. Overlap is likely in `admin.css` (the "Puzzle player" block, ~lines 433–480) and possibly `solver.js`/`puzzle_solve.html`. Rebase on whichever merges first. Keep this card's CSS to the new counter, the button's place in `.player-history`, and `.is-hinted`.
 - [Future] The fallback reads the solution, which only the admin player may hold (ADR-0038/R6). A public player (IDEA-075) must replace the fallback, and any hint that uses the solution, with server-side or solution-free logic.
 - [AC cross-check] All ACs re-read against "What to implement": the row-major choice, wrong marks ignored, fallback, `null` → disabled, hint count tied to undo, and the solved lock all agree. No edits were needed.
+- [Env] forge 2026.8.17
+- [Owner default] (a)–(d) wrong marks ignored, row-major, labelled fallback, undo-tracked hint count — implemented as drafted. (e) Hints: N counter + .is-hinted outline as drafted; the Hint button is AFTER Reset, not between Redo and Reset (G-1 Tab-order test conflict — see the [Orchestrator] note); owner pre-merge decision
+- [Built] solver_state.js: `lineForced(clue, cells)` (forward/backward reachability DP over (position, runs placed); null when no placement fits), `hintCell(board, rows, columns, solution)` (knowns = correct marks only; first row-major UNKNOWN cell forced by one pass over its row or column, else first UNKNOWN as `deduced: false`, else null; state always from the solution; a null line deduces nothing), `hintStroke(row, col, state)` (frozen stroke + `hint: true`), `hintCount(history)` (hint strokes on `done`). No change to applyStroke/record/undo/redo/replay.
+- [Built] solver.js: `player.nextHint` (start() computes hintCell from the recorded board + payload rows/columns/solution); Hint click records hintStroke through the shared `commit`; `refresh` sets Hint `aria-disabled` = locked || gesture in progress || nextHint() null, and refresh now also runs at pointerdown and pointercancel so the gesture state shows; `commit(next, hint)` moves `.is-hinted` to the revealed cell (removed on the next commit); `showProgress` re-derives "Hints: N" and puts the hint text in #puzzle-player-announce unless that commit changed the solved state (then the solved text wins). Texts: "Hint: row R, column C is black|white." / "Hint: no cell follows from a single line yet; row R, column C is black|white (from the solution)."
+- [Built] puzzle_solve.html: Hint button (`data-player-action="hint"`, text label, no icon — _icons.html has no fitting icon and is outside scope) and `<p class="player-hints" role="status">Hints: <span data-player-hints>`. admin.css: `.player-hints`/`.player-hints-count` (as the error counter), `.player-cell.is-hinted` (2px --color-accent outline inset by the major rule, inset --grid-paper ring, `player-hinted-in` outline-colour fade over 2×--duration-base; the existing reduced-motion rule covers it via `.player-stage *` — no change to that rule).
+- [Owner default changed — (e) placement] Hint is the LAST button of `.player-history` (after Reset; DOM after the reset confirmation), not between Redo and Reset. Reason: G-1 — `test_puzzle_solver_marking.py::test_each_control_has_a_name_and_is_reachable_by_tab` collects the first six distinct controls reached by Tab and asserts they equal [Black, White, Undecided, Undo, Redo, Reset]; with Hint before Reset it reads [..., Redo, Hint] and fails (shown: moved Hint before Reset → `AssertionError: assert ['Black', 'Wh...Redo', 'Hint'] == ['Black', 'Wh...edo', 'Reset']`, restored). A CSS `order` hack would put visual order and focus order out of step (WCAG 2.4.3), so it was not used. No AC fixes the position. If the owner wants Hint between Redo and Reset, that test's CONTROLS list must be amended in a follow-up.
+- [Owner-visible] At 390 px the Hint button wraps onto its own row under Undo/Redo/Reset, so the board starts one control row (~44 px) lower than on main (compare 01-before-main-blank-390.png with 02-blank-390.png). At 1440 everything stays on one row; "Hints: N" sits right of "Errors: N".
+- [Results] `tests/test_puzzle_solver_hint.py tests/test_puzzle_solver_page.py tests/test_puzzle_solver_marking.py tests/test_puzzle_solver_progress.py` → `198 passed, 1 warning in 142.22s`. The three existing files are unchanged (176 passed on their own).
+- [Mutation log] each mutant applied alone, the named tests run, then restored (runner: scratchpad card183/card183_mutate.py):
+- M1 lineForced FILLED on canFill alone — KILLED by test_PropertyTest_SolverHint_LineForcedMatchesThePythonLineSolver
+- M2 lineForced drops the separator check after a run — KILLED by ...LineForcedMatchesThePythonLineSolver
+- M3 lineForced never returns null — KILLED by ...LineForcedMatchesThePythonLineSolver
+- M4 lineForced fit edge `start + length <= n` → `<` — KILLED by ...LineForcedMatchesThePythonLineSolver
+- M5 lineForced without `clue.filter(n > 0)` ([0] read as one run of length 0) — SURVIVED; equivalent mutant: a 0-length run consumes exactly one non-FILLED cell, which on lines of ≥ 1 cell admits the same placements as "no runs". Kept the filter for readability; no claim rests on it.
+- M6 hintCell takes wrong marks at face value — KILLED by test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell (also targeted by TestSolverHint_IgnoresWrongMarks)
+- M7 hintCell returns null when any line is null — KILLED by TestSolverHintModule::test_cases
+- M8 hintCell state from the deduction instead of the solution — KILLED by TestSolverHintModule::test_cases
+- M9 hintCell has no fallback (null) — KILLED by ...RevealsTheFirstDeducibleCell
+- M10 fallback = last UNKNOWN cell — KILLED by ...RevealsTheFirstDeducibleCell
+- M11 hintCell ignores column deductions — KILLED by ...RevealsTheFirstDeducibleCell
+- M12 hintCell column-major order — KILLED by ...RevealsTheFirstDeducibleCell
+- M13 hintCount counts every done stroke — KILLED by TestSolverHintModule::test_cases
+- M14 hintStroke without hint: true — KILLED by TestSolverHintModule::test_cases
+- M15 aria-disabled ignores the lock — KILLED by TestSolverHint_CanSolveAndThenLocks::test_locked_with_cells_still_undecided
+- M16 aria-disabled ignores a gesture — KILLED by TestSolverHint_DisabledWithNothingToReveal::test_disabled_during_a_drag
+- M17 aria-disabled ignores hintCell null — KILLED by TestSolverHint_DisabledWithNothingToReveal::test_no_undecided_cell
+- M18 click handler ignores the lock — KILLED by TestSolverHint_CanSolveAndThenLocks::test_locked_with_cells_still_undecided
+- M19 click handler ignores a gesture — KILLED by TestSolverHint_DisabledWithNothingToReveal::test_disabled_during_a_drag
+- M20 no refresh at pointerdown — KILLED by ...test_disabled_during_a_drag
+- M21 no refresh at pointercancel — KILLED by ...test_enabled_again_after_a_cancelled_drag
+- M22 .is-hinted never added — KILLED by TestSolverHint_RevealsOneCell::test_one_click_reveals_the_oracles_cell
+- M23 .is-hinted never removed — KILLED by TestSolverHint_RevealsOneCell::test_the_outline_moves_on_with_the_next_commit
+- M24 fallback announced with the deduction text — KILLED by TestSolverHint_FallsBackToTheSolution
+- M25 hint text overwrites the solved announcement — KILLED by TestSolverHint_CanSolveAndThenLocks::test_the_last_hint_solves
+- M26 hint counter never re-derived — KILLED by TestSolverHint_RevealsOneCell::test_one_click_reveals_the_oracles_cell
+- M27 reduced-motion rule without `.player-stage *` — KILLED by TestSolverHint_ReducedMotion::test_reduced_motion
+- M28 .is-hinted without outline — KILLED by TestSolverHint_RevealsOneCell::test_the_hinted_cell_carries_an_accent_outline
+- M29 .is-hinted without animation — KILLED by TestSolverHint_ReducedMotion::test_without_reduced_motion_the_hinted_cell_animates (the control that makes AC-11's zero meaningful)
+- [Not tested / not claimed] The colour contrast of the outline on a black cell is shown only in the renders (03-after-one-hint-*.png, the revealed cell is black), not by a test; the CSS comment describes the rule and makes no visibility claim.
+- [Console] Every render run asserted no console error/warning, page error, failed request or HTTP ≥ 400 on the player page (both widths, main and this branch).
+- [Spec] Architect delta still owed (see [Spec] above): FR-044 "Hints are out of scope" contradicts this card; also record the changed default (e) Hint placement after Reset.
+- DESIGN-REGISTER HistoryControls — gains Hint (`button[data-player-action="hint"]`, text label "Hint", no icon) as the last button of `.player-history`, after Reset (Tab order of the earlier controls unchanged); disabled = aria-disabled="true" while the board is solved (locked), while a pointer gesture is in progress, or when no cell is undecided; pressing it then changes nothing. Wraps to its own row at 390 px.
+- DESIGN-REGISTER HintCounter — "Hints: N" right after "Errors: N" at the end of the toolbar row (`p.player-hints[role=status]`, `.player-hints-count`, styled as ErrorCounter); N = hint strokes on the undo stack: undo lowers it, redo raises it, reset keeps it, setBoard zeroes it.
+- DESIGN-REGISTER PlayerBoard — new cell state `.is-hinted`: the cell the last hint revealed, until the next commit; 2px --color-accent outline inset by the major rule width with an inset --grid-paper ring, fading in over 2×--duration-base (`player-hinted-in`); no animation under prefers-reduced-motion. Tokens: --color-accent, --grid-paper, --duration-base, --ease.
+- DESIGN-REGISTER SolvedBanner / live region — #puzzle-player-announce also carries the hint text ("Hint: row R, column C is black|white." or, on the fallback, "Hint: no cell follows from a single line yet; row R, column C is black|white (from the solution)."); a hint that solves the board announces the solved text instead.
+- [Scope] src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py
+- [Orchestrator] Owner default (e) deviation verified: Hint between Redo and Reset makes test_puzzle_solver_marking.py::test_each_control_has_a_name_and_is_reachable_by_tab (G-1, CONTROLS = [...,'Redo','Reset'], first-6-distinct Tab walk) collect 'Hint' instead of 'Reset'. Hint placed after Reset. Owner pre-merge decision: accept, or a follow-up changes that test's CONTROLS.
+- [System contract] fresh assembly (52 rules) identical to the card section — no refresh
+- [Build gate] PASSED (full, 650s) — 6445 passed, 9 skipped
+- [Scope gate] cycle 1: in_scope (5 files, all in Touches; no guardrail hits)
+- [Review 1/3] Score: 6.5 — crit: 0, imp: 3 (pre-adversarial; F-001 AC-3 hide predicate, F-002 outline test claims, F-003 position claims untested)
+- [Review sync] 1 report(s) → meta/review/
+- [Adversarial] F-001 CONFIRMED — seed 1833: 181 counted, 112 truly hide, 69 earlier-spurious (card183_skeptic_f001.py)
+- [Adversarial] F-002 CONFIRMED — outline red, no offset, no ring: accent_outline test still 1 passed
+- [Adversarial] F-003 CONFIRMED — no test checks Hint in .player-history after Reset, or .player-hints after .player-errors, nor any box axis
+- [Review 1/3] after adversarial: crit 0, imp 3 confirmed → fix 1
+- [Owner default note] F-006 (stale card note) corrected by the orchestrator in both card copies
+- [Fix 1] pre-gate: named tests 4 passed (F-001, F-002, F-003 x2 widths); F-004 n/a (render); F-005 SKIPPED (two live regions required by item 4 + AC-6)
+- [Fix 1] declarations: 0 updated, 0 confirmed-matrix, 4 doc/comment/notes narrowed-or-tested, 0 none — no production behaviour changed (tests, comments, renders only)
+- [Renders] ~/Documents/nonogram-reviews/CARD-183/: 01-before-main-blank-{1440,390}.png (main's toolbar, before this card), 02-blank-{1440,390}.png, 03-after-one-hint-{1440,390}.png (outline on the revealed black cell, "Hints: 1", live-region text shown in a yellow render-only annotation bar), 04a-fallback-board-before-hint-{1440,390}.png (15×15 line-logic fixed point — [Fix 1] F-004: re-rendered on a unique 15×15 grid from a seeded search, scratchpad card183/card183_fallback15.py, seed 183, draw 43, 89 cells undecided; the AC-6 test itself still uses its 10×10 board), 04b-fallback-hint-with-announcement-{1440,390}.png (fallback announcement in the annotation bar; at 390 px the stage is scrolled so the revealed cell, row 1 column 14, is in view and the row clues are scrolled off), 05-after-undo-{1440,390}.png (cell undecided again, "Hints: 0").
+- [Fix 1] review cycle 1 (meta/review/20261005T141509Z-CARD-183-cycle1.yml). Mutants applied one at a time and restored by rewriting the original text (runner: scratchpad card183/card183_mutate_fix1.py; file hashes compared before/after):
+- [Fix 1] F-001 AC-3 now counts a board as "hidden" only when, wrong marks taken at face value, neither the revealed cell's row nor its column forces it (`_face_value_forces`). Seed 1833: 181 boards change the hint at face value, 112 truly hide the cell; asserted `hidden >= 20` and `changed > hidden`.
+- [Fix 1] mutant F1a — test's `hidden` reverted to the weak predicate (face-value hint != want) — killed by test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell (`assert 181 > 181`)
+- [Fix 1] mutant F1b (M6 re-run) — hintCell takes wrong marks at face value — killed by test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell
+- [Fix 1] mutant F2a — outline colour --color-accent → --color-success — killed by TestSolverHint_RevealsOneCell::test_the_hinted_cell_carries_an_accent_outline
+- [Fix 1] mutant F2b — outline-offset dropped — killed by ...test_the_hinted_cell_carries_an_accent_outline
+- [Fix 1] mutant F2c — box-shadow paper ring dropped — killed by ...test_the_hinted_cell_carries_an_accent_outline
+- [Fix 1] mutant F2d — ring colour --grid-paper → --color-accent-tint — killed by ...test_the_hinted_cell_carries_an_accent_outline
+- [Fix 1] mutant F2e (edge) — ring width 2× → 1× the major rule — killed by ...test_the_hinted_cell_carries_an_accent_outline
+- [Fix 1] mutant F2f (edge) — outline-offset −1× → −0.5× the major rule — killed by ...test_the_hinted_cell_carries_an_accent_outline
+- [Fix 1] mutant F2g (edge) — outline width major rule → minor rule — killed by ...test_the_hinted_cell_carries_an_accent_outline
+- [Fix 1] mutant F3a — Hint button moved before Reset — killed by TestSolverHint_PlacesTheButtonAndTheCounter::test_dom_order_and_boxes[1440 and 390]
+- [Fix 1] mutant F3b — Hint button moved outside .player-history — killed by ...test_dom_order_and_boxes[1440 and 390]
+- [Fix 1] mutant F3c — .player-hints moved before .player-errors — killed by ...test_dom_order_and_boxes[1440 and 390]
+- [Fix 1] mutant F3d — .player-hints `order: -1` (DOM unchanged, visually first) — killed by ...test_dom_order_and_boxes[1440 and 390]
+- [Fix 1] mutant F3e — .player-hints `flex-basis: 100%` (own row, DOM unchanged) — killed by ...test_dom_order_and_boxes[1440 and 390]
+- [Fix 1] mutant F3f (edge) — .player-errors loses `margin-left: auto` (counters not at the toolbar's right end) — killed by ...test_dom_order_and_boxes[1440 and 390]
+- [Fix 1] mutant F3g — Hint forced onto its own row at desktop width — killed by ...test_dom_order_and_boxes[1440]
+- [Fix 1] mutant F3h — .player-history `flex-wrap: nowrap` (Hint stays on Reset's row at 390) — killed by ...test_dom_order_and_boxes[390]
+- [Fix 1] F-005 skipped: the counter must stay its own role=status region (card item 4) and AC-6's announcement test reads #puzzle-player-announce; dropping either live region changes accepted behaviour. Two polite updates per hint remain (order not guaranteed).
+- [Fix 1] Results: four player test files → `200 passed, 1 warning in 139.99s`.
+- [Build gate] PASSED (full, 641s) — 6447 passed, 9 skipped
+- [Scope gate] cycle 2: in_scope (same 5 files; no guardrail hits)
+- [Review 2/3] Score: 7.5 — crit: 0, imp: 2 (pre-adversarial; F-009 outline docstring 'any other cell', F-010 'fading in' comment — both attributed to fix 1; F-001..F-004 resolved)
+- [Review sync] 2 report(s) → meta/review/
+- [Adversarial] F-009 CONFIRMED — mutant outlining the hinted cell's right neighbour: RevealsOneCell 3 passed
+- [Adversarial] F-010 CONFIRMED — animation tests only count animations; nothing reads the keyframe (read-only analysis)
+- [Review 2/3] after adversarial: crit 0, imp 2 confirmed → fix 2. Family check: both attributed to fix 1 (its declared docstring/comment rewrites) — family 'outline/animation claims exceed assertions', streak 1 (<2, continue). Stalled check: Δscore +1.0, Δcrit+imp +1 → not stalled
+- [Tests] tests/test_puzzle_solver_hint.py — 24 tests (22 + 2 from [Fix 1]): AC-1 (2,700 lines, 300 contradicting, every length 1–30), AC-2 (700 lines ≤ 12 cells, 100 contradicting), AC-3 (240 boards × 4 shapes; asserted ≥30 fallbacks, ≥50 boards with wrong marks, ≥20 where face-value wrong marks hide the deduction — neither the revealed cell's row nor its column forces it at face value ([Fix 1] F-001; the weaker "face-value hint differs" count is kept and asserted strictly larger), ≥30 nulls, ≥200 deductions), a hand-picked module test (hintStroke frozen + hint:true; hintCount through click/hint/hint/undo/redo/reset = [0,1,2,1,2,2]; replay still equals the board; state from the solution when clues disagree with it; null row → column still deduces; null row + null column → fallback; lineForced edge cases), AC-4..AC-11 in Chromium (plus: outline moves with the next commit; computed outline on the hinted cell — colour = resolved --color-accent, width = major rule, offset = minus the major rule, inset --grid-paper ring of twice the major rule ([Fix 1] F-002) — and outline-style none on every other td.player-cell ([Fix 2] F-009); DOM order and boxes of Hint and "Hints: N" at 1440 and 390 px ([Fix 1] F-003); reset keeps the count, setBoard zeroes it; Hint disabled when locked with cells still undecided; disabled during a drag and re-enabled after a cancelled drag; control test that the hinted cell does animate without reduced motion: one animation, named player-hinted-in, whose first keyframe (offset 0) sets outlineColor to transparent / rgba(0, 0, 0, 0) ([Fix 2] F-010)). AC-6's board: a seeded 10×10 grid that the solver reports unique but line logic leaves undecided at its fixed point (found in the test, asserted).
+- [Fix 2] review cycle 2 (meta/review/20261005T144624Z-CARD-183-cycle2.yml). Claims and tests only — no CSS rule, JS or template change. Mutants applied one at a time to admin.css from a backup copy and restored from it, sha1 compared after each (runner: scratchpad card183/card183_fix2_mutants.py):
+- [Fix 2] F-009 test_the_hinted_cell_carries_an_accent_outline now asserts outline-style none on every td.player-cell except the hinted one (and that there are 15×15 − 1 of them), replacing the single (14, 14) read; docstring says exactly that.
+- [Fix 2] mutant M1 (edge, = review D1) — `.player-cell.is-hinted + .player-cell { outline: 2px solid var(--color-accent) }` (the hinted cell's right neighbour) — killed by TestSolverHint_RevealsOneCell::test_the_hinted_cell_carries_an_accent_outline (`[[0, 1]] == []`)
+- [Fix 2] mutant M2 — `.player-cell[data-row="7"][data-col="7"] { outline: ... }` (a middle cell) — killed by ...test_the_hinted_cell_carries_an_accent_outline (`[[7, 7]] == []`)
+- [Fix 2] F-010 test_without_reduced_motion_the_hinted_cell_animates now asserts the one animation is `player-hinted-in` and its first keyframe has offset 0 and outlineColor in ("transparent", "rgba(0, 0, 0, 0)") — read from effect.getKeyframes(), no mid-animation sampling. admin.css comment (comment only): "fading in" → "the outline colour fades in from transparent"; "styled alike" dropped (no test compares the counters' styles).
+- [Fix 2] mutant M3 (= review D2) — keyframe `from { outline-color: transparent }` → `from { outline-offset: 0 }` — killed by TestSolverHint_ReducedMotion::test_without_reduced_motion_the_hinted_cell_animates (outlineColor None)
+- [Fix 2] mutant M4 (edge) — keyframe from `outline-color: var(--color-success)` (a colour fade, not from transparent) — killed by ...test_without_reduced_motion_the_hinted_cell_animates (`'rgb(47, 107, 58)' in (...)`)
+- [Fix 2] mutant M5 (edge) — the hinted cell runs `player-solved-in` instead — killed by ...test_without_reduced_motion_the_hinted_cell_animates (`'player-solved-in' == 'player-hinted-in'`)
+- [Fix 2] F-011 skipped — same as F-005 above (two polite live-region updates per hint); behaviour change, owner decides at review.
+- [Fix 2] F-012 skipped, OWNER NOTE — with the reset confirmation open, Tab from "Keep marks" reaches Hint (it follows the confirmation in the DOM); pressing Hint commits, and commit calls closeConfirm, which moves focus to Reset, so a second Enter opens the reset confirmation instead of giving a second hint. Not changed on the final review cycle (solver.js out of scope); owner to decide.
+- [Fix 2] Results: four player test files → `200 passed, 1 warning in 135.21s (0:02:15)`; tests/test_puzzle_solver_hint.py three runs → `24 passed, 1 warning in 20.34s`, `24 passed, 1 warning in 20.69s`, `24 passed, 1 warning in 21.39s`.
+- [Fix 2] pre-gate: named tests 2 passed (F-009, F-010); F-011/F-012 SKIPPED (behaviour changes; owner notes)
+- [Fix 2] declarations: 0 matrix, 2 doc/comment narrowed-and-tested, 0 none — tests + CSS comment only
+- [Build gate] PASSED (full, 642s) — 6447 passed, 9 skipped
+- [Scope gate] cycle 3: in_scope (same 5 files; no guardrail hits)
+- [Review 3/3] Score: 9.0 — crit: 0, imp: 0 (F-009, F-010 resolved; 8f mutation run: 12/12 killed R1–R12; Minor F-013 control-test timing headroom, F-014 owner decisions F-011/F-012)
+- [Review 3/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [Review 3/3] Step 8h coverage: 52/52 card rules addressed (10 ✓, 42 ⚠ no_eligible_fact, 0 ✗); per-rule lines in the YAML
+- [Review sync] 3 report(s) → meta/review/
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0038/R2, ADR-0038/R3, ADR-0038/R4)
+- [AC/EC check] Failed: AC-12 ⚠ partial — no 'after a fallback hint' frame on the 15×15 fallback board (05-after-undo belongs to the deducible sequence); 04b-390 annotation banner covers board rows. AC-1..AC-11 ✓, G-1..G-7 ✓ (no EC section)
+- [Renders] ~/Documents/nonogram-reviews/CARD-183/ (current full set, AC-12; every file at 1440 and 390 px): 01-before-main-blank-{1440,390}.png (main's toolbar before this card, 15×15 marking GRID from tests/test_puzzle_solver_marking.py); 02-blank-{1440,390}.png (this card's toolbar with Hint and "Hints: 0", blank board); 03-after-one-hint-{1440,390}.png (deducible hint on the marking GRID: outline on the revealed black cell, "Hints: 1", live-region text in the annotation bar); 05-after-undo-{1440,390}.png (that deducible hint undone on the marking GRID: cell undecided again, "Hints: 0"); fallback sequence on the seeded 15×15 board (scratchpad card183/card183_fallback15.py, seed 183, draw 43, line-logic fixed point with 89 undecided cells): 04a-fallback-board-before-hint-{1440,390}.png (before: no outline, "Hints: 0"; at 390 the board's right columns scroll inside the stage), 04b-fallback-hint-with-announcement-{1440,390}.png (during: outline on the revealed cell row 1 column 14 (white), "Hints: 1", annotation quoting "Hint: no cell follows from a single line yet; row 1, column 14 is white (from the solution)."; at 390 the stage is scrolled so that cell is in view), 04c-fallback-after-undo-{1440,390}.png (after Undo: row 1 column 14 undecided again, no outline, "Hints: 0", Undo disabled / Redo enabled), 04d-fallback-after-next-commit-{1440,390}.png (alternative "after": Hint again, then the next commit fills row 1 column 15: no outline, the revealed white cell kept, "Hints: 1"). The 04c/04d annotations say the live region still holds the hint text unchanged, so nothing new is announced.
+- [AC-12 fix] Render-only, no repository file changed except these notes. New scratchpad script card183/card183_render_ac12.py (run with pytest, ROOT=worktree; it asserts nonogram is imported from the worktree's src) re-rendered 04a/04b and added 04c (required "after Undo" frame on the same 15×15 fallback board) and 04d (after the next commit). The annotation bar is no longer position:fixed over the board: it is an in-flow block appended after the page content, with a dashed border and the label "RENDER ANNOTATION (not part of the page)", so it never covers the board or toolbar and the full-page screenshot includes it. Every frame's state is asserted in the script (Hints count, .is-hinted count, "(from the solution)" in the announcement, no console errors) and was checked by eye.
+- [AC-12 fix] 03/05 re-rendered with the same below-content annotation bar (scratchpad card183/card183_render_ac12_0305.py, ROOT=worktree, asserts state): 03-after-one-hint-{1440,390}.png (marking GRID, deducible hint: outline on row 1 column 1 (black), "Hints: 1", annotation "Hint: row 1, column 1 is black.") and 05-after-undo-{1440,390}.png (after Undo: cell undecided, no outline, "Hints: 0", annotation notes the live region still holds the hint text). 01/02 carry no annotation bar and were not re-rendered.
+- [Build gate] impact: render-only AC-12 fix — no src/tests change since the 642s full run (6447 passed, 9 skipped); gate not re-run
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ test_PropertyTest_SolverHint_LineForcedMatchesThePythonLineSolver passed (≥2000 lines, ≥200 null asserted) · AC-2 ✓ ...LineForcedMatchesBruteForce passed (≥500) · AC-3 ✓ ...RevealsTheFirstDeducibleCell passed (4 shapes ≥200, fallbacks ≥30, wrong ≥50, hidden ≥20) · AC-4..AC-11 ✓ their named TestSolverHint_* classes passed (hint file: 24 passed, 0 skipped) · AC-12 ✓ renders 01–05 incl. 04a–04d 15×15 fallback at 1440/390, owner sign-off pending · G-1 ✓ page+marking+progress 176 passed, unchanged vs main · G-2 ✓ no-DOM + colour-literal tests 2 passed, 4 exports in solver_state.js · G-3 ✓ payload shape + no-request 5 passed, payload.rows/columns · G-4 ✓ no storage/request APIs in added lines · G-5 ✓ suites green, unchanged · G-6 ✓ src/nonogram/solver diff empty · G-7 ✓ #puzzle-player-hint paragraph identical to main. No EC section.
+- [Docs] no per-directory README under src/nonogram/admin/{static,templates} (convention is an open owner decision); tests/README.md does not list player test files — no README change
+- [Commit] success commit 9e6c101 (on top of implementation f1bcac2) — branch card/183-player-hint-button, 5 files +1097/−12; nothing under meta/ committed
+- [Owner decision] 2026-10-05 Hint after Reset accepted; AC-12 renders accepted
+- [Rebase onto 0d7c82e] rebased onto main f25bcbc (incl. CARD-188 0d7c82e): new commits ed7932c (feat) + c3d3fb8 (success, was 9e6c101). Conflicts in solver_state.js and solver.js were two adjacent new blocks — both kept verbatim (circledNumbers/circledClues + lineForced/hintCell/hintStroke/hintCount; paintCircles + hintText); admin.css auto-merged; showProgress keeps CARD-188's paintCircles call alongside the hint counter/announce. Keep-both only, no semantic merge → no confirmation review. Six player files: 232 passed. Full suite (lock): run 1 — 1 failed (test_puzzle_solver_page.py::TestSolverPageFits::test_the_largest_board_fits_a_laptop_screen[row-clues]: server 500 in app.puzzle_solve → get_puzzle UUID parse with DATABASE_URL set, before any player JS; passes 3/3 in isolation); run 2 — 6464 passed, 9 skipped. Flake noted for the dispatcher.
+- [Merge gate] rebased onto f25bcbc (CARD-188 merged; both features kept); full suite 6464 passed, 9 skipped (second run; first run hit a one-off 500 in TestSolverPageFits[row-clues], passed 3/3 in isolation). Owner accepted Hint after Reset and the AC-12 renders. Merged bd8eccb.
