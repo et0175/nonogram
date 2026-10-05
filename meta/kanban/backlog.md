@@ -92,6 +92,9 @@ card names its card._
 
 - [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other ink within about a line's height sideways" rule loosely; no measured case is misdescribed   @tech-debt
 
+- [ ] CARD-174 F-003: a book stored at 48.0 cm reopens in inches showing 18.90 next to the stated 18.89 in maximum — the reopen conversion should round inward like the limits   @feature
+- [ ] CARD-174 F-004 (minor): tests/test_print_specs.py:524 comment says 18.8976 × 2.54 = 48.0 (it is 47.999904; the assertion is right). Also owner wording check: the inch minimum refusal says "on both sides" where the cm one says "in both dimensions"   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

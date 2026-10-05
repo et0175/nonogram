@@ -1,0 +1,107 @@
+version: 1
+generated_at: "2026-10-05T04:35:41Z"
+target: "card/174-trim-refusals-in-inches (main...HEAD, c5d0550)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read: ["src/nonogram/admin/print_specs.py", "src/nonogram/admin/app.py (setup_print, _blank_trim_error, _submitted_trim_cm)", "src/nonogram/admin/templates/book_setup_print.html", "tests/test_print_specs.py", "tests/test_book_workflow_steps.py", "meta/design/brief.md", "meta/design/components.md", "~/Documents/nonogram-reviews/CARD-174/after-inches-refused-12x11-390.png"]
+  not_reached: ["rendered result via capture harness (review.visual off)"]
+  confidence: high
+metrics:
+  diff: { files: 5, added: 502, removed: 6 }
+  max_fan_in: { symbol: "PrintSpecValidator.validate_trim_size", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — top co-change peers (db/models.py, book_manager.py) are not expected to change: card item 4 requires BookManager unchanged"
+system_contract:
+  rules_checked: 52
+  holds: 6
+  unchecked: 46
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from git diff main...HEAD; only new import is stdlib decimal ROUND_CEILING/ROUND_FLOOR (print_specs.py:16)"
+    - "ADR-0019/R1 ✓ holds — no file under src/nonogram/web/ in the diff; no new non-stdlib import"
+    - "CON-015 ✓ holds — no change to the admin entry point or bind address; diff adds no route"
+    - "CON-016 ✓ holds — setup_print is the existing route; no door/allowed-host code in the diff"
+    - "INV-005 ✓ holds — plan parsing/saving code untouched in app.py diff (only create_spec kwarg + context key)"
+    - "INV-006 ✓ holds — trim verdict unchanged: 200000-case seeded check validate_trim_size(cm) == validate_trim_size(cm, entered_inches) on 2-dp inch inputs, and code read print_specs.py:256-276 (same comparisons); exact-boundary gap filed as F-001"
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-021, INV-001, INV-002, INV-003, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: the diff only rewords Print-setup trim refusals and templates the Limits box; it touches no grid, solver, generation, puzzle storage, book membership/status/order, layout, PDF, player or web-server code"
+root_causes:
+  - id: RC-1
+    title: "Inch path duplicates the cm bound comparisons without exact-boundary tests"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/print_specs.py
+    line: 256
+    title: "Two boundary mutants survive in the duplicated inch-path bound checks (G-1 unpinned at equality)"
+    description: |
+      _inch_bounds_verdict re-implements the three cm comparisons. Mutation check: `height > limits.max_height_cm`
+      -> `>=` (line ~270) and `value < limits.min_cm` -> `<=` (line ~256) both SURVIVE the whole CARD-174 test set
+      plus TestPrintSetup_InchesTrimIsReachable. Both are reachable, behaviour-changing mutants: inch entries
+      "18.8976" and "3.937" convert to exactly 48.00 / 10.00 cm, accepted on HEAD and on main, and would be
+      refused by the mutant - i.e. a G-1 regression (same submissions accepted/refused) no test catches. Width
+      `>=` is only killed by coincidence (11.81 in -> exactly 30.00 cm). The docstring "Same comparisons, same
+      order" is true today but nothing holds it.
+    suggestion: |
+      Preferred: remove the duplication - run the existing cm checks once and, when entered_inches is given,
+      choose the inch wording for whichever branch failed (verdict computed in one place). Or at minimum add
+      tests that inch entries converting to exactly 10.00 / 30.00 / 48.00 cm (e.g. "3.937", "11.811", "18.8976")
+      are accepted with and without entered_inches, and through the route.
+    confidence: high
+    source: static
+    violates: G-1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/print_specs.py
+    line: 57
+    title: "TrimLimits docstring and seeded-corpus test claim acceptance for any bound; holds only for cm bounds on a 0.01 grid"
+    description: |
+      For a bound of 15.875 cm, trim_limits() states 6.25 in, which inches_to_cm turns into 15.88 cm and refuses.
+      The corpus test (test_seeded_corpus_of_bounds_states_only_accepted_inches, "holds for any cm bound") draws
+      only 2-dp bounds. True for KDP's 10/30/48 today.
+    suggestion: |
+      State the precondition (cm bounds are multiples of 0.01) in the docstring and test name, or assert it in trim_limits().
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: info
+    category: feature
+    type: question
+    file: src/nonogram/admin/app.py
+    line: 3242
+    title: "Out of scope: a book stored at 48.0 cm reopens in inches as 18.90 while the Limits box says 18.89"
+    description: |
+      cm_to_inches rounds half-up, so the prefilled field can show 18.90 in next to a stated max of 18.89 in (kept
+      as stored cm via G-3, so accepted). G-3 forbids changing conversion here; follow-up card material.
+    suggestion: |
+      Note for a follow-up card.
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "Out of scope by the reviewer's own note: G-3 forbids changing cm_to_inches rounding on CARD-174; follow-up card material."
+    learned_pattern: null

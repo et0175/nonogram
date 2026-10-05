@@ -1,0 +1,89 @@
+version: 1
+generated_at: "2026-10-05T05:02:30Z"
+target: "card/174-trim-refusals-in-inches (working tree vs main; HEAD c5d0550 + uncommitted fix delta print_specs.py, test_print_specs.py)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: "confirmation (differential re-review, cycle 2 of 3)"
+coverage:
+  read: ["src/nonogram/admin/print_specs.py (full trim section)", "git diff main for app.py and book_setup_print.html", "tests/test_print_specs.py (fix delta)", "tests/test_book_workflow_steps.py (min-refusal quoting tests)", "meta/kanban/cards/CARD-174.md", "meta/review/20261005T043541Z-CARD-174-cycle1.yml"]
+  not_reached: ["rendered result (review.visual off; template unchanged since cycle 1)"]
+  confidence: high
+metrics:
+  diff: { files: 6, added: 611, removed: 15 }  # incl. card file
+  max_fan_in: { symbol: "PrintSpecValidator.validate_trim_size", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — carried from cycle 1: top co-change peers (db/models.py, book_manager.py) are not expected to change (card item 4 keeps BookManager unchanged)"
+prior_findings:
+  - "F-001 ✓ resolved — _inch_bounds_verdict removed; validate_trim_size makes one set of cm comparisons (print_specs.py:225-266); entered_inches only selects wording; exact-bound inch entries 3.937/11.811/18.8976 pinned accepted with and without entered_inches and through the route (32 tests, 0 skipped, postgres included)"
+  - "F-002 ✓ resolved — TrimLimits docstring (print_specs.py:64-66) and renamed corpus test now restrict the claim to cm bounds on a 0.01 cm grid, with the 15.875 cm counter-example"
+task_contract:
+  - "AC-1 ✓ holds — TestPrintSetup_InchesRefusalSpeaksInches green (re-run; print_specs.py in delta so not carried)"
+  - "AC-2 ✓ holds — TestPrintSetup_InchesRefusalSpeaksInches green incl. single-side and both-sides min quoting"
+  - "AC-3 ✓ holds — TestTrimRefusal_StatedInchLimitIsAccepted green"
+  - "AC-4 ✓ holds — TestTrimRefusal_CmWordingUnchanged green; cm literals byte-identical"
+  - "AC-5 ✓ holds — TestTrimRefusal_CmWordingUnchanged green incl. BookManager storage refusal"
+  - "AC-6 ✓ holds — TestPrintSetup_LimitsBoxAgreesWithRefusals green; mutant M10 (literal back in template) killed"
+  - "G-1 ✓ holds — single comparison set; exact-bound and 0.01-beyond tests; InchesTrimIsReachable and RefusesNonFiniteValues green; boundary mutants M1-M4 killed"
+  - "G-2 ✓ holds — carried(cycle 1, delta-clean): scope app.py, not in fix delta"
+  - "G-3 ✓ holds — inches_to_cm/cm_to_inches untouched by delta hunks (only TrimLimits docstring and validate_trim_size/_inch_min_refusal changed)"
+  - "G-4 ✓ holds — test_the_route_refuses_one_hundredth_beyond_and_stores_nothing asserts stored state unchanged"
+  - "G-5 ✓ holds — carried(cycle 1, delta-clean): scope book_setup_print.html, not in fix delta"
+  - "G-6 ✓ holds — delta does not touch validate_margins/validate_interior_ink_mode; _blank_trim_error (app.py) not in delta"
+system_contract:
+  rules_checked: 52
+  holds: 6
+  unchecked: 46
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no import added/removed in the fix delta (git diff HEAD -- src | grep import: empty); TestDependencyBaseline_IsExactlyPillowAndNumpy green on working tree over c5d0550"
+    - "ADR-0019/R1 ✓ holds — no src/nonogram/web/ file in the diff; test_every_import_in_the_package_points_inward green"
+    - "CON-015 ✓ holds — no admin entry point/bind change; TestAdminPanel_BindsLoopbackOnlyByDefault green"
+    - "CON-016 ✓ holds — no door code touched; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green"
+    - "INV-005 ✓ holds — plan code untouched; TestBookPlan_RejectsSplitNotSummingTo100 and TestBookCreate_StoresDefaultPlanThatSumsTo100 green"
+    - "INV-006 ✓ holds — trim verdict now structurally single (print_specs.py:225-266); stored trim cm unchanged; PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride green"
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-021, INV-001, INV-002, INV-003, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: re-derived fresh (not carried): the fix delta only restructures validate_trim_size wording selection and adds trim tests; the card diff touches no grid, solver, generation, puzzle storage, book membership/status/order, layout, PDF, player or web-server code"
+mutation_check:
+  command: "pytest tests/test_print_specs.py tests/test_book_workflow_steps.py -x"
+  killed: 10
+  survived: 0
+  restore_verified: "sha256 per file after each mutant; git diff main shasum a2f6bec2... identical before/after"
+  mutants:
+    - "M1 width min < -> <= KILLED"
+    - "M2 height min < -> <= KILLED"
+    - "M3 height max > -> >= KILLED"
+    - "M4 width max > -> >= KILLED"
+    - "M5 _inch_min_refusal height quotes width entry KILLED"
+    - "M6 _inch_min_refusal height uses width flag KILLED"
+    - "M7 inch width message quotes height KILLED"
+    - "M8 max height inch rounding floor -> ceiling KILLED"
+    - "M9 app passes entered_inches for cm submissions KILLED"
+    - "M10 template literal 11.81 back KILLED"
+root_causes: []
+findings:
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: tests/test_print_specs.py
+    line: 524
+    title: "Hand-checked arithmetic comment overstates: 18.8976 x 2.54 is 47.999904, not 48.0"
+    description: |
+      The EXACT_BOUNDARY_INCHES comment says "hand-checked: ... 18.8976 x 2.54 = 48.0". The product is 47.999904;
+      it is inches_to_cm's 2-dp rounding that gives "48.00" (the test itself asserts the converted string, so
+      behaviour is pinned correctly). Same pattern as the other two figures, which the comment does state unrounded.
+    suggestion: |
+      Write "18.8976 x 2.54 = 47.999904" (all three round to the bound via inches_to_cm's 2-dp format).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
