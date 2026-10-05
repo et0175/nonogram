@@ -529,6 +529,112 @@ class TestBookFloorTiles_UnmeasurableCellsFailClosed:
 
 
 # --------------------------------------------------------------------------
+# CARD-173 — an unreadable print setup is said once, for the book
+# --------------------------------------------------------------------------
+
+#: The CARD-173 book-level marker; a page holds it once or not at all.
+PRINT_SETUP_ALERT = "data-print-setup-unreadable"
+
+
+def print_setup_alerts(html: str) -> list[str]:
+    """Each element carrying the marker, from its opening tag to its close."""
+    return [
+        match.group(0)
+        for match in re.finditer(
+            rf"<(div|p)[^>]*{PRINT_SETUP_ALERT}[^>]*>.*?</\1>", html, re.S
+        )
+    ]
+
+
+class TestBookSelect_UnreadablePrintSetupIsOneBookLevelMessage:
+    """AC-1: one alert linking Print setup, no per-tile flag or override.
+    AC-6: saving the trim again (the remedy it names) brings the cells back."""
+
+    @staticmethod
+    def _book_of_three_tiles(panel):
+        puzzle_ids = [panel.puzzle(*ABOVE_FLOOR_WIDE[:4]) for _ in range(3)]
+        book_id = panel.book()
+        retrim(panel, book_id, trim_width_cm="not a number")
+        return book_id, puzzle_ids
+
+    def test_the_page_holds_exactly_one_alert_linking_print_setup(self, panel) -> None:
+        book_id, _ = self._book_of_three_tiles(panel)
+
+        alerts = print_setup_alerts(tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5]))
+
+        assert len(alerts) == 1, alerts
+        assert f'href="/book/{book_id}/setup-print"' in alerts[0]
+        assert "Print setup" in text_of(alerts[0])
+        assert "trim_width_cm" in text_of(alerts[0])
+
+    def test_no_tile_carries_a_flag_note_or_an_override(self, panel) -> None:
+        book_id, puzzle_ids = self._book_of_three_tiles(panel)
+
+        html = tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5])
+
+        for puzzle_id in puzzle_ids:
+            tile = tile_of(html, puzzle_id)
+            assert "flag-note" not in tile
+            assert f"override_{puzzle_id}" not in tile
+            assert "not measurable" in text_of(tile)
+
+    def test_saving_the_trim_again_brings_back_every_cell_and_drops_the_alert(
+        self, panel
+    ) -> None:
+        book_id, puzzle_ids = self._book_of_three_tiles(panel)
+        assert print_setup_alerts(tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5]))
+
+        retrim(panel, book_id, trim_width_cm="21.59", trim_height_cm="27.94")
+
+        html = tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5])
+        assert PRINT_SETUP_ALERT not in html
+        for puzzle_id in puzzle_ids:
+            tile = tile_of(html, puzzle_id)
+            assert f'data-book-cell-mm="{ABOVE_FLOOR_WIDE[4]:.2f}"' in tile
+            assert f"{ABOVE_FLOOR_WIDE[4]:.2f} mm" in text_of(tile)
+
+    def test_a_readable_book_with_an_unreadable_puzzle_keeps_the_per_tile_flag(
+        self, panel
+    ) -> None:
+        """A per-puzzle fault stays per puzzle: flag and override, no alert."""
+        puzzle_id = panel.puzzle(*ABOVE_FLOOR_WIDE[:4])
+        book_id = panel.book()
+        panel.store.puzzles[puzzle_id]["clues_rows"] = []
+
+        html = tab_html(panel, book_id, ABOVE_FLOOR_WIDE[5])
+
+        assert PRINT_SETUP_ALERT not in html
+        tile = tile_of(html, puzzle_id)
+        assert "flag-note" in tile and f'name="override_{puzzle_id}"' in tile
+
+
+class TestBookFinalize_UnreadablePrintSetupCollapsesTheBelowFloorList:
+    """AC-5: the count stays 3 (fail closed); the alert says why once."""
+
+    @staticmethod
+    def _book_of_three_members(panel):
+        book_id = panel.book()
+        members = [panel.puzzle(*COMFORTABLE) for _ in range(3)]
+        panel.books.add_puzzles_to_book(book_id, members)
+        retrim(panel, book_id, trim_width_cm="not a number")
+        return book_id
+
+    def test_the_count_is_still_three(self, panel) -> None:
+        assert below_floor_count(finalize_html(panel, self._book_of_three_members(panel))) == 3
+
+    def test_the_alert_carries_one_print_setup_sentence_not_three_lines(self, panel) -> None:
+        book_id = self._book_of_three_members(panel)
+
+        html = finalize_html(panel, book_id)
+
+        alerts = print_setup_alerts(html)
+        assert len(alerts) == 1, alerts
+        assert f'href="/book/{book_id}/setup-print"' in alerts[0]
+        assert "Print setup" in text_of(alerts[0])
+        assert "cell cannot be measured" not in text_of(html)
+
+
+# --------------------------------------------------------------------------
 # G-1 — the admin fits no cell of its own (ADR-0036/R2)
 # --------------------------------------------------------------------------
 
