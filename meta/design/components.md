@@ -148,6 +148,8 @@ States: default · hover · selected (accent border + tint, checkbox checked) ·
 no preview.
 Tokens: --color-surface, --color-accent, --color-accent-tint, --thumb.
 
+State (CARD-173): book print setup unreadable — no flag note and no override checkbox on any tile; one book-level `alert alert-warning` above the tabs names the problem and links Print setup. Finalise shows one linked sentence instead of a per-member line, count unchanged.
+
 ## ArrangeRow
 Used by: book arrangement (step 4 of 5).
 States: default · first **of its level** (up disabled, "First in the <Level>

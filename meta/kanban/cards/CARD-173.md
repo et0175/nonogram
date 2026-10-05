@@ -1,6 +1,6 @@
 # CARD-173: An unreadable stored print setup says so once, names the remedy, and offers no override that cannot work
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 33
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_select_puzzles.html, src/nonogram/admin/templates/book_finalize.html, tests/test_book_select_floor_tiles.py, tests/test_book_floor.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 2/3)
+**Started:** 2026-10-05T03:04:22Z
+**Closed:** 2026-10-05T04:09:45Z
+**Actual:** 0.1d
+**Merge commit:** da0283f
 **Blocked by:** —
 
 ## What to implement
@@ -184,3 +184,43 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-173` (52 rules). A project
 - [Fact] Screen degrade: app.py `_book_cells` ~3517-3550 maps every id to `None`; `_trim_cm` (~3552) uses the same try and can be the model for a small "reason or None" helper.
 - [Fact] Existing test `test_a_book_whose_trim_cannot_be_read_shows_no_cell_at_all` (tests/test_book_select_floor_tiles.py ~506) asserts "not measurable" in the tile. It stays green if the info row is kept. `retrim(...)` in that file sets stored columns.
 - [Overlap] CARD-174 edits trim-refusal wording (print_specs.py `validate_trim_size`, possibly book_page_spec.py's "outside KDP's" message). This card touches neither file; it only wraps `book_page_spec`'s message. If CARD-174 merges first, no conflict; AC tests pin the column name, not the text.
+- [Env] forge 2026.8.17
+- [System contract] fresh assembly (system_rules.py --card CARD-173) matches the card section: 52 rules, no change.
+- [Implemented] `book_manager.py`: `unreadable_print_setup_refusal(reason)` next to `NO_PLAN_REFUSAL` — one sentence carrying `book_page_spec`'s reason and naming Print setup. `_below_floor_for` catches exactly `ValueError` from `book_page_spec(book)` and re-raises `ValueError(unreadable_print_setup_refusal(...)) from` it; still before any store read/write, still after the no-store posture (G-6). `below_floor` / `add_puzzles_reporting_refusals` docstrings updated to the new wording.
+- [Implemented] `app.py`: `_unreadable_print_setup(book)` ("reason or None", modelled on `_trim_cm`). Selection step passes `print_setup_unreadable` (the wording, or None) into the context; Finalise passes a boolean `print_setup_unreadable`. `_book_cells`, `_below_floor_ids`, `_misses_the_floor` and the below-floor count are unchanged (G-1, G-2, fail-closed count).
+- [Implemented] `book_select_puzzles.html`: one `alert-warning` marked `data-print-setup-unreadable` with the wording and a `url_for('setup_print', ...)` link; the tile flag block is now `{% if below_floor and not print_setup_unreadable %}` (the "Book cell: not measurable" info row and `data-below-floor` stay). `book_finalize.html`: inside the existing below-floor alert, one sentence ("Cell sizes cannot be measured until the print setup is saved again on Print setup", linked) replaces the per-member list when the setup is unreadable.
+- [Wording] The sentence says "nothing can be added to it" rather than "nothing was added", so the one wording reads true both as the add refusal (flash) and as the selection step's GET alert, which is shown before anything is submitted.
+- [AC→test] AC-1, AC-6 → `TestBookSelect_UnreadablePrintSetupIsOneBookLevelMessage` (tests/test_book_select_floor_tiles.py; also checks an unreadable-clues puzzle on a readable book keeps its per-tile flag and override). AC-5 → `TestBookFinalize_UnreadablePrintSetupCollapsesTheBelowFloorList` (same file). AC-2, AC-4 → `TestBookAddPuzzles_UnreadablePrintSetupRefusesOnceAndNamesTheRemedy` (tests/test_book_floor.py; selection POST with/without overrides; store call parametrised memory + sqlite db, with/without overrides; asserts `__cause__` is the original ValueError, membership and overrides unchanged). AC-3 → `TestBookAddPuzzlesByIds_UnreadablePrintSetupNamesTheRemedy` (same file). Tests assert only the column name `trim_width_cm` and "Print setup", never `book_page_spec`'s reason text (G-4).
+- [Mutants] (scratchpad card173_mutants.py; all KILLED, all reverted): M1 store re-raises raw error → AddPuzzles (selection + store) and AddPuzzlesByIds; M2 `from` dropped → AddPuzzles store test (`__cause__`); M3 helper always None → SelectBookLevel (3 tests) + Finalize alert; M4 select alert context always None → SelectBookLevel (3); M5 finalize flag inverted → Finalize alert; M6 finalize flag False → Finalize alert; M7 tile guard dropped → SelectBookLevel no-flag test; M8 select alert unconditional → SelectBookLevel per-puzzle + remedy tests; M9 alert link removed → SelectBookLevel one-alert test; M10 finalize collapse condition false → Finalize alert. Every new class is killed by at least one mutant.
+- [Tests run] tests/test_book_select_floor_tiles.py + tests/test_book_floor.py: 118 passed. Related set (22 files incl. property/test_book_membership_floor.py [INV-006 property], test_export_a4_golden.py, test_layout_page_spec.py [ADR-0036/R1], test_book_finalise_*.py, test_book_select_tabs.py, test_book_detail_page.py, test_book_page_spec.py, test_cli.py import guard): 1341 passed. G-3's three named tests unchanged and green.
+- [Scope] No SCOPE+; only the six Touches files changed. book_page_spec.py / print_specs.py untouched (G-4); no PDF code touched (G-5).
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_book_floor.py, tests/test_book_select_floor_tiles.py
+- [Build gate] impact underivable (test_scope: full, no pytest-testmon) — full suite
+- [Build gate] PASSED (full, 608s; 6190 passed, 9 skipped)
+- [Scope gate] in_scope — 6 changed files, all inside Touches; no guarded-path hits
+- [Visual] review.visual off — Step 8g static check only
+- [Review 1/3] Score: 8.5 — crit: 0, imp: 1 (pre-adversarial; F-001 test cannot tell card wording from raw reason, mutant R1 survived)
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h covered all 52 card rules (9 ✓, 43 ⚠ no_eligible_fact, 0 ✗)
+- [Adversarial] F-001 CONFIRMED — skeptic re-ran mutant (raw reason in place of unreadable_print_setup_refusal at app.py:3906): 118 passed; contract gap vs objective + docstring
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Fix cycle 1, F-001] Test-only: `test_the_page_holds_exactly_one_alert_linking_print_setup` now also asserts the alert text contains `unreadable_print_setup_refusal(str(e))`, `e` being the ValueError `book_page_spec` raises for that book — the card's wording around the reason, with the reason taken from `book_page_spec` itself, so its text is still never pinned (G-4). No production code changed; no declaration changed (the `unreadable_print_setup_refusal` docstring claim is now demonstrated, not altered).
+- [Fix cycle 1, revert check] Mutant R1 (app.py select context passes raw `unreadable` instead of `unreadable_print_setup_refusal(unreadable)`) applied: the strengthened test FAILED. app.py restored byte-for-byte from a scratchpad copy; `git diff src/` empty. Both card test files green afterwards.
+- [Fix cycle 1, F-002 accepted] Refused selection POST shows the sentence twice (error flash + book-level alert on the re-rendered page): accepted — the flash reports the refused submission, the alert describes the book's state; AC-2's one-flash holds; changing it would add an untested branch.
+- [Fix 1] pre-gate: FIXED F-001 named test passed (1 passed); SKIPPED F-002 (orchestrator-accepted, no behaviour change)
+- [Fix 1] declarations: 0 updated, 0 confirmed, 1 none
+- [Build gate] PASSED (full, 592s; 6190 passed, 9 skipped) after fix 1
+- [Scope gate] cycle 2 in_scope — fix delta: tests/test_book_select_floor_tiles.py only
+- [Review 2/3] Score: 9.5 — crit: 0, imp: 0 (confirmation mode; F-001 resolved, R1 now killed; F-002 dismissal upheld)
+- [Review sync] 2 report(s) → meta/review/
+- [Review 2/3] Step 8h covered all 52 card rules (all carried, delta-clean)
+- [Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] skipped — pool empty: every cycle-2 holds line is carried(cycle 1, delta-clean)
+- [Mutation] cycle 2: 10 killed, 0 survived (cycle 1: 9/10, R1 survivor fixed by F-001)
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ demonstrated (one alert + setup-print href + card wording; no flag-note/override on 3 tiles) · AC-2 ✓ demonstrated (selection POST no-override/override: membership unchanged, 0 overrides, 1 flash) · AC-3 ✓ demonstrated (paste-ids: nothing added, 1 flash naming Print setup) · AC-4 ✓ demonstrated (store raises, memory+db x override 4/4, column name only, __cause__ set, nothing written) · AC-5 ✓ demonstrated (count 3, one linked sentence, no per-member lines) · AC-6 ✓ demonstrated (retrim → mm cells, alert gone) · G-1 ✓ demonstrated (PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride 7/7, test untouched) · G-2 ✓ demonstrated (bounded grep: no new FLOOR_MM comparison in src/templates) · G-3 ✓ demonstrated (3 named tests green, unchanged) · G-4 ✓ demonstrated (book_page_spec.py/print_specs.py untouched; no reason text pinned) · G-5 ✓ demonstrated (A4 golden 63 + layout + finalise gutter/guide 110 green) · G-6 ✓ demonstrated (no-store posture tests green, store check precedes sheet)
+- [Docs] forge:readme skipped — src/nonogram/admin/ and templates/ carry no per-directory README (owner decision pending in backlog); tests/README.md current (no new test file)
+- [Commit] success commit 6257093 (on top of implementation 2988199); branch diff vs merge-base cf119ca: 6 files, +266/−7
+- DESIGN-REGISTER: PuzzleTile — state: book print setup unreadable (no flag-note, no override; one book-level alert-warning above the tabs, linking Print setup) (CARD-173)
+- [Out-of-scope] card objective says "nothing was added"; the shipped wording says "nothing can be added to it" so one sentence reads true on both the GET alert and the POST flash (reviewer cycle 1 accepted, no finding)
+- [Merge gate] rebased onto ae2529f; full suite 6199 passed, 9 skipped, exit 0 (600s, under the lock). Merged da0283f.
+- [Design] DESIGN-REGISTER applied to meta/design/components.md (PuzzleTile state).

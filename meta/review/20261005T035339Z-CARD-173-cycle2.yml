@@ -1,0 +1,120 @@
+version: 1
+generated_at: '2026-10-05T03:53:39Z'
+target: card/173-unreadable-print-spec-remedy (main...2988199 + uncommitted tests/test_book_select_floor_tiles.py)
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+review_mode: confirmation
+reviewer: forge:review
+reviewer_version: 2026.8.17
+fix_delta:
+- tests/test_book_select_floor_tiles.py
+coverage:
+  read:
+  - git diff main -- src (unchanged since cycle 1, HEAD 2988199)
+  - git diff -- tests (fix delta, +9/-1)
+  - tests/test_book_select_floor_tiles.py (CARD-173 classes 535-643)
+  - tests/test_book_floor.py text_of
+  - src/nonogram/admin/templates/book_finalize.html 150-186
+  - meta/review/20261005T033459Z-CARD-173-cycle1.yml
+  not_reached:
+  - 'rendered UI: no screenshots; Step 8g static check only, rendered result not verified'
+  confidence: high
+metrics:
+  diff:
+    files: 6
+    fix_delta_files: 1
+    fix_delta_added: 9
+    fix_delta_removed: 1
+  tests_cover_change: true
+previous_findings:
+- 'F-001 ✓ resolved — the alert test now asserts unreadable_print_setup_refusal(str(book_page_spec''s ValueError)) is in the alert text; mutant R1 re-run: KILLED by test_the_page_holds_exactly_one_alert_linking_print_setup;
+  reason text still not pinned (G-4 holds)'
+- F-002 dismissal reasonable — flash reports the refused submission, alert describes book state; AC-2 counts error flashes (one) and holds; no change
+acceptance_criteria:
+- 'AC-1 ✓ holds — re-verified (test in fix-delta file): TestBookSelect_UnreadablePrintSetupIsOneBookLevelMessage green; now also pins the card''s wording (R1, R2, R7, R9 killed)'
+- 'AC-2 ✓ holds — carried(cycle 1, delta-clean): test in tests/test_book_floor.py, src unchanged; re-run green'
+- 'AC-3 ✓ holds — carried(cycle 1, delta-clean): test in tests/test_book_floor.py; re-run green'
+- 'AC-4 ✓ holds — carried(cycle 1, delta-clean): test in tests/test_book_floor.py; R3/R4/R10 killed'
+- 'AC-5 ✓ holds — re-verified (test in fix-delta file, class unchanged): count 3 and one sentence; R6/R8 killed'
+- 'AC-6 ✓ holds — re-verified: test_saving_the_trim_again_brings_back_every_cell_and_drops_the_alert green'
+guardrails:
+- 'G-1 ✓ holds — re-verified: PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride green; R3 (fail open) killed'
+- 'G-2 ✓ holds — carried(cycle 1, delta-clean): no src/template change since cycle 1'
+- 'G-3 ✓ holds — re-verified (two of its tests live in the fix-delta file): all three named tests PASSED unchanged'
+- 'G-4 ✓ holds — re-verified: the new assertion derives the reason from book_page_spec at run time, pins no reason text; book_page_spec.py/print_specs.py untouched'
+- 'G-5 ✓ holds — re-verified: test_layout_page_spec.py and test_export_a4_golden.py green'
+- G-6 ✓ holds — carried(cycle 1, delta-clean); test_a_manager_with_no_store_says_so_rather_than_pretending PASSED
+mutation_check:
+  ran: true
+  killed: 10
+  survived: 0
+  survivors: []
+  note: all 10 cycle-1 mutants re-run (fix delta touched a file several of them are killed in); R1 now killed
+  tree_restored: true
+static_8g:
+- 'select alert: role=alert, text plus a named link (Open Print setup), not colour-only ✓'
+- reason is stored user input rendered via Jinja autoescape (no |safe) ✓
+- 'finalise: one sentence with an inline Print setup link; count stays in the dl row ✓'
+- rendered result not verified (no screenshots)
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  carried: 52
+  carry_check: fix delta = tests/test_book_select_floor_tiles.py only; no rule's check test lives in it and no src/template file changed, so every rule is delta-clean
+  verdicts:
+  - ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean)
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no generation/recovery code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no difficulty code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no solver code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle storage boundary untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched — carried(cycle 1, delta-clean)'
+  - ADR-0033/R1 ✓ holds — carried(cycle 1, delta-clean)
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: draft-exit gate untouched — carried(cycle 1, delta-clean)'
+  - ADR-0036/R1 ✓ holds — carried(cycle 1, delta-clean); its check tests re-run green this cycle (293 passed)
+  - ADR-0036/R2 ✓ holds — carried(cycle 1, delta-clean)
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no PDF band code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke code touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R1 ⚠ unchecked — no_eligible_fact: player assets untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no solution grid shipped by touched pages — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests added — carried(cycle 1, delta-clean)'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: solver untouched — carried(cycle 1, delta-clean)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 1, delta-clean)'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: web server untouched — carried(cycle 1, delta-clean)'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: no grid-size code touched — carried(cycle 1, delta-clean)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched — carried(cycle 1, delta-clean)'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact: admin entry point/bind untouched — carried(cycle 1, delta-clean)'
+  - CON-016 ✓ holds — carried(cycle 1, delta-clean)
+  - 'CON-021 ⚠ unchecked — no_eligible_fact: no play surface added — carried(cycle 1, delta-clean)'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: clues/grid untouched — carried(cycle 1, delta-clean)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched — carried(cycle 1, delta-clean)'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched — carried(cycle 1, delta-clean)'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: plan untouched — carried(cycle 1, delta-clean)'
+  - INV-006 ✓ holds — carried(cycle 1, delta-clean); its check tests re-run green this cycle (293 passed)
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: ready gate untouched — carried(cycle 1, delta-clean)'
+  - INV-008 ✓ holds — carried(cycle 1, delta-clean)
+  - INV-009 ✓ holds — carried(cycle 1, delta-clean)
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched — carried(cycle 1, delta-clean)'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched — carried(cycle 1, delta-clean)'
+  - INV-012 ✓ holds — carried(cycle 1, delta-clean)
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: interior PDF untouched — carried(cycle 1, delta-clean)'
+findings: []

@@ -1,0 +1,142 @@
+version: 1
+generated_at: "2026-10-05T03:34:59Z"
+target: "card/173-unreadable-print-spec-remedy (main...2988199)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read: ["src/nonogram/admin/app.py (helpers 3520-3615, select route 3705-3910, finalize 4490-4535, add route 4929-4975)", "src/nonogram/admin/book_manager.py (135-175, 990-1100, 1240-1300)", "src/nonogram/admin/templates/book_finalize.html (diff)", "src/nonogram/admin/templates/book_select_puzzles.html (diff)", "tests/test_book_floor.py (fixtures, new classes, F-005 test)", "tests/test_book_select_floor_tiles.py (helpers, new classes)", "src/nonogram/admin/book_page_spec.py (raise sites)", "meta/design/components.md"]
+  not_reached: ["rendered UI (no screenshots)"]
+  confidence: high
+metrics:
+  diff: { files: 6, added: 257, removed: 6 }
+  max_fan_in: { symbol: "unreadable_print_setup_refusal", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+mutation_check:
+  ran: true
+  killed: 9
+  survived: 1
+  survivors: ["R1 app.py select context passes book_page_spec's raw reason instead of unreadable_print_setup_refusal(reason)"]
+  tree_restored: true
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no import outside nonogram.*; TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green in gate on 2988199"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no generation/recovery code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry code touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density code touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density code touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty code touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no difficulty code touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty code touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no solver code touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — review-lens: book_manager.py:1064-1069 only reads the book and re-raises; no puzzle field written (diff grep: no puzzle-record assignment added)"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: draft-exit gate untouched"
+    - "ADR-0036/R1 ✓ holds — no layout/PageSpec code in diff; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (tests/test_layout_page_spec.py, tests/test_export_a4_golden.py) green, 481-test targeted run on 2988199"
+    - "ADR-0036/R2 ✓ holds — review-lens: diff computes no geometry; app.py:3603-3614 only calls book_page_spec for its error, cells still from book_cell_mm in _book_cells (unchanged)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no PDF band code touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke code touched"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: player assets untouched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no solution grid shipped by touched pages"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject untouched"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests added"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size code touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin entry point/bind untouched"
+    - "CON-016 ✓ holds — no new route added (diff adds context keys to existing select_puzzles_for_book/finalize_book only); TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit green in gate on 2988199"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no play surface added"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues/grid untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: plan untouched"
+    - "INV-006 ✓ holds — book_manager.py:1066-1069 re-raises before any store read/write (fail closed); PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride green; new tests assert membership and floor_overrides unchanged with and without override (memory + sqlite); mutant R3 (fail-open) killed"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate untouched"
+    - "INV-008 ✓ holds — published-confirmation branch precedes measurement and is unchanged (book_manager.py ~1281-1288); diff only alters the raise inside _below_floor_for"
+    - "INV-009 ✓ holds — refusal writes nothing, so order unchanged; PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence green in gate on 2988199"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ✓ holds — refused add writes nothing, so no status change; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists green in gate on 2988199"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF untouched"
+root_causes:
+  - id: RC-1
+    title: "Selection-step alert asserts only strings the link text and book_page_spec's reason already supply"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_select_floor_tiles.py
+    line: 567
+    title: "Select-step alert test cannot tell the card's wording from the raw reason (mutant R1 survives)"
+    description: |
+      The objective says the selection step's alert shows "the wording" (the one sentence stated in
+      book_manager.unreadable_print_setup_refusal), and its docstring (book_manager.py:153-167) claims
+      "the selection step's book-level alert ... say[s] this". The test asserts only that the alert's text
+      contains "Print setup" and "trim_width_cm". "Print setup" is satisfied by the link text
+      "Open Print setup" (book_select_puzzles.html:48) and "trim_width_cm" by book_page_spec's own reason.
+      Mutant R1 (app.py:3906 passes `unreadable` instead of `unreadable_print_setup_refusal(unreadable)`)
+      survives the whole of both card test files: the docstring claim and that objective clause are not
+      demonstrated.
+    suggestion: |
+      In test_the_page_holds_exactly_one_alert_linking_print_setup, check the alert carries the same sentence
+      the add refusal flashes, without pinning book_page_spec's reason (G-4). For example, POST the same book
+      through panel.select, take the one error flash with "Error: " stripped, and assert it is in
+      text_of(alerts[0]). Or assert that text_of(alerts[0]) contains
+      unreadable_print_setup_refusal(<str of the ValueError book_page_spec raises for this book>). Or assert a
+      phrase this card owns, such as "Save the print settings again on Print setup", which the link text
+      alone cannot supply.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "uncommitted (fix cycle 1): tests/test_book_select_floor_tiles.py::TestBookSelect_UnreadablePrintSetupIsOneBookLevelMessage::test_the_page_holds_exactly_one_alert_linking_print_setup asserts unreadable_print_setup_refusal(str(<book_page_spec's ValueError>)) is in the alert; mutant R1 now fails it"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/app.py
+    line: 3851
+    title: "After a refused selection POST, the same sentence shows twice (danger flash and warning alert)"
+    description: |
+      On ValueError the selection POST flashes and then falls through to render the GET page (app.py:3850-3852).
+      That page also renders the book-level alert, which uses the same wording. The owner sees the sentence twice,
+      once as "Error: ..." and once as the warning. AC-2 holds (one error flash), but the "said once" goal is only
+      partly met on that response.
+    suggestion: |
+      Optional. Suppress the alert on a POST that just flashed this refusal, or accept the duplication and note it
+      in the card.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: dismissed
+    fixed_in: null
+    dismissed_reason: "accepted: the flash reports the refused submission, the alert describes the book's state; AC-2's one-flash holds; changing it would add an untested branch"
+    learned_pattern: null
