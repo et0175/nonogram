@@ -228,6 +228,8 @@ Used by: the puzzle player (`puzzle_solve.html`, drawn by `static/solver.js`; CA
 - Solved state (CARD-162): a 2px --color-success outline drawn just inside the table's edge (outline-offset = minus the major rule width — outside, the stage clipped it), a ~1s diagonal success sweep over the filled cells, and the board locked (`.player-board.is-solved`).
 - Reduced-motion solved state: under prefers-reduced-motion the same banner, name and outline appear with no animation or transition.
 
+Sizing on phones (CARD-182): at viewports ≤ 820 px the cell floor is 24 px (tap target); a board too wide for that scrolls inside `.player-stage`, panning starts on the clue areas, cells keep `touch-action: none`. Candidate token: `--player-cell-min`.
+
 ## ClueBox
 
 Used by: SolverBoard. One box per line (a row's to the left, a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
