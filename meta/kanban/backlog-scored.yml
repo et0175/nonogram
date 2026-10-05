@@ -1,4 +1,4 @@
-generated: '2026-10-04'
+generated: 2026-10-05
 source: meta/kanban/backlog.md
 config:
   stage: pre-launch
@@ -63,7 +63,7 @@ ideas:
   needs_owner_decision: true
   source_line: 9
   wave: 2
-  rank: 21
+  rank: 13
 - id: IDEA-002
   title: 'Per-directory READMEs: adopt or drop the docs step'
   raw: '- [ ] Per-directory READMEs: no directory under `src/` has one, so every book card skips the docs step,
@@ -88,8 +88,8 @@ ideas:
   depends_on: []
   needs_owner_decision: true
   source_line: 10
-  wave: 7
-  rank: 67
+  wave: 6
+  rank: 57
 - id: IDEA-003
   title: 'Render: adopt Blueprint or record dashboard settings'
   raw: '- [ ] DEPLOYMENT (found 2026-09-23, cost four redeploys): the Render service is managed in the dashboard,
@@ -135,8 +135,8 @@ ideas:
   priority_score: 6.6
   depends_on: []
   source_line: 14
-  wave: 3
-  rank: 22
+  wave: 2
+  rank: 11
 - id: IDEA-005
   title: system_rules.py --verify-refs resolves node ids
   raw: '- [ ] `system_rules.py --verify-refs` matches text, so a name inside a comment counts as "found": it reports
@@ -179,8 +179,8 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source_line: 16
-  wave: 3
-  rank: 23
+  wave: 2
+  rank: 14
 - id: IDEA-007
   title: 'Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession'
   raw: '- [ ] Validator ERROR, pre-existing on main: `ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025`.
@@ -202,9 +202,9 @@ ideas:
   priority_score: 8.0
   depends_on: []
   source_line: 17
-  wave: 1
-  rank: 9
   route: architect station (cards cannot commit under meta/)
+  wave: 1
+  rank: 5
 - id: IDEA-008
   title: 'CON-020: test 10 pt floor on every interior face'
   raw: '- [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor (CARD-149''s
@@ -227,8 +227,8 @@ ideas:
   priority_score: 7.0
   depends_on: []
   source_line: 18
-  wave: 2
-  rank: 17
+  wave: 1
+  rank: 6
 - id: IDEA-009
   title: NFR + check for the deployed panel's 512 MB memory limit
   raw: '- [ ] The deployed panel''s 512 MB memory limit is not an NFR anywhere (CARD-145). The export could break
@@ -251,7 +251,7 @@ ideas:
   depends_on: []
   source_line: 19
   wave: 3
-  rank: 29
+  rank: 21
 - id: IDEA-010
   title: Formalise wave-30 card-only behaviours as ACs (FR-043)
   raw: '- [ ] Wave-30 goal-check (lean b, requirements incomplete): behaviours shipped by CARD-158/159 exist only
@@ -275,8 +275,8 @@ ideas:
   priority_score: 3.33
   depends_on: []
   source_line: 20
-  wave: 5
-  rank: 44
+  wave: 4
+  rank: 33
 - id: IDEA-011
   title: Hand-edit mark not released on revert (CARD-120 F-007)
   raw: '- [ ] CARD-120 F-007: typing an edited cell back to its current prefill value doesn''t release the hand-edit
@@ -298,8 +298,8 @@ ideas:
   priority_score: 4.5
   depends_on: []
   source_line: 23
-  wave: 3
-  rank: 30
+  wave: 2
+  rank: 20
 - id: IDEA-012
   title: Refusal page Planned row reads stored plan (CARD-120 F-008)
   raw: '- [ ] CARD-120 F-008: the refusal page''s Planned row is read from the stored plan, not the submitted one.
@@ -322,7 +322,7 @@ ideas:
   depends_on: []
   source_line: 24
   wave: 4
-  rank: 43
+  rank: 35
 - id: IDEA-013
   title: Empty ?status= disables approved-only default
   raw: '- [ ] A hand-typed empty `?status=` turns off the approved-only default on the book-selection and puzzle-list
@@ -360,8 +360,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 26
-  wave: 4
-  rank: 33
+  wave: 3
+  rank: 24
 - id: IDEA-015
   title: 'CARD-118 minors: exc text flash, referrer redirect, utcnow'
   raw: '- [ ] CARD-118 reviewer minors: the proof route''s broad `except Exception` flashes raw exception text;
@@ -384,15 +384,15 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 27
-  wave: 5
-  rank: 46
+  wave: 4
+  rank: 36
 - id: IDEA-016
   title: _scheme_of echoes credentials in RuntimeError (CARD-148)
   raw: '- [ ] CARD-148 F-001: `db/session.py`''s `_scheme_of` echoes anything before the first `://`, so `postgresql:hunter2://h/db`
     puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -431,8 +431,8 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source_line: 29
-  wave: 3
-  rank: 24
+  wave: 2
+  rank: 15
 - id: IDEA-018
   title: CARD-150 script-test precision (F-003/4/5/7)
   raw: '- [ ] CARD-150 F-003/F-004/F-005/F-007: the 14-of-18 figure is an artifact of `--check-only` not existing
@@ -456,8 +456,8 @@ ideas:
   priority_score: 1.67
   depends_on: []
   source_line: 30
-  wave: 9
-  rank: 75
+  wave: 8
+  rank: 65
 - id: IDEA-019
   title: 'CARD-147 dead code: guard, redundant UPDATE, mode default'
   raw: '- [ ] CARD-147 F-002/F-003/F-005: `_write_pdf`''s unreachable ValueError guard; the migration''s confirmed-redundant
@@ -480,8 +480,8 @@ ideas:
   priority_score: 2.0
   depends_on: []
   source_line: 31
-  wave: 7
-  rank: 68
+  wave: 6
+  rank: 58
 - id: IDEA-020
   title: 'CARD-147 F-006: split the welded digest/colour-space claim'
   raw: '- [ ] CARD-147 F-006: the card''s sentence welds two claims the digests can''t both carry. The unmoved digests
@@ -503,8 +503,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 32
-  wave: 5
-  rank: 47
+  wave: 4
+  rank: 37
 - id: IDEA-021
   title: book_proof.render_proof_pdf still writes DeviceRGB
   raw: '- [ ] CARD-147 F-008: `book_proof.render_proof_pdf` still writes DeviceRGB. It''s now the one interior-like
@@ -526,8 +526,8 @@ ideas:
   priority_score: 6.5
   depends_on: []
   source_line: 33
-  wave: 2
-  rank: 19
+  wave: 1
+  rank: 8
 - id: IDEA-022
   title: 'Arrange labels keyed by id(row): add count check (CARD-140)'
   raw: '- [ ] CARD-140 F-005: the arrange screen''s page labels are keyed by `id(row)`. Safe today, but fails silently
@@ -550,8 +550,8 @@ ideas:
   priority_score: 2.5
   depends_on: []
   source_line: 34
-  wave: 6
-  rank: 60
+  wave: 5
+  rank: 50
 - id: IDEA-023
   title: puzzle_section ValueError lands with no traceback (CARD-140)
   raw: '- [ ] CARD-140 F-006: `puzzle_section`''s `ValueError("ids must be parallel to payloads")` is a caller precondition
@@ -573,8 +573,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 35
-  wave: 5
-  rank: 48
+  wave: 4
+  rank: 38
 - id: IDEA-024
   title: Undrawable row shown between page labels w/o marker
   raw: '- [ ] CARD-140 F-007: a row the interior can''t draw renders between the "page 3" and "page 4" labels with
@@ -596,8 +596,8 @@ ideas:
   priority_score: 4.5
   depends_on: []
   source_line: 36
-  wave: 4
-  rank: 31
+  wave: 3
+  rank: 22
 - id: IDEA-025
   title: 'CARD-145 minors: byte-length assertion, cover RGBA memory'
   raw: '- [ ] CARD-145 minors: a same-length byte change would still pass the interior byte-length assertion; the
@@ -619,8 +619,8 @@ ideas:
   priority_score: 2.5
   depends_on: []
   source_line: 37
-  wave: 6
-  rank: 61
+  wave: 5
+  rank: 51
 - id: IDEA-026
   title: export_book docstring claims every route uses it
   raw: '- [ ] CARD-135 F-008: `export_book`''s docstring still claims every route goes through it. Site: `book_pdf_generator.py`   @tech-debt'
@@ -641,8 +641,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 38
-  wave: 5
-  rank: 49
+  wave: 4
+  rank: 39
 - id: IDEA-027
   title: Rename answer_page_number() test helper (CARD-134)
   raw: '- [ ] CARD-134: `answer_page_number()` in `tests/test_book_pdf_band.py` still encodes one-answer-page-per-puzzle
@@ -664,8 +664,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 39
-  wave: 5
-  rank: 50
+  wave: 4
+  rank: 40
 - id: IDEA-028
   title: Image-mode difficulty sweep vs the 90.0 cutoff
   raw: '- [ ] Image-mode difficulty sweep: re-run `scripts/measure_difficulty_cutoff.py` over image-derived puzzles
@@ -687,8 +687,8 @@ ideas:
   priority_score: 2.67
   depends_on: []
   source_line: 40
-  wave: 6
-  rank: 59
+  wave: 5
+  rank: 49
 - id: IDEA-029
   title: Stale 'four members' enum_note + ADR-0025 test narrative
   raw: '- [ ] CARD-155 out of scope: `meta/architecture/requirements.yml:1834` enum_note still says `difficulty.Tier`
@@ -710,8 +710,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 41
-  wave: 4
-  rank: 34
+  wave: 3
+  rank: 25
 - id: IDEA-030
   title: Docstring regression regex misses lowercase guess
   raw: '- [ ] CARD-155 F-005 (minor): the docstring regression test''s regex catches only uppercase `GUESS` and
@@ -733,8 +733,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 42
-  wave: 5
-  rank: 51
+  wave: 4
+  rank: 41
 - id: IDEA-031
   title: Concurrent runs share nonogram_test; DROP SCHEMA races
   raw: '- [ ] CARD-156 F-005: two test runs at once share `nonogram_test`, and the per-session `DROP SCHEMA public`
@@ -757,8 +757,8 @@ ideas:
   priority_score: 4.33
   depends_on: []
   source_line: 43
-  wave: 4
-  rank: 32
+  wave: 3
+  rank: 23
 - id: IDEA-032
   title: Schema-once test fails when run alone (CARD-156 F-006)
   raw: '- [ ] CARD-156 F-006 (minor): the second `TestDbFixture_SchemaIsBuiltOncePerSession` test fails by design
@@ -780,8 +780,8 @@ ideas:
   priority_score: 2.5
   depends_on: []
   source_line: 44
-  wave: 6
-  rank: 62
+  wave: 5
+  rank: 52
 - id: IDEA-033
   title: DROP SCHEMA needs public ownership; grants lost (CARD-156)
   raw: '- [ ] CARD-156 F-007 (minor): `DROP SCHEMA public` needs the test role to own `public`, and the recreated
@@ -803,8 +803,8 @@ ideas:
   priority_score: 2.0
   depends_on: []
   source_line: 45
-  wave: 7
-  rank: 69
+  wave: 6
+  rank: 59
 - id: IDEA-034
   title: db_required hook pings DATABASE_URL before _test guard
   raw: '- [ ] CARD-156 note: the CARD-097 `db_required` reachability hook still sends a read-only `SELECT 1` to
@@ -826,8 +826,8 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source_line: 46
-  wave: 3
-  rank: 25
+  wave: 2
+  rank: 16
 - id: IDEA-035
   title: diagnose_postgres.sh hardcodes nonogram_poc
   raw: '- [ ] CARD-152 out of scope: `scripts/diagnose_postgres.sh:90` still hardcodes `nonogram_poc`, the same
@@ -849,8 +849,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 47
-  wave: 4
-  rank: 35
+  wave: 3
+  rank: 26
 - id: IDEA-036
   title: run_admin_tests.sh default DB name vs test guard
   raw: '- [ ] CARD-152 (owner decision): `run_admin_tests.sh`''s default database `nonogram_poc` passes the runner''s
@@ -890,8 +890,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 49
-  wave: 5
-  rank: 52
+  wave: 4
+  rank: 42
 - id: IDEA-038
   title: admin_scripts helper imports private test names
   raw: '- [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from `tests/test_start_admin_local.py`
@@ -913,8 +913,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 50
-  wave: 4
-  rank: 36
+  wave: 3
+  rank: 27
 - id: IDEA-039
   title: Stale 'Python 3.11+' and docstring (CARD-152 F-007)
   raw: '- [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14); stale docstring
@@ -936,15 +936,15 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 51
-  wave: 5
-  rank: 53
+  wave: 4
+  rank: 43
 - id: IDEA-040
   title: finalize_book outer except never logs (CARD-153 F-010)
   raw: '- [ ] CARD-153 F-010 (pre-existing): `finalize_book`''s outer `except Exception` only flashes, so a transient
     non-plan error on any Finalise POST action is never logged   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -968,7 +968,7 @@ ideas:
     isn''t named on screen   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -1007,8 +1007,8 @@ ideas:
   priority_score: 2.0
   depends_on: []
   source_line: 54
-  wave: 7
-  rank: 70
+  wave: 6
+  rank: 60
 - id: IDEA-043
   title: Double-logged plan tripwire; spy scope (CARD-153 minors)
   raw: '- [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper + Flask); the
@@ -1030,8 +1030,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 55
-  wave: 5
-  rank: 54
+  wave: 4
+  rank: 44
 - id: IDEA-044
   title: validate_margins accepts below 0.635 cm minimum
   raw: '- [ ] Wave-29 goal-check: `PrintSpecValidator.validate_margins` (CARD-154) refuses nan/inf but not a margin
@@ -1054,8 +1054,8 @@ ideas:
   priority_score: 5.0
   depends_on: []
   source_line: 56
-  wave: 3
-  rank: 26
+  wave: 2
+  rank: 17
 - id: IDEA-045
   title: Remaining one-session-per-puzzle loops (CARD-157 F-004)
   raw: '- [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the /books list,
@@ -1077,8 +1077,8 @@ ideas:
   priority_score: 2.5
   depends_on: []
   source_line: 57
-  wave: 6
-  rank: 63
+  wave: 5
+  rank: 53
 - id: IDEA-046
   title: 'Book page # column shows list order, not printed number'
   raw: '- [ ] CARD-158 F-004 (pre-existing): the book page''s # column is list order, not the printed puzzle number   @feature'
@@ -1108,7 +1108,7 @@ ideas:
     hint list   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -1132,7 +1132,7 @@ ideas:
     cm, which the server refuses (18.89 in is the real maximum). Now the page''s only statement of the inch limits   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 1
@@ -1156,7 +1156,7 @@ ideas:
     `print_specs.py`   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -1197,7 +1197,7 @@ ideas:
   depends_on: []
   source_line: 62
   wave: 5
-  rank: 55
+  rank: 45
 - id: IDEA-051
   title: CARD-159 owner look + plan inputs clip '20' at 390 px
   raw: '- [ ] CARD-159 owner check pending: G-3, the owner''s look at ~/Documents/nonogram-reviews/CARD-159/ renders
@@ -1245,8 +1245,8 @@ ideas:
   priority_score: 2.5
   depends_on: []
   source_line: 64
-  wave: 6
-  rank: 64
+  wave: 5
+  rank: 54
 - id: IDEA-053
   title: Player cell bounds to tokens.css (CARD-160 F-004)
   raw: '- [ ] CARD-160 F-004 (minor): the player''s cell bounds (14px/28px) and thin-rule color-mix live as local
@@ -1268,8 +1268,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 65
-  wave: 6
-  rank: 56
+  wave: 5
+  rank: 46
 - id: IDEA-054
   title: Public read instead of _as_readable_grid (CARD-160 F-006)
   raw: '- [ ] CARD-160 F-006 (minor): the /puzzle/<id>/solve route calls the private `PuzzleReviewService._as_readable_grid`;
@@ -1291,8 +1291,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 66
-  wave: 4
-  rank: 38
+  wave: 3
+  rank: 28
 - id: IDEA-055
   title: isBoard reads value.cells (mutant survived)
   raw: '- [ ] CARD-160 F-012 (minor): `isBoard` reads `value.cells` instead of own data (mutant survived); outside
@@ -1314,8 +1314,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 67
-  wave: 4
-  rank: 39
+  wave: 3
+  rank: 29
 - id: IDEA-056
   title: 'CARD-161 minors: hint visibility, comments, old test'
   raw: '- [ ] CARD-161 F-008/F-009/F-010 (minor): the usage hint is never asserted visible (mutant survived); solver.js
@@ -1338,8 +1338,8 @@ ideas:
   priority_score: 2.0
   depends_on: []
   source_line: 68
-  wave: 7
-  rank: 71
+  wave: 6
+  rank: 61
 - id: IDEA-057
   title: Player cells ~18 px at 390 px (tap target)
   raw: '- [ ] CARD-161 F-006: player cells are ~18 px at 390 px width, a small tap target for phones (CARD-160 cell
@@ -1361,8 +1361,8 @@ ideas:
   priority_score: 1.33
   depends_on: []
   source_line: 69
-  wave: 2
-  rank: 15
+  wave: 1
+  rank: 3
 - id: IDEA-058
   title: Keyboard marking of player cells
   raw: '- [ ] Puzzle player: cells cannot be marked from the keyboard (no AC asks for it; controls are keyboard-reachable).
@@ -1385,8 +1385,8 @@ ideas:
   depends_on:
   - IDEA-064
   source_line: 70
-  wave: 7
-  rank: 66
+  wave: 6
+  rank: 55
 - id: IDEA-059
   title: 'Investigate flake: save_plan_returns_the_book_to_draft[db]'
   raw: '- [ ] Flake watch: `tests/test_book_ready_gate.py::…test_save_plan_returns_the_book_to_draft[db-ready_for_pdf]`
@@ -1408,8 +1408,8 @@ ideas:
   priority_score: 3.33
   depends_on: []
   source_line: 71
-  wave: 5
-  rank: 45
+  wave: 4
+  rank: 34
 - id: IDEA-060
   title: 'CARD-163 minors: header comment, Redo aria-disabled'
   raw: '- [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…" no longer
@@ -1431,8 +1431,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 72
-  wave: 6
-  rank: 57
+  wave: 5
+  rank: 47
 - id: IDEA-061
   title: Player size '25x15' vs '×' (owner call)
   raw: '- [ ] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323''s literal) where
@@ -1479,8 +1479,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 74
-  wave: 4
-  rank: 40
+  wave: 3
+  rank: 30
 - id: IDEA-063
   title: Picture name in player page source before solve
   raw: '- [ ] Wave-31 goal-check: the picture name is in the player''s page source before solve (hidden solved banner,
@@ -1523,8 +1523,8 @@ ideas:
   priority_score: 3.0
   depends_on: []
   source_line: 76
-  wave: 6
-  rank: 58
+  wave: 5
+  rank: 48
 - id: IDEA-065
   title: CI step 'playwright install chromium' (ADR-0038/R8)
   raw: '- [ ] ADR-0038/R8 requires CI to run `playwright install chromium`, but the repo has no CI configuration;
@@ -1538,9 +1538,9 @@ ideas:
   priority_score: null
   depends_on: []
   source_line: 77
-  wave: 1
-  rank: 12
   route: 'architect station: no CI exists — record ADR-0038/R8 as local-only, or add CI (owner call)'
+  wave: 1
+  rank: 9
 - id: IDEA-066
   title: 'Red on main: test_size_configuration_applied'
   raw: '- [ ] Pre-existing failure: `tests/e2e/test_admin_workflow.py::TestFlow2BatchImageUpload::test_size_configuration_applied`
@@ -1610,8 +1610,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   source_line: 82
-  wave: 4
-  rank: 41
+  wave: 3
+  rank: 31
 - id: IDEA-069
   title: Upload tests glob shared temp dir (parallel interference)
   raw: '- [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir
@@ -1634,7 +1634,7 @@ ideas:
   depends_on: []
   source_line: 83
   wave: 2
-  rank: 20
+  rank: 12
 - id: IDEA-070
   title: 'Square/landscape trims: no room for proof foot note'
   raw: '- [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5, real KDP
@@ -1642,7 +1642,7 @@ ideas:
     when the page layout is finalised**   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
@@ -1691,7 +1691,7 @@ ideas:
     that can''t succeed, and never names the remedy. Fails closed, but unhelpful   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
@@ -1730,8 +1730,8 @@ ideas:
   priority_score: 1.67
   depends_on: []
   source_line: 89
-  wave: 2
-  rank: 14
+  wave: 1
+  rank: 2
 - id: IDEA-074
   title: Online solver hint button
   raw: '- [ ] Online solver: a hint button (the owner''s doc makes it optional; left out of CARD-160..162)   @feature'
@@ -1752,8 +1752,8 @@ ideas:
   priority_score: 1.33
   depends_on: []
   source_line: 90
-  wave: 2
-  rank: 16
+  wave: 1
+  rank: 4
 - id: IDEA-075
   title: 'Online solver public phase: hosting, QR URLs, no solution'
   raw: '- [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the persisted
@@ -1777,8 +1777,8 @@ ideas:
   depends_on: []
   note: scope unconfirmed
   source_line: 91
-  wave: 8
-  rank: 73
+  wave: 7
+  rank: 62
   bucket_overflow: true
 - id: IDEA-076
   title: Card-text defects for decompose (process)
@@ -1867,7 +1867,7 @@ ideas:
   owner_action: true
   scored_at: '2026-10-04'
   wave: 1
-  rank: 13
+  rank: 10
 - id: IDEA-081
   title: scripts/README Manual Commands run pytest against nonogram_poc
   raw: '- [ ] CARD-168 F-002 (pre-existing): scripts/README.md "Manual Commands" still runs bare `pytest` with DATABASE_URL
@@ -1889,8 +1889,8 @@ ideas:
   priority_score: 4.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 4
-  rank: 42
+  wave: 3
+  rank: 32
 - id: IDEA-082
   title: Five hollow e2e tests post the dead `images` field
   raw: '- [ ] CARD-164 F-002: five sibling tests in tests/e2e/test_admin_workflow.py (test_tc_001, test_preview_page_displays_original_image,
@@ -1912,8 +1912,8 @@ ideas:
   priority_score: 7.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 2
-  rank: 18
+  wave: 1
+  rank: 7
 - id: IDEA-083
   title: Size test not tied to the form's field names (mutant M8)
   raw: '- [ ] CARD-164 F-001 (minor): test_size_configuration_applied posts field names straight to the route, so
@@ -1935,8 +1935,8 @@ ideas:
   priority_score: 5.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 3
-  rank: 27
+  wave: 2
+  rank: 18
 - id: IDEA-084
   title: Printed-number test minors (two-up fixture, banner text, fallback dup)
   raw: '- [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the single-puzzle-page
@@ -1959,13 +1959,13 @@ ideas:
   depends_on: []
   scored_at: '2026-10-04'
   wave: 6
-  rank: 65
+  rank: 56
 - id: IDEA-085
   title: Finalise guide preview still shows the old "How to use this book" text
   raw: '- [ ] CARD-167 follow-up: the Finalise screen''s guide preview (book_finalize.html) still says "How to use
     this book" with the old instructions — make it match the new guide page   @feature'
   category: feature
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
@@ -2005,7 +2005,7 @@ ideas:
   depends_on: []
   scored_at: '2026-10-04'
   wave: 7
-  rank: 72
+  rank: 63
 - id: IDEA-087
   title: Divider and cover pages set type in px, not pt (CON-020)
   raw: '- [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked
@@ -2026,8 +2026,8 @@ ideas:
   priority_score: 5.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 3
-  rank: 28
+  wave: 2
+  rank: 19
 - id: IDEA-088
   title: '`?status=all` on book selection shows no puzzles (owner call)'
   raw: '- [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing,
@@ -2049,9 +2049,9 @@ ideas:
   depends_on: []
   needs_owner_decision: true
   scored_at: '2026-10-04'
-  wave: 1
-  rank: 2
   held: 'owner call pending: list every status, or remove the "all" option'
+  wave: 1
+  rank: 1
 - id: IDEA-089
   title: Plan-input CSS comment accuracy; shared test fixtures to conftest/helpers
   raw: '- [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap''s literal .5rem
@@ -2073,15 +2073,15 @@ ideas:
   priority_score: 2.0
   depends_on: []
   scored_at: '2026-10-04'
-  wave: 8
-  rank: 74
+  wave: 7
+  rank: 64
 - id: IDEA-090
   title: 'Check: answer-key band drawn twice in an export (printed duplicate?)'
   raw: '- [ ] Wave-32 goal-check: a recording PDF canvas saw the highest-tier answer-key band ("Puzzle 5 · Hard")
     drawn twice during an export — likely the fitting loop measuring before drawing, not a printed duplicate; confirm
     visually on a rendered answer page (book_pdf_generator answer-key path)   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
