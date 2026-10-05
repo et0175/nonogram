@@ -272,3 +272,7 @@ Used by: /book/<id>. The "#" cell is the puzzle's printed number from the export
 ## Guide strip (CARD-169)
 
 Used by: /book/<id>/finalize, the guide-page preview. One worked-example line drawn as a row of square cells: `.guide-strip` (heavier ink frame) > `.guide-strip-cell[data-state=filled|crossed|blank]` (ink fill / X / paper), thin separators; grid tokens only. Hidden from screen readers (`aria-hidden`); the step caption above it is its text. The cell size `--strip-cell: 1.5rem` is a local value in admin.css: a candidate token.
+
+## Batch pages — "Tier asked" (CARD-181)
+
+Used by: /batches (BatchTable column after Source) and /batch/<id> (kv row after Updated). Plain-text tier label, "—" when no tier is recorded (untargeted, image, or pre-014 batches) — never the tier badge, never "Any". The /batches/<id> lede gains ", asked for <Tier>" only when recorded.
