@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-05
+- CARD-179 (feature): The proof pages' measurement note no longer splits a number from its unit ("4.58 / mm") or starts a line with "×". On square trims the corner note uses a slightly tighter line spacing so it still fits; portrait proofs are unchanged.
 - CARD-174 (feature): Print setup speaks inches when you type inches. A trim size that's too big or too small is now refused in inches, quoting what you entered, for example "at least 3.94 in on both sides; you entered 3 in for the width". The Limits box shows the same numbers the check uses (18.89 in, not 18.90, which the server refused). Centimetre entries read exactly as before.
 - CARD-173 (feature): If a book's saved print setup can't be read, the puzzle-selection step now says so once, at the top, with a link to Print setup to fix it, instead of a "cell cannot be measured" note and a useless override box on every tile. Finalise likewise shows one sentence instead of one line per puzzle. Nothing can be added to the book until the setup is saved again.
 - CARD-170 (tech-debt): Checked and confirmed: each puzzle's "Puzzle N · Tier" heading prints exactly once in the book. The second drawing a check had spotted lands on a scratch page that is thrown away and never reaches the PDF. New tests read the exported PDF's pixels and record every drawing call, so a heading that really did print twice would now fail.

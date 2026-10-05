@@ -1,0 +1,162 @@
+version: 1
+generated_at: "2026-10-05T08:24:31Z"
+target: "card/179-proof-note-keeps-units (git diff main...HEAD, 09056e0)"
+card: CARD-179
+cycle: 1
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/book_proof.py (full diff + annotation_lines, _fitted_note_font, _wrapped, _fallback_note, _annotate)"
+    - "tests/test_book_proof_pages.py (full diff + FALLBACK_PAGES, trim constants)"
+    - "~/Documents/nonogram-reviews/CARD-179/README.txt and the 8.25x8.25 render"
+  not_reached:
+    - "_fallback_spots body (unchanged by diff; G-3 judged from diff absence)"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 321, removed: 13 }
+  max_fan_in: { symbol: "book_proof._wrapped / _fallback_note (private)", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — book_proof.py has 3 commits in history (CARD-118, CARD-172, CARD-179), too few to mine co-change peers"
+mutation_check:
+  ran: true
+  note: "Run at caller's explicit instruction despite one Important finding (cost-ladder deferral overridden by the dispatcher)"
+  mutants:
+    - "M1 drop number+unit glue (if False) — KILLED (13 failed)"
+    - "M2 over-wide group puts × on the next line — KILLED (7 failed)"
+    - "M3 no tight-leading retry — KILLED (21 failed)"
+    - "M4 never keep a fitting N × M group whole — KILLED (3 failed)"
+    - "M5 try 1.07 before 1.2 — KILLED (4 failed)"
+    - "M6 group-fit `<=` -> `<` — SURVIVED (boundary width == group length never drawn; near-equivalent on float widths)"
+  restore_verified: "cmp against captured copy identical; git status clean for src/ and tests/"
+system_contract:
+  rules_checked: 52
+  holds: 8
+  unchecked: 44
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds only stdlib `import re`; TestDependencyBaseline_IsExactlyPillowAndNumpy green on 09056e0"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: diff does not touch src/nonogram/web/"
+    - "ADR-0022/R1 ✓ holds — no public signature changed; new params are text/font/width (pixels of a text box), not a grid extent"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/orchestrator code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty code touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty score touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap masks touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage boundary touched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score touched"
+    - "ADR-0033/R1 ✓ holds — proof module only reads layout to print text; no puzzle field written (diff read of book_proof.py hunks)"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status code touched"
+    - "ADR-0036/R1 ✓ holds — no layout/export file in diff; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green on 09056e0"
+    - "ADR-0036/R2 ✓ holds — note placement still reads COMP-007 compute_layout/page_frame; _fallback_spots geometry not in diff"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: puzzle band not touched (proof note only)"
+    - "ADR-0037/R2 ✓ holds — no stroke code in diff; portrait digests (TestBookProof_PortraitProofsAreByteIdentical) green"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: player client not touched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player not touched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player not touched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player not touched"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: player not touched"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject/browser tests not touched"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: browser tests not touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver not touched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server not touched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server not touched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits not touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not touched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin entry point not touched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin door logic not touched"
+    - "CON-021 ✓ holds — no play surface added; diff is proof-note text layout only"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues not touched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness not touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters not touched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan not touched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: cell floor membership not touched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate not touched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published membership not touched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order not touched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing not touched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key not touched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership outside draft not touched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior/cover split not touched (proof pages are not the interior)"
+task_contract:
+  - "AC-1 ✓ — TestBookProof_WrappedNoteKeepsUnitsWithNumbers green; killed by M1/M2"
+  - "AC-2 ✓ — every_group_that_fits + over_wide_trim_group tests green; killed by M2/M4"
+  - "AC-3 ✓ — property test 260 cases, asserts >=200 internally and over_wide_broken > 0"
+  - "AC-4 ✓ — pitch test 45/45/50/50/50 green; SquareTrimsCarryTheNote unchanged and green; killed by M3/M5"
+  - "AC-5 ✓ — both refusal tests unchanged and green"
+  - "AC-6 ✓ — PortraitProofsAreByteIdentical green; fixture not in diff"
+  - "AC-7 ⚠ — owner visual check pending; renders present in ~/Documents/nonogram-reviews/CARD-179/"
+  - "G-1 ✓ — foot branch, _fitted_note_font and _NOTE_* constants absent from diff; portrait digests green"
+  - "G-2 ✓ — annotation_lines not in diff; rejoin test asserts lines == note text"
+  - "G-3 ✓ — font size line unchanged; _fallback_spots, _FALLBACK_INSET_MM not in diff; spot order loop preserved"
+  - "G-4 ✓ — Square/LandscapeTrimsCarryTheNote and CARD-172 property test green; still 2 pages"
+  - "G-5 ✓ — book_pdf_generator.py and export/** not in diff; fixtures untouched"
+  - "G-6 ✓ — test_no_wrapped_line_starts_with_a_separator_dot green; only stdlib re added"
+root_causes: []
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_proof.py
+    line: 546
+    title: "_wrapped docstring claims more than the code does for non-note input"
+    description: |
+      The docstring states, unconditionally for _wrapped, that a line never breaks
+      between a number and the unit after it, and (line 554) that no printed line starts
+      with a ×. The code only glues a unit to a token that fullmatches _NUMBER (a bare
+      number) and only merges a × that has a word before it and a token after it.
+      Repro: _wrapped("size (8.25 in) wide", font42, 150) -> ['size', '(8.25', 'in)', 'wide']
+      (unit parted from its bracketed number); _wrapped("aaaa bbbb ×", font42, 110) ->
+      ['aaaa', 'bbbb', '×'] (line starts with ×). Unreachable today (annotation_lines is
+      the only input and G-2 freezes its wording; AC-3 covers exactly those texts), but
+      per the project's declare-only-what-code-and-tests-demonstrate rule the claim is
+      over-broad.
+    suggestion: |
+      Narrow the docstring to the note's own text ("in the note annotation_lines prints:
+      ..."), or make the code match the claim (allow an optional leading "(" in the glue
+      check and keep a leading/trailing × attached) and add the two repros as tests.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_proof.py
+    line: 571
+    title: "Group-fit boundary (width == group length) is not pinned"
+    description: |
+      Mutant M6 (`<=` -> `<` on the group-fit check) survives every test: no case draws a
+      width exactly equal to a group's measured length. Near-equivalent on float widths.
+    suggestion: |
+      Optionally add one case wrapping a note at width = int(font.getlength("209.6 × 152.4 mm"))
+      when that is integral, or accept as equivalent.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

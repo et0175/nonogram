@@ -1,6 +1,6 @@
 # CARD-179: The wrapped proof note keeps each number with its unit and never starts a line with "×"
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.25d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_proof.py, tests/test_book_proof_pages.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 2/3)
+**Started:** 2026-10-05T07:46:25Z
+**Closed:** 2026-10-05T09:30:41Z
+**Actual:** 0.2d
+**Merge commit:** c5c2177
 **Blocked by:** —
 
 ## What to implement
@@ -217,3 +217,32 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-179` (52 rules). A project
 - [Owner decision needed] Leading: default is "1.2, then 1.07 in the same spot" (alternatives (b) and (c) in What to implement). AC-4 and AC-7 follow the default; if the owner picks (b), AC-4's "side-strip notes keep 50 px" becomes 45 px.
 - [Test] The new AC-1/AC-2 test reads `_fallback_note`'s returned lines (private seam, same module); AC-4's pitch check reads ink line bands with the existing `_runs` helper (tests/test_book_proof_pages.py:197). Existing test `test_no_wrapped_line_starts_with_a_separator_dot` (:1112) still applies.
 - [AC cross-check] ACs re-read against What to implement: placement order (foot, side strip, corner) unchanged; tight leading tried per spot before the next spot — AC-4 matches. AC-2's exception names the only over-wide group measured.
+- [Env] forge 2026.8.17
+- [Owner default] fallback leading "1.2, then 1.07 in the same spot" — implemented as drafted
+- [Implemented] commit 09056e0. `_wrapped` builds unbreakable words before the greedy wrap: number+unit glued (`_NUMBER` `\d+(?:\.\d+)?` followed by `_UNIT` `(?:mm|in|dpi)[),]*`), then each "N × M" group glued whole if `font.getlength(group) <= width`, else split as `N ×` / `M unit`; `·` glue unchanged. Words are real strings with real spaces (no placeholder, per [Pitfall]). `_fallback_note` tries each spot at `_FALLBACK_NOTE_LEADING` then `_FALLBACK_NOTE_TIGHT_LEADING = 1.07` before the next spot; `None` (→ today's ValueError) when no spot holds it at either. Docstrings of `_wrapped`, `_fallback_note`, `_annotate` updated; the old `_fallback_note` claim "9 lines instead of 10" was removed (with the new breaks joined and separate wraps both give 10 in the square corner — measured).
+- [Measured] Output matches the card: 8.25×8.25 / 8.5×8.5 corner 10 lines at 45 px; 8.25×6 p1/p2 side 12 lines at 50 px with `trim 209.6 ×` / `152.4 mm` / `(8.25 × 6.00 in)`; 11×8.5 side 10 lines at 50 px, unchanged text.
+- [Tests] tests/test_book_proof_pages.py: TestBookProof_WrappedNoteKeepsUnitsWithNumbers (AC-1/AC-2: number/unit, no line starting ×, fitting groups whole via an independent regex checker `_bad_breaks`, 8.25×6 over-wide group breaks only after ×, lines rejoin to the note); test_PropertyTest_ProofNoteWrap_NeverSplitsAUnitOrStartsWithTimes (AC-3: 26 notes × 10 seeded widths 250–520 px = 260 cases, all wrapped, 154 with an over-wide break; asserts ≥200 cases, ≥200 wrapped, >0 over-wide); TestBookProof_FallbackLeadingTightensOnlyWhenNeeded (AC-4: median ink band-top step 45 px squares / 50 px landscapes, plus three monkeypatched-spot tests for retry order, keep-1.2, skip-too-short). Whole file: 108 passed. AC-5/AC-6 existing tests green; proof_baseline_card172.json untouched; no guardrail file edited.
+- [Fails on main] Against main's book_proof.py: 16 of the new tests fail, incl. all four `test_no_line_ends_on_a_number_whose_unit_starts_the_next` square/8.25×6 cases, `test_no_line_starts_with_times[8.25×6 p1,p2]`, `test_every_group_that_fits_sits_on_one_line` squares, the property test, the 45 px pitch cases and the retry-order test.
+- [Mutants] all killed, each reverted: M1 drop number+unit glue → test_no_line_ends_on_a_number_whose_unit_starts_the_next (+12); M2 over-wide group breaks before × → test_no_line_starts_with_times, test_the_over_wide_trim_group_breaks_only_after_the_times; M3 glue groups even when over-wide → LandscapeTrimsCarryTheNote 8.25×6 (+20); M4 never glue a group → test_every_group_that_fits_sits_on_one_line (squares), property test; M5 skip tight retry → SquareTrimsCarryTheNote (24 fail); M6 1.07 always → test_the_printed_line_pitch (50 px cases), test_a_spot_that_holds_the_note_at_one_point_two_keeps_it; M7 try 1.07 before 1.2 → same as M6; M8 tight retry only after every spot fails at 1.2 (spot order swapped) → test_a_spot_tries_the_tight_leading_before_the_next_spot; M9 drop dot glue → test_no_wrapped_line_starts_with_a_separator_dot (existing); M10 unit set loses dpi (claim edge) → property test; M11 unit set loses `in` (claim edge) → property test; M12 tight leading 1.10/46 px (claim edge) → squares refuse (14 fail); M14 over-wide split drops M → test_the_lines_rejoin_to_the_note, property; M15 height check one line short → test_a_spot_too_short_at_either_leading_is_skipped. M13 (`\(?` prefix on `_NUMBER`) SURVIVED → it was dead code ("(8.25" is only ever followed by ×), removed from the pattern and its comment.
+- [Renders] ~/Documents/nonogram-reviews/CARD-179/: proof-pages-{8.25x8.25,8.5x8.5,8.25x6,11x8.5}.pdf, proof-{8.25x8.25,8.5x8.5}-page1-fallback.png, proof-8.25x6-page{1,2}-fallback.png, proof-11x8.5-page1-fallback.png, README.txt (BEFORE = main's wrap via a scratch copy of main's module, AFTER = branch, with spot, size, line count and leading). Looked at the 8.25×8.25 corner PNG: 10 lines at 45 px sit inside the corner, descenders (p, g, parentheses) clear the next line's caps with visible white, no line touches the grid rules or clue digits; also the 8.25×6 strip: `trim 209.6 ×` / `152.4 mm` / `(8.25 × 6.00 in)` reads cleanly. AC-7 is the owner's call.
+- [Scope] src/nonogram/admin/book_proof.py, tests/test_book_proof_pages.py
+- [Build gate] impact underivable (python-pro, no pytest-testmon; test_scope FULL) — full suite
+- [Build gate] PASSED (full, 885s; 6301 passed, 9 skipped)
+- [Review 1/3] Score: 8.5 — crit: 0, imp: 1 (F-001, pending adversarial verification)
+- [Review sync] 1 report(s) → meta/review/
+- [Adversarial] F-001 CONFIRMED — both counterexamples reproduce; the _wrapped docstring's closing sentence is unqualified
+- [Review 1/3] Step 8h coverage: 52/52 card rules have verdict lines (8 ✓, 44 ⚠ no_eligible_fact, 0 ✗)
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Fix 1] Review cycle 1. F-001: narrowed the `_wrapped` docstring to the tokens the code recognises (a bare number fully matching `_NUMBER` + a unit token fully matching `_UNIT`; a `×` with a word before and a token after; a dot with a word before), named what is NOT joined (a bracketed number's unit, a leading/trailing ×), and scoped the no-×/no-unit-start guarantee to the note's own text (AC-3 corpus) and the no-dot-start one to the fallback pages; `_annotate` now says "on the note's text"; the AC-3 property docstring says "at every drawn width, a wrap of the note" instead of "for any width". Doc-only, no behaviour change. F-002: added `test_a_group_exactly_as_wide_as_the_width_stays_whole` (8.25×6 note wrapped at width = 398 px, the measured, integral length of `209.6 × 152.4 mm`); mutant `<=`→`<` on the group-fit check now KILLED, restored (cmp identical). File: 109 passed.
+- [Fix 1] pre-gate: named test test_a_group_exactly_as_wide_as_the_width_stays_whole PASSED; declarations: 0 updated, 0 confirmed, 1 none + F-001 doc-only (_wrapped, _annotate, AC-3 test docstring)
+- [Build gate] PASSED (full, 728s; 6302 passed, 9 skipped)
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0 (confirmation mode; F-001 ✓ resolved, F-002 ✓ resolved; new Minor F-003 docstring nuance on the over-wide × branch)
+- [Review sync] 2 report(s) → meta/review/
+- [Review 2/3] Step 8h coverage: 52/52 card rules have verdict lines
+- [Review 2/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [Mutation check] 6/6 killed (M6 killed by test_a_group_exactly_as_wide_as_the_width_stays_whole; M1–M5 carried, code unchanged)
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0037/R2, ADR-0022/R1)
+- [AC/EC check] All criteria/constraints ✓ (evidence) — AC-1..AC-6 and G-1..G-6 demonstrated; AC-7 is the owner's review-lens visual check (owner checkpoint, pre-merge — renders in ~/Documents/nonogram-reviews/CARD-179/), not executable by this gate: AC-1 ✓ TestBookProof_WrappedNoteKeepsUnitsWithNumbers 23 passed · AC-2 ✓ same class incl. over-wide 209.6 × / 152.4 mm and exact-width group · AC-3 ✓ property test 260 cases, asserts ≥200 · AC-4 ✓ SquareTrimsCarryTheNote 13 passed + FallbackLeadingTightensOnlyWhenNeeded 8 passed (45 px squares, 50 px landscape) · AC-5 ✓ 2 no-room tests passed, unchanged · AC-6 ✓ PortraitProofsAreByteIdentical 10 passed, fixtures untouched · G-1 ✓ foot path/_NOTE_* not in diff · G-2 ✓ annotation_lines not in diff · G-3 ✓ ten-point floor 5 passed, spots unchanged · G-4 ✓ Square/Landscape carry + CARD-172 property green · G-5 ✓ generator/export/fixtures untouched, A4 golden 125 passed, AnnotationIsProofOnly 2 passed · G-6 ✓ separator-dot 5 passed, only stdlib re added
+- [Docs] forge:readme: no README change — no file added/removed/renamed; src/nonogram/admin has no README, tests/README.md lists files, none new
+- [Commit] success commit cba9c1f (on top of implementation 09056e0) — 2 files, +350/−13; open: F-003 Minor (docstring nuance on the over-wide × branch's M token; unreachable from the note's text); owner pre-merge check: AC-7 renders in ~/Documents/nonogram-reviews/CARD-179/
+- [Merge gate] branched from 2e40c96 (= main at merge); pipeline full suite after the fix 6302 passed, 9 skipped (same tree, not re-run); owner checked the renders (AC-7) 2026-10-05. Merged c5c2177.

@@ -97,6 +97,8 @@ card names its card._
 
 - [ ] Architect delta (owner solver test doc 2026-10-05, CARD-185..189): FR-044 gains the "?" mark (186), clue circling (188), % solved (187), brush-led click sequences superseding AC-303/AC-304 (189) and browser-local resume (185); CON-021 "play state is never persisted" and FR-044's "no play state is persisted" must allow this-browser localStorage BEFORE CARD-185 runs   @tech-debt
 
+- [ ] CARD-179 F-003 (minor): `_wrapped` docstring doesn't say the token after an over-wide × is taken as M with no other rule   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

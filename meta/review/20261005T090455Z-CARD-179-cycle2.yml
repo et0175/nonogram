@@ -1,0 +1,139 @@
+version: 1
+generated_at: "2026-10-05T09:04:55Z"
+target: "card/179-proof-note-keeps-units (09056e0 + uncommitted cycle-1 fix; confirmation mode on the fix delta)"
+card: CARD-179
+cycle: 2
+mode: confirmation
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff -- src tests (fix delta: _wrapped and _annotate docstrings; new boundary test; AC-3 test docstring)"
+    - "src/nonogram/admin/book_proof.py _NUMBER/_UNIT/_TIMES, _wrapped body, _fallback_note, _annotate (line by line against every new docstring sentence)"
+    - "tests/test_book_proof_pages.py _bad_breaks, property test, new test, separator-dot test"
+    - "meta/review/20261005T082431Z-CARD-179-cycle1.yml"
+  not_reached: []
+  confidence: high
+metrics:
+  diff_fix_delta: { files: 2, added: 46, removed: 17 }
+  code_lines_changed_in_delta: 0
+  tests_cover_change: true
+  test_file_run: "tests/test_book_proof_pages.py — 109 passed"
+previous_findings:
+  - "F-001 resolved — the outcome guarantees are now scoped to the note's own text (AC-3 corpus / fallback spots); the two cycle-1 repros are named in the docstring as not covered. Residual inaccuracy in the new token-level bullets filed as F-003 (Minor)."
+  - "F-002 resolved — test_a_group_exactly_as_wide_as_the_width_stays_whole wraps the 8.25x6 note at width 398 (= measured group width, asserted integral); mutant <= -> < on book_proof.py:581 fails it."
+mutation_check:
+  ran: true
+  mutants:
+    - "M1 drop number+unit glue — KILLED (carried cycle 1; code unchanged, tests only grew)"
+    - "M2 over-wide group puts × on the next line — KILLED (carried cycle 1)"
+    - "M3 no tight-leading retry — KILLED (carried cycle 1)"
+    - "M4 never keep a fitting N × M group whole — KILLED (carried cycle 1)"
+    - "M5 try 1.07 before 1.2 — KILLED (carried cycle 1)"
+    - "M6 group-fit <= -> < (book_proof.py:581) — KILLED this cycle (1 failed: test_a_group_exactly_as_wide_as_the_width_stays_whole)"
+  result: "6/6 killed"
+  restore_verified: "cp from scratchpad backup; cmp identical; grep shows `<= width` at :581; git diff --stat matches the fix delta (46+/17-)"
+system_contract:
+  rules_checked: 52
+  holds: 8
+  unchecked: 44
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — delta adds no import (docstring-only in src); cycle-1 baseline test green"
+    - "ADR-0019/R1 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, web/ not touched"
+    - "ADR-0022/R1 ✓ holds — no signature changed in delta"
+    - "ADR-0022/R3 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R4 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R1 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R2 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R3 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R4 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R5 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R1 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R2 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R1 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R2 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R3 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R4 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R5 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0032/R1 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0032/R2 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0033/R1 ✓ holds — delta writes no puzzle field (docstrings + a read-only test)"
+    - "ADR-0035/R1 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0036/R1 ✓ holds — carried(cycle 1, delta-clean): no layout/export file in delta"
+    - "ADR-0036/R2 ✓ holds — delta changes no geometry code"
+    - "ADR-0037/R1 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R2 ✓ holds — no stroke code in delta; portrait digest tests green (109 passed)"
+    - "ADR-0038/R1 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R2 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R3 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R4 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R6 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R7 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R8 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-005 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-009 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-010 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-011 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-012 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-015 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-016 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "CON-021 ✓ holds — delta adds no play surface"
+    - "INV-001 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-002 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-003 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-005 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-006 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-007 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-008 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-009 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-010 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-011 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-012 ⚠ unchecked — carried(cycle 1, delta-clean)"
+    - "INV-013 ⚠ unchecked — carried(cycle 1, delta-clean)"
+task_contract:
+  - "AC-1 ✓ — WrappedNoteKeepsUnitsWithNumbers green (109 passed); _wrapped code unchanged since cycle 1"
+  - "AC-2 ✓ — group tests green; fit boundary now pinned by the new test (M6 killed)"
+  - "AC-3 ✓ — property test green; new docstring wording matches body (None skipped, rejoin, fit, _bad_breaks, >=200 asserted)"
+  - "AC-4 ✓ — pitch tests and SquareTrimsCarryTheNote green"
+  - "AC-5 ✓ — both refusal tests green, unchanged"
+  - "AC-6 ✓ — PortraitProofsAreByteIdentical green; fixture not in diff"
+  - "AC-7 ⚠ — owner visual check pending (renders in ~/Documents/nonogram-reviews/CARD-179/)"
+  - "G-1 ✓ — delta touches no foot-path code or _NOTE_* constant (docstring-only in src)"
+  - "G-2 ✓ — annotation_lines not in delta"
+  - "G-3 ✓ — font size, spot order, _FALLBACK_INSET_MM, _fallback_spots not in delta; ten-point-floor test green"
+  - "G-4 ✓ — Square/LandscapeTrimsCarryTheNote green"
+  - "G-5 ✓ — carried(cycle 1, delta-clean): book_pdf_generator.py, export/**, fixtures not in delta"
+  - "G-6 ✓ — separator-dot test green; no import added"
+root_causes: []
+findings:
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_proof.py
+    line: 551
+    title: "New token-level bullets in the _wrapped docstring miss the × branch's consumed M token"
+    description: |
+      The fix's bullets are stated as the rules of the function for any text, but the
+      over-wide × branch (lines 578-586) appends the token after × raw and skips it
+      (index += 2), bypassing the dot and × rules for that token. Repros at the 42 px face:
+      _wrapped("aaaa × ·", f, 157) -> ['aaaa ×', '·'] (a line starts with a dot that has a
+      word before it, against bullet 3); _wrapped("aaaa × × bbbb", f, 111) -> ['aaaa ×',
+      '×', 'bbbb'] (the second × has a token before and after but is neither grouped nor
+      kept off a line start, against bullet 2). Also "a × that opens text is not joined to
+      anything" is false for "× · aa" -> ['× · aa'] and "× × bb" -> ['× × bb'].
+      Unreachable (the note never has a dot or × as M; G-2 freezes its wording) and the
+      outcome guarantees paragraph is already scoped to the note's text, so Minor.
+    suggestion: |
+      Add one clause, e.g. "the token after a × is taken as M whatever it is, and no other
+      rule applies to it", and drop "is not joined to anything" for an opening ×
+      (say "is not grouped with the token after it"). Docstring-only.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
