@@ -15,6 +15,14 @@ CARD-172 — square and landscape trims carry the note in a clear spot:
           test_a_trim_with_no_room_for_the_note_is_reported_not_served
     AC-6  TestBookProof_PortraitProofsAreByteIdentical
 
+CARD-179 — the wrapped fallback note keeps each number with its unit:
+
+    AC-1  TestBookProof_WrappedNoteKeepsUnitsWithNumbers
+    AC-2  TestBookProof_WrappedNoteKeepsUnitsWithNumbers
+    AC-3  test_PropertyTest_ProofNoteWrap_NeverSplitsAUnitOrStartsWithTimes
+    AC-4  TestBookProof_SquareTrimsCarryTheNote (unchanged),
+          TestBookProof_FallbackLeadingTightensOnlyWhenNeeded
+
 ADR-0037 makes the band's wording and the book's stroke minimum final only
 once the owner has measured them on printed paper. These tests cover the
 automatable half of that: that the paper the panel produces *is* the book's
@@ -70,9 +78,10 @@ import pytest
 from PIL import Image
 
 import nonogram.admin.book_manager as book_manager_module
+import nonogram.admin.book_proof as book_proof_module
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_frame
 from nonogram.admin.print_specs import PrintSpec
 from nonogram.admin.book_proof import (
     PROOF_PUZZLES,
@@ -1239,3 +1248,260 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         )
         digests = [hashlib.sha256(page.tobytes()).hexdigest() for page in proof_pages(book)]
         assert digests == self.BASELINE["digests"][f"{width_cm}x{height_cm}"]
+
+
+# --------------------------------------------------------------------------
+# CARD-179 — the wrapped note keeps each number with its unit
+# --------------------------------------------------------------------------
+
+#: The fallback note's face in device pixels: CON-020's 10 pt at 300 DPI.
+FALLBACK_FACE_PX = round(FLOOR_PT * 300 / 72)
+
+#: The two line pitches CARD-179 allows the fallback note: 1.2 and 1.07 of
+#: the 42 px face, written out as the pixels a ruler reads.
+NORMAL_PITCH_PX = 50
+TIGHT_PITCH_PX = 45
+
+#: The breaks the wrap must not make, written as patterns over the printed
+#: text — a second statement of the rule, independent of how ``_wrapped``
+#: tokenises. A number and the unit after it ...
+_NUMBER_WITH_UNIT = re.compile(r"\d+(?:\.\d+)? (?:mm|in\)|dpi)")
+#: ... and an "N × M" group with its leading bracket, unit and trailing comma.
+_TIMES_GROUP = re.compile(r"\(?\d+(?:\.\d+)? × \d+(?:\.\d+)?(?: (?:mm|in\)|dpi))?,?")
+
+
+def _layout_and_frame(book: Book, index: int):
+    """COMP-007's layout and frame for proof puzzle ``index`` on ``book``."""
+    spec = book_page_spec(book, index + 1)
+    payload = PROOF_PUZZLES[index].payload(EXPECTED_BANDS[index])
+    return compute_layout(payload.row_clues, payload.column_clues, spec), page_frame(spec)
+
+
+def _fallback_of(width_cm: str, height_cm: str, index: int):
+    """What ``_fallback_note`` chooses for this page: spot, lines, face, leading."""
+    layout, frame = _layout_and_frame(_book1_margins(width_cm, height_cm), index)
+    chosen = book_proof_module._fallback_note(annotation_lines(layout), layout, frame)
+    assert chosen is not None, "no fallback spot holds the note"
+    return chosen
+
+
+def _break_offsets(lines: list[str]) -> list[int]:
+    """Where each line break falls in ``" ".join(lines)``: the joining space's index."""
+    offsets, position = [], 0
+    for line in lines[:-1]:
+        position += len(line)
+        offsets.append(position)
+        position += 1
+    return offsets
+
+
+def _bad_breaks(lines: list[str], font, width: int) -> list[str]:
+    """Every break in ``lines`` that CARD-179's rules 1-3 forbid, described."""
+    text = " ".join(lines)
+    breaks = _break_offsets(lines)
+    bad = [f"line starts with ×: {line!r}" for line in lines if line.startswith("×")]
+    for match in _NUMBER_WITH_UNIT.finditer(text):
+        bad += [
+            f"unit parted from its number: {match.group()!r}"
+            for offset in breaks
+            if match.start() < offset < match.end()
+        ]
+    for match in _TIMES_GROUP.finditer(text):
+        inside = [offset for offset in breaks if match.start() < offset < match.end()]
+        if font.getlength(match.group()) <= width:
+            bad += [f"group that fits is broken: {match.group()!r}" for _ in inside]
+        else:
+            after_times = match.start() + match.group().index("×") + 1
+            bad += [
+                f"over-wide group broken other than after ×: {match.group()!r}"
+                for offset in inside
+                if offset != after_times
+            ]
+    return bad
+
+
+class TestBookProof_WrappedNoteKeepsUnitsWithNumbers:
+    """AC-1, AC-2 — no "4.58 / mm", no line starting with "×".
+
+    Read off the lines ``_fallback_note`` hands ``_annotate`` to print on each
+    fallback page. Main's wrap broke at every space, so it printed
+    ``cell 4.58`` / ``mm`` and ``grid 30 ×`` / ``30,`` in the square corners
+    and started a line with ``× 6.00 in)`` on 8.25 x 6 in.
+    """
+
+    @pytest.mark.parametrize("width_cm,height_cm,index", FALLBACK_PAGES)
+    def test_no_line_ends_on_a_number_whose_unit_starts_the_next(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        _, lines, _, _ = _fallback_of(width_cm, height_cm, index)
+        for line, following in zip(lines, lines[1:]):
+            parted = re.search(r"\d$", line) and re.match(r"(?:mm|in\)|dpi)(?!\w)", following)
+            assert not parted, (line, following)
+
+    @pytest.mark.parametrize("width_cm,height_cm,index", FALLBACK_PAGES)
+    def test_no_line_starts_with_times(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        _, lines, _, _ = _fallback_of(width_cm, height_cm, index)
+        assert not [line for line in lines if line.startswith("×")], lines
+
+    @pytest.mark.parametrize("width_cm,height_cm,index", FALLBACK_PAGES)
+    def test_every_group_that_fits_sits_on_one_line(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        spot, lines, font, _ = _fallback_of(width_cm, height_cm, index)
+        assert _bad_breaks(lines, font, spot.right - spot.left) == [], lines
+
+    @pytest.mark.parametrize("index", [0, 1])
+    def test_the_over_wide_trim_group_breaks_only_after_the_times(self, index: int) -> None:
+        """8.25 x 6 in: "209.6 × 152.4 mm" is wider than the side strip."""
+        spot, lines, font, _ = _fallback_of("20.96", "15.24", index)
+        assert font.getlength("209.6 × 152.4 mm") > spot.right - spot.left
+        breaks = [
+            (line, following)
+            for line, following in zip(lines, lines[1:])
+            if line.endswith("209.6 ×")
+        ]
+        assert len(breaks) == 1, lines
+        assert breaks[0][1].startswith("152.4 mm"), lines
+        assert "(8.25 × 6.00 in)" in lines[lines.index(breaks[0][0]) + 2], lines
+
+    def test_a_group_exactly_as_wide_as_the_width_stays_whole(self) -> None:
+        """A group that measures exactly ``width`` fits: it is not broken.
+
+        The 8.25 x 6 in note wrapped at the trim group's own measured width,
+        which the face gives as a whole number of pixels. Kills ``<=`` -> ``<``
+        on the group-fit check (CARD-179 F-002).
+        """
+        layout, _ = _layout_and_frame(_book1_margins("20.96", "15.24"), 0)
+        font = book_proof_module._note_font(FALLBACK_FACE_PX)
+        group = "209.6 × 152.4 mm"
+        width = font.getlength(group)
+        assert width == int(width), width
+        lines = book_proof_module._wrapped(
+            " · ".join(annotation_lines(layout)), font, int(width)
+        )
+        assert lines is not None
+        assert any(group in line for line in lines), lines
+
+    @pytest.mark.parametrize("width_cm,height_cm,index", FALLBACK_PAGES)
+    def test_the_lines_rejoin_to_the_note(
+        self, width_cm: str, height_cm: str, index: int
+    ) -> None:
+        """The wrap only chooses breaks: it drops and adds no word (G-2)."""
+        layout, _ = _layout_and_frame(_book1_margins(width_cm, height_cm), index)
+        _, lines, _, _ = _fallback_of(width_cm, height_cm, index)
+        assert " ".join(lines) == " · ".join(annotation_lines(layout))
+
+
+#: Widths the property draws from, in device pixels: narrower than every
+#: fallback spot measured on the Book 1 margins (374 px) up past the widest
+#: (474 px), so both a group that fits and one that does not are drawn.
+WRAP_WIDTHS_PX = (250, 520)
+WIDTHS_PER_NOTE = 10
+MIN_WRAP_CASES = 200
+
+
+def test_PropertyTest_ProofNoteWrap_NeverSplitsAUnitOrStartsWithTimes() -> None:
+    """AC-3 — at every drawn width, a wrap of the note obeys rules 1-3, keeps every word and fits.
+
+    The notes are those of both proof pages on every corpus and fallback trim
+    (26 texts, different trims and cells), each wrapped at seeded widths. The
+    rules are checked by :func:`_bad_breaks`, which states them as patterns
+    over the printed text rather than reusing the wrap's own tokens.
+    """
+    font = book_proof_module._note_font(FALLBACK_FACE_PX)
+    rng = random.Random(179)
+    cases = wrapped = over_wide_broken = 0
+    for width_cm, height_cm in CORPUS_TRIMS_CM + FALLBACK_TRIMS_CM:
+        book = _book1_margins(width_cm, height_cm)
+        for index in (0, 1):
+            layout, _ = _layout_and_frame(book, index)
+            text = " · ".join(annotation_lines(layout))
+            for _ in range(WIDTHS_PER_NOTE):
+                width = rng.randint(*WRAP_WIDTHS_PX)
+                lines = book_proof_module._wrapped(text, font, width)
+                cases += 1
+                if lines is None:
+                    continue
+                wrapped += 1
+                assert " ".join(lines) == " ".join(text.split()), (width, lines)
+                assert all(font.getlength(line) <= width for line in lines), (width, lines)
+                assert _bad_breaks(lines, font, width) == [], (width, lines)
+                # A line may end on × only where a group is wider than the
+                # width (checked by _bad_breaks): count that the corpus draws it.
+                over_wide_broken += any(line.endswith("×") for line in lines)
+    assert cases >= MIN_WRAP_CASES, cases
+    assert wrapped >= MIN_WRAP_CASES, wrapped
+    assert over_wide_broken > 0, "no drawn width made a group break after its ×"
+
+
+class TestBookProof_FallbackLeadingTightensOnlyWhenNeeded:
+    """AC-4 — 45 px in the square corners, 50 px wherever 1.2 fits.
+
+    The pitch is read off the ink: the note's printed lines are its bands of
+    ink rows, and the pitch is the median step between band tops (a line
+    whose first glyph is a bracket rises a few pixels above one that starts
+    with a digit, so single steps wobble; the median does not).
+    """
+
+    PITCHES = (
+        ("20.96", "20.96", 0, TIGHT_PITCH_PX),
+        ("21.59", "21.59", 0, TIGHT_PITCH_PX),
+        ("20.96", "15.24", 0, NORMAL_PITCH_PX),
+        ("20.96", "15.24", 1, NORMAL_PITCH_PX),
+        ("27.94", "21.59", 0, NORMAL_PITCH_PX),
+    )
+
+    @pytest.mark.parametrize("width_cm,height_cm,index,pitch", PITCHES)
+    def test_the_printed_line_pitch(
+        self, width_cm: str, height_cm: str, index: int, pitch: int
+    ) -> None:
+        book = _book1_margins(width_cm, height_cm)
+        added = _dark(proof_pages(book)[index]) & ~_dark(_plain_page(book, index))
+        tops = [rows[0] for rows in _runs(added.any(axis=1))]
+        _, lines, _, _ = _fallback_of(width_cm, height_cm, index)
+        assert len(tops) == len(lines), (len(tops), len(lines))
+        steps = sorted(b - a for a, b in zip(tops, tops[1:]))
+        assert steps[len(steps) // 2] == pitch, steps
+
+    def test_a_spot_tries_the_tight_leading_before_the_next_spot(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A first spot holding the note only at 45 px wins over a roomy second one."""
+        layout, frame = _layout_and_frame(_book1_margins("20.96", "20.96"), 0)
+        lines = annotation_lines(layout)
+        width = 457
+        font = book_proof_module._note_font(FALLBACK_FACE_PX)
+        count = len(book_proof_module._wrapped(" · ".join(lines), font, width))
+        Spot = book_proof_module._Spot
+        snug = Spot("snug", 0, 0, width, count * TIGHT_PITCH_PX)
+        roomy = Spot("roomy", 0, 0, width, count * NORMAL_PITCH_PX * 2)
+        monkeypatch.setattr(book_proof_module, "_fallback_spots", lambda *_: (snug, roomy))
+        spot, _, _, leading = book_proof_module._fallback_note(lines, layout, frame)
+        assert (spot.name, leading) == ("snug", TIGHT_PITCH_PX)
+
+    def test_a_spot_that_holds_the_note_at_one_point_two_keeps_it(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        layout, frame = _layout_and_frame(_book1_margins("20.96", "20.96"), 0)
+        lines = annotation_lines(layout)
+        width = 457
+        font = book_proof_module._note_font(FALLBACK_FACE_PX)
+        count = len(book_proof_module._wrapped(" · ".join(lines), font, width))
+        exact = book_proof_module._Spot("exact", 0, 0, width, count * NORMAL_PITCH_PX)
+        monkeypatch.setattr(book_proof_module, "_fallback_spots", lambda *_: (exact,))
+        _, _, _, leading = book_proof_module._fallback_note(lines, layout, frame)
+        assert leading == NORMAL_PITCH_PX
+
+    def test_a_spot_too_short_at_either_leading_is_skipped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        layout, frame = _layout_and_frame(_book1_margins("20.96", "20.96"), 0)
+        lines = annotation_lines(layout)
+        width = 457
+        font = book_proof_module._note_font(FALLBACK_FACE_PX)
+        count = len(book_proof_module._wrapped(" · ".join(lines), font, width))
+        short = book_proof_module._Spot("short", 0, 0, width, count * TIGHT_PITCH_PX - 1)
+        monkeypatch.setattr(book_proof_module, "_fallback_spots", lambda *_: (short,))
+        assert book_proof_module._fallback_note(lines, layout, frame) is None

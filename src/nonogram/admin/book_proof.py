@@ -76,6 +76,7 @@ the book export to this ink (pinned by
 from __future__ import annotations
 
 import io
+import re
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
 from importlib import resources
@@ -136,6 +137,12 @@ _FALLBACK_NOTE_PT = 10
 #: bounded box: at 1.35 the 30 x 30's clue corner on an 8.25 x 8.25 in trim
 #: does not hold it, at 1.2 it does (CARD-172 Worktree notes).
 _FALLBACK_NOTE_LEADING = 1.2
+
+#: The fallback note's line spacing where a spot cannot hold it at
+#: :data:`_FALLBACK_NOTE_LEADING` (CARD-179): 45 px of pitch for the 42 px
+#: face. Keeping each number with its unit costs the square trims' clue corner
+#: a tenth line, which holds at this pitch and not at 1.2.
+_FALLBACK_NOTE_TIGHT_LEADING = 1.07
 
 #: The clear air the fallback note keeps from the drawing's rules, in
 #: millimetres, measured from the rule's ink rather than its centre line.
@@ -520,19 +527,69 @@ def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
     return side, corner
 
 
+#: A number as the note prints it: ``30``, ``4.58``.
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+#: A unit as the note prints it, with any closing bracket or comma after it:
+#: ``mm``, ``in)``, ``dpi``.
+_UNIT = re.compile(r"(?:mm|in|dpi)[),]*")
+
+_TIMES = "×"
+
+
 def _wrapped(text: str, font: ImageFont.FreeTypeFont, width: int) -> list[str] | None:
     """``text`` word-wrapped to ``width`` pixels, or ``None`` if a word is wider.
 
-    Greedy: each printed line takes as many words as fit. A separator dot is
-    kept on the end of the word before it, so a wrapped line never starts
-    with one.
+    Greedy: each printed line takes as many words as fit. Words are the
+    space-separated tokens of ``text``, and a line may break at any space
+    except these (CARD-179):
+
+    * between a token that is a bare number (:data:`_NUMBER` matches all of
+      it: ``4.58``, ``300``) and a unit token right after it (:data:`_UNIT`
+      matches all of it: ``mm``, ``in)``, ``dpi``) — never;
+    * around a ``×`` token with a word before it and a token after it
+      (``209.6 × 152.4 mm``, ``(8.25 × 6.00 in)``, ``30 × 30,``, the unit
+      already glued to M by the rule above) — never when the whole group
+      fits ``width``; when it does not, only after the ×, which stays on the
+      line with the word before it;
+    * before a separator dot with a word before it — never; the dot stays on
+      the end of that word.
+
+    Any other token is a word of its own: a number inside a bracket
+    (``(8.25 in)``) is not glued to its unit, and a ``×`` that opens or ends
+    ``text`` is not joined to anything. These guarantees are therefore shown
+    for the proof note's own text — the lines :func:`annotation_lines`
+    prints — not for any text: no printed line starts with a × or with a
+    unit parted from its number (AC-3's corpus, at the widths it draws), and
+    none starts with a separator dot (the fallback pages' own spots).
+    Widths are measured on the words as printed, spaces included.
     """
+    tokens = text.split(" ")
+    glued: list[str] = []
+    for token in tokens:
+        if glued and _UNIT.fullmatch(token) and _NUMBER.fullmatch(glued[-1]):
+            glued[-1] = f"{glued[-1]} {token}"
+        else:
+            glued.append(token)
     words: list[str] = []
-    for token in text.split(" "):
+    index = 0
+    while index < len(glued):
+        token = glued[index]
+        if token == _TIMES and words and index + 1 < len(glued):
+            after = glued[index + 1]
+            group = f"{words[-1]} {_TIMES} {after}"
+            if font.getlength(group) <= width:
+                words[-1] = group
+            else:
+                words[-1] = f"{words[-1]} {_TIMES}"
+                words.append(after)
+            index += 2
+            continue
         if token == _NOTE_SEPARATOR.strip() and words:
             words[-1] = f"{words[-1]} {token}"
         else:
             words.append(token)
+        index += 1
     wrapped: list[str] = []
     current = ""
     for word in words:
@@ -554,19 +611,26 @@ def _fallback_note(
     """The first fallback spot that holds the note at 10 pt, wrapped to fit.
 
     The note's two lines are run together as one paragraph, joined by the
-    same separator its fields are, and wrapped to the spot's width: a narrow
-    box fills better that way than with each line wrapped on its own (on the
-    30 x 30's clue corner at 8.25 x 8.25 in, 9 lines instead of 10).
+    same separator its fields are, and wrapped to the spot's width (CARD-172).
+
+    :func:`_wrapped` says where a line may break. Each spot is tried at
+    :data:`_FALLBACK_NOTE_LEADING` and, if the wrapped block is too tall for
+    it there, at :data:`_FALLBACK_NOTE_TIGHT_LEADING` before the next spot is
+    tried (CARD-179). The tight leading is used only by a spot that cannot
+    hold the block at the normal one.
 
     Returns the spot, the wrapped lines, the face and the leading in pixels;
-    ``None`` when neither spot holds it.
+    ``None`` when neither spot holds it at either leading.
     """
     font = _note_font(round(_FALLBACK_NOTE_PT * layout.dpi / _POINTS_PER_INCH))
-    leading = round(font.size * _FALLBACK_NOTE_LEADING)
     for spot in _fallback_spots(layout, frame):
         block = _wrapped(_NOTE_SEPARATOR.join(lines), font, spot.right - spot.left)
-        if block is not None and leading * len(block) <= spot.bottom - spot.top:
-            return spot, block, font, leading
+        if block is None:
+            continue
+        for multiple in (_FALLBACK_NOTE_LEADING, _FALLBACK_NOTE_TIGHT_LEADING):
+            leading = round(font.size * multiple)
+            if leading * len(block) <= spot.bottom - spot.top:
+                return spot, block, font, leading
     return None
 
 
@@ -593,7 +657,14 @@ def _annotate(page: Image.Image, layout: Layout, frame: PageFrame) -> Image.Imag
     :func:`_fallback_spots` that holds it at a fixed
     :data:`_FALLBACK_NOTE_PT` pt and set at that spot's top-left: landscape
     trims leave a wide side strip, square trims leave the 30 x 30's clue
-    corner.
+    corner. On the note's text the wrap never parts a number from its unit,
+    never starts a line with a × or a separator dot, and keeps an "N × M"
+    group whole where it fits the spot (:func:`_wrapped` says which tokens
+    those rules recognise). Lines are spaced at
+    :data:`_FALLBACK_NOTE_LEADING`, or at :data:`_FALLBACK_NOTE_TIGHT_LEADING`
+    in a spot that holds the note only at the tighter pitch — at the Book 1
+    margins, the 8.25 x 8.25 and 8.5 x 8.5 in clue corners
+    (:func:`_fallback_note`).
 
     **The note never overprints the grid or enters a margin.** If no spot holds
     it — a small square such as 15 x 15 cm — the export refuses rather than
