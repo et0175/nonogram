@@ -841,7 +841,8 @@ class TestSolverMarking_NoRequestPerMark:
 
 _STRIPPED = """() => document.body.outerHTML
   .replace(/ data-state="[a-z]+"/g, '')
-  .replace(/ aria-(pressed|disabled)="(true|false)"/g, '')"""
+  .replace(/ aria-(pressed|disabled)="(true|false)"/g, '')
+  .replace(/ is-circled(?=[" ])/g, '')"""
 
 
 @pytest.mark.browser
@@ -849,7 +850,9 @@ class TestSolverMarking_RevealsNoCorrectness:
     """G-2 — marking shows nothing but the marks. Narrowed by CARD-162, which
     adds the error count and the solved state (FR-044 AC-312..AC-317, tested in
     test_puzzle_solver_progress.py): correct marks that do not yet solve the
-    puzzle still change nothing on the page but the cells."""
+    puzzle still change nothing on the page but the cells. Narrowed again by
+    CARD-188: a clue number's ``is-circled`` class is stripped too — clue
+    circles are a read-only view of the marks, not of correctness."""
 
     def test_marking_all_but_the_last_solution_cell_changes_nothing_but_cell_states(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))

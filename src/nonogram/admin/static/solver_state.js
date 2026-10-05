@@ -317,3 +317,87 @@ export function isSolved(board, solution) {
   }
   return true;
 }
+
+// ---------------------------------------------------------------------------
+// Clue circles (CARD-188, owner's solver test doc 2026-10-05 item 4)
+//
+// Which clue numbers the player's MARKS settle — read from the board alone,
+// never from the solution, with the payload's clues (ADR-0038/R3). In a line
+// a cell is dark (FILLED), white (EMPTY) or undecided (any other state). A
+// closed run is a maximal run of dark cells whose neighbour on each side is a
+// white cell or the line's edge. A number is circled by rule A or rule B:
+//   A  walk in from each edge: skip white cells; stop at the end or at an
+//      undecided cell; at a dark run, stop unless it is closed and its length
+//      is the next unassigned clue number from that edge — then circle that
+//      number and walk on past the run. The two walks are independent.
+//   B  every dark run of the line is closed and their lengths, left to
+//      right, are exactly the clue: every number is circled.
+// Nothing else circles a number (no matching by length alone). A "0" clue
+// ([0]) is circled only when every cell of the line is white. Wrong but
+// self-consistent marks can circle a number; the error count, not the
+// circle, says whether a mark is right.
+
+// The indices of the clue numbers one walk of rule A circles. `at(step)` is
+// the walk's step-th cell from its edge; `numberAt(step)` is the walk's
+// step-th clue number from that edge, as an index into the clue.
+function walkIn(length, count, at, numberAt, clue) {
+  const circled = [];
+  let step = 0;
+  while (step < length && circled.length < count) {
+    if (at(step) === EMPTY) {
+      step += 1;
+      continue;
+    }
+    if (at(step) !== FILLED) break;
+    let end = step;
+    while (end < length && at(end) === FILLED) end += 1;
+    if (end < length && at(end) !== EMPTY) break; // the run is not closed
+    const number = numberAt(circled.length);
+    if (end - step !== clue[number]) break;
+    circled.push(number);
+    step = end;
+  }
+  return circled;
+}
+
+// One boolean per number of `clue` (an array of ints, [0] for an empty line):
+// whether the marks in `cells` (one line of cell states) circle it. Frozen.
+export function circledNumbers(clue, cells) {
+  const length = cells.length;
+  if (clue.length === 1 && clue[0] === 0) {
+    return Object.freeze([cells.every((state) => state === EMPTY)]);
+  }
+  const count = clue.length;
+  const circled = new Array(count).fill(false);
+  const fromLeft = walkIn(length, count, (step) => cells[step], (k) => k, clue);
+  const fromRight = walkIn(length, count, (step) => cells[length - 1 - step], (k) => count - 1 - k, clue);
+  for (const number of [...fromLeft, ...fromRight]) circled[number] = true;
+  // Rule B: every dark run closed, lengths exactly the clue.
+  const runs = [];
+  let whole = true;
+  for (let start = 0; start < length; start += 1) {
+    if (cells[start] !== FILLED) continue;
+    let end = start;
+    while (end < length && cells[end] === FILLED) end += 1;
+    const closedLeft = start === 0 || cells[start - 1] === EMPTY;
+    const closedRight = end === length || cells[end] === EMPTY;
+    if (!closedLeft || !closedRight) whole = false;
+    runs.push(end - start);
+    start = end;
+  }
+  if (whole && runs.length === count && runs.every((run, k) => run === clue[k])) circled.fill(true);
+  return Object.freeze(circled);
+}
+
+// circledNumbers of every line of `board`: { rows: one array per row, top to
+// bottom, columns: one per column, left to right }, all frozen. `rows` and
+// `columns` are the payload's clues; the solution is not an argument.
+export function circledClues(board, rows, columns) {
+  const { width, height, cells } = board;
+  const row = (r) => Array.from({ length: width }, (_, c) => cells[r * width + c]);
+  const column = (c) => Array.from({ length: height }, (_, r) => cells[r * width + c]);
+  return Object.freeze({
+    rows: Object.freeze(rows.map((clue, r) => circledNumbers(clue, row(r)))),
+    columns: Object.freeze(columns.map((clue, c) => circledNumbers(clue, column(c)))),
+  });
+}
