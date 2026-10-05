@@ -304,11 +304,17 @@ function start() {
 // .is-circled on each span.player-clue-num that solver_state.js circledClues
 // circles for the recorded board, and clears it on the rest. The spans are
 // collected once, here, at draw time: { rows: [[span...]] per row,
-// columns: [[span...]] per column }. Text and aria-labels are left alone.
+// columns: [[span...]] per column }, each span also given its digit count
+// as --player-clue-digits. Text and aria-labels are left alone.
 function clueNumbersOf(table) {
   const spans = (kind) => [...table.querySelectorAll(`th.player-clue.is-${kind}`)]
     .map((box) => [...box.querySelectorAll(".player-clue-num")]);
-  return { rows: spans("row"), columns: spans("col") };
+  const numbers = { rows: spans("row"), columns: spans("col") };
+  // The pill's width comes from the digit count (admin.css, --player-clue-w).
+  for (const span of [...numbers.rows, ...numbers.columns].flat()) {
+    span.style.setProperty("--player-clue-digits", span.textContent.length);
+  }
+  return numbers;
 }
 
 function paintCircles(clueNumbers, circled) {

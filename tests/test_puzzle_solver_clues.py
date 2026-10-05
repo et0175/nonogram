@@ -149,6 +149,20 @@ class TestSolverClues_RuleExamples:
         got = _numbers(browser_page, [(clue, marks) for clue, marks, _ in self.ROWS])
         assert got == [circled for _, _, circled in self.ROWS]
 
+    #: "What to implement" 2, rule A: a closed run whose length is not its
+    #: anchored clue number STOPS the walk from that edge. These marks fit no
+    #: placement (the by-design wrong-marks case), so AC-1 cannot see them.
+    STOPS = [
+        ((1, 1), "DDW.......", [False, False]),  # longer than c1: no circle
+        ((1, 2), "DDWDW.....", [False, False]),  # stop, not skip to the next run
+        ((2, 1), ".....WDWDD", [False, False]),  # the same from the right edge
+    ]
+
+    def test_a_mismatched_closed_run_stops_its_walk(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        got = _numbers(browser_page, [(clue, marks) for clue, marks, _ in self.STOPS])
+        assert got == [circled for _, _, circled in self.STOPS]
+
 
 # ==========================================================================
 # AC-1 — never circles what the brute force does not
@@ -450,6 +464,9 @@ class TestSolverClues_DragPreviewDoesNotCircle:
         assert _circled_set(page) == {("rows", r, 0)}
 
 
+#: Desktop, and a phone (390 px: the <= 820 px 24 px cell floor, CARD-182).
+_VIEWPORTS = [{"width": 1440, "height": 900}, {"width": 390, "height": 844}]
+
 _GEOMETRY = """() => {
   const box = (el) => { const b = el.getBoundingClientRect(); return [b.x, b.y, b.width, b.height]; };
   const all = (sel) => [...document.querySelectorAll(sel)];
@@ -457,6 +474,7 @@ _GEOMETRY = """() => {
     cells: all('td.player-cell').map(box),
     clues: all('th.player-clue').map(box),
     numbers: all('.player-clue-num').map(box),
+    digits: all('.player-clue-num').map((n) => { const r = document.createRange(); r.selectNodeContents(n); return box(r); }),
     texts: all('.player-clue-num').map((n) => n.textContent),
     labels: all('th.player-clue').map((b) => b.getAttribute('aria-label')),
   };
@@ -469,11 +487,13 @@ def _solution_marks(row_indices):
 
 @pytest.mark.browser
 class TestSolverClues_CirclingMovesNothing:
-    """AC-8 — circling numbers changes no box, text or label."""
+    """AC-8 — circling numbers changes no box (cell, clue box, number, or the
+    digits' own text box), text or label, at 1440 px and at 390 px."""
 
-    def test_geometry_and_text_are_unchanged(self, browser_page, live) -> None:
+    @pytest.mark.parametrize("viewport", _VIEWPORTS, ids=["desktop", "phone"])
+    def test_geometry_and_text_are_unchanged(self, browser_page, live, viewport) -> None:
         page = browser_page
-        page.set_viewport_size({"width": 1440, "height": 900})
+        page.set_viewport_size(viewport)
         _open_player(page, live)
         before = page.evaluate(_GEOMETRY)
         # Every row as the solution except the last, left undecided (so the
@@ -483,6 +503,39 @@ class TestSolverClues_CirclingMovesNothing:
         assert len(circled) >= 30, len(circled)
         assert {("rows", TWO_DIGIT_ROW, 0), ("rows", TWO_DIGIT_ROW, 1)} <= circled
         assert page.evaluate(_GEOMETRY) == before
+
+
+_SLOTS = """() => {
+  const px = (v) => parseFloat(v);
+  const cell = document.querySelector('td.player-cell').getBoundingClientRect();
+  const slot = (n, axis) => {
+    const s = getComputedStyle(n), b = n.getBoundingClientRect();
+    return axis === 'row' ? b.width + px(s.marginLeft) + px(s.marginRight) : b.height + px(s.marginTop) + px(s.marginBottom);
+  };
+  return {
+    cell: [cell.width, cell.height],
+    rows: [...document.querySelectorAll('th.player-clue.is-row .player-clue-num')].map((n) => [n.textContent, slot(n, 'row')]),
+    columns: [...document.querySelectorAll('th.player-clue.is-col .player-clue-num')].map((n) => [n.textContent, slot(n, 'col')]),
+  };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverClues_EveryNumberKeepsAOneCellSlot:
+    """The reserved circle keeps each number's slot exactly one cell — a row
+    number's margin box as wide as a cell, a column number's as tall — for
+    one- and two-digit numbers, at 1440 px and at 390 px, so a long clue
+    does not drift by sub-pixel amounts."""
+
+    @pytest.mark.parametrize("viewport", _VIEWPORTS, ids=["desktop", "phone"])
+    def test_slots(self, browser_page, live, viewport) -> None:
+        browser_page.set_viewport_size(viewport)
+        _open_player(browser_page, live)
+        seen = browser_page.evaluate(_SLOTS)
+        width, height = seen["cell"]
+        assert any(len(text) == 2 for text, _ in seen["rows"])
+        assert [t for t, w in seen["rows"] if abs(w - width) > 0.001] == []
+        assert [t for t, h in seen["columns"] if abs(h - height) > 0.001] == []
 
 
 _LOOK = """(span) => {
@@ -504,10 +557,14 @@ _LOOK = """(span) => {
 @pytest.mark.browser
 class TestSolverClues_TheCircleIsVisible:
     """AC-9 — a circled number has a round outline in a colour other than the
-    clue box background; a two-digit one's outline is as wide as its text."""
+    clue box background; a two-digit row number's outline is a pill (wider
+    than tall) at least as wide as its text plus both border widths. Checked
+    at 1440 px and at 390 px."""
 
-    def test_the_outline(self, browser_page, live) -> None:
+    @pytest.mark.parametrize("viewport", _VIEWPORTS, ids=["desktop", "phone"])
+    def test_the_outline(self, browser_page, live, viewport) -> None:
         page = browser_page
+        page.set_viewport_size(viewport)
         _open_player(page, live)
         assert ROW_CLUES[TWO_DIGIT_ROW] == [12, 2]
         _set(page, _cells(_solution_marks([TWO_DIGIT_ROW, OWNER_ROW])))
@@ -530,6 +587,7 @@ class TestSolverClues_TheCircleIsVisible:
         two_digit = row.nth(0).evaluate(_LOOK)
         assert two_digit["textWidth"] > row.nth(1).evaluate(_LOOK)["textWidth"]  # really two digits
         assert two_digit["width"] >= two_digit["textWidth"] + 2 * two_digit["border"]
+        assert two_digit["width"] > two_digit["height"]  # a pill, not the one-digit circle
 
         # An uncircled number keeps the same border width, in a transparent colour.
         plain = bare.evaluate(_LOOK)

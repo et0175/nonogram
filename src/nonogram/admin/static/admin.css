@@ -487,20 +487,29 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* Clue circles (CARD-188): a clue number the player's marks settle carries
    .is-circled (solver.js) and gets a thin round grid-ink outline; the digit
    keeps its ink and size. Every number reserves the outline as a transparent
-   border, so circling moves nothing. A number's box is --player-circle
-   square, a pill when two digits need more; its slot stays one cell (column
-   clues: the gap above as margin, the box lifted back by half of it without
-   moving layout; row clues: half the gap on each side). No transition. */
+   border, so circling moves nothing. A number's box is a circle of diameter
+   --player-circle (the cell less a whole number of pixels per side), or a
+   pill as wide as its digits need (--player-clue-digits, set by solver.js at
+   draw time); a column clue's box is never wider than its column less a
+   heavy rule. Its slot stays exactly one cell: the gaps are whole pixels, so
+   sub-pixel rounding cannot drift a long clue. Column clues take the gap
+   above as margin and are lifted back by half of it (position: relative,
+   layout unmoved); row clues split what the box leaves of the cell into
+   their side margins. No transition. */
 .player-board {
-  --player-circle: calc(var(--player-cell) * 0.86);
+  --player-circle-k: round(nearest, calc(var(--player-cell) * 0.07), 1px);
+  --player-circle: calc(var(--player-cell) - 2 * var(--player-circle-k));
   --player-circle-w: max(var(--border-width), calc(var(--player-cell) * 0.06));
-  --player-circle-gap: calc(var(--player-cell) - var(--player-circle));
+  --player-circle-pad: calc(var(--player-cell) * 0.04);
 }
 .player-board .player-clue-num {
-  box-sizing: border-box; min-width: var(--player-circle); height: var(--player-circle);
-  padding: 0 calc(var(--player-cell) * 0.06); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w));
+  --player-clue-w: max(var(--player-circle),
+    calc(var(--player-clue-digits, 1) * 1ch + 2 * var(--player-circle-pad) + 2 * var(--player-circle-w)));
+  --player-clue-m: round(nearest, calc((var(--player-cell) - var(--player-clue-w)) / 2), 1px);
+  box-sizing: border-box; height: var(--player-circle);
+  padding: 0 var(--player-circle-pad); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w));
   border: var(--player-circle-w) solid transparent; border-radius: calc(var(--player-circle) / 2);
 }
-.player-clue.is-col .player-clue-num { width: fit-content; height: var(--player-circle); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w)); margin: var(--player-circle-gap) auto 0; position: relative; top: calc(var(--player-circle-gap) / -2); }
-.player-clue.is-row .player-clue-num { min-width: var(--player-circle); margin: 0 calc(var(--player-circle-gap) / 2); vertical-align: middle; }
+.player-clue.is-col .player-clue-num { width: min(var(--player-clue-w), calc(var(--player-cell) - var(--player-rule-major))); height: var(--player-circle); line-height: calc(var(--player-circle) - 2 * var(--player-circle-w)); margin: calc(2 * var(--player-circle-k)) auto 0; position: relative; top: calc(-1 * var(--player-circle-k)); }
+.player-clue.is-row .player-clue-num { width: calc(var(--player-cell) - 2 * var(--player-clue-m)); min-width: 0; margin: 0 var(--player-clue-m); vertical-align: middle; }
 .player-board .player-clue-num.is-circled { border-color: var(--grid-ink); }
