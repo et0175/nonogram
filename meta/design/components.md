@@ -150,6 +150,8 @@ Tokens: --color-surface, --color-accent, --color-accent-tint, --thumb.
 
 State (CARD-173): book print setup unreadable — no flag note and no override checkbox on any tile; one book-level `alert alert-warning` above the tabs names the problem and links Print setup. Finalise shows one linked sentence instead of a per-member line, count unchanged.
 
+Parts (CARD-180): a Status info-row (info-label Status / info-value = the status word, `in_book` shown as "in book") on every tile whose status is not approved; approved tiles carry no row.
+
 ## ArrangeRow
 Used by: book arrangement (step 4 of 5).
 States: default · first **of its level** (up disabled, "First in the <Level>
@@ -206,6 +208,8 @@ Used by: every list/table when there is nothing to show.
 Copy is specific: "No puzzles match these filters", "No books yet — create
 one", "No puzzles generated — check the quality threshold".
 Tokens: --color-text-secondary, --space-8.
+
+Book selection under `?status=all` (CARD-180): "No puzzles with a longest side of X match these filters. Try another tab."
 
 ## ErrorPage (404 / 500)
 Used by: `404.html`, `500.html`.
