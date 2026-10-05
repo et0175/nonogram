@@ -1,0 +1,161 @@
+version: 1
+generated_at: "2026-10-04T16:57:23Z"
+target: "card/170-band-prints-once (git diff main...HEAD), file scope tests/test_book_pdf_band.py"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_book_pdf_band.py (full diff + helpers _book, _puzzle, _band_strip, expected_band, ANSWER_CAPTION)"
+    - "tests/helpers/pdf_pages.py"
+    - "src/nonogram/admin/book_pdf_generator.py (_set_band, _answer_page)"
+    - "src/nonogram/export/pdf.py (_draw_header draw.text line)"
+    - "meta/kanban/cards/CARD-170.md (Worktree notes)"
+    - "~/Documents/nonogram-reviews/CARD-170/*.png (3 renders)"
+  not_reached:
+    - "scratchpad card170_render.py (the script that produced the renders) was not read"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 392, removed: 2 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  new_tests_runtime_s: "about 0.8 (two exports, module/class-scoped fixtures); whole module 7.7 s wall"
+  unmeasured:
+    max_fan_in: "not_applicable — test-only diff, no exported production symbol changed"
+    cochange_missing: "not_applicable — test-only evidence card; production peers (book_pdf_generator.py) intentionally unchanged per G-1"
+
+mutation_check:
+  ran: true
+  note: "Run on the orchestrator's explicit request. Because F-001 is gating, the stable cycle must run it again (certification deferral rule)."
+  mutants:
+    - "M1 _set_band second draw.text at x+40: KILLED (found-once, strip[two-up-easy-upper], strip[two-up-medium-upper], two-up-upper-first, recorder per-page)"
+    - "M2 answer caption = band_identity(answer.number, payload.difficulty): KILLED (found-once, caption control, recorder per-page)"
+    - "M3 export/pdf.py _draw_header second draw.text at x+40 (temporary, reverted): KILLED (found-once, strip[hard-alone], recorder per-page)"
+    - "M4 _set_band second copy at y+300 (lands over the column clues, visibly printed): pixel class SURVIVED; only recorder per-page failed"
+    - "M5 _set_band second copy at y+700 (lands inside the grid): pixel class SURVIVED; only recorder per-page failed"
+    - "M6 _set_band second copy at y+1500 (clear space between slots): KILLED (found-once, upper-first, recorder)"
+  restore: "every mutated file restored byte-for-byte (cmp) from a captured copy; git diff HEAD -- src/ empty; git diff main...HEAD -- src/ empty"
+
+system_contract:
+  rules_checked: 53
+  holds: 7
+  unchecked: 46
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — new imports are collections, functools, importlib.resources, io, typing (stdlib), numpy, PIL, pytest (dev); no new dependency"
+    - "ADR-0037/R1 ✓ holds — src unchanged (git diff main...HEAD -- src/ empty); new tests assert the band is expected_band(number, tier) and G-4 tests are green and unedited"
+    - "CON-020 ✓ holds — src unchanged; band measured in the PDF at 59 px = 5 mm at 300 DPI (about 14 pt)"
+    - "INV-009 ✓ holds — src unchanged; export reads Easy, Medium, Hard order (ONCE_BAND_PAGES 3,3,5,5,7) and the tests pass"
+    - "INV-010 ✓ holds — src unchanged; same-tier 10x10 neighbours pair and the lone Hard prints alone (page count 11 asserted)"
+    - "INV-011 ✓ holds — src unchanged; caption control finds 'Puzzle 5 — Snowflake' once, on page 11"
+    - "INV-013 ✓ holds — src unchanged; the interior decoded from export.interior has 11 pages, starting at the guide"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked — no_eligible_fact: the diff only adds read-only tests to tests/test_book_pdf_band.py and changes no production code (git diff main...HEAD -- src/ empty)"
+
+root_causes:
+  - id: RC-1
+    title: "The pixel class's stated reach is wider than what it detects: an offset copy is caught only where it lands in clear space"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_band.py
+    line: 920
+    title: "Docstrings claim the pixel tests catch any second offset copy of a band, but a copy that lands on the drawing's ink passes them all"
+    description: |
+      The section comment (lines 919-924) says: "A second copy drawn at an offset either widens or
+      heightens the line ... or makes a line of its own ... both fail the tests. Two copies drawn at
+      exactly the same spot ... that case is the recorder's (AC-3)". The class docstring of
+      TestBookPdf_BandPrintsOnceInTheExportedPdf (lines 1123-1125) says it "Fails if _set_band ... or
+      COMP-007's header ... prints a second, offset copy of a band, or if a band's line turns up on
+      any other page". Both claims are wider than the tests. Mutant: a second _set_band draw.text at
+      center_y + 300 (and again at + 700). Both are clearly printed on page 3: the y+300 copy sits over
+      the column clues (render at scratchpad/m3_y300_page3.png). All 9 pixel-class tests still pass.
+      _lines merges the copy with the clue or grid ink into a line that matches no reference, so
+      _find reports exactly the original five bands. The strip test only looks at the 12 mm strip.
+      Only the recorder (TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage) fails. The same blind
+      spot applies to "turns up on any other page": a band set over other ink on a divider or answer
+      page would not be found. The card's verdict still stands, because the recorder covers the gap.
+      But the AC-1 test cell and the comments say the pixel class proves something it does not.
+      This is the over-claim pattern behind the wave 28-32 escalations.
+    suggestion: |
+      Narrow the wording at lines 919-924 and 1123-1125: the pixel class catches a second copy that
+      lands in clear space (the band strip, the margins, the gap between slots) or that touches the
+      band line. A copy that overlaps other ink (clues, grid, captions), like a copy at the same spot,
+      is caught only by the recorder (AC-3). Optionally add a Worktree-notes line recording mutant
+      y+300 (pixel class survives, recorder kills).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_band.py
+    line: 1206
+    title: "_BandDraws.late misses late draws on pages that received no band before they were written"
+    description: |
+      write_page adds a page to written_at only if a band draw targeted that page before the write
+      (line ~1236). So a band drawn after the write on a page with no earlier band draw (a divider,
+      say) is filed under `unwritten`, which no test asserts, not under `late`. The attribute comment
+      "Band lines drawn on an image after that image had been written" claims more than that.
+    suggestion: "Record every written page's image in write_page, or narrow the comment to 'on a page that had already received a band'."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_band.py
+    line: 1128
+    title: "test_the_interior_is_the_page_sequence_this_module_reads asserts only the page count"
+    description: |
+      The name promises the page sequence: guide, divider, two-up and so on. The test asserts only
+      len == 11. The sequence is checked only indirectly, through the band pages in the other tests.
+    suggestion: "Rename it to test_the_interior_has_the_page_count_this_module_reads, or also assert that the divider and guide pages carry no band and the band pages do."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_book_pdf_band.py
+    line: 1
+    title: "Branch is behind main by CARD-172; a literal two-dot 'git diff main -- src/' is non-empty"
+    description: |
+      main advanced after the branch point 594cd7b: CARD-172 changed src/nonogram/admin/book_proof.py.
+      So the G-1 check as literally written (two-dot) shows that file. The card's own diff
+      (main...HEAD -- src/) is empty, and G-1 holds. The new tests have not been run on main's head.
+      They do not touch book_proof.py, so the risk is low.
+    suggestion: "Rebase (or run the band tests after the merge) and check G-1 with the three-dot form."
+    confidence: high
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

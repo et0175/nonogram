@@ -1,0 +1,114 @@
+version: 1
+generated_at: "2026-10-05T03:19:53Z"
+target: "card/170-band-prints-once (git diff main...HEAD + uncommitted fix delta git diff HEAD -- tests/), file scope tests/test_book_pdf_band.py; confirmation mode cycle 3 (final)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_book_pdf_band.py (fix delta in full; CARD-170 section lines 905-1321 in full; header docstring/import hunks)"
+    - "src/nonogram/admin/book_pdf_generator.py (_set_band, _answer_page caption) - read and mutated"
+    - "src/nonogram/export/pdf.py (_draw_header) - read; mutated only by runtime monkeypatch, file never edited"
+    - "meta/kanban/cards/CARD-170.md (Worktree notes incl. [Fix cycle 1 ...] and [Fix cycle 2 ...])"
+    - "meta/review/20261004T171653Z-CARD-170-cycle2.yml"
+    - "~/Documents/nonogram-reviews/CARD-170/ (3 renders listed)"
+  not_reached:
+    - "full suite not run (by instruction); tests/test_book_pdf_band.py run: 34 passed"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 51, removed: 10 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable - test-only delta, no exported production symbol changed"
+    cochange_missing: "not_applicable - test-only evidence card; production peers intentionally unchanged per G-1"
+
+mutation_check:
+  ran: true
+  harness: "scratchpad/c3/mut.py - generator copied to gen.orig, one mutant written, pytest -k 'PrintsOnce or ExtraBandDraw', restored with shutil.copyfile and filecmp.cmp(shallow=False) after every run"
+  mutants:
+    - "(a, AC-5a) _set_band second draw.text at x+40, both slots: KILLED - found-once, strip[two-up-easy-upper], strip[two-up-medium-upper], two-up upper-first, recorder per-page"
+    - "(b, AC-5b) answer caption = band_identity(answer.number, payload.difficulty): KILLED - found-once, caption control, recorder per-page"
+    - "(c, recorder) _set_band same-spot double draw (0,0), both slots: KILLED - recorder per-page, and also found-once, both two-up strips, upper-first (incidental antialias darkening, as the new F-006 wording says)"
+    - "M1 spot-check, upper slot second draw at (-900,+600) side margin: only recorder per-page failed - matches card table"
+    - "M10 spot-check, upper slot (+900,+600) side margin: only recorder per-page failed - matches"
+    - "M3 spot-check, upper slot (0,+1450) slot gap: found-once, upper-first, recorder failed - matches"
+    - "M2 spot-check, upper slot (0,-110) top margin: found-once, upper-first, recorder failed - matches"
+    - "M11 spot-check, upper slot (0,+60): both two-up strips and recorder failed, found-once green - matches strip docstring"
+    - "H1 runtime monkeypatch of export.pdf._draw_header (scratchpad plugin, file untouched), second Hard header at x+40: found-once, strip[hard-alone], recorder failed"
+    - "H2 _draw_header second copy at y-110 (top margin): found-once and recorder failed"
+    - "H3 _draw_header second copy at y+80: strip[hard-alone] and recorder failed"
+    - "H4 _draw_header same spot: found-once, strip[hard-alone] (mismatch assertion, line 1205), recorder failed"
+  restore: "cmp of book_pdf_generator.py vs saved copy identical after each mutant and at the end; git diff HEAD -- src/ empty; git diff main...HEAD -- src/ empty; git status shows no src change"
+
+previous_findings:
+  - "F-005 resolved (verified) - section comment 920-943, class docstring 1142-1153, found-once docstring 1163-1165 now state the row-group rule and name the side-margin / over-ink exception; M1 and M10 rerun this cycle confirm side-margin copies are recorder-only; no 'clear space' / 'the margins' wording remains (grep)"
+  - "F-006 resolved (verified) - comment 932-935 and class docstring 1151-1152 say same-spot double draw is caught only incidentally; mutant c and H4 confirm it is caught today and fails at the ink-mismatch assertion"
+  - "F-004 resolved - merge-base main HEAD == main tip cf119ca (rebased)"
+
+task_contract:
+  - "AC-1 ✓ holds - found-once and strip[hard-alone] green (34 passed); mutants a, b, H1-H4 killed"
+  - "AC-2 ✓ holds - strip[two-up-*] and upper-first green; mutant a killed"
+  - "AC-3 ✓ holds - recorder per-page killed every mutant this cycle incl. side-margin M1/M10; late test green"
+  - "AC-4 ✓ holds - three renders present in ~/Documents/nonogram-reviews/CARD-170/; verdict NOT A DEFECT with evidence in Worktree notes"
+  - "AC-5 ✓ holds - mutants a and b rerun this cycle, each fail AC-1/AC-2 tests, restored (cmp)"
+  - "G-1 ✓ holds - git diff main...HEAD -- src/ and git diff HEAD -- src/ both empty after mutation check"
+  - "G-2 ✓ holds - src unchanged; git diff main...HEAD -- tests/fixtures empty"
+  - "G-3 ✓ holds - export/pdf.py unchanged; header mutants were runtime monkeypatches only"
+  - "G-4 ✓ holds - diff hunks touch only the module docstring, imports and the appended section (900+); the three named tests (lines 410, 460, 812) unedited and green"
+  - "G-5 ✓ holds - carried(cycle 2, delta-clean): delta touches neither tests/test_book_pdf_memory.py nor src"
+  - "G-6 ✓ holds - once_pages decodes export.interior via pdf_pages; delta is comments/docstrings only"
+
+system_contract:
+  rules_checked: 53
+  holds: 7
+  unchecked: 46
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds - carried(cycle 2, delta-clean): fix delta adds no import and touches no pyproject"
+    - "ADR-0037/R1 ✓ holds - src unchanged; found-once asserts expected_band(number, tier) lines; 34 passed this cycle"
+    - "CON-020 ✓ holds - src unchanged; bands found at BAND_FONT_PX (59 px = 5 mm at 300 DPI) this cycle"
+    - "INV-009 ✓ holds - src unchanged; found-once asserts ONCE_BAND_PAGES 3,3,5,5,7 (Easy, Medium, Hard), green this cycle"
+    - "INV-010 ✓ holds - src unchanged; page-count test (11) and two-up upper-first green this cycle"
+    - "INV-011 ✓ holds - src unchanged; caption control finds 'Puzzle 5 — Snowflake' once on page 11, green this cycle"
+    - "INV-013 ✓ holds - src unchanged; interior from export.interior has 11 pages, green this cycle"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked - no_eligible_fact: carried(cycle 2, delta-clean) - delta is comments/docstrings in tests/test_book_pdf_band.py; src unchanged"
+
+root_causes:
+  - id: RC-1
+    title: "The pixel class's stated reach is wider than what it detects: _lines groups by page rows, so a copy is split off only by a gap as wide as everything sharing its rows is tall"
+    finding_ids: [F-005, F-007]
+
+findings:
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_band.py
+    line: 1145
+    title: "Class docstring's 'within about a line's height sideways' sufficient condition is contradicted by M1"
+    description: |
+      The class docstring says the class "Fails if ... prints a second copy of a band on rows with no
+      other ink within about a line's height sideways". Measured on page 3: the band line is 57 px tall
+      (ink box 57x432); mutant M1's copy spans cols 180-611 and the grid starts at col 716, a 104 px gap
+      (about 1.8 line heights), yet every pixel test stays green (rerun this cycle). _lines splits a row
+      group sideways only at a gap as wide as the whole group is tall, and the group beside the drawing is
+      the 1158 px grid. The next sentence explicitly carves out "a copy beside the drawing (a side margin)",
+      and the section comment uses the phrase as a necessary condition ("found only on rows ..."), which is
+      true, so no reader is misled about any measured case. Only the general rule is loose. Not gating.
+    suggestion: |
+      Replace "within about a line's height sideways" with "sideways closer than the height of the tallest
+      ink sharing its rows (about a line's height in the band strip, slot gap and top/bottom margins; the
+      ~1158 px grid beside the drawing, which is wider than the side margin)". Do the same at line 924 if wanted.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

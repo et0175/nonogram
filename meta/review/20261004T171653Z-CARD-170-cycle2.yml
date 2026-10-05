@@ -1,0 +1,151 @@
+version: 1
+generated_at: "2026-10-04T17:16:53Z"
+target: "card/170-band-prints-once (git diff main...HEAD + uncommitted fix delta git diff HEAD -- tests/), file scope tests/test_book_pdf_band.py; confirmation mode cycle 2"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_book_pdf_band.py (fix delta in full; CARD-170 section lines 905-1302 in full: _lines, _spans, _find, _one_copy_at, _mismatch, strip test, recorder fixture)"
+    - "src/nonogram/admin/book_pdf_generator.py (_set_band draw.text, _answer_page caption)"
+    - "meta/kanban/cards/CARD-170.md (Worktree notes incl. [Fix cycle 1 ...] lines)"
+    - "meta/review/20261004T165723Z-CARD-170-cycle1.yml"
+    - "~/Documents/nonogram-reviews/CARD-170/ (3 renders listed)"
+  not_reached:
+    - "full suite not run (by instruction); only tests/test_book_pdf_band.py (34 passed)"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 30, removed: 10 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — test-only delta, no exported production symbol changed"
+    cochange_missing: "not_applicable — test-only evidence card; production peers intentionally unchanged per G-1"
+
+mutation_check:
+  ran: true
+  note: "Run on the orchestrator's explicit request. F-005 is gating, so per the certification-deferral rule the stable cycle must run it again."
+  mutants:
+    - "A (AC-5a) _set_band second draw.text at x+40: KILLED (found-once, strip[two-up-easy-upper], strip[two-up-medium-upper], two-up upper-first, recorder per-page)"
+    - "B (AC-5b) answer caption = band_identity(answer.number, payload.difficulty): KILLED (found-once, caption control, recorder per-page)"
+    - "C (recorder) _set_band draw.text duplicated at the same spot: KILLED by recorder per-page, and ALSO by found-once, both strips and upper-first (pixel class detects the same-spot double draw, contrary to the comment)"
+    - "D second _set_band copy at (x-900, y+600) in the LEFT MARGIN beside the drawing, clear of all ink (~105 px from the frame; verified printed, page 3 margin ink cols 180-611): pixel class SURVIVED, only recorder per-page failed"
+    - "E second _set_band copy at (x+width/2+700, y+600) in the RIGHT MARGIN beside the drawing: pixel class SURVIVED, only recorder per-page failed"
+  restore: "each mutant restored from a saved copy (cmp identical); git diff HEAD -- src/ empty; git diff main...HEAD -- src/ empty"
+
+previous_findings:
+  - "F-001 partially resolved — the over-ink and same-spot cases are now disclosed; but the replacement wording claims copies 'in clear space (... the margins ...)' fail the pixel tests, which mutants D/E refute; filed as F-005"
+  - "F-002 resolved — _BandDraws.late comment and test docstring now match write_page/written_at logic"
+  - "F-003 resolved — renamed to test_the_interior_has_the_page_count_this_module_reads; no stale references"
+  - "F-004 still present (out-of-scope) — branch behind main by CARD-172; three-dot src diff empty"
+
+task_contract:
+  - "AC-1 ✓ holds — found-once + strip[hard-alone] green; mutants A/B killed"
+  - "AC-2 ✓ holds — strip[two-up-*] and upper-first green; mutant A killed"
+  - "AC-3 ✓ holds — recorder per-page kills A-E; late test green"
+  - "AC-4 ✓ holds — three renders present; verdict 'not a defect' recorded in Worktree notes"
+  - "AC-5 ✓ holds — mutants A and B rerun this cycle, both fail AC-1/AC-2 tests, reverted"
+  - "G-1 ✓ holds — git diff main...HEAD -- src/ and git diff HEAD -- src/ both empty"
+  - "G-2 ✓ holds — src unchanged, so no pixel can change; baseline fixtures untouched (git diff main...HEAD -- tests/fixtures empty)"
+  - "G-3 ✓ holds — src unchanged"
+  - "G-4 ✓ holds — the three named tests are untouched by the delta (hunks start at line 917) and green in the 34-pass run"
+  - "G-5 ✓ holds — carried(cycle 1, delta-clean): tests/test_book_pdf_memory.py and src not in the delta"
+  - "G-6 ✓ holds — once_pages decodes export.interior via pdf_pages; delta adds only comments/docstrings and a rename"
+
+system_contract:
+  rules_checked: 53
+  holds: 7
+  unchecked: 46
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean): delta adds no import and touches no pyproject"
+    - "ADR-0037/R1 ✓ holds — src unchanged; found-once asserts expected_band(number, tier) lines; 34 passed this cycle"
+    - "CON-020 ✓ holds — src unchanged; band found at BAND_FONT_PX (59 px = 5 mm at 300 DPI) in this cycle's run"
+    - "INV-009 ✓ holds — src unchanged; found-once asserts ONCE_BAND_PAGES 3,3,5,5,7 (Easy, Medium, Hard order), green this cycle"
+    - "INV-010 ✓ holds — src unchanged; page-count test (11) and two-up upper-first green this cycle"
+    - "INV-011 ✓ holds — src unchanged; caption control finds 'Puzzle 5 — Snowflake' once on page 11, green this cycle"
+    - "INV-013 ✓ holds — src unchanged; interior from export.interior has 11 pages, green this cycle"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked — no_eligible_fact: carried(cycle 1, delta-clean) — the delta is comments/docstrings/a rename in tests/test_book_pdf_band.py; src unchanged"
+
+root_causes:
+  - id: RC-1
+    title: "The pixel class's stated reach is wider than what it detects: _lines groups by page rows, so a copy is found only on rows carrying no other ink nearby"
+    finding_ids: [F-001, F-005]
+
+findings:
+  - id: F-005
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_band.py
+    line: 920
+    title: "Fix wording over-claims: a second copy in the side margins, clear of all ink, passes every pixel test"
+    description: |
+      The new section comment (lines 920-924) says a copy that "lands in clear space (the band
+      strip, the margins, the gap between two-up slots) ... fail[s] these pixel tests"; the class
+      docstring (lines 1131-1133) repeats "in clear space (the band strip, the margins, ...)", and
+      the found-once docstring (1147-1148) says only "a copy over other ink is not found". _lines
+      (line ~1085) cuts a page first into row spans (any ink in a row joins it), then splits a span
+      horizontally only at gaps wider than the span's height. Beside the drawing that span is the
+      whole grid (1158 px tall), so a copy in the 716 px left margin merges with the grid into one
+      "line" that matches no reference. Mutants D (copy at x-900, y+600, ink at cols 180-611, ~105 px
+      from the frame, no overlap; crop scratchpad/c2_mutD_page3_crop.png) and E (right margin) left
+      every pixel test green; only the recorder per-page test failed. The card's [Fix cycle 1, F-001
+      correction] note carries the same "the margins" claim. The verdict still stands (the recorder
+      catches it); the wording is what over-claims — the cycle-1 pattern again.
+    suggestion: |
+      State the actual rule: the pixel class finds a copy only on page rows that carry no other ink
+      within about a line's height of it horizontally (the band strip, the gap between two-up slots,
+      the top/bottom margins). A copy beside the drawing (side margins), over other ink, is caught
+      only by the recorder (AC-3). Fix lines 920-924, 1131-1136, 1147-1148, and the card note.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_band.py
+    line: 926
+    title: "Comment says the pixel tests cannot tell a same-spot double draw apart, but mutant C shows they do"
+    description: |
+      Lines 926-927 (and 1135 "or on the band's own pixels, is not seen here") say two copies at
+      exactly the same spot cannot be told apart. Mutant C (draw.text duplicated verbatim in
+      _set_band) failed found-once, both two-up strips and upper-first as well as the recorder:
+      double antialiased ink darkens edge pixels past INK_LEVEL and the ink mismatch exceeds 3 %.
+      This under-claims, which is safe, but the comment is still inaccurate.
+    suggestion: "Say that a same-spot double draw is currently caught (by antialias thickening) but that this is incidental; the recorder is the guaranteed check."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_book_pdf_band.py
+    line: 1
+    title: "Branch still behind main by CARD-172"
+    description: "main moved (CARD-172 changed book_proof.py). Three-dot src diff empty; G-1 holds. Tests not run on main's head."
+    suggestion: "Rebase or run the band tests after merge."
+    confidence: high
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

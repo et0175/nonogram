@@ -90,6 +90,8 @@ card names its card._
 
 - [ ] CARD-171 note: catching ValueError around `set_book_status` in Finalise sends its other refusals ("published", "no puzzles", "invalid status") to a flash with no log line (never logged before either; only the plan-gate case is tested) — decide whether they are owner refusals or errors   @tech-debt
 
+- [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other ink within about a line's height sideways" rule loosely; no measured case is misdescribed   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

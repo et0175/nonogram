@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-05
+- CARD-170 (tech-debt): Checked and confirmed: each puzzle's "Puzzle N · Tier" heading prints exactly once in the book. The second drawing a check had spotted lands on a scratch page that is thrown away and never reaches the PDF. New tests read the exported PDF's pixels and record every drawing call, so a heading that really did print twice would now fail.
 - CARD-171 (feature): When the page plan can't be built, opening Finalise now shows an error page that names the problem instead of Flask's generic "Internal Server Error", and logs it once instead of twice. Any other error a Finalise action reports on screen, or a PDF download hits, is now also written to the log with its traceback, so a one-off failure no longer vanishes. The plan check's "not ready" refusal still just tells you on screen.
 
 ## 2026-10-04
