@@ -29,6 +29,7 @@ _Updated: 2026-10-04 UTC_
 | 31 | CARD-160 P2, CARD-161 P2, CARD-162 P2, CARD-163 P2 | ✓ done — all 4 merged |
 | 32 | CARD-164 P1, CARD-165 P2, CARD-166 P2, CARD-167 P2, CARD-168 P2 | ✓ done — all 5 merged; full suite exit 0 |
 | 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ✓ done — all 8 merged (CARD-170 after an owner-chosen targeted fix) |
+| 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2 | ready — roadmap wave 1 (re-plan 2026-10-05) |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -48,6 +49,14 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
+- [CARD-177](cards/CARD-177.md) P1 · 0.5d · wave 34 — Finalise and the book PDF downloads flash a generic error, not the exception's text
+- [CARD-178](cards/CARD-178.md) P2 · 0.5d · wave 34 — A book reopened in inches never shows a trim outside the stated limits
+- [CARD-179](cards/CARD-179.md) P2 · 0.25d · wave 34 — The wrapped proof note keeps each number with its unit and never starts a line with "×"
+- [CARD-180](cards/CARD-180.md) P3 · 0.5d · wave 34 — Book selection: `?status=all` lists every status instead of nothing
+- [CARD-181](cards/CARD-181.md) P3 · 0.5d · wave 34 — A batch remembers the tier it asked for, and its pages show it
+- [CARD-182](cards/CARD-182.md) P3 · 0.5d · wave 34 — Puzzle player cells are a usable tap target on a 390 px phone
+- [CARD-183](cards/CARD-183.md) P3 · 0.75d · wave 34 — The puzzle player gets a Hint button that reveals one deducible cell
+- [CARD-184](cards/CARD-184.md) P2 · 0.5d · wave 34 — One test holds every interior face to CON-020's 10 pt floor, and the two faces below it today are fixed
 
 ## In Progress
 

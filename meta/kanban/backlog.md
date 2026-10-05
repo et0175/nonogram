@@ -14,7 +14,6 @@ card names its card._
 - [ ] `system_rules.py --verify-refs` matches text, so a name inside a comment counts as "found": it reports `dead_check_ref: []` with `check_refs_verified: true` while the refs above are dead. Make it resolve a collectible pytest node id, and make `adr_integrity` fail on a dead ref instead of warning (lives in forge_1, outside this repo)   @tech-debt
 - [ ] ADR-0029/R4's ref `test_every_import_in_the_package_points_inward` exists but tests the import graph, not the rule (overlap masks relative to a line's known cells). No dead-ref check can catch a check that can't test its rule   @tech-debt
 - [ ] Validator ERROR, pre-existing on main: `ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025`. The guess-tier ADR chain cannot be resolved   @tech-debt
-- [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor (CARD-149's three tests cover the guide page only). A test enumerating every `truetype`/`load_default` call on an interior page would make it `covered`   @tech-debt
 - [ ] The deployed panel's 512 MB memory limit is not an NFR anywhere (CARD-145). The export could break it through five waves with every gate green. Needs an NFR with a check   @tech-debt
 - [ ] Wave-30 goal-check (lean b, requirements incomplete): behaviours shipped by CARD-158/159 exist only as card ACs, not in requirements.yml: inches trims reachable on Print setup, the stored trim on the book page ("Not set"/"Cannot be read"), step prose agreeing with the stepper, /book/create keeping typed input, two download buttons per page, lost-cover handling (FR-043 has no AC for it). Formalise as ACs   @tech-debt
 
@@ -55,7 +54,6 @@ card names its card._
 - [ ] CARD-160 F-006 (minor): the /puzzle/<id>/solve route calls the private `PuzzleReviewService._as_readable_grid`; expose a public read   @tech-debt
 - [ ] CARD-160 F-012 (minor): `isBoard` reads `value.cells` instead of own data (mutant survived); outside the trusted-in-page scope the owner set, still refused before painting   @tech-debt
 - [ ] CARD-161 F-008/F-009/F-010 (minor): the usage hint is never asserted visible (mutant survived); solver.js header says drags use "the selected tool" (it's the tool at pointerdown) and the isZ comment says "non-Latin" where it means any non a-z key; the older scripted-focus keyboard test is superseded by the parametrized ones   @tech-debt
-- [ ] CARD-161 F-006: player cells are ~18 px at 390 px width, a small tap target for phones (CARD-160 cell sizing)   @feature
 - [ ] Puzzle player: cells cannot be marked from the keyboard (no AC asks for it; controls are keyboard-reachable). Needs its own card if wanted   @feature
 - [ ] Flake watch: `tests/test_book_ready_gate.py::…test_save_plan_returns_the_book_to_draft[db-ready_for_pdf]` failed once in CARD-161's gate 0 and passed 3x in isolation and in every later gate   @tech-debt
 - [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…" no longer clearly refers to the banner; the redo-button-noop case doesn't assert Redo is aria-disabled before the click   @tech-debt
@@ -70,10 +68,8 @@ card names its card._
 - [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the single-puzzle-page path (no shared two-up fixture); the no-plan banner points to Finalise even when the cause is a code bug; the stored-order fallback with a repeated id is untested (mutant survived)   @tech-debt
 - [ ] CARD-167 F-101/F-103 (minor): the 10 pt floor test measures top-to-baseline, so wrapped lines without capitals under-read (~8.4 pt for 11 pt type; at 11x17 cm "way." wraps alone); the spacing after each example drawing is untested; CARD-149's type-test docstrings quote the old guide text   @tech-debt
 - [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked in pt elsewhere)   @tech-debt
-- [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing, pinned by CARD-166's G-2) — should "all" list every status there, or be removed?   @feature
 - [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap's literal .5rem padding (equal by value only); both new test files import private helpers and browser fixtures from tests/test_puzzle_solver_page.py — move shared fixtures to conftest/helpers   @tech-debt
 
-- [ ] CARD-171 drafting (pre-existing): Finalise's outer handler flashes `str(e)`, so a DB error's text (possibly connection details) can reach the screen on a panel the public can reach (ADR-0030). Flash a generic message, log the detail   @compliance
 - [ ] CARD-170 drafting: a puzzle printed alone goes through `_blank_page` → COMP-007 `render_pages`, which also renders the solved page that `_blank_page` throws away: one wasted full-size page image per lone puzzle (memory/time). Needs a `render_pages` change in COMP-007   @tech-debt
 
 - [ ] CARD-176 F-001/F-002 (minor): no test row pins the documented echo of a bare leading token (`hunter2://`); AC-1's echo check accepts any corpus scheme rather than the one drawn for that case   @tech-debt
@@ -84,7 +80,6 @@ card names its card._
 
 - [ ] CARD-172 F-001/F-002 (minor): a test comment credits the 1493/2048 cap-height ratio to an OS/2 field the bundled font lacks (value correct); `_annotate`'s docstring claims square page 2 keeps its foot note but only 11×8.5 is asserted   @tech-debt
 - [ ] CARD-172 F-003: `_annotate` takes a narrow outer side strip before a clue corner that fits — on e.g. an 8.5×8 trim with a small outside margin the note becomes 30+ one-word lines. Not reached on the card's trims; prefer the corner when the strip is narrower than N mm   @tech-debt
-- [ ] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start a line with "×" — keep units and × with their numbers (owner accepted the current renders)   @feature
 
 - [ ] CARD-175 F-001/F-002/F-004 (minor): the plan-hints summary uses the browser's default focus ring, not the `--color-focus` ring; plural-test comments name per-cell hints the test doesn't assert; a test comment still says ~176 px (now ~169 px)   @tech-debt
 
@@ -92,18 +87,19 @@ card names its card._
 
 - [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other ink within about a line's height sideways" rule loosely; no measured case is misdescribed   @tech-debt
 
-- [ ] CARD-174 F-003: a book stored at 48.0 cm reopens in inches showing 18.90 next to the stated 18.89 in maximum — the reopen conversion should round inward like the limits   @feature
 - [ ] CARD-174 F-004 (minor): tests/test_print_specs.py:524 comment says 18.8976 × 2.54 = 48.0 (it is 47.999904; the assertion is right). Also owner wording check: the inch minimum refusal says "on both sides" where the cm one says "in both dimensions"   @tech-debt
 
 - [ ] CARD-169 owner look (2026-10-05): the deferred visual check found the Finalise guide preview needs changes — owner to say what   @feature
+
+- [ ] CARD-177 drafting: other handlers still flash/return raw exception text — `delete_book` (pure DB call; strongest), the Finalise cover upload, proof pages (owner refusal mixed with real errors), batch upload/generate, and five API routes returning plain-text 500 bodies   @compliance
+- [ ] Architect delta (CARD-183): FR-044 says "Hints are out of scope"; the owner chose a reveal-one-cell hint (2026-10-05) — amend FR-044 with the hint ACs   @tech-debt
+- [ ] Architect decision (CARD-184): puzzle-page clue digits scale with the cell (8.6 pt on Book 1 30×30, 3.6 pt at the 10 cm trim; the 4.8 mm cell floor caps them ~8.4 pt) — should CON-020 exclude clue digits, or the cell floor rise? CARD-184 exempts them by name in its test; also flip CON-020 to its new test   @tech-debt
 
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt
 
 ## Features and UX (not carded yet)
-- [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so the panel can't show what a batch was aiming at. Needs a column and a migration   @feature
-- [ ] Online solver: a hint button (the owner's doc makes it optional; left out of CARD-160..162)   @feature
 - [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the persisted puzzle-number mapping (raw-requirements Delta 2026-09-24 (a)); the admin POC ships the solution inside the page, which a public solver must not   @feature
 
 ## Process (forge machinery, not this repo's code)
@@ -111,6 +107,16 @@ card names its card._
 - [ ] Gate hazard (CARD-138): from an older wave branch, `git diff main` reports main's newer files as deletions, including ones matching guardrail globs like `book_*.py`. Every scope and guardrail verdict must be taken against the merge base   @tech-debt
 - [ ] Two full-suite lock conventions: cmd-start-review documents a `mkdir` lock on `meta/kanban/.full-suite.lock`, but the dispatcher takes it with `exec 9>` + `flock`, which creates a regular file the `mkdir` form can never acquire. Pick one   @tech-debt
 - [ ] Near miss (2026-09-24): two mutation skeptics ran concurrently on the same file. The failure mode is a silently contaminated verdict. The card brief should forbid concurrent mutation skeptics on one file without a lock   @tech-debt
+
+## Carded 2026-10-05 (roadmap wave 1 → kanban wave 34)
+- [x] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor (CARD-149's three tests cover the guide page only). A test enumerating every `truetype`/`load_default` call on an interior page would make it `covered`   @tech-debt → **CARD-184**
+- [x] CARD-161 F-006: player cells are ~18 px at 390 px width, a small tap target for phones (CARD-160 cell sizing)   @feature → **CARD-182**
+- [x] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing, pinned by CARD-166's G-2) — should "all" list every status there, or be removed?   @feature → **CARD-180**
+- [x] CARD-171 drafting (pre-existing): Finalise's outer handler flashes `str(e)`, so a DB error's text (possibly connection details) can reach the screen on a panel the public can reach (ADR-0030). Flash a generic message, log the detail   @compliance → **CARD-177**
+- [x] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start a line with "×" — keep units and × with their numbers (owner accepted the current renders)   @feature → **CARD-179**
+- [x] CARD-174 F-003: a book stored at 48.0 cm reopens in inches showing 18.90 next to the stated 18.89 in maximum — the reopen conversion should round inward like the limits   @feature → **CARD-178**
+- [x] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so the panel can't show what a batch was aiming at. Needs a column and a migration   @feature → **CARD-181**
+- [x] Online solver: a hint button (the owner's doc makes it optional; left out of CARD-160..162)   @feature → **CARD-183**
 
 ## Carded 2026-10-04 (roadmap wave 1 → kanban wave 33)
 - [x] CARD-148 F-001: `db/session.py`'s `_scheme_of` echoes anything before the first `://`, so `postgresql:hunter2://h/db` puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt → **CARD-176**

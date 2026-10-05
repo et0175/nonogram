@@ -46,7 +46,7 @@ ideas:
     most, because it''s still live evidence (hardcoded as `PRE_CARD_BASELINE`)   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: rejected
   method: wsjf
   scores:
     user_business_value: 1
@@ -62,8 +62,9 @@ ideas:
   depends_on: []
   needs_owner_decision: true
   source_line: 9
-  wave: 1
-  rank: 10
+  rejection_class: value-unproven
+  rejected_at: '2026-10-05'
+  reason: 'Owner 2026-10-05: leave the baseline fixtures as they are'
 - id: IDEA-002
   title: 'Per-directory READMEs: adopt or drop the docs step'
   raw: '- [ ] Per-directory READMEs: no directory under `src/` has one, so every book card skips the docs step,
@@ -212,7 +213,7 @@ ideas:
     page would make it `covered`   @tech-debt'
   category: tech-debt
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 5
@@ -229,6 +230,7 @@ ideas:
   source_line: 18
   wave: 1
   rank: 9
+  card: CARD-184
 - id: IDEA-009
   title: NFR + check for the deployed panel's 512 MB memory limit
   raw: '- [ ] The deployed panel''s 512 MB memory limit is not an NFR anywhere (CARD-145). The export could break
@@ -1346,7 +1348,7 @@ ideas:
     sizing)   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -1363,6 +1365,7 @@ ideas:
   source_line: 69
   wave: 1
   rank: 6
+  card: CARD-182
 - id: IDEA-058
   title: Keyboard marking of player cells
   raw: '- [ ] Puzzle player: cells cannot be marked from the keyboard (no AC asks for it; controls are keyboard-reachable).
@@ -1715,7 +1718,7 @@ ideas:
     the panel can''t show what a batch was aiming at. Needs a column and a migration   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 3
@@ -1732,12 +1735,13 @@ ideas:
   source_line: 89
   wave: 1
   rank: 5
+  card: CARD-181
 - id: IDEA-074
   title: Online solver hint button
   raw: '- [ ] Online solver: a hint button (the owner''s doc makes it optional; left out of CARD-160..162)   @feature'
   category: feature
   intent: null
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -1754,6 +1758,9 @@ ideas:
   source_line: 90
   wave: 1
   rank: 7
+  owner_decision: '2026-10-05: reveal one cell — an unknown cell line-logic could deduce now, set to its correct
+    state, counted as a hint, undoable'
+  card: CARD-183
 - id: IDEA-075
   title: 'Online solver public phase: hosting, QR URLs, no solution'
   raw: '- [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the persisted
@@ -2011,7 +2018,7 @@ ideas:
   raw: '- [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked
     in pt elsewhere)   @tech-debt'
   category: tech-debt
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -2028,12 +2035,14 @@ ideas:
   scored_at: '2026-10-04'
   wave: 3
   rank: 24
+  card: CARD-184
+  note: divider half folded into CARD-184; cover half stays (cover is not interior, INV-013)
 - id: IDEA-088
   title: '`?status=all` on book selection shows no puzzles (owner call)'
   raw: '- [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing,
     pinned by CARD-166''s G-2) — should "all" list every status there, or be removed?   @feature'
   category: feature
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -2047,11 +2056,12 @@ ideas:
     job_size: One branch + test
   priority_score: 4.0
   depends_on: []
-  needs_owner_decision: true
   scored_at: '2026-10-04'
   held: 'owner call pending: list every status, or remove the "all" option'
   wave: 1
   rank: 4
+  owner_decision: '2026-10-05: "all" lists every status'
+  card: CARD-180
 - id: IDEA-089
   title: Plan-input CSS comment accuracy; shared test fixtures to conftest/helpers
   raw: '- [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap''s literal .5rem
@@ -2105,7 +2115,7 @@ ideas:
     (possibly connection details) can reach the screen on a panel the public can reach (ADR-0030). Flash a generic
     message, log the detail   @compliance'
   category: compliance
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -2122,6 +2132,7 @@ ideas:
   scored_at: '2026-10-05'
   wave: 1
   rank: 11
+  card: CARD-177
 - id: IDEA-092
   title: Lone puzzles render a discarded solved page (COMP-007 render_pages)
   raw: '- [ ] CARD-170 drafting: a puzzle printed alone goes through `_blank_page` → COMP-007 `render_pages`, which
@@ -2275,7 +2286,7 @@ ideas:
   raw: '- [ ] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start a line
     with "×" — keep units and × with their numbers (owner accepted the current renders)   @feature'
   category: feature
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -2292,6 +2303,7 @@ ideas:
   scored_at: '2026-10-05'
   wave: 1
   rank: 3
+  card: CARD-179
 - id: IDEA-100
   title: 'CARD-175 minors: summary focus ring token; test comments'
   raw: '- [ ] CARD-175 F-001/F-002/F-004 (minor): the plan-hints summary uses the browser''s default focus ring,
@@ -2365,7 +2377,7 @@ ideas:
   raw: '- [ ] CARD-174 F-003: a book stored at 48.0 cm reopens in inches showing 18.90 next to the stated 18.89
     in maximum — the reopen conversion should round inward like the limits   @feature'
   category: feature
-  status: backlog
+  status: in_kanban
   method: wsjf
   scores:
     user_business_value: 2
@@ -2382,6 +2394,7 @@ ideas:
   scored_at: '2026-10-05'
   wave: 1
   rank: 2
+  card: CARD-178
 - id: IDEA-104
   title: 'CARD-174 minors: 47.9999 comment; "on both sides" wording'
   raw: '- [ ] CARD-174 F-004 (minor): tests/test_print_specs.py:524 comment says 18.8976 × 2.54 = 48.0 (it is 47.999904;
@@ -2429,3 +2442,4 @@ ideas:
   needs_owner_decision: true
   wave: 1
   rank: 1
+  held: owner to describe the change (2026-10-05)
