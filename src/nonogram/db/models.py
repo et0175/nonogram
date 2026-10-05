@@ -36,6 +36,10 @@ class Batch(Base):
     sizes = Column(JSON, nullable=True)
     theme = Column(String, nullable=True)
     quality_filter = Column(Integer, nullable=True)
+    # CARD-181 (migration 014): the canonical tier a random batch asked for
+    # ('easy'/'medium'/'hard'). NULL means no tier recorded: an untargeted
+    # batch, an image batch, or any batch made before 014.
+    requested_tier = Column(String, nullable=True)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
