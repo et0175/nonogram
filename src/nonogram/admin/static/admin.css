@@ -426,6 +426,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    from selecting clue numbers. */
 .player-board { user-select: none; -webkit-user-select: none; }
 .player-cell { cursor: pointer; touch-action: none; }
+/* Phone tap target (CARD-182): below the shell breakpoint the cell floor is
+   24 px (WCAG 2.2 target size, 2.5.8); a board wider than the stage scrolls
+   inside .player-stage. Clue boxes keep the default touch-action (auto), so
+   a swipe that starts on the column-clue band pans it. */
+@media (max-width: 820px) { .player-stage { --player-cell-min: 24px; } }
 /* ToolPicker + history controls: one row above the board (wrapping on a phone);
    the usage hint sits below the board. A tool is a
    toggle button (aria-pressed); the pressed one takes the accent. Undo, redo
