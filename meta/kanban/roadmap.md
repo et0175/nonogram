@@ -21,25 +21,30 @@ Wave budget **3 days** of card work. Day calibration halved after the wave-32 re
 
 ⚑ Effort signal (cross-project, medium confidence): python-pro feature cards run 0.41× of estimate (12 cards) — feature job sizes may be high.
 
-⚑ 15 backlog items added during wave 33 (review leftovers, two drafting finds, the CARD-169 owner look) are not scored yet and are not in this plan — run `/forge:roadmap score` to fold them in.
+Scored 2026-10-05: the 15 wave-33 leftovers as IDEA-091..105 (IDEA-096 screened as a duplicate of IDEA-105).
 
 ⚑ Carried from the last plan uncarded: IDEA-007 and IDEA-065 need an `/forge:architect` session (cards cannot commit under meta/); IDEA-088 waits on your call; IDEA-080 is your Render-dashboard action.
 
-⚑ Owner decisions / actions inside the plan: IDEA-001, IDEA-002, IDEA-080, IDEA-088 (IDEA-080 is yours to do in the Render dashboard; it is not card work).
+⚑ Owner decisions / actions inside the plan: IDEA-001, IDEA-002, IDEA-080, IDEA-088, IDEA-104, IDEA-105 (IDEA-080 is yours to do in the Render dashboard; it is not card work).
 
-## Wave 1 (next iteration) — 2.62 d
+## Wave 1 (next iteration) — 2.75 d
 
-### feature  (1.25 d)
-1. **IDEA-088** `?status=all` on book selection shows no puzzles (owner call) (WSJF 4.0) — 0.125 d · ⚑ owner
-2. **IDEA-073** Store a targeted batch's requested tier (column+migration) (WSJF 1.67) — 0.375 d
-3. **IDEA-057** Player cells ~18 px at 390 px (tap target) (WSJF 1.33) — 0.375 d
-4. **IDEA-074** Online solver hint button (WSJF 1.33) — 0.375 d
+### feature  (1.62 d)
+1. **IDEA-105** Finalise guide preview needs changes after the owner look (owner to specify) (WSJF 9.0) — 0.125 d · ⚑ owner
+2. **IDEA-103** 48.0 cm book reopens in inches as 18.90 (> 18.89 max) (WSJF 6.0) — 0.125 d
+3. **IDEA-099** Proof-note wrap splits "4.58 / mm" and starts lines with × (WSJF 5.0) — 0.125 d
+4. **IDEA-088** `?status=all` on book selection shows no puzzles (owner call) (WSJF 4.0) — 0.125 d · ⚑ owner
+5. **IDEA-073** Store a targeted batch's requested tier (column+migration) (WSJF 1.67) — 0.375 d
+6. **IDEA-057** Player cells ~18 px at 390 px (tap target) (WSJF 1.33) — 0.375 d
+7. **IDEA-074** Online solver hint button (WSJF 1.33) — 0.375 d
 
-### tech-debt  (1.12 d)
+### tech-debt  (0.75 d)
 1. **IDEA-007** Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession (WSJF 8.0) — 0.25 d
 2. **IDEA-008** CON-020: test 10 pt floor on every interior face (WSJF 7.0) — 0.375 d
-3. **IDEA-082** Five hollow e2e tests post the dead `images` field (WSJF 7.0) — 0.25 d
-4. **IDEA-021** book_proof.render_proof_pdf still writes DeviceRGB (WSJF 6.5) — 0.25 d
+3. **IDEA-001** Fixture superseded_by back-pointers (CARD-147 F-007) (WSJF 5.0) — 0.125 d · ⚑ owner
+
+### compliance  (0.12 d)
+1. **IDEA-091** Finalise flash echoes str(e) — DB error text on a public panel (WSJF 13.0) — 0.125 d
 
 ### ops  (0.25 d)
 1. **IDEA-065** CI step 'playwright install chromium' (ADR-0038/R8) (FIFO) — 0.125 d
@@ -48,42 +53,42 @@ Wave budget **3 days** of card work. Day calibration halved after the wave-32 re
 ## Wave 2 — 2.38 d
 
 ### tech-debt  (2.38 d)
-1. **IDEA-004** Fix dead check: refs on mandatory rules (CON-005, INV-*) (WSJF 6.6) — 0.75 d
-2. **IDEA-069** Upload tests glob shared temp dir (parallel interference) (WSJF 6.5) — 0.25 d
-3. **IDEA-001** Fixture superseded_by back-pointers (CARD-147 F-007) (WSJF 5.0) — 0.125 d · ⚑ owner
-4. **IDEA-006** ADR-0029/R4 check can't test its rule (overlap masks) (WSJF 5.0) — 0.25 d
-5. **IDEA-017** Pin migrations/env.py URL-not-logged by assertion (CARD-148) (WSJF 5.0) — 0.125 d
-6. **IDEA-034** db_required hook pings DATABASE_URL before _test guard (WSJF 5.0) — 0.125 d
-7. **IDEA-044** validate_margins accepts below 0.635 cm minimum (WSJF 5.0) — 0.125 d
-8. **IDEA-083** Size test not tied to the form's field names (mutant M8) (WSJF 5.0) — 0.125 d
-9. **IDEA-087** Divider and cover pages set type in px, not pt (CON-020) (WSJF 5.0) — 0.25 d
-10. **IDEA-011** Hand-edit mark not released on revert (CARD-120 F-007) (WSJF 4.5) — 0.25 d
+1. **IDEA-082** Five hollow e2e tests post the dead `images` field (WSJF 7.0) — 0.25 d
+2. **IDEA-004** Fix dead check: refs on mandatory rules (CON-005, INV-*) (WSJF 6.6) — 0.75 d
+3. **IDEA-021** book_proof.render_proof_pdf still writes DeviceRGB (WSJF 6.5) — 0.25 d
+4. **IDEA-069** Upload tests glob shared temp dir (parallel interference) (WSJF 6.5) — 0.25 d
+5. **IDEA-006** ADR-0029/R4 check can't test its rule (overlap masks) (WSJF 5.0) — 0.25 d
+6. **IDEA-017** Pin migrations/env.py URL-not-logged by assertion (CARD-148) (WSJF 5.0) — 0.125 d
+7. **IDEA-034** db_required hook pings DATABASE_URL before _test guard (WSJF 5.0) — 0.125 d
+8. **IDEA-044** validate_margins accepts below 0.635 cm minimum (WSJF 5.0) — 0.125 d
+9. **IDEA-083** Size test not tied to the form's field names (mutant M8) (WSJF 5.0) — 0.125 d
+10. **IDEA-100** CARD-175 minors: summary focus ring token; test comments (WSJF 5.0) — 0.125 d
 
 ## Wave 3 — 2.38 d
 
 ### tech-debt  (2.38 d)
-1. **IDEA-009** NFR + check for the deployed panel's 512 MB memory limit (WSJF 4.67) — 0.375 d
-2. **IDEA-024** Undrawable row shown between page labels w/o marker (WSJF 4.5) — 0.25 d
-3. **IDEA-031** Concurrent runs share nonogram_test; DROP SCHEMA races (WSJF 4.33) — 0.375 d
-4. **IDEA-014** Memory mode get_book returns live Book (CARD-136) (WSJF 4.0) — 0.25 d
-5. **IDEA-029** Stale 'four members' enum_note + ADR-0025 test narrative (WSJF 4.0) — 0.125 d
-6. **IDEA-035** diagnose_postgres.sh hardcodes nonogram_poc (WSJF 4.0) — 0.125 d
-7. **IDEA-038** admin_scripts helper imports private test names (WSJF 4.0) — 0.125 d
-8. **IDEA-054** Public read instead of _as_readable_grid (CARD-160 F-006) (WSJF 4.0) — 0.125 d
-9. **IDEA-055** isBoard reads value.cells (mutant survived) (WSJF 4.0) — 0.125 d
-10. **IDEA-062** Player shows tier 'MEDIUM' upper-case (WSJF 4.0) — 0.125 d
-11. **IDEA-068** Vacuous trim assertion in DB mode (CARD-120 F-009) (WSJF 4.0) — 0.25 d
-12. **IDEA-081** scripts/README Manual Commands run pytest against nonogram_poc (WSJF 4.0) — 0.125 d
+1. **IDEA-087** Divider and cover pages set type in px, not pt (CON-020) (WSJF 5.0) — 0.25 d
+2. **IDEA-009** NFR + check for the deployed panel's 512 MB memory limit (WSJF 4.67) — 0.375 d
+3. **IDEA-011** Hand-edit mark not released on revert (CARD-120 F-007) (WSJF 4.5) — 0.25 d
+4. **IDEA-024** Undrawable row shown between page labels w/o marker (WSJF 4.5) — 0.25 d
+5. **IDEA-031** Concurrent runs share nonogram_test; DROP SCHEMA races (WSJF 4.33) — 0.375 d
+6. **IDEA-014** Memory mode get_book returns live Book (CARD-136) (WSJF 4.0) — 0.25 d
+7. **IDEA-029** Stale 'four members' enum_note + ADR-0025 test narrative (WSJF 4.0) — 0.125 d
+8. **IDEA-035** diagnose_postgres.sh hardcodes nonogram_poc (WSJF 4.0) — 0.125 d
+9. **IDEA-038** admin_scripts helper imports private test names (WSJF 4.0) — 0.125 d
+10. **IDEA-054** Public read instead of _as_readable_grid (CARD-160 F-006) (WSJF 4.0) — 0.125 d
+11. **IDEA-055** isBoard reads value.cells (mutant survived) (WSJF 4.0) — 0.125 d
 
 ## Later waves (summary)
 
 | Wave | Ideas | Days |
 |--:|---|--:|
-| 4 | IDEA-010, IDEA-059, IDEA-012, IDEA-015, IDEA-020, IDEA-023, IDEA-026, IDEA-027, IDEA-030, IDEA-037, IDEA-039, IDEA-043 | 2.38 |
-| 5 | IDEA-050, IDEA-053, IDEA-060, IDEA-064, IDEA-028, IDEA-022, IDEA-025, IDEA-032, IDEA-045, IDEA-052 | 2.38 |
-| 6 | IDEA-058, IDEA-084, IDEA-002, IDEA-019, IDEA-033, IDEA-042, IDEA-056 | 2.38 |
-| 7 | IDEA-075, IDEA-086, IDEA-089 | 3.50 |
-| 8 | IDEA-018 | 0.38 |
+| 4 | IDEA-062, IDEA-068, IDEA-081, IDEA-093, IDEA-097, IDEA-101, IDEA-010, IDEA-059, IDEA-012, IDEA-015, IDEA-020 | 2.38 |
+| 5 | IDEA-023, IDEA-026, IDEA-027, IDEA-030, IDEA-037, IDEA-039, IDEA-043, IDEA-050, IDEA-053, IDEA-060, IDEA-064, IDEA-092, IDEA-094, IDEA-095, IDEA-102 | 2.38 |
+| 6 | IDEA-058, IDEA-104, IDEA-028, IDEA-022, IDEA-025, IDEA-032, IDEA-045 | 2.25 |
+| 7 | IDEA-075, IDEA-052, IDEA-084 | 3.50 |
+| 8 | IDEA-098, IDEA-002, IDEA-019, IDEA-033, IDEA-042, IDEA-056, IDEA-086, IDEA-089 | 2.12 |
+| 9 | IDEA-018 | 0.38 |
 
 ⚠ IDEA-075 (online solver, public phase, ~3 d) overflows its bucket and sits late only because QR in Book 1 is undecided. If QR is confirmed it jumps to the top and needs a /forge:architect delta first.
 
@@ -91,71 +96,85 @@ Wave budget **3 days** of card work. Day calibration halved after the wave-32 re
 
 | Rank | Wave | ID | Idea | Cat | Score | Depends |
 |--:|--:|---|---|---|--:|---|
-| 1 | 1 | IDEA-088 | `?status=all` on book selection shows no puzzles (owner call) | feature | 4.0 | — |
-| 2 | 1 | IDEA-073 | Store a targeted batch's requested tier (column+migration) | feature | 1.67 | — |
-| 3 | 1 | IDEA-057 | Player cells ~18 px at 390 px (tap target) | feature | 1.33 | — |
-| 4 | 1 | IDEA-074 | Online solver hint button | feature | 1.33 | — |
-| 5 | 1 | IDEA-007 | Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession | tech-debt | 8.0 | — |
-| 6 | 1 | IDEA-008 | CON-020: test 10 pt floor on every interior face | tech-debt | 7.0 | — |
-| 7 | 1 | IDEA-082 | Five hollow e2e tests post the dead `images` field | tech-debt | 7.0 | — |
-| 8 | 1 | IDEA-021 | book_proof.render_proof_pdf still writes DeviceRGB | tech-debt | 6.5 | — |
-| 9 | 1 | IDEA-065 | CI step 'playwright install chromium' (ADR-0038/R8) | ops | FIFO | — |
-| 10 | 1 | IDEA-080 | Fill render.md TODO(owner) rows from the Render dashboard | ops | FIFO | — |
-| 11 | 2 | IDEA-004 | Fix dead check: refs on mandatory rules (CON-005, INV-*) | tech-debt | 6.6 | — |
-| 12 | 2 | IDEA-069 | Upload tests glob shared temp dir (parallel interference) | tech-debt | 6.5 | — |
-| 13 | 2 | IDEA-001 | Fixture superseded_by back-pointers (CARD-147 F-007) | tech-debt | 5.0 | — |
-| 14 | 2 | IDEA-006 | ADR-0029/R4 check can't test its rule (overlap masks) | tech-debt | 5.0 | — |
-| 15 | 2 | IDEA-017 | Pin migrations/env.py URL-not-logged by assertion (CARD-148) | tech-debt | 5.0 | — |
-| 16 | 2 | IDEA-034 | db_required hook pings DATABASE_URL before _test guard | tech-debt | 5.0 | — |
-| 17 | 2 | IDEA-044 | validate_margins accepts below 0.635 cm minimum | tech-debt | 5.0 | — |
-| 18 | 2 | IDEA-083 | Size test not tied to the form's field names (mutant M8) | tech-debt | 5.0 | — |
-| 19 | 2 | IDEA-087 | Divider and cover pages set type in px, not pt (CON-020) | tech-debt | 5.0 | — |
-| 20 | 2 | IDEA-011 | Hand-edit mark not released on revert (CARD-120 F-007) | tech-debt | 4.5 | — |
-| 21 | 3 | IDEA-009 | NFR + check for the deployed panel's 512 MB memory limit | tech-debt | 4.67 | — |
-| 22 | 3 | IDEA-024 | Undrawable row shown between page labels w/o marker | tech-debt | 4.5 | — |
-| 23 | 3 | IDEA-031 | Concurrent runs share nonogram_test; DROP SCHEMA races | tech-debt | 4.33 | — |
-| 24 | 3 | IDEA-014 | Memory mode get_book returns live Book (CARD-136) | tech-debt | 4.0 | — |
-| 25 | 3 | IDEA-029 | Stale 'four members' enum_note + ADR-0025 test narrative | tech-debt | 4.0 | — |
-| 26 | 3 | IDEA-035 | diagnose_postgres.sh hardcodes nonogram_poc | tech-debt | 4.0 | — |
-| 27 | 3 | IDEA-038 | admin_scripts helper imports private test names | tech-debt | 4.0 | — |
-| 28 | 3 | IDEA-054 | Public read instead of _as_readable_grid (CARD-160 F-006) | tech-debt | 4.0 | — |
-| 29 | 3 | IDEA-055 | isBoard reads value.cells (mutant survived) | tech-debt | 4.0 | — |
-| 30 | 3 | IDEA-062 | Player shows tier 'MEDIUM' upper-case | tech-debt | 4.0 | — |
-| 31 | 3 | IDEA-068 | Vacuous trim assertion in DB mode (CARD-120 F-009) | tech-debt | 4.0 | — |
-| 32 | 3 | IDEA-081 | scripts/README Manual Commands run pytest against nonogram_poc | tech-debt | 4.0 | — |
-| 33 | 4 | IDEA-010 | Formalise wave-30 card-only behaviours as ACs (FR-043) | tech-debt | 3.33 | — |
-| 34 | 4 | IDEA-059 | Investigate flake: save_plan_returns_the_book_to_draft[db] | tech-debt | 3.33 | — |
-| 35 | 4 | IDEA-012 | Refusal page Planned row reads stored plan (CARD-120 F-008) | tech-debt | 3.0 | — |
-| 36 | 4 | IDEA-015 | CARD-118 minors: exc text flash, referrer redirect, utcnow | tech-debt | 3.0 | — |
-| 37 | 4 | IDEA-020 | CARD-147 F-006: split the welded digest/colour-space claim | tech-debt | 3.0 | — |
-| 38 | 4 | IDEA-023 | puzzle_section ValueError lands with no traceback (CARD-140) | tech-debt | 3.0 | — |
-| 39 | 4 | IDEA-026 | export_book docstring claims every route uses it | tech-debt | 3.0 | — |
-| 40 | 4 | IDEA-027 | Rename answer_page_number() test helper (CARD-134) | tech-debt | 3.0 | — |
-| 41 | 4 | IDEA-030 | Docstring regression regex misses lowercase guess | tech-debt | 3.0 | — |
-| 42 | 4 | IDEA-037 | 'Not reachable' message names only two causes | tech-debt | 3.0 | — |
-| 43 | 4 | IDEA-039 | Stale 'Python 3.11+' and docstring (CARD-152 F-007) | tech-debt | 3.0 | — |
-| 44 | 4 | IDEA-043 | Double-logged plan tripwire; spy scope (CARD-153 minors) | tech-debt | 3.0 | — |
-| 45 | 5 | IDEA-050 | Route tests for below-min trims; wrong alert on New book | tech-debt | 3.0 | — |
-| 46 | 5 | IDEA-053 | Player cell bounds to tokens.css (CARD-160 F-004) | tech-debt | 3.0 | — |
-| 47 | 5 | IDEA-060 | CARD-163 minors: header comment, Redo aria-disabled | tech-debt | 3.0 | — |
-| 48 | 5 | IDEA-064 | Formalise FR-044 drag-axis and pointer-only cell rules | tech-debt | 3.0 | — |
-| 49 | 5 | IDEA-028 | Image-mode difficulty sweep vs the 90.0 cutoff | tech-debt | 2.67 | — |
-| 50 | 5 | IDEA-022 | Arrange labels keyed by id(row): add count check (CARD-140) | tech-debt | 2.5 | — |
-| 51 | 5 | IDEA-025 | CARD-145 minors: byte-length assertion, cover RGBA memory | tech-debt | 2.5 | — |
-| 52 | 5 | IDEA-032 | Schema-once test fails when run alone (CARD-156 F-006) | tech-debt | 2.5 | — |
-| 53 | 5 | IDEA-045 | Remaining one-session-per-puzzle loops (CARD-157 F-004) | tech-debt | 2.5 | — |
-| 54 | 5 | IDEA-052 | No-puzzle book: /books offers download /book disables | tech-debt | 2.5 | — |
-| 55 | 6 | IDEA-058 | Keyboard marking of player cells | feature | 0.8 | IDEA-064 |
-| 56 | 6 | IDEA-084 | Printed-number test minors (two-up fixture, banner text, fallback dup) | tech-debt | 2.5 | — |
-| 57 | 6 | IDEA-002 | Per-directory READMEs: adopt or drop the docs step | tech-debt | 2.33 | — |
-| 58 | 6 | IDEA-019 | CARD-147 dead code: guard, redundant UPDATE, mode default | tech-debt | 2.0 | — |
-| 59 | 6 | IDEA-033 | DROP SCHEMA needs public ownership; grants lost (CARD-156) | tech-debt | 2.0 | — |
-| 60 | 6 | IDEA-042 | Public read-only gate instead of private BookManager call | tech-debt | 2.0 | — |
-| 61 | 6 | IDEA-056 | CARD-161 minors: hint visibility, comments, old test | tech-debt | 2.0 | — |
-| 62 | 7 | IDEA-075 | Online solver public phase: hosting, QR URLs, no solution | feature | 0.8 | — |
-| 63 | 7 | IDEA-086 | Guide 10 pt test measures top-to-baseline; spacing untested; stale docstrings | tech-debt | 2.0 | — |
-| 64 | 7 | IDEA-089 | Plan-input CSS comment accuracy; shared test fixtures to conftest/helpers | tech-debt | 2.0 | — |
-| 65 | 8 | IDEA-018 | CARD-150 script-test precision (F-003/4/5/7) | tech-debt | 1.67 | — |
+| 1 | 1 | IDEA-105 | Finalise guide preview needs changes after the owner look (owner to specify) | feature | 9.0 | — |
+| 2 | 1 | IDEA-103 | 48.0 cm book reopens in inches as 18.90 (> 18.89 max) | feature | 6.0 | — |
+| 3 | 1 | IDEA-099 | Proof-note wrap splits "4.58 / mm" and starts lines with × | feature | 5.0 | — |
+| 4 | 1 | IDEA-088 | `?status=all` on book selection shows no puzzles (owner call) | feature | 4.0 | — |
+| 5 | 1 | IDEA-073 | Store a targeted batch's requested tier (column+migration) | feature | 1.67 | — |
+| 6 | 1 | IDEA-057 | Player cells ~18 px at 390 px (tap target) | feature | 1.33 | — |
+| 7 | 1 | IDEA-074 | Online solver hint button | feature | 1.33 | — |
+| 8 | 1 | IDEA-007 | Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession | tech-debt | 8.0 | — |
+| 9 | 1 | IDEA-008 | CON-020: test 10 pt floor on every interior face | tech-debt | 7.0 | — |
+| 10 | 1 | IDEA-001 | Fixture superseded_by back-pointers (CARD-147 F-007) | tech-debt | 5.0 | — |
+| 11 | 1 | IDEA-091 | Finalise flash echoes str(e) — DB error text on a public panel | compliance | 13.0 | — |
+| 12 | 1 | IDEA-065 | CI step 'playwright install chromium' (ADR-0038/R8) | ops | FIFO | — |
+| 13 | 1 | IDEA-080 | Fill render.md TODO(owner) rows from the Render dashboard | ops | FIFO | — |
+| 14 | 2 | IDEA-082 | Five hollow e2e tests post the dead `images` field | tech-debt | 7.0 | — |
+| 15 | 2 | IDEA-004 | Fix dead check: refs on mandatory rules (CON-005, INV-*) | tech-debt | 6.6 | — |
+| 16 | 2 | IDEA-021 | book_proof.render_proof_pdf still writes DeviceRGB | tech-debt | 6.5 | — |
+| 17 | 2 | IDEA-069 | Upload tests glob shared temp dir (parallel interference) | tech-debt | 6.5 | — |
+| 18 | 2 | IDEA-006 | ADR-0029/R4 check can't test its rule (overlap masks) | tech-debt | 5.0 | — |
+| 19 | 2 | IDEA-017 | Pin migrations/env.py URL-not-logged by assertion (CARD-148) | tech-debt | 5.0 | — |
+| 20 | 2 | IDEA-034 | db_required hook pings DATABASE_URL before _test guard | tech-debt | 5.0 | — |
+| 21 | 2 | IDEA-044 | validate_margins accepts below 0.635 cm minimum | tech-debt | 5.0 | — |
+| 22 | 2 | IDEA-083 | Size test not tied to the form's field names (mutant M8) | tech-debt | 5.0 | — |
+| 23 | 2 | IDEA-100 | CARD-175 minors: summary focus ring token; test comments | tech-debt | 5.0 | — |
+| 24 | 3 | IDEA-087 | Divider and cover pages set type in px, not pt (CON-020) | tech-debt | 5.0 | — |
+| 25 | 3 | IDEA-009 | NFR + check for the deployed panel's 512 MB memory limit | tech-debt | 4.67 | — |
+| 26 | 3 | IDEA-011 | Hand-edit mark not released on revert (CARD-120 F-007) | tech-debt | 4.5 | — |
+| 27 | 3 | IDEA-024 | Undrawable row shown between page labels w/o marker | tech-debt | 4.5 | — |
+| 28 | 3 | IDEA-031 | Concurrent runs share nonogram_test; DROP SCHEMA races | tech-debt | 4.33 | — |
+| 29 | 3 | IDEA-014 | Memory mode get_book returns live Book (CARD-136) | tech-debt | 4.0 | — |
+| 30 | 3 | IDEA-029 | Stale 'four members' enum_note + ADR-0025 test narrative | tech-debt | 4.0 | — |
+| 31 | 3 | IDEA-035 | diagnose_postgres.sh hardcodes nonogram_poc | tech-debt | 4.0 | — |
+| 32 | 3 | IDEA-038 | admin_scripts helper imports private test names | tech-debt | 4.0 | — |
+| 33 | 3 | IDEA-054 | Public read instead of _as_readable_grid (CARD-160 F-006) | tech-debt | 4.0 | — |
+| 34 | 3 | IDEA-055 | isBoard reads value.cells (mutant survived) | tech-debt | 4.0 | — |
+| 35 | 4 | IDEA-062 | Player shows tier 'MEDIUM' upper-case | tech-debt | 4.0 | — |
+| 36 | 4 | IDEA-068 | Vacuous trim assertion in DB mode (CARD-120 F-009) | tech-debt | 4.0 | — |
+| 37 | 4 | IDEA-081 | scripts/README Manual Commands run pytest against nonogram_poc | tech-debt | 4.0 | — |
+| 38 | 4 | IDEA-093 | CARD-176 minors: pin bare-token echo row; AC-1 echo check per case | tech-debt | 4.0 | — |
+| 39 | 4 | IDEA-097 | CARD-172 minors: cap-height comment source; square page-2 docstring claim | tech-debt | 4.0 | — |
+| 40 | 4 | IDEA-101 | set_book_status refusals other than the plan gate go unlogged | tech-debt | 4.0 | — |
+| 41 | 4 | IDEA-010 | Formalise wave-30 card-only behaviours as ACs (FR-043) | tech-debt | 3.33 | — |
+| 42 | 4 | IDEA-059 | Investigate flake: save_plan_returns_the_book_to_draft[db] | tech-debt | 3.33 | — |
+| 43 | 4 | IDEA-012 | Refusal page Planned row reads stored plan (CARD-120 F-008) | tech-debt | 3.0 | — |
+| 44 | 4 | IDEA-015 | CARD-118 minors: exc text flash, referrer redirect, utcnow | tech-debt | 3.0 | — |
+| 45 | 4 | IDEA-020 | CARD-147 F-006: split the welded digest/colour-space claim | tech-debt | 3.0 | — |
+| 46 | 5 | IDEA-023 | puzzle_section ValueError lands with no traceback (CARD-140) | tech-debt | 3.0 | — |
+| 47 | 5 | IDEA-026 | export_book docstring claims every route uses it | tech-debt | 3.0 | — |
+| 48 | 5 | IDEA-027 | Rename answer_page_number() test helper (CARD-134) | tech-debt | 3.0 | — |
+| 49 | 5 | IDEA-030 | Docstring regression regex misses lowercase guess | tech-debt | 3.0 | — |
+| 50 | 5 | IDEA-037 | 'Not reachable' message names only two causes | tech-debt | 3.0 | — |
+| 51 | 5 | IDEA-039 | Stale 'Python 3.11+' and docstring (CARD-152 F-007) | tech-debt | 3.0 | — |
+| 52 | 5 | IDEA-043 | Double-logged plan tripwire; spy scope (CARD-153 minors) | tech-debt | 3.0 | — |
+| 53 | 5 | IDEA-050 | Route tests for below-min trims; wrong alert on New book | tech-debt | 3.0 | — |
+| 54 | 5 | IDEA-053 | Player cell bounds to tokens.css (CARD-160 F-004) | tech-debt | 3.0 | — |
+| 55 | 5 | IDEA-060 | CARD-163 minors: header comment, Redo aria-disabled | tech-debt | 3.0 | — |
+| 56 | 5 | IDEA-064 | Formalise FR-044 drag-axis and pointer-only cell rules | tech-debt | 3.0 | — |
+| 57 | 5 | IDEA-092 | Lone puzzles render a discarded solved page (COMP-007 render_pages) | tech-debt | 3.0 | — |
+| 58 | 5 | IDEA-094 | Leading-whitespace DATABASE_URL gets <malformed scheme> | tech-debt | 3.0 | — |
+| 59 | 5 | IDEA-095 | Guide strip --strip-cell local value: token or record as local | tech-debt | 3.0 | — |
+| 60 | 5 | IDEA-102 | Band test class docstring states the detection rule loosely | tech-debt | 3.0 | — |
+| 61 | 6 | IDEA-058 | Keyboard marking of player cells | feature | 0.8 | IDEA-064 |
+| 62 | 6 | IDEA-104 | CARD-174 minors: 47.9999 comment; "on both sides" wording | tech-debt | 3.0 | — |
+| 63 | 6 | IDEA-028 | Image-mode difficulty sweep vs the 90.0 cutoff | tech-debt | 2.67 | — |
+| 64 | 6 | IDEA-022 | Arrange labels keyed by id(row): add count check (CARD-140) | tech-debt | 2.5 | — |
+| 65 | 6 | IDEA-025 | CARD-145 minors: byte-length assertion, cover RGBA memory | tech-debt | 2.5 | — |
+| 66 | 6 | IDEA-032 | Schema-once test fails when run alone (CARD-156 F-006) | tech-debt | 2.5 | — |
+| 67 | 6 | IDEA-045 | Remaining one-session-per-puzzle loops (CARD-157 F-004) | tech-debt | 2.5 | — |
+| 68 | 7 | IDEA-075 | Online solver public phase: hosting, QR URLs, no solution | feature | 0.8 | — |
+| 69 | 7 | IDEA-052 | No-puzzle book: /books offers download /book disables | tech-debt | 2.5 | — |
+| 70 | 7 | IDEA-084 | Printed-number test minors (two-up fixture, banner text, fallback dup) | tech-debt | 2.5 | — |
+| 71 | 8 | IDEA-098 | Proof note: narrow side strip beats a corner that fits | tech-debt | 2.5 | — |
+| 72 | 8 | IDEA-002 | Per-directory READMEs: adopt or drop the docs step | tech-debt | 2.33 | — |
+| 73 | 8 | IDEA-019 | CARD-147 dead code: guard, redundant UPDATE, mode default | tech-debt | 2.0 | — |
+| 74 | 8 | IDEA-033 | DROP SCHEMA needs public ownership; grants lost (CARD-156) | tech-debt | 2.0 | — |
+| 75 | 8 | IDEA-042 | Public read-only gate instead of private BookManager call | tech-debt | 2.0 | — |
+| 76 | 8 | IDEA-056 | CARD-161 minors: hint visibility, comments, old test | tech-debt | 2.0 | — |
+| 77 | 8 | IDEA-086 | Guide 10 pt test measures top-to-baseline; spacing untested; stale docstrings | tech-debt | 2.0 | — |
+| 78 | 8 | IDEA-089 | Plan-input CSS comment accuracy; shared test fixtures to conftest/helpers | tech-debt | 2.0 | — |
+| 79 | 9 | IDEA-018 | CARD-150 script-test precision (F-003/4/5/7) | tech-debt | 1.67 | — |
 
 ## Done / in flight
 
@@ -191,6 +210,7 @@ Wave budget **3 days** of card work. Day calibration halved after the wave-32 re
 | IDEA-077 | Gate hazard: diff against merge base (process) | out-of-scope | forge_1 repo | a forge bug report is filed against the kanban gate and forge_1 accepts it |
 | IDEA-078 | Two full-suite lock conventions (process) | out-of-scope | forge_1 repo | a forge bug report is filed against cmd-start-review/dispatcher and forge_1 accepts it |
 | IDEA-079 | Forbid concurrent mutation skeptics on one file (process) | out-of-scope | forge_1 repo | a forge bug report is filed against the card brief template and forge_1 accepts it |
+| IDEA-096 | CARD-169 owner check pending (superseded by the owner look item) | duplicate | IDEA-105 |  |
 
 ## Next step
 
