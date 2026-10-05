@@ -471,10 +471,12 @@ class TestTrimRefusal_StatedInchLimitIsAccepted:
         assert ok is False
         assert message.startswith(prefix), message
 
-    def test_seeded_corpus_of_bounds_states_only_accepted_inches(self, monkeypatch) -> None:
-        """The inward rounding holds for any cm bound, not just KDP's three.
+    def test_seeded_corpus_of_hundredth_cm_bounds_states_only_accepted_inches(self, monkeypatch) -> None:
+        """The inward rounding holds for cm bounds on a 0.01 cm grid, not just KDP's three.
 
-        For each bound the class constants are moved, and the inch figures
+        Only such bounds are drawn (rounded to 2 dp); for a bound off that grid,
+        e.g. 15.875 cm, the stated 6.25 in converts to 15.88 cm and is refused,
+        so the claim is not made for it. For each bound the class constants are moved, and the inch figures
         trim_limits() then states are typed back through inches_to_cm: each
         must pass validate_trim_size against the very bounds it was cut from.
         """
@@ -515,6 +517,85 @@ class TestTrimRefusal_StatedInchLimitIsAccepted:
         assert response.status_code == 302
         assert response.headers["Location"].endswith("/select-puzzles")
         assert _stored(books, book_id)[1] == cm
+
+
+#: CARD-174 review F-001: inch entries that convert to exactly the cm bound
+#: (10.00 / 30.00 / 48.00 cm, hand-checked: 3.937 x 2.54 = 9.99998,
+#: 11.811 x 2.54 = 29.99994, 18.8976 x 2.54 = 48.0) — accepted on main, so
+#: G-1 requires they stay accepted — and the entries 0.01 in beyond them
+#: (9.97 / 30.03 / 48.03 cm), which stay refused. One axis per case, so each
+#: bound comparison is pinned at equality on its own.
+EXACT_BOUNDARY_INCHES = {
+    ("3.937", "11"): ("10.00", "27.94"),
+    ("8.5", "3.937"): ("21.59", "10.00"),
+    ("11.811", "11"): ("30.00", "27.94"),
+    ("8.5", "18.8976"): ("21.59", "48.00"),
+}
+BEYOND_BOUNDARY_INCHES = {
+    ("3.927", "11"): ("Trim size must be at least 3.94 in", "Trim size must be at least 10.0 cm"),
+    ("8.5", "3.927"): ("Trim size must be at least 3.94 in", "Trim size must be at least 10.0 cm"),
+    ("11.821", "11"): ("Trim width cannot exceed 11.81 in", "Trim width cannot exceed 30.0 cm"),
+    ("8.5", "18.9076"): ("Trim height cannot exceed 18.89 in", "Trim height cannot exceed 48.0 cm"),
+}
+
+
+class TestTrimRefusal_ExactCmBoundaryInInchesIsAccepted:
+    """CARD-174 review F-001 / G-1 — a trim at exactly a KDP bound is accepted in either wording.
+
+    The inch wording must not move the verdict at equality: each bound is a
+    strict comparison, so an entry converting to exactly 10.00 / 30.00 /
+    48.00 cm is accepted with and without ``entered_inches``, and through
+    the route; 0.01 in beyond it is refused in both.
+    """
+
+    @pytest.mark.parametrize("inches", list(EXACT_BOUNDARY_INCHES))
+    def test_the_exact_bound_is_accepted_with_and_without_entered_inches(self, inches) -> None:
+        width_cm, height_cm = (PrintSpecValidator.inches_to_cm(v) for v in inches)
+        assert (width_cm, height_cm) == EXACT_BOUNDARY_INCHES[inches]
+        assert PrintSpecValidator.validate_trim_size(width_cm, height_cm) == (True, None)
+        assert PrintSpecValidator.validate_trim_size(
+            width_cm, height_cm, entered_inches=inches
+        ) == (True, None)
+
+    @pytest.mark.parametrize("inches", list(BEYOND_BOUNDARY_INCHES))
+    def test_one_hundredth_of_an_inch_beyond_is_refused_in_both_wordings(self, inches) -> None:
+        inch_prefix, cm_prefix = BEYOND_BOUNDARY_INCHES[inches]
+        width_cm, height_cm = (PrintSpecValidator.inches_to_cm(v) for v in inches)
+        ok, message = PrintSpecValidator.validate_trim_size(width_cm, height_cm)
+        assert ok is False and message.startswith(cm_prefix), message
+        ok, message = PrintSpecValidator.validate_trim_size(
+            width_cm, height_cm, entered_inches=inches
+        )
+        assert ok is False and message.startswith(inch_prefix), message
+
+    @pytest.mark.parametrize("inches", list(EXACT_BOUNDARY_INCHES))
+    def test_the_route_stores_the_exact_bound(self, store, panel, inches) -> None:
+        books = panel.book_manager
+        book_id = _book_on_six_by_nine(books)
+
+        response = panel.test_client().post(
+            f"/book/{book_id}/setup-print",
+            data={"unit": "inches", "width": inches[0], "height": inches[1]},
+        )
+
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/select-puzzles")
+        assert _stored(books, book_id)[1] == EXACT_BOUNDARY_INCHES[inches]
+
+    @pytest.mark.parametrize("inches", list(BEYOND_BOUNDARY_INCHES))
+    def test_the_route_refuses_one_hundredth_beyond_and_stores_nothing(self, store, panel, inches) -> None:
+        books = panel.book_manager
+        book_id = _book_on_six_by_nine(books)
+        before = _stored(books, book_id)
+
+        response = panel.test_client().post(
+            f"/book/{book_id}/setup-print",
+            data={"unit": "inches", "width": inches[0], "height": inches[1]},
+        )
+
+        assert response.status_code == 200
+        assert f"Error: {BEYOND_BOUNDARY_INCHES[inches][0]}" in response.get_data(as_text=True)
+        assert _stored(books, book_id) == before
 
 
 #: CARD-174 AC-4/AC-5: today's three cm refusals, byte for byte — written out,

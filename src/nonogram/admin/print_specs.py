@@ -61,7 +61,10 @@ class TrimLimits:
     — a maximum rounded down, the minimum rounded up — so that typing the
     stated figure back in passes :meth:`PrintSpecValidator.validate_trim_size`
     (48 cm is 18.898 in: 18.90 in would convert to 48.01 cm and be refused,
-    18.89 in converts to 47.98 cm). The inch refusals and Print setup's
+    18.89 in converts to 47.98 cm). That guarantee is shown only for cm bounds
+    that are whole hundredths of a cm, as KDP's 10 / 30 / 48 are: for a bound
+    such as 15.875 cm the stated 6.25 in converts to 15.88 cm and is refused.
+    The inch refusals and Print setup's
     Limits box both read these, so the page and the server cannot state
     different limits.
     """
@@ -210,71 +213,76 @@ class PrintSpecValidator:
         if not (math.isfinite(width) and math.isfinite(height)):
             return False, "Trim size must be numeric values"
 
-        if entered_inches is not None:
-            return PrintSpecValidator._inch_bounds_verdict(
-                width, height, *(str(value).strip() for value in entered_inches)
-            )
+        # The verdict is made here, once, by these three comparisons on the cm
+        # values. ``entered_inches`` only chooses the wording of the branch
+        # that failed (CARD-174 review F-001: no second set of comparisons).
+        inches = (
+            None
+            if entered_inches is None
+            else tuple(str(value).strip() for value in entered_inches)
+        )
 
         # Check minimums
-        if width < PrintSpecValidator.MIN_TRIM_CM or height < PrintSpecValidator.MIN_TRIM_CM:
-            return (
-                False,
-                f"Trim size must be at least {PrintSpecValidator.MIN_TRIM_CM} cm in both dimensions",
+        width_too_small = width < PrintSpecValidator.MIN_TRIM_CM
+        height_too_small = height < PrintSpecValidator.MIN_TRIM_CM
+        if width_too_small or height_too_small:
+            if inches is None:
+                return (
+                    False,
+                    f"Trim size must be at least {PrintSpecValidator.MIN_TRIM_CM} cm in both dimensions",
+                )
+            return False, PrintSpecValidator._inch_min_refusal(
+                inches, width_too_small, height_too_small
             )
 
         # Check maximums
         if width > PrintSpecValidator.MAX_TRIM_WIDTH_CM:
+            if inches is None:
+                return (
+                    False,
+                    f"Trim width cannot exceed {PrintSpecValidator.MAX_TRIM_WIDTH_CM} cm (Amazon KDP limit)",
+                )
             return (
                 False,
-                f"Trim width cannot exceed {PrintSpecValidator.MAX_TRIM_WIDTH_CM} cm (Amazon KDP limit)",
+                f"Trim width cannot exceed {PrintSpecValidator.trim_limits().max_width_in} in "
+                f"(Amazon KDP limit); you entered {inches[0]} in",
             )
 
         if height > PrintSpecValidator.MAX_TRIM_HEIGHT_CM:
+            if inches is None:
+                return (
+                    False,
+                    f"Trim height cannot exceed {PrintSpecValidator.MAX_TRIM_HEIGHT_CM} cm (Amazon KDP limit)",
+                )
             return (
                 False,
-                f"Trim height cannot exceed {PrintSpecValidator.MAX_TRIM_HEIGHT_CM} cm (Amazon KDP limit)",
+                f"Trim height cannot exceed {PrintSpecValidator.trim_limits().max_height_in} in "
+                f"(Amazon KDP limit); you entered {inches[1]} in",
             )
 
         return True, None
 
     @staticmethod
-    def _inch_bounds_verdict(
-        width: float, height: float, width_in: str, height_in: str
-    ) -> Tuple[bool, Optional[str]]:
-        """The bound checks of :meth:`validate_trim_size`, worded in inches.
+    def _inch_min_refusal(
+        inches: Tuple[str, str], width_too_small: bool, height_too_small: bool
+    ) -> str:
+        """The minimum refusal worded in inches, quoting only the side(s) that failed.
 
-        Same comparisons, same order, on the same cm values; only the message
-        differs. ``width_in``/``height_in`` are the entries as typed, stripped.
+        Wording only: which sides failed is decided by the caller's cm
+        comparisons. ``inches`` is the (width, height) as typed, stripped.
         """
-        limits = PrintSpecValidator.trim_limits()
-
         too_small = [
             f"{entry} in for the {label}"
-            for label, value, entry in (("width", width, width_in), ("height", height, height_in))
-            if value < limits.min_cm
+            for label, entry, failed in (
+                ("width", inches[0], width_too_small),
+                ("height", inches[1], height_too_small),
+            )
+            if failed
         ]
-        if too_small:
-            return (
-                False,
-                f"Trim size must be at least {limits.min_in} in on both sides; "
-                f"you entered {' and '.join(too_small)}",
-            )
-
-        if width > limits.max_width_cm:
-            return (
-                False,
-                f"Trim width cannot exceed {limits.max_width_in} in (Amazon KDP limit); "
-                f"you entered {width_in} in",
-            )
-
-        if height > limits.max_height_cm:
-            return (
-                False,
-                f"Trim height cannot exceed {limits.max_height_in} in (Amazon KDP limit); "
-                f"you entered {height_in} in",
-            )
-
-        return True, None
+        return (
+            f"Trim size must be at least {PrintSpecValidator.trim_limits().min_in} in on both sides; "
+            f"you entered {' and '.join(too_small)}"
+        )
 
     @staticmethod
     def validate_margins(
