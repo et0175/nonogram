@@ -68,6 +68,7 @@ from nonogram.admin.book_manager import (
     get_book_manager,
     BookStatus,
     revise_plan,
+    unreadable_print_setup_refusal,
 )
 from nonogram.admin.book_kdp import (
     KdpPageCountNotModelled,
@@ -3599,6 +3600,19 @@ def create_app(debug=None):
             return None, None
         return f"{spec.width_mm / 10:.2f}", f"{spec.height_mm / 10:.2f}"
 
+    def _unreadable_print_setup(book):
+        """``book_page_spec``'s reason this book's print setup cannot be read.
+
+        ``None`` when it can — the try ``_trim_cm`` makes (CARD-173). The
+        reason is handed on as the sheet builder wrote it; no wording is made
+        here.
+        """
+        try:
+            book_page_spec(book)
+        except ValueError as error:
+            return str(error)
+        return None
+
     def _interior_ink_mode(book):
         """How this book's interior is printed, for a screen to name (CARD-147).
 
@@ -3864,6 +3878,7 @@ def create_app(debug=None):
             )
 
         kept_ids = _kept_selection(book_id)
+        unreadable = _unreadable_print_setup(book)
         context = {
             "book": book,
             "buckets": PLAN_BUCKETS,
@@ -3884,6 +3899,12 @@ def create_app(debug=None):
             "book_cells": {},
             "below_floor_ids": set(),
             "floor_mm": FLOOR_MM,
+            # CARD-173: a print setup nobody can read is the book's fault, not
+            # each tile's, so it is said once, above the tabs, with its remedy;
+            # the tiles then carry no flag and no override that cannot work.
+            "print_setup_unreadable": (
+                None if unreadable is None else unreadable_print_setup_refusal(unreadable)
+            ),
             **_plan_progress(book, kept_ids),
         }
 
@@ -4503,6 +4524,10 @@ def create_app(debug=None):
             "floor_mm": FLOOR_MM,
             "below_floor": below_floor,
             "below_floor_count": len(below_floor),
+            # CARD-173: every member still counts as below the floor when the
+            # print setup cannot be read (fail closed), but the alert says why
+            # once instead of naming every member "cannot be measured".
+            "print_setup_unreadable": _unreadable_print_setup(book) is not None,
             "easy_count": easy_count,
             "medium_count": medium_count,
             "hard_count": hard_count,

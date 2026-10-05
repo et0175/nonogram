@@ -40,6 +40,15 @@
 </div>
 {% endif %}
 
+{#- CARD-173: a stored print setup nobody can read is said once, for the
+    whole book, with its remedy — not once per tile. -#}
+{% if print_setup_unreadable %}
+<div class="alert alert-warning" role="alert" data-print-setup-unreadable>
+    {{ print_setup_unreadable }}
+    <a href="{{ url_for('setup_print', book_id=book.book_id) }}">Open Print setup</a>
+</div>
+{% endif %}
+
 {#- CARD-130: this page imported the stepper since it was written but never
     called it, so it was the one step of the flow with no way out of it. -#}
 <div class="card">
@@ -226,7 +235,10 @@
                         the words carry it for a viewer who cannot tell the
                         colours apart — and the override beside it is the
                         `override_<id>` field the book store reads (CARD-121). -#}
-                    {% if below_floor %}
+                    {#- CARD-173: no flag and no override on a book whose
+                        print setup cannot be read — the alert above says it
+                        once, and no override can admit a puzzle there. -#}
+                    {% if below_floor and not print_setup_unreadable %}
                     <div class="tile-flag">
                         <p class="flag-note">{% if cell_mm is none %}Cell cannot be measured on this book.{% else %}Below the {{ floor_mm }} mm floor.{% endif %}</p>
                         <label class="flag-override" for="override_{{ puzzle.id }}">

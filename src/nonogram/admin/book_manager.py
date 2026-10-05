@@ -149,6 +149,23 @@ NO_PLAN_REFUSAL = (
     "Store one on Print setup first."
 )
 
+
+def unreadable_print_setup_refusal(reason: str) -> str:
+    """What a book whose stored print setup cannot be read is told (CARD-173).
+
+    ``reason`` is :func:`book_page_spec`'s own message, which names the column
+    at fault; it is carried, never reworded here. One sentence for the whole
+    book, because no puzzle's printed cell can be measured on it; the remedy
+    is one save on Print setup. The add refusal raised by
+    :meth:`BookManager._below_floor_for` and the selection step's book-level
+    alert both say this.
+    """
+    return (
+        f"This book's print setup cannot be read ({reason}), so no puzzle's "
+        "printed cell can be measured and nothing can be added to it. "
+        "Save the print settings again on Print setup."
+    )
+
 #: What the gate says when the selection cannot be read at all — a manager
 #: wired without a puzzle store, holding a book that does list puzzles. The
 #: gate refuses rather than judging a selection it could not see (F-004);
@@ -996,8 +1013,9 @@ class BookManager:
 
         Raises:
             ValueError: the book's stored print specification cannot be read —
-                :func:`book_page_spec`'s message, which names the column at
-                fault. The whole add is refused, because *no* puzzle's cell can
+                :func:`unreadable_print_setup_refusal` wrapping
+                :func:`book_page_spec`'s message (which names the column at
+                fault) and naming Print setup. The whole add is refused, because *no* puzzle's cell can
                 be computed for such a book; fail closed, and the owner's
                 remedy is one save on Print setup. A manager with **no store**
                 does not reach this: its posture (nothing refused, an error
@@ -1043,8 +1061,12 @@ class BookManager:
             return []
 
         # Before the store is consulted: a book whose sheet cannot be built has
-        # no cell for any puzzle, and that is the whole add's refusal.
-        spec = book_page_spec(book)
+        # no cell for any puzzle, and that is the whole add's refusal, said
+        # once for the book with its remedy (CARD-173).
+        try:
+            spec = book_page_spec(book)
+        except ValueError as unreadable:
+            raise ValueError(unreadable_print_setup_refusal(str(unreadable))) from unreadable
 
         refusals: List[FloorRefusal] = []
         for puzzle_id in puzzle_ids:
@@ -1237,7 +1259,9 @@ class BookManager:
 
         Raises:
             ValueError: ``puzzle_ids`` is empty, the book's stored print
-                specification cannot be read (:meth:`below_floor`), or the book
+                specification cannot be read (one message for the whole add,
+                :func:`unreadable_print_setup_refusal`: ``book_page_spec``'s
+                reason plus the remedy, Print setup), or the book
                 changed under the add between the measurement and the write
                 (:data:`CONCURRENT_CHANGE_REFUSAL`). Nothing is written in any
                 of these cases.

@@ -661,6 +661,84 @@ class TestBookFloor_FailsClosedOnWhatItCannotMeasure:
         assert shelf.books.floor_overrides(book_id) == [puzzle_id]
 
 
+# --------------------------------------------------------------------------
+# CARD-173 — an unreadable print setup refuses once and names its remedy
+# --------------------------------------------------------------------------
+
+#: Every flashed error the base template renders, and nothing else on the page.
+_ERROR_FLASH = re.compile(
+    r'<div class="alert alert-danger alert-dismissible[^"]*" role="alert">(.*?)<button',
+    re.S,
+)
+
+
+def _error_flashes(response) -> list[str]:
+    assert response.status_code == 200
+    return [text_of(m) for m in _ERROR_FLASH.findall(response.get_data(as_text=True))]
+
+
+def _unreadable_trim(panel, book_id) -> None:
+    """The column ``book_page_spec`` cannot read — not the reason's wording (G-4)."""
+    panel.books.get_book(book_id).trim_width_cm = "not a number"
+
+
+class TestBookAddPuzzles_UnreadablePrintSetupRefusesOnceAndNamesTheRemedy:
+    """AC-2 (selection step) and AC-4 (the store itself)."""
+
+    @pytest.mark.parametrize("override", [False, True], ids=["no-override", "override"])
+    def test_the_selection_step_adds_nothing_and_flashes_once(self, panel, override) -> None:
+        member = panel.puzzle(*ABOVE_FLOOR[:4])
+        book_id = panel.book()
+        panel.books.add_puzzles_to_book(book_id, [member])
+        submitted = [panel.puzzle(*ABOVE_FLOOR[:4]), panel.puzzle(*BELOW_FLOOR[:4])]
+        _unreadable_trim(panel, book_id)
+
+        response = panel.select(book_id, submitted, overrides=submitted if override else ())
+
+        assert panel.ids_of(book_id) == [member]
+        assert panel.books.floor_overrides(book_id) == []
+        flashes = _error_flashes(response)
+        assert len(flashes) == 1, flashes
+        assert "Print setup" in flashes[0] and "trim_width_cm" in flashes[0], flashes
+
+    @pytest.mark.parametrize("override", [False, True], ids=["no-override", "override"])
+    def test_the_store_raises_naming_the_column_and_the_remedy(self, shelf, override) -> None:
+        member = shelf.puzzle(*ABOVE_FLOOR[:4])
+        book_id = shelf.book()
+        shelf.books.add_puzzles_to_book(book_id, [member])
+        submitted = [shelf.puzzle(*ABOVE_FLOOR[:4]), shelf.puzzle(*BELOW_FLOOR[:4])]
+        if shelf.mode == "memory":
+            shelf.books.get_book(book_id).trim_width_cm = "not a number"
+        else:
+            _change_book(shelf, book_id, trim_width_cm="not a number")
+
+        with pytest.raises(ValueError) as refused:
+            shelf.books.add_puzzles_reporting_refusals(
+                book_id, submitted, overrides=submitted if override else ()
+            )
+
+        message = str(refused.value)
+        assert "Print setup" in message and "trim_width_cm" in message, message
+        assert isinstance(refused.value.__cause__, ValueError), "re-raised `from` the original"
+        assert shelf.books.get_book(book_id).puzzle_ids == [member]
+        assert shelf.books.floor_overrides(book_id) == []
+
+
+class TestBookAddPuzzlesByIds_UnreadablePrintSetupNamesTheRemedy:
+    """AC-3: the detail page's paste-IDs form says it once, with the remedy."""
+
+    def test_the_paste_ids_form_adds_nothing_and_flashes_once(self, panel) -> None:
+        submitted = [panel.puzzle(*ABOVE_FLOOR[:4]), panel.puzzle(*BELOW_FLOOR[:4])]
+        book_id = panel.book()
+        _unreadable_trim(panel, book_id)
+
+        flashes = _error_flashes(panel.paste(book_id, submitted))
+
+        assert panel.ids_of(book_id) == []
+        assert len(flashes) == 1, flashes
+        assert "Print setup" in flashes[0] and "trim_width_cm" in flashes[0], flashes
+
+
 class TestBookFloor_PostureOnIdsThatAreNotPuzzles:
     """An id no row matches, and a manager with no store — decided, not drifted into."""
 

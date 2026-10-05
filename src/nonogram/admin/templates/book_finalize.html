@@ -170,12 +170,18 @@
                 </dl>
                 {% if below_floor_count %}
                 <div class="alert alert-warning">
+                    {#- CARD-173: one sentence for an unreadable print setup,
+                        not one "cannot be measured" line per member. -#}
+                    {% if print_setup_unreadable %}
+                    <p class="mb-0" data-print-setup-unreadable>Cell sizes cannot be measured until the print setup is saved again on <a href="{{ url_for('setup_print', book_id=book.book_id) }}">Print setup</a>.</p>
+                    {% else %}
                     <p class="mb-1">{{ below_floor_count }} puzzle{{ '' if below_floor_count == 1 else 's' }} print{{ 's' if below_floor_count == 1 else '' }} below the {{ floor_mm }} mm floor on this book's trim:</p>
                     <ul class="mb-0">
                         {% for entry in below_floor %}
                         <li>{{ entry.name }} — {% if entry.cell_mm is none %}cell cannot be measured{% else %}{{ '%.2f'|format(entry.cell_mm) }} mm{% endif %}</li>
                         {% endfor %}
                     </ul>
+                    {% endif %}
                 </div>
                 {% endif %}
                 <form method="POST" class="mb-2">
