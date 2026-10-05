@@ -1,6 +1,6 @@
 # CARD-171: Finalise names a page-plan error on screen, and logs every other error it flashes
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 33
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, tests/test_book_finalise_gutter.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 10.0 (cycle 2/3)
+**Started:** 2026-10-04T16:19:11Z
+**Closed:** 2026-10-05T03:04:10Z
+**Actual:** 1.3d
+**Merge commit:** 7713c65
 **Blocked by:** —
 
 ## What to implement
@@ -192,3 +192,51 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-171` (52 rules). A project
 - [Why not the global handler] F-006 suggested `original_exception` in `server_error`. Rejected here: it echoes every route's raw exception text on a publicly reachable panel (G-2, G-6).
 - [Pre-existing, not this card] The outer flash already shows `str(e)` on screen, so a DB error's text can appear in a flash today. Unchanged here (G-1); a follow-up could narrow it.
 - [Precedent] `download_book_proof_pages` (~:4706) already logs with `app.logger.exception` before flashing: same shape as part 2.
+- [Env] forge 2026.8.17
+- [Impl] Commit 6fb9bc1 (src/nonogram/admin/app.py, tests/test_book_finalise_gutter.py only; no SCOPE+). New module-level `_page_plan_failure_page(error)` holds the one wording; POST Save and finish and GET both call it. GET wraps `_interior_counts` and re-raises anything `_is_a_logged_plan_failure` rejects. The wording is POST's existing text ("...and its status is not changed"), which also holds on GET (GET changes nothing).
+- [Impl] POST outer `except Exception` keeps its flash; adds `app.logger.exception("A Finalise action on book %s failed", book_id)` first. `generate_book_pdf_download` keeps flash + redirect; adds `app.logger.exception("The PDF of book %s could not be generated", book.book_id)`. G-6: book id and the exception only.
+- [Impl] Plan gate (AC-5): `except ValueError` at the two call sites (`_refuse_unless_the_planned_book` on the uncountable path, `set_book_status` on the normal path), flashed as `f"Error: {e}"`, the text the outer handler gave it before, so `test_the_finalize_route_flashes_it` and the gate's precedence are unchanged. Note: `set_book_status`'s other ValueError refusals (published, no puzzles, invalid status) take this path too and are not logged either; its docstring says each of its ValueErrors is an owner-facing refusal.
+- [Impl] `server_error` and 500.html: diff empty (AC-6, G-2). No generator change (G-5).
+- [Impl] Tests: TestFinaliseGet_NamesThePagePlanFailure (test_the_page_names_the_failure_and_shows_no_count, test_logs_it_once; both x TRIPWIRES), TestFinaliseGet_OtherErrorsStayGeneric, TestFinalisePost_TransientErrorIsLogged (clear_cover / save_and_finish / download_pdf; `_raise_once` helper: Path.unlink once for clear_cover with a stored cover in tmp BOOK_COVER_DIR, BookPDFGenerator.__init__ once for the other two), TestFinalisePost_PlanGateRefusalIsNotAnError (countable / uncountable book, a plan for 3 medium vs a selection of 3 easy). Existing `test_the_screen_shows_no_count_and_the_error_is_logged_with_its_traceback` tightened to `len(logged) == 1`. The panel fixture is in-memory only, so the neighbouring tests have no DB-mode variant, and neither do these.
+- [Impl] Targeted runs: tests/test_book_finalise_gutter.py, test_book_ready_gate.py, test_book_export_interior_cover.py, test_book_finalise_guide_preview.py, test_book_detail_page.py, test_book_workflow_steps.py, test_book_pdf_ink_mode.py, test_book_trim_persistence.py, test_book_select_floor_tiles.py, test_admin_tier_surfaces.py, property/test_book_workflow.py: 633 passed.
+- [Impl] Revert check (app.py back to main, new tests kept): 9 failed. The tightened existing test fails x2 (2 records: the helper's line plus Flask's "Exception on /book/.../finalize [GET]"); test_the_page_names... fails x2 (generic 500 text); test_logs_it_once fails x2 (2 records); TransientErrorIsLogged fails x3 (0 records). AC-3 and AC-5 pass on main, as the card expects (they pin behaviour that has to stay).
+- [Impl] Mutation self-check (tests/test_book_finalise_gutter.py + test_book_ready_gate.py, each reverted afterwards): M1 GET drops the stamp guard -> TestFinaliseGet_OtherErrorsStayGeneric (and the existing generator-constructor case) fail; M2 GET re-raises the stamped failure instead of answering it -> both NamesThePagePlanFailure tests x2 + the tightened test x2 fail; M3 outer-handler log line deleted -> TransientErrorIsLogged[clear_cover], [save_and_finish] fail; M4 generate_book_pdf_download log line deleted -> TransientErrorIsLogged[download_pdf] fails; M5 gate catch on the uncountable path disabled (except KeyError) -> PlanGateRefusalIsNotAnError[uncountable] fails; M6 gate catch around set_book_status disabled -> PlanGateRefusalIsNotAnError[countable] fails; M7 helper wording changed -> test_the_page_names_the_failure_and_shows_no_count x2 fail. Every new test class failed on at least one mutant.
+- [Owner default] none named in the card.
+- [Scope] src/nonogram/admin/app.py, tests/test_book_finalise_gutter.py
+- [Build gate] impact underivable (python-pro without pytest-testmon; config test_scope FULL) — full suite
+- [Build gate] PASSED (full, 588s; 6128 passed, 9 skipped; lock wait 668s)
+- [Scope gate] cycle 1: IN_SCOPE (2 files, both in Touches; no guarded file in diff)
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/ (20261004T165109Z-CARD-171-cycle1.yml, yaml.safe_load OK)
+- [Review 1/3] Step 8h coverage: 52/52 card rule ids have a verdict line (7 ✓, 45 ⚠ no_eligible_fact, 0 ✗)
+- [Review 1/3] Mutation check (reviewer): 7/7 mutants killed (M-a..M-g)
+- [Review 1/3] Step 8g: static only (visual off; no template/CSS/token change; 500.html unchanged) — rendered result not verified by review
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Orchestrator] F-001 (Minor) narrowed in place, doc-only: `_page_plan_failure_page` docstring now says the stamp marks the page plan's own failure, already logged by `_interior_counts` (no longer "the exporter's own tripwire message"). Lands in the success commit.
+- [8h spot-check] ✗ ADR-0006/R1 not reproduced — rule holds in substance, but the verdict's evidence "the diff adds no import line" is false: the card adds `from pathlib import Path` (stdlib) in tests/test_book_finalise_gutter.py; test green, pyproject untouched
+- [8h spot-check] ADR-0035/R1 reproduced — gate-call args identical to main (app.py:4369, :4389); both named tests green (32 passed); no bypass path (line cite off by one: 4369 not 4370)
+- [8h spot-check] ADR-0036/R1 reproduced — merge-base diff touches only admin/app.py + the test file; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green (125 passed). Result: 2/3 sampled holds reproduced; ADR-0006/R1 not → cycle 2 (spot-check failure costs a cycle)
+- [AC/EC check] (cycle 1, run alongside the spot-check; not the gate of record because the spot-check failed) 12/12 ✓ demonstrated (AC-1..AC-6, G-1..G-6; no EC section) — 220 targeted tests passed; revert check re-confirmed AC-1/2/4 fail on base
+- [Scope gate] cycle 2: IN_SCOPE (merge-base diff: app.py + test file; uncommitted docstring edit in app.py)
+- [Review 2/3] Score: 10.0 — crit: 0, imp: 0 (confirmation mode; F-001 ✓ resolved; ADR-0006/R1 re-derived fresh with corrected evidence)
+- [Review sync] 2 report(s) → meta/review/ (cycle2: 20261004T165859Z-CARD-171-cycle2.yml, yaml.safe_load OK)
+- [Review 2/3] Step 8h coverage: 52/52 ids (7 ✓, 45 ⚠ incl. 2 carried(cycle 1, delta-clean): ADR-0038/R7, ADR-0038/R8; 0 ✗)
+- [Review 2/3] Score: 10.0 ✓ threshold reached + no critical/important
+- [Docs] forge:readme: no directory structure/purpose change (no new files; src/nonogram/admin has no README — per-directory README convention is an open owner decision; tests/README.md current) — skipped
+- [8h spot-check] cycle 2: 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0035/R1, ADR-0036/R1)
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC/EC/G agent ran on the same working tree that cycle 2 reviewed (source diff hash d29fe9f unchanged since; no EC section); orchestrator re-ran the named test file + G-4 test fresh after the spot-check: 95 passed.
+  AC-1 ✓ demonstrated — TestFinaliseGet_NamesThePagePlanFailure::test_the_page_names_the_failure_and_shows_no_count[page-plan|answer-key] PASSED (fail on base)
+  AC-2 ✓ demonstrated — ::test_logs_it_once[page-plan|answer-key] + tightened test_the_screen_shows_no_count_and_the_error_is_logged_with_its_traceback (len(logged) == 1) PASSED (fail on base: 2 records)
+  AC-3 ✓ demonstrated — TestFinaliseGet_OtherErrorsStayGeneric::test_a_non_plan_error_is_not_named_on_screen PASSED
+  AC-4 ✓ demonstrated — TestFinalisePost_TransientErrorIsLogged[clear_cover|save_and_finish|download_pdf] PASSED (fail on base: 0 records)
+  AC-5 ✓ demonstrated — TestFinalisePost_PlanGateRefusalIsNotAnError (countable, uncountable) PASSED
+  AC-6 ✓ demonstrated — server_error identical to main; templates/ diff empty; _page_plan_failure_page called only at app.py:4357 and :4484, each right after `if not _is_a_logged_plan_failure(...): raise`
+  G-1 ✓ demonstrated — both outer `except Exception` blocks and flash texts unchanged; only a logger.exception line added
+  G-2 ✓ demonstrated — server_error/500.html unchanged; no other route shows new exception text
+  G-3 ✓ demonstrated — the five CARD-153 classes PASSED (11+2+6+4+6); only test-line removal is `assert logged` → `assert len(logged) == 1`
+  G-4 ✓ demonstrated — test_book_ready_gate.py::TestBookReady_RefusalNamesOffendingCell::test_the_finalize_route_flashes_it PASSED; that file unchanged
+  G-5 ✓ demonstrated — both TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden classes PASSED (63+62); no export/layout file in diff
+  G-6 ✓ demonstrated — new log calls carry a fixed format string + book id; exception via exc_info only
+- [Renders] owner visual check: ~/Documents/nonogram-reviews/CARD-171/ — 1-get-plan-failure.{html,png} (500 page naming the plan failure + tripwire text), 2-get-other-error-generic.{html,png} (Flask's generic text, unchanged), 3-post-transient-flash.{html,png} (flash "Error: transient", Finalise re-rendered). Rendered from the worktree via the test panel fixture + headless Chrome.
+- [Commit] success commit 5faa9db (on 6fb9bc1); card in review, awaiting done. Branch base 594cd7b — main has since moved (CARD-172 merged, edd61be); rebase at merge.
+- [Merge gate] rebased onto 99154ea; full suite 6177 passed, 9 skipped, exit 0 (576s, under the lock). Merged 7713c65.

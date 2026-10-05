@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-05
+- CARD-171 (feature): When the page plan can't be built, opening Finalise now shows an error page that names the problem instead of Flask's generic "Internal Server Error", and logs it once instead of twice. Any other error a Finalise action reports on screen, or a PDF download hits, is now also written to the log with its traceback, so a one-off failure no longer vanishes. The plan check's "not ready" refusal still just tells you on screen.
+
 ## 2026-10-04
 - CARD-175 (feature): On a phone, the Books list is compact again. A book whose puzzle mix is off plan used to make its row about 670 px tall; the off-plan hints now fold behind a one-line "10 cells off plan" you can tap open, and the row is about 170 px. The desktop view is unchanged.
 - CARD-172 (feature): Proof pages now work on square and landscape KDP trims (8.25×8.25, 8.5×8.5, 8.25×6, 11×8.5) instead of stopping with an error. The measurement note stays at the foot wherever it fits; otherwise it goes in the outer side strip or, on square trims, the empty top-left clue corner, always inside the frame and at 10 pt. Portrait proofs are unchanged.

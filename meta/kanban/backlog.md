@@ -88,6 +88,8 @@ card names its card._
 
 - [ ] CARD-175 F-001/F-002/F-004 (minor): the plan-hints summary uses the browser's default focus ring, not the `--color-focus` ring; plural-test comments name per-cell hints the test doesn't assert; a test comment still says ~176 px (now ~169 px)   @tech-debt
 
+- [ ] CARD-171 note: catching ValueError around `set_book_status` in Finalise sends its other refusals ("published", "no puzzles", "invalid status") to a flash with no log line (never logged before either; only the plan-gate case is tested) — decide whether they are owner refusals or errors   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

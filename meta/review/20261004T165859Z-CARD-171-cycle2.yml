@@ -1,0 +1,113 @@
+version: 1
+generated_at: "2026-10-04T16:58:59Z"
+target: "card/171-finalise-errors-named-and-logged (6fb9bc1 + uncommitted docstring fix) vs merge-base 594cd7b; confirmation mode, fix delta = app.py _page_plan_failure_page docstring"
+overall_score: 10.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "forge 2026.8.17"
+mode: confirmation
+coverage:
+  read:
+    - "git diff (fix delta): src/nonogram/admin/app.py:995-1004 docstring only"
+    - "git diff 594cd7b -- src/nonogram/admin/app.py (full card diff, re-read)"
+    - "src/nonogram/admin/app.py:867-992 (_interior_counts, _PLAN_FAILURE_LOGGED, _is_a_logged_plan_failure)"
+    - "tests/test_book_finalise_gutter.py imports (function-local import at :1422)"
+    - "system_rules.py --scope src/nonogram/admin/app.py --verify-refs and --card CARD-171 --verify-refs"
+  not_reached:
+    - "rendered 500.html (no screenshots; Step 8g static check only, rendered result not verified)"
+    - "DB-mode path of the Finalise route (panel fixture is in-memory only)"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 3, removed: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  unmeasured:
+    max_fan_in: "no_eligible_fact: fix delta is a docstring; no symbol changed"
+    cochange_missing: "no_eligible_fact: fix delta is a docstring"
+prior_findings:
+  - id: F-001
+    status: fixed
+    verification: "resolved: docstring at app.py:1000-1003 now says the stamp marks the page plan's own failure, already logged by _interior_counts; app.py:961-967 logs with log.exception then setattr(error, _PLAN_FAILURE_LOGGED, True), the only setattr of the stamp in the file (grep: line 967); the tripwire-only claim is gone"
+system_contract:
+  rules_checked: 52
+  holds: 7
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived: the card adds exactly one import line, `from pathlib import Path` (stdlib; function-local at tests/test_book_finalise_gutter.py:1422), and none in app.py (git diff 594cd7b -U0 -- src/nonogram/admin/app.py | grep '^[+-].*import': empty); git diff 594cd7b --stat -- pyproject.toml: empty; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (the TestDependencyBaseline_IsExactlyPillowAndNumpy check, docstring :1250) green on 6fb9bc1+delta"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ not in the card diff; tests/test_cli.py::test_every_import_in_the_package_points_inward green on 6fb9bc1+delta"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: card diff touches no grid-extent signature (re-read git diff 594cd7b)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting in the card diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the card diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no orchestrator/repair code in the card diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter in the card diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the card diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in the card diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy in the card diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the card diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation in the card diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the card diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies code in the card diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the card diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code in the card diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the card diff"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle / storage boundary not in the card diff"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score not in the card diff"
+    - "ADR-0033/R1 ✓ holds — card diff writes no puzzle field; the only write on the touched path is set_book_status(book_id, READY_FOR_PDF) at app.py:4389, arguments unchanged from 594cd7b"
+    - "ADR-0035/R1 ✓ holds — both gate calls keep their arguments: book_mgr._refuse_unless_the_planned_book at app.py:4369 (try at :4368) and book_mgr.set_book_status at app.py:4389; only the ValueError routing changed (flash in place, book not moved). Rule check tests/test_book_ready_gate.py::TestBookStatus_EveryExitFromDraftIsGatedOnThePlan green on 6fb9bc1+delta; additionally TestFinalisePost_PlanGateRefusalIsNotAnError (tests/test_book_finalise_gutter.py) green, book stays DRAFT"
+    - "ADR-0036/R1 ✓ holds — no layout/generator file in the card diff; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (tests/test_layout_page_spec.py:147, tests/test_export_a4_golden.py:73) green on 6fb9bc1+delta"
+    - "ADR-0036/R2 ✓ holds — card diff adds no page-geometry computation to the admin panel (grep of git diff 594cd7b for compute_layout|PageSpec: none)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no puzzle-page rendering in the card diff"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke widths in the card diff"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: player client not in the card diff"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player not in the card diff"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player not in the card diff"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player not in the card diff"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: player not in the card diff"
+    - "ADR-0038/R7 ⚠ unchecked — carried(cycle 1, delta-clean): scope [pyproject.toml, tests/**] does not intersect the fix delta (src/nonogram/admin/app.py)"
+    - "ADR-0038/R8 ⚠ unchecked — carried(cycle 1, delta-clean): scope [tests/**] does not intersect the fix delta (src/nonogram/admin/app.py)"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver not in the card diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server not in the card diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server not in the card diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits not in the card diff"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard not in the card diff"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin bind address and debug flag not in the card diff (main() untouched); TestAdminPanel_BindsLoopbackOnlyByDefault green on 6fb9bc1+delta"
+    - "CON-016 ✓ holds — no route, before_request hook or door logic in the card diff; the new GET error page is returned from inside finalize_book (app.py:4484); TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit (tests/test_admin_binding.py:385) green on 6fb9bc1+delta"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no play surface in the card diff"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues not in the card diff"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: puzzle export readiness not in the card diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters not in the card diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: plan split not in the card diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership not in the card diff"
+    - "INV-007 ✓ holds — ready transition on Finalise still only via set_book_status's gate (app.py:4389); tests/property/test_book_ready_gate.py::test_PropertyTest_BookReady_GateIffEveryCellWithinTolerance green on 6fb9bc1+delta"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published membership not in the card diff"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order not in the card diff"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing not in the card diff"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key not in the card diff"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change path in the card diff"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF composition not in the card diff (G-5: no generator change)"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 1000
+    title: "_page_plan_failure_page docstring says the stamp marks the exporter's own tripwire message"
+    description: |
+      Cycle 1 finding. Re-derived in cycle 2: the docstring now says the stamp
+      marks the page plan's own failure, already logged by _interior_counts,
+      which matches app.py:961-967 (log.exception, then the only setattr of
+      _PLAN_FAILURE_LOGGED in the file).
+    suggestion: |
+      None; resolved.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted docstring edit on 6fb9bc1 (cycle 2 fix delta)"
+    dismissed_reason: null
+    learned_pattern: null

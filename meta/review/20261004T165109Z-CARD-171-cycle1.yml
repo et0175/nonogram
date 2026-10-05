@@ -1,0 +1,113 @@
+version: 1
+generated_at: "2026-10-04T16:51:09Z"
+target: "card/171-finalise-errors-named-and-logged (6fb9bc1) vs main"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (_interior_counts, _is_a_logged_plan_failure, _page_plan_failure_page, finalize_book, generate_book_pdf_download, server_error)"
+    - "src/nonogram/admin/book_manager.py (set_book_status, _refuse_unless_the_planned_book)"
+    - "tests/test_book_finalise_gutter.py (diff)"
+    - "meta/kanban/cards/CARD-171.md"
+    - "meta/architecture/decisions/adr/0030-admin-remote-access-behind-a-credential.md (header)"
+  not_reached:
+    - "rendered 500.html (no screenshots; static check only)"
+    - "DB-mode path of the Finalise route (panel fixture is in-memory only)"
+  confidence: high
+metrics:
+  diff: { files: 2, added: 251, removed: 27 }
+  max_fan_in: { symbol: "_page_plan_failure_page", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — top co-change peers (book_manager.py 21, book_finalize.html 13) carry no change this card needs; no template or manager change is in scope"
+system_contract:
+  rules_checked: 52
+  holds: 7
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no import line and does not touch pyproject.toml; tests/test_export_pdf.py -k dependency_baseline_is_still_closed green on 6fb9bc1"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: src/nonogram/web/ untouched"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no orchestrator/repair code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies code touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: add_puzzle / storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — diff writes no puzzle field; the only write on the touched path is the unchanged set_book_status(book_id, READY_FOR_PDF) call at app.py:4389"
+    - "ADR-0035/R1 ✓ holds — both gate calls (app.py:4370 _refuse_unless_the_planned_book, app.py:4389 set_book_status) keep their arguments; only the ValueError routing changed (flash in place of outer-handler flash). TestBookStatus_EveryExitFromDraftIsGatedOnThePlan and TestFinalisePost_PlanGateRefusalIsNotAnError green; book stays DRAFT"
+    - "ADR-0036/R1 ✓ holds — no layout/generator file in the diff; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (tests/test_layout_page_spec.py) green on 6fb9bc1"
+    - "ADR-0036/R2 ✓ holds — diff adds no page-geometry computation to the admin panel (grep of the diff for compute_layout/PageSpec: none)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no puzzle-page rendering touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no stroke widths touched"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: player client untouched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser tests or extras touched"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin bind address and debug flag untouched (main() not in diff)"
+    - "CON-016 ✓ holds — no route, before_request hook or door logic in the diff; the new GET error page is served from inside the existing finalize_book route; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit (tests/test_admin_binding.py) green on 6fb9bc1"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no play surface touched"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: puzzle export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: plan split untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-007 ✓ holds — ready transition still only via set_book_status's gate (app.py:4389); PropertyTest_BookReady_GateIffEveryCellWithinTolerance (tests/property/test_book_ready_gate.py) green on 6fb9bc1"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published membership untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no membership change path touched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: interior PDF composition untouched (G-5: no generator change)"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/app.py
+    line: 1000
+    title: "_page_plan_failure_page docstring says the stamp marks the exporter's own tripwire message"
+    description: |
+      The docstring says "the stamp is what says that text is the exporter's own
+      tripwire message". _interior_counts (app.py:946-972) stamps any exception
+      interior_stream raises other than an unpackable row, not only the two
+      tripwires, and the tests show only the two tripwires (TRIPWIRES). So the
+      sentence claims more than the code and tests show. The behaviour is the one
+      the card accepts (AC-6: only stamped text reaches the screen). Only the
+      wording overclaims.
+    suggestion: |
+      Say what the stamp means: "the stamp says this is the page plan's own
+      failure, already logged (in practice the exporter's tripwire wording)".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
