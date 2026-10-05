@@ -1,6 +1,6 @@
 # CARD-184: One test holds every interior face to CON-020's 10 pt floor, and the two faces below it today are fixed
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** tests/test_book_interior_type_floor.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/layout.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card184.json, tests/test_book_pdf_ink_mode.py, tests/test_book_pdf_memory.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 1/3)
+**Started:** 2026-10-05T07:46:41Z
+**Closed:** 2026-10-05T09:42:16Z
+**Actual:** 0.2d
+**Merge commit:** 9117567
 **Blocked by:** —
 
 ## What to implement
@@ -206,3 +206,46 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-184` (55 rules). A project
 - [Baselines] Answer pages are interior pages 9–11 of the baseline book. Expect these to go red and need re-pointing to `book_baseline_card184.json`: `tests/helpers/book_corpus.py` `BASELINE_FIXTURE` (`:117`), which feeds `tests/test_book_pdf_memory.py`; `tests/test_book_pdf_ink_mode.py` `TestBookInk_ColourInteriorIsUnchanged`, which compares pages 2–11 to CARD-146's file plus page 1 to CARD-167's, and the colour interior's length. Follow the CARD-167 pattern: overlay the moved pages from the new fixture and record the new `colour_interior_bytes`. `tests/test_book_pdf_memory.py` is in Touches in case its answer-page ink figures (`:225-228`) are bounds the larger type crosses. If they are not, leave it untouched. Record the baseline in its own commit, after the fix commit (CARD-149/167 precedent).
 - [Architect] Flipping CON-020 to `check: test` (ref `TestInteriorType_EveryFaceHoldsTheFloor`), updating its trace tests, and deciding whether its statement should carve out cell-bound clue digits (or another rule should govern them) is the architect's job. Never edit `meta/` in this card.
 - [AC cross-check] Re-read AC-1..AC-5 against the body. The exemption list (AC-3) matches item 3. The fixes in items 1–2 are what make AC-1/AC-2/AC-4 pass. AC-5's pages 9–11 match item 1. The cover and band shrink stay out of scope in both. No edit was needed.
+- [Env] forge 2026.8.17
+- [System contract] fresh assembly (system_rules.py --card CARD-184) = card section, 55 rules — no refresh needed
+- [Renders] before: ~/Documents/nonogram-reviews/CARD-184/{answer-page9-book1,divider-with-arial,divider-no-arial}-before.png (main 2e40c96); divider without Arial letters SOLUTIONS at Pillow's unsized ~10 px face
+- [Implemented 2026-10-05] Commits on card/184-interior-type-floor: `2b1ef03` fix (code + new test), `52c4da6` baseline (own commit), `0333288` test-only follow-up (removed an untested spy branch; see the T6 note below). Files: `src/nonogram/export/layout.py` (`ANSWER_TEXT_FONT_MM = 10 * 25.4 / 72`, no import), `src/nonogram/admin/book_pdf_generator.py` (`DIVIDER_PT = 14.4`; `create_divider_page` letters through `_guide_face(type_px(DIVIDER_PT, self.dpi))`), `tests/test_book_interior_type_floor.py` (new), `tests/fixtures/book_baseline_card184.json` (new), `tests/helpers/book_corpus.py` (`BASELINE_FIXTURE` now card184), `tests/test_book_pdf_ink_mode.py` (overlays pages 9-11 from card184 and reads `colour_interior_bytes` from it, following the CARD-167 pattern). No SCOPE+.
+- [Measured] Answer heading/caption: 41 px = 9.84 pt before, 42 px = 10.08 pt after (300 DPI, both books). Divider with Arial: 60 px = 14.40 pt before and after. Divider without Arial: before, a sizeless `load_default()` (Pillow 12.3 returns a FreeTypeFont at a 10 px em) = 2.40 pt; after, `load_default(60)` = 14.40 pt. Divider at 600 DPI: 60 px = 7.2 pt before, 120 px = 14.4 pt after.
+- [Spy shape, real names] The exempt functions exist as named: `nonogram.export.png._draw_clues` and `nonogram.admin.book_pdf_generator._write_clues`. **But `draw_example_line` also calls `_write_clues`**, so a rule based only on the immediate caller would exempt the worked-example digits. The rule is: the immediate caller is one of the two, AND `draw_example_line` is nowhere in the call chain. The chain is the `nonogram.*` frames only. Two more facts: (1) the min-trim book prints its single puzzles through COMP-007's `pdf._draw_header`, not `_set_band`, so both count as "band" for the coverage assertion; (2) the 10x10 cm book exports 12 interior pages, not 11, because its answer key packs onto one more page. The test asserts 11 and 12 per book. "Unsized" means either the face is not a FreeTypeFont, or it is the object a sizeless `ImageFont.load_default()` returned during the walk. On Pillow ≥ 10.1 that object is a FreeTypeFont at 10 px, so `isinstance` alone cannot tell it apart (see T1m).
+- [Test on main] With main's src, the new file has 7 failed / 14 passed. AC-1's two floor tests fail on page 9-11 answer heading/captions at 41 px = 9.84 pt. AC-2's `test_no_face_is_unsized` (x2) and its floor tests (x2) fail on the dividers' sizeless `load_default()`. AC-4 fails at [7.2] pt vs 14.4.
+- [Mutants] All were run against the new test file. S* mutate src; T* mutate the test. "(main)" means the test mutant was run with main's two defects restored.
+  - S1 `ANSWER_TEXT_FONT_MM = 3.5`: killed (AC-1 + AC-2 floor tests, both books).
+  - S2 divider back to main: killed (AC-2 unsized + floor, AC-4).
+  - S3 divider sized by `type_px` but unsized fallback: killed (AC-2 unsized + floor). AC-4 survives, as expected.
+  - S4 sized fallback but bare `60`: killed (AC-4 only).
+  - S5 `_write_clues` halves its size: killed (AC-1/AC-2 floor). This proves worked-example digits are held to the floor.
+  - S6 `png._clue_font` quarters puzzle-clue size: survives. This is the exemption's edge: puzzle-page digits really are exempt.
+  - S7 `_set_band` starts at its 1/3 shrink floor: killed on book1 only (only book1 has a two-up band).
+  - S10 `pdf._draw_header` starts at its 1/3 floor: killed on both books.
+  - S8 answer face 3.505 mm (41.4 px → 41): killed.
+  - S9 answer face 3.5137 mm (41.5 px → 42): survives. The floor boundary is between 41 and 42 px, as claimed.
+  - T1 spy drops the sizeless-`load_default` detection: survives on fixed code. T1m (main): `test_no_face_is_unsized` no longer fails, but the floor tests still catch the 10 px divider. So the detection is what makes AC-2's "no face is unsized" able to fail.
+  - T2 exemption widened to include `draw_example_line`: killed (`test_worked_example_digits_are_drawn_and_never_exempt` x2, `test_exempt_calls_are_puzzle_page_digits` x2, `test_the_exemption_rule_by_name`).
+  - T3 floor comparison flipped: killed.
+  - T4 exemption widened to `png.render_answer_page`: killed (`exempt_calls_are_puzzle_page_digits`, `exemption_rule_by_name`). T4m (main): AC-1's floor tests then pass on main's 9.84 pt answers, but `exempt_calls_are_puzzle_page_digits` still fails. So that test is what stops the exemption from hiding a real face.
+  - T5 (main) `without_arial` patches nothing: `test_arial_really_is_unavailable` fails. So does the AC-1/AC-2 floor test (answers), and AC-2's unsized tests stop failing. The control works.
+  - T6 the spy drops its "skip PIL-internal multiline re-entry" filter: survived (no interior text is multiline). The filter was removed in `0333288` instead of being claimed. `_call_chain` already skips PIL frames.
+- [Baseline] Font fingerprint reproduced first (= card167's `cfa57e76…`). Pages 1-8 have the same sha256 as `book_baseline_card167.json`, dividers included. Only pages 9, 10 and 11 moved (`changed_pages: [9, 10, 11]`). Interior bytes went 2,436,675 → 2,437,097, and the colour interior 2,845,318 → 2,845,507. The colour-export page digests equal the black-and-white ones (checked). `git diff 2e40c96 --stat` shows no predecessor fixture touched. `MACHINE_FACE_SIZES` stays `(92, 46, 60)` and `font_fingerprint` is unchanged.
+- [book_pdf_memory] `tests/test_book_pdf_memory.py` was not touched. Its answer-page ink checks still pass with the larger type. It reads the new fixture through `book_corpus.BASELINE_FIXTURE`. One existing docstring (`:1163`) still says "currently book_baseline_card147.json"; it was already stale before this card and was left alone.
+- [Tests run] On the final tree, the new file passed 21/21. A wider run of `tests/test_book*.py`, `test_answer_page_layout.py`, `test_export*.py`, `test_layout*.py`, `test_pdf_generator.py`, `tests/property/` and `tests/test_cli.py` gave 2450 passed and 1 skipped. That skip is the pre-existing platform skip of `setrlimit(RLIMIT_AS)` on macOS. The full suite was not run here (orchestrator gate).
+- [Architect] As drafted: CON-020's check/trace flip, and whether to carve out cell-bound clue digits, are left to the architect. Nothing under meta/ was edited apart from these notes.
+- [Scope] src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/layout.py, tests/fixtures/book_baseline_card184.json, tests/helpers/book_corpus.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_ink_mode.py
+- [Build gate] impact underivable (test_scope: full) — full suite
+- [Renders] after: ~/Documents/nonogram-reviews/CARD-184/*-after.png + answer-page9-top-before-over-after.png, divider-no-arial-before-over-after.png. Pixel diff: answer page 9 changes only in the heading/caption band (bbox 546,132–2029,257); divider with Arial identical; divider without Arial 10 px → 60 px face. Owner look is a pre-merge check.
+- [Build gate] PASSED (full, 711s; 6291 passed, 9 skipped — baseline 6270 + 21 new)
+- [Scope gate 1] IN_SCOPE — 6 files, all within Touches; no guardrail hits (no meta/, no predecessor fixture, no new import in layout.py)
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/ (20261005T084958Z-CARD-184-cycle1.yml)
+- [Adversarial] no Critical/Important findings in cycle 1 — nothing to verify
+- [Review 1/3] Step 8h coverage: 55/55 card rules have a verdict line (10 ✓, 45 ⚠ no_eligible_fact, 0 ✗)
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0036/R1)
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ demonstrated — TestInteriorType_EveryFaceHoldsTheFloor 4/4 PASSED (book1 + min-trim, coverage of guide/divider/band/answer heading/caption); fails on main src · AC-2 ✓ demonstrated — TestInteriorType_FloorHoldsWithoutArial 7/7 PASSED; test_no_face_is_unsized fails on main · AC-3 ✓ demonstrated — TestInteriorType_OnlyPuzzleClueDigitsAreExempt 9/9 PASSED (exempt set non-empty on both books, worked-example digits never exempt) · AC-4 ✓ demonstrated — TestDividerPage_PointSizeIsIndependentOfDpi PASSED (14.4 pt at 300 and 600 DPI); fails on main · AC-5 ✓ demonstrated — card184 fixture changed_pages [9,10,11], supersedes card167, pages 1-8 sha256 = card167, no predecessor fixture in diff, baseline commit 52c4da6 after fix 2b1ef03, test_book_pdf_memory + test_book_pdf_ink_mode green · G-1 ✓ (digests 1-8 = card167; MACHINE_FACE_SIZES (92,46,60), font_fingerprint unchanged) · G-2 ✓ (no card128..167 fixture in diff) · G-3 ✓ (tests/property/test_cli_exports_byte_identity.py 3 passed; a4 golden + page spec 171 green) · G-4 ✓ (test_layout_answer_tiles 48, test_book_answer_key 56 PASSED, files untouched) · G-5 ✓ (_CLUE_FONT_RATIO untouched; guide page tests 17+11 PASSED) · G-6 ✓ (test_every_import_in_the_package_points_inward PASSED; no import line in src diff) · G-7 ✓ (git diff main...HEAD -- meta empty)
+- [Docs] forge:readme: no README in src/nonogram/admin, src/nonogram/export, tests/fixtures, tests/helpers; tests/README.md is the Wave-1 admin-suite README and lists no book tests — no structure/purpose change, nothing to update
+- [Commit] success commit d69d6e2 (empty marker; change in 2b1ef03 fix + 52c4da6 baseline + 0333288 test-only follow-up, which changes no pixels) — diff vs main: 6 files, +570/−18; nothing under meta/ committed. Open: Minor F-001 (test_only_the_two_clue_writers_are_exempt passes by construction — redundant with test_the_exemption_rule_by_name); out-of-scope: clue digits 3.6–9.4 pt (architect: CON-020 carve-out + flip check to TestInteriorType_EveryFaceHoldsTheFloor), stale docstring test_book_pdf_memory.py:1163. Owner look at ~/Documents/nonogram-reviews/CARD-184/ is a pre-merge check.
+- [Merge gate] rebased onto cb53412; full suite 6323 passed, 9 skipped, exit 0 (590s, under the lock). Owner: "merge now, check later" (renders in ~/Documents/nonogram-reviews/CARD-184/). Merged 9117567.

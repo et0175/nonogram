@@ -99,6 +99,9 @@ card names its card._
 
 - [ ] CARD-179 F-003 (minor): `_wrapped` docstring doesn't say the token after an over-wide × is taken as M with no other rule   @tech-debt
 
+- [ ] CARD-184 owner check pending: answer-page and no-Arial divider renders in ~/Documents/nonogram-reviews/CARD-184/ (merged on evidence by owner choice)   @feature
+- [ ] CARD-184 F-001 (minor): `test_only_the_two_clue_writers_are_exempt` passes by construction (redundant with test_the_exemption_rule_by_name); stale 'card147' docstring at tests/test_book_pdf_memory.py:1163   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

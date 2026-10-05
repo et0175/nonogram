@@ -1,0 +1,159 @@
+version: 1
+generated_at: "2026-10-05T08:59:57Z"
+target: "card/184-interior-type-floor (main...HEAD, 2e40c96..0333288)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+card: CARD-184
+cycle: 1
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (diff hunks, _guide_face, type_px, _write_clues, create_divider_page, interior_stream/export_interior)"
+    - "src/nonogram/export/layout.py (ANSWER_TEXT_FONT_MM and its two uses in compute_answer_page_layout)"
+    - "src/nonogram/export/png.py (render_answer_page, _clue_font, _draw_clues) and export/pdf.py (_draw_header) as callers"
+    - "tests/test_book_interior_type_floor.py (whole file)"
+    - "tests/fixtures/book_baseline_card184.json (compared field by field with book_baseline_card167.json)"
+    - "tests/helpers/book_corpus.py and tests/test_book_pdf_ink_mode.py (diff hunks)"
+  not_reached: []
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 570, removed: 18 }
+  max_fan_in: { symbol: "layout.ANSWER_TEXT_FONT_MM", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: ["tests/test_book_pdf_memory.py"]
+  notes:
+    - "book_pdf_generator.py: 27 commits in 12 months, 11 fix/bug. Hotspot, but the diff is two hunks there (a constant and one line)."
+    - "test_book_pdf_memory.py co-changed 7 times. It is deliberately untouched and reads the new fixture through book_corpus.BASELINE_FIXTURE. It is green on HEAD."
+    - "_guide_face has 3 callers (guide title and body, divider). create_divider_page is called from 2 sites in interior_stream."
+
+system_contract:
+  rules_checked: 55
+  holds: 10
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml not in the diff; new test imports only PIL, pytest and nonogram; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed PASSED on 0333288"
+    - "ADR-0019/R1 ✓ holds — no file under src/nonogram/web/ in the diff; tests/test_cli.py::test_every_import_in_the_package_points_inward green on 0333288"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: --size parsing untouched"
+    - "ADR-0023/R1 ⚠ unchecked — no_eligible_fact: no export metadata touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: repair/recovery untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: solver strategies untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver overlap masks untouched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — the book_pdf_generator.py diff is a DIVIDER_PT constant, a docstring and the divider font line (git diff main...HEAD -- src/nonogram/admin/book_pdf_generator.py). No puzzle grid, clues, tier or strategies are written"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status gate untouched"
+    - "ADR-0036/R1 ✓ holds — the default PageSpec path is untouched (compute_answer_page_layout refuses DEFAULT_PAGE_SPEC, test_layout_answer_tiles.py:396); tests/test_layout_page_spec.py and tests/test_export_a4_golden.py green on 0333288"
+    - "ADR-0036/R2 ✓ holds — no geometry computed in admin/. The divider still centres on page_frame(...), and answer geometry still comes from compute_answer_page_layout: 400 layouts at 3.5 mm vs 10 pt differ only in font_size/caption_font_size (reviewer scratch script card184 geometry comparison)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: band text untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: grid strokes untouched"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser tests or extras touched"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin bind untouched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin doors untouched"
+    - "CON-019 ✓ holds — tests/property/test_cli_exports_byte_identity.py (PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry) green on 0333288; ANSWER_TEXT_FONT_MM is read only by compute_answer_page_layout (layout.py:2418, :2583), which is book-only"
+    - "CON-020 ✓ holds (for the faces this diff touches) — TestInteriorType_EveryFaceHoldsTheFloor and TestInteriorType_FloorHoldsWithoutArial green on both books; on main's src the same file fails 7 tests; mutants M1/M4/M5/M6/M7 killed. Pre-existing gap: puzzle clue digits at 3.6-9.4 pt are exempted by name and routed to the architect (out-of-scope observation)"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: interactive play untouched"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: distribution plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: membership floor and _CLUE_FONT_RATIO not in the diff"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book confirmation untouched"
+    - "INV-009 ✓ holds — the create_divider_page call sites are unchanged; tests/test_book_pdf_levels.py (TestBookPdf_DifficultyOrderWithDividerPerLevel) green on 0333288; test_the_dividers_are_drawn counts 4 dividers per book"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing untouched"
+    - "INV-011 ✓ holds — tests/property/test_book_answer_key.py and tests/property/test_book_answer_tiles.py green on 0333288; answer geometry and capacity unchanged (400-layout comparison, 0 geometry diffs)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: membership persistence untouched"
+    - "INV-013 ✓ holds — tests/property/test_book_export_interior.py green on 0333288; the walk asserts 11 and 12 interior pages from interior_stream with the guide page first"
+
+task_contract:
+  acceptance_criteria:
+    - "AC-1 ✓ — both floor tests and the coverage test pass on HEAD; on main's src the floor tests fail (answer heading/captions 41 px = 9.84 pt)"
+    - "AC-2 ✓ — the unsized and floor tests pass on HEAD and fail on main (sizeless load_default divider); the control test_arial_really_is_unavailable passes"
+    - "AC-3 ✓ — the exempt set is non-empty on both books; worked-example digits are held to the floor (M7 killed, T2 killed). See F-001 for one weak test"
+    - "AC-4 ✓ — 14.4 pt at 300 and 600 DPI; main gives [7.2] at 600; M3 (bare 60) killed"
+    - "AC-5 ✓ — changed_pages [9, 10, 11]; pages 1-8 equal card167's sha256; no predecessor fixture in the diff; baseline in its own commit 52c4da6 after fix 2b1ef03; 2b1ef03 is red on exactly the 4 baseline assertions the fixture names"
+  guardrails:
+    - "G-1 ✓ — fixture pages 1-8 byte-equal card167; the book_corpus.py diff changes BASELINE_FIXTURE only (MACHINE_FACE_SIZES and font_fingerprint unchanged)"
+    - "G-2 ✓ — git diff main...HEAD --stat -- tests/fixtures shows only the new card184 file; supersedes card167"
+    - "G-3 ✓ — the CLI byte-identity property test is green"
+    - "G-4 ✓ — test_layout_answer_tiles.py and test_book_answer_key.py are unchanged and green; 400 layouts show 0 geometry diffs"
+    - "G-5 ✓ — _CLUE_FONT_RATIO is not in the diff; guide-page tests are green; M8 survives as expected"
+    - "G-6 ✓ — no import added to layout.py; the test_cli guard is green"
+    - "G-7 ✓ — no committed meta/ change; only the uncommitted Worktree notes, which the process expects"
+
+mutation_check:
+  ran: true
+  test_command: "pytest tests/test_book_interior_type_floor.py"
+  mutants:
+    - "M1 ANSWER_TEXT_FONT_MM = 3.5: killed (4 floor tests)"
+    - "M2 ANSWER_TEXT_FONT_MM = 3.5137 (41.5 px -> 42): survived, as the claim's edge requires"
+    - "M3 divider _guide_face(60): killed (AC-4)"
+    - "M4 _guide_face fallback load_default() unsized: killed (AC-2 unsized + floor)"
+    - "M5 answer caption font -5 px: killed"
+    - "M6 pdf._draw_header band at 1/3: killed"
+    - "M7 _write_clues size halved (worked example): killed"
+    - "M8 png._clue_font quartered: survived, as the exemption's edge requires"
+    - "T2 exempt predicate drops the draw_example_line clause: killed (5 tests)"
+    - "T3+M4 spy drops sizeless detection with unsized fallback: test_no_face_is_unsized no longer fails, so the detection is load-bearing as the docstring claims"
+    - "T1 EXEMPT_CALLERS += draw_example_line: survived (equivalent mutant; draw_example_line is never the immediate caller)"
+  restore_verified: true
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_interior_type_floor.py
+    line: 339
+    title: "test_only_the_two_clue_writers_are_exempt holds by construction"
+    description: |
+      TextCall.exempt (line 162) already requires `self.caller in EXEMPT_CALLERS`, so
+      `{call.caller for exempt calls} <= EXEMPT_CALLERS` cannot fail for any production
+      behaviour. It only fails if the test's own predicate is edited, and
+      test_the_exemption_rule_by_name already pins that predicate. Widening EXEMPT_CALLERS,
+      the likeliest regression, passes it trivially. AC-3's "only puzzle-page clue digits"
+      is actually enforced by test_exempt_calls_are_puzzle_page_digits and
+      test_worked_example_digits_are_drawn_and_never_exempt.
+    suggestion: |
+      Make it check production routing. For example, assert that every exempt call's page
+      is a puzzle page (a page whose recorded calls include a "band" kind), so a
+      clue-writer reached from a guide, divider or answer page would fail. Or delete it as
+      redundant.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
