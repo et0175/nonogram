@@ -1,6 +1,6 @@
 # CARD-177: Finalise and the book PDF downloads flash a generic error, not the exception's text
 
-**Status:** ready
+**Status:** done
 **Priority:** P1
 **Category:** compliance
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, tests/test_book_finalise_gutter.py, tests/test_admin_error_text.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (1 cycle)
+**Started:** 2026-10-05T07:46:37Z
+**Closed:** 2026-10-05T09:52:40Z
+**Actual:** 0.3d
+**Merge commit:** d1995fd
 **Blocked by:** —
 
 ## What to implement
@@ -176,3 +176,28 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-177` (52 rules). A project
   - Plain-text 500 bodies: `api_get_image` :5149-5150, `api_get_cropped_image` :5220-5221, `api_puzzle_grid_from_puzzle` :5251-5252, `api_puzzle_grid_download_from_puzzle` :5280-5281, `api_puzzle_grid_download_pdf` :5341-5343 (only the last is logged).
 - [Scope decision] `/generate-pdf` is included although the idea names only Finalise: it is the third route of the same export (FR-043), and leaving it would keep the leak on one of three buttons.
 - [AC cross-check] Re-read AC-1..AC-5 against the body: placement (log before flash), the three handlers, ValueError treated as generic inside them, and refusals untouched all agree. No change was needed.
+- [Env] forge 2026.8.17
+- [Implementation 2026-10-05] app.py: two module constants after `UNCOUNTABLE_INTERIOR_REFUSAL` — `FINALISE_ACTION_FAILED`, `PDF_EXPORT_FAILED`. Finalise outer handler and `generate_book_pdf_download` now flash the constants (`except Exception:` without `as e`; CARD-171 log lines unchanged). `generate_book_pdf` gains `app.logger.exception("The PDF of book %s could not be generated", book_id)` before its flash of `PDF_EXPORT_FAILED`. All three outer handlers kept (G-1); statuses/destinations unchanged. No other app.py hunk; `server_error` and templates/500.html untouched.
+- [Owner default] flash wording — implemented as drafted.
+- [Tests] tests/test_book_finalise_gutter.py: `_clear_cover_fails_once`/`_save_and_finish_fails_once`/`_download_pdf_fails_once` return the constants; TestFinalisePost_TransientErrorIsLogged uses a distinct marker and asserts it is absent from the body (200) or from every flash and the Location header (302). Nothing else in that file changed. New tests/test_admin_error_text.py: TestBookPdfDownload_ErrorIsGenericAndLogged (AC-2, 3 routes; raise-once at `BookPDFGenerator.__init__`; no Referer, so 302 to `/book/<id>`) and `test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen` (AC-3; function form, the repo's naming for property tests; seed 177, 60 cases, count asserted; covers all 6 classes and all 5 seams, asserted; save_and_finish seam is raise-once at `panel.books.get_puzzle_title` per [Reuse]). Order of log vs flash is NOT asserted by any test.
+- [Mutants] (scratchpad card177_mutants.py; app.py restored after each) — M1 finalise flash `f"Error: {str(e)}"`: killed by TransientErrorIsLogged[clear_cover], [save_and_finish], PropertyTest. M2 download flash `f"Failed to generate PDF: {str(e)}"`: killed by AC-2[finalise], AC-2[download-pdf], TransientErrorIsLogged[download_pdf], PropertyTest. M3 generate-pdf flash `f"Error generating PDF: {str(e)}"`: AC-2[generate-pdf], PropertyTest. M4 drop the new generate-pdf log line: AC-2[generate-pdf], PropertyTest. M5 generate-pdf logs twice: AC-2[generate-pdf], PropertyTest. M6 (edge) finalise leaks only for ValueError: PropertyTest. M7 (edge) download appends html.escape(str(e)): AC-2[finalise], AC-2[download-pdf], TransientErrorIsLogged[download_pdf], PropertyTest. M8 (edge) download leaks only for a class named OperationalError: PropertyTest.
+- [Revert check] 2e40c96's app.py put in place (plus the two constants appended so the imports resolve): 7 failed — AC-2 x3, PropertyTest (AC-3), TransientErrorIsLogged x3 (AC-1 incl. download_pdf row). Restored afterwards.
+- [Tests run] tests/test_admin_error_text.py, test_book_finalise_gutter.py, test_book_ready_gate.py, test_book_export_interior_cover.py, test_card_062_abandon_retry.py, test_book_trim_persistence.py, test_book_workflow_steps.py, test_print_specs.py: 659 passed (under the shared lock). tests/test_export_a4_golden.py + test_layout_page_spec.py (G-5): 168 passed. AC-4/G-3/G-7 named tests are in those files, unmodified, green. Grep for the old strings in tests/ found only the three helpers above (the other `f"Error: ` hits are print-setup refusals on other routes, green).
+- [Scope] src/nonogram/admin/app.py, tests/test_admin_error_text.py, tests/test_book_finalise_gutter.py
+- [Build gate] impact underivable (test_scope: full) — full suite
+- [Build gate] PASSED (full, 700s) — 6274 passed, 9 skipped
+- [System contract] fresh assembly (system_rules.py --card CARD-177) matches the card's 52 rules — no refresh
+- [Scope gate 1] IN_SCOPE — 3 files, all inside Touches; components: COMP-009 only; no structural guardrail hit (templates/500.html untouched)
+- [Visual] review.visual off — owner renders before/after in ~/Documents/nonogram-reviews/CARD-177/ (8 PNG + HTML; fake password on screen: before 4/4, after 0/4)
+- [Orchestrator] 2026-10-05T08:40:36Z handed back before completion (harness forced hand-back): review cycle 1 agent still running, no cycle-1 report yet; no success commit beyond implementation cb05439
+- [Review 1/3] Score: 9.0 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/
+- [Adversarial] no Critical/Important findings in cycle 1 — nothing to verify
+- [Review 1/3] Step 8h coverage: 52/52 card rules named (10 ✓, 42 ⚠ no_eligible_fact, 0 ✗); no extra ids
+- [Review 1/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [Review 1/3] 8f mutation check ran (5 reviewer mutants MA–ME, all killed; app.py restored byte-exact); revert check independently confirmed (7 failures on 2e40c96 app.py)
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0035/R1, INV-007, INV-013)
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ demonstrated — TestFinalisePost_TransientErrorIsLogged[clear_cover|save_and_finish|download_pdf] 3 passed (fail on main); AC-2 ✓ demonstrated — TestBookPdfDownload_ErrorIsGenericAndLogged[finalise|download-pdf|generate-pdf] 3 passed (fail on main); AC-3 ✓ demonstrated — test_PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen passed, 60 cases asserted (fails on main); AC-4 ✓ demonstrated — 16 named refusal tests passed, files unmodified vs main; AC-5 ✓ demonstrated — app.py hunks only constants + the three handlers, 500.html diff empty, server_error in no hunk; G-1 ✓ three except blocks kept, CARD-171 log lines unchanged, logged-once asserted; G-2 ✓ refusal tests green, no refusal text in diff; G-3 ✓ 500.html/server_error untouched, OtherErrorsStayGeneric green; G-4 ✓ test_card_062_abandon_retry 14 passed, no other route hunk; G-5 ✓ A4 golden + book pixel baselines 252 passed 1 platform skip; G-6 ✓ invented credentials only, no credential in new log text; G-7 ✓ PlanTripwire/OnlyThePlanFailure/UncountableBookStaysInDraft green (no EC section on this card)
+- [Docs] no README change: src/nonogram/admin/ has no README (per-directory README convention is an open owner decision), tests/README.md is a Wave-1 listing that enumerates no book test files — structure/purpose of both dirs unchanged
+- [Commit] the passing cycle left no uncommitted code: cb05439 (implementation commit, 3 files, +329/−13 vs main 2e40c96) is the success commit; nothing under meta/ committed. Open Minor: F-001 log-before-flash order not asserted by a test; F-002 AC-2 destination checked only without a Referer. Out-of-scope: OOS-1 owner no longer sees exporter text (e.g. unreadable print setup ValueError) on the PDF routes — confirm log reachability on Render; OOS-2 other routes echoing str(e) (delete_book next); OOS-3 /generate-pdf can show success+failure flashes if sending fails (pre-existing). Card stays review until done.
+- [Merge gate] rebased onto a5df2a0; full suite 6327 passed, 9 skipped, exit 0 (596s, under the lock). Owner: "merge now, check later" (wording renders in ~/Documents/nonogram-reviews/CARD-177/). Merged d1995fd.

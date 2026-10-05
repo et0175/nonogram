@@ -1,0 +1,101 @@
+version: 1
+generated_at: "2026-10-05T08:05:30Z"
+target: "card/177-generic-error-flash-on-finalise-and-pdf (main...HEAD, cb05439)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read: ["src/nonogram/admin/app.py (finalize_book, _interior_counts, _page_plan_failure_page, generate_book_pdf_download, generate_book_pdf, _export_part)", "src/nonogram/admin/book_pdf_generator.py (raise sites, __init__)", "tests/test_admin_error_text.py", "tests/test_book_finalise_gutter.py (diff hunks + helpers)", "meta/kanban/cards/CARD-177.md Worktree notes"]
+  not_reached: ["templates/book_finalize.html (unchanged, not needed)", "full suite (orchestrator ran it: 6274 passed, 9 skipped)"]
+  confidence: high
+metrics:
+  diff: { files: 3, added: 329, removed: 13 }
+  max_fan_in: { symbol: "FINALISE_ACTION_FAILED / PDF_EXPORT_FAILED", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (157 commits/12mo, 87 fix-tagged)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — top peers (book_manager.py 22, image_preview.html 21, book_finalize.html 14) need no change for a flash-text-only edit"
+tests_run:
+  scoped: "test_admin_error_text.py, test_book_finalise_gutter.py, test_book_ready_gate.py, test_book_export_interior_cover.py, test_card_062_abandon_retry.py — exit 0 under the shared lock"
+  revert_check: "main 2e40c96 app.py (+ the two constants so imports resolve): 7 failed — AC-2 x3, AC-3 PropertyTest, TransientErrorIsLogged x3 (AC-1 + download_pdf row). Matches the card's claim."
+  mutation_8f: "5 reviewer mutants, all killed — MA header leak on /generate-pdf (PropertyTest), MB finalise logs twice (TransientErrorIsLogged x2, PropertyTest), MC download leaks in Location (AC-2 x2, TransientErrorIsLogged[download_pdf], PropertyTest), MD finalise second flash with str(e) (TransientErrorIsLogged x2, PropertyTest), ME /generate-pdf logs at WARNING (AC-2[generate-pdf], PropertyTest). app.py restored byte-exact (sha256 1276b79a...), diff stat and git status match the start."
+task_contract:
+  - "AC-1 met — app.py:4448-4452 flashes FINALISE_ACTION_FAILED; TestFinalisePost_TransientErrorIsLogged asserts constant, marker absent, one ERROR record with traceback and book id; fails on main"
+  - "AC-2 met — app.py:4764-4768 and :5092-5095 flash PDF_EXPORT_FAILED; /generate-pdf gains the log line; TestBookPdfDownload_ErrorIsGenericAndLogged x3 routes; fails on main"
+  - "AC-3 met — seed 177, 60 cases, count/class/seam coverage asserted; body raw+unescaped, flashes, headers checked; fails on main; edge mutants MA/MC/MD killed"
+  - "AC-4 met — refusal sites unchanged in diff; named tests unmodified and green"
+  - "AC-5 met — app.py hunks only at constants + the three handlers; server_error and 500.html untouched"
+  - "G-1 holds — three outer handlers kept; CARD-171 log lines byte-identical; MB mutant shows double-log is caught"
+  - "G-2 holds — gate catches, UNCOUNTABLE_INTERIOR_REFUSAL, _kdp_gutter_refusal, _LOST_COVER_MESSAGE, unknown-part flashes and _page_plan_failure_page untouched (all outside the changed except blocks)"
+  - "G-3 holds — server_error/500.html not in diff"
+  - "G-4 holds — no other route hunk"
+  - "G-5 holds — no generator/layout code touched; orchestrator full suite green"
+  - "G-6 holds — new log line carries only book_id + exception; corpus uses invented values"
+  - "G-7 holds — save_and_finish body unchanged; test_book_finalise_gutter.py exit 0"
+system_contract:
+  rules_checked: 52
+  holds: 10
+  unchecked: 42
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff touches no pyproject.toml/dependency; 3 files only (git diff main...HEAD --stat)"
+    - "ADR-0033/R1 ✓ holds — diff writes no puzzle field; only flash/log lines in except blocks"
+    - "ADR-0035/R1 ✓ holds — save_and_finish gate/set_book_status code unchanged (app.py:4382-4443); test_book_ready_gate.py + TestFinalise_UncountableBookStaysInDraft green (scoped run exit 0)"
+    - "ADR-0036/R1 ✓ holds — no layout/generator code touched; orchestrator full suite (incl. TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden) green"
+    - "ADR-0036/R2 ✓ holds — no geometry computed in the changed lines"
+    - "CON-015 ✓ holds — bind/entry-point code not in diff"
+    - "CON-016 ✓ holds — door code not in diff; change reduces what is shown behind it"
+    - "INV-007 ✓ holds — ready transition unchanged; test_book_ready_gate.py green"
+    - "INV-012 ✓ holds — membership/status code unchanged; book stays draft after failed Save and finish (TestFinalise_UncountableBookStaysInDraft green)"
+    - "INV-013 ✓ holds — export success path unchanged; test_book_export_interior_cover.py green"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-008, INV-009, INV-010, INV-011 ⚠ unchecked — no_eligible_fact: the diff changes only three except-block flash/log lines in admin/app.py and tests; no web UI, solver, sourcing, difficulty, storage, player, plan, pairing or answer-key code"
+root_causes: []
+findings:
+  - id: F-001
+    severity: low
+    category: compliance
+    type: gap
+    file: tests/test_admin_error_text.py
+    line: 133
+    title: "Log-before-flash ordering is not asserted"
+    description: |
+      The card's target says each handler logs before it flashes; no test pins the order
+      (the implementer notes this). The code is correct today (app.py:4451/4766/5093).
+    suggestion: |
+      Optional: patch flash to record whether the panel ERROR record already exists, or accept as review-lens.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: compliance
+    type: gap
+    file: tests/test_admin_error_text.py
+    line: 152
+    title: "AC-2 destination checked only for the no-Referer branch"
+    description: |
+      generate_book_pdf_download redirects to request.referrer when present (app.py:4751);
+      AC-2 says "302 to today's destination", but only the url_for(book_detail) fallback is exercised.
+      The except branch did not change its redirect, so the risk is low.
+    suggestion: |
+      Optional: add a Referer-bearing case for the finalise and download-pdf rows.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+out_of_scope:
+  - "app.py:4764/5092 — on the export routes the owner no longer sees actionable exporter text (an unreadable print setup ValueError from BookPDFGenerator.__init__, 'puzzle <id> could not be laid out'); intended by the card (ValueError included), but worth confirming with the owner"
+  - "app.py:4453-4454, delete_book, proof-pages, batch and api_* routes still echo str(e) — already listed as the owner scope question in the card's Worktree notes; delete_book recommended next"
+  - "app.py:5079-5083 — pre-existing: /generate-pdf flashes 'PDF generated successfully!' before _send_export_part, so a send failure shows both success and failure flashes"

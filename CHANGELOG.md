@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-05
+- CARD-177 (compliance): When a Finalise action or a PDF export fails, the panel now shows a fixed message ("…The details are in the panel's log.") instead of the raw error text, which could include database connection details on a panel the public can reach. The full error goes to the log; owner-facing refusals keep their wording.
 - CARD-184 (tech-debt): Every piece of text inside the printed book is now checked against the 10 pt minimum by one test. Two were below it and are fixed: the answer-key heading and captions grow from 9.84 to 10.08 pt, and the "SOLUTIONS" divider keeps its 14.4 pt size even on servers without Arial (it used to fall back to a tiny unsized font, likely on Render). Puzzle clue digits, which scale with the cell, are exempt for now.
 - CARD-179 (feature): The proof pages' measurement note no longer splits a number from its unit ("4.58 / mm") or starts a line with "×". On square trims the corner note uses a slightly tighter line spacing so it still fits; portrait proofs are unchanged.
 - CARD-174 (feature): Print setup speaks inches when you type inches. A trim size that's too big or too small is now refused in inches, quoting what you entered, for example "at least 3.94 in on both sides; you entered 3 in for the width". The Limits box shows the same numbers the check uses (18.89 in, not 18.90, which the server refused). Centimetre entries read exactly as before.
