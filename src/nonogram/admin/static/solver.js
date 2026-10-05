@@ -88,7 +88,8 @@
 //             (a new history) sets it to 0.
 //   solved    while isSolved(current board) holds: the banner
 //             #puzzle-player-solved (the picture's name, server-rendered) is
-//             shown in place of the tools and its text is put into the live
+//             shown in place of the tools (the tools are hidden but keep
+//             their box, admin.css .player-slot) and its text is put into the live
 //             region #puzzle-player-announce (cleared when unsolved), the board carries .is-solved (a
 //             short CSS animation on the transition into solved; none under
 //             prefers-reduced-motion, admin.css), and the board is LOCKED —

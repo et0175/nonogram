@@ -25,8 +25,12 @@
   Progress (CARD-162): the error counter sits in the toolbar row and is a
   live region (role=status), updated by solver.js after every recorded
   stroke. The solved banner is rendered here, hidden; it names the picture
-  and takes the tools' place in the row while the board is solved (so the
-  board does not move).
+  and takes the tools' place in the row while the board is solved. Since
+  CARD-186 (review F-001) the tools and the banner's box share .player-slot
+  (one grid cell, admin.css): solved, the tools are hidden but keep their
+  box, so the toolbar keeps its rows and the board does not move (tested at
+  960..1480 px and 390 px; a picture name too long for the tools' box wraps
+  and makes the row taller).
 
   The picture name is the answer (CARD-163, FR-044 AC-322/AC-323): the
   header and the tab title show the grid's width × height and its tier,
@@ -58,13 +62,15 @@
 </div>
 
 <div class="player-toolbar" id="puzzle-player-controls" hidden>
+    <div class="player-slot">
     <div class="player-tools" role="group" aria-label="Marking tool for drags">
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="filled" aria-pressed="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="empty" aria-pressed="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="unknown" aria-pressed="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Undecided</button>
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="maybe" aria-pressed="false"><span class="player-swatch" data-state="maybe" aria-hidden="true"></span>Maybe</button>
     </div>
-    <p class="player-solved" id="puzzle-player-solved" hidden>{{ icons.icon('check') }}<span>Solved: <strong class="player-solved-name" data-player-solved-name>{{ title }}</strong></span></p>
+    <div class="player-solved-box"><p class="player-solved" id="puzzle-player-solved" hidden>{{ icons.icon('check') }}<span>Solved: <strong class="player-solved-name" data-player-solved-name>{{ title }}</strong></span></p></div>
+    </div>
     <p class="player-announce" id="puzzle-player-announce" role="status" aria-atomic="true"></p>
     <div class="player-history" role="group" aria-label="History">
         <button type="button" class="btn btn-outline-secondary" data-player-action="undo" aria-keyshortcuts="Control+Z Meta+Z" aria-disabled="true">{{ icons.icon('undo') }}Undo</button>

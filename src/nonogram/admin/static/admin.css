@@ -448,8 +448,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   box-shadow: inset 0 0 0 1px var(--color-accent);
 }
 /* Four tools since CARD-186 (Maybe): tool buttons take --space-2 side
-   padding, so at a 1280 x 720 viewport the solved banner still leaves the
-   board where it was (the banner test in test_puzzle_solver_progress.py). */
+   padding, which keeps the tools, the history controls and both counters on
+   one toolbar row at a 1280 x 720 viewport, as with three tools before
+   (tests/test_puzzle_solver_maybe.py). The solved banner no longer depends
+   on it (see .player-slot below). */
 .player-toolbar .player-tool { padding-left: var(--space-2); padding-right: var(--space-2); }
 .player-toolbar .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; background: var(--color-surface); }
 .player-swatch { position: relative; flex: none; width: var(--space-4); height: var(--space-4); background: var(--grid-paper); border: var(--border-width) solid var(--color-border-strong); }
@@ -460,8 +462,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
 /* Progress (CARD-162, FR-044): the error counter closes the toolbar row; the
    solved banner takes the tools' place in that row while the board is solved
-   (so the board never moves); the reset confirmation drops down under the
-   history controls, over the board, without moving it. */
+   (see .player-slot below for how, and the widths at which the board is
+   tested not to move); the reset confirmation drops down under the history
+   controls, over the board, without moving it. */
 .player-errors { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .player-errors-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
 /* Hints (CARD-183): "Hints: N" is the element after "Errors: N" and sits
@@ -476,11 +479,29 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-hints-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
 .player-cell.is-hinted { outline: var(--player-rule-major) solid var(--color-accent); outline-offset: calc(-1 * var(--player-rule-major)); box-shadow: inset 0 0 0 calc(2 * var(--player-rule-major)) var(--grid-paper); animation: player-hinted-in calc(2 * var(--duration-base)) var(--ease); }
 @keyframes player-hinted-in { from { outline-color: transparent; } }
-.player-toolbar.is-solved .player-tools { display: none; }
+/* The solved banner takes the tools' box (CARD-186, review F-001): the
+   tools and .player-solved-box share one grid cell of .player-slot, and
+   while solved the tools are visibility: hidden — still in layout, so the
+   toolbar keeps its rows and the board stays put; hidden tools are neither
+   focusable nor in the accessibility tree. The box has inline-size
+   containment, so the banner adds nothing to the slot's width (the slot is
+   as wide as the tools); the banner keeps its own width up to that and
+   wraps a longer name inside it (overflow-wrap: anywhere also breaks a name
+   with no spaces, such as a file name; the check icon keeps its size,
+   flex: none on .player-solved .icon). The box is centred down the tools'
+   box. A banner taller than the tools' box makes the row taller.
+   tests/test_puzzle_solver_maybe.py: the board does not move at 960..1480 px
+   (step 20, height 900) and at 390 x 844; 120-character names at 1440, 1200
+   and 390 px stay within the tools' width and overlap no other control. */
+.player-slot { display: grid; }
+.player-slot > * { grid-area: 1 / 1; }
+.player-solved-box { contain: inline-size; align-self: center; }
+.player-solved-box .player-solved { overflow-wrap: anywhere; }
+.player-toolbar.is-solved .player-tools { visibility: hidden; }
 .player-announce { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .player-solved { margin: 0; display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: 0 var(--space-3); border: var(--border-width) solid var(--color-success); border-left-width: 3px; border-radius: var(--radius-control); background: var(--color-success-tint); color: var(--color-text); }
 .player-solved[hidden] { display: none; }
-.player-solved .icon { color: var(--color-success); }
+.player-solved .icon { flex: none; color: var(--color-success); }
 .player-solved-name { font-weight: 600; }
 /* The success frame is drawn just inside the table's edge: .player-stage
    scrolls (overflow-x: auto) and would clip a frame drawn outside it on the

@@ -48,9 +48,12 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used 
 )
 from tests.test_puzzle_solver_phone import BIG
 from tests.test_puzzle_solver_progress import (
+    LAST,
+    NAME,
     _error_count,
     _errors_of,
     _is_solved_shown,
+    _near_solved,
     _set,
     _solved_of,
     _watch_problems,
@@ -898,3 +901,174 @@ class TestSolverMaybe_NoRequestPerMark:
         assert requests == []
         assert stored == [0, 0]
         assert problems == []
+
+
+# ==========================================================================
+# Review F-001 (cycle 1) — the solved banner never moves the board
+# ==========================================================================
+
+#: Viewport widths swept (height 900): 960..1480 step 20, plus the phone.
+_SWEEP = [(w, 900) for w in range(960, 1481, 20)] + [(390, 844)]
+
+_TOOLBAR_BOXES = """() => {
+  const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+  const q = (s) => document.querySelector(s);
+  return {
+    tools: box(q('.player-tools')),
+    banner: box(q('#puzzle-player-solved')),
+    others: [...document.querySelectorAll(
+      '.player-history > button, .player-errors, .player-hints, .player-board')].map(box),
+  };
+}"""
+
+
+def _overlaps(a, b):
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def _solve_and_measure(page):
+    """Near-solved GRID, then the real solving click; the board's box before
+    and after, the toolbar boxes after, and the tools' box before."""
+    _set(page, _near_solved(U))
+    assert not _is_solved_shown(page)
+    # Scroll first, so the click itself scrolls nothing (on the phone the
+    # stage and the page would otherwise scroll to reach the cell).
+    _cell(page, *LAST).scroll_into_view_if_needed()
+    before = page.locator(".player-board").bounding_box()
+    tools_before = page.evaluate(_TOOLBAR_BOXES)["tools"]
+    _cell(page, *LAST).click()
+    assert _is_solved_shown(page)
+    after = page.locator(".player-board").bounding_box()
+    # The banner settles in from a small translateY; measure it settled.
+    page.evaluate("Promise.all(document.getAnimations().map((a) => a.finished))")
+    boxes = page.evaluate(_TOOLBAR_BOXES)
+    boxes["tools_before"] = tools_before
+    return before, after, boxes
+
+
+@pytest.mark.browser
+class TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth:
+    """With four tools the toolbar wraps differently across widths; the
+    solved banner takes the tools' box (the tools stay in layout, hidden), so
+    the board's box is the same before and after the solving click at every
+    swept width (960..1480 step 20 at height 900, and 390 x 844), on both
+    axes. The banner (here "Lighthouse") lies inside the tools' box,
+    centred down it (within 1 px), and overlaps none of the other controls
+    or the board."""
+
+    def test_sweep(self, browser, live) -> None:
+        puzzle = live.store(GRID, name=NAME)
+        moved, misplaced, checked = [], [], 0
+        for width, height in _SWEEP:
+            context = browser.new_context(viewport={"width": width, "height": height})
+            page = context.new_page()
+            try:
+                _open(page, live, puzzle)
+                before, after, boxes = _solve_and_measure(page)
+                tools_hidden = not page.locator(".player-tools").is_visible()
+            finally:
+                context.close()
+            checked += 1
+            if (before["x"], before["y"]) != (after["x"], after["y"]):
+                moved.append((width, after["x"] - before["x"], after["y"] - before["y"]))
+            tl, tt, tr, tb = boxes["tools"]
+            bl, bt, br, bb = boxes["banner"]
+            inside = tl - 0.5 <= bl and br <= tr + 0.5 and tt - 0.5 <= bt and bb <= tb + 0.5
+            inside = inside and abs((bt + bb) / 2 - (tt + tb) / 2) <= 1  # centred down the tools' box
+            if not (tools_hidden and inside) or any(_overlaps(boxes["banner"], o) for o in boxes["others"]):
+                misplaced.append((width, boxes))
+        assert checked == len(_SWEEP) == 28
+        assert moved == [], " ".join(f"{w}:{dx:+g},{dy:+g}" for w, dx, dy in moved)
+        assert misplaced == []
+
+
+#: The longest name the panel accepts (MAX_PUZZLE_NAME_LENGTH, 120 characters),
+#: as words and as one unbroken token (a name falls back to the source file name).
+_LONG_NAMES = [
+    ("The lighthouse keeper's cottage on the northern cliffs, "
+     "seen at dawn from the harbour wall, with gulls and fishing boats")[:120],
+    ("lighthouse_keepers_cottage_on_the_northern_cliffs_seen_at_dawn_"
+     "from_the_harbour_wall_with_gulls_and_fishing_boats_v2.png")[:120],
+]
+
+
+@pytest.mark.browser
+class TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth:
+    """A 120-character picture name, as words or as one unbroken token, wraps
+    inside the tools' width: the tools'
+    box is the same before and after solving (the banner does not widen it),
+    the banner lies within its width, and it runs into none of the history
+    controls, the counters or the board; the whole name stays shown and the
+    check icon keeps its 1em square. Only
+    width and overlap are claimed: a name too long for the tools' box makes
+    the toolbar row taller (and so moves the board)."""
+
+    @pytest.mark.parametrize("long_name", _LONG_NAMES, ids=["words", "one-token"])
+    @pytest.mark.parametrize("width,height", [(1440, 900), (1200, 900), (390, 844)])
+    def test_wraps(self, browser, live, width, height, long_name) -> None:
+        assert len(long_name) == 120
+        context = browser.new_context(viewport={"width": width, "height": height})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(GRID, name=long_name))
+            _, _, boxes = _solve_and_measure(page)
+            name = page.locator("[data-player-solved-name]").inner_text()
+            icon = page.locator("#puzzle-player-solved .icon").bounding_box()
+            text_px = page.locator("#puzzle-player-solved").evaluate("(el) => parseFloat(getComputedStyle(el).fontSize)")
+        finally:
+            context.close()
+        assert name == long_name
+        assert icon["width"] == icon["height"] == text_px  # the check icon is not squeezed (1em square)
+        # The banner does not widen the tools' box (its height may grow).
+        assert boxes["tools"][0::2] == boxes["tools_before"][0::2]
+        tl, _, tr, _ = boxes["tools"]
+        bl, _, br, _ = boxes["banner"]
+        assert tl - 0.5 <= bl and br <= tr + 0.5, boxes
+        assert not any(_overlaps(boxes["banner"], other) for other in boxes["others"]), boxes
+
+
+_TOOLBAR_ROWS = """() => {
+  const centres = [...document.querySelectorAll(
+    '.player-tools > button, .player-history > button, .player-errors, .player-hints')]
+    .map((el) => { const r = el.getBoundingClientRect(); return Math.round((r.top + r.bottom) / 2); });
+  return new Set(centres).size;
+}"""
+
+
+@pytest.mark.browser
+class TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280:
+    """At 1280 x 720 (the default viewport) the four tools, Undo / Redo /
+    Reset / Hint and both counters share one toolbar row, as the three tools
+    did before CARD-186."""
+
+    def test_one_row(self, browser_page, live) -> None:
+        assert browser_page.viewport_size == {"width": 1280, "height": 720}
+        _open(browser_page, live, live.store(GRID))
+        assert browser_page.evaluate(_TOOLBAR_ROWS) == 1
+
+
+@pytest.mark.browser
+class TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved:
+    """Solved, the tools keep their box but are hidden: no tool is a button
+    by role, focus() does not take, and Tab from the top of the page reaches
+    Reset without passing any tool."""
+
+    def test_out_of_reach(self, browser_page, live) -> None:
+        _open(browser_page, live, live.store(GRID, name=NAME))
+        _solve_and_measure(browser_page)
+        tools = ("Black", "White", "Undecided", "Maybe")
+        assert [browser_page.get_by_role("button", name=t, exact=True).count() for t in tools] == [0, 0, 0, 0]
+        focused = browser_page.evaluate("""() => [...document.querySelectorAll('[data-player-tool]')]
+          .map((b) => { b.focus(); return document.activeElement === b; })""")
+        assert focused == [False] * 4
+        browser_page.evaluate("document.activeElement && document.activeElement.blur()")
+        seen = []
+        for _ in range(60):
+            browser_page.keyboard.press("Tab")
+            here = browser_page.evaluate(
+                "(() => { const a = document.activeElement; return a.dataset.playerTool || a.dataset.playerAction || ''; })()")
+            seen.append(here)
+            if here == "reset":
+                break
+        assert "reset" in seen
+        assert not set(seen) & {"filled", "empty", "unknown", "maybe"}
