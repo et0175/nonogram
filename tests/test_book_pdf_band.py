@@ -6,6 +6,11 @@
     EC(ADR-0037/R1)
             PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle
 
+CARD-170 — the band prints once, read from the exported PDF's bytes:
+
+    AC-1, AC-2  TestBookPdf_BandPrintsOnceInTheExportedPdf
+    AC-3        TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage
+
 How a band is read back without an OCR this project does not have
 -----------------------------------------------------------------
 A band is ink, and nothing in the dependency baseline turns ink back into
@@ -43,11 +48,15 @@ so the two agree on where the grid is before either measures anything in it.
 from __future__ import annotations
 
 import random
-from typing import Iterable, Sequence
+from collections import Counter
+from functools import lru_cache
+from importlib import resources
+from io import BytesIO
+from typing import Iterable, Iterator, NamedTuple, Sequence
 
 import numpy as np
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
@@ -58,6 +67,7 @@ from nonogram.export.pdf import render_pages
 from nonogram.export.png import render_answer_page
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of
+from tests.helpers.pdf_pages import pdf_pages
 
 # --------------------------------------------------------------------------
 # CON-018's Book 1 profile, in millimetres, written out here rather than
@@ -890,3 +900,422 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
     assert len(names_seen) >= 8, names_seen
     assert any(name and not name.isascii() for name in names_seen), names_seen
     assert any(name and len(name) > 100 for name in names_seen), names_seen
+
+
+# --------------------------------------------------------------------------
+# CARD-170 — the band prints once, read from the exported PDF
+# --------------------------------------------------------------------------
+#
+# The wave-32 goal-check recorded "Puzzle 5 · Hard" drawn twice during an
+# export. These tests settle what the *printed* file holds. Every page they
+# check is decoded from the bytes ``export_book`` wrote (``pdf_pages``); no
+# page is obtained from ``_blank_page``, ``render_pages`` or
+# ``interior_pages`` (guardrail G-6).
+#
+# A band is found on a decoded page without OCR by cutting the page into
+# lines of ink and comparing each line with the band text set **once** by
+# this module, in the packaged DejaVu Sans, at every type size in
+# :data:`LINE_SIZES_PX`. A line is "one copy of the text at size s" when its
+# ink box is that setting's box and its ink is that setting's ink, both up to
+# the JPEG tolerances below.
+#
+# What the pixel tests can see follows from how :func:`_lines` cuts a page:
+# every run of page rows holding any ink is one group, split sideways only at
+# gaps at least as wide as the group is tall. So a second copy is found only
+# on rows with no other ink within about a line's height sideways of it — the
+# band strip, the gap between the two slots, the top and bottom margins —
+# where it makes a line of its own (the text is found twice) or, touching the
+# band, widens the band's line (it matches nothing). A copy beside the
+# drawing (in a side margin, rows the ~1158 px grid also occupies) or over
+# other ink (clues, grid, a caption) merges into that ink's line and is not
+# seen; such a copy is caught only by the recorder (AC-3,
+# TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage). A second draw at
+# exactly the same spot is caught today only incidentally — the second
+# antialiased pass darkens the edge pixels past the ink mismatch limit — so
+# the pixel tests do not guarantee it; the recorder does.
+#
+# Measured with a second ``_set_band`` draw on the two-up pages (see the
+# card's Worktree notes for the full list): top margin (y-110), slot gap
+# (y+1450), bottom margin (lower slot, y+1280), band strip beside the band
+# (x-900) and touching it (x+40) each failed found-once and upper-first (the
+# last two also the band-strip test); side margins beside the drawing
+# (x∓900, y+600), over the column clues (y+300) and inside the grid (y+700)
+# left every pixel test green and failed only the recorder's per-page test.
+
+#: The book of this section: two Easy, two Medium and one Hard puzzle, all
+#: 10x10 with 3-deep clues, so each same-tier neighbour pair fits one page at
+#: a shared cell (FR-040) and the Hard puzzle — the last, and alone in its
+#: tier — prints alone through COMP-007's ``render_pages``.
+ONCE_TIERS = ("easy", "easy", "medium", "medium", "hard")
+
+#: This module's reading of that book's interior (FR-041, FR-040, FR-042):
+#: 1 guide; 2 Easy divider; 3 Puzzles 1-2 two-up; 4 Medium divider; 5 Puzzles
+#: 3-4 two-up; 6 Hard divider; 7 Puzzle 5 alone; 8 SOLUTIONS divider; 9-11
+#: one answer page per level (AC-290). ``print_plan`` above models only books
+#: that never pair, so the pages are written out here instead.
+ONCE_PAGE_COUNT = 11
+ONCE_BAND_PAGES = {1: 3, 2: 3, 3: 5, 4: 5, 5: 7}
+HARD_ALONE_PAGE = 7
+TWO_UP_PAGE = 3
+HARD_ANSWER_PAGE = 11
+
+#: The band's type size: 5 mm at 300 DPI (COMP-007's header size), in pixels.
+BAND_FONT_PX = round(5.0 * PX_PER_MM)
+
+#: Every type size a line is compared at — far wider than any size the book
+#: sets lettering in, so a band set at another size (an answer caption's, say)
+#: is still found.
+LINE_SIZES_PX = range(10, 121)
+
+#: JPEG tolerances, from what was measured on this section's export: every one
+#: of the five decoded bands' ink boxes equalled the box of the text set once
+#: at :data:`BAND_FONT_PX` exactly (0 px in both axes), with 0.4-0.7 % of the
+#: reference's ink pixels differing; the same band compared with the line of a
+#: different puzzle number (same box) differed by 8.8-10.6 %. The two limits
+#: sit between those measurements.
+BOX_TOLERANCE_PX = 2
+INK_MISMATCH_LIMIT = 0.03
+
+#: The packaged face the book's lettering is set in, addressed as package data
+#: (written out here, not imported from ``export.pdf``).
+_FONT_PACKAGE = "nonogram.export"
+_FONT_RESOURCE = "fonts/DejaVuSans.ttf"
+
+
+def _once_book() -> list[dict]:
+    return [
+        _puzzle(tier=tier, puzzle_id=f"once-{index}")
+        for index, tier in enumerate(ONCE_TIERS, start=1)
+    ]
+
+
+def _once_bands() -> dict[int, str]:
+    """``{puzzle number: band line}`` for the book, from ADR-0037's wording."""
+    return {
+        number: expected_band(number, tier)
+        for number, tier in enumerate(ONCE_TIERS, start=1)
+    }
+
+
+@lru_cache(maxsize=None)
+def _font_bytes() -> bytes:
+    return resources.files(_FONT_PACKAGE).joinpath(_FONT_RESOURCE).read_bytes()
+
+
+@lru_cache(maxsize=None)
+def _set_once(text: str, size: int) -> np.ndarray:
+    """The ink of ``text`` set once at ``size`` px, cropped to its ink box."""
+    font = ImageFont.truetype(BytesIO(_font_bytes()), size=size)
+    canvas = Image.new("L", (int(font.getlength(text)) + 2 * size, 3 * size), 255)
+    ImageDraw.Draw(canvas).text((size, canvas.height // 2), text, font=font, fill=0, anchor="lm")
+    return _cropped(np.asarray(canvas) < INK_LEVEL)
+
+
+def _cropped(ink: np.ndarray) -> np.ndarray:
+    rows = np.flatnonzero(ink.any(axis=1))
+    columns = np.flatnonzero(ink.any(axis=0))
+    return ink[rows[0] : rows[-1] + 1, columns[0] : columns[-1] + 1]
+
+
+def _mismatch(found: np.ndarray, reference: np.ndarray) -> float:
+    """The share of ``reference``'s ink that ``found`` disagrees with.
+
+    Best over shifts of up to :data:`BOX_TOLERANCE_PX` either way, so a box
+    one pixel off does not count every pixel as a disagreement.
+    """
+    pad = BOX_TOLERANCE_PX
+    height = max(found.shape[0], reference.shape[0]) + 2 * pad
+    width = max(found.shape[1], reference.shape[1]) + 2 * pad
+    here = np.zeros((height, width), dtype=bool)
+    here[pad : pad + found.shape[0], pad : pad + found.shape[1]] = found
+    best = float("inf")
+    for dy in range(-pad, pad + 1):
+        for dx in range(-pad, pad + 1):
+            there = np.zeros_like(here)
+            there[
+                pad + dy : pad + dy + reference.shape[0],
+                pad + dx : pad + dx + reference.shape[1],
+            ] = reference
+            best = min(best, float((here ^ there).sum()) / float(reference.sum()))
+    return best
+
+
+def _one_copy_at(ink: np.ndarray, text: str) -> int | None:
+    """The type size at which ``ink`` is one copy of ``text``, else ``None``."""
+    for size in LINE_SIZES_PX:
+        reference = _set_once(text, size)
+        if (
+            abs(ink.shape[0] - reference.shape[0]) <= BOX_TOLERANCE_PX
+            and abs(ink.shape[1] - reference.shape[1]) <= BOX_TOLERANCE_PX
+            and _mismatch(ink, reference) <= INK_MISMATCH_LIMIT
+        ):
+            return size
+    return None
+
+
+#: A row whose longest run of ink is longer than this is a ruled line, not
+#: lettering. Measured on this section's export: the drawing's top frame
+#: rule's rows run 1153 px; the longest run in any of the five band lines is
+#: 30-33 px.
+RULE_RUN_PX = 2 * BAND_FONT_PX
+
+
+def _longest_runs(ink: np.ndarray) -> np.ndarray:
+    """Each row's longest run of consecutive ink pixels."""
+    padded = np.pad(ink.astype(np.int8), ((0, 0), (1, 1)))
+    longest = np.zeros(ink.shape[0], dtype=int)
+    for row, edges in enumerate(np.diff(padded, axis=1)):
+        starts, ends = np.flatnonzero(edges == 1), np.flatnonzero(edges == -1)
+        if starts.size:
+            longest[row] = int((ends - starts).max())
+    return longest
+
+
+def _rule_rows(ink: np.ndarray) -> np.ndarray:
+    """The rows of ``ink`` that hold a ruled line."""
+    return np.flatnonzero(_longest_runs(ink) > RULE_RUN_PX)
+
+
+def _spans(mask: np.ndarray, gap: int) -> list[tuple[int, int]]:
+    """Runs of ``True`` in ``mask``, merging runs separated by ``gap`` or fewer."""
+    spans: list[tuple[int, int]] = []
+    for index in np.flatnonzero(mask):
+        if spans and index - spans[-1][1] <= gap:
+            spans[-1] = (spans[-1][0], int(index))
+        else:
+            spans.append((int(index), int(index)))
+    return spans
+
+
+class _Line(NamedTuple):
+    top: int
+    left: int
+    ink: np.ndarray
+
+
+def _lines(page: Image.Image) -> Iterator[_Line]:
+    """The page's lines of ink: rows of ink, split where a gap is a line tall.
+
+    A word space is far narrower than the line is tall, so a band stays one
+    line; the side-by-side answer captions of a level's answer page do not.
+    A drawing, its clues inside its frame, is one line the grid's height, so
+    nothing on rows beside it is split off from it.
+    """
+    ink = np.asarray(page.convert("L")) < INK_LEVEL
+    for top, bottom in _spans(ink.any(axis=1), 1):
+        strip = ink[top : bottom + 1]
+        height = bottom - top + 1
+        for left, right in _spans(strip.any(axis=0), height):
+            piece = strip[:, left : right + 1]
+            rows = np.flatnonzero(piece.any(axis=1))
+            yield _Line(top + int(rows[0]), left, piece[rows[0] : rows[-1] + 1])
+
+
+class _Found(NamedTuple):
+    page: int
+    text: str
+    size: int
+    top: int
+
+
+def _find(pages: Sequence[Image.Image], texts: Iterable[str]) -> list[_Found]:
+    """Every line of every page that is one copy of one of ``texts``."""
+    texts = tuple(texts)
+    found = []
+    for page_number, page in enumerate(pages, start=1):
+        for line in _lines(page):
+            for text in texts:
+                size = _one_copy_at(line.ink, text)
+                if size is not None:
+                    found.append(_Found(page_number, text, size, line.top))
+    return found
+
+
+@pytest.fixture(scope="module")
+def once_pages() -> list[Image.Image]:
+    """The book's interior, decoded from the PDF ``export_book`` wrote."""
+    export = BookPDFGenerator(_book()).export_book(_once_book(), "Band Once")
+    return pdf_pages(export.interior.getvalue())
+
+
+class TestBookPdf_BandPrintsOnceInTheExportedPdf:
+    """AC-1, AC-2 — each band is one line of ink on one page of the PDF.
+
+    Fails if ``_set_band`` (two-up pages) or COMP-007's header (the Hard
+    puzzle's page) prints a second copy of a band on rows with no other ink
+    within about a line's height sideways (the band strip, the gap between
+    slots, the top or bottom margin) or touching the band, or if a band's
+    line turns up on such rows on any other page — a divider, the guide or
+    the answer key. A copy beside the drawing (a side margin) or over other
+    ink (clues, grid, captions) is not seen here; only the recorder class
+    (AC-3) catches it. A copy at exactly the band's own spot is caught here
+    only incidentally (see the section comment); the recorder guarantees it.
+    """
+
+    def test_the_interior_has_the_page_count_this_module_reads(
+        self, once_pages: list[Image.Image]
+    ) -> None:
+        assert len(once_pages) == ONCE_PAGE_COUNT
+
+    def test_every_band_is_found_once_on_its_own_page_and_nowhere_else(
+        self, once_pages: list[Image.Image]
+    ) -> None:
+        """"Nowhere else" means as a line of its own: a copy beside the drawing
+        or over other ink is not found (see the section comment; the recorder
+        covers it)."""
+        bands = _once_bands()
+        found = sorted(
+            (hit.page, hit.text, hit.size) for hit in _find(once_pages, bands.values())
+        )
+        assert found == sorted(
+            (ONCE_BAND_PAGES[number], text, BAND_FONT_PX)
+            for number, text in bands.items()
+        )
+
+    @pytest.mark.parametrize(
+        ("page_number", "number"),
+        [(HARD_ALONE_PAGE, 5), (TWO_UP_PAGE, 1), (ONCE_BAND_PAGES[3], 3)],
+        ids=["hard-alone", "two-up-easy-upper", "two-up-medium-upper"],
+    )
+    def test_the_band_strip_holds_one_line_at_the_band_size(
+        self, once_pages: list[Image.Image], page_number: int, number: int
+    ) -> None:
+        """The top band strip's ink, rules aside, is one line of the band.
+
+        AC-1 on the Hard puzzle's page (COMP-007's header) and AC-2 on the
+        upper slot of each two-up page (``_set_band``). The 12 mm strip
+        reaches into the drawing's top frame rule (measured: its last 2 px),
+        so rows holding a rule are cleared first; what is left must be one run
+        of rows whose ink has the extent and the ink of the line set once at
+        the band's size. A copy offset down into the frame's rows still leaves
+        its upper part in the strip, as a second run of rows or a taller first
+        one (measured: a second ``_set_band`` draw at y+60 and at y+80 each
+        failed this test, while found-once stayed green).
+        """
+        strip = np.asarray(_band_strip(once_pages[page_number - 1]).convert("L")) < INK_LEVEL
+        text = strip.copy()
+        text[_rule_rows(strip)] = False
+        rows = _spans(text.any(axis=1), 1)
+        assert len(rows) == 1, rows
+        top, bottom = rows[0]
+        ink = _cropped(text[top : bottom + 1])
+        reference = _set_once(_once_bands()[number], BAND_FONT_PX)
+        assert abs(ink.shape[0] - reference.shape[0]) <= BOX_TOLERANCE_PX, (ink.shape, reference.shape)
+        assert abs(ink.shape[1] - reference.shape[1]) <= BOX_TOLERANCE_PX, (ink.shape, reference.shape)
+        assert _mismatch(ink, reference) <= INK_MISMATCH_LIMIT
+
+    def test_the_two_up_page_carries_each_slots_band_once_upper_first(
+        self, once_pages: list[Image.Image]
+    ) -> None:
+        bands = _once_bands()
+        found = _find([once_pages[TWO_UP_PAGE - 1]], bands.values())
+        assert [hit.text for hit in sorted(found, key=lambda hit: hit.top)] == [
+            bands[1],
+            bands[2],
+        ]
+
+    def test_the_search_finds_an_answer_caption_at_its_own_size(
+        self, once_pages: list[Image.Image]
+    ) -> None:
+        """Control: the search sees the answer key's lettering.
+
+        The Hard answer's caption is found once, on its answer page, at a size
+        other than the band's — so "no answer page carries the band" above is
+        a search that would have found a band set there at the caption's size
+        on rows clear of other ink sideways, as the caption is.
+        """
+        caption = ANSWER_CAPTION.format(number=5, title="Snowflake")
+        found = _find(once_pages, [caption])
+        assert [(hit.page, hit.text) for hit in found] == [(HARD_ANSWER_PAGE, caption)]
+        assert found[0].size != BAND_FONT_PX
+
+
+class _BandDraws(NamedTuple):
+    #: ``{page written: Counter of band lines drawn on the image written there}``,
+    #: pages numbered in write order (the interior's 1..11, then the cover's)
+    written: dict[int, Counter]
+    #: Band lines drawn on images that were never handed to ``_write_page``.
+    unwritten: list[str]
+    #: Band lines drawn on an image after that image had been written, counted
+    #: only for images that had already received a band line before their
+    #: write (only those are held). A late band draw on a written page that had
+    #: no band before its write (a divider, say) lands in :attr:`unwritten`,
+    #: which no test asserts.
+    late: list[str]
+
+
+@pytest.fixture(scope="class")
+def band_draws() -> _BandDraws:
+    """Export the book with every ``ImageDraw.text`` and page write recorded.
+
+    A draw is matched to a written page by the identity of the core image the
+    draw targets and the page ``_write_page`` receives. Only images that
+    received a band line are held, so the recording keeps a few bitmaps alive,
+    not the book.
+    """
+    bands = set(_once_bands().values())
+    drawn: list[tuple[object, str]] = []
+    written_at: list[tuple[object, int]] = []
+    late: list[str] = []
+    original_text = ImageDraw.ImageDraw.text
+    original_write = BookPDFGenerator._write_page
+
+    def text(self, xy, text, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if text in bands:
+            if any(image is self.im for image, _ in written_at):
+                late.append(text)
+            drawn.append((self.im, text))
+        return original_text(self, xy, text, *args, **kwargs)
+
+    def write_page(self, pdf, page, *args, **kwargs):  # type: ignore[no-untyped-def]
+        page_number = len(writes) + 1
+        writes.append(page_number)
+        if any(image is page.im for image, _ in drawn):
+            written_at.append((page.im, page_number))
+        return original_write(self, pdf, page, *args, **kwargs)
+
+    writes: list[int] = []
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(ImageDraw.ImageDraw, "text", text)
+        patch.setattr(BookPDFGenerator, "_write_page", write_page)
+        BookPDFGenerator(_book()).export_book(_once_book(), "Band Once")
+    # ``export_book`` writes the interior's pages, then the cover file's one.
+    assert len(writes) == ONCE_PAGE_COUNT + 1
+
+    written: dict[int, Counter] = {}
+    unwritten: list[str] = []
+    for image, line in drawn:
+        pages = [number for target, number in written_at if target is image]
+        if pages:
+            (page_number,) = pages
+            written.setdefault(page_number, Counter())[line] += 1
+        else:
+            unwritten.append(line)
+    return _BandDraws(written, unwritten, late)
+
+
+class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
+    """AC-3 — every band draw on a written page is that page's one band.
+
+    Each recorded draw either targets an image later handed to
+    ``_write_page`` (counted per page) or one never handed to it
+    (:attr:`_BandDraws.unwritten`). The draws that land elsewhere are not
+    counted: how many images the export renders and drops is not what this
+    card pins.
+    """
+
+    def test_each_written_page_received_each_of_its_bands_exactly_once(
+        self, band_draws: _BandDraws
+    ) -> None:
+        bands = _once_bands()
+        expected: dict[int, Counter] = {}
+        for number, page_number in ONCE_BAND_PAGES.items():
+            expected.setdefault(page_number, Counter())[bands[number]] += 1
+        assert band_draws.written == expected
+
+    def test_no_band_is_drawn_on_a_page_after_it_was_written(
+        self, band_draws: _BandDraws
+    ) -> None:
+        """Only pages that had received a band before their write are watched
+        (see :attr:`_BandDraws.late`)."""
+        assert band_draws.late == []
