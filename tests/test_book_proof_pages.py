@@ -1366,6 +1366,24 @@ class TestBookProof_WrappedNoteKeepsUnitsWithNumbers:
         assert breaks[0][1].startswith("152.4 mm"), lines
         assert "(8.25 × 6.00 in)" in lines[lines.index(breaks[0][0]) + 2], lines
 
+    def test_a_group_exactly_as_wide_as_the_width_stays_whole(self) -> None:
+        """A group that measures exactly ``width`` fits: it is not broken.
+
+        The 8.25 x 6 in note wrapped at the trim group's own measured width,
+        which the face gives as a whole number of pixels. Kills ``<=`` -> ``<``
+        on the group-fit check (CARD-179 F-002).
+        """
+        layout, _ = _layout_and_frame(_book1_margins("20.96", "15.24"), 0)
+        font = book_proof_module._note_font(FALLBACK_FACE_PX)
+        group = "209.6 × 152.4 mm"
+        width = font.getlength(group)
+        assert width == int(width), width
+        lines = book_proof_module._wrapped(
+            " · ".join(annotation_lines(layout)), font, int(width)
+        )
+        assert lines is not None
+        assert any(group in line for line in lines), lines
+
     @pytest.mark.parametrize("width_cm,height_cm,index", FALLBACK_PAGES)
     def test_the_lines_rejoin_to_the_note(
         self, width_cm: str, height_cm: str, index: int
@@ -1385,7 +1403,7 @@ MIN_WRAP_CASES = 200
 
 
 def test_PropertyTest_ProofNoteWrap_NeverSplitsAUnitOrStartsWithTimes() -> None:
-    """AC-3 — for any width, a wrap obeys rules 1-3, keeps every word and fits.
+    """AC-3 — at every drawn width, a wrap of the note obeys rules 1-3, keeps every word and fits.
 
     The notes are those of both proof pages on every corpus and fallback trim
     (26 texts, different trims and cells), each wrapped at seeded widths. The

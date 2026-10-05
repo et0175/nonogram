@@ -540,19 +540,29 @@ _TIMES = "×"
 def _wrapped(text: str, font: ImageFont.FreeTypeFont, width: int) -> list[str] | None:
     """``text`` word-wrapped to ``width`` pixels, or ``None`` if a word is wider.
 
-    Greedy: each printed line takes as many words as fit. A line may break at
-    any space except these (CARD-179):
+    Greedy: each printed line takes as many words as fit. Words are the
+    space-separated tokens of ``text``, and a line may break at any space
+    except these (CARD-179):
 
-    * between a number and the unit after it (``4.58 mm``, ``6.00 in)``,
-      ``300 dpi``) — never;
-    * inside an "N × M" group (``209.6 × 152.4 mm``, ``(8.25 × 6.00 in)``,
-      ``30 × 30,``) — never when the whole group fits ``width``; when it does
-      not, only after the ×, which stays on the line with N;
-    * before a separator dot — never; the dot stays on the end of the word
-      before it.
+    * between a token that is a bare number (:data:`_NUMBER` matches all of
+      it: ``4.58``, ``300``) and a unit token right after it (:data:`_UNIT`
+      matches all of it: ``mm``, ``in)``, ``dpi``) — never;
+    * around a ``×`` token with a word before it and a token after it
+      (``209.6 × 152.4 mm``, ``(8.25 × 6.00 in)``, ``30 × 30,``, the unit
+      already glued to M by the rule above) — never when the whole group
+      fits ``width``; when it does not, only after the ×, which stays on the
+      line with the word before it;
+    * before a separator dot with a word before it — never; the dot stays on
+      the end of that word.
 
-    So no printed line starts with a × or a dot, or with a unit parted from
-    its number. Widths are measured on the words as printed, spaces included.
+    Any other token is a word of its own: a number inside a bracket
+    (``(8.25 in)``) is not glued to its unit, and a ``×`` that opens or ends
+    ``text`` is not joined to anything. These guarantees are therefore shown
+    for the proof note's own text — the lines :func:`annotation_lines`
+    prints — not for any text: no printed line starts with a × or with a
+    unit parted from its number (AC-3's corpus, at the widths it draws), and
+    none starts with a separator dot (the fallback pages' own spots).
+    Widths are measured on the words as printed, spaces included.
     """
     tokens = text.split(" ")
     glued: list[str] = []
@@ -647,9 +657,10 @@ def _annotate(page: Image.Image, layout: Layout, frame: PageFrame) -> Image.Imag
     :func:`_fallback_spots` that holds it at a fixed
     :data:`_FALLBACK_NOTE_PT` pt and set at that spot's top-left: landscape
     trims leave a wide side strip, square trims leave the 30 x 30's clue
-    corner. The wrap never parts a number from its unit, never starts a line
-    with a × or a separator dot, and keeps an "N × M" group whole where it
-    fits the spot (:func:`_wrapped`). Lines are spaced at
+    corner. On the note's text the wrap never parts a number from its unit,
+    never starts a line with a × or a separator dot, and keeps an "N × M"
+    group whole where it fits the spot (:func:`_wrapped` says which tokens
+    those rules recognise). Lines are spaced at
     :data:`_FALLBACK_NOTE_LEADING`, or at :data:`_FALLBACK_NOTE_TIGHT_LEADING`
     in a spot that holds the note only at the tighter pitch — at the Book 1
     margins, the 8.25 x 8.25 and 8.5 x 8.5 in clue corners
