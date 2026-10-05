@@ -22,6 +22,8 @@
     F-105   TestBookStepPages_ProseAgreesWithTheStepper       (cycle 2)
             ::test_the_breadcrumb_names_the_page_s_own_step
     AC-2    TestPrintSetup_InchesTrimIsReachable              (CARD-159)
+    AC-1/2  TestPrintSetup_InchesRefusalSpeaksInches          (CARD-174)
+    AC-6    TestPrintSetup_LimitsBoxAgreesWithRefusals        (CARD-174)
 
 The user-facing half is driven through the Flask test client against the real
 routes, because this project has no browser harness — the same convention
@@ -1340,3 +1342,229 @@ class TestPrintSetup_InchesTrimIsReachable:
         read.feed(body)
         assert read.checked_unit == ["inches"]
         assert read.inputs["width"]["value"] == "12"
+
+
+# --------------------------------------------------------------------------
+# CARD-174 — trim refusals and the Limits box speak the same inches
+# --------------------------------------------------------------------------
+
+
+class _PrintSetupText(HTMLParser):
+    """The error flash(es) and the Limits box items of Print setup, as text."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.errors: list = []
+        self.limits: list = []
+        self._in_error = 0
+        self._in_limits = 0
+        self._li = None
+
+    def handle_starttag(self, tag, attrs) -> None:
+        classes = (dict(attrs).get("class") or "").split()
+        if tag == "div":
+            if self._in_error:
+                self._in_error += 1
+            elif self._in_limits:
+                self._in_limits += 1
+            elif "alert-danger" in classes and "alert-dismissible" in classes:
+                self._in_error = 1
+                self.errors.append("")
+            elif "alert-secondary" in classes:
+                self._in_limits = 1
+        elif tag == "li" and self._in_limits:
+            self._li = ""
+
+    def handle_endtag(self, tag) -> None:
+        if tag == "div":
+            if self._in_error:
+                self._in_error -= 1
+            elif self._in_limits:
+                self._in_limits -= 1
+        elif tag == "li" and self._li is not None:
+            self.limits.append(" ".join(self._li.split()))
+            self._li = None
+
+    def handle_data(self, data) -> None:
+        if self._in_error:
+            self.errors[-1] += data
+        if self._li is not None:
+            self._li += data
+
+
+def _print_setup_text(body: str) -> _PrintSetupText:
+    read = _PrintSetupText()
+    read.feed(body)
+    read.errors = [" ".join(e.split()) for e in read.errors]
+    return read
+
+
+def _post_trim(client, book_id, unit, width, height):
+    return client.post(
+        f"/book/{book_id}/setup-print", data={"unit": unit, "width": width, "height": height}
+    )
+
+
+#: The inch limits worked out by hand (10 / 2.54 = 3.937 up; 30 / 2.54 =
+#: 11.811 and 48 / 2.54 = 18.898 down), not read from the code under test.
+MIN_IN, MAX_WIDTH_IN, MAX_HEIGHT_IN = "3.94", "11.81", "18.89"
+
+
+class TestPrintSetup_InchesRefusalSpeaksInches:
+    """CARD-174 AC-1/AC-2 — an inches refusal states the limit and the entry in inches."""
+
+    def _refused(self, panel, width, height) -> tuple:
+        app, shelf = panel
+        book_id = shelf.book()
+        before = shelf.books.get_book(book_id)
+        stored = (before.trim_width_cm, before.trim_height_cm, before.interior_ink_mode)
+
+        with app.test_client() as client:
+            response = _post_trim(client, book_id, "inches", width, height)
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        after = shelf.books.get_book(book_id)
+        assert (after.trim_width_cm, after.trim_height_cm, after.interior_ink_mode) == stored
+        assert "Print specs set" not in body
+        read = _print_setup_text(body)
+        assert len(read.errors) == 1, read.errors
+        return read.errors[0], body
+
+    def test_a_width_over_the_limit_says_inches_and_quotes_the_entry(self, panel) -> None:
+        """AC-1: 12 x 11 in."""
+        error, body = self._refused(panel, "12", "11")
+
+        assert error == (
+            f"Error: Trim width cannot exceed {MAX_WIDTH_IN} in (Amazon KDP limit); you entered 12 in"
+        )
+        assert "cm" not in error
+        inputs = _TrimInputs()
+        inputs.feed(body)
+        assert inputs.checked_unit == ["inches"]
+        assert (inputs.inputs["width"]["value"], inputs.inputs["height"]["value"]) == ("12", "11")
+
+    def test_a_height_over_the_limit_says_inches_and_quotes_the_entry(self, panel) -> None:
+        """AC-2: 8.5 x 19 in."""
+        error, _ = self._refused(panel, "8.5", "19")
+
+        assert error == (
+            f"Error: Trim height cannot exceed {MAX_HEIGHT_IN} in (Amazon KDP limit); you entered 19 in"
+        )
+        assert "cm" not in error
+
+    def test_a_side_under_the_minimum_says_inches_and_quotes_the_entry(self, panel) -> None:
+        """AC-2: 3 x 11 in — only the failing side is quoted."""
+        error, _ = self._refused(panel, "3", "11")
+
+        assert error.startswith(f"Error: Trim size must be at least {MIN_IN} in")
+        assert "you entered 3 in for the width" in error
+        assert "11 in" not in error
+        assert "cm" not in error
+
+    def test_both_sides_under_the_minimum_are_both_quoted(self, panel) -> None:
+        error, _ = self._refused(panel, "2", "3.5")
+
+        assert error.startswith(f"Error: Trim size must be at least {MIN_IN} in")
+        assert "you entered 2 in for the width and 3.5 in for the height" in error
+
+    def test_the_entry_is_quoted_as_typed_without_the_form_s_whitespace(self, panel) -> None:
+        error, body = self._refused(panel, " 12.5 ", "11")
+
+        assert error.endswith("; you entered 12.5 in")
+        # Read from the raw page too: the flash text above has its whitespace
+        # collapsed by the parser, which would hide an unstripped quote.
+        assert "(Amazon KDP limit); you entered 12.5 in\n" in body
+
+
+def _limits_box_inches(limits: list) -> tuple:
+    """(min, max width, max height) in inches, as the Limits box prints them."""
+    assert len(limits) == 3, limits
+    minimum = re.fullmatch(r"Minimum (\S+) × (\S+) cm \((\S+) × (\S+) in\)", limits[0])
+    width = re.fullmatch(r"Maximum width (\S+) cm \((\S+) in\) — Amazon KDP limit", limits[1])
+    height = re.fullmatch(r"Maximum height (\S+) cm \((\S+) in\) — Amazon KDP limit", limits[2])
+    assert minimum and width and height, limits
+    assert minimum.group(3) == minimum.group(4)
+    return minimum.group(3), width.group(2), height.group(2)
+
+
+class TestPrintSetup_LimitsBoxAgreesWithRefusals:
+    """CARD-174 AC-6 — the Limits box prints the inch limits the refusals state."""
+
+    @staticmethod
+    def _limits_on_page(client, book_id, unit) -> list:
+        with client.session_transaction() as sess:
+            sess["unit_preference"] = unit
+        response = client.get(f"/book/{book_id}/setup-print")
+        assert response.status_code == 200
+        return _print_setup_text(response.get_data(as_text=True)).limits
+
+    @staticmethod
+    def _stated_limit(client, book_id, width, height) -> str:
+        """The inch figure a refusal states, read back out of its words."""
+        body = _post_trim(client, book_id, "inches", width, height).get_data(as_text=True)
+        (error,) = _print_setup_text(body).errors
+        found = re.search(r"(?:exceed|at least) (\d+\.\d+) in", error)
+        assert found, error
+        return found.group(1)
+
+    @pytest.mark.parametrize("unit", ["cm", "inches"])
+    def test_the_box_and_the_refusals_state_the_same_inches(self, panel, unit) -> None:
+        from nonogram.admin.print_specs import PrintSpecValidator
+
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            limits = self._limits_on_page(client, book_id, unit)
+            stated = (
+                self._stated_limit(client, book_id, "3", "11"),
+                self._stated_limit(client, book_id, "12", "11"),
+                self._stated_limit(client, book_id, "8.5", "19"),
+            )
+
+        shown = _limits_box_inches(limits)
+        assert shown == stated == (MIN_IN, MAX_WIDTH_IN, MAX_HEIGHT_IN)
+        source = PrintSpecValidator.trim_limits()
+        assert (source.min_in, source.max_width_in, source.max_height_in) == shown
+        assert not any("18.90" in item for item in limits)
+        # The cm figures and the wording are otherwise as they were.
+        assert limits == [
+            "Minimum 10 × 10 cm (3.94 × 3.94 in)",
+            "Maximum width 30 cm (11.81 in) — Amazon KDP limit",
+            "Maximum height 48 cm (18.89 in) — Amazon KDP limit",
+        ]
+
+    def test_every_figure_in_the_box_comes_from_the_shared_source(self, panel, monkeypatch) -> None:
+        """A number written into the template, instead of read, fails here."""
+        from nonogram.admin.print_specs import PrintSpecValidator, TrimLimits
+
+        sentinel = TrimLimits(
+            min_cm=11.5, max_width_cm=29.5, max_height_cm=47.5,
+            min_in="4.53", max_width_in="11.61", max_height_in="18.70",
+        )
+        monkeypatch.setattr(PrintSpecValidator, "trim_limits", staticmethod(lambda: sentinel))
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            limits = self._limits_on_page(client, book_id, "inches")
+
+        assert limits == [
+            "Minimum 11.5 × 11.5 cm (4.53 × 4.53 in)",
+            "Maximum width 29.5 cm (11.61 in) — Amazon KDP limit",
+            "Maximum height 47.5 cm (18.70 in) — Amazon KDP limit",
+        ]
+
+    @pytest.mark.parametrize("inches", [(MAX_WIDTH_IN, MAX_HEIGHT_IN), (MIN_IN, MIN_IN)])
+    def test_every_figure_shown_is_accepted_when_submitted(self, panel, inches) -> None:
+        app, shelf = panel
+        book_id = shelf.book()
+
+        with app.test_client() as client:
+            shown = _limits_box_inches(self._limits_on_page(client, book_id, "inches"))
+            assert set(inches) <= set(shown)
+            response = _post_trim(client, book_id, "inches", *inches)
+
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/select-puzzles")

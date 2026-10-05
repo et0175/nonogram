@@ -93,9 +93,9 @@
                     <div class="alert alert-secondary mb-4">
                         <strong>Limits.</strong>
                         <ul class="mb-0 mt-1">
-                            <li>Minimum 10 × 10 cm (3.94 × 3.94 in)</li>
-                            <li>Maximum width 30 cm (11.81 in) — Amazon KDP limit</li>
-                            <li>Maximum height 48 cm (18.90 in) — Amazon KDP limit</li>
+                            <li>Minimum {{ '%g'|format(trim_limits.min_cm) }} × {{ '%g'|format(trim_limits.min_cm) }} cm ({{ trim_limits.min_in }} × {{ trim_limits.min_in }} in)</li>
+                            <li>Maximum width {{ '%g'|format(trim_limits.max_width_cm) }} cm ({{ trim_limits.max_width_in }} in) — Amazon KDP limit</li>
+                            <li>Maximum height {{ '%g'|format(trim_limits.max_height_cm) }} cm ({{ trim_limits.max_height_in }} in) — Amazon KDP limit</li>
                         </ul>
                     </div>
 
