@@ -1,6 +1,6 @@
 # CARD-180: Book selection: `?status=all` lists every status instead of nothing
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_status_filter_default.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (1 cycle)
+**Started:** 2026-10-05T11:40:39Z
+**Closed:** 2026-10-05T12:31:56Z
+**Actual:** 0.1d
+**Merge commit:** ef83b2c
 **Blocked by:** —
 
 ## What to implement
@@ -193,3 +193,39 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-180` (52 rules). A project
 - [No approved-only rule] Verified: `add_puzzles_reporting_refusals` (~:1170) and `/book/<id>/add-puzzles` (~:4936) never read curation status; no FR/ADR/INV demands approved-only membership. That is why AC-4 expects the add to succeed. If the owner wants such a rule, it is a new card.
 - [Open for owner, non-blocking] (1) `in_book` is a `PuzzleStatus` value. A puzzle with status `in_book` but no `book_id` (a pre-CARD-100 leftover) would show under `all`. `mark_in_book` has no production caller, so none should exist; the card shows it like any other status ("in book"). (2) The page has no visible status control; `all` is reachable by URL only. Adding a status select is out of scope.
 - [AC cross-check] Re-read AC-1..AC-7 against What to implement: AC-2 matches item 2 (book_id filter kept), AC-3 matches item 1 (`all` kept literal, never `""`), AC-4 matches item 3, AC-5 matches item 4 (row only on non-approved tiles), AC-6 matches item 5, AC-7 matches item 6. No contradictions found; nothing changed.
+- [Env] forge 2026.8.17
+- [Implemented 2026-10-05, commit 7be6ac6] `app.py:select_puzzles_for_book`: `store_status = None if status == "all" else status` is passed to `PuzzleFilter`; `context["status"]` stays the raw value, so the hidden field and `_tab_query` carry `all` unchanged (no edit needed there). Template: one `info-row` "Status" on tiles whose status is not `approved` (`replace('_', ' ')`, so `in_book` reads "in book"), existing markup only, no new CSS; an `{% elif status == 'all' %}` empty-state branch with the neutral copy, the approved copy kept for every other case. Tests: `test_all_is_matched_literally_as_before` deleted (G-2) and seven AC classes added in tests/test_status_filter_default.py. The CARD-166 `stocked` fixture is behaviour-identical (now calls a shared `_stock(panel, measurable=False)`); the new classes use a `measurable` fixture with the same six puzzles but real stored clues, because the floor refuses an unmeasurable cell and AC-2/AC-4 need puzzles that can actually join a book. Both stores (memory, sqlite) via the file's existing `panel` fixture.
+- [Mutants] each applied alone, tests/test_status_filter_default.py run, reverted (script: scratchpad card180_mutants.py):
+  M1 drop the `== "all"` -> None mapping — killed by AllOffersEveryStatus, AllStillHidesPuzzlesInABook, AllSurvivesTabSwitchAndApply, AllTilesCanBeAddedAndKeepTheirStatus, NonApprovedTilesNameTheirStatus.
+  M2 map "" to all too (`or "all"`) — killed by EmptyValueKeepsTheApprovedDefault (CARD-166), NonApprovedTilesNameTheirStatus::test_no_row_on_the_default_page, AllEmptyTabDoesNotSayApproved.
+  M3 match `all` case-insensitively — killed by UnknownValueStillMatchesNothing (ALL/All).
+  M4 match via strip().startswith("all") — killed by UnknownValueStillMatchesNothing (all-of-them / " all").
+  M5 any unknown value -> None — killed by UnknownValueStillMatchesNothing.
+  M6 drop `book_id="unassigned"` under all — first run SURVIVED (the route's per-row `book_id is None` cross-check hides the row); AllStillHidesPuzzlesInABook then got a "(5 available)" assertion (the store's own count), now killed by it.
+  M7 context status -> "" under all — killed by AllSurvivesTabSwitchAndApply, AllEmptyTabDoesNotSayApproved.
+  M8 hidden field turns `all` into "" — first run SURVIVED (the AC-3 test posted a hand-written `status=all`); the test now posts the value read from the rendered hidden field, now killed by AllSurvivesTabSwitchAndApply.
+  M9 Status row on every tile (drop the condition) — killed by NonApprovedTilesNameTheirStatus (rows_under_all, no_row_on_the_default_page).
+  M10 Status row on no tile — killed by NonApprovedTilesNameTheirStatus.
+  M11 Status row only on draft — killed by NonApprovedTilesNameTheirStatus (rows_under_all, in_book).
+  M12 `in_book` rendered raw — killed by NonApprovedTilesNameTheirStatus::test_in_book_reads_as_two_words.
+  M13 revert the empty copy under all — killed by AllEmptyTabDoesNotSayApproved.
+  M14 neutral copy for every status — killed by AllEmptyTabDoesNotSayApproved (default still says approved).
+- [Owner default] `in_book` is shown like any status, as "in book" — implemented as drafted (test_in_book_reads_as_two_words writes a leftover in_book row with no book_id directly, since no public method produces that shape).
+- [Owner default] No status control on the page; `all` is reachable by URL only — implemented as drafted.
+- [Renders] ~/Documents/nonogram-reviews/CARD-180/: after-status-all-mixed.png (<=15 tab, 3 approved/3 draft/3 rejected), after-status-all-empty-tab.png (26-30 tab at ?status=all), before-default.png (main, no status), after-default.png (this branch, no status), before-status-all.png (main at ?status=all, empty, for contrast); matching .html beside each. before-default.html and after-default.html are byte-identical. BEFORE rendered from a temporary detached worktree of main in the scratchpad, removed afterwards.
+- [Note for owner, not changed] The page's lede still reads "pick the approved grids that go in" under `?status=all` too; the card scoped only the empty-state copy, so it was left alone.
+- [Scope] Only the three Touches files changed; no SCOPE+.
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/templates/book_select_puzzles.html, tests/test_status_filter_default.py
+- [Build gate] impact underivable (test_scope: full) — full suite
+- [Build gate] PASSED (full, 670s) — 6397 passed, 9 skipped
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h: 52 rules checked (10 ✓, 42 ⚠ no_eligible_fact, 0 ✗) — all card ids covered
+- [Review 1/3] 8f-mutation: 8/8 killed (reviewer-run)
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0032/R1) — the ADR-0019/R1 count '1 passed, 98 deselected' differs from the skeptic's own run (93/6405 deselected, invocation-dependent); the orchestrator confirmed the reviewer's transcript holds that literal line from its own batch run
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ demonstrated — AllOffersEveryStatus '2 passed, 38 deselected, 3 warnings in 0.38s'; AC-2 ✓ demonstrated — AllStillHidesPuzzlesInABook '2 passed, 38 deselected, 5 warnings in 0.22s'; AC-3 ✓ demonstrated — AllSurvivesTabSwitchAndApply '6 passed, 34 deselected, 7 warnings in 0.44s'; AC-4 ✓ demonstrated — AllTilesCanBeAddedAndKeepTheirStatus '2 passed, 38 deselected, 5 warnings in 0.23s'; AC-5 ✓ demonstrated — NonApprovedTilesNameTheirStatus '6 passed, 34 deselected, 7 warnings in 0.39s'; AC-6 ✓ demonstrated — AllEmptyTabDoesNotSayApproved '2 passed, 38 deselected, 3 warnings in 0.21s'; AC-7 ✓ demonstrated — UnknownValueStillMatchesNothing '10 passed, 30 deselected, 11 warnings in 0.58s'; G-1 ✓ demonstrated — EmptyValueKeepsTheApprovedDefault '4 passed, 36 deselected, 5 warnings in 0.31s' (body unchanged); G-2 ✓ demonstrated — test_an_explicit_status_offers_exactly_its_puzzles '6 passed, 34 deselected, 7 warnings in 0.39s' (only the permitted test deleted); G-3 ✓ demonstrated — book_manager.py no diff, add-puzzles route outside every hunk; INV-006 '14 passed, 70 deselected', INV-008 '35 passed, 51 deselected', INV-012 '36 passed, 52 deselected'; G-4 ✓ demonstrated — AC-4 test asserts status kept '2 passed, 38 deselected' (checks status only); G-5 ✓ demonstrated — puzzle_review.py no diff, TestStorageBoundary_AsksTheSolverNotTheCaller '2 passed, 42 deselected in 0.02s'; G-6 ✓ demonstrated — test_book_select_tabs.py + test_book_select_floor_tiles.py '83 passed, 189 warnings in 4.58s' (unchanged); G-7 ✓ demonstrated — test_card_066_status_filter.py '12 passed in 0.37s' (unchanged). No EC section.
+- [Docs] forge:readme: no README in src/nonogram/admin/ or templates/; tests/README.md does not list per-file tests; no file added/removed/renamed — no README change needed
+- DESIGN-REGISTER: PuzzleTile → Parts: 'a Status info-row (info-label Status / info-value = the status word, in_book shown as "in book") on every tile whose status is not approved; approved tiles carry no row (CARD-180)'. EmptyState → Book selection under ?status=all: 'No puzzles with a longest side of X match these filters. Try another tab.' (CARD-180)
+- [Commit] success commit 7be6ac6 — the implementation commit stands as the card's commit: review cycle 1 passed with no fix, so no further change existed to commit (verified: git status shows only meta/ files)
+- [Merge gate] branched from 35a89b1 (= main at merge); pipeline full suite 6397 passed, 9 skipped (same tree, not re-run). Owner: "merge now, check later" (renders in ~/Documents/nonogram-reviews/CARD-180/). Merged ef83b2c.

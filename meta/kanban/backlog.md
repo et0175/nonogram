@@ -109,6 +109,9 @@ card names its card._
 - [ ] CARD-178 F-001/F-003: tests that reset db.session's engine don't restore module globals (fixed per test in CARD-178) — add an autouse conftest fixture snapshotting engine/SessionLocal/_engine_url   @tech-debt
 - [ ] Retro note (CARD-178 F-005): reviewers this wave cited test counts/ids no run produced (CARD-178 cycles 1–2); the 8h spot-check caught it — keep the 'literal pytest output for every ✓' rule in the brief   @tech-debt
 
+- [ ] CARD-180 owner check pending: ?status=all renders in ~/Documents/nonogram-reviews/CARD-180/ (merged on evidence by owner choice)   @feature
+- [ ] CARD-180 F-001: the selection page intro ('pick the approved grids') and the stepper subtitle ('Pick approved grids') still say approved under ?status=all   @feature
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

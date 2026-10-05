@@ -1,0 +1,138 @@
+version: 1
+generated_at: "2026-10-05T12:07:28Z"
+target: "card/180-book-select-status-all vs main (git diff main...HEAD, head 7be6ac6)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/app.py (select_puzzles_for_book, ~:3870-3990)"
+    - "src/nonogram/admin/templates/book_select_puzzles.html (full diff + status/hidden-field/empty-state lines)"
+    - "tests/test_status_filter_default.py (full file)"
+    - "src/nonogram/admin/puzzle_review.py (PuzzleStatus, filter status equality ~:919/:1031, dict serialisation)"
+    - "meta/design/brief.md, components.md (PuzzleTile, EmptyState), tokens.css listing"
+    - "~/Documents/nonogram-reviews/CARD-180/after-status-all-mixed.png (owner render, supporting only)"
+  not_reached:
+    - "rendered result not verified by the pipeline (visual capture OFF); only the implementer's owner render was viewed"
+  confidence: high
+metrics:
+  diff: { files: 3, added: 247, removed: 11 }
+  tests_cover_change: true
+  mutation_check: "8/8 killed"
+  unmeasured:
+    max_fan_in: "no_eligible_fact — change is local to one Flask route body and its template; no new public symbol"
+    hotspots: "provider_unavailable — churn/defect-density history not computed this cycle"
+
+system_contract:
+  rules_checked: 52
+  holds: 10
+  unchecked: 42
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff touches no pyproject/requirements; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (labelled TestDependencyBaseline_IsExactlyPillowAndNumpy at :1250) + playwright dev-only test: 2 passed, 66 deselected in 0.05s"
+    - "ADR-0019/R1 ✓ holds — diff touches no file under src/nonogram/web/; test_every_import_in_the_package_points_inward: 1 passed, 98 deselected in 0.41s"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no signature/request/export field carrying grid extent changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no orchestrator/repair code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies code touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no solver attribution touched"
+    - "ADR-0032/R1 ✓ holds — add_puzzle untouched (diff in app.py is only the status read at :3891 and status=store_status at :3959); TestStorageBoundary_AsksTheSolverNotTheCaller: 2 passed, 42 deselected in 0.02s"
+    - "ADR-0032/R2 ✓ holds — quality_min passed to PuzzleFilter unchanged; TestUnmeasuredQuality_SurvivesTheFilter: 4 passed, 4 deselected in 0.53s"
+    - "ADR-0033/R1 ✓ holds — book_manager/puzzle_review untouched by diff; TestStatusFilter_AllTilesCanBeAddedAndKeepTheirStatus asserts draft/rejected keep status after add: 2 passed, 38 deselected in 0.21s"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status transition touched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no layout code touched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: tile cell figure still from existing _book_cells; no geometry code added"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no PDF page band touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no PDF strokes touched"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: no player JS/CSS touched (Jinja-only template change)"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: player untouched"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no solution grid sent by the changed route beyond the pre-existing admin thumbnail"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no dependency or browser test added"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser test added"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web UI server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no size limits touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard touched"
+    - "CON-015 ✓ holds — no new route or bind change; TestAdminPanel_BindsLoopbackOnlyByDefault + TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit: 16 passed, 17 deselected in 4.86s"
+    - "CON-016 ✓ holds — changed route stays behind the existing door; same run: 16 passed, 17 deselected in 4.86s"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no play surface added"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue computation touched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no plan code touched"
+    - "INV-006 ✓ holds — add path untouched; tiles under all keep the floor flag/override; tests/property/test_book_membership_floor.py + tests/test_book_floor.py: 84 passed in 8.56s"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: ready gate untouched"
+    - "INV-008 ✓ holds — tests/test_book_published_confirm.py + tests/property/test_book_workflow.py: 88 passed in 4.20s"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: ordering code untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: PDF pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ✓ holds — same run as INV-008: 88 passed in 4.20s"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/templates/book_select_puzzles.html
+    line: 24
+    title: "Lede still says 'pick the approved grids' under ?status=all"
+    description: |
+      The page lede reads "pick the approved grids that go in" on every render,
+      including ?status=all where draft and rejected tiles are now offered and
+      selectable (visible in the owner render after-status-all-mixed.png). The card
+      only required the empty-state copy to change (objective 5 / AC-6), so this is
+      not an AC failure, but the page now contradicts itself under all.
+    suggestion: |
+      Optionally branch the lede on status == 'all' ("pick the grids that go in"),
+      or leave it and note it as a follow-up for the owner.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_status_filter_default.py
+    line: 163
+    title: "Test helper writes store internals (_session_factory, puzzles)"
+    description: |
+      _leave_in_book_without_a_book branches on store._session_factory and writes
+      store.puzzles / the ORM row directly. The docstring justifies it (no public
+      method produces in_book without a book), and the following assertions verify
+      the write landed, so it cannot pass vacuously; it does couple the test to
+      private store attributes.
+    suggestion: |
+      Acceptable as is; if a test-only helper for legacy rows appears in
+      tests/helpers, move this there.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
