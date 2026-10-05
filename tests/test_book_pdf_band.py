@@ -917,11 +917,30 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
 # this module, in the packaged DejaVu Sans, at every type size in
 # :data:`LINE_SIZES_PX`. A line is "one copy of the text at size s" when its
 # ink box is that setting's box and its ink is that setting's ink, both up to
-# the JPEG tolerances below. A second copy drawn at an offset either widens
-# or heightens the line (so it matches nothing) or makes a line of its own (so
-# the text is found twice) — both fail the tests. Two copies drawn at exactly
-# the same spot put ink on the same pixels and cannot be told apart this way;
-# that case is the recorder's (AC-3).
+# the JPEG tolerances below.
+#
+# What the pixel tests can see follows from how :func:`_lines` cuts a page:
+# every run of page rows holding any ink is one group, split sideways only at
+# gaps at least as wide as the group is tall. So a second copy is found only
+# on rows with no other ink within about a line's height sideways of it — the
+# band strip, the gap between the two slots, the top and bottom margins —
+# where it makes a line of its own (the text is found twice) or, touching the
+# band, widens the band's line (it matches nothing). A copy beside the
+# drawing (in a side margin, rows the ~1158 px grid also occupies) or over
+# other ink (clues, grid, a caption) merges into that ink's line and is not
+# seen; such a copy is caught only by the recorder (AC-3,
+# TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage). A second draw at
+# exactly the same spot is caught today only incidentally — the second
+# antialiased pass darkens the edge pixels past the ink mismatch limit — so
+# the pixel tests do not guarantee it; the recorder does.
+#
+# Measured with a second ``_set_band`` draw on the two-up pages (see the
+# card's Worktree notes for the full list): top margin (y-110), slot gap
+# (y+1450), bottom margin (lower slot, y+1280), band strip beside the band
+# (x-900) and touching it (x+40) each failed found-once and upper-first (the
+# last two also the band-strip test); side margins beside the drawing
+# (x∓900, y+600), over the column clues (y+300) and inside the grid (y+700)
+# left every pixel test green and failed only the recorder's per-page test.
 
 #: The book of this section: two Easy, two Medium and one Hard puzzle, all
 #: 10x10 with 3-deep clues, so each same-tier neighbour pair fits one page at
@@ -1078,7 +1097,9 @@ def _lines(page: Image.Image) -> Iterator[_Line]:
     """The page's lines of ink: rows of ink, split where a gap is a line tall.
 
     A word space is far narrower than the line is tall, so a band stays one
-    line; side-by-side answer captions, or clue numbers a cell apart, do not.
+    line; the side-by-side answer captions of a level's answer page do not.
+    A drawing, its clues inside its frame, is one line the grid's height, so
+    nothing on rows beside it is split off from it.
     """
     ink = np.asarray(page.convert("L")) < INK_LEVEL
     for top, bottom in _spans(ink.any(axis=1), 1):
@@ -1121,11 +1142,17 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     """AC-1, AC-2 — each band is one line of ink on one page of the PDF.
 
     Fails if ``_set_band`` (two-up pages) or COMP-007's header (the Hard
-    puzzle's page) prints a second, offset copy of a band, or if a band's line
-    turns up on any other page — a divider, the guide or the answer key.
+    puzzle's page) prints a second copy of a band on rows with no other ink
+    within about a line's height sideways (the band strip, the gap between
+    slots, the top or bottom margin) or touching the band, or if a band's
+    line turns up on such rows on any other page — a divider, the guide or
+    the answer key. A copy beside the drawing (a side margin) or over other
+    ink (clues, grid, captions) is not seen here; only the recorder class
+    (AC-3) catches it. A copy at exactly the band's own spot is caught here
+    only incidentally (see the section comment); the recorder guarantees it.
     """
 
-    def test_the_interior_is_the_page_sequence_this_module_reads(
+    def test_the_interior_has_the_page_count_this_module_reads(
         self, once_pages: list[Image.Image]
     ) -> None:
         assert len(once_pages) == ONCE_PAGE_COUNT
@@ -1133,6 +1160,9 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     def test_every_band_is_found_once_on_its_own_page_and_nowhere_else(
         self, once_pages: list[Image.Image]
     ) -> None:
+        """"Nowhere else" means as a line of its own: a copy beside the drawing
+        or over other ink is not found (see the section comment; the recorder
+        covers it)."""
         bands = _once_bands()
         found = sorted(
             (hit.page, hit.text, hit.size) for hit in _find(once_pages, bands.values())
@@ -1157,8 +1187,10 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         reaches into the drawing's top frame rule (measured: its last 2 px),
         so rows holding a rule are cleared first; what is left must be one run
         of rows whose ink has the extent and the ink of the line set once at
-        the band's size. A copy offset into the frame's rows still leaves its
-        upper part in the strip, as a second run of rows.
+        the band's size. A copy offset down into the frame's rows still leaves
+        its upper part in the strip, as a second run of rows or a taller first
+        one (measured: a second ``_set_band`` draw at y+60 and at y+80 each
+        failed this test, while found-once stayed green).
         """
         strip = np.asarray(_band_strip(once_pages[page_number - 1]).convert("L")) < INK_LEVEL
         text = strip.copy()
@@ -1189,7 +1221,8 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
 
         The Hard answer's caption is found once, on its answer page, at a size
         other than the band's — so "no answer page carries the band" above is
-        a search that would have found a band set there at the caption's size.
+        a search that would have found a band set there at the caption's size
+        on rows clear of other ink sideways, as the caption is.
         """
         caption = ANSWER_CAPTION.format(number=5, title="Snowflake")
         found = _find(once_pages, [caption])
@@ -1203,7 +1236,11 @@ class _BandDraws(NamedTuple):
     written: dict[int, Counter]
     #: Band lines drawn on images that were never handed to ``_write_page``.
     unwritten: list[str]
-    #: Band lines drawn on an image after that image had been written.
+    #: Band lines drawn on an image after that image had been written, counted
+    #: only for images that had already received a band line before their
+    #: write (only those are held). A late band draw on a written page that had
+    #: no band before its write (a divider, say) lands in :attr:`unwritten`,
+    #: which no test asserts.
     late: list[str]
 
 
@@ -1279,4 +1316,6 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
     def test_no_band_is_drawn_on_a_page_after_it_was_written(
         self, band_draws: _BandDraws
     ) -> None:
+        """Only pages that had received a band before their write are watched
+        (see :attr:`_BandDraws.late`)."""
         assert band_draws.late == []
