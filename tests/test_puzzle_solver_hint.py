@@ -142,6 +142,16 @@ def _face_value_hint(cells, rows, columns, solution):
     return _first_deducible(cells, list(cells), rows, columns, solution)
 
 
+def _face_value_forces(cells, rows, columns, r, c):
+    """Whether one pass over row ``r`` or column ``c``, every mark taken at
+    face value (wrong marks included), forces cell (r, c); a line with no
+    placement forces nothing."""
+    width, height = len(columns), len(rows)
+    by_row = _forced(rows[r], [cells[r * width + j] for j in range(width)])
+    by_col = _forced(columns[c], [cells[i * width + c] for i in range(height)])
+    return bool((by_row and by_row[c] != U) or (by_col and by_col[r] != U))
+
+
 def _fixpoint(rows, columns):
     """Line logic to a fixed point from a blank board (correct knowns only)."""
     height, width = len(rows), len(columns)
@@ -331,10 +341,12 @@ def _board_corpus(width, height, rng):
 def test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell(browser_page, live) -> None:
     """AC-3 — hintCell: null iff nothing is undecided; otherwise an undecided
     cell with its solution state, the first one-pass deducible cell (correct
-    marks only) when there is one, else the first undecided cell."""
+    marks only) when there is one, else the first undecided cell. At least 20
+    boards have a wrong mark that hides the deduction: taken at face value,
+    neither the revealed cell's row nor its column forces it."""
     _open(browser_page, live, live.store(GRID))
     rng = random.Random(1833)
-    fallbacks = with_wrong = hidden = nulls = deduced = 0
+    fallbacks = with_wrong = changed = hidden = nulls = deduced = 0
     for width, height in _SHAPES:
         solution, rows, columns, boards = _board_corpus(width, height, rng)
         got = browser_page.evaluate(_HINTS, {
@@ -359,11 +371,20 @@ def test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell(browser_page, live
             deduced += is_deduced
             has_wrong = _correct_only(cells, solution) != cells
             with_wrong += has_wrong
+            # Taken at face value, the wrong marks change the hint ...
+            changed += bool(has_wrong and is_deduced
+                            and _face_value_hint(cells, rows, columns, solution) != want)
+            # ... and, the stricter case AC-3 counts, they hide this very
+            # deduction: neither the cell's row nor its column forces it.
             hidden += bool(has_wrong and is_deduced
-                           and _face_value_hint(cells, rows, columns, solution) != want)
+                           and not _face_value_forces(cells, rows, columns, r, c))
     assert fallbacks >= 30
     assert with_wrong >= 50
     assert hidden >= 20  # a wrong mark taken at face value would hide this deduction
+    # Every hidden board also changes the hint; the corpus also holds boards
+    # where a wrong mark only adds an earlier, spurious deduction while this
+    # cell stays forced — the strict count must leave those out.
+    assert changed > hidden
     assert nulls >= 30 and deduced >= 200
 
 
@@ -471,6 +492,24 @@ def _color(state):
     return "black" if state == F else "white"
 
 
+#: The hinted cell's computed outline and ring, after its animations end,
+#: next to the tokens they should resolve to (read from a probe in the stage,
+#: where --player-rule-major is defined).
+_OUTLINE = """async (td) => {
+  await Promise.all(td.getAnimations().map((a) => a.finished));
+  const probe = document.createElement('div');
+  probe.style.cssText = 'color: var(--color-accent); background-color: var(--grid-paper);'
+    + ' width: var(--player-rule-major); height: 0; position: absolute;';
+  document.querySelector('.player-stage').append(probe);
+  const p = getComputedStyle(probe);
+  const tokens = { accent: p.color, paper: p.backgroundColor, rule: parseFloat(p.width) };
+  probe.remove();
+  const s = getComputedStyle(td);
+  return { ...tokens, style: s.outlineStyle, color: s.outlineColor, width: parseFloat(s.outlineWidth),
+           offset: parseFloat(s.outlineOffset), shadow: s.boxShadow };
+}"""
+
+
 @pytest.mark.browser
 class TestSolverHint_RevealsOneCell:
     """AC-4 — a blank 15 x 15 board: one real click on Hint reveals the
@@ -505,14 +544,78 @@ class TestSolverHint_RevealsOneCell:
         assert _hints_shown(browser_page) == 2
 
     def test_the_hinted_cell_carries_an_accent_outline(self, browser_page, live) -> None:
+        """The hinted cell's outline is --color-accent, as wide as the major
+        rule and inset by that width (drawn just inside the cell), with an
+        inset --grid-paper ring of twice that width inside it; every other
+        td.player-cell has outline-style none. Read after the hinted cell's
+        animation has finished."""
         _open(browser_page, live, live.store(GRID))
         _hint(browser_page).click()
         r, c = _hinted(browser_page)[0]
-        look = _cell(browser_page, r, c).evaluate(
-            "(td) => { const s = getComputedStyle(td); return [s.outlineStyle, parseFloat(s.outlineWidth)]; }")
-        other = _cell(browser_page, 14, 14).evaluate("(td) => getComputedStyle(td).outlineStyle")
-        assert look[0] == "solid" and look[1] > 0
-        assert other == "none"
+        look = _cell(browser_page, r, c).evaluate(_OUTLINE)
+        others = browser_page.evaluate(
+            "[...document.querySelectorAll('td.player-cell:not(.is-hinted)')]"
+            ".filter((td) => getComputedStyle(td).outlineStyle !== 'none').map((td) => [+td.dataset.row, +td.dataset.col])")
+        assert browser_page.locator("td.player-cell:not(.is-hinted)").count() == SIDE * SIDE - 1
+        rule = look["rule"]
+        assert rule > 0
+        assert look["style"] == "solid"
+        assert look["color"] == look["accent"]
+        assert look["width"] == rule
+        assert look["offset"] == -rule
+        assert look["shadow"] == f"{look['paper']} 0px 0px 0px {2 * rule:g}px inset"
+        assert others == []
+
+
+_BOXES = """() => {
+  const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+  const q = (s) => document.querySelector(s);
+  const errors = q('.player-errors');
+  return {
+    group: [...q('.player-history').querySelectorAll('button[data-player-action]')].map((b) => b.dataset.playerAction),
+    hintIsLastChild: q('.player-history').lastElementChild === q('[data-player-action="hint"]'),
+    hintsFollowErrors: errors.nextElementSibling === q('.player-hints'),
+    toolbar: box(q('.player-toolbar')),
+    reset: box(q('[data-player-action="reset"]')),
+    hint: box(q('[data-player-action="hint"]')),
+    errors: box(errors),
+    hints: box(q('.player-hints')),
+  };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverHint_PlacesTheButtonAndTheCounter:
+    """The Hint button closes the History group (its last child, after
+    Reset); "Hints: N" is the element right after "Errors: N" and sits to its
+    right in the same row, at the right end of the toolbar, at desktop width
+    and at 390 px. Hint is on Reset's row at desktop width and wraps onto a
+    row of its own at 390 px."""
+
+    @pytest.mark.parametrize("width", [1440, 390])
+    def test_dom_order_and_boxes(self, browser, live, width) -> None:
+        context = browser.new_context(viewport={"width": width, "height": 900})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(GRID))
+            got = page.evaluate(_BOXES)
+        finally:
+            context.close()
+        assert got["group"] == ["undo", "redo", "reset", "hint"]
+        assert got["hintIsLastChild"]
+        assert got["hintsFollowErrors"]
+        el, et, er, eb = got["errors"]
+        hl, ht, hr, hb = got["hints"]
+        assert ht < eb and et < hb  # same row band
+        assert hl >= er  # to the right of the error counter
+        assert abs(hr - got["toolbar"][2]) <= 1  # at the right end of the toolbar
+        rl, rt, rr, rb = got["reset"]
+        bl, bt, br, bb = got["hint"]
+        if width == 1440:
+            assert bt < rb and rt < bb and bl >= rr  # Reset's row, to its right
+        else:
+            assert bt >= rb  # below Undo / Redo / Reset
+            assert bb <= et  # and above the counters: a row of its own
 
 
 @pytest.mark.browser
@@ -768,6 +871,13 @@ class TestSolverHint_KeyboardAndNoRequest:
         assert problems == []
 
 
+#: The hinted cell's one animation: its name and its first keyframe.
+_FADE = """(td) => {
+  const [a] = td.getAnimations();
+  return [a.animationName, a.effect.getKeyframes()[0]];
+}"""
+
+
 @pytest.mark.browser
 class TestSolverHint_ReducedMotion:
     """AC-11 — under reduced motion no animation or transition runs on the
@@ -788,12 +898,18 @@ class TestSolverHint_ReducedMotion:
             context.close()
 
     def test_without_reduced_motion_the_hinted_cell_animates(self, browser, live) -> None:
-        """The control: the same hint does animate, so AC-11's zero is real."""
+        """The control: the same hint does animate, so AC-11's zero is real.
+        The one animation is player-hinted-in, whose first keyframe (offset 0)
+        sets the outline colour to transparent: the outline fades in."""
         context = browser.new_context(reduced_motion="no-preference")
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
             _hint(page).click()
             assert page.locator("td.player-cell.is-hinted").evaluate("(td) => td.getAnimations().length") == 1
+            name, first = page.locator("td.player-cell.is-hinted").evaluate(_FADE)
+            assert name == "player-hinted-in"
+            assert first["offset"] == 0
+            assert first.get("outlineColor") in ("transparent", "rgba(0, 0, 0, 0)")
         finally:
             context.close()

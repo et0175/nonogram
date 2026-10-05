@@ -455,11 +455,14 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    history controls, over the board, without moving it. */
 .player-errors { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .player-errors-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
-/* Hints (CARD-183): "Hints: N" follows "Errors: N", styled alike. The cell a
-   hint just revealed carries .is-hinted until the next commit: an accent
-   outline just inside the cell with a paper ring inside that, fading in; no
-   animation under prefers-reduced-motion (the rule at the end of this block
-   covers .player-stage *). */
+/* Hints (CARD-183): "Hints: N" is the element after "Errors: N" and sits
+   to its right in the same row, at the right end of the toolbar (desktop and
+   390 px). The cell a hint just revealed carries .is-hinted until the next
+   commit: an accent outline as wide as the major rule, inset by that width
+   (just inside the cell), with an inset paper ring twice that width inside
+   it; the outline colour fades in from transparent; no animation under
+   prefers-reduced-motion (the rule at the end of this block covers
+   .player-stage *). */
 .player-hints { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .player-hints-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
 .player-cell.is-hinted { outline: var(--player-rule-major) solid var(--color-accent); outline-offset: calc(-1 * var(--player-rule-major)); box-shadow: inset 0 0 0 calc(2 * var(--player-rule-major)) var(--grid-paper); animation: player-hinted-in calc(2 * var(--duration-base)) var(--ease); }
