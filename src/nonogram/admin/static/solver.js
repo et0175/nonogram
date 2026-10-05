@@ -41,22 +41,26 @@
 //                      and an open reset confirmation is closed (see "reset")
 // Boards are trusted in-page values (see solver_state.js).
 //
-// MARKING (CARD-161, FR-044 AC-303..AC-311). The strokes and the undo/redo
-// history are solver_state.js values (clickStroke, dragStroke, resetStroke,
-// record, undo, redo); this file only turns input into those calls and
+// MARKING (CARD-161, FR-044 AC-303..AC-311; the "?" mark, CARD-186). The
+// strokes and the undo/redo history are solver_state.js values (clickStroke,
+// dragStroke, resetStroke, record, undo, redo); this file only turns input into those calls and
 // paints the resulting board. The marking code (wireMarking) does not read
 // payload.solution — it only asks start() whether the board is locked and
 // which cell a hint would reveal — and no mark or hint sends a request
 // (ADR-0038/R2).
 //   pointer   pointerdown on a cell, then pointerup without having been over
-//             another cell = a click: the cell cycles whatever the tool.
+//             another cell = a click: clickStroke with the tool selected at
+//             pointerdown (solver_state.js clickedState: with Black, White
+//             or Undecided the cell cycles; with Maybe it becomes "?", and a
+//             "?" becomes undecided).
 //             Having been over another cell = a drag: dragStroke with the
 //             tool selected at pointerdown, previewed on every move, recorded
 //             on pointerup; pointercancel drops it. Mouse (main button), pen
 //             and touch alike; the board's cells set touch-action: none
 //             (admin.css).
-//   tools     #puzzle-player-controls [data-player-tool] — toggle buttons,
-//             aria-pressed, exactly one pressed; FILLED at load.
+//   tools     #puzzle-player-controls [data-player-tool] — toggle buttons
+//             (filled, empty, unknown, maybe), aria-pressed, exactly one
+//             pressed; FILLED at load.
 //   history   [data-player-action] undo / redo / reset; aria-disabled="true"
 //             while there is nothing to do — pressing one then leaves the
 //             board as it is, because undo/redo with an empty stack and a
@@ -433,7 +437,7 @@ function wireMarking(table, player) {
     const done = gesture;
     gesture = null;
     const history = player.getHistory();
-    commit(record(history, done.dragging ? dragStroke(done.start, done.path, done.tool) : clickStroke(history.board, ...done.start)));
+    commit(record(history, done.dragging ? dragStroke(done.start, done.path, done.tool) : clickStroke(history.board, ...done.start, done.tool)));
   });
 
   table.addEventListener("pointercancel", (event) => {

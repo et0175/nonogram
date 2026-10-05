@@ -18,6 +18,10 @@
   (aria-pressed, exactly one pressed); undo, redo and reset stay focusable and
   say aria-disabled="true" when they have nothing to do.
 
+  The "?" mark (CARD-186): a fourth tool, Maybe, follows Undecided. With it a
+  click marks a cell "?" and a second click clears it; a drag paints "?". A
+  click with Black, White or Undecided still cycles, a "?" going to black.
+
   Progress (CARD-162): the error counter sits in the toolbar row and is a
   live region (role=status), updated by solver.js after every recorded
   stroke. The solved banner is rendered here, hidden; it names the picture
@@ -58,6 +62,7 @@
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="filled" aria-pressed="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="empty" aria-pressed="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="unknown" aria-pressed="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Undecided</button>
+        <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="maybe" aria-pressed="false"><span class="player-swatch" data-state="maybe" aria-hidden="true"></span>Maybe</button>
     </div>
     <p class="player-solved" id="puzzle-player-solved" hidden>{{ icons.icon('check') }}<span>Solved: <strong class="player-solved-name" data-player-solved-name>{{ title }}</strong></span></p>
     <p class="player-announce" id="puzzle-player-announce" role="status" aria-atomic="true"></p>
@@ -86,7 +91,7 @@
     </p>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to cycle black, white, undecided. Drag along a row or column to apply the selected tool.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to cycle black, white, undecided. Drag along a row or column to apply the selected tool. With Maybe, a click marks ? and a second click clears it.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}

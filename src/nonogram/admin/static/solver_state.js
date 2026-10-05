@@ -10,8 +10,9 @@
 //   { width: int >= 1, height: int >= 1,
 //     cells: frozen array of width*height cell states, row-major
 //            (the cell at row r, column c is cells[r * width + c]) }
-// A cell state is one of UNKNOWN ("undecided"), FILLED or EMPTY ("marked
-// empty"). Boards are never mutated: withCell (the single-cell primitive) and
+// A cell state is one of UNKNOWN ("undecided"), FILLED, EMPTY ("marked
+// empty") or MAYBE (CARD-186: the player's "?" — an assumption, neither dark
+// nor white; never an error, and no board holding one is solved). Boards are never mutated: withCell (the single-cell primitive) and
 // applyStroke return a new one. Boards are trusted in-page values: only this
 // page's own code builds and passes them. In solver.js a click, a drag or a
 // reset becomes a stroke, recorded into a history value with record (which
@@ -26,7 +27,8 @@
 export const UNKNOWN = "unknown";
 export const FILLED = "filled";
 export const EMPTY = "empty";
-export const CELL_STATES = Object.freeze([UNKNOWN, FILLED, EMPTY]);
+export const MAYBE = "maybe";
+export const CELL_STATES = Object.freeze([UNKNOWN, FILLED, EMPTY, MAYBE]);
 
 function isSide(n) {
   return Number.isInteger(n) && n >= 1;
@@ -147,8 +149,9 @@ export function withCell(board, row, col, state) {
 // browser property test) checks that replaying done's strokes from the first
 // board gives `board`, after every stroke, undo and redo of a random corpus.
 
-// A click's next state: undecided -> filled -> marked empty -> undecided.
-const CYCLE = Object.freeze({ [UNKNOWN]: FILLED, [FILLED]: EMPTY, [EMPTY]: UNKNOWN });
+// A click's next state: undecided -> filled -> marked empty -> undecided. A
+// "?" (MAYBE) is read as undecided, so it goes to filled (CARD-186).
+const CYCLE = Object.freeze({ [UNKNOWN]: FILLED, [FILLED]: EMPTY, [EMPTY]: UNKNOWN, [MAYBE]: FILLED });
 
 export function cycled(state) {
   if (!CELL_STATES.includes(state)) {
@@ -161,10 +164,25 @@ function makeStroke(cells, state) {
   return Object.freeze({ cells: Object.freeze(cells.map((cell) => Object.freeze([...cell]))), state });
 }
 
-// The stroke of one click on (row, col): that cell, cycled from its state on
-// `board` (whatever tool is selected — the tool governs drags only).
-export function clickStroke(board, row, col) {
-  return makeStroke([[row, col]], cycled(cellAt(board, row, col)));
+// What one click does to a cell in `state` with `tool` selected — the only
+// place that decides it (CARD-186; CARD-189 extends it). With the MAYBE tool
+// a cell that is not "?" becomes "?" and a "?" becomes undecided. With any
+// other tool, or none (undefined), the cell cycles (see CYCLE).
+export function clickedState(state, tool) {
+  if (tool === MAYBE) {
+    if (!CELL_STATES.includes(state)) {
+      throw new RangeError(`"${state}" is not a cell state (${CELL_STATES.join(", ")})`);
+    }
+    return state === MAYBE ? UNKNOWN : MAYBE;
+  }
+  return cycled(state);
+}
+
+// The stroke of one click on (row, col) with `tool` selected: that cell set
+// to clickedState of its state on `board`. With `tool` omitted the cell
+// cycles, as with Black, White or Undecided.
+export function clickStroke(board, row, col, tool) {
+  return makeStroke([[row, col]], clickedState(cellAt(board, row, col), tool));
 }
 
 // The cells a drag covers, in the order first reached. `start` is the
@@ -293,7 +311,8 @@ export function redo(history) {
 // match the board's (solver.js checks the payload's shape at load).
 
 // The number of wrong marks: cells marked FILLED whose solution is empty,
-// plus cells marked EMPTY whose solution is filled. UNKNOWN never counts.
+// plus cells marked EMPTY whose solution is filled. UNKNOWN and MAYBE ("?")
+// never count.
 export function errorCount(board, solution) {
   let errors = 0;
   for (let row = 0; row < board.height; row += 1) {
@@ -306,10 +325,12 @@ export function errorCount(board, solution) {
   return errors;
 }
 
-// Whether the board solves the puzzle: every solution-filled cell is marked
-// FILLED and no solution-empty cell is. EMPTY marks are optional, as on
-// paper: a solution-empty cell may be EMPTY or UNKNOWN.
+// Whether the board solves the puzzle: no cell is MAYBE ("?", CARD-186),
+// every solution-filled cell is marked FILLED and no solution-empty cell is.
+// EMPTY marks are optional, as on paper: a solution-empty cell may be EMPTY
+// or UNKNOWN.
 export function isSolved(board, solution) {
+  if (board.cells.includes(MAYBE)) return false;
   for (let row = 0; row < board.height; row += 1) {
     for (let col = 0; col < board.width; col += 1) {
       if ((board.cells[row * board.width + col] === FILLED) !== solution[row][col]) return false;
@@ -405,9 +426,10 @@ export function circledClues(board, rows, columns) {
 // ---------------------------------------------------------------------------
 // Hints (CARD-183, IDEA-074; FR-044 extension, no AC id yet)
 //
-// A hint reveals one undecided cell, set to its solution state, as one
-// stroke: hintStroke carries `hint: true`, which applyStroke, record, undo
-// and redo ignore, so a hint is one undo step and replay still holds.
+// A hint reveals one undecided (UNKNOWN or "?") cell, set to its solution
+// state, as one stroke: hintStroke carries `hint: true`, which applyStroke,
+// record, undo and redo ignore, so a hint is one undo step and replay still
+// holds.
 // hintCount reads the undo stack, so undo takes a hint back and redo puts it
 // back. The clues are the payload's rows / columns (ADR-0038/R3).
 
@@ -465,12 +487,19 @@ export function lineForced(clue, cells) {
   });
 }
 
+// Whether a hint may reveal a cell in `state`: UNKNOWN or MAYBE ("?" is read
+// as undecided, CARD-186).
+function isUndecided(state) {
+  return state === UNKNOWN || state === MAYBE;
+}
+
 // The cell a hint reveals on `board`, as {row, col, state, deduced}, or null
-// when no cell is UNKNOWN. The knowns are the board's correct marks (a wrong
-// mark counts as undecided). The first UNKNOWN cell, row-major, that
-// lineForced of its row or of its column forces from the knowns (one pass,
-// not to a fixed point) is returned with deduced: true; when there is none,
-// the first UNKNOWN cell with deduced: false. `state` is always the
+// when no cell is UNKNOWN or MAYBE. The knowns are the board's correct marks
+// (a wrong mark counts as undecided; a "?" is never a known). The first
+// UNKNOWN or MAYBE cell, row-major, that lineForced of its row or of its
+// column forces from the knowns (one pass, not to a fixed point) is returned
+// with deduced: true; when there is none, the first UNKNOWN or MAYBE cell
+// with deduced: false. `state` is always the
 // solution's. A line lineForced finds no placement for deduces nothing.
 export function hintCell(board, rows, columns, solution) {
   const { width, height } = board;
@@ -486,7 +515,7 @@ export function hintCell(board, rows, columns, solution) {
   let fallback = null;
   for (let row = 0; row < height; row += 1) {
     for (let col = 0; col < width; col += 1) {
-      if (board.cells[row * width + col] !== UNKNOWN) continue;
+      if (!isUndecided(board.cells[row * width + col])) continue;
       if ((rowForced[row] !== null && rowForced[row][col] !== UNKNOWN)
           || (colForced[col] !== null && colForced[col][row] !== UNKNOWN)) {
         return { row, col, state: truth(row, col), deduced: true };

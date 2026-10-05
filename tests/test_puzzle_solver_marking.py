@@ -511,7 +511,7 @@ class TestSolverMarking_UndoRedoByStroke:
 # AC-309 / AC-310 — keyboard and labels
 # ==========================================================================
 
-CONTROLS = ["Black", "White", "Undecided", "Undo", "Redo", "Reset"]
+CONTROLS = ["Black", "White", "Undecided", "Maybe", "Undo", "Redo", "Reset"]
 
 _FOCUSED = """() => {
   const el = document.activeElement;
