@@ -114,9 +114,15 @@ PRE_CARD_BASELINE = REPO_ROOT / "tests" / "fixtures" / "book_baseline_card146.js
 
 #: CARD-167 deliberately moved interior page 1 (the guide page) of every
 #: interior, colour included; its recording holds that page's digest and the
-#: colour interior's new length. Every other page is still checked against
+#: colour interior's length at the time. Pages 2-8 are still checked against
 #: :data:`PRE_CARD_BASELINE`.
 GUIDE_PAGE_BASELINE = REPO_ROOT / "tests" / "fixtures" / "book_baseline_card167.json"
+
+#: CARD-184 deliberately moved interior pages 9-11 (the answer pages: their
+#: heading and captions grew from 41 px to CON-020's 10 pt, 42 px) of every
+#: interior, colour included; its recording holds those pages' digests and the
+#: colour interior's new length.
+ANSWER_PAGES_BASELINE = REPO_ROOT / "tests" / "fixtures" / "book_baseline_card184.json"
 
 #: A pixel darker than this (0..255 grey) is ink — the level every other reader
 #: of a book page in this suite uses.
@@ -487,6 +493,11 @@ class TestBookInk_ColourInteriorIsUnchanged:
             guide_moved = json.load(handle)
         assert guide_moved["changed_pages"] == [1]
         recorded[0] = guide_moved["pages"][0]
+        with ANSWER_PAGES_BASELINE.open(encoding="utf-8") as handle:
+            answers_moved = json.load(handle)
+        assert answers_moved["changed_pages"] == [9, 10, 11]
+        for number in answers_moved["changed_pages"]:
+            recorded[number - 1] = answers_moved["pages"][number - 1]
 
         assert len(now) == len(recorded) == BASELINE_PAGE_COUNT
         compared = 0
@@ -509,9 +520,9 @@ class TestBookInk_ColourInteriorIsUnchanged:
                 "another face, so the file's length is not the recorded one"
             )
         _bw, colour = baseline_exports
-        with GUIDE_PAGE_BASELINE.open(encoding="utf-8") as handle:
-            guide_moved = json.load(handle)
-        assert len(colour) == guide_moved["colour_interior_bytes"]
+        with ANSWER_PAGES_BASELINE.open(encoding="utf-8") as handle:
+            answers_moved = json.load(handle)
+        assert len(colour) == answers_moved["colour_interior_bytes"]
 
     def test_the_black_and_white_interior_is_not_that_length(
         self, baseline_exports, pre_card_baseline, same_face
@@ -520,9 +531,9 @@ class TestBookInk_ColourInteriorIsUnchanged:
         if not same_face:
             pytest.skip("see the test above")
         bw, _colour = baseline_exports
-        with GUIDE_PAGE_BASELINE.open(encoding="utf-8") as handle:
-            guide_moved = json.load(handle)
-        assert len(bw) != guide_moved["colour_interior_bytes"]
+        with ANSWER_PAGES_BASELINE.open(encoding="utf-8") as handle:
+            answers_moved = json.load(handle)
+        assert len(bw) != answers_moved["colour_interior_bytes"]
 
 
 # --------------------------------------------------------------------------
