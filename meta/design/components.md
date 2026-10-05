@@ -234,6 +234,8 @@ Used by: the puzzle player (`puzzle_solve.html`, drawn by `static/solver.js`; CA
 
 Sizing on phones (CARD-182): at viewports ≤ 820 px the cell floor is 24 px (tap target); a board too wide for that scrolls inside `.player-stage`, panning starts on the clue areas, cells keep `touch-action: none`. Candidate token: `--player-cell-min`.
 
+(CARD-183) PlayerBoard — new cell state `.is-hinted`: the cell the last hint revealed, until the next commit; 2px --color-accent outline inset by the major rule width with an inset --grid-paper ring, fading in over 2×--duration-base (`player-hinted-in`); no animation under prefers-reduced-motion. Tokens: --color-accent, --grid-paper, --duration-base, --ease.
+
 ## ClueBox
 
 Used by: SolverBoard. One box per line (a row's to the left, a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
@@ -255,13 +257,19 @@ Used by: the puzzle player (CARD-161). `div.player-history[role=group][aria-labe
 - Layout: ToolPicker and HistoryControls share one `.player-toolbar` row above the board (wraps to two rows at 390 px); a usage hint (`.player-hint`, --text-sm, secondary) sits below the board.
 - Solved / confirm states (CARD-162): Undo and Redo are aria-disabled while the board is solved; Reset opens ResetConfirm, and a reset stays one undoable step (undo brings the solved board and its lock back).
 
+(CARD-183) HistoryControls — gains Hint (`button[data-player-action="hint"]`, text label "Hint", no icon) as the last button of `.player-history`, after Reset (Tab order of the earlier controls unchanged); disabled = aria-disabled="true" while the board is solved (locked), while a pointer gesture is in progress, or when no cell is undecided; pressing it then changes nothing. Wraps to its own row at 390 px.
+
 ## ErrorCounter
 
 Used by: the puzzle player (CARD-162, FR-044). "Errors: N" at the end of the player toolbar row (`.player-errors`, `.player-errors-count`), role=status. N is the live number of wrong marks — filled where the solution is empty plus empty where it is filled; undecided never counts; it falls when a mistake is undone or corrected.
 
+(CARD-183) HintCounter — "Hints: N" right after "Errors: N" at the end of the toolbar row (`p.player-hints[role=status]`, `.player-hints-count`, styled as ErrorCounter); N = hint strokes on the undo stack: undo lowers it, redo raises it, reset keeps it, setBoard zeroes it.
+
 ## SolvedBanner
 
 Used by: the puzzle player (CARD-162). A check icon (--color-success) and "Solved: <picture name>" on the success tint, shown in place of the ToolPicker so the board does not move; mirrored into a visually hidden live region (`.player-solved`, `.player-announce`). The only place the player shows the picture name (FR-044 AC-316, AC-322).
+
+(CARD-183) SolvedBanner / live region — #puzzle-player-announce also carries the hint text ("Hint: row R, column C is black|white." or, on the fallback, "Hint: no cell follows from a single line yet; row R, column C is black|white (from the solution)."); a hint that solves the board announces the solved text instead.
 
 ## ResetConfirm
 
