@@ -95,6 +95,8 @@ card names its card._
 - [ ] Architect delta (CARD-183): FR-044 says "Hints are out of scope"; the owner chose a reveal-one-cell hint (2026-10-05) — amend FR-044 with the hint ACs   @tech-debt
 - [ ] Architect decision (CARD-184): puzzle-page clue digits scale with the cell (8.6 pt on Book 1 30×30, 3.6 pt at the 10 cm trim; the 4.8 mm cell floor caps them ~8.4 pt) — should CON-020 exclude clue digits, or the cell floor rise? CARD-184 exempts them by name in its test; also flip CON-020 to its new test   @tech-debt
 
+- [ ] Architect delta (owner solver test doc 2026-10-05, CARD-185..189): FR-044 gains the "?" mark (186), clue circling (188), % solved (187), brush-led click sequences superseding AC-303/AC-304 (189) and browser-local resume (185); CON-021 "play state is never persisted" and FR-044's "no play state is persisted" must allow this-browser localStorage BEFORE CARD-185 runs   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

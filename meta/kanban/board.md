@@ -29,7 +29,8 @@ _Updated: 2026-10-04 UTC_
 | 31 | CARD-160 P2, CARD-161 P2, CARD-162 P2, CARD-163 P2 | ✓ done — all 4 merged |
 | 32 | CARD-164 P1, CARD-165 P2, CARD-166 P2, CARD-167 P2, CARD-168 P2 | ✓ done — all 5 merged; full suite exit 0 |
 | 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ✓ done — all 8 merged (CARD-170 after an owner-chosen targeted fix) |
-| 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2 | ready — roadmap wave 1 (re-plan 2026-10-05) |
+| 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2, CARD-186 P2, CARD-188 P2 | ready — roadmap wave 1 (re-plan 2026-10-05) |
+| 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2 | blocked — after CARD-183/186; CARD-185 also needs the CON-021 architect amendment |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -57,6 +58,11 @@ _(none)_
 - [CARD-182](cards/CARD-182.md) P3 · 0.5d · wave 34 — Puzzle player cells are a usable tap target on a 390 px phone
 - [CARD-183](cards/CARD-183.md) P3 · 0.75d · wave 34 — The puzzle player gets a Hint button that reveals one deducible cell
 - [CARD-184](cards/CARD-184.md) P2 · 0.5d · wave 34 — One test holds every interior face to CON-020's 10 pt floor, and the two faces below it today are fixed
+- [CARD-185](cards/CARD-185.md) P2 · 1d · wave 35 — The puzzle player reopens a puzzle in the state it was left in (this browser only) · after CARD-183, CARD-186
+- [CARD-186](cards/CARD-186.md) P2 · 1d · wave 34 — The puzzle player gets a "?" mark and a "?" brush for assumptions · after CARD-183
+- [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · after CARD-186
+- [CARD-188](cards/CARD-188.md) P2 · 0.75d · wave 34 — The puzzle player circles a clue number once the player's marks settle its run
+- [CARD-189](cards/CARD-189.md) P2 · 0.5d · wave 35 — In the puzzle player, a click follows the selected brush · after CARD-186 (the MAYBE "?" state, the Maybe brush and the `clickedState(state, tool)` hook exist)
 
 ## In Progress
 
