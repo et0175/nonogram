@@ -1,6 +1,6 @@
 # CARD-182: Puzzle player cells are a usable tap target on a 390 px phone
 
-**Status:** ready
+**Status:** done
 **Priority:** P3
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 2/3)
+**Started:** 2026-10-05T07:59:08Z
+**Closed:** 2026-10-05T11:07:12Z
+**Actual:** 0.4d
+**Merge commit:** 1164582
 **Blocked by:** —
 
 ## What to implement
@@ -190,3 +190,84 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-182` (53 rules). A project
   - Width-based trigger `(max-width: 820px)`. Adding `, (pointer: coarse)` would also cover phone landscape, but it would enlarge cells on tablets too.
 - DESIGN-REGISTER: SolverBoard → Sizing: "cell side clamp(14px, fit, 28px); at viewports ≤ 820 px the floor is 24 px (tap target, CARD-182) and the board scrolls inside `.player-stage`; panning starts on the clue areas, cells keep touch-action none." Candidate token note: `--player-cell-min` is 24px below the breakpoint.
 - [AC cross-check] All seven ACs were re-read against What to implement. They agree on the floor (24 px), the trigger (≤ 820 px), the scroll (inside the stage, never the page) and the touch split (cells none, clues default). AC-3 was worded "under 24 px at 821" rather than an exact value because the desktop value comes from the unchanged clamp. Nothing was changed after the check.
+- [Env] forge 2026.8.17
+- [AC-4 baseline] Measured on unchanged admin.css (main 2e40c96), 1440x900, td.player-cell width: 15x15 (`_unique_grid(15, 15, seed=182)`) = 28 px; 25x15 (`_unique_grid(25, 15, seed=1825)`) = 28 px; 30x30 with a 15-number row clue (`_deep_row_clues(30, 30, seed=1830)`) = 16.796875 px (pinned as 16.797, rounded to 0.001). Pinned in `DESKTOP_CELL`. Before the change, 8 of the 14 tests then in the file failed on main (AC-1 x3, AC-2 15x15, AC-3, AC-4 x3 = placeholder), which shows the file can fail.
+- [Built] admin.css: one rule `@media (max-width: 820px) { .player-stage { --player-cell-min: 24px; } }` plus a 3-line comment, placed directly after the `.player-cell { cursor: pointer; touch-action: none; }` marking block (not in the toolbar rules). Length only, no colour literal. No JS or template change (G-4: solver.js, solver_state.js and puzzle_solve.html are not in the diff).
+- [Owner default] Floor 24 px, not 28 px — implemented as drafted.
+- [Owner default] Width-based trigger `(max-width: 820px)`, no `(pointer: coarse)` — implemented as drafted.
+- [Tests] tests/test_puzzle_solver_phone.py, 15 browser tests (`@pytest.mark.browser`, CARD-160 fixtures, so a missing Chromium fails loudly per ADR-0038/R8). AC-1 and AC-2 parametrised over 15x15/25x15/30x30. AC-5/AC-6: touch context 390x844, stage scrolled to its right end (scrollLeft == scrollWidth - clientWidth > 0), page scrolled vertically (instant, because Bootstrap's reboot makes root scrolling smooth) so row 12 is mid-screen. Every target cell is asserted to lie inside the stage box and the viewport, then CDP `Input.dispatchTouchEvent`. AC-5 uses the White tool (picked before scrolling, because a click scrolls its button into view) and asserts the changed set == {(12,25..29): empty}, with scrollLeft unchanged. AC-6 asserts a tap changes only {(12,27): filled}.
+- [AC-7 method] CDP `Input.dispatchTouchEvent` swipe (touchStart, 10 touchMoves 20 px left, touchEnd). It scrolls the stage in headless Chromium, so `synthesizeScrollGesture` was not needed. Geometry: on the deep-row-clue 30x30 at scrollLeft 0, the row-clue gutter (383.8 px) is wider than the 358 px stage, so the only part of the column-clue band (thead row) in view is the corner box. That case therefore starts on `.player-corner`. A second case, the 25x15, starts on a real `.player-clue.is-col` box. The start element's class is asserted in both cases. The computed touch-action is asserted: cells == {none}; col clues, row clues and corner contain no `none`.
+- [Mutants] Each mutant was applied to the worktree, the new file was run, then the change was reverted:
+  - M1 remove the media rule: killed by AC-1 x3, AC-2[15x15], AC-3, and AC-7[30x30]. The AC-7 kill is only a precondition failure: at 14 px a column-clue box sits at the start point instead of the corner.
+  - M2 floor 23px: killed by AC-1 x3 and AC-3.
+  - M3 breakpoint 819px: killed by AC-3.
+  - M4 breakpoint 821px: killed by AC-3.
+  - M5 the rule without the media query (global 24 px floor): killed by AC-3 and AC-4[30x30].
+  - M6 `.player-cell { touch-action: auto }`: killed by AC-5 drag and the AC-7 touch-action test.
+  - M7 `.player-clue, .player-corner { touch-action: none }`: killed by AC-7 swipe x2 and the touch-action test.
+  - M8 `.player-clue` only: killed by AC-7 swipe[25x15] and the touch-action test.
+  - M9 `.player-corner` only: killed by AC-7 swipe[30x30] and the touch-action test.
+  - M10 `--player-cell-max: 30px` below the breakpoint: SURVIVES, as expected. At 390 every board is at the 24 px floor, so the cap is never reached.
+  - M11 floor 29px, above the cap: killed by AC-1 x3, which bounds AC-1's "<= 28" assertion. The AC-7 swipe[25x15] also fails, as a precondition.
+  - M12, JS and temporary, reverted with `git checkout` (not committed): cellUnder takes pageX/pageY instead of clientX/clientY. Killed by AC-5 and AC-6. Scope of that claim: the kill comes from the page's vertical scroll (pageY != clientY). The stage's horizontal scroll does not change pageX, so no test here isolates a stage-scroll-only coordinate bug.
+- [Guardrails] Run: test_puzzle_solver_phone.py, test_puzzle_solver_page.py (incl. TestSolverPageFits both params, test_a_phone_width_page_never_scrolls_sideways, TestPlayerAssets), test_puzzle_solver_marking.py, test_puzzle_solver_progress.py and test_admin_design_tokens.py, all unedited: 197 passed. Full suite not run (orchestrator's job).
+- [Renders] ~/Documents/nonogram-reviews/CARD-182/ (script card182_render.py; temp SQLite, real image pipeline: duck 15x15 easy, butterfly 25x15 medium, cat 30x30 easy; all three converted, no synthetic fallback). For each of duck-15x15 / butterfly-25x15 / cat-30x30 there is `<board>-390-fresh-{before,after}.png` and `<board>-390-mid-solve-{before,after}.png`, plus `cat-30x30-390-mid-solve-scrolled-right-{before,after}.png` and `cat-30x30-1440-{before,after}.png`. "Before" = main's admin.css served through a Playwright route. Console clean on every page. Cell sizes:
+  - duck: 19.88 -> 24 px, stage 358 -> 416 wide
+  - butterfly: 14 -> 24 px
+  - cat at 390: 14 -> 24 px
+  - cat at 1440: 20.36 before and after
+  The mid-solve state is set through the setBoard seam, as a render-only state.
+- [Render observations] (a) The duck 15x15 no longer fits at 390: its last ~1.5 columns are behind a 58 px sideways scroll, and Chromium headless shows no scrollbar, so the only cue that more board exists is the cut-off column. That is the owner-visible default the card names; worth an eyeball. (b) In the before duck render the nav band looks ~26 px taller. This is pre-existing: `.shell { min-height: calc(100vh - topbar) }` stretches the nav row when the page is shorter than the screen (before: doc 844 = viewport; after: doc 863), so it is not caused by the new rule's styling. (c) The cat 30x30 at 390 is a ~1145 px tall board; at 24 px most of a phone screen is cells, so panning starts only on the clue areas (as the card's [Not in scope] note says).
+- DESIGN-REGISTER (confirmed, matches what was built): SolverBoard → Sizing: "cell side clamp(14px, fit, 28px); at viewports ≤ 820 px the floor is 24 px (tap target, CARD-182) and the board scrolls inside `.player-stage`; panning starts on the clue areas, cells keep touch-action none." Candidate token note: `--player-cell-min` is 24px below the breakpoint.
+[Scope] src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py
+[Build gate] impact underivable (test_scope: full) — full suite
+[Build gate] PASSED (full, 1032s; 6285 passed, 9 skipped; waited 293s for lock)
+[Scope gate] cycle 1: IN_SCOPE — 2 files, both in Touches; no guarded path (G-4) in diff
+[Review 1/3] Score: 8.5 — crit: 0, imp: 1 (pre-adversarial)
+[Review sync] 1 report(s) → meta/review/
+[Adversarial] F-001 CONFIRMED — skeptic re-applied `.player-clue.is-row { touch-action: pan-y }`: 15/15 pass; test asserts only 'none' not in set, no swipe starts on a row clue
+[Review 1/3] Step 8h coverage: 53/53 card rules named (5 ✓, 48 ⚠ no_eligible_fact, 0 ✗)
+[Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Fix 1] F-001 (review cycle 1): the touch-action test now asserts the computed value == ["auto"] for column clues, row clues and corner (was only "not none"); module docstring and the admin.css comment narrowed to what the swipe tests show (every clue box keeps the default; a swipe starting on the column-clue band pans). CSS behaviour unchanged. Mutants applied and reverted: M13 `.player-clue { touch-action: pan-y }` killed by the touch-action test and the 25x15 swipe case; M14 `.player-clue.is-row { touch-action: pan-y }` killed by the touch-action test; `.player-corner { touch-action: pan-x }` killed by the touch-action test; M6 `.player-cell { touch-action: auto }` killed by the touch-action test and AC-5 drag. Class name `TestSolverPhone_SwipingTheCluesPansTheBoard` kept (AC-7 traces to it); its swipe test name already bounds the claim to the column-clue band.
+[Fix 1] pre-gate: named tests (TestSolverPhone_SwipingTheCluesPansTheBoard) 3 passed; declarations: 0 updated, 0 confirmed, 1 doc-narrowed (test docstring + admin.css comment; no mechanism change)
+[Build gate] PASSED (full, 728s; 6285 passed, 9 skipped; waited 443s for lock)
+[Scope gate] cycle 2: IN_SCOPE — same 2 files
+[Review 2/3] Score: 9.5 — crit: 0, imp: 0 (confirmation mode; F-001 ✓ resolved; Step 8h 53/53 named: 5 fresh ✓, 48 ⚠ carried; mutation check 11/11 killed)
+[Review sync] 2 report(s) → meta/review/
+[Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+[8h spot-check] 3/3 sampled holds reproduced (ADR-0038/R2, ADR-0006/R1 via tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed — docstring alias, no test literally named TestDependencyBaseline_IsExactlyPillowAndNumpy; ADR-0038/R8 incl. no-Chromium run: 15 ERROR with the named R8 message)
+[AC/EC check] All criteria/constraints ✓ (evidence): AC-1 ✓ demonstrated — test_every_cell_is_between_24_and_28_px[15x15|25x15|30x30] PASSED; AC-2 ✓ demonstrated — test_the_board_scrolls_in_its_stage_and_the_page_does_not ×3 PASSED; AC-3 ✓ demonstrated — test_820_gets_the_floor_and_821_the_desktop_clamp PASSED; AC-4 ✓ demonstrated — test_the_1440_cell_width_is_mains ×3 PASSED (pinned 28.0/28.0/16.797); AC-5 ✓ demonstrated — test_a_touch_drag_marks_exactly_the_five_cells_under_the_finger PASSED; AC-6 ✓ demonstrated — test_a_tap_fills_exactly_that_cell PASSED; AC-7 ✓ demonstrated — swipe[30x30-player-corner], swipe[25x15-player-clue is-col], test_cells_take_no_touch_action_and_clue_boxes_keep_the_default PASSED; G-1 ✓ TestSolverPageFits laptop ×2 PASSED, test file unedited; G-2 ✓ phone-width test PASSED; G-3 ✓ test_puzzle_solver_marking.py all PASSED, unedited; G-4 ✓ git diff main on solver.js/solver_state.js/puzzle_solve.html empty; G-5 ✓ test_puzzle_solver_progress.py PASSED, unedited; G-6 ✓ TestPlayerAssets 5 + test_admin_design_tokens 6 PASSED, no colour literal. (15 + 123 tests; no EC section.)
+[Docs] forge:readme: no change — tests/README.md does not enumerate per-feature test files; src/nonogram/admin/static/ has no README (per-directory README convention is an open owner decision)
+[Commit] success commit e0517a5 (on top of implementation 0da62d2); branch card/182-player-phone-tap-target; diff vs main: 2 files, +329/-0. Owner visual check of ~/Documents/nonogram-reviews/CARD-182/ is a pre-merge check (15×15 no longer fits at 390 px — owner-visible default).
+- [Owner decision] 2026-10-05 fit 15×15 at 390 — "Merge, but fit 15×15": floor = largest whole px at which a 15×15 fits 390 without sideways scroll, measured (scratchpad card182_measure.py, rebased worktree f6dbcbb): duck (row depth 2) fits ≤ 20 px floor (cell 19.875); cat_dog.png (deepest 15-wide row depth in pictures/, 5) fits ≤ 17 (cell 17.047), scrolls at 18 (367 > 358). Floor = 17 px. Owner estimate ≈22–23 px not borne out. ACs 1/2/3 amended, AC-8 added, by the orchestrator on the owner's instruction.
+- [Rebase] onto main cb53412 (CARD-179 merged; no overlap): 0da62d2→a12b192, e0517a5→f6dbcbb.
+- DESIGN-REGISTER (amended 2026-10-05, supersedes the two lines above): SolverBoard → Sizing: "cell side clamp(14px, fit, 28px); at viewports ≤ 820 px the floor is 17 px (the largest at which a 15×15 fits a 390 px phone, CARD-182 owner decision) — a 15×15 fits without sideways scroll, wider boards scroll inside `.player-stage`; panning starts on the clue areas, cells keep touch-action none." Candidate token note: `--player-cell-min` is 17px below the breakpoint.
+- [Fix OWNER-2026-10-05] admin.css: floor 24px → 17px in the unchanged `@media (max-width: 820px) { .player-stage { … } }` rule; nothing else in admin.css changed (desktop rules byte-identical). Comment rewritten: the floor is the largest whole px at which a 15 x 15 with 5-number row clues fits the 390 px player without sideways scroll, a board that does not fit scrolls inside .player-stage, clue boxes keep touch-action auto so a column-clue-band swipe pans. WCAG 24 px claim removed.
+- [Fix OWNER-2026-10-05] tests/test_puzzle_solver_phone.py: FLOOR = 17. AC-1 adds `test_a_board_that_cannot_fit_measures_exactly_the_floor[25x15|30x30]` (|side − 17| ≤ 0.01). AC-2 parametrised over the 25x15 and 30x30 only. AC-3 unchanged in shape (≥ 17 at 820, < 17 at 821). AC-4 unchanged (28 / 28 / 16.797 still pass). New AC-8 class `TestSolverPhone_FifteenWideFitsThePhone`: `_fifteen_wide(row_depth, seed)` builds a 15 x 15 of full rows and a seeded band of one tight row with exactly `row_depth` runs (unique: every row is full or tight), depths asserted in the test — row-depth-2 (seed 1822, depth 2/2) and row-depth-5 (seed 1825, depth 5/2, as cat_dog.png). Fit test: stage scrollWidth ≤ clientWidth and page scrollWidth ≤ innerWidth. Floor pin: computed `--player-cell-min` == "17px", the 5-deep board fits, then `add_style_tag('@media (max-width: 820px) { .player-stage { --player-cell-min: 18px; } }')` and it overflows.
+- [Fix OWNER-2026-10-05] AC-7 at 17 px: the deep 30x30's row-clue gutter now ends at x≈277 (corner 16..277.4), so real column-clue boxes are in view at scrollLeft 0. Cases now pick the start point deliberately: 30x30 corner centre (asserted `player-corner`), 30x30 rightmost visible band point (asserted `player-clue is-col`), 25x15 rightmost visible band point (`player-clue is-col`). Touch-action equality test unchanged (== ["auto"] clues/corner, == ["none"] cells).
+- [Fix OWNER-2026-10-05] AC-5: RIGHT_FIVE moved one column left (cols 24..28, was 25..29). At 17 px, with the stage scrolled to its right end, the last cell's right edge is 374.39 vs the stage's 374 (scrollWidth is a whole px, the board 0.39 px wider), so `_visible_centre`'s whole-cell check refused col 29. The check stayed strict; the cells moved. AC-6 tap (col 27) unchanged.
+- [Measured OWNER-2026-10-05] td.player-cell width, 390x844: row-depth-2 15x15 19.875 (stage 358/358, = duck.png); row-depth-5 15x15 17.047 (358/358, = cat_dog.png); AC-1 15x15 seed 182 (row depth 8) 17, stage 397 > 358 — it scrolls (no AC requires it to fit); 25x15 17 (652/358); 30x30 17 (771/358). Deep 30x30 at 820x900: 17 (788/788); at 821x900: 14 (desktop clamp floor, < 17, AC-3 holds unbent); at 1440x900: 16.797.
+- [Mutants OWNER-2026-10-05] apply-run-revert on admin.css (restored byte-identically, sha checked; the comment was reworded afterwards, rules unchanged), new file run per mutant:
+  - floor 18px: killed by AC-1 exact-floor x2, AC-8 fit[row-depth-5], AC-8 floor pin.
+  - floor 16px: killed by AC-1 range x3, AC-1 exact-floor x2, AC-3, AC-8 floor pin.
+  - media rule removed: killed by AC-1 x5, AC-3, AC-8 floor pin, AC-7 swipe[30x30 band-right] (precondition only).
+  - breakpoint 819px: killed by AC-3. breakpoint 821px: killed by AC-3.
+  - global 17px floor, no media: killed by AC-3 and AC-4[30x30].
+  - `.player-cell { touch-action: auto }`: killed by AC-5 drag and the touch-action test.
+  - `.player-clue.is-row { touch-action: pan-y }`: killed by the touch-action test.
+  - `.player-corner { touch-action: pan-x }`: killed by the touch-action test.
+  - `.player-corner { touch-action: none }`: killed by AC-7 swipe[30x30 corner] and the touch-action test.
+  - `.player-clue.is-col { touch-action: none }`: killed by AC-7 swipe[30x30 band-right], swipe[25x15 band-right] and the touch-action test.
+  - floor 29px (above the cap): killed by AC-1 x5, AC-8 x3, AC-7 band-right x2 (precondition).
+  - geometry, to show the 18 px half of the floor pin can fail: `.player-clue.is-row .player-clue-num { min-width: calc(var(--player-cell) * 0.9) }` (an 18 px floor would then fit): killed by the AC-8 floor pin only.
+- [Guardrails OWNER-2026-10-05] test_puzzle_solver_phone.py, test_puzzle_solver_page.py, test_puzzle_solver_marking.py, test_puzzle_solver_progress.py, test_admin_design_tokens.py: 202 passed; only the phone file edited. Full suite not run.
+- [Renders OWNER-2026-10-05] ~/Documents/nonogram-reviews/CARD-182/ regenerated (card182_render.py now also renders cat_dog 15x15 fresh; temp SQLite only). The 24 px after-renders moved to superseded-24px/. Real pipeline: duck 15x15 (row/col depth 2/2), cat_dog 15x15 (5/2), butterfly 25x15 (5/4), cat 30x30 (2/2). Cells after: duck 19.88, cat_dog 17.05, butterfly 17 (was 14), cat 17 (was 14) at 390; cat 1440 20.36 before and after, PNGs byte-identical. The duck and cat_dog after-renders are byte-identical to before: both 15 x 15 pictures already fit at main's 14 px floor (their fit cell is above 17), so the 17 px floor changes nothing for them — it only enlarges the boards that cannot fit (14 → 17) and pins the floor so they keep fitting. Console clean on every page.
+[Fix 2 — owner decision] pre-gate: tests/test_puzzle_solver_phone.py 20 passed; declarations: admin.css comment + module docstring + test comments re-derived (WCAG 24 px claim removed); 13/13 mutants killed (per fix notes)
+[Build gate] PASSED (full, 612s; 6322 passed, 9 skipped on rebased main cb53412 + owner fix; waited 193s for lock)
+[Scope gate] cycle 3: IN_SCOPE — same 2 files
+- [Owner decision] 2026-10-05 — 24 px, accept scrolling (supersedes "fit 15×15"; 17 px measured: duck fits ≤20, cat_dog ≤17; 15×15s already fit on main). Card AC-1/2/3, Owner-visible defaults and What to implement restored to the 24 px text; AC-8 withdrawn (removed). Uncommitted 17 px changes to admin.css and tests/test_puzzle_solver_phone.py discarded: worktree tree == f6dbcbb (rebased onto cb53412).
+- [Review 3/3] WITHDRAWN DELTA — meta/review/20261005T101143Z-CARD-182-cycle3.yml reviewed the 17 px owner-fix delta, which was discarded; it does not apply to the shipped tree. The shipped tree is the one reviewed in cycle 2 (9.5, rebased without conflict) and full-suite gated before rebase; Review score stays 9.5 (cycle 2/3); the earlier [AC/EC check] All criteria/constraints ✓ for the 24 px tree stands.
+- DESIGN-REGISTER (restored 2026-10-05, supersedes the "amended" 17 px line above; this is the line to apply): SolverBoard → Sizing: "cell side clamp(14px, fit, 28px); at viewports ≤ 820 px the floor is 24 px (tap target, CARD-182) and the board scrolls inside `.player-stage`; panning starts on the clue areas, cells keep touch-action none." Candidate token note: `--player-cell-min` is 24px below the breakpoint.
+- [Renders] 24 px renders restored to the top of ~/Documents/nonogram-reviews/CARD-182/; the 17 px after-renders and the cat_dog pair moved to superseded-17px/. card182_render.py renders the worktree CSS (now 24 px) as "after".
+- [Commit] success commit f6dbcbb (rebased: a12b192 implementation + f6dbcbb F-001 fix) on card/182-player-phone-tap-target over main cb53412.
+- [Merge gate] rebased onto 7e8123d; full suite 6342 passed, 9 skipped, exit 0 (612s, under the lock). Owner chose 24 px, accept scrolling (2026-10-05) after the measured 17 px alternative. Merged 1164582.

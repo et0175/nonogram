@@ -1,0 +1,184 @@
+version: 1
+generated_at: '2026-10-05T09:23:04Z'
+target: card/182-player-phone-tap-target (0da62d2 + uncommitted fix; git diff main)
+cycle: 2
+mode: confirmation
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - git diff HEAD -- src tests (fix delta)
+  - git diff main (card diff)
+  - src/nonogram/admin/static/admin.css 342-410
+  - tests/test_puzzle_solver_phone.py (whole)
+  - CARD-182 Worktree notes incl. [Fix 1]
+  - meta/design/components.md SolverBoard/ClueBox
+  - cycle-1 report
+  not_reached:
+  - renders not re-viewed (delta is comment/test-only; CSS behaviour byte-identical outside comments)
+  - full suite not re-run (orchestrator reported 6285 passed, 9 skipped)
+  confidence: high
+previous_findings:
+- id: F-001
+  status: resolved
+  evidence: test_puzzle_solver_phone.py:324 asserts actions[kind] == ['auto'] for colClues/rowClues/corner; M14 .player-clue.is-row{touch-action:pan-y} (survivor in cycle 1) now killed by the touch-action
+    test; edge mutants M16 corner pan-x and M17 one row clue 'manipulation' (subset) killed; docstring (7-9) and CSS comment (400-402) narrowed to the column-clue-band swipe that the two AC-7 swipe cases
+    exercise
+acceptance_criteria:
+  AC-1: ✓ — test_every_cell_is_between_24_and_28_px x3 pass; M2 (23px) and M11 (29px) killed by all 3
+  AC-2: ✓ — test_the_board_scrolls_in_its_stage_and_the_page_does_not x3 pass; M1 kills [15x15]
+  AC-3: ✓ — test_820_gets_the_floor_and_821_the_desktop_clamp passes; M3 819 / M4 821 / M5 global floor killed
+  AC-4: ✓ — test_the_1440_cell_width_is_mains x3 pass against pinned main values; M5 killed [30x30]
+  AC-5: ✓ — touch drag test passes; M6 cell touch-action auto killed
+  AC-6: ✓ — tap test passes
+  AC-7: ✓ — two swipe cases + touch-action test pass; M13/M14/M16/M17 killed by the touch-action test, M13 also by swipe[25x15]
+guardrails:
+  G-1: ✓ holds — TestSolverPageFits::test_the_largest_board_fits_a_laptop_screen (page.py:1225) unedited and green in this cycle's 197-pass run
+  G-2: ✓ holds — test_a_phone_width_page_never_scrolls_sideways (page.py:1238) unedited, green
+  G-3: ✓ holds — test_puzzle_solver_marking.py unedited, green (touch_tap_cycles_too :220, drag_released_outside :355, touch_drag_marks_one_line :370); cells == ['none'] asserted (phone.py:322), M6 killed
+  G-4: ✓ holds — solver.js, solver_state.js, puzzle_solve.html absent from git diff main
+  G-5: ✓ holds — test_puzzle_solver_progress.py unedited, green
+  G-6: ✓ holds — TestPlayerAssets and test_admin_design_tokens.py green; added CSS lines contain no hex/rgb/hsl literal; pyproject.toml untouched
+system_contract:
+  rules_checked: 53
+  holds: 5
+  unchecked: 48
+  violated: 0
+  carried: 48
+  verdicts:
+  - ADR-0006/R1 ✓ holds — git diff main --name-only = CARD-182.md, admin.css, tests/test_puzzle_solver_phone.py; git diff main -- pyproject.toml is empty; the test file imports only pytest and tests.test_puzzle_solver_page
+    (lines 19-27)
+  - ADR-0038/R1 ✓ holds — delta is a CSS comment and a test assertion; card diff adds one hand-written CSS rule (admin.css:403); no framework, build or npm file in the diff
+  - ADR-0038/R2 ✓ holds — solver.js/solver_state.js not in git diff main; tests/test_puzzle_solver_marking.py (incl. TestSolverMarking_NoRequestPerMark, marking.py:799) green in this cycle's 197-test guardrail
+    run
+  - ADR-0038/R7 ✓ holds — new tests use the pytest-playwright Chromium fixtures (browser, browser_page); pyproject.toml not in diff
+  - ADR-0038/R8 ✓ holds — test_puzzle_solver_phone.py:21-27 imports CARD-160's loud browser_type/browser_page overrides; every class @pytest.mark.browser; 15/15 ran (none skipped) this cycle
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0038/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402,
+    test_puzzle_solver_phone.py docstring 7-9 + line 324) intersects none of it'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'CON-021 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scope is solver/generation/storage/book/export/door/clue-embedding code; fix delta (admin.css comment lines 400-402, test_puzzle_solver_phone.py
+    docstring 7-9 + line 324) intersects none of it'
+mutation_check:
+  ran: true
+  baseline: 15 passed
+  results:
+    M1_remove_rule: killed — AC-1 x3, AC-2[15x15], AC-3, AC-7 swipe[30x30] (precondition)
+    M2_floor_23: killed — AC-1 x3, AC-3
+    M3_bp_819: killed — AC-3
+    M4_bp_821: killed — AC-3
+    M5_global_floor: killed — AC-3, AC-4[30x30]
+    M6_cell_touch_auto: killed — AC-5 drag, touch-action test
+    M11_floor_29: killed — AC-1 x3, AC-7 swipe[25x15] (precondition)
+    M13_clue_pan_y: killed — AC-7 swipe[25x15], touch-action test
+    M14_rowclue_pan_y: killed — touch-action test
+    M16_corner_pan_x: killed — touch-action test
+    M17_single_rowclue_manipulation: 'killed — touch-action test (edge: subset of row clues)'
+  worktree_restored: true
+  restore_evidence: sha1 admin.css b051c85c… and test file a8848832… identical before and after
+visual_8g:
+  capture: 'off'
+  verdicts:
+  - SolverBoard sizing ✓ — CSS behaviour unchanged by the delta (comment-only); 24px floor below 820px consistent with the DESIGN-REGISTER note in the card
+  - ClueBox ✓ — no visual change; touch-action is not a visual property
+  - tokens ✓ — no colour literal added (G-6)
+root_causes: []
+findings: []
+out_of_scope_observations:
+- meta/design/components.md:225 SolverBoard Sizing still reads clamp(14px, fit, 28px) only; the card's DESIGN-REGISTER line (24px floor at <=820px, scroll in stage, pan on clue areas) should be applied
+  at merge
+- CARD-182.md [AC-7 method] note still describes the old 'contain no none' assertion; superseded by the [Fix 1] note, harmless but stale
+verdict: F-001 resolved; no new findings. Pure confirmation — no full review needed next cycle. Deferred mutation check run here and passed (11/11 killed).

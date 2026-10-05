@@ -1,0 +1,166 @@
+version: 1
+generated_at: '2026-10-05T10:11:43Z'
+target: card/182-player-phone-tap-target (a12b192 + f6dbcbb + uncommitted owner-decision delta; git diff cb53412 -- src tests)
+cycle: 3
+mode: confirmation
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - git diff HEAD -- src tests (owner-decision delta)
+  - git diff cb53412 -- src tests (card diff)
+  - tests/test_puzzle_solver_phone.py (whole)
+  - src/nonogram/admin/static/admin.css 380-434
+  - amended contract card182_contract2.txt
+  - CARD-182 Worktree notes incl. OWNER-2026-10-05 entries
+  - cycle-2 report
+  - meta/design/components.md SolverBoard
+  - renders butterfly-25x15/cat-30x30/cat_dog-15x15 -390-fresh-after
+  not_reached:
+  - 'full suite not re-run (orchestrator: 6322 passed, 9 skipped)'
+  confidence: high
+metrics:
+  diff:
+    files: 2
+    added: 329
+    removed: 0
+  tests_cover_change: true
+  unmeasured:
+    max_fan_in: no_eligible_fact — CSS custom property + test file, no callable symbol
+previous_findings:
+- id: F-001
+  status: resolved
+  evidence: touch-action equality test intact (phone.py:367-381, == ['none'] cells, == ['auto'] col/row clues + corner); this cycle rowclue pan-y, corner pan-x, corner none, colclue none, cell auto all killed by it
+independent_checks:
+- 'pictures/ converted at 15x15 seed 7 through orchestrator.generate(mode=image): cat_dog.png row/col depth 5/2 is the deepest row depth of the 22 that convert (butterfly, cat_Mouse, zebra abandon at 15x15) — docstring claim at phone.py:57-59 holds'
+- 'AC-5 comment (phone.py:254-256): test mutant RIGHT_FIVE -> cols 25..29 fails _visible_centre with cell right 374.39 > stage right 374 — claim reproduced; file restored (sha 38d182d8)'
+- '_fifteen_wide: every row is full or a tight row of exactly 15 cells, top>=1 and top+band<=14 so gap columns are (a, b); depth (row_depth, 2) asserted in-test at phone.py:400'
+acceptance_criteria:
+  AC-1: ✓ — test_every_cell_is_between_17_and_28_px x3 + test_a_board_that_cannot_fit_measures_exactly_the_floor[25x15|30x30] pass; floor_16 kills all 5, floor_18 kills exact-floor x2
+  AC-2: ✓ — test_the_board_scrolls_in_its_stage_and_the_page_does_not[25x15|30x30] pass (page <= viewport, stage scrollWidth > clientWidth)
+  AC-3: ✓ — test_820_gets_the_floor_and_821_the_desktop_clamp passes; bp_819, bp_821, global_floor_17, floor_16 killed
+  AC-4: ✓ — DESKTOP_CELL {28.0, 28.0, 16.797} unchanged by the delta (phone.py:94); test x3 passes; global_floor_17 killed [30x30]
+  AC-5: ✓ — drag over (12, 24..28) on the right-scrolled 30x30 changes exactly those cells, scrollLeft unchanged; cell_touch_auto killed
+  AC-6: ✓ — tap on (12, 27) fills only that cell, scrollLeft unchanged
+  AC-7: ✓ — 3 swipe cases (30x30 corner, 30x30 band-right, 25x15 band-right; start element asserted by class) + touch-action equality test pass; corner_none, colclue_none, rowclue_pan_y, corner_pan_x, cell_touch_auto killed
+  AC-8: ✓ — fit test [row-depth-2|row-depth-5] asserts stage scrollWidth <= clientWidth and page <= viewport with depths asserted in-test; floor pin asserts computed --player-cell-min == 17px, fits, then an injected 18px <=820px rule makes the depth-5 board overflow; floor_18 kills fit[row-depth-5] + pin; rownum_0.9_cell (an 18px floor would fit) kills the pin only, so the 18px half can fail
+guardrails:
+  G-1: '✓ holds — new rule only inside @media (max-width: 820px) (admin.css:434), git diff main -- admin.css is that one hunk; TestSolverPageFits::test_the_largest_board_fits_a_laptop_screen[row-clues|column-clues] unedited, green this cycle; AC-4 pins pass'
+  G-2: ✓ holds — test_a_phone_width_page_never_scrolls_sideways unedited, green this cycle
+  G-3: ✓ holds — tests/test_puzzle_solver_marking.py unedited, green this cycle; cells == ['none'] asserted (phone.py:379), cell_touch_auto killed
+  G-4: ✓ holds — solver.js, solver_state.js, puzzle_solve.html absent from git diff cb53412 --name-only
+  G-5: ✓ holds — tests/test_puzzle_solver_progress.py unedited, green this cycle
+  G-6: '✓ holds — TestPlayerAssets + tests/test_admin_design_tokens.py green; added CSS lines grep for #hex/rgb/hsl empty; pyproject.toml untouched'
+system_contract:
+  rules_checked: 53
+  holds: 5
+  unchecked: 48
+  violated: 0
+  carried: 48
+  verdicts:
+  - ADR-0006/R1 ✓ holds — git diff cb53412 --name-only = CARD-182.md, admin.css, tests/test_puzzle_solver_phone.py; git diff cb53412 -- pyproject.toml empty; the test file's only new import is stdlib random (line 22)
+  - ADR-0038/R1 ✓ holds — card diff adds one hand-written CSS rule (admin.css:434) + comment; no framework/build/npm file in git diff cb53412 --name-only
+  - ADR-0038/R2 ✓ holds — solver.js/solver_state.js absent from git diff cb53412 --stat; tests/test_puzzle_solver_marking.py (incl. TestSolverMarking_NoRequestPerMark) green in this cycle's 110-test guardrail run
+  - ADR-0038/R7 ✓ holds — new AC-8 tests use the pytest-playwright fixtures (browser_page, live); pyproject.toml not in diff; TestPlayerAssets::test_pytest_playwright_is_a_dev_only_dependency green this cycle
+  - ADR-0038/R8 ✓ holds — test_puzzle_solver_phone.py:26-32 imports CARD-160's loud browser_type/browser_page; every class @pytest.mark.browser (incl. new AC-8 class :392); 20/20 ran, none skipped, this cycle
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0038/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'CON-021 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact — carried(cycle 2, delta-clean): delta files = src/nonogram/admin/static/admin.css (lines 429-434, the <=820px player-stage floor rule + comment) and tests/test_puzzle_solver_phone.py; rule scope is solver/generation/storage/book/export/door/clue-embedding code - no intersection'
+mutation_check:
+  ran: true
+  test_command: .venv/bin/python -m pytest tests/test_puzzle_solver_phone.py
+  baseline: 20 passed
+  results:
+    floor_18: killed — AC-1 exact-floor x2, AC-8 fit[row-depth-5], AC-8 floor pin
+    floor_16: killed — AC-1 range x3, AC-1 exact-floor x2, AC-3, AC-8 floor pin
+    rule_removed: killed — AC-1 x5, AC-3, AC-8 floor pin, AC-7 swipe[30x30 band-right] (precondition)
+    bp_819: killed — AC-3
+    bp_821: killed — AC-3
+    global_floor_17: killed — AC-3, AC-4[30x30]
+    cell_touch_auto: killed — AC-5 drag, touch-action test
+    rowclue_pan_y: killed — touch-action test
+    corner_pan_x: killed — touch-action test
+    corner_none: killed — AC-7 swipe[30x30 corner], touch-action test
+    colclue_none: killed — AC-7 swipe[30x30 band-right], swipe[25x15 band-right], touch-action test
+    rownum_0.9_cell: killed — AC-8 floor pin
+    test_right_five_last_col: fails as the comment says (374.39 > 374)
+  restore: admin.css sha 99b867d7 and test file sha 38d182d8 identical before/after; git status unchanged
+visual_8g:
+  capture: 'off'
+  items:
+  - Token discipline ✓ — the new value is the existing local candidate token --player-cell-min (components.md:226 lists it as a local custom property), a length; no colour/font/shadow literal
+  - 'SolverBoard sizing ✓ — renders: cat_dog 15x15 fits at 390 (no cut column), butterfly 25x15 and cat 30x30 at 17px scroll inside the stage with the page not scrolling sideways'
+  - ClueBox ✓ — no visual change; touch-action is not a visual property
+  - Anti-defaults / a11y statics ✓ — no new component, no new interactive element
+root_causes: []
+findings:
+- id: F-002
+  severity: low
+  category: tech-debt
+  type: gap
+  file: tests/test_puzzle_solver_phone.py
+  line: 86
+  title: AT_THE_FLOOR comment implies only 25x15/30x30 cannot fit, but the AC-1 15x15 also cannot
+  description: '''the boards too wide for a 358 px stage at any floor up to 17'' reads as exhaustive; GRIDS[''15x15''] (seed 182, row depth 8) is also too wide (stage 397 > 358 per Worktree notes) and sits at 17. No assertion is wrong.'
+  suggestion: Reword to 'the boards AC-1/AC-2 require at the floor' or note the 15x15 also scrolls.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+out_of_scope_observations:
+- 'Owner-facing: ''fits 15x15'' holds up to row depth 5 only. A random/library 15x15 with deeper row clues (the AC-1 board, depth 8) still scrolls at 390 (stage 397 > 358); 17px is below the WCAG 2.5.8 24px yardstick (owner-accepted)'
+- meta/design/components.md:225 SolverBoard Sizing still reads clamp(14px, fit, 28px) only; the amended DESIGN-REGISTER line (17px floor <=820px) should be applied at merge
+- Local main has moved past cb53412 (CARD-177/184 merges touch app.py, layout.py etc.); git diff main -- admin.css is still only this card's hunk, so the rebase should be clean
+verdict: 'Owner-decision delta confirmed against the amended contract: AC-1..AC-8 ✓, G-1..G-6 ✓, 53/53 rules enumerated, 12/12 mutants killed, F-001 still resolved. No new Critical/Important — no full review needed.'

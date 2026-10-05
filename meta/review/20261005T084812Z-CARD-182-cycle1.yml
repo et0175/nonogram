@@ -1,0 +1,184 @@
+version: 1
+generated_at: '2026-10-05T08:48:12Z'
+target: card/182-player-phone-tap-target (git diff main...HEAD, 0da62d2)
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - src/nonogram/admin/static/admin.css (player section 355-440)
+  - tests/test_puzzle_solver_phone.py
+  - tests/test_puzzle_solver_page.py fixtures
+  - meta/design/brief.md
+  - meta/design/components.md SolverBoard
+  - meta/design/tokens.css
+  - CARD-182 Worktree notes
+  - renders duck-15x15-390-mid-solve-after, cat-30x30-390-fresh-after; cat-30x30-1440 before/after byte-compared
+  not_reached:
+  - other 10 render PNGs not viewed
+  - JS pageX mutant (M12 in notes) not re-run (would edit solver.js)
+  confidence: high
+metrics:
+  diff:
+    files: 2
+    added: 327
+    removed: 0
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/static/admin.css (19 commits/12mo, 8 fix-tagged)
+  cochange_missing:
+  - src/nonogram/admin/app.py
+  - src/nonogram/admin/static/solver.js
+  - src/nonogram/admin/templates/puzzle_solve.html
+  unmeasured:
+    max_fan_in: not_applicable — no exported symbol changed; the change is a CSS custom-property value under a media query
+system_contract:
+  rules_checked: 53
+  holds: 5
+  unchecked: 48
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — git diff main...HEAD --name-only lists only admin.css and tests/test_puzzle_solver_phone.py (pyproject.toml absent); the new test imports only pytest and tests.test_puzzle_solver_page
+    (test_puzzle_solver_phone.py:16-26)
+  - ADR-0038/R1 ✓ holds — the change is one hand-written CSS rule (admin.css:432); no framework, build file or npm artefact in the 2-file diff
+  - ADR-0038/R2 ✓ holds — solver.js/solver_state.js not in diff; tests/test_puzzle_solver_marking.py (incl. TestSolverMarking_NoRequestPerMark) green on 0da62d2 (123 passed in the guardrail run)
+  - ADR-0038/R7 ✓ holds — new tests use pytest-playwright Chromium fixtures (browser, page via browser_page); pyproject.toml:31 dev extra unchanged and not in diff
+  - ADR-0038/R8 ✓ holds — test_puzzle_solver_phone.py:20-26 imports the loud browser_type/browser_page overrides (test_puzzle_solver_page.py:547-565, pytest.fail with named reason); every class is @pytest.mark.browser
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0038/R5 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'CON-021 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: a CSS custom-property rule and browser tests of the player cannot touch this rule''s scope (no solver, generation, storage, book, export, door or clue-embedding
+    code in the diff)'
+mutation_check:
+  ran: true
+  results:
+    M1_remove_rule: killed (6 tests)
+    M2_floor_23: killed (4)
+    M3_bp_819: killed (AC-3)
+    M4_bp_821: killed (AC-3)
+    M5_global_floor: killed (AC-3, AC-4[30x30])
+    M6_cell_touch_auto: killed (AC-5 drag, touch-action test)
+    M7_clues_touch_none: killed (3)
+    M10_cap_30_phone: survived (equivalent at 390; expected)
+    M11_floor_29: killed (AC-1 x3)
+    M12_stage_overflow_visible: killed (7)
+    M13_clues_touch_pan_y: killed by AC-7 swipes only
+    M14_rowclue_touch_pan_y: SURVIVED (all 15 pass)
+    M15_rowclue_touch_none: killed (touch-action test)
+  worktree_restored: true
+root_causes: []
+findings:
+- id: F-001
+  severity: medium
+  category: tech-debt
+  type: gap
+  file: tests/test_puzzle_solver_phone.py
+  line: 309
+  title: Clue-box touch-action claim ('keep the default', swipe on clue boxes pans) is wider than the test
+  description: 'test_cells_take_no_touch_action_and_clue_boxes_keep_the_default (and the module docstring lines 7-8, and the CSS comment at admin.css:429-431 ''a swipe that starts on the clue boxes pans
+    it'') claim clue boxes keep the default touch action so a swipe on them pans. The assertion is only ''none'' not in the computed set (line 323), and the only swipe tests start on the thead band. Mutant
+    M14 ''.player-clue.is-row { touch-action: pan-y; }'' (a horizontal swipe on a row clue would no longer pan) passes all 15 tests. Computed value today is ''auto'' on all three kinds (probed). TEST-CLAIM
+    RULE: claim edge not killed.'
+  suggestion: Assert actions[kind] == ['auto'] for colClues, rowClues and corner (kills M13 and M14 in the touch-action test), or narrow the test name, docstring and CSS comment to 'not none' / 'column-clue
+    band'. A row-clue swipe case is optional once the equality holds.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: fixed
+  fixed_in: "fix cycle 1 — touch-action test asserts == [auto] for column clues, row clues and corner; docstring and CSS comment narrowed to the column-clue band swipe"
+  dismissed_reason: null
+  learned_pattern: null
