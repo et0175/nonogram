@@ -1,6 +1,6 @@
 # CARD-178: A book reopened in inches never shows a trim outside the stated limits
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** —
 **Touches:** src/nonogram/admin/print_specs.py, src/nonogram/admin/app.py, tests/test_print_specs.py, tests/test_book_trim_persistence.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 3/3)
+**Started:** 2026-10-05T09:53:37Z
+**Closed:** 2026-10-05T11:39:20Z
+**Actual:** 0.2d
+**Merge commit:** 862f673
 **Blocked by:** —
 
 ## What to implement
@@ -181,3 +181,61 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-178` (52 rules). A project
 - [Behaviour note] After this card, typing exactly `18.89` on a book stored at 48.00 cm keeps 48.00 cm and does not store 47.98 cm. This is the same CARD-136 rule that today keeps 15.00 cm when 5.91 is typed. AC-2's 47.98 case therefore uses a book stored at a different height.
 - [Tests] `_shown_trim`, `_set_trim`, `_prefer`, `_page` and `_stored_columns` already exist in `tests/test_book_trim_persistence.py` for the route tests. CARD-174's moved-bounds corpus in `tests/test_print_specs.py` (class `TestTrimRefusal_StatedInchLimitIsAccepted`, line 426) shows how to monkeypatch the bounds for AC-5.
 - [AC cross-check] Every AC was re-read against the body. AC-2's "typing 18.89 stores 47.98" was first written for the 48.00 book. That contradicted item 4 (the shown form is kept). The AC was changed to use a book stored at a different height, so AC and body now agree.
+- [Env] forge 2026.8.17
+- [Owner default] none named on this card beyond the scoped decision (axis-aware display function, cm_to_inches unchanged) — implemented as drafted
+- [Implementation 2026-10-05] `PrintSpecValidator.trim_inches_shown(cm, axis)` added in `print_specs.py` beside `trim_limits()`: it returns `cm_to_inches(cm)`; for a stored value inside `[min_cm, max_<axis>_cm]` whose figure lies outside `[min_in, max_<axis>_in]` it returns that limit figure. Every figure comes from `trim_limits()`; 18.89 is not written in src. `app.py`: `setup_print`'s inches reopen calls it for width and height. `_submitted_trim_cm(submitted, stored_cm, axis)` compares against it, and both callers pass their axis. `cm_to_inches`, `inches_to_cm`, `_stored_trim_cm`, the `except ValueError` fallback, the template and all wording are unchanged.
+- [Tests] `tests/test_print_specs.py::TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted` (AC-3/4/5). The card names it `PropertyTest_...`; the repo's pytest collects only `Test*` classes, so it carries a `Test` prefix and the card name stays a substring for `-k`. Full 0.01 cm grid = 5,802 cases (AC-3, AC-4). Outside-limit cases: 50.00 h, 9.00 w, 48.01 h, 30.01 w, 9.99 w/h. Moved bounds: seed 178, 400 draws, >= 11,000 cases, and the test asserts that it reaches both the max clamp and the min clamp (>= 20 each). `tests/test_book_trim_persistence.py::TestBookTrim_ReopenInInchesStaysInsideLimits` (AC-1/2/6) runs over a new `three_store_app` fixture (memory / sqlite / postgres via conftest `db_session`).
+- [Mutants] Each mutant was applied, the tests were run (non-postgres ids), and the source was reverted:
+  | Mutant | Killed by |
+  |---|---|
+  | M1 drop max clamp | AC-3 grid, AC-4 only-48.00, AC-5 moved bounds, route AC-1, AC-2 five saves |
+  | M2 drop min clamp | AC-5 moved bounds (the only place the min clamp fires; KDP 10.00 cm already rounds to 3.94) |
+  | M3 no inside check (legacy values clamped too) | AC-4 outside-limits (48.01→18.90, 9.99→3.93) |
+  | M3a inside check `< max_cm` (edge, inward) | AC-3 grid, AC-4, AC-5, route AC-1, AC-2 |
+  | M3b inside check `<= max_cm + 0.01` (edge, outward) | AC-4 outside-limits (48.01 h) |
+  | M3c inside check `min_cm - 0.01 <=` (edge, outward) | AC-4 outside-limits (9.99 w/h) |
+  | M5 `return "18.89"` hard-coded | AC-5 moved bounds |
+  | M6 height reads width limits | AC-3, AC-4, AC-5, route AC-1, AC-2 |
+  | M4 `_submitted_trim_cm` compares plain `cm_to_inches` | route AC-2 five saves, AC-6 untouched resubmission |
+  | M9 height caller passes "width" | route AC-2 five saves, AC-6 |
+  | M7 reopen height uses `cm_to_inches` | route AC-1, AC-2, AC-6 |
+  | M8 reopen height passes "width" | route AC-1, AC-2, AC-6 |
+  | M10 the stated limit always counts as untouched (`or submitted == max_height_in`) | route AC-2 typing-18.89-on-another-height |
+- [DB mode] Postgres `nonogram_test` ran and did not skip (`-rs` showed no skips; 18 = 6 tests x 3 stores in the new class). One early run of the new class touched `nonogram_test` before I had taken the suite lock. All later DB runs went through the scratchpad `card178_dblock.py` flock wrapper.
+- [Renders] ~/Documents/nonogram-reviews/CARD-178/before-1440.png, before-390.png (main 7e8123d via `git archive` into scratch), after-1440.png, after-390.png (worktree). The page is a 21.59 x 48.00 cm book reopened in inches, with local CSS inlined and screenshots by Playwright Chromium. The height field value is 18.90 before and 18.89 after, beside the Limits box "Maximum height 48 cm (18.89 in)". Chromium draws the number input with a comma decimal (18,89) because of the macOS locale, in both renders; the value attribute is "18.89".
+- [Scope] Only the four Touches files changed. No SCOPE+.
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, tests/test_book_trim_persistence.py, tests/test_print_specs.py
+- [System contract] fresh assembly (system_rules.py --card CARD-178) matches the card's 52 rules — no refresh needed
+- [Naming] AC-3/4/5 test class carries a `Test` prefix (TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted); repo precedent prefixes PropertyTest_ names (test_PropertyTest_* functions) — the card name stays a -k substring
+- [Build gate] FAILED (attempt 1/2) — full suite 41 failed / 4 errors, all postgres-mode (test_print_specs.py TestPrintSetup_*/TestTrimRefusal_* [postgres], test_puzzle_review_bulk_read.py [db]): `TypeError: 'NoneType' object is not callable` at `db = factory()` (SessionLocal is None). Reproduced twice (deterministic). Main 7e8123d exported and run under the lock: 6327 passed, 9 skipped — so the card's diff triggers it. Diagnosis: tests/test_db_url_driver.py (~line 173) monkeypatches `sessionmaker` to return None and restores `engine`/`_engine_url` but never `SessionLocal`, leaving session.SessionLocal = None; it was latent because nothing before it had built the engine on the nonogram_test URL. The new `three_store_app` postgres param (test_book_trim_persistence.py, which sorts before test_db_url_driver.py) builds it, so the restored `_engine_url` matches and `_init_engine` never rebuilds.
+- [Fix build-1] declarations: 0 updated, 0 confirmed, 1 SCOPE+ (tests/test_db_url_driver.py +1, tests/test_db_connect_timeout.py +2 — restore session.SessionLocal via monkeypatch; a second leak of the same shape found in test_db_connect_timeout.py); ordered repro red→green→(revert) red
+- [Build gate] PASSED (full, 610s) — 6354 passed, 9 skipped (after build fix 1)
+- [Scope] (fix scope, updated) src/nonogram/admin/app.py, src/nonogram/admin/print_specs.py, tests/test_book_trim_persistence.py, tests/test_print_specs.py, tests/test_db_url_driver.py, tests/test_db_connect_timeout.py
+- [Scope gate] ⚠ grown: 2 of 6 files outside Touches (tests/test_db_url_driver.py +1, tests/test_db_connect_timeout.py +2 — additive SessionLocal restores, recorded SCOPE+); no comp spread, no poached sibling, no guardrail path hit
+- [Scope] The four Touches files changed, plus the two SCOPE+ test edits below (found by the build-failure fix pass).
+- SCOPE+ tests/test_db_url_driver.py — one additive monkeypatch line: the test overwrote session.SessionLocal with None and never restored it; CARD-178's postgres fixture exposed it
+- SCOPE+ tests/test_db_connect_timeout.py — the same additive monkeypatch line in `test_a_database_that_never_answers_fails_instead_of_hanging` and `test_a_sqlite_url_is_not_given_a_postgres_connect_option`. Each rebuilt session.SessionLocal on its own engine and never restored it, so later postgres tests ran on the dead black-hole port ("Connection refused") or on the deleted tmp sqlite file ("no such table: books"). An ordered run showed it: `[postgres]` trim test, then the timeout test, then a print_specs `[postgres]` test.
+- [Build fix] Full suite on the branch: 41 failed, 4 errors, all `TypeError: 'NoneType' object is not callable` from `SessionLocal`. Cause: `three_store_app[postgres]` builds the engine on the nonogram_test URL before `test_db_url_driver.py` runs. Monkeypatch then restores `engine`/`_engine_url` to that URL but not `SessionLocal`, so `_init_engine` never rebuilds it. Ordered 4-node repro: red before the fix, green after, red again with the lines reverted. Assertions are unchanged and src/ is untouched.
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/ (20261005T110938Z-CARD-178-cycle1.yml)
+- [Review 1/3] Step 8h coverage: 52/52 card rules have a verdict line (6 ✓, 46 ⚠ no_eligible_fact, 0 ✗); scope excess judged necessary (reviewer reproduced the SessionLocal leak); mutation check 9/10 killed, 1 equivalent survivor (width caller passing "height" — width clamp never fires on KDP bounds); out-of-scope F-001: db.session globals leak fixed per test, not structurally (autouse snapshot fixture as follow-up)
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] 2/3 sampled holds reproduced (ADR-0019/R1, CON-015)
+- [8h spot-check] ✗ ADR-0006/R1 not reproduced — the verdict says `TestDependencyBaseline_IsExactlyPillowAndNumpy` is green, but no test by that id exists (`pytest -k` selects 0, exit 5; the name appears only in a comment/docstring in tests/test_export_pdf.py). The real check is tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed. The rest of the verdict re-derived (pyproject.toml not in diff, only new src import is typing.Literal), and no violation was found. This is the backlog's known "dead check: ref" on ADR-0006/R1, and a model-side fix belongs to /forge:architect. → cycle 2 (verdict owner re-checks)
+- [AC/EC check] (run concurrently with the cycle-1 spot-check, on the tree cycle 2 reviews — dfc0d26 + the 3 uncommitted test lines; valid for success only if cycle 2 changes no file) 6/6 AC ✓ demonstrated, 6/6 G ✓ demonstrated; postgres ids ran (no skips). AC-5 caveat noted by the checker: each moved-bounds draw checks bounds, inside neighbours and a 10-value sample, not the full grid (≥11,000 cases asserted).
+- [Review 2/3] Score: 9.5 — crit: 0, imp: 0 (confirmation mode, empty fix delta)
+- [Review sync] 2 report(s) → meta/review/ (+20261005T111556Z-CARD-178-cycle2.yml)
+- [Review 2/3] Step 8h coverage: 52/52 (5 ✓, 47 ⚠ — ADR-0006/R1 now ⚠ check_ref_missing, re-derived via tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed PASSED, no violation; 46 carried no_eligible_fact), 0 ✗. Out-of-scope: F-001 (carried), F-002 ADR-0006/R1 dead check: ref (model defect → /forge:architect; already noted in requirements.yml)
+- [Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] cycle 2 pool (fresh ✓): ADR-0019/R1, CON-015 — same verdict text and evidence on the byte-identical tree were re-derived by independent skeptics after cycle 1 (reproduced), not re-spawned; CON-016 re-derived fresh:
+- [8h spot-check] ✗ CON-016 not reproduced — the verdict cites "TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit: 11/11 PASSED", but that node id collects 9 tests (9/9 pass; also 9 on main, and `-k` selects 9 — orchestrator re-ran: "9 passed, 6354 deselected"). The count matches no state of the file. The rule holds in substance (no route/hook/host-check lines added). → cycle 3 (verdict owner re-checks; last cycle)
+- [Review 3/3] Score: 9.5 — crit: 0, imp: 0 (confirmation mode, empty fix delta; every ✓ re-derived with literal pytest summary lines, none carried)
+- [Review sync] 3 report(s) → meta/review/ (+20261005T112251Z-CARD-178-cycle3.yml)
+- [Review 3/3] Step 8h coverage: 52/52 (5 ✓, 47 ⚠ — ADR-0006/R1 check_ref_missing, 46 no_eligible_fact carried), 0 ✗. CON-016 corrected to 9/9. Out-of-scope: F-003 (=F-001), F-004 (=F-002), F-005 earlier cycles cited unproduced evidence (verdicts correct, evidence invented)
+- [Review 3/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0019/R1, CON-015, CON-016) — cycle 3
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1..AC-6 ✓ demonstrated, G-1..G-6 ✓ demonstrated — independent checker on dfc0d26 + the 3 test lines (tree unchanged through cycles 2-3 and the commit; cycle 3 re-ran every AC/G with literal output: AC classes "27 passed" incl. all [postgres] ids, 0 skipped; G-1 "71 passed"; G-2 "28 passed"; G-3 "8 passed"; G-4 "6 passed"; G-5 "48 passed"; G-6 diff scans 0)
+- [Docs] no README in src/nonogram/admin/ (per-directory README convention is an open owner decision); tests/README.md unaffected — skipped
+- [Commit] success: 754003a (test(db): restore session.SessionLocal …) on top of dfc0d26 (feat) — card diff main...HEAD: 6 files, +269/−11; merges cleanly with main f9af283 (CARD-182 merged meanwhile)
+- [Owner check] pre-merge: ~/Documents/nonogram-reviews/CARD-178/before-1440.png, before-390.png, after-1440.png, after-390.png — the height field reads 18.90 → 18.89 beside "Maximum height 48 cm (18.89 in)". Chromium draws the number with a comma (macOS locale); the value is "18.89"
+- [Merge gate] rebased onto f9af283; full suite 6369 passed, 9 skipped, exit 0 (619s, under the lock). Owner: "merge now, check later" (renders in ~/Documents/nonogram-reviews/CARD-178/). Merged 862f673.

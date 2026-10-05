@@ -1,0 +1,168 @@
+version: 1
+generated_at: '2026-10-05T11:15:56Z'
+target: 'card/178-reopen-inches-inside-limits: git diff main...HEAD (dfc0d26) + working tree (tests/test_db_url_driver.py, tests/test_db_connect_timeout.py); meta/ excluded'
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+card: CARD-178
+cycle: 2
+mode: confirmation (fix delta empty; diff byte-identical to cycle 1)
+coverage:
+  read:
+  - src/nonogram/admin/print_specs.py (conversions, trim_limits, validate_trim_size, create_spec, trim_inches_shown)
+  - src/nonogram/admin/app.py:2880-2960, 3040-3100, 3170-3240, 1290-1365
+  - src/nonogram/db/session.py globals/_init_engine
+  - tests/conftest.py db_session
+  - tests/test_book_trim_persistence.py (new class + helpers)
+  - tests/test_print_specs.py (new class + CARD-174 precedent)
+  - tests/test_db_url_driver.py, tests/test_db_connect_timeout.py hunks
+  - tests/test_export_pdf.py:615-630,1249-1275
+  - meta/architecture/decisions/adr/0006-dependency-baseline.md:165-175
+  - pyproject.toml [project]
+  not_reached:
+  - 'templates/book_setup_print.html (G-6: unchanged, not in diff)'
+  confidence: high
+metrics:
+  diff:
+    files: 6
+    added: 269
+    removed: 11
+  max_fan_in:
+    symbol: PrintSpecValidator.trim_inches_shown
+    callers: 3
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/app.py (158 commits/12mo, 87 fix)
+  cochange_missing: []
+  cochange_note: 'print_specs.py peers absent from diff: templates/book_setup_print.html (4), tests/test_book_scaffolding.py (3), db/models.py (4), book_manager.py (3) — template and test_book_scaffolding are required-unchanged by G-6/G-2; no schema change needed'
+test_run: 219 passed, 0 skipped (-rs) — cited tests + test_book_scaffolding.py + test_db_url_driver.py + test_db_connect_timeout.py, run under the full-suite flock on dfc0d26+worktree
+system_contract:
+  rules_checked: 52
+  holds: 5
+  unchecked: 47
+  violated: 0
+  verdicts:
+  - 'ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy (pytest -k selects 0 tests, exit 5; the name exists only in a comment tests/test_export_pdf.py:622 and a docstring :1250). Re-derived at full depth instead: the implementing test tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed PASSED on dfc0d26+worktree (pins project.dependencies == {pillow, numpy}); `git diff main...HEAD --name-only | grep -c pyproject` = 0; the only added src import is stdlib `from typing import Literal, Optional, Tuple` (print_specs.py:15). No violation found; verdict is unchecked only because the rule''s declared check ref is dead (model defect, F-002).'
+  - ADR-0019/R1 ✓ holds — no file under src/nonogram/web/ in the diff (git diff main...HEAD --name-only); tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED on dfc0d26+worktree
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no grid-extent signature touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no image fitting touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no --size parsing touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no repair/solver path touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no retry counter touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no repair touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no repair touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no recovery policy touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no density validation touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no density verdict touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no difficulty scoring touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no strategies path touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no difficulty score touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no solver overlap masks touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no rung attribution touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no add_puzzle storage boundary touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no quality_score touched — carried(cycle 1, delta-clean)'
+  - ADR-0033/R1 ✓ holds — the diff's only stored write is the trim, through the unchanged set_print_spec path (app.py:3083-3084 feed width_cm/height_cm); scan of added lines in app.py/print_specs.py shows no puzzle grid/clue/tier/strategies field — carried(cycle 1, delta-clean)
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; plan/status code in setup_print untouched — carried(cycle 1, delta-clean)'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; compute_layout/PageSpec untouched — carried(cycle 1, delta-clean)'
+  - ADR-0036/R2 ✓ holds — scan of added lines (git diff main...HEAD -- src) shows no page-geometry computation; the change is a display string and a string comparison — carried(cycle 1, delta-clean)
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no puzzle page band touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no grid strokes touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R1 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no player client touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R2 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no player touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no player clues touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no player state module touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no player touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R7 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no browser tests/pyproject extras touched — carried(cycle 1, delta-clean)'
+  - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no browser tests touched — carried(cycle 1, delta-clean)'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no solver touched — carried(cycle 1, delta-clean)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no web server touched — carried(cycle 1, delta-clean)'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no web server touched — carried(cycle 1, delta-clean)'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no grid size limits touched — carried(cycle 1, delta-clean)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no aspect guard touched — carried(cycle 1, delta-clean)'
+  - CON-015 ✓ holds — no bind/entry-point change in the diff; tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault 7/7 PASSED on dfc0d26+worktree (e.g. ::test_the_entry_point_passes_the_loopback_constant PASSED)
+  - CON-016 ✓ holds — no new @app.route among added lines; tests/test_admin_binding.py::TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit 11/11 PASSED on dfc0d26+worktree
+  - 'CON-021 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no play surface touched — carried(cycle 1, delta-clean)'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no clue encoding touched — carried(cycle 1, delta-clean)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no export readiness touched — carried(cycle 1, delta-clean)'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; no retry counter touched — carried(cycle 1, delta-clean)'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; plan validation untouched — carried(cycle 1, delta-clean)'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; membership/floor checks untouched; trim stored via unchanged set_print_spec — carried(cycle 1, delta-clean)'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; ready gate untouched — carried(cycle 1, delta-clean)'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; published-book confirmation untouched — carried(cycle 1, delta-clean)'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; book order untouched — carried(cycle 1, delta-clean)'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; pairing untouched — carried(cycle 1, delta-clean)'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; answer key untouched — carried(cycle 1, delta-clean)'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; membership-outside-draft untouched — carried(cycle 1, delta-clean)'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: the diff changes only the inch figure shown/compared for a stored trim on Print setup (print_specs.py trim_inches_shown, app.py _submitted_trim_cm/setup_print) and test isolation lines; interior PDF untouched — carried(cycle 1, delta-clean)'
+task_contract:
+  AC-1: 'met — re-run: tests/test_book_trim_persistence.py::TestBookTrim_ReopenInInchesStaysInsideLimits::test_the_fields_show_the_stated_limit_not_eighteen_ninety[memory|sqlite|postgres] PASSED (card name selects the class directly)'
+  AC-2: 'met — re-run: TestBookTrim_ReopenInInchesStaysInsideLimits::test_five_untouched_saves_keep_the_stored_trim_exactly and ::test_typing_the_stated_limit_on_another_height_stores_it PASSED, all three stores'
+  AC-3: 'met — re-run: tests/test_print_specs.py::TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted::test_every_stored_hundredth_inside_kdp_bounds_shows_an_accepted_figure PASSED (card name lacks the Test prefix; -k substring still selects it)'
+  AC-4: 'met — re-run: TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted::test_only_forty_eight_cm_high_differs_from_cm_to_inches and ::test_a_stored_value_outside_the_limits_shows_the_plain_figure PASSED'
+  AC-5: 'met — re-run: TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted::test_moved_bounds_on_a_hundredth_grid_keep_both_properties PASSED'
+  AC-6: 'met — re-run: TestBookTrim_ReopenInInchesStaysInsideLimits::test_an_untouched_resubmission_at_each_limit_stores_the_original PASSED x memory/sqlite/postgres; -rs reported no skips (postgres ran under the full-suite lock)'
+  G-1: 'holds — re-run: test_print_specs.py::TestTrimRefusal_StatedInchLimitIsAccepted, ::TestTrimRefusal_ExactCmBoundaryInInchesIsAccepted, ::TestTrimRefusal_CmWordingUnchanged, test_book_workflow_steps.py::TestPrintSetup_InchesRefusalSpeaksInches, ::TestPrintSetup_LimitsBoxAgreesWithRefusals all PASSED; book_page_spec.py and trim_limits/validate_trim_size not in diff'
+  G-2: holds — tests/test_book_scaffolding.py PASSED, not in diff; cm_to_inches/inches_to_cm bodies not in diff
+  G-3: holds — test_book_trim_persistence.py::TestBookTrim_ReopeningInInchesDoesNotShiftIt PASSED; discriminator still string equality (app.py:2955)
+  G-4: holds — test_book_trim_persistence.py::TestBookTrim_ThePageCarriesOneUnit PASSED; _stored_trim_cm and except ValueError fallback unchanged
+  G-5: holds — carried(cycle 1, delta-clean)
+  G-6: holds — carried(cycle 1, delta-clean); template not in diff
+  scope_excess: 'necessary — reverting the test_db_url_driver.py line reproduces TypeError NoneType on an ordered 3-node run ([postgres] trim test, url-driver test, print_specs [postgres] test); restored: 3 passed'
+mutation_check:
+  ran: true
+  mutants: 10
+  killed: 9
+  survived: 1
+  results:
+  - 'M1 drop max clamp: killed'
+  - 'M2 drop min clamp: killed (AC-5 moved bounds)'
+  - 'M3 no inside check: killed'
+  - 'M4 max edge inward: killed'
+  - 'M5 min edge inward: killed (AC-5)'
+  - 'M6 height reads width limits: killed'
+  - 'M7 _submitted_trim_cm compares plain cm_to_inches: killed'
+  - 'M8 height caller passes width: killed'
+  - 'M9 reopen height uses cm_to_inches: killed'
+  - 'M10 width caller passes height: survived — equivalent on KDP bounds (width range 10-30 lies inside height range, width clamp never fires; only a legacy 48.00 cm width differs and is refused by validate_trim_size either way)'
+  restore_verified: true
+  carried: cycle 1, delta-clean
+root_causes: []
+findings:
+- id: F-001
+  severity: info
+  category: feature
+  type: risk
+  file: tests/test_db_url_driver.py
+  line: 177
+  title: db.session module-global leak is fixed per test, not structurally
+  description: Tests that reset db_session.engine/_engine_url via monkeypatch but let _init_engine reassign SessionLocal leave it changed after teardown. The three added lines fix the three known sites; any future test written the same way re-opens the class.
+  suggestion: 'Follow-up card: an autouse conftest fixture that snapshots and restores db.session.engine/SessionLocal/_engine_url.'
+  confidence: medium
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+  out_of_scope: true
+- id: F-002
+  severity: info
+  category: tech-debt
+  type: gap
+  file: meta/architecture/decisions/adr/0006-dependency-baseline.md
+  line: 170
+  title: ADR-0006/R1 check ref names a test id that does not exist
+  description: 'check: {kind: test, ref: TestDependencyBaseline_IsExactlyPillowAndNumpy} selects 0 tests (pytest -k exit 5). The name appears only as a comment alias (tests/test_export_pdf.py:622) and in a docstring (:1250); the real check is tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed. requirements.yml:4927 already records this as a known defect. Cycle 1 cited the dead name as a green run.'
+  suggestion: 'For /forge:architect: point the ref at test_the_dependency_baseline_is_still_closed (or rename the test/add a class with the declared id) so the rule''s check is selectable.'
+  confidence: high
+  source: model
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+  out_of_scope: true

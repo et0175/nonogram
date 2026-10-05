@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-05
+- CARD-178 (feature): A book stored at the 48 cm maximum height now reopens in inches as 18.89 (it showed 18.90, which Print setup then refused), and saving it untouched keeps 48 cm. Every other stored size reads as before.
 - CARD-182 (feature): On a phone, puzzle player cells are now at least 24 px wide, a comfortable tap target. A board too wide for the screen scrolls sideways inside the player (start a pan on the clues); the desktop view is unchanged.
 - CARD-177 (compliance): When a Finalise action or a PDF export fails, the panel now shows a fixed message ("…The details are in the panel's log.") instead of the raw error text, which could include database connection details on a panel the public can reach. The full error goes to the log; owner-facing refusals keep their wording.
 - CARD-184 (tech-debt): Every piece of text inside the printed book is now checked against the 10 pt minimum by one test. Two were below it and are fixed: the answer-key heading and captions grow from 9.84 to 10.08 pt, and the "SOLUTIONS" divider keeps its 14.4 pt size even on servers without Arial (it used to fall back to a tiny unsized font, likely on Render). Puzzle clue digits, which scale with the cell, are exempt for now.
