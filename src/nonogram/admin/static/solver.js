@@ -45,8 +45,9 @@
 // history are solver_state.js values (clickStroke, dragStroke, resetStroke,
 // record, undo, redo); this file only turns input into those calls and
 // paints the resulting board. The marking code (wireMarking) does not read
-// payload.solution — it only asks start() whether the board is locked — and
-// no mark sends a request (ADR-0038/R2).
+// payload.solution — it only asks start() whether the board is locked and
+// which cell a hint would reveal — and no mark or hint sends a request
+// (ADR-0038/R2).
 //   pointer   pointerdown on a cell, then pointerup without having been over
 //             another cell = a click: the cell cycles whatever the tool.
 //             Having been over another cell = a drag: dragStroke with the
@@ -61,6 +62,15 @@
 //             board as it is, because undo/redo with an empty stack and a
 //             reset of a blank board return the history unchanged.
 //             Ctrl/Cmd+Z undoes, Shift+Ctrl/Cmd+Z redoes.
+//   hint      [data-player-action="hint"] (CARD-183) records hintStroke for
+//             solver_state.js hintCell (which start() computes from the
+//             recorded board and the payload's clues and solution) through
+//             the same commit as every stroke. aria-disabled="true", and
+//             pressing it does nothing, while hintCell is null, the board is
+//             locked, or a gesture is in progress. The hinted cell carries
+//             .is-hinted until the next commit; #puzzle-player-announce says
+//             which cell it revealed, and says when it came from the
+//             solution rather than from one line.
 //
 // PROGRESS (CARD-162, FR-044 AC-312..AC-321). After every recorded stroke,
 // undo, redo, reset and setBoard, start() re-derives both from the current
@@ -69,6 +79,9 @@
 // wrong marks. A drag's preview is not counted until it is recorded.
 //   errors    [data-player-errors] in the toolbar (inside a role=status
 //             region): errorCount of the current board.
+//   hints     [data-player-hints] (its own role=status region): hintCount of
+//             the current history — undo lowers it, reset leaves it, setBoard
+//             (a new history) sets it to 0.
 //   solved    while isSolved(current board) holds: the banner
 //             #puzzle-player-solved (the picture's name, server-rendered) is
 //             shown in place of the tools and its text is put into the live
@@ -105,7 +118,8 @@
 
 import {
   FILLED, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
-  dragStroke, errorCount, isBoard, isSolved, record, redo, resetStroke, undo,
+  dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, record,
+  redo, resetStroke, undo,
 } from "./solver_state.js";
 // Clue circles (CARD-188): see paintCircles below.
 import { circledClues } from "./solver_state.js";
@@ -245,18 +259,24 @@ function start() {
   const table = stage.querySelector(".player-board");
   const toolbar = document.getElementById("puzzle-player-controls");
   const errorsOut = toolbar.querySelector("[data-player-errors]");
+  const hintsOut = toolbar.querySelector("[data-player-hints]");
   const banner = document.getElementById("puzzle-player-solved");
   const announce = document.getElementById("puzzle-player-announce");
   const clueNumbers = clueNumbersOf(table);
   let solved = false;
+  let hinted = null; // the cell element carrying .is-hinted
 
-  // Error count and solved state of the recorded board (see PROGRESS).
-  function showProgress() {
+  // Error count, hint count and solved state of the recorded history (see
+  // PROGRESS); `hint` is the hintCell value just recorded, or null.
+  function showProgress(hint) {
     const errors = String(errorCount(history.board, payload.solution));
     // Rewriting the same text would make the live region announce it again.
     if (errorsOut.textContent !== errors) errorsOut.textContent = errors;
+    const hints = String(hintCount(history));
+    if (hintsOut.textContent !== hints) hintsOut.textContent = hints;
     const now = isSolved(history.board, payload.solution);
     if (now !== solved) announce.textContent = now ? banner.textContent.trim() : "";
+    else if (hint) announce.textContent = hintText(hint);
     solved = now;
     banner.hidden = !solved;
     toolbar.classList.toggle("is-solved", solved);
@@ -267,18 +287,22 @@ function start() {
   const marking = wireMarking(table, {
     getHistory: () => history,
     locked: () => solved,
+    nextHint: () => hintCell(history.board, payload.rows, payload.columns, payload.solution),
     show(next) {
       board = next;
       paint(cellElements, board);
     },
-    commit(next) {
+    commit(next, hint) {
       history = next;
       board = history.board;
       paint(cellElements, board);
-      showProgress();
+      hinted?.classList.remove("is-hinted");
+      hinted = hint ? cellElements[hint.row * payload.width + hint.col] : null;
+      hinted?.classList.add("is-hinted");
+      showProgress(hint);
     },
   });
-  showProgress();
+  showProgress(null);
   marking.refresh();
 
   window.puzzlePlayer = Object.freeze({
@@ -325,6 +349,13 @@ function paintCircles(clueNumbers, circled) {
   }
 }
 
+// What the live region says about a hint (1-based row and column).
+function hintText({ row, col, state, deduced }) {
+  const cell = `row ${row + 1}, column ${col + 1} is ${state === FILLED ? "black" : "white"}`;
+  return deduced ? `Hint: ${cell}.`
+    : `Hint: no cell follows from a single line yet; ${cell} (from the solution).`;
+}
+
 // The [row, col] of the board cell under the viewport point (x, y), or null.
 function cellUnder(table, x, y) {
   const cell = document.elementFromPoint(x, y)?.closest("td.player-cell");
@@ -338,8 +369,10 @@ function isAt(position, [row, col]) {
 
 // Attach pointer, tool, history and keyboard input to `table`. `player` gives
 // the current history (getHistory), says whether the board is locked (locked
-// — solved, see PROGRESS), paints a board without recording it (show — a
-// drag's preview) and records a new history (commit). Returns { refresh,
+// — solved, see PROGRESS), gives the cell a hint would reveal (nextHint — a
+// hintCell value or null), paints a board without recording it (show — a
+// drag's preview) and records a new history (commit, with the hint it
+// recorded, if any). Returns { refresh,
 // commit }: refresh re-syncs the controls after the lock changed elsewhere;
 // commit records a history from elsewhere (setBoard) exactly as an input does.
 function wireMarking(table, player) {
@@ -362,10 +395,11 @@ function wireMarking(table, player) {
     actions.undo.setAttribute("aria-disabled", String(locked || done.length === 0));
     actions.redo.setAttribute("aria-disabled", String(locked || undone.length === 0));
     actions.reset.setAttribute("aria-disabled", String(board.cells.every((s) => s === UNKNOWN)));
+    actions.hint.setAttribute("aria-disabled", String(locked || gesture !== null || player.nextHint() === null));
   }
 
-  function commit(next) {
-    player.commit(next);
+  function commit(next, hint = null) {
+    player.commit(next, hint);
     if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
   }
@@ -379,6 +413,7 @@ function wireMarking(table, player) {
     // The tool is taken here, at pointerdown: picking another tool mid-drag
     // applies to the next drag, not this one.
     gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool };
+    refresh(); // Hint is disabled while a gesture is in progress
   });
 
   table.addEventListener("pointermove", (event) => {
@@ -405,6 +440,7 @@ function wireMarking(table, player) {
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     gesture = null;
     player.show(player.getHistory().board);
+    refresh();
   });
 
   for (const button of tools) {
@@ -424,6 +460,14 @@ function wireMarking(table, player) {
       if (!gesture) commit(step[name]());
     });
   }
+
+  // A hint is one recorded stroke (see MARKING "hint").
+  actions.hint.addEventListener("click", () => {
+    if (gesture || player.locked()) return;
+    const hint = player.nextHint();
+    if (hint === null) return;
+    commit(record(player.getHistory(), hintStroke(hint.row, hint.col, hint.state)), hint);
+  });
 
   // Reset asks first, in the page (see PROGRESS "reset").
   function closeConfirm() {

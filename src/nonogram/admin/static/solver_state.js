@@ -401,3 +401,108 @@ export function circledClues(board, rows, columns) {
     columns: Object.freeze(columns.map((clue, c) => circledNumbers(clue, column(c)))),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Hints (CARD-183, IDEA-074; FR-044 extension, no AC id yet)
+//
+// A hint reveals one undecided cell, set to its solution state, as one
+// stroke: hintStroke carries `hint: true`, which applyStroke, record, undo
+// and redo ignore, so a hint is one undo step and replay still holds.
+// hintCount reads the undo stack, so undo takes a hint back and redo puts it
+// back. The clues are the payload's rows / columns (ADR-0038/R3).
+
+// One line of cell states with every cell that all placements of `clue`
+// consistent with `cells` agree on set to FILLED or EMPTY; null when no
+// placement fits. `clue` is a payload clue ([0] = no filled cell). The same
+// idea as nonogram.solver.propagate.line_intersection, written natively: a
+// forward and a backward reachability table over (position, runs placed).
+// A run placed at `start` takes its cells and the one cell after it (unless
+// it ends the line), which must not be FILLED.
+export function lineForced(clue, cells) {
+  const runs = clue.filter((n) => n > 0);
+  const n = cells.length;
+  const k = runs.length;
+  const fits = (start, length) => start + length <= n
+    && cells.slice(start, start + length).every((s) => s !== EMPTY)
+    && (start + length === n || cells[start + length] !== FILLED);
+  const after = (start, length) => Math.min(start + length + 1, n);
+  const table = () => Array.from({ length: n + 1 }, () => new Array(k + 1).fill(false));
+  // back[i][j]: cells i.. can hold runs j.. exactly.
+  const back = table();
+  back[n][k] = true;
+  for (let i = n - 1; i >= 0; i -= 1) {
+    for (let j = k; j >= 0; j -= 1) {
+      back[i][j] = (cells[i] !== FILLED && back[i + 1][j])
+        || (j < k && fits(i, runs[j]) && back[after(i, runs[j])][j + 1]);
+    }
+  }
+  if (!back[0][0]) return null;
+  // front[i][j]: cells ..i-1 can hold runs ..j-1 exactly, the next run free
+  // to start at i. Every move from a state on a full path is a placement.
+  const front = table();
+  front[0][0] = true;
+  const canFill = new Array(n).fill(false);
+  const canEmpty = new Array(n).fill(false);
+  for (let i = 0; i < n; i += 1) {
+    for (let j = 0; j <= k; j += 1) {
+      if (!front[i][j]) continue;
+      if (cells[i] !== FILLED && back[i + 1][j]) {
+        front[i + 1][j] = true;
+        canEmpty[i] = true;
+      }
+      if (j < k && fits(i, runs[j]) && back[after(i, runs[j])][j + 1]) {
+        const end = i + runs[j];
+        front[after(i, runs[j])][j + 1] = true;
+        for (let c = i; c < end; c += 1) canFill[c] = true;
+        if (end < n) canEmpty[end] = true;
+      }
+    }
+  }
+  return cells.map((_, i) => {
+    if (canFill[i] && !canEmpty[i]) return FILLED;
+    if (canEmpty[i] && !canFill[i]) return EMPTY;
+    return UNKNOWN;
+  });
+}
+
+// The cell a hint reveals on `board`, as {row, col, state, deduced}, or null
+// when no cell is UNKNOWN. The knowns are the board's correct marks (a wrong
+// mark counts as undecided). The first UNKNOWN cell, row-major, that
+// lineForced of its row or of its column forces from the knowns (one pass,
+// not to a fixed point) is returned with deduced: true; when there is none,
+// the first UNKNOWN cell with deduced: false. `state` is always the
+// solution's. A line lineForced finds no placement for deduces nothing.
+export function hintCell(board, rows, columns, solution) {
+  const { width, height } = board;
+  const truth = (row, col) => (solution[row][col] ? FILLED : EMPTY);
+  const known = (row, col) => {
+    const state = board.cells[row * width + col];
+    return state === truth(row, col) ? state : UNKNOWN;
+  };
+  const rowForced = rows.map((clue, row) =>
+    lineForced(clue, Array.from({ length: width }, (_, col) => known(row, col))));
+  const colForced = columns.map((clue, col) =>
+    lineForced(clue, Array.from({ length: height }, (_, row) => known(row, col))));
+  let fallback = null;
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 0; col < width; col += 1) {
+      if (board.cells[row * width + col] !== UNKNOWN) continue;
+      if ((rowForced[row] !== null && rowForced[row][col] !== UNKNOWN)
+          || (colForced[col] !== null && colForced[col][row] !== UNKNOWN)) {
+        return { row, col, state: truth(row, col), deduced: true };
+      }
+      if (fallback === null) fallback = { row, col, state: truth(row, col), deduced: false };
+    }
+  }
+  return fallback;
+}
+
+// The stroke of one hint: (row, col) set to `state`, marked hint: true.
+export function hintStroke(row, col, state) {
+  return Object.freeze({ ...makeStroke([[row, col]], state), hint: true });
+}
+
+// The number of hints on the undo stack.
+export function hintCount(history) {
+  return history.done.filter((entry) => entry.stroke.hint === true).length;
+}

@@ -32,6 +32,13 @@
   that is always present (a region that only appears is not reliably read). Reset opens the
   in-page confirmation under it (role=alertdialog) instead of a browser
   confirm().
+
+  Hints (CARD-183): a Hint button closes the history group (its last child,
+  after Reset and the confirmation) and a "Hints: N" counter (its own
+  role=status region) is the element right after the error counter, shown to
+  its right in the same row. Hint comes after Reset in the DOM, so the Tab
+  order of the CARD-161 controls is unchanged (AC-310's order test). The counter's names are .player-hints /
+  data-player-hints: "player-hint" is the usage paragraph below the board.
 #}
 {% extends "base.html" %}
 {% import '_tier.html' as tier %}
@@ -66,8 +73,10 @@
                 <button type="button" class="btn btn-outline-secondary" data-player-confirm="cancel">Keep marks</button>
             </div>
         </div>
+        <button type="button" class="btn btn-outline-secondary" data-player-action="hint" aria-disabled="true">Hint</button>
     </div>
     <p class="player-errors" id="puzzle-player-errors" role="status" aria-atomic="true">Errors: <span class="player-errors-count" data-player-errors>0</span></p>
+    <p class="player-hints" id="puzzle-player-hints" role="status" aria-atomic="true">Hints: <span class="player-hints-count" data-player-hints>0</span></p>
 </div>
 
 <div class="player-stage" id="puzzle-player">
