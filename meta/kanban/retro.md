@@ -177,3 +177,72 @@ _Roadmap wave 1 (meta/kanban/roadmap.md): CARD-164..CARD-168._
 - Keep the wave-32 pipeline brief as the standard card brief — it is what took the fix-induced share from 100% to 0% and escalations from 50% to 0%
 - Test discipline, mechanical: add a cheap guard for "a test that can never fail" — e.g. require every new test file to be shown failing on at least one mutant in the implementer's notes (already in the brief), and sweep the five hollow `images`-field tests in tests/e2e/test_admin_workflow.py (backlog CARD-164 F-002)
 - Wave budget: the roadmap assumed 3 d/wave of card work; wave 32 shipped 2.75 d of estimates in ~0.7 d wall-clock. Re-plan with ~×0.4 day calibration at the next /forge:roadmap plan
+
+## Wave 33 — 2026-10-05
+
+_Roadmap wave 1 of the 2026-10-04 re-plan: CARD-169..CARD-176._
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-169 | Finalise guide preview | 0.5d | 0.2d | 0.4× | 2 | 9.5 | overestimated (actual) |
+| CARD-170 | Band prints once (check) | 0.5d | 1.4d | 2.8×* | 3 (escalated) | 9.5 | stalled at 8.5 → owner targeted fix |
+| CARD-171 | Finalise errors named and logged | 0.5d | 1.3d | 2.6×* | 2 | 10.0 | queue/owner wait (actual) |
+| CARD-172 | Square/landscape proof pages | 0.5d | 0.3d | 0.6× | 1 (escalated) | 9.2 | decompose defect (AC vs body) |
+| CARD-173 | Unreadable print setup remedy | 0.5d | 0.1d | 0.2× | 2 | 9.5 | overestimated (actual) |
+| CARD-174 | Inch trim refusals + Limits box | 0.75d | 0.1d | 0.13× | 2 | 9.5 | overestimated (actual) |
+| CARD-175 | /books hints fold on phones | 0.5d | 0.3d | 0.6× | 2 | 9.6 | overestimated (actual; cycle 2 = owner change) |
+| CARD-176 | DB URL error never echoes a secret | 0.25d | 0.1d | 0.4× | 1 | 9.5 | overestimated (actual) |
+
+\* wall-clock includes overnight owner wait (CARD-170 escalation) and the app.py serialization queue (CARD-171); excluded from calibration.
+
+### Metrics
+
+- cards: 8, escalated: 2 (CARD-170 implementation/stall, CARD-172 decompose), split: 0, actual_time: 8
+- total_estimate: 4.0d, total_actual: 3.8d wall-clock (inflated by waits); clean cards median 0.4×
+- avg_cycles: 1.83 (non-escalated, 6 cards)
+- avg_final_score: 9.54 (↑ +0.24 vs wave 32)
+- score_improvement: +0.70 (8.84 → 9.54)
+- test_cost: 15 pipeline gates + 5 merge gates + 1 smoke, all full (~10 min each, ~3.5 h); suite 596s (+1.5%, stable)
+- conflicts: 0 (all rebases clean; app.py / book_pdf_generator.py serialization held: 169 → 171 → 173 → 174)
+- touches drift: 0 · scope growth: 0 · review reports: all synced, all parse
+
+### Complexity breakdown
+
+- trivial (1 card): avg cycles 1.0, avg score 9.5, 0 escalated
+- standard (7 cards): avg cycles 1.8, avg score 9.54, 2 escalated
+- architectural (0 cards) → verdict: (insufficient data — accumulating: 1 architectural card incl. history)
+
+### Capacity vs plan (roadmap pre-launch split; estimate share)
+
+- feature 81% vs 60% (+21pp) · tech-debt 19% vs 5% (+14pp, absorbed the empty enabler/compliance buckets) · ops 0% vs 5% (IDEA-065/080 routed to architect/owner)
+
+### Calibration signals
+
+- python-pro feature: avg_accuracy 0.39× (5 clean cards) → estimates too high (actual); cross-project 0.41× over 12 — keep the halved day map (×0.4)
+- python-pro tech-debt: 1 clean card — no signal
+
+### Process shortcuts
+
+- other:merge-gate-not-rerun-on-identical-tree (CARD-170, 174, 176) → clean
+- other:owner-check-deferred (CARD-169 "merge now, check later") → rework
+- other:owner-defaults-auto-applied (every drafted owner default implemented without a per-card ask) → rework (CARD-175's second round for the one-line summary)
+
+### Finding families
+
+- watch (test discipline, not a model rule): "the mutation check finds a behaviour the tests don't pin, or a comment claims coverage a test lacks" — 5 gating (CARD-169 F-001 c1, CARD-170 F-001 c1 / F-005 c2, CARD-173 F-001 c1, CARD-174 F-001 c1). All caught by the passing-cycle mutation check before merge
+- fix-induced share: 1 of 1 gating finding after cycle 1 (CARD-170 F-005, the F-001 fix's narrowed wording still over-claimed)
+
+### Escalations
+
+- CARD-172 (decompose): the drafted AC-2 contradicted the card's own "What to implement" — a card-cutting defect; owner route (a), no code change
+- CARD-170 (implementation, stalled 8.5 → 8.5): test-comment over-claim re-introduced by its own fix; owner targeted fix + 1 review → 9.5
+
+### Suggestions
+
+- Card cutting (owner-approved 2026-10-05): before committing drafted cards, cross-check every AC against the card's own "What to implement"; a contradiction is fixed at cutting time, never left for the pipeline — applied to the drafting brief (applied: 2026-10-05)
+- Pipeline brief (owner-approved 2026-10-05): a comment/docstring claim about what a test catches needs a mutant proving it — one inside the claimed region the test kills and one at the claim's edge; a claim no mutant bounds is narrowed — applied to the standard brief (applied: 2026-10-05)
+- Owner defaults: a default that changes what the owner SEES (UI copy, layout, print placement) is shown as a render before merge, not just recorded — the two reworks this wave came from visible defaults
+- Actual time: stamp `Started` when the pipeline begins work and exclude owner-wait/queue time from calibration (CARD-170/171 wall-clock 2.6–2.8× was waiting, not work)
+- Suite cost: ~21 full runs per wave is the dominant cost; the identical-tree merge-gate skip has 3 clean waves — consider making it the rule
