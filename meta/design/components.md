@@ -240,6 +240,8 @@ Used by: SolverBoard. One box per line (a row's to the left, a column's above), 
 - States: default only (CARD-161/162 may add "line satisfied").
 - Tokens: --color-surface, --font-num, --grid-ink.
 
+State (CARD-188): ClueBox: circled — a clue number its marks settle gets a thin round ring in --grid-ink drawn by its ::before (out of layout, centred on the number's box, which for row and column numbers alike is a cell tall with a cell's line-height, so the ring centres on the digits within 0.5 px): a circle for one digit, a pill as wide as the digits plus clearance for two, capped so neighbouring rings keep --player-ring-gap between them; the ring is always present and transparent until circled, so nothing moves, each number keeps main's one-cell slot and each row clue box stays a cell tall.
+
 ## ToolPicker
 
 Used by: the puzzle player (CARD-161, FR-044). `div.player-tools[role=group][aria-label="Marking tool for drags"]` holding three toggle buttons (`button.btn.btn-outline-secondary.player-tool[data-player-tool][aria-pressed]`), each a mini-cell swatch (`span.player-swatch[data-state]`: paper / ink / paper with dot) plus a visible label Black / White / Undecided (accessible name = visible label). Exactly one is pressed; each is a Tab stop and acts on Enter and Space. The tool governs drags only — a click always cycles.
