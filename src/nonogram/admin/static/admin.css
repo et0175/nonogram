@@ -455,6 +455,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    history controls, over the board, without moving it. */
 .player-errors { margin: 0 0 0 auto; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .player-errors-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
+/* Hints (CARD-183): "Hints: N" follows "Errors: N", styled alike. The cell a
+   hint just revealed carries .is-hinted until the next commit: an accent
+   outline just inside the cell with a paper ring inside that, fading in; no
+   animation under prefers-reduced-motion (the rule at the end of this block
+   covers .player-stage *). */
+.player-hints { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.player-hints-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
+.player-cell.is-hinted { outline: var(--player-rule-major) solid var(--color-accent); outline-offset: calc(-1 * var(--player-rule-major)); box-shadow: inset 0 0 0 calc(2 * var(--player-rule-major)) var(--grid-paper); animation: player-hinted-in calc(2 * var(--duration-base)) var(--ease); }
+@keyframes player-hinted-in { from { outline-color: transparent; } }
 .player-toolbar.is-solved .player-tools { display: none; }
 .player-announce { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .player-solved { margin: 0; display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); padding: 0 var(--space-3); border: var(--border-width) solid var(--color-success); border-left-width: 3px; border-radius: var(--radius-control); background: var(--color-success-tint); color: var(--color-text); }
