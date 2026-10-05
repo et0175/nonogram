@@ -212,18 +212,14 @@ def record_interior(
         return face
 
     def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
-        caller = sys._getframe(1)
-        # Pillow's multiline path calls ``text`` again per line; the outer
-        # call is the one the interior made, and is already recorded.
-        if not caller.f_globals.get("__name__", "").startswith("PIL."):
-            face = font if font is not None else self.getfont()
-            sized = isinstance(face, ImageFont.FreeTypeFont) and not any(
-                face is seen for seen in sizeless
-            )
-            size = face.size if sized else None
-            calls.append(
-                TextCall(current["page"], str(text), size, _call_chain(caller), generator.dpi)
-            )
+        face = font if font is not None else self.getfont()
+        sized = isinstance(face, ImageFont.FreeTypeFont) and not any(
+            face is seen for seen in sizeless
+        )
+        size = face.size if sized else None
+        calls.append(
+            TextCall(current["page"], str(text), size, _call_chain(sys._getframe(1)), generator.dpi)
+        )
         return original(self, xy, text, fill, font, *args, **kwargs)
 
     monkeypatch.setattr(ImageFont, "load_default", load_default)
