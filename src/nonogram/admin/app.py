@@ -4164,6 +4164,24 @@ def create_app(debug=None):
                                 "success",
                             )
 
+                elif action == "sort_by_size":
+                    # CARD-191: one button sorts every level of the stored
+                    # book, smallest first; the store writes through
+                    # `reorder_puzzles`, so INV-009 keeps its one enforcement
+                    # point. Already sorted is not an error: nothing is written.
+                    if book_mgr.sort_puzzles_by_size(book_id):
+                        flash(
+                            "Sorted each level by size: longest side, then "
+                            "shortest side.",
+                            "success",
+                        )
+                    else:
+                        flash(
+                            "Each level is already in size order; the order is "
+                            "unchanged.",
+                            "success",
+                        )
+
                 elif action == "set_title":
                     puzzle_id = request.form.get("puzzle_id")
                     title = request.form.get("title")

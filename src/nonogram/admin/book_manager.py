@@ -37,6 +37,7 @@ from nonogram.admin.book_plan import (
     planned_cells,
     prefill,
     selection_cells,
+    sorted_by_size_within_level,
     with_split,
 )
 from nonogram.admin.print_specs import PrintSpec, PrintSpecValidator
@@ -1724,6 +1725,57 @@ class BookManager:
         if moved is None:
             return False  # Already at the end of the book
         return self.reorder_puzzles(book_id, moved, tier_of)
+
+    def sort_puzzles_by_size(self, book_id: str) -> bool:
+        """Sort every level of the book smallest first (CARD-191, CMD-022).
+
+        The order comes from
+        :func:`~nonogram.admin.book_plan.sorted_by_size_within_level` over the
+        **stored** book — every level, never a subset of rows — with tiers and
+        sizes each read in one bulk read. A legacy mixed book gets its grouped,
+        sorted order written, as a move would. The status is left alone: a reorder is not a membership change
+        (INV-012), the same verdict a move gets.
+
+        Returns:
+            ``True`` when the order changed and was written through
+            :meth:`reorder_puzzles` (INV-009's one enforcement point);
+            ``False`` when the book is already in that order, in which case
+            nothing is written and ``updated_at`` does not move.
+
+        Raises:
+            ValueError: the book does not exist.
+        """
+        book = self.get_book(book_id)
+        if not book:
+            raise ValueError("Book not found")
+
+        stored = list(book.puzzle_ids)
+        tier_of = self._tier_of(stored)
+        ordered = sorted_by_size_within_level(stored, tier_of, self._size_of(stored))
+        if ordered == stored:
+            return False
+        return self.reorder_puzzles(book_id, ordered, tier_of)
+
+    def _size_of(self, puzzle_ids):
+        """A total id -> stored ``(width, height)`` lookup, in one bulk read.
+
+        ``None`` for an id no row matches, a manager with no puzzle store, or a
+        row whose ``width``/``height`` are not integers — the sort puts such a
+        puzzle last in its level rather than raising, as :meth:`_tier_of` does
+        for an unread tier.
+        """
+        keys = list(dict.fromkeys(str(pid) for pid in puzzle_ids))
+        records = self.puzzle_store.get_puzzles(keys) if self.puzzle_store is not None else {}
+        sizes: Dict[str, Optional[tuple]] = {}
+        for key in keys:
+            record = records.get(key) or {}
+            width, height = record.get("width"), record.get("height")
+            sizes[key] = (
+                (width, height)
+                if isinstance(width, int) and isinstance(height, int)
+                else None
+            )
+        return lambda puzzle_id: sizes.get(str(puzzle_id))
 
     def _tier_of(self, puzzle_ids, known=None):
         """A total id -> stored tier lookup over ``puzzle_ids``, read once each.

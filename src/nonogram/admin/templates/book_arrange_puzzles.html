@@ -21,11 +21,19 @@
 <div class="row">
     <div class="col-md-9">
         <div class="card">
-            <div class="card-header">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <h2 class="card-title mb-0">
                     Puzzles in book
                     <small class="text-muted fw-normal fs-6">({{ puzzle_count }} total, about {{ page_count }} pages)</small>
                 </h2>
+                {# CARD-191: sorts every level of the stored book, smallest
+                   first. There is no undo, so the confirm says so. #}
+                {% if puzzles %}
+                <form method="POST" class="mb-0" onsubmit="return confirm('Sort every level by size? Your own order inside each level is replaced. There is no undo.');">
+                    <input type="hidden" name="action" value="sort_by_size">
+                    <button type="submit" class="btn btn-sm btn-outline-secondary" title="Sort each level by longest side, then shortest side">Sort by size</button>
+                </form>
+                {% endif %}
             </div>
             <div class="card-body">
                 {% if puzzles %}
