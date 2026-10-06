@@ -124,6 +124,8 @@ card names its card._
 - [ ] CARD-186 owner check pending: "?" mark and toolbar changes (narrower tool padding; banner in the tools' box on solve; "Hints" on a second row at 1180–1259 px) — renders in ~/Documents/nonogram-reviews/CARD-186/   @feature
 - [ ] CARD-186 F-002/F-003 (minor): "?" glyph centring untested (only containment); a solved name of ~40+ chars moves the board 13 px at desktop widths   @tech-debt
 
+- [ ] CARD-185 F-003/F-004/F-005: setBoard-started histories aren't saved (AC-365 wording needs an architect touch-up); G-1 exception should name test_puzzle_solver_hint.py:870; no-op redo corruption only tested at the top of the redo stack   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

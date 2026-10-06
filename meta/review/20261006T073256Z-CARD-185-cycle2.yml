@@ -1,0 +1,170 @@
+version: 1
+generated_at: "2026-10-06T07:32:56Z"
+target: "card/185-player-resume-in-browser (git diff main...HEAD 7bf1c4a + uncommitted tests/test_puzzle_solver_resume.py); confirmation mode, fix delta = tests/test_puzzle_solver_resume.py"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+coverage:
+  read:
+    - tests/test_puzzle_solver_resume.py (fix delta, full corruption corpus section)
+    - src/nonogram/admin/static/solver_state.js (record/undo/redo, serializeState, strokeOf, deserializeState)
+    - src/nonogram/admin/static/solver.js (committed diff, browserSave, reset handler)
+    - meta/review/20261006T065736Z-CARD-185-cycle1.yml
+    - meta/kanban/cards/CARD-185.md Worktree notes
+    - meta/design/ (components.md grep; JS diff scanned for visual literals)
+  not_reached:
+    - "rendered result not verified by automated capture (visual: off); owner PNGs at ~/Documents/nonogram-reviews/CARD-185/ not re-viewed this cycle"
+    - "full suite not run by reviewer (orchestrator: 6513 passed, 9 skipped)"
+  confidence: high
+metrics:
+  diff: { files: 6, added: 902, removed: 7, fix_delta: { files: 1, added: 8, removed: 2 } }
+  max_fan_in: { symbol: "solver_state.js serializeState/deserializeState", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/solver.js"]
+  cochange_missing: []
+  churn_12m: { "tests/test_puzzle_solver_resume.py": 1 }
+  unmeasured:
+    cochange_missing: "no_eligible_fact — fix delta file is new in this card (1 commit), no co-change history"
+test_runs:
+  - "tests/test_puzzle_solver_resume.py: 15 passed in 26.48s (pre-mutation baseline)"
+  - "resume + hint + maybe + progress + page + test_cli.py + test_admin_binding.py + 2 export_pdf dependency tests: 313 passed in 214.02s (post-mutation, restored tree)"
+  - "tests/test_puzzle_solver_marking.py: 65 passed in 70.74s"
+mutation_check:
+  ran: true
+  test_command: "./.venv/bin/python -m pytest tests/test_puzzle_solver_resume.py"
+  restore: "copy from scratchpad backup, filecmp-verified after every mutant; final cmp of all 3 files + git diff byte-identical to pre-review capture"
+  mutants:
+    - "M7 solver_state.js:644 `next === history && done.includes(stroke)` (undone check off) — KILLED by RejectsAnyUntrustedSave, kind 'undone-no-op' verdict 'history'"
+    - "M8 solver_state.js:644 `next === history && !done.includes(stroke)` (done check off) — KILLED by RejectsAnyUntrustedSave, kind 'no-op' verdict 'history'"
+    - "M9 undo loop `k < undone.length - 1` — KILLED by SaveAndRestoreRoundTrip, ReloadRestoresBoardCountsAndHistory"
+    - "M10 `.reverse()` dropped on redo stack — KILLED by SaveAndRestoreRoundTrip"
+    - "M11 hint flag never saved — KILLED by RoundTrip, RejectsAnyUntrustedSave, ReloadRestores"
+    - "M12 solver.js reset handler player.forget() removed — KILLED by ResetClearsTheSave"
+    - "M13 solver.js untrusted entry not forgotten at load — KILLED by UntrustedSaveStartsFresh (all 3 params)"
+    - "M14 solver.js failed setItem without removeItem — KILLED by BrokenStorageDegradesSilently::test_quota_exceeded"
+  survivors: 0
+system_contract:
+  rules_checked: 52
+  holds: 12
+  unchecked: 40
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — fix delta is a Python test file only; no framework/build/vendored JS; TestPlayerAssets::test_every_admin_asset_ships_in_the_wheel passed (313 passed run)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark (2) passed (65 passed run); TestSolverResume_SavesEveryChangeWithoutARequest::test_saves_every_change passed (15 passed run)"
+    - "ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues incl. test_the_payload_has_exactly_the_documented_shape passed (313 passed run)"
+    - "ADR-0038/R4 ✓ holds — TestPlayerAssets::test_the_state_module_touches_no_dom passed (313 passed run); test_puzzle_solver_page.py not in diff; solver_state.js unchanged since cycle 1 (cmp vs backup)"
+    - "ADR-0038/R6 ✓ holds — carried(cycle 1, delta-clean): save stores gridFingerprint only; fix delta touches no src file"
+    - "ADR-0038/R7 ✓ holds — carried(cycle 1, delta-clean): pyproject.toml not in diff or delta"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: fix delta adds a corruption kind, no skip/fail wiring change; all 15 resume tests ran, none skipped"
+    - "CON-021 ✓ holds — TestSolverPage_WritesNothing::test_ten_strokes_and_a_solve_write_nothing passed (313 passed run); no request per mark (see ADR-0038/R2); solution never stored"
+    - "ADR-0006/R1 ✓ holds — test_the_dependency_baseline_is_still_closed + test_the_font_ships_as_package_data_and_not_as_a_dependency passed (313 passed run)"
+    - "ADR-0019/R1 ✓ holds — test_cli.py::test_every_import_in_the_package_points_inward passed (313 passed run)"
+    - "ADR-0029/R4 ✓ holds — test_every_import_in_the_package_points_inward passed (313 passed run); no solver/ change"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault (7) passed (313 passed run)"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit (7) passed (313 passed run)"
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean): rule scopes are generation/solver/image/storage/book/export/web/CLI code; fix delta (tests/test_puzzle_solver_resume.py) intersects none"
+previous_findings:
+  - "F-001 ✓ resolved — M7 re-applied: RejectsAnyUntrustedSave fails on kind 'undone-no-op' (verdict 'history'); edge mutant M8 killed by kind 'no-op'; unmutated 15 passed"
+  - "F-002 open (Minor, owner decision) — no new evidence; not re-raised as gating"
+  - "F-003 open (Minor, card wording) — no new evidence"
+  - "F-004 open (Minor, card wording) — no new evidence"
+root_causes: []
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver_state.js
+    line: 644
+    title: "Undone-stroke 'cannot be redone as a step' rejection is untested (mutant survives)"
+    description: |
+      Resolved in fix cycle 1: _corrupt kind 'undone-no-op' (tests/test_puzzle_solver_resume.py:302-305)
+      appends a copy of done[-1] as the redo-stack top. Reviewer re-applied mutant M7; the property test
+      fails with ('undone-no-op', 'history', ...). 50 cases, per-kind minimum >= 20 asserted.
+    suggestion: "none"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted tests/test_puzzle_solver_resume.py (cycle 2)"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: medium
+    category: feature
+    type: question
+    file: src/nonogram/admin/static/solver.js
+    line: 317
+    title: "After a reset, the next change re-saves the whole pre-reset history"
+    description: |
+      Carried from cycle 1, owner decision pending (default (a) wording vs card text). No new evidence.
+    suggestion: "Owner confirms; record behaviour in default (a) or cut saved history at the last reset."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/solver_state.js
+    line: 580
+    title: "setBoard non-blank start is not saved (deviation from card wording), so record it in the contract"
+    description: "Carried from cycle 1; architect/card wording amendment, no code change needed."
+    suggestion: "Amend FR-044 AC-365 / card text."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: tests/test_puzzle_solver_hint.py
+    line: 871
+    title: "G-1 exception extended to a third test outside the guardrail text"
+    description: "Carried from cycle 1; record the extension in G-1."
+    suggestion: "Record in card G-1 / contract assembly."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_resume.py
+    line: 302
+    title: "undone-no-op corrupts only the redo-stack top; a no-op deeper in the stack is not exercised"
+    description: |
+      The new kind always appends done[-1] as the top of `undone`. A redo stroke that is a no-op
+      relative to the stroke above it (e.g. undone[k] == undone[k+1]) is never generated. The current
+      implementation checks every replayed stroke uniformly (one `next === history` test in a single loop),
+      so no realistic mutant distinguishes position; this is a breadth note, not a discriminating gap.
+    suggestion: |
+      Optionally randomize the insertion: duplicate a random undone stroke directly beneath itself
+      when `undone` is non-empty.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

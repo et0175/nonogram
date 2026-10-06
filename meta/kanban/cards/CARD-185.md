@@ -1,6 +1,6 @@
 # CARD-185: The puzzle player reopens a puzzle in the state it was left in (this browser only)
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 35
 **Depends on:** CARD-183, CARD-186
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_progress.py, tests/test_puzzle_solver_maybe.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 2/3)
+**Started:** 2026-10-06T06:13:30Z
+**Closed:** 2026-10-06T09:01:23Z
+**Actual:** 0.3d
+**Merge commit:** ae25661
 **Blocked by:** —
 
 ## What to implement
@@ -244,3 +244,58 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-185` (52 rules). A project
 - [Conflict] CARD-183 and CARD-186 both edit `solver_state.js` and `solver.js`, and the other "Solver - test" cards (items 2–5) may too. Rebase after them. Keep this card's changes to the four pure functions, the start-up read, the write after commit, and the reset removal.
 - [AC cross-check] All ACs re-read against "What to implement". Reset removal (AC-5) matches default (a); the invalidation list in AC-2/AC-6 matches item 1's `null` cases; AC-8's "changes after each recorded change" matches "write after every recorded change", with drag previews excluded in the body and not tested as writes. No edits were needed.
 - [Architect 2026-10-06] CON-021 is amended: this-browser localStorage per puzzle is admitted (nothing on the server, no request per mark). FR-044 AC-360..AC-365 / EC-046..EC-047 formalize this card. NOTE: CARD-186's AC-15 test (TestSolverMaybe_NoRequestPerMark) asserts local/session storage stays empty — this card must narrow it to "nothing but this puzzle's one save" (added to Touches).
+- [Env] forge 2026.8.17
+- [System contract] fresh assembly (system_rules.py --card CARD-185, 2026-10-06) = card section: 52 ids, no +/−; CON-021 statement injected in its amended 2026-10-06 wording
+- [Implementation] agent spawned 2026-10-06T06:20Z (general-purpose, no model param); G-1 storage exception extended to tests/test_puzzle_solver_hint.py:870 (same pattern; card [Spec] note: CARD-183 G-4 superseded) — to be recorded as SCOPE+
+- [Impl 2026-10-06] Commit 7bf1c4a on card/185-player-resume-in-browser. `solver_state.js`: SAVE_VERSION = 1, saveKey(id) = "nonogram-player:" + id, gridFingerprint (32-bit FNV-1a of the solution row-major "1"/"0", 8 hex digits), serializeState, deserializeState (pure; JSON.parse in its own try; null for anything untrusted; rebuilds with createHistory/record/undo, redo stack recorded top-down then undone). `solver.js`: one small adapter `browserSave(key)` {read, write, forget}, each localStorage access (incl. reading `window.localStorage`) in its own try/catch, silent; start() reads before the first showProgress (untrusted entry → forget, blank start); the player's `commit` writes after showProgress (strokes, hints, undo, redo, setBoard; `show()` = drag preview writes nothing); the confirmed-reset handler calls `player.forget()` after its commit; a failed write → one removeItem.
+- [Impl] Save format: `{v:1, id, width, height, rows, columns, grid, done:[stroke...], undone:[stroke...]}`, stroke = `{cells:[[r,c],...], state}` + `hint:true` only on hint strokes (CARD-183's `hint` field is the only extra stroke field today). States checked against CELL_STATES (incl. CARD-186 "maybe"). Never the solution.
+- [Impl] Design decision not in the card: setBoard (test seam) can start a history at a NON-blank board, which a blank-board replay cannot reproduce. serializeState returns null for such a history (start board = done[0].before, or board when done is empty) and solver.js removes the key then, so a reload starts blank instead of restoring a wrong board. Tests: TestSolverResumeModule_OnlyABlankStartIsSaved, TestSolverResume_SetBoardStartIsNotSaved. Consequence: tests that set up via setBoard (e.g. progress.py's `_solve`) leave no save.
+- [Impl] Extra tests beyond the named ones (same file): TestSolverResumeModule_KeyAndFingerprint (saveKey / FNV-1a vs Python), TestSolverResumeModule_OnlyABlankStartIsSaved, TestSolverResume_SavesEveryChangeWithoutARequest::test_a_drag_preview_writes_nothing, TestSolverResume_SetBoardStartIsNotSaved. AC-4's solved board is reached by real input only (row drags + clicks), since a setBoard start is not saved.
+- SCOPE+ tests/test_puzzle_solver_hint.py — the storage assertion at ~870 narrowed exactly like progress.py:727 (G-1 exception extended per the card's [Spec] note: CARD-183 G-4 superseded); request/console asserts unchanged. (Plus `_ONLY_THIS_SAVE` added to its import list from progress.py.)
+- [Impl] G-1 exceptions applied: progress.py:727 and maybe.py:900 (two lines: the evaluate and its assert) now assert `_ONLY_THIS_SAVE` (new constant in progress.py: sessionStorage empty and localStorage empty or exactly one key 'nonogram-player:' + payload.id). Request and console asserts untouched. Honest scope: progress.py:727's flow ends on a setBoard-started history, so it ends with NO entry — it pins "nothing else stored", not the key name; the maybe/hint tests end with exactly one entry and were shown failing on a saveKey-prefix mutant ("nonogram-player-").
+- [Impl] test_the_state_module_touches_no_dom unchanged and green; none of document/window/globalThis/fetch/localStorage/"import " appears in solver_state.js outside `//` comments. No new static file; no colour literals.
+- [Mutants] Each applied alone, resume file run, reverted (script: scratchpad card185_mutants.py). All 27 killed: v-check dropped → RejectsAnyUntrustedSave; id-check → Rejects; size-check → Rejects; rows-check → Rejects; columns-check → Rejects; grid-check → Rejects; no-op check (`next === history`) → Rejects; hint !== true accepted → Rejects; row edge `< height`→`<=` → Rejects; col edge `< width`→`<=` → Rejects; `row >= 0` dropped → Rejects; pair length `=== 2`→`>= 1` → Rejects; state check dropped → Rejects (throws); JSON.parse try dropped → Rejects + UntrustedSaveStartsFresh[corrupt-json]; redo stack order (`.reverse()` dropped) → SaveAndRestoreRoundTrip; hint flag not saved → RoundTrip + ReloadRestores + Rejects; blank-start null dropped → OnlyABlankStartIsSaved + SetBoardStartIsNotSaved; FNV offset changed → KeyAndFingerprint + RoundTrip + UntrustedSaveStartsFresh; skip the write in commit → 10 page tests incl. ReloadRestores, SavesEveryChange, ResetClears, SolvedReopens; reset without forget (= write instead of remove) → ResetClearsTheSave; setItem try dropped → BrokenStorage (both); failed write without remove → BrokenStorage::test_quota_exceeded; getItem/`window.localStorage` try dropped → BrokenStorage::test_security_error; removeItem try dropped → test_security_error; write inside show() → test_a_drag_preview_writes_nothing; untrusted entry kept at load → UntrustedSaveStartsFresh (all 3); restored history ignored → ReloadRestores, SavesEveryChange, quota test, ... Survivors: none.
+- [Owner default] (a) Reset clears the saved entry; after reset + reload the board is blank and the reset cannot be undone; before a reload Undo still brings the marks back (and writes the entry again) — implemented as drafted (TestSolverResume_ResetClearsTheSave).
+- [Owner default] (b) A puzzle restored solved shows the banner and plays the existing solved animation (none under reduced motion) through the unchanged showProgress transition — implemented as drafted (banner/lock/announce/.is-solved asserted in TestSolverResume_SolvedPuzzleReopensSolved; the animation itself is the existing CSS on .is-solved, not separately asserted here).
+- [Owner default] (c) The tool selection is not restored (Black pressed after reload) — implemented as drafted (asserted in ReloadRestores).
+- [Owner default] (d) Two tabs on one puzzle: last write wins, no sync — implemented as drafted (no code; not tested).
+- [Owner default] (e) Entries for deleted puzzles are never pruned — implemented as drafted (no code; not tested).
+- [Renders] ~/Documents/nonogram-reviews/CARD-185/: 00-main-today-after-reload.png (main 40b0a17: same marks, reload → blank, counters 0), 01-marks-before-reload.png (15×15: black drag, black click, white drag, two "?", one hint, a black click; Errors 8, Hints 1), 02-marks-after-reload.png (identical board and counters), 03-solved-after-reload.png ("Solved: Lighthouse" banner, board locked, Undo/Redo/Hint disabled, Reset enabled), 04-blank-after-reset-and-reload.png (blank, Errors 0, Hints 0, Undo/Redo/Reset disabled). All five viewed. Script: scratchpad card185_renders.py (live-fixture approach: temp SQLite, loopback, ephemeral port).
+- [Tests] tests/test_puzzle_solver_resume.py: 15 passed. All tests/test_puzzle_solver_*.py: 281 passed, 0 failed (4:28). Full suite not run (orchestrator's).
+- [Scope] src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_progress.py, tests/test_puzzle_solver_resume.py
+- [Scope gate] cycle 1: IN_SCOPE — 1/6 files outside Touches (tests/test_puzzle_solver_hint.py, SCOPE+ recorded, 17% < 25%); no comp spread; guardrails structural: none hit
+- [Build gate] PASSED (full, 898s) — 6513 passed, 9 skipped (baseline 6498 + 15 new)
+- [Review 1/3] Score: 8.5 — crit: 0, imp: 1 (pre-adversarial; F-001 undone-stroke no-op rejection untested, mutant survives)
+- [Review sync] 1 report(s) → meta/review/
+- [Adversarial] F-001 CONFIRMED — skeptic reproduced the surviving mutant (line 644 check disabled for undone strokes: resume file 15 passed); _corrupt no-op kind only inserts into done
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Fix 1] F-001 (cycle 1): AC-2 property test (test_PropertyTest_SolverResume_RejectsAnyUntrustedSave) gains corruption kind `undone-no-op` — a copy of the last done stroke appended as the new top of `undone` (the next redo, which would change no cell); 50 cases, all asserted null, covered by the existing `min(counts.values()) >= 20` per-kind assertion (every usable base save has a non-empty `done`). Docstring names the new kind. No production change. Resume file: 15 passed.
+- [Fix 1 mutants] Backup + cmp-verified restore, no git restore. (1) solver_state.js:644 → `if (next === history && done.includes(stroke)) return null;` (check off for undone strokes): RejectsAnyUntrustedSave FAILS on `undone-no-op` (verdict 'history'). (2) → `if (next === history && !done.includes(stroke)) return null;` (check off for done strokes): RejectsAnyUntrustedSave FAILS on the existing `no-op` kind. Unmutated: 15 passed.
+- [Fix 1 correction] The [Mutants] line's "Survivors: none" was incomplete: the partial mutant (check disabled for undone strokes only) survived cycle 1 — killed now by `undone-no-op`. Its "no-op check (`next === history`) → Rejects" entry stays correct. The deserializeState docstring (solver_state.js:617-621, "an `undone` stroke that cannot be redone as a step") is re-checked and confirmed, now backed by a test. AC-2's card wording lists only "a no-op `done` stroke"; the test now goes further than AC-2 lists (card wording is the architect's, not edited here).
+- [Fix 1] pre-gate: FIXED F-001 named test test_PropertyTest_SolverResume_RejectsAnyUntrustedSave — 1 passed; DECLARATIONS line present
+- [Fix 1] declarations: 1 updated (test docstring), 1 confirmed (deserializeState docstring), 0 none
+- [Build gate] PASSED (full, 900s) — 6513 passed, 9 skipped
+- [Scope gate] cycle 2: IN_SCOPE (fix delta: tests/test_puzzle_solver_resume.py only)
+- [Review 2/3] Score: 9.5 — crit: 0, imp: 0 (confirmation mode; F-001 ✓ resolved, M7 killed; F-002/F-003/F-004/F-005 Minor open; 8f mutation 8/8 killed)
+- [Review sync] 2 report(s) → meta/review/
+- [Review 2/3] Step 8h coverage: 52/52 card rule ids have a verdict line (12 ✓, 40 ⚠ no_eligible_fact, 0 ✗; 41 carried delta-clean)
+- [Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0038/R1, ADR-0038/R2, ADR-0038/R3)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-1 ✓ demonstrated — test_PropertyTest_SolverResume_SaveAndRestoreRoundTrip PASSED (seeded, 320 histories; in-test minimums ≥300 / redo≥50 / hint≥50 / maybe≥50 / solved≥30)
+  AC-2 ✓ demonstrated — test_PropertyTest_SolverResume_RejectsAnyUntrustedSave PASSED (12 kinds × 50 = 600; min per kind ≥20 asserted)
+  AC-3 ✓ demonstrated — TestSolverResume_ReloadRestoresBoardCountsAndHistory::test_reload_restores PASSED
+  AC-4 ✓ demonstrated — TestSolverResume_SolvedPuzzleReopensSolved::test_solved_reopens_solved PASSED
+  AC-5 ✓ demonstrated — TestSolverResume_ResetClearsTheSave::test_reset_clears PASSED
+  AC-6 ✓ demonstrated — TestSolverResume_UntrustedSaveStartsFresh [other-puzzle] [corrupt-json] [version-2] PASSED
+  AC-7 ✓ demonstrated — TestSolverResume_BrokenStorageDegradesSilently::test_quota_exceeded, ::test_security_error PASSED
+  AC-8 ✓ demonstrated — TestSolverResume_SavesEveryChangeWithoutARequest::test_saves_every_change PASSED
+  AC-9 ✓ demonstrated — TestPlayerAssets::test_the_state_module_touches_no_dom PASSED, file unedited
+  AC-10 ✓ demonstrated (observable check only) — 4 named renders present and viewed; owner sign-off is a pre-merge check outside this gate
+  G-1 ✓ demonstrated — all 8 tests/test_puzzle_solver_*.py: 281 passed; only storage asserts changed in progress.py:733, maybe.py ~901, hint.py ~871 (hint.py = SCOPE+ extension, not in G-1's literal text); request/console asserts intact
+  G-2..G-7 ✓ demonstrated — see AC-check agent output (payload shape, WritesNothing, no new static file, no colour literals, no console call in diff)
+- [Docs] forge:readme: no README in src/nonogram/admin/static/; no directory structure/purpose change (new test file only) — skipped (per-directory README convention is an open owner decision in the backlog)
+- [Commit] success commit a7e72d2 (fix F-001, test-only) on top of 7bf1c4a (implementation); diff vs main: 6 files, +908/−7
+- [Open Minor] F-002 owner check: after Reset, the next change re-saves the full pre-reset history (reset is an undoable stroke), so reset → one mark → reload → Undo walks back past the reset; card text "the next recorded change writes the entry again" vs default (a) "Reset clears it" — owner to confirm. F-003 setBoard non-blank start not saved (card/AC-365 wording). F-004 G-1 exception extended to hint.py:870 (record in G-1). F-005 undone-no-op corruption only at top of redo stack (breadth).
+- [Owner decision] 2026-10-06 — F-002: keep Reset undoable (a reload after Reset + a mark can still Undo past the reset); renders accepted.
+- [Merge gate] branched from 40b0a17 (= main at merge); pipeline full suite 6513 passed, 9 skipped (same tree, not re-run). Owner accepted the renders and kept Reset undoable (F-002). Merged ae25661.

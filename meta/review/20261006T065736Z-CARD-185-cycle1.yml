@@ -1,0 +1,157 @@
+version: 1
+generated_at: "2026-10-06T06:57:36Z"
+target: "card/185-player-resume-in-browser (git diff main...HEAD, 7bf1c4a)"
+overall_score: 8.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - src/nonogram/admin/static/solver.js
+    - src/nonogram/admin/static/solver_state.js
+    - tests/test_puzzle_solver_resume.py
+    - tests/test_puzzle_solver_progress.py
+    - tests/test_puzzle_solver_maybe.py
+    - tests/test_puzzle_solver_hint.py
+    - meta/design/components.md
+    - "~/Documents/nonogram-reviews/CARD-185/01..04 PNGs"
+  not_reached:
+    - "rendered result not verified by an automated capture (visual: off); owner renders only"
+  confidence: high
+metrics:
+  diff: { files: 6, added: 902, removed: 7 }
+  max_fan_in: { symbol: "solver_state.js serializeState/deserializeState/saveKey", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/solver.js"]
+  cochange_missing: []
+  churn_12m: { "solver.js": 12, "solver_state.js": 8 }
+  defect_commits_12m: { "solver.js": 5, "solver_state.js": 2 }
+system_contract:
+  rules_checked: 52
+  holds: 12
+  unchecked: 40
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — diff adds no framework/build/npm/vendored JS; only edits two hand-written static files (git diff main...HEAD --stat); TestPlayerAssets::test_every_admin_asset_ships_in_the_wheel PASSED"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark (2 tests) PASSED, TestSolverResume_SavesEveryChangeWithoutARequest::test_saves_every_change PASSED (281 passed over tests/test_puzzle_solver_*.py); grep fetch|XMLHttpRequest|sendBeacon in both scripts: 0 hits"
+    - "ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues incl. test_the_payload_has_exactly_the_documented_shape passed (18 passed targeted run); save compares payload.rows/columns, never re-derives clues"
+    - "ADR-0038/R4 ✓ holds — TestPlayerAssets::test_the_state_module_touches_no_dom PASSED, unedited (test_puzzle_solver_page.py absent from diff); all localStorage access in solver.js browserSave (solver.js:355-385)"
+    - "ADR-0038/R6 ✓ holds — no new surface; save stores gridFingerprint only (solver_state.js:589), RoundTrip asserts saved keys exactly {v,id,width,height,rows,columns,grid,done,undone}"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml not in diff (git diff main...HEAD --stat)"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: diff does not change browser-test skip/fail wiring; all 281 player tests ran (none skipped) locally"
+    - "CON-021 ✓ holds — TestSolverPage_WritesNothing::test_ten_strokes_and_a_solve_write_nothing PASSED; only this-browser localStorage per puzzle under saveKey; no request per mark (see ADR-0038/R2); solution never stored (RoundTrip field-set assert)"
+    - "ADR-0006/R1 ✓ holds — check ref mapped at tests/test_export_pdf.py:622 to test_the_dependency_baseline_is_still_closed + test_the_font_ships_as_package_data_and_not_as_a_dependency: 2 passed; pyproject.toml not in diff"
+    - "ADR-0019/R1 ✓ holds — test_cli.py::test_every_import_in_the_package_points_inward passed (17 passed run); diff touches no src/nonogram/web/"
+    - "ADR-0029/R4 ✓ holds — test_every_import_in_the_package_points_inward passed; no solver/ change"
+    - "CON-015 ✓ holds — tests/test_admin_binding.py TestAdminPanel_BindsLoopbackOnlyByDefault passed (17 passed run); no server code in diff"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit passed (same run); no server code in diff"
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: diff touches only the admin player's two static JS files and player tests; no generation, solver, image, storage-boundary, book, export, web-UI or CLI code"
+root_causes:
+  - id: RC-1
+    title: "deserializeState's undone-stroke step check is required by the card but bounded by no test"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/solver_state.js
+    line: 644
+    title: "Undone-stroke 'cannot be redone as a step' rejection is untested (mutant survives)"
+    description: |
+      Card item 1 lists 'an undone stroke could not be redone as a step' as a null case and the
+      deserializeState docstring (solver_state.js:619-621) claims it. Mutant
+      `if (next === history && done.includes(stroke)) return null;` (check disabled for undone
+      strokes only) leaves tests/test_puzzle_solver_resume.py at 15 passed. AC-2's corpus has a
+      no-op kind only for `done` (_corrupt 'no-op' inserts into save['done']). If the check
+      regressed, a corrupted redo stack would be accepted and the trailing undo loop would pull one
+      extra done stroke into the redo stack: a wrong restored history instead of a blank start.
+    suggestion: |
+      Add an 'undone-no-op' corruption kind to _CORRUPTIONS (e.g. append a copy of the last done
+      stroke as the new top of `undone`, or duplicate the top undone stroke beneath itself),
+      >= 20 cases, asserted null; or narrow the docstring/card if the clause is dropped.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: medium
+    category: feature
+    type: question
+    file: src/nonogram/admin/static/solver.js
+    line: 317
+    title: "After a reset, the next change re-saves the whole pre-reset history"
+    description: |
+      The confirmed reset removes the key (solver.js:548), but the reset is a recorded stroke, so
+      the next commit writes serializeState of the full history including the pre-reset strokes
+      (redo of a reset also writes rather than removes). Reset, one mark, reload: Undo walks back
+      through the reset and the 'cleared' marks return. This matches the card text ('the next
+      recorded change writes the entry again') and in-page behaviour, but owner default (a) is
+      phrased 'Reset clears it'. Owner should confirm.
+    suggestion: |
+      Confirm with the owner. If reset should cut the saved history, have serializeState save from
+      the last reset stroke onward (or start a fresh history on confirmed reset). Otherwise record
+      the behaviour in default (a).
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/solver_state.js
+    line: 580
+    title: "setBoard non-blank start is not saved (deviation from card wording), so record it in the contract"
+    description: |
+      The card says the write after commit 'covers ... setBoard'. serializeState returns null for a
+      history whose start board is not blank, and solver.js removes the key. The card's save format
+      replays from a blank board and cannot represent a non-blank start. setBoard is a test-only seam
+      (window.puzzlePlayer; no src caller), so this is the only consistent reading: a blank setBoard
+      start is saved. Pinned by TestSolverResumeModule_OnlyABlankStartIsSaved and
+      TestSolverResume_SetBoardStartIsNotSaved. Side effect: progress.py:727's narrowed assert now
+      ends with no entry, so it pins 'nothing else stored', not the key name (documented).
+    suggestion: |
+      Have the architect/card owner amend FR-044 AC-365 / card text: 'setBoard to a non-blank board
+      removes the save'.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: tests/test_puzzle_solver_hint.py
+    line: 871
+    title: "G-1 exception extended to a third test outside the guardrail text"
+    description: |
+      G-1 names one exception (progress.py:727). The [Architect] note added maybe.py:900, and the
+      implementer added hint.py:871 (SCOPE+). The edit is unavoidable because the card requires a
+      write on every hint, which the old 'storage empty' assert forbids. It is identical to the
+      sanctioned narrowing. Only the storage line changed: requests == [] and problems == [] are
+      intact, and both narrowed tests fail on a saveKey-prefix mutant (verified).
+    suggestion: |
+      Record the extension in the card's G-1 or the contract assembly so later reviews do not
+      re-flag it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
