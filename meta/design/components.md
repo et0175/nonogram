@@ -298,3 +298,7 @@ Used by: /book/<id>/finalize, the guide-page preview. One worked-example line dr
 ## Batch pages — "Tier asked" (CARD-181)
 
 Used by: /batches (BatchTable column after Source) and /batch/<id> (kv row after Updated). Plain-text tier label, "—" when no tier is recorded (untargeted, image, or pre-014 batches) — never the tier badge, never "Any". The /batches/<id> lede gains ", asked for <Tier>" only when recorded.
+
+## Arrangement — Sort by size (CARD-191)
+
+Used by: /book/<id>/arrange. (CARD-191) "Sort by size" header action on the Arrangement "Puzzles in book" card — `btn btn-sm btn-outline-secondary` POST form in the header (`d-flex justify-content-between align-items-center flex-wrap gap-2`); shown only when the book has puzzles; native confirm naming no undo.
