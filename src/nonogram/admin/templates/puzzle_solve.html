@@ -57,8 +57,9 @@
   role, no aria-live, and neither wrapper has one): the percent changes on
   almost every mark and is read on demand. The three counters share
   .player-counters, which draws them right to left (admin.css): "Hints: N"
-  keeps the toolbar's right end, "Progress: N%" sits left of "Errors: N",
-  and drops under the pair when the row is too narrow for all three.
+  keeps the toolbar's right end, "Progress: N%" sits left of "Errors: N"
+  (1440 px) and drops under the pair at 1280 px. Layout accepted as built
+  by the owner, 2026-10-06.
 #}
 {% extends "base.html" %}
 {% import '_tier.html' as tier %}

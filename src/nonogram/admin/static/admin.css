@@ -478,19 +478,18 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-hints { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .player-hints-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
 /* Progress (CARD-187): .player-counters holds the errors / hints pair and,
-   after it in the DOM, "Progress: N%". It lays them out right to left
-   (row-reverse) and wraps: with room for all three, one line reading
-   Progress, Errors, Hints with Hints at the toolbar's right end; without
-   it (1280 px, beside four tools and four history buttons), the pair stays
-   on the toolbar's row and Progress drops onto a line of its own below it,
-   at the right. The flex basis of 0 lets the box join the row as long as
-   the pair fits (its min-content width) and then take the row's rest.
-   The toolbar's items align to the top of their row (not its centre), so
-   a second counters line makes the row taller below and moves no control;
-   the pair is as tall as a toolbar button (.btn: 0.4rem padding above and
-   below, two borders, a 1.5 line at 1rem), so its counters stay centred on
-   the buttons' row (tests/test_puzzle_solver_maybe.py, one row at 1280).
-   The count is styled like the other counters, wide enough for "100%". */
+   after it in the DOM, "Progress: N%", laid out right to left (row-reverse)
+   with wrapping and flex-basis 0. At 1440 px the three share one line,
+   Progress left of Errors, Hints at the toolbar's right end; at 1280 px
+   (beside four tools and four history buttons) the pair stays on the
+   buttons' row and Progress drops below it, at the toolbar's right end
+   (tests/test_puzzle_solver_percent.py, TestSolverPercent_SitsNextToTheCounters).
+   The toolbar's items align to the top of their row, so at 1280 px the
+   buttons stay at the toolbar's top; the pair is as tall as a toolbar
+   button (.btn: 0.4rem padding above and below, two borders, a 1.5 line at
+   1rem), so its counters are centred on the buttons' row (same test, and
+   tests/test_puzzle_solver_maybe.py's one row at 1280). The count is styled
+   like the error count (font, size, colour, tabular numerals). */
 .player-counters { flex: 1 1 0; display: flex; flex-direction: row-reverse; flex-wrap: wrap; align-items: center; gap: 0 var(--space-4); }
 .player-counters-pair { display: flex; align-items: center; gap: var(--space-4); min-height: calc(2 * 0.4rem + 2 * var(--border-width) + 1.5rem); }
 .player-progress { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
