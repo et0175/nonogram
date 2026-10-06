@@ -535,3 +535,115 @@ export function hintStroke(row, col, state) {
 export function hintCount(history) {
   return history.done.filter((entry) => entry.stroke.hint === true).length;
 }
+
+// ---------------------------------------------------------------------------
+// Saving a game in this browser (CARD-185; FR-044 AC-360..AC-365, EC-046/047)
+//
+// Pure: these functions build and read the TEXT of a save. Reading and
+// writing it in the browser's storage is solver.js's job (ADR-0038/R4).
+// A save is the JSON of
+//   { v: SAVE_VERSION, id, width, height, rows, columns,
+//     grid:   gridFingerprint of the payload's solution (never the solution),
+//     done:   the undo stack's strokes, oldest first,
+//     undone: the redo stack, in its stack order (next to redo last) }
+// with each stroke as { cells: [[row, col], ...], state } plus hint: true
+// only on a hint's stroke. The board, the error count, the solved state and
+// the hint count all follow from those strokes replayed from a blank board.
+
+export const SAVE_VERSION = 1;
+
+// The storage key of puzzle `puzzleId`'s save. The version is in the value,
+// not the key, so a later format replaces the same entry.
+export function saveKey(puzzleId) {
+  return "nonogram-player:" + puzzleId;
+}
+
+// 32-bit FNV-1a of the solution read row-major as "1" (filled) / "0", as
+// eight lower-case hex digits.
+export function gridFingerprint(solution) {
+  let hash = 0x811c9dc5;
+  for (const row of solution) {
+    for (const filled of row) {
+      hash = Math.imul(hash ^ (filled ? 0x31 : 0x30), 0x01000193) >>> 0;
+    }
+  }
+  return hash.toString(16).padStart(8, "0");
+}
+
+function savedStroke(stroke) {
+  const saved = { cells: stroke.cells.map(([row, col]) => [row, col]), state: stroke.state };
+  if (stroke.hint === true) saved.hint = true;
+  return saved;
+}
+
+// The save of `history` for `payload`, as JSON text — or null when the
+// history does not start from a blank board (only solver.js setBoard makes
+// such a history), because a save is replayed from a blank board.
+export function serializeState(history, payload) {
+  const first = history.done.length > 0 ? history.done[0].before : history.board;
+  if (!first.cells.every((state) => state === UNKNOWN)) return null;
+  return JSON.stringify({
+    v: SAVE_VERSION,
+    id: payload.id,
+    width: payload.width,
+    height: payload.height,
+    rows: payload.rows,
+    columns: payload.columns,
+    grid: gridFingerprint(payload.solution),
+    done: history.done.map((entry) => savedStroke(entry.stroke)),
+    undone: history.undone.map(savedStroke),
+  });
+}
+
+function isRecord(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+// The stroke a saved stroke stands for, or null when it is malformed: cells
+// not an array of [int, int] on a width x height board, a state not in
+// CELL_STATES, or a hint that is present and not true.
+function strokeOf(saved, width, height) {
+  if (!isRecord(saved) || !Array.isArray(saved.cells) || !CELL_STATES.includes(saved.state)) return null;
+  const onBoard = (cell) => Array.isArray(cell) && cell.length === 2
+    && Number.isInteger(cell[0]) && cell[0] >= 0 && cell[0] < height
+    && Number.isInteger(cell[1]) && cell[1] >= 0 && cell[1] < width;
+  if (!saved.cells.every(onBoard)) return null;
+  if (Object.hasOwn(saved, "hint")) {
+    return saved.hint === true ? Object.freeze({ ...makeStroke(saved.cells, saved.state), hint: true }) : null;
+  }
+  return makeStroke(saved.cells, saved.state);
+}
+
+// The history a save describes, rebuilt from a blank board with record and
+// undo — or null when `text` cannot be trusted for `payload`: not JSON, not
+// an object, another version, another id / size / clues / grid fingerprint,
+// a malformed stroke, a `done` stroke that changes no cell, or an `undone`
+// stroke that cannot be redone as a step. Never throws.
+export function deserializeState(text, payload) {
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!isRecord(data) || data.v !== SAVE_VERSION || data.id !== payload.id
+      || data.width !== payload.width || data.height !== payload.height
+      || JSON.stringify(data.rows) !== JSON.stringify(payload.rows)
+      || JSON.stringify(data.columns) !== JSON.stringify(payload.columns)
+      || data.grid !== gridFingerprint(payload.solution)
+      || !Array.isArray(data.done) || !Array.isArray(data.undone)) {
+    return null;
+  }
+  const done = data.done.map((saved) => strokeOf(saved, payload.width, payload.height));
+  const undone = data.undone.map((saved) => strokeOf(saved, payload.width, payload.height));
+  if (done.includes(null) || undone.includes(null)) return null;
+  let history = createHistory(createBoard(payload.width, payload.height));
+  // The redo stack is recorded from its top down, then undone as many times.
+  for (const stroke of [...done, ...undone.slice().reverse()]) {
+    const next = record(history, stroke);
+    if (next === history) return null;
+    history = next;
+  }
+  for (let k = 0; k < undone.length; k += 1) history = undo(history);
+  return history;
+}

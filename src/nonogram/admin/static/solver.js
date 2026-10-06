@@ -128,6 +128,8 @@ import {
 } from "./solver_state.js";
 // Clue circles (CARD-188): see paintCircles below.
 import { circledClues } from "./solver_state.js";
+// The save in this browser (CARD-185): see SAVE below.
+import { deserializeState, saveKey, serializeState } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -257,8 +259,15 @@ function start() {
   }
 
   const cellElements = drawBoard(stage, payload);
-  let board = createBoard(payload.width, payload.height);
-  let history = createHistory(board);
+  const save = browserSave(saveKey(payload.id));
+  let history = createHistory(createBoard(payload.width, payload.height));
+  const saved = save.read();
+  if (saved !== null) {
+    const restored = deserializeState(saved, payload);
+    if (restored === null) save.forget();
+    else history = restored;
+  }
+  let board = history.board;
   paint(cellElements, board);
 
   const table = stage.querySelector(".player-board");
@@ -305,7 +314,9 @@ function start() {
       hinted = hint ? cellElements[hint.row * payload.width + hint.col] : null;
       hinted?.classList.add("is-hinted");
       showProgress(hint);
+      save.write(serializeState(history, payload));
     },
+    forget: () => save.forget(),
   });
   showProgress(null);
   marking.refresh();
@@ -326,6 +337,50 @@ function start() {
       marking.commit(createHistory(copyBoard(next)));
     },
   });
+}
+
+// SAVE (CARD-185; FR-044 AC-360..AC-365, CON-021). This browser keeps one
+// localStorage entry per puzzle, under solver_state.js saveKey(payload.id),
+// holding serializeState of the recorded history; nothing is sent anywhere.
+// At load, before the first showProgress, an entry that deserializeState
+// trusts becomes the starting history (board, counts, undo and redo, and a
+// solved board's banner and lock); one it does not trust is removed and the
+// board starts blank. Every commit (stroke, hint, undo, redo, setBoard)
+// writes the entry, a drag's preview does not, and a confirmed reset removes
+// it (its in-page undo writes it again). A history serializeState cannot
+// save (setBoard's non-blank start) removes it too. Each access to storage,
+// window.localStorage itself included, is caught and silent: without
+// storage the player works as before, and a failed write removes the entry
+// so a reload never shows an older board than the one on screen.
+function browserSave(key) {
+  function forget() {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // no storage: nothing to remove
+    }
+  }
+  return {
+    forget,
+    read() {
+      try {
+        return window.localStorage.getItem(key);
+      } catch {
+        return null;
+      }
+    },
+    write(text) {
+      if (text === null) {
+        forget();
+        return;
+      }
+      try {
+        window.localStorage.setItem(key, text);
+      } catch {
+        forget();
+      }
+    },
+  };
 }
 
 // CLUE CIRCLES (CARD-188). showProgress, run on every commit (stroke, undo,
@@ -377,7 +432,8 @@ function isAt(position, [row, col]) {
 // — solved, see PROGRESS), gives the cell a hint would reveal (nextHint — a
 // hintCell value or null), paints a board without recording it (show — a
 // drag's preview) and records a new history (commit, with the hint it
-// recorded, if any). Returns { refresh,
+// recorded, if any), and removes this puzzle's save (forget — after a
+// confirmed reset, see SAVE). Returns { refresh,
 // commit }: refresh re-syncs the controls after the lock changed elsewhere;
 // commit records a history from elsewhere (setBoard) exactly as an input does.
 function wireMarking(table, player) {
@@ -489,6 +545,7 @@ function wireMarking(table, player) {
   // commit closes the confirmation (and returns focus to Reset).
   confirm.querySelector('[data-player-confirm="accept"]').addEventListener("click", () => {
     commit(record(player.getHistory(), resetStroke(player.getHistory().board)));
+    player.forget(); // a confirmed reset clears the save (see SAVE)
   });
   keep.addEventListener("click", closeConfirm);
   confirm.addEventListener("keydown", (event) => {

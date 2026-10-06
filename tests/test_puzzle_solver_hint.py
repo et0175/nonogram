@@ -57,6 +57,7 @@ from tests.test_puzzle_solver_progress import (
     NAME,
     _error_count,
     _is_solved_shown,
+    _ONLY_THIS_SAVE,
     _near_solved,
     _open_named,
     _set,
@@ -867,7 +868,7 @@ class TestSolverHint_KeyboardAndNoRequest:
         assert _hints_shown(browser_page) == 3
         assert len(_marked(_states(browser_page))) == 3
         assert requests == []
-        assert browser_page.evaluate("localStorage.length + sessionStorage.length") == 0
+        assert browser_page.evaluate(_ONLY_THIS_SAVE)
         assert problems == []
 
 

@@ -48,6 +48,7 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used 
 )
 from tests.test_puzzle_solver_phone import BIG
 from tests.test_puzzle_solver_progress import (
+    _ONLY_THIS_SAVE,
     LAST,
     NAME,
     _error_count,
@@ -897,9 +898,9 @@ class TestSolverMaybe_NoRequestPerMark:
         marks = _marked(_states(browser_page))
         assert len(marks) >= 10 and set(marks.values()) == {M}
 
-        stored = browser_page.evaluate("[localStorage.length, sessionStorage.length]")
+        stored = browser_page.evaluate(_ONLY_THIS_SAVE)
         assert requests == []
-        assert stored == [0, 0]
+        assert stored
         assert problems == []
 
 
