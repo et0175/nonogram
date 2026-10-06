@@ -7,6 +7,16 @@
 {% block section %}Books · {{ book.metadata.title }} · step {{ stepper.book_step_number(3) }}{% endblock %}
 
 {% block content %}
+{#- CARD-192: one figure of the plan line. The gap is said in words, and an
+    over-plan figure carries data-over, as the selection step's figure_cell
+    does; a plan-less book has no planned figure, so no "/" is written. A
+    tier says "(on plan)" when it is exact; the total says nothing then, so it
+    reads "Total 50 / 50" as the card gives it. -#}
+{% macro band_cell(figure, say_on_plan=true) -%}
+{%- set gap = (figure.planned - figure.selected) if figure.planned is not none else none -%}
+<span class="stat-cell"{% if figure.over %} data-over="true"{% endif %}>{{ figure.label|capitalize }} {{ figure.selected }}{% if figure.planned is not none %} / {{ figure.planned }}{% if gap > 0 %} ({{ gap }} left){% elif gap < 0 %} ({{ -gap }} over){% elif say_on_plan %} (on plan){% endif %}{% endif %}</span>
+{%- endmacro %}
+
 <div class="page-head">
     <div>
         <h1>Arrangement</h1>
@@ -28,7 +38,7 @@
                 </h2>
                 {# CARD-191: sorts every level of the stored book, smallest
                    first. There is no undo, so the confirm says so. #}
-                {% if puzzles %}
+                {% if puzzles and not band %}
                 <form method="POST" class="mb-0" onsubmit="return confirm('Sort every level by size? Your own order inside each level is replaced. There is no undo.');">
                     <input type="hidden" name="action" value="sort_by_size">
                     <button type="submit" class="btn btn-sm btn-outline-secondary" title="Sort each level by longest side, then shortest side">Sort by size</button>
@@ -37,6 +47,34 @@
             </div>
             <div class="card-body">
                 {% if puzzles %}
+                {#- CARD-192: the size filter. Plain GET links, so no tablist
+                    roles: the current band is the one with aria-current. The
+                    "All sizes" link is the page with no parameter at all. -#}
+                <nav aria-label="Filter by longest side" class="mb-3">
+                    <div class="tabs">
+                        <a class="tab{% if not band %} is-current{% endif %}" href="{{ url_for('arrange_puzzles_in_book', book_id=book.book_id) }}"{% if not band %} aria-current="page"{% endif %}>All sizes</a>
+                        {% for plan_band in plan_bands %}
+                        <a class="tab{% if band == plan_band %} is-current{% endif %}" href="{{ url_for('arrange_puzzles_in_book', book_id=book.book_id, bucket=plan_band.label) }}"{% if band == plan_band %} aria-current="page"{% endif %}>{{ plan_band.label }}</a>
+                        {% endfor %}
+                    </div>
+                </nav>
+                {% if band %}
+                {#- CARD-192: the plan line for the band in force. The figures
+                    are the selection step's own (_plan_progress, kept_ids
+                    empty); a plan-less book shows the counts and says where
+                    the plan is set. -#}
+                <p class="stat-line" id="bandPlan" data-band="{{ band.label }}">
+                    <span class="stat-caption">{{ band.label }}:</span>
+                    {% for figure in band_plan.tiers %}{{ band_cell(figure) }} <span class="stat-sep" aria-hidden="true">·</span> {% endfor %}{{ band_cell(band_plan.total, false) }}
+                </p>
+                {% if not band_plan.present %}
+                <p class="text-muted">This book has no distribution plan yet, so only the member counts are shown. <a href="{{ url_for('setup_print', book_id=book.book_id) }}">Set the plan in Print setup</a> (step {{ stepper.book_step_number(1) }}) to see planned vs selected.</p>
+                {% endif %}
+                {#- CARD-192: moves, the position box and Sort act on the
+                    whole level, so they are not offered while a band hides
+                    some of its rows. Remove and title editing stay. -#}
+                <p class="text-muted" id="reorder-off">Reordering is off while one size is shown. Show all sizes to move puzzles or sort them.</p>
+                {% endif %}
                 {# CARD-140: the page plan could not be built for this book, so
                    there are no breaks to draw — and a list with no labels is
                    exactly what a book with no page structure would look like,
@@ -75,7 +113,11 @@
                            literal lives in a template. #}
                         {{ tier.badge(level.label) }}
                         <span>{{ level.label }} level</span>
+                        {% if band %}
+                        <small class="fw-normal">({{ level.shown }} shown of {{ level.count }})</small>
+                        {% else %}
                         <small class="fw-normal">({{ level.count }} puzzle{{ '' if level.count == 1 else 's' }})</small>
+                        {% endif %}
                     </h3>
                 <div class="puzzle-list">
                     {# CARD-128/INV-013: a level opens behind a divider page of
@@ -119,6 +161,7 @@
                                submits on change, as the title field beside it
                                does, and the server is the only gate: nothing
                                here rounds a position into range. #}
+                            {% if not band %}
                             <form method="POST" class="d-flex align-items-center gap-2 mb-0 flex-wrap">
                                 <input type="hidden" name="action" value="set_position">
                                 <input type="hidden" name="puzzle_id" value="{{ puzzle.id }}">
@@ -134,6 +177,7 @@
                                        {% if position_error and position_error_puzzle == puzzle.id %}aria-invalid="true" aria-describedby="position-error"{% endif %}>
                                 <span class="text-muted">of {{ level.count }}</span>
                             </form>
+                            {% endif %}
                         </div>
 
                         <div class="item-title">
@@ -152,6 +196,7 @@
                         <div class="item-actions">
                             {# A move stays inside its level, so the controls
                                stop at the level's own first and last row. #}
+                            {% if not band %}{# CARD-192: no moves while a band is shown #}
                             {% if puzzle.can_move_up %}
                             <form method="POST">
                                 <input type="hidden" name="action" value="move_up">
@@ -171,6 +216,7 @@
                             {% else %}
                             <button class="btn btn-sm btn-outline-secondary btn-icon" disabled aria-label="Last in the {{ level.label }} level" title="Last in the {{ level.label }} level">{{ icons.icon('arrow-down') }}</button>
                             {% endif %}
+                            {% endif %}
 
                             <form method="POST" onsubmit="return confirm('Remove this puzzle from the book?');">
                                 <input type="hidden" name="action" value="delete">
@@ -181,6 +227,9 @@
                     </div>
 
                     {% endfor %}
+                    {% if band and not level.puzzles %}
+                    <p class="text-muted mb-0">No puzzles of this size in this level.</p>
+                    {% endif %}
                 </div>{# /puzzle-list #}
                 </div>{# /level-group #}
                 {% endfor %}

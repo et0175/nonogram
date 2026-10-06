@@ -4092,6 +4092,10 @@ def create_app(debug=None):
             flash("Book not found", "error")
             return redirect(url_for("books_list"))
 
+        # CARD-192: one plan band shown at a time, named by ``?bucket=<label>``.
+        # No parameter, or one that names no band, shows every size as before.
+        shown_band = _TABS_BY_LABEL.get((request.args.get("bucket") or "").strip())
+
         # CARD-143: a typed position the level does not have is refused where it
         # was typed, not only in the flash stack. Set by the POST below and read
         # by the render at the bottom of this same request — the route
@@ -4198,9 +4202,14 @@ def create_app(debug=None):
                         book_id, puzzle_id, confirmed=_is_confirmed()
                     )
                     if removal.needs_confirmation:
+                        # CARD-192: the confirm page carries the band in force.
                         return _ask_to_confirm(
                             book,
-                            url_for("arrange_puzzles_in_book", book_id=book_id),
+                            url_for(
+                                "arrange_puzzles_in_book",
+                                book_id=book_id,
+                                **({"bucket": shown_band.label} if shown_band is not None else {}),
+                            ),
                             [("action", "delete"), ("puzzle_id", puzzle_id)],
                             f"Remove puzzle {puzzle_id} from this book.",
                         )
@@ -4327,6 +4336,25 @@ def create_app(debug=None):
         for group in level_groups:
             group["divider_page"] = divider_pages.get(group["tier"])
 
+        # CARD-192: a chosen band keeps only its own rows, level by level. The
+        # page plan above was worked out over the whole book, so every page
+        # label and divider line keeps its printed number. The plan line reads
+        # the plan's own figures for that band, re-read here because a POST
+        # above may have changed what the book holds.
+        band_plan = None
+        if shown_band is not None:
+            for group in level_groups:
+                group["puzzles"] = [p for p in group["puzzles"] if _is_in_tab(p, shown_band)]
+                group["shown"] = len(group["puzzles"])
+            current_book = book_mgr.get_book(book_id)
+            progress = _plan_progress(current_book, [])
+            entry = next(t for t in progress["tab_progress"] if t["bucket"] == shown_band)
+            band_plan = {
+                "present": progress["plan_present"],
+                "tiers": entry["tiers"],
+                "total": entry["total"],
+            }
+
         # Calculate estimated page count
         # Rough estimate: assume each puzzle is ~1-2 pages based on height
         # Later refinement in Step 4 based on actual trim height
@@ -4343,6 +4371,11 @@ def create_app(debug=None):
             "position_error": position_error,
             "position_error_puzzle": position_error_puzzle,
             "position_error_value": position_error_value,
+            # CARD-192: the band in force (or None), the bands the filter
+            # offers, and the band's plan figures (or None).
+            "band": shown_band,
+            "plan_bands": PLAN_BUCKETS,
+            "band_plan": band_plan,
         }
 
         return render_template("book_arrange_puzzles.html", **context)
