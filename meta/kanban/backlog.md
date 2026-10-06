@@ -139,6 +139,10 @@ card names its card._
 - [ ] CARD-187 owner check pending: Progress counter renders in ~/Documents/nonogram-reviews/CARD-187/ (merged on evidence by owner choice)   @feature
 - [ ] CARD-187 C2-1/C2-2 (minor): template comment rationale covers focus only, not WCAG 1.3.2; admin.css comment cites a test that doesn't assert it   @tech-debt
 
+- [ ] CARD-192 owner check pending: band filter and left/over renders in ~/Documents/nonogram-reviews/CARD-192/ (merged on evidence by owner choice)   @feature
+- [ ] CARD-192 minor: reorder-off note reads 'Show all sizes to move puzzles or sort them.' (card quotes it without 'or sort them'); card says 'Print setup (step 1)' but stepper shows step 2   @tech-debt
+- [ ] Commit trailer on 04791f4 (CARD-192 implementation) reads Claude Sonnet 5, not the project's Opus 5.5 — history not rewritten; note only   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

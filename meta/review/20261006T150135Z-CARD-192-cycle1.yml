@@ -1,0 +1,101 @@
+version: 1
+generated_at: "2026-10-06T15:01:35Z"
+target: "card/192-arrange-size-filter (main...HEAD, worktree CARD-192)"
+overall_score: 9.2
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/app.py (imports ~L80-90; helpers L3280-3520; route L4087-4380)
+    - src/nonogram/admin/templates/book_arrange_puzzles.html (full file)
+    - tests/test_book_arrange_size_filter.py (full file)
+    - src/nonogram/admin/book_plan.py (LongestSideBucket, bucket_of, BUCKETS)
+    - src/nonogram/admin/static/admin.css (.tabs/.tab/.stat-* rules)
+    - src/nonogram/admin/templates/_stepper.html (book_step_number macro)
+    - ~/Documents/nonogram-reviews/CARD-192/arrange-16-20-left-over.png
+    - ~/Documents/nonogram-reviews/CARD-192/arrange-planless-filtered.png
+  not_reached:
+    - src/nonogram/admin/book_manager.py (move_puzzle_up/down, remove_puzzle_reporting_confirmation internals — exercised only through the HTTP test evidence, not read directly)
+    - src/nonogram/admin/templates/book_select_puzzles.html (AC-3's "same numbers" claim verified via live HTTP comparison in the test, not by reading the selection template's figure_cell macro source)
+  confidence: high
+
+metrics:
+  diff:
+    files: 3
+    added: 642
+    removed: 2
+  max_fan_in:
+    symbol: "_is_in_tab / _plan_progress / _TABS_BY_LABEL (nested closures in create_app)"
+    callers: 10
+  tests_cover_change: true
+  hotspots:
+    - src/nonogram/admin/app.py
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — app.py is the project's single high-churn admin route file (167 commits/4mo across all admin cards); co-change signal is too diffuse to name a specific missing peer for this card's narrow, fully-scoped change (admin.css confirmed not needed by direct inspection of existing .tabs/.tab/.stat-* rules)"
+
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds only stdlib (random, re, uuid), pytest, and internal nonogram.* imports; no new runtime dependency (verified: grep of all added `+import`/`+from` lines in the diff)"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: rule's literal scope is src/nonogram/web/; this diff touches src/nonogram/admin/ (COMP-009), a separate component. By the same spirit, the route adds no new domain validation — it reuses the pre-existing `_TABS_BY_LABEL` lookup (app.py:3285, already used by 3 other call sites) rather than inventing new logic"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no generation/sourcing code touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no solver/repair code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry-counter code touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair logic touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair logic touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair-policy code touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no technique classification touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung-attribution code touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage-boundary solver proof touched (add_puzzle not called by this diff)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ✓ holds — the new filter reads membership only via `book_mgr.get_book(book_id).puzzle_ids` / `book_mgr.puzzle_levels(book_id)` (app.py:4349, 4242, unchanged call sites) and `_selected_cells` (unchanged, app.py:3436-3442 explicitly reads `book.puzzle_ids`, never the puzzles.book_id mirror); the diff writes no puzzle field"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: this diff makes no book-status transition; the gate itself is untouched code (not exercised by the new GET-only filter path)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout/PageSpec code untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: `_printed_places` call is unchanged; the diff only filters its already-computed output for display"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book-page print code touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no rule-stroke code touched"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: puzzle player untouched"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser-test dependency changed"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser-test infra touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver uniqueness untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: this diff touches the admin panel, not the generation web UI server; bind code untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: CORS/cross-origin rule for the generation web UI server, untouched"
+    - "CON-011 ✓ holds — the diff defines no new size-range check; the one bound (`bucket_of`, `MIN_SIZE`/`MAX_SIZE`) is reused unchanged via `_is_in_tab` (app.py:3507-3516, unmodified) — confirmed no new MIN_SIZE/MAX_SIZE literal added anywhere in the diff"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: image aspect-ratio guard untouched"
+    - "CON-015 ✓ holds — by inspection (not re-run): `LOOPBACK_HOST = \"127.0.0.1\"` (app.py:372) and the app's bind call are outside the diff's touched line ranges (4087-4380 and imports); `git diff --stat` confirms no edit near them"
+    - "CON-016 ✓ holds — by inspection: `ADMIN_ALLOWED_HOST`/`ALLOWED_HOSTS` gating (app.py:385,448,535) is untouched by this diff"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: this card is the Arrangement step, not the puzzle player"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: plan split validation untouched; `_readable_plan`/`DistributionPlan` read-only in this diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: floor-override invariant untouched; no membership-adding code touched"
+    - "INV-007 ✓ holds — the only membership-affecting POST branch touched (`delete`'s confirm URL) is unchanged in substance; `remove_puzzle_reporting_confirmation` and the ready-gate are untouched code (diff only adds a `bucket` query param to the confirm redirect URL)"
+    - "INV-008 ✓ holds — same reasoning as INV-007; test_removing_asks_with_a_confirm_action_that_carries_the_band confirms a published book's removal still asks for confirmation first"
+    - "INV-009 ✓ holds — `move_puzzle_up`/`move_puzzle_down`/`move_puzzle_within_level` POST branches are byte-identical in the diff; the new behaviour only hides the controls in the template when a band is chosen (render-only), confirmed by reading the unchanged POST handler code at app.py:4113-4169"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: pairing logic in `_printed_places` is called unchanged and completes before the band filter trims the *displayed* rows (app.py:4315 vs 4345), so pairing itself can't be affected; not itself exercised by new code"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer-key logic untouched"
+    - "INV-012 ✓ holds — same reasoning as INV-007/008: no new membership-mutation path, only a confirm-URL query-string change"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: PDF interior/parity logic untouched"
+
+root_causes: []
+
+findings: []

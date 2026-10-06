@@ -1,6 +1,6 @@
 # CARD-192: The Arrangement page can show one longest-side size, with what is left or over against the plan
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.75d
@@ -15,11 +15,11 @@
 **Wave:** 35
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/templates/book_arrange_puzzles.html, src/nonogram/admin/static/admin.css, tests/test_book_arrange_size_filter.py (new)
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.2 (cycle 1/3)
+**Started:** 2026-10-06T13:04:58Z
+**Closed:** 2026-10-06T17:07:38Z
+**Actual:** 0.5d
+**Merge commit:** da93164
 **Blocked by:** —
 
 ## What to implement
@@ -199,3 +199,103 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-192` (52 rules). A project
 - [Conditional Touches] `src/nonogram/admin/static/admin.css` only if the reused `.tabs`/`.tab` classes do not fit plain links.
 - [AC cross-check] Re-read AC-1..AC-7 against items 1–7: filter by `_is_in_tab` (AC-1), plan line from `_plan_progress` with `kept_ids=[]` (AC-2, AC-3), plan-less (AC-4), moves off (AC-5), persistence incl. confirm URL (AC-6), unknown → all sizes, no plan line (AC-7). They agree; no changes needed.
 - [Owner decision] 2026-10-06 — filter and left/over line work by plan band (≤15, 16–20, 21–25, 26–30); up/down moves, the position box and the Sort button are hidden while a band is shown, with a one-line note.
+
+### Implementation (wave 35, branch card/192-arrange-size-filter)
+
+- Route `arrange_puzzles_in_book` reads `?bucket=<label>` from `request.args` through the existing `_TABS_BY_LABEL`. No or unknown bucket = the page as before. A chosen band keeps rows by the existing `_is_in_tab` (after the page plan is computed over the whole book, so page labels and divider lines keep their printed numbers). Plan figures come from `_plan_progress(current_book, [])["tab_progress"]`, entry whose bucket is the band; `current_book` is re-read because a POST above may have changed the book. No new counting, no new thresholds, no move logic, no POST branch changed except the Remove confirm URL (carries `bucket`).
+- Template: `.tabs`/`.tab` plain GET links in a `<nav aria-label="Filter by longest side">` (no role=tablist); plan line `p.stat-line#bandPlan` with the existing `.stat-cell`/`.stat-caption`/`.stat-sep` classes; over = word + `data-over="true"`; moves, position box and header Sort button hidden while a band is shown; Remove and title stay. No CSS change to admin.css.
+- No new endpoint (server-rendered page; no API/contract work). No I/O added beyond the route's existing `_plan_progress` read.
+- Scope: Touches only app.py, book_arrange_puzzles.html, tests/test_book_arrange_size_filter.py (new). admin.css not needed. No SCOPE+ entries.
+
+[Owner default] plan bands (<=15, 16–20, 21–25, 26–30) — implemented as drafted
+[Owner default] moves, position box and Sort hidden while a band is shown — implemented as drafted
+
+Deviations to review (small, flagged here rather than silently chosen):
+- The card says "Print setup (step 1)". The stepper numbers Print setup as step 2 (General info is step 1), so the sentence uses `stepper.book_step_number(1)`, which prints 2. The number shown is the true step number.
+- Total figure: a tier says "(on plan)" when exact; the total says nothing when exact, so the card example `Total 50 / 50` reads literally, and it carries "(N left)"/"(N over)" when not exact.
+- Plan-less book: counts only, sentence "This book has no distribution plan yet, so only the member counts are shown. Set the plan in Print setup (step 2) to see planned vs selected."
+
+[Mutant] filter inverted (`not _is_in_tab`) → killed by ShowsOnlyTheChosenBucket::test_the_chosen_band_lists_only_its_rows, PropertyBandIsExactlyItsMembers
+[Mutant] out-of-range row shown under every band (`except SizeOutOfRange: return True`) → killed by ShowsOnlyTheChosenBucket::test_a_size_outside_the_supported_range_is_under_no_band, PropertyBandIsExactlyItsMembers
+[Mutant] unknown bucket falls back to first band → killed by UnknownBucketMeansAllSizes::test_a_bucket_that_names_no_band_lists_everything_and_shows_no_plan_line, test_an_empty_bucket_is_the_same_as_none, ShowsOnlyTheChosenBucket::test_with_no_bucket_all_three_are_listed
+[Mutant] ungraded rows dropped under a band → killed by ShowsOnlyTheChosenBucket::test_an_ungraded_row_in_the_band_is_shown_under_the_ungraded_heading
+[Mutant] plan line reads the first band's figures → killed by PlanLineShowsLeftAndOver::test_the_line_reads_left_over_and_on_plan_per_level, SameNumbersAsSelectionTab
+[Mutant] plan line from whole-book progress → killed by PlanLineShowsLeftAndOver::test_the_line_reads_left_over_and_on_plan_per_level, SameNumbersAsSelectionTab, PlanLessBookShowsCountsOnly
+[Mutant] plan line reads a stale (pre-POST) book → killed by FilterSurvivesTitleAndRemove::test_confirming_a_remove_comes_back_still_filtered (total 2 / 3 after the removal)
+[Mutant] left gap also at zero (`gap >= 0`) → killed by PlanLineShowsLeftAndOver::test_the_line_reads_left_over_and_on_plan_per_level, test_only_the_over_figure_carries_the_over_marker
+[Mutant] over gap also at zero (`gap <= 0`) → killed by PlanLineShowsLeftAndOver::test_the_line_reads_left_over_and_on_plan_per_level, test_only_the_over_figure_carries_the_over_marker
+[Mutant] over marker on every planned figure → killed by PlanLineShowsLeftAndOver::test_only_the_over_figure_carries_the_over_marker
+[Mutant] total says "(on plan)" too → killed by PlanLineShowsLeftAndOver::test_the_line_reads_left_over_and_on_plan_per_level, test_only_the_over_figure_carries_the_over_marker
+[Mutant] moves not hidden while filtered → killed by MovesOffWhileFiltered::test_the_filtered_page_has_no_reorder_control_and_says_so
+[Mutant] position box not hidden while filtered → killed by MovesOffWhileFiltered::test_the_filtered_page_has_no_reorder_control_and_says_so
+[Mutant] Sort button not hidden while filtered → killed by MovesOffWhileFiltered::test_the_filtered_page_has_no_reorder_control_and_says_so
+[Mutant] Remove button hidden while filtered → killed by MovesOffWhileFiltered::test_the_filtered_page_has_no_reorder_control_and_says_so
+[Mutant] reorder-off line text removed → killed by MovesOffWhileFiltered::test_the_filtered_page_has_no_reorder_control_and_says_so
+[Mutant] confirm URL drops the band → killed by FilterSurvivesTitleAndRemove::test_removing_asks_with_a_confirm_action_that_carries_the_band
+[Mutant] aria-current dropped from the band link → killed by FilterSurvivesTitleAndRemove::test_saving_a_title_comes_back_still_filtered, test_confirming_a_remove_comes_back_still_filtered
+[Mutant] "All sizes" marked is-current while a band is shown → killed by ShowsOnlyTheChosenBucket::test_the_chosen_band_lists_only_its_rows
+[Mutant] level heading shows the level count, not shown → killed by ShowsOnlyTheChosenBucket::test_each_level_says_how_many_of_it_is_shown
+[Mutant] empty-level sentence on every level in a band → killed by ShowsOnlyTheChosenBucket::test_each_level_says_how_many_of_it_is_shown
+[Mutant] plan-less sentence removed → killed by PlanLessBookShowsCountsOnly::test_counts_with_no_planned_figure_and_a_pointer_to_print_setup (first run this survived: the stepper also names Print setup; the test was tightened to the sentence)
+[Mutant] plan-less figure prints a planned slot → killed by PlanLessBookShowsCountsOnly::test_counts_with_no_planned_figure_and_a_pointer_to_print_setup
+Result: 23 of 23 mutants killed in the final run. Mutant runner: scratchpad card192_mutants.py (restores the files; hashes verified after each run).
+
+Edge bounds: the out-of-range claim is bounded by the exception-branch mutant (killed) and by the property corpus, which includes MIN_SIZE-1 and MAX_SIZE+1 rows (both 9 and 31 are generated). The 9-sided row is covered only through the seeded corpus, not a dedicated named test.
+
+[Flake] none observed. The known flake (test_book_ready_gate.py::…test_save_plan_returns_the_book_to_draft[db-ready_for_pdf]) was not run.
+
+Test evidence (literal pytest output):
+- tests/test_book_arrange_size_filter.py: `38 passed in 4.08s` (-v per class: ShowsOnlyTheChosenBucket 12, PlanLineShowsLeftAndOver 6, SameNumbersAsSelectionTab 2, PlanLessBookShowsCountsOnly 2, MovesOffWhileFiltered 4, FilterSurvivesTitleAndRemove 6, UnknownBucketMeansAllSizes 4, PropertyBandIsExactlyItsMembers 2; each class x memory and db)
+- Guardrails with the new file: `268 passed in 12.88s` (test_book_arrange_size_filter, test_book_level_order, test_book_arrange_position, test_book_arrange_page_breaks, test_book_select_tabs, test_books_list_plan_stats, test_book_arrange_sort_by_size)
+
+[Render] ~/Documents/nonogram-reviews/CARD-192/arrange-all.png (unfiltered, 1280px)
+[Render] ~/Documents/nonogram-reviews/CARD-192/arrange-16-20-left-over.png (16-20 band, "Easy 3 / 4 (1 left)", "Medium 5 / 4 (1 over)", reorder-off line; 1280px)
+[Render] ~/Documents/nonogram-reviews/CARD-192/arrange-planless-filtered.png (plan-less book, 16-20 band, 1280px)
+[Render] ~/Documents/nonogram-reviews/CARD-192/arrange-16-20-phone.png (16-20 band at 390px)
+Renders are PNG screenshots from headless Chromium (playwright) of the real app served on loopback in memory mode; the horizontal overflow check reads 0px at both widths. The owner's visual check is still pending.
+
+DESIGN-REGISTER: band-link strip (`nav` of `.tabs`/`.tab` plain links, aria-current) — arrange page, above the level list — "All sizes" plus one link per plan band; the current one is marked; no new CSS.
+DESIGN-REGISTER: band plan line (`p.stat-line#bandPlan`, `.stat-cell[data-over]`) — arrange page, shown only when a band is chosen — per-level "(N left)" / "(N over)" / "(on plan)" in words, over also data-over; plan-less variant shows counts only.
+DESIGN-REGISTER: reorder-off note (`p#reorder-off`) — arrange page, when a band is chosen — states why moves, position box and Sort are absent.
+DESIGN-REGISTER: "(N shown of M)" level heading — arrange page level headings, when a band is chosen.
+DESIGN-REGISTER: "No puzzles of this size in this level." empty-level note — arrange page, a level with no row in the band.
+DESIGN-REGISTER: plan-less sentence (Print setup pointer) — arrange page plan line, when the book has no stored plan.
+
+Open for reviewer: the owner's pre-merge visual check of the four renders; the "Total" and "(step 2)" deviations above.
+
+[Scope] src/nonogram/admin/app.py, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_arrange_size_filter.py
+[Build gate] PASSED (full, 829.6s/13:49) — 6596 passed, 9 skipped, 0 failed (main's wave-34 baseline: 6498 passed, 9 skipped). Known flake test_book_ready_gate.py db-ready_for_pdf did not fail.
+[System contract] section fresh — system_rules.py --card CARD-192 returns the same 52 ids as the card's section (no refresh needed).
+[Review sync] 1 report(s) → meta/review/
+[Review 1/3] Score: 9.2 — crit: 0, imp: 0
+[Review 1/3] Score: 9.2 ✓ threshold reached + no critical/important
+[Review 1/3] Mutation check: 4 of 23 re-derived by reviewer (inverted filter, Remove confirm URL drops bucket, gap>0→>=0, moves-off guard) — all matched the card's mutant log
+[8h spot-check] 1/3 reproduced (CON-015: LOOPBACK_HOST at app.py:372 and create_app().run(host=LOOPBACK_HOST) at app.py:5665 unchanged by the diff; TestAdminPanel_BindsLoopbackOnlyByDefault 7 passed)
+[8h spot-check] ✗ ADR-0006/R1 not reproduced as cited — the conclusion holds (diff adds no third-party import), but the check ref TestDependencyBaseline_IsExactlyPillowAndNumpy names no collected test (docstring only, tests/test_export_pdf.py:1250); the live guard is tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed (1 passed). OUT-OF-SCOPE: the system-rule check ref is stale in the model — route: architect (fix the ADR-0006 check ref), not this card.
+[8h spot-check] ✗ CON-011 not reproduced as worded — "the diff defines no new size-range check" holds for production code; the test helper in_band() uses MIN_SIZE/MAX_SIZE as an oracle (test code, not production). The check ref PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 is a docstring; the live test is test_every_source_mode_rejects_every_side_outside_ten_to_thirty (3 passed). OUT-OF-SCOPE: stale check ref in the model, same route as ADR-0006/R1.
+[Review 1/3] ⚠ Step 8h holds failed re-derivation (ADR-0006/R1, CON-011) — next cycle re-checks these two verdicts against the live test names; no code change is requested.
+[Review sync] 1 report(s) → meta/review/ (cycle 2)
+[Review 2/3] Score: 9.2 — crit: 0, imp: 0 (holds re-derived against live test names; both stale check refs are out-of-scope model observations)
+[Review 2/3] Minor: reorder-off line reads "Show all sizes to move puzzles or sort them." — card quotes "Show all sizes to move puzzles."; the added clause is accurate (Sort is hidden too). Kept as built; owner's visual check of record.
+[Review 2/3] Out-of-scope (model): ADR-0006/R1 and CON-011 check refs are docstrings, not collected tests; re-point to test_the_dependency_baseline_is_still_closed and test_every_source_mode_rejects_every_side_outside_ten_to_thirty. Route: architect. Tooling gap: system_rules.py --verify-refs accepts docstring mentions.
+[Review 2/3] Out-of-scope (card text): "Print setup (step 1)" — stepper prints step 2; implementation correct.
+[Review 2/3] Mutation check: 6 of 6 re-run mutants killed (filter inverted, confirm URL drops band, unknown bucket to first band, left gap at zero, Sort not hidden, empty-level note on every level).
+[AC/EC check] All criteria/constraints ✓ (evidence, no EC section on this card; G verified):
+  AC-1 ✓ demonstrated — ShowsOnlyTheChosenBucket::test_the_chosen_band_lists_only_its_rows, test_with_no_bucket_all_three_are_listed (38 passed, both modes)
+  AC-2 ✓ demonstrated — PlanLineShowsLeftAndOver::test_the_line_reads_left_over_and_on_plan_per_level (exact line), test_only_the_over_figure_carries_the_over_marker
+  AC-3 ✓ demonstrated — SameNumbersAsSelectionTab::test_the_arrange_line_and_the_selection_tab_agree_tier_by_tier
+  AC-4 ✓ demonstrated — PlanLessBookShowsCountsOnly::test_counts_with_no_planned_figure_and_a_pointer_to_print_setup
+  AC-5 ✓ demonstrated — MovesOffWhileFiltered::test_the_filtered_page_has_no_reorder_control_and_says_so
+  AC-6 ✓ demonstrated — FilterSurvivesTitleAndRemove (title save and confirmed remove both return filtered to 16-20; confirm action carries bucket=16-20)
+  AC-7 ✓ demonstrated — UnknownBucketMeansAllSizes::test_a_bucket_that_names_no_band_lists_everything_and_shows_no_plan_line
+  G-1 ✓ demonstrated — test_book_level_order, test_book_arrange_position, test_book_arrange_page_breaks pass
+  G-2 ✓ demonstrated — route calls _plan_progress(current_book, []); no new bucket literal in the app.py diff
+  G-3 ✓ demonstrated — test_book_select_tabs, test_books_list_plan_stats pass
+  G-4 ✓ demonstrated — POST move/position/sort bodies untouched; only the Remove confirm URL changed
+  G-5 ✓ demonstrated — writes only under POST; no PDF/baseline files in the diff
+  Pytest: tests/test_book_arrange_size_filter.py "38 passed"; guardrail set (5 files, 197 tests) "197 passed in 7.70s".
+[Docs] skipped — no directory structure or purpose change (tests/README.md does not list test files; no README in src/nonogram/admin).
+[Commit] no new code to commit: implementation is 04791f4 (tests + app.py + template). Worktree paths outside meta/ are clean. Trailer on 04791f4 reads Co-Authored-By: Claude Sonnet 5, not the Opus 5.5 the brief names; not amended (rule: never --amend). Dispatcher to decide at done.
+[Success] SUCCESS COMMIT = 04791f4. Review score 9.2 (cycle 2/3, 0 critical/important). Card status review.
+
+- [Merge gate] rebased onto c0fcfbb; full suite 6596 passed, 9 skipped, exit 0 (775s, under the lock). Owner: "merge now, check later" (renders in ~/Documents/nonogram-reviews/CARD-192/). Merged da93164.

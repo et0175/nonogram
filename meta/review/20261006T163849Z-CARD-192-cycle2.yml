@@ -1,0 +1,137 @@
+version: 1
+generated_at: '2026-10-06T16:38:49Z'
+target: card/192-arrange-size-filter (main...HEAD @ 04791f4, worktree CARD-192) — cycle 2 (confirmation of cycle 1, full re-verification)
+overall_score: 9.2
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - src/nonogram/admin/app.py (diff hunks L4092-4205, L4336-4380 route; helpers _TABS_BY_LABEL L3285, _selected_cells L3436, _plan_progress L3476, _is_in_tab L3507)
+  - src/nonogram/admin/templates/book_arrange_puzzles.html (full diff)
+  - tests/test_book_arrange_size_filter.py (structure, oracle helper in_band, property corpus, mutants via runner)
+  - 'src/nonogram/admin/templates/_stepper.html (book_step_number: Print setup prints 2)'
+  - meta/architecture system_rules.py --card CARD-192 --verify-refs (52 rules)
+  not_reached:
+  - src/nonogram/admin/book_plan.py bucket_of body (read in cycle 1 only)
+  - src/nonogram/admin/templates/book_select_puzzles.html figure macros (AC-3 verified by test, not by source read)
+  confidence: high
+metrics:
+  diff:
+    files: 3
+    added: 642
+    removed: 2
+  max_fan_in:
+    symbol: _is_in_tab / _plan_progress / _TABS_BY_LABEL (nested closures in create_app)
+    callers: 10
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/app.py
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: budget_truncated — cycle 2 re-verification did not re-mine fan-in; the value carried from cycle 1 (code unchanged since 04791f4)
+    cochange_missing: no_eligible_fact — carried from cycle 1; app.py is a high-churn file and the signal is diffuse for this narrow change
+system_contract:
+  rules_checked: 52
+  holds: 9
+  unchecked: 43
+  violated: 0
+  verdicts:
+  - 'ADR-0006/R1 ✓ holds — diff''s added import lines are stdlib/pytest/nonogram only (re-derivable: grep ''^+.*import'' over git diff main...HEAD; no new runtime dependency); live guard test_the_dependency_baseline_is_still_closed
+    (tests/test_export_pdf.py:1249) passes on 04791f4. Model check ref TestDependencyBaseline_IsExactlyPillowAndNumpy is a docstring, not a collected test (out-of-scope, Coverage)'
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact: rule''s literal scope is src/nonogram/web/; this diff touches src/nonogram/admin/ (COMP-009), a separate component. By the same spirit, the route adds no
+    new domain validation — it reuses the pre-existing `_TABS_BY_LABEL` lookup (app.py:3285, already used by 3 other call sites) rather than inventing new logic'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no generation/sourcing code touched'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code touched'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no solver/repair code touched'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry-counter code touched'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair logic touched'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair logic touched'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair-policy code touched'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation touched'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no technique classification touched'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring touched'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code touched'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung-attribution code touched'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage-boundary solver proof touched (add_puzzle not called by this diff)'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched'
+  - ADR-0033/R1 ✓ holds — membership read from book.puzzle_ids (app.py:3440 _selected_cells, unchanged) and book_mgr.get_book; diff writes no puzzle field; GET path has no write call (_plan_progress/_is_in_tab/_selected_cells
+    inspected)
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: this diff makes no book-status transition; the gate itself is untouched code (not exercised by the new GET-only filter path)'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout/PageSpec code untouched'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: `_printed_places` call is unchanged; the diff only filters its already-computed output for display'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book-page print code touched'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no rule-stroke code touched'
+  - 'ADR-0038/R1 ⚠ unchecked — no_eligible_fact: puzzle player untouched'
+  - 'ADR-0038/R2 ⚠ unchecked — no_eligible_fact: puzzle player untouched'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact: puzzle player untouched'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact: puzzle player untouched'
+  - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact: puzzle player untouched'
+  - 'ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser-test dependency changed'
+  - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser-test infra touched'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: solver uniqueness untouched'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: this diff touches the admin panel, not the generation web UI server; bind code untouched'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: CORS/cross-origin rule for the generation web UI server, untouched'
+  - 'CON-011 ✓ holds — no new production size-range check: app.py route reuses bucket_of/_is_in_tab unchanged (app.py:3507-3516), no new 10/30 literal in production code. Test oracle in_band() uses MIN_SIZE/MAX_SIZE
+    (test code only). Live test test_every_source_mode_rejects_every_side_outside_ten_to_thirty (tests/property/test_grid_dimensions.py) passes on 04791f4 (model ref PropertyTest_GridDimensions_... is a
+    docstring, out-of-scope)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: image aspect-ratio guard untouched'
+  - CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py:136) passes on 04791f4; diff touches no bind/host code (LOOPBACK_HOST app.py:372 outside diff hunks)
+  - CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit (tests/test_admin_binding.py) passes on 04791f4; ADMIN_ALLOWED_HOST/ALLOWED_HOSTS gating untouched by diff
+  - 'CON-021 ⚠ unchecked — no_eligible_fact: this card is the Arrangement step, not the puzzle player'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: export readiness untouched'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: plan split validation untouched; `_readable_plan`/`DistributionPlan` read-only in this diff'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: floor-override invariant untouched; no membership-adding code touched'
+  - INV-007 ✓ holds — TestBookReady_AcceptsWhenEveryCellWithinTolerance, TestBookReady_RefusedBeyondThreePoints, PropertyTest_BookReady_GateIffEveryCellWithinTolerance pass (tests/test_book_ready_gate.py,
+    tests/property/); diff adds only a bucket query param to the Remove confirm URL, no membership/status write
+  - INV-008 ✓ holds — TestBookPublished_PuzzleChangeRequiresConfirmation / ConfirmedPuzzleChangeApplied / UnconfirmedChangeKeepsStatus pass (tests/test_book_published_confirm.py); Remove confirm still asks
+    first
+  - INV-009 ✓ holds — PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence, TestBookArrange_MoveAcrossLevelBoundaryRefused, TestBookArrange_MoveWithinLevelKeepsOwnerOrder pass; move POST branches unchanged
+    in diff (hunks only in GET render + template hiding controls)
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: pairing logic in `_printed_places` is called unchanged and completes before the band filter trims the *displayed* rows (app.py:4315 vs 4345), so pairing itself
+    can''t be affected; not itself exercised by new code'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: answer-key logic untouched'
+  - INV-012 ✓ holds — PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists, TestBookPublished_ConfirmedChangeReturnsToDraft pass (tests/property/test_book_workflow.py, tests/test_book_published_confirm.py);
+    no new membership-mutation path
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: PDF interior/parity logic untouched'
+root_causes: []
+findings:
+- id: F-001
+  severity: low
+  category: tech-debt
+  type: gap
+  file: src/nonogram/admin/templates/book_arrange_puzzles.html
+  line: 76
+  title: Reorder-off line wording differs from the card's quoted text
+  description: The card specifies 'Show all sizes to move puzzles.'; the template says 'Show all sizes to move puzzles or sort them.' AC-5 requires only the line's presence; the added clause is accurate
+    because Sort is also hidden. Cosmetic/spec alignment only.
+  suggestion: Either accept the wording and amend the card, or match the card's text.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+mutation_check:
+  runner: scratchpad/mut/run_mutants.py (restores bytes; sha256 verified after run)
+  mutants: 6
+  killed: 6
+  survived: 0
+  baseline: tests/test_book_arrange_size_filter.py passes unmutated
+reviewed_checks:
+  full_suite: exit 0 on 04791f4 worktree (no failures)
+  card_tests: 'tests/test_book_arrange_size_filter.py + 7 guardrail files: 268 passed'
+out_of_scope:
+- meta/architecture ADR-0006/R1 and CON-011 check refs name docstrings, not collected tests (TestDependencyBaseline_IsExactlyPillowAndNumpy; PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30).
+  For the architect to re-point to test_the_dependency_baseline_is_still_closed and test_every_source_mode_rejects_every_side_outside_ten_to_thirty.
+- 'system_rules.py --verify-refs reports those two refs as existing (dead_check_ref empty, check_refs_verified true): the existence check accepts docstring mentions. Tooling gap in forge_1, not in this
+  card.'
+- Card text CARD-192.md says 'Print setup (step 1)'; the stepper prints Print setup as step 2 (book_step_number(1) -> 2). The implementation's printed number is correct; the card text is stale.
