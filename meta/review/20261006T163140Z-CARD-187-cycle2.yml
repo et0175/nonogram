@@ -1,0 +1,123 @@
+card: CARD-187
+cycle: 2
+reviewer_version: 2026.8.17
+score: 9
+overall:
+  OVERALL_SCORE: 9
+  critical_count: 0
+  important_count: 0
+  minor_count: 2
+  scope_run: 'CONFIRMATION MODE (differential, fix delta 728c7d0 over fc3f647). Full guarded set run fresh: tests/test_puzzle_solver_page.py, _marking, _progress, _phone, _hint, _maybe, _clues, _resume (288 collected, 288 passed, 0 failed, 0 skipped, exit 0; summary line suppressed by addopts -q plus -q, counts derived from collection and the dot count). tests/test_puzzle_solver_percent.py (22 passed, literal PASSED lines captured). Named solved/lock/announce/reduced-motion subset (34 passed, plus BoardDoesNotMoveOnSolveAtAnyWidth::test_sweep PASSED, plus 17 named guards passed). Mutants run in a scratch copy of the worktree, never in the worktree: M1 align-items center (2 failed, 10 passed), M2 pair min-height removed (1 failed), M3 Math.floor to Math.round (4 failed, 1 passed). Deferred certification (mutation check) ran here because this cycle has no Critical/Important findings. Baseline-acceptance (8g) not applicable: no pixel baselines; owner renders listed under AC-8.'
+verdicts:
+  acceptance:
+  - 'AC-1 ✓ demonstrated — evidence: PASSED tests/test_puzzle_solver_percent.py::test_PropertyTest_SolverPercent_MatchesTheDefinition (oracle _percent_of, 300 boards x 4 shapes, minimums asserted in-test); M3 Math.round mutant turns it red.'
+  - 'AC-2 ✓ demonstrated — evidence: PASSED ...::TestSolverPercent_FloorsAndReaches100OnlyWhenSolved::test_explicit_boards and ...::test_no_unsolved_board_reads_100; M3 kills both.'
+  - 'AC-3 ✓ demonstrated — evidence: PASSED ...::TestSolverPercent_QuestionMarksNeverCount::test_an_undecided_cell_marked_maybe_leaves_the_percent and ...::test_one_maybe_on_a_white_blocks_100.'
+  - 'AC-4 ✓ demonstrated — evidence: PASSED ...::TestSolverPercent_FollowsEveryRecordedChange::test_every_step (sequence check [0, s1, s2, s1, s2, s5, 0, s5, 99] over click, drag preview and release, Undo, Redo, Hint, Reset with confirm, Undo, setBoard); PASSED ...::test_an_unchanged_percent_is_not_rewritten; M3 kills test_every_step.'
+  - 'AC-5 ✓ demonstrated — evidence: PASSED ...::TestSolverPercent_SitsNextToTheCounters::test_order_text_and_style[chromium-1440], [chromium-1280], [chromium-390]; PASSED ...::test_same_row_left_of_errors_at_1440[chromium]; PASSED ...::test_below_the_pair_at_the_right_at_1280[chromium]; PASSED ...::test_no_horizontal_scroll_at_390[chromium]. Fix-added PASSED ...::test_hints_and_errors_share_the_row_at_1440 and ...::test_pair_is_as_tall_as_a_toolbar_button.'
+  - 'AC-6 ✓ demonstrated — evidence: PASSED ...::TestSolverPercent_DoesNotFloodScreenReaders::test_silent (liveness walk over the counter and all ancestors; announce text checked empty after each of 5 marks).'
+  - 'AC-7 ✓ demonstrated — evidence: PASSED ...::TestSolverPercent_NoRequestPerMark::test_twenty_strokes (context request listener, requests == []).'
+  - 'AC-8 ⚠ partial — owner visual sign-off pending; renders exist in ~/Documents/nonogram-reviews/CARD-187/: 01-blank-0pct-{1440,1280,390}.png, 02-partway-errors-hint-{1440,1280,390}.png, 03-solved-100pct-undecided-whites-{1440,1280,390}.png (9 files). Not a code gap.'
+  engineering_constraints:
+  - 'EC-045 ✓ demonstrated — evidence: PASSED test_PropertyTest_SolverPercent_MatchesTheDefinition; the corpus minimums (>= 200 per shape, >= 50 solved, >= 30 solved with undecided white, >= 50 with "?", >= 10 unsolved 30x30 at 99, >= 30 solved with floor below 100) are asserted in the test body. F-4 corpus-size check is documented as vacuous in a comment (see findings).'
+  guardrails:
+  - 'G-1 ✓ demonstrated — evidence: fresh run of the complete guarded set: 288 collected, 288 passed, 0 failed, 0 skipped, exit 0 (4 progress lines of 72 dots, [100%]). git diff main...HEAD -- tests/ shows the only edit to an existing test is the approved _STRIPPED narrowing in test_puzzle_solver_marking.py (RevealsNoCorrectness, regex strips only the count inside data-player-progress); PASSED ...::TestSolverMarking_RevealsNoCorrectness::test_marking_all_but_the_last_solution_cell_changes_nothing_but_cell_states. The fix delta adds tests only to test_puzzle_solver_percent.py.'
+  - 'G-2 ✓ demonstrated — evidence: PASSED tests/test_puzzle_solver_page.py::TestPlayerAssets::test_the_state_module_touches_no_dom and ::test_the_scripts_carry_no_colour_literals; git diff main...HEAD -- solver_state.js shows 0 added "import " lines.'
+  - 'G-3 ✓ demonstrated — evidence: git diff main...HEAD -- src/nonogram/admin/static/solver_state.js changes only the header comment and adds solvedPercent after isSolved; errorCount and isSolved bodies are unchanged; solvedPercent calls isSolved and does not copy it.'
+  - 'G-4 ✓ demonstrated — evidence: PASSED tests/test_puzzle_solver_page.py::TestSolverPage_ShowsTheClues::test_the_payload_has_exactly_the_documented_shape[memory] and [sqlite]; no Python or pyproject file in the branch diff (git diff main...HEAD --name-only lists only admin static/template files and tests).'
+  - 'G-5 ✓ demonstrated — evidence: PASSED tests/test_puzzle_solver_maybe.py::TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth::test_sweep[chromium]; PASSED ...::TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth::test_wraps (6 cases); PASSED ...::TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved::test_out_of_reach; PASSED tests/test_puzzle_solver_progress.py::TestSolverProgress_ReducedMotion::test_ac319_solved_with_no_animation_or_transition[chromium]; 34 passed in the solved/lock/banner/reduced subset (LockedUntilReset, SolvedWhenBlacksMatch, ResetAfterConfirm). admin.css branch diff touches only .player-toolbar align-items (line 442), a comment line (line 460) and the new .player-counters rules after .player-hints-count; the solved-banner rules, the reduced-motion block (line 543) and the announce rules are not in the diff.'
+  system_contract:
+  - 'ADR-0006/R1 ⚠ unchecked — no_eligible_fact: no pyproject or dependency file in the diff'
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact: no Python file in the diff'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public signature, request or export field in the diff'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: scope admin/** intersects only static and template files; the check is Python image fitting and no Python changed'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no sizing or CLI file in the diff'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair or solver Python in the diff'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry or repair Python in the diff'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair Python in the diff'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair Python in the diff'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no repair Python in the diff'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no sourcing or density Python in the diff'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density Python in the diff'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty or solver Python in the diff'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no difficulty or solver Python in the diff'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty Python in the diff'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver Python in the diff'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no solver Python in the diff'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage-boundary Python in the diff'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no storage Python in the diff'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book Python in the diff'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status Python in the diff'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no layout Python in the diff'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no layout Python in the diff'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book PDF Python in the diff'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no layout Python in the diff'
+  - 'ADR-0038/R1 ✓ holds — evidence: branch diff adds only plain JS, CSS and template files; no package, lock or build file (git diff main...HEAD --name-only).'
+  - 'ADR-0038/R2 ✓ holds — evidence: PASSED tests/test_puzzle_solver_marking.py::TestSolverMarking_NoRequestPerMark::test_twenty_strokes_issue_no_request; PASSED tests/test_puzzle_solver_percent.py::TestSolverPercent_NoRequestPerMark::test_twenty_strokes; grep for fetch, XMLHttpRequest and sendBeacon in the branch diff of solver.js returns nothing.'
+  - 'ADR-0038/R3 ✓ holds — evidence: PASSED tests/test_puzzle_solver_page.py::TestSolverPage_ShowsTheClues::test_the_payload_is_the_25x15_grid_with_its_clues[memory]; no clue derivation added on the client by this card.'
+  - 'ADR-0038/R4 ✓ holds — evidence: PASSED tests/test_puzzle_solver_page.py::TestPlayerAssets::test_the_state_module_touches_no_dom; solvedPercent sits in solver_state.js with no DOM access.'
+  - 'ADR-0038/R6 ✓ holds — evidence: no Python change, so the shipped payload is unchanged; solvedPercent reads payload.solution, which the admin player already receives (TestSolverPage_ShowsTheClues payload test PASSED).'
+  - 'ADR-0038/R7 ✓ holds — evidence: pyproject.toml is not in git diff main...HEAD --name-only.'
+  - 'ADR-0038/R8 ✓ holds — evidence: the new percent tests use the browser_page and browser fixtures from test_puzzle_solver_page.py, which call pytest.fail with the playwright-install instruction when Chromium or pytest-playwright is missing (test_puzzle_solver_page.py lines 551-565); no skip path added.'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: no solver or uniqueness Python in the diff'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: no web server Python in the diff'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: no web server Python in the diff'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: no grid-size Python in the diff'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard Python in the diff'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact: no admin bind Python in the diff'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact: no admin door Python in the diff'
+  - 'CON-021 ✓ holds — evidence: branch diff has no localStorage, fetch, XMLHttpRequest or sendBeacon call; percent is derived in the browser and not stored (AC-7 PASSED, requests == []).'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: no clue encoder Python in the diff'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: no export or verification Python in the diff'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: no retry-counter Python in the diff'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: no book plan Python in the diff'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: no book membership Python in the diff'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: no book ready Python in the diff'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: no book published Python in the diff'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: no book order Python in the diff'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: no book pairing Python in the diff'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: no answer-key Python in the diff'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: no book membership Python in the diff'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: no book export Python in the diff'
+  system_contract_count_line: 'System contract: 52 rules checked, 8 holds, 0 violated, 44 unchecked (no_eligible_fact)'
+findings:
+- id: F-1
+  severity: important
+  file: src/nonogram/admin/static/admin.css
+  title: 'Global align-items change on .player-toolbar is unmeasured beyond the card tests (cycle 1)'
+  detail: 'Closed by fix commit 728c7d0 test additions TestSolverPercent_AlignItemsFlexStartKeepsHistoryAndSlotAtTheirRowsTop and TestSolverPercent_SolvedBannerNeverOverlapsTheNewCounters. Re-verified: both pass (22 passed file run); reverting align-items to center turns 2 tests red (M1).'
+  status: closed
+- id: F-2
+  severity: minor
+  file: src/nonogram/admin/templates/puzzle_solve.html
+  title: 'Visual order differs from DOM order (cycle 1, owner-accepted)'
+  detail: 'Comment now states the mismatch and that the counters are non-focusable. Owner accepted the layout 2026-10-06. Residual: that rationale covers focus order only, not WCAG 1.3.2 meaningful sequence. Carried as C2-1.'
+  status: closed-by-owner-decision
+- id: F-3
+  severity: minor
+  file: src/nonogram/admin/static/admin.css
+  title: 'Comment claims outran assertions (cycle 1)'
+  detail: 'Closed for the 1440 same-row claim (test_hints_and_errors_share_the_row_at_1440) and the pair-height claim (test_pair_is_as_tall_as_a_toolbar_button). Residual claim carried as C2-2.'
+  status: closed
+- id: F-4
+  severity: minor
+  file: tests/test_puzzle_solver_percent.py
+  title: '_MIN_PER_SHAPE check is true by construction (cycle 1)'
+  detail: 'Fix 728c7d0 documents the check as vacuous (comment at line 186-191) rather than removing it. The other minimums remain real checks. Accepted as closed by documentation.'
+  status: closed
+- id: C2-1
+  severity: minor
+  file: src/nonogram/admin/templates/puzzle_solve.html
+  title: 'Accessibility rationale for the visual-vs-DOM order addresses focus order only'
+  detail: 'Lines 58-64 justify the mismatch because the counters are not focusable. Screen readers read DOM order (Errors, Hints, Progress) while sighted users see Progress, Errors, Hints. That is a WCAG 1.3.2 meaningful-sequence question, not a focus question. Owner accepted the layout, so this is a record gap, not a code defect. Suggested fix: add one sentence naming 1.3.2 and the owner acceptance, or record it in the accessibility notes.'
+  status: open
+- id: C2-2
+  severity: minor
+  file: src/nonogram/admin/static/admin.css
+  title: 'Hints right-end claim cites a file that does not assert it'
+  detail: 'The comment at the .player-counters block says Hints sits at the toolbar right end at 1440 px and cites tests/test_puzzle_solver_percent.py, TestSolverPercent_SitsNextToTheCounters. That test checks Progress at the right end at 1280 and Hints only for band overlap at 1440. The Hints right edge is asserted only in test_puzzle_solver_hint.py (line 612). Suggested fix: cite test_puzzle_solver_hint.py for that clause, or add a Hints right-edge assertion to the percent file.'
+  status: open
+out_of_scope_observations:
+- 'The F-1 test docstring quotes a measured shift (top 148 to 166). The test asserts equality to the toolbar top, not that number, so the number is commentary only. Not gating.'
+- 'The F-4 vacuous assertion is still in the test body; a later cleanup could delete it.'
+- 'requirements.yml AC-354 wording still says the progress follows the error counter; the owner placement should go into the architect delta noted in the card.'

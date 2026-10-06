@@ -136,6 +136,9 @@ card names its card._
 - [ ] CARD-191 owner check pending: Sort by size button, confirm text and before/after renders in ~/Documents/nonogram-reviews/CARD-191/; the printed order and page count follow the sort (merged on evidence by owner choice)   @feature
 - [ ] CARD-191 (architect): INV-009 says a level's order changes only by an explicit move — reword to 'reorder' (EC-026 already does); AC-7 wording: a DB-mode unsized puzzle is an id with no row   @tech-debt
 
+- [ ] CARD-187 owner check pending: Progress counter renders in ~/Documents/nonogram-reviews/CARD-187/ (merged on evidence by owner choice)   @feature
+- [ ] CARD-187 C2-1/C2-2 (minor): template comment rationale covers focus only, not WCAG 1.3.2; admin.css comment cites a test that doesn't assert it   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-06
+- CARD-187 (feature): The puzzle player shows "Progress: N%" next to the error counter: the share of cells you've marked correctly, rounded down so it reaches 100% only when the puzzle is solved. Wrong marks and "?" don't count. Progress sits left of Errors (as you chose); at narrower widths it wraps below.
 - CARD-191 (feature): On a book's Arrangement page, a new Sort by size button orders each level (Easy, Medium, Hard) smallest first, by longest side then shortest, and saves it after a confirm that says there's no undo. Printed order, puzzle numbers, page pairings and the page count follow the new order. Your manual moves still work afterwards.
 - CARD-189 (feature): In the puzzle player a click now follows the selected brush: with White, clicks on one cell go white → blank → dark; with Black, dark → white → blank; with Undecided, blank → dark → white; with Maybe, "?" → blank. Clicking another cell or changing brush starts again. Dragging still paints the brush.
 - CARD-190 (feature): The Puzzle review page's size filter now goes by the longest side, like book selection: a 25×15 counts as 25. The field reads "Longest side (cells)", and /api/puzzles filters the same way.

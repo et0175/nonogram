@@ -1,0 +1,119 @@
+card: CARD-187
+cycle: 1
+reviewer_version: 2026.8.17
+score: 8
+overall:
+  OVERALL_SCORE: 8
+  critical_count: 0
+  important_count: 1
+  minor_count: 3
+  scope_run: tests/test_puzzle_solver_percent.py (16 passed), tests/test_puzzle_solver_marking.py + percent (88 passed), test_puzzle_solver_hint.py + test_puzzle_solver_maybe.py (58 passed), named guards
+    in page/progress/marking (21 passed); mutants M01-M08 run in a scratch copy, all killed
+verdicts:
+  acceptance:
+  - 'AC-351 ✓ demonstrated — TestSolverPercent_FollowsEveryRecordedChange::test_every_step passed (percent file: 16 passed). The drag-preview-not-counted assertion passed but the reviewer did not mutate
+    the preview path. Mutant M04 (unconditional textContent write) killed: 1 failed (test_an_unchanged_percent_is_not_rewritten).'
+  - 'AC-352 ✓ demonstrated — TestSolverPercent_FloorsAndReaches100OnlyWhenSolved passed; M01 drop-override: 2 failed (test_explicit_boards and the property test); M03 Math.round: 5 failed.'
+  - 'AC-353 ✓ demonstrated — TestSolverPercent_QuestionMarksNeverCount passed; M02 maybe-counts-as-correct: 3 failed (incl. both QuestionMarksNeverCount tests).'
+  - 'AC-354 ✓ demonstrated — TestSolverPercent_SitsNextToTheCounters (order/text/style at 1440, 1280, 390; no scroll at 390) passed; M07 row-reverse removed: 2 failed; M08 align center: 1 failed. Measured
+    via getBoundingClientRect and scrollWidth in _LAYOUT. Owner-amended placement (Progress visually left of Errors) is what the test pins; the requirements.yml AC-354 wording still says ''follows the error
+    counter''.'
+  - 'EC-045 ✓ demonstrated — test_PropertyTest_SolverPercent_MatchesTheDefinition passed: 4 shapes x 300 seeded boards, independent Python oracle (_percent_of), minimums asserted (>=200/shape, >=50 solved,
+    >=30 undecided-white, >=50 with ''?'', >=10 at 99 on 30x30); M02/M03 killed.'
+  - 'G-1 ⚠ partial — tests/test_puzzle_solver_marking.py: 88 passed across marking + percent files; tests/test_puzzle_solver_hint.py + test_puzzle_solver_maybe.py: 58 passed; named page/progress/marking
+    guards: 21 passed. Not run by reviewer: test_puzzle_solver_clues/phone/resume and the CARD-186 progress tests (implementer reports 304 player tests passing).'
+  - G-2 ✓ demonstrated — test_the_state_module_touches_no_dom and test_the_scripts_carry_no_colour_literals passed (21 passed run); grep of solver_state.js for 'import ', colour literals, document/window
+    returns nothing.
+  - 'G-3 ✓ demonstrated — git diff main...HEAD -- solver_state.js: errorCount and isSolved bodies unchanged; solvedPercent calls isSolved(board, solution) and does not copy it.'
+  - G-4 ✓ demonstrated — test_the_payload_has_exactly_the_documented_shape passed (21 passed run); no Python file in the diff; no new payload key.
+  - 'G-5 ⚠ partial — the solved banner, #puzzle-player-announce, lock and reduced-motion rule are untouched in the diff, but .player-toolbar align-items changed globally (center to flex-start); the solved-slot
+    and history layout at 390 and 1280 were not measured by the reviewer.'
+  - AC-8 ⚠ partial — 9 owner renders exist in ~/Documents/nonogram-reviews/CARD-187/ (01/02/03 x 1440, 1280, 390); the visual judgment is the owner's and was not made by the reviewer.
+  system_contract:
+  - 'ADR-0006/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0019/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0022/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - ADR-0038/R1 ✓ holds — plain ES module and CSS served as static files; git diff main...HEAD --stat lists no package, lock or build file
+  - 'ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark::test_twenty_strokes_issue_no_request and TestSolverPercent_NoRequestPerMark::test_twenty_strokes passed (pytest -k run: 21 passed; percent
+    file: 16 passed); grep finds no fetch/XMLHttpRequest/sendBeacon in solver*.js'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - ADR-0038/R4 ✓ holds — TestSolverMarking/Page test_the_state_module_touches_no_dom passed (21 passed run); grep of solver_state.js for document, window, globalThis returns nothing
+  - ADR-0038/R6 ✓ holds — diff touches no Python file, so the shipped payload is unchanged; solvedPercent reads payload.solution already shipped to the admin player only
+  - ADR-0038/R7 ✓ holds — git diff main...HEAD --stat lists no pyproject.toml change
+  - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - CON-021 ✓ holds — no storage or network call in the added lines (grep of the diff for localStorage, fetch, sendBeacon finds none); the percent is not persisted
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: the diff touches no file this rule''s scope covers (no Python, dependency or clue-embedding change)'
+  system_contract_count_line: 'System contract: 52 rules checked, 6 holds, 0 violated, 46 unchecked (no_eligible_fact)'
+findings:
+- id: F-1
+  severity: important
+  file: src/nonogram/admin/static/admin.css
+  title: Global align-items change on .player-toolbar is unmeasured beyond the card's own tests
+  detail: 'The toolbar now aligns items to the top (flex-start, was center). It moves the history group wherever the tools/solved slot and history heights differ (e.g. when tools wrap at 390 px). No test
+    in this diff measures the history or solved-slot position before and after; G-5 layout and the CARD-182 phone layout are covered only by the implementer''s reported run. Check: measure history and slot
+    tops at 390 and 1280, before and after, or pin them in a test.'
+  status: open
+- id: F-2
+  severity: minor
+  file: src/nonogram/admin/templates/puzzle_solve.html
+  title: Visual order (Progress, Errors, Hints) differs from DOM and reading order (Errors, Hints, Progress)
+  detail: Owner-accepted 2026-10-06 and the counters are not focusable, so no focus-order defect; noted for the accessibility record only.
+  status: open
+- id: F-3
+  severity: minor
+  file: src/nonogram/admin/static/admin.css
+  title: Comment claims 'the three share one line' at 1440 and 'as tall as a toolbar button' outrun the new assertions
+  detail: TestSolverPercent_SitsNextToTheCounters asserts only Progress-vs-Errors row band and Errors-vs-buttons centre. Hints' row is asserted by the CARD-183 test (band overlap with Errors); the pair's
+    height versus .btn is not asserted. Narrow the comment or add the band check for Hints and a height check.
+  status: open
+- id: F-4
+  severity: minor
+  file: tests/test_puzzle_solver_percent.py
+  title: _MIN_PER_SHAPE check is true by construction
+  detail: assert len(boards) >= _MIN_PER_SHAPE compares a list built with _PER_SHAPE = 300 to 200, so it can only fail if the constant is edited. The other minimums (solved, undecided-white, maybe, 99,
+    correct-floor) are real checks.
+  status: open
+out_of_scope_observations:
+- requirements.yml AC-354 still says 'follows the error counter ... on the error counter's row at desktop width'; the owner's 2026-10-06 placement (Progress visually left of Errors) should be recorded by
+  an architect delta, as the card's Worktree notes already say.
+- Card CARD-187 is uncommitted in the worktree (ignored per instructions).
