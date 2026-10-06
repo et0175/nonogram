@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/196-player-numbers-own-size
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-196
 **Source:** owner mobile solver feedback, 2026-10-06 (owner decision, option b: clue numbers get a fixed 12 px minimum and are no longer 60% of the cell)
 **Idea:** —
 **Wave:** 36
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_clues.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-06T18:09:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -160,6 +160,9 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-196` (53 rules). A project
   - 1440×900: the 30×30, before and after, to show that the cell is unchanged and the numerals are 12 px.
 
 ## Worktree notes
+- [Escalated] 2026-10-06T18:19:01Z — station: decompose (owner ruling first). Route: owner rules on options (1)-(4) below, then /forge:kanban decompose refreshes this card, then /kanban redo CARD-196 (or /kanban review if the uncommitted diff is kept). Worktree ../PythonProject4-CARD-196 kept, uncommitted diff in admin.css and solver.js. Blockers: unedited TestSolverPhone_SwipingTheCluesPansTheBoard[30x30-player-corner] and TestSolverPhone_TouchDragMarksOnAScrolledBoard (G-3); TestSolverClues_TheCircleIsVisible::test_two_digit_rings_clear_their_digits_on_a_30x30[phone] (ring overlap at 0.5 ch row gap, worst -0.94 px); AC-8 measures 15.45 px not 14.4 (column header border not in the floor); R uses 12 px numerals while real row band is max(12, 0.6 cell) (15x15 at 1440: 129.3 px vs R 90 px; fit term affected only where it binds). Options: (1) rewrite the swipe test point, needs G-8 exception; (2) larger row gap (about 0.65 ch two-digit, 1.5 ch single) or cap rings to slot, changes item 2 or G-2; (3) add border term to floor and change AC-8 to measured value; (4) keep R at 12 px or use exact min form. Measurement scripts in the scratchpad (card196_measure*.py), not in the repo.
+- [Env] forge 2026.8.17
+- [Owner default] Owner decision (2026-10-06, binding, final note at the end of this section): column-number scroll inside the board area, clue numbers max(12px, 60% of cell) — implemented as drafted
 
 - [Origin] Owner mobile solver feedback, 2026-10-06, owner decision option b: clue numbers are NOT 60% of the cell any more. They have a fixed minimum of 12 px on every width; cells fit the board to the available width. No IDEA id was given.
 - [Owner decision, to confirm] Two readings of "NOT 60% any more". This card takes the reading that keeps 0.6 × cell where it is above 12 px (the brief's option). The alternative is a fixed 12 px everywhere, which also shrinks desktop 15×15 numerals from 16.8 px to 12 px. Confirm before implementing.
@@ -187,4 +190,5 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-196` (53 rules). A project
 - [AC cross-check] The body and ACs agree: numerals (item 1, AC-1, AC-2); row slot (item 2, AC-3); column floor and scroll rule (items 3 and 5, AC-4, AC-5, AC-6); cell formula (item 4, AC-4 to AC-6); desktop (item 6, AC-1 and G-1). No AC orders placement or precedence differently from the body.
 - [Scope] `admin.css`, `solver.js`, `tests/test_puzzle_solver_clues.py`. No new file. No new dependency.
 - [Owner decision] 2026-10-06 — boards whose two-digit column numbers cannot fit the phone stage scroll sideways INSIDE the board area (page never scrolls); clue numbers are max(12 px, 60% of the cell): desktop 15×15 numbers keep 16.8 px; the 12 px floor only bites where the cell is smaller.
+- [Owner decision] 2026-10-06 — approved the redo fixes: (1) edit the one protected swipe test (TestSolverPhone_SwipingTheCluesPansTheBoard[30x30-player-corner]) to a visible corner start point — G-8 exception listed; (2) row gap 0.65 ch for two-digit rings (rings never overlap numbers); (3) count the column border in the measurement and set AC-8 to the measured 15.45 px; (4) use the exact row-band formula. Redo from main; re-decompose the ACs before code.
 
