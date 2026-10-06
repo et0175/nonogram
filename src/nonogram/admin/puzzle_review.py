@@ -103,12 +103,6 @@ class PuzzleFilter:
     """Filters for puzzle queries."""
 
     size: Optional[Tuple[int, int]] = None  # e.g., (20, 20) as (width, height) extent pair
-    #: A side range: ``(low, high)`` in cells, either bound optional. A grid
-    #: matches when *at least one* of its sides falls inside — so a 20×30 is
-    #: found by 25–30 as well as by 10–20. ``size`` above is the exact-extent
-    #: filter the API keeps; this is the one the review page's from/to fields
-    #: drive, since almost no picture-derived grid is square.
-    side_range: Optional[Tuple[Optional[int], Optional[int]]] = None
     #: Either spelling of any tier — the enum value ("easy") a
     #: pipeline-written row carries, or the display label ("Easy") an older
     #: one does. Resolved through difficulty.tier_of_record where it is
@@ -145,11 +139,11 @@ class PuzzleFilter:
     limit: int = 25
     offset: int = 0
     #: CARD-122: a range on the grid's **longest** side — ``max(width, height)``
-    #: — as ``(low, high)``, either bound optional. Not the same question as
-    #: :attr:`side_range` above, which asks whether *either* side falls inside:
-    #: a 30x12 matches ``side_range=(10, 15)`` (its short side does) but never
-    #: ``longest_side_range=(10, 15)`` (its longest side is 30). The book's
-    #: longest-side tabs are this predicate, and they must be able to page:
+    #: — as ``(low, high)``, either bound optional. A 30x12 never matches
+    #: ``longest_side_range=(10, 15)``, although its short side is in range:
+    #: its longest side is 30. The book's longest-side tabs and the review
+    #: page's size from/to fields (CARD-190) are this predicate, and they must
+    #: be able to page:
     #: filtering a superset in Python after the store applied LIMIT hides the
     #: rows the tab is made of (review cycle 1, F-001).
     #:
@@ -166,7 +160,6 @@ class PuzzleFilter:
         """Convert to dictionary for API."""
         return {
             "size": self.size,
-            "side_range": self.side_range,
             "difficulty": self.difficulty,
             "quality_min": self.quality_min,
             "theme": self.theme,
@@ -187,7 +180,6 @@ class PuzzleFilter:
         """Create PuzzleFilter from dictionary."""
         return PuzzleFilter(
             size=data.get("size"),
-            side_range=data.get("side_range"),
             difficulty=data.get("difficulty"),
             quality_min=data.get("quality_min"),
             theme=data.get("theme"),
@@ -841,8 +833,6 @@ class PuzzleReviewService:
             width, height = filter_opts.size
             if not (MIN_SIZE <= width <= MAX_SIZE and MIN_SIZE <= height <= MAX_SIZE):
                 raise ValueError(f"Size dimensions must be {MIN_SIZE}-{MAX_SIZE}")
-        if filter_opts.side_range:
-            low, high = self._side_bounds(filter_opts.side_range)
         if filter_opts.longest_side_range:
             self._side_bounds(filter_opts.longest_side_range)
         if filter_opts.quality_min and not (0 <= filter_opts.quality_min <= 100):
@@ -872,10 +862,6 @@ class PuzzleReviewService:
                 if filter_opts.size:
                     width, height = filter_opts.size
                     if puzzle["width"] != width or puzzle["height"] != height:
-                        continue
-                if filter_opts.side_range:
-                    low, high = self._side_bounds(filter_opts.side_range)
-                    if not any(low <= side <= high for side in (puzzle["width"], puzzle["height"])):
                         continue
                 # Longest-side range (CARD-122): max(width, height), not
                 # "either side". A row with a side outside the supported range
@@ -995,11 +981,6 @@ class PuzzleReviewService:
                 if filter_opts.size:
                     width, height = filter_opts.size
                     query = query.filter(Puzzle.width == width, Puzzle.height == height)
-                if filter_opts.side_range:
-                    low, high = self._side_bounds(filter_opts.side_range)
-                    query = query.filter(
-                        or_(Puzzle.width.between(low, high), Puzzle.height.between(low, high))
-                    )
                 if filter_opts.longest_side_range:
                     low, high = self._side_bounds(filter_opts.longest_side_range)
                     # CASE rather than a two-argument max(): SQLite's max() is

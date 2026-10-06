@@ -8,16 +8,21 @@ substring search — but over ``puzzle_name`` only, and a pipeline-written row
 carries none: the page lists it under ``source_image``, so searching for the
 name on screen found nothing.
 
-Now ``size_from``/``size_to`` bound *either* side, and the name search covers
-both fields. The exact-extent ``size`` stays for the API.
+Now ``size_from``/``size_to`` bound the grid's *longest* side — the same
+``PuzzleFilter.longest_side_range`` the book's tabs use, so a 25×15 counts as
+25 only (CARD-190; before it they bounded *either* side). The name search
+covers both fields. The exact-extent ``size`` stays for the API.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import re
 
 import pytest
 
+import nonogram.admin.book_manager as book_manager_module
+from nonogram.admin.book_manager import BookManager
 from nonogram.admin.puzzle_review import BOOK_TAB_SORT, PuzzleFilter, PuzzleReviewService
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.db import sqlite_session_scope
@@ -68,20 +73,8 @@ def _names(body: str) -> list:
 
 
 # --------------------------------------------------------------------------
-# Side range
+# The page's size from/to (CARD-190): the longest side
 # --------------------------------------------------------------------------
-
-
-def test_a_range_matches_when_either_side_falls_inside():
-    service = PuzzleReviewService()
-    tall = _add(service, 20, 30, source="butterfly3.jpg")
-    wide = _add(service, 27, 20, source="butterfly1.png")
-    small = _add(service, 10, 10, source="dot.png")
-
-    found = {p["id"] for p in service.filter_puzzles(PuzzleFilter(side_range=(25, 30))).puzzles}
-
-    assert found == {tall, wide}, "30 and 27 are inside 25–30; no side of the 10×10 is"
-    assert small not in found
 
 
 def test_an_open_bound_means_the_supported_limit():
@@ -89,21 +82,130 @@ def test_an_open_bound_means_the_supported_limit():
     _add(service, 10, 10, source="dot.png")
     _add(service, 20, 30, source="butterfly3.jpg")
 
-    from_only = service.filter_puzzles(PuzzleFilter(side_range=(21, None))).puzzles
-    to_only = service.filter_puzzles(PuzzleFilter(side_range=(None, 10))).puzzles
+    from_only = service.filter_puzzles(PuzzleFilter(longest_side_range=(21, None))).puzzles
+    to_only = service.filter_puzzles(PuzzleFilter(longest_side_range=(None, 10))).puzzles
 
     assert [p["source_image"] for p in from_only] == ["butterfly3.jpg"]
     assert [p["source_image"] for p in to_only] == ["dot.png"]
 
 
-@pytest.mark.parametrize(
-    "side_range",
-    [(MAX_SIZE + 1, None), (None, MIN_SIZE - 1), (25, 15), (5, 5)],
-)
-def test_an_impossible_range_is_reported_not_swallowed(side_range):
-    service = PuzzleReviewService()
-    with pytest.raises(ValueError):
-        service.filter_puzzles(PuzzleFilter(side_range=side_range))
+STORES = ("memory", "sqlite")
+
+
+def _build_app(store, scope, monkeypatch):
+    """The panel on the named store — CARD-160's ``_build_app``."""
+    from nonogram.admin.app import create_app
+
+    monkeypatch.setenv("TESTING", "true")
+    if store == "memory":
+        monkeypatch.delenv("DATABASE_URL", raising=False)
+        monkeypatch.setattr(book_manager_module, "_book_manager", BookManager(session_factory=None))
+    else:
+        import nonogram.db
+
+        monkeypatch.setenv("DATABASE_URL", "sqlite:///card-190-test-only")
+        monkeypatch.setattr(nonogram.db, "session_scope", scope)
+    app = create_app()
+    app.config["TESTING"] = True
+    # The tests must exercise the store they name, not silently fall back.
+    assert (app.puzzle_review_service._session_factory is None) == (store == "memory")
+    return app
+
+
+@pytest.fixture(params=STORES)
+def panel(request, tmp_path, monkeypatch):
+    scope = sqlite_session_scope(tmp_path, "card-190.db") if request.param == "sqlite" else None
+    return _build_app(request.param, scope, monkeypatch)
+
+
+def _page(panel, query: str) -> str:
+    response = panel.test_client().get(f"/puzzles?{query}")
+    assert response.status_code == 200, response.status_code
+    return response.get_data(as_text=True)
+
+
+class TestPuzzleReview_SizeFilterUsesLongestSide:
+    """AC-1 (memory) / AC-2 (sqlite): a 25×15 counts as 25 only.
+
+    10–15 is the discriminator: the 25×15's short side is in it, so the old
+    either-side filter listed both rows there.
+    """
+
+    @pytest.fixture
+    def corpus(self, panel):
+        _add(panel.puzzle_review_service, 25, 15, source="wide-25x15.png")
+        _add(panel.puzzle_review_service, 15, 12, source="small-15x12.png")
+        return panel
+
+    def test_ten_to_fifteen_lists_only_the_15x12(self, corpus):
+        body = _page(corpus, "size_from=10&size_to=15")
+
+        assert "Puzzles (1 total)" in body
+        assert _names(body) == ["small-15x12.png"]
+
+    def test_twenty_one_to_twenty_five_lists_only_the_25x15(self, corpus):
+        body = _page(corpus, "size_from=21&size_to=25")
+
+        assert "Puzzles (1 total)" in body
+        assert _names(body) == ["wide-25x15.png"]
+
+
+class TestPuzzleReview_SizeFilterPagesItsOwnMembers:
+    """AC-3: the store pages the longest-side members, so the total is theirs
+    and the first page holds none of the wide rows, and the range is carried
+    forward both by the pagination links and by the ``return_to`` the row
+    actions redirect back through."""
+
+    def test_the_total_counts_members_and_the_links_keep_the_range(self, panel):
+        service = panel.puzzle_review_service
+        for n in range(5):
+            _add(service, 30, 12, source=f"wide{n}.png")
+        for n in range(3):
+            _add(service, 14, 12, source=f"small{n}.png")
+
+        body = _page(panel, "size_from=10&size_to=15&limit=2")
+
+        assert "Puzzles (3 total)" in body
+        names = _names(body)
+        assert len(names) == 2 and all(name.startswith("small") for name in names), names
+        # The row actions' return_to (an escaped attribute value)...
+        assert "size_from=10&amp;size_to=15" in body
+        # ...and every pagination link (the macro's literal ``&``, unescaped).
+        page_links = re.findall(r'class="page-link" href="([^"]*)"', body)
+        assert page_links, "3 members at limit=2 is more than one page"
+        assert all("size_from=10&size_to=15&" in href for href in page_links), page_links
+
+
+class TestPuzzlesApi_SizeRangeUsesLongestSide:
+    """AC-4: the API shares the page's helper, so it means the same."""
+
+    def test_the_api_lists_only_the_15x12(self, admin_app):
+        service = admin_app.puzzle_review_service
+        _add(service, 25, 15, source="wide-25x15.png")
+        _add(service, 15, 12, source="small-15x12.png")
+
+        data = admin_app.test_client().get("/api/puzzles?size_from=10&size_to=15").get_json()
+
+        assert [p["source_image"] for p in data["puzzles"]] == ["small-15x12.png"]
+
+
+class TestPuzzleReview_SizeFilterLabelSaysLongestSide:
+    """AC-5: book selection's wording, and no "either side" left."""
+
+    def test_the_field_is_labelled_longest_side(self, admin_app):
+        body = admin_app.test_client().get("/puzzles").get_data(as_text=True)
+
+        assert '<label for="size_from" class="form-label">Longest side (cells)</label>' in body
+        assert re.search(r'<input[^>]*id="size_from"[^>]*aria-label="Longest side from"', body)
+        assert re.search(r'<input[^>]*id="size_to"[^>]*aria-label="Longest side to"', body)
+        assert "either side" not in body.lower()
+
+
+def test_the_filter_has_no_either_side_field_any_more():
+    """AC-6: ``side_range`` is gone, not merely unused."""
+    assert "side_range" not in {f.name for f in dataclasses.fields(PuzzleFilter)}
+    with pytest.raises(TypeError):
+        PuzzleFilter(side_range=(10, 15))
 
 
 def test_the_page_reads_from_and_to_and_keeps_them_in_pagination(admin_app):
@@ -140,23 +242,18 @@ def test_the_exact_size_parameter_still_works_for_the_api(admin_app):
 
 
 def test_a_longest_side_range_asks_about_max_width_height_not_either_side():
-    """The discriminator: "either side inside" and "longest side inside" name
-    different sets, and the book's tabs mean the second one.
-
-    A 30x12 has a side in 10-15, so the side range finds it — but its longest
-    side is 30, so it belongs to the 26-30 tab and to no other.
+    """A 30x12 has a side in 10-15, but its longest side is 30, so it belongs
+    to the 26-30 tab and to no other.
     """
     service = PuzzleReviewService()
-    tall = _add(service, 30, 12, source="tall.png")
+    _add(service, 30, 12, source="tall.png")
     small = _add(service, 15, 12, source="small.png")
 
-    either = {p["id"] for p in service.filter_puzzles(PuzzleFilter(side_range=(10, 15))).puzzles}
     longest = {
         p["id"]
         for p in service.filter_puzzles(PuzzleFilter(longest_side_range=(10, 15))).puzzles
     }
 
-    assert either == {tall, small}, "side_range still means what it meant"
     assert longest == {small}, "a 30x12's longest side is 30, so 10-15 does not hold it"
 
 
@@ -193,7 +290,7 @@ def test_a_row_outside_the_supported_range_belongs_to_no_longest_side_range():
 
 @pytest.mark.parametrize(
     "longest_side_range",
-    [(MAX_SIZE + 1, None), (None, MIN_SIZE - 1), (25, 15)],
+    [(MAX_SIZE + 1, None), (None, MIN_SIZE - 1), (25, 15), (5, 5)],
 )
 def test_an_impossible_longest_side_range_is_reported_too(longest_side_range):
     service = PuzzleReviewService()
