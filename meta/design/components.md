@@ -304,3 +304,4 @@ Used by: /batches (BatchTable column after Source) and /batch/<id> (kv row after
 ## Arrangement — Sort by size (CARD-191)
 
 Used by: /book/<id>/arrange. (CARD-191) "Sort by size" header action on the Arrangement "Puzzles in book" card — `btn btn-sm btn-outline-secondary` POST form in the header (`d-flex justify-content-between align-items-center flex-wrap gap-2`); shown only when the book has puzzles; native confirm naming no undo.
+(CARD-192) Arrangement plan band (owner chose bands ≤15, 16–20, 21–25, 26–30): band-link strip; band plan line (`p.stat-line#bandPlan`, `.stat-cell[data-over]`) reading "Easy 18 / 20 (2 left) · Medium 22 / 20 (2 over)"; reorder-off note (`p#reorder-off`: "Show all sizes to move puzzles or sort them."); "(N shown of M)" level heading; "No puzzles of this size in this level." note; plan-less Print setup sentence. Moves, position box and Sort hidden while a band is shown.
