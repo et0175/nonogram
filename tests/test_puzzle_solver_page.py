@@ -953,7 +953,7 @@ class TestSolverStateModule:
             "zeroWide": "RangeError", "fractional": "RangeError", "notANumber": "RangeError",
             "rowOut": "RangeError", "colOut": "RangeError", "negative": "RangeError",
             "badState": "RangeError", "untouched": True, "frozen": True,
-            "states": ["unknown", "filled", "empty"],
+            "states": ["unknown", "filled", "empty", "maybe"],
         }
 
     def test_PropertyTest_StateModule_WithCellChangesExactlyOneCell(self, browser_page, live) -> None:
