@@ -557,3 +557,40 @@ def moved_within_level(puzzle_ids, puzzle_id, offset, tier_of) -> list | None:
         raise LevelBoundary(CROSS_LEVEL_REFUSAL)
     order.insert(target, order.pop(index))
     return order
+
+
+def sorted_by_size_within_level(puzzle_ids, tier_of, size_of) -> list:
+    """The grouped order with each level sorted smallest first (CARD-191).
+
+    The key inside a level is ``(longest side, shortest side)``, ascending —
+    the direction FR-036's selection tabs use. Levels never mix: the level
+    rank (:func:`level_rank`, the one :func:`book_level_order` groups by) is
+    the first part of the key, so the result is always grouped (INV-009), and
+    the ungraded tail is sorted the same way and stays last.
+
+    The sort is Python's stable ``sorted``: puzzles whose keys are equal
+    (15×20 and 20×15, or two 20×20) keep the relative order they came in
+    with — never an order by id. A puzzle whose size cannot be read
+    (``size_of`` answers ``None``) goes to the end of its own level, in its
+    current relative order; like :func:`book_level_order`'s unread tier this
+    never raises. Sorting a sorted order returns it unchanged.
+
+    Args:
+        puzzle_ids: the book's stored order.
+        tier_of: as :func:`book_level_order`.
+        size_of: a total function from a puzzle id to its stored
+            ``(width, height)``, or ``None`` when that cannot be read.
+
+    Returns:
+        A new list — a permutation of ``puzzle_ids``.
+    """
+
+    def key(puzzle_id):
+        size = size_of(puzzle_id)
+        rank = level_rank(tier_of(puzzle_id))
+        if size is None:
+            return (rank, 1, 0, 0)
+        width, height = size
+        return (rank, 0, max(width, height), min(width, height))
+
+    return sorted(puzzle_ids, key=key)
