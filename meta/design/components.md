@@ -238,6 +238,8 @@ Sizing on phones (CARD-182): at viewports ≤ 820 px the cell floor is 24 px (ta
 
 (CARD-186) player cell — "?" glyph (data-state="maybe") — --grid-paper, --color-accent, --player-cell (font-size 0.6 ×), weight 600
 
+(CARD-187) Player toolbar counters: new `.player-counters` (no role; flex row-reverse, wrap, flex-basis 0) holding `.player-counters-pair` (Errors, Hints; as tall as a toolbar .btn) and `.player-progress` / `.player-progress-count` ("Progress: N%", non-live, styled like the error count). Visual order Progress, Errors, Hints; at ~1280 px Progress wraps below the pair at the right. `.player-toolbar` items align to the row top (align-items: flex-start).
+
 ## ClueBox
 
 Used by: SolverBoard. One box per line (a row's to the left, a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
