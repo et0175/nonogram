@@ -1,6 +1,15 @@
 # generated_by: forge:architect-synthesis
 # generated_at: 2026-08-27
 # tier: medium
+# updated_at: 2026-10-06 (a) (delta mode, written by domain-extraction —
+#   wave-34 catch-up, raw-requirements.md Delta 2026-10-06 (a): tests ADDED
+#   to FR-044 (CARD-182 TestSolverPhone_*, CARD-183 hint, CARD-186 "?" /
+#   Maybe, CARD-188 clue circling), CON-020 (CARD-184's interior type-floor
+#   tests; status partial -> covered, its check is now a test), FR-038
+#   (CARD-178), FR-036 (CARD-180), FR-008 (CARD-181), FR-033 (CARD-179),
+#   FR-043 and FR-030 (CARD-177). CON-021 note amended (browser-local
+#   resume). Wave-35 planned tests (CARD-185/187/189) not listed until their
+#   code exists. No component, ADR link or row added; every id preserved.)
 # updated_at: 2026-10-03 (b) (--trace-only, forge:architect-synthesis —
 #   DEC-040/DEC-041 resolved by ADR-0038: rows AMENDED for FR-044 and CON-021,
 #   adrs: [] -> [ADR-0038] (CON-021 also ADR-0030, the deployed panel's door
@@ -330,6 +339,11 @@ links:
   tests:
   - TestSelectDifficulty_AcceptsValidTier
   - TestSelectDifficulty_RejectsUnknownTier
+  - TestBatchRequestedTier_MemoryModeRecordsTheTier
+  - TestBatchRequestedTier_DbModeStoresAndReadsBackTheTier
+  - TestBatchRequestedTier_UntargetedAndImageBatchesStoreNull
+  - TestBatchRequestedTier_Migration014IsReversible
+  - TestBatchRequestedTier_PagesShowWhatTheBatchAskedFor
   notes: >-
     AMENDED 2026-09-12: ADR-0025 (FR-026, resolving DEC-030) makes the tier
     enum Easy / Medium / Hard / Guess — `guess` is a fourth value the selector
@@ -345,6 +359,9 @@ links:
     `<name>-guess.pdf` (ADR-0016), the admin badge and filter, and
     `generate_batch`'s validation. AC-020 re-worded and AC-021's message now
     names all four, read off the enum.
+    AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-181's tests added — a
+    batch stores the tier it asked for (memory and DB modes, migration 014)
+    and its pages show it.
   status: covered
 
 - req: FR-009
@@ -615,6 +632,11 @@ links:
     (review-lens; admin player only, a public phase reopens ADR-0038).
     ADR-0030 cited for the credentialed door of CON-016 the clause relies
     on. Status stays partial until FR-044 ships.
+    AMENDED 2026-10-06 (a): the statement now admits this browser's
+    localStorage, per puzzle, as the one place play state may be kept (owner
+    decision, CARD-185, wave 35); nothing on the server, no request per mark
+    (ADR-0038/R2), admin panel only. Check stays review-lens; no test added
+    here.
   status: partial
 
 - req: CON-003
@@ -1629,6 +1651,7 @@ links:
   - TestPrintSetup_NanWidthChangesNothing
   - TestBookDetail_ShowsTheStoredTrim
   - TestPrintSetup_InchesTrimIsReachable
+  - TestFinalisePost_TransientErrorIsLogged
   notes: >-
     Amended 2026-09-22 (d): parity counts from INTERIOR page 1 — the guide
     page, the cover being a separate file (FR-043); AC-179's page count is the
@@ -1647,6 +1670,9 @@ links:
     refuses when the page count needs a larger one; AC-179 was re-worded to
     that refusal on 2026-09-22. ADR-0036/R1's golden A4 test is listed here as the CLI half's
     guard. Planned test names from requirements.yml; no code yet.
+    AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-177's Finalise / Save
+    and finish test added — a transient error flashes the generic constant
+    and is logged, never the raw exception text.
   status: partial
 
 - req: FR-031
@@ -1714,12 +1740,18 @@ links:
   - TestBookPdf_PuzzlePageCarriesNoPictureTitle
   - TestBookPdf_AnswerKeyCarriesPictureTitle
   - TestBookPdf_EveryFifthGridLineWider
+  - TestBookProof_WrappedNoteKeepsUnitsWithNumbers
+  - PropertyTest_ProofNoteWrap_NeverSplitsAUnitOrStartsWithTimes
+  - TestBookProof_FallbackLeadingTightensOnlyWhenNeeded
   notes: >-
     Story US-024. DEC-039 resolved by ADR-0037: the band reads 'Puzzle N · Tier'
     (R1, review-lens on book_pdf_generator.py); under the book PageSpec thin >=
     0.25 mm, heavy = 2x thin, pure black (R2, review-lens on layout.py) — the
     default A4 strokes unchanged (CON-019). Final values confirmed by the owner
     on printed proof pages (30x30, 15x15) — an owner checkpoint, not a test.
+    AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-179's proof-page tests
+    added — the wrapped proof note keeps each number with its unit and never
+    starts a line with the multiplication sign.
   status: partial
 
 - req: FR-034
@@ -1777,10 +1809,21 @@ links:
   - TestBookSelect_SizeRangeFilterReplacedByTab
   - TestBookSelect_ExistingFiltersApplyInsideTab
   - PropertyTest_LongestSideBuckets_PartitionEveryExtent
+  - TestStatusFilter_AllOffersEveryStatus
+  - TestStatusFilter_AllStillHidesPuzzlesInABook
+  - TestStatusFilter_AllSurvivesTabSwitchAndApply
+  - TestStatusFilter_AllTilesCanBeAddedAndKeepTheirStatus
+  - TestStatusFilter_NonApprovedTilesNameTheirStatus
+  - TestStatusFilter_AllEmptyTabDoesNotSayApproved
+  - TestStatusFilter_UnknownValueStillMatchesNothing
   notes: >-
     Story US-026, EC-024: one bucketing function serves the plan (FR-034), the
     tabs and the gate (FR-037). Tabs as a server-rendered ?bucket= parameter on
     the existing route is the suggested mechanism (open.yml note, not a DEC).
+    AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-180's tests added —
+    ?status=all on book selection offers every status, still hides puzzles
+    already in the book, survives tab switch and Apply, and names non-
+    approved tiles' status.
   status: partial
 
 - req: FR-037
@@ -1830,6 +1873,8 @@ links:
   - PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists
   - TestBookStepPages_ProseAgreesWithTheStepper
   - TestBookCreate_RefusalKeepsTypedInput
+  - TestPropertyTest_TrimInchesShown_InsideLimitsAndAccepted
+  - TestBookTrim_ReopenInInchesStaysInsideLimits
   notes: >-
     Amended 2026-09-22 (c): an add or remove on a book that has left draft
     (confirmed, for a published one) sets it to draft in the same store write
@@ -1837,6 +1882,10 @@ links:
     BookManager (COMP-009) and persisted by COMP-010.
     Story US-027, INV-008, EC-026. Replaces BookManager's outright refusal on
     published books with a confirmation.
+    AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-178's tests added — a
+    book reopened in Print setup in inches never shows a trim outside the
+    stated limits and an untouched resubmission stores the original cm (card
+    cites FR-030 and FR-038; listed here, the Print setup re-entry step).
   status: partial
 
 - req: FR-039
@@ -1984,6 +2033,8 @@ links:
   - PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
   - TestBookPages_OfferBothExportFiles
   - TestBookDetail_ListsPuzzlesByTitle
+  - TestBookPdfDownload_ErrorIsGenericAndLogged
+  - PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen
   notes: >-
     New 2026-09-22 (d). Story US-023; INV-013, EC-034; owner decision BK-9
     (not a DEC). COMP-009 (book_pdf_generator.py and the three export routes)
@@ -1994,6 +2045,10 @@ links:
     (FR-030 AC-179, FR-042 AC-271) is the interior's. Full KDP cover wrap
     (spine, back) DEFERRED. Planned test names from requirements.yml; no code
     yet.
+    AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-177's tests added — the
+    book export's PDF download routes flash a generic error and log the
+    exception, never showing its raw text (card cites FR-043 and FR-030; the
+    Finalise row is under FR-030).
   status: partial
 
 - req: FR-044
@@ -2024,6 +2079,54 @@ links:
   - PropertyTest_SolverHistory_ReplayReproducesTheBoard
   - PropertyTest_SolverProgress_SolvedMatchesTheSolution
   - PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition
+  - TestSolverPhone_CellsAreATapTarget
+  - TestSolverPhone_FloorAppliesOnlyBelowTheShellBreakpoint
+  - TestSolverPhone_DesktopSizingUnchanged
+  - TestSolverPhone_TouchDragMarksOnAScrolledBoard
+  - TestSolverPhone_SwipingTheCluesPansTheBoard
+  - PropertyTest_SolverHint_LineForcedMatchesThePythonLineSolver
+  - PropertyTest_SolverHint_LineForcedMatchesBruteForce
+  - PropertyTest_SolverHint_RevealsTheFirstDeducibleCell
+  - TestSolverHintModule
+  - TestSolverHint_RevealsOneCell
+  - TestSolverHint_PlacesTheButtonAndTheCounter
+  - TestSolverHint_IgnoresWrongMarks
+  - TestSolverHint_FallsBackToTheSolution
+  - TestSolverHint_IsOneUndoableStroke
+  - TestSolverHint_CanSolveAndThenLocks
+  - TestSolverHint_DisabledWithNothingToReveal
+  - TestSolverHint_KeyboardAndNoRequest
+  - TestSolverHint_ReducedMotion
+  - TestSolverMaybeModule_IsAFourthState
+  - TestSolverMaybeModule_ClickedStateTable
+  - PropertyTest_SolverMaybe_ErrorCountNeverCountsMaybe
+  - PropertyTest_SolverMaybe_NotSolvedWhileAnyMaybe
+  - PropertyTest_SolverMaybe_ReplayReproducesTheBoard
+  - PropertyTest_SolverMaybe_HintReadsMaybeAsUndecided
+  - PropertyTest_SolverMaybe_CirclesReadMaybeAsUndecided
+  - TestSolverMaybe_ClickWithTheMaybeTool
+  - TestSolverMaybe_DragPaintsMaybe
+  - TestSolverMaybe_BlocksTheSolvedState
+  - TestSolverMaybe_UndoRedo
+  - TestSolverMaybe_ResetClearsMaybe
+  - TestSolverMaybe_HintMayOverwriteMaybe
+  - TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell
+  - TestSolverMaybe_ToolKeyboardAndLabel
+  - TestSolverMaybe_NoRequestPerMark
+  - TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth
+  - TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth
+  - TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280
+  - TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved
+  - TestSolverClues_RuleExamples
+  - PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot
+  - PropertyTest_SolverClues_AFullyMarkedLineCirclesEverything
+  - PropertyTest_SolverClues_BoardIsLineByLine
+  - TestSolverClues_CirclesFollowEveryCommit
+  - TestSolverClues_AmbiguousRunStaysUncircled
+  - TestSolverClues_DragPreviewDoesNotCircle
+  - TestSolverClues_CirclingMovesNothing
+  - TestSolverClues_EveryNumberKeepsAOneCellSlot
+  - TestSolverClues_TheCircleIsVisible
   notes: >-
     New 2026-10-03 (a). Story US-028; owner decision (not a DEC) for scope,
     click semantics and error count. COMP-009 only — a new route, template
@@ -2042,6 +2145,17 @@ links:
     solve (header shows size and tier); owner decision on CARD-162 F-007,
     parallel of ADR-0037/R1. Test TestSolverPage_HidesThePictureNameUntilSolved
     planned, not yet written.
+    AMENDED 2026-10-06 (a) (wave-34 catch-up; raw-requirements.md Delta
+    2026-10-06 (a)): tests added from CARD-182 (TestSolverPhone_*, 390 px
+    tap target, touch drag and swipe), CARD-183 (hint, AC-327..AC-335,
+    EC-042), CARD-186 ("?" / Maybe, AC-336..AC-344, EC-036 amended, EC-043)
+    and CARD-188 (clue circling, AC-345..AC-350, EC-044), all merged. AC-303
+    / AC-304 are superseded for clicks by AC-355..AC-359 (CARD-189, wave
+    35); their tests stay listed until CARD-189 replaces them. Wave-35 ACs
+    (CARD-185 resume AC-360..AC-365 / EC-046..EC-047, CARD-187 percent
+    AC-351..AC-354 / EC-045, CARD-189 clicks AC-355..AC-359) carry planned
+    test names in requirements.yml and are NOT listed here until their code
+    exists; status stays partial until then.
   status: partial
 
 - req: NFR-008
@@ -2106,6 +2220,10 @@ links:
   - TestGuidePage_TypeIsBookSized
   - TestGuidePage_PointSizeIsIndependentOfDpi
   - TestGuidePage_LeadingClearsTheType
+  - TestInteriorType_EveryFaceHoldsTheFloor
+  - TestInteriorType_FloorHoldsWithoutArial
+  - TestInteriorType_OnlyPuzzleClueDigitsAreExempt
+  - TestDividerPage_PointSizeIsIndependentOfDpi
   notes: >-
     Promoted 2026-09-30 from CARD-149's cycle-1 review (F-005). Checked
     constraint (check: review-lens; scope
@@ -2118,7 +2236,14 @@ links:
     dividers 60 px = 14.40 pt, cover 72 px = 17.28 pt, guide body 46 px =
     11.04 pt (6.72 pt before CARD-149, the sole violation). Partial until a
     test walks every interior face and asserts the floor.
-  status: partial
+    AMENDED 2026-10-06 (a) (owner decision; raw-requirements.md Delta
+    2026-10-06 (a)): CARD-184 wrote the owed test —
+    TestInteriorType_EveryFaceHoldsTheFloor records every draw.text call of
+    the baseline interior on Book 1 and the 10x10 cm minimum trim and
+    asserts the floor outside the clue-digit exemption (puzzle-page clue
+    digits, whose size follows the cell, CON-018 / INV-006). The
+    constraint's check is now that test (was review-lens); status covered.
+  status: covered
 
 components:
 - id: COMP-001

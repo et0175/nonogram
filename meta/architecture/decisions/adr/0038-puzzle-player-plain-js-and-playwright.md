@@ -3,8 +3,8 @@
 **Status:** Accepted
 **Date:** 2026-10-03
 **Deciders:** Olga (project owner)
-**Revised:** —
-**Migration:** —
+**Revised:** 2026-10-06 (History: R8 — there is no CI; browser tests run locally, the CI clause applies once CI exists)
+**Migration:** on-touch
 **Pattern:** —
 **API-Posture:** —
 
@@ -77,6 +77,7 @@ Mirror the client's state rules in a Python reference model for the property tes
 ## History
 
 - 2026-10-03: Created. It resolves DEC-040 (plain JavaScript and CSS as static files in the Flask admin panel, with no framework, build step or vendored library) and DEC-041 (pytest-playwright and Chromium as a dev-only extra, with a loud skip). Both are owner-confirmed choices that add no runtime dependency, no container and no toolchain, and that put the shipped JavaScript under browser-level test.
+- 2026-10-06: Revised (owner decision, IDEA-065; raw-requirements.md Delta 2026-10-06 (a); no DEC — a correction of a rule's premise, not a new decision). R8 assumed a CI pipeline ("CI installs Chromium ... before running them"); the project has none. R8 now states the local reality: browser tests run on a developer machine with Chromium installed by `playwright install chromium`, and when it is missing they fail or skip loudly (unchanged). The CI sentence becomes conditional — it applies only once a CI pipeline exists — and "no CI" is recorded as a known gap, not a satisfied rule. No other rule's meaning changes. (Same day, outside this ADR: FR-044 now admits browser-local resume in localStorage, CON-021 amended; R2 — no network request per mark — is unchanged and still holds for it.) Migration: on-touch — no test or code is out of step with the revised R8; the CI clause binds whoever first builds a CI pipeline.
 
 ## Rules
 
@@ -138,11 +139,16 @@ Mirror the client's state rules in a Python reference model for the property tes
   scope: {code: ["pyproject.toml", "tests/**"]}
   check: {kind: review-lens}
   severity: mandatory
+# Revised 2026-10-06 (IDEA-065): was "CI installs Chromium ... before
+# running them" — unconditional, though no CI exists.
 - id: ADR-0038/R8
   statement: >-
-    When Chromium is not installed, browser tests fail or skip loudly, with a
-    named skip reason visible in the run summary. They never pass silently.
-    CI installs Chromium (playwright install chromium) before running them.
+    Browser tests run locally, against Chromium installed by
+    `playwright install chromium`. When Chromium is not installed, browser
+    tests fail or skip loudly, with a named skip reason visible in the run
+    summary. They never pass silently. Once a CI pipeline exists, it installs
+    Chromium (playwright install chromium) before running them; until then
+    there is no CI, and that is a known gap, not a met clause.
   scope: {code: ["tests/**"]}
   check: {kind: review-lens}
   severity: mandatory

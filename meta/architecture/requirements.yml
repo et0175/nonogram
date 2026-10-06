@@ -250,6 +250,21 @@
 #   Domain: no command, event, aggregate or policy (a read of a stored
 #   puzzle; all marks are browser-local). Glossary TERM-037..TERM-039 (new),
 #   TERM-003, TERM-004 amended. Story US-028.
+# updated_at: 2026-10-06 (a) (delta mode, tier small — ONLY the
+#   raw-requirements.md section "## Delta 2026-10-06 (a)"; all owner
+#   decisions, formalised, not re-opened):
+#     1. FR-044 AMENDED — statement admits Hint, the "?" / Maybe brush, clue
+#        circling, "Progress: N%", brush-sequence clicks and browser-local
+#        resume; AC-303 / AC-304 SUPERSEDED for clicks; AC-310 and EC-036
+#        amended; AC-327..AC-365 and EC-042..EC-047 added.
+#     2. CON-021 AMENDED — play state may be kept in this browser's
+#        localStorage only; still nothing on the server, admin panel only.
+#     3. CON-020 AMENDED — clue digits inside clue cells exempt (size follows
+#        the cell, CON-018 / INV-006); check review-lens -> test
+#        TestInteriorType_EveryFaceHoldsTheFloor (CARD-184).
+#   ADR-0038/R8 revised the same day (no CI; the CI clause applies once CI
+#   exists). Domain: no command, event, aggregate or policy (resume is
+#   browser-side; nothing on the server changes state).
 # tier: medium
 functional:
   - id: FR-001
@@ -3663,6 +3678,21 @@ functional:
     # name is unchanged (AC-316 / AC-319). Owner decision 2026-10-03 on
     # CARD-162 review finding F-007; parallels ADR-0037/R1 (a printed book
     # puzzle page never prints the picture's title).
+    # AMENDED 2026-10-06 (a) (raw-requirements.md "## Delta 2026-10-06 (a)",
+    # bullets 1-6; all OWNER DECISIONS of 2026-10-05, formalised here, not
+    # re-opened): the statement now admits (1) a Hint button (CARD-183,
+    # shipped; AC-327..AC-335, EC-042) — superseding "Hints are out of
+    # scope"; (2) a fourth mark "?" / Maybe brush (CARD-186, shipped;
+    # AC-336..AC-344, EC-043; AC-310 and EC-036 amended); (3) clue numbers
+    # circled once the marks settle their run (CARD-188, shipped;
+    # AC-345..AC-350, EC-044); (4) a "Progress: N%" counter (CARD-187,
+    # wave 35; AC-351..AC-354, EC-045); (5) clicks that follow the selected
+    # brush's sequence (CARD-189, wave 35; AC-355..AC-359) — superseding
+    # AC-303 / AC-304 for clicks, drags unchanged; (6) browser-local resume
+    # in this browser's localStorage only (CARD-185, wave 35;
+    # AC-360..AC-365, EC-046, EC-047) — superseding "no play state is
+    # persisted" for the browser only; CON-021 amended the same day. Wave-35
+    # test names are the cards' planned names; no code yet for them.
     # NAMING: this is the PUZZLE PLAYER (TERM-037), a page a person solves a
     # puzzle on. It is NOT the uniqueness solver (COMP-005,
     # src/nonogram/solver/, TERM-004), and nothing here changes that
@@ -3681,7 +3711,12 @@ functional:
     #  - Domain: no command, event or aggregate. Opening the page is a read
     #    of a stored puzzle, and every mark lives in the browser and is gone
     #    when the page closes; nothing in the system changes state.
-    #  - Hints are OUT of V1 (owner: "or we can go without hints for now").
+    #    (2026-10-06: marks may now survive a reload in this browser's
+    #    localStorage, CARD-185 — still browser-side only, so still no
+    #    command, event or aggregate; nothing on the server changes state.)
+    #  - Hints were OUT of V1 (owner: "or we can go without hints for now");
+    #    SUPERSEDED 2026-10-06 (a) — the owner admitted a Hint button
+    #    (IDEA-074, CARD-183).
     statement: >-
       From the puzzle detail modal the admin panel opens any stored puzzle
       in a puzzle player page (TERM-037) at /puzzle/<puzzle_id>/solve. The
@@ -3689,29 +3724,57 @@ functional:
       fifth grid line heavier on both axes, row clues in boxes to the left
       and column clues in boxes above, each equal to compute_clues of the
       stored grid, with an empty line's (0,) shown as "0". Every cell starts
-      undecided. A single click on a cell always cycles it undecided ->
-      filled -> marked empty -> undecided, whatever tool is selected. The
-      selected tool (filled, empty or undecided) governs drags: pressing on
-      a cell and dragging sets every cell passed to the tool's state,
-      constrained to the row or column the drag started on. One click or one
-      drag is one stroke (TERM-039) and one undo step; undo and redo work by
+      undecided. There are four marking tools, each a brush: filled (black),
+      empty (white), undecided, and Maybe, which marks a cell "?" for an
+      assumption. A click follows the selected brush: a first click on a
+      cell sets the brush's state (or, if the cell already holds it, the
+      next step of the brush's sequence), and each repeat click on the same
+      cell with the same brush moves one step on — filled: filled -> marked
+      empty -> undecided; empty: marked empty -> undecided -> filled;
+      undecided: undecided -> filled -> marked empty; Maybe: "?" ->
+      undecided. A click on another cell, a brush change, or any drag, undo,
+      redo, hint or reset makes the next click a first click. A drag sets
+      every cell passed to the brush's state, constrained to the row or
+      column the drag started on. One click, one drag or one hint is one
+      stroke (TERM-039) and one undo step; undo and redo work by
       button and by keyboard, and a new stroke after an undo discards the
       redo history. Every control is reachable from the keyboard and has an
       accessible name. The page shows a live error count (TERM-038): the
       number of cells currently marked filled whose solution is empty plus
-      cells currently marked empty whose solution is filled; undecided cells
-      never count, and the count falls when a mistake is corrected or undone.
-      The puzzle is solved when every solution-filled cell is marked filled
-      and no solution-empty cell is marked filled, empty marks being
-      optional. Until the puzzle is solved the page never shows the picture's
+      cells currently marked empty whose solution is filled; undecided and
+      "?" cells never count, and the count falls when a mistake is corrected
+      or undone. It also shows "Progress: N%", the floor of 100 x the cells
+      whose mark matches the solution (filled on solution-filled, marked
+      empty on solution-empty) over all cells, reading 100 only when the
+      puzzle is solved. A Hint button, after Reset, reveals one undecided
+      (or "?") cell set to its solution state and outlined: the first cell,
+      row-major, that one pass of line logic deduces from the clues and the
+      player's correct marks (wrong marks are ignored and never changed),
+      or, when no cell follows that way, the first undecided cell taken from
+      the solution, saying so; a "Hints: N" counter counts the hint strokes
+      on the undo history, so undo lowers it and reset keeps it. A clue
+      number is circled once the player's marks settle its run — a filled
+      run bounded by marked-empty cells or the edge, assigned to that number
+      only when the assignment is unambiguous; ambiguous runs stay
+      uncircled, a "0" clue circles when its whole line is marked empty, and
+      because circling reads marks, not the solution, a wrong mark can
+      circle a number. The puzzle is solved when every solution-filled cell
+      is marked filled, no solution-empty cell is marked filled, and no cell
+      is "?", empty marks being optional; the solved banner then takes the
+      tools' place. Until the puzzle is solved the page never shows the picture's
       name — neither in its visible header, which shows the puzzle's size and
       tier instead, nor in the document title. On solve the page shows the
       puzzle's picture name and plays
       a short animation, replaced by a non-animated reveal when the browser
       asks for reduced motion, and accepts no further marks until the board
       is reset. Reset clears the board after an in-page confirmation. Opening
-      the page writes nothing, marking makes no server request, and no play
-      state is persisted. Hints are out of scope.
+      the page writes nothing on the server and marking makes no server
+      request. Play state is kept only in this browser: on every change the
+      board, error and hint counts and undo/redo history are saved to the
+      browser's localStorage under the puzzle, so closing and reopening the
+      tab in that browser restores them; Reset clears the save, a
+      corrupt or mismatched save is ignored, and nothing is persisted on the
+      server (CON-021).
     source: [US-028]
     _meta:
       source: authored
@@ -3723,8 +3786,9 @@ functional:
       dec_alternatives: [plain_js_in_flask_with_playwright_dev_extra, separate_react_nextjs_front_end, plain_js_without_browser_tests]
       amended: "2026-10-03 (b) — AC-322 / AC-323 added: no picture name in the visible header or document title before solve (AC-322); header shows size and tier instead (AC-323). Source: owner decision 2026-10-03 on CARD-162 review finding F-007 (raw-requirements.md Delta 2026-10-03 (b)); the online parallel of ADR-0037/R1 (book puzzle page never prints the title). Supersedes the 'header (title and tier)' reading in assumptions below."
       amended_2026_10_04: "2026-10-04 (a) — AC-323 amended: the header's size is written \"25×15\" with the multiplication sign (U+00D7), like every other admin screen, not the ASCII \"25x15\" the AC first named. Applies wherever the player shows the size (header, and the document title if it carries the size). Test name unchanged (TestSolverPage_HidesThePictureNameUntilSolved). Source: owner decision 2026-10-04, roadmap wave 1, IDEA-061 (CARD-163 review F-002); raw-requirements.md Delta 2026-10-04 (a)."
+      amended_2026_10_06: "2026-10-06 (a) — statement amended and AC-327..AC-365, EC-042..EC-047 added from six OWNER DECISIONS of 2026-10-05 (raw-requirements.md Delta 2026-10-06 (a), bullets 1-6; the owner's solver test doc and IDEA-074): Hint (CARD-183, shipped; supersedes 'Hints are out of scope'), the fourth mark '?' / Maybe brush (CARD-186, shipped; AC-310 and EC-036 amended), clue circling (CARD-188, shipped), 'Progress: N%' (CARD-187, wave 35), clicks follow the brush's sequence (CARD-189, wave 35; AC-303 / AC-304 SUPERSEDED for clicks by AC-355..AC-359, drags AC-305 / AC-306 unchanged), and resume from this browser's localStorage (CARD-185, wave 35; supersedes 'no play state is persisted' for the browser only, CON-021 amended the same day, ADR-0038/R2 unchanged). AC wording from the cards' Acceptance criteria; test names are the shipped classes for CARD-183/186/188 and the cards' planned names for CARD-185/187/189."
       assumptions: "The route path /puzzle/<puzzle_id>/solve, the header (title and tier — SUPERSEDED 2026-10-03 (b) by AC-322/AC-323: size and tier until solved) and the 404 for an unknown id follow CARD-160 and the panel's existing /puzzle/<puzzle_id>/... routes; the owner named only 'reached by clicking a puzzle'. 'Locked until reset' is read as: clicks, drags, undo and redo change no cell while the solved state is showing (CARD-162: 'stop accepting marks until the person chooses to keep looking or reset')."
-      evidence: ["src/nonogram/admin/app.py:2213", "src/nonogram/admin/book_proof.py:268-272", "src/nonogram/admin/image_to_puzzle.py:63", "meta/kanban/cards/CARD-160.md", "meta/kanban/cards/CARD-161.md", "meta/kanban/cards/CARD-162.md"]
+      evidence: ["src/nonogram/admin/app.py:2213", "src/nonogram/admin/book_proof.py:268-272", "src/nonogram/admin/image_to_puzzle.py:63", "meta/kanban/cards/CARD-160.md", "meta/kanban/cards/CARD-161.md", "meta/kanban/cards/CARD-162.md", "meta/kanban/cards/CARD-183.md", "meta/kanban/cards/CARD-185.md", "meta/kanban/cards/CARD-186.md", "meta/kanban/cards/CARD-187.md", "meta/kanban/cards/CARD-188.md", "meta/kanban/cards/CARD-189.md"]
     acceptance:
       # --- page and clues (CARD-160) ---
       - id: AC-296
@@ -3770,18 +3834,38 @@ functional:
         kind: negative
         test: TestSolverPage_WritesNothing
       # --- marking, undo and redo (CARD-161) ---
+      # AC-303 / AC-304 SUPERSEDED 2026-10-06 (a) FOR CLICKS by AC-355..AC-359
+      # (owner decision 2026-10-05, CARD-189: a click follows the selected
+      # brush's sequence). Drags are untouched: AC-305 / AC-306 still hold.
+      # Kept verbatim as the record of the 2026-10-03 click semantics.
       - id: AC-303
         given: an undecided cell on the player page with the filled tool selected
         when: the cell is clicked three times
         then: its state goes filled, then marked empty, then undecided, drawn black, then as a dot or small cross, then blank
         kind: happy
         test: TestSolverMarking_ClickCycles
+        status: superseded
+        superseded_by: [AC-355, AC-356]
+        superseded_at: 2026-10-06
+        superseded_note: >-
+          Superseded for clicks by the brush sequences of CARD-189 (raw-requirements.md
+          Delta 2026-10-06 (a), bullet 5). Its observable outcome survives as the
+          filled brush's row of AC-355 (filled, marked empty, undecided); what is
+          retired is the reading "a click cycles regardless of the tool".
       - id: AC-304
         given: an undecided cell with the empty tool selected
         when: the cell is clicked once
         then: the cell becomes filled, not marked empty — a click cycles whatever tool is selected
         kind: boundary
         test: TestSolverMarking_ClickIgnoresTheSelectedTool
+        status: superseded
+        superseded_by: [AC-355, AC-356, AC-357]
+        superseded_at: 2026-10-06
+        superseded_note: >-
+          Superseded for clicks by CARD-189 (raw-requirements.md Delta 2026-10-06 (a),
+          bullet 5): an undecided cell clicked with the empty brush now becomes
+          marked empty (AC-355), and the selected brush governs clicks as well as
+          drags. Drags (AC-305 / AC-306) are unchanged.
       - id: AC-305
         given: a blank board with the filled tool selected
         when: the pointer is pressed on row 2 column 3 and dragged along row 2 to column 7
@@ -3812,10 +3896,16 @@ functional:
         then: the first key undoes the last stroke and the second redoes it
         kind: happy
         test: TestSolverMarking_KeyboardAndLabels
+      # AMENDED 2026-10-06 (a) (CARD-186, CARD-183): four tools — Maybe added
+      # between Undecided and Undo — and the Hint control after Reset. Test
+      # unchanged: TestSolverMarking_KeyboardAndLabels already walks
+      # Black, White, Undecided, Maybe, Undo, Redo, Reset; Hint's name and
+      # keys are carried by TestSolverHint_KeyboardAndNoRequest (AC-334) and
+      # Maybe's by TestSolverMaybe_ToolKeyboardAndLabel.
       - id: AC-310
         given: the player page of a stored puzzle
-        when: the filled, empty and undecided tools and the undo, redo and reset controls are inspected and operated from the keyboard alone
-        then: each control has a non-empty accessible name, is reachable by Tab, and acts on Enter or Space
+        when: the filled, empty, undecided and Maybe tools and the undo, redo, reset and Hint controls are inspected and operated from the keyboard alone
+        then: each control has a non-empty accessible name, is reachable by Tab — Maybe after Undecided, before Undo; Hint after Reset — and acts on Enter or Space
         kind: boundary
         test: TestSolverMarking_KeyboardAndLabels
       - id: AC-311
@@ -3901,6 +3991,246 @@ functional:
         then: it shows the puzzle's size "25×15" (multiplication sign U+00D7, not the letter "x") and its tier "medium" in place of the name
         kind: happy
         test: TestSolverPage_HidesThePictureNameUntilSolved
+      # --- hint (Delta 2026-10-06 (a) bullet 1, IDEA-074, CARD-183 shipped) ---
+      - id: AC-327
+        given: a blank 15×15 player page
+        when: Hint is pressed by a real click
+        then: 'exactly one cell changes — the first cell, row-major, that one line-logic pass over the clues plus the correct marks deduces — taking its solution state with an outline; the page shows "Hints: 1", with the error count unchanged'
+        kind: happy
+        test: TestSolverHint_RevealsOneCell
+      - id: AC-328
+        given: a board with two wrong marks (error count 2)
+        when: Hint is pressed
+        then: both wrong marks are unchanged, the error count still reads 2, and the revealed cell is the one deduced with the wrong marks ignored
+        kind: negative
+        test: TestSolverHint_IgnoresWrongMarks
+      - id: AC-329
+        given: a board where some cells are undecided but no undecided cell is deducible from a single line
+        when: Hint is pressed
+        then: the first undecided cell row-major takes its solution state and the page's announcement says the hint came from the solution
+        kind: boundary
+        test: TestSolverHint_FallsBackToTheSolution
+      - id: AC-330
+        given: a board with two ordinary strokes followed by one hint
+        when: undo is pressed once and then redo once, by button and by Ctrl/Cmd+Z
+        then: 'after the undo the hinted cell is undecided again with "Hints: 0" shown; after the redo the cell is back with "Hints: 1" shown'
+        kind: boundary
+        test: TestSolverHint_IsOneUndoableStroke
+      - id: AC-331
+        given: a board one solution-filled cell short of solved, whose missing cell is the next hint
+        when: Hint is pressed
+        then: the solved state appears, the board locks, and Hint reports aria-disabled="true", changing no cell when pressed again
+        kind: boundary
+        test: TestSolverHint_CanSolveAndThenLocks
+      - id: AC-332
+        given: an unsolved board with no undecided cell (every cell marked, some wrong)
+        when: the controls are read and Hint is pressed
+        then: Hint reports aria-disabled="true" and no cell changes
+        kind: negative
+        test: TestSolverHint_DisabledWithNothingToReveal
+      - id: AC-333
+        given: the player page at desktop width and at 390 px
+        when: the History controls and the counters are read
+        then: 'Hint is the last control of the History group, after Reset, and "Hints: N" is the element right after "Errors: N", on the same row'
+        kind: happy
+        test: TestSolverHint_PlacesTheButtonAndTheCounter
+      - id: AC-334
+        given: the player page
+        when: Hint is reached by Tab and operated by Enter and by Space, three times in all
+        then: each press reveals one cell, the control's accessible name is "Hint", and the three hints issue no network request
+        kind: negative
+        test: TestSolverHint_KeyboardAndNoRequest
+      - id: AC-335
+        given: a browser reporting prefers-reduced-motion reduce
+        when: a hint is revealed
+        then: no CSS animation or transition runs on the hinted cell or the toolbar
+        kind: boundary
+        test: TestSolverHint_ReducedMotion
+      # --- "?" mark / Maybe brush (bullet 2, CARD-186 shipped) ---
+      - id: AC-336
+        given: the 15×15 player page with Maybe selected
+        when: an undecided cell is clicked twice by a real mouse, and a filled cell is clicked once
+        then: the first cell reads "?" after one click, undecided after the second; the filled cell reads "?"; no other cell changes
+        kind: happy
+        test: TestSolverMaybe_ClickWithTheMaybeTool
+      - id: AC-337
+        given: a board with marks in row 2
+        when: a drag with Maybe runs along row 2 from column 3 to column 7, then a drag with the empty tool over columns 5-6
+        then: the five cells read "?" whatever they held after the first drag, and columns 5-6 read marked empty after the second
+        kind: happy
+        test: TestSolverMaybe_DragPaintsMaybe
+      - id: AC-338
+        given: a board on which every solution-filled cell is marked filled and one solution-empty cell is marked "?"
+        when: the board is read, and then that "?" is cleared with the Maybe brush
+        then: before the clear no solved banner shows, the board is unlocked, the error count reads 0; after it the solved banner shows with the board locked
+        kind: negative
+        test: TestSolverMaybe_BlocksTheSolvedState
+      - id: AC-339
+        given: boards of shapes 10×10, 15×10 and 10×25 whose cells mix all four marks with at least 20% "?"
+        when: the error count is computed
+        then: it counts only cells marked filled on solution-empty and marked empty on solution-filled — a "?" never counts, on either kind of solution cell
+        kind: boundary
+        test: test_PropertyTest_SolverMaybe_ErrorCountNeverCountsMaybe
+      - id: AC-340
+        given: a board on which every cell is correct except some "?" cells
+        when: Hint is pressed and then undo
+        then: 'Hint was enabled, exactly one "?" cell takes its solution state with "Hints: 1", and undo brings that "?" back with "Hints: 0"'
+        kind: boundary
+        test: TestSolverMaybe_HintMayOverwriteMaybe
+      - id: AC-341
+        given: one "?" click and one "?" drag on the page
+        when: undo is pressed twice and redo twice, by button and by Ctrl/Cmd+Z
+        then: each undo removes one stroke's "?" marks and each redo puts them back
+        kind: happy
+        test: TestSolverMaybe_UndoRedo
+      - id: AC-342
+        given: a board holding only "?" marks
+        when: the controls are read, then Reset is pressed and confirmed
+        then: Reset is enabled, and after the confirmation every cell is undecided
+        kind: boundary
+        test: TestSolverMaybe_ResetClearsMaybe
+      - id: AC-343
+        given: the 30×30 deep-row-clue page at 390×844 (cells at the 24 px phone floor) and the 15×15 page at 1440×900
+        when: a "?" cell is measured
+        then: its glyph is "?", at least 12 px and at least half the cell side, inside the cell, with at least 4.5:1 contrast on the cell's background
+        kind: boundary
+        test: TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell
+      - id: AC-344
+        given: an unsolved player page at any supported width
+        when: the puzzle is solved
+        then: the solved banner takes the tools' place and the board does not move
+        kind: happy
+        test: TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth
+      # --- clue circling (bullet 3, CARD-188 shipped) ---
+      - id: AC-345
+        given: a 15×15 player page
+        when: real clicks and a real drag close a run that matches its clue number from the line's edge, then undo, redo and reset are pressed
+        then: that clue number is circled after the stroke, uncircled after the undo, circled again after the redo, and every circle is gone after the reset; no other number changes
+        kind: happy
+        test: TestSolverClues_CirclesFollowEveryCommit
+      - id: AC-346
+        given: a row with clue "2 2" holding one closed run of 2 in its middle with undecided cells around it (the owner's case)
+        when: the row's clue box is read
+        then: neither "2" is circled — the run cannot be assigned unambiguously
+        kind: negative
+        test: TestSolverClues_AmbiguousRunStaysUncircled
+      - id: AC-347
+        given: each line of the rule's examples table, including a mismatch that stops the walk from one edge but not the other, a "0" clue on a line marked empty throughout, and a wrong mark that closes a run
+        when: the circled numbers are computed
+        then: exactly the table's circled numbers are returned — anchored from either edge, or all numbers when the line's closed runs equal the clue; a "0" circles only when its whole line is marked empty; and a wrong mark can circle a number
+        kind: boundary
+        test: TestSolverClues_RuleExamples
+      - id: AC-348
+        given: a drag that would close a run, with the pointer still down
+        when: the clue numbers are read during the drag and after release
+        then: no circle changes until the pointer is released
+        kind: boundary
+        test: TestSolverClues_DragPreviewDoesNotCircle
+      - id: AC-349
+        given: a board on which numbers become circled
+        when: the cells, clue boxes and clue numbers are measured
+        then: every bounding box, number text and clue-box accessible name is unchanged
+        kind: boundary
+        test: TestSolverClues_CirclingMovesNothing
+      - id: AC-350
+        given: a circled clue number, one- or two-digit
+        when: its computed style is read
+        then: it shows a round outline of non-zero width in a colour different from the clue box background, at least as wide as its text
+        kind: happy
+        test: TestSolverClues_TheCircleIsVisible
+      # --- progress percent (bullet 4, CARD-187, wave 35 — planned test names) ---
+      - id: AC-351
+        given: a blank 15×15 player page
+        when: a correct click, a drag, undo, redo, a hint, a confirmed reset and its undo are made in turn
+        then: 'after each recorded step "Progress: N%" equals floor(100 × cells whose mark matches the solution ÷ all cells), and it does not change while a drag is still in preview'
+        kind: happy
+        test: TestSolverPercent_FollowsEveryRecordedChange
+      - id: AC-352
+        given: explicit 30×30 boards
+        when: the percent is read
+        then: a blank board reads 0; an unsolved board with 899 of 900 cells correct reads 99, not 100, whether the miss is undecided or wrong; a solved board with every solution-empty cell undecided reads 100
+        kind: boundary
+        test: TestSolverPercent_FloorsAndReaches100OnlyWhenSolved
+      - id: AC-353
+        given: a board, and separately a board with every solution-filled cell marked filled and one solution-empty cell marked "?"
+        when: one undecided cell of the first is marked "?", and the second is read
+        then: the first board's percent is unchanged, and the second reads below 100 with no solved state
+        kind: negative
+        test: TestSolverPercent_QuestionMarksNeverCount
+      - id: AC-354
+        given: the player page at desktop width and at 390 px
+        when: the counter row is read
+        then: '"Progress: 0%" follows the error counter, then the hint counter, in DOM order, on the error counter''s row at desktop width; the page has no horizontal scroll at 390 px'
+        kind: happy
+        test: TestSolverPercent_SitsNextToTheCounters
+      # --- clicks follow the brush (bullet 5, CARD-189, wave 35 — planned test name) ---
+      - id: AC-355
+        given: a fresh undecided cell for each brush on the player page
+        when: the cell is clicked four times in a row with the same brush, by real mouse clicks
+        then: the states seen are filled brush filled, marked empty, undecided, filled; empty brush marked empty, undecided, filled, marked empty; undecided brush filled, marked empty, undecided, filled; Maybe brush "?", undecided, "?", undecided
+        kind: happy
+        test: TestSolverClickFollowsTheBrush
+      - id: AC-356
+        given: a cell marked filled, one marked empty and one marked "?"
+        when: each is clicked once with each brush as a first click
+        then: it takes the brush's state, or the next step of the brush's sequence when it already holds that state; a "?" cell becomes filled (filled brush), marked empty (empty brush), undecided (undecided brush) and undecided (Maybe brush)
+        kind: boundary
+        test: TestSolverClickFollowsTheBrush
+      - id: AC-357
+        given: the filled brush selected and a cell clicked twice (filled, then marked empty)
+        when: the next click on it follows a click on another cell, a press of a brush button (even the same one), a drag elsewhere, or undo then redo — and, separately, follows nothing
+        then: after any of those it is a first click and the cell becomes filled; with nothing between, the third click gives undecided
+        kind: boundary
+        test: TestSolverClickFollowsTheBrush
+      - id: AC-358
+        given: a blank board with the filled brush selected
+        when: one cell is clicked three times, then undo is pressed three times and redo three times, then the cell is clicked again
+        then: each undo steps back exactly one click, the redos restore filled, marked empty, undecided in turn, and the next click is a first click (undecided becomes filled)
+        kind: happy
+        test: TestSolverClickFollowsTheBrush
+      - id: AC-359
+        given: the empty brush selected on a touch screen
+        when: an undecided cell is tapped three times
+        then: it goes marked empty, undecided, filled — taps follow the brush and its sequence as clicks do
+        kind: happy
+        test: TestSolverClickFollowsTheBrush
+      # --- resume in this browser (bullet 6, CARD-185, wave 35 — planned test names) ---
+      - id: AC-360
+        given: a 15×15 player page with five strokes, one hint, one "?" mark and one undo
+        when: the page is reloaded in that browser
+        then: 'the board, "Errors: N", "Hints: N" are as before; redo restores the undone stroke, then undo steps back through the earlier strokes in order'
+        kind: happy
+        test: TestSolverResume_ReloadRestoresBoardCountsAndHistory
+      - id: AC-361
+        given: a solved board
+        when: the page is reloaded
+        then: the solved banner shows, the board is locked, and Reset is available
+        kind: boundary
+        test: TestSolverResume_SolvedPuzzleReopensSolved
+      - id: AC-362
+        given: a board with marks
+        when: Reset is confirmed and the page is reloaded
+        then: the puzzle's saved entry is gone, the board is blank, both counters read 0, neither undo nor redo is enabled
+        kind: boundary
+        test: TestSolverResume_ResetClearsTheSave
+      - id: AC-363
+        given: a saved entry for puzzle A copied under puzzle B's key (same size, different grid), and separately an entry holding corrupt JSON or an unknown format version
+        when: puzzle B's page is opened
+        then: the board is blank, nothing is logged to the console, no page error is raised, and the next mark writes a valid entry
+        kind: negative
+        test: TestSolverResume_UntrustedSaveStartsFresh
+      - id: AC-364
+        given: a browser whose localStorage throws on write (quota exceeded), and separately one whose localStorage throws on access (security error)
+        when: the player is used — marks, undo, reset, solve
+        then: every action changes the board, counters and history exactly as it does with storage; the console log stays empty, as does the page-error log
+        kind: negative
+        test: TestSolverResume_BrokenStorageDegradesSilently
+      - id: AC-365
+        given: a loaded player page
+        when: twenty strokes, two undos, a hint and a reload are made
+        then: no network request is issued for any of them (ADR-0038/R2), and the puzzle's saved entry changes after each recorded change
+        kind: negative
+        test: TestSolverResume_SavesEveryChangeWithoutARequest
     engineering_constraints:
       - id: EC-035
         statement: >-
@@ -3912,17 +4242,27 @@ functional:
         kind: consistency
         instances: [AC-307, AC-308]
         test: PropertyTest_SolverHistory_ReplayReproducesTheBoard
+      # AMENDED 2026-10-06 (a) (owner decision 2026-10-05, CARD-186): "and no
+      # cell is '?'" added to the solved predicate, and the corpus now draws
+      # every cell from all four marks. The check moves to CARD-186's
+      # four-state property test, which runs EC-036's oracle extended by
+      # that clause over at least 200 boards per shape (10x10, 15x10, 10x25)
+      # plus 50 boards solved but for one "?". The original three-state test
+      # PropertyTest_SolverProgress_SolvedMatchesTheSolution still runs and
+      # stays traced under FR-044.
       - id: EC-036
         statement: >-
           For any board and any solution grid of matching width and height, the player's
           solved check is true if and only if a direct cell-by-cell comparison
-          finds every solution-filled cell marked filled and no
-          solution-empty cell marked filled — verified over a seeded corpus
-          of at least 200 random boards per grid shape tried, including
-          non-square shapes, with the minimum count asserted in the test.
+          finds every solution-filled cell marked filled, no
+          solution-empty cell marked filled, and no cell marked "?" — verified
+          over a seeded corpus of at least 200 random boards per grid shape
+          tried, including non-square shapes, with cells drawn from all four
+          marks and at least 50 boards solved except for one "?", the
+          minimum counts asserted in the test.
         kind: consistency
-        instances: [AC-316, AC-317]
-        test: PropertyTest_SolverProgress_SolvedMatchesTheSolution
+        instances: [AC-316, AC-317, AC-338]
+        test: test_PropertyTest_SolverMaybe_NotSolvedWhileAnyMaybe
       - id: EC-037
         statement: >-
           For any board and any solution grid of matching width and height, the error
@@ -3934,6 +4274,88 @@ functional:
         kind: consistency
         instances: [AC-312, AC-313, AC-314, AC-315]
         test: PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition
+      # --- added 2026-10-06 (a): Delta 2026-10-06 (a) bullets 1-6 ---
+      - id: EC-042
+        statement: >-
+          For any board and solution grid of matching width and height, the
+          hint returns no cell if and only if no cell is undecided or "?";
+          otherwise the cell it returns is undecided or "?" on the board and
+          its state is the solution's; it is flagged deduced, and is the first
+          deducible cell row-major, if and only if an independent oracle
+          (correct marks only, one line-intersection pass per row and per
+          column) finds one, and otherwise it is the first undecided cell
+          row-major — verified over a seeded corpus of at least 200 boards per
+          shape over 10x10, 15x10, 10x25 and 30x30 mixing correct, wrong and
+          undecided marks, with at least 30 fallback cases, 50 boards with
+          wrong marks and 20 where a wrong mark hides a deduction, the minimum
+          counts asserted in the test.
+        kind: consistency
+        instances: [AC-327, AC-328, AC-329]
+        test: test_PropertyTest_SolverHint_RevealsTheFirstDeducibleCell
+      - id: EC-043
+        statement: >-
+          For any board, the hint's result (cell, state, deduced flag) is
+          unchanged when every "?" on the board is replaced by undecided —
+          "?" is read as undecided — verified over a seeded corpus of at
+          least 200 boards per shape over 10x10, 15x10 and 30x30 mixing
+          correct, wrong, undecided and "?" cells, with at least 30 boards
+          where the returned cell was "?", the minimum counts asserted in the
+          test.
+        kind: consistency
+        instances: [AC-340]
+        test: test_PropertyTest_SolverMaybe_HintReadsMaybeAsUndecided
+      - id: EC-044
+        statement: >-
+          For any line whose marks fit at least one placement of its clue, a
+          clue number the player circles is circled by an independent
+          brute-force check over every placement consistent with the marks —
+          circling is never unsound — verified over a seeded corpus of at
+          least 5,000 lines of length 1-12, with at least 3,000 fitting lines,
+          1,000 with a circle, 300 "0"-clue or all-empty lines and 100 where
+          the brute force circles something the rule does not, the minimum
+          counts asserted in the test.
+        kind: consistency
+        instances: [AC-345, AC-346, AC-347]
+        test: test_PropertyTest_SolverClues_NeverCirclesWhatBruteForceDoesNot
+      - id: EC-045
+        statement: >-
+          For any board and solution grid of matching width and height, the
+          progress percent equals 100 when the board is solved by the
+          cell-by-cell rule and otherwise floor(100 x matching cells /
+          (width x height)), a matching cell being one whose mark equals the
+          solution's, computed independently in the test — so an
+          unsolved board never reads 100 and "?" never counts — verified over
+          a seeded corpus of at least 200 boards per shape over 10x10, 15x10,
+          10x25 and 30x30, with at least 50 solved boards, 30 solved with an
+          undecided white and 50 containing "?", the minimum counts asserted
+          in the test.
+        kind: consistency
+        instances: [AC-351, AC-352, AC-353]
+        test: test_PropertyTest_SolverPercent_MatchesTheDefinition
+      - id: EC-046
+        statement: >-
+          For any history of clicks, drags, resets, hints, "?" marks, undos
+          and redos, saving the play state and restoring it reproduces the
+          board, the undo strokes (cells, state, hint flag), the redo stack,
+          the error count and the hint count exactly — verified over a seeded
+          corpus of at least 300 histories over 10x10, 15x10, 10x25 and 30x30,
+          with at least 50 having a non-empty redo stack, 50 a hint, 50 a "?"
+          mark and 30 ending solved, the minimum counts asserted in the test.
+        kind: consistency
+        instances: [AC-360, AC-361]
+        test: test_PropertyTest_SolverResume_SaveAndRestoreRoundTrip
+      - id: EC-047
+        statement: >-
+          Restoring play state from any save that is not a valid save of this
+          puzzle (truncated text, wrong format version, wrong puzzle id,
+          changed size, clues or grid, an out-of-range cell, an unknown mark,
+          a malformed or no-op stroke, non-object JSON) yields no state and
+          never throws, so the player starts fresh — verified over at least
+          500 corrupted saves with each corruption kind at least 20 times,
+          asserted in the test.
+        kind: resilience
+        instances: [AC-363]
+        test: test_PropertyTest_SolverResume_RejectsAnyUntrustedSave
 
 non_functional:
   - id: NFR-001
@@ -4898,10 +5320,27 @@ constraints:
     # cover 72 px = 17.28 pt, guide body 46 px = 11.04 pt (28 px = 6.72 pt
     # before CARD-149, the sole violation). The rule holds today with the
     # guide page fixed and would have failed before it.
+    #
+    # AMENDED 2026-10-06 (a) (raw-requirements.md "## Delta 2026-10-06 (a)",
+    # bullet 7; OWNER DECISION 2026-10-06): (1) clue digits drawn inside a
+    # puzzle page's clue cells are EXEMPT from the 10 pt floor — their size
+    # follows the cell, whose own floor is CON-018 / INV-006 (4.8 mm); the
+    # exemption is exactly png._draw_clues and book_pdf_generator._write_clues
+    # (CARD-184 AC-3), and a worked-example clue digit on the guide page is
+    # NOT exempt. (2) check flipped from review-lens to the test CARD-184
+    # shipped, TestInteriorType_EveryFaceHoldsTheFloor, which records every
+    # draw.text call of the baseline interior on Book 1 and on the 10x10 cm
+    # minimum trim and asserts the floor on every face outside the
+    # exemption — the "test that walks every interior face" the comment on
+    # the old check said was owed.
     type: technical
     statement: >-
       No text the book's interior prints for the reader is set below 10 pt at
-      the page's own resolution. A type size is a physical measure - points or
+      the page's own resolution, except the clue digits drawn inside a
+      puzzle page's clue cells, whose size follows the cell (its floor is
+      CON-018 / INV-006); every other face — guide page and its worked
+      example, dividers, bands, answer headings and captions — holds the
+      floor. A type size is a physical measure - points or
       millimetres converted against the page's DPI - and never a bare pixel
       count: a page raised from 300 to 600 DPI doubles its glyphs in pixels
       while its type size in points is unchanged, where a pixel-set face would
@@ -4912,21 +5351,23 @@ constraints:
       of the three observations behind ASM-0001).
     source: >-
       CARD-149 cycle-1 review F-005 (meta/review/20260930T154039Z-CARD-149-cycle1.yml);
-      EV-0003, ASM-0001; measured on the Book 1 profile 2026-09-30
+      EV-0003, ASM-0001; measured on the Book 1 profile 2026-09-30;
+      clue-digit exemption and test check: owner 2026-10-06
+      (raw-requirements.md Delta 2026-10-06 (a)), CARD-184
     scope:
       code:
         - "src/nonogram/admin/book_pdf_generator.py"
         - "src/nonogram/export/layout.py"
     check:
-      kind: review-lens
-      # Deliberately NOT a test ref. The only mechanical evidence today is
-      # CARD-149's TestGuidePage_TypeIsBookSized and
-      # TestGuidePage_PointSizeIsIndependentOfDpi, which cover the guide page
-      # alone - naming them here would claim a check this rule does not have,
-      # which is the defect two reviewers found in ADR-0006/R1 this same week
-      # (its declared ref TestDependencyBaseline_IsExactlyPillowAndNumpy does
-      # not exist). A test that walks every interior face and asserts the
-      # floor is owed; until it is written, the reviewer checks this per diff.
+      kind: test
+      ref: TestInteriorType_EveryFaceHoldsTheFloor
+      # 2026-10-06: was `kind: review-lens` ("deliberately NOT a test ref" —
+      # CARD-149's guide-page tests covered one page only, and a test walking
+      # every interior face was owed). CARD-184 wrote it
+      # (tests/test_book_interior_type_floor.py); its siblings
+      # TestInteriorType_FloorHoldsWithoutArial,
+      # TestInteriorType_OnlyPuzzleClueDigitsAreExempt and
+      # TestDividerPage_PointSizeIsIndependentOfDpi are traced with it.
     severity: mandatory
   - id: CON-021
     # LINKED 2026-10-03 to ADR-0038 (DEC-040): the client-approach ADR
@@ -4957,15 +5398,29 @@ constraints:
     # test proves; FR-044's TestSolverPage_WritesNothing (AC-302) covers the
     # persistence clause only, and naming it here would claim more than it
     # checks — the defect CON-020's comment records for ADR-0006/R1.
+    #
+    # AMENDED 2026-10-06 (a) (raw-requirements.md "## Delta 2026-10-06 (a)",
+    # bullet 6; OWNER DECISION 2026-10-05, CARD-185): "play state is never
+    # persisted" now admits ONE store — this browser's own localStorage,
+    # keyed per puzzle, so a closed tab reopens where it was in the same
+    # browser. Everything else the clause forbade still holds: nothing is
+    # written to a database, file or server, no request is made per mark
+    # (ADR-0038/R2 unchanged), no account exists, and the player is still
+    # admin-panel only. Id kept; check stays review-lens (the server-side
+    # absence is still what no single test proves; FR-044 AC-302 and
+    # AC-365 cover parts of it).
     type: technical
     statement: >-
       Interactive play exists only as the admin panel's puzzle player
       (TERM-037, FR-044), served behind the door that guards every other
       admin page (CON-015, CON-016). No other surface — the CLI, the web UI, or any
       public or hosted page — offers an interactive or playable puzzle. Play
-      state is never persisted: no progress, marks, error count, score or
-      solve time is written to a database, file or server, and no user
-      account exists for playing (CON-017). The admin player ships the
+      state is never persisted on the server: no progress, marks, error
+      count, score or solve time is written to a database, file or server,
+      no network request is made per mark, and no user account exists for
+      playing (CON-017). The one place play state may be kept is the
+      browser's own localStorage, per puzzle, so that a puzzle reopened in
+      that browser resumes where it was; it never leaves that browser. The admin player ships the
       puzzle's solution grid to the browser to compute the error count and
       the solved state; this is permitted for the admin panel only, and a
       public or reader-facing player must not send a puzzle's solution to the
@@ -4973,7 +5428,9 @@ constraints:
     source: >-
       owner, 2026-10-03 (raw-requirements.md Delta 2026-10-03 (a));
       supersedes CON-002 (intake requirements document, FR-14, Decisions
-      Log #1); FR-044
+      Log #1); FR-044; amended 2026-10-06 (owner decision 2026-10-05,
+      raw-requirements.md Delta 2026-10-06 (a), CARD-185) to admit
+      browser-local localStorage only
     scope:
       code: ["src/nonogram/**"]
     check:
