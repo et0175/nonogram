@@ -439,7 +439,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    the usage hint sits below the board. A tool is a
    toggle button (aria-pressed); the pressed one takes the accent. Undo, redo
    and reset stay focusable when there is nothing to do (aria-disabled). */
-.player-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-4); }
+.player-toolbar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-4); }
 .player-toolbar[hidden] { display: none; }
 .player-tools, .player-history { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .player-toolbar .btn { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); }
@@ -460,7 +460,7 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-swatch[data-state="maybe"]::after { content: "?"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: var(--text-xs); font-weight: 600; line-height: 1; color: var(--color-accent); }
 .player-mirror { display: inline-flex; transform: scaleX(-1); }
 .player-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
-/* Progress (CARD-162, FR-044): the error counter closes the toolbar row; the
+/* Progress (CARD-162, FR-044): the counters close the toolbar row; the
    solved banner takes the tools' place in that row while the board is solved
    (see .player-slot below for how, and the widths at which the board is
    tested not to move); the reset confirmation drops down under the history
@@ -477,6 +477,24 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    .player-stage *). */
 .player-hints { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
 .player-hints-count { min-width: 2ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
+/* Progress (CARD-187): .player-counters holds the errors / hints pair and,
+   after it in the DOM, "Progress: N%". It lays them out right to left
+   (row-reverse) and wraps: with room for all three, one line reading
+   Progress, Errors, Hints with Hints at the toolbar's right end; without
+   it (1280 px, beside four tools and four history buttons), the pair stays
+   on the toolbar's row and Progress drops onto a line of its own below it,
+   at the right. The flex basis of 0 lets the box join the row as long as
+   the pair fits (its min-content width) and then take the row's rest.
+   The toolbar's items align to the top of their row (not its centre), so
+   a second counters line makes the row taller below and moves no control;
+   the pair is as tall as a toolbar button (.btn: 0.4rem padding above and
+   below, two borders, a 1.5 line at 1rem), so its counters stay centred on
+   the buttons' row (tests/test_puzzle_solver_maybe.py, one row at 1280).
+   The count is styled like the other counters, wide enough for "100%". */
+.player-counters { flex: 1 1 0; display: flex; flex-direction: row-reverse; flex-wrap: wrap; align-items: center; gap: 0 var(--space-4); }
+.player-counters-pair { display: flex; align-items: center; gap: var(--space-4); min-height: calc(2 * 0.4rem + 2 * var(--border-width) + 1.5rem); }
+.player-progress { margin: 0; display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-h); font-size: var(--text-sm); color: var(--color-text-secondary); }
+.player-progress-count { min-width: 4ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: right; }
 .player-cell.is-hinted { outline: var(--player-rule-major) solid var(--color-accent); outline-offset: calc(-1 * var(--player-rule-major)); box-shadow: inset 0 0 0 calc(2 * var(--player-rule-major)) var(--grid-paper); animation: player-hinted-in calc(2 * var(--duration-base)) var(--ease); }
 @keyframes player-hinted-in { from { outline-color: transparent; } }
 /* The solved banner takes the tools' box (CARD-186, review F-001): the

@@ -96,6 +96,11 @@
 // wrong marks. A drag's preview is not counted until it is recorded.
 //   errors    [data-player-errors] in the toolbar (inside a role=status
 //             region): errorCount of the current board.
+//   progress  [data-player-progress] (CARD-187): solvedPercent of the
+//             current board + "%". Deliberately NOT a live region (no role,
+//             no aria-live, no live ancestor) and never written to
+//             #puzzle-player-announce: it changes on almost every mark, so a
+//             screen reader reads it on demand only.
 //   hints     [data-player-hints] (its own role=status region): hintCount of
 //             the current history — undo lowers it, reset leaves it, setBoard
 //             (a new history) sets it to 0.
@@ -139,6 +144,8 @@ import {
   dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, record,
   redo, resetStroke, undo,
 } from "./solver_state.js";
+// The progress percent (CARD-187): see PROGRESS above.
+import { solvedPercent } from "./solver_state.js";
 // Clue circles (CARD-188): see paintCircles below.
 import { circledClues } from "./solver_state.js";
 // The save in this browser (CARD-185): see SAVE below.
@@ -287,13 +294,14 @@ function start() {
   const toolbar = document.getElementById("puzzle-player-controls");
   const errorsOut = toolbar.querySelector("[data-player-errors]");
   const hintsOut = toolbar.querySelector("[data-player-hints]");
+  const progressOut = toolbar.querySelector("[data-player-progress]");
   const banner = document.getElementById("puzzle-player-solved");
   const announce = document.getElementById("puzzle-player-announce");
   const clueNumbers = clueNumbersOf(table);
   let solved = false;
   let hinted = null; // the cell element carrying .is-hinted
 
-  // Error count, hint count and solved state of the recorded history (see
+  // Error count, hint count, progress percent and solved state of the recorded history (see
   // PROGRESS); `hint` is the hintCell value just recorded, or null.
   function showProgress(hint) {
     const errors = String(errorCount(history.board, payload.solution));
@@ -301,6 +309,8 @@ function start() {
     if (errorsOut.textContent !== errors) errorsOut.textContent = errors;
     const hints = String(hintCount(history));
     if (hintsOut.textContent !== hints) hintsOut.textContent = hints;
+    const percent = `${solvedPercent(history.board, payload.solution)}%`;
+    if (progressOut.textContent !== percent) progressOut.textContent = percent;
     const now = isSolved(history.board, payload.solution);
     if (now !== solved) announce.textContent = now ? banner.textContent.trim() : "";
     else if (hint) announce.textContent = hintText(hint);

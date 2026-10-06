@@ -51,6 +51,14 @@
   its right in the same row. Hint comes after Reset in the DOM, so the Tab
   order of the CARD-161 controls is unchanged (AC-310's order test). The counter's names are .player-hints /
   data-player-hints: "player-hint" is the usage paragraph below the board.
+
+  Progress (CARD-187): "Progress: N%" (#puzzle-player-progress) is the
+  element after the hint counter in the DOM. It is NOT a live region (no
+  role, no aria-live, and neither wrapper has one): the percent changes on
+  almost every mark and is read on demand. The three counters share
+  .player-counters, which draws them right to left (admin.css): "Hints: N"
+  keeps the toolbar's right end, "Progress: N%" sits left of "Errors: N",
+  and drops under the pair when the row is too narrow for all three.
 #}
 {% extends "base.html" %}
 {% import '_tier.html' as tier %}
@@ -90,8 +98,13 @@
         </div>
         <button type="button" class="btn btn-outline-secondary" data-player-action="hint" aria-disabled="true">Hint</button>
     </div>
+    <div class="player-counters">
+    <div class="player-counters-pair">
     <p class="player-errors" id="puzzle-player-errors" role="status" aria-atomic="true">Errors: <span class="player-errors-count" data-player-errors>0</span></p>
     <p class="player-hints" id="puzzle-player-hints" role="status" aria-atomic="true">Hints: <span class="player-hints-count" data-player-hints>0</span></p>
+    </div>
+    <p class="player-progress" id="puzzle-player-progress">Progress: <span class="player-progress-count" data-player-progress>0%</span></p>
+    </div>
 </div>
 
 <div class="player-stage" id="puzzle-player">

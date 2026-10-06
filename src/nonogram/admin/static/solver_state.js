@@ -21,8 +21,8 @@
 // "Strokes and history" below. isBoard (below) says what a board is;
 // solver.js setBoard asks it, then keeps and paints its own copy (copyBoard),
 // never the value it was handed, and starts a new history at that copy.
-// errorCount and isSolved ("Progress against the solution", at the end)
-// compare a board with the payload's solution grid; solver.js shows both.
+// errorCount, isSolved and solvedPercent ("Progress against the solution")
+// compare a board with the payload's solution grid; solver.js shows all three.
 
 export const UNKNOWN = "unknown";
 export const FILLED = "filled";
@@ -345,6 +345,24 @@ export function isSolved(board, solution) {
     }
   }
   return true;
+}
+
+// The progress percent (CARD-187; FR-044 AC-351..AC-354, EC-045): an integer
+// 0..100. A cell is correct when it is FILLED on a solution-filled cell or
+// EMPTY on a solution-empty one; UNKNOWN, a wrong mark and MAYBE ("?") never
+// are. A solved board (isSolved) reads 100, even with undecided whites;
+// otherwise floor(100 * correct / all cells) in integer maths. All cells
+// correct implies solved, so an unsolved board reads at most 99.
+export function solvedPercent(board, solution) {
+  if (isSolved(board, solution)) return 100;
+  let correct = 0;
+  for (let row = 0; row < board.height; row += 1) {
+    for (let col = 0; col < board.width; col += 1) {
+      const state = board.cells[row * board.width + col];
+      if (state === (solution[row][col] ? FILLED : EMPTY)) correct += 1;
+    }
+  }
+  return Math.floor((100 * correct) / (board.width * board.height));
 }
 
 // ---------------------------------------------------------------------------
