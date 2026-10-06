@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-05 UTC_
+_Updated: 2026-10-06 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -30,7 +30,7 @@ _Updated: 2026-10-05 UTC_
 | 32 | CARD-164 P1, CARD-165 P2, CARD-166 P2, CARD-167 P2, CARD-168 P2 | ✓ done — all 5 merged; full suite exit 0 |
 | 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ✓ done — all 8 merged (CARD-170 after an owner-chosen targeted fix) |
 | 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2, CARD-186 P2, CARD-188 P2 | ✓ done — all 10 merged (CARD-188 after two owner-chosen fixes) |
-| 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2 | ▶ active — architect delta 24a1e63 done; 185 → 189 → 187 serialized (player files) |
+| 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ▶ active — 185 merged; player chain 189 → 187; admin chain 190 → 191 → 192 (app.py) |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -50,14 +50,17 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-- [CARD-185](cards/CARD-185.md) P2 · 1d · wave 35 — The puzzle player reopens a puzzle in the state it was left in (this browser only) · after CARD-183, CARD-186 (merged) · needs CON-021 amendment
+- [CARD-190](cards/CARD-190.md) P2 · 0.5d · wave 35 — Puzzle review's size filter goes by the longest side, like book selection
+- [CARD-191](cards/CARD-191.md) P2 · 0.75d · wave 35 — On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side
+- [CARD-192](cards/CARD-192.md) P2 · 0.75d · wave 35 — The Arrangement page can show one longest-side size, with what is left or over against the plan
 - [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · after CARD-186 (merged)
-- [CARD-189](cards/CARD-189.md) P2 · 0.5d · wave 35 — In the puzzle player, a click follows the selected brush · after CARD-186 (the MAYBE "?" state, the Maybe brush and the `clickedState(state, tool)` hook exist) (merged)
 
 ## In Progress
 
 
 ## Review
+- [CARD-189](cards/CARD-189.md) P2 · 0.5d · wave 35 — In the puzzle player, a click follows the selected brush · review cycle 1/3
+- [CARD-185](cards/CARD-185.md) P2 · 1d · wave 35 — The puzzle player reopens a puzzle in the state it was left in (this browser only) · ✓ 9.5 (2 cycles) · committed a7e72d2 · awaiting done (owner render check)
 
 ## Done
 - **CARD-177** Finalise and the book PDF downloads flash a generic error, not the exception's text · score 9.0 (1 cycle) · merged d1995fd
