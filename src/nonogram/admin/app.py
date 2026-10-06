@@ -1380,8 +1380,9 @@ def create_app(debug=None):
     app.batch_generator = batch_gen
     app.book_manager = book_mgr
 
-    def _side_range_from_args():
-        """``(from, to)`` in cells from ``size_from``/``size_to``, or None."""
+    def _longest_side_range_from_args():
+        """``(from, to)`` on the longest side, in cells, from
+        ``size_from``/``size_to``, or None."""
         low = request.args.get("size_from", type=int)
         high = request.args.get("size_to", type=int)
         return (low, high) if low is not None or high is not None else None
@@ -2170,9 +2171,9 @@ def create_app(debug=None):
     def puzzles_list():
         """List and filter puzzles."""
         # Basic filters. ``size`` is the exact-extent filter the API keeps;
-        # the page's own fields are the side range (either side, from/to).
+        # the page's own from/to fields bound the longest side (CARD-190).
         size = request.args.get("size", type=int)
-        side_range = _side_range_from_args()
+        longest_side_range = _longest_side_range_from_args()
         difficulty = request.args.get("difficulty")
         quality_min = request.args.get("quality_min", type=int)
 
@@ -2213,7 +2214,7 @@ def create_app(debug=None):
         try:
             filter_opts = PuzzleFilter(
                 size=(size, size) if size is not None else None,
-                side_range=side_range,
+                longest_side_range=longest_side_range,
                 difficulty=difficulty,
                 quality_min=quality_min,
                 date_from=date_from,
@@ -5145,7 +5146,7 @@ def create_app(debug=None):
 
             filter_opts = PuzzleFilter(
                 size=(size, size) if size is not None else None,
-                side_range=_side_range_from_args(),
+                longest_side_range=_longest_side_range_from_args(),
                 puzzle_name=request.args.get("puzzle_name"),
                 difficulty=difficulty,
                 quality_min=quality_min,

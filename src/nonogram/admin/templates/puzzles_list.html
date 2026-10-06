@@ -50,12 +50,12 @@ date_from={{ request.args.get('date_from', '') }}&date_to={{ request.args.get('d
                        value="{{ request.args.get('puzzle_name', '') }}" placeholder="crab, owl, butterfly…">
             </div>
             <div class="col-md-2">
-                <label for="size_from" class="form-label">Size (cells), either side</label>
+                <label for="size_from" class="form-label">Longest side (cells)</label>
                 <div class="input-group">
-                    <input type="number" class="form-control" id="size_from" name="size_from" aria-label="Side from"
+                    <input type="number" class="form-control" id="size_from" name="size_from" aria-label="Longest side from"
                            min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ request.args.get('size_from', '') }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
                     <span class="input-group-text">to</span>
-                    <input type="number" class="form-control" id="size_to" name="size_to" aria-label="Side to"
+                    <input type="number" class="form-control" id="size_to" name="size_to" aria-label="Longest side to"
                            min="{{ MIN_SIZE }}" max="{{ MAX_SIZE }}" value="{{ request.args.get('size_to', '') }}" placeholder="{{ MIN_SIZE }}-{{ MAX_SIZE }}">
                 </div>
             </div>

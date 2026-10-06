@@ -141,10 +141,12 @@ def test_ac2_the_preset_labels_match_the_preset_table(admin_client, tmp_path):
 # book_select_puzzles.html dropped its size filter in CARD-122 (AC-216): the
 # longest-side tabs say the unit themselves ("Longest side 21-25"), so there
 # is no size field left to label. The "Size (px)" half still holds for it.
+# CARD-190 renamed the review page's field to book selection's wording,
+# "Longest side (cells)" — the unit is still cells.
 @pytest.mark.parametrize("name", ["puzzles_list.html"])
 def test_ac3_the_filters_are_labelled_in_cells(name):
     source = (TEMPLATES / name).read_text(encoding="utf-8")
-    assert "Size (cells)" in source
+    assert "Longest side (cells)" in source
     assert "Size (px)" not in source
 
 
@@ -155,7 +157,7 @@ def test_ac3_the_book_selection_step_still_never_says_pixels():
 
 def test_ac3_the_rendered_puzzle_filter_says_cells(admin_client):
     body = admin_client.get("/puzzles").get_data(as_text=True)
-    assert "Size (cells)" in body
+    assert "Longest side (cells)" in body
 
 
 def test_ac7_the_dead_image_selection_template_is_gone():
