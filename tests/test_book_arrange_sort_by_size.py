@@ -176,6 +176,21 @@ class TestArrangeSortBySize_SortsEachLevelByLongestThenShortest:
         assert len(calls) == 2, calls
         assert all(len(ids) == 6 for ids in calls)
 
+    def test_the_write_goes_through_reorder_puzzles(self, shelf, monkeypatch) -> None:
+        """G-1: INV-009 keeps its one enforcement point."""
+        book_id, (e25, e15, e2015, e3020, m20, m10) = self._book(shelf)
+        written = []
+        real = shelf.books.reorder_puzzles
+        monkeypatch.setattr(
+            shelf.books,
+            "reorder_puzzles",
+            lambda bid, ids, tier_of=None: written.append(list(ids)) or real(bid, ids, tier_of),
+        )
+
+        assert shelf.books.sort_puzzles_by_size(book_id) is True
+
+        assert written == [[e15, e2015, e25, e3020, m10, m20]]
+
     def test_the_route_sorts_and_says_so(self, panel) -> None:
         book_id, (e25, e15, e2015, e3020, m20, m10) = self._book(panel)
 
