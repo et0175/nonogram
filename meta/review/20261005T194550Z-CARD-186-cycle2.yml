@@ -1,0 +1,179 @@
+version: 1
+generated_at: "2026-10-05T19:45:50Z"
+target: "card/186-player-maybe-mark: fix delta (uncommitted) over 2ffec96, base main adec591 — confirmation mode, cycle 2"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff (fix delta: admin.css, solver.js comment, puzzle_solve.html, tests/test_puzzle_solver_maybe.py +174)"
+    - "meta/kanban/cards/CARD-186.md Worktree notes ([Fix cycle 1, F-001], [Mutants F-001])"
+    - "meta/review/20261005T181829Z-CARD-186-cycle1.yml"
+    - "admin.css player block, solver.js showProgress, test_puzzle_solver_progress.py banner test"
+    - "meta/design/components.md SolvedBanner"
+    - "renders solved-toolbar-1200.png, solved-toolbar-long-name-1440.png"
+  not_reached:
+    - "12 of 14 owner renders not opened"
+  confidence: high
+metrics:
+  diff: { files: 4, added: 211, removed: 10 }
+  max_fan_in: { symbol: "hintCell", callers: 16 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css (27 commits/12mo, 9 fix)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — co-change mining not re-run for the fix delta; every touched file is in the card's Touches"
+    max_fan_in: "not_applicable — carried from cycle 1; the fix delta changes no exported JS symbol"
+system_contract:
+  rules_checked: 52
+  holds: 11
+  unchecked: 41
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy; manual: pyproject.toml untouched, test_the_dependency_baseline_is_still_closed PASSED (this cycle)"
+    - "ADR-0019/R1 ✓ holds — nothing under src/nonogram/web/ touched; test_every_import_in_the_package_points_inward PASSED (this cycle)"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "ADR-0038/R1 ✓ holds — fix delta edits existing hand-written admin.css/template/solver.js only; no new asset, no build step, pyproject.toml untouched (git diff main --stat -- pyproject.toml empty)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMaybe_NoRequestPerMark and TestSolverMarking_NoRequestPerMark PASSED in this cycle's player run (266 passed)"
+    - "ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues (5) + ShowsTheCluesInTheBrowser (2) PASSED this cycle; delta adds no clue derivation"
+    - "ADR-0038/R4 ✓ holds — solver_state.js not in the fix delta; test_the_state_module_touches_no_dom, test_the_scripts_carry_no_colour_literals PASSED this cycle"
+    - "ADR-0038/R6 ✓ holds — no route/payload change; test_the_payload_has_exactly_the_documented_shape[memory,sqlite] PASSED this cycle"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml untouched by card and fix delta"
+    - "ADR-0038/R8 ✓ holds — new F-001 tests use the shared browser/browser_page fixtures; tests/test_puzzle_solver_*.py 266 passed, 0 skipped"
+    - "CON-005 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-010 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-011 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault (7) PASSED this cycle; no entry-point change"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit (9) PASSED this cycle; no routing change"
+    - "CON-021 ✓ holds — delta is layout-only in the admin player; no route; NoRequestPerMark PASSED"
+    - "INV-001 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-002 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-003 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-005 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-006 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-007 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-008 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-009 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-010 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-011 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-012 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+    - "INV-013 ⚠ unchecked — no_eligible_fact — carried(cycle 1, delta-clean)"
+mutation_check:
+  ran: true
+  mutants: 10
+  killed: 10
+  survived: 0
+  tree_restored_verified: true
+root_causes:
+  - id: RC-1
+    title: "The solved banner's 'board does not move' depended on the toolbar's row count (cycle 1)"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/static/admin.css
+    line: 496
+    title: "Board jumps 44 px on solve at 1180-1259 px desktop widths (cycle 1)"
+    description: |
+      RESOLVED. Tools and banner box now share one grid cell (.player-slot); solved tools are visibility: hidden.
+      TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth (28 widths, 960..1480 step 20 at h 900 + 390x844) PASSED;
+      reviewer mutants K5/K7/K9 kill it. Unsolved control boxes identical between 2ffec96 and the fix at 390/1024/1200/1280/1440 (reviewer probe).
+    suggestion: "none"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "uncommitted fix delta over 2ffec96"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_maybe.py
+    line: 831
+    title: "Card point 8 asks for a centred glyph; AC-13's test proves only 'inside the cell' (carried from cycle 1)"
+    description: |
+      Unchanged by the fix delta. No code comment claims centring, so not a claim-beyond-test.
+    suggestion: "Optionally assert the glyph box's centre lies within ~2 px of the cell centre on both axes."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 492
+    title: "'A banner taller than the tools' box makes the row taller' is unquantified: names of 40+ characters move the board 13 px at every desktop width"
+    description: |
+      Reviewer probe (15x15, solving click, board y after minus before), name = prefix of a sentence:
+      branch at 1440/1280/1200/1024: 0 up to 35 chars, +13 at 40-80, +38 at 100; 390: 0 at every length.
+      main (adec591) at 1440: 0 up to 60, +44 at 70+; 1280: +44 at 50+; 1200: +44 at 35+; 1024: 0 up to 80, +16 at 100; 390: -1 up to 30, +13/+38 at 35+.
+      Net it is a smaller, more uniform movement than main, honestly declared, but at 1440/1280/1024 names of 40-60 chars now move the board where main did not.
+      Local DB sample: 16 names, max 26 chars, none >= 35. Not gating.
+    suggestion: |
+      State the threshold in the .player-slot comment / card notes (roughly "a name longer than about 35-40 characters at desktop widths")
+      and list it with the solved-layout change as an owner-visible default at review.
+    confidence: high
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: question
+    file: meta/kanban/cards/CARD-186.md
+    line: 1
+    title: "Owner-visible solved-state change and the 1180-1259 px 'Hints' second row are not in owner defaults (a)-(d)"
+    description: |
+      The fix changes CARD-162's SolvedBanner placement (Undo/Redo/Reset/Hint stay put when solved; long names wrap in the tools' width),
+      and at 1180-1259 px "Hints: 0" sits alone on a second row, solved or not (render solved-toolbar-1200.png). Both are declared
+      in the Worktree notes and a DESIGN-REGISTER line, but not as owner defaults for the owner check.
+    suggestion: "Add them as owner default (e)/(f) for the AC-16 owner check."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

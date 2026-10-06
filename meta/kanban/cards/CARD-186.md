@@ -1,6 +1,6 @@
 # CARD-186: The puzzle player gets a "?" mark and a "?" brush for assumptions
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -15,11 +15,11 @@
 **Wave:** 34
 **Depends on:** CARD-183
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_page.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (2 cycles)
+**Started:** 2026-10-05T17:33:38Z
+**Closed:** 2026-10-06T02:17:20Z
+**Actual:** 1.1d
+**Merge commit:** ddfc116
 **Blocked by:** —
 
 ## What to implement
@@ -253,3 +253,89 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-186` (52 rules). A project
 - [Conflict] CARD-182 and CARD-183 edit `admin.css` (player block ~lines 433–480), `solver.js` and `puzzle_solve.html`. Keep this card's CSS to the "?" glyph rule, the "maybe" swatch rule and nothing in the sizing variables.
 - [AC cross-check] Re-read all ACs against "What to implement". AC-2's table, AC-3 and point 2 agree on MAYBE -> FILLED for non-Maybe tools and "?" -> blank for Maybe; AC-6/AC-7 match point 5; AC-11/AC-12 match point 7 (candidates widened, knowns unchanged). The first draft of AC-14 did not say where Maybe sits in Tab order, so it now names "between Undecided and Undo", matching point 8 and the `CONTROLS` edit.
 - [Note 2026-10-05] CARD-189 (wave 35, owner decision "follow the doc's sequences") later replaces this card's click rule for "?" cells with a colour brush (White → white, Undecided → blank) and removes the no-tool fallback. Implement this card's rule as drafted; keep `clickedState(state, tool)` the single hook CARD-189 extends.
+- [Env] forge 2026.8.17
+- [Implementation 2026-10-05] What changed:
+  - `static/solver_state.js`: `MAYBE = "maybe"`, `CELL_STATES = [UNKNOWN, FILLED, EMPTY, MAYBE]` (header comment names the fourth state). New pure, exported `clickedState(state, tool)` — the single click hook CARD-189 extends: tool MAYBE gives MAYBE for a non-"?" cell and UNKNOWN for a "?"; any other tool, or none, cycles (`CYCLE` gains `[MAYBE]: FILLED`). `clickStroke(board, row, col, tool)` uses it; three-argument calls cycle as before. `errorCount` unchanged (its comment now says UNKNOWN and MAYBE never count). `isSolved` gets one early `false` while any cell is MAYBE. `hintCell`: candidates are `isUndecided(state)` (UNKNOWN or MAYBE) for the deducible pick, the fallback and the null case; knowns unchanged (a "?" never equals the solution's state, so it is never a known). Circles code untouched.
+  - `static/solver.js`: a click records `clickStroke(history.board, ...done.start, done.tool)` (tool taken at pointerdown); header MARKING/pointer/tools comments updated. Hint `aria-disabled` uses `nextHint() === null`, so it follows the widened null case (AC-12 checks Hint is enabled on a board whose only non-correct cells are "?").
+  - `templates/puzzle_solve.html`: fourth tool button after Undecided (`data-player-tool="maybe"`, label "Maybe", `.player-swatch[data-state="maybe"]` aria-hidden); usage paragraph gains "With Maybe, a click marks ? and a second click clears it."; header comment states the rule.
+  - `static/admin.css`: `.player-cell[data-state="maybe"]::after` ("?", 0.6 × `--player-cell`, weight 600, `--color-accent`); `.player-swatch[data-state="maybe"]::after` ("?" in `--color-accent`, `--text-xs`, weight 600); and `.player-toolbar .player-tool { padding-left/right: var(--space-2) }` — see SCOPE note below.
+  - Tests: new `tests/test_puzzle_solver_maybe.py` (AC-1..AC-15 named tests plus `PropertyTest_SolverMaybe_CirclesReadMaybeAsUndecided`). The two G-1 edits only: `CONTROLS` gains "Maybe" after "Undecided" (test_puzzle_solver_marking.py), `"states"` pin gains "maybe" (test_puzzle_solver_page.py).
+- [Layout] Adding the fourth tool button made `test_the_banner_takes_the_tools_place_and_the_board_does_not_move` (test_puzzle_solver_progress.py, G-1) fail at the default 1280 × 720 viewport: the toolbar went to two rows (the Hints counter wrapped), so hiding the tools when solved moved the board up 48 px. Fix inside this card's CSS, no test edited: tool buttons take `--space-2` side padding instead of Bootstrap's 0.75rem (all four tools, owner-visible, slightly narrower buttons; height unchanged). Mutant M21 (drop that rule) re-fails the guarded test. Only the 1280 × 720 case is tested. Measured at 1280 before the fix: toolbar 980 px wide, the four tools 445 px, 3 px too many for the Hints counter to stay on the first row; the padding saves 32 px. At somewhat narrower desktop widths the toolbar may wrap where main's did not (an estimate, not tested).
+- [Measured] AC-13: the "?" glyph is 14.4 px on the 24 px phone cell (30×30 at 390×844) and 16.8 px on the 28 px cell (15×15 at 1440×900); its rendered pixels (screenshot diff, undecided → "?") lie inside the cell on both axes at both sizes; `--color-accent` (rgb 31,95,91) on the cell background `--grid-paper` (rgb 255,253,248) measures 7.26:1.
+- [Mutants] each applied alone, named tests run, then restored (scratch runner, not committed):
+  - M1 isSolved: drop the MAYBE early false → `PropertyTest_SolverMaybe_NotSolvedWhileAnyMaybe`, `TestSolverMaybe_BlocksTheSolvedState`
+  - M2 clickedState: "?" with Maybe returns MAYBE (not UNKNOWN) → `TestSolverMaybeModule_ClickedStateTable`, `TestSolverMaybe_ClickWithTheMaybeTool::test_two_clicks_mark_then_clear`
+  - M3 hintCell candidate predicate back to `!== UNKNOWN` → `PropertyTest_SolverMaybe_HintReadsMaybeAsUndecided`, `TestSolverMaybe_HintMayOverwriteMaybe`
+  - M4 drop `[MAYBE]: FILLED` from CYCLE → `ClickedStateTable`, `test_a_maybe_cell_clicked_with_another_tool_reads_filled[Black/White/Undecided]`, `PropertyTest_SolverMaybe_ReplayReproducesTheBoard`
+  - M5 solver.js drops `done.tool` → all `TestSolverMaybe_ClickWithTheMaybeTool`, `TestSolverMaybe_ToolKeyboardAndLabel::test_enter_and_space_select_it[Enter/Space]`
+  - M6 circles walkIn: a "?" closes a run → `PropertyTest_SolverMaybe_CirclesReadMaybeAsUndecided`
+  - M7 circles rule B (edge): a "?" closes a run → same
+  - M8 circles `[0]` clue: a "?" reads white → same
+  - M9 errorCount counts "?" on solution-filled → `PropertyTest_SolverMaybe_ErrorCountNeverCountsMaybe`
+  - M10 errorCount counts "?" on solution-empty (edge) → same
+  - M11 CELL_STATES without MAYBE → `TestSolverMaybeModule_IsAFourthState`
+  - M12 clickedState: drop the bad-state guard under the Maybe tool → `ClickedStateTable`
+  - M13 Reset disabled on a "?"-only board → `TestSolverMaybe_ResetClearsMaybe`
+  - M14 glyph colour `--color-border` → `TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell[30x30@390, 15x15@1440]`
+  - M15 glyph 0.45 × cell → same
+  - M16 glyph translateY(80%) (y axis) → same; M17 glyph translateX(60%) (x axis) → same
+  - M18 swatch not aria-hidden → `TestSolverMaybe_ToolKeyboardAndLabel::test_name_and_swatch`
+  - M19 Maybe button moved after Undo → `test_tab_reaches_it_between_undecided_and_undo`
+  - M20 a commit writes localStorage → `TestSolverMaybe_NoRequestPerMark`
+  - M21 compact tool padding removed → `test_puzzle_solver_progress.py::...::test_the_banner_takes_the_tools_place_and_the_board_does_not_move`
+  All 21 killed.
+- [Owner default] (a) Tool labelled "Maybe" with a "?" swatch, placed after Undecided — implemented as drafted.
+- [Owner default] (b) A click on a "?" cell with Black, White or Undecided makes it black — implemented as drafted.
+- [Owner default] (c) "?" glyph: 0.6 × the cell side, weight 600, `--color-accent` — implemented as drafted.
+- [Owner default] (d) Usage sentence "With Maybe, a click marks ? and a second click clears it." — implemented as drafted.
+- DESIGN-REGISTER: player tool button — Maybe (unpressed / pressed, same states as Black/White/Undecided) — --color-accent, --color-accent-tint (pressed, existing rule), --space-2 side padding (all four tools)
+- DESIGN-REGISTER: player swatch — "?" (data-state="maybe") — --grid-paper, --color-border-strong, --color-accent, --text-xs
+- DESIGN-REGISTER: player cell — "?" glyph (data-state="maybe") — --grid-paper, --color-accent, --player-cell (font-size 0.6 ×), weight 600
+- [Renders] ~/Documents/nonogram-reviews/CARD-186/: `mixed-board-maybe-pressed-1440.png`, `mixed-board-maybe-pressed-390.png` (15×15, black/white/"?" marks, Maybe pressed; 24 px cells at 390), `one-maybe-left-not-solved-1440.png`, `one-maybe-left-solved-1440.png`, `toolbar-before-main-390.png` / `toolbar-after-390.png`, `toolbar-before-main-1440.png` / `toolbar-after-1440.png` (before = main's static files and template, served through Playwright routes). At 390 the four tools wrap to two rows (Maybe alone on the second), above Undo/Redo/Reset and Hint.
+- SCOPE+ none (every change is inside Touches). Within admin.css, beyond the "?" glyph and swatch rules, one extra rule (tool padding) was needed to keep G-1's banner test green — see [Layout].
+- [For the architect delta] FR-044's statement, AC-304, AC-310's tool list and EC-036 still need the "?" amendment listed in [Spec]; nothing under meta/ was edited by this card beyond these notes.
+- [Scope] src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_page.py
+- [Build gate] impact underivable (test_scope: full) — full suite
+- [Build gate] PASSED (full, 686s) — 6489 passed, 9 skipped
+- [Scope gate] cycle 1: IN_SCOPE — 7 files, all inside Touches; no guardrail hits (nothing under src/nonogram/solver/, no other player test file, no sizing variable)
+- [Review 1/3] Score: 8.0 — crit: 0, imp: 1 (F-001, pending adversarial verification)
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h coverage: 52/52 card rules have a verdict line (11 ✓, 41 ⚠, 0 ✗)
+- [Adversarial] F-001 CONFIRMED — independent sweep: main dy 0 / branch dy −44 px at 1180–1240 px (h 900); both −44 at 1100–1160 (pre-existing on main), both 0 at ≥1260
+- [Review 1/3] confirmed after adversarial: crit 0, imp 1 → fix cycle 1
+- [Fix cycle 1, F-001 2026-10-05] Supersedes the mechanism in [Layout] (that note stays as history). Measured the board jumping on the solving click across widths (new `TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth`, 960..1480 step 20 at height 900 plus 390 × 844, board box x and y before/after, the last cell scrolled into view before measuring so the click itself scrolls nothing). Before this fix, on the branch: moved at 960–1020 (−2.8 px), 1040–1080 (−46.8), 1100–1240 (−44) and 390 (+0.4). Main's admin.css + template (branch solver.js) measured with the same test: moved at 960–1000 (−2.8), 1040–1160 (−44) and 390 (−0.8). After: 0 at all 28 widths.
+  - What changed: the cause was `.player-toolbar.is-solved .player-tools { display: none }` — removing the tools from layout changed the toolbar's row structure wherever the tools shared a wrapped row. Now (template) the tools and a new `.player-solved-box` wrapping `#puzzle-player-solved` sit in `.player-slot`, one CSS grid cell shared by both (`grid-area: 1 / 1`); while solved the tools are `visibility: hidden` (keep their box, not focusable, not in the accessibility tree). `.player-solved-box` has `contain: inline-size` (the banner adds nothing to the slot's width) and `align-self: center` (centred down the tools' box, within 1 px — matters at 390 where the tools are two rows); the banner gets `overflow-wrap: anywhere` (breaks a name with no spaces); `.player-solved .icon` gets `flex: none` (a wrapping banner squeezed the check icon to a sliver — seen in the long-name render). A banner taller than the tools' box (a long name) makes the row taller and moves the board — declared, not hidden: `TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth` claims only width/overlap/icon for 120-character names (words and one unbroken token) at 1440, 1200, 390.
+  - Owner-visible: in the solved state Undo/Redo/Reset/Hint now stay where they were (before, they slid left into the tools' place next to the banner); a long name wraps inside the tools' width instead of spanning the row. The unsolved toolbar is unchanged.
+  - The padding rule `.player-toolbar .player-tool { padding-left/right: var(--space-2) }` is KEPT, with a new job: it keeps the four tools, history and both counters on one toolbar row at 1280 × 720 (new `TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280`). Removing it no longer moves the board, but at 1280 × 720 the toolbar then wraps and the board's last row crosses the viewport bottom by a few px, so the G-1 banner test's click on the bottom-right filled cell scrolls the page 4 px (measured: scrollY 0 → 4, board y unchanged in document coordinates) and that test, which compares viewport boxes, fails. So M21's old explanation ("the banner moves the board at 1280") no longer applies; M21 now kills via the one-row test and the scroll artefact in the G-1 test. At 1180–1259 the toolbar still wraps (Hints on a second row), solved or not, and the board no longer moves there.
+  - `TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved`: solved, no tool is a button by role, focus() does not take, Tab reaches Reset without passing a tool.
+  - Declarations corrected: admin.css Progress block comment (no longer "never moves"; points at the .player-slot comment with the tested widths); new .player-slot comment; the padding rule's comment (new job); template header Progress paragraph; solver.js PROGRESS "solved" bullet. G-1 respected: no existing test file edited.
+- [Mutants F-001] applied alone to admin.css, the new tests + the G-1 banner test run, restored (scratch runner, not committed):
+  - MA tools `display: none` again → sweep, LongName ×6, G-1 banner test
+  - MB drop `contain: inline-size` → LongName at 1440/1200 (both names)
+  - MC drop the visibility rule → sweep, OutOfReach, G-1 banner test
+  - MD drop `grid-area: 1 / 1` → sweep, G-1 banner test
+  - ME drop `overflow-wrap: anywhere` → LongName one-token ×3
+  - MF drop `.player-slot { display: grid }` → sweep, G-1 banner test
+  - MG (= M21) drop the tool padding → OneToolbarRowAt1280, G-1 banner test
+  - MH `align-self: start` → sweep (centring at 390)
+  - MI `opacity: 0` instead of `visibility: hidden` → sweep, OutOfReach, G-1 banner test
+  - MJ drop `flex: none` on the icon → LongName ×6
+  All 10 killed. (A `max-width: 100%` on the banner was tried and dropped: redundant with overflow-wrap, no test could tell it apart.)
+- DESIGN-REGISTER: player SolvedBanner (CARD-162) — supersedes its placement: shown in the tools' box (.player-slot, tools visibility: hidden), centred down it; width up to the tools' width, a longer name wraps (overflow-wrap: anywhere); check icon flex: none — tokens unchanged (--color-success, --color-success-tint, --radius-control, --space-2, --space-3, --control-h)
+- DESIGN-REGISTER: player tool button padding (--space-2 side padding, all four tools) — line above stands; its reason is now the one-row toolbar at 1280 × 720, not the banner.
+- [Renders F-001] ~/Documents/nonogram-reviews/CARD-186/: new `solved-toolbar-1200.png` / `unsolved-toolbar-1200.png`, `solved-toolbar-390.png` / `unsolved-toolbar-390.png` (same rows before and after solving), `solved-toolbar-long-name-1440.png`, `solved-toolbar-long-name-390.png` (120-character name wrapping inside the tools' width; at 390 it is taller than the tools' box, so that row grows); all earlier renders regenerated (`one-maybe-left-solved-1440.png` shows history staying in place).
+- [Fix 1] FIXED F-001 — pre-gate: named tests 9 passed (BoardDoesNotMoveOnSolveAtAnyWidth, LongNameBannerWrapsInsideTheToolsWidth, FourToolsKeepOneToolbarRowAt1280, HiddenToolsAreOutOfReachWhenSolved)
+- [Fix 1] declarations: 4 updated (comments admin.css/template/solver.js, card notes + DESIGN-REGISTER), 0 confirmed, 0 none
+- [Build gate] PASSED (full, 712s) — 6498 passed, 9 skipped
+- [Scope gate] cycle 2: IN_SCOPE — same 7 files (fix delta uncommitted: admin.css, solver.js, puzzle_solve.html, test_puzzle_solver_maybe.py); no guardrail hits
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0 (confirmation mode; F-001 ✓ resolved; minors F-002/F-003/F-004 open)
+- [Review sync] 2 report(s) → meta/review/
+- [Review 2/3] Step 8h coverage: 52/52 card rules named (11 ✓, 41 ⚠ incl. carried, 0 ✗)
+- [Review 2/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [Review 2/3] mutation check: 10/10 killed (K1–K10), tree restored
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0038/R2, ADR-0038/R4, ADR-0038/R3)
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1..AC-15 demonstrated — tests/test_puzzle_solver_maybe.py 34 passed in 67.55s (each AC's named test PASSED; property ACs assert their minimum counts); AC-16 demonstrated — renders mixed-board-maybe-pressed-1440/390, one-maybe-left-not-solved-1440, one-maybe-left-solved-1440 present (owner look pending pre-merge); G-1 demonstrated — page/marking/progress/phone/hint 215 passed, diff = the two allowed lines only; G-2 demonstrated (FR-044 tests unedited, green; AC-2 table); G-3 demonstrated — test_the_state_module_touches_no_dom, test_the_scripts_carry_no_colour_literals PASSED; G-4 demonstrated — payload shape [memory,sqlite] + TestSolverMarking_NoRequestPerMark PASSED (6 passed); G-5 demonstrated (AC-15 storage empty, no send path); G-6 demonstrated (hint file unedited/green, no --player-cell* definition change); G-7 demonstrated (no diff under src/nonogram/solver/)
+- [Docs] forge:readme: changed dirs src/nonogram/admin/static, src/nonogram/admin/templates, tests — no README in the admin dirs; tests/README.md does not catalogue the player test files (none of CARD-161..188's) — skipped, current
+- [Commit] success commit 3cb98bd (on top of implementation 2ffec96) — explicit pathspecs; diff vs main: 7 files, +1189/−40
+- [Owner check] pre-merge, from ~/Documents/nonogram-reviews/CARD-186/: defaults (a)–(d) as drafted, plus three owner-visible layout changes not in (a)–(d) (review F-003/F-004, Minor): (e) all four tool buttons have --space-2 side padding (narrower than main's three); (f) when solved, Undo/Redo/Reset/Hint stay in place and the banner sits in the tools' box, a long name wraps inside it — names of ~40+ characters move the board 13 px (100 chars: 38 px) at desktop widths, where main moved it only from 50–60 chars at 1280/1440; (g) at 1180–1259 px 'Hints: 0' sits alone on a second toolbar row, solved or not
+- [Merge gate] branched from adec591 (= main at merge); pipeline full suite after the fix 6498 passed, 9 skipped (same tree, not re-run). Owner: "merge now, check later" (renders incl. toolbar changes e–g in ~/Documents/nonogram-reviews/CARD-186/). Merged ddfc116.

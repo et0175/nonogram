@@ -1,0 +1,143 @@
+version: 1
+generated_at: "2026-10-05T18:18:29Z"
+target: "card/186-player-maybe-mark vs main (2ffec96, base adec591)"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff main...HEAD (7 files, +979/-32)"
+    - "src/nonogram/admin/static/solver_state.js (circledNumbers/walkIn, hintCell, isSolved, clickedState)"
+    - "src/nonogram/admin/static/solver.js (wireMarking pointerup, refresh aria-disabled)"
+    - "src/nonogram/admin/static/admin.css (player block)"
+    - "src/nonogram/admin/templates/puzzle_solve.html"
+    - "tests/test_puzzle_solver_maybe.py (full)"
+    - "tests/test_puzzle_solver_progress.py (banner test)"
+    - "meta/kanban/cards/CARD-186.md (full)"
+    - "~/Documents/nonogram-reviews/CARD-186/ (2 of 8 renders viewed)"
+  not_reached:
+    - "6 of 8 owner renders not opened"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 979, removed: 32 }
+  max_fan_in: { symbol: "hintCell", callers: 16 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css (26 commits/12mo, 9 fix)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — co-change mining not run; every file in Touches is in the diff"
+system_contract:
+  rules_checked: 52
+  holds: 11
+  unchecked: 41
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy; manual: pyproject.toml untouched by the diff, tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed PASSED"
+    - "ADR-0019/R1 ✓ holds — diff touches nothing under src/nonogram/web/; tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no Python signature or export field changed"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: image fitting untouched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: CLI --size untouched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: orchestrator/repair untouched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: retry counter untouched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: repair untouched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: repair policy untouched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: density validation untouched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: density seam untouched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: difficulty scoring untouched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: strategies untouched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: difficulty score untouched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: solver overlap masks untouched (G-7)"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: rung attribution untouched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: storage boundary untouched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: quality_score untouched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: book assembly untouched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: book status untouched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: layout untouched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: book geometry untouched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: book pages untouched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: book strokes untouched"
+    - "ADR-0038/R1 ✓ holds — hand-written edits to existing solver_state.js/solver.js/admin.css/template only; no new file, pyproject.toml untouched"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark (2) PASSED; TestSolverMaybe_NoRequestPerMark PASSED (10 ? strokes, requests == [], storage [0,0])"
+    - "ADR-0038/R3 ✓ holds — TestSolverPage_ShowsTheClues (5) PASSED; diff adds no clue derivation"
+    - "ADR-0038/R4 ✓ holds — MAYBE/clickedState/isSolved in solver_state.js; test_the_state_module_touches_no_dom and test_the_scripts_carry_no_colour_literals PASSED"
+    - "ADR-0038/R6 ✓ holds — no route/payload change; test_the_payload_has_exactly_the_documented_shape[memory,sqlite] PASSED"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml untouched (git diff --stat main...HEAD -- pyproject.toml empty)"
+    - "ADR-0038/R8 ✓ holds — new tests use the shared browser_page fixture (no own skip path); player suite 257 passed, 0 skipped"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: src/nonogram/solver/ untouched (G-7)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ✓ holds — TestAdminPanel_BindsLoopbackOnlyByDefault (7) PASSED; no admin entry-point change"
+    - "CON-016 ✓ holds — TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit (7) PASSED; no routing change"
+    - "CON-021 ✓ holds — the ? mark exists only in the admin player's client; no route added; TestSolverMaybe_NoRequestPerMark PASSED"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: compute_clues untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry loops untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published-book changes untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+root_causes:
+  - id: RC-1
+    title: "The solved banner's 'board does not move' depends on the toolbar staying one row; a fourth tool narrows that band"
+    finding_ids: [F-001]
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: bug
+    file: src/nonogram/admin/static/admin.css
+    line: 453
+    title: "Board now jumps 44 px on solve at 1180-1259 px desktop widths (collateral regression of SolvedBanner 'board does not move')"
+    description: |
+      Measured with Playwright (15x15 GRID, near-solved board, solving click; board bounding-box y after minus before),
+      viewport 960..1480 step 20, height 900. Real main (adec591 static files): 0 px at 1180, 1200, 1220, 1240.
+      This branch: -44 px at 1180, 1200, 1220, 1240 (and -46.8 at 1040-1080 where main gave -44).
+      Both are 0 at >= 1260. The --space-2 padding rule keeps only the 1280x720 G-1 test green; the fourth
+      tool still pushes the Errors/Hints counter to a second row in a band of common desktop widths, and hiding
+      the tools on solve then moves the board. CARD-162's DESIGN-REGISTER for SolvedBanner says "in place of the
+      ToolPicker (the board does not move)". The card's [Layout] note calls this "an estimate, not tested";
+      it is now measured. The padding change (all four tools) is also not listed among the owner defaults (a)-(d).
+    suggestion: |
+      Either fix the cause: keep the toolbar's row count unchanged when solved (e.g. the banner takes the tools'
+      box instead of the toolbar reflowing, or the counters never share a wrapping row with the tools), with a
+      test that sweeps widths (for example 1024..1440) for the board-does-not-move property. Or, if the owner
+      accepts the band, replace the [Layout] estimate with the measured band and list the padding change and the
+      band as owner default (e) for the owner check.
+    confidence: high
+    source: inferred
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_maybe.py
+    line: 831
+    title: "Card point 8 asks for a centred glyph; AC-13's test proves only 'inside the cell'"
+    description: |
+      admin.css:427 centres horizontally (text-align: center) and relies on the td's default vertical-align
+      for the vertical axis. No test pins centring; no code comment claims it, so this is not a claim-beyond-test.
+    suggestion: |
+      Optionally assert the glyph box's centre lies within a couple of px of the cell centre on both axes.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

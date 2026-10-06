@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-06
+- CARD-186 (feature): The puzzle player has a "?" mark for assumptions: a Maybe brush paints "?" on cells, a "?" never counts as an error, and the puzzle isn't solved while any "?" is left. When you solve a puzzle, the solved banner now takes the tools' place, so the board no longer jumps.
+
 ## 2026-10-05
 - CARD-183 (feature): The puzzle player has a Hint button. It reveals one cell you could work out right now from a single row or column, outlines it and counts it ("Hints: N"). If no cell follows from one line, it reveals a cell from the answer and says so. Undo takes a hint back.
 - CARD-188 (feature): The puzzle player now circles a clue number once your marks settle its run: the run is all dark with a white dot or the edge on both sides, and it's clear which number it belongs to. Two-digit numbers get a pill. Circles follow your marks, not the answer, so a wrong mark can circle a number.
