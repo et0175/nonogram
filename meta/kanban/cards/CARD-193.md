@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/193-player-mobile-fit
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-193
 **Source:** owner mobile solver feedback, 2026-10-06 (owner decisions on phone fit and mirrored row clues)
 **Idea:** —
 **Wave:** 36
-**Depends on:** —
+**Depends on:** CARD-196 (clue numbers get their own size — owner decision 2026-10-06, option b)
 **Touches:** src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_mirror.py, tests/test_puzzle_solver_page.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_maybe.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-06T17:38:10Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -190,3 +190,12 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-193` (53 rules). A project
 - [Estimate] 1d: CSS and JS change, mirror CSS flips, one new test file, about 6 edited test functions, the renders and the DESIGN-REGISTER line.
 - [Trace] Add `tests/test_puzzle_solver_mirror.py` and the renamed classes to FR-044's tests list in meta/architecture/trace.yml at merge. Not in the card commit.
 - [Owner decision] 2026-10-06 — mirrored row clues on the right apply on PHONES ONLY (desktop unchanged). Clue numbers and the "?" mark never render below 12 px: where a board cannot fit at 12 px, it scrolls sideways (this overrides the fit-to-width rule for numerals only).
+- [Env] forge 2026.8.17
+- [Owner ambiguity 1 — resolved] Mirror applies on phones only (the owner decision above): the mirror follows the 820 px breakpoint, via a matchMedia listener that redraws from the current state. Implementable as drafted; not the blocker.
+- [Escalated] 2026-10-06, before implementation. Station: owner, then architect (requirement) and decompose (card). Route: see below.
+  - Reason: the 12 px numeral rule cannot be met together with the card's ACs. Clue numerals are `font-size: calc(var(--player-cell) * 0.6)` (admin.css `.player-board`), and each clue slot is one cell wide. A 12 px numeral therefore needs a cell of at least 20 px. At 390 px the stage is 358 px, so a board needs 20 × (cols + row-depth + 1) px. A 15×15 with 8-number row clues needs 480 px, so every board of about 15 or more scrolls, not only the 30×30. That contradicts AC-1 (four boards fit with one cell side and no stage scroll), AC-2 (cells narrower than 14 px), AC-11 (no sideways scroll) and "What to implement" item 1.
+  - It also contradicts FR-044 AC-354 in meta/architecture/requirements.yml ("the page has no horizontal scroll at 390 px"). The card says AC-354 "still holds". It does not, under this rule. AC-343 still pins the 24 px phone floor, so it needs an amendment too.
+  - Open question for the owner: does the 12 px rule apply at desktop? At 1440×900 the 30×30 cell is 16.797 px (AC-4 and G-1), so its numerals are about 10 px. Applying the rule there changes desktop cell sizes, which G-1 forbids.
+  - Options for the owner: (a) numerals at 12 px on phones only, with boards that need more width scrolling sideways (this changes AC-1, AC-2, AC-11 and AC-354); (b) decouple numeral size from cell size, a new layout design and a new card; (c) drop the numeral floor and keep 0.6 × cell (back to ambiguity 2, option a).
+  - Route: (1) owner rules on (a), (b) or (c), and on desktop. (2) /forge:architect: delta on requirements.yml for AC-354 and AC-343 to match the ruling. (3) /forge:kanban decompose: re-cut CARD-193's target 1, AC-1, AC-2 and AC-11 to match. (4) /kanban redo CARD-193. Nothing is implemented; worktree ../PythonProject4-CARD-193 and branch card/193-player-mobile-fit are kept at main a57d9fe. CARD-194 and CARD-195 wait on this card (see conflict_edges).
+- [Owner decision] 2026-10-06 — option (b): clue numbers get their own size, decoupled from the cell. CARD-193 now depends on CARD-196 and must be re-decomposed against it (its AC-1/AC-2/AC-11 target 1 change: fit-to-width applies to cells; numbers keep 12 px; boards whose column numbers cannot fit scroll sideways).
