@@ -258,6 +258,8 @@ Used by: the puzzle player (CARD-161, FR-044). `div.player-tools[role=group][ari
 
 (CARD-186) player tool button padding (--space-2 side padding, all four tools) — line above stands; its reason is now the one-row toolbar at 1280 × 720, not the banner.
 
+(CARD-189) Tool group aria-label "Marking tool" (was "Marking tool for drags"); a click follows the selected brush — the first click gives the brush's mark (or moves one step on if the cell already holds it), a repeat click on the same cell goes on along the brush's sequence; drags paint the brush's state.
+
 ## HistoryControls
 
 Used by: the puzzle player (CARD-161). `div.player-history[role=group][aria-label="History"]` with Undo, Redo (the undo icon mirrored via `.player-mirror` — a real redo icon in _icons.html is a candidate) and Reset (refresh icon), quiet buttons with text labels; Undo/Redo carry aria-keyshortcuts.
