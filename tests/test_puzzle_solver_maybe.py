@@ -4,9 +4,11 @@ card-local AC-1..AC-15).
 A fourth cell state, MAYBE ("maybe", drawn as "?"): neither dark nor white,
 never an error, and no board holding one is solved. A fourth tool, Maybe,
 paints "?" along a drag like any tool; its click marks a cell "?" and clears a
-"?" back to undecided. Black, White and Undecided keep today's click cycle; a
-"?" is read as undecided, so it goes to black. The hint (CARD-183) and the
-clue circles (CARD-188) read "?" as undecided.
+"?" back to undecided. Since CARD-189 a click follows the selected brush: a
+first click on a "?" with Black, White or Undecided gives that brush's state
+(CARD-186's interim "a "?" goes to black" is gone), and every click needs a
+tool. The hint (CARD-183) and the clue circles (CARD-188) read "?" as
+undecided.
 
 The pure state module is exercised with ``await import('/static/solver_state.js')``
 against oracles written here or imported from the other player test files
@@ -64,15 +66,16 @@ M = "maybe"
 _CODE = {U: "u", F: "f", E: "e", M: "m"}
 _STATE = {code: state for state, code in _CODE.items()}
 
-#: What one click does, written out: state -> the state after a click with
-#: (Black, White, Undecided, no tool given, Maybe).
+#: What one FIRST click does (CARD-189), written out: state -> the state after
+#: a first click with (Black, White, Undecided, Maybe). Repeat clicks are
+#: tested in test_puzzle_solver_marking.py (TestSolverClickFollowsTheBrush).
 _CLICK_TABLE = {
-    U: (F, F, F, F, M),
-    F: (E, E, E, E, M),
-    E: (U, U, U, U, M),
-    M: (F, F, F, F, U),
+    U: (F, E, F, M),
+    F: (E, E, U, M),
+    E: (F, U, U, M),
+    M: (F, E, U, U),
 }
-_TOOL_COLUMN = {F: 0, E: 1, U: 2, None: 3, M: 4}
+_TOOL_COLUMN = {F: 0, E: 1, U: 2, M: 3}
 
 
 def _clicked(state, tool):
@@ -157,34 +160,36 @@ _CLICKS = """async () => {
   const out = [];
   for (const state of S.CELL_STATES) {
     const board = S.withCell(S.createBoard(4, 3), 1, 2, state);
-    for (const name of [...Object.keys(tools), null]) {
-      const stroke = name === null ? S.clickStroke(board, 1, 2) : S.clickStroke(board, 1, 2, tools[name]);
+    for (const name of Object.keys(tools)) {
+      const stroke = S.clickStroke(board, 1, 2, tools[name]);
       out.push({ state, tool: name,
-                 clicked: name === null ? S.clickedState(state) : S.clickedState(state, tools[name]),
+                 clicked: S.clickedState(state, tools[name]),
                  stroke: { cells: stroke.cells, state: stroke.state } });
     }
   }
   const error = (f) => { try { f(); return null; } catch (e) { return e.name; } };
   return { out, badWithMaybe: error(() => S.clickedState('crossed', S.MAYBE)),
-           badWithBlack: error(() => S.clickedState('crossed', S.FILLED)) };
+           badWithBlack: error(() => S.clickedState('crossed', S.FILLED)),
+           noTool: error(() => S.clickStroke(S.createBoard(4, 3), 1, 2)) };
 }"""
 
 
 @pytest.mark.browser
 class TestSolverMaybeModule_ClickedStateTable:
-    """AC-2 — clickedState and clickStroke over every (state, tool), plus the
-    tool omitted, equal _CLICK_TABLE."""
+    """AC-2 — clickedState and clickStroke over every (state, tool), as a first
+    click, equal _CLICK_TABLE; since CARD-189 an omitted tool is refused."""
 
     def test_table(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         got = browser_page.evaluate(_CLICKS)
-        assert len(got["out"]) == 4 * 5
+        assert len(got["out"]) == 4 * 4
         for row in got["out"]:
             want = _clicked(row["state"], row["tool"])
             assert row["clicked"] == want, row
             assert row["stroke"] == {"cells": [[1, 2]], "state": want}, row
         assert got["badWithMaybe"] == "RangeError"
         assert got["badWithBlack"] == "RangeError"
+        assert got["noTool"] == "RangeError"
 
 
 # --------------------------------------------------------------------------
@@ -327,7 +332,7 @@ _RUN_HISTORY = """async ({ width, height, ops }) => {
   const steps = [];
   for (const op of ops) {
     if (op[0] === 'click') {
-      const stroke = op[3] === null ? S.clickStroke(h.board, op[1], op[2]) : S.clickStroke(h.board, op[1], op[2], op[3]);
+      const stroke = S.clickStroke(h.board, op[1], op[2], op[3]);  // a first click (CARD-189)
       h = S.record(h, stroke);
     } else if (op[0] === 'drag') h = S.record(h, S.dragStroke(op[2], op[3], op[1]));
     else if (op[0] === 'reset') h = S.record(h, S.resetStroke(h.board));
@@ -347,9 +352,9 @@ _RUN_HISTORY = """async ({ width, height, ops }) => {
 
 
 class _MaybeModel(_Model):
-    """CARD-161's board model with a click that follows _CLICK_TABLE."""
+    """CARD-161's board model with a click that follows _CLICK_TABLE (a first click)."""
 
-    def click(self, r, c, tool=None):
+    def click(self, r, c, tool=F):
         self._apply({(r, c)}, _clicked(self.board[(r, c)], tool))
 
 
@@ -358,7 +363,7 @@ def _ops(rng):
     while len(ops) < _EC_OPS:
         roll = rng.random()
         if roll < 0.34:
-            ops.append(["click", rng.randrange(_EC_HEIGHT), rng.randrange(_EC_WIDTH), rng.choice([F, E, U, M, None])])
+            ops.append(["click", rng.randrange(_EC_HEIGHT), rng.randrange(_EC_WIDTH), rng.choice([F, E, U, M])])
         elif roll < 0.66:
             start = [rng.randrange(_EC_HEIGHT), rng.randrange(_EC_WIDTH)]
             path, here = [], list(start)
@@ -376,7 +381,7 @@ def _ops(rng):
 @pytest.mark.browser
 def test_PropertyTest_SolverMaybe_ReplayReproducesTheBoard(browser_page, live) -> None:
     """AC-8 — after every step of a seeded mix of clicks and drags with each of
-    the four tools (and clicks with no tool), resets, undos and redos,
+    the four tools (first clicks — CARD-189 refuses a click with no tool), resets, undos and redos,
     replaying the undo stack from a blank board gives the current board, which
     equals the Python model's."""
     ops = _ops(random.Random(186))
@@ -386,7 +391,7 @@ def test_PropertyTest_SolverMaybe_ReplayReproducesTheBoard(browser_page, live) -
 
     model = _MaybeModel(_EC_WIDTH, _EC_HEIGHT)
     strokes = sets_maybe = 0
-    clicks = {tool: 0 for tool in (F, E, U, M, None)}
+    clicks = {tool: 0 for tool in (F, E, U, M)}
     drags = {tool: 0 for tool in (F, E, U, M)}
     for index, (op, step) in enumerate(zip(ops, steps)):
         if op[0] == "click":
@@ -616,15 +621,17 @@ class TestSolverMaybe_ClickWithTheMaybeTool:
         _cell(browser_page, 2, 2).click()
         assert _marked(_states(browser_page)) == {(2, 2): M}
 
-    @pytest.mark.parametrize("tool", ["Black", "White", "Undecided"])
-    def test_a_maybe_cell_clicked_with_another_tool_reads_filled(self, browser_page, live, tool) -> None:
+    # CARD-189: a "?" clicked with a colour brush takes that brush's state
+    # (CARD-186's interim rule sent it to black whatever the brush).
+    @pytest.mark.parametrize("tool, after", [("Black", F), ("White", E), ("Undecided", U)])
+    def test_a_maybe_cell_clicked_with_another_tool_takes_its_state(self, browser_page, live, tool, after) -> None:
         _open(browser_page, live, live.store(GRID))
         _tool(browser_page, "Maybe")
         _cell(browser_page, 7, 3).click()
         assert _marked(_states(browser_page)) == {(7, 3): M}
         _tool(browser_page, tool)
         _cell(browser_page, 7, 3).click()
-        assert _marked(_states(browser_page)) == {(7, 3): F}
+        assert _marked(_states(browser_page)) == ({(7, 3): after} if after != U else {})
 
 
 @pytest.mark.browser
@@ -639,9 +646,9 @@ class TestSolverMaybe_DragPaintsMaybe:
         _cell(browser_page, 2, 4).click()  # white
         _tool(browser_page, "White")
         _drag(browser_page, [(2, 6), (2, 9)])
-        _cell(browser_page, 5, 5).click()  # off the line
+        _cell(browser_page, 5, 5).click()  # off the line; White selected: white (CARD-189)
         before = _marked(_states(browser_page))
-        assert before == {(2, 3): F, (2, 4): E, (2, 6): E, (2, 7): E, (2, 8): E, (2, 9): E, (5, 5): F}
+        assert before == {(2, 3): F, (2, 4): E, (2, 6): E, (2, 7): E, (2, 8): E, (2, 9): E, (5, 5): E}
 
         _tool(browser_page, "Maybe")
         _drag(browser_page, [(2, 3), (2, 7)])

@@ -19,8 +19,12 @@
   say aria-disabled="true" when they have nothing to do.
 
   The "?" mark (CARD-186): a fourth tool, Maybe, follows Undecided. With it a
-  click marks a cell "?" and a second click clears it; a drag paints "?". A
-  click with Black, White or Undecided still cycles, a "?" going to black.
+  click marks a cell "?" and a second click clears it; a drag paints "?".
+
+  A click follows the selected brush (CARD-189): a first click gives the cell
+  the brush's mark, a repeat click on it goes on along the brush's sequence
+  (solver_state.js clickedState). So the tool group is "Marking tool", not
+  "for drags" only, and the hint below the board names each sequence.
 
   Progress (CARD-162): the error counter sits in the toolbar row and is a
   live region (role=status), updated by solver.js after every recorded
@@ -63,7 +67,7 @@
 
 <div class="player-toolbar" id="puzzle-player-controls" hidden>
     <div class="player-slot">
-    <div class="player-tools" role="group" aria-label="Marking tool for drags">
+    <div class="player-tools" role="group" aria-label="Marking tool">
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="filled" aria-pressed="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="empty" aria-pressed="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
         <button type="button" class="btn btn-outline-secondary player-tool" data-player-tool="unknown" aria-pressed="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Undecided</button>
@@ -97,7 +101,7 @@
     </p>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to cycle black, white, undecided. Drag along a row or column to apply the selected tool. With Maybe, a click marks ? and a second click clears it.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected tool's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). Drag along a row or column to apply the selected tool. With Maybe, a click marks ? and a second click clears it.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}
