@@ -1,0 +1,181 @@
+version: 1
+generated_at: "2026-10-06T11:04:45Z"
+target: "card/189-click-follows-the-brush (main...481a4e6; commits 6ba75bc, 481a4e6)"
+card: CARD-189
+cycle: 2
+mode: full
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/solver.js
+    - src/nonogram/admin/static/solver_state.js
+    - src/nonogram/admin/templates/puzzle_solve.html
+    - tests/test_puzzle_solver_marking.py
+    - tests/test_puzzle_solver_maybe.py
+    - tests/test_puzzle_solver_hint.py
+    - tests/test_puzzle_solver_resume.py
+    - meta/kanban/cards/CARD-189.md
+    - ~/Documents/nonogram-reviews/CARD-189 (after-hint-line.png, after-strip-white-clicks-1-4.png)
+  not_reached:
+    - "rendered result not verified by the pipeline (review.visual off); owner renders inspected only"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 482, removed: 116 }
+  max_fan_in: { symbol: "solver_state.js clickStroke", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/solver.js"]
+  cochange_missing: ["src/nonogram/admin/static/admin.css"]
+  notes:
+    - "clickStroke: 1 src caller (solver.js:519), 4 test files; cycled removed, 0 remaining callers in src"
+    - "solver.js churn 13 commits/12mo, 5 fix; admin.css co-changed 11/13 but this card is copy-only, no styling needed"
+
+cycle1_verdicts:
+  - "F-001 resolved — R1 (row-only compare) and R2 (column-only compare) both KILLED by test_anything_between_two_clicks_makes_the_next_a_first_click"
+  - "F-002 resolved — Reset opening the confirmation clears lastClick (solver.js:566); R3 (clear removed) KILLED; declarations accurate to code, but the Escape-cancel path and the 'when that opens' qualifier are untested (see F-004)"
+  - "F-003 resolved — module docstring now says clicks that follow the selected brush (CARD-189)"
+
+tests_run:
+  - "pytest marking+progress+maybe+hint+resume: 189 passed, 1 warning in 234.77s"
+  - "pytest TestSolverPage_ShowsTheClues, test_the_dependency_baseline_is_still_closed, test_every_import_in_the_package_points_inward, TestSolverMarking_NoRequestPerMark, TestSolverMarking_RevealsNoCorrectness: 11 passed, 2 warnings in 9.57s"
+
+mutation_check:
+  ran: true
+  script: "scratchpad/card189_review2_mutants.py"
+  results:
+    - "R1 repeat compares row only: KILLED"
+    - "R2 repeat compares column only: KILLED"
+    - "R3 reset-open clear removed: KILLED"
+    - "R8 reset clear moved from opening to Keep marks only (Escape cancel keeps lastClick): SURVIVED"
+    - "R9 reset clear moved above the gesture/aria-disabled early return: SURVIVED"
+    - "R10 commit no longer clears lastClick: KILLED"
+    - "R11 tool press no longer clears lastClick: KILLED"
+    - "R12 pointercancel no longer clears lastClick: KILLED"
+    - "R14 repeat truthy instead of === true: KILLED"
+    - "R15 colour order white -> dark: KILLED"
+  restore_verified: "git diff --stat -- src tests empty after the run"
+
+system_contract:
+  rules_checked: 53
+  holds: 8
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy (named only in a comment/docstring of tests/test_export_pdf.py); manual: pyproject.toml diff empty, test_the_dependency_baseline_is_still_closed green"
+    - "ADR-0019/R1 ✓ holds — diff touches no .py; test_every_import_in_the_package_points_inward green on 481a4e6"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no grid-extent signature touched"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size handling touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no generation/repair code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty code touched"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies code touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty score touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage path touched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score rendering touched"
+    - "ADR-0033/R1 ⚠ unchecked — no_eligible_fact: no book code touched"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status code touched"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no layout code touched"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no book geometry touched"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book PDF touched"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no grid stroke code touched"
+    - "ADR-0038/R1 ✓ holds — diff adds no script/link tag, framework, package.json or vendored file; solver.js/solver_state.js remain hand-written ES modules"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark green on 481a4e6; lastClick is a local of wireMarking with no fetch"
+    - "ADR-0038/R3 ✓ holds — no clue code touched; TestSolverPage_ShowsTheClues green on 481a4e6"
+    - "ADR-0038/R4 ✓ holds — grep -c 'import ' solver_state.js = 0; no document/window in solver_state.js; lastClick memory lives in solver.js only"
+    - "ADR-0038/R5 ✓ holds — pyproject.toml diff empty; line 80 package-data includes static/*.js"
+    - "ADR-0038/R6 ✓ holds — no new solution read; TestSolverMarking_RevealsNoCorrectness green on 481a4e6"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no dependency declaration changed"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser-test skip mechanism changed"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver untouched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: web server untouched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: grid size limits untouched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: aspect guard untouched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: admin bind untouched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: admin door untouched"
+    - "CON-021 ✓ holds — lastClick never written to storage or server: test_a_reload_starts_with_no_last_click green (189-passed run); NoRequestPerMark green"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: clue encoding untouched"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: export gating untouched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: retry counters untouched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: book plan untouched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: book ready gate untouched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: published book untouched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: book order untouched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: book pairing untouched"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: answer key untouched"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: book membership untouched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: book export untouched"
+
+root_causes: []
+
+findings:
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 65
+    title: "Reset-clear claim is tested on the Keep-marks path only"
+    description: |
+      The MARKING comment (solver.js:65-67) says lastClick is cleared by "pressing Reset when
+      that opens the confirmation (so a reset opened and then cancelled ends the run too)".
+      The code is right (the clear sits at solver.js:566, after the gesture/aria-disabled
+      early return, so both cancel paths inherit it). But only one edge of the claim is
+      tested. Mutant R8 moves the clear into the Keep-marks handler, so cancelling with
+      Escape keeps lastClick. It survives all 11 TestSolverClickFollowsTheBrush tests.
+      Mutant R9 moves the clear above the early return, so a disabled Reset press, or one
+      made during a gesture, clears it. It also survives. Example: with White, two clicks
+      leave the board blank and Reset disabled; a press on the disabled Reset is then
+      followed by a click that gives dark today but white under R9.
+      This is Minor because the behaviour comes from cycle-1's Minor F-002, not from an AC,
+      and the code holds the property by construction.
+    suggestion: |
+      Add "reset opened and cancelled (Escape)" to the AC-5 between-steps (press Reset, then
+      Escape) to kill R8. Then either pin the qualifier with one test (White, two clicks to
+      blank, press the disabled Reset, click: expect dark), or drop "when that opens the
+      confirmation" from the comment.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 55
+    title: "Summaries of clickedState say a first click always gives the brush's state"
+    description: |
+      solver.js:55-56 ("a first click gives the cell the brush's state, a repeat click
+      moves it one step") and puzzle_solve.html:24-25 ("a first click gives the cell the
+      brush's mark") leave out the card's decided case. A first click on a cell that already
+      holds the brush's state moves it one step (Black on dark gives white). Both summaries
+      point to clickedState, which states the full rule correctly (solver_state.js:170-179).
+    suggestion: |
+      Add "(or the next step when the cell already holds it)" to both summaries, as the
+      test-class docstring already says.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

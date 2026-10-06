@@ -1,6 +1,6 @@
 # CARD-189: In the puzzle player, a click follows the selected brush
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 35
 **Depends on:** CARD-186 (the MAYBE "?" state, the Maybe brush and the `clickedState(state, tool)` hook exist)
 **Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_progress.py, tests/test_puzzle_solver_maybe.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 3/3)
+**Started:** 2026-10-06T09:02:14Z
+**Closed:** 2026-10-06T11:42:51Z
+**Actual:** 0.3d
+**Merge commit:** 0b637a9
 **Blocked by:** —
 
 ## What to implement
@@ -275,3 +275,70 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-189` (53 rules). A project
 - [Coordination] CARD-186 adds the Maybe tool and state and edits the same three source files; build on its merged version and change only `clickedState`/`clickStroke` in the module. CARD-183 (hint) commits through `commit`, so it clears the memory with no change to its code. CARD-185 (restore on reopen) must not save `lastClick`.
 - [AC cross-check] Re-read AC-1..AC-11 against the body. AC-3 matches the sequences table (Undecided on a blank cell: a first click on a cell in the brush's state advances, so dark, white, blank, dark). AC-5/AC-6/AC-8's "first click" cases match the first-click table (white + Black = dark; dark + White = white; blank + Black = dark). Body and ACs agree.
 - [Architect 2026-10-06] FR-044 AC-355..AC-359 now formalize this card (AC-303/AC-304 superseded for clicks). When the card replaces TestSolverMarking_ClickCycles / ClickIgnoresTheSelectedTool, the dispatcher updates trace.yml at merge.
+- [Env] forge 2026.8.17
+- [Owner default] follow the doc's sequences with remembered repeat clicks; hint-line wording as drafted in What to implement step 3 — implemented as drafted
+- [Implemented 2026-10-06, commit 6ba75bc] solver_state.js: `clickedState(state, tool, repeat)` with two private orders (COLOUR_ORDER dark->white->blank->dark, MAYBE_ORDER "?"->blank->"?"): outside the brush's order -> the brush's state; else repeat (`=== true`) or state === tool -> next step; else the brush's state. `clickStroke(board, row, col, tool, repeat)` requires a tool (RangeError via clickedState, both state and tool checked). `CYCLE` and `cycled` removed (no other caller in src). Module stays pure; `grep -c "import " solver_state.js` = 0.
+- [Implemented] solver.js wireMarking: `lastClick = {row, col, tool} | null`. Click path: repeat = same row, col and gesture.tool; commit(record(clickStroke(..., done.tool, repeat))) then sets lastClick. Drag branch split out (unchanged dragStroke). MARKING header comment rewritten.
+- [lastClick cleared on each "first click" event] `commit()` sets lastClick = null first — this covers a recorded drag, a no-op drag (pointerup always calls commit, record returns the same history), undo/redo buttons and Ctrl/Cmd+Z / Shift+Ctrl/Cmd+Z (all call commit even with nothing to do), Clear board (commit(record(resetStroke))), a hint (CARD-183's hint handler calls the same commit(record(hintStroke), hint) — verified by reading solver.js and by the "a hint" case of AC-5's test), setBoard (marking.commit). Tool buttons (mouse and keyboard share the button click handler) and pointercancel clear it explicitly. Page load: lastClick is a local of wireMarking initialised to null; CARD-185's restore sets `history = restored` in start() before wireMarking runs and serializeState(history, payload) only reads the history — lastClick is never written to storage (verified by test_a_reload_starts_with_no_last_click and mutant M13).
+- [Template] group `aria-label="Marking tool"`; hint first sentence as drafted (owner default), drag + Maybe sentences kept, id/class kept; template header comment updated (CARD-186's "a ? going to black" line replaced).
+- [Tests] New class TestSolverClickFollowsTheBrush (tests/test_puzzle_solver_marking.py): AC-1 test_every_brush_state_and_repeat_gives_the_table (literal FIRST_CLICK/REPEAT_CLICK tables at module level; fails if CELL_STATES holds an uncovered state; also asserts repeat is coerced with === true: 1, 'true', {}, undefined act as first clicks), AC-2 test_a_click_without_a_valid_tool_is_refused, AC-3 test_repeat_clicks_follow_each_brush_sequence, AC-4 test_a_first_click_on_each_state_with_each_brush, AC-5 test_anything_between_two_clicks_makes_the_next_a_first_click ((a)-(d) plus no-op drag, Black by keyboard, Ctrl+Z/Shift+Ctrl+Z, hint, setBoard, and a confirmed reset checked with White), AC-6 test_a_brush_change_restarts_the_sequence, AC-7 test_touch_taps_follow_the_brush, AC-8 test_each_click_is_one_undo_step, AC-11 test_the_page_copy_describes_the_new_click; extra: test_a_cancelled_gesture_makes_the_next_tap_a_first_click (CDP touchStart + touchCancel -> one pointercancel), test_a_reload_starts_with_no_last_click (G-7). AC-9 unchanged (TestSolverMarking_DragMarksOneLine::test_each_tool_sets_its_state_along_the_line green untouched).
+- [Tests] AC-10: `_Model.click(r, c, tool=F, repeat=False)` uses the literal 32-entry tables; `_ec_ops` click ops are ["click", r, c, brush, repeat] with the driver's own last-click memory (cleared by every non-click op; 7 in 10 clicks after a click go back to it). Corpus (seed 35) counts: clicks per brush F 76 / E 77 / U 62 / M 53, repeats 67; asserts >= 50 each in the test; also asserts every click changes the model board.
+- [Tests rewritten] TestSolverMarking_ClickCycles kept (docstring: clicks 2 and 3 are now repeat clicks; test_a_click_changes_only_its_cell passes repeat for the second (7,3)). TestSolverMarking_ClickIgnoresTheSelectedTool: its two AC-304 click tests deleted (superseded); class kept with test_exactly_one_tool_is_pressed so requirements.yml's AC-304 ref still resolves. TestSolverHistoryModule::test_cycle_and_strokes: `cycled` assertions replaced by "cycled is gone", clickStroke calls given a tool (same expected boards). test_history_branches (G-2): only the two clickStroke calls given S.FILLED (blank -> filled, same expected values). TestSolverMarking_UndoRedoByStroke::test_set_board_starts_a_new_history: expectation updated — Black's first click on the set white cell now gives black ({(0,0): F, (2,2): F}; the undo assertion unchanged). _twenty_strokes models each click with the tool picked before it.
+- [Tests] tests/test_puzzle_solver_maybe.py (in Touches): _CLICK_TABLE is now the first-click table without the "no tool" column; test_table also asserts an omitted tool is RangeError; AC-8 corpus clicks drop the None tool (rng.choice([F, E, U, M])); test_a_maybe_cell_clicked_with_another_tool_reads_filled renamed to ..._takes_its_state with expectations Black F / White E / Undecided U; TestSolverMaybe_DragPaintsMaybe::test_drag: the (5,5) click (White selected) now expects white. tests/test_puzzle_solver_progress.py needed no change (passes as is).
+- SCOPE+ tests/test_puzzle_solver_hint.py — one three-argument clickStroke given S.FILLED (same result); test_enabled_again_once_a_cell_is_undecided now presses Undecided before its click (Black no longer blanks a white cell; the old two-click fallback gave dark/white).
+- SCOPE+ tests/test_puzzle_solver_resume.py — clickStroke now needs a tool: the round-trip corpus maps a tool-less click op to S.FILLED (RNG stream unchanged), and the two clickStroke calls in _START_NOT_BLANK get S.FILLED (same boards).
+- [Mutants — each applied, its test run, reverted; script scratchpad/card189_mutants.py] M1 `repeat` truthy instead of === true -> killed by AC-1 test. M2 repeat ignored -> killed by AC-1, AC-3, EC-035 corpus. M3 first click on own state does not advance -> killed by AC-1, AC-3, EC-035. M4 one table entry (outside-sequence cell -> order[UNKNOWN]) -> killed by AC-1, AC-4. M5 omitted tool defaults to FILLED -> killed by AC-2. M6 commit does not clear lastClick -> killed by AC-5. M7 tool press does not clear -> killed by AC-5. M8 pointercancel does not clear -> killed by test_a_cancelled_gesture_makes_the_next_tap_a_first_click. M9 drag keeps lastClick -> killed by AC-5. M10 undo/redo buttons keep lastClick -> killed by AC-5. M11 repeat ignores the cell -> killed by AC-5. M12 lastClick never set -> killed by AC-3, AC-7. M13 lastClick saved/restored via sessionStorage -> killed by test_a_reload_starts_with_no_last_click. M15 group label keeps "for drags" / M16 old hint sentence kept -> killed by AC-11. M14 repeat ignores the tool -> SURVIVES (equivalent in the page: every tool change goes through a tool button, which clears lastClick, so a remembered click never has another tool than the next click's; the tool comparison is kept as the card specifies).
+- [Results] `pytest tests/test_puzzle_solver_marking.py` -> "72 passed, 1 warning in 75.49s". Final: `pytest tests/test_puzzle_solver_marking.py tests/test_puzzle_solver_progress.py tests/test_puzzle_solver_maybe.py tests/test_puzzle_solver_hint.py tests/test_puzzle_solver_resume.py tests/test_puzzle_solver_page.py tests/test_puzzle_solver_phone.py tests/test_puzzle_solver_clues.py` -> "288 passed, 1 warning in 284.43s (0:04:44)". Full suite not run (orchestrator).
+- [Renders] ~/Documents/nonogram-reviews/CARD-189/: after-strip-black-clicks-1-4.png, after-strip-white-clicks-1-4.png, after-strip-undecided-clicks-1-4.png, after-strip-maybe-clicks-1-4.png (one blank cell + neighbours after clicks 1..4, AC-3), after-hint-line.png, after-tool-group.png, before-hint-line.png, before-tool-group.png (rendered from a throwaway detached worktree of main, removed afterwards). Script: scratchpad/card189_render.py.
+- [Design] No new components or states (no DESIGN-REGISTER line). Copy changes only: the group's accessible name and the hint line.
+- [Scope] src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_resume.py
+- [System contract] fresh assembly (system_rules.py --card CARD-189) = the card's 53 rules; section current
+- [Build gate] PASSED (full, 16m09s; 6520 passed, 9 skipped)
+- [Scope gate] ⚠ grown: 2 files outside Touches (tests/test_puzzle_solver_hint.py, tests/test_puzzle_solver_resume.py — both SCOPE+ recorded; callers of the now-required clickStroke tool) · no comp spread (COMP-009 only) · CARD-187 overlap (solver_state.js, solver.js, puzzle_solve.html) lies inside this card's own Touches, a predicted conflict edge serialized 189→187 — not poaching
+- [Review 1/3] Score: 8.0 — crit: 0, imp: 1 (F-001 pending adversarial verification)
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h covered all 53 card rules (11 ✓, 42 ⚠ no_eligible_fact, 0 ✗); mutation check: 7 mutants, 6 killed, R1 (row-only repeat compare) survived → F-001
+- [Adversarial] F-001 CONFIRMED — row-only repeat-compare mutant survives all 8 player test files (288 passed, skeptic's own run)
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Review cycle 1 fix, commit 481a4e6] F-001: AC-5 test (test_anything_between_two_clicks_makes_the_next_a_first_click) gains "another cell in the same row" ((10,13) between clicks on (10,10)) and "another cell in the same column" ((14,10) between clicks on (11,10)). Mutant R1 (repeat compares row only) -> killed by AC-5 test ("another cell in the same row": unknown != filled). Mutant R2 (repeat compares column only) -> killed by AC-5 test ("another cell in the same column": unknown != filled). Both reverted.
+- [Review cycle 1 fix — CORRECTS the "[lastClick cleared on each 'first click' event]" note above] lastClick is now also cleared when pressing Reset opens the confirmation (solver.js Reset click handler, after its gesture / aria-disabled early return), so Reset then Keep marks makes the next click a first click (F-002). The AC-5 test gains "reset opened and cancelled (Keep marks)" (row 12). Mutant R3 (that clear removed) -> killed by AC-5 test ("reset opened and cancelled (Keep marks)": unknown != filled); reverted. Escape-to-close is not tested separately: the clear is on opening, not on closing. MARKING header clear-list updated to match.
+- [Review cycle 1 results] `pytest tests/test_puzzle_solver_marking.py` -> "72 passed, 1 warning in 66.62s (0:01:06)"; the other seven tests/test_puzzle_solver*.py files -> "216 passed, 1 warning in 197.15s (0:03:17)".
+- DESIGN-REGISTER components.md puzzle player tool group: aria-label "Marking tool" (was "Marking tool for drags"); a click follows the selected brush — first click gives the brush's mark, a repeat click on the same cell goes on along the brush's sequence (CARD-189)
+- [Fix 1] pre-gate: named test test_anything_between_two_clicks_makes_the_next_a_first_click 1 passed; F-001/F-002/F-003 FIXED (481a4e6)
+- [Fix 1] declarations: 0 updated, 0 confirmed, 2 none; F-002 doc: solver.js MARKING clear-list + test docstring
+- [Build gate] PASSED (full, 13m04s; 6520 passed, 9 skipped)
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0 (cycle-1 F-001/F-002/F-003 resolved; new Minor F-004 reset-clear claim tested on Keep-marks path only, F-005 summaries omit the "first click on the brush's own state advances" case)
+- [Review sync] 2 report(s) → meta/review/
+- [Review 2/3] Step 8h covered all 53 card rules (8 ✓, 45 ⚠ — 44 no_eligible_fact, ADR-0006/R1 check_ref_missing; 0 ✗); mutation check: 10 mutants, 8 killed, R8/R9 survived (→ Minor F-004)
+- [Review 2/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [8h spot-check] ADR-0038/R2, ADR-0038/R3 reproduced
+- [8h spot-check] ✗ ADR-0019/R1 not reproduced — the verdict's cited scan "diff touches no .py" is false (4 tests/*.py changed); substance holds (no src/ .py and nothing under src/nonogram/web/ changed; import-direction test 1 passed) → cycle 3 re-check
+- [Review 3/3] Score: 9.0 — crit: 0, imp: 0 (Minor F-004, F-005 still open; ADR-0019/R1 re-derived with exact evidence)
+- [Review sync] 3 report(s) → meta/review/
+- [Review 3/3] Step 8h covered all 53 card rules (11 ✓, 42 ⚠ — 41 no_eligible_fact, ADR-0006/R1 check_ref_missing; 0 ✗); mutation check: 8 mutants, 7 killed, C4 survived (→ Minor F-004)
+- [Review 3/3] Score: 9.0 ✓ threshold reached + no critical/important
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0019/R1, ADR-0038/R2, ADR-0038/R3)
+- [AC/EC check] All criteria/constraints ✓ (evidence): fresh AC-check agent on HEAD 481a4e6 — the exact commit reviewed in cycle 3 (no change since the check ran); no '## Engineering constraints' section
+  AC/EC/G check on HEAD 481a4e6 (fresh agent; runs: 151 passed, 1 warning in 181.36s; -rA rerun 151 passed in 192.72s). No EC section.
+  AC-1 ✓ demonstrated — test_every_brush_state_and_repeat_gives_the_table PASSED
+  AC-2 ✓ demonstrated — test_a_click_without_a_valid_tool_is_refused PASSED
+  AC-3 ✓ demonstrated — test_repeat_clicks_follow_each_brush_sequence PASSED
+  AC-4 ✓ demonstrated — test_a_first_click_on_each_state_with_each_brush PASSED
+  AC-5 ✓ demonstrated — test_anything_between_two_clicks_makes_the_next_a_first_click PASSED
+  AC-6 ✓ demonstrated — test_a_brush_change_restarts_the_sequence PASSED
+  AC-7 ✓ demonstrated — test_touch_taps_follow_the_brush[chromium] PASSED
+  AC-8 ✓ demonstrated — test_each_click_is_one_undo_step PASSED
+  AC-9 ✓ demonstrated — TestSolverMarking_DragMarksOneLine::test_each_tool_sets_its_state_along_the_line[White],[Undecided] PASSED, unchanged in diff
+  AC-10 ✓ demonstrated — test_PropertyTest_SolverHistory_ReplayReproducesTheBoard PASSED (asserts >=50 per brush, >=50 repeats)
+  AC-11 ✓ demonstrated — test_the_page_copy_describes_the_new_click PASSED
+  G-1 ✓ demonstrated — DragMarksOneLine 11 PASSED, untouched; dragStroke/dragLine not in diff
+  G-2 ✓ demonstrated — test_history_branches + UndoRedoByStroke (6) PASSED; only the required tool arg added
+  G-3 ✓ demonstrated — KeyboardAndLabels 22 PASSED, no hunk in class
+  G-4 ✓ demonstrated — TestSolverProgress_LockedUntilReset 6 PASSED; file not in diff
+  G-5 ✓ demonstrated — NoRequestPerMark (2) + RevealsNoCorrectness (2) PASSED
+  G-6 ✓ demonstrated — grep -c "import " solver_state.js = 0; no document/window/fetch
+  G-7 ✓ demonstrated — hint/maybe/resume property + keyboard tests PASSED; test_a_reload_starts_with_no_last_click PASSED
+- [Docs] forge:readme: no README in src/nonogram/admin/{,static,templates}; tests/README.md has no click wording and no file was added — current, no change
+- [Commit] no uncommitted changes after the passing cycle: success commit = 481a4e6 (branch head; 6ba75bc implementation + 481a4e6 cycle-1 fix)
+- [Open] Minor F-004 (reset-then-Escape path untested; comment claim at solver.js:64-66 broader than the Keep-marks test), Minor F-005 (solver.js:54-56 / puzzle_solve.html:24-25 summaries omit the first-click-on-own-state step)
+- [Merge gate] rebased onto 69b6db6; full suite 6525 passed, 9 skipped, exit 0 (823s, under the lock). Owner: "merge now, check later" (renders in ~/Documents/nonogram-reviews/CARD-189/). Merged 0b637a9.

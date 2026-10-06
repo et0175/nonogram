@@ -130,6 +130,9 @@ card names its card._
 - [ ] CARD-190 F-002/F-003 + O-001/O-004/O-005 (minor): no test pins _side_bounds' 10..30 edge (E1/E4 mutants survive, pre-existing); AC-4 API test doesn't assert the store; pagination test passes under both meanings; stale 'either side' comment in puzzle_review.py; no FR traces the review filter   @tech-debt
 - [ ] Flake watch: test_admin_binding.py::…test_the_port_stays_free_on_every_other_interface failed once under parallel pipelines (port held on the LAN interface); passed 3/3 alone   @tech-debt
 
+- [ ] CARD-189 owner check pending: click-sequence renders and the help line (Undecided's first click on a blank cell shows black) in ~/Documents/nonogram-reviews/CARD-189/   @feature
+- [ ] CARD-189 F-004/F-005 (minor): only the 'Keep marks' cancel path of Reset is tested for ending a repeat run (Escape path untested); the solver.js/puzzle_solve.html summaries omit the 'first click on a cell already in the brush's state moves on' rule   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

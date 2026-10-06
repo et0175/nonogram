@@ -1,0 +1,177 @@
+version: 1
+generated_at: "2026-10-06T10:05:39Z"
+target: "card/189-click-follows-the-brush (git diff main...HEAD, commit 6ba75bc)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/static/solver.js (MARKING header, wireMarking in full)"
+    - "src/nonogram/admin/static/solver_state.js (click section)"
+    - "src/nonogram/admin/templates/puzzle_solve.html (diff hunks)"
+    - "tests/test_puzzle_solver_marking.py (diff)"
+    - "tests/test_puzzle_solver_maybe.py (diff)"
+    - "tests/test_puzzle_solver_hint.py (diff)"
+    - "tests/test_puzzle_solver_resume.py (diff)"
+    - "meta/kanban/cards/CARD-189.md (Worktree notes)"
+    - "~/Documents/nonogram-reviews/CARD-189/after-hint-line.png"
+  not_reached:
+    - "rendered result not verified by the pipeline (review.visual off); static 8g only"
+  confidence: high
+metrics:
+  diff: { files: 7, added: 465, removed: 114 }
+  max_fan_in: { symbol: "solver_state.clickStroke", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: ["meta/design/components.md (out of file scope; still says 'Marking tool for drags' and 'a click always cycles')"]
+  unmeasured:
+    hotspots: "budget_truncated - git churn/defect-density not mined this cycle"
+mutation_check:
+  ran: true
+  script: "scratchpad/card189_review_mutants.py"
+  results:
+    - "R1 repeat ignores the column (row-only same-cell check, solver.js:515) - SURVIVED (288 passed across all 8 player test files)"
+    - "R2 repeat ignores the row (column-only) - KILLED (TestSolverClickFollowsTheBrush)"
+    - "R3 lastClick set before the click's commit - KILLED"
+    - "R4 first click on own state does not advance for colour brushes - KILLED (AC-1 test)"
+    - "R5 MAYBE_ORDER blank -> filled - KILLED (AC-1 test)"
+    - "R6 a hint commit does not clear lastClick - KILLED (AC-5 test)"
+    - "R7 checkState(tool) dropped - KILLED (AC-2 test)"
+  restored: "git diff --stat shows only meta/kanban/cards/CARD-189.md (pre-existing, not mine); no src change"
+system_contract:
+  rules_checked: 53
+  holds: 11
+  unchecked: 42
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds - pyproject.toml not in the diff; no new import/script in static JS or template; test_the_dependency_baseline_is_still_closed and test_the_font_ships_as_package_data_and_not_as_a_dependency (the functions tests/test_export_pdf.py:622 maps TestDependencyBaseline_IsExactlyPillowAndNumpy to) 2 passed"
+    - "ADR-0019/R1 ✓ holds - no src .py changed; test_every_import_in_the_package_points_inward 1 passed"
+    - "ADR-0022/R1 ⚠ unchecked - no_eligible_fact: diff touches only player click logic/copy, no grid-extent signature"
+    - "ADR-0022/R3 ⚠ unchecked - no_eligible_fact: no image fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked - no_eligible_fact: no --size handling touched"
+    - "ADR-0024/R1 ⚠ unchecked - no_eligible_fact: no generation/repair code touched"
+    - "ADR-0024/R2 ⚠ unchecked - no_eligible_fact: no retry counter touched"
+    - "ADR-0024/R3 ⚠ unchecked - no_eligible_fact: no repair code touched"
+    - "ADR-0024/R4 ⚠ unchecked - no_eligible_fact: no repair code touched"
+    - "ADR-0024/R5 ⚠ unchecked - no_eligible_fact: no recovery policy touched"
+    - "ADR-0027/R1 ⚠ unchecked - no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked - no_eligible_fact: no density verdict or doc touched"
+    - "ADR-0029/R1 ⚠ unchecked - no_eligible_fact: no difficulty code touched"
+    - "ADR-0029/R2 ⚠ unchecked - no_eligible_fact: no solver/strategies code touched"
+    - "ADR-0029/R3 ⚠ unchecked - no_eligible_fact: no difficulty score touched"
+    - "ADR-0029/R4 ⚠ unchecked - no_eligible_fact: no solver overlap code touched"
+    - "ADR-0029/R5 ⚠ unchecked - no_eligible_fact: no rung attribution touched"
+    - "ADR-0032/R1 ⚠ unchecked - no_eligible_fact: no storage path touched"
+    - "ADR-0032/R2 ⚠ unchecked - no_eligible_fact: no quality_score rendering touched"
+    - "ADR-0033/R1 ⚠ unchecked - no_eligible_fact: no book assembly touched"
+    - "ADR-0035/R1 ⚠ unchecked - no_eligible_fact: no book status code touched"
+    - "ADR-0036/R1 ⚠ unchecked - no_eligible_fact: no layout code touched"
+    - "ADR-0036/R2 ⚠ unchecked - no_eligible_fact: no book geometry touched"
+    - "ADR-0037/R1 ⚠ unchecked - no_eligible_fact: no book PDF touched"
+    - "ADR-0037/R2 ⚠ unchecked - no_eligible_fact: no grid strokes touched"
+    - "ADR-0038/R1 ✓ holds - the 3 changed src files are hand-written static JS/template; diff adds no import, script tag, package.json or build file (stat: 7 files)"
+    - "ADR-0038/R2 ✓ holds - diff adds no fetch/XMLHttpRequest (grep of +lines empty); TestSolverMarking_NoRequestPerMark 2 passed"
+    - "ADR-0038/R3 ✓ holds - no clue derivation added; tests/test_puzzle_solver_page.py (incl. TestSolverPage_ShowsTheClues) 67 passed"
+    - "ADR-0038/R4 ✓ holds - solver_state.js: grep -c 'import ' = 0, no document/window/localStorage; clickedState is pure (repeat passed in), lastClick memory lives in solver.js wireMarking (solver.js:460)"
+    - "ADR-0038/R5 ✓ holds - pyproject.toml untouched; no new static file type added"
+    - "ADR-0038/R6 ✓ holds - payload/template data line unchanged; nothing new shipped to the browser"
+    - "ADR-0038/R7 ✓ holds - pyproject.toml untouched; new tests reuse existing browser/browser_page fixtures"
+    - "ADR-0038/R8 ✓ holds - new tests are @pytest.mark.browser on existing fixtures; diff adds no skip/xfail (grep of +lines empty)"
+    - "CON-005 ⚠ unchecked - no_eligible_fact: solver not touched"
+    - "CON-009 ⚠ unchecked - no_eligible_fact: web server not touched"
+    - "CON-010 ⚠ unchecked - no_eligible_fact: web server not touched"
+    - "CON-011 ⚠ unchecked - no_eligible_fact: no size limits touched"
+    - "CON-012 ⚠ unchecked - no_eligible_fact: no aspect guard touched"
+    - "CON-015 ⚠ unchecked - no_eligible_fact: no admin bind code touched"
+    - "CON-016 ⚠ unchecked - no_eligible_fact: no admin door code touched"
+    - "CON-021 ✓ holds - lastClick is a wireMarking local, never written to storage or sent; test_a_reload_starts_with_no_last_click passed (in 72 passed of test_puzzle_solver_marking.py); TestSolverMarking_NoRequestPerMark passed"
+    - "INV-001 ⚠ unchecked - no_eligible_fact: clues/grids not touched"
+    - "INV-002 ⚠ unchecked - no_eligible_fact: export readiness not touched"
+    - "INV-003 ⚠ unchecked - no_eligible_fact: retry counters not touched"
+    - "INV-005 ⚠ unchecked - no_eligible_fact: book plans not touched"
+    - "INV-006 ⚠ unchecked - no_eligible_fact: book membership not touched"
+    - "INV-007 ⚠ unchecked - no_eligible_fact: book ready gate not touched"
+    - "INV-008 ⚠ unchecked - no_eligible_fact: published books not touched"
+    - "INV-009 ⚠ unchecked - no_eligible_fact: book order not touched"
+    - "INV-010 ⚠ unchecked - no_eligible_fact: book pairing not touched"
+    - "INV-011 ⚠ unchecked - no_eligible_fact: answer key not touched"
+    - "INV-012 ⚠ unchecked - no_eligible_fact: book membership not touched"
+    - "INV-013 ⚠ unchecked - no_eligible_fact: book export not touched"
+root_causes: []
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_marking.py
+    line: 421
+    title: "Same-cell repeat check is tested on one axis only; a row-only comparison survives every player test"
+    description: |
+      The repeat rule is "same cell" (solver.js:515 compares lastClick.row and lastClick.col; the
+      MARKING header and AC-5 say a click on a different cell makes the next click a first click).
+      Mutant R1 drops the column comparison (lastClick.row === row only): it SURVIVES all 288 tests
+      of the 8 player test files. AC-5 case (a) clicks (14,14), which differs from (row,10) on both
+      axes, so it cannot tell a row-only check from a full check. The column-only mutant (R2) is
+      killed only incidentally (AC-4 test clicks down one column). This breaks the standing rule
+      that positional claims need tests on every claimed axis. User-visible effect of the
+      undetected bug: Black, click A twice (white), click B in the same row, click A again gives
+      blank instead of dark.
+    suggestion: |
+      In test_anything_between_two_clicks_makes_the_next_a_first_click add two between-steps:
+      "another cell in the same row" (e.g. _cell(page, row, 13).click()) and "another cell in the
+      same column" (a cell in column 10 outside the rows the loop uses, e.g. (14, 10)), each
+      expecting the third click to give F. Re-run R1/R2 to show both are killed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "481a4e6"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: question
+    file: src/nonogram/admin/static/solver.js
+    line: 573
+    title: "A reset that is opened and cancelled (Keep marks / Escape) keeps lastClick"
+    description: |
+      The card says a click is a repeat only when the previous input was a recorded click and
+      "anything else" makes the next click a first click, but its explicit list names only a
+      confirmed reset. The implementation clears lastClick only on commit, so Reset then Keep
+      marks (or Escape) leaves the run intact. Ambiguous AC: two readings exist; the card's own
+      implementation hint (clear on commit) supports the shipped reading.
+    suggestion: |
+      Either confirm with the owner that a cancelled reset is not an input that breaks a run (and
+      say so in the MARKING comment), or clear lastClick in closeConfirm / the Reset handler.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "481a4e6"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_marking.py
+    line: 4
+    title: "Module docstring still describes 'a click cycle'"
+    description: |
+      The file's docstring lists "a click cycle" among what it tests; since CARD-189 a click follows
+      the brush and the tool-blind cycle is gone (cycled removed).
+    suggestion: |
+      Reword to "clicks that follow the selected brush (CARD-189)".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "481a4e6"
+    dismissed_reason: null
+    learned_pattern: null

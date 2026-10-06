@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-06
+- CARD-189 (feature): In the puzzle player a click now follows the selected brush: with White, clicks on one cell go white → blank → dark; with Black, dark → white → blank; with Undecided, blank → dark → white; with Maybe, "?" → blank. Clicking another cell or changing brush starts again. Dragging still paints the brush.
 - CARD-190 (feature): The Puzzle review page's size filter now goes by the longest side, like book selection: a 25×15 counts as 25. The field reads "Longest side (cells)", and /api/puzzles filters the same way.
 - CARD-185 (feature): Close the tab in the middle of a puzzle and come back: the puzzle player now reopens it as you left it, in the same browser — marks (including "?"), error and hint counts and the undo history. A solved puzzle reopens solved, and Reset clears the save. Nothing is sent to the server.
 - CARD-186 (feature): The puzzle player has a "?" mark for assumptions: a Maybe brush paints "?" on cells, a "?" never counts as an error, and the puzzle isn't solved while any "?" is left. When you solve a puzzle, the solved banner now takes the tools' place, so the board no longer jumps.

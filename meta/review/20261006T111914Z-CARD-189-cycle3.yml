@@ -1,0 +1,203 @@
+version: 1
+generated_at: '2026-10-06T11:19:14Z'
+target: card/189-click-follows-the-brush (main...HEAD, 6ba75bc + 481a4e6; HEAD 481a4e6)
+card: CARD-189
+cycle: 3
+mode: full
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - git diff main...HEAD (all 7 files)
+  - src/nonogram/admin/static/solver.js (start, wireMarking, MARKING header)
+  - src/nonogram/admin/static/solver_state.js (stroke section)
+  - src/nonogram/admin/templates/puzzle_solve.html (diff hunks)
+  - tests/test_puzzle_solver_resume.py (round-trip corpus)
+  - meta/kanban/cards/CARD-189.md Worktree notes
+  - meta/design/components.md:251
+  - ~/Documents/nonogram-reviews/CARD-189/after-hint-line.png, after-strip-undecided-clicks-1-4.png
+  not_reached:
+  - rendered page by the pipeline (review.visual off)
+  - full suite (targeted runs only, per instruction)
+  confidence: high
+metrics:
+  diff:
+    files: 7
+    added: 482
+    removed: 116
+  max_fan_in:
+    symbol: solver_state.js clickStroke
+    callers: 1 in src (solver.js pointerup); test callers in 4 touched test files; no other src/tests caller (grep -rnE 'clickStroke\(|cycled|clickedState\(' src tests)
+  tests_cover_change: true
+  churn_12m_touched_src: 18
+  fix_commits_12m_touched_src: 6
+  hotspots:
+  - src/nonogram/admin/static/solver.js
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: not_applicable — not recomputed this cycle; the cycle-1/2 reports covered it and HEAD is unchanged since 481a4e6
+evidence:
+  SCAN-N: 'git diff main...HEAD --name-only -> 7 paths: src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_{hint,marking,maybe,resume}.py'
+  SCAN-A: git diff main...HEAD --diff-filter=A --name-only -> empty (no file added)
+  SCAN-PY: git diff main...HEAD --name-only -- 'src/*.py' 'src/**/*.py' -> empty
+  SCAN-PP: git diff main...HEAD --name-only -- pyproject.toml src/nonogram/web -> empty
+  SCAN-IMP: git diff main...HEAD -- src | grep '^+' | grep -nE "import |require\(|<script" -> empty
+  SCAN-NET: git diff main...HEAD -- src | grep '^+' | grep -nE "fetch|XMLHttpRequest|sendBeacon|WebSocket|solution|localStorage|sessionStorage" -> empty
+  SCAN-PURE: grep -nE "document|window|import |localStorage|fetch" src/nonogram/admin/static/solver_state.js -> empty
+  SCAN-SKIP: git diff main...HEAD -- tests | grep '^+' | grep -nE "skip|xfail|importorskip" -> empty
+  SCAN-DENS: git diff main...HEAD | grep -ic density -> 0
+  SCAN-HOST: git diff main...HEAD -- src | grep '^+' | grep -niE "clue|127\.0\.0\.1|bind|host|MIN_SIZE|MAX_SIZE" -> empty
+  T-RUN0: pytest -p no:cacheprovider tests/test_puzzle_solver_marking.py tests/test_puzzle_solver_maybe.py tests/test_puzzle_solver_hint.py tests/test_puzzle_solver_resume.py -> '145 passed, 1 warning in 185.35s' (0 skipped) on 481a4e6
+  T-RUN1: pytest -p no:cacheprovider tests/test_cli.py::test_every_import_in_the_package_points_inward tests/test_puzzle_solver_page.py::TestSolverPage_ShowsTheClues tests/test_puzzle_solver_marking.py::{TestSolverMarking_NoRequestPerMark,TestSolverMarking_RevealsNoCorrectness,TestSolverMarking_KeyboardAndLabels,TestSolverMarking_DragMarksOneLine,TestSolverMarking_UndoRedoByStroke,TestSolverHistoryModule::test_history_branches} tests/test_puzzle_solver_progress.py::TestSolverProgress_LockedUntilReset tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed -> '56 passed, 2 warnings in 47.32s' on 481a4e6
+  T-RUN2: pytest -p no:cacheprovider -rA tests/test_puzzle_solver_marking.py::TestSolverClickFollowsTheBrush tests/test_puzzle_solver_marking.py::test_PropertyTest_SolverHistory_ReplayReproducesTheBoard tests/test_puzzle_solver_marking.py::TestSolverMarking_DragMarksOneLine::test_each_tool_sets_its_state_along_the_line -> '14 passed' (all 11 TestSolverClickFollowsTheBrush tests PASSED by name)
+previous_findings:
+- id: STEP8H-ADR-0019/R1
+  verdict: re-derived
+  note: 're-checked with correct evidence: the 4 changed .py are tests/ files outside the rule''s scope; SCAN-PY empty; import test passed (T-RUN1)'
+- id: F-004
+  verdict: still present
+  note: 'mutant C4 (Reset-open clear moved into the Keep-marks handler) SURVIVED: 1 passed (AC-5 test); kept Minor'
+- id: F-005
+  verdict: still present
+  note: solver.js:54-56 and puzzle_solve.html:24-25 unchanged since cycle 2
+acceptance_criteria:
+  AC-1: ✓ test_every_brush_state_and_repeat_gives_the_table PASSED (T-RUN2); FIRST_CLICK/REPEAT_CLICK literals (marking.py:51-64) match the card's 32 cells by hand comparison; clickedState (solver_state.js:179-185) re-derived against all 32 cells by hand; mutants C1-C3 killed
+  AC-2: ✓ test_a_click_without_a_valid_tool_is_refused PASSED (T-RUN2)
+  AC-3: ✓ test_repeat_clicks_follow_each_brush_sequence PASSED; C7, C8 killed
+  AC-4: ✓ test_a_first_click_on_each_state_with_each_brush PASSED
+  AC-5: ✓ test_anything_between_two_clicks_makes_the_next_a_first_click PASSED; C5, C6, C8 killed (C4 survived — F-004, outside the (a)-(d) clauses)
+  AC-6: ✓ test_a_brush_change_restarts_the_sequence PASSED
+  AC-7: ✓ test_touch_taps_follow_the_brush[chromium] PASSED
+  AC-8: ✓ test_each_click_is_one_undo_step PASSED
+  AC-9: ✓ TestSolverMarking_DragMarksOneLine::test_each_tool_sets_its_state_along_the_line[White],[Undecided] PASSED (T-RUN2), unchanged (class at main lines 278-398, outside every hunk); Black and Maybe drags are covered by other unchanged tests (marking.py:627 class, TestSolverMaybe_DragPaintsMaybe)
+  AC-10: ✓ test_PropertyTest_SolverHistory_ReplayReproducesTheBoard PASSED (T-RUN2); asserts per_brush >= 50 and repeats >= 50 in-test; model uses the literal tables
+  AC-11: ✓ test_the_page_copy_describes_the_new_click PASSED; template :70 and :104 read
+guardrails:
+  G-1: ✓ holds — solver_state.js diff touches no dragStroke/dragLine definition (`git diff main...HEAD -- src/nonogram/admin/static/solver_state.js | grep -nE '^[-+].*(dragStroke|dragLine|function )'` lists only cycled/clickedState/checkState/clickStroke + one comment); the solver.js drag branch calls the same dragStroke; TestSolverMarking_DragMarksOneLine untouched (main lines 278-398 outside hunks @@-241,33 and @@-501,8) and passed in T-RUN1
+  G-2: ✓ holds — lastClick is a wireMarking local, not in the history value (record/undo/redo unchanged); TestSolverMarking_UndoRedoByStroke and test_history_branches passed in T-RUN1; the one edited assertion (test_set_board_starts_a_new_history) follows the new click rule, undo assertion unchanged
+  G-3: ✓ holds — TestSolverMarking_KeyboardAndLabels (main lines 523-742) outside every hunk; passed in T-RUN1; no keyboard marking added
+  G-4: ✓ holds — pointerdown guard `player.locked()` (solver.js:484) unchanged; TestSolverProgress_LockedUntilReset passed in T-RUN1
+  G-5: ✓ holds — SCAN-NET empty; TestSolverMarking_NoRequestPerMark and TestSolverMarking_RevealsNoCorrectness passed in T-RUN1
+  G-6: ✓ holds — SCAN-PURE empty (`import ` absent from solver_state.js)
+  G-7: ✓ holds — hint handler unchanged (goes through commit); serializeState/save path not in the diff; test_puzzle_solver_hint.py, _maybe.py, _resume.py all passed in T-RUN0; test_a_reload_starts_with_no_last_click PASSED
+scope_note: 'SCOPE+ tests/test_puzzle_solver_hint.py and tests/test_puzzle_solver_resume.py are NECESSARY: each held a three-argument clickStroke call that now throws RangeError (AC-2), and hint.py''s UI test relied on Black blanking a white cell, which the new first-click table no longer does'
+step_8g_static:
+  token_discipline: ✓ `git diff main...HEAD -- src | grep '^+' | grep -nE "#[0-9a-fA-F]{3,8}\b|rgb|[0-9]px|style=|font-"` -> empty
+  inventory_states: ✓ no new component or state; copy change only. meta/design/components.md:251 still says 'Marking tool for drags' / 'a click always cycles' — covered by the card's DESIGN-REGISTER line (out of file scope)
+  anti_defaults: ✓ none introduced
+  a11y: ✓ group keeps role=group with accessible name 'Marking tool' (AC-11 test uses to_have_accessible_name); buttons unchanged
+  rendered: not verified by the pipeline (review.visual off); owner renders after-hint-line.png and after-strip-undecided-clicks-1-4.png viewed and match AC-3/AC-11
+mutation_check:
+  script: scratchpad/card189_review3_mutants.py (log card189_review3_mutants.log); exact-byte capture/restore with assert per mutant
+  results:
+    C1 colour order white->dark: killed
+    C2 repeat !== false: killed
+    C3 clickStroke drops repeat: killed
+    C4 Reset-open clear moved to Keep-marks handler: SURVIVED (F-004)
+    C5 hint keeps lastClick: killed
+    C6 Ctrl/Cmd+Z keeps lastClick: killed
+    C7 lastClick set before commit: killed
+    C8 repeat row/col transposed: killed
+  post_check: git diff --stat -- src tests -> empty
+system_contract:
+  rules_checked: 53
+  holds: 11
+  unchecked: 42
+  violated: 0
+  verdicts:
+  - 'ADR-0006/R1 ⚠ unchecked — check_ref_missing: TestDependencyBaseline_IsExactlyPillowAndNumpy (no def/class of that name under tests/: `grep -rn TestDependencyBaseline_IsExactlyPillowAndNumpy tests` hits only a comment at tests/test_export_pdf.py:622 and the docstring of test_the_dependency_baseline_is_still_closed at :1250; system_rules.py --verify-refs reports dead_check_ref [] because it matches that text). Manual note: SCAN-PP empty (pyproject.toml untouched), SCAN-IMP empty; the docstring''s test passed in T-RUN1 — no violation found'
+  - 'ADR-0019/R1 ✓ holds — the 4 changed .py files are all under tests/ (outside this rule''s scope); SCAN-PY empty (no src .py changed); SCAN-PP: nothing under src/nonogram/web; test_every_import_in_the_package_points_inward (tests/test_cli.py:934) passed in T-RUN1 on 481a4e6'
+  - ADR-0022/R1 ✓ holds — the diff's only new/changed exported signatures are clickedState(state, tool, repeat) (solver_state.js:179) and clickStroke(board, row, col, tool, repeat) (solver_state.js:192); neither carries a grid extent; `git diff main...HEAD -- src | grep -E '^[-+].*function '` lists only those two, the removed cycled(state) and old two/four-arg forms, and the private checkState(state, what) — no extent anywhere
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: SCAN-N — no image-fit / --size code changed (only player JS + template copy)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: SCAN-N — no image-fit / --size code changed (only player JS + template copy)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: SCAN-DENS = 0 (no density code or documentation in the diff); SCAN-PY empty'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: SCAN-N — nothing under src/nonogram/solver/ or difficulty.py; SCAN-PY empty'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: SCAN-N — nothing under src/nonogram/solver/ or difficulty.py; SCAN-PY empty'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: SCAN-N — nothing under src/nonogram/solver/ or difficulty.py; SCAN-PY empty'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: SCAN-N — nothing under src/nonogram/solver/ or difficulty.py; SCAN-PY empty'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: SCAN-N — nothing under src/nonogram/solver/ or difficulty.py; SCAN-PY empty'
+  - 'ADR-0032/R1 ⚠ unchecked — no_eligible_fact: SCAN-N/SCAN-PY — no admin .py (storage/add_puzzle) changed; the player JS writes no puzzle row'
+  - 'ADR-0032/R2 ⚠ unchecked — no_eligible_fact: the template diff (puzzle_solve.html lines 22-27 comment, :70 aria-label, :104 hint text) renders no quality_score/recognizability; SCAN-PY empty'
+  - 'ADR-0033/R1 ⚠ unchecked — no_eligible_fact: SCAN-N — no book/layout/export code changed; SCAN-PY empty'
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: SCAN-N — no book/layout/export code changed; SCAN-PY empty'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: SCAN-N — no book/layout/export code changed; SCAN-PY empty'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: SCAN-N — no book/layout/export code changed; SCAN-PY empty'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: SCAN-N — no book/layout/export code changed; SCAN-PY empty'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: SCAN-N — no book/layout/export code changed; SCAN-PY empty'
+  - ADR-0038/R1 ✓ holds — SCAN-A empty (no new file, no vendored library), SCAN-IMP empty (no import/require/<script> added), SCAN-PP empty (no toolchain/dependency change); the change is hand-written edits to static/solver.js, static/solver_state.js and templates/puzzle_solve.html
+  - ADR-0038/R2 ✓ holds — SCAN-NET empty (no request API added); TestSolverMarking_NoRequestPerMark passed in T-RUN1 on 481a4e6
+  - 'ADR-0038/R3 ✓ holds — SCAN-HOST empty (no ''clue'' in added src lines: the client derives no clues); TestSolverPage_ShowsTheClues passed in T-RUN1'
+  - ADR-0038/R4 ✓ holds — the click rule (clickedState/clickStroke, solver_state.js:179/:192) stays in the pure module; SCAN-PURE empty (no DOM/window/import/storage/fetch in solver_state.js); the UI memory lastClick lives in solver.js wireMarking (:462)
+  - 'ADR-0038/R5 ✓ holds — pyproject.toml:80 `"nonogram.admin" = ["templates/*.html", "static/*.css", "static/*.js"]`; SCAN-PP: pyproject.toml untouched'
+  - ADR-0038/R6 ✓ holds — SCAN-NET empty (no 'solution' in added src lines; wireMarking reads none); TestSolverMarking_RevealsNoCorrectness passed in T-RUN1; no public surface touched (SCAN-N)
+  - 'ADR-0038/R7 ✓ holds — SCAN-PP: pyproject.toml untouched, so pytest-playwright stays in the dev-only extra; the new tests reuse the existing browser_page/browser fixtures'
+  - ADR-0038/R8 ✓ holds — SCAN-SKIP empty (no skip/xfail added); new class is marked @pytest.mark.browser (tests/test_puzzle_solver_marking.py:331); T-RUN0 ran all 145 with 0 skipped (Chromium present)
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: SCAN-N — no solver/uniqueness code changed'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: SCAN-PP — nothing under src/nonogram/web; SCAN-HOST empty'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: SCAN-PP — nothing under src/nonogram/web; SCAN-HOST empty'
+  - 'CON-011 ⚠ unchecked — no_eligible_fact: SCAN-HOST empty (no MIN_SIZE/MAX_SIZE/size code); SCAN-PY empty'
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: SCAN-N — no image/aspect code changed'
+  - 'CON-015 ⚠ unchecked — no_eligible_fact: SCAN-PY empty (no admin entry point/door .py changed); SCAN-HOST empty (no bind/host in added lines)'
+  - 'CON-016 ⚠ unchecked — no_eligible_fact: SCAN-PY empty (no admin entry point/door .py changed); SCAN-HOST empty (no bind/host in added lines)'
+  - CON-021 ✓ holds — SCAN-NET empty (no request, no storage write added); lastClick is a wireMarking local (solver.js:462) never passed to serializeState (the save path in start(), solver.js:322-331, is not in the diff); test_a_reload_starts_with_no_last_click passed in T-RUN2
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: scope is .py files only; SCAN-PY empty'
+root_causes: []
+findings:
+- id: F-004
+  severity: low
+  category: tech-debt
+  type: gap
+  file: src/nonogram/admin/static/solver.js
+  line: 65
+  title: A reset opened then cancelled is tested on the Keep-marks path only
+  description: 'solver.js:64-66 claims ''pressing Reset when that opens the confirmation (so a reset opened and then cancelled ends the run too)''. The AC-5 test covers Reset then Keep marks only. Mutant C4 (clear moved from the Reset-open handler into the Keep-marks handler, so Reset then Escape keeps the run) SURVIVED: ''1 passed''. The code today is correct; the gap is in the test. Kept Minor rather than the skill''s default Important for a survivor: the line is not AC-critical (AC-5 lists (a)-(d); cancelled-reset is a reviewer-derived reading of ''nothing else in between''), and removing the clear entirely (cycle-1 R3) is killed.'
+  suggestion: Add a 'reset opened and cancelled (Escape)' entry to the AC-5 test's `between` dict (open Reset, press Escape), one more row.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+- id: F-005
+  severity: low
+  category: tech-debt
+  type: gap
+  file: src/nonogram/admin/static/solver.js
+  line: 55
+  title: Summaries leave out the first click on a cell already in the brush's state
+  description: solver.js:54-56 ('a first click gives the cell the brush's state') and puzzle_solve.html:24-25 ('a first click gives the cell the brush's mark') leave out that a first click on a cell already holding the brush's state moves one step on (Black on dark gives white). solver_state.js:170-177 states it correctly and the tests pin it. Comment only, no behaviour.
+  suggestion: Add 'or, if it already holds it, the next step' to both summaries.
+  confidence: high
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+out_of_scope:
+- meta/design/components.md:251 still describes 'Marking tool for drags' / 'a click always cycles' (covered by the card's DESIGN-REGISTER line)
+- ADR-0006/R1 check ref TestDependencyBaseline_IsExactlyPillowAndNumpy names no test symbol (only a docstring alias of test_the_dependency_baseline_is_still_closed); system_rules.py --verify-refs does not flag it because it matches text. A model fix (point ref at the real test)
+- 'The hint copy ''Undecided: blank, black, white'' is the card''s verbatim owner-approved text, but on a blank cell (the usual case) Undecided''s first visible mark is black (the first click advances). Owner copy decision, not a defect of the diff'
