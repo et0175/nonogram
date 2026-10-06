@@ -118,7 +118,8 @@ _HISTORIES = """async ({ cases }) => {
   return cases.map(({ payload, ops }) => {
     let h = S.createHistory(S.createBoard(payload.width, payload.height));
     for (const op of ops) {
-      if (op[0] === 'click') h = S.record(h, S.clickStroke(h.board, op[1], op[2], op[3] === null ? undefined : tools[op[3]]));
+      // CARD-189: a click needs a tool; a click op without one is a Black click.
+      if (op[0] === 'click') h = S.record(h, S.clickStroke(h.board, op[1], op[2], op[3] === null ? S.FILLED : tools[op[3]]));
       else if (op[0] === 'drag') h = S.record(h, S.dragStroke(op[2], op[3], tools[op[1]]));
       else if (op[0] === 'reset') h = S.record(h, S.resetStroke(h.board));
       else if (op[0] === 'hint') {
@@ -385,8 +386,8 @@ _START_NOT_BLANK = """async ({ payload }) => {
   const S = await import('/static/solver_state.js');
   const blank = S.createBoard(payload.width, payload.height);
   const marked = S.withCell(blank, 0, 0, S.FILLED);
-  const fromMarked = S.record(S.createHistory(marked), S.clickStroke(marked, 1, 1));
-  const fromBlank = S.record(S.createHistory(blank), S.clickStroke(blank, 1, 1));
+  const fromMarked = S.record(S.createHistory(marked), S.clickStroke(marked, 1, 1, S.FILLED));
+  const fromBlank = S.record(S.createHistory(blank), S.clickStroke(blank, 1, 1, S.FILLED));
   return [
     S.serializeState(S.createHistory(marked), payload),
     S.serializeState(fromMarked, payload),

@@ -396,7 +396,7 @@ _PURE = """async () => {
   const hint = (h) => (h === null ? null : [h.row, h.col, h.state, h.deduced]);
   const stroke = S.hintStroke(1, 0, S.FILLED);
   let history = S.createHistory(S.createBoard(2, 2));
-  history = S.record(history, S.clickStroke(history.board, 0, 0));
+  history = S.record(history, S.clickStroke(history.board, 0, 0, S.FILLED));
   const counts = [S.hintCount(history)];
   history = S.record(history, stroke);
   counts.push(S.hintCount(history));
@@ -795,9 +795,9 @@ class TestSolverHint_DisabledWithNothingToReveal:
         cells[0] = E if cells[0] == F else F
         _set(browser_page, cells)
         assert _is_disabled(browser_page, "Hint")
-        _cell(browser_page, 0, 0).click()  # empty -> undecided, or filled -> empty
-        if _states(browser_page)[0] != U:
-            _cell(browser_page, 0, 0).click()
+        _button(browser_page, "Undecided").click()  # CARD-189: its first click blanks a dark or white cell
+        _cell(browser_page, 0, 0).click()
+        assert _states(browser_page)[0] == U
         assert not _is_disabled(browser_page, "Hint")
 
     def test_disabled_during_a_drag(self, browser_page, live) -> None:

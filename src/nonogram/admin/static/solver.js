@@ -41,7 +41,8 @@
 //                      and an open reset confirmation is closed (see "reset")
 // Boards are trusted in-page values (see solver_state.js).
 //
-// MARKING (CARD-161, FR-044 AC-303..AC-311; the "?" mark, CARD-186). The
+// MARKING (CARD-161, FR-044 AC-303..AC-311; the "?" mark, CARD-186; a click
+// follows the brush, CARD-189). The
 // strokes and the undo/redo history are solver_state.js values (clickStroke,
 // dragStroke, resetStroke, record, undo, redo); this file only turns input into those calls and
 // paints the resulting board. The marking code (wireMarking) does not read
@@ -50,9 +51,19 @@
 // (ADR-0038/R2).
 //   pointer   pointerdown on a cell, then pointerup without having been over
 //             another cell = a click: clickStroke with the tool selected at
-//             pointerdown (solver_state.js clickedState: with Black, White
-//             or Undecided the cell cycles; with Maybe it becomes "?", and a
-//             "?" becomes undecided).
+//             pointerdown and a `repeat` flag (solver_state.js clickedState:
+//             a first click gives the cell the brush's state, a repeat click
+//             moves it one step along the brush's sequence — see there).
+//             A click is a repeat when the previous input was a recorded
+//             click on the same cell with the same tool: wireMarking keeps
+//             that one click as `lastClick` ({row, col, tool} or null). It
+//             is UI state only — not on the board, not in the history, never
+//             undone, redone or saved (SAVE; a load starts with it null).
+//             Every commit clears it (a drag, even one that changes nothing,
+//             undo, redo — button or key — a hint, a confirmed reset,
+//             setBoard), and so do pressing any tool button (mouse or key,
+//             the pressed one too) and pointercancel; the click path sets it
+//             after its own commit.
 //             Having been over another cell = a drag: dragStroke with the
 //             tool selected at pointerdown, previewed on every move, recorded
 //             on pointerup; pointercancel drops it. Mouse (main button), pen
@@ -446,6 +457,7 @@ function wireMarking(table, player) {
   const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   let tool = FILLED;
   let gesture = null; // { pointerId, start, path, dragging, tool }
+  let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
 
   function refresh() {
     const { board, done, undone } = player.getHistory();
@@ -460,6 +472,7 @@ function wireMarking(table, player) {
   }
 
   function commit(next, hint = null) {
+    lastClick = null; // anything recorded ends a run of repeat clicks
     player.commit(next, hint);
     if (!confirm.hidden) closeConfirm(); // see PROGRESS "reset"
     refresh();
@@ -494,12 +507,21 @@ function wireMarking(table, player) {
     const done = gesture;
     gesture = null;
     const history = player.getHistory();
-    commit(record(history, done.dragging ? dragStroke(done.start, done.path, done.tool) : clickStroke(history.board, ...done.start, done.tool)));
+    if (done.dragging) {
+      commit(record(history, dragStroke(done.start, done.path, done.tool)));
+      return;
+    }
+    const [row, col] = done.start;
+    const repeat = lastClick !== null && lastClick.row === row && lastClick.col === col
+      && lastClick.tool === done.tool;
+    commit(record(history, clickStroke(history.board, row, col, done.tool, repeat)));
+    lastClick = { row, col, tool: done.tool };
   });
 
   table.addEventListener("pointercancel", (event) => {
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     gesture = null;
+    lastClick = null;
     player.show(player.getHistory().board);
     refresh();
   });
@@ -507,6 +529,7 @@ function wireMarking(table, player) {
   for (const button of tools) {
     button.addEventListener("click", () => {
       tool = button.dataset.playerTool;
+      lastClick = null; // a tool press, even of the pressed tool, restarts the sequence
       refresh();
     });
   }

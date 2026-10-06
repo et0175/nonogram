@@ -38,8 +38,29 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used 
 _STATIC = Path(__file__).resolve().parent.parent / "src" / "nonogram" / "admin" / "static"
 
 U, F, E = "unknown", "filled", "empty"
+M = "maybe"  # CARD-186's "?"
 TOOLS = {"Black": F, "White": E, "Undecided": U}
-CYCLE = {U: F, F: E, E: U}
+#: Every brush (CARD-189): the tool button's name -> the state it paints.
+BRUSHES = {**TOOLS, "Maybe": M}
+
+#: What one click does (CARD-189), written out by hand from the card's two
+#: tables — never computed from solver_state.js: brush -> {cell before: after}.
+#: A first click: the brush's state, or the next step of the brush's sequence
+#: when the cell already holds it.
+FIRST_CLICK = {
+    F: {U: F, F: E, E: F, M: F},
+    E: {U: E, F: E, E: U, M: E},
+    U: {U: F, F: U, E: U, M: U},
+    M: {U: M, F: M, E: M, M: U},
+}
+#: A repeat click (same cell, same brush, nothing in between): one step along
+#: the brush's sequence; a cell outside it takes the brush's state.
+REPEAT_CLICK = {
+    F: {U: F, F: E, E: U, M: F},
+    E: {U: F, F: E, E: U, M: E},
+    U: {U: F, F: E, E: U, M: U},
+    M: {U: M, F: M, E: M, M: U},
+}
 
 #: 15 x 15, uniquely solvable (every row tight): the board most tests mark on.
 GRID = _unique_grid(15, 15, seed=161)
@@ -90,8 +111,9 @@ class _Model:
             self.future = []
             self.board = after
 
-    def click(self, r, c):
-        self._apply({(r, c)}, CYCLE[self.board[(r, c)]])
+    def click(self, r, c, tool=F, repeat=False):
+        table = REPEAT_CLICK if repeat else FIRST_CLICK
+        self._apply({(r, c)}, table[tool][self.board[(r, c)]])
 
     def drag(self, tool, start, path):
         self._apply(_line_cells(start, path), tool)
@@ -183,13 +205,16 @@ _TOKEN_RGB = """(name) => {
 
 
 # ==========================================================================
-# AC-303 / AC-304 — the click cycle
+# AC-303 / AC-304 — the click cycle (superseded for clicks by CARD-189's
+# brush sequences, FR-044 AC-355..AC-359: see TestSolverClickFollowsTheBrush)
 # ==========================================================================
 
 
 @pytest.mark.browser
 class TestSolverMarking_ClickCycles:
-    """AC-303 — three clicks: filled, marked empty, undecided; drawn black, dot, blank."""
+    """AC-303 — three clicks with Black: filled, marked empty, undecided; drawn
+    black, dot, blank. Since CARD-189 the second and third are repeat clicks
+    going along Black's sequence (AC-355's Black row)."""
 
     def test_three_clicks_go_filled_empty_undecided_and_are_drawn_so(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -212,9 +237,11 @@ class TestSolverMarking_ClickCycles:
     def test_a_click_changes_only_its_cell(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         model = _Model(SIDE, SIDE)
+        last = None
         for r, c in [(0, 0), (14, 14), (7, 3), (7, 3), (0, 14)]:
             _cell(browser_page, r, c).click()
-            model.click(r, c)
+            model.click(r, c, F, repeat=(r, c) == last)
+            last = (r, c)
             assert _states(browser_page) == model.cells()
 
     def test_a_touch_tap_cycles_too(self, browser, live) -> None:
@@ -241,26 +268,10 @@ class TestSolverMarking_ClickCycles:
 
 @pytest.mark.browser
 class TestSolverMarking_ClickIgnoresTheSelectedTool:
-    """AC-304 — a click cycles whatever tool is selected."""
-
-    @pytest.mark.parametrize("tool", ["White", "Undecided", "Black"])
-    def test_a_click_on_an_undecided_cell_fills_it_whatever_the_tool(self, browser_page, live, tool) -> None:
-        _open(browser_page, live, live.store(GRID))
-        _tool(browser_page, tool)
-        assert _button(browser_page, tool).get_attribute("aria-pressed") == "true"
-
-        _cell(browser_page, 5, 5).click()
-
-        assert _marked(_states(browser_page)) == {(5, 5): F}
-
-    def test_the_whole_cycle_ignores_the_tool(self, browser_page, live) -> None:
-        _open(browser_page, live, live.store(GRID))
-        seen = []
-        for tool in ("White", "Undecided", "White"):
-            _tool(browser_page, tool)
-            _cell(browser_page, 1, 1).click()
-            seen.append(_at(_states(browser_page), 1, 1))
-        assert seen == [F, E, U]
+    """AC-304 ("a click cycles whatever tool is selected") is superseded by
+    CARD-189 (a click follows the selected brush, FR-044 AC-355..AC-359,
+    TestSolverClickFollowsTheBrush); its two click tests were removed with it.
+    What stays is the tool picker's own check: exactly one tool is pressed."""
 
     def test_exactly_one_tool_is_pressed(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -268,6 +279,283 @@ class TestSolverMarking_ClickIgnoresTheSelectedTool:
             _tool(browser_page, name)
             pressed = {n: _button(browser_page, n).get_attribute("aria-pressed") for n in TOOLS}
             assert pressed == {n: str(n == name).lower() for n in TOOLS}
+
+
+# ==========================================================================
+# CARD-189 — a click follows the selected brush (FR-044 AC-355..AC-359,
+# card-local AC-1..AC-11)
+# ==========================================================================
+
+_CLICK_TABLE_JS = """async () => {
+  const S = await import('/static/solver_state.js');
+  const out = [];
+  for (const brush of S.CELL_STATES) {
+    for (const state of S.CELL_STATES) {
+      for (const repeat of [false, true]) {
+        const board = S.withCell(S.createBoard(4, 3), 1, 2, state);
+        const stroke = S.clickStroke(board, 1, 2, brush, repeat);
+        out.push({ brush, state, repeat, cells: stroke.cells, after: stroke.state });
+      }
+    }
+  }
+  // `repeat` counts only when it is exactly true: Black on a white cell is
+  // black on a first click and blank on a repeat click.
+  const white = S.withCell(S.createBoard(4, 3), 0, 0, S.EMPTY);
+  const coerced = [1, 'true', {}, undefined].map((flag) => S.clickStroke(white, 0, 0, S.FILLED, flag).state);
+  return { states: [...S.CELL_STATES], out, coerced };
+}"""
+
+_REFUSED_TOOLS_JS = """async () => {
+  const S = await import('/static/solver_state.js');
+  const board = S.createBoard(4, 3);
+  const refused = (f) => { try { f(); return null; } catch (e) { return e.name; } };
+  return {
+    omitted: refused(() => S.clickStroke(board, 0, 0)),
+    omittedRepeat: refused(() => S.clickStroke(board, 0, 0, undefined, true)),
+    others: ['black', 'Filled', 'FILLED', '', null, 1, 'crossed'].map(
+      (tool) => [String(tool), refused(() => S.clickStroke(board, 0, 0, tool)),
+                 refused(() => S.clickStroke(board, 0, 0, tool, true))]),
+  };
+}"""
+
+#: The cells a brush's four clicks go through from blank (AC-3).
+_SEQUENCES = {
+    "Black": [F, E, U, F],
+    "White": [E, U, F, E],
+    "Undecided": [F, E, U, F],
+    "Maybe": [M, U, M, U],
+}
+
+
+@pytest.mark.browser
+class TestSolverClickFollowsTheBrush:
+    """CARD-189 — a first click gives a cell the brush's state (or the next step
+    when it already holds it); a repeat click on the same cell with the same
+    brush, nothing in between, goes one step along the brush's sequence."""
+
+    def test_every_brush_state_and_repeat_gives_the_table(self, browser_page, live) -> None:
+        """AC-1 — all 32 (brush, state, repeat) cases against the literal tables."""
+        _open(browser_page, live, live.store(GRID))
+        got = browser_page.evaluate(_CLICK_TABLE_JS)
+        # A state the literals do not cover fails here, before any lookup.
+        assert set(got["states"]) <= set(FIRST_CLICK) and set(got["states"]) <= set(REPEAT_CLICK)
+        for table in (FIRST_CLICK, REPEAT_CLICK):
+            assert all(set(row) >= set(got["states"]) for row in table.values())
+        assert len(got["out"]) == 32
+        for row in got["out"]:
+            table = REPEAT_CLICK if row["repeat"] else FIRST_CLICK
+            want = table[row["brush"]][row["state"]]
+            assert want != row["state"]  # every click changes the cell
+            assert (row["cells"], row["after"]) == ([[1, 2]], want), row
+        assert got["coerced"] == [F, F, F, F]
+
+    def test_a_click_without_a_valid_tool_is_refused(self, browser_page, live) -> None:
+        """AC-2 — no tool, or one that is not a cell state: RangeError."""
+        _open(browser_page, live, live.store(GRID))
+        got = browser_page.evaluate(_REFUSED_TOOLS_JS)
+        assert got["omitted"] == "RangeError" and got["omittedRepeat"] == "RangeError"
+        assert all(first == again == "RangeError" for _, first, again in got["others"]), got["others"]
+
+    def test_repeat_clicks_follow_each_brush_sequence(self, browser_page, live) -> None:
+        """AC-3 — four real clicks on one fresh blank cell per brush."""
+        _open(browser_page, live, live.store(GRID))
+        seen = {}
+        for k, name in enumerate(_SEQUENCES):
+            _tool(browser_page, name)
+            cell = _cell(browser_page, 2 + 3 * k, 4 + k)
+            seen[name] = []
+            for _ in range(4):
+                cell.click()
+                seen[name].append(_at(_states(browser_page), 2 + 3 * k, 4 + k))
+        assert seen == _SEQUENCES
+
+    def test_a_first_click_on_each_state_with_each_brush(self, browser_page, live) -> None:
+        """AC-4 — dark, white and "?" cells (set by drags), each clicked once by
+        each brush: the first-click table."""
+        _open(browser_page, live, live.store(GRID))
+        rows = {F: 3, E: 6, M: 9}
+        for state, row in rows.items():
+            _tool(browser_page, next(name for name, s in BRUSHES.items() if s == state))
+            _drag(browser_page, [(row, 0), (row, 3)])
+        before = _states(browser_page)
+        assert {(r, c): _at(before, r, c) for r in rows.values() for c in range(4)} == {
+            (row, c): state for state, row in rows.items() for c in range(4)}
+
+        for k, (name, brush) in enumerate(BRUSHES.items()):
+            _tool(browser_page, name)
+            for row in rows.values():
+                _cell(browser_page, row, k).click()
+        after = _states(browser_page)
+        got = {(name, state): _at(after, row, k)
+               for k, name in enumerate(BRUSHES) for state, row in rows.items()}
+        assert got == {(name, state): FIRST_CLICK[brush][state]
+                       for name, brush in BRUSHES.items() for state in rows}
+        # The "?" column, as the card spells it out.
+        assert [got[(name, M)] for name in BRUSHES] == [F, E, U, U]
+
+    def test_anything_between_two_clicks_makes_the_next_a_first_click(self, browser_page, live) -> None:
+        """AC-5 — Black, a cell clicked twice (dark, white); then (a) a click on
+        another cell, (b) Black pressed again, (c) a drag elsewhere, (d) undo
+        then redo — and also a drag that changes nothing, Black picked by the
+        keyboard, Ctrl+Z then Shift+Ctrl+Z, a hint, setBoard: the next click is
+        a first click (white -> dark). With nothing between it gives blank.
+        A confirmed reset is checked with White (after a reset the cell is
+        blank, where only White's first and repeat clicks differ)."""
+        page = browser_page
+        _open(page, live, live.store(GRID))
+
+        def black_pressed_by_key():
+            _button(page, "Black").focus()
+            page.keyboard.press("Enter")
+
+        def keyboard_undo_redo():
+            page.locator("h1").click()
+            page.keyboard.press("Control+z")
+            page.keyboard.press("Shift+Control+z")
+
+        def set_board():
+            page.evaluate("window.puzzlePlayer.setBoard(window.puzzlePlayer.getBoard())")
+
+        between = {
+            "nothing": lambda: None,
+            "(a) another cell": lambda: _cell(page, 14, 14).click(),
+            "(b) Black again": lambda: _tool(page, "Black"),
+            "(c) a drag elsewhere": lambda: _drag(page, [(13, 0), (13, 3)]),
+            "(d) undo then redo": lambda: (_button(page, "Undo").click(), _button(page, "Redo").click()),
+            "a drag that changes nothing": lambda: _drag(page, [(13, 0), (13, 3)]),
+            "Black by keyboard": black_pressed_by_key,
+            "Ctrl+Z, Shift+Ctrl+Z": keyboard_undo_redo,
+            "a hint": lambda: _button(page, "Hint").click(),
+            "setBoard": set_board,
+        }
+        third = {}
+        for row, (name, step) in enumerate(between.items()):
+            cell = _cell(page, row, 10)
+            cell.click()
+            cell.click()
+            assert _at(_states(page), row, 10) == E, name
+            step()
+            cell.click()
+            third[name] = _at(_states(page), row, 10)
+        assert third == {name: (U if name == "nothing" else F) for name in between}
+
+        # A confirmed reset (White: white, then Clear board, then White again).
+        _tool(page, "White")
+        _cell(page, 0, 12).click()
+        assert _at(_states(page), 0, 12) == E
+        _button(page, "Reset").click()
+        _button(page, "Clear board").click()
+        _cell(page, 0, 12).click()
+        assert _marked(_states(page)) == {(0, 12): E}  # a repeat would give black
+
+    def test_a_brush_change_restarts_the_sequence(self, browser_page, live) -> None:
+        """AC-6 — Black on a blank cell, then White on it: white."""
+        _open(browser_page, live, live.store(GRID))
+        _cell(browser_page, 5, 5).click()
+        assert _marked(_states(browser_page)) == {(5, 5): F}
+        _tool(browser_page, "White")
+        _cell(browser_page, 5, 5).click()
+        assert _marked(_states(browser_page)) == {(5, 5): E}
+
+    def test_touch_taps_follow_the_brush(self, browser, live) -> None:
+        """AC-7 — White, three real touch taps on a blank cell: white, blank, dark."""
+        context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(GRID))
+            page.evaluate("window.__types = []; document.addEventListener('pointerdown', (e) => window.__types.push(e.pointerType))")
+            _button(page, "White").tap()
+            seen = []
+            for _ in range(3):
+                page.touchscreen.tap(*_centre(page, 2, 2))
+                seen.append(_at(_states(page), 2, 2))
+            assert seen == [E, U, F]
+            assert set(page.evaluate("window.__types")) == {"touch"}
+        finally:
+            context.close()
+
+    def test_a_cancelled_gesture_makes_the_next_tap_a_first_click(self, browser, live) -> None:
+        """The card's "a cancelled gesture" between two clicks: Black, two taps
+        (dark, white), a touch that Chromium cancels (pointercancel), a tap:
+        dark (a repeat would give blank). Without the cancel, blank."""
+        context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(GRID))
+            page.evaluate("window.__cancels = 0; document.addEventListener('pointercancel', () => { window.__cancels += 1; })")
+            cdp = context.new_cdp_session(page)
+            third = {}
+            for cell, cancel in (((4, 4), True), ((6, 6), False)):
+                x, y = _centre(page, *cell)
+                page.touchscreen.tap(x, y)
+                page.touchscreen.tap(x, y)
+                assert _at(_states(page), *cell) == E
+                if cancel:
+                    cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+                    cdp.send("Input.dispatchTouchEvent", {"type": "touchCancel", "touchPoints": []})
+                page.touchscreen.tap(x, y)
+                third[cancel] = _at(_states(page), *cell)
+            assert page.evaluate("window.__cancels") == 1
+            assert third == {True: F, False: U}
+        finally:
+            context.close()
+
+    def test_each_click_is_one_undo_step(self, browser_page, live) -> None:
+        """AC-8 — Black, three clicks (dark, white, blank); three undos (white,
+        dark, blank), three redos (dark, white, blank); then a first click: dark."""
+        _open(browser_page, live, live.store(GRID))
+        cell = _cell(browser_page, 7, 7)
+        clicks, undos, redos = [], [], []
+        for _ in range(3):
+            cell.click()
+            clicks.append(_at(_states(browser_page), 7, 7))
+        for _ in range(3):
+            _button(browser_page, "Undo").click()
+            undos.append(_at(_states(browser_page), 7, 7))
+        assert _is_disabled(browser_page, "Undo")
+        for _ in range(3):
+            _button(browser_page, "Redo").click()
+            redos.append(_at(_states(browser_page), 7, 7))
+        assert _is_disabled(browser_page, "Redo")
+        assert (clicks, undos, redos) == ([F, E, U], [E, F, U], [F, E, U])
+        cell.click()
+        assert _marked(_states(browser_page)) == {(7, 7): F}
+
+    def test_a_reload_starts_with_no_last_click(self, browser_page, live) -> None:
+        """G-7 / CARD-185 — the last click is not saved: Black, two clicks
+        (dark, white), reload (the board comes back from this browser's save),
+        then a click: a first click, dark (a repeat would give blank)."""
+        _open(browser_page, live, live.store(GRID))
+        cell = _cell(browser_page, 3, 8)
+        cell.click()
+        cell.click()
+        assert _marked(_states(browser_page)) == {(3, 8): E}
+        browser_page.reload()
+        browser_page.wait_for_function("window.puzzlePlayer !== undefined")
+        assert _marked(_states(browser_page)) == {(3, 8): E}
+        _cell(browser_page, 3, 8).click()
+        assert _marked(_states(browser_page)) == {(3, 8): F}
+
+    def test_the_page_copy_describes_the_new_click(self, browser_page, live) -> None:
+        """AC-11 — the tool group is "Marking tool"; the hint names each colour
+        brush's sequence and keeps the drag and Maybe sentences."""
+        from playwright.sync_api import expect
+
+        _open(browser_page, live, live.store(GRID))
+        group = browser_page.get_by_role("group", name="Marking tool", exact=True)
+        assert group.count() == 1
+        expect(group).to_have_accessible_name("Marking tool")
+        assert group.locator("[data-player-tool]").count() == 4
+        hint = browser_page.locator("p.player-hint#puzzle-player-hint")
+        assert hint.is_visible()
+        text = " ".join(hint.text_content().split())
+        assert "Click a cell to cycle" not in text and "for drags" not in text
+        assert text == (
+            "Click a cell to give it the selected tool's mark; click it again to go on "
+            "(Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). "
+            "Drag along a row or column to apply the selected tool. "
+            "With Maybe, a click marks ? and a second click clears it."
+        )
 
 
 # ==========================================================================
@@ -501,8 +789,8 @@ class TestSolverMarking_UndoRedoByStroke:
             }"""
         )
         assert _is_disabled(browser_page, "Undo") and _is_disabled(browser_page, "Redo")
-        _cell(browser_page, 2, 2).click()  # cycles from the set state
-        assert _marked(_states(browser_page)) == {(0, 0): F}
+        _cell(browser_page, 2, 2).click()  # CARD-189: a first click with Black makes white black
+        assert _marked(_states(browser_page)) == {(0, 0): F, (2, 2): F}
         _button(browser_page, "Undo").click()
         assert _marked(_states(browser_page)) == {(0, 0): F, (2, 2): E}
 
@@ -778,13 +1066,15 @@ class TestSolverMarking_ControlsStayHiddenWithoutABoard:
 
 
 def _twenty_strokes(page):
-    """10 clicks and 10 drags (with tool changes between), mirrored in a model."""
+    """10 clicks and 10 drags (with tool changes between), mirrored in a model.
+    Each click is a first click (CARD-189) with the tool picked before it."""
     model = _Model(SIDE, SIDE)
     tools = ["Black", "White", "Undecided"]
+    tool = "Black"
     for k in range(10):
         r, c = k, (3 * k) % SIDE
         _cell(page, r, c).click()
-        model.click(r, c)
+        model.click(r, c, TOOLS[tool])
         tool = tools[k % 3]
         _tool(page, tool)
         start, end = (14 - k, 1), (14 - k, 1 + k)
@@ -911,11 +1201,10 @@ class TestSolverHistoryModule:
               const S = await import('/static/solver_state.js');
               const refused = (f) => { try { f(); return null; } catch (e) { return e.name; } };
               const board = S.withCell(S.createBoard(3, 2), 1, 2, S.EMPTY);
-              const click = S.clickStroke(board, 1, 2);
+              const click = S.clickStroke(board, 1, 2, S.UNKNOWN);  // CARD-189: Undecided on white
               const reset = S.resetStroke(board);
               return {
-                cycle: [S.UNKNOWN, S.FILLED, S.EMPTY].map(S.cycled),
-                badCycle: refused(() => S.cycled('black')),
+                cycledGone: S.cycled === undefined,  // CARD-189: no tool-blind click cycle any more
                 click: [click.cells, click.state],
                 clickFrozen: Object.isFrozen(click) && Object.isFrozen(click.cells) && Object.isFrozen(click.cells[0]),
                 drag: S.dragStroke([0, 0], [[0, 2]], S.EMPTY),
@@ -927,12 +1216,12 @@ class TestSolverHistoryModule:
                 outside: refused(() => S.applyStroke(board, { cells: [[2, 0]], state: S.FILLED })),
                 badState: refused(() => S.applyStroke(board, { cells: [[0, 0]], state: 'black' })),
                 replayNone: S.replay(board, []) === board,
-                replayTwo: S.replay(S.createBoard(3, 2), [click, S.clickStroke(board, 0, 0)]).cells,
+                replayTwo: S.replay(S.createBoard(3, 2), [click, S.clickStroke(board, 0, 0, S.FILLED)]).cells,
               };
             }"""
         )
-        assert out["cycle"] == [F, E, U]
-        assert out["badCycle"] == "RangeError" and out["badTool"] == "RangeError"
+        assert out["cycledGone"]
+        assert out["badTool"] == "RangeError"
         assert out["click"] == [[[1, 2]], U] and out["clickFrozen"]
         assert out["drag"] == {"cells": [[0, 0], [0, 1], [0, 2]], "state": E}
         assert out["reset"] == [[[r, c] for r in range(2) for c in range(3)], U]
@@ -975,10 +1264,10 @@ class TestSolverHistoryModule:
               const h0 = S.createHistory(blank);
               const fill = S.dragStroke([0, 0], [[0, 3]], S.FILLED);
               const h1 = S.record(h0, fill);
-              const h2 = S.record(h1, S.clickStroke(h1.board, 2, 2));
+              const h2 = S.record(h1, S.clickStroke(h1.board, 2, 2, S.FILLED));
               const u1 = S.undo(h2);
               const r1 = S.redo(u1);
-              const fresh = S.record(u1, S.clickStroke(u1.board, 1, 1));
+              const fresh = S.record(u1, S.clickStroke(u1.board, 1, 1, S.FILLED));
               const frozen = (h) => Object.isFrozen(h) && Object.isFrozen(h.done) && Object.isFrozen(h.undone)
                 && h.done.every(Object.isFrozen) && Object.isFrozen(h.board);
               return {
@@ -1023,7 +1312,7 @@ _RUN_HISTORY = """async ({ width, height, ops }) => {
   let h = S.createHistory(blank);
   const steps = [];
   for (const op of ops) {
-    if (op[0] === 'click') h = S.record(h, S.clickStroke(h.board, op[1], op[2]));
+    if (op[0] === 'click') h = S.record(h, S.clickStroke(h.board, op[1], op[2], op[3], op[4]));
     else if (op[0] === 'drag') h = S.record(h, S.dragStroke(op[2], op[3], op[1]));
     else if (op[0] === 'reset') h = S.record(h, S.resetStroke(h.board));
     else if (op[0] === 'undo') h = S.undo(h);
@@ -1042,13 +1331,26 @@ _RUN_HISTORY = """async ({ width, height, ops }) => {
 
 
 def _ec_ops(rng: random.Random):
-    """A random mix: clicks, drags with each tool, resets, undo and redo runs."""
+    """A random mix: clicks with each brush, drags with each tool, resets, undo
+    and redo runs. A click op is ["click", row, col, brush, repeat]: the driver
+    keeps its own last-click memory (CARD-189) — the last click's (row, col,
+    brush), cleared by every op that is not a click — and `repeat` says the
+    click matches it. Seven in ten clicks that follow a click go back to that
+    cell with that brush, so repeat clicks are common."""
     ops = []
+    last = None
     while len(ops) < _EC_OPS:
         roll = rng.random()
         if roll < 0.30:
-            ops.append(["click", rng.randrange(_EC_HEIGHT), rng.randrange(_EC_WIDTH)])
-        elif roll < 0.64:
+            if last is not None and rng.random() < 0.7:
+                r, c, brush = last
+            else:
+                r, c, brush = rng.randrange(_EC_HEIGHT), rng.randrange(_EC_WIDTH), rng.choice([F, E, U, M])
+            ops.append(["click", r, c, brush, (r, c, brush) == last])
+            last = (r, c, brush)
+            continue
+        last = None
+        if roll < 0.64:
             start = [rng.randrange(_EC_HEIGHT), rng.randrange(_EC_WIDTH)]
             path, here = [], list(start)
             for _ in range(rng.randint(0, 6)):
@@ -1072,13 +1374,18 @@ def _ec_ops(rng: random.Random):
 def test_PropertyTest_SolverHistory_ReplayReproducesTheBoard(browser_page, live) -> None:
     """EC-035 — after every stroke, undo and redo of a seeded corpus, replaying
     the undo stack's strokes from a blank board gives the current board; and
-    the board matches the independent Python model at every step."""
+    the board matches the independent Python model at every step. Since
+    CARD-189 (AC-10) each click carries a brush and a repeat flag, and the
+    model clicks by its own hand-written tables (FIRST_CLICK, REPEAT_CLICK)."""
     ops = _ec_ops(random.Random(35))
     kinds = [op[0] for op in ops]
     strokes = sum(kind in ("click", "drag", "reset") for kind in kinds)
     per_tool = {tool: sum(op[0] == "drag" and op[1] == tool for op in ops) for tool in (F, E, U)}
+    per_brush = {brush: sum(op[0] == "click" and op[3] == brush for op in ops) for brush in (F, E, U, M)}
+    repeats = sum(op[0] == "click" and op[4] for op in ops)
     assert strokes >= _EC_MIN_STROKES, strokes
     assert min(per_tool.values()) >= 80, per_tool
+    assert min(per_brush.values()) >= 50 and repeats >= 50, (per_brush, repeats)
     assert kinds.count("click") >= 200 and kinds.count("reset") >= 5
     assert kinds.count("undo") >= 100 and kinds.count("redo") >= 100
 
@@ -1092,7 +1399,8 @@ def test_PropertyTest_SolverHistory_ReplayReproducesTheBoard(browser_page, live)
         had_future = len(model.future)
         board_before = model.board
         if op[0] == "click":
-            model.click(op[1], op[2])
+            model.click(op[1], op[2], op[3], op[4])
+            assert model.board is not board_before, (index, op)  # CARD-189: every click is a step
         elif op[0] == "drag":
             model.drag(op[1], tuple(op[2]), [tuple(p) for p in op[3]])
         elif op[0] == "reset":

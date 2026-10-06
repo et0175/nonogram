@@ -138,7 +138,7 @@ export function withCell(board, row, col, state) {
 //   { cells: frozen array of frozen [row, col] pairs, state: a cell state }
 // meaning "set every one of these cells to `state`". A stroke carries the
 // state it sets, not the gesture that made it, so applying it again gives the
-// same board: a click's stroke already holds the cycled state.
+// same board: a click's stroke already holds the state the click gave.
 //
 // A history is a frozen value
 //   { board:  the current board,
@@ -149,40 +149,48 @@ export function withCell(board, row, col, state) {
 // browser property test) checks that replaying done's strokes from the first
 // board gives `board`, after every stroke, undo and redo of a random corpus.
 
-// A click's next state: undecided -> filled -> marked empty -> undecided. A
-// "?" (MAYBE) is read as undecided, so it goes to filled (CARD-186).
-const CYCLE = Object.freeze({ [UNKNOWN]: FILLED, [FILLED]: EMPTY, [EMPTY]: UNKNOWN, [MAYBE]: FILLED });
-
-export function cycled(state) {
-  if (!CELL_STATES.includes(state)) {
-    throw new RangeError(`"${state}" is not a cell state (${CELL_STATES.join(", ")})`);
-  }
-  return CYCLE[state];
-}
-
 function makeStroke(cells, state) {
   return Object.freeze({ cells: Object.freeze(cells.map((cell) => Object.freeze([...cell]))), state });
 }
 
-// What one click does to a cell in `state` with `tool` selected — the only
-// place that decides it (CARD-186; CARD-189 extends it). With the MAYBE tool
-// a cell that is not "?" becomes "?" and a "?" becomes undecided. With any
-// other tool, or none (undefined), the cell cycles (see CYCLE).
-export function clickedState(state, tool) {
-  if (tool === MAYBE) {
-    if (!CELL_STATES.includes(state)) {
-      throw new RangeError(`"${state}" is not a cell state (${CELL_STATES.join(", ")})`);
-    }
-    return state === MAYBE ? UNKNOWN : MAYBE;
+// The brushes' click sequences (CARD-189, owner decision 2026-10-05): each
+// brush's sequence as "state -> next state". The three colour brushes (Black
+// = FILLED, White = EMPTY, Undecided = UNKNOWN) share one order, dark ->
+// white -> blank -> dark, and differ only in where they start (their own
+// state); Maybe's is "?" -> blank -> "?". A drag never reads these.
+const COLOUR_ORDER = Object.freeze({ [FILLED]: EMPTY, [EMPTY]: UNKNOWN, [UNKNOWN]: FILLED });
+const MAYBE_ORDER = Object.freeze({ [MAYBE]: UNKNOWN, [UNKNOWN]: MAYBE });
+
+function checkState(state, what) {
+  if (!CELL_STATES.includes(state)) {
+    throw new RangeError(`"${state}" is not a ${what} (${CELL_STATES.join(", ")})`);
   }
-  return cycled(state);
 }
 
-// The stroke of one click on (row, col) with `tool` selected: that cell set
-// to clickedState of its state on `board`. With `tool` omitted the cell
-// cycles, as with Black, White or Undecided.
-export function clickStroke(board, row, col, tool) {
-  return makeStroke([[row, col]], clickedState(cellAt(board, row, col), tool));
+// What one click with `tool` (a cell state: the brush) does to a cell in
+// `state` — the only place that decides it. `repeat` (true only when it is
+// exactly true) says the click repeats the previous input: a click on the
+// same cell with the same tool, nothing in between; solver.js keeps that
+// memory. A cell outside the brush's sequence takes the brush's state;
+// otherwise, on a repeat click or when the cell already holds the brush's
+// state, it moves one step along the sequence; otherwise it takes the
+// brush's state. So the result always differs from `state`. A `state` or
+// `tool` that is not a cell state is refused with RangeError.
+export function clickedState(state, tool, repeat) {
+  checkState(state, "cell state");
+  checkState(tool, "tool");
+  const order = tool === MAYBE ? MAYBE_ORDER : COLOUR_ORDER;
+  if (!Object.hasOwn(order, state)) return tool;
+  if (repeat === true || state === tool) return order[state];
+  return tool;
+}
+
+// The stroke of one click on (row, col) with `tool`: that cell set to
+// clickedState(its state on `board`, tool, repeat). The tool is required: a
+// missing tool or one that is not a cell state is refused with RangeError
+// (by clickedState), as dragStroke refuses it.
+export function clickStroke(board, row, col, tool, repeat) {
+  return makeStroke([[row, col]], clickedState(cellAt(board, row, col), tool, repeat));
 }
 
 // The cells a drag covers, in the order first reached. `start` is the
