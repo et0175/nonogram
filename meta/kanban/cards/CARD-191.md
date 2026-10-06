@@ -1,6 +1,6 @@
 # CARD-191: On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.75d
@@ -15,11 +15,11 @@
 **Wave:** 35
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_plan.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_arrange_sort_by_size.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 2/3)
+**Started:** 2026-10-06T11:28:25Z
+**Closed:** 2026-10-06T13:04:50Z
+**Actual:** 0.2d
+**Merge commit:** cccfecb
 **Blocked by:** —
 
 ## What to implement
@@ -225,3 +225,78 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-191` (52 rules). A project
 - [Model note] INV-009's text says the within-level order is "changed only by an explicit move inside that level". A sort is an explicit owner reorder (CMD-022; EC-026 already says "reorder"), so it is allowed, but the architect may want INV-009's wording to say "explicit reorder" rather than "move". Card commits exclude meta/, so this is a note for the architect, not part of the change.
 - [AC cross-check] Re-read AC-1..AC-9 against the body: direction (ascending), tie-break (stable), unsized-last, no-op writes nothing, status unchanged all agree. AC-1's expected order was written by hand from the key (longest, shortest): 15×15 (15,15) < 20×15 (20,15) < 25×25 (25,25) < 30×20 (30,20). No fixes needed.
 - [Owner decision] 2026-10-06 — smallest first (longest side, then shortest) inside each level; one button sorts all levels; confirm prompt says there is no undo. Hidden while CARD-192's size filter is active (whichever merges second wires that).
+- [Env] forge 2026.8.17
+- [Owner default] smallest first; one button sorts all levels; confirm says no undo; hidden while CARD-192's filter is active (CARD-192 merges after this card and wires that) — implemented as drafted
+- [Built] 2026-10-06 — commits 923cc38, 79a4e02 on card/191-arrange-sort-by-size.
+  - `book_plan.sorted_by_size_within_level(puzzle_ids, tier_of, size_of)`: one stable `sorted` with key `(level_rank, unsized flag, longest, shortest)` — levels never mix, ascending, equal keys keep input order, unsized last in its level, ungraded tail sorted and last.
+  - `BookManager.sort_puzzles_by_size(book_id) -> bool` + `_size_of` (one bulk `get_puzzles` read; non-int width/height or no row → None). Unknown book → `ValueError("Book not found")`; equal order → `False`, nothing written; else writes through `reorder_puzzles`. Status untouched.
+  - `app.py:arrange_puzzles_in_book`: one new `sort_by_size` branch, two success flashes as specified. No filter code (CARD-192's).
+  - Template: card header gets `d-flex justify-content-between align-items-center flex-wrap gap-2` (the pattern `book_select_puzzles.html` already uses) and a `{% if puzzles %}` POST form with the confirm and title from the card; `btn btn-sm btn-outline-secondary`. No new CSS.
+- [Tests] tests/test_book_arrange_sort_by_size.py — 30 tests green. Guardrail set (new file + test_book_level_order, property/test_book_order, test_book_arrange_position, test_book_published_confirm, test_cli): 313 passed; also test_book_arrange_page_breaks green.
+  - AC-1 TestArrangeSortBySize_SortsEachLevelByLongestThenShortest (store both modes, route, pure, shortest-side tie-break, one bulk read each for tiers/sizes in both modes, write goes through reorder_puzzles in both modes)
+  - AC-2 TestArrangeSortBySize_EqualSizesKeepTheirCurrentOrder (store both modes; pure with ids chosen so an id order would differ)
+  - AC-3 TestArrangeSortBySize_SecondPostChangesNothing (store both modes: False, order + updated_at unchanged; route: unchanged flash + updated_at; unknown book ValueError both modes)
+  - AC-4 TestArrangeSortBySize_KeepsTheStatusAsAMoveDoes (ready_for_pdf and pdf_generated, reached via set_book_status with a matching plan, both modes; a move afterwards keeps it too)
+  - AC-5 TestArrangeSortBySize_MovesStillWorkAfterASort (route)
+  - AC-6 TestArrangeSortBySize_PageBreaksFollowTheSortedOrder — sizes chosen by asking section_plan: 25×25,10×10,30×20,10×10 easy has no pair stored, sorted the two 10×10s pair (both asserted as preconditions via BookPDFGenerator.section_plan); every row's data-page equals the plan for the new stored order.
+  - AC-7 TestArrangeSortBySize_GroupsALegacyOrderAndPutsUnsizedLast (legacy mixed order written via test_book_level_order._write_raw_order, both modes, ghost id with no row last in the ungraded tail; pure graded-level unsized case; memory-only record with width=None last in easy — DB schema makes width NOT NULL so a graded unsized row cannot exist there)
+  - AC-8 test_PropertyTest_ArrangeSortBySize_GroupedStableAndIdempotent — a function (pytest collects only Test*/test_*; precedent test_PropertyTest_ArrangePosition_... in test_book_arrange_position.py). 400 seeded books, asserts ≥50 ties, ≥50 unsized, ≥50 ungraded, ≥500 non-square; ranks and keys computed from the test's own tiers/sizes.
+  - AC-9 TestArrangeSortBySize_ButtonIsOnThePage (one form, POST, exact confirm text, title, classes, inside the card header next to "Puzzles in book"; empty book has none)
+- [Mutation] reverse=True on the sort → killed by TestArrangeSortBySize_SortsEachLevelByLongestThenShortest::test_the_store_sorts_each_level_in_both_modes (+23 more)
+- [Mutation] descending inside level only (negated longest/shortest) → killed by ...SortsEachLevelByLongestThenShortest::test_the_pure_function_on_the_same_book (+21)
+- [Mutation] puzzle id appended to key (sort by id on ties) → killed by TestArrangeSortBySize_EqualSizesKeepTheirCurrentOrder::test_equal_keys_keep_their_order_whatever_the_ids, ...in_the_store[db], test_PropertyTest_...
+- [Mutation] shortest side dropped from key → killed by ...SortsEachLevelByLongestThenShortest::test_the_shortest_side_breaks_a_longest_side_tie (+4)
+- [Mutation] key (width, height) instead of (longest, shortest) → killed by ...EqualSizesKeepTheirCurrentOrder::test_equal_keys_keep_their_order_in_the_store[memory/db], test_PropertyTest_...
+- [Mutation] unsized first instead of last → killed by TestArrangeSortBySize_GroupsALegacyOrderAndPutsUnsizedLast (all 4 tests)
+- [Mutation] level rank dropped from key → killed by ...SortsEachLevelByLongestThenShortest::test_the_store_sorts_each_level_in_both_modes (+13)
+- [Mutation] no-op early return dropped → killed by TestArrangeSortBySize_SecondPostChangesNothing::test_a_second_sort_writes_nothing_in_both_modes[memory/db], ::test_the_second_post_says_the_order_is_unchanged
+- [Mutation] unknown book returns False → killed by ...SecondPostChangesNothing::test_an_unknown_book_is_refused[memory/db]
+- [Mutation] set_book_status('draft') after the sort → killed by TestArrangeSortBySize_KeepsTheStatusAsAMoveDoes::test_the_sort_keeps_the_status (4 params)
+- [Mutation] per-id size reads → killed by ...SortsEachLevelByLongestThenShortest::test_tiers_and_sizes_are_each_one_bulk_read[memory/db]
+- [Mutation] sizes never read (all unsized) → killed by ...test_the_store_sorts_each_level_in_both_modes (+18)
+- [Mutation] memory-mode direct write bypassing reorder_puzzles → killed by ...SortsEachLevelByLongestThenShortest::test_the_write_goes_through_reorder_puzzles[memory]
+- [Mutation] route flashes swapped → killed by ...::test_the_route_sorts_and_says_so, ...SecondPostChangesNothing::test_the_second_post_says_the_order_is_unchanged
+- [Mutation] route branch renamed away → killed by test_the_route_sorts_and_says_so, MovesStillWorkAfterASort, PageBreaksFollowTheSortedOrder (+1)
+- [Mutation] button outside the non-empty guard → killed by TestArrangeSortBySize_ButtonIsOnThePage::test_an_empty_book_has_no_sort_button
+- [Mutation] confirm removed → killed by ...ButtonIsOnThePage::test_a_book_with_puzzles_carries_one_confirmed_sort_form
+- [Mutation] form moved out of the card header → killed by ...ButtonIsOnThePage::test_a_book_with_puzzles_carries_one_confirmed_sort_form
+- [Renders] ~/Documents/nonogram-reviews/CARD-191/ — in-process memory-mode app (no DB), 13 puzzles: easy 25×25,10×10,30×20,12×10,20×15; medium 20×20,25×20,10×10,15×15; hard 30×30,15×10,25×25,15×15. before.png: pairs on pages 6 (12×10+20×15) and 9 (25×20+10×10), book runs to page 15. after.png: success flash; each level smallest first; pairs now page 3 (10×10+12×10), 8 (10×10+15×15), 12 (15×10+15×15), book ends page 14. confirm.png: headless Chromium cannot screenshot a native confirm(), so the dialog was intercepted (Playwright `dialog` event), its real message captured, and drawn as an overlay labelled "(overlay drawn from the captured native confirm() message)" — the text shown is the browser's actual message. The side "Page estimate" (~13) is a separate estimate this card does not touch and stays the same.
+- [Owner note] After a sort, the print order, puzzle numbers, pairings and interior page count follow the new order (FR-041/INV-010) — intended, as the card says.
+- DESIGN-REGISTER: "Sort by size" header action — `btn btn-sm btn-outline-secondary` POST form in the Arrangement "Puzzles in book" card header (header uses existing `d-flex justify-content-between align-items-center flex-wrap gap-2`); shown only when the book has puzzles; native confirm naming no undo.
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/book_manager.py, src/nonogram/admin/book_plan.py, src/nonogram/admin/templates/book_arrange_puzzles.html, tests/test_book_arrange_sort_by_size.py
+- [System contract] fresh assembly (system_rules.py --card CARD-191) matches the card section: 52 rules, no change
+- [Build gate] impact underivable (test_scope: full; no pytest-testmon) — full suite
+- [Scope gate] cycle 1: IN_SCOPE (5/5 changed files inside Touches; no guarded glob hit)
+- [Build gate] PASSED (full, 13m24s; 6548 passed, 9 skipped)
+- [Review 1/3] Score: 8.5 — crit: 0, imp: 1 (F-001 untested no-store branch of _size_of; adversarial verification pending)
+- [Review 1/3] Step 8h: 52 rules checked (15 holds, 37 unchecked no_eligible_fact, 0 violated) — coverage complete; 8f-mutation ran: 8 mutants, 7 killed, 1 survived (M4 → F-001); 8g static ✓
+- [Review sync] 1 report(s) → meta/review/
+- [Adversarial] F-001 CONFIRMED — guard-removal mutant passes all 30 tests; a store-less BookManager (module singleton) reaches sort_puzzles_by_size and raises AttributeError under the mutant
+- [Severity gate 1/3] Score >= threshold but 0 critical / 1 important findings — fix mandatory
+- [Fix 1] F-001 (review cycle 1): added TestArrangeSortBySize_GroupsALegacyOrderAndPutsUnsizedLast::test_a_manager_with_no_puzzle_store_sorts_nothing_and_does_not_raise — BookManager(session_factory=None), book holding [p3, p1, p2], sort_puzzles_by_size returns False and the order is unchanged (every id ungraded and unsized). Test only; _size_of's docstring claim ("None for ... a manager with no puzzle store") is now backed by it; no production change.
+- [Mutation] M4 — `_size_of` no-store guard dropped (`records = self.puzzle_store.get_puzzles(keys)`) → killed by ...GroupsALegacyOrderAndPutsUnsizedLast::test_a_manager_with_no_puzzle_store_sorts_nothing_and_does_not_raise (AttributeError: 'NoneType' object has no attribute 'get_puzzles'); original bytes restored from a copy (cmp clean), 31 passed.
+- [Fix 2] F-002 (review cycle 1): corpus floor `assert books >= MIN_BOOKS` was tautological; now `assert books >= MIN_BOOKS >= 400` (precedent test_book_arrange_position.py).
+- [Mutation] MIN_BOOKS lowered to 100 → killed by test_PropertyTest_ArrangeSortBySize_GroupedStableAndIdempotent (assert 100 >= 400); original bytes restored (cmp clean).
+- [Fix 1] pre-gate: both named tests pass (2 passed); declarations: 0 updated, 0 confirmed, 2 none (test-only fix)
+- [Build gate] PASSED (full, 13m08s; 6549 passed, 9 skipped)
+- [Scope gate] cycle 2: IN_SCOPE (fix delta: tests/test_book_arrange_sort_by_size.py only)
+- [Review 2/3] Score: 9.5 — crit: 0, imp: 0 (confirmation mode; F-001 ✓ resolved, F-002 ✓ resolved)
+- [Review 2/3] Step 8h: 52 rules checked (15 holds, 37 unchecked no_eligible_fact, 0 violated) — coverage complete; 8f-mutation ran: 3 new mutants killed (M4, F2a, F2b), 7 carried; 8g static ✓ (carried, delta-clean)
+- [Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Review sync] 2 report(s) → meta/review/
+- [AC/EC check] Failed: G-4 ⚠ partial — membership shown unchanged (reorder_puzzles set equality + exact-order asserts), but no test asserts custom titles or the stored plan are untouched by a sort (code reading only). AC-1..AC-9, G-1, G-2, G-3, G-5, G-6 ✓ demonstrated.
+- [Fix 3] G-4 partial (verification): added TestArrangeSortBySize_LeavesTitlesAndPlanAlone::test_membership_custom_titles_and_the_plan_survive_a_sort[memory/db] — book with a non-default stored plan (save_plan: count 40, split 50/30/20, own matrix) and two custom titles (set_puzzle_title); sort_puzzles_by_size returns True and the order changes to [e15, e25, m10, m20]; membership set, custom titles and get_plan are each equal to their before-values. Test only; no production change.
+- [Mutation] sort_puzzles_by_size clears every custom title after the reorder_puzzles write (set_puzzle_title(..., "") per titled id) → killed by ...LeavesTitlesAndPlanAlone::test_membership_custom_titles_and_the_plan_survive_a_sort[memory] and [db]; original bytes restored from a copy (cmp clean).
+- [Mutation] sort_puzzles_by_size stores DEFAULT_PLAN after the write (save_plan) → killed by ...LeavesTitlesAndPlanAlone::test_membership_custom_titles_and_the_plan_survive_a_sort[memory] and [db] (+4 KeepsTheStatusAsAMoveDoes, via the draft return); original bytes restored from a copy (cmp clean); 33 passed.
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0019/R1, ADR-0035/R1, INV-009)
+- [Fix 3] pre-gate: TestArrangeSortBySize_LeavesTitlesAndPlanAlone [memory/db] pass (file: 33 passed); declarations: 0 updated, 0 confirmed, 1 none (test-only)
+- [Build gate] PASSED (full, 12m46s; 6551 passed, 9 skipped)
+- [AC/EC check] re-check after Fix 3: AC-1..AC-9 and G-1..G-6 all ✓ demonstrated (G-4 now TestArrangeSortBySize_LeavesTitlesAndPlanAlone [memory/db] 2 passed); cycle 2 repeated (same counter) in confirmation mode over the Fix 3 delta
+- [Review 2/3] (repeat after Fix 3) Score: 9.5 — crit: 0, imp: 0; G-4 ✓ resolved; Step 8h 52 rules (15 holds, 37 unchecked, 0 violated) coverage complete; 8f-mutation ran: 3 new mutants killed (MA, MB, MC), 10 carried; 8g static ✓
+- [Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Review sync] 3 report(s) → meta/review/
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0019/R1, ADR-0035/R1, INV-008) — repeat cycle 2; [Inline fallback] the three re-derivations ran in one skeptic agent
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1 SortsEachLevelByLongestThenShortest 9 passed; AC-2 EqualSizesKeepTheirCurrentOrder 3 passed; AC-3 SecondPostChangesNothing 5 passed; AC-4 KeepsTheStatusAsAMoveDoes 4 passed; AC-5 MovesStillWorkAfterASort 1 passed; AC-6 PageBreaksFollowTheSortedOrder 1 passed; AC-7 GroupsALegacyOrderAndPutsUnsizedLast 5 passed; AC-8 test_PropertyTest_ArrangeSortBySize_GroupedStableAndIdempotent passed (400 seeded books, floors asserted); AC-9 ButtonIsOnThePage 2 passed; G-1/G-2/G-6 guard set 283 passed, guarded test files unchanged; G-3 A4 golden 125 passed, no PDF/layout file in diff; G-4 LeavesTitlesAndPlanAlone [memory/db] 2 passed; G-5 tiers via _tier_of, sizes via stored width/height, one bulk read each [memory/db] passed
+- [Docs] forge:readme: no update — src/nonogram/admin/ and templates/ have no README (per-directory README convention is an open owner decision); tests/README.md is a frozen Wave-1 doc that lists no book tests
+- [Commit] 9803893 (review fixes) on top of 923cc38, 79a4e02 — success commit; diff vs main: 5 files, +705/-1
+- [Merge gate] rebased onto 4e0132d (= main at merge); full suite 6558 passed, 9 skipped, exit 0 (833s, under the lock). Owner: "merge now, check later" (renders in ~/Documents/nonogram-reviews/CARD-191/). Merged cccfecb.

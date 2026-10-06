@@ -1,0 +1,99 @@
+version: 1
+generated_at: "2026-10-06T12:01:14Z"
+target: "card/191-arrange-sort-by-size (git diff main...HEAD, HEAD 79a4e02)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "src/nonogram/admin/book_plan.py (sorted_by_size_within_level, level_rank, book_level_order, is_level_order)"
+    - "src/nonogram/admin/book_manager.py (sort_puzzles_by_size, _size_of, reorder_puzzles)"
+    - "src/nonogram/admin/app.py (arrange_puzzles_in_book POST branches + except handlers + re-render)"
+    - "src/nonogram/admin/templates/book_arrange_puzzles.html"
+    - "tests/test_book_arrange_sort_by_size.py (full)"
+    - "meta/kanban/cards/CARD-191.md, meta/design/components.md (grep), FR-036, src/nonogram/db/models.py:65-66"
+    - "~/Documents/nonogram-reviews/CARD-191/after.png"
+  not_reached:
+    - "rendered result not verified by an automated gate (review.visual off)"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 637, removed: 1 }
+  max_fan_in: { symbol: "BookManager.sort_puzzles_by_size", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (162 commits/12mo, 87 fix/bug)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — co-change mining not run; every touched file is listed in the card's Touches and the scope gate reported IN_SCOPE 5/5"
+system_contract:
+  rules_checked: 52
+  holds: 15
+  unchecked: 37
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from git diff main...HEAD --stat; no new import outside stdlib/project"
+    - "ADR-0019/R1 ✓ holds — diff touches no src/nonogram/web/; test_cli.py::test_every_import_in_the_package_points_inward PASSED"
+    - "ADR-0022/R1 ✓ holds — size crosses BookManager->book_plan as a (width, height) pair (book_manager.py _size_of, book_plan.py size_of arg); max/min reduction stays inside the key"
+    - "ADR-0033/R1 ✓ holds — sort writes only Book.puzzle_ids via reorder_puzzles; tier read from row via _tier_of; no puzzle field written"
+    - "ADR-0035/R1 ✓ holds — sort never changes status; TestArrangeSortBySize_KeepsTheStatusAsAMoveDoes 4/4 PASSED; TestBookStatus_EveryExitFromDraftIsGatedOnThePlan 30 PASSED"
+    - "ADR-0036/R1 ✓ holds — no layout code in diff; TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden 125 PASSED"
+    - "ADR-0036/R2 ✓ holds — page labels still come from section_plan via _printed_places; no geometry in admin diff"
+    - "INV-007 ✓ holds — membership and status untouched by the sort; ready-gate tests 30 PASSED"
+    - "INV-008 ✓ holds — reorder_puzzles refuses any non-membership set (set equality); sort changes no membership"
+    - "INV-009 ✓ holds — write goes through reorder_puzzles (test_the_write_goes_through_reorder_puzzles[memory/db] PASSED); property test PASSED; PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence[memory/db] PASSED"
+    - "INV-010 ✓ holds — pairing code unchanged; AC-6 test PASSED; PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly (+interior_pages) PASSED"
+    - "INV-012 ✓ holds — status unchanged, membership unchanged; PropertyTest_BookMembership_ChangedMembershipOutsideDraftNeverPersists PASSED"
+    - "CON-015 ✓ holds — no new entry point/bind; TestAdminPanel_BindsLoopbackOnlyByDefault 7 PASSED"
+    - "CON-016 ✓ holds — new branch lives in an existing route behind the same door; TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit 9 PASSED"
+    - "CON-021 ✓ holds — no play surface added; diff touches no player code"
+    - "ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-011, INV-013 ⚠ unchecked — no_eligible_fact: the diff touches only book order (book_plan/book_manager/arrange route/template); no generation, solver, difficulty, image, web UI, player, plan, floor, answer-key or PDF-export code"
+root_causes: []
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/book_manager.py
+    line: 1768
+    title: "Untested no-puzzle-store branch of _size_of (mutant survived) behind a docstring claim"
+    description: |
+      _size_of's docstring (book_manager.py ~1761-1765) claims None "for ... a manager with no
+      puzzle store". Mutant M4 removed the guard (`records = self.puzzle_store.get_puzzles(keys)`,
+      which raises AttributeError on None) and all 30 tests in tests/test_book_arrange_sort_by_size.py
+      still passed. Store-less managers are real (module singleton BookManager(session_factory=None)
+      at book_manager.py:2589; tests/test_book_manager.py etc.), so the claimed quiet behaviour is
+      unverified.
+    suggestion: |
+      Add one test: BookManager() with a book holding ids (no store) -> sort_puzzles_by_size returns
+      False (all ungraded/unsized, order unchanged) and does not raise. Or drop the claim.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "tests/test_book_arrange_sort_by_size.py::TestArrangeSortBySize_GroupsALegacyOrderAndPutsUnsizedLast::test_a_manager_with_no_puzzle_store_sorts_nothing_and_does_not_raise"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_book_arrange_sort_by_size.py
+    line: 486
+    title: "Corpus-size assertion books >= MIN_BOOKS can never fail"
+    description: |
+      The loop runs exactly MIN_BOOKS times, so `assert books >= MIN_BOOKS` is tautological; lowering
+      MIN_BOOKS lowers both sides. Measured counts at 400 books: ties 137, unsized 241, ungraded 716,
+      non-square 2067, so the floors (50/50/50/500) would still pass at roughly 150 books - the
+      corpus can shrink by ~60% silently.
+    suggestion: |
+      Use the precedent in tests/test_book_arrange_position.py:720 - `assert books >= MIN_BOOKS >= 400`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "tests/test_book_arrange_sort_by_size.py::test_PropertyTest_ArrangeSortBySize_GroupedStableAndIdempotent (assert books >= MIN_BOOKS >= 400)"
+    dismissed_reason: null
+    learned_pattern: null

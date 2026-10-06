@@ -1,0 +1,64 @@
+version: 1
+generated_at: "2026-10-06T12:46:59Z"
+target: "card/191-arrange-sort-by-size (git diff main...HEAD at 79a4e02 + uncommitted tests/test_book_arrange_sort_by_size.py); confirmation mode (cycle 2 repeat after AC/G-gate Fix 3), fix delta = tests/test_book_arrange_sort_by_size.py (class TestArrangeSortBySize_LeavesTitlesAndPlanAlone + G-4 docstring line)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+previous_findings:
+  - "F-001 resolved (carried from cycle 2 report; delta did not touch it) — test_a_manager_with_no_puzzle_store_sorts_nothing_and_does_not_raise PASSED in 33-passed run this session"
+  - "F-002 resolved (carried) — assert books >= MIN_BOOKS >= 400 still present; property test PASSED this session"
+  - "G-4 partial (AC/G gate) resolved — test_membership_custom_titles_and_the_plan_survive_a_sort[memory] PASSED, [db] PASSED; mutants MA (clear titles), MB (store DEFAULT_PLAN), MC (rewrite one title) each killed in both modes; docstring claim bounded by MA/MB/MC"
+coverage:
+  read:
+    - "git diff HEAD -- tests/ (fix delta, full)"
+    - "git diff main...HEAD -- src/ (unchanged since 79a4e02; re-read)"
+    - "tests/test_book_arrange_sort_by_size.py (imports, helpers sized/book_of/shelf, new G-4 class)"
+    - "src/nonogram/admin/book_manager.py (sort_puzzles_by_size, _size_of, save_plan, set_puzzle_title signatures)"
+    - "meta/kanban/cards/CARD-191.md (What to implement, AC-1..AC-9, G-1..G-6, System contract, Worktree notes)"
+    - "meta/review/20261006T122437Z-CARD-191-cycle2.yml"
+  not_reached:
+    - "rendered result not verified by an automated gate (review.visual off); 8g static carried (template outside the fix delta)"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 705, removed: 2 }
+  max_fan_in: { symbol: "BookManager.sort_puzzles_by_size", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/app.py (carried from cycle 1: 162 commits/12mo, 87 fix/bug)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — fix delta is one test file already in the card's Touches; co-change mining not re-run"
+system_contract:
+  rules_checked: 52
+  holds: 15
+  unchecked: 37
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 2, delta-clean); pyproject.toml absent from git diff main...HEAD --stat (re-checked: empty)"
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py (test_every_import_in_the_package_points_inward) in a 302-passed guardrail run this session"
+    - "ADR-0022/R1 ✓ holds — carried(cycle 2, delta-clean); source unchanged since 79a4e02, size crosses as (width, height)"
+    - "ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, INV-001, INV-002, INV-003, INV-005, INV-006, INV-011, INV-013 ⚠ unchecked — no_eligible_fact: carried(cycle 2, delta-clean); fix delta is one admin book-order test file touching no generation/solver/difficulty/image/web/player/floor/answer-key/export code (INV-005: the new test only saves a valid 50/30/20 plan through the existing save_plan)"
+    - "ADR-0033/R1 ✓ holds — carried(cycle 2, delta-clean); sort writes only Book.puzzle_ids via reorder_puzzles; now additionally evidenced by G-4 test PASSED [memory/db]"
+    - "ADR-0035/R1 ✓ holds — re-run (evidence in delta file): TestArrangeSortBySize_KeepsTheStatusAsAMoveDoes 4/4 PASSED in 33-passed run; MB mutant (plan rewrite → draft) killed these 4"
+    - "ADR-0036/R1 ✓ holds — carried(cycle 2, delta-clean); book_pdf_generator/export untouched (git diff main...HEAD --stat empty on those paths)"
+    - "ADR-0036/R2 ✓ holds — carried(cycle 2, delta-clean); TestArrangeSortBySize_PageBreaksFollowTheSortedOrder PASSED this session"
+    - "INV-007 ✓ holds — carried(cycle 2, delta-clean); ready gate code untouched"
+    - "INV-008 ✓ holds — tests/test_book_published_confirm.py in 302-passed run this session"
+    - "INV-009 ✓ holds — tests/property/test_book_order.py, test_book_level_order.py, test_book_arrange_position.py in 302-passed run; test_the_write_goes_through_reorder_puzzles[memory/db] and the AC-8 property test in 33-passed run"
+    - "INV-010 ✓ holds — test_book_arrange_page_breaks.py in 302-passed run; AC-6 test PASSED"
+    - "INV-012 ✓ holds — carried(cycle 2, delta-clean); sort never calls a membership path; AC-4 tests PASSED this session"
+    - "CON-015 ✓ holds — carried(cycle 2, delta-clean); entry point untouched"
+    - "CON-016 ✓ holds — carried(cycle 2, delta-clean); door code untouched"
+    - "CON-021 ✓ holds — carried(cycle 2, delta-clean); no play surface in the diff"
+mutation_check:
+  ran: true
+  mutants:
+    - "MA sort_puzzles_by_size clears every custom title after the reorder_puzzles write — killed: test_membership_custom_titles_and_the_plan_survive_a_sort[memory] and [db] (2 failed, 31 passed)"
+    - "MB sort_puzzles_by_size calls save_plan(book_id, DEFAULT_PLAN) after the write — killed: G-4 test [memory]/[db] + 4 KeepsTheStatusAsAMoveDoes (6 failed, 27 passed)"
+    - "MC sort_puzzles_by_size rewrites one custom title to 'x' after the write — killed: G-4 test [memory]/[db] (2 failed, 31 passed)"
+    - "M4, F2a, F2b — carried(cycle 2): 3 killed; M1-M3, M5-M8 — carried(cycle 1): 7 killed"
+  restore: "book_manager.py restored from scratchpad copy after each mutant, cmp clean; git diff main...HEAD and git diff HEAD byte-identical to pre-check captures (cmp)"
+root_causes: []
+findings: []
