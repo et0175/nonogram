@@ -1,8 +1,9 @@
 """CARD-161 — marking cells in the puzzle player (FR-044 AC-303..AC-311, EC-035).
 
 The player page (``/puzzle/<id>/solve``, CARD-160) gains a tool picker
-(black / white / undecided), a click cycle, line-constrained drags, stroke-level
-undo and redo (buttons and Ctrl/Cmd+Z, Shift+Ctrl/Cmd+Z) and a reset.
+(black / white / undecided), clicks that follow the selected brush (CARD-189),
+line-constrained drags, stroke-level undo and redo (buttons and Ctrl/Cmd+Z,
+Shift+Ctrl/Cmd+Z) and a reset.
 
 Every user-facing criterion is driven by REAL input in Chromium — ``page.mouse``,
 ``locator.click``, ``page.keyboard``, ``page.touchscreen`` and CDP touch events —
@@ -397,8 +398,10 @@ class TestSolverClickFollowsTheBrush:
         """AC-5 — Black, a cell clicked twice (dark, white); then (a) a click on
         another cell, (b) Black pressed again, (c) a drag elsewhere, (d) undo
         then redo — and also a drag that changes nothing, Black picked by the
-        keyboard, Ctrl+Z then Shift+Ctrl+Z, a hint, setBoard: the next click is
-        a first click (white -> dark). With nothing between it gives blank.
+        keyboard, Ctrl+Z then Shift+Ctrl+Z, a hint, setBoard, a click on another
+        cell in the same row, one in the same column, Reset opened and then
+        cancelled with Keep marks: the next click is a first click
+        (white -> dark). With nothing between it gives blank.
         A confirmed reset is checked with White (after a reset the cell is
         blank, where only White's first and repeat clicks differ)."""
         page = browser_page
@@ -416,6 +419,10 @@ class TestSolverClickFollowsTheBrush:
         def set_board():
             page.evaluate("window.puzzlePlayer.setBoard(window.puzzlePlayer.getBoard())")
 
+        def reset_opened_and_cancelled():
+            _button(page, "Reset").click()
+            _button(page, "Keep marks").click()
+
         between = {
             "nothing": lambda: None,
             "(a) another cell": lambda: _cell(page, 14, 14).click(),
@@ -427,6 +434,11 @@ class TestSolverClickFollowsTheBrush:
             "Ctrl+Z, Shift+Ctrl+Z": keyboard_undo_redo,
             "a hint": lambda: _button(page, "Hint").click(),
             "setBoard": set_board,
+            # The cell compare is on both axes: a click in the same row, and
+            # one in the same column, each end the run (rows 10 and 11 below).
+            "another cell in the same row": lambda: _cell(page, 10, 13).click(),
+            "another cell in the same column": lambda: _cell(page, 14, 10).click(),
+            "reset opened and cancelled (Keep marks)": reset_opened_and_cancelled,
         }
         third = {}
         for row, (name, step) in enumerate(between.items()):

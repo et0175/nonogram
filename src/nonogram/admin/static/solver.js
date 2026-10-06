@@ -62,8 +62,10 @@
 //             Every commit clears it (a drag, even one that changes nothing,
 //             undo, redo — button or key — a hint, a confirmed reset,
 //             setBoard), and so do pressing any tool button (mouse or key,
-//             the pressed one too) and pointercancel; the click path sets it
-//             after its own commit.
+//             the pressed one too), pressing Reset when that opens the
+//             confirmation (so a reset opened and then cancelled ends the
+//             run too) and pointercancel; the click path sets it after its
+//             own commit.
 //             Having been over another cell = a drag: dragStroke with the
 //             tool selected at pointerdown, previewed on every move, recorded
 //             on pointerup; pointercancel drops it. Mouse (main button), pen
@@ -561,6 +563,7 @@ function wireMarking(table, player) {
   }
   actions.reset.addEventListener("click", () => {
     if (gesture || actions.reset.getAttribute("aria-disabled") === "true") return;
+    lastClick = null; // opening the confirmation is an input (see MARKING)
     confirm.hidden = false;
     actions.reset.setAttribute("aria-expanded", "true");
     keep.focus();
