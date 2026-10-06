@@ -299,17 +299,23 @@ def _corrupt(kind, text, payload, rng):
     elif kind == "no-op":
         k = rng.randrange(len(save["done"]))
         save["done"].insert(k + 1, json.loads(json.dumps(save["done"][k])))
+    elif kind == "undone-no-op":
+        # The redo stack's top is its last element: a copy of the last done
+        # stroke there is the next redo, and redoing it would change no cell.
+        save["undone"].append(json.loads(json.dumps(save["done"][-1])))
     return json.dumps(save)
 
 
-_CORRUPTIONS = ["truncated", "version", "id", "size", "clue", "grid", "cell", "state", "hint", "no-op", "non-object"]
+_CORRUPTIONS = ["truncated", "version", "id", "size", "clue", "grid", "cell", "state", "hint", "no-op", "undone-no-op",
+                "non-object"]
 _PER_CORRUPTION = 50
 
 
 @pytest.mark.browser
 def test_PropertyTest_SolverResume_RejectsAnyUntrustedSave(browser_page, live) -> None:
     """AC-2 / EC-047 — deserializeState returns null, and never throws, for
-    every corrupted save; the saves they were made from all restore."""
+    every corrupted save (each kind in _CORRUPTIONS, including a no-op stroke
+    on top of the redo stack); the saves they were made from all restore."""
     rng = random.Random(1850)
     _open(browser_page, live, live.store(GRID))
     sources = []
