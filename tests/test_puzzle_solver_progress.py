@@ -185,6 +185,12 @@ def _thirty_marks(page):
     return marks
 
 
+#: G-1 exception (CARD-185): sessionStorage is empty and localStorage holds at
+#: most one key, this puzzle's save ("nonogram-player:" + its id).
+_ONLY_THIS_SAVE = """() => sessionStorage.length === 0 && (localStorage.length === 0
+  || (localStorage.length === 1 && localStorage.key(0) === 'nonogram-player:' + window.puzzlePlayer.payload.id))"""
+
+
 def _watch_problems(page, live):
     problems = []
     page.on("console", lambda m: m.type in ("error", "warning") and problems.append(m.text))
@@ -724,7 +730,7 @@ class TestSolverProgress_StaysInThePage:
 
         assert _is_solved_shown(browser_page)
         assert requests == []
-        assert browser_page.evaluate("localStorage.length + sessionStorage.length") == 0
+        assert browser_page.evaluate(_ONLY_THIS_SAVE)
         assert problems == []
 
 
