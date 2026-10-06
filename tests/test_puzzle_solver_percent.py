@@ -183,6 +183,12 @@ def test_PropertyTest_SolverPercent_MatchesTheDefinition(browser_page, live) -> 
             ok and any(c == U and not s for c, s in zip(cells, (x for r in solutions[si] for x in r)))
             for (si, cells, _), ok in zip(boards, solved)
         ]
+        # Corpus-size shrink-guard (F-4, review cycle 1): true by
+        # construction today (_corpus always appends exactly _PER_SHAPE
+        # boards, 300 >= 200), so it proves nothing about solvedPercent
+        # itself. It only catches a future edit shrinking _PER_SHAPE below
+        # _MIN_PER_SHAPE, unlike the minimums below, which depend on the
+        # corpus's randomised content.
         assert len(boards) >= _MIN_PER_SHAPE, shape
         assert sum(solved) >= 50, (shape, sum(solved))
         assert sum(undecided_white) >= 30, (shape, sum(undecided_white))
@@ -367,6 +373,7 @@ _LAYOUT = """() => {
     text: progress.textContent.replace(/\\s+/g, ' ').trim(),
     toolbar: box(q('.player-toolbar')),
     errors: box(errors), hints: box(hints), progress: box(progress),
+    pair: box(q('.player-counters-pair')),
     buttons: [...document.querySelectorAll('.player-tools > button, .player-history > button')].map(box),
     numeric: getComputedStyle(count).fontVariantNumeric,
     sameFont: getComputedStyle(count).fontFamily === getComputedStyle(errCount).fontFamily
@@ -409,6 +416,26 @@ class TestSolverPercent_SitsNextToTheCounters:
         el, et, er, eb = got["errors"]
         assert pt < eb and et < pb  # same row band
         assert pr <= el  # drawn left of "Errors: N"
+
+    def test_hints_and_errors_share_the_row_at_1440(self, browser, live) -> None:
+        """F-3 (review cycle 1) — closes the admin.css comment's "at 1440 px
+        the three share one line" claim within this card's own test file.
+        (test_puzzle_solver_hint.py::TestSolverHint_PlacesTheButtonAndTheCounter
+        also asserts Hints-vs-Errors at 1440 px; that CARD-183 file is not
+        touched here.)"""
+        got = _layout(browser, live, 1440)
+        _, ht, _, hb = got["hints"]
+        _, et, _, eb = got["errors"]
+        assert ht < eb and et < hb  # same row band
+
+    def test_pair_is_as_tall_as_a_toolbar_button(self, browser, live) -> None:
+        """F-3 (review cycle 1) — closes the admin.css comment's "the pair is
+        as tall as a toolbar button" claim, which nothing asserted before
+        this test."""
+        got = _layout(browser, live, 1440)
+        pt, pb = got["pair"][1], got["pair"][3]
+        bt, bb = got["buttons"][0][1], got["buttons"][0][3]
+        assert abs((pb - pt) - (bb - bt)) <= 1
 
     def test_below_the_pair_at_the_right_at_1280(self, browser, live) -> None:
         got = _layout(browser, live, 1280, 720)
@@ -511,3 +538,101 @@ class TestSolverPercent_IsRightAfterAReloadRestoresTheBoard:
         assert restored == before
         assert _shown(browser_page) == _percent_of(restored, GRID) == shown
         assert problems == []
+
+
+# ==========================================================================
+# Review F-1 (cycle 1) — the toolbar's align-items: flex-start change,
+# measured safe for the history group and the solved slot
+# ==========================================================================
+
+_TOP_ALIGN = """() => {
+  const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+  const q = (s) => document.querySelector(s);
+  return {
+    toolbarTop: q('.player-toolbar').getBoundingClientRect().top,
+    slot: box(q('.player-slot')),
+    history: box(q('.player-history')),
+    toolButtons: [...document.querySelectorAll('.player-tools > button')].map(box),
+    historyButtons: [...document.querySelectorAll('.player-history > button')].map(box),
+  };
+}"""
+
+_OVERLAP_CHECK = """() => {
+  const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; };
+  const q = (s) => document.querySelector(s);
+  return {
+    banner: box(q('#puzzle-player-solved')),
+    counters: box(q('.player-counters')),
+    progress: box(q('#puzzle-player-progress')),
+  };
+}"""
+
+
+def _overlaps(a, b):
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+@pytest.mark.browser
+class TestSolverPercent_AlignItemsFlexStartKeepsHistoryAndSlotAtTheirRowsTop:
+    """F-1 (review cycle 1) — the toolbar's align-items changed from center
+    to flex-start so the counters row (which the pair now shares with the
+    tools, history and solved slot) does not pull the history group
+    (Undo/Redo/Reset/Hint) or .player-slot (tools + the solved banner's box)
+    down to a cross-axis centre. Pinned at 1280 px, where the slot, the
+    history group and .player-counters share one flex line (the three-item
+    row this card adds), and at 390 px, where the toolbar wraps onto several
+    lines of its own. Mutant: reverting align-items to center pulls the
+    slot and the history group ~18 px down from the toolbar's top at
+    1280 px (measured: both move from top 148 to top 166, confirmed red;
+    restored, confirmed green)."""
+
+    @pytest.mark.parametrize("width,height", [(1280, 720), (390, 844)])
+    def test_slot_and_history_sit_at_their_own_lines_top(self, browser, live, width, height) -> None:
+        context = browser.new_context(viewport={"width": width, "height": height})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(GRID))
+            got = page.evaluate(_TOP_ALIGN)
+        finally:
+            context.close()
+        top = round(got["toolbarTop"])
+        # .player-slot (the tools and the solved banner's shared box) is
+        # always on the toolbar's first flex line, and its own first row of
+        # tool buttons (.player-tools wraps on its own, nested, at 390 px)
+        # sits at the slot's own top, not centred below it.
+        assert round(got["slot"][1]) == top
+        assert round(min(b[1] for b in got["toolButtons"])) == top
+        # .player-history is never pulled down WITHIN whichever line it is
+        # on (flex-start holds for every wrapped line, not only the first);
+        # its own first row of buttons sits at the group's own top.
+        history_top = round(got["history"][1])
+        assert round(min(b[1] for b in got["historyButtons"])) == history_top
+        if width == 1280:
+            # At 1280 px the slot, the history group and the counters share
+            # the toolbar's first line (TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280).
+            assert history_top == top
+
+
+@pytest.mark.browser
+class TestSolverPercent_SolvedBannerNeverOverlapsTheNewCounters:
+    """F-1 (review cycle 1) — the G-1 sweep in test_puzzle_solver_maybe.py
+    (TestSolverMaybe_BoardDoesNotMoveOnSolveAtAnyWidth) predates this card;
+    its 'others' overlap list does not include .player-counters or
+    #puzzle-player-progress, so nothing before this test checked the solved
+    banner against them. That file is a G-1 guardrail and is not edited;
+    the equivalent check is added here instead, at 390 and 1280 px."""
+
+    @pytest.mark.parametrize("width,height", [(1280, 720), (390, 844)])
+    def test_no_overlap_when_solved(self, browser, live, width, height) -> None:
+        context = browser.new_context(viewport={"width": width, "height": height})
+        page = context.new_page()
+        try:
+            _open(page, live, live.store(GRID))
+            cells = [F if cell else E for row in GRID for cell in row]
+            _set(page, cells)
+            assert _is_solved_shown(page)
+            got = page.evaluate(_OVERLAP_CHECK)
+        finally:
+            context.close()
+        assert not _overlaps(got["banner"], got["counters"])
+        assert not _overlaps(got["banner"], got["progress"])

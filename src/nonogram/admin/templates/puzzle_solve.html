@@ -58,8 +58,12 @@
   almost every mark and is read on demand. The three counters share
   .player-counters, which draws them right to left (admin.css): "Hints: N"
   keeps the toolbar's right end, "Progress: N%" sits left of "Errors: N"
-  (1440 px) and drops under the pair at 1280 px. Layout accepted as built
-  by the owner, 2026-10-06.
+  (1440 px) and drops under the pair at 1280 px. So the DOM/reading order
+  (Errors, Hints, Progress) and the visual order (Progress, Errors, Hints)
+  differ. That mismatch is intentional and owner-accepted (2026-10-06,
+  layout accepted as built): the three counters are plain <p> elements,
+  never focusable, so there is no focus-order defect to go with the visual
+  one (review cycle 1, F-2).
 #}
 {% extends "base.html" %}
 {% import '_tier.html' as tier %}
