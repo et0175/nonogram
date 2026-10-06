@@ -1,0 +1,196 @@
+version: 1
+generated_at: '2026-10-06T10:45:25Z'
+target: card/190-review-filter-longest-side (ef30b40 + uncommitted _side_bounds rename) vs main
+card: CARD-190
+cycle: 1
+mode: confirmation (re-entry after AC/EC/G gate)
+overall_score: 9.7
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: 2026.8.17
+coverage:
+  read:
+  - 'git diff -- src/ (fix delta: puzzle_review.py _side_bounds parameter rename, +4/-4)'
+  - src/nonogram/admin/puzzle_review.py 770-800 and all _side_bounds call sites (837, 870, 985)
+  - grep side_range src/ (whole tree incl. templates)
+  - grep _side_bounds src/ tests/ (no keyword callers)
+  - tests/test_admin_filter_side_range_and_name.py (AC tests)
+  - previous report 20261006T102436Z-CARD-190-cycle1.yml
+  - CARD-190.md worktree notes
+  not_reached:
+  - 'full suite (not re-run by instruction; orchestrator: 6517 passed, 9 skipped, 1 unrelated port flake re-run green)'
+  - rendered result not verified by the gate (review.visual off); owner renders not re-read this pass (template not in delta)
+  confidence: high
+metrics:
+  diff:
+    files: 5
+    added: 150
+    removed: 69
+  fix_delta:
+    files: 1
+    added: 4
+    removed: 4
+  max_fan_in:
+    symbol: PuzzleReviewService._side_bounds
+    callers: 3
+  tests_cover_change: true
+  hotspots:
+  - src/nonogram/admin/app.py
+  - src/nonogram/admin/puzzle_review.py
+  cochange_missing: []
+previous_findings:
+- id: F-001
+  status: resolved
+  evidence: grep -rn side_range src/ | grep -v longest_side_range -> no output; _side_bounds(bounds) at puzzle_review.py:780; message text unchanged; no keyword caller of _side_bounds in src/ or tests/
+- id: F-002
+  status: still present
+  evidence: tests/test_admin_filter_side_range_and_name.py:181-188 still uses admin_app without a store assertion; minor, not addressed by design
+task_contract:
+  ac:
+  - AC-1 ✓ — TestPuzzleReview_SizeFilterUsesLongestSide::test_ten_to_fifteen_lists_only_the_15x12[memory] PASSED, ::test_twenty_one_to_twenty_five_lists_only_the_25x15[memory] PASSED (this run)
+  - AC-2 ✓ — same two tests [sqlite] PASSED (this run)
+  - AC-3 ✓ — TestPuzzleReview_SizeFilterPagesItsOwnMembers::test_the_total_counts_members_and_the_links_keep_the_range[memory] and [sqlite] PASSED (this run)
+  - AC-4 ✓ — TestPuzzlesApi_SizeRangeUsesLongestSide::test_the_api_lists_only_the_15x12 PASSED (this run)
+  - AC-5 ✓ — TestPuzzleReview_SizeFilterLabelSaysLongestSide::test_the_field_is_labelled_longest_side PASSED (this run)
+  - AC-6 ✓ — test_the_filter_has_no_either_side_field_any_more PASSED (this run; asserts no dataclass field and TypeError on PuzzleFilter(side_range=...)); grep side_range src/ excluding longest_side_range
+    returns nothing
+  guardrails:
+  - G-1 ✓ — tests/test_book_select_tabs.py (incl. TestBookSelect_SizeRangeFilterReplacedByTab 3 tests) and tests/property/test_longest_side_buckets.py 2 tests PASSED (this run); delta does not touch longest_side_range
+    branches (870, 985 unchanged)
+  - G-2 ✓ — test_the_longest_side_range_pages_its_own_members_and_counts_them, test_a_row_outside_the_supported_range_belongs_to_no_longest_side_range, test_the_database_branch_of_the_longest_side_range_narrows_to_the_bucket
+    and 4 book-tab sort tests PASSED (this run)
+  - G-3 ✓ — tests/test_card_063_limits.py::test_the_puzzle_list_filter_renders_the_range PASSED (this run)
+  - G-4 ✓ — test_the_exact_size_parameter_still_works_for_the_api PASSED (this run)
+  - G-5 ✓ — test_an_inverted_range_on_the_page_is_a_filter_error PASSED (this run); mutant M1 (inverted check disabled) killed (2 failed)
+  - G-6 ✓ — tests/test_puzzles_list_pagination.py and tests/test_card_066_status_filter.py PASSED (this run, part of 168 passed)
+  scope_plus: 'tests/test_card_065_follow_ups.py not in fix delta; verdict carried(cycle 1, delta-clean): edit necessary for AC-5, keeps the cells-not-px intent; test_ac3_the_filters_are_labelled_in_cells[puzzles_list.html]
+    and test_ac3_the_rendered_puzzle_filter_says_cells PASSED (this run)'
+system_contract:
+  rules_checked: 54
+  holds: 9
+  unchecked: 45
+  violated: 0
+  verdicts:
+  - ADR-0006/R1 ✓ holds — tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed PASSED (this run); fix delta adds no import
+  - ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED (this run); delta touches no src/nonogram/web/ file
+  - ADR-0022/R1 ✓ holds — PuzzleFilter.size still a (width, height) pair; delta only renames a local in _side_bounds; test_the_exact_size_parameter_still_works_for_the_api PASSED (this run)
+  - 'ADR-0022/R2 ⚠ unchecked — no_eligible_fact: no generation/source-mode validation touched; re-verified fresh because the delta is _side_bounds itself, whose 10..30 bounds checks are unchanged (only
+    the parameter name moved)'
+  - 'ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image fitting code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/orchestrator code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry counter code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery policy code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver/strategies code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0031/R2 ⚠ unchecked — no_eligible_fact: no tier/strategy code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - ADR-0032/R1 ✓ holds — add_puzzle not in delta; tests/test_admin_uniqueness_boundary.py::TestStorageBoundary_AsksTheSolverNotTheCaller 2 tests PASSED (this run)
+  - ADR-0032/R2 ✓ holds — quality_min branch of filter_puzzles untouched by delta; tests/test_card_056_unmeasured_quality.py::TestUnmeasuredQuality_SurvivesTheFilter 4 tests PASSED (this run)
+  - ADR-0033/R1 ✓ holds — delta touches no book assembly code; tests/test_book_select_tabs.py PASSED (this run, incl. TestBookSelect_SizeRangeFilterReplacedByTab 3 tests)
+  - 'ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status gate code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no layout code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no book geometry code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book page rendering in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no PDF stroke code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0038/R1 ⚠ unchecked — no_eligible_fact: no player JS/CSS in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0038/R2 ⚠ unchecked — no_eligible_fact: no player code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0038/R3 ⚠ unchecked — no_eligible_fact: no player clue embedding in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0038/R4 ⚠ unchecked — no_eligible_fact: no player state module in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no player route in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject.toml not in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'CON-005 ⚠ unchecked — no_eligible_fact: no solver code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'CON-009 ⚠ unchecked — no_eligible_fact: no web server code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'CON-010 ⚠ unchecked — no_eligible_fact: no web server code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - CON-011 ✓ holds — _side_bounds still rejects bounds outside MIN_SIZE..MAX_SIZE; test_an_impossible_longest_side_range_is_reported_too[longest_side_range0..3] 4 PASSED and test_a_row_outside_the_supported_range_belongs_to_no_longest_side_range
+    PASSED (this run); mutants M1-M3 on renamed _side_bounds killed
+  - 'CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - CON-015 ✓ holds — no bind code in delta; tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault 7 tests PASSED (this run)
+  - CON-016 ✓ holds — door untouched; tests/test_admin_binding.py::TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit 9 tests PASSED (this run)
+  - 'CON-021 ⚠ unchecked — no_eligible_fact: no play surface in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-001 ⚠ unchecked — no_eligible_fact: no clue/grid write in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-002 ⚠ unchecked — no_eligible_fact: no export readiness code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-003 ⚠ unchecked — no_eligible_fact: no retry code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-005 ⚠ unchecked — no_eligible_fact: no book plan code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-006 ⚠ unchecked — no_eligible_fact: no book membership code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-007 ⚠ unchecked — no_eligible_fact: no ready-gate code in delta; re-verified fresh because longest_side_range lives in puzzle_review.py: tests/property/test_longest_side_buckets.py 2 tests PASSED
+    (this run)'
+  - 'INV-008 ⚠ unchecked — no_eligible_fact: no published-book code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-009 ⚠ unchecked — no_eligible_fact: no book order code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-010 ⚠ unchecked — no_eligible_fact: no book pairing code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-011 ⚠ unchecked — no_eligible_fact: no answer key code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-012 ⚠ unchecked — no_eligible_fact: no book membership code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+  - 'INV-013 ⚠ unchecked — no_eligible_fact: no book export code in diff — carried(cycle 1, delta-clean: rule scope lies outside src/nonogram/admin/puzzle_review.py)'
+design_static_8g:
+  token_discipline: 'pass — carried(cycle 1, delta-clean): template not in fix delta'
+  inventory_states: pass — carried(cycle 1, delta-clean)
+  anti_defaults: pass — carried(cycle 1, delta-clean)
+  a11y_statics: pass — carried(cycle 1, delta-clean); AC-5 test re-run PASSED
+  rendered: not verified by the gate (review.visual off)
+mutation:
+  ran: true
+  note: first pass of cycle 1 killed 9/9 (R1-R9); this pass added 3 mutants on the renamed _side_bounds
+  target: tests/test_admin_filter_side_range_and_name.py
+  restore: cp from scratchpad backup after each mutant (file carries uncommitted rename, so no git checkout); shasum 95a84bd8... identical before and after; git status unchanged
+  mutants:
+  - id: M1
+    change: if low > high -> if low > high + 100
+    result: killed (2 failed)
+  - id: M2
+    change: low, high = bounds -> high, low = bounds
+    result: killed (15 failed)
+  - id: M3
+    change: open low bound defaults to MAX_SIZE
+    result: killed (1 failed)
+  killed: 3
+  survived: 0
+root_causes: []
+findings:
+- id: F-002
+  severity: low
+  category: tech-debt
+  type: gap
+  file: tests/test_admin_filter_side_range_and_name.py
+  line: 182
+  title: AC-4 test does not assert it runs on the in-memory store
+  description: 'AC-4''s given is the in-memory panel. TestPuzzlesApi_SizeRangeUsesLongestSide uses the admin_app
+
+    fixture (line 32), which unsets DATABASE_URL but does not assert
+
+    puzzle_review_service._session_factory is None. The AC-1/2 tests do assert this through
+
+    _build_app. Today it passes for the right reason, because mutant R5 was killed.
+
+    '
+  suggestion: 'Build the AC-4 app with _build_app("memory", None, monkeypatch), or add the same store assertion.
+
+    '
+  confidence: medium
+  source: static
+  violates: null
+  root_cause: null
+  status: open
+  fixed_in: null
+  dismissed_reason: null
+  learned_pattern: null
+out_of_scope:
+- id: O-001
+  file: tests/test_admin_filter_side_range_and_name.py
+  title: test_the_page_reads_from_and_to_and_keeps_them_in_pagination does not discriminate
+  note: 20x30 in 25-30 passes under both semantics and its pagination check misses a dropped size_to (implementer's M12). AC-3 now covers that. Left unchanged under G-2/G-6. Follow-up card if wanted.
+- id: O-002
+  file: src/nonogram/admin/puzzle_review.py
+  title: Rows with a side outside 10..30 no longer match any review-page size range
+  note: This is intended by reusing longest_side_range (same verdict as book_plan.bucket_of). Under either-side, a legacy out-of-range row could still be found by its in-range side. Worth telling the owner.
+- id: O-003
+  file: meta/kanban/cards/CARD-190.md
+  title: Card [Done] note is stale after the rename
+  note: The worktree note still says _side_bounds' local parameter is named side_range. Update at close-out.

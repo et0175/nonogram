@@ -1,0 +1,212 @@
+version: 1
+generated_at: "2026-10-06T11:07:44Z"
+target: "card/190-review-filter-longest-side (ef30b40 + uncommitted _side_bounds parameter rename, puzzle_review.py sha1 95a84bd82abaef8b87d6712a397734ca53c9421f) vs main"
+card: CARD-190
+cycle: 3
+mode: "full (confirmation mode not used: CON-011 holds failed re-derivation in cycle 2)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+coverage:
+  read:
+    - "git diff main...HEAD -- src tests (5 files, +150/-69) and git diff -- src (uncommitted rename, +4/-4)"
+    - "src/nonogram/admin/puzzle_review.py 100-240, 775-800, 807-880, 980-1000"
+    - "src/nonogram/admin/app.py helper 1383-1388, puzzles_list 2171-2220, api_puzzles 5146-5150"
+    - "src/nonogram/admin/templates/puzzles_list.html 50-61"
+    - "tests/test_admin_filter_side_range_and_name.py (whole), tests/test_card_065_follow_ups.py diff"
+    - "meta/design/components.md FilterBar (37-42); CARD-190.md (worktree copy + main copy Worktree notes); cycle-2 report"
+    - "system_rules.py --card CARD-190 --verify-refs (54 rules, dead_check_ref [], check_refs_verified true)"
+    - "owner render ~/Documents/nonogram-reviews/CARD-190/after-10-15-sqlite.png (supporting evidence only)"
+  not_reached:
+    - "full suite (not re-run by instruction; orchestrator reported 6517 passed, 9 skipped, 1 unrelated port flake)"
+    - "rendered result not verified by the gate (review.visual off)"
+  confidence: high
+metrics:
+  diff: { files: 5, added: 154, removed: 73 }
+  max_fan_in: { symbol: "PuzzleReviewService._side_bounds", callers: 3 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/app.py (161 commits since repo start 2026-09-06, 84 matching 'fix')"
+    - "src/nonogram/admin/puzzle_review.py (31 commits)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — repo history starts 2026-09-06 (one month); co-change set not mined"
+commands_run:
+  - "pytest tests/test_admin_filter_side_range_and_name.py tests/test_card_065_follow_ups.py -vv -> 46 passed"
+  - "pytest tests/test_book_select_tabs.py -vv -> 42 passed (3 TestBookSelect_SizeRangeFilterReplacedByTab PASSED)"
+  - "pytest tests/property/test_longest_side_buckets.py -vv -> 2 passed"
+  - "pytest tests/test_card_063_limits.py::test_the_puzzle_list_filter_renders_the_range -> 1 passed"
+  - "pytest tests/test_puzzles_list_pagination.py -> 13 passed"
+  - "pytest tests/test_card_066_status_filter.py -> 12 passed"
+  - "pytest tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed tests/test_cli.py::test_every_import_in_the_package_points_inward tests/test_admin_uniqueness_boundary.py::TestStorageBoundary_AsksTheSolverNotTheCaller tests/test_card_056_unmeasured_quality.py::TestUnmeasuredQuality_SurvivesTheFilter tests/property/test_grid_dimensions.py::test_no_public_boundary_reduces_a_grid_to_one_scalar -vv -> 9 passed"
+  - "pytest tests/property/test_grid_dimensions.py -> 22 passed"
+  - "pytest tests/property/test_grid_dimensions.py::test_every_source_mode_rejects_every_side_outside_ten_to_thirty -vv -> 3 passed ([random], [library], [image])"
+  - "pytest tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault -> 7 passed"
+  - "pytest tests/test_admin_binding.py::TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit -> 9 passed"
+  - "pytest tests/test_admin_filter_side_range_and_name.py tests/test_book_select_tabs.py tests/property/test_longest_side_buckets.py tests/test_card_063_limits.py tests/test_puzzle_review.py -> 125 passed (baseline for mutants E1/E4)"
+  - "python scratchpad/c3/g5_probe.py (in-memory panel, asserts _session_factory is None)"
+previous_findings:
+  - id: F-002
+    status: still_present
+    note: "TestPuzzlesApi_SizeRangeUsesLongestSide still uses the admin_app fixture, which does not assert the in-memory store (test file lines 179-187, unchanged since cycle 2)"
+  - id: F-003
+    status: still_present
+    note: "E1 and E4 re-run this cycle: each leaves the five covering files at 125 passed"
+  - id: O-004
+    status: still_present
+    note: "puzzle_review.py:866-867 still says 'max(width, height), not \"either side\"'"
+task_contract:
+  source: "TASK CONTRACT block injected into the prompt (card objectives, AC-1..AC-6, G-1..G-6)"
+  acceptance_criteria:
+    - "AC-1 ✓ — TestPuzzleReview_SizeFilterUsesLongestSide::test_ten_to_fifteen_lists_only_the_15x12[memory] PASSED and ::test_twenty_one_to_twenty_five_lists_only_the_25x15[memory] PASSED (run 1)"
+    - "AC-2 ✓ — the same two tests [sqlite] PASSED (run 1); _build_app asserts _session_factory is not None for sqlite"
+    - "AC-3 ✓ — TestPuzzleReview_SizeFilterPagesItsOwnMembers::test_the_total_counts_members_and_the_links_keep_the_range[memory] PASSED and [sqlite] PASSED (run 1)"
+    - "AC-4 ✓ — TestPuzzlesApi_SizeRangeUsesLongestSide::test_the_api_lists_only_the_15x12 PASSED (run 1); store not asserted (F-002)"
+    - "AC-5 ✓ — TestPuzzleReview_SizeFilterLabelSaysLongestSide::test_the_field_is_labelled_longest_side PASSED (run 1)"
+    - "AC-6 ✓ — grep -rn side_range src/ | grep -v longest_side_range prints nothing; test_the_filter_has_no_either_side_field_any_more PASSED (run 1)"
+  guardrails:
+    - "G-1 ✓ — tests/test_book_select_tabs.py 42 passed incl. 3 TestBookSelect_SizeRangeFilterReplacedByTab PASSED; tests/property/test_longest_side_buckets.py 2 passed; git diff --stat main...HEAD and git diff --stat on both files empty; longest_side_range store branches not in the diff hunks"
+    - "G-2 ✓ — test_the_longest_side_range_pages_its_own_members_and_counts_them, test_a_row_outside_the_supported_range_belongs_to_no_longest_side_range, test_the_database_branch_of_the_longest_side_range_narrows_to_the_bucket, test_the_book_tab_sort_orders_by_tier_rank_then_shorter_side, test_an_ungraded_row_sorts_after_every_graded_one, test_limit_slices_the_book_tab_order_rather_than_some_other_one, test_both_backends_spell_the_same_book_tab_order all PASSED (run 1); their bodies are not in the diff"
+    - "G-3 ✓ — tests/test_card_063_limits.py::test_the_puzzle_list_filter_renders_the_range 1 passed; file not in the diff; template diff keeps ids, names, min/max, placeholder"
+    - "G-4 ✓ — test_the_exact_size_parameter_still_works_for_the_api PASSED (run 1); size branch of filter_puzzles not in the diff"
+    - "G-5 ✓ — test_an_inverted_range_on_the_page_is_a_filter_error PASSED (run 1); g5_probe.py: 25/15, 10/31, to=31, 9/20, from=9, from=31, to=9 each give page 'Filter error' + API 400; 10/30, 30/30, 10/10 give no error + API 200. Out-of-range edge has no pinning test (F-003)"
+    - "G-6 ✓ — tests/test_puzzles_list_pagination.py 13 passed, tests/test_card_066_status_filter.py 12 passed; both files not in the diff"
+  scope_plus: "tests/test_card_065_follow_ups.py — necessary: AC-5's label 'Longest side (cells)' does not contain the old literal 'Size (cells)'. Intent kept: the unit is still pinned. Template mutant 'Longest side (px)' gives 2 failed, 16 passed in that file (test_ac3_the_filters_are_labelled_in_cells[puzzles_list.html], test_ac3_the_rendered_puzzle_filter_says_cells); 'Size (px)' not in source is still asserted."
+system_contract:
+  rules_checked: 54
+  holds: 9
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed PASSED (this run, 9-test hold command); pyproject.toml not in the diff; new imports are test-only (dataclasses, nonogram.admin.book_manager)"
+    - "ADR-0019/R1 ✓ holds — tests/test_cli.py::test_every_import_in_the_package_points_inward PASSED (this run, 9-test hold command); no src/nonogram/web/ file in the diff"
+    - "ADR-0022/R1 ✓ holds — PuzzleFilter.size stays a (width, height) pair (puzzle_review.py:105); tests/property/test_grid_dimensions.py::test_no_public_boundary_reduces_a_grid_to_one_scalar PASSED (9-test hold command) and tests/test_admin_filter_side_range_and_name.py::test_the_exact_size_parameter_still_works_for_the_api PASSED (run 1)"
+    - "ADR-0022/R2 ⚠ unchecked — no_eligible_fact: no generation or source-mode validation in the diff; the admin filter bounds are covered under CON-011"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code in the diff"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing in the diff"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair or orchestrator code in the diff"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry-counter code in the diff"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair code in the diff"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no recovery-policy code in the diff"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation in the diff"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density verdict in the diff"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no solver or strategies code in the diff"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty scoring in the diff"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no solver overlap code in the diff"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung attribution in the diff"
+    - "ADR-0031/R2 ⚠ unchecked — no_eligible_fact: no tier or strategy code in the diff"
+    - "ADR-0032/R1 ✓ holds — add_puzzle not in the diff; tests/test_admin_uniqueness_boundary.py::TestStorageBoundary_AsksTheSolverNotTheCaller 2 tests PASSED (this run, 9-test hold command)"
+    - "ADR-0032/R2 ✓ holds — quality_min branch of filter_puzzles not in the diff; tests/test_card_056_unmeasured_quality.py::TestUnmeasuredQuality_SurvivesTheFilter 4 tests PASSED (this run, 9-test hold command)"
+    - "ADR-0033/R1 ✓ holds — the diff writes no puzzle field and touches no book-assembly code; tests/test_book_select_tabs.py 42 passed (this run)"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book status gate in the diff"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: no layout code in the diff"
+    - "ADR-0036/R2 ⚠ unchecked — no_eligible_fact: no book geometry code in the diff"
+    - "ADR-0037/R1 ⚠ unchecked — no_eligible_fact: no book page rendering in the diff"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: no PDF stroke code in the diff"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: no player JS/CSS in the diff"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: no player code in the diff"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: no player clue embedding in the diff"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: no player state module in the diff"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no player route in the diff"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: pyproject.toml not in the diff"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser tests in the diff"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in the diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-UI server code in the diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web-UI server code in the diff"
+    - "CON-011 ✓ holds — bounded to the diff: the 10..30 check in _side_bounds (puzzle_review.py:793-794) is not changed by the diff (only the parameter name changes); the rule's own check, tests/property/test_grid_dimensions.py::test_every_source_mode_rejects_every_side_outside_ten_to_thirty, 3 passed ([random], [library], [image]), and the whole file 22 passed (this run); scratchpad/c3/g5_probe.py gives page 'Filter error' + API 400 for 10/31, to=31, 9/20, from=9, from=31, to=9, and accepts 10/30. Limit: no test pins the edge; mutants E1 (high <= MAX_SIZE + 1) and E4 (MIN_SIZE - 1 <= low) each leave tests/test_admin_filter_side_range_and_name.py, tests/test_book_select_tabs.py, tests/property/test_longest_side_buckets.py, tests/test_card_063_limits.py, tests/test_puzzle_review.py at 125 passed (F-003)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect guard in the diff"
+    - "CON-015 ✓ holds — no bind code in the diff; tests/test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault 7 passed (this run)"
+    - "CON-016 ✓ holds — door code not in the diff; tests/test_admin_binding.py::TestAdminPanel_RefusesEveryRequestTheDoorInForceDoesNotAdmit 9 passed (this run)"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no play surface in the diff"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: no clue or grid write in the diff"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export readiness code in the diff"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry code in the diff"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no book plan code in the diff"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no book membership code in the diff"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no ready-gate code in the diff; the shared longest_side_range branches are not in the diff hunks"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book code in the diff"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book order code in the diff"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no book pairing code in the diff"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: no answer key code in the diff"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no book membership code in the diff"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: no book export code in the diff"
+design_static_8g:
+  token_discipline: "pass — template diff changes label and aria-label text only; no hex/px/font literal added"
+  inventory_states: "pass — FilterBar (components.md:37-42) structure unchanged; error state 'Filter error' still reached (g5_probe); no new component, no DESIGN-REGISTER line needed"
+  anti_defaults: "pass — no placeholder voice or emoji added"
+  a11y_statics: "pass — visible <label for=size_from> kept; both inputs carry specific aria-labels (AC-5 test PASSED)"
+  rendered: "not verified by the gate (review.visual off); owner render after-10-15-sqlite.png read as supporting evidence: 'Longest side (cells)' fits the field, list shows only small-15x12.png, '(1 total)'"
+mutation:
+  ran: true
+  note: "Only what this cycle's verdicts cite: E1/E4 (CON-011 limit, F-003) and T1 (SCOPE+ judgment). Cycle 1 killed 9/9 + 3/3; not re-run."
+  restore: "shutil.copy2 from scratchpad/c3 backups after each mutant (no git checkout); puzzle_review.py sha1 95a84bd8... identical before and after; template sha1 identical; git status unchanged"
+  mutants:
+    - { id: E1, change: "MIN_SIZE <= high <= MAX_SIZE -> <= MAX_SIZE + 1", result: "survived (125 passed)" }
+    - { id: E4, change: "MIN_SIZE <= low -> MIN_SIZE - 1 <= low", result: "survived (125 passed)" }
+    - { id: T1, change: "template label -> 'Longest side (px)'", result: "killed (tests/test_card_065_follow_ups.py 2 failed, 16 passed)" }
+root_causes: []
+findings:
+  - id: F-003
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_admin_filter_side_range_and_name.py
+    line: 291
+    title: "No test pins _side_bounds' 10..30 edge; the 'out-of-range' cases are really inverted cases"
+    description: |
+      Still present from cycle 2. (MAX_SIZE + 1, None) and (None, MIN_SIZE - 1) become inverted pairs,
+      so the inverted check rejects them first. Only (5, 5) needs the range check. Mutants E1 and E4
+      each leave the five covering files at 125 passed. The behaviour is correct today (g5_probe).
+      The gap was already on main and the diff does not change _side_bounds, so this is Minor.
+    suggestion: |
+      Add (MIN_SIZE - 1, None), (None, MAX_SIZE + 1), (MIN_SIZE - 1, MAX_SIZE), (MIN_SIZE, MAX_SIZE + 1)
+      to the parametrize, plus one page + API case for size_from=10&size_to=31.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_admin_filter_side_range_and_name.py
+    line: 182
+    title: "AC-4 test does not assert it runs on the in-memory store"
+    description: |
+      Still present. The admin_app fixture unsets DATABASE_URL but does not assert
+      puzzle_review_service._session_factory is None. The AC-1/2 tests do assert it through _build_app.
+    suggestion: |
+      Build the app with _build_app("memory", None, monkeypatch) in the AC-4 test.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+out_of_scope:
+  - id: O-001
+    file: tests/test_admin_filter_side_range_and_name.py
+    title: "test_the_page_reads_from_and_to_and_keeps_them_in_pagination does not discriminate"
+    note: "Carried. AC-3 covers the pagination link. Left unchanged under G-2/G-6."
+  - id: O-002
+    file: src/nonogram/admin/puzzle_review.py
+    title: "Rows with a side outside 10..30 no longer match any review-page size range"
+    note: "Intended by reusing longest_side_range. Tell the owner."
+  - id: O-004
+    file: src/nonogram/admin/puzzle_review.py
+    title: "Memory-branch comment still contrasts with 'either side' (lines 866-867)"
+    note: "Harmless. Tidy at close-out if wanted."
+  - id: O-005
+    file: meta/architecture/requirements.yml
+    title: "Untraced scope: the review page's size-filter semantics have no FR/AC in the model"
+    note: "Card is FR: none (owner request). Consider adding an AC under the review-page FR so the longest-side meaning is traced."

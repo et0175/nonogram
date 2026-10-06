@@ -1,6 +1,6 @@
 # CARD-190: Puzzle review's size filter goes by the longest side, like book selection
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** 35
 **Depends on:** —
 **Touches:** src/nonogram/admin/app.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/templates/puzzles_list.html, tests/test_admin_filter_side_range_and_name.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 3/3)
+**Started:** 2026-10-06T09:58:45Z
+**Closed:** 2026-10-06T11:28:16Z
+**Actual:** 0.2d
+**Merge commit:** 22ce971
 **Blocked by:** —
 
 ## What to implement
@@ -183,3 +183,72 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-190` (54 rules). A project
 - [Scope] `/api/puzzles` follows the page because both share the helper; AC-4 pins that. If the owner wants the API kept on either-side, AC-4 and item 2 (removing `side_range`) change — see the open question in the hand-back.
 - [AC cross-check] ACs re-read against the body: AC-1/2 = items 1-2 (both stores); AC-3 = the pagination link from template line 7; AC-4 = item 1's API half; AC-5 = item 3's wording; AC-6 = item 2. No disagreement found; nothing changed.
 - [Owner decision] 2026-10-06 — /api/puzzles switches to longest side too (AC-4 stands; side_range removed); label "Longest side (cells)" confirmed.
+- [Env] forge 2026.8.17
+- [Owner default] /api/puzzles switches to longest side; label "Longest side (cells)" — implemented as drafted (owner decision 2026-10-06)
+- [System contract] fresh lens (system_rules.py --card CARD-190) = card section, 54 rules — no refresh needed
+- [Done] `/puzzles` and `/api/puzzles` feed `size_from`/`size_to` into `PuzzleFilter.longest_side_range` through the renamed `app.py:_longest_side_range_from_args`. URL params unchanged. `PuzzleFilter.side_range` is removed: the field, its comment, the `to_dict`/`from_dict` keys, the validation call and both store branches. The `longest_side_range` comment no longer contrasts with `side_range`. `_side_bounds` is untouched; its local parameter is still *named* `side_range`, which is the only non-`longest_side_range` hit for `grep side_range src/` (the card said to leave `_side_bounds` as is).
+- [Done] Template label is now "Longest side (cells)" and the aria-labels are "Longest side from"/"Longest side to". Ids, names, min/max and placeholder are unchanged. Updated the `puzzles_list` comment and the test module docstring.
+- [Done] tests/test_admin_filter_side_range_and_name.py: deleted `test_a_range_matches_when_either_side_falls_inside`. Removed the `side_range` half of `test_a_longest_side_range_asks_about_max_width_height_not_either_side`. Ported `test_an_open_bound_means_the_supported_limit` to `longest_side_range`. Folded `(5, 5)` into `test_an_impossible_longest_side_range_is_reported_too` and deleted `test_an_impossible_range_is_reported_not_swallowed`. Added TestPuzzleReview_SizeFilterUsesLongestSide (AC-1/AC-2, parametrised memory/sqlite through a local copy of CARD-160's `_build_app`, which asserts the store is the one named), TestPuzzleReview_SizeFilterPagesItsOwnMembers (AC-3, both stores), TestPuzzlesApi_SizeRangeUsesLongestSide (AC-4), TestPuzzleReview_SizeFilterLabelSaysLongestSide (AC-5) and `test_the_filter_has_no_either_side_field_any_more` (AC-6: no such dataclass field, and `PuzzleFilter(side_range=...)` raises TypeError).
+- [Finding] AC-3's literal `size_from=10&amp;size_to=15` comes from the row actions' escaped `return_to` hidden input (`_puzzle_table.html`), not from the pagination links. The `preserve_filters` macro writes a raw `&` (`size_from=10&size_to=15`), so mutant M12 (pagination link drops size_to) survived the literal check alone. The AC-3 test now asserts both: the `&amp;` literal (return_to) and that every `page-link` href holds `size_from=10&size_to=15&`. The older `test_the_page_reads_from_and_to_and_keeps_them_in_pagination` has the same blind spot. I left it unchanged per G-2/G-6.
+- SCOPE+ tests/test_card_065_follow_ups.py: `test_ac3_the_filters_are_labelled_in_cells[puzzles_list.html]` and `test_ac3_the_rendered_puzzle_filter_says_cells` asserted the literal "Size (cells)", which AC-5's mandated label cannot contain. I retargeted both asserts to "Longest side (cells)", which still pins the unit as cells, and added a one-line comment. No guardrail names these tests, and the card's [Facts] missed them.
+- [Mutants] (run by scratchpad card190_mutants.py against the test file; every one killed)
+- [Mutants] M1 memory longest branch back to either-side (`any(...)`): killed by TestPuzzleReview_SizeFilterUsesLongestSide::test_ten_to_fifteen…[memory], TestPuzzleReview_SizeFilterPagesItsOwnMembers[memory] and TestPuzzlesApi_SizeRangeUsesLongestSide
+- [Mutants] M2 DB longest branch back to `or_(width.between, height.between)`: killed by TestPuzzleReview_SizeFilterUsesLongestSide::test_ten_to_fifteen…[sqlite] and TestPuzzleReview_SizeFilterPagesItsOwnMembers[sqlite]
+- [Mutants] M3 memory `max(sides)` -> `min(sides)`: killed by both TestPuzzleReview_SizeFilterUsesLongestSide tests[memory] (incl. 21–25) and TestPuzzlesApi_SizeRangeUsesLongestSide
+- [Mutants] M4 DB CASE picks the shorter side: killed by both TestPuzzleReview_SizeFilterUsesLongestSide tests[sqlite] and TestPuzzleReview_SizeFilterPagesItsOwnMembers[sqlite]
+- [Mutants] M5 `puzzles_list` passes `longest_side_range=None`: killed by TestPuzzleReview_SizeFilterUsesLongestSide and TestPuzzleReview_SizeFilterPagesItsOwnMembers (both stores)
+- [Mutants] M6 `api_puzzles` passes `longest_side_range=None`: killed by TestPuzzlesApi_SizeRangeUsesLongestSide
+- [Mutants] M7 helper ignores `size_to`: killed by TestPuzzleReview_SizeFilterUsesLongestSide::test_ten_to_fifteen…, TestPuzzleReview_SizeFilterPagesItsOwnMembers and TestPuzzlesApi_SizeRangeUsesLongestSide
+- [Mutants] M8 label reverted to "Size (cells), either side": killed by TestPuzzleReview_SizeFilterLabelSaysLongestSide. M9 label "Side (cells)": same. M10/M11 aria-label from/to reverted: same.
+- [Mutants] M12 pagination macro drops `size_to`: killed by TestPuzzleReview_SizeFilterPagesItsOwnMembers (both stores). It survived before the href assertion was added; see [Finding].
+- [Mutants] M14 `return_to` hidden input removed: killed by TestPuzzleReview_SizeFilterPagesItsOwnMembers
+- [Mutants] M13 `side_range` field re-added to PuzzleFilter: killed by test_the_filter_has_no_either_side_field_any_more
+- [Renders] ~/Documents/nonogram-reviews/CARD-190/ (.html + .png each), rendered from a live loopback server: {before,after}-nofilter-{memory,sqlite}, {before,after}-21-25-{memory,sqlite}, {before,after}-10-15-{memory,sqlite}. The corpus is a 25×15 and a 15×12. "before" is main's code (git archive of main). Before: 10–15 lists 2 and 21–25 lists 1. After: 10–15 lists only the 15×12 and 21–25 lists only the 25×15, in both stores. Label: "Size (cells), either side" became "Longest side (cells)", which fits the col-md-2 field at 1400px.
+- [Tests] Targeted runs, 358 passed: test_admin_filter_side_range_and_name, test_book_select_tabs, property/test_longest_side_buckets, test_card_063_limits, test_puzzles_list_pagination, test_card_066_status_filter, test_cli, test_card_065_follow_ups, test_puzzle_review, test_admin_review_actions, test_admin_rename_strategies_batches, test_strategies, test_admin_tier_surfaces. test_admin_design_tokens also passes (6).
+- [Scope] src/nonogram/admin/app.py, src/nonogram/admin/puzzle_review.py, src/nonogram/admin/templates/puzzles_list.html, tests/test_admin_filter_side_range_and_name.py, tests/test_card_065_follow_ups.py
+- [Build gate] impact underivable (test_scope: full) — full suite
+- [Scope gate] in_scope — 1 of 5 files outside Touches (tests/test_card_065_follow_ups.py, SCOPE+ recorded: label assertions AC-5 forces); comp_spread none (COMP-009 only); no sibling poached; no structural guardrails
+- [Build gate] PASSED (full, 772s) — 6518 passed, 9 skipped
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0
+- [Review sync] 1 report(s) → meta/review/
+- [Review 1/3] Step 8h coverage: 54/54 card rules have a verdict line (9 ✓, 45 ⚠ no_eligible_fact, 0 ✗); count line present
+- [Review 1/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Review 1/3] mutation check: 9/9 killed (R1-R9, reviewer-run)
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0022/R1) — one fresh skeptic agent covering all three
+- [AC/EC check] Failed: AC-6 ⚠ partial — TypeError half holds (test_the_filter_has_no_either_side_field_any_more PASSED), but the AC's literal check fails: grep -rn side_range src/ | grep -v longest_side_range still hits puzzle_review.py:780,788-790 (the local parameter name of _side_bounds(side_range)). AC-1..AC-5 ✓, G-1..G-6 ✓ (88 named tests passed)
+- [Fix 1] AC-6: _side_bounds' local parameter renamed side_range → bounds (pure rename; message text unchanged). FIXED AC-6 — test: n/a (review-lens grep now empty). [Fix 1] declarations: 0 updated, 0 confirmed, 1 none
+- [Build gate] PASSED (full, 786s; 6517 passed, 9 skipped, 1 flake) — test_admin_binding.py::TestAdminPanel_BindsLoopbackOnlyByDefault::test_the_port_stays_free_on_every_other_interface failed once (port 61651 taken on 192.168.0.109 by another process during the run — concurrent pipelines); file untouched by the card, fix delta is a parameter rename; re-run in isolation 3/3 green (33 passed each); passed in the gate-0 full run
+- [Review 1/3] (re-entry after AC/EC fix, confirmation mode) Score: 9.7 — crit: 0, imp: 0; Step 8h coverage 54/54 (9 ✓, 45 ⚠, 0 ✗; 43 carried delta-clean); mutation +3/3 killed on renamed _side_bounds
+- [Review sync] 2 report(s) → meta/review/
+- [Review 1/3] Score: 9.7 ✓ threshold reached + no critical/important
+- [Note] O-003: the worktree [Done] note saying _side_bounds' parameter is still named side_range is superseded by [Fix 1] (renamed to bounds)
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-1 ✓ demonstrated — TestPuzzleReview_SizeFilterUsesLongestSide::test_ten_to_fifteen_lists_only_the_15x12[memory] + ::test_twenty_one_to_twenty_five_lists_only_the_25x15[memory] PASSED
+  AC-2 ✓ demonstrated — same two tests [sqlite] PASSED; _build_app asserts the DB store
+  AC-3 ✓ demonstrated — TestPuzzleReview_SizeFilterPagesItsOwnMembers::test_the_total_counts_members_and_the_links_keep_the_range[memory]/[sqlite] PASSED
+  AC-4 ✓ demonstrated — TestPuzzlesApi_SizeRangeUsesLongestSide::test_the_api_lists_only_the_15x12 PASSED
+  AC-5 ✓ demonstrated — TestPuzzleReview_SizeFilterLabelSaysLongestSide::test_the_field_is_labelled_longest_side PASSED
+  AC-6 ✓ demonstrated — grep -rn side_range src/ | grep -v longest_side_range empty; PuzzleFilter(side_range=...) raises TypeError; test_the_filter_has_no_either_side_field_any_more PASSED
+  G-1 ✓ demonstrated — test_book_select_tabs.py 42 passed (incl. TestBookSelect_SizeRangeFilterReplacedByTab 3), property/test_longest_side_buckets.py 2 passed, both files unchanged
+  G-2 ✓ demonstrated — the 3 named longest-side tests + 4 book-tab sort tests PASSED, bodies unchanged
+  G-3 ✓ demonstrated — test_card_063_limits.py::test_the_puzzle_list_filter_renders_the_range PASSED, file unchanged
+  G-4 ✓ demonstrated — test_the_exact_size_parameter_still_works_for_the_api PASSED, unchanged
+  G-5 ✓ demonstrated — test_an_inverted_range_on_the_page_is_a_filter_error PASSED; API 400 + page 'Filter error' checked directly for 25/15, from=31, to=9
+  G-6 ✓ demonstrated — test_puzzles_list_pagination.py 13 passed, test_card_066_status_filter.py 12 passed, both unchanged
+- [8h spot-check] 3/4 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0022/R1)
+- [8h spot-check] ✗ CON-011 not reproduced — the cited tests pass and _side_bounds enforces 10..30 today, but an edge mutant survives: changing the high-bound check to MAX_SIZE + 1 survives test_admin_filter_side_range_and_name.py, test_book_select_tabs.py and property/test_longest_side_buckets.py (no test pins high <= MAX_SIZE exactly, e.g. (None, 31) / (10, 31)); open-high → MAX_SIZE+50 survives the cited tests (killed only by uncited test_an_open_bound_means_the_supported_limit). The verdict's 'M1-M3 killed' are reviewer-local mutants that did not bound the high edge. → cycle 2
+- [Review 2/3] Score: 9.5 — crit: 0, imp: 0 (full review; F-003 Minor: no test pins _side_bounds' 10..30 edge — E1/E4 edge mutants survive, pre-existing on main, behaviour correct by probe; F-002 Minor carried)
+- [Review sync] 3 report(s) → meta/review/
+- [Review 2/3] Step 8h coverage 54/54 (9 ✓ incl. CON-011 ✓ bounded with the edge gap stated, 45 ⚠, 0 ✗)
+- [Review 2/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [Docs] forge:readme: no README in src/nonogram/admin/ or templates/ (per-directory README convention is an open owner decision in the backlog); tests/README.md and docs/ hold no reference to side_range / 'either side' / 'Size (cells)' — nothing to update
+- [8h spot-check] 3/4 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0022/R1 — caveat: verdict line's second test lives in test_admin_filter_side_range_and_name.py, not test_grid_dimensions.py)
+- [8h spot-check] ✗ CON-011 not reproduced — the stated limit (edge not pinned; E1/E4 survive, E2/E3 equivalent), the cited line and the g5 probe all re-derive, but the cited 'tests/property/test_grid_dimensions.py 46 PASSED (this run)' does not: that file collects 22 tests (22 passed). → cycle 3
+- [Review 3/3] Score: 9.5 — crit: 0, imp: 0 (full review; every count tied to a named command; F-002/F-003 Minor still open; O-004/O-005 out of scope)
+- [Review sync] 4 report(s) → meta/review/
+- [Review 3/3] Step 8h coverage 54/54 (9 ✓, 45 ⚠, 0 ✗); the cycle-2 '46' traced to a two-file run misattributed to test_grid_dimensions.py
+- [Review 3/3] Score: 9.5 ✓ threshold reached + no critical/important
+- [8h spot-check] 4/4 sampled holds reproduced (ADR-0006/R1, ADR-0019/R1, ADR-0022/R1, CON-011 — CON-011 included beyond the cap as the twice-contested rule)
+- [AC/EC check] cycle-3 success path: tree identical to the one the second AC/EC check verified (puzzle_review.py sha1 95a84bd8…, no other change) — that evidence (AC-1..AC-6, G-1..G-6 ✓ demonstrated) stands for this tree
+- [Commit] success commit 1eaefac on card/190-review-filter-longest-side (implementation ef30b40 + AC-6 rename 1eaefac); diff vs main: 5 files, +154 −73
+- [Merge gate] rebased onto 527e9c3; full suite 6518 passed, 9 skipped, exit 0 (822s, under the lock). Owner: "merge now, check later" (renders in ~/Documents/nonogram-reviews/CARD-190/). Merged 22ce971.
