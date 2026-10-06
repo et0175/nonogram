@@ -777,7 +777,7 @@ class PuzzleReviewService:
         return query
 
     @staticmethod
-    def _side_bounds(side_range) -> Tuple[int, int]:
+    def _side_bounds(bounds) -> Tuple[int, int]:
         """The ``(low, high)`` a side range means, validated.
 
         An absent bound is the supported limit on that end, so "from 25" and
@@ -785,9 +785,9 @@ class PuzzleReviewService:
         raise, the way the exact-extent filter does — a range that can match
         nothing is a mistake to report, not an empty page to puzzle over.
         """
-        if not isinstance(side_range, (tuple, list)) or len(side_range) != 2:
-            raise ValueError(f"Side range must be a (from, to) pair, got {side_range!r}")
-        low, high = side_range
+        if not isinstance(bounds, (tuple, list)) or len(bounds) != 2:
+            raise ValueError(f"Side range must be a (from, to) pair, got {bounds!r}")
+        low, high = bounds
         low = MIN_SIZE if low is None else low
         high = MAX_SIZE if high is None else high
         if not (MIN_SIZE <= low <= MAX_SIZE and MIN_SIZE <= high <= MAX_SIZE):
