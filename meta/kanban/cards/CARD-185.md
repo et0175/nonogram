@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 35
 **Depends on:** CARD-183, CARD-186
-**Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_progress.py
+**Touches:** src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/solver.js, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_progress.py, tests/test_puzzle_solver_maybe.py
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -193,7 +193,7 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-185` (52 rules). A project
 - ADR-0038/R4 — The player's state logic (board, strokes, undo/redo history, error count, solved predicate) lives in a pure module with no DOM access, separate from rendering. (check: review-lens)
 - ADR-0038/R6 — Only the admin panel's player, behind the CON-015 / CON-016 door, may ship a puzzle's solution grid to the browser. A public or reader-facing player must not send the… (check: review-lens)
 - ADR-0038/R7 — Browser tests use pytest-playwright with Chromium, declared only in a dev-only extra in pyproject.toml. It is never added to project.dependencies or to the admin extra. (check: review-lens)
-- ADR-0038/R8 — When Chromium is not installed, browser tests fail or skip loudly, with a named skip reason visible in the run summary. They never pass silently. CI installs Chromium… (check: review-lens)
+- ADR-0038/R8 — Browser tests run locally, against Chromium installed by `playwright install chromium`. When Chromium is not installed, browser tests fail or skip loudly, with a named… (check: review-lens)
 - CON-005 — The uniqueness check must never produce a false positive: a puzzle accepted as unique must never actually have 0 or more than 1 solutions. This is the mandatory correc… (check: test: PropertyTest_Solver_NeverFalsePositiveUniqueness)
 - CON-009 — The web UI's HTTP server binds its listening socket to 127.0.0.1 (loopback) only, and refuses connections arriving on any other interface. Restates NFR-003/AC-052 as a… (check: test: TestWebServer_BindsLoopbackOnlyByDefault)
 - CON-010 — The web UI's HTTP server refuses any request the browser itself marks as cross-site (a Sec-Fetch-Site value other than same-origin/none, or an Origin header naming a n… (check: test: PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest)
@@ -216,6 +216,8 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-185` (52 rules). A project
 - INV-013 — The book's interior PDF holds no cover page and starts at the guide page as a right-hand page 1; each page's parity is its 1-based position in the interior, and the bo… (check: test: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage, TestBookExport_EveryRouteSeparatesInteriorAndCover, TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1, TestBookExport_InteriorHoldsNoCoverPage, TestBookExport_InteriorStartsAtGuidePage, TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover)
 
 ## Architecture context
+
+- **Formalized 2026-10-06:** FR-044 AC-360..AC-365, EC-046, EC-047; CON-021 amended 2026-10-06 (this-browser localStorage admitted)
 
 - **FR-044** (puzzle player, AC-296..AC-323, EC-035..EC-037). Its statement ends "no play state is persisted", and its comment says every mark "is gone when the page closes" (requirements.yml ~lines 3681–3714). This card contradicts both on the browser side. Card-local ACs only; an architect delta is needed (see Worktree notes).
 - **CON-021** says play state is never "written to a database, file or server". Browser `localStorage` is none of the three, but CON-021's intent ("Play state is never persisted") needs the delta to say so explicitly. **CON-017** (no persistence on the server side) is unchanged.
@@ -241,3 +243,4 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-185` (52 rules). A project
 - [Facts] Write after the player's `commit` in `start()`, not in `show()`: drag previews must not write. The confirmed reset is the handler at `solver.js` ~line 411; it must leave the key absent after its `commit`.
 - [Conflict] CARD-183 and CARD-186 both edit `solver_state.js` and `solver.js`, and the other "Solver - test" cards (items 2–5) may too. Rebase after them. Keep this card's changes to the four pure functions, the start-up read, the write after commit, and the reset removal.
 - [AC cross-check] All ACs re-read against "What to implement". Reset removal (AC-5) matches default (a); the invalidation list in AC-2/AC-6 matches item 1's `null` cases; AC-8's "changes after each recorded change" matches "write after every recorded change", with drag previews excluded in the body and not tested as writes. No edits were needed.
+- [Architect 2026-10-06] CON-021 is amended: this-browser localStorage per puzzle is admitted (nothing on the server, no request per mark). FR-044 AC-360..AC-365 / EC-046..EC-047 formalize this card. NOTE: CARD-186's AC-15 test (TestSolverMaybe_NoRequestPerMark) asserts local/session storage stays empty — this card must narrow it to "nothing but this puzzle's one save" (added to Touches).
