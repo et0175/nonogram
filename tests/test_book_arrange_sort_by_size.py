@@ -22,6 +22,9 @@
           (PropertyTest_ArrangeSortBySize_GroupedStableAndIdempotent)
     AC-9  the page carries one confirmed "Sort by size" form; an empty book
           does not (TestArrangeSortBySize_ButtonIsOnThePage)
+    G-4   membership, custom titles and the stored plan are unchanged by a
+          sort, in both storage modes
+          (TestArrangeSortBySize_LeavesTitlesAndPlanAlone)
 
 The shelf, the panel and the readable-text helpers are
 ``tests/test_book_level_order.py``'s, imported rather than copied. Every
@@ -38,6 +41,7 @@ import uuid
 
 import pytest
 
+from nonogram.admin.book_manager import BookManager
 from nonogram.admin.book_plan import (
     BUCKETS,
     TIERS,
@@ -252,6 +256,50 @@ class TestArrangeSortBySize_EqualSizesKeepTheirCurrentOrder:
 
 
 # --------------------------------------------------------------------------
+# G-4 (EC-026)
+# --------------------------------------------------------------------------
+
+
+class TestArrangeSortBySize_LeavesTitlesAndPlanAlone:
+    def test_membership_custom_titles_and_the_plan_survive_a_sort(self, shelf) -> None:
+        """G-4: a sort rewrites the order and nothing else of the book's content.
+
+        Catches a sort that clears or rewrites the book's custom titles, or
+        that stores a different plan (e.g. the default) — both seen failing in
+        both modes by transient mutants in ``sort_puzzles_by_size``.
+        """
+        book_id, (e25, e15, m20, m10) = book_of(
+            shelf,
+            (25, 25, "easy"),
+            (15, 15, "easy"),
+            (20, 20, "medium"),
+            (10, 10, "medium"),
+        )
+        # A plan of the owner's own, unlike the default every new book starts on.
+        plan = DistributionPlan(
+            count=40,
+            split=Split(50, 30, 20),
+            cells=((4, 2, 0), (8, 4, 2), (6, 4, 4), (2, 2, 2)),
+        )
+        assert shelf.books.save_plan(book_id, plan) is True
+        assert shelf.books.set_puzzle_title(book_id, e25, "The big star") is True
+        assert shelf.books.set_puzzle_title(book_id, m10, "Little bell") is True
+        before = shelf.books.get_book(book_id)
+        members_before = set(before.puzzle_ids)
+        titles_before = dict(before.puzzle_titles)
+        assert titles_before == {e25: "The big star", m10: "Little bell"}
+        assert shelf.books.get_plan(book_id) == plan
+
+        assert shelf.books.sort_puzzles_by_size(book_id) is True
+
+        after = shelf.books.get_book(book_id)
+        assert list(after.puzzle_ids) == [e15, e25, m10, m20]  # the order did change
+        assert set(after.puzzle_ids) == members_before
+        assert dict(after.puzzle_titles) == titles_before
+        assert shelf.books.get_plan(book_id) == plan
+
+
+# --------------------------------------------------------------------------
 # AC-3
 # --------------------------------------------------------------------------
 
@@ -429,6 +477,26 @@ class TestArrangeSortBySize_GroupsALegacyOrderAndPutsUnsizedLast:
 
         assert shelf.ids_of(book_id) == [e10, e25, e_blank]
 
+    def test_a_manager_with_no_puzzle_store_sorts_nothing_and_does_not_raise(
+        self,
+    ) -> None:
+        """No store: every id is ungraded and unsized, so the order stands.
+
+        Kills the mutant that drops ``_size_of``'s no-store guard (it raises
+        AttributeError here).
+        """
+        books = BookManager(session_factory=None)
+        assert books.puzzle_store is None
+        book_id = books.create_book(
+            title="No store", description="No store", theme="generic", target_audience="adults"
+        )
+        ids = ["p3", "p1", "p2"]
+        books.add_puzzles_to_book(book_id, ids)
+
+        assert books.sort_puzzles_by_size(book_id) is False
+
+        assert books.get_book(book_id).puzzle_ids == ids
+
 
 # --------------------------------------------------------------------------
 # AC-8
@@ -483,7 +551,7 @@ def test_PropertyTest_ArrangeSortBySize_GroupedStableAndIdempotent() -> None:
         ungraded += sum(1 for pid in ids if tiers[pid] is None)
         non_square += sum(1 for pid in ids if sizes[pid] and sizes[pid][0] != sizes[pid][1])
 
-    assert books >= MIN_BOOKS
+    assert books >= MIN_BOOKS >= 400
     assert ties >= 50 and unsized >= 50 and ungraded >= 50 and non_square >= 500, (
         books, ties, unsized, ungraded, non_square,
     )
