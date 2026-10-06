@@ -236,6 +236,8 @@ Sizing on phones (CARD-182): at viewports ≤ 820 px the cell floor is 24 px (ta
 
 (CARD-183) PlayerBoard — new cell state `.is-hinted`: the cell the last hint revealed, until the next commit; 2px --color-accent outline inset by the major rule width with an inset --grid-paper ring, fading in over 2×--duration-base (`player-hinted-in`); no animation under prefers-reduced-motion. Tokens: --color-accent, --grid-paper, --duration-base, --ease.
 
+(CARD-186) player cell — "?" glyph (data-state="maybe") — --grid-paper, --color-accent, --player-cell (font-size 0.6 ×), weight 600
+
 ## ClueBox
 
 Used by: SolverBoard. One box per line (a row's to the left, a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
@@ -249,6 +251,12 @@ State (CARD-188): ClueBox: circled — a clue number its marks settle gets a thi
 Used by: the puzzle player (CARD-161, FR-044). `div.player-tools[role=group][aria-label="Marking tool for drags"]` holding three toggle buttons (`button.btn.btn-outline-secondary.player-tool[data-player-tool][aria-pressed]`), each a mini-cell swatch (`span.player-swatch[data-state]`: paper / ink / paper with dot) plus a visible label Black / White / Undecided (accessible name = visible label). Exactly one is pressed; each is a Tab stop and acts on Enter and Space. The tool governs drags only — a click always cycles.
 - States: default (quiet button) · hover · selected (aria-pressed=true: --color-accent-tint ground, --color-accent border and text, 1px inset accent ring) · focus-visible (2px --color-focus ring). No disabled state.
 - Tokens: --color-accent, --color-accent-tint, --color-border-strong, --grid-paper, --grid-ink, --color-text-secondary, --border-width, --control-h, --space-2, --space-4.
+
+(CARD-186) player tool button — Maybe (unpressed / pressed, same states as Black/White/Undecided) — --color-accent, --color-accent-tint (pressed, existing rule), --space-2 side padding (all four tools)
+
+(CARD-186) player swatch — "?" (data-state="maybe") — --grid-paper, --color-border-strong, --color-accent, --text-xs
+
+(CARD-186) player tool button padding (--space-2 side padding, all four tools) — line above stands; its reason is now the one-row toolbar at 1280 × 720, not the banner.
 
 ## HistoryControls
 
@@ -270,6 +278,8 @@ Used by: the puzzle player (CARD-162, FR-044). "Errors: N" at the end of the pla
 Used by: the puzzle player (CARD-162). A check icon (--color-success) and "Solved: <picture name>" on the success tint, shown in place of the ToolPicker so the board does not move; mirrored into a visually hidden live region (`.player-solved`, `.player-announce`). The only place the player shows the picture name (FR-044 AC-316, AC-322).
 
 (CARD-183) SolvedBanner / live region — #puzzle-player-announce also carries the hint text ("Hint: row R, column C is black|white." or, on the fallback, "Hint: no cell follows from a single line yet; row R, column C is black|white (from the solution)."); a hint that solves the board announces the solved text instead.
+
+(CARD-186) player SolvedBanner (CARD-162) — supersedes its placement: shown in the tools' box (.player-slot, tools visibility: hidden), centred down it; width up to the tools' width, a longer name wraps (overflow-wrap: anywhere); check icon flex: none — tokens unchanged (--color-success, --color-success-tint, --radius-control, --space-2, --space-3, --control-h)
 
 ## ResetConfirm
 
