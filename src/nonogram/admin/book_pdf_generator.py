@@ -322,6 +322,7 @@ from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.difficulty import Tier, tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
+    ANSWER_TEXT_FONT_MM,
     DPI,
     HeaderBand,
     Layout,
@@ -691,6 +692,20 @@ def print_order(puzzles: List[Any]) -> List[Any]:
 #: legal), so a retuning on that side cannot leave this side silently behind.
 _BAND_WIDTH_RATIO = 0.9
 _MIN_BAND_FONT_RATIO = 1 / 3
+
+#: CARD-197's light-gray gridline tone, for the full-page solved layout's
+#: mark between two grid-adjacent filled cells (owner's Google Doc, "Nonograms
+#: - Print layout1", 2026-10-07). A literal ``(v, v, v)`` RGB tuple, never a
+#: named colour (G-5): grepped the whole ``export/`` and ``admin/`` print path
+#: and the CSS tokens for an existing gray convention first — there is none to
+#: reuse. ``(160, 160, 160)`` is roughly equidistant from black (0) and white
+#: (255) in printed density, survives the book's own ``(v, v, v) -> v``
+#: RGB-to-``"L"`` conversion (CARD-147's B&W interior mode) as an exact
+#: grayscale value by construction, and is distinguishable from both ends by
+#: an exact pixel comparison. The owner confirms this specific tone on the
+#: render before CARD-198 wires it into the real answer key (see Worktree
+#: notes).
+_SOLVED_GRID_GRAY = (160, 160, 160)
 
 
 @lru_cache(maxsize=1)
@@ -2032,6 +2047,178 @@ class BookPDFGenerator:
                 header_band(slot),
                 band_identity(number, payload.difficulty),
                 placement.usable_right - placement.usable_left,
+            )
+        return page
+
+    def solved_puzzle_page(
+        self,
+        payload: ExportPayload,
+        puzzle_number: int,
+        page_number: int,
+        title: Optional[str] = None,
+    ) -> Image.Image:
+        """One puzzle's full-page solved layout: clues top and left, light-gray
+        gridlines between filled cells (owner's Google Doc "Nonograms - Print
+        layout1", 2026-10-07).
+
+        A rendering primitive only, added beside :meth:`_answer_page` and
+        :meth:`_two_up_page` (same layer, same pattern). Nothing calls this
+        yet (ADR-0036/R2, G-3, G-4) — wiring it into the book's real
+        answer-key packing, replacing the 6-up/4-up pages, is CARD-198.
+
+        ``compute_layout`` is called with ``payload``'s own clue sets and
+        :meth:`page_spec`'s spec for ``page_number`` — the **same** call an
+        unsolved puzzle page at that position would make, so the cell, the
+        gutters, every grid-line position and the frame are identical to an
+        unsolved page's (AC-9). Nothing here fits a cell or places a line
+        itself (ADR-0036/R2): every mark below sits at a coordinate that call
+        already measured.
+
+        The caller resolves the caption's title through
+        :func:`~nonogram.admin.book_answer_key.answer_title` /
+        :meth:`custom_titles` before calling, exactly as :meth:`_answer_page`
+        already resolves a tile's title before calling
+        :func:`~nonogram.admin.book_answer_key.answer_caption` — this method
+        never reads ``payload.name``.
+
+        Args:
+            payload: The puzzle's solved grid and clue sets (ADR-0012
+                boundary types) and its stored tier (``payload.difficulty``),
+                read for the band exactly as :meth:`_puzzle_payload` reads it
+                for an unsolved page's.
+            puzzle_number: The puzzle's 1-based print position — the same
+                number the band's "Puzzle N" and the caption's "Puzzle N"
+                both show (:func:`band_identity`,
+                :func:`~nonogram.admin.book_answer_key.answer_caption`).
+            page_number: The interior position this page is laid out for
+                (FR-043), whose parity :meth:`page_spec` reads.
+            title: The caption's resolved title
+                (:func:`~nonogram.admin.book_answer_key.answer_title`'s
+                return), or ``None`` for a puzzle with neither a custom title
+                nor a name — the caption then reads "Puzzle N" and stops,
+                exactly as :func:`~nonogram.admin.book_answer_key.answer_caption`
+                already does.
+
+        Returns:
+            The rendered page.
+
+        Raises:
+            ValueError: ``page_number`` did not produce a placed book page
+                (:meth:`page_spec` always carries a parity, so this cannot
+                happen through the public door — the same total-function
+                guard :meth:`_two_up_page` keeps for the same reason).
+        """
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, self.page_spec(page_number)
+        )
+        page = Image.new("RGB", (layout.width, layout.height), BACKGROUND)
+        draw = ImageDraw.Draw(page)
+
+        # Step 3: fill every solved cell, the same xs/ys-between-grid-lines
+        # approach `pdf._reveal` uses — reimplemented rather than imported
+        # (CLAUDE.md: capability modules reimplement rather than import
+        # across; `_reveal` is private to `export.pdf` besides).
+        grid = payload.grid
+        xs = [line.position for line in layout.vertical_lines]
+        ys = [line.position for line in layout.horizontal_lines]
+        for row_index, row in enumerate(grid[: layout.rows]):
+            for column_index, filled in enumerate(row[: layout.columns]):
+                if not filled:
+                    continue
+                draw.rectangle(
+                    (
+                        xs[column_index],
+                        ys[row_index],
+                        xs[column_index + 1],
+                        ys[row_index + 1],
+                    ),
+                    fill=INK,
+                )
+
+        # Step 4: every thin/heavy rule and the frame, pure black, over the
+        # fills — reused verbatim (G-2). ADR-0037/R2 stays literally true:
+        # this call is not edited, so the book's own rules are still drawn
+        # pure black everywhere, including over a filled run.
+        _stroke_drawing(draw, layout)
+
+        # Step 5 (this card's actual addition): re-stroke, in gray, the one
+        # line segment between every pair of grid-adjacent cells that are
+        # both filled — at that boundary's own already-computed width, so the
+        # every-5th rhythm survives in gray across a filled run too. An outer
+        # border (c == 0 or c == columns, r == 0 or r == rows) is never
+        # reached by this loop, because it only ever indexes an *interior*
+        # boundary — never "between two filled cells" since one side would be
+        # outside the grid.
+        for c in range(1, layout.columns):
+            width = layout.vertical_lines[c].width
+            x = xs[c]
+            for r in range(layout.rows):
+                if grid[r][c - 1] and grid[r][c]:
+                    draw.line(
+                        [(x, ys[r]), (x, ys[r + 1])],
+                        fill=_SOLVED_GRID_GRAY,
+                        width=width,
+                    )
+        for r in range(1, layout.rows):
+            width = layout.horizontal_lines[r].width
+            y = ys[r]
+            for c in range(layout.columns):
+                if grid[r - 1][c] and grid[r][c]:
+                    draw.line(
+                        [(xs[c], y), (xs[c + 1], y)],
+                        fill=_SOLVED_GRID_GRAY,
+                        width=width,
+                    )
+
+        # Step 6: clue digits — reused verbatim. Exempt from CON-020's 10 pt
+        # floor (2026-10-06 amendment), exactly as on an unsolved page.
+        _write_clues(draw, layout)
+
+        placement = layout.page
+        if placement is None:  # pragma: no cover - page_spec always carries a parity
+            raise ValueError(f"page {page_number} is not a placed book page")
+
+        # Step 7: the title band — reused verbatim, the same call an unsolved
+        # page's own band is set from (:meth:`_puzzle_payload`'s band text,
+        # via `render_pages`) and the same call a two-up slot's band is set
+        # from, above.
+        _set_band(
+            draw,
+            header_band(layout),
+            band_identity(puzzle_number, payload.difficulty),
+            placement.usable_right - placement.usable_left,
+        )
+
+        # Step 8: the caption, below the drawing, in the slack between
+        # `drawing_bottom` and `usable_bottom` — never inside the trim
+        # margin, never overlapping the grid. Font is the packaged DejaVu
+        # face at `layout.ANSWER_TEXT_FONT_MM` in device pixels (exactly
+        # 10 pt, the literal CON-020 floor, reused from `export.layout`,
+        # never shrunk further) via this module's own `_band_font`. The mm
+        # -> px conversion is `_mm_to_px`'s own formula
+        # (`round(mm / 25.4 * dpi)`), reimplemented here rather than imported
+        # since `_mm_to_px` is private to `export.layout` (CLAUDE.md).
+        #
+        # If the slack is smaller than the caption's own line height (the
+        # font's ascent + descent), the caption is omitted rather than
+        # overlapping the drawing or spilling into the margin — a real limit
+        # of a page-fit-bound puzzle (AC-6), not solved by this card.
+        caption_font_size = round(ANSWER_TEXT_FONT_MM / 25.4 * self.dpi)
+        caption_font = _band_font(caption_font_size)
+        ascent, descent = caption_font.getmetrics()
+        line_height = ascent + descent
+        slack = placement.usable_bottom - placement.drawing_bottom
+        if slack >= line_height:
+            caption = answer_caption(puzzle_number, title)
+            draw.text(
+                (
+                    (placement.drawing_left + placement.drawing_right) / 2,
+                    (placement.drawing_bottom + placement.usable_bottom) / 2,
+                ),
+                caption,
+                font=caption_font,
+                fill=INK,
+                anchor="mm",
             )
         return page
 
