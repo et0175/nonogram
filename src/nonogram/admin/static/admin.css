@@ -431,22 +431,52 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell { width: var(--player-cell); min-width: var(--player-cell); height: var(--player-cell); background: var(--grid-paper); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); vertical-align: middle; }
 .player-board .major-right, .player-clue.is-col:last-child, .player-cell:last-child { border-right: var(--player-rule-major) solid var(--grid-ink); }
 .player-board .major-below, .player-board tbody tr:last-child > * { border-bottom: var(--player-rule-major) solid var(--grid-ink); }
+/* Mirrored row clues (CARD-193): boards wider than 15 columns draw their
+   row-clue gutter on the right, on phones only (solver.js sets .is-mirrored
+   on the table — see isMirrored in start()). drawBoard puts each body row's
+   clue box after its cells and the head row's corner after the last column
+   clue, so the two ":last-child" rules above stop matching them (the DOM's
+   last child is now the clue/corner, not a cell or a column-clue box) — the
+   lines they drew (the grid's right frame and the boundary before the
+   row-clue gutter) are redrawn here instead, on the box that is now on that
+   side, so the same lines stay exactly as heavy and nothing else changes
+   weight. .player-corner's and .player-clue.is-row's left/right borders,
+   padding and text alignment are the mirror image of the unmirrored rule
+   above; their top/bottom borders (unaffected by a left-right mirror) are
+   untouched. */
+.player-board.is-mirrored .player-corner { border-right: none; border-left: var(--player-rule-major) solid var(--grid-ink); }
+.player-board.is-mirrored .player-clue.is-row {
+  text-align: left;
+  border-left: var(--player-rule-major) solid var(--grid-ink);
+  border-right: var(--player-rule) solid var(--player-thin);
+  padding-left: 0;
+  padding-right: 0.5ch;
+}
 .player-cell[data-state="filled"] { background: var(--grid-ink); }
 .player-cell[data-state="empty"]::after { content: ""; display: block; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
 /* The "?" mark (CARD-186): a glyph 0.6 x the cell side, weight 600, in the
    accent token (tests/test_puzzle_solver_maybe.py measures its size, its box
-   and its contrast on the cell). */
-.player-cell[data-state="maybe"]::after { content: "?"; display: block; font-size: calc(var(--player-cell) * 0.6); line-height: 1; font-weight: 600; text-align: center; color: var(--color-accent); }
+   and its contrast on the cell). CARD-193 (owner's final ruling): like a
+   clue numeral (--player-numeral-min above), it never renders below 12 px —
+   below 820 px the cell itself can now be smaller than 20 px, where 0.6 x
+   cell alone would drop under that floor. */
+.player-cell[data-state="maybe"]::after { content: "?"; display: block; font-size: max(var(--player-numeral-min), calc(var(--player-cell) * 0.6)); line-height: 1; font-weight: 600; text-align: center; color: var(--color-accent); }
 /* Marking (CARD-161): cells take pointer input; touch-action none keeps a
    touch drag from scrolling the page, user-select none keeps a mouse drag
    from selecting clue numbers. */
 .player-board { user-select: none; -webkit-user-select: none; }
 .player-cell { cursor: pointer; touch-action: none; }
-/* Phone tap target (CARD-182): below the shell breakpoint the cell floor is
-   24 px (WCAG 2.2 target size, 2.5.8); a board wider than the stage scrolls
-   inside .player-stage. Clue boxes keep the default touch-action (auto), so
-   a swipe that starts on the column-clue band pans it. */
-@media (max-width: 820px) { .player-stage { --player-cell-min: 24px; } }
+/* Sizing on phones (CARD-193, owner decision 2026-10-06): below the shell
+   breakpoint the cell floor is removed (0 px, never binds) so the board
+   fits the stage width and never scrolls sideways, for boards the 12 px
+   numeral floor (CARD-196, --player-col-floor above) still permits to fit;
+   above 820 px nothing changes (14 px floor, 28 px cap). This supersedes
+   CARD-182's 24 px phone floor, which guaranteed a WCAG 2.2 (2.5.8) tap
+   target at the cost of a sideways scroll on a deep board — the owner chose
+   shrinking cells with no floor instead. Clue boxes keep the default
+   touch-action (auto), so a swipe that starts on the column-clue band pans
+   the (now rarely scrollable) board. */
+@media (max-width: 820px) { .player-stage { --player-cell-min: 0px; } }
 /* ToolPicker + history controls: one row above the board (wrapping on a phone);
    the usage hint sits below the board. A tool is a
    toggle button (aria-pressed); the pressed one takes the accent. Undo, redo
@@ -561,7 +591,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    positioned and centred on the number's box, so it takes no part in
    layout. A row number's box is a cell tall with a cell's line-height, as a
    column number's is, so on a 30 x 30 (14 px cell floor, about 17 px at
-   1440 px, 24 px at 390 px) the ring's centre is within 0.5 px of the
+   1440 px, about 14.4 px at 390 px — CARD-193 removed the 24 px phone
+   floor, so a two-digit-column grid's own numeral-driven column floor binds
+   instead) the ring's centre is within 0.5 px of the
    digits' text box centre, across and down. A negative margin of half the
    heavy rule above and below keeps each row clue box a cell tall, also in a
    row that ends in a heavy rule. A column number is a zero-width box (its
@@ -577,8 +609,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    heavy rule: their digits are a cell less half the difference between the
    heavy and the thin rule apart. The ring is capped at that distance less
    --player-ring-gap (so --player-rule and --player-rule-major also size
-   the ring). On a 30 x 30 (14 px cell floor, about 17 px at 1440 px, 24 px
-   at 390 px) the pill clears its digits by at least 0.5 px on the left and
+   the ring). On a 30 x 30 (14 px cell floor, about 17 px at 1440 px, about
+   14.4 px at 390 px — see above) the pill clears its digits by at least 0.5 px on the left and
    on the right, and any two rings are at least --player-ring-gap apart —
    except two adjacent SINGLE-DIGIT ROW rings (CARD-196 AC-8, F-006, owner
    option b): see the comment below the row rule for that one exception.

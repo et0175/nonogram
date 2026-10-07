@@ -833,7 +833,10 @@ class TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell:
         side = right - left
         assert 0 <= left and right <= seen["viewport"][0] and 0 <= top and bottom <= seen["viewport"][1], seen
         if case.endswith("@390"):
-            assert round(side) == 24, side  # the CARD-182 phone floor
+            # CARD-193 removed the CARD-182 24 px phone floor; this grid's
+            # two-digit column numbers still bind CARD-196's 14.4 px
+            # column-numeral floor instead (measured, not the old literal).
+            assert side == pytest.approx(14.39, abs=0.05), side
 
         assert seen["content"] == '"?"'
         assert seen["fontSize"] >= 12 and seen["fontSize"] >= 0.5 * side, (seen["fontSize"], side)
