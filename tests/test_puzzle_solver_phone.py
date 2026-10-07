@@ -287,13 +287,19 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
         try:
             _open(page, live, live.store(GRIDS[name]))
             assert _stage_scroll_left(page) == 0
+            # CARD-196 (owner-approved G-8 exception): on the 30 x 30 the corner
+            # box is the visible part of the band, so the start point is taken
+            # inside the corner box rather than at the stage's right edge.
             x, y, under = page.evaluate(
-                """() => {
+                """(onCorner) => {
                   const stage = document.querySelector('.player-stage').getBoundingClientRect();
                   const band = document.querySelector('.player-board thead tr').getBoundingClientRect();
-                  const x = Math.min(stage.right, band.right) - 12, y = band.top + band.height / 2;
+                  const corner = document.querySelector('.player-corner').getBoundingClientRect();
+                  const reach = onCorner ? Math.min(stage.right, corner.right) : Math.min(stage.right, band.right);
+                  const x = reach - 12, y = band.top + band.height / 2;
                   return [x, y, document.elementFromPoint(x, y).closest('th, td').className];
-                }"""
+                }""",
+                start_on == "player-corner",
             )
             assert under == start_on
             cdp = context.new_cdp_session(page)

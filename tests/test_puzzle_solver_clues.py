@@ -511,24 +511,25 @@ class TestSolverClues_CirclingMovesNothing:
 _SLOTS = """() => {
   const px = (v) => parseFloat(v);
   const cell = document.querySelector('td.player-cell').getBoundingClientRect();
-  const slot = (n, axis) => {
+  const row = (n) => {
     const s = getComputedStyle(n), b = n.getBoundingClientRect();
-    return axis === 'row' ? b.width + px(s.marginLeft) + px(s.marginRight) : b.height + px(s.marginTop) + px(s.marginBottom);
+    return { text: n.textContent, width: b.width, gap: px(s.marginRight), font: px(s.fontSize) };
   };
+  const col = (n) => ({ text: n.textContent, height: n.getBoundingClientRect().height });
   return {
     cell: [cell.width, cell.height],
-    rows: [...document.querySelectorAll('th.player-clue.is-row .player-clue-num')].map((n) => [n.textContent, slot(n, 'row')]),
-    columns: [...document.querySelectorAll('th.player-clue.is-col .player-clue-num')].map((n) => [n.textContent, slot(n, 'col')]),
+    rows: [...document.querySelectorAll('th.player-clue.is-row .player-clue-num')].map(row),
+    columns: [...document.querySelectorAll('th.player-clue.is-col .player-clue-num')].map(col),
   };
 }"""
 
 
 @pytest.mark.browser
 class TestSolverClues_EveryNumberKeepsAOneCellSlot:
-    """The ring (out of layout) leaves each number's slot exactly one cell — a
-    row number's margin box as wide as a cell, a column number's as tall — for
-    one- and two-digit numbers, at 1440 px and at 390 px, so a long clue
-    does not drift by sub-pixel amounts."""
+    """AC-3 (CARD-196) — a row number's box is as wide as its digits (0.6 em
+    each at the numeral size), with a 1.45 ch gap after it, not one cell
+    wide; a column number's box is still one cell tall. One- and two-digit
+    numbers, at 1440 px and at 390 px."""
 
     @pytest.mark.parametrize("viewport", _VIEWPORTS, ids=["desktop", "phone"])
     def test_slots(self, browser_page, live, viewport) -> None:
@@ -536,9 +537,13 @@ class TestSolverClues_EveryNumberKeepsAOneCellSlot:
         _open_player(browser_page, live)
         seen = browser_page.evaluate(_SLOTS)
         width, height = seen["cell"]
-        assert any(len(text) == 2 for text, _ in seen["rows"])
-        assert [t for t, w in seen["rows"] if abs(w - width) > 0.001] == []
-        assert [t for t, h in seen["columns"] if abs(h - height) > 0.001] == []
+        assert any(len(r["text"]) == 2 for r in seen["rows"])
+        for r in seen["rows"]:
+            ch = 0.6 * r["font"]
+            assert abs(r["width"] - len(r["text"]) * ch) < 0.1, r  # glyph advances round to 1/64 px
+            assert abs(r["gap"] - 1.45 * ch) < 0.1, r
+        assert [c for c in seen["columns"] if abs(c["height"] - height) > 0.001] == [], seen["columns"]
+        assert all(r["width"] < width for r in seen["rows"] if len(r["text"]) == 1), seen["rows"]
 
 
 #: A number's ring is its ::before (admin.css): read the ring's computed style.
@@ -613,13 +618,41 @@ class TestSolverClues_TheCircleIsVisible:
     number's ring is a pill (wider than tall) at least as wide as its text
     plus both border widths. Checked at 1440 px and at 390 px on the 15 x 15,
     and on a 30 x 30 at the 14 px cell floor (a 1100 x 700 window), at
-    1440 px (about 17 px) and at 390 px (24 px), where every circled
-    two-digit row and column number's ring clears its digits' text box by
-    at least half a pixel on the left and on the right, every row and column
-    number's ring has its horizontal and vertical centre within half a pixel
-    of its digits' text-box centre (the Range box of the number's text),
-    every row clue box is one cell tall, and any two rings are at least
-    _RING_GAP (admin.css --player-ring-gap) apart."""
+    1440 px (about 17 px) and at 390 px (24 px), where every row clue box
+    is one cell tall and every number's ring has its horizontal and
+    vertical centre within half a pixel of its digits' text-box centre (the
+    Range box of the number's text). Every circled row number's ring, one
+    digit or two, and every circled single-digit column number's ring
+    clears its digits' text box by at least half a pixel on the left and on
+    the right — CARD-196 AC-8 (redo 3, owner option a) narrows this one
+    clearance claim for a two-digit COLUMN number only: its ring is not
+    required to fully clear its own digits (see
+    test_two_digit_rings_clear_their_digits_on_a_30x30 for the measured
+    bound and the no-clipping check), though it is still capped at
+    _RING_GAP from the next column's ring, so it never reaches a
+    neighbour. That test's clearance assertion covers every row ring
+    regardless of digit count and every single-digit column ring (not just
+    the two-digit rows its fixture happens to produce); see the comment at
+    the assertion for why a dedicated single-digit-row fixture is not
+    needed for THIS clearance question.
+
+    Separately, any two rings are at least _RING_GAP (admin.css
+    --player-ring-gap) apart — EXCEPT two adjacent SINGLE-DIGIT ROW rings
+    (CARD-196 AC-8, F-006 narrowing, owner option b, 2026-10-07): the
+    shared 1.45ch row gap leaves them only about 0.125-0.141 px apart,
+    across all three viewports above (never an actual overlap — the gap
+    stays positive), while every other pair — two-digit row, two-digit
+    column, single-digit column, and any row/column mix — keeps the full
+    _RING_GAP floor, pinned by the `_RING_GAP` close-pairs check in
+    test_two_digit_rings_clear_their_digits_on_a_30x30 (whose fixture has
+    no adjacent single-digit row pair, so it does not exercise this one
+    exception). This gap exception does NOT touch a single-digit row
+    ring's OWN digit clearance, which stays the unqualified >= 0.5 px bar
+    above: TestSolverClues_SingleDigitRowRingsMayTouch exercises a
+    dedicated adjacent-single-digit-row fixture (the 15 x 15
+    _player_grid's OWNER_ROW, "2 2") to prove both the narrowed gap and
+    the still-unqualified own-clearance, rather than extend this class's
+    30 x 30 two-digit fixture (which has no single-digit row pair)."""
 
     @pytest.mark.parametrize("viewport", _VIEWPORTS, ids=["desktop", "phone"])
     def test_the_outline(self, browser_page, live, viewport) -> None:
@@ -664,7 +697,7 @@ class TestSolverClues_TheCircleIsVisible:
         grid = _two_digit_grid()
         _open(page, live, live.store(grid))
         cell = page.evaluate("document.querySelector('td.player-cell').getBoundingClientRect().width")
-        assert cell == {1100: 14, 1440: pytest.approx(17.67, abs=0.1), 390: 24}[viewport["width"]], cell
+        assert cell == pytest.approx({1100: 14.4, 1440: 17.67, 390: 24}[viewport["width"]], abs=0.05), cell
         # The row numbers' height, line-height and negative margins (admin.css)
         # leave every row clue box, so every row, one cell tall, also the rows
         # that end in a heavy rule.
@@ -694,12 +727,60 @@ class TestSolverClues_TheCircleIsVisible:
 
         for ring in circled:
             inner_left, inner_right = ring["left"] + ring["border"], ring["right"] - ring["border"]
-            assert ring["textLeft"] - inner_left >= 0.5, ring
-            assert inner_right - ring["textRight"] >= 0.5, ring
-            assert ring["right"] - ring["left"] > ring["bottom"] - ring["top"], ring  # a pill
+            assert ring["right"] - ring["left"] > ring["bottom"] - ring["top"], ring  # a pill, every axis
+            if ring["axis"] == "row":
+                assert ring["textLeft"] - inner_left >= 0.5, ring
+                assert inner_right - ring["textRight"] >= 0.5, ring
+            # CARD-196 AC-8 (redo 3, owner option a, narrowed): a two-digit
+            # COLUMN ring keeps the --player-ring cap (admin.css) that holds
+            # it _RING_GAP away from the next column's ring — measured below,
+            # it never gets there — but that same cap means it is not
+            # required to clear its own digits. Measured at this test's two
+            # smallest cells: -1.42 px short (1100x700, the 14.4 px floor)
+            # and +0.22 to +0.25 px (1440x900, under the 0.5 px bar used for
+            # rows and single-digit columns above). No clearance assertion
+            # for the col axis here; the no-clipping check below (not a
+            # clearance number) is what AC-8 actually requires of it.
+        # Every circled row ring (one digit or two) AND every circled
+        # single-digit column ring clears its own digits (CARD-196 AC-8: the
+        # row's 1.45 ch gap and the column's uncapped-by-digit-count ring
+        # formula both leave room; only a two-digit COLUMN ring is narrowed,
+        # in the `circled` loop above). This fixture (_two_digit_grid) has
+        # no single-digit ROW number -- every row run is built two digits
+        # wide -- so the row half of this assertion is exercised only by
+        # two-digit rows here; that is still the harder case for the row
+        # axis: a row ring is never capped to its neighbour (only a column
+        # ring is, admin.css), and the single-digit COLUMN ring this loop
+        # does check is comfortably clear at every viewport (>= 1.7 px,
+        # measured) versus the two-digit row's tightest measured margin
+        # (0.703 px) -- so a single-digit row ring, using the same
+        # uncapped max(circle, digits * 1ch + clearance) formula as the row
+        # rings already checked here, cannot be tighter than either of
+        # those two already-proven cases. The `> 0` check below keeps the
+        # single-digit-column half of this assertion from going vacuous if
+        # the fixture ever changes to have none.
+        single_digit_col_rings = [
+            ring for ring in rings
+            if ring["circled"] and ring["axis"] == "col" and len(ring["text"]) == 1
+        ]
+        assert len(single_digit_col_rings) > 0, "fixture has no single-digit column ring to check"
+        for ring in rings:
+            if ring["circled"] and (ring["axis"] == "row" or len(ring["text"]) == 1):
+                inner_left, inner_right = ring["left"] + ring["border"], ring["right"] - ring["border"]
+                assert ring["textLeft"] - inner_left >= 0.5 and inner_right - ring["textRight"] >= 0.5, ring
 
         # Any two rings are at least _RING_GAP apart on one axis, less one
         # 1/64 px layout unit (layout rounds to 1/64 px, hence the tolerance).
+        # CARD-196 AC-8 (redo 3): the owner's narrowing allows a two-digit
+        # COLUMN ring to come within, or overlap, _RING_GAP of its neighbour
+        # by about 3 px. Measured here it does not: the --player-ring cap
+        # (admin.css) already subtracts _RING_GAP from the distance between
+        # two columns' rings, so the closest two-digit column pair measures
+        # exactly that floor (0.25 px, at both 1100x700 and 1440x900) and no
+        # pair ever goes negative. The check below is therefore left as the
+        # one hard floor for every pair, including two-digit column ones —
+        # narrowing it to a looser, measured bound would assert an overlap
+        # that this CSS does not actually produce.
         close = [
             (a["text"], b["text"], a["axis"], b["axis"], round(gap, 3))
             for i, a in enumerate(rings) for b in rings[i + 1:]
@@ -707,3 +788,178 @@ class TestSolverClues_TheCircleIsVisible:
             < _RING_GAP - 1 / 64
         ]
         assert close == [], close[:5]
+
+        # AC-8: a two-digit column ring may fall short of clearing its own
+        # digits, but it must never clip them. The ring is a decorative
+        # ::before with no size effect on layout (asserted absolute above);
+        # nothing in admin.css sets overflow: hidden (or a clip-path) on a
+        # .player-clue-num or on its ancestor th.player-clue, so the digits'
+        # own glyphs are always fully painted regardless of the ring's size.
+        not_clipped = page.evaluate(
+            "() => [...document.querySelectorAll('.player-clue-num')].every((n) => {"
+            "  const style = getComputedStyle(n), th = getComputedStyle(n.closest('th'));"
+            "  return style.overflow === 'visible' && th.overflow === 'visible'"
+            "    && style.clipPath === 'none' && th.clipPath === 'none';"
+            "})"
+        )
+        assert not_clipped
+
+
+@pytest.mark.browser
+class TestSolverClues_SingleDigitRowRingsMayTouch:
+    """CARD-196 AC-8, F-006 narrowing (owner decision, option b,
+    2026-10-07): two adjacent SINGLE-DIGIT row rings are not required to
+    keep the full _RING_GAP (admin.css --player-ring-gap) apart. Uses the
+    15 x 15 _player_grid's OWNER_ROW (clue "2 2", the owner's own AC-6
+    example row) — already the only adjacent single-digit row ring pair in
+    this file — rather than a new board, at the same three viewports
+    (_RING_VIEWPORTS) TestSolverClues_TheCircleIsVisible checks the 30 x 30
+    ring floor at. Fully marking OWNER_ROW circles both its "2"s (AC-3: a
+    fully marked line circles everything), so both rings are live. The gap
+    between them is always positive (the rings touch, never overlap) but
+    measures well under _RING_GAP (about 0.125-0.141 px); each ring's OWN
+    digit clearance (the >= 0.5 px bar from the cycle-1 F-001 fix) is
+    unaffected by this narrowing and is asserted here too."""
+
+    @pytest.mark.parametrize("viewport", _RING_VIEWPORTS, ids=["floor", "desktop", "phone"])
+    def test_adjacent_single_digit_row_rings_touch_but_never_overlap(self, browser_page, live, viewport) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open_player(page, live)
+        assert ROW_CLUES[OWNER_ROW] == [2, 2]
+        _set(page, _cells(_solution_marks([OWNER_ROW])))
+        assert _circles(page)["rows"][OWNER_ROW] == [True, True]
+
+        rings = page.evaluate(_RINGS)
+        owner_rings = [ring for ring in rings if ring["axis"] == "row" and ring["circled"]]
+        # OWNER_ROW is the only row marked, so these are exactly its two
+        # rings, and both are single-digit ("2 2").
+        assert len(owner_rings) == 2, owner_rings
+        assert all(len(ring["text"]) == 1 for ring in owner_rings), owner_rings
+        first, second = sorted(owner_rings, key=lambda ring: ring["left"])
+
+        gap = second["left"] - first["right"]
+        # Never an actual overlap (always positive, less one 1/64 px layout
+        # unit, as the existing close-pairs check below tolerates)...
+        assert gap > -1 / 64, gap
+        # ...but F-006 narrows the full _RING_GAP floor away for this one
+        # pair: it must measure strictly under it (the owner's measured
+        # ~0.125-0.141 px), or a future CSS change that widens the row gap
+        # back to clearing every pair would make this fixture pointless.
+        assert gap < _RING_GAP - 1 / 64, gap
+
+        # Unaffected by the narrowing: each ring still fully clears its own
+        # digits (the >= 0.5 px bar, unchanged since the cycle-1 F-001 fix).
+        for ring in owner_rings:
+            inner_left, inner_right = ring["left"] + ring["border"], ring["right"] - ring["border"]
+            assert ring["textLeft"] - inner_left >= 0.5, ring
+            assert inner_right - ring["textRight"] >= 0.5, ring
+
+
+#: The numerals' computed font sizes, in document order.
+_NUMERALS = """() => [...document.querySelectorAll('.player-clue-num')].map((n) => parseFloat(getComputedStyle(n).fontSize))"""
+
+#: The stage's scroll and client widths, and the page's scroll width.
+_SCROLL = """() => {
+  const stage = document.querySelector('.player-stage');
+  return {
+    stage: [stage.scrollWidth, stage.clientWidth],
+    page: document.documentElement.scrollWidth,
+    cell: document.querySelector('td.player-cell').getBoundingClientRect().width,
+  };
+}"""
+
+
+def _fit_binding_columns_grid():
+    """30 x 30: every row has two runs (one white cell, not at the ends), rows
+    9, 19 and 28 are empty, so every column number has one digit and every
+    row clue is short: the fit, not the column floor, sets the cell at 390 px."""
+    rng = random.Random(4040)
+    grid = []
+    for r in range(30):
+        if r in (9, 19, 28):
+            grid.append([False] * 30)
+        else:
+            z = rng.randint(1, 28)
+            grid.append([c != z for c in range(30)])
+    return grid
+
+
+def _no_phone_floor(page):
+    page.evaluate("document.querySelector('.player-stage').style.setProperty('--player-cell-min', '0px')")
+
+
+@pytest.mark.browser
+class TestPlayerNumerals_TwelvePixelFloor:
+    """AC-1 and AC-2 (CARD-196) — a numeral is 0.6 x the cell, never below
+    12 px. A 15 x 15 keeps its 0.6 x cell numerals on desktop (16.8 px) and
+    at the phone floor (14.4 px); a 30 x 30 with a two-digit column number
+    sits at the 12 px floor at 1440 px and at 1100 px (its cell is 17.67 px
+    and 14.4 px, so 0.6 x cell is 10.6 px and 8.6 px and the floor binds)."""
+
+    def test_15x15_desktop_numerals_are_0_6_of_the_28_px_cell(self, browser_page, live) -> None:
+        browser_page.set_viewport_size({"width": 1440, "height": 900})
+        _open_player(browser_page, live)
+        fonts = browser_page.evaluate(_NUMERALS)
+        assert fonts and all(abs(f - 16.8) < 0.01 for f in fonts), sorted(set(fonts))
+
+    def test_15x15_phone_numerals_are_0_6_of_the_24_px_cell(self, browser_page, live) -> None:
+        browser_page.set_viewport_size({"width": 390, "height": 844})
+        _open_player(browser_page, live)
+        fonts = browser_page.evaluate(_NUMERALS)
+        assert fonts and all(abs(f - 14.4) < 0.01 for f in fonts), sorted(set(fonts))
+
+    @pytest.mark.parametrize("viewport", [{"width": 1440, "height": 900}, {"width": 1100, "height": 700}],
+                             ids=["desktop", "floor"])
+    def test_30x30_numerals_never_fall_below_12_px(self, browser_page, live, viewport) -> None:
+        browser_page.set_viewport_size(viewport)
+        _open(browser_page, live, live.store(_two_digit_grid()))
+        fonts = browser_page.evaluate(_NUMERALS)
+        assert fonts and min(fonts) >= 12 - 0.001, sorted(set(fonts))
+        assert all(abs(f - 12) < 0.01 for f in fonts), sorted(set(fonts))
+
+
+@pytest.mark.browser
+class TestPlayerNumerals_ColumnFloorIsTheWidestColumnNumeral:
+    """AC-4 and AC-5 (CARD-196) — the cell is at least the widest column
+    numeral's width (its digits at 12 px, 7.2 px per digit). With one-digit
+    column numbers only, the cell is the fit (10.05 px for this grid at 390
+    px, not raised to the 14.4 px two-digit floor). With a two-digit column
+    number the cell is 14.4 px at 1100 px and at 390 px."""
+
+    def test_one_digit_column_numbers_keep_the_fit(self, browser_page, live) -> None:
+        browser_page.set_viewport_size({"width": 390, "height": 844})
+        _open(browser_page, live, live.store(_fit_binding_columns_grid()))
+        _no_phone_floor(browser_page)
+        seen = browser_page.evaluate(_SCROLL)
+        assert all(len(t) == 1 for t in browser_page.evaluate(
+            "[...document.querySelectorAll('th.player-clue.is-col .player-clue-num')].map((n) => n.textContent)")), "one digit"
+        assert abs(seen["cell"] - 10.05) < 0.05, seen
+
+    def test_a_two_digit_column_number_sets_the_floor_at_1100(self, browser_page, live) -> None:
+        browser_page.set_viewport_size({"width": 1100, "height": 700})
+        _open(browser_page, live, live.store(_two_digit_grid()))
+        assert abs(browser_page.evaluate(_SCROLL)["cell"] - 14.4) < 0.05
+
+    def test_a_two_digit_column_number_sets_the_floor_at_390_without_the_phone_floor(self, browser_page, live) -> None:
+        browser_page.set_viewport_size({"width": 390, "height": 844})
+        _open(browser_page, live, live.store(_two_digit_grid()))
+        _no_phone_floor(browser_page)
+        assert abs(browser_page.evaluate(_SCROLL)["cell"] - 14.4) < 0.05
+
+
+@pytest.mark.browser
+class TestPlayerNumerals_ColumnNumbersDecideTheStageScroll:
+    """AC-6 (CARD-196) — a 30-column board with two-digit column numbers
+    cannot fit a 390 px stage at 14.4 px a cell (30 x 14.4 = 432 px). The
+    board scrolls sideways inside .player-stage; the page never scrolls."""
+
+    def test_the_stage_scrolls_and_the_page_does_not(self, browser_page, live) -> None:
+        browser_page.set_viewport_size({"width": 390, "height": 844})
+        _open(browser_page, live, live.store(_two_digit_grid()))
+        _no_phone_floor(browser_page)
+        seen = browser_page.evaluate(_SCROLL)
+        assert abs(seen["cell"] - 14.4) < 0.05, seen
+        stage_scroll, stage_client = seen["stage"]
+        assert stage_scroll > stage_client, seen
+        assert seen["page"] <= 390, seen
