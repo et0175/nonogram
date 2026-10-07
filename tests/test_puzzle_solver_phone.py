@@ -22,11 +22,15 @@ below. Touch input is real: CDP ``Input.dispatchTouchEvent`` drags and taps.
 
 from __future__ import annotations
 
+import random
+
 import pytest
 
+from nonogram.solver import solve
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
     _open,
+    _tight_row,
     _unique_grid,
     browser_page,
     browser_type,
@@ -71,6 +75,102 @@ BIG_SIDE = 30
 #: (admin.css unchanged, commit 2e40c96) before this card's rule was added,
 #: rounded to 0.001 px (the 30 x 30 measured 16.796875).
 DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 16.797}
+
+
+def _single_digit_col_grid(width, height, seed, run_cap=9):
+    """A uniquely solvable grid every one of whose COLUMN clues is a single
+    digit (no run of 10+ consecutive filled cells) — unlike ``GRIDS``/``BIG``
+    above, which each happen to carry at least one two-digit column clue (see
+    ``TestSolverPhone_BoardFitsThePhoneWidth``'s docstring) and so cannot
+    demonstrate AC-1's *unconditional* half.
+
+    Built the same way ``_unique_grid`` builds tight ROWS (CARD-182/CARD-160:
+    a run-length encoding with zero slack — the runs plus their minimum
+    one-cell gaps already sum to the line's own length — forces that line's
+    one and only placement from its clue alone), but transposed to tight
+    COLUMNS instead, each re-rolled until its longest run is at most
+    ``run_cap``. A tight column's clue alone forces its own content
+    regardless of any row, so the grid this produces is uniquely solvable
+    from the column clues alone, independent of what the rows turn out to
+    be — re-verified directly against the real solver below (not merely
+    trusted from the construction), because this is a different
+    construction from ``_unique_grid``'s and the solver is the one
+    authority ADR-0032/R1 actually asks for.
+    """
+    rng = random.Random(seed)
+    columns = []
+    for _ in range(width):
+        for _attempt in range(200):
+            column = _tight_row(height, rng)
+            if max(_encode(column)) <= run_cap:
+                columns.append(column)
+                break
+        else:  # pragma: no cover — not hit by the seeds used below
+            raise AssertionError(f"could not build a single-digit column (seed={seed})")
+    return [[columns[c][r] for c in range(width)] for r in range(height)]
+
+
+#: AC-1's unconditional half: a 15 x 15 board whose every column clue is a
+#: single digit, so CARD-196's column-numeral floor (7.2 px for one digit)
+#: never exceeds the fit-to-width term and the stage genuinely never needs
+#: to scroll — the literal claim ``GRIDS`` cannot demonstrate (see above).
+#: Measured at 390 x 844: cell 16.359375 px, matching _predict_cell's
+#: 16.370667 px within Chromium's own sub-pixel layout rounding (its
+#: LayoutUnit is fixed-point at 1/64 px = 0.015625 px; the deeper calc()/
+#: clamp()/cqi chain the fit terms go through accumulates a few of those
+#: ticks, unlike the column-floor branch's one-step multiply, which is why
+#: the cross-check below needs a slightly wider tolerance than the existing
+#: floor-bound tests' abs=0.01).
+#:
+#: 25 x 15 (25 wide, 15 high) is deliberately NOT included here, after a
+#: genuine, measured effort across three different constructions (CARD-193
+#: redo, 2026-10-07):
+#:   1. A tight-COLUMN single-digit grid (this function, seed 19325):
+#:      predicted/measured cell ~9.1 px, floor_dominates False (the column
+#:      floor is comfortably cleared) — but TR heights measured {13, 14} px
+#:      against a uniform 9.109375 px column width: not square.
+#:   2. The *shallowest possible* row-clue construction for a 25-wide board
+#:      (every row a single run, or empty — row_ch at its absolute floor of
+#:      2.95, the minimum any row's clue can need): term1 = (358 - 1 - 2 -
+#:      2.95 * 0.6 * 12) / 25 = 13.3504 px. This is width 25's own ceiling
+#:      under the current formula — term1's denominator is the board's
+#:      width, so no choice of clues raises it further for a 25-wide board.
+#:      Measured in the browser: 13.34375 px on most rows, but 14 px (a
+#:      whole pixel higher) on rows 5, 10 and 15 — the three rows CARD-193's
+#:      MAJOR_EVERY gives a heavier (2 px) bottom border. Column width
+#:      stayed uniform (13.34375 px throughout); only row TR height snapped.
+#:   3. Re-ran (1) at a second independent seed: the same {13, 14} px split
+#:      reproduced.
+#: All three show the same mechanism: at any cell size a 25-wide board can
+#:  reach (<= 13.3504 px, the mathematical ceiling above), Chromium's table
+#:  row-height layout rounds the three heavier-bordered rows up a whole
+#:  pixel relative to the rest, so "every cell has the same side" is
+#:  literally false — independent of which grid is stored, the column
+#:  digit count, or the column floor. This is a width=25 structural
+#:  ceiling colliding with a Chromium table-layout rounding behaviour, not
+#:  a fixture-choice gap of the kind the 15 x 15 case turned out to be, and
+#:  not something fixable by picking yet another grid (the ceiling was
+#:  already measured at its best achievable value in construction 2). Per
+#:  the same evidence standard as AC-2's 30 x 30 case, 25 x 15 is treated as
+#:  unreached for AC-1's unconditional literal claim and is not forced into
+#:  a fixture here; flagging this precisely (not the col-floor-dominance
+#:  reason the orchestrator's note anticipated) for the next architect
+#:  review, same as AC-2's own named exception.
+GRIDS_SINGLE_DIGIT_COLS = {
+    "15x15": _single_digit_col_grid(15, 15, seed=19315),
+}
+
+#: Re-verify each fixture above against the real solver (nonogram.solver),
+#: not just trust the tight-column construction's own reasoning — this is a
+#: new construction (CARD-193's redo), unlike GRIDS, which reuses
+#: _unique_grid's long-proven tight-ROW one (ADR-0032/R1: a stored puzzle
+#: must actually be uniquely solvable).
+for _name, _grid in GRIDS_SINGLE_DIGIT_COLS.items():
+    _rows_clues = tuple(tuple(_encode(row)) for row in _grid)
+    _cols_clues = tuple(tuple(_encode(col)) for col in zip(*_grid))
+    assert max(len(str(n)) for clue in _cols_clues for n in clue) == 1, _name
+    assert solve(_rows_clues, _cols_clues).is_unique, _name
+del _name, _grid, _rows_clues, _cols_clues
 
 
 def _predict_cell(grid, stage_width, viewport_height, cell_min):
@@ -198,16 +298,23 @@ class TestSolverPhone_BoardFitsThePhoneWidth:
     ~14.39 px at 390 px, because each has at least one two-digit column
     number and CARD-196's column-numeral floor (14.4 px for two digits)
     exceeds what the fit-to-width/height terms alone would give every one
-    of them — so AC-2's "narrower than 14 px" is not a blanket guarantee:
-    it holds only for a board whose column clues need no more than a
-    single-digit numeral. Rather than hard-code that coincidence (or
-    silently swap in different fixtures and lose the boards these tests
-    were defined against — G-1 pins their 1440 px cell sizes, so they are
-    not changed here), this test cross-checks the measured cell against an
-    independent re-derivation of admin.css's clamp (_predict_cell), which
-    stays correct whichever term binds. Whatever the stage does internally,
-    the page itself never scrolls sideways (AC-1's "the board fits the
-    phone").
+    of them. This is the two-tier behaviour the rewritten AC-1/AC-2/AC-11
+    actually describe, not a single blanket claim: a board whose row-clue
+    band width plus its columns at the numeral floor fits inside the 358 px
+    stage fits with no stage scroll at all (demonstrated for a different,
+    single-digit-column fixture by
+    ``TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit``
+    below); a board that exceeds that named condition — the 30 x 30 with a
+    15-number row clue is the one confirmed instance, and the three boards
+    here all happen to need the column-numeral floor too — scrolls inside
+    ``.player-stage`` instead, while the page itself never scrolls either
+    way. Rather than hard-code either coincidence (or silently swap in
+    different fixtures and lose the boards these tests were defined
+    against — G-1 pins their 1440 px cell sizes, so they are not changed
+    here), this test cross-checks the measured cell against an independent
+    re-derivation of admin.css's clamp (_predict_cell), which stays correct
+    whichever term binds. Whatever the stage does internally, the page
+    itself never scrolls sideways (AC-1's unconditional page-level claim).
     """
 
     @pytest.mark.parametrize("name", list(GRIDS))
@@ -240,6 +347,60 @@ class TestSolverPhone_BoardFitsThePhoneWidth:
         stage_scrolls = fit["stageScrollWidth"] > fit["stageClientWidth"]
         assert stage_scrolls == floor_dominates, (name, fit, floor_dominates)
         assert fit["pageWidth"] <= fit["viewport"], fit  # never the page, regardless
+
+
+# ==========================================================================
+# AC-1's unconditional half — a board whose columns stay single-digit
+# genuinely never scrolls its stage, literally, not just "the page doesn't"
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit:
+    """AC-1's unconditional half, demonstrated literally rather than only as
+    the conditional property above. ``GRIDS``/``BIG`` (CARD-182's original
+    fixtures, kept byte-for-byte for G-1) each happen to carry at least one
+    two-digit column clue, so all three measure the SAME column-floor-bound
+    ~14.39 px and all three scroll inside ``.player-stage`` — none of them
+    can show AC-1's "fits with no stage scroll at all" half, only its
+    conditional half (the class above). ``GRIDS_SINGLE_DIGIT_COLS`` is built
+    so every column clue is a single digit instead: CARD-196's
+    column-numeral floor (7.2 px for one digit) then never exceeds the
+    fit-to-width term, so the clamp is fit-bound, not floor-bound, and the
+    stage's ``scrollWidth`` comes out at or below its ``clientWidth`` —
+    genuinely no stage scroll, not merely an unscrolled page. This is the
+    board choice the AC's own "named condition" (row-clue band width +
+    columns at the numeral floor <= the 358 px stage) predicts will fit;
+    confirmed here by direct measurement, not assumed."""
+
+    @pytest.mark.parametrize("name", list(GRIDS_SINGLE_DIGIT_COLS))
+    def test_the_stage_does_not_scroll_and_every_cell_shares_one_side(self, browser_page, live, name) -> None:
+        grid = GRIDS_SINGLE_DIGIT_COLS[name]
+        browser_page.set_viewport_size({"width": 390, "height": 844})
+        _open(browser_page, live, live.store(grid))
+
+        cells = browser_page.evaluate(_CELLS)
+        fit = browser_page.evaluate(_FIT)
+
+        assert len(cells) == len(grid) * len(grid[0])
+        sides = {side for cell in cells for side in cell}
+        assert len(sides) == 1, sides  # every cell shares one side, literally
+        side = sides.pop()
+        assert side <= CAP, side
+
+        predicted, floor_dominates = _predict_cell(grid, fit["stageClientWidth"], 844, cell_min=0)
+        assert not floor_dominates, (name, predicted)  # the fit term binds here, not the numeral floor
+        # abs=0.02, not the existing floor-bound tests' 0.01: Chromium's
+        # LayoutUnit is fixed-point at 1/64 px (0.015625 px), and the
+        # fit-to-width term's calc()/clamp()/cqi chain accumulates a few of
+        # those ticks across more arithmetic steps than the column floor's
+        # one-step multiply does (see GRIDS_SINGLE_DIGIT_COLS's comment).
+        assert side == pytest.approx(predicted, abs=0.02), (side, predicted)
+
+        # AC-1's unconditional half, literally: the stage itself never scrolls.
+        assert fit["stageScrollWidth"] <= fit["stageClientWidth"], fit
+        # And the page, as always, never scrolls either.
+        assert fit["pageWidth"] <= fit["viewport"], fit
 
 
 # ==========================================================================
