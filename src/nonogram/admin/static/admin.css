@@ -396,15 +396,27 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 }
 .player-fallback { color: var(--color-text-secondary); font-style: italic; }
 .player-board {
-  --player-cell: clamp(var(--player-cell-min),
-    min(100cqi / (var(--player-cols) + var(--player-row-depth) + 1),
+  /* The cell (CARD-196). Its floor is the wider of the stage's floor and the
+     widest column numeral (--player-col-floor: its digits at the 12 px
+     numeral minimum, 0.6 em each). Its fit is the least of three terms: the
+     width left after the row band and the row rules, over the cells (the
+     band is --player-row-ch in ch at the numerals' real size, max(12 px,
+     0.6 cell)); the same width over the cells and the band's growth with the
+     cell (0.36 cell per ch, which applies once the numerals are above 12 px);
+     and the height. Both width terms are needed, since the band is the larger
+     of the two. */
+  --player-numeral-min: 12px;
+  --player-col-floor: calc(var(--player-col-digits, 1) * 0.6 * var(--player-numeral-min));
+  --player-cell: clamp(max(var(--player-cell-min), var(--player-col-floor)),
+    min(calc((100cqi - var(--player-rule) - var(--player-rule-major) - var(--player-row-ch) * 0.6 * var(--player-numeral-min)) / var(--player-cols)),
+        calc((100cqi - var(--player-rule) - var(--player-rule-major)) / (var(--player-cols) + var(--player-row-ch) * 0.36)),
         (100svh - var(--player-chrome-h)) / (var(--player-rows) + var(--player-col-depth) + 1)),
     var(--player-cell-max));
   border-collapse: separate;
   border-spacing: 0;
   font-family: var(--font-num);
   font-variant-numeric: tabular-nums;
-  font-size: calc(var(--player-cell) * 0.6);
+  font-size: max(var(--player-numeral-min), calc(var(--player-cell) * 0.6));
   line-height: 1;
   color: var(--grid-ink);
   margin-bottom: var(--space-4);
@@ -413,9 +425,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-corner { border-right: var(--player-rule-major) solid var(--grid-ink); border-bottom: var(--player-rule-major) solid var(--grid-ink); }
 .player-clue { background: var(--color-surface); }
 .player-clue.is-col { vertical-align: bottom; text-align: center; border-top: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule-major) solid var(--grid-ink); padding-top: calc(var(--player-cell) * 0.2); }
-.player-clue.is-col .player-clue-num { display: block; height: var(--player-cell); line-height: var(--player-cell); }
-.player-clue.is-row { text-align: right; white-space: nowrap; border-left: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule-major) solid var(--grid-ink); padding-left: calc(var(--player-cell) * 0.2); }
-.player-clue.is-row .player-clue-num { display: inline-block; min-width: var(--player-cell); text-align: center; }
+.player-clue.is-col .player-clue-num { display: flex; justify-content: center; align-items: center; width: 0; margin: 0 auto; height: var(--player-cell); line-height: normal; }
+.player-clue.is-row { text-align: right; white-space: nowrap; border-left: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); border-right: var(--player-rule-major) solid var(--grid-ink); padding-left: 0.5ch; }
+.player-clue.is-row .player-clue-num { display: inline-flex; align-items: center; }
 .player-cell { width: var(--player-cell); min-width: var(--player-cell); height: var(--player-cell); background: var(--grid-paper); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); vertical-align: middle; }
 .player-board .major-right, .player-clue.is-col:last-child, .player-cell:last-child { border-right: var(--player-rule-major) solid var(--grid-ink); }
 .player-board .major-below, .player-board tbody tr:last-child > * { border-bottom: var(--player-rule-major) solid var(--grid-ink); }
@@ -552,8 +564,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    1440 px, 24 px at 390 px) the ring's centre is within 0.5 px of the
    digits' text box centre, across and down. A negative margin of half the
    heavy rule above and below keeps each row clue box a cell tall, also in a
-   row that ends in a heavy rule. Each number keeps main's one-cell slot,
-   and circling (a border colour change on a ring every number always has)
+   row that ends in a heavy rule. A column number is a zero-width box (its
+   digits do not widen the column) with a one-cell height, and its ring is
+   centred on that box; a row number's slot is its digits and a 1.45 ch gap.
+   Circling (a border colour change on a ring every number always has)
    moves nothing. The ring is
    --player-circle tall and as wide as the digits (--player-clue-digits, set
    by solver.js at draw time, in ch) plus a clearance and the ring on each
@@ -574,15 +588,32 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   --player-ring-gap: 0.25px;
 }
 .player-board .player-clue-num { position: relative; }
-.player-board .player-clue.is-row .player-clue-num { height: var(--player-cell); line-height: var(--player-cell); margin: calc(var(--player-rule-major) / -2) 0; }
+.player-board .player-clue.is-row .player-clue-num { height: var(--player-cell); line-height: normal; margin: calc(var(--player-rule-major) / -2) 1.45ch calc(var(--player-rule-major) / -2) 0; }
 .player-board .player-clue-num::before {
-  --player-ring: min(
-    max(var(--player-circle),
-      calc(var(--player-clue-digits, 1) * 1ch + 2 * (var(--player-circle-clear) + var(--player-circle-w)))),
-    calc(var(--player-cell) - (var(--player-rule-major) - var(--player-rule)) / 2 - var(--player-ring-gap)));
+  --player-ring: max(var(--player-circle),
+    calc(var(--player-clue-digits, 1) * 1ch + 2 * (var(--player-circle-clear) + var(--player-circle-w))));
   content: ""; position: absolute; pointer-events: none; box-sizing: border-box;
   width: var(--player-ring); height: var(--player-circle);
   left: calc(50% - var(--player-ring) / 2); top: calc(50% - var(--player-circle) / 2);
   border: var(--player-circle-w) solid transparent; border-radius: calc(var(--player-circle) / 2);
 }
 .player-board .player-clue-num.is-circled::before { border-color: var(--grid-ink); }
+/* A column number is a zero-width box centred in its column (so its digits
+   do not widen the column): its ring is centred on the box, not on its width.
+   CARD-196 AC-8 (redo 3, owner option a): only a column ring is capped at
+   the distance to the next column's heavy rule less --player-ring-gap, so
+   two adjacent column rings never overlap; a two-digit column number's ring
+   may therefore fall short of fully clearing its own digits at the smallest
+   cells (measured and pinned by
+   test_two_digit_rings_clear_their_digits_on_a_30x30). A row ring keeps the
+   uncapped --player-ring above: the row's 1.45ch gap (set on
+   .is-row .player-clue-num, below) gives it room to grow past its own
+   digits-only box without reaching the next number's ring, so every row
+   ring, one digit or two, still fully clears its digits. */
+.player-board .player-clue.is-col .player-clue-num::before {
+  --player-ring: min(
+    max(var(--player-circle),
+      calc(var(--player-clue-digits, 1) * 1ch + 2 * (var(--player-circle-clear) + var(--player-circle-w)))),
+    calc(var(--player-cell) - (var(--player-rule-major) - var(--player-rule)) / 2 - var(--player-ring-gap)));
+  left: calc(-1 * var(--player-ring) / 2);
+}

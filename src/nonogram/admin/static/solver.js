@@ -216,8 +216,11 @@ function drawBoard(stage, payload) {
   // The cell side is computed in CSS from these (admin.css, --player-cell).
   table.style.setProperty("--player-cols", width);
   table.style.setProperty("--player-rows", height);
-  table.style.setProperty("--player-row-depth", Math.max(...rows.map((c) => c.length)));
+  // The widest row band in ch: each row number takes its digits and a 1.45 ch
+  // gap (admin.css .player-clue.is-row), and the row has 0.5 ch of padding.
+  table.style.setProperty("--player-row-ch", Math.max(...rows.map((c) => c.reduce((sum, n) => sum + String(n).length + 1.45, 0.5))));
   table.style.setProperty("--player-col-depth", Math.max(...columns.map((c) => c.length)));
+  table.style.setProperty("--player-col-digits", Math.max(...columns.flatMap((c) => c.map((n) => String(n).length))));
 
   const head = table.createTHead().insertRow();
   const corner = document.createElement("td");
