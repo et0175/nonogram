@@ -1,0 +1,22 @@
+wave: 36
+mode: interactive
+active: []
+escalated: []
+merged:
+- id: CARD-196
+  success_commit: 432a1ea
+  merge_commit: d7ba2ac
+- id: CARD-193
+  review_cycle: 3
+  success_commit: 051aa78
+  merge_commit: c51982a
+  branch: card/193-player-mobile-fit
+queued:
+- CARD-194 (CARD-193 merged — ready to start)
+- CARD-195 (after CARD-194)
+conflict_edges:
+- pair:
+  - CARD-194
+  - CARD-195
+  reason: 'predicted: player files'
+last_updated: '2026-10-07T15:34:34Z'

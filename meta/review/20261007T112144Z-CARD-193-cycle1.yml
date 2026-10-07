@@ -1,0 +1,213 @@
+version: 1
+generated_at: "2026-10-07T11:21:44Z"
+target: "main..HEAD (2041204) — card/193-player-mobile-fit, cycle 1"
+overall_score: 6.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css (full file + diff)
+    - src/nonogram/admin/static/solver.js (full file + diff)
+    - tests/test_puzzle_solver_mirror.py (full, new file)
+    - tests/test_puzzle_solver_phone.py (full, diff)
+    - tests/test_puzzle_solver_page.py (diff + surrounding context)
+    - tests/test_puzzle_solver_clues.py (diff + surrounding context)
+    - tests/test_puzzle_solver_maybe.py (diff + surrounding context)
+    - meta/kanban/cards/CARD-193.md (full)
+    - meta/architecture/requirements.yml (AC-343, AC-354 entries)
+    - meta/design/components.md (diff, out of code-scope but read for consistency)
+    - pyproject.toml (package-data, pytest addopts)
+    - src/nonogram/limits.py (CON-011)
+  not_reached:
+    - src/nonogram/admin/static/solver_state.js (confirmed untouched by diff; not re-read in full)
+    - src/nonogram/admin/templates/puzzle_solve.html (confirmed untouched; not re-read in full)
+    - no automated screenshot/runtime-log/a11y-scan evidence (review.visual is OFF for this project) — Step 8g ran as a static CSS/JS read only; the implementer's 17 Playwright PNGs at ~/Documents/nonogram-reviews/CARD-193/ were not independently re-rendered by this cycle
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 621, removed: 144 }
+  max_fan_in: { symbol: "solver.js:drawBoard", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css", "src/nonogram/admin/static/solver.js"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — drawBoard/wireMarking are module-private functions called once from start(); this is a single-page client script, not a library with external callers, so fan-in is structurally low by design, not a risk signal"
+    cochange_missing: "no_eligible_fact — git log --since=12.months on the two touched files shows no co-change peer outside themselves (solver_state.js/puzzle_solve.html, the G-6-pinned files, did not co-change with them in the lookback window)"
+
+system_contract:
+  rules_checked: 53
+  holds: 10
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — diff adds only vanilla JS/CSS (admin.css, solver.js); no <script type=module>/framework/build-step artifact added; pyproject.toml dependency set untouched by this diff (git diff --stat)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark (tests/test_puzzle_solver_marking.py) passed unedited, 72/72 in the file; TestSolverMirror_CrossingTheBreakpointKeepsTheBoard additionally asserts requests == [] across a matchMedia redraw (tests/test_puzzle_solver_mirror.py, 5/5 passed)"
+    - "ADR-0038/R3 ✓ holds — drawBoard/clueBox read only payload.rows/payload.columns; TestSolverPage_ShowsTheClues (tests/test_puzzle_solver_page.py) passed unedited, part of 67/67 in the file"
+    - "ADR-0038/R4 ✓ holds — static/solver_state.js absent from git diff main..HEAD --stat (7 files changed, none of them solver_state.js)"
+    - "ADR-0038/R5 ✓ holds — unaffected: pyproject.toml line 80 package-data for nonogram.admin still lists static/*.js and static/*.css, untouched by this diff"
+    - "ADR-0038/R6 ✓ holds — unaffected: no new route/template added; puzzle_solve.html untouched (G-6)"
+    - "ADR-0038/R7 ✓ holds — unaffected: tests/test_puzzle_solver_mirror.py reuses the existing browser_page/live fixtures (pytest-playwright + Chromium) from test_puzzle_solver_page.py verbatim; no new dependency declaration"
+    - "ADR-0038/R8 ✓ holds — unaffected: same shared fixtures carry the loud-skip-when-no-Chromium behavior; not touched by this diff"
+    - "CON-021 ✓ holds — unaffected: no new route added, player still served only behind the existing admin door"
+    - "CON-011 ✓ holds — unaffected: every new/changed fixture (GRID_16_WIDE 16x15, GRID_25x15 25x15, BIG 30x30, GRID_15_WIDE 15x25) stays within MAX_SIZE=30 (src/nonogram/limits.py:17); no boundary code touched"
+    - "ADR-0006/R1, ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: this card touches only src/nonogram/admin/static/{admin.css,solver.js} and five player-focused test files; none of these 43 rules' scope (generation, solver internals, book/export, density, web-server binding) is exercised by the diff"
+
+root_causes:
+  - id: RC-1
+    title: "CARD-193's AC-1/AC-2/AC-11 (and the AC-5/AC-7 draft text) were never reconciled with CARD-196's column-numeral floor or the owner's 2026-10-06 final ruling that explicitly overrides fit-to-width for numerals; requirements.yml FR-044 AC-343/AC-354 still carry the pre-ruling wording"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_phone.py
+    line: 226
+    title: "AC-1, AC-2 and AC-11 are literally contradicted by the measured, owner-sanctioned behavior; the AC text (card + requirements.yml) was never re-cut to match the final ruling"
+    description: |
+      AC-1 requires "the stage's scrollWidth is <= its clientWidth" for all four named boards;
+      AC-2 requires the 30x30's cells to be "narrower than 14 px"; AC-11 requires
+      ".player-stage does not scroll sideways". Measured (and confirmed by me independently
+      re-running the tests): all three GRIDS fixtures (15x15, 25x15, 30x30) measure ~14.39 px
+      at 390 px — NOT narrower than 14 px (AC-2 fails) — and .player-stage's scrollWidth DOES
+      exceed its clientWidth for all of them, because each has a two-digit column clue and
+      CARD-196's --player-col-floor (14.4 px for 2 digits) exceeds the fit term (AC-1 fails).
+      tests/test_puzzle_solver_page.py:1253 (TestSolverPageFits::test_a_phone_width_page_never_scrolls_sideways,
+      AC-11) asserts `stageScrolls is True` — the literal opposite of AC-11's "does not scroll
+      sideways" — left there deliberately, with a comment explaining why, rather than the
+      `False` the card's own Worktree notes ("[Other tests that change]") predicted.
+
+      The implementer did not hide this: Worktree notes "The col-floor interaction with
+      AC-1/AC-2/AC-11" documents the exact same measurement and explains the tests assert a
+      TRUE, different, conditional property ("stage scrolls iff the column floor exceeds the
+      fit") instead of the AC's literal "never scrolls" / "narrower than 14 px". That is a
+      correct, well-cross-checked implementation of the owner's own final ruling, quoted
+      verbatim in the card's Worktree notes: "Clue numbers and the '?' mark never render below
+      12 px: where a board cannot fit at 12 px, it scrolls sideways (this overrides the
+      fit-to-width rule for numerals only)." I confirm meta/architecture/requirements.yml's
+      FR-044 AC-343 (line 4092) and AC-354 (line 4160) still read with the PRE-ruling wording
+      ("cells at the 24 px phone floor", respectively silent on the override) — the card's own
+      escalation routing step "(2) /forge:architect: delta on requirements.yml for AC-354 and
+      AC-343 to match the ruling" was never executed, and CARD-193's own AC-1/AC-2/AC-11 prose
+      in meta/kanban/cards/CARD-193.md was likewise never re-cut (routing step 3), despite the
+      same file's Worktree notes explicitly anticipating this exact tension before
+      implementation began.
+
+      Verdict (the orchestrator's own framing, (a) vs (b)): this is predominantly (b), a
+      requirement/decomposition artifact gap, not a code defect — for three reasons. First,
+      GRIDS["15x15"]/["25x15"]/BIG are G-1-pinned, pre-existing CARD-182 fixtures (seeds 182,
+      1825, 1830) shared with TestSolverPhone_DesktopSizingUnchanged; swapping them for a
+      hand-built single-digit-column grid risks moving DESKTOP_CELL's pinned 1440 px values
+      (G-1) and was correctly avoided. Second, the owner's OWN final ruling text explicitly
+      names and accepts this exact trade-off ("where a board cannot fit at 12 px, it scrolls
+      sideways") — the code is not wrong, the AC prose is stale. Third, constructing a
+      uniquely-solvable 15..30-cell grid where EVERY row and column run is single-digit (so the
+      literal AC would hold) is a real, two-axis construction problem, not a one-line fixture
+      swap — unlike _deep_row_clues's one-axis (row-only) deliberate construction. AC-11's
+      fixture (`_unique_grid(MAX_SIZE, MAX_SIZE, seed=31)`, tests/test_puzzle_solver_page.py)
+      is NOT G-1-shared, so there is more latitude there, but the same two-axis construction
+      difficulty applies.
+
+      Severity: filed as Critical per this review's own AC-failure rule (three ACs' literal
+      text is measurably false), but the fix is NOT a code change to admin.css/solver.js — it
+      is a requirements-artifact reconciliation. Routing, not a redo, is the correct next step.
+    suggestion: |
+      Do not send this back to the implementer for a code fix — the code correctly implements
+      the owner's final ruling and the tests verify a true, cross-checked property. Route per
+      the card's own already-drafted plan: (1) /forge:architect delta on
+      meta/architecture/requirements.yml AC-343 and AC-354 to state the 12 px-numeral-floor
+      override explicitly; (2) /forge:kanban decompose: re-cut CARD-193's (or a follow-up
+      card's) AC-1, AC-2 and AC-11 text to the conditional property the tests actually verify
+      ("the stage scrolls iff the column-numeral floor exceeds the fit") instead of a blanket
+      "never scrolls" / "narrower than 14 px" guarantee the architecture cannot make once
+      CARD-196 pinned a 12 px numeral floor. Optionally, as a separate enhancement (not a
+      blocker): a deliberately constructed single-digit-row-and-column fixture (extending
+      _deep_row_clues's technique to both axes) would let a future card demonstrate the
+      best-case fit-to-width behavior the original (pre-CARD-196) AC-1/AC-2 draft intended,
+      without touching the G-1-pinned fixtures.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-193.md
+    line: 249
+    title: "Self-reported test-pass counts in Worktree notes are inaccurate"
+    description: |
+      The implementation Worktree notes report "tests/test_puzzle_solver_maybe.py: 36 passed"
+      and a guardrail-group total of "185 passed". I independently ran both: maybe.py actually
+      collects and passes 34 (not 36), and the six named guardrail files together pass 183 (not
+      185) — marking.py 72, progress.py 44, resume.py 15, hint.py 24, percent.py 22,
+      admin_design_tokens.py 6, sum 183. Both discrepancies are off by exactly 2 in the same
+      direction, suggesting a double-count rather than a real regression (no failing or missing
+      test was found — every file passes with exit 0 in my own runs). Immaterial to
+      correctness, but the audit trail this card and future retrospectives rely on is
+      technically wrong.
+    suggestion: "Correct the two counts in the card's Worktree notes to 34 and 183 respectively."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 259
+    title: "Mirrored boards change the row-clue header's DOM/reading order relative to its cells (documented trade-off, not independently verified)"
+    description: |
+      In mirrored mode, drawBoard appends each row's td.player-cell elements before its
+      th.player-clue.is-row box (line.append(box) moved to after the cell loop), so a screen
+      reader's linear reading order meets a row's cells before the row header that names its
+      clue. The implementer explicitly flagged this in the card's own Worktree notes ("[Mirror
+      placement]... DOM order changes for mirrored boards: a screen reader meets the row clue
+      after the row's cells. Record this in the PR.") as a known, deliberate consequence, not
+      an oversight. No automated a11y check (axe-core or otherwise) covers this card — Step 8g
+      ran as a static read only, per the task's instructions (review.visual is OFF).
+    suggestion: "Before wider rollout, a manual VoiceOver/TalkBack pass on a mirrored board (or a follow-up a11y card) would confirm scope=\"row\" keeps the row/cell association legible when read linearly; not a blocker for this card given it was pre-declared and scope.kind='row' still provides table-navigation association in most screen readers."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_puzzle_solver_phone.py
+    line: 62
+    title: "AC-1 names four board sizes (15x15/20x20/25x25/30x30); only three fixtures exist (25x15 stands in for 20x20/25x25)"
+    description: |
+      GRIDS only has keys \"15x15\", \"25x15\", \"30x30\" — inherited unchanged from CARD-182
+      (confirmed via git show main:tests/test_puzzle_solver_phone.py, same three keys, same
+      seeds). This predates CARD-193 and is not a regression introduced by this diff.
+    suggestion: "No action needed for this card; noted for a future test-fixture-completeness pass if AC-1's four-board wording is ever taken literally."
+    confidence: high
+    source: history
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

@@ -2079,11 +2079,17 @@ links:
   - PropertyTest_SolverHistory_ReplayReproducesTheBoard
   - PropertyTest_SolverProgress_SolvedMatchesTheSolution
   - PropertyTest_SolverProgress_ErrorCountMatchesTheDefinition
-  - TestSolverPhone_CellsAreATapTarget
-  - TestSolverPhone_FloorAppliesOnlyBelowTheShellBreakpoint
+  - TestSolverPhone_BoardFitsThePhoneWidth
+  - TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit
+  - TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity
+  - TestSolverPhone_FitAppliesOnlyAtOrBelowTheShellBreakpoint
   - TestSolverPhone_DesktopSizingUnchanged
-  - TestSolverPhone_TouchDragMarksOnAScrolledBoard
+  - TestSolverPhone_TouchDragMarksOnAFittedBoard
   - TestSolverPhone_SwipingTheCluesPansTheBoard
+  - TestSolverMirror_RowCluesOnTheRightAboveFifteen
+  - TestSolverMirror_HeavyLinesMatchTheLeftLayout
+  - TestSolverMirror_MarkingWorksOnAMirroredBoard
+  - TestSolverMirror_CrossingTheBreakpointKeepsTheBoard
   - PropertyTest_SolverHint_LineForcedMatchesThePythonLineSolver
   - PropertyTest_SolverHint_LineForcedMatchesBruteForce
   - PropertyTest_SolverHint_RevealsTheFirstDeducibleCell
@@ -2156,6 +2162,23 @@ links:
     AC-351..AC-354 / EC-045, CARD-189 clicks AC-355..AC-359) carry planned
     test names in requirements.yml and are NOT listed here until their code
     exists; status stays partial until then.
+    AMENDED 2026-10-07 (CARD-193, wave 36, merged): CARD-182's flat 24 px
+    phone cell floor is removed — the board now fits the stage width exactly,
+    scrolling only where CARD-196's column-numeral floor needs more room than
+    the stage has, and boards wider than 15 columns mirror their row clues to
+    the right (phones only, ≤ 820 px — owner decision 2026-10-06, option b).
+    TestSolverPhone_CellsAreATapTarget, TestSolverPhone_FloorAppliesOnlyBelowTheShellBreakpoint
+    and TestSolverPhone_TouchDragMarksOnAScrolledBoard are retired (the 24 px
+    floor they tested no longer exists); replaced by
+    TestSolverPhone_BoardFitsThePhoneWidth,
+    TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit,
+    TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity,
+    TestSolverPhone_FitAppliesOnlyAtOrBelowTheShellBreakpoint and
+    TestSolverPhone_TouchDragMarksOnAFittedBoard (renamed), plus the new
+    TestSolverMirror_* class for the mirrored-clue layout. FR-044 AC-343's
+    "given" clause ("cells at the 24 px phone floor") is now stale as a
+    direct consequence of this card — flagged to backlog for the next
+    architect delta, not fixed here.
   status: partial
 
 - req: NFR-008

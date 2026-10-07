@@ -31,7 +31,7 @@ _Updated: 2026-10-07 UTC_
 | 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ✓ done — all 8 merged (CARD-170 after an owner-chosen targeted fix) |
 | 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2, CARD-186 P2, CARD-188 P2 | ✓ done — all 10 merged (CARD-188 after two owner-chosen fixes) |
 | 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ▶ active — 185 merged; player chain 189 → 187; admin chain 190 → 191 → 192 (app.py); 191 ✓ committed; 192 ▶ review; 187 ✓ 9.0 committed 728c7d0, awaiting done |
-| 36 | CARD-193 P2, CARD-196 P2 | CARD-196 ✓ 8.5 committed 432a1ea, awaiting done (owner render check) · CARD-193 ▶ review (redo, cycle 2/3) — score 7.5, 0 critical/1 important (card text sync slip, orchestrator's own mistake, now corrected — underlying test fix independently re-verified solid) — one more confirmation pass before the AC/EC/G gate |
+| 36 | CARD-193 P2, CARD-196 P2 | CARD-196 ✓ merged d7ba2ac (score 8.5, cycle 3/3) · CARD-193 ✓ merged c51982a (score 9.5, cycle 3/3; owner confirmed phone-fit and mirrored-clue renders before merge) · CARD-194/195 queued next |
 | 37 | CARD-197 P2, CARD-198 P2, CARD-199 P2 | CARD-199 ✓ merged 7d4bcf8 (score 9.5, cycle 1/3) · CARD-197 ✓ merged 81156b1 (score 9.0, cycle 2/3; owner confirmed gray gridline tone and band/caption wording before merge) · CARD-198 ready to start (both deps merged) — owner solution-layout doc; ran alongside wave 36 (no file overlap) |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
@@ -53,11 +53,11 @@ _(none)_
 
 ## Ready
 - [CARD-198](cards/CARD-198.md) P2 · 1.5d · wave 37 — The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid · unblocked — both CARD-197 (81156b1) and CARD-199 (7d4bcf8) merged
+- [CARD-194](cards/CARD-194.md) P2 · 1.5d · wave 36 — The puzzle player's brushes become one dropdown with a Region option; a drag scrolls the page unless Region is picked · unblocked — CARD-193 merged (c51982a); CARD-195 still waits on this one
 
 ## In Progress
 
 ## Review
-- [CARD-196](cards/CARD-196.md) P2 · 1.25d · wave 36 — The puzzle player's clue numbers get their own size, independent of the cell, with a 12 px minimum · ✓ 8.5 (cycle 3/3, redo 3) · committed 432a1ea (on 98efcff) · awaiting done (owner render check — renders ready in ~/Documents/nonogram-reviews/CARD-196/)
 - [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · ✓ 9.0 (cycle 2/3, 0 crit, 0 imp, 2 minor) · committed 728c7d0 (implementation 2c01f7f, fc3f647) · awaiting done (owner visual check of renders in ~/Documents/nonogram-reviews/CARD-187/)
 - [CARD-192](cards/CARD-192.md) P2 · 0.75d · wave 35 — The Arrangement page can show one longest-side size, with what is left or over against the plan · ✓ 9.2 (2 cycles) · committed 04791f4 · awaiting done (owner render check)
 - [CARD-191](cards/CARD-191.md) P2 · 0.75d · wave 35 — On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side · ✓ 9.5 (2 cycles) · committed 9803893 · awaiting done (owner render check)
@@ -66,7 +66,6 @@ _(none)_
 - [CARD-185](cards/CARD-185.md) P2 · 1d · wave 35 — The puzzle player reopens a puzzle in the state it was left in (this browser only) · ✓ 9.5 (2 cycles) · committed a7e72d2 · awaiting done (owner render check)
 
 ## Blocked
-- [CARD-193](cards/CARD-193.md) P2 · 1d · wave 36 — The puzzle player fits big boards to the phone width and mirrors row clues on the right above 15 cells · ▶ in_progress (redo, cycle count reset) — the owner-approved 2026-10-06 option-b wording ("boards whose column numbers/row-clue band cannot fit at the 12 px floor scroll sideways; the page never scrolls") is now carried into AC-1/AC-2/AC-11's literal text per `[AC re-derivation]` in Worktree notes; 15×15 confirmed reachable with a single-digit-column fixture, 25×15 to be measured this attempt, 30×30-with-15-number-row-clue stays a named, accepted exception · the prior attempt's CSS/JS mechanics (commit 2041204, independently verified sound — 0 Important findings, G-1..G-8 and 53/53 system-contract rules held) are carried forward unchanged, now rebased onto main as `ac24873` · worktree ../PythonProject4-CARD-193 kept on card/193-player-mobile-fit
 
 ## Done
 - **CARD-177** Finalise and the book PDF downloads flash a generic error, not the exception's text · score 9.0 (1 cycle) · merged d1995fd
@@ -218,6 +217,8 @@ _(none)_
 - **CARD-045** predict_size() can crash a whole batch page on a degenerate image · score 9.0 (cycle 1/3) · merged 2fc8094
 - **CARD-199** Extend KDP's gutter table past 300 pages so larger books still finalise · score 9.5 (cycle 1/3) · merged 7d4bcf8
 - **CARD-197** A new full-page solved layout: clues top and left, light-gray gridlines between filled cells · score 9.0 (cycle 2/3) · merged 81156b1
+- **CARD-196** The puzzle player's clue numbers get their own size, independent of the cell, with a 12 px minimum · score 8.5 (cycle 3/3) · merged d7ba2ac
+- **CARD-193** The puzzle player fits big boards to the phone width and mirrors row clues on the right above 15 cells · score 9.5 (cycle 3/3) · merged c51982a
 - **CARD-001** Package scaffolding and CLI entry point
 - **CARD-002** Clue derivation via run-length encoding
 - **CARD-003** Random grid sourcing with size and density validation

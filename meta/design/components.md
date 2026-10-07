@@ -232,7 +232,7 @@ Used by: the puzzle player (`puzzle_solve.html`, drawn by `static/solver.js`; CA
 - Solved state (CARD-162): a 2px --color-success outline drawn just inside the table's edge (outline-offset = minus the major rule width — outside, the stage clipped it), a ~1s diagonal success sweep over the filled cells, and the board locked (`.player-board.is-solved`).
 - Reduced-motion solved state: under prefers-reduced-motion the same banner, name and outline appear with no animation or transition.
 
-Sizing on phones (CARD-182): at viewports ≤ 820 px the cell floor is 24 px (tap target); a board too wide for that scrolls inside `.player-stage`, panning starts on the clue areas, cells keep `touch-action: none`. Candidate token: `--player-cell-min`.
+Sizing on phones (CARD-193): at viewports ≤ 820 px the cell floor is removed; the board fits the stage width and never scrolls, except where CARD-196's column-numeral floor (clue numbers never render below 12 px) needs more width than the stage has — there it still scrolls inside `.player-stage`. Boards wider than 15 columns show their row clues on the right (`is-mirrored`), but only at this same ≤ 820 px breakpoint (owner decision, 2026-10-06 — superseding this paragraph's earlier "at every width" draft); desktop stays unmirrored. The 24 px floor of CARD-182 is superseded.
 
 (CARD-183) PlayerBoard — new cell state `.is-hinted`: the cell the last hint revealed, until the next commit; 2px --color-accent outline inset by the major rule width with an inset --grid-paper ring, fading in over 2×--duration-base (`player-hinted-in`); no animation under prefers-reduced-motion. Tokens: --color-accent, --grid-paper, --duration-base, --ease.
 
@@ -242,7 +242,7 @@ Sizing on phones (CARD-182): at viewports ≤ 820 px the cell floor is 24 px (ta
 
 ## ClueBox
 
-Used by: SolverBoard. One box per line (a row's to the left, a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
+Used by: SolverBoard. One box per line (a row's to the left, or to the right for a board wider than 15 columns at ≤ 820 px — CARD-193; a column's above), one numeral slot per clue number, cell-sized, --font-num tabular; an empty line shows the single number "0"; `aria-label` "Row N: …" / "Column N: …".
 - States: default only (CARD-161/162 may add "line satisfied").
 - Tokens: --color-surface, --font-num, --grid-ink.
 

@@ -1,0 +1,89 @@
+version: 1
+generated_at: "2026-10-07T14:58:47Z"
+target: "CARD-193 redo, cycle 3/3 (last allowed), confirmation-mode differential re-review, narrow scope. Worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-193 (branch card/193-player-mobile-fit). Previously reviewed state: cycle 2 (score 7.5, meta/review/20261007T144539Z-CARD-193-cycle2.yml), which found exactly one Important finding (F-001, a pure text/citation mismatch in meta/kanban/cards/CARD-193.md's AC-1 — traced by the orchestrator to its own cp-sync clobber, not a fix-agent defect) plus a carried Minor (F-002, clause-(b) overgeneralization). Fix under review this cycle: the orchestrator re-applied both text edits directly to CARD-193.md. No code or test file was touched since cycle 2."
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "meta/kanban/cards/CARD-193.md (full file, 346 lines: AC-1 through AC-11 reread verbatim, both 'Worktree notes — implementation'/'— redo implementation' sections, and the full Worktree-notes tail through [Review 1/3] of the redo attempt, including [Review 2/3] and [Orchestrator root-cause correction])"
+    - "meta/review/20261007T144539Z-CARD-193-cycle2.yml (full YAML: F-001/F-002, system_contract 53-rule verdict list, coverage, metrics)"
+    - "git diff 3635bdd -- tests/test_puzzle_solver_phone.py src/nonogram/admin/static/admin.css src/nonogram/admin/static/solver.js (full; admin.css/solver.js diffs confirmed empty byte-for-byte)"
+    - "git diff 3635bdd -- meta/kanban/cards/CARD-193.md and -- meta/design/components.md (full, both files)"
+    - "git diff 3635bdd --stat (whole repo) and git status --porcelain (confirmed exactly the 3 expected files touched, no stray modifications)"
+    - "Isolated re-run: tests/test_puzzle_solver_phone.py::TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity::test_columns_stay_uniform_but_major_every_rows_are_one_pixel_taller (1 passed)"
+    - "Final sanity group: tests/test_puzzle_solver_phone.py, test_puzzle_solver_mirror.py, test_puzzle_solver_clues.py, test_puzzle_solver_maybe.py, test_puzzle_solver_page.py, test_puzzle_solver_marking.py, test_puzzle_solver_progress.py, test_puzzle_solver_resume.py, test_puzzle_solver_hint.py, test_puzzle_solver_percent.py, test_admin_design_tokens.py (captured output hit the known harness summary-line-truncation artifact; dot/F/E markers counted programmatically: 332 dots, 0 F, 0 E, exit code 0)"
+  not_reached:
+    - "admin.css / solver.js full bodies — not re-read this cycle; carried forward from cycle 1/cycle 2 on the strength of a confirmed-empty diff since 3635bdd (delta-clean, mechanical re-check, not re-derived)"
+    - "Per-test-body re-read of the other 10 files in the final sanity group — not re-opened line by line this cycle; their pass/fail status was re-derived by execution (the authoritative check for 'did anything regress'), and their substance was carried from cycle 1/2's line-by-line reads"
+    - "Visual renders at ~/Documents/nonogram-reviews/CARD-193/ — not verified this cycle (carried from cycle 1/2, which also did not verify them; review.visual is off)"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 180, removed: 17 }
+  tests_cover_change: true
+  unmeasured:
+    max_fan_in: "not_applicable — this cycle's only change since cycle 2 is a kanban-card text edit (meta/kanban/cards/CARD-193.md); no exported production or test symbol changed"
+
+system_contract:
+  rules_checked: 53
+  holds: 8
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "carried(cycle2, delta-clean) — all 53 rule verdicts from meta/review/20261007T144539Z-CARD-193-cycle2.yml stand unchanged: the only change since that cycle is meta/kanban/cards/CARD-193.md's AC-1 text (a kanban-doc edit), which intersects none of their scopes. Production code (admin.css, solver.js) and the test file are confirmed byte-identical to the state cycle 2 reviewed (git diff 3635bdd on all three: test file diff unchanged from cycle 2's own reviewed delta, admin.css/solver.js diffs empty)."
+    - "ADR-0006/R1 ✓ holds — carried(cycle2, delta-clean)"
+    - "ADR-0038/R1 ✓ holds — carried(cycle2, delta-clean)"
+    - "ADR-0038/R2 ✓ holds — carried(cycle2, delta-clean); re-confirmed indirectly this cycle (TestSolverMarking_NoRequestPerMark ran clean as part of this cycle's own sanity group: 0 F/E)"
+    - "ADR-0038/R3 ✓ holds — carried(cycle2, delta-clean)"
+    - "ADR-0038/R4 ✓ holds — carried(cycle2, delta-clean)"
+    - "ADR-0038/R7, ADR-0038/R8, CON-005 ✓ holds — carried(cycle2, delta-clean)"
+    - "Remaining 45 rule ids ⚠ unchecked — no_eligible_fact — carried(cycle2, delta-clean): this cycle's only delta is kanban-card text, no runtime behaviour of the scoped components changed."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-193.md
+    line: 51
+    title: "Cycle 2's F-001 (AC-1 text/citation mismatch, Important) — verified fixed this cycle"
+    description: |
+      Cycle 2 found AC-1's *test:* citation line named only two of the three tests, and
+      clause (b) still read "at least 25 cells wide" (an over-generalization beyond the
+      one measured width), despite the [Fix 1] Worktree note claiming both were edited.
+      The orchestrator traced this to its own cp-sync clobber between the fix agent's
+      work and the cycle-2 review (see the card's [Orchestrator root-cause correction]
+      note) and re-applied both edits directly.
+
+      Verified this cycle, both sub-checks:
+      (a) Line 51's *test:* citation now reads "TestSolverPhone_BoardFitsThePhoneWidth,
+      TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit and
+      TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity (all in
+      tests/test_puzzle_solver_phone.py)" — all three tests named.
+      (b) Line 50 clause (b) now reads "a board exactly 25 cells wide hits its own
+      fit-term ceiling (...), a structural property of the formula for that width
+      specifically ... Widths 26-29 are neither measured nor excluded by this AC — no
+      claim either way" — narrowed exactly as described, with 26-29 left unclaimed
+      (not excluded).
+    suggestion: |
+      None — this is a closed-out confirmation, recorded for audit continuity.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "meta/kanban/cards/CARD-193.md (orchestrator direct edit, 2026-10-07T14:50:00Z)"
+    dismissed_reason: null
+    learned_pattern: null
+
+findings_summary:
+  critical: 0
+  important: 0
+  minor: 0
+  out_of_scope: 0
