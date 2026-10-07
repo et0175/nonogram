@@ -214,6 +214,14 @@ PAGE_FACTORIES = (
     "_blank_page",
     "_two_up_page",
     "_answer_page",
+    # CARD-197: a seventh, in the same house style (-> Image.Image) as the
+    # six above, per this module's own instruction at
+    # TestBookPdfMemory_TheInstrumentWrapsEveryPageFactory — added here by
+    # hand so the instrument's coverage stays complete. No route calls it yet
+    # (CARD-198's job; G-4's own substance — the interior's page count and
+    # parity — is unaffected): this entry only keeps the probe able to see it
+    # the day a caller does.
+    "solved_puzzle_page",
 )
 
 #: The book title the cover file carries (AC-4).
