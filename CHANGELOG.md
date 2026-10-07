@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-07
+- CARD-196 (feature): The puzzle player's clue numbers never shrink below 12 px, even when the cell itself is smaller. Column numbers set a floor on the cell (14.4 px for a two-digit number on a phone), and row-number slots size to their own digits. Two small exceptions, both decided by the owner: a two-digit column ring may lightly overlap its neighbour, and adjacent single-digit row rings may sit a sliver short of full separation.
+
 ## 2026-10-06
 - CARD-192 (feature): The book's Arrangement page can now show one longest-side band at a time (≤15, 16–20, 21–25, 26–30). It shows that level's count against your plan, e.g. "16–20: Easy 18 / 20 (2 left) · Medium 22 / 20 (2 over)". While a band is shown, moves, the position box and Sort are hidden, with a one-line reason.
 - CARD-187 (feature): The puzzle player shows "Progress: N%" next to the error counter: the share of cells you've marked correctly, rounded down so it reaches 100% only when the puzzle is solved. Wrong marks and "?" don't count. Progress sits left of Errors (as you chose); at narrower widths it wraps below.

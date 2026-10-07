@@ -1,0 +1,177 @@
+version: 1
+generated_at: "2026-10-07T07:00:15Z"
+target: "card/196-player-numbers-own-size @ 98efcff (git diff main...HEAD; merge-base 7bb0fbb)"
+overall_score: 8.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css (full diff + ring block 555-620)
+    - src/nonogram/admin/static/solver.js (drawBoard diff)
+    - tests/test_puzzle_solver_clues.py (all changed classes + helpers)
+    - tests/test_puzzle_solver_phone.py (TestSolverPhone_SwipingTheCluesPansTheBoard)
+    - meta/kanban/cards/CARD-196.md (full)
+  not_reached:
+    - meta/design/components.md (not in scope)
+  confidence: high
+metrics:
+  diff: { files: 5, added: 248, removed: 42 }
+  max_fan_in: { symbol: "--player-ring / .player-clue-num::before", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css"]   # 31 commits / 12 months, 10 fix/bug
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — co-change mining not run; card scope is explicit and the only expected peer (meta/design/components.md, DESIGN-REGISTER note) is out of this card's commit by design"
+  test_runs:
+    - "clues+phone+maybe+page: 141 passed (144.8s)"
+    - "marking+hint+percent+progress+design_tokens: 168 passed"
+    - "TestPlayerAssets: 5 passed"
+  mutation_check:
+    - id: M1
+      mutant: "restore axis-blind ring cap in generic .player-clue-num::before"
+      result: killed
+      killed_by: "test_two_digit_rings_clear_their_digits_on_a_30x30[floor],[desktop] (assert (289.53125 - 289.29687) >= 0.5)"
+    - id: M2
+      mutant: "--player-ring-gap: -3px"
+      result: killed
+      killed_by: "test_two_digit_rings_clear_their_digits_on_a_30x30[floor],[desktop] (_RING_GAP close-pairs)"
+    - id: M3
+      mutant: "column ring rule: max(var(--player-circle), ...) -> max(calc(var(--player-circle) * 0.6), ...) (single-digit column rings shrink through their digits)"
+      result: survived
+      note: "whole tests/test_puzzle_solver_clues.py green; see F-001"
+  independent_measurements:
+    "1100x700": { row2_clear: 0.703, col1_clear: 1.711, col2_clear: -1.419, single_digit_row_rings: 0 }
+    "1440x900": { row2_clear: 0.937, col1_clear: 3.141, col2_clear: 0.22, single_digit_row_rings: 0 }
+    "390x844":  { row2_clear: 1.625, col1_clear: 5.206, col2_clear: 1.628, single_digit_row_rings: 0 }
+
+system_contract:
+  rules_checked: 53
+  holds: 4
+  unchecked: 49
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — diff touches only static admin.css/solver.js; no import, framework, build step or npm file added (git diff main...HEAD --name-only); TestPlayerAssets 5 passed"
+    - "ADR-0038/R2 ✓ holds — solver.js change is two style.setProperty calls in drawBoard; no fetch/XHR added; marking suite (incl. TestSolverMarking_NoRequestPerMark) passed"
+    - "ADR-0038/R4 ✓ holds — static/solver_state.js not in the diff; solver.js change is rendering-only custom properties"
+    - "CON-021 ✓ holds — no route, template or server code changed; player remains admin-panel only"
+    - "ADR-0006/R1, ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R3, ADR-0038/R5, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: the diff is player CSS geometry + two drawBoard custom properties; no dependency, solver, generation, storage, book, export, server-binding, clue-encoding or packaging code is touched"
+
+root_causes:
+  - id: RC-1
+    title: "AC-8 / test docstring clearance claims broader than the assertions"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "Comments not updated for the new geometry"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: high
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_clues.py
+    line: 690
+    title: "Single-digit column (and single-digit row) ring clearance claimed by AC-8 and the class docstring but never asserted"
+    description: |
+      AC-8 and the edited TestSolverClues_TheCircleIsVisible docstring (lines 624-627) state that every
+      circled single-digit column ring and every row ring "one digit or two" clears its digits by >= 0.5 px
+      on the 30x30. The test filters `circled` to len(text)==2 (line 690), asserts clearance only for
+      axis=="row" (line 710), and the added loop at line 725 is row-only. _two_digit_grid has no
+      single-digit row numbers at all (measured: 0 at all three viewports), so that loop is identical to the
+      two-digit filter. Mutant M3 (single-digit column rings shrunk to 0.6 x circle, cutting through the digit)
+      survives the whole clues file. The property does hold today (measured col1 clearance 1.711 / 3.141 /
+      5.206 px) — the gap is the evidence, not the behaviour.
+    suggestion: |
+      Assert clearance for every circled ring where axis=="row" or len(text)==1 (drop the len==2 filter
+      for the clearance check, keep it for the pill/count checks), and either add a single-digit row
+      number to the 30x30 fixture or narrow the docstring/AC wording to what is exercised.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 562
+    title: "Stale ring comment: 'cell's line-height' and 'the pill clears its digits by at least 0.5 px' (581) no longer true"
+    description: |
+      The CARD-188 comment block still says a row number has a cell's line-height (now line-height: normal)
+      and that the cap applies to every ring and every pill clears by 0.5 px; the new block at 601 says
+      otherwise (cap is column-only, two-digit column rings fall short). Contradictory comments in one file.
+    suggestion: "Trim lines 575-582 to defer to the CARD-196 block, fix the line-height sentence."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: feature
+    type: gap
+    file: tests/test_puzzle_solver_phone.py
+    line: 275
+    title: "Class comment says the 30x30 row gutter is wider than the 358 px stage — no longer true with digit-wide row slots"
+    description: |
+      15 numbers x 2.45 ch + 0.5 ch at a 14.4 px numeral is about 322 px < 358 px, which is precisely why the
+      start point had to move to corner.right. The test body is correct (still asserts the start element is
+      the corner, the stage pans, nothing marks); only the explanatory comment is stale.
+    suggestion: "Reword the comment to match the inline CARD-196 note."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-004
+    severity: low
+    category: feature
+    type: risk
+    file: tests/test_puzzle_solver_clues.py
+    line: 844
+    title: "AC-4 'equals the fit value' pinned as a measured constant 10.05 px rather than an independently computed fit"
+    description: |
+      The test proves the cell is not raised to 14.4 px, but a regression in the fit formula that moves the
+      cell by more than 0.05 px would fail with an opaque number, and a coincidental 10.05 would pass.
+    suggestion: "Compute the expected fit from stage clientWidth, rules and --player-row-ch in the test (independent second derivation) or document the derivation."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: info
+    category: feature
+    type: question
+    file: tests/test_puzzle_solver_clues.py
+    line: 756
+    title: "No-clipping check is a computed-style check on .player-clue-num and its th only"
+    description: |
+      Matches AC-8's literal wording ("checked directly") and would kill an overflow/clip-path mutant on
+      those elements, but does not check paint overlap of a two-digit column ring stroke over its own digits
+      (which at 1100x700 does occur: -1.42 px). Owner option (a) accepted readability, so informational only.
+    suggestion: "None required; owner visual check on the renders covers it."
+    confidence: medium
+    source: inferred
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

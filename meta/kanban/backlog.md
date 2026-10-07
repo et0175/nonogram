@@ -143,6 +143,9 @@ card names its card._
 - [ ] CARD-192 minor: reorder-off note reads 'Show all sizes to move puzzles or sort them.' (card quotes it without 'or sort them'); card says 'Print setup (step 1)' but stepper shows step 2   @tech-debt
 - [ ] Commit trailer on 04791f4 (CARD-192 implementation) reads Claude Sonnet 5, not the project's Opus 5.5 — history not rewritten; note only   @tech-debt
 
+- [ ] CARD-196 owner check pending: clue-number renders in ~/Documents/nonogram-reviews/CARD-196/ (merged on evidence by owner choice)   @feature
+- [ ] CARD-196 F-002/F-003/F-007/F-008 (minor, carried from review): a stale admin.css comment still claims the old two-digit column clearance; a stale class comment in test_puzzle_solver_phone.py about row-gutter width; a test docstring overclaims OWNER_ROW is the only adjacent single-digit row pair; an admin.css comment implies a mixed digit-count row pair is covered by a check it isn't   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt

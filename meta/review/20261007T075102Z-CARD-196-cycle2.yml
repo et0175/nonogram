@@ -1,0 +1,138 @@
+version: 1
+generated_at: "2026-10-07T07:51:02Z"
+target: "card/196-player-numbers-own-size @ 98efcff + uncommitted fix delta (tests/test_puzzle_solver_clues.py, CARD-196.md notes)"
+mode: confirmation
+cycle: 2
+previous_report: meta/review/20261007T070015Z-CARD-196-cycle1.yml
+overall_score: 7.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/test_puzzle_solver_clues.py (fix diff + TestSolverClues_TheCircleIsVisible + _RINGS/_two_digit_grid helpers)
+    - src/nonogram/admin/static/admin.css (ring block 555-620; byte-identical to 98efcff)
+    - meta/kanban/cards/CARD-196.md (AC-8, owner decisions, fix-cycle notes)
+    - meta/review/20261007T070015Z-CARD-196-cycle1.yml
+  confidence: high
+metrics:
+  fix_delta: { files: 2, added: 34, removed: 4 }
+  src_unchanged_since_98efcff: true   # git diff 98efcff --stat -- src tests/test_puzzle_solver_phone.py is empty
+  test_runs:
+    - "tests/test_puzzle_solver_clues.py + tests/test_puzzle_solver_phone.py: 40 passed (32.7s), after mutant revert"
+  mutation_check:
+    - id: M4
+      mutant: "column ring rule: circle term and digit-term padding both multiplied by (--player-clue-digits - 1), so a single-digit column ring collapses to 1ch; two-digit rings unchanged"
+      result: killed
+      killed_by: "test_two_digit_rings_clear_their_digits_on_a_30x30[floor],[desktop],[phone] at the widened clearance assertion (col '3': 463.4375 - 464.4346 >= 0.5, i.e. about -1.0 px)"
+      control: "the same mutant SURVIVES the 98efcff version of the test (3 passed), so the new assertion is what kills it"
+      reverted: "admin.css cmp-identical to pre-mutation copy; git status shows no src change"
+    - id: M3-recheck
+      note: "the cycle-1 M3 mutant (circle * 0.6) stays alive by construction: the digit term 1ch + 2*(clear + border) takes over and leaves clearance = --player-circle-clear (0.72 px at the 14.4 px cell), which is above 0.5 px. That is an equivalent mutant against the 0.5 px bar, not a test gap."
+  independent_measurements:
+    probe_30x30_single_digit_rows:   # throwaway test, deleted; 30x30 with single-digit row runs
+      "1100x700": { row1_clear: 1.719, col1_clear: 1.711, row2_clear: 0.703, min_ring_gap: 0.73 }
+      "1440x900": { cell: 16.38, row1_clear: 2.594, col1_clear: 2.585, row2_clear: 0.812, min_ring_gap: 0.75 }
+      "390x844":  { row1_clear: 5.219, col1_clear: 5.206, row2_clear: 1.625, min_ring_gap: 0.125, closest_pair: "row '3' / row '7', adjacent single-digit row numbers" }
+    probe_15x15_default_board:       # throwaway test, deleted; the standard 15x15, all rows solved
+      "1440x900": { cell: 28, min_ring_gap: 0.141, closest_pair: "row '1' / row '1'" }
+      "390x844":  { cell: 24, min_ring_gap: 0.125, closest_pair: "row '1' / row '1'" }
+
+fixed_finding_verdicts:
+  - "F-001 ✓ resolved — the clearance loop now runs for every circled ring where axis=='row' or len(text)==1 (test_puzzle_solver_clues.py:750-753); the two-digit `circled` filter still gates only the pill/count checks (:690). The `single_digit_col_rings` > 0 guard is real: _two_digit_grid has single-digit columns (191 circled single-digit col rings measured on the probe board, and the guard would fail on a fixture with none). Mutant M4 is killed at all 3 viewports and survives the 98efcff test. Row-axis argument checked by measurement, not taken on trust: single-digit row ring clearance 1.719 / 2.594 / 5.219 px, the same as single-digit columns to within 0.013 px (same uncapped formula; the column cap does not bind at one digit) and well above the two-digit row's 0.703 px. The clearance half of the claim holds. See F-006 for the ring-gap half, which the chosen option (b) left unexercised."
+
+guardrail_and_ac_verdicts:
+  - "AC-1 ✓ holds — carried(cycle 1, delta-clean)"
+  - "AC-2 ✓ holds — carried(cycle 1, delta-clean)"
+  - "AC-3 ✓ holds — re-verified: tests in test_puzzle_solver_clues.py untouched by the delta except the ring test; file 40/40 green with phone"
+  - "AC-4 ✓ holds — re-verified (in-scope file green); F-004 observation re-affirmed"
+  - "AC-5 ✓ holds — re-verified (in-scope file green)"
+  - "AC-6 ✓ holds — carried(cycle 1, delta-clean) for test_puzzle_solver_phone.py; clues-file part re-run green"
+  - "AC-7 ✓ holds — carried(cycle 1, delta-clean)"
+  - "AC-8 ✓ holds as written for the named two-digit 30x30 board (cell 14.4 / 17.67 asserted, row + single-digit col clearance now asserted, _RING_GAP pairs asserted, no-clipping asserted). Caveat: its 'every row ring (one digit or two) ... keeps _RING_GAP' clause is vacuous for one-digit rows on that board and false for adjacent one-digit row rings on other boards. See F-006."
+  - "G-1..G-8 ✓ holds — carried(cycle 1, delta-clean): the delta touches only the AC-8 test body and its class docstring"
+
+system_contract:
+  rules_checked: 53
+  verdicts:
+    - "ADR-0038/R1, ADR-0038/R2, ADR-0038/R4, CON-021 ✓ holds — carried(cycle 1, delta-clean)"
+    - "the other 49 rules ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact"
+
+root_causes:
+  - id: RC-1
+    title: "Ring claims (clearance, ring gap) broader than the fixture that asserts them"
+    finding_ids: [F-001, F-006]
+  - id: RC-2
+    title: "Comments not updated for the new geometry"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: high
+    status: fixed
+    file: tests/test_puzzle_solver_clues.py
+    line: 750
+    title: "Single-digit ring clearance not asserted"
+    fixed_in: "uncommitted fix delta (cycle 2)"
+  - id: F-006
+    severity: high
+    category: feature
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 591
+    title: "Adjacent single-digit row rings are 0.125-0.141 px apart, below --player-ring-gap (0.25 px), on the default 15x15 at 1440 and 390 and on a 30x30 at 390. Untested because the _RING_GAP check runs only on _two_digit_grid, which has no single-digit row numbers."
+    description: |
+      CARD-196 replaced the one-cell row slot with digits + 1.45 ch. A single-digit row ring is the
+      circle (0.88 cell), and the slot pitch is 2.45 ch: 24.78 px against a 24.64 px circle at 1440 (cell 28,
+      16.8 px numeral), and about 21.24 px against 21.12 px at 390. Measured with a throwaway probe: the closest
+      ring pairs are 0.141 px apart (15x15 at 1440x900), 0.125 px (15x15 at 390x844) and 0.125 px (30x30 with
+      single-digit rows at 390x844). On main the gap was about 0.12 x cell, roughly 3 px. The rings do not overlap,
+      but they now render touching on the most common board. This contradicts three claims that say any two rings
+      stay at least --player-ring-gap apart: AC-8 ("every row ring (one digit or two) ... keeps _RING_GAP from its
+      neighbours"), the TestSolverClues_TheCircleIsVisible docstring ("on a 30 x 30 ... at 390 px ... any two
+      rings are at least _RING_GAP apart"), and the admin.css ring comment. The cycle-1 F-001 suggestion was to
+      add a single-digit row number to the 30x30 fixture. Doing that would have made the existing close-pairs check
+      fail at [phone]. The fix took option (b), arguing in prose instead, so the gap stayed hidden. Its prose is
+      right about clearance but says nothing about ring gap. Same family as F-001, and here the property is
+      actually false, not just unproven.
+    suggestion: |
+      Owner call, because 1.45 ch was owner-approved (E-2, aimed at "every ring clears its number", which does
+      hold). Either (1) widen the row gap just enough that adjacent single-digit row rings keep 0.25 px (about
+      1.47 ch; re-measure AC-3 and the fit numbers), or (2) narrow AC-8, the class docstring and the admin.css
+      comment so the ring-gap claim excludes adjacent single-digit row rings, and state the measured 0.125 px.
+      In both cases, add a single-digit-row board (15x15 or a 30x30 at 390) to the _RING_GAP close-pairs check so
+      the chosen bound is asserted. Render a 15x15 at 1440 so the owner can check whether touching rings are
+      acceptable.
+    confidence: high
+    source: measured
+    violates: "CARD-196 AC-8 ring-gap clause (general reading); test-docstring and admin.css claims"
+    root_cause: RC-1
+    status: open
+  - id: F-002
+    severity: low
+    status: open
+    file: src/nonogram/admin/static/admin.css
+    line: 562
+    title: "Stale CARD-188 ring comment (re-affirmed; skipped by fix agent as a drive-by, acceptable)"
+  - id: F-003
+    severity: low
+    status: open
+    file: tests/test_puzzle_solver_phone.py
+    line: 275
+    title: "Stale gutter-width class comment (re-affirmed; optional)"
+  - id: F-004
+    severity: low
+    status: open
+    file: tests/test_puzzle_solver_clues.py
+    line: 844
+    title: "AC-4 fit pinned as measured constant (re-affirmed; optional)"
+  - id: F-005
+    severity: info
+    status: open
+    file: tests/test_puzzle_solver_clues.py
+    line: 756
+    title: "No-clipping is a computed-style check (re-affirmed; informational)"
+
+verdict: "F-001 resolved. New Important F-006 means this was not a pure confirmation, so cycle 3 requires a full (non-confirmation) review."
