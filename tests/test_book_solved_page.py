@@ -135,14 +135,18 @@ def _array(image: Image.Image) -> np.ndarray:
 
 class TestBookSolvedPage_CluesMatchTheGridAndTheUnsolvedPlacement:
     """AC-1 — the clues are the grid's own RLE, placed where an unsolved page
-    would place them."""
+    would place them.
 
-    def test_row_and_column_clues_are_the_grids_own_run_length_encoding(self):
-        payload = _payload(_RUN_GRID, name="Picture", difficulty="Hard")
-        assert payload.row_clues == tuple(clues.encode_line(r) for r in _RUN_GRID)
-        assert payload.column_clues == tuple(
-            clues.encode_line(c) for c in zip(*_RUN_GRID)
-        )
+    (A prior version of this class also asserted
+    ``payload.row_clues == tuple(clues.encode_line(r) for r in _RUN_GRID)``
+    directly — that assertion re-derived ``_payload()``'s own
+    ``_clue_sets`` formula against itself without ever calling
+    ``solved_puzzle_page``, so it passed regardless of the method's
+    behaviour. Removed as tautological (forge:review F-001); the test below
+    is the substantive AC-1 check — it renders the page and compares the
+    rendered clue gutters pixel-for-pixel against an independently rendered
+    unsolved page built from the same grid-derived clues.)
+    """
 
     def test_clue_gutters_match_the_unsolved_pages_pixel_for_pixel(self):
         payload = _payload(_RUN_GRID, name="Picture", difficulty="Hard")

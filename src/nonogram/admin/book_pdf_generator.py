@@ -2195,15 +2195,23 @@ class BookPDFGenerator:
         # face at `layout.ANSWER_TEXT_FONT_MM` in device pixels (exactly
         # 10 pt, the literal CON-020 floor, reused from `export.layout`,
         # never shrunk further) via this module's own `_band_font`. The mm
-        # -> px conversion is `_mm_to_px`'s own formula
-        # (`round(mm / 25.4 * dpi)`), reimplemented here rather than imported
-        # since `_mm_to_px` is private to `export.layout` (CLAUDE.md).
+        # -> px conversion goes through this module's own `type_px` (its
+        # docstring: "the one place this module turns a type size into
+        # pixels") rather than reimplementing `round(mm / 25.4 * dpi)` inline
+        # a second time — `type_px` is a sibling function in THIS same file,
+        # not an import across a capability-module boundary, so CLAUDE.md's
+        # reimplement-rather-than-import-across rule does not justify
+        # duplicating it (forge:review F-002). `ANSWER_TEXT_FONT_MM` is
+        # exactly 10pt expressed in mm (`export.layout.ANSWER_TEXT_FONT_MM
+        # = 10 * 25.4 / 72`), converted back to points here so the single
+        # source of truth for the size stays `export.layout`'s constant.
         #
         # If the slack is smaller than the caption's own line height (the
         # font's ascent + descent), the caption is omitted rather than
         # overlapping the drawing or spilling into the margin — a real limit
         # of a page-fit-bound puzzle (AC-6), not solved by this card.
-        caption_font_size = round(ANSWER_TEXT_FONT_MM / 25.4 * self.dpi)
+        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+        caption_font_size = type_px(caption_font_points, self.dpi)
         caption_font = _band_font(caption_font_size)
         ascent, descent = caption_font.getmetrics()
         line_height = ascent + descent
