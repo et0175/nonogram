@@ -624,14 +624,35 @@ class TestSolverClues_TheCircleIsVisible:
     Range box of the number's text). Every circled row number's ring, one
     digit or two, and every circled single-digit column number's ring
     clears its digits' text box by at least half a pixel on the left and on
-    the right, and any two rings are at least _RING_GAP (admin.css
-    --player-ring-gap) apart. CARD-196 AC-8 (redo 3, owner option a)
-    narrows this for a two-digit COLUMN number only: its ring is still
-    capped at _RING_GAP from the next column's ring (so it never reaches a
-    neighbour, checked the same as every other pair below) but is not
-    required to fully clear its own digits — see
+    the right — CARD-196 AC-8 (redo 3, owner option a) narrows this one
+    clearance claim for a two-digit COLUMN number only: its ring is not
+    required to fully clear its own digits (see
     test_two_digit_rings_clear_their_digits_on_a_30x30 for the measured
-    bound and the no-clipping check."""
+    bound and the no-clipping check), though it is still capped at
+    _RING_GAP from the next column's ring, so it never reaches a
+    neighbour. That test's clearance assertion covers every row ring
+    regardless of digit count and every single-digit column ring (not just
+    the two-digit rows its fixture happens to produce); see the comment at
+    the assertion for why a dedicated single-digit-row fixture is not
+    needed for THIS clearance question.
+
+    Separately, any two rings are at least _RING_GAP (admin.css
+    --player-ring-gap) apart — EXCEPT two adjacent SINGLE-DIGIT ROW rings
+    (CARD-196 AC-8, F-006 narrowing, owner option b, 2026-10-07): the
+    shared 1.45ch row gap leaves them only about 0.125-0.141 px apart,
+    across all three viewports above (never an actual overlap — the gap
+    stays positive), while every other pair — two-digit row, two-digit
+    column, single-digit column, and any row/column mix — keeps the full
+    _RING_GAP floor, pinned by the `_RING_GAP` close-pairs check in
+    test_two_digit_rings_clear_their_digits_on_a_30x30 (whose fixture has
+    no adjacent single-digit row pair, so it does not exercise this one
+    exception). This gap exception does NOT touch a single-digit row
+    ring's OWN digit clearance, which stays the unqualified >= 0.5 px bar
+    above: TestSolverClues_SingleDigitRowRingsMayTouch exercises a
+    dedicated adjacent-single-digit-row fixture (the 15 x 15
+    _player_grid's OWNER_ROW, "2 2") to prove both the narrowed gap and
+    the still-unqualified own-clearance, rather than extend this class's
+    30 x 30 two-digit fixture (which has no single-digit row pair)."""
 
     @pytest.mark.parametrize("viewport", _VIEWPORTS, ids=["desktop", "phone"])
     def test_the_outline(self, browser_page, live, viewport) -> None:
@@ -720,10 +741,31 @@ class TestSolverClues_TheCircleIsVisible:
             # rows and single-digit columns above). No clearance assertion
             # for the col axis here; the no-clipping check below (not a
             # clearance number) is what AC-8 actually requires of it.
-        # Every circled row ring, one digit or two, clears its own digits
-        # (CARD-196: the row gap of 1.45 ch leaves the neighbours room).
+        # Every circled row ring (one digit or two) AND every circled
+        # single-digit column ring clears its own digits (CARD-196 AC-8: the
+        # row's 1.45 ch gap and the column's uncapped-by-digit-count ring
+        # formula both leave room; only a two-digit COLUMN ring is narrowed,
+        # in the `circled` loop above). This fixture (_two_digit_grid) has
+        # no single-digit ROW number -- every row run is built two digits
+        # wide -- so the row half of this assertion is exercised only by
+        # two-digit rows here; that is still the harder case for the row
+        # axis: a row ring is never capped to its neighbour (only a column
+        # ring is, admin.css), and the single-digit COLUMN ring this loop
+        # does check is comfortably clear at every viewport (>= 1.7 px,
+        # measured) versus the two-digit row's tightest measured margin
+        # (0.703 px) -- so a single-digit row ring, using the same
+        # uncapped max(circle, digits * 1ch + clearance) formula as the row
+        # rings already checked here, cannot be tighter than either of
+        # those two already-proven cases. The `> 0` check below keeps the
+        # single-digit-column half of this assertion from going vacuous if
+        # the fixture ever changes to have none.
+        single_digit_col_rings = [
+            ring for ring in rings
+            if ring["circled"] and ring["axis"] == "col" and len(ring["text"]) == 1
+        ]
+        assert len(single_digit_col_rings) > 0, "fixture has no single-digit column ring to check"
         for ring in rings:
-            if ring["circled"] and ring["axis"] == "row":
+            if ring["circled"] and (ring["axis"] == "row" or len(ring["text"]) == 1):
                 inner_left, inner_right = ring["left"] + ring["border"], ring["right"] - ring["border"]
                 assert ring["textLeft"] - inner_left >= 0.5 and inner_right - ring["textRight"] >= 0.5, ring
 
@@ -761,6 +803,57 @@ class TestSolverClues_TheCircleIsVisible:
             "})"
         )
         assert not_clipped
+
+
+@pytest.mark.browser
+class TestSolverClues_SingleDigitRowRingsMayTouch:
+    """CARD-196 AC-8, F-006 narrowing (owner decision, option b,
+    2026-10-07): two adjacent SINGLE-DIGIT row rings are not required to
+    keep the full _RING_GAP (admin.css --player-ring-gap) apart. Uses the
+    15 x 15 _player_grid's OWNER_ROW (clue "2 2", the owner's own AC-6
+    example row) — already the only adjacent single-digit row ring pair in
+    this file — rather than a new board, at the same three viewports
+    (_RING_VIEWPORTS) TestSolverClues_TheCircleIsVisible checks the 30 x 30
+    ring floor at. Fully marking OWNER_ROW circles both its "2"s (AC-3: a
+    fully marked line circles everything), so both rings are live. The gap
+    between them is always positive (the rings touch, never overlap) but
+    measures well under _RING_GAP (about 0.125-0.141 px); each ring's OWN
+    digit clearance (the >= 0.5 px bar from the cycle-1 F-001 fix) is
+    unaffected by this narrowing and is asserted here too."""
+
+    @pytest.mark.parametrize("viewport", _RING_VIEWPORTS, ids=["floor", "desktop", "phone"])
+    def test_adjacent_single_digit_row_rings_touch_but_never_overlap(self, browser_page, live, viewport) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open_player(page, live)
+        assert ROW_CLUES[OWNER_ROW] == [2, 2]
+        _set(page, _cells(_solution_marks([OWNER_ROW])))
+        assert _circles(page)["rows"][OWNER_ROW] == [True, True]
+
+        rings = page.evaluate(_RINGS)
+        owner_rings = [ring for ring in rings if ring["axis"] == "row" and ring["circled"]]
+        # OWNER_ROW is the only row marked, so these are exactly its two
+        # rings, and both are single-digit ("2 2").
+        assert len(owner_rings) == 2, owner_rings
+        assert all(len(ring["text"]) == 1 for ring in owner_rings), owner_rings
+        first, second = sorted(owner_rings, key=lambda ring: ring["left"])
+
+        gap = second["left"] - first["right"]
+        # Never an actual overlap (always positive, less one 1/64 px layout
+        # unit, as the existing close-pairs check below tolerates)...
+        assert gap > -1 / 64, gap
+        # ...but F-006 narrows the full _RING_GAP floor away for this one
+        # pair: it must measure strictly under it (the owner's measured
+        # ~0.125-0.141 px), or a future CSS change that widens the row gap
+        # back to clearing every pair would make this fixture pointless.
+        assert gap < _RING_GAP - 1 / 64, gap
+
+        # Unaffected by the narrowing: each ring still fully clears its own
+        # digits (the >= 0.5 px bar, unchanged since the cycle-1 F-001 fix).
+        for ring in owner_rings:
+            inner_left, inner_right = ring["left"] + ring["border"], ring["right"] - ring["border"]
+            assert ring["textLeft"] - inner_left >= 0.5, ring
+            assert inner_right - ring["textRight"] >= 0.5, ring
 
 
 #: The numerals' computed font sizes, in document order.

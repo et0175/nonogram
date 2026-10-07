@@ -579,7 +579,9 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    --player-ring-gap (so --player-rule and --player-rule-major also size
    the ring). On a 30 x 30 (14 px cell floor, about 17 px at 1440 px, 24 px
    at 390 px) the pill clears its digits by at least 0.5 px on the left and
-   on the right, and any two rings are at least --player-ring-gap apart.
+   on the right, and any two rings are at least --player-ring-gap apart —
+   except two adjacent SINGLE-DIGIT ROW rings (CARD-196 AC-8, F-006, owner
+   option b): see the comment below the row rule for that one exception.
    No transition. */
 .player-board {
   --player-circle: calc(var(--player-cell) * 0.88);
@@ -607,9 +609,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    cells (measured and pinned by
    test_two_digit_rings_clear_their_digits_on_a_30x30). A row ring keeps the
    uncapped --player-ring above: the row's 1.45ch gap (set on
-   .is-row .player-clue-num, below) gives it room to grow past its own
-   digits-only box without reaching the next number's ring, so every row
-   ring, one digit or two, still fully clears its digits. */
+   .is-row .player-clue-num, below) gives every row ring, one digit or two,
+   room to fully clear its own digits (this own-clearance claim is
+   unaffected by the gap narrowing below).
+   CARD-196 AC-8 (redo 3, cycle 3, F-006, owner option b, 2026-10-07): that
+   same 1.45ch gap is not wide enough to also keep two adjacent
+   SINGLE-DIGIT row rings a full --player-ring-gap apart from each other —
+   they may come within it, measured down to about 0.125-0.141px (always
+   positive: the rings touch, never overlap). Every other pair — two-digit
+   row, two-digit column, single-digit column, and any row/column mix —
+   still keeps the full --player-ring-gap, pinned by the `_RING_GAP`
+   close-pairs check in test_two_digit_rings_clear_their_digits_on_a_30x30;
+   the single-digit-row exception is pinned separately by
+   TestSolverClues_SingleDigitRowRingsMayTouch (that fixture has no
+   adjacent single-digit row pair). */
 .player-board .player-clue.is-col .player-clue-num::before {
   --player-ring: min(
     max(var(--player-circle),
