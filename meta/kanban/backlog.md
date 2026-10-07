@@ -146,6 +146,8 @@ card names its card._
 - [ ] CARD-196 owner check pending: clue-number renders in ~/Documents/nonogram-reviews/CARD-196/ (merged on evidence by owner choice)   @feature
 - [ ] CARD-196 F-002/F-003/F-007/F-008 (minor, carried from review): a stale admin.css comment still claims the old two-digit column clearance; a stale class comment in test_puzzle_solver_phone.py about row-gutter width; a test docstring overclaims OWNER_ROW is the only adjacent single-digit row pair; an admin.css comment implies a mixed digit-count row pair is covered by a check it isn't   @tech-debt
 
+- [ ] Architect delta (CARD-193, after it ships): FR-044 AC-343's "given" clause still says "cells at the 24 px phone floor" — CARD-193 removes that flat floor; amend to the CARD-196 numeral-driven floor wording   @tech-debt
+
 ## Tests
 - [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt
 - [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt
