@@ -28,6 +28,7 @@ import pytest
 
 from nonogram.solver import solve
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
+    MAJOR_EVERY,
     _encode,
     _open,
     _tight_row,
@@ -152,20 +153,42 @@ def _single_digit_col_grid(width, height, seed, run_cap=9):
 #:  not something fixable by picking yet another grid (the ceiling was
 #:  already measured at its best achievable value in construction 2). Per
 #:  the same evidence standard as AC-2's 30 x 30 case, 25 x 15 is treated as
-#:  unreached for AC-1's unconditional literal claim and is not forced into
-#:  a fixture here; flagging this precisely (not the col-floor-dominance
-#:  reason the orchestrator's note anticipated) for the next architect
-#:  review, same as AC-2's own named exception.
+#:  unreached for AC-1's UNCONDITIONAL literal claim and is not added to
+#:  ``GRIDS_SINGLE_DIGIT_COLS`` (doing so would make
+#:  ``TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit``'s
+#:  existing 15 x 15 test fail when parametrized over it too, since this
+#:  board's cells are not all the same side). AC-1 clause (b)'s mechanism
+#:  itself — not the unconditional claim — IS now covered directly: see
+#:  ``GRID_25X15_SINGLE_DIGIT_COLS`` and
+#:  ``TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity`` below
+#:  (RF-001, CARD-193 redo cycle 1 review), construction 1's own grid and
+#:  seed made into an executable, running check instead of only this
+#:  comment.
 GRIDS_SINGLE_DIGIT_COLS = {
     "15x15": _single_digit_col_grid(15, 15, seed=19315),
 }
+
+#: RF-001 fix (CARD-193 redo, cycle 1 review): AC-1 clause (b) claimed the
+#: width=25 fit-ceiling / MAJOR_EVERY row-height rounding mechanism as
+#: "confirmed" from three manual measurements (see the comment above) but
+#: shipped no executable test exercising it. This is that construction
+#: (measurement attempt 1's grid, same seed) made real and asserted on,
+#: below, by TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity. It
+#: is a SIBLING of GRIDS_SINGLE_DIGIT_COLS, not a member of it: unlike the
+#: 15 x 15 case, this board does NOT satisfy AC-1's unconditional half (its
+#: cells are not all the same side — that is the whole point), so adding it
+#: to GRIDS_SINGLE_DIGIT_COLS would make
+#: TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit's
+#: existing, unchanged 15 x 15 test fail when parametrized over it too.
+GRID_25X15_SINGLE_DIGIT_COLS = _single_digit_col_grid(25, 15, seed=19325)
 
 #: Re-verify each fixture above against the real solver (nonogram.solver),
 #: not just trust the tight-column construction's own reasoning — this is a
 #: new construction (CARD-193's redo), unlike GRIDS, which reuses
 #: _unique_grid's long-proven tight-ROW one (ADR-0032/R1: a stored puzzle
-#: must actually be uniquely solvable).
-for _name, _grid in GRIDS_SINGLE_DIGIT_COLS.items():
+#: must actually be uniquely solvable). Extended (not duplicated) to also
+#: cover GRID_25X15_SINGLE_DIGIT_COLS, the RF-001 sibling fixture above.
+for _name, _grid in {**GRIDS_SINGLE_DIGIT_COLS, "25x15": GRID_25X15_SINGLE_DIGIT_COLS}.items():
     _rows_clues = tuple(tuple(_encode(row)) for row in _grid)
     _cols_clues = tuple(tuple(_encode(col)) for col in zip(*_grid))
     assert max(len(str(n)) for clue in _cols_clues for n in clue) == 1, _name
@@ -404,6 +427,83 @@ class TestSolverPhone_BoardFitsWithoutScrollingWhenColumnsStaySingleDigit:
 
 
 # ==========================================================================
+# AC-1 clause (b) — RF-001 (CARD-193 redo, cycle 1 review): the width=25
+# fit-term ceiling / MAJOR_EVERY row-height rounding mechanism, made real
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverPhone_Width25FitCeilingBreaksRowHeightUniformity:
+    """AC-1 clause (b), confirmed by direct measurement rather than asserted
+    only in a code comment (see ``GRID_25X15_SINGLE_DIGIT_COLS`` above for
+    the three manual measurement attempts this test turns into an
+    executable check — this is measurement attempt 1's own grid and seed).
+
+    Proves the finding's own distinction: column WIDTH stays uniform (every
+    ``td.player-cell`` has the same width, matching ``_predict_cell``'s
+    fit-term prediction, and the column-numeral floor is comfortably
+    cleared — ``floor_dominates`` is False, so this is NOT column-floor
+    dominance), but row/cell HEIGHT is not uniform: every row shares one
+    height with every other row EXCEPT the three ``MAJOR_EVERY``-bordered
+    rows (5, 10 and 15, 1-indexed), which are exactly one pixel taller.
+    This is a distinct table-layout rounding effect, not a repeat of the
+    column-floor-bound boards in ``TestSolverPhone_BoardFitsThePhoneWidth``
+    above."""
+
+    def test_columns_stay_uniform_but_major_every_rows_are_one_pixel_taller(self, browser_page, live) -> None:
+        grid = GRID_25X15_SINGLE_DIGIT_COLS
+        width, height = len(grid[0]), len(grid)
+        browser_page.set_viewport_size({"width": 390, "height": 844})
+        _open(browser_page, live, live.store(grid))
+
+        cells = browser_page.evaluate(_CELLS)
+        fit = browser_page.evaluate(_FIT)
+        assert len(cells) == width * height
+
+        # Column width IS uniform — every cell shares the same width, and it
+        # matches the fit-term prediction (the arithmetic ceiling term1
+        # folds into, not a column-floor dominance).
+        widths = {round(w, 6) for w, _h in cells}
+        assert len(widths) == 1, widths
+        measured_width = widths.pop()
+
+        predicted, floor_dominates = _predict_cell(grid, fit["stageClientWidth"], 844, cell_min=0)
+        assert not floor_dominates, predicted  # the fit term binds, not CARD-196's numeral floor
+        assert measured_width == pytest.approx(predicted, abs=0.02), (measured_width, predicted)
+
+        # Row HEIGHT is not uniform. Every cell within one row still shares
+        # that row's own height (table rows are internally consistent)...
+        rows = [cells[r * width:(r + 1) * width] for r in range(height)]
+        row_heights = []
+        for r, row in enumerate(rows):
+            heights_in_row = {round(h, 6) for _w, h in row}
+            assert len(heights_in_row) == 1, (r, heights_in_row)
+            row_heights.append(heights_in_row.pop())
+
+        # ...but not every row shares the SAME height as every other row:
+        # this is the literal "cell-uniformity itself breaks" claim.
+        assert len(set(row_heights)) > 1, row_heights
+
+        # Specifically: the three MAJOR_EVERY rows (5, 10, 15 1-indexed —
+        # the heavier-bordered rows) are one pixel taller than every other
+        # row, and every other row shares one common height.
+        major_rows = {r for r in range(height) if (r + 1) % MAJOR_EVERY == 0}
+        plain_rows = set(range(height)) - major_rows
+        assert major_rows, "no MAJOR_EVERY row in a 15-row board"
+        plain_heights = {row_heights[r] for r in plain_rows}
+        major_heights = {row_heights[r] for r in major_rows}
+        assert len(plain_heights) == 1, plain_heights
+        assert len(major_heights) == 1, major_heights
+        plain_height, major_height = plain_heights.pop(), major_heights.pop()
+        assert major_height == pytest.approx(plain_height + 1, abs=0.01), (plain_height, major_height)
+
+        # This is not horizontal scrolling (mechanism (a)): the stage still
+        # fits the board's width exactly, and the page itself never scrolls.
+        assert fit["stageScrollWidth"] <= fit["stageClientWidth"], fit
+        assert fit["pageWidth"] <= fit["viewport"], fit
+
+
+# ==========================================================================
 # AC-3 — at 820 px the board fits its stage with no internal scroll; at
 # 821 px the 14 px desktop floor is back
 # ==========================================================================
@@ -541,3 +641,5 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
         assert actions["cells"] == ["none"]
         for kind in ("colClues", "rowClues", "corner"):
             assert actions[kind] == ["auto"], actions
+
+
