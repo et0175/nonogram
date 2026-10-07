@@ -1,0 +1,48 @@
+version: 1
+generated_at: "2026-10-07T13:36:51Z"
+target: "CARD-199 — main...HEAD (commit 2eb950b) — src/nonogram/admin/book_kdp.py, tests/test_book_finalise_gutter.py"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_kdp.py (full file)"
+    - "tests/test_book_finalise_gutter.py (full file)"
+    - "meta/kanban/cards/CARD-199.md (full card, incl. Worktree notes)"
+    - "src/nonogram/admin/app.py (grep + the two cited _kdp_gutter_refusal lines)"
+  not_reached:
+    - "src/nonogram/admin/book_pdf_generator.py (interior_stream internals — relied on test-run evidence rather than reading the generator's own source)"
+    - "src/nonogram/admin/book_plan.py (plan_of/BUCKETS/TIERS helper — relied on test-run evidence)"
+  confidence: high
+
+metrics:
+  diff:
+    files: 2
+    added: 235
+    removed: 34
+  max_fan_in:
+    symbol: "gutter_refusal"
+    callers: 18
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact — churn on both touched files over 12 months (book_kdp.py: 3 commits, test file: 8 commits) is low and none carry fix/bug/hotfix markers beyond routine card work; no hotspot threshold crossed"
+    cochange_missing: "no_eligible_fact — git log --name-only over the 12-month window on these two files shows no third file co-changing with them; the pair changes together with itself only"
+
+system_contract:
+  rules_checked: 52
+  holds: 2
+  unchecked: 50
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no import (book_kdp.py's import block, lines 94-102, is byte-unchanged per git diff); checker test_the_dependency_baseline_is_still_closed (tests/test_export_pdf.py) re-run green on this head"
+    - "ADR-0019/R1 ✓ holds — diff touches no file under src/nonogram/web/ and crosses no capability-module boundary (book_kdp.py's only new/changed lines are docstrings, a comment, and two appended tuple entries; its import list is unchanged and stays inside admin/ + difficulty.py); checker test_every_import_in_the_package_points_inward (tests/test_cli.py) re-run green on this head"
+    - "ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: this diff touches only book_kdp.py's gutter-band data table and docstrings plus its own test file; it exercises no solver/orchestrator/clue/image/CLI/web/book-plan/pairing/answer-key/player logic that any of these 50 rules govern"
+
+root_causes: []
+
+findings: []

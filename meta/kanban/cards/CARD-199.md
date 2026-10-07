@@ -1,6 +1,6 @@
 # CARD-199: Extend KDP's gutter table past 300 pages so larger books still finalise
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** enabler
 **Estimate:** 0.5d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/199-kdp-gutter-table-extend
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-199
 **Source:** CARD-198's own finding (a book that finalised fine before CARD-198 can cross 300 pages once it ships); card drafter's research into KDP's published gutter/page-count tables, 2026-10-07
 **Idea:** —
 **Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_kdp.py, tests/test_book_finalise_gutter.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.5 (cycle 1/3)
+**Started:** 2026-10-07T12:00:00Z
+**Closed:** 2026-10-07T13:50:28Z
+**Actual:** 0.1d
+**Merge commit:** 7d4bcf8
 **Blocked by:** —
 
 ## What to implement
@@ -352,3 +352,169 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-199` (52 rules). A project
   Finalise refusal text's wording for page counts above 300. No render is
   needed for the owner (per the brief's own instruction for this card).
 - [Owner decision] 2026-10-07 — use 590 (trim-accurate for Book 1s 8.5×11 in profile), not KDPs general 828-page table.
+- [Env] forge 2026.8.17
+
+- [Implementation, 2026-10-07] Both files touched exactly as scoped
+  (`src/nonogram/admin/book_kdp.py`, `tests/test_book_finalise_gutter.py`),
+  nothing under `meta/` committed.
+  - `KDP_GUTTER_BANDS` extended to the four-entry tuple the card specifies —
+    `(150, 0.375)`, `(300, 0.5)` byte-identical to before, `(500, 0.625)` and
+    `(590, 0.75)` appended. `MAX_MODELLED_PAGE_COUNT` is `590` automatically
+    (no code change). Verified none of `kdp_page_band`, `kdp_min_gutter_cm`,
+    `kdp_min_gutter_inches`, `stored_gutter_cm`, `gutter_refusal`, `_rounded`,
+    `_floored`, `unpaired_interior_page_count`, `_grid_extent` hardcode
+    150/300 — confirmed by reading each (they loop/compare generically) — so
+    none needed a logic change, only the table and three docstrings
+    (module-level "The table, and where it stops" section, the new comment
+    block above `KDP_GUTTER_BANDS`, and the illustrative examples in
+    `kdp_page_band`/`kdp_min_gutter_cm`). Both URLs
+    (`GVBQ3CMEQW3W2VL6`, `G201857950`), the three secondary guides
+    (scribecount.com, vappingo.com, kdpbuilder.com) and the 590-vs-828 trim
+    distinction are cited in both the comment above the table and the module
+    docstring, following the existing citation style (inline prose + plain
+    URLs, same as CON-018's own citation pattern already in the file).
+  - Test file: added `KDP_BAND_TEXT_301_500` / `KDP_BAND_TEXT_501_590`
+    constants (mirroring `KDP_BAND_TEXT`, left untouched per G-2) and two new
+    corpora, `AC199_NEW_BAND_CORPUS` (277 medium `alone`s -> 350 pages) and
+    `AC199_CARD198_CORPUS` (241 medium `alone`s -> 305 pages, CARD-198's own
+    figure), both verified against the real export page plan in a
+    `test_the_scenario_really_has_that_many_pages` test, not assumed.
+
+  **AC-by-AC test names:**
+  - AC-1 -> `TestKdpGutterTable::test_the_minimum_for_each_band` (extended
+    with 301/400/500 rows) and `TestKdpGutterTable::test_the_band_is_named_as_a_page_range`
+    (extended with a `(301, (301, 500))` etc. row).
+  - AC-2 -> same two tests, extended with 501/550/590 rows.
+  - AC-3 -> `TestKdpGutterTable::test_the_real_kdp_ceiling_still_has_a_modelled_gutter`
+    (new).
+  - AC-4 -> `TestKdpGutterTable::test_above_the_real_ceiling_it_refuses_rather_than_guessing`
+    (renamed/reparametrized from `test_above_three_hundred_pages_it_refuses_rather_than_guessing`,
+    now `[591, 700, 10_000]`, asserting "not modelled above 590 pages").
+  - AC-5 -> `TestBookFinalise_RefusesGutterInANewBandBeyondThreeHundredPages`
+    (new class, 4 tests).
+  - AC-6 -> `TestBookFinalise_ABookJustOverTheOldThreeHundredPageCeilingNowFinalises`
+    (new class, 2 tests).
+  - AC-7 -> `TestKdpGutterTable::test_the_band_is_named_as_a_page_range` (the
+    four rows for 1/150/151/300 are byte-unchanged in outcome) and
+    `TestKdpGutterTable::test_the_bands_are_the_four_the_requirements_state`
+    (renamed from `test_the_bands_are_the_two_the_requirements_state`,
+    asserting all four bands and `MAX_MODELLED_PAGE_COUNT == 590`).
+
+  **Guardrails:**
+  - G-1: `test_the_stored_two_decimal_form_of_a_band_is_that_band`,
+    `test_the_projects_own_spelling_of_each_minimum_still_passes`,
+    `test_a_stored_gutter_is_never_rounded_up_into_compliance`,
+    `test_the_refusal_reads_the_stored_column_and_writes_nothing`,
+    `test_an_empty_column_is_the_profiles_own_gutter` — all present, byte-
+    unedited (`git diff` confirms no hunk touches them), all green.
+  - G-2: `(150, Decimal("0.375"))` and `(300, Decimal("0.5"))` are the first
+    two tuple entries, unchanged; `KDP_BAND_TEXT = "1.27 cm (0.5 in) for
+    151-300 pages"` is untouched; new entries appended after, ascending.
+  - G-3: `unpaired_interior_page_count` not edited (confirmed by diff — zero
+    hunks in that function); `TestBookFinalise_RefusesGutterBelowKdpMinimumForPageCount`
+    and `TestFinaliseCounts_PlanTripwireIsNotAnEstimate` are present, byte-
+    unedited, green.
+  - G-4: `app.py` not touched at all (not in the diff);
+    `TestFinaliseGet_NamesThePagePlanFailure`,
+    `TestFinaliseGet_OtherErrorsStayGeneric`,
+    `TestFinalisePost_PlanGateRefusalIsNotAnError` present, byte-unedited,
+    green.
+  - G-5: no new rounding code — `_rounded`/`_floored` are unedited (confirmed
+    by diff, zero hunks there); the new bands flow through the same two
+    functions, verified by `gutter_refusal(400, 1.59)`/`(550, 1.91)` ->
+    `None` and the "stores N cm" floored-not-rounded wording appearing in
+    AC-5's refusal test, same mechanism as the pre-existing bands.
+  - G-6: `KdpPageCountNotModelled` class definition not touched (still
+    `class KdpPageCountNotModelled(ValueError):`, confirmed by diff — the
+    hunk only edits its docstring's prose, not its base class or body);
+    `tests/test_web_submission.py::test_the_walked_corpus_is_the_whole_hierarchy`
+    untouched and not part of this diff.
+
+  **Mutants run (both reverted after confirming the failure, `git diff`
+  clean before final commit):**
+  - `[Mutant] (590, Decimal("0.75")) -> (591, Decimal("0.75")) (the new
+    ceiling, 590->591) -> caught by test_the_real_kdp_ceiling_still_has_a_modelled_gutter
+    (kdp_page_band(590) returned (501, 591) instead of (501, 590)), also by
+    test_the_bands_are_the_four_the_requirements_state, three
+    test_the_band_is_named_as_a_page_range[501/550/590] cases, and all three
+    test_above_the_real_ceiling_it_refuses_rather_than_guessing[591/700/10000]
+    cases (message said "not modelled above 591 pages", the assertion
+    expects "590").`
+  - `[Mutant] (500, Decimal("0.625")) -> (500, Decimal("0.65")) (the new
+    301-500 band's minimum value) -> caught by
+    test_the_minimum_for_each_band[301-1.5875]/[400-1.5875]/[500-1.5875]
+    (kdp_min_gutter_cm returned 1.651 instead of 1.5875), and by all three
+    tests in TestBookFinalise_RefusesGutterInANewBandBeyondThreeHundredPages
+    plus both tests in
+    TestBookFinalise_ABookJustOverTheOldThreeHundredPageCeilingNowFinalises
+    (the 1.59cm-gutter book that should finalise was instead refused, since
+    1.59 < the mutated 1.65cm minimum).`
+
+  **Full suite:** `./.venv/bin/python -m pytest` (run from the worktree root
+  using the main repo's `.venv`) — 6647 passed, 9 skipped, 0 failed (853s),
+  per the implementation agent's own run; the orchestrator's independent
+  test-gate run is recorded separately below.
+- [Scope] src/nonogram/admin/book_kdp.py, tests/test_book_finalise_gutter.py
+- [Build gate] broke stale full-suite lock (CARD-193, 2026-10-07T13:08:48Z) —
+  the break was a bug in this orchestrator's own lock script (a `date -j -f`
+  parse without `-u`, which read the owner timestamp as local time against a
+  UTC "now", inflating the apparent age by the ~3h zone offset); the lock was
+  in fact only ~6 minutes old, not stale. CARD-193's own board/dispatcher
+  entries show no distress afterward and its full-suite lock use is
+  cooperative (a broken lock cannot kill an in-flight pytest process, only
+  let a second one start), but this may have run two full suites
+  concurrently for a few minutes. No corruption observed: this run's own
+  result (6647 passed, 9 skipped, 0 failed) matches the implementation
+  agent's independently-run full suite on the same commit exactly.
+- [Build gate] PASSED (full, 865s) — orchestrator's own independent run,
+  ./.venv/bin/python -m pytest from the worktree root: 6647 passed, 9
+  skipped, 0 failed. Matches the implementation agent's own full-suite run
+  on the same commit (2eb950b).
+- [System contract] fresh `system_rules.py --card CARD-199` assembly (52
+  rules) matches the card's existing "## System contract" section exactly —
+  no refresh needed.
+- [Review 1/3] Score: 9.5 — crit: 0, imp: 0. Scope gate: IN_SCOPE (actual
+  diff files == Touches exactly, no guardrail-glob hits, no comp spread).
+  8h: 52 rules checked, 2 ✓ holds (ADR-0006/R1, ADR-0019/R1), 50 ⚠ unchecked
+  (no_eligible_fact), 0 ✗ violated. 8f mutation check: 3/3 targeted mutants
+  killed (590→591 ceiling, 0.625→0.65 and 500→499 band-boundary/value on the
+  new 301-500 band), no survivors, clean restore verified. AC-5/AC-6's
+  350/305-page fixtures independently confirmed against the real
+  BookPDFGenerator export, not assumed.
+- [Review sync] 1 report(s) → meta/review/ (20261007T133651Z-CARD-199-cycle1.yml,
+  validated parsable YAML via yaml.safe_load: overall_score 9.5, findings: []).
+- [Adversarial] no Critical/Important findings this cycle — nothing to verify
+  (adversarial verification loop is vacuous by construction).
+- [8h spot-check] 2/2 sampled holds reproduced (ADR-0006/R1 via independent
+  skeptic: re-ran test_the_dependency_baseline_is_still_closed, "1 passed, 58
+  deselected"; ADR-0019/R1 via independent skeptic: re-ran
+  test_every_import_in_the_package_points_inward, "1 passed, 93 deselected,
+  1 warning" — both confirmed no new/boundary-crossing import, diff stat
+  limited to the two scoped files).
+- [Review N/max] Score: 9.5 ✓ threshold reached + no critical/important
+- [AC/EC check] All criteria/constraints ✓ (evidence): AC-1..AC-7 and G-1..G-6
+  all verdict "✓ demonstrated" by an independent AC-check agent (fresh
+  context), via `./.venv/bin/python -m pytest` runs in the worktree —
+  targeted run "68 passed, 44 deselected" covering every named AC/G test,
+  plus G-6's cross-file `tests/test_web_submission.py::test_the_walked_corpus_is_the_whole_hierarchy`
+  run directly ("1 passed"), plus a full-file sanity run of
+  `tests/test_book_finalise_gutter.py` ("112 passed"). AC-5/AC-6's claimed
+  350/305-page fixtures confirmed to assert against the real
+  `BookPDFGenerator(book).interior_stream(rows)` export (not mocked/hardcoded).
+  G-1/G-3/G-4's named tests confirmed byte-unedited by diff inspection; G-2's
+  two existing band tuples and `KDP_BAND_TEXT` confirmed unchanged; G-5's
+  `_rounded`/`_floored` confirmed to have zero diff hunks; G-6's
+  `KdpPageCountNotModelled(ValueError)` class line confirmed unchanged.
+  13/13 items demonstrated, 0 unverified, 0 contradicted.
+- [Docs] No README update needed: `src/nonogram/admin/` has no README.md;
+  `tests/README.md` makes no reference to the gutter table or its page-count
+  ceiling. Structure/purpose of both touched directories is unchanged by this
+  card (no files added/removed/renamed). Skipped, current.
+- [Success] Commit `2eb950b` (made by the implementation agent, verified
+  independently by the orchestrator's own full-suite run, the review agent,
+  two holds-skeptics, and the AC/EC check agent — all against this same
+  commit) stands as this card's success commit; no fix cycle ran, so there
+  is nothing to add to it. Only `meta/` artefacts (this card's own notes,
+  the review YAML report) remain uncommitted in the worktree, per the
+  wave-37 brief's "nothing under meta/ from the worktree" rule — both are
+  synced into the main repo by this orchestrator instead of being committed.

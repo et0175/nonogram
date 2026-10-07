@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-07
+- CARD-199 (enabler): The book's KDP gutter table now covers page counts up to 590 (KDP's real ceiling for the 8.5"x11" trim this project ships, not the general 828-page table), adding two bands — 301–500 pages at 0.625 in and 501–590 at 0.75 in. A book whose interior crosses 300 pages (as CARD-198's full-page answer key will push some books to) now finalises correctly instead of being refused outright; a book above 590 pages still refuses, naming the new ceiling.
 - CARD-196 (feature): The puzzle player's clue numbers never shrink below 12 px, even when the cell itself is smaller. Column numbers set a floor on the cell (14.4 px for a two-digit number on a phone), and row-number slots size to their own digits. Two small exceptions, both decided by the owner: a two-digit column ring may lightly overlap its neighbour, and adjacent single-digit row rings may sit a sliver short of full separation.
 
 ## 2026-10-06
