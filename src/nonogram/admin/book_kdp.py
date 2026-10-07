@@ -18,24 +18,58 @@ the iteration the ADR exists to avoid, and its fixed point is not even
 guaranteed to exist (a wider gutter makes fewer two-up pages fit, which makes
 the book longer, which can ask for a wider gutter again).
 
-**The table, and where it stops.** Two bands, stated in inches because KDP
-states them in inches (CON-018):
+**The table, and where it stops.** Four bands, stated in inches because KDP
+states them in inches (CON-018; CARD-199 added the last two):
 
 * up to 150 pages — 0.375 in (0.9525 cm);
-* 151 to 300 pages — 0.5 in (1.27 cm).
+* 151 to 300 pages — 0.5 in (1.27 cm);
+* 301 to 500 pages — 0.625 in (1.5875 cm);
+* 501 to 590 pages — 0.75 in (1.905 cm).
 
-**Above 300 pages the requirements are silent, and so is this module.** KDP's
-real table continues (it asks for more again past 500 pages, and more again
-past 700), but *which* numbers those are is a business fact this project has
-not recorded, and guessing a fourth band here would be inventing a business
-rule in a worktree — a book would then be refused, or accepted, against a
-number nobody chose. :func:`kdp_min_gutter_cm` therefore raises
+**Why 590 and not KDP's general 828.** KDP's own published table
+("Set Trim Size, Bleed, and Margins",
+https://kdp.amazon.com/en_US/help/topic/GVBQ3CMEQW3W2VL6, retrieved
+2026-10-07; cross-checked against three independent secondary guides —
+scribecount.com, vappingo.com, kdpbuilder.com — that all state the same
+figures) continues past the 590 pages recorded above: 501-700 pages asks for
+0.75 in and 701-828 pages asks for 0.875 in, and 828 pages is the general
+ceiling KDP states for a black-ink, white-paper paperback. That 828-page
+figure, though, is what KDP states for the 5"x8", 5.5"x8.5" and 6"x9" trims.
+This module has no trim parameter, and the one trim this project's books
+actually ship on — CON-018's Book 1 profile, 8.5"x11" — has its own, *lower*
+absolute page-count ceiling for the same black-ink, white-paper case: **590
+pages**, stated both by the help topic above and by "Paperback Submission
+Guidelines" (https://kdp.amazon.com/en_US/help/topic/G201857950, retrieved
+2026-10-07). (Cream paper's ceiling is lower still, but this project has no
+paper-type column — `grep`ping the whole of ``src/nonogram`` for
+"cream"/"paper_type"/"paper_color" finds nothing — so every book is treated
+as the more permissive white-paper case, as this module already implicitly
+does for every other KDP figure it models.)
+
+590 falls *inside* the general table's 501-700 band, not at a band boundary,
+so stopping at the trim-accurate 590 rather than the general 828 means the
+701-828 range (and the 591-700 tail of the 501-700 band) is never modelled
+here at all — not because the numbers are unknown, but because they are
+*unreachable*: an 8.5"x11" book that long is rejected at KDP upload purely
+for exceeding the page-count cap on that trim, regardless of what gutter it
+stores. Modelling a minimum for that range would let such a book pass this
+check and still fail at upload — the exact "looked finished, rejected at
+upload" failure CON-018/ADR-0036 already exist to prevent, just moved from
+the old 300-page boundary to a new one. (A different ceiling per stored trim
+is a bigger change, out of scope for this table — see ``book_page_spec``'s
+own trim support for a future card.)
+
+**Above 590 pages the requirements are silent, and so is this module.**
+*Which* numbers KDP's table continues with past 590 is recorded above, but
+they describe pages this project's one real trim cannot legally reach, so
+recording them as a minimum here would be inventing a rule for a page count
+that is never real. :func:`kdp_min_gutter_cm` therefore raises
 :class:`KdpPageCountNotModelled` for such a page count, and finalise turns
-that into a refusal naming what is missing. A book of over 300 pages is also
+that into a refusal naming what is missing. A book of over 590 pages is also
 far outside the ~120-190-page model the answer key exists to keep books inside
 (FR-042), so this is a boundary a curated book is not expected to reach; if
-one does, the remedy is to record the rest of KDP's table, not to widen this
-one by hand.
+the project ever ships a different trim with its own, higher real ceiling,
+the remedy is to make this table trim-aware, not to widen it by hand.
 
 **Centimetres, at the precision the column stores — and rounded in the safe
 direction.** The ``books`` table keeps margins as centimetre strings with two
@@ -84,10 +118,31 @@ _CM_PER_INCH = Decimal("2.54")
 #: KDP's gutter table (FR-030, CON-018): ``(the band's last page, its gutter in
 #: inches)``, in ascending page order. Stated in inches, once, because that is
 #: how KDP states it; every centimetre figure in this module is derived from
-#: these two entries and none is written out a second time.
+#: these entries and none is written out a second time.
+#:
+#: The first two entries are CON-018's own (unchanged by CARD-199, which only
+#: appends after them). The last two were added by CARD-199, from KDP's own
+#: help topic ("Set Trim Size, Bleed, and Margins",
+#: https://kdp.amazon.com/en_US/help/topic/GVBQ3CMEQW3W2VL6, retrieved
+#: 2026-10-07; cross-checked against three independent secondary guides —
+#: scribecount.com, vappingo.com, kdpbuilder.com — that state the same
+#: figures). The table stops at 590 rather than KDP's general 828-page
+#: ceiling for one reason: this module has no trim parameter, and this
+#: project's one real trim (CON-018's Book 1, 8.5"x11") has its own lower,
+#: trim-accurate absolute page-count ceiling of 590 pages — stated by the
+#: topic above and by "Paperback Submission Guidelines"
+#: (https://kdp.amazon.com/en_US/help/topic/G201857950, retrieved
+#: 2026-10-07) — not the 828 KDP states for the 5"x8"/5.5"x8.5"/6"x9" trims.
+#: 590 falls inside the general table's 501-700 band, so a 591-700/701-828
+#: entry here would model a gutter minimum for page counts this trim can
+#: never legally reach, letting such a book pass this check and still be
+#: rejected at KDP upload purely for exceeding the page-count cap — see the
+#: module docstring.
 KDP_GUTTER_BANDS: Tuple[Tuple[int, Decimal], ...] = (
     (150, Decimal("0.375")),
     (300, Decimal("0.5")),
+    (500, Decimal("0.625")),
+    (590, Decimal("0.75")),
 )
 
 #: The largest page count the table above models. A book longer than this has
@@ -167,8 +222,9 @@ def _page_count(page_count: object) -> int:
 def kdp_page_band(page_count: int) -> Tuple[int, int]:
     """The band ``page_count`` falls in, as ``(first page, last page)``.
 
-    ``(1, 150)`` or ``(151, 300)`` — the pair the refusal names, so that the
-    owner is told which rule was applied and not only what it asked for.
+    ``(1, 150)``, ``(151, 300)``, ``(301, 500)`` or ``(501, 590)`` — the pair
+    the refusal names, so that the owner is told which rule was applied and
+    not only what it asked for.
 
     Raises:
         ValueError: ``page_count`` is not a whole number of at least 1.
@@ -191,9 +247,11 @@ def kdp_page_band(page_count: int) -> Tuple[int, int]:
 def kdp_min_gutter_cm(page_count: int) -> float:
     """KDP's smallest acceptable gutter margin for ``page_count`` pages, in cm.
 
-    0.9525 cm (0.375 in) up to 150 pages and 1.27 cm (0.5 in) for 151 to 300
-    (FR-030, CON-018). The page count is the **interior**'s: the cover is a
-    separate file and is never counted (FR-043).
+    0.9525 cm (0.375 in) up to 150 pages, 1.27 cm (0.5 in) for 151 to 300
+    (FR-030, CON-018), 1.5875 cm (0.625 in) for 301 to 500 and 1.905 cm
+    (0.75 in) for 501 to 590 (CARD-199 — see the module docstring for why the
+    table stops at 590). The page count is the **interior**'s: the cover is
+    a separate file and is never counted (FR-043).
 
     Raises:
         ValueError: ``page_count`` is not a whole number of at least 1.
