@@ -1,0 +1,167 @@
+version: 1
+generated_at: "2026-10-07T14:30:06Z"
+target: "card/197-solved-page-renderer (47a472b + uncommitted fix-pass delta)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py (solved_puzzle_page, _stroke_drawing, type_px, PAGE_FACTORIES)
+    - tests/test_book_solved_page.py (full file, all AC classes)
+    - tests/test_book_pdf_memory.py (PAGE_FACTORIES registration, unchanged this cycle)
+    - meta/kanban/cards/CARD-197.md (What to implement, AC-1..AC-9, Guardrails, Failure matrix,
+      Architecture context, System contract, Worktree notes incl. cycle-1 review)
+    - meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md (Rules block)
+    - meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md (Rules block)
+    - meta/architecture/decisions/adr/0033-book-assembly-stays-in-ctx-001.md (Rules block)
+    - meta/architecture/decisions/adr/0006-dependency-baseline.md (Rules block)
+    - meta/architecture/requirements.yml (CON-020 entry)
+  not_reached:
+    - export/layout.py internals beyond GridLine/Layout field shapes (read only enough to confirm
+      vertical_lines/horizontal_lines indexing and widths; not a full read of compute_layout)
+  confidence: high
+metrics:
+  diff: { files: 3, added: 137, removed: 12 }
+  max_fan_in: { symbol: "BookPDFGenerator.type_px", callers: 6 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — fix-pass delta is 2 source-adjacent files (generator +
+      its test) touched together; no co-change peer check meaningful for a 2-file delta this small"
+
+system_contract:
+  rules_checked: 53
+  holds: 10
+  unchecked: 43
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff adds no import; only uses already-present Image/ImageDraw/ImageFont/type_px/POINTS_PER_INCH already in book_pdf_generator.py; TestDependencyBaseline_IsExactlyPillowAndNumpy green in the full-suite run"
+    - "ADR-0019/R1 ⚠ unchecked — no_eligible_fact: diff touches no src/nonogram/web/** code"
+    - "ADR-0022/R1 ⚠ unchecked — no_eligible_fact: no public signature or export field changes a grid's extent representation"
+    - "ADR-0022/R3 ⚠ unchecked — no_eligible_fact: no image-fitting code touched"
+    - "ADR-0022/R4 ⚠ unchecked — no_eligible_fact: no --size parsing touched"
+    - "ADR-0024/R1 ⚠ unchecked — no_eligible_fact: no repair/recovery code touched"
+    - "ADR-0024/R2 ⚠ unchecked — no_eligible_fact: no retry-counter code touched"
+    - "ADR-0024/R3 ⚠ unchecked — no_eligible_fact: no repair-pair logic touched"
+    - "ADR-0024/R4 ⚠ unchecked — no_eligible_fact: no repair-pair logic touched"
+    - "ADR-0024/R5 ⚠ unchecked — no_eligible_fact: no sourcing-mode policy code touched"
+    - "ADR-0027/R1 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0027/R2 ⚠ unchecked — no_eligible_fact: no density validation touched"
+    - "ADR-0029/R1 ⚠ unchecked — no_eligible_fact: no difficulty-scoring code touched; payload.difficulty is only read, never recomputed, by this diff"
+    - "ADR-0029/R2 ⚠ unchecked — no_eligible_fact: no strategies/technique classification touched"
+    - "ADR-0029/R3 ⚠ unchecked — no_eligible_fact: no difficulty-scoring code touched"
+    - "ADR-0029/R4 ⚠ unchecked — no_eligible_fact: no overlap-mask code touched"
+    - "ADR-0029/R5 ⚠ unchecked — no_eligible_fact: no rung-attribution code touched"
+    - "ADR-0032/R1 ⚠ unchecked — no_eligible_fact: no storage-boundary code touched"
+    - "ADR-0032/R2 ⚠ unchecked — no_eligible_fact: no quality_score code touched"
+    - "ADR-0033/R1 ✓ holds — manual read of solved_puzzle_page: it only reads payload.grid/row_clues/column_clues/difficulty for rendering; no assignment to any puzzle or book field (grid, clues, difficulty, strategies, book_id) anywhere in the diff"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: no book-status gating code touched"
+    - "ADR-0036/R1 ✓ holds — scope is export/**, untouched by this diff (G-1); TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green in our fresh targeted run (test_export_a4_golden.py, all passed)"
+    - "ADR-0036/R2 ✓ holds — manual read of solved_puzzle_page lines 2111-2231: the one geometry call is compute_layout at the top; every draw call below (fill, gray-boundary marks, clues, band, caption) consumes already-computed xs/ys/line.width/placement fields, no new cell-fitting or line-placement math"
+    - "ADR-0037/R1 ✓ holds — band text is still exactly band_identity(puzzle_number, payload.difficulty) (number + tier only); the picture title appears only in the new caption below the drawing, which is this card's own new solution-page kind, not the 'puzzle page' FR-033/R1 scopes (confirmed precedent: TestBookPdf_AnswerKeyCarriesPictureTitle, AC-194, already prints the title on the answer-key page)"
+    - "ADR-0037/R2 ✓ holds (as literally scoped) — the rule's own scope.code is exactly [\"src/nonogram/export/layout.py\"] (read directly from the ADR file), untouched by this diff; book_pdf_generator.py's new gray-boundary marks lie outside R2's declared scope. See Verdict section: this is reasoned, not merely cited, and the finding is NOT re-raised as gating this cycle — see F-004 disposition"
+    - "ADR-0038/R1 ⚠ unchecked — no_eligible_fact: no static/ or puzzle-player code touched"
+    - "ADR-0038/R2 ⚠ unchecked — no_eligible_fact: no puzzle-player code touched"
+    - "ADR-0038/R3 ⚠ unchecked — no_eligible_fact: no puzzle-player code touched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: no puzzle-player code touched"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: no puzzle-player code touched"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: no browser-test config touched"
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: no browser-test config touched"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver/uniqueness code touched"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server bind code touched"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no web-server request code touched"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no size-validation code touched"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-ratio code touched"
+    - "CON-015 ⚠ unchecked — no_eligible_fact: no admin-panel bind code touched"
+    - "CON-016 ⚠ unchecked — no_eligible_fact: no admin-panel door code touched"
+    - "CON-020 ✓ holds — AC-7's dedicated test (TestBookSolvedPage_TextHoldsTheTenPointFloor) directly measures every non-clue draw call's device-pixel size against the 10pt floor and passes; caveat recorded: the rule's own named checker (TestInteriorType_EveryFaceHoldsTheFloor) does not itself reach solved_puzzle_page (it walks the real interior build, and nothing calls this method yet per G-3/G-4), so its green run on this head does not by itself certify the new code — AC-7's test is the actual evidence for this diff, not the standing checker"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: no interactive-play code touched"
+    - "INV-001 ✓ holds — the diff computes no clues itself (consumes payload.row_clues/column_clues as given, reuses _write_clues verbatim); AC-1's test independently renders an unsolved page via export.pdf.render_pages from the same grid-derived clues and confirms pixel-identical clue gutters"
+    - "INV-002 ⚠ unchecked — no_eligible_fact: no export-gating code touched"
+    - "INV-003 ⚠ unchecked — no_eligible_fact: no retry-counter code touched"
+    - "INV-005 ⚠ unchecked — no_eligible_fact: no book-plan code touched"
+    - "INV-006 ⚠ unchecked — no_eligible_fact: no book-membership-floor code touched"
+    - "INV-007 ⚠ unchecked — no_eligible_fact: no book-ready gating code touched"
+    - "INV-008 ⚠ unchecked — no_eligible_fact: no published-book code touched"
+    - "INV-009 ⚠ unchecked — no_eligible_fact: no book-order code touched"
+    - "INV-010 ⚠ unchecked — no_eligible_fact: no book-pairing code touched"
+    - "INV-011 ✓ holds — G-3's substance confirmed: tests/test_book_answer_key.py (pack_answer_pages/render_answer_page paths) passes unedited in our fresh targeted run; this diff adds no call into that path"
+    - "INV-012 ⚠ unchecked — no_eligible_fact: no book-membership code touched"
+    - "INV-013 ⚠ unchecked — no_eligible_fact: tests/test_book_pdf_memory.py (interior parity/page-count instrument) passes unedited in our fresh run with no change to interior_pages/interior_stream/export_interior (G-4); reported unchecked rather than holds because the rule's own subject (interior parity across the full book export) was not independently re-derived this cycle beyond re-running the existing green suite, i.e. evidence is the same as the previous cycle, not fresh analysis"
+
+root_causes: []
+
+findings:
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2152
+    title: "Gray-boundary loops' direct grid indexing stays asymmetric with the fill loop's defensive slicing (F-003, carried)"
+    description: |
+      The fill loop (~line 2124) defensively slices `grid[:layout.rows]` / `row[:layout.columns]`
+      before iterating, while the two new gray-boundary loops (lines 2152-2171) index
+      `grid[r][c-1]`/`grid[r][c]` directly with no equivalent slice. Verified this cycle: the
+      invariant that makes the direct indexing safe (grid dimensions always equal
+      layout.rows/layout.columns, because ExportPayload.grid is always the same grid INV-001's
+      row_clues/column_clues were encoded from, and compute_layout derives rows/columns from the
+      length of those same clue tuples) holds by construction, so there is no live bug — just a
+      stylistic inconsistency between the two loops in the same method. Left as-is per the
+      implementer's cycle-1 reasoning (cosmetic; no test exercises a mismatch; a "fix" would either
+      remove a harmless safety net from the fill loop or bolt on a guard shape that doesn't fit the
+      boundary loops' structure).
+    suggestion: |
+      Optional, not blocking: a one-line comment at the boundary loops noting why the slice is
+      unnecessary there (dimensions in lockstep with the clue tuples) would make the asymmetry
+      self-documenting for a future reader, without changing either loop's logic.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_solved_page.py
+    line: 346
+    title: "AC-7's caller-attribution spy relies on frame introspection (sys._getframe)"
+    description: |
+      TestBookSolvedPage_TextHoldsTheTenPointFloor._record monkeypatches ImageDraw.ImageDraw.text
+      and recovers the calling function's name via `sys._getframe(1).f_code.co_name` to distinguish
+      `_write_clues` calls (exempt) from `_set_band`/`solved_puzzle_page` calls (must hold the 10pt
+      floor). This works today but is coupled to the exact call-stack shape (one frame up from
+      `draw.text`): if a future refactor wraps the band/caption draws through one more helper, the
+      spy would silently attribute calls to the wrapper instead of the real caller, weakening the
+      per-caller exemption check without failing loudly.
+    suggestion: |
+      Optional: walk a short chain of frames (or match on a small allow-list of known caller names)
+      instead of assuming exactly one frame of indirection, so an added wrapper doesn't silently
+      misattribute a call. Not blocking — the test is correct for the code as it stands today and
+      the mutation spot-checks (this cycle and cycle 1) confirm it currently discriminates real
+      breakage.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  status: ran
+  mutants:
+    - target: "book_pdf_generator.py:2188 band_identity(puzzle_number, payload.difficulty) -> band_identity(puzzle_number, None)"
+      result: killed
+      note: "4 of 5 parametrized/related AC-4 tests failed as expected (Easy/Medium/Hard parametrizations + test_a_different_tier_changes_the_band_ink); the difficulty=None parametrization still passed, consistent with the mutant's target value"
+  restore_verified: true
+  whole_diff_sanity_check: "git diff --stat 47a472b after restore matches the pre-mutation stat exactly (3 files changed, 137 insertions, 12 deletions); git status --porcelain unchanged"

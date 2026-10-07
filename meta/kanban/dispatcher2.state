@@ -1,12 +1,6 @@
 wave: 37
 mode: interactive
-active:
-- id: CARD-197
-  phase: review
-  review_cycle: 1
-  branch: card/197-solved-page-renderer
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-197
-  started: '2026-10-07T11:51:38Z'
+active: []
 escalated: []
 merged:
 - id: CARD-199
@@ -16,15 +10,14 @@ merged:
   branch: card/199-kdp-gutter-table-extend
   started: '2026-10-07T11:51:38Z'
   closed: '2026-10-07T13:50:28Z'
+- id: CARD-197
+  review_cycle: 2
+  success_commit: 70d6ad9
+  merge_commit: 81156b1
+  branch: card/197-solved-page-renderer
+  started: '2026-10-07T11:51:38Z'
+  closed: '2026-10-07T14:55:00Z'
 queued:
-- CARD-198 (after CARD-197; CARD-199 merged)
-conflict_edges:
-- pair:
-  - CARD-197
-  - CARD-198
-  reason: 'predicted: book_pdf_generator.py'
-- pair:
-  - CARD-198
-  - CARD-199
-  reason: 'predicted: book_kdp.py'
-last_updated: '2026-10-07T13:50:28Z'
+- CARD-198 (CARD-197 and CARD-199 both merged — ready to start)
+conflict_edges: []
+last_updated: '2026-10-07T14:55:00Z'

@@ -1,0 +1,242 @@
+version: 1
+generated_at: "2026-10-07T13:14:58Z"
+target: "card/197-solved-page-renderer @ 47a472b6bf468557e456a301f317707ac51cc8bd"
+overall_score: 7.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py (full diff + surrounding _stroke_drawing/_write_clues/_set_band/type_px/band_identity/answer_title/answer_caption context)
+    - tests/test_book_solved_page.py (full file, 659 lines)
+    - tests/test_book_pdf_memory.py (diff hunk + PAGE_FACTORIES context)
+    - src/nonogram/export/layout.py (GridLine/Layout/compute_layout signatures, DPI constant)
+    - src/nonogram/admin/book_answer_key.py (answer_title/answer_caption)
+    - meta/kanban/cards/CARD-197.md (task contract + system contract, verbatim)
+    - ~/Documents/nonogram-reviews/CARD-197/solved-10x10.png (visual sanity check)
+  not_reached:
+    - solved-20x20.png (not opened; 10x10 render judged sufficient for visual sanity)
+    - tests/helpers/page_ink.py (drawing_of helper used by AC-9, trusted not re-derived)
+  confidence: high
+metrics:
+  diff: { files: 3, added: 853, removed: 0 }
+  max_fan_in: { symbol: "BookPDFGenerator.solved_puzzle_page", callers: 0 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: ["tests/property/test_book_pdf_geometry.py"]
+  unmeasured:
+    max_fan_in: "no_eligible_fact — the method is a deliberately uncalled rendering primitive by this card's own design (CARD-198 wires in the first real caller); 0 is a true count, not a measurement gap"
+system_contract:
+  rules_checked: 53
+  holds: 7
+  unchecked: 45
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff's only new import is intra-project (export.layout.ANSWER_TEXT_FONT_MM); no third-party package added (book_pdf_generator.py import block)"
+    - "ADR-0033/R1 ✓ holds — solved_puzzle_page only reads payload.grid/row_clues/column_clues/difficulty in memory; no DB write, no .save/session/commit call anywhere in the diff"
+    - "ADR-0036/R1 ✓ holds — the new method always calls compute_layout with self.page_spec(page_number) (a book PageSpec), never with no PageSpec; G-1's test_export_a4_golden.py passes unedited (confirmed by run)"
+    - "ADR-0036/R2 ✓ holds — every coordinate used (xs/ys, GridLine.width, placement.drawing_*/usable_*) comes from compute_layout/header_band's own Layout/HeaderBand; nothing is fit or re-derived in the new code"
+    - "ADR-0037/R1 ✓ holds — the band is set via unmodified band_identity(puzzle_number, payload.difficulty) (book_pdf_generator.py:~2195), carrying no title; the title appears only in the caption region, the same answer/solution-page exception AC-194 already confirms"
+    - "ADR-0037/R2 ✗ violated (literal reading) — book_pdf_generator.py:2152-2174: the new gray draw.line calls repaint the subset of _stroke_drawing's already-black rule pixels that sit between two filled cells to (160,160,160); the final rendered pixel at those coordinates is gray, not pure black, which is what R2's text states project-wide under the book PageSpec. See finding F-004: non-blocking for this specific uncalled method (G-2's named guardrail tests pass unedited), but needs an explicit ADR-0037 amendment or carve-out before CARD-198 gives it a live caller"
+    - "CON-020 ✓ holds — caption font size round(ANSWER_TEXT_FONT_MM/25.4*self.dpi) at self.dpi=DPI=300 evaluates to 42px = 10.08pt, at/above the floor; verified by tests/test_book_solved_page.py::TestBookSolvedPage_TextHoldsTheTenPointFloor (3 tests, green)"
+    - "INV-011 ✓ holds — pack_answer_pages/render_answer_page untouched; tests/test_book_answer_key.py passes unedited (G-3, confirmed by run)"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4 ⚠ unchecked — no_eligible_fact: diff touches no web-UI adapter or image-fitting/--size-parsing code"
+    - "ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5 ⚠ unchecked — no_eligible_fact: diff touches no repair/retry/recovery policy code"
+    - "ADR-0027/R1, ADR-0027/R2 ⚠ unchecked — no_eligible_fact: diff touches no density-validation code"
+    - "ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5 ⚠ unchecked — no_eligible_fact: diff only reads an already-stored payload.difficulty for display, same as every other book page; no scoring/classification code touched"
+    - "ADR-0032/R1, ADR-0032/R2 ⚠ unchecked — no_eligible_fact: diff touches no storage-boundary/add_puzzle/quality_score code"
+    - "ADR-0035/R1 ⚠ unchecked — no_eligible_fact: diff touches no book-status/plan-gate code"
+    - "ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8 ⚠ unchecked — no_eligible_fact: diff touches no puzzle-player code (static/, templates/puzzle_solve.html, solver.js) — confirmed unrelated by the card's own Architecture context and by the diff's file list"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: diff touches no solver/uniqueness code"
+    - "CON-009, CON-010, CON-015, CON-016 ⚠ unchecked — no_eligible_fact: diff touches no HTTP server bind/door code"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: the new method is not a size gate; it renders whatever grid/clues the caller already validated upstream (declared in the card's own Failure matrix)"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: diff touches no image-upload/aspect-ratio code"
+    - "CON-021 ⚠ unchecked — no_eligible_fact: diff adds no interactive-play surface; the new method is a static PDF-rendering primitive, not a player route"
+    - "INV-001 ⚠ unchecked — no_eligible_fact: the method reuses payload.row_clues/column_clues already computed upstream; it does not derive clues from a grid itself"
+    - "INV-002, INV-003 ⚠ unchecked — no_eligible_fact: diff touches no export-readiness gate or retry-counter code"
+    - "INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: diff touches no book-plan, book-membership, book-ordering/pairing, or export-route code; interior_pages/interior/interior_stream/export_interior are all untouched (G-4, confirmed by grep for solved_puzzle_page's only call sites, which are the two test files)"
+
+root_causes:
+  - id: RC-1
+    title: "AC-6/AC-9's geometric and threshold claims are verified only by hand-picked single examples, not a boundary sweep or a property test, despite this codebase's existing property-test convention for book-PDF geometry"
+    finding_ids: [F-005]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_solved_page.py
+    line: 140
+    title: "AC-1's first test is tautological — it re-derives the fixture's own formula, not solved_puzzle_page's behaviour"
+    description: |
+      test_row_and_column_clues_are_the_grids_own_run_length_encoding asserts
+      payload.row_clues == tuple(clues.encode_line(r) for r in grid), but
+      payload.row_clues was itself SET by _payload() calling exactly that same
+      clues.encode_line formula (via _clue_sets). The test would pass
+      regardless of whether solved_puzzle_page does anything at all — it never
+      calls the method under test. AC-1 is still substantively covered by the
+      sibling test (test_clue_gutters_match_the_unsolved_pages_pixel_for_pixel),
+      so this is not a coverage gap, just one weak assertion among the 27.
+    suggestion: |
+      Either delete this test (the sibling test already proves the real claim)
+      or fold its assertion as a precondition/comment inside the sibling test.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2206
+    title: "Caption's mm->px conversion duplicates the module's own type_px() formula instead of calling it"
+    description: |
+      caption_font_size = round(ANSWER_TEXT_FONT_MM / 25.4 * self.dpi) is
+      mathematically identical to this same file's existing
+      type_px(points, dpi) -> round(points * dpi / 72) (ANSWER_TEXT_FONT_MM
+      is exactly 10pt expressed in mm, so the two formulas compute the same
+      value). type_px is defined in this same module and is already used by
+      five other call sites (guide/divider pages) specifically because its
+      own docstring calls it "the one place this module turns a type size
+      into pixels". The Worktree notes justify the inline reimplementation by
+      citing CLAUDE.md's reimplement-rather-than-import-across rule, but that
+      rule is about avoiding imports ACROSS capability-module boundaries
+      (e.g. solver avoiding clues.py) — it does not apply to calling a sibling
+      function already defined in the SAME file, so the justification does
+      not actually cover this duplication.
+    suggestion: |
+      Replace the inline formula with type_px(10.0, self.dpi) (or extract the
+      10pt literal to a named constant passed through type_px), so the
+      conversion has one source of truth in this file.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2152
+    title: "Gray-boundary loops index the grid directly, asymmetric with the fill loop's defensive slicing a few lines above"
+    description: |
+      The fill loop (around line 2122) truncates defensively:
+      for row_index, row in enumerate(grid[: layout.rows]): ... row[: layout.columns].
+      The two new gray-boundary loops a few lines later index grid[r][c - 1]
+      / grid[r][c] directly with no equivalent slicing, assuming grid has
+      exactly layout.rows rows and layout.columns columns per row. Under the
+      Failure matrix's declared invariant (grid and clues always agree in
+      count, enforced upstream) this is safe and the fill loop's slicing is
+      itself redundant — but the two loops are stylistically inconsistent,
+      and if that invariant is ever violated by a future caller, the fill
+      loop degrades silently while the boundary loops raise IndexError.
+    suggestion: |
+      Either drop the fill loop's redundant slicing (to match the boundary
+      loops' trust in the invariant) or add the same slicing discipline to
+      the boundary loops, so one error-handling posture is visible throughout
+      the method.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2152
+    title: "ADR-0037/R2's literal text ('every thin/heavy rule under the book PageSpec is... in pure black') is contradicted by this method's own rendered output at filled-adjacent boundaries"
+    description: |
+      _stroke_drawing (line 2142) draws every thin/heavy rule pure black,
+      verbatim and unedited (G-2's own argument). Immediately after, the new
+      per-cell loops (lines 2152-2174) draw additional draw.line calls in
+      _SOLVED_GRID_GRAY directly on top of the subset of those same rule
+      pixels that sit between two filled cells. The final pixel value at
+      those coordinates, in the rendered page, is gray — not pure black.
+      ADR-0037/R2, read as a statement about the page's own rendered output
+      (which is how AC-2/AC-3's own pixel tests read it, and how a human or a
+      PDF inspector would read it), is literally false for this method's
+      pages at those specific coordinates. The Worktree notes already flag
+      this exact tension and argue the opposite reading (the *function* that
+      strokes "the rule" is unedited, so R2's letter survives) — a defensible
+      but not self-evidently correct reading, since R2's own restated text in
+      the System Contract talks about what a rule IS on the page, not which
+      function drew it first.
+      This is NOT a live defect today: solved_puzzle_page has zero callers
+      (confirmed: grep for the symbol across the repo finds only the two test
+      files and the PAGE_FACTORIES registration), so no page any reader or
+      the PDF pipeline can currently reach is affected, and G-2's own named
+      guardrail tests (test_book_pdf_band.py, test_book_puzzle_frame.py,
+      test_book_pdf_two_up.py) all pass unedited in this diff.
+    suggestion: |
+      Before CARD-198 wires solved_puzzle_page into a real, reachable page,
+      resolve the reading explicitly — either an ADR-0037 amendment stating
+      the rule governs the thin/heavy STROKE CALLS rather than final pixel
+      colour (ratifying this card's reading), or accept that R2 needs a
+      stated exception for a solved/answer page (mirroring ADR-0037/R1's own
+      "puzzle page vs. answer/solution page" split). Either way, the decision
+      should be made once, explicitly, rather than carried forward as an
+      unresolved tension into a card that does make this method reachable.
+    confidence: medium
+    source: static
+    violates: "ADR-0037/R2"
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_solved_page.py
+    line: 85
+    title: "AC-6's slack==line_height equality boundary and AC-9's geometry-parity claim are each verified by one hand-picked example, not a boundary/property sweep"
+    description: |
+      AC-6 (TestBookSolvedPage_CaptionOmittedWhenNoSlack) and AC-5
+      (TestBookSolvedPage_CaptionReadsThePictureName) together test slack=0
+      (clearly below the font's line height) and a 10x10 checkerboard
+      (clearly well above it) — the exact equality case slack == line_height,
+      where the `>=` comparison's own boundary sits, is not exercised by any
+      grid shape in the file. Separately, AC-9's geometry-parity claim
+      (cell size, gutter depth, every grid-line position, the frame) is
+      checked against a single 10x10 checkerboard rather than a sweep of
+      shapes, even though this codebase already has a property-test
+      convention for book-PDF geometry
+      (tests/property/test_book_pdf_geometry.py, a co-change peer of
+      book_pdf_generator.py in 4 of its last 29 commits — [history]) that
+      this new file does not reuse or extend.
+    suggestion: |
+      Not blocking (the mutation check already confirms the `>=` comparison
+      is live, and AC-9's single example does cover a real codepath) — but a
+      follow-up property test sweeping shapes against both the slack
+      threshold and the geometry-parity claim would match this codebase's
+      existing testing depth for book-PDF geometry claims.
+    confidence: medium
+    source: history
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

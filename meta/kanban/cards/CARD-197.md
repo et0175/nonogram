@@ -1,6 +1,6 @@
 # CARD-197: A new full-page solved layout: clues top and left, light-gray gridlines between filled cells
 
-**Status:** ready
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.25d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/197-solved-page-renderer
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-197
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-07 (owner decisions on the book's answer-key replacement)
 **Idea:** —
 **Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 9.0 (cycle 2/3)
+**Started:** 2026-10-07T11:51:38Z
+**Closed:** 2026-10-07T14:55:00Z
+**Actual:** 0.1d
+**Merge commit:** 81156b1
 **Blocked by:** —
 
 ## What to implement
@@ -210,6 +210,28 @@ touches `static/`, `templates/puzzle_solve.html` or `solver.js`).
   a named colour or a third channel-unequal value; `tests/test_book_pdf_ink_mode.py` passes
   unedited (this card adds no call on that path).
 
+## Failure matrix
+
+- No failure-bearing boundaries: `solved_puzzle_page` is a pure rendering primitive, called with
+  already-validated inputs (`ExportPayload`, a 1-based `puzzle_number`/`page_number`, an optional
+  resolved `title`) — no I/O, no concurrency, no retries, no network, no database, nothing awaited.
+  It does one thing `_two_up_page`/`_answer_page` already do in the same file: call
+  `export.layout.compute_layout`/`header_band` (both total functions of their arguments), draw on an
+  in-memory `Image`, and return it. The two apparent "failure" spots are not boundaries the card
+  owns:
+  - `layout.page is None` after `compute_layout(..., self.page_spec(page_number))`: `page_spec`
+    always returns a `PageSpec` with a parity (it is built from `book_page_spec`, which always sets
+    one — see ADR-0036's "Mirrored margins"), so this is an unreachable total-function guard, not a
+    real failure mode — the same one `_two_up_page` keeps for the same reason (and the same
+    `# pragma: no cover` treatment).
+  - The caption's slack/omission check (AC-6) is not a failure: it is the one DECLARED behaviour
+    branch this card owns, and it is bounded and deterministic — `slack >= line_height` draws the
+    caption, otherwise it is omitted. Nothing raises, nothing degrades; a page-fit-bound puzzle
+    simply prints with one fewer piece of text. Declared behaviour, not a failure: omit the caption
+    when the slack is smaller than its own line height (ascent + descent at the literal 10 pt /
+    `ANSWER_TEXT_FONT_MM` floor), bounded below by zero (a puzzle whose cell is fully page-fit-bound,
+    e.g. AC-6's 23x10 checkerboard at Book 1, where slack is exactly 0).
+
 ## System contract
 
 _Assembled 2026-10-04 by `system_rules.py --card CARD-197` (53 rules). A projection — fix the source artifact, never this list._
@@ -357,3 +379,220 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-197` (53 rules). A project
   more answer pages, and any requirements-delta/ADR amendment formalising the new layout — all
   CARD-198 and the architect station.
 - [Owner decision] 2026-10-07 — keep both numbers (band + caption); caption reuses answer_caption("Puzzle N — Title") as drafted.
+- [Env] forge 2026.8.17
+- [Owner default] light-gray gridline tone RGB(160,160,160) — implemented as drafted, pending owner render confirmation.
+- [Owner default] caption repeats "Puzzle N" via answer_caption as drafted — implemented as drafted.
+
+- [Implementation summary, 2026-10-07] `BookPDFGenerator.solved_puzzle_page` implemented in
+  `src/nonogram/admin/book_pdf_generator.py`, beside `_answer_page`/`_two_up_page`, exactly
+  following the card's 8 steps: `compute_layout` (same call an unsolved page would make) ->
+  fill solved cells (`_reveal`'s xs/ys approach, reimplemented) -> `_stroke_drawing` (verbatim) ->
+  new gray-boundary marks -> `_write_clues` (verbatim) -> `_set_band` (verbatim) -> the caption
+  (new, with the slack/line-height omission check). New module constant `_SOLVED_GRID_GRAY =
+  (160, 160, 160)` added beside `_BAND_WIDTH_RATIO`/`_MIN_BAND_FONT_RATIO`. `ANSWER_TEXT_FONT_MM`
+  added to the existing `nonogram.export.layout` import (additive).
+
+- STRUCTURE: the mm->px conversion for the caption's 10 pt floor is reimplemented locally
+  (`round(ANSWER_TEXT_FONT_MM / 25.4 * self.dpi)`) rather than importing `export.layout`'s private
+  `_mm_to_px` — CLAUDE.md's reimplement-rather-than-import-across rule (the same precedent as
+  `solver/propagate.py`'s `mask_runs`), and it reads `self.dpi` (this page's own resolution)
+  rather than the hard-coded module constant `_mm_to_px` closes over, which is the more honest
+  dependency even though the two are numerically identical today (`self.dpi == DPI` always).
+
+- STRUCTURE: the caption's "is there room" test is the font's own `ascent + descent`
+  (`ImageFont.FreeTypeFont.getmetrics()`), not a second hard-coded mm constant — the card asks only
+  for "the caption's own line height", and the font this card already draws the caption in is the
+  one honest source for what its own line height is, with nothing new to keep in sync against a
+  type-size change later.
+
+- STRUCTURE: both new boundary loops (vertical and horizontal) use direct `grid[r][c-1]`/
+  `grid[r][c]` indexing rather than a defensive helper — `c` only ever ranges `1..columns-1` and
+  `r` only `0..rows-1` (and symmetrically for the horizontal loop), so every index is in-bounds by
+  construction once `range(1, layout.columns)`/`range(1, layout.rows)` is used; the outer border
+  (`c == 0`/`c == columns`) is structurally unreachable rather than guarded.
+
+- MUTANT: flipped `and` to `or` in the vertical-boundary condition (`grid[r][c-1] and grid[r][c]`)
+  -> `TestBookSolvedPage_GrayOnlyBetweenFilledCells` (both
+  `test_a_filled_to_empty_boundary_is_black` and
+  `test_every_interior_boundary_matches_its_both_filled_verdict`) failed as expected; reverted.
+- MUTANT: flipped `and` to `or` in the horizontal-boundary condition (`grid[r-1][c] and grid[r][c]`)
+  -> `TestBookSolvedPage_GrayOnlyBetweenFilledCells::test_every_interior_boundary_matches_its_both_filled_verdict`
+  failed as expected; reverted.
+- MUTANT: flipped the caption's slack check from `slack >= line_height` to `slack < line_height`
+  -> `TestBookSolvedPage_CaptionOmittedWhenNoSlack::test_the_rendered_page_is_identical_whatever_the_title`
+  failed as expected (the caption started varying with the title at zero slack); reverted.
+- MUTANT: the band text call `band_identity(puzzle_number, payload.difficulty)` changed to
+  `band_identity(puzzle_number, None)` -> every
+  `TestBookSolvedPage_TitleBandMatchesBandIdentity` test failed as expected (the ungraded-tier
+  parametrised case still passed, which is itself consistent — `None` is what it already asserts);
+  reverted.
+- MUTANT: the caption text call `answer_caption(puzzle_number, title)` changed to
+  `answer_caption(puzzle_number, None)` ->
+  `TestBookSolvedPage_CaptionReadsThePictureName::test_changing_the_title_changes_only_the_caption_area`
+  failed as expected; reverted.
+
+- [SCOPE+] `tests/test_book_pdf_memory.py` — one additive line. That file's own
+  `TestBookPdfMemory_TheInstrumentWrapsEveryPageFactory::test_every_page_returning_method_is_in_page_factories`
+  is a hand-maintained completeness guard: its own docstring says a new `-> Image.Image` method on
+  `BookPDFGenerator` "would have to be added to `PAGE_FACTORIES` by hand anyway, and this test's own
+  message is where a reader is told so." `solved_puzzle_page` is honestly annotated `-> Image.Image`
+  like every sibling page factory (the card's own target signature), so this guard fails until the
+  new name is added to the `PAGE_FACTORIES` tuple — a one-line, purely additive registration with a
+  comment explaining why, not a change to any assertion. G-4's own substance (nothing in
+  `interior_pages`/`interior`/`interior_stream`/`export_interior` calls `solved_puzzle_page`) is
+  unaffected and still holds; every other test in that file, and the file's other guardrail-named
+  siblings (G-1/G-2/G-3/G-5), pass with no further edits. Not removing the method's return
+  annotation to dodge this: that would create a real blind spot for the memory instrument the day
+  CARD-198 wires this method in for real, which is exactly the failure (F-6) the guard exists to
+  catch.
+
+- [Render] wrote `~/Documents/nonogram-reviews/CARD-197/solved-10x10.png` and
+  `solved-20x20.png` (via a throwaway, uncommitted script run from the scratchpad, not from the
+  repo) — a 10x10 and a 20x20 synthetic solved grid (a hollow border plus a filled cross through
+  the middle, so both the border and the cross carry runs of 2+ adjacent filled cells), at Book 1
+  trim, with plausible titles ("Snowflake"/"Sailboat"), puzzle numbers (8/23) and tiers
+  (Easy/Medium). Both renders show the band ("Puzzle N · Tier"), the clues top+left, the caption
+  ("Puzzle N — Title") below the drawing, and the light-gray boundary marks between filled cells —
+  visually confirmed at full resolution before hand-off. The owner confirms the gray tone and the
+  band/caption wording on these two renders before CARD-198 wires the method in for real.
+
+- [Test run] `/Users/omelnikova/PycharmProjects/PythonProject4/.venv/bin/python -m pytest` from the
+  worktree root: full suite green (see hand-off report for the exact count), all 7 guardrail test
+  files (`test_export_a4_golden.py`, `test_book_pdf_band.py`, `test_book_puzzle_frame.py`,
+  `test_book_pdf_two_up.py`, `test_book_answer_key.py`, `test_book_pdf_memory.py`,
+  `test_book_pdf_ink_mode.py`) pass, and the new `tests/test_book_solved_page.py` (27 tests, one
+  class per AC plus supporting cases) passes.
+
+- [Scope gate] ⚠ grown: 1 file outside Touches (`tests/test_book_pdf_memory.py`, see [SCOPE+]
+  above) — orchestrator classified as GROWN not VIOLATED: G-4 names that file as evidence a
+  behavioral invariant holds ("pass unedited"), not as a structural do-not-touch path like G-1's
+  explicit `export/**` prohibition; the edit is purely additive (one tuple entry). Also checked:
+  only 1/8 of CARD-198's own predicted Touches set for the same file — well under the 30%
+  poaching threshold. Forwarded to the reviewer as a SCOPE NOTE for independent judgment.
+- [Build gate] PASSED (full, 811s / 13m31s) — 6656 passed, 9 skipped, 0 failed (full-suite lock
+  acquired/released around the run).
+- [Review 1/3] Score: 7.5 — crit: 0, imp: 1. Important finding: ADR-0037/R2's literal text
+  ("every thin/heavy rule ... pure black") is contradicted by the new method's own rendered
+  pixels at filled-adjacent boundaries (gray, not black) — flagged by the reviewer as
+  self-disclosed by the implementer (Worktree notes "[Tension flagged...]" + G-2) and inert
+  today (zero callers), but filed as Important pending an explicit ADR-0037 amendment/carve-out
+  before CARD-198 gives this method a live caller. Also: G-4/scope independently re-verified by
+  the reviewer as ✓ holds (purely additive registration, confirmed via `grep -rn
+  solved_puzzle_page` — zero callers outside the two test files). 2/5 claimed mutants
+  independently re-run and confirmed killed. Targeted suite (8 files) 357 passed, 1 skipped,
+  62.77s. 3 Minor findings (tautological AC-1 sub-test, a duplicated mm->px formula instead of
+  reusing this file's own `type_px()`, asymmetric indexing defensiveness) — none gating. System
+  contract: 53/53 rules covered (7 ✓ holds, 45 ⚠ unchecked/no_eligible_fact, 1 ✗ violated =
+  ADR-0037/R2 above).
+- [Review sync] 1 report(s) → meta/review/ (20261007T131458Z-CARD-197-cycle1.yml, validated
+  yaml.safe_load).
+- [Adversarial] REFUTED the one Important finding (ADR-0037/R2 literal-text tension,
+  book_pdf_generator.py:2152) — independent skeptic found: (1) ADR-0037 itself scopes R2's
+  `code:` to `src/nonogram/export/layout.py`, not this file; (2) the card's own Worktree notes
+  ("[Tension flagged, not resolved here]") and G-2 already anticipated and explicitly deferred
+  this exact reading question to CARD-198's station, "not a reason to block this card"; (3) zero
+  reachable callers today (G-3/G-4); (4) the reviewer's own Verdict paragraph already concedes
+  "not a defect in this card" — contradicting its own "Important (should fix)" filing. Recount
+  after this cycle: crit 0, imp 0. Downgraded to an informational/deferred note for CARD-198 /
+  an ADR-0037 amendment discussion — carried forward, not fixed in this card's code.
+- [Severity gate 1/3] Score 7.5 < min_score 8 — fix mandatory regardless of the findings
+  recount (score threshold is independently necessary). Proceeding to the fix loop to raise the
+  score via the non-gating Minor findings (optional quality polish), since no Critical/Important
+  finding survived adversarial verification.
+- [Fix 1] F-001 (tautological AC-1 sub-test) FIXED — test:
+  TestBookSolvedPage_CluesMatchTheGridAndTheUnsolvedPlacement::test_clue_gutters_match_the_unsolved_pages_pixel_for_pixel
+  (the tautological assertion removed; this sibling pixel-comparison test is AC-1's real,
+  retained evidence). F-002 (duplicated mm->px formula) FIXED — test: full suite (see below);
+  caption's font-size computation now calls this file's own `type_px()` instead of
+  reimplementing its formula inline; verified algebraically equivalent
+  (`type_px(mm * 72/25.4, dpi) == round(mm/25.4*dpi)`). F-003 (indexing-style asymmetry) SKIPPED
+  — cosmetic only, no test exercises the mismatch, "fixing" it either removes the loops'
+  existing in-bounds-by-construction guarantee or invents a guard shape that doesn't fit;
+  reasoning recorded by the fix agent directly in Worktree notes. F-004 (the adversarially
+  refuted ADR-0037/R2 finding) explicitly NOT acted on in code — confirmed via diff inspection
+  that the gray-boundary rendering logic and every AC-2/AC-3 test are byte-identical to the
+  pre-fix commit 47a472b; only an informational acknowledgement note was added.
+  DECLARATIONS: F-001/F-002 — none (both are local: no bound, lifecycle, blast radius, error
+  class or config meaning changed; F-002 is a pure refactor to an existing equivalent helper).
+  Verified myself (orchestrator) by reading both diffs directly, not just the fix agent's own
+  summary.
+- [Build gate] PASSED (full, 893.95s / 14m54s) — 6655 passed, 9 skipped, 0 failed (one fewer
+  pass than cycle 1's 6656, fully accounted for by F-001's removed tautological test; no
+  regressions). Full-suite lock acquired/released around the run (one stale-looking appearance
+  flagged mid-run by the dispatcher's own monitoring — confirmed not actually stale: the process
+  was still legitimately running and completed normally at 893.95s, within the ~9-15 min range
+  prior cycles on this repo have shown).
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0 ✓ threshold reached + no critical/important.
+  F-001/F-002 independently re-verified RESOLVED (F-001: the surviving sibling test genuinely
+  calls `solved_puzzle_page` and pixel-compares both clue gutters against an independently
+  rendered unsolved page; F-002: `type_px()` call verified mathematically equivalent to the old
+  inline formula across 8 DPI values). F-003 CORRECTLY LEFT AS-IS (re-confirmed the in-bounds
+  invariant holds by construction). F-004 NOT RE-RAISED — the cycle-2 reviewer independently
+  re-derived the same conclusion from the primary sources (ADR-0037's own `code:` scope, the
+  card's pre-declared deferral, a fresh zero-callers grep) rather than deferring to the prior
+  skeptic, and filed `ADR-0037/R2 ✓ holds (as literally scoped)` instead of a finding. 2 new
+  Minors (both non-gating): F-003 carried forward as a documentation suggestion, and a
+  frame-introspection coupling note on the AC-7 caller-attribution spy test. 1 out-of-scope
+  observation (CON-020's standing checker doesn't yet walk this uncalled method — correctly
+  not blocking, relevant to CARD-198's wiring step). System contract: 53/53 rules covered (10 ✓
+  holds, 43 ⚠ unchecked/no_eligible_fact, 0 ✗ violated). Fresh targeted suite: 356 passed, 1
+  skipped, 50.73s. One additional mutant independently re-run this cycle (band_identity-call
+  flip) and confirmed killed, beyond cycle 1's 2 — 3/5 claimed mutants now independently
+  reproduced in total.
+- [Review sync] 1 report(s) → meta/review/ (20261007T143006Z-CARD-197-cycle2.yml, validated
+  yaml.safe_load, overall_score 9.0).
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, ADR-0036/R1, CON-020) — independent
+  skeptic re-ran the cited tests fresh (dependency-baseline test, 63/63 test_export_a4_golden.py,
+  3/3 TestBookSolvedPage_TextHoldsTheTenPointFloor) and re-read the cited code directly; also
+  independently reconfirmed the reviewer's CON-020 out-of-scope observation (the standing
+  checker `TestInteriorType_EveryFaceHoldsTheFloor` genuinely does not yet reach
+  `solved_puzzle_page` — zero production callers — so AC-7's own test is correctly the live
+  evidence here, not the standing checker).
+- [AC/EC check] All criteria/constraints ✓ (evidence):
+  AC-1 ✓ demonstrated — TestBookSolvedPage_CluesMatchTheGridAndTheUnsolvedPlacement::test_clue_gutters_match_the_unsolved_pages_pixel_for_pixel
+  PASSED; confirmed it genuinely calls `solved_puzzle_page` and pixel-compares both clue gutters
+  against an independently rendered unsolved page (cycle-1's F-001 fix verified real, not
+  cosmetic).
+  AC-2 ✓ demonstrated — TestBookSolvedPage_GrayGridlinesBetweenFilledCells (3 tests) PASSED.
+  AC-3 ✓ demonstrated — TestBookSolvedPage_GrayOnlyBetweenFilledCells (4 tests, incl. an
+  exhaustive every-interior-boundary sweep) PASSED.
+  AC-4 ✓ demonstrated — TestBookSolvedPage_TitleBandMatchesBandIdentity (6 tests) PASSED.
+  AC-5 ✓ demonstrated — TestBookSolvedPage_CaptionReadsThePictureName (3 tests) PASSED.
+  AC-6 ✓ demonstrated — TestBookSolvedPage_CaptionOmittedWhenNoSlack (3 tests) PASSED.
+  AC-7 ✓ demonstrated — TestBookSolvedPage_TextHoldsTheTenPointFloor (3 tests) PASSED.
+  AC-8 ✓ demonstrated — TestBookSolvedPage_NoColour (2 tests) PASSED.
+  AC-9 ✓ demonstrated — TestBookSolvedPage_SameGeometryAsTheUnsolvedPage (2 tests) PASSED.
+  G-1 ✓ demonstrated — no file under src/nonogram/export/** in either the commit or the
+  uncommitted delta; tests/test_export_a4_golden.py 63/63 passed.
+  G-2 ✓ demonstrated — `_stroke_drawing` body unedited (still `fill=INK` only, no new
+  param/branch); gray marks drawn by a separate new loop strictly after the verbatim call;
+  tests/test_book_pdf_band.py + test_book_puzzle_frame.py + test_book_pdf_two_up.py 143/143
+  passed.
+  G-3 ✓ demonstrated — `grep -rn solved_puzzle_page` shows zero call sites in
+  pack_answer_pages/render_answer_page/answer-key code; tests/test_book_answer_key.py 56/56
+  passed.
+  G-4 ✓ demonstrated — same grep: zero call sites in interior_pages/interior/interior_stream/
+  export_interior; the one test_book_pdf_memory.py edit is confirmed (via diff against
+  47a472b's parent) to be exactly one additive PAGE_FACTORIES tuple entry, no assertion
+  touched/removed/reordered; tests/test_book_pdf_memory.py 27 passed, 1 skipped (pre-existing).
+  G-5 ✓ demonstrated — `_SOLVED_GRID_GRAY = (160, 160, 160)`, a literal plain tuple;
+  tests/test_book_pdf_ink_mode.py 41/41 passed.
+  No Engineering constraints section on this card (confirmed absent, correctly skipped).
+  All 9 AC + all 5 G items: demonstrated. failing_items: empty.
+- [Docs step] changed_dirs = src/nonogram/admin/, tests/. No README.md exists under
+  src/nonogram/admin/ today, and none of this card's sibling cards touching the same file
+  (CARD-144/145/147/167/193/196...) created one — consistent with the backlog's own open item
+  ("per-directory READMEs convention" is an undecided owner decision, not yet adopted for this
+  directory) — skipped, no README created. tests/README.md exists but is explicitly scoped to
+  "Wave 1" features (batch history/puzzle preview/bulk ops) and lists only 4 of the hundreds of
+  test files that now exist in tests/ — it has evidently not been kept in sync for any of the
+  many cards since Wave 1, so adding an entry for tests/test_book_solved_page.py here would be
+  inconsistent with its established (unmaintained-for-this-scope) treatment — left unedited.
+- [Success commit] 70d6ad9 "fix: CARD-197 review-cycle polish — real AC-1 test, reuse type_px
+  for the caption" on branch card/197-solved-page-renderer, on top of the implementation commit
+  47a472b. Committed with explicit pathspecs (src/nonogram/admin/book_pdf_generator.py,
+  tests/test_book_solved_page.py only) — nothing under meta/ committed from the worktree.
+  Card parked at Status: review, cycle 2/3, score 9.0, pending `/kanban done`/merge (not run by
+  this orchestrator per the wave-37 brief). Pre-existing repo hook fired
+  "forge: source files changed — how-it-works docs may be stale" on commit — informational,
+  not an error; docs refresh is a post-wave step (cmd-run), not this card's job.
