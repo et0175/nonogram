@@ -1236,6 +1236,17 @@ class TestSolverPageFits:
         assert box["cell"] >= 14
 
     def test_a_phone_width_page_never_scrolls_sideways(self, browser_page, live) -> None:
+        """AC-11 (CARD-193). The name is the hard guarantee: the PAGE never
+        scrolls sideways, whatever .player-stage does. ``stageScrolls`` stays
+        ``True`` here unedited — not the earlier draft's anticipated flip to
+        ``False`` — because this seeded MAX_SIZE grid has a two-digit column
+        number, and CARD-196's column-numeral floor (12 px numerals never
+        render smaller) needs more width than a 390 px stage has; the owner's
+        final ruling accepts exactly this trade-off ("where a board cannot
+        fit at 12 px, it scrolls sideways"). tests/test_puzzle_solver_phone.py
+        TestSolverPhone_BoardFitsThePhoneWidth measures this mechanism
+        directly, against an independent formula, rather than one fixed
+        grid's coincidence."""
         browser_page.set_viewport_size({"width": 390, "height": 844})
         _open(browser_page, live, live.store(_unique_grid(MAX_SIZE, MAX_SIZE, seed=31)))
 

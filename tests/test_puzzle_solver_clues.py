@@ -467,7 +467,8 @@ class TestSolverClues_DragPreviewDoesNotCircle:
         assert _circled_set(page) == {("rows", r, 0)}
 
 
-#: Desktop, and a phone (390 px: the <= 820 px 24 px cell floor, CARD-182).
+#: Desktop, and a phone (390 px: the <= 820 px cell floor is removed, so the
+#: cell is whatever the fit (or the numeral floor) produces, CARD-193).
 _VIEWPORTS = [{"width": 1440, "height": 900}, {"width": 390, "height": 844}]
 
 _GEOMETRY = """() => {
@@ -618,9 +619,11 @@ class TestSolverClues_TheCircleIsVisible:
     number's ring is a pill (wider than tall) at least as wide as its text
     plus both border widths. Checked at 1440 px and at 390 px on the 15 x 15,
     and on a 30 x 30 at the 14 px cell floor (a 1100 x 700 window), at
-    1440 px (about 17 px) and at 390 px (24 px), where every row clue box
-    is one cell tall and every number's ring has its horizontal and
-    vertical centre within half a pixel of its digits' text-box centre (the
+    1440 px (about 17 px) and at 390 px (about 14.4 px — CARD-193 removed the
+    24 px phone floor below 820 px; this grid's two-digit column numbers
+    still bind the 14.4 px numeral-driven column floor, CARD-196), where
+    every row clue box is one cell tall and every number's ring has its
+    horizontal and vertical centre within half a pixel of its digits' text-box centre (the
     Range box of the number's text). Every circled row number's ring, one
     digit or two, and every circled single-digit column number's ring
     clears its digits' text box by at least half a pixel on the left and on
@@ -697,7 +700,10 @@ class TestSolverClues_TheCircleIsVisible:
         grid = _two_digit_grid()
         _open(page, live, live.store(grid))
         cell = page.evaluate("document.querySelector('td.player-cell').getBoundingClientRect().width")
-        assert cell == pytest.approx({1100: 14.4, 1440: 17.67, 390: 24}[viewport["width"]], abs=0.05), cell
+        # CARD-193: below 820 px the cell floor is removed, so at 390 the
+        # measured value is this grid's 14.4 px numeral-driven column floor
+        # (two-digit column numbers), not the old 24 px phone floor.
+        assert cell == pytest.approx({1100: 14.4, 1440: 17.67, 390: 14.39}[viewport["width"]], abs=0.05), cell
         # The row numbers' height, line-height and negative margins (admin.css)
         # leave every row clue box, so every row, one cell tall, also the rows
         # that end in a heavy rule.
@@ -815,11 +821,20 @@ class TestSolverClues_SingleDigitRowRingsMayTouch:
     this file — rather than a new board, at the same three viewports
     (_RING_VIEWPORTS) TestSolverClues_TheCircleIsVisible checks the 30 x 30
     ring floor at. Fully marking OWNER_ROW circles both its "2"s (AC-3: a
-    fully marked line circles everything), so both rings are live. The gap
-    between them is always positive (the rings touch, never overlap) but
-    measures well under _RING_GAP (about 0.125-0.141 px); each ring's OWN
-    digit clearance (the >= 0.5 px bar from the cycle-1 F-001 fix) is
-    unaffected by this narrowing and is asserted here too."""
+    fully marked line circles everything), so both rings are live.
+
+    At the floor and desktop viewports (cell 14.4 / 17.67 px, numeral above
+    the 12 px floor) the gap between them is always positive (the rings
+    touch, never overlap) but measures well under _RING_GAP (about
+    0.125-0.141 px). At the phone viewport (CARD-193: the 24 px phone floor
+    is gone, so this 15 x 15 board's cell is the fit, well under 20 px) the
+    numeral sits at its 12 px floor (CARD-196) while the ring still scales
+    with the now much smaller cell, so the two rings are no longer tight —
+    the pair keeps the ordinary full _RING_GAP there instead, like every
+    other pair; this is asserted below per viewport rather than as one
+    shared bound. Each ring's OWN digit clearance (the >= 0.5 px bar from
+    the cycle-1 F-001 fix) is unaffected either way and is asserted here
+    too."""
 
     @pytest.mark.parametrize("viewport", _RING_VIEWPORTS, ids=["floor", "desktop", "phone"])
     def test_adjacent_single_digit_row_rings_touch_but_never_overlap(self, browser_page, live, viewport) -> None:
@@ -842,11 +857,17 @@ class TestSolverClues_SingleDigitRowRingsMayTouch:
         # Never an actual overlap (always positive, less one 1/64 px layout
         # unit, as the existing close-pairs check below tolerates)...
         assert gap > -1 / 64, gap
-        # ...but F-006 narrows the full _RING_GAP floor away for this one
-        # pair: it must measure strictly under it (the owner's measured
-        # ~0.125-0.141 px), or a future CSS change that widens the row gap
-        # back to clearing every pair would make this fixture pointless.
-        assert gap < _RING_GAP - 1 / 64, gap
+        if viewport["width"] == 390:
+            # CARD-193: below the 24 px phone floor this pair is no longer
+            # tight — it keeps the ordinary full _RING_GAP, measured here at
+            # about 5.4 px (well clear of the floor).
+            assert gap >= _RING_GAP - 1 / 64, gap
+        else:
+            # ...but F-006 narrows the full _RING_GAP floor away for this one
+            # pair: it must measure strictly under it (the owner's measured
+            # ~0.125-0.141 px), or a future CSS change that widens the row gap
+            # back to clearing every pair would make this fixture pointless.
+            assert gap < _RING_GAP - 1 / 64, gap
 
         # Unaffected by the narrowing: each ring still fully clears its own
         # digits (the >= 0.5 px bar, unchanged since the cycle-1 F-001 fix).
@@ -892,10 +913,13 @@ def _no_phone_floor(page):
 @pytest.mark.browser
 class TestPlayerNumerals_TwelvePixelFloor:
     """AC-1 and AC-2 (CARD-196) — a numeral is 0.6 x the cell, never below
-    12 px. A 15 x 15 keeps its 0.6 x cell numerals on desktop (16.8 px) and
-    at the phone floor (14.4 px); a 30 x 30 with a two-digit column number
-    sits at the 12 px floor at 1440 px and at 1100 px (its cell is 17.67 px
-    and 14.4 px, so 0.6 x cell is 10.6 px and 8.6 px and the floor binds)."""
+    12 px. A 15 x 15 keeps its 0.6 x cell numerals on desktop (16.8 px); at
+    the phone viewport (CARD-193 removed the 24 px phone floor, so this
+    board's cell is now its fit, about 14 px — well under the 20 px a 12 px
+    numeral needs) the 12 px floor itself binds instead of 0.6 x cell. A
+    30 x 30 with a two-digit column number sits at the 12 px floor at
+    1440 px and at 1100 px (its cell is 17.67 px and 14.4 px, so 0.6 x cell
+    is 10.6 px and 8.6 px and the floor binds)."""
 
     def test_15x15_desktop_numerals_are_0_6_of_the_28_px_cell(self, browser_page, live) -> None:
         browser_page.set_viewport_size({"width": 1440, "height": 900})
@@ -903,11 +927,15 @@ class TestPlayerNumerals_TwelvePixelFloor:
         fonts = browser_page.evaluate(_NUMERALS)
         assert fonts and all(abs(f - 16.8) < 0.01 for f in fonts), sorted(set(fonts))
 
-    def test_15x15_phone_numerals_are_0_6_of_the_24_px_cell(self, browser_page, live) -> None:
+    def test_15x15_phone_numerals_sit_at_the_12px_floor(self, browser_page, live) -> None:
+        """CARD-193 (renamed from ..._are_0_6_of_the_24_px_cell, which this
+        board no longer measures: its phone cell is now the fit, not a 24 px
+        floor, so 0.6 x cell would be under 12 px and the numeral floor binds
+        instead — measured here, not assumed)."""
         browser_page.set_viewport_size({"width": 390, "height": 844})
         _open_player(browser_page, live)
         fonts = browser_page.evaluate(_NUMERALS)
-        assert fonts and all(abs(f - 14.4) < 0.01 for f in fonts), sorted(set(fonts))
+        assert fonts and all(abs(f - 12) < 0.01 for f in fonts), sorted(set(fonts))
 
     @pytest.mark.parametrize("viewport", [{"width": 1440, "height": 900}, {"width": 1100, "height": 700}],
                              ids=["desktop", "floor"])

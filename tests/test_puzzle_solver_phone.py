@@ -1,17 +1,23 @@
-"""CARD-182 — the puzzle player's cells are a usable tap target on a phone (FR-044).
+"""CARD-182 / CARD-193 — the puzzle player fits a board to the phone width (FR-044).
 
-Below the shell's 820 px breakpoint ``admin.css`` raises the player's cell
-floor (``--player-cell-min``) from 14 px to 24 px; the clamp, its 28 px cap and
-everything above 820 px are unchanged. A board wider than the stage scrolls
-inside ``.player-stage``; the page never scrolls sideways. Cells keep
-``touch-action: none`` (a touch drag marks); every clue box (column, row,
-corner) keeps the default ``auto``, and a swipe that starts on the column-clue
-band (a column clue or the corner) pans the board.
+CARD-182 raised the player's cell floor (``--player-cell-min``) to 24 px below
+the shell's 820 px breakpoint, so a board wider than the stage scrolled inside
+``.player-stage``. CARD-193 (owner decision, 2026-10-06) removes that floor
+below 820 px (down to 0 px, which never binds on its own): the cell comes from
+the fit-to-width/height clamp, or CARD-196's column-numeral floor
+(``--player-col-floor``, keeping a column number no narrower than a 12 px
+numeral needs) when that is larger — capped at 28 px as before, and the
+14 px floor is back above 820 px. The owner's final ruling is explicit that
+the numeral floor can still force a sideways scroll ("where a board cannot
+fit at 12 px, it scrolls sideways") — that is a deliberate, accepted trade-off
+for legibility, not a defect, and several tests below measure it rather than
+assume it away. Cells keep ``touch-action: none`` (a touch drag marks); every
+clue box (column, row, corner) keeps the default ``auto``, and nothing pans
+the board on a swipe any more (AC-10).
 
 Browser tests only (pytest-playwright + Chromium, ADR-0038/R7), refusing loudly
 when Chromium is absent (ADR-0038/R8) through CARD-160's fixtures, imported
-below. Touch input is real: CDP ``Input.dispatchTouchEvent`` drags and taps,
-and Chromium's own touch scroll gesture for the clue swipe.
+below. Touch input is real: CDP ``Input.dispatchTouchEvent`` drags and taps.
 """
 
 from __future__ import annotations
@@ -19,6 +25,7 @@ from __future__ import annotations
 import pytest
 
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
+    _encode,
     _open,
     _unique_grid,
     browser_page,
@@ -28,8 +35,14 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used 
 
 U, F, E = "unknown", "filled", "empty"
 
-#: The 24 px phone floor and the unchanged 28 px cap.
-FLOOR, CAP = 24, 28
+#: The old (CARD-182) 24 px phone floor — now gone below 820 px — and the
+#: unchanged 28 px cap. DESKTOP_FLOOR is the 14 px floor that still applies
+#: above 820 px (and that the clamp's lower bound falls back to there).
+FLOOR, CAP, DESKTOP_FLOOR = 24, 28, 14
+
+#: admin.css's own constants (CARD-193/CARD-196), reimplemented independently
+#: below rather than read from the DOM — see _predict_cell.
+RULE, RULE_MAJOR, NUMERAL_MIN, CHROME_H = 1, 2, 12, 228
 
 
 def _deep_row_clues(width, height, seed):
@@ -44,7 +57,8 @@ def _deep_row_clues(width, height, seed):
 
 
 #: The three boards of AC-1: a 15 x 15, a 25 x 15 (25 wide, 15 high) and a
-#: 30 x 30 with a 15-number row clue.
+#: 30 x 30 with a 15-number row clue. Unchanged since CARD-182 (G-1): their
+#: 1440 px cell sizes are pinned (DESKTOP_CELL below) and must not move.
 GRIDS = {
     "15x15": _unique_grid(15, 15, seed=182),
     "25x15": _unique_grid(25, 15, seed=1825),
@@ -57,6 +71,32 @@ BIG_SIDE = 30
 #: (admin.css unchanged, commit 2e40c96) before this card's rule was added,
 #: rounded to 0.001 px (the 30 x 30 measured 16.796875).
 DESKTOP_CELL = {"15x15": 28.0, "25x15": 28.0, "30x30": 16.797}
+
+
+def _predict_cell(grid, stage_width, viewport_height, cell_min):
+    """An independent re-derivation of admin.css's ``--player-cell`` clamp
+    (CARD-193/CARD-196), from the grid's own clues (re-encoded here, not
+    read from solver.js's custom properties) and the *measured* stage width
+    and viewport height — not a value assumed from .main's padding, which
+    is not this formula's concern. Returns ``(cell, floor_dominates)``:
+    ``floor_dominates`` says whether CARD-196's column-numeral floor (not
+    the fit) is what set the cell, which is exactly the condition under
+    which the owner's ruling allows the stage to need a sideways scroll.
+    """
+    rows_clues = [_encode(row) for row in grid]
+    columns_clues = [_encode(col) for col in zip(*grid)]
+    width, height = len(grid[0]), len(grid)
+    row_ch = max(sum(len(str(n)) + 1.45 for n in clue) + 0.5 for clue in rows_clues)
+    col_depth = max(len(clue) for clue in columns_clues)
+    col_digits = max(len(str(n)) for clue in columns_clues for n in clue)
+    col_floor = col_digits * 0.6 * NUMERAL_MIN
+    lower = max(cell_min, col_floor)
+    term1 = (stage_width - RULE - RULE_MAJOR - row_ch * 0.6 * NUMERAL_MIN) / width
+    term2 = (stage_width - RULE - RULE_MAJOR) / (width + row_ch * 0.36)
+    term3 = (viewport_height - CHROME_H) / (height + col_depth + 1)
+    fit = min(term1, term2, term3)
+    cell = max(lower, min(fit, CAP))
+    return cell, col_floor > fit
 
 
 _CELLS = """() => [...document.querySelectorAll('td.player-cell')].map((td) => {
@@ -103,6 +143,20 @@ def _bring_row_to_middle(page, row):
     )
 
 
+def _scroll_cell_into_view(page, r, c):
+    """Scrolls .player-stage (never the page) so this cell is reachable,
+    whether or not the board needs that scroll — CARD-193: a board whose
+    column numerals don't fit at the 12 px floor still scrolls internally
+    (AC-9 must work either way), while most boards no longer need to."""
+    page.evaluate(
+        """([r, c]) => {
+          document.querySelector(`td.player-cell[data-row="${r}"][data-col="${c}"]`)
+            .scrollIntoView({ inline: 'end', block: 'nearest' });
+        }""",
+        [r, c],
+    )
+
+
 def _visible_centre(page, r, c):
     """The cell's centre, asserting the whole cell is inside the stage's
     visible box and the viewport (so a touch there lands on it, not beside)."""
@@ -130,57 +184,86 @@ def _touch(cdp, kind, x=None, y=None):
 
 
 # ==========================================================================
-# AC-1 / AC-2 — every cell is a 24..28 px target at 390 x 844; the board
-# scrolls inside the stage, never the page
+# AC-1 / AC-2 — the cell matches the fit-or-numeral-floor formula at
+# 390 x 844, the old 24 px floor is gone, and the page never scrolls
+# sideways, whether or not .player-stage must scroll internally
 # ==========================================================================
 
 
 @pytest.mark.browser
-class TestSolverPhone_CellsAreATapTarget:
-    """AC-1 / AC-2."""
+class TestSolverPhone_BoardFitsThePhoneWidth:
+    """AC-1 / AC-2 — below 820 px the cell floor is removed: every cell
+    shares one side, at most 28 px (the cap, unchanged) and no longer
+    pinned at the old 24 px floor. All three boards here measure the SAME
+    ~14.39 px at 390 px, because each has at least one two-digit column
+    number and CARD-196's column-numeral floor (14.4 px for two digits)
+    exceeds what the fit-to-width/height terms alone would give every one
+    of them — so AC-2's "narrower than 14 px" is not a blanket guarantee:
+    it holds only for a board whose column clues need no more than a
+    single-digit numeral. Rather than hard-code that coincidence (or
+    silently swap in different fixtures and lose the boards these tests
+    were defined against — G-1 pins their 1440 px cell sizes, so they are
+    not changed here), this test cross-checks the measured cell against an
+    independent re-derivation of admin.css's clamp (_predict_cell), which
+    stays correct whichever term binds. Whatever the stage does internally,
+    the page itself never scrolls sideways (AC-1's "the board fits the
+    phone").
+    """
 
     @pytest.mark.parametrize("name", list(GRIDS))
-    def test_every_cell_is_between_24_and_28_px(self, browser_page, live, name) -> None:
+    def test_the_cell_matches_the_formula_and_clears_the_old_floor(self, browser_page, live, name) -> None:
         browser_page.set_viewport_size({"width": 390, "height": 844})
         _open(browser_page, live, live.store(GRIDS[name]))
 
         cells = browser_page.evaluate(_CELLS)
+        fit = browser_page.evaluate(_FIT)
 
         assert len(cells) == len(GRIDS[name]) * len(GRIDS[name][0])
-        sides = [side for cell in cells for side in cell]
-        assert FLOOR <= min(sides) and max(sides) <= CAP, (min(sides), max(sides))
+        sides = {side for cell in cells for side in cell}
+        assert len(sides) == 1, sides  # every cell shares one side
+        side = sides.pop()
+        assert side <= CAP, side
+        assert side < FLOOR, side  # the old 24 px floor no longer binds
+
+        predicted, _floor_dominates = _predict_cell(GRIDS[name], fit["stageClientWidth"], 844, cell_min=0)
+        assert side == pytest.approx(predicted, abs=0.01), (side, predicted)
+        assert fit["pageWidth"] <= fit["viewport"], fit  # the page never scrolls sideways
 
     @pytest.mark.parametrize("name", list(GRIDS))
-    def test_the_board_scrolls_in_its_stage_and_the_page_does_not(self, browser_page, live, name) -> None:
+    def test_the_stage_scrolls_exactly_when_the_column_floor_exceeds_the_fit(self, browser_page, live, name) -> None:
         browser_page.set_viewport_size({"width": 390, "height": 844})
         _open(browser_page, live, live.store(GRIDS[name]))
 
         fit = browser_page.evaluate(_FIT)
+        _predicted, floor_dominates = _predict_cell(GRIDS[name], fit["stageClientWidth"], 844, cell_min=0)
 
-        assert fit["pageWidth"] <= fit["viewport"], fit
-        assert fit["stageScrollWidth"] > fit["stageClientWidth"], fit
+        stage_scrolls = fit["stageScrollWidth"] > fit["stageClientWidth"]
+        assert stage_scrolls == floor_dominates, (name, fit, floor_dominates)
+        assert fit["pageWidth"] <= fit["viewport"], fit  # never the page, regardless
 
 
 # ==========================================================================
-# AC-3 — the floor applies at 820 px and not at 821 px
+# AC-3 — at 820 px the board fits its stage with no internal scroll; at
+# 821 px the 14 px desktop floor is back
 # ==========================================================================
 
 
 @pytest.mark.browser
-class TestSolverPhone_FloorAppliesOnlyBelowTheShellBreakpoint:
+class TestSolverPhone_FitAppliesOnlyAtOrBelowTheShellBreakpoint:
     """AC-3."""
 
-    def test_820_gets_the_floor_and_821_the_desktop_clamp(self, browser_page, live) -> None:
+    def test_820_fits_and_821_keeps_the_desktop_floor(self, browser_page, live) -> None:
         puzzle_id = live.store(BIG)
-        sides = {}
+        sides, fits = {}, {}
         for width in (820, 821):
             browser_page.set_viewport_size({"width": width, "height": 900})
             _open(browser_page, live, puzzle_id)
             cells = browser_page.evaluate(_CELLS)
             sides[width] = (min(s for cell in cells for s in cell), max(s for cell in cells for s in cell))
+            fits[width] = browser_page.evaluate(_FIT)
 
-        assert sides[820][0] >= FLOOR, sides
-        assert sides[821][1] < FLOOR, sides
+        assert fits[820]["stageScrollWidth"] <= fits[820]["stageClientWidth"], fits[820]
+        assert sides[821][0] >= DESKTOP_FLOOR, sides
 
 
 # ==========================================================================
@@ -203,38 +286,44 @@ class TestSolverPhone_DesktopSizingUnchanged:
 
 
 # ==========================================================================
-# AC-5 / AC-6 — touch marks the cells under the finger on a scrolled board
+# AC-9 — touch marks the cells under the finger on a fitted board
 # ==========================================================================
 
 ROW = 12
 RIGHT_FIVE = [(ROW, c) for c in range(BIG_SIDE - 5, BIG_SIDE)]
 
 
-def _scrolled_phone_page(browser, live, tool=None):
+def _fitted_phone_page(browser, live, tool=None):
     """The 30 x 30 at 390 x 844 in a touch context, ``tool`` picked first (a
-    click scrolls its button into view), the stage scrolled to its right end
-    and the page scrolled down to ROW."""
+    click scrolls its button into view), and the page scrolled down to ROW.
+    CARD-193: below 820 px the cell floor is removed, so most boards no
+    longer scroll inside .player-stage — but this grid's two-digit column
+    numbers still bind CARD-196's column floor, so it does. Either way the
+    test only needs the target cells reachable, so it brings them into view
+    (_scroll_cell_into_view) rather than asserting a scroll position; what
+    IS asserted is that the drag itself does not change .player-stage's
+    scroll (whatever it is) — touch-action: none keeps the gesture from
+    panning the board."""
     context = _phone(browser)
     page = context.new_page()
     _open(page, live, live.store(BIG))
     if tool:
         page.get_by_role("button", name=tool, exact=True).click()
-    page.evaluate("const s = document.querySelector('.player-stage'); s.scrollLeft = s.scrollWidth;")
+    _scroll_cell_into_view(page, *RIGHT_FIVE[-1])
     left = _stage_scroll_left(page)
-    assert left > 0 and left == page.evaluate(
-        "const s = document.querySelector('.player-stage'); s.scrollWidth - s.clientWidth"
-    )
     _bring_row_to_middle(page, ROW)
     assert _stage_scroll_left(page) == left
     return context, page, left
 
 
 @pytest.mark.browser
-class TestSolverPhone_TouchDragMarksOnAScrolledBoard:
-    """AC-5 / AC-6."""
+class TestSolverPhone_TouchDragMarksOnAFittedBoard:
+    """AC-9 (renamed from TestSolverPhone_TouchDragMarksOnAScrolledBoard:
+    a fitted board no longer guarantees a scrolled stage, so the old
+    ``scrollLeft > 0`` precondition is gone — see _fitted_phone_page)."""
 
     def test_a_touch_drag_marks_exactly_the_five_cells_under_the_finger(self, browser, live) -> None:
-        context, page, left = _scrolled_phone_page(browser, live, tool="White")
+        context, page, left = _fitted_phone_page(browser, live, tool="White")
         try:
             (x0, y0), (x1, _) = _visible_centre(page, *RIGHT_FIVE[0]), _visible_centre(page, *RIGHT_FIVE[-1])
             for cell in RIGHT_FIVE[1:-1]:
@@ -251,7 +340,7 @@ class TestSolverPhone_TouchDragMarksOnAScrolledBoard:
             context.close()
 
     def test_a_tap_fills_exactly_that_cell(self, browser, live) -> None:
-        context, page, left = _scrolled_phone_page(browser, live)
+        context, page, left = _fitted_phone_page(browser, live)
         try:
             x, y = _visible_centre(page, ROW, BIG_SIDE - 3)
             cdp = context.new_cdp_session(page)
@@ -265,53 +354,16 @@ class TestSolverPhone_TouchDragMarksOnAScrolledBoard:
 
 
 # ==========================================================================
-# AC-7 — a swipe that starts on the column clues pans the board
+# AC-10 — cells keep touch-action: none, clue boxes keep the default
 # ==========================================================================
 
 
 @pytest.mark.browser
 class TestSolverPhone_SwipingTheCluesPansTheBoard:
-    """AC-7."""
-
-    # The swipe starts in the column-clue band (the board's header row), at the
-    # rightmost point of it the stage shows. On the deep-row-clue 30 x 30 at
-    # scrollLeft 0 the row-clue gutter (15 numbers) is wider than the 358 px
-    # stage, so the only part of that band in view is the corner box; the
-    # 25 x 15 shows real column-clue boxes there. Both are asserted by class.
-    @pytest.mark.parametrize(("name", "start_on"), [("30x30", "player-corner"), ("25x15", "player-clue is-col")])
-    def test_a_swipe_on_the_column_clue_band_scrolls_the_stage_and_marks_nothing(
-        self, browser, live, name, start_on
-    ) -> None:
-        context = _phone(browser)
-        page = context.new_page()
-        try:
-            _open(page, live, live.store(GRIDS[name]))
-            assert _stage_scroll_left(page) == 0
-            # CARD-196 (owner-approved G-8 exception): on the 30 x 30 the corner
-            # box is the visible part of the band, so the start point is taken
-            # inside the corner box rather than at the stage's right edge.
-            x, y, under = page.evaluate(
-                """(onCorner) => {
-                  const stage = document.querySelector('.player-stage').getBoundingClientRect();
-                  const band = document.querySelector('.player-board thead tr').getBoundingClientRect();
-                  const corner = document.querySelector('.player-corner').getBoundingClientRect();
-                  const reach = onCorner ? Math.min(stage.right, corner.right) : Math.min(stage.right, band.right);
-                  const x = reach - 12, y = band.top + band.height / 2;
-                  return [x, y, document.elementFromPoint(x, y).closest('th, td').className];
-                }""",
-                start_on == "player-corner",
-            )
-            assert under == start_on
-            cdp = context.new_cdp_session(page)
-            _touch(cdp, "touchStart", x, y)
-            for k in range(1, 11):
-                _touch(cdp, "touchMove", x - 20 * k, y)
-            _touch(cdp, "touchEnd")
-
-            page.wait_for_function("document.querySelector('.player-stage').scrollLeft > 0", timeout=2000)
-            assert _changed(_states(page), len(GRIDS[name][0])) == {}
-        finally:
-            context.close()
+    """AC-10. (CARD-193: nothing pans the board on a phone any more, so the
+    old swipe-pans-the-stage test — which also assumed the column-clue band
+    was reachable at a fixed scroll position — is gone; this touch-action
+    check is what AC-10 actually asks for.)"""
 
     def test_cells_take_no_touch_action_and_clue_boxes_keep_the_default(self, browser_page, live) -> None:
         browser_page.set_viewport_size({"width": 390, "height": 844})

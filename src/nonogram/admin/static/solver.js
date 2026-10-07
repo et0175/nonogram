@@ -207,11 +207,16 @@ function clueBox(tag, kind, label, clue) {
 }
 
 // Draw the empty board for `payload` into `stage`; returns the cell elements,
-// row-major, in the same order as a board's cells.
-function drawBoard(stage, payload) {
+// row-major, in the same order as a board's cells. `mirrored` (CARD-193:
+// boards wider than 15 columns, on phones only — see isMirrored in start())
+// moves each body row's row-clue box after its cells and the head row's
+// corner after the last column clue, so the row-clue gutter draws on the
+// right (admin.css .player-board.is-mirrored); the `cells` array stays
+// row-major regardless — only DOM placement within each row changes.
+function drawBoard(stage, payload, mirrored) {
   const { width, height, rows, columns } = payload;
   const table = document.createElement("table");
-  table.className = "player-board";
+  table.className = mirrored ? "player-board is-mirrored" : "player-board";
   table.setAttribute("aria-label", `Puzzle board, ${width} columns by ${height} rows`);
   // The cell side is computed in CSS from these (admin.css, --player-cell).
   table.style.setProperty("--player-cols", width);
@@ -225,12 +230,13 @@ function drawBoard(stage, payload) {
   const head = table.createTHead().insertRow();
   const corner = document.createElement("td");
   corner.className = "player-corner";
-  head.append(corner);
+  if (!mirrored) head.append(corner);
   columns.forEach((clue, col) => {
     const box = clueBox("th", "col", `Column ${col + 1}`, clue);
     if (majorAfter(col, width)) box.classList.add("major-right");
     head.append(box);
   });
+  if (mirrored) head.append(corner);
 
   const body = table.createTBody();
   const cells = [];
@@ -238,7 +244,7 @@ function drawBoard(stage, payload) {
     const line = body.insertRow();
     const box = clueBox("th", "row", `Row ${row + 1}`, clue);
     if (majorAfter(row, height)) box.classList.add("major-below");
-    line.append(box);
+    if (!mirrored) line.append(box);
     for (let col = 0; col < width; col += 1) {
       const cell = line.insertCell();
       cell.className = "player-cell";
@@ -250,6 +256,7 @@ function drawBoard(stage, payload) {
       cell.style.setProperty("--player-wave", row + col);
       cells.push(cell);
     }
+    if (mirrored) line.append(box);
   });
 
   stage.replaceChildren(table);
@@ -281,7 +288,6 @@ function start() {
     return;
   }
 
-  const cellElements = drawBoard(stage, payload);
   const save = browserSave(saveKey(payload.id));
   let history = createHistory(createBoard(payload.width, payload.height));
   const saved = save.read();
@@ -291,18 +297,29 @@ function start() {
     else history = restored;
   }
   let board = history.board;
-  paint(cellElements, board);
 
-  const table = stage.querySelector(".player-board");
   const toolbar = document.getElementById("puzzle-player-controls");
   const errorsOut = toolbar.querySelector("[data-player-errors]");
   const hintsOut = toolbar.querySelector("[data-player-hints]");
   const progressOut = toolbar.querySelector("[data-player-progress]");
   const banner = document.getElementById("puzzle-player-solved");
   const announce = document.getElementById("puzzle-player-announce");
-  const clueNumbers = clueNumbersOf(table);
+
+  // Redrawn by redraw() below: the live table, its cells (row-major) and the
+  // clue-number spans (CARD-188). `table`/`cellElements`/`clueNumbers` are
+  // `let` so every closure that reads them (showProgress, the marking
+  // callbacks) sees the current board after a mirror redraw (CARD-193).
+  let table, cellElements, clueNumbers;
   let solved = false;
   let hinted = null; // the cell element carrying .is-hinted
+
+  // CARD-193: boards wider than 15 columns mirror their row clues to the
+  // right, but only on phones (owner decision, 2026-10-06) — the ≤ 820 px
+  // shell breakpoint, the same one admin.css keys the phone cell floor to.
+  const mirrorQuery = window.matchMedia("(max-width: 820px)");
+  function isMirrored() {
+    return payload.width > 15 && mirrorQuery.matches;
+  }
 
   // Error count, hint count, progress percent and solved state of the recorded history (see
   // PROGRESS); `hint` is the hintCell value just recorded, or null.
@@ -324,7 +341,24 @@ function start() {
     paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
   }
 
-  const marking = wireMarking(table, {
+  // (Re)draws the board for the current mirror state from the recorded
+  // history — called once at load and again, from the same recorded board,
+  // whenever mirrorQuery crosses 820 px (CARD-193: nothing recorded is
+  // lost — history, undo/redo and the save are untouched by a redraw).
+  function redraw() {
+    cellElements = drawBoard(stage, payload, isMirrored());
+    table = stage.querySelector(".player-board");
+    clueNumbers = clueNumbersOf(table);
+    paint(cellElements, board);
+    hinted = null; // the old highlighted element no longer exists
+    showProgress(null);
+    marking.refresh();
+  }
+
+  // Pointer, tool, history and keyboard input is wired once, to `stage`
+  // (which survives a redraw) rather than to the table a redraw replaces —
+  // see wireMarking.
+  const marking = wireMarking(stage, {
     getHistory: () => history,
     locked: () => solved,
     nextHint: () => hintCell(history.board, payload.rows, payload.columns, payload.solution),
@@ -344,8 +378,12 @@ function start() {
     },
     forget: () => save.forget(),
   });
-  showProgress(null);
-  marking.refresh();
+  redraw();
+  // CARD-193: the mirror follows the viewport, not a redraw of its own
+  // accord — a board that never mirrors (width <= 15) never redraws here.
+  mirrorQuery.addEventListener("change", () => {
+    if (payload.width > 15) redraw();
+  });
 
   window.puzzlePlayer = Object.freeze({
     payload,
@@ -443,9 +481,10 @@ function hintText({ row, col, state, deduced }) {
 }
 
 // The [row, col] of the board cell under the viewport point (x, y), or null.
-function cellUnder(table, x, y) {
+// `container` only needs to contain the live table — see wireMarking.
+function cellUnder(container, x, y) {
   const cell = document.elementFromPoint(x, y)?.closest("td.player-cell");
-  if (!cell || !table.contains(cell)) return null;
+  if (!cell || !container.contains(cell)) return null;
   return [Number(cell.dataset.row), Number(cell.dataset.col)];
 }
 
@@ -453,16 +492,21 @@ function isAt(position, [row, col]) {
   return position[0] === row && position[1] === col;
 }
 
-// Attach pointer, tool, history and keyboard input to `table`. `player` gives
-// the current history (getHistory), says whether the board is locked (locked
-// — solved, see PROGRESS), gives the cell a hint would reveal (nextHint — a
-// hintCell value or null), paints a board without recording it (show — a
-// drag's preview) and records a new history (commit, with the hint it
-// recorded, if any), and removes this puzzle's save (forget — after a
+// Attach pointer, tool, history and keyboard input to `container` (the
+// player's stage, not the table itself — CARD-193: a mirror redraw replaces
+// the table, and a listener bound to the table it replaced would stop
+// receiving events; `container` survives a redraw, and the cell under a
+// point is always read fresh from the live DOM, so these listeners need
+// wiring only once, even though the table they act on can change). `player`
+// gives the current history (getHistory), says whether the board is locked
+// (locked — solved, see PROGRESS), gives the cell a hint would reveal
+// (nextHint — a hintCell value or null), paints a board without recording it
+// (show — a drag's preview) and records a new history (commit, with the hint
+// it recorded, if any), and removes this puzzle's save (forget — after a
 // confirmed reset, see SAVE). Returns { refresh,
 // commit }: refresh re-syncs the controls after the lock changed elsewhere;
 // commit records a history from elsewhere (setBoard) exactly as an input does.
-function wireMarking(table, player) {
+function wireMarking(container, player) {
   const controls = document.getElementById("puzzle-player-controls");
   const tools = [...controls.querySelectorAll("[data-player-tool]")];
   const actions = Object.fromEntries(
@@ -493,21 +537,21 @@ function wireMarking(table, player) {
     refresh();
   }
 
-  table.addEventListener("pointerdown", (event) => {
+  container.addEventListener("pointerdown", (event) => {
     if (gesture || player.locked() || (event.pointerType === "mouse" && event.button !== 0)) return;
-    const start = cellUnder(table, event.clientX, event.clientY);
+    const start = cellUnder(container, event.clientX, event.clientY);
     if (!start) return;
     event.preventDefault();
-    table.setPointerCapture(event.pointerId);
+    container.setPointerCapture(event.pointerId);
     // The tool is taken here, at pointerdown: picking another tool mid-drag
     // applies to the next drag, not this one.
     gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool };
     refresh(); // Hint is disabled while a gesture is in progress
   });
 
-  table.addEventListener("pointermove", (event) => {
+  container.addEventListener("pointermove", (event) => {
     if (!gesture || event.pointerId !== gesture.pointerId) return;
-    const position = cellUnder(table, event.clientX, event.clientY);
+    const position = cellUnder(container, event.clientX, event.clientY);
     const previous = gesture.path.at(-1) ?? gesture.start;
     if (!position || isAt(position, previous)) return;
     gesture.path.push(position);
@@ -517,7 +561,7 @@ function wireMarking(table, player) {
     }
   });
 
-  table.addEventListener("pointerup", (event) => {
+  container.addEventListener("pointerup", (event) => {
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const done = gesture;
     gesture = null;
@@ -533,7 +577,7 @@ function wireMarking(table, player) {
     lastClick = { row, col, tool: done.tool };
   });
 
-  table.addEventListener("pointercancel", (event) => {
+  container.addEventListener("pointercancel", (event) => {
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     gesture = null;
     lastClick = null;
