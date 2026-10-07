@@ -30,7 +30,9 @@ _Updated: 2026-10-06 UTC_
 | 32 | CARD-164 P1, CARD-165 P2, CARD-166 P2, CARD-167 P2, CARD-168 P2 | ✓ done — all 5 merged; full suite exit 0 |
 | 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ✓ done — all 8 merged (CARD-170 after an owner-chosen targeted fix) |
 | 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2, CARD-186 P2, CARD-188 P2 | ✓ done — all 10 merged (CARD-188 after two owner-chosen fixes) |
-| 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ▶ active — 185 merged; player chain 189 → 187; admin chain 190 → 191 → 192 (app.py) |
+| 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ▶ active — 185 merged; player chain 189 → 187; admin chain 190 → 191 → 192 (app.py); 191 ✓ committed; 192 ▶ review; 187 ✓ 9.0 committed 728c7d0, awaiting done |
+| 36 | CARD-193 P2, CARD-196 P2 | CARD-196 ✓ 8.5 committed 432a1ea, awaiting done (owner render check) · CARD-193 ▶ in_progress — owner ruled (option b), re-decomposed against CARD-196, worktree fast-forwarded to main, implementation started |
+| 37 | CARD-197 P2, CARD-198 P2, CARD-199 P2 | ready — owner solution-layout doc; runs alongside wave 36 (no file overlap) |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -50,17 +52,23 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-- [CARD-190](cards/CARD-190.md) P2 · 0.5d · wave 35 — Puzzle review's size filter goes by the longest side, like book selection
-- [CARD-191](cards/CARD-191.md) P2 · 0.75d · wave 35 — On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side
-- [CARD-192](cards/CARD-192.md) P2 · 0.75d · wave 35 — The Arrangement page can show one longest-side size, with what is left or over against the plan
-- [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · after CARD-186 (merged)
+- [CARD-197](cards/CARD-197.md) P2 · 1.25d · wave 37 — A new full-page solved layout: clues top and left, light-gray gridlines between filled cells
+- [CARD-198](cards/CARD-198.md) P2 · 1.5d · wave 37 — The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid · after CARD-197, CARD-199
+- [CARD-199](cards/CARD-199.md) P2 · 0.5d · wave 37 — Extend KDP's gutter table past 300 pages so larger books still finalise
 
 ## In Progress
-
+- [CARD-193](cards/CARD-193.md) P2 · 1d · wave 36 — The puzzle player fits big boards to the phone width and mirrors row clues on the right above 15 cells · implementation committed 2041204 · review cycle 1 starting
 
 ## Review
-- [CARD-189](cards/CARD-189.md) P2 · 0.5d · wave 35 — In the puzzle player, a click follows the selected brush · review cycle 1/3
+- [CARD-196](cards/CARD-196.md) P2 · 1.25d · wave 36 — The puzzle player's clue numbers get their own size, independent of the cell, with a 12 px minimum · ✓ 8.5 (cycle 3/3, redo 3) · committed 432a1ea (on 98efcff) · awaiting done (owner render check — renders ready in ~/Documents/nonogram-reviews/CARD-196/)
+- [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · ✓ 9.0 (cycle 2/3, 0 crit, 0 imp, 2 minor) · committed 728c7d0 (implementation 2c01f7f, fc3f647) · awaiting done (owner visual check of renders in ~/Documents/nonogram-reviews/CARD-187/)
+- [CARD-192](cards/CARD-192.md) P2 · 0.75d · wave 35 — The Arrangement page can show one longest-side size, with what is left or over against the plan · ✓ 9.2 (2 cycles) · committed 04791f4 · awaiting done (owner render check)
+- [CARD-191](cards/CARD-191.md) P2 · 0.75d · wave 35 — On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side · ✓ 9.5 (2 cycles) · committed 9803893 · awaiting done (owner render check)
+- [CARD-189](cards/CARD-189.md) P2 · 0.5d · wave 35 — In the puzzle player, a click follows the selected brush · ✓ 9.0 (3 cycles) · committed 481a4e6 · awaiting done (owner render check)
+- [CARD-190](cards/CARD-190.md) P2 · 0.5d · wave 35 — Puzzle review's size filter goes by the longest side, like book selection · ✓ 9.5 (3 cycles) · committed 1eaefac · awaiting done (owner render check)
 - [CARD-185](cards/CARD-185.md) P2 · 1d · wave 35 — The puzzle player reopens a puzzle in the state it was left in (this browser only) · ✓ 9.5 (2 cycles) · committed a7e72d2 · awaiting done (owner render check)
+
+## Blocked
 
 ## Done
 - **CARD-177** Finalise and the book PDF downloads flash a generic error, not the exception's text · score 9.0 (1 cycle) · merged d1995fd
