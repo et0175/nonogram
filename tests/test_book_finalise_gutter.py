@@ -71,6 +71,11 @@ GUTTER_060 = "0.60"
 #: here rather than built from the code that composes it.
 KDP_BAND_TEXT = "1.27 cm (0.5 in) for 151-300 pages"
 
+#: CARD-199's two new bands, written out the same way as ``KDP_BAND_TEXT``
+#: above (G-2: that constant and the two bands it names are unchanged).
+KDP_BAND_TEXT_301_500 = "1.59 cm (0.625 in) for 301-500 pages"
+KDP_BAND_TEXT_501_590 = "1.91 cm (0.75 in) for 501-590 pages"
+
 
 # --------------------------------------------------------------------------
 # The corpora: puzzles whose page plan is arithmetic, not luck
@@ -184,6 +189,19 @@ AC271_PUZZLES = 150
 AC271_ANSWER_PAGES = 30
 AC271_PAGES_BEFORE_THE_KEY = 125
 AC271_PAGES = 155
+
+#: CARD-199 AC-5's book: inside the new 301-500 band. 277 medium `alone`s: 1
+#: guide + 1 level divider + 277 puzzle pages + the SOLUTIONS divider + 70
+#: four-up answer pages (ceil(277 / 4)) = 350.
+AC199_NEW_BAND_CORPUS = ((alone, "medium", 277),)
+AC199_NEW_BAND_PAGES = 350
+
+#: CARD-199 AC-6's book: CARD-198's own "roughly 305 pages" regression
+#: figure, reproduced exactly. 241 medium `alone`s: 1 + 1 + 241 + 1 + 61
+#: (ceil(241 / 4)) = 305 — just over the *old* 300-page ceiling, where this
+#: book used to be refused outright as "not modelled" before this card.
+AC199_CARD198_CORPUS = ((alone, "medium", 241),)
+AC199_CARD198_PAGES = 305
 
 
 # --------------------------------------------------------------------------
@@ -320,7 +338,7 @@ def refusal_of(response) -> str:
 
 
 class TestKdpGutterTable:
-    """The two bands the requirements record, and the silence above them."""
+    """The four bands the requirements record, and the silence above them."""
 
     @pytest.mark.parametrize(
         "page_count,expected_cm",
@@ -332,37 +350,81 @@ class TestKdpGutterTable:
             (151, 1.27),
             (299, 1.27),
             (300, 1.27),
+            # CARD-199 AC-1: the new 301-500 band, 0.625 in exactly.
+            (301, 1.5875),
+            (400, 1.5875),
+            (500, 1.5875),
+            # CARD-199 AC-2: the new 501-590 band, 0.75 in exactly.
+            (501, 1.905),
+            (550, 1.905),
+            (590, 1.905),
         ],
     )
     def test_the_minimum_for_each_band(self, page_count, expected_cm) -> None:
         assert kdp_min_gutter_cm(page_count) == pytest.approx(expected_cm)
 
-    def test_the_bands_are_the_two_the_requirements_state(self) -> None:
-        """0.375 in up to 150 pages, 0.5 in to 300 — stated in inches."""
+    def test_the_bands_are_the_four_the_requirements_state(self) -> None:
+        """0.375 in to 150, 0.5 in to 300, 0.625 in to 500, 0.75 in to 590.
+
+        Stated in inches, because that is how KDP states them (CON-018 for
+        the first two; CARD-199's research for the last two, stopping at this
+        project's one real trim's own page-count ceiling rather than KDP's
+        general 828 — see the module docstring).
+        """
         assert KDP_GUTTER_BANDS == (
             (150, Decimal("0.375")),
             (300, Decimal("0.5")),
+            (500, Decimal("0.625")),
+            (590, Decimal("0.75")),
         )
-        assert MAX_MODELLED_PAGE_COUNT == 300
+        assert MAX_MODELLED_PAGE_COUNT == 590
 
-    @pytest.mark.parametrize("page_count", [1, 150, 151, 300])
-    def test_the_band_is_named_as_a_page_range(self, page_count) -> None:
-        assert kdp_page_band(page_count) == ((1, 150) if page_count <= 150 else (151, 300))
+    @pytest.mark.parametrize(
+        "page_count,expected_band",
+        [
+            (1, (1, 150)),
+            (150, (1, 150)),
+            (151, (151, 300)),
+            (300, (151, 300)),
+            # CARD-199 AC-1/AC-2: the two new bands.
+            (301, (301, 500)),
+            (400, (301, 500)),
+            (500, (301, 500)),
+            (501, (501, 590)),
+            (550, (501, 590)),
+            (590, (501, 590)),
+        ],
+    )
+    def test_the_band_is_named_as_a_page_range(self, page_count, expected_band) -> None:
+        assert kdp_page_band(page_count) == expected_band
 
-    @pytest.mark.parametrize("page_count", [301, 400, 501, 10_000])
-    def test_above_three_hundred_pages_it_refuses_rather_than_guessing(
+    def test_the_real_kdp_ceiling_still_has_a_modelled_gutter(self) -> None:
+        """CARD-199 AC-3: 590 is inside the table, not past it.
+
+        The real KDP ceiling for this project's one trim (8.5"x11", CON-018's
+        Book 1) falls *inside* the general table's 501-700 band, so the
+        table this module records stops exactly at that reachable ceiling —
+        and a book of exactly 590 pages still gets a modelled minimum rather
+        than being refused as unmodelled.
+        """
+        assert kdp_page_band(MAX_MODELLED_PAGE_COUNT) == (501, 590)
+        assert kdp_min_gutter_cm(MAX_MODELLED_PAGE_COUNT) == pytest.approx(1.905)
+
+    @pytest.mark.parametrize("page_count", [591, 700, 10_000])
+    def test_above_the_real_ceiling_it_refuses_rather_than_guessing(
         self, page_count
     ) -> None:
-        """The one thing this module will not do: invent a fourth band.
+        """The one thing this module will not do: invent a band past 590.
 
-        KDP's real table continues past 300 pages; which numbers it continues
-        with is a business fact this project has not recorded, so a page count
-        above the recorded table is refused with what is missing rather than
-        measured against a number nobody chose.
+        KDP's real table continues past 590 pages (CARD-199's research
+        recorded exactly what with), but those page counts are unreachable
+        for this project's one real trim — see the module docstring — so a
+        page count above the recorded table is refused with what is missing
+        rather than measured against a number that describes no real book.
         """
         with pytest.raises(KdpPageCountNotModelled) as refused:
             kdp_min_gutter_cm(page_count)
-        assert "not modelled above 300 pages" in str(refused.value)
+        assert "not modelled above 590 pages" in str(refused.value)
 
     @pytest.mark.parametrize("page_count", [0, -1, 1.5, True, None, "150"])
     def test_a_page_count_that_is_not_one_is_refused(self, page_count) -> None:
@@ -702,6 +764,87 @@ class TestBookFinalise_GutterCheckAtHundredFiftyPageBoundary:
 
         assert (at_the_boundary, over_it) == (150, 151)
         assert over_it - at_the_boundary == 1
+
+
+# --------------------------------------------------------------------------
+# CARD-199 — the table extended past the old 300-page ceiling
+# --------------------------------------------------------------------------
+
+
+class TestBookFinalise_RefusesGutterInANewBandBeyondThreeHundredPages:
+    """AC-5 (FR-030) — 350 interior pages, storing the *old* band's minimum.
+
+    Inside the new 301-500 band, KDP's minimum there (0.625 in / 1.59 cm) is
+    wider than the old 151-300 band's (0.5 in / 1.27 cm) this book stores.
+    The refusal must name the new band and its own minimum — not the old
+    "not modelled" wording this page count got before this card, and not a
+    silent accept either.
+    """
+
+    def test_finalise_is_refused_naming_the_new_band(self, panel) -> None:
+        book_id = panel.book(AC199_NEW_BAND_CORPUS, gutter="1.27")
+
+        shown = refusal_of(panel.finalise(book_id))
+
+        assert f"{AC199_NEW_BAND_PAGES} pages" in shown
+        assert KDP_BAND_TEXT_301_500 in shown
+        assert "stores 1.27 cm" in shown
+        assert "not modelled" not in shown
+        assert panel.status(book_id) == DRAFT
+
+    def test_the_stored_gutter_is_not_changed(self, panel) -> None:
+        """G-1: finalise refuses; it never raises the gutter to make it fit."""
+        book_id = panel.book(AC199_NEW_BAND_CORPUS, gutter="1.27")
+
+        panel.finalise(book_id)
+
+        assert panel.gutter(book_id) == "1.27"
+
+    def test_the_scenario_really_has_that_many_pages(self, panel) -> None:
+        """350 pages, measured off the export's own page plan, not assumed."""
+        book_id = panel.book(AC199_NEW_BAND_CORPUS, gutter="1.27")
+
+        assert panel.counts(book_id).page_count == AC199_NEW_BAND_PAGES
+        assert kdp_page_band(AC199_NEW_BAND_PAGES) == (301, 500)
+        assert gutter_refusal(AC199_NEW_BAND_PAGES, 1.27) is not None
+        assert gutter_refusal(AC199_NEW_BAND_PAGES, 1.59) is None
+
+    def test_at_the_new_bands_own_minimum_the_same_book_is_accepted(
+        self, panel
+    ) -> None:
+        """The criterion is about the gutter, not about the 350 pages."""
+        book_id = panel.book(AC199_NEW_BAND_CORPUS, gutter="1.59")
+
+        response = panel.finalise(book_id)
+
+        assert response.status_code == 302, refusal_of(response)
+        assert panel.status(book_id) != DRAFT
+
+
+class TestBookFinalise_ABookJustOverTheOldThreeHundredPageCeilingNowFinalises:
+    """AC-6 (CARD-198's own regression scenario) — ~305 pages now finalises.
+
+    Before this card, a book this size was refused outright with
+    ``KdpPageCountNotModelled`` because the table stopped at 300 pages. This
+    card's 301-500 band covers it, so the same book, storing that band's own
+    minimum, finalises — no "not modelled" refusal.
+    """
+
+    def test_it_finalises_rather_than_refusing_as_not_modelled(self, panel) -> None:
+        book_id = panel.book(AC199_CARD198_CORPUS, gutter="1.59")
+
+        response = panel.finalise(book_id)
+
+        assert response.status_code == 302, refusal_of(response)
+        assert panel.status(book_id) == BookStatus.READY_FOR_PDF.value
+
+    def test_the_scenario_really_has_that_many_pages(self, panel) -> None:
+        book_id = panel.book(AC199_CARD198_CORPUS, gutter="1.59")
+
+        assert panel.counts(book_id).page_count == AC199_CARD198_PAGES
+        assert AC199_CARD198_PAGES > 300, "the old ceiling this card fixes"
+        assert kdp_page_band(AC199_CARD198_PAGES) == (301, 500)
+        assert gutter_refusal(AC199_CARD198_PAGES, 1.59) is None
 
 
 # --------------------------------------------------------------------------
