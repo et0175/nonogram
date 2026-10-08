@@ -65,6 +65,13 @@
   order of the CARD-161 controls is unchanged (AC-310's order test). The counter's names are .player-hints /
   data-player-hints: "player-hint" is the usage paragraph below the board.
 
+  Zoom (CARD-195): a third toolbar group, after History and before the
+  counters (#puzzle-player-controls .player-zoom), holds a "Zoom out" button,
+  a plain (non-live) "100%" readout and a "Zoom in" button — 100% to 300% in
+  25-point steps on the buttons, continuous by a two-finger pinch on the
+  board. It is a view setting only: it changes no board state, is never
+  saved, and solver.js resets it to 100% on every page load.
+
   Progress (CARD-187): "Progress: N%" (#puzzle-player-progress) is the
   element after the hint counter in the DOM. It is NOT a live region (no
   role, no aria-live, and neither wrapper has one): the percent changes on
@@ -122,6 +129,11 @@
             </div>
         </div>
         <button type="button" class="btn btn-outline-secondary" data-player-action="hint" aria-disabled="true">Hint</button>
+    </div>
+    <div class="player-zoom" role="group" aria-label="Zoom">
+        <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="out" aria-label="Zoom out" aria-disabled="true">&minus;</button>
+        <span class="player-zoom-readout" data-player-zoom-readout>100%</span>
+        <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="in" aria-label="Zoom in" aria-disabled="false">+</button>
     </div>
     <div class="player-counters">
     <div class="player-counters-pair">
