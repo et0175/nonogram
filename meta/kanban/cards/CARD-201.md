@@ -683,3 +683,12 @@ variants — page 2 here is the fallback-level-1 form, the owner-decision-2
 evidence), and the Finalise screen's live preview
 (`finalise-preview-page1.jpg`, `finalise-preview-pipeline-difficulty.jpg`,
 `finalise-guide-preview.html`).
+
+- [Build gate] Orchestrator's own independent full-suite run (not the
+  implementer's claim) — `./.venv/bin/python -m pytest` in the CARD-201
+  worktree, under the `meta/kanban/.full-suite.lock`: **6725 passed, 9
+  skipped, 0 failed, exit 0** (1009.69s). The 9 skips match this project's
+  known platform/DB-mode skip set (no `nonogram_test` database,
+  `RLIMIT_AS` memory-cap tests), unrelated to this card.
+- [Review] forge:review cycle 1 started 2026-10-08T17:28Z (background
+  agent `@code-review`).
