@@ -1,6 +1,6 @@
 # CARD-202: Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/202-packed-small-answers
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-202
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 4: shrink small-grid solutions to 2-or-4-up); also raised informally by the owner earlier in this session, before the doc surfaced, as a design question about CARD-198's answer-section page-count growth
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_solved_answer_key.py, tests/test_book_answer_key.py, tests/property/test_book_answer_tiles.py, tests/helpers/book_corpus.py, tests/fixtures/ (a new small-grid baseline fixture)
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-08T16:14:38Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
