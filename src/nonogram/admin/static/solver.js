@@ -42,7 +42,8 @@
 // Boards are trusted in-page values (see solver_state.js).
 //
 // MARKING (CARD-161, FR-044 AC-303..AC-311; the "?" mark, CARD-186; a click
-// follows the brush, CARD-189). The
+// follows the brush, CARD-189; one brush dropdown with a Region option,
+// CARD-194). The
 // strokes and the undo/redo history are solver_state.js values (clickStroke,
 // dragStroke, resetStroke, record, undo, redo); this file only turns input into those calls and
 // paints the resulting board. The marking code (wireMarking) does not read
@@ -61,19 +62,56 @@
 //             undone, redone or saved (SAVE; a load starts with it null).
 //             Every commit clears it (a drag, even one that changes nothing,
 //             undo, redo — button or key — a hint, a confirmed reset,
-//             setBoard), and so do pressing any tool button (mouse or key,
-//             the pressed one too), pressing Reset when that opens the
+//             setBoard), and so does picking a brush from the menu (mouse or
+//             key, the current brush too), pressing Reset when that opens the
 //             confirmation (so a reset opened and then cancelled ends the
 //             run too) and pointercancel; the click path sets it after its
-//             own commit.
+//             own commit. Picking Region does NOT clear it (Region is not a
+//             brush pick — see "menu" below).
 //             Having been over another cell = a drag: dragStroke with the
 //             tool selected at pointerdown, previewed on every move, recorded
-//             on pointerup; pointercancel drops it. Mouse (main button), pen
-//             and touch alike; the board's cells set touch-action: none
-//             (admin.css).
-//   tools     #puzzle-player-controls [data-player-tool] — toggle buttons
-//             (filled, empty, unknown, maybe), aria-pressed, exactly one
-//             pressed; FILLED at load.
+//             on pointerup; pointercancel drops it. A mouse drag (main
+//             button) always marks. A touch or pen drag marks only while
+//             Region is on (`gesture.paints` below) — the board's cells set
+//             touch-action accordingly (.player-board.is-region, admin.css),
+//             and Region turns itself off once such a drag is recorded, even
+//             one that changes no cell (CARD-194 target behaviour #7): a
+//             region drag never lands as two tool picks in the undo history,
+//             only as the one dragStroke. With Region off, a touch or pen
+//             pointerdown does not call setPointerCapture or preventDefault,
+//             so the browser is free to pan instead; a tap (no intervening
+//             move) still reaches pointerup over its starting cell and is a
+//             click, same as today. Whether the pointer left its starting
+//             cell is tracked regardless of `paints` (only painting the
+//             preview is gated on it): a real touch almost always has the
+//             browser cancel the gesture (pointercancel) once it recognises
+//             a pan, before pointerup — but a pen does not reliably do that
+//             (observed: Chromium lets a pen gesture reach pointerup even
+//             after real movement, with no cancel), and nothing here may
+//             assume a pointerup it does reach is a tap just because
+//             painting never ran. A gesture that moved and never painted
+//             marks nothing on release either way.
+//   menu      #puzzle-player-tool-trigger (a button, aria-haspopup="menu")
+//             opens #puzzle-player-tool-menu (role="menu", initially hidden):
+//             five role="menuitemradio" [data-player-tool] items in the
+//             owner's order — Black, White, Maybe, Undecided (the four
+//             brushes, filled/empty/maybe/unknown) then Region. Exactly one
+//             item is aria-checked="true": a brush when Region is off, or
+//             Region itself when it is on (picking a brush always turns
+//             Region off; picking Region keeps whichever brush was active —
+//             CARD-194 target behaviour #3/#4). The trigger's accessible
+//             name is always "Brush: <brush>"; its visible text is "<brush>",
+//             or "Region · <brush>" while Region is on. Enter, Space or
+//             ArrowDown on the trigger opens the menu with focus on the
+//             checked item; inside it ArrowDown/ArrowUp move with wraparound,
+//             Home/End jump to the first/last item, Escape closes with no
+//             change and returns focus to the trigger, and Tab closes the
+//             menu and lets focus continue to the next control (Undo) —
+//             picking an item (click, or Enter/Space on a native <button>)
+//             closes the menu and returns focus to the trigger the same way.
+//             The trigger is the only direct <button> child of .player-tools
+//             (the menu is a sibling <div>), so a layout selector scoped to
+//             ".player-tools > button" still sees one control.
 //   history   [data-player-action] undo / redo / reset; aria-disabled="true"
 //             while there is nothing to do — pressing one then leaves the
 //             board as it is, because undo/redo with an empty stack and a
@@ -107,7 +145,9 @@
 //   solved    while isSolved(current board) holds: the banner
 //             #puzzle-player-solved (the picture's name, server-rendered) is
 //             shown in place of the tools (the tools are hidden but keep
-//             their box, admin.css .player-slot) and its text is put into the live
+//             their box, admin.css .player-slot — the menu trigger and its
+//             menu sit inside that hidden box too, so neither is reachable,
+//             and the menu is closed if it was open) and its text is put into the live
 //             region #puzzle-player-announce (cleared when unsolved), the board carries .is-solved (a
 //             short CSS animation on the transition into solved; none under
 //             prefers-reduced-motion, admin.css), and the board is LOCKED —
@@ -140,7 +180,7 @@
 // last line, which is the board's frame).
 
 import {
-  FILLED, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
+  EMPTY, FILLED, MAYBE, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
   dragStroke, errorCount, hintCell, hintCount, hintStroke, isBoard, isSolved, record,
   redo, resetStroke, undo,
 } from "./solver_state.js";
@@ -506,27 +546,84 @@ function isAt(position, [row, col]) {
 // confirmed reset, see SAVE). Returns { refresh,
 // commit }: refresh re-syncs the controls after the lock changed elsewhere;
 // commit records a history from elsewhere (setBoard) exactly as an input does.
+//: The brush each menu item paints, keyed by its data-player-tool (see
+//: "menu" above) — "region" is deliberately absent: it is never a brush and
+//: never reaches solver_state.js.
+const BRUSH_LABEL = { [FILLED]: "Black", [EMPTY]: "White", [MAYBE]: "Maybe", [UNKNOWN]: "Undecided" };
+
 function wireMarking(container, player) {
   const controls = document.getElementById("puzzle-player-controls");
-  const tools = [...controls.querySelectorAll("[data-player-tool]")];
+  const trigger = document.getElementById("puzzle-player-tool-trigger");
+  const triggerSwatch = trigger.querySelector(".player-swatch");
+  const triggerText = trigger.querySelector("[data-player-trigger-text]");
+  const menu = document.getElementById("puzzle-player-tool-menu");
+  const items = [...menu.querySelectorAll("[data-player-tool]")];
   const actions = Object.fromEntries(
     [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
   // The reset confirmation (see PROGRESS "reset").
   const confirm = document.getElementById("puzzle-player-confirm");
   const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   let tool = FILLED;
-  let gesture = null; // { pointerId, start, path, dragging, tool }
+  let region = false; // the Region option (see "menu" above) — never a cell state
+  let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
 
-  function refresh() {
-    const { board, done, undone } = player.getHistory();
-    for (const button of tools) {
-      button.setAttribute("aria-pressed", String(button.dataset.playerTool === tool));
+  // The trigger's name/text and which menu item is checked, from `tool` and
+  // `region` (see "menu" above).
+  function syncTrigger() {
+    const label = BRUSH_LABEL[tool];
+    trigger.setAttribute("aria-label", `Brush: ${label}`);
+    triggerSwatch.dataset.state = tool;
+    triggerText.textContent = region ? `Region · ${label}` : label;
+    for (const item of items) {
+      const checked = region ? item.dataset.playerTool === "region" : item.dataset.playerTool === tool;
+      item.setAttribute("aria-checked", String(checked));
     }
+  }
+
+  function closeMenu() {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  }
+
+  function openMenu() {
+    menu.hidden = false;
+    trigger.setAttribute("aria-expanded", "true");
+    (items.find((item) => item.getAttribute("aria-checked") === "true") ?? items[0]).focus();
+  }
+
+  // A menu pick (mouse click, or Enter/Space on a focused item — items are
+  // native <button>s, so those keys already fire "click"). Picking a brush
+  // turns Region off and restarts the click sequence (CARD-194 target
+  // behaviour #3); picking Region keeps the current brush and leaves
+  // `lastClick` alone (#4).
+  function pick(name) {
+    if (name === "region") {
+      region = true;
+    } else {
+      tool = name;
+      region = false;
+      lastClick = null;
+    }
+    syncTrigger();
+    closeMenu();
+    trigger.focus();
+    refresh();
+  }
+
+  function refresh() {
+    const { board: current, done, undone } = player.getHistory();
     const locked = player.locked();
+    if (locked) closeMenu(); // the tools' box is hidden while solved (admin.css)
+    // Read fresh from the live DOM (not a `table` reference start() keeps):
+    // a mirror redraw (CARD-193) replaces the table outright, and refresh()
+    // runs again right after one (redraw() calls marking.refresh()), which
+    // is what re-applies Region's touch-action class to the new table.
+    container.querySelector(".player-board")?.classList.toggle("is-region", region);
     actions.undo.setAttribute("aria-disabled", String(locked || done.length === 0));
     actions.redo.setAttribute("aria-disabled", String(locked || undone.length === 0));
-    actions.reset.setAttribute("aria-disabled", String(board.cells.every((s) => s === UNKNOWN)));
+    actions.reset.setAttribute("aria-disabled", String(current.cells.every((s) => s === UNKNOWN)));
     actions.hint.setAttribute("aria-disabled", String(locked || gesture !== null || player.nextHint() === null));
   }
 
@@ -541,11 +638,19 @@ function wireMarking(container, player) {
     if (gesture || player.locked() || (event.pointerType === "mouse" && event.button !== 0)) return;
     const start = cellUnder(container, event.clientX, event.clientY);
     if (!start) return;
-    event.preventDefault();
-    container.setPointerCapture(event.pointerId);
-    // The tool is taken here, at pointerdown: picking another tool mid-drag
+    // A mouse drag always marks (G-1); a touch or pen drag marks only while
+    // Region is on (CARD-194 target behaviour #8/#10) — captured here, at
+    // pointerdown, like the tool itself, so toggling Region mid-gesture (not
+    // reachable today — the menu and the board are different elements)
+    // would not retroactively change an in-progress gesture either.
+    const paints = event.pointerType === "mouse" || region;
+    if (paints) {
+      event.preventDefault();
+      container.setPointerCapture(event.pointerId);
+    }
+    // The tool is taken here, at pointerdown: picking another brush mid-drag
     // applies to the next drag, not this one.
-    gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool };
+    gesture = { pointerId: event.pointerId, start, path: [], dragging: false, tool, paints };
     refresh(); // Hint is disabled while a gesture is in progress
   });
 
@@ -554,9 +659,15 @@ function wireMarking(container, player) {
     const position = cellUnder(container, event.clientX, event.clientY);
     const previous = gesture.path.at(-1) ?? gesture.start;
     if (!position || isAt(position, previous)) return;
+    // `dragging` is tracked even for a non-painting gesture (touch or pen
+    // with Region off): a real device's own pan recognition drops almost
+    // every such gesture via pointercancel before it gets this far (see
+    // pointercancel below), but that is the browser's call, not a guarantee
+    // — nothing here may assume it always fires. Painting the preview is
+    // still gated on `paints`.
     gesture.path.push(position);
     gesture.dragging = gesture.dragging || !isAt(position, gesture.start);
-    if (gesture.dragging) {
+    if (gesture.dragging && gesture.paints) {
       player.show(applyStroke(player.getHistory().board, dragStroke(gesture.start, gesture.path, gesture.tool)));
     }
   });
@@ -567,6 +678,21 @@ function wireMarking(container, player) {
     gesture = null;
     const history = player.getHistory();
     if (done.dragging) {
+      if (!done.paints) {
+        // A touch or pen gesture that left its starting cell but reached
+        // pointerup without ever being cancelled (the browser chose not to
+        // pan — e.g. nothing on the page can scroll): still not a tap, so
+        // still not a click (CARD-194 target behaviour #8/#10 — "a touch
+        // tap is still a click", which this is not). No mark either way.
+        refresh();
+        return;
+      }
+      // Region turns off the instant a drag is recorded — "a drag ended",
+      // not "a cell changed" (CARD-194 target behaviour #7).
+      if (region) {
+        region = false;
+        syncTrigger();
+      }
       commit(record(history, dragStroke(done.start, done.path, done.tool)));
       return;
     }
@@ -585,12 +711,52 @@ function wireMarking(container, player) {
     refresh();
   });
 
-  for (const button of tools) {
-    button.addEventListener("click", () => {
-      tool = button.dataset.playerTool;
-      lastClick = null; // a tool press, even of the pressed tool, restarts the sequence
-      refresh();
-    });
+  trigger.addEventListener("click", () => {
+    if (menu.hidden) openMenu();
+    else closeMenu();
+  });
+  trigger.addEventListener("keydown", (event) => {
+    if (event.key !== "ArrowDown" || !menu.hidden) return;
+    event.preventDefault();
+    openMenu();
+  });
+  menu.addEventListener("keydown", (event) => {
+    const at = items.indexOf(document.activeElement);
+    if (at === -1) return;
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        items[(at + 1) % items.length].focus();
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        items[(at - 1 + items.length) % items.length].focus();
+        break;
+      case "Home":
+        event.preventDefault();
+        items[0].focus();
+        break;
+      case "End":
+        event.preventDefault();
+        items[items.length - 1].focus();
+        break;
+      case "Escape":
+        event.preventDefault();
+        closeMenu();
+        trigger.focus();
+        break;
+      case "Tab":
+        // Not prevented: the item closeMenu() hides is the current focus,
+        // so the browser's own Tab handling lands on the next focusable
+        // control after it in the (now updated) DOM — Undo.
+        closeMenu();
+        break;
+      default:
+        break;
+    }
+  });
+  for (const item of items) {
+    item.addEventListener("click", () => pick(item.dataset.playerTool));
   }
 
   // Undo and redo change nothing while the board is locked (solved).
@@ -652,6 +818,7 @@ function wireMarking(container, player) {
     commit(event.shiftKey ? step.redo() : step.undo());
   });
 
+  syncTrigger();
   refresh();
   controls.hidden = false;
   document.getElementById("puzzle-player-hint").hidden = false;

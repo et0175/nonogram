@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import pytest
 
-from tests.test_puzzle_solver_marking import _button, _centre
+from tests.test_puzzle_solver_marking import _centre, _tool
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
     _open,
@@ -231,7 +231,7 @@ class TestSolverMirror_MarkingWorksOnAMirroredBoard:
         _open(page, live, live.store(GRID_25x15))
         assert page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
 
-        _button(page, "Black").click()
+        _tool(page, "Black")  # CARD-194: via the menu
         width = len(GRID_25x15[0])
         row, col = 6, width - 1
         page.mouse.click(*_centre(page, row, col))
@@ -264,7 +264,7 @@ class TestSolverMirror_CrossingTheBreakpointKeepsTheBoard:
         _open(page, live, puzzle_id)
         assert not page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
 
-        _button(page, "Black").click()
+        _tool(page, "Black")  # CARD-194: via the menu
         page.mouse.click(*_centre(page, 0, 0))  # one recorded stroke, one undo step
         before = page.evaluate("[...window.puzzlePlayer.getBoard().cells]")
         saved_before = page.evaluate(

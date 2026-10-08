@@ -28,7 +28,6 @@ import pytest
 
 from tests.test_puzzle_solver_hint import _fixpoint, _grid_hint, _oracle_hint
 from tests.test_puzzle_solver_marking import (
-    _FOCUSED,
     GRID,
     SIDE,
     E,
@@ -37,9 +36,13 @@ from tests.test_puzzle_solver_marking import (
     _button,
     _cell,
     _drag,
+    _menu_item,
     _Model,
+    _pick_by_keyboard,
     _states,
     _tool,
+    _trigger,
+    _trigger_text,
 )
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
@@ -100,8 +103,14 @@ def _without_maybe(cells, instead=U):
 
 
 def _pressed(page):
-    return {name: _button(page, name).get_attribute("aria-pressed")
-            for name in ("Black", "White", "Undecided", "Maybe")}
+    """CARD-194: there is no toggle button per brush any more — this opens
+    the menu to read which item is checked, then closes it again (Escape:
+    no change), so this still reports all four as a dict keyed by name."""
+    _trigger(page).click()
+    checked = {name: _menu_item(page, name).get_attribute("aria-checked")
+               for name in ("Black", "White", "Undecided", "Maybe")}
+    page.keyboard.press("Escape")
+    return checked
 
 
 def _marked(states, width=SIDE):
@@ -851,13 +860,16 @@ class TestSolverMaybe_GlyphIsLegibleAtTheMinimumCell:
 
 @pytest.mark.browser
 class TestSolverMaybe_ToolKeyboardAndLabel:
-    """AC-14 — the Maybe tool: name, Tab place, Enter / Space, hidden swatch."""
+    """AC-14 — the Maybe tool: name, menu place, Enter / Space, hidden swatch.
+    CARD-194: Maybe is now a menu item (role="menuitemradio"), not a
+    standalone button, so the menu is opened first wherever that matters."""
 
     def test_name_and_swatch(self, browser_page, live) -> None:
         from playwright.sync_api import expect
 
         _open(browser_page, live, live.store(GRID))
-        button = _button(browser_page, "Maybe")
+        _trigger(browser_page).click()
+        button = _menu_item(browser_page, "Maybe")
         assert button.count() == 1
         expect(button).to_have_accessible_name("Maybe")
         assert button.get_attribute("data-player-tool") == M
@@ -865,26 +877,26 @@ class TestSolverMaybe_ToolKeyboardAndLabel:
         assert swatch.get_attribute("aria-hidden") == "true"
         assert swatch.get_attribute("data-state") == M
         assert swatch.evaluate("(s) => getComputedStyle(s, '::after').content") == '"?"'
+        browser_page.keyboard.press("Escape")
 
-    def test_tab_reaches_it_between_undecided_and_undo(self, browser_page, live) -> None:
+    def test_maybe_sits_between_white_and_undecided_in_the_menu(self, browser_page, live) -> None:
+        """The old Tab-order claim ("between Undecided and Undo") is gone
+        with the standalone buttons: menu items are reached by Arrow keys,
+        not Tab (TestSolverBrushMenu_Keyboard in
+        test_puzzle_solver_brush_menu.py covers Tab closing the menu and
+        reaching Undo). What stays CARD-186's own concern is Maybe's place
+        in the owner's menu order."""
         _open(browser_page, live, live.store(GRID))
-        browser_page.evaluate("document.activeElement && document.activeElement.blur()")
-        reached = []
-        for _ in range(80):
-            browser_page.keyboard.press("Tab")
-            focused = browser_page.evaluate(_FOCUSED)
-            if focused and focused not in reached:
-                reached.append(focused)
-            if "Undo" in reached:
-                break
-        assert reached[-3:] == ["Undecided", "Maybe", "Undo"], reached
+        _trigger(browser_page).click()
+        names = [item.text_content().strip() for item in browser_page.locator('[role="menuitemradio"]').all()]
+        browser_page.keyboard.press("Escape")
+        assert names == ["Black", "White", "Maybe", "Undecided", "Region"]
 
     @pytest.mark.parametrize("key", ["Enter", "Space"])
     def test_enter_and_space_select_it(self, browser_page, live, key) -> None:
         _open(browser_page, live, live.store(GRID))
         assert _pressed(browser_page)["Black"] == "true"
-        _button(browser_page, "Maybe").focus()
-        browser_page.keyboard.press(key)
+        _pick_by_keyboard(browser_page, "Maybe", open_key=key, pick_key=key)
         assert _pressed(browser_page) == {"Black": "false", "White": "false", "Undecided": "false", "Maybe": "true"}
         _cell(browser_page, 9, 9).click()  # the selected tool governs the click
         assert _marked(_states(browser_page)) == {(9, 9): M}
@@ -1048,9 +1060,12 @@ _TOOLBAR_ROWS = """() => {
 
 @pytest.mark.browser
 class TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280:
-    """At 1280 x 720 (the default viewport) the four tools, Undo / Redo /
-    Reset / Hint and both counters share one toolbar row, as the three tools
-    did before CARD-186."""
+    """At 1280 x 720 (the default viewport) the brush trigger (CARD-194: one
+    control standing in for the four brushes), Undo / Redo / Reset / Hint and
+    both counters share one toolbar row, as the three (then four) tool
+    buttons did before CARD-194 (and CARD-186). The assertion itself needs no
+    change — the trigger's own row-sharing is CARD-194's own concern,
+    pinned by TestSolverBrushMenu in test_puzzle_solver_brush_menu.py."""
 
     def test_one_row(self, browser_page, live) -> None:
         assert browser_page.viewport_size == {"width": 1280, "height": 720}
@@ -1060,18 +1075,37 @@ class TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280:
 
 @pytest.mark.browser
 class TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved:
-    """Solved, the tools keep their box but are hidden: no tool is a button
-    by role, focus() does not take, and Tab from the top of the page reaches
-    Reset without passing any tool."""
+    """Solved, the tools keep their box but are hidden: no brush control is a
+    button or menu item by role, focus() does not take on the trigger or any
+    menu item, and Tab from the top of the page reaches Reset without
+    passing any of them (CARD-194: the trigger and the five-item menu)."""
+
+    def test_menu_left_open_closes_on_solve(self, browser_page, live) -> None:
+        """CARD-194 target behaviour #12 — the menu closes on solve, even
+        if it was left open."""
+        _open(browser_page, live, live.store(GRID, name=NAME))
+        _trigger(browser_page).click()
+        assert browser_page.evaluate("document.getElementById('puzzle-player-tool-menu').hidden") is False
+
+        _solve_and_measure(browser_page)
+
+        # The `hidden` attribute itself, not just visibility inherited from
+        # the hidden .player-tools box (which was already true before this
+        # card, for the trigger) — this is closeMenu() actually having run.
+        assert browser_page.evaluate("document.getElementById('puzzle-player-tool-menu').hidden") is True
+        assert browser_page.evaluate("document.getElementById('puzzle-player-tool-trigger').getAttribute('aria-expanded')") == "false"
 
     def test_out_of_reach(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID, name=NAME))
         _solve_and_measure(browser_page)
-        tools = ("Black", "White", "Undecided", "Maybe")
-        assert [browser_page.get_by_role("button", name=t, exact=True).count() for t in tools] == [0, 0, 0, 0]
-        focused = browser_page.evaluate("""() => [...document.querySelectorAll('[data-player-tool]')]
-          .map((b) => { b.focus(); return document.activeElement === b; })""")
-        assert focused == [False] * 4
+        assert not _trigger(browser_page).is_visible()
+        assert browser_page.get_by_role("menuitemradio").count() == 0
+        focused = browser_page.evaluate(
+            """() => [document.getElementById('puzzle-player-tool-trigger'),
+                       ...document.querySelectorAll('[data-player-tool]')]
+              .map((b) => { b.focus(); return document.activeElement === b; })"""
+        )
+        assert focused == [False] * 6  # the trigger plus the five menu items
         browser_page.evaluate("document.activeElement && document.activeElement.blur()")
         seen = []
         for _ in range(60):
@@ -1082,4 +1116,4 @@ class TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved:
             if here == "reset":
                 break
         assert "reset" in seen
-        assert not set(seen) & {"filled", "empty", "unknown", "maybe"}
+        assert not set(seen) & {"filled", "empty", "unknown", "maybe", "region"}

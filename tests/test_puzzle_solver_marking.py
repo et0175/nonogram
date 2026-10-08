@@ -181,8 +181,41 @@ def _button(page, name):
     return page.get_by_role("button", name=name, exact=True)
 
 
+#: The brush dropdown (CARD-194): one trigger (a stable id, since its own
+#: accessible name changes with the brush) opens a menu of five
+#: role="menuitemradio" items, in the owner's order.
+MENU_ORDER = ["Black", "White", "Maybe", "Undecided", "Region"]
+
+
+def _trigger(page):
+    return page.locator("#puzzle-player-tool-trigger")
+
+
+def _trigger_text(page):
+    return _trigger(page).locator("[data-player-trigger-text]").text_content()
+
+
+def _menu_item(page, name):
+    return page.get_by_role("menuitemradio", name=name, exact=True)
+
+
 def _tool(page, name):
-    _button(page, name).click()
+    """Open the menu and pick `name` by mouse — every one of this helper's
+    ~35 callers across the player test files is unchanged (CARD-194 G-4)."""
+    _trigger(page).click()
+    _menu_item(page, name).click()
+
+
+def _pick_by_keyboard(page, name, open_key="Enter", pick_key="Enter"):
+    """Focus the trigger, open the menu with `open_key` (Enter, Space or
+    ArrowDown), then reach `name` by Home + ArrowDown (deterministic
+    regardless of which item started checked) and pick it with `pick_key`."""
+    _trigger(page).focus()
+    page.keyboard.press(open_key)
+    page.keyboard.press("Home")
+    for _ in range(MENU_ORDER.index(name)):
+        page.keyboard.press("ArrowDown")
+    page.keyboard.press(pick_key)
 
 
 def _is_disabled(page, name):
@@ -219,7 +252,7 @@ class TestSolverMarking_ClickCycles:
 
     def test_three_clicks_go_filled_empty_undecided_and_are_drawn_so(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
-        assert _button(browser_page, "Black").get_attribute("aria-pressed") == "true"
+        assert _trigger_text(browser_page) == "Black"
         ink = browser_page.evaluate(_TOKEN_RGB, "--grid-ink")
         paper = browser_page.evaluate(_TOKEN_RGB, "--grid-paper")
         cell = _cell(browser_page, 4, 6)
@@ -272,14 +305,18 @@ class TestSolverMarking_ClickIgnoresTheSelectedTool:
     """AC-304 ("a click cycles whatever tool is selected") is superseded by
     CARD-189 (a click follows the selected brush, FR-044 AC-355..AC-359,
     TestSolverClickFollowsTheBrush); its two click tests were removed with it.
-    What stays is the tool picker's own check: exactly one tool is pressed."""
+    What stays is the tool picker's own check: exactly one tool is checked
+    (CARD-194: the menu's aria-checked, since the four toggle buttons are
+    gone)."""
 
     def test_exactly_one_tool_is_pressed(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
         for name in ("White", "White", "Undecided", "Black"):
             _tool(browser_page, name)
-            pressed = {n: _button(browser_page, n).get_attribute("aria-pressed") for n in TOOLS}
-            assert pressed == {n: str(n == name).lower() for n in TOOLS}
+            _trigger(browser_page).click()  # reopen to read the checked items
+            checked = {n: _menu_item(browser_page, n).get_attribute("aria-checked") for n in TOOLS}
+            browser_page.keyboard.press("Escape")  # close without changing anything
+            assert checked == {n: str(n == name).lower() for n in TOOLS}
 
 
 # ==========================================================================
@@ -408,8 +445,7 @@ class TestSolverClickFollowsTheBrush:
         _open(page, live, live.store(GRID))
 
         def black_pressed_by_key():
-            _button(page, "Black").focus()
-            page.keyboard.press("Enter")
+            _pick_by_keyboard(page, "Black")
 
         def keyboard_undo_redo():
             page.locator("h1").click()
@@ -470,13 +506,16 @@ class TestSolverClickFollowsTheBrush:
         assert _marked(_states(browser_page)) == {(5, 5): E}
 
     def test_touch_taps_follow_the_brush(self, browser, live) -> None:
-        """AC-7 — White, three real touch taps on a blank cell: white, blank, dark."""
+        """AC-7 — White, three real touch taps on a blank cell: white, blank, dark.
+        CARD-194: White is picked through the menu (the touch tap mechanics
+        under test are the cell taps that follow, unchanged)."""
         context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
             page.evaluate("window.__types = []; document.addEventListener('pointerdown', (e) => window.__types.push(e.pointerType))")
-            _button(page, "White").tap()
+            _trigger(page).tap()
+            _menu_item(page, "White").tap()
             seen = []
             for _ in range(3):
                 page.touchscreen.tap(*_centre(page, 2, 2))
@@ -550,22 +589,26 @@ class TestSolverClickFollowsTheBrush:
 
     def test_the_page_copy_describes_the_new_click(self, browser_page, live) -> None:
         """AC-11 — the tool group is "Marking tool"; the hint names each colour
-        brush's sequence and keeps the drag and Maybe sentences."""
+        brush's sequence and keeps the drag and Maybe sentences. CARD-194: the
+        group now holds one trigger plus a menu of five items (its four
+        brushes and Region), and the hint names the menu and Region."""
         from playwright.sync_api import expect
 
         _open(browser_page, live, live.store(GRID))
         group = browser_page.get_by_role("group", name="Marking tool", exact=True)
         assert group.count() == 1
         expect(group).to_have_accessible_name("Marking tool")
-        assert group.locator("[data-player-tool]").count() == 4
+        assert group.locator("[data-player-tool]").count() == 5
         hint = browser_page.locator("p.player-hint#puzzle-player-hint")
         assert hint.is_visible()
         text = " ".join(hint.text_content().split())
         assert "Click a cell to cycle" not in text and "for drags" not in text
         assert text == (
-            "Click a cell to give it the selected tool's mark; click it again to go on "
+            "Click a cell to give it the selected brush's mark; click it again to go on "
             "(Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). "
-            "Drag along a row or column to apply the selected tool. "
+            "Open the brush menu to choose Black, White, Maybe, Undecided or Region. "
+            "With Region on, a drag along a row or column marks with the brush; "
+            "with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. "
             "With Maybe, a click marks ? and a second click clears it."
         )
 
@@ -668,11 +711,15 @@ class TestSolverMarking_DragMarksOneLine:
         assert _marked(_states(browser_page)) == {}
 
     def test_a_touch_drag_marks_one_line(self, browser, live) -> None:
-        """Real touch input through Chromium's input pipeline (CDP touch events)."""
+        """Real touch input through Chromium's input pipeline (CDP touch events).
+        CARD-194: a touch drag only marks with Region on, so Region is
+        picked first (TestSolverBrushMenu_Touch covers the Region-off case,
+        where the same drag scrolls and marks nothing)."""
         context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
+            _tool(page, "Region")
             page.evaluate("window.__types = []; document.addEventListener('pointermove', (e) => window.__types.push(e.pointerType))")
             cdp = context.new_cdp_session(page)
             (x0, y0), (x1, y1) = _centre(page, 1, 2), _centre(page, 1, 6)
@@ -811,11 +858,17 @@ class TestSolverMarking_UndoRedoByStroke:
 # AC-309 / AC-310 — keyboard and labels
 # ==========================================================================
 
-CONTROLS = ["Black", "White", "Undecided", "Maybe", "Undo", "Redo", "Reset"]
+#: CARD-194: the four brush buttons collapse into one trigger, named
+#: "Brush: Black" at load (its accessible name, via aria-label).
+CONTROLS = ["Brush: Black", "Undo", "Redo", "Reset"]
 
+#: CARD-194: the trigger's own accessible name (aria-label, "Brush: <brush>")
+#: differs from its visible text (the brush alone, or "Region · <brush>"), so
+#: this reads the aria-label when one is set and falls back to textContent —
+#: every other control here has no aria-label, so this is unchanged for them.
 _FOCUSED = """() => {
   const el = document.activeElement;
-  return el && el.closest('#puzzle-player-controls') ? el.textContent.trim() : null;
+  return el && el.closest('#puzzle-player-controls') ? (el.getAttribute('aria-label') || el.textContent.trim()) : null;
 }"""
 
 
@@ -862,7 +915,10 @@ class TestSolverMarking_KeyboardAndLabels:
         assert reached == CONTROLS
 
     def test_each_control_acts_on_enter_or_space(self, browser_page, live) -> None:
-        """AC-310 — operate every control with the keyboard alone (strokes need a pointer)."""
+        """AC-310 — operate every control with the keyboard alone (strokes need a
+        pointer). CARD-194: a brush is picked through the menu (open with the
+        same key, then pick with it, same as a lone key press on a once-plain
+        toggle button — see test_each_tool_acts_on_a_single_key_press)."""
         _open(browser_page, live, live.store(GRID))
         _drag(browser_page, [(1, 2), (1, 6)])
         _cell(browser_page, 8, 8).click()
@@ -872,12 +928,12 @@ class TestSolverMarking_KeyboardAndLabels:
             _button(browser_page, name).focus()
             browser_page.keyboard.press(key)
 
-        press("White", "Space")
-        assert _button(browser_page, "White").get_attribute("aria-pressed") == "true"
-        press("Undecided", "Enter")
-        assert _button(browser_page, "Undecided").get_attribute("aria-pressed") == "true"
-        press("Black", "Space")
-        assert _button(browser_page, "Black").get_attribute("aria-pressed") == "true"
+        _pick_by_keyboard(browser_page, "White", open_key="Space", pick_key="Space")
+        assert _trigger_text(browser_page) == "White"
+        _pick_by_keyboard(browser_page, "Undecided", open_key="Enter", pick_key="Enter")
+        assert _trigger_text(browser_page) == "Undecided"
+        _pick_by_keyboard(browser_page, "Black", open_key="Space", pick_key="Space")
+        assert _trigger_text(browser_page) == "Black"
 
         press("Undo", "Enter")
         assert _marked(_states(browser_page)) == {(1, c): F for c in range(2, 7)}
@@ -913,17 +969,21 @@ class TestSolverMarking_KeyboardAndLabels:
     @pytest.mark.parametrize("key", ["Enter", "Space"])
     @pytest.mark.parametrize("name", ["Black", "White", "Undecided"])
     def test_each_tool_acts_on_a_single_key_press(self, browser_page, live, name, key) -> None:
-        """AC-310 — one Enter or one Space on a Tab-focused tool selects it, and
-        the next drag uses it."""
+        """AC-310 / CARD-194 — Tab to the trigger; the same key (Enter or
+        Space) opens the menu and, after reaching the item, picks it; the
+        trigger then names the brush, and the next drag uses it."""
         _open(browser_page, live, live.store(GRID))
         _drag(browser_page, [(0, 0), (0, 3)])  # Black: row 0 filled, so Undecided shows
         _tool(browser_page, self._PRIOR_TOOL[name])
 
-        self._tab_to(browser_page, name)
+        self._tab_to(browser_page, f"Brush: {self._PRIOR_TOOL[name]}")
+        browser_page.keyboard.press(key)  # opens the menu, focus on the checked item
+        steps = (MENU_ORDER.index(name) - MENU_ORDER.index(self._PRIOR_TOOL[name])) % len(MENU_ORDER)
+        for _ in range(steps):
+            browser_page.keyboard.press("ArrowDown")
         browser_page.keyboard.press(key)
 
-        pressed = {t: _button(browser_page, t).get_attribute("aria-pressed") for t in TOOLS}
-        assert pressed == {t: "true" if t == name else "false" for t in TOOLS}
+        assert _trigger_text(browser_page) == name
         _drag(browser_page, [(0, 0), (0, 3)])
         expected = {(0, c): TOOLS[name] for c in range(4)} if TOOLS[name] != U else {}
         assert _marked(_states(browser_page)) == expected
@@ -964,8 +1024,7 @@ class TestSolverMarking_KeyboardAndLabels:
 
     def test_the_tool_picked_by_keyboard_governs_the_next_drag(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
-        _button(browser_page, "White").focus()
-        browser_page.keyboard.press("Enter")
+        _pick_by_keyboard(browser_page, "White")
 
         _drag(browser_page, [(0, 0), (0, 3)])
 
@@ -1023,9 +1082,8 @@ class TestSolverMarking_KeyboardAndLabels:
         browser_page.mouse.down()
         browser_page.mouse.move(*_centre(browser_page, 0, 3), steps=4)
 
-        _button(browser_page, "White").focus()
-        browser_page.keyboard.press("Enter")
-        assert _button(browser_page, "White").get_attribute("aria-pressed") == "true"
+        _pick_by_keyboard(browser_page, "White")
+        assert _trigger_text(browser_page) == "White"
 
         browser_page.mouse.move(*_centre(browser_page, 0, 6), steps=4)
         preview = _marked(_states(browser_page))
