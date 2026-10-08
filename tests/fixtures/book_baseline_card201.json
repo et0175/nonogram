@@ -1,0 +1,135 @@
+{
+  "card": "CARD-201",
+  "supersedes": "tests/fixtures/book_baseline_card198.json",
+  "recorded_from_commit": "card/201-guide-page-how-to-solve (implementation commit)",
+  "recorded_from_commit_note": "CARD-201's implementation: the guide grows from one page to two (the full 'how to solve' tutorial, FR-041's own deferred clause), so every interior page from the first puzzle/divider page onward moves one page later. This file records the NEW, current truth (all 13 pages of tests.helpers.book_corpus.baseline_puzzles on corpus_book), not a diff against book_baseline_card198.json: see tests/test_book_pdf_memory.py's TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne for how G-2/AC-6 (every page after the guide keeps its content, shifted by one) is verified instead, since a page inserted before the puzzle section flips every later page's parity (recto/verso) and COMP-007 mirrors a book page's margins by parity (ADR-0036), so no later page is byte-identical to its pre-card self even though its content is unchanged.",
+  "recorded_on": "2026-10-08",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-201 grows the guide from one page to two (FR-041's deferred 'full 1-2 page tutorial' clause): the interior grows from 12 pages to 13, and every page from interior page 2 onward in CARD-198's recording moves to interior page N+1 here. Pages 1-2 (the new 2-page guide) are new content; every page from 3 onward carries the same content CARD-198's page N-1 carried, at its own new parity.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-201. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes mismatch means the file's length changed \u2014 either is real news about the change under test, not noise to silence.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "This machine's Arial-or-fallback fingerprint, reproduced before this file was written (tests.helpers.book_corpus.font_fingerprint). A machine with a different fingerprint skips the font_dependent_pages below rather than failing on them.",
+  "font_dependent_pages": [
+    1,
+    2,
+    3,
+    5,
+    7,
+    9
+  ],
+  "font_dependent_pages_note": "CARD-201: both guide pages (1, 2) are now machine-lettered (Arial, with the load_default fallback) \u2014 up from page 1 alone. Pages 3, 5 and 7 are the three level dividers (Easy, Medium, Hard) and page 9 is the SOLUTIONS divider \u2014 one more than CARD-198's [1, 2, 4, 6, 8] in count and each shifted by one in position. None of the four answer pages (10-13) are machine-lettered.",
+  "interior_bytes": 3502674,
+  "interior_bytes_note": "The black-and-white interior of this book: 3502674 bytes where CARD-198 recorded 2,981,925 for a 12-page book. The difference is the guide's new second page's own JPEG stream, plus whatever margin-mirroring shift moves every later page's ink by a few pixels (G-2: same content, not necessarily the same bytes, once parity flips).",
+  "page_count": 13,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "759d3b64874de8715bac735ba11802b2151bbcd0a847456ec3a841d0bcf862d4"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d0277eff9a53cd1aa8722b29cf6914e375759b684cfe8b2fa60ee9f940b279d3"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "0a1223e7c4ddc4c3f7a380c81f016446b6b1c73cb682292385892a30945593a2"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "dcf147d948547aa715bb021172c32817f44d5530f08d9449006e7b590437de20"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "c383f8360430a78ce2d1e4524be1840e7fb17b40dcf32197f5f4578a6c6affa0"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d0c9738af2ccd5c9c31efcf780fee697b6a1a6ce30cba4499d25fa56901616ea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d49cf89bf4c3c5a46bada2b1f5d3e8692a52254cec6a0deb345904738e8d05a2"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "65e55797c3acaeacef660d9ff648d6f18b87559724b3c3353d3d9a2efe079582"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "6f08c175035933b1938d6669518bec9776d4deb21877bf2218fb3fbbad9a8130"
+    }
+  ],
+  "colour_interior_bytes": 4005506,
+  "colour_interior_bytes_note": "The same book with a COLOUR interior: 4005506 bytes, read by tests/test_book_pdf_ink_mode.py only to show the length is still longer than the black-and-white file's, never compared byte-for-byte against any earlier recording."
+}

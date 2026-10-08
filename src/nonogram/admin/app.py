@@ -4665,11 +4665,36 @@ def create_app(debug=None):
             # CARD-169: the guide page's text and worked example, read
             # through the generator module on every request so the preview
             # shows what create_guide_page prints rather than a copy of it.
+            # CARD-201 (AC-7): the 2-page tutorial's new constants join them
+            # here, the same way and for the same reason — every one of them
+            # is read from book_pdf_generator at request time, never copied.
             "guide_title": book_pdf_generator.GUIDE_TITLE,
             "guide_intro": book_pdf_generator.GUIDE_INTRO,
+            "guide_basic_rule_heading": book_pdf_generator.GUIDE_BASIC_RULE_HEADING,
+            "guide_basic_rule_text": book_pdf_generator.GUIDE_BASIC_RULE_TEXT,
+            "guide_basic_rule_caption": book_pdf_generator.GUIDE_BASIC_RULE_CAPTION,
+            "guide_basic_rule_length": book_pdf_generator.GUIDE_BASIC_RULE_LENGTH,
+            "guide_basic_rule_filled": book_pdf_generator.GUIDE_BASIC_RULE_FILLED,
+            "guide_basic_rule_crossed": book_pdf_generator.GUIDE_BASIC_RULE_CROSSED,
+            "guide_cell_states_heading": book_pdf_generator.GUIDE_CELL_STATES_HEADING,
+            "guide_cell_states": book_pdf_generator.GUIDE_CELL_STATES,
+            "guide_certainty_heading": book_pdf_generator.GUIDE_CERTAINTY_HEADING,
+            "guide_techniques_1": book_pdf_generator.GUIDE_TECHNIQUES_1,
+            "guide_switching_heading": book_pdf_generator.GUIDE_SWITCHING_HEADING,
+            "guide_switching_text": book_pdf_generator.GUIDE_SWITCHING_TEXT,
             "guide_example_heading": book_pdf_generator.GUIDE_EXAMPLE_HEADING,
             "guide_example_length": book_pdf_generator.WORKED_EXAMPLE_LENGTH,
             "guide_steps": book_pdf_generator.WORKED_EXAMPLE_STEPS,
+            "guide2_title": book_pdf_generator.GUIDE2_TITLE,
+            "guide2_intro": book_pdf_generator.GUIDE2_INTRO,
+            "guide_techniques_2": book_pdf_generator.GUIDE_TECHNIQUES_2,
+            "guide_assume_heading": book_pdf_generator.GUIDE_ASSUME_HEADING,
+            "guide_assume_text": book_pdf_generator.GUIDE_ASSUME_TEXT,
+            "guide_assume_steps": book_pdf_generator.GUIDE_ASSUME_STEPS,
+            "guide_assume_closing": book_pdf_generator.GUIDE_ASSUME_CLOSING,
+            "guide_difficulty_heading": book_pdf_generator.GUIDE_DIFFICULTY_HEADING,
+            "guide_difficulty_labels": book_pdf_generator.GUIDE_DIFFICULTY_LABELS,
+            "guide_closing_heading": book_pdf_generator.GUIDE_CLOSING_HEADING,
             "guide_closing": book_pdf_generator.GUIDE_CLOSING,
         }
 

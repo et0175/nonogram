@@ -164,7 +164,19 @@ def ink_bands(page: Image.Image) -> List[Tuple[int, int]]:
 #: A row whose ink runs unbroken for longer than this many pixels is a ruled
 #: line, not type: no glyph of the guide page's faces is this wide, and a
 #: ruled line of the worked example is the width of its drawing.
-RULE_RUN_PX = 300
+#:
+#: **CARD-201 lowered this from 300.** The worked example's rule (the one
+#: this constant was originally measured against) spans its whole six-column
+#: drawing, hundreds of pixels wide — but the three cell-state icons
+#: (:func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`) are a
+#: single bare cell, whose own border run is under 100 px at every stored
+#: trim this module measures (Book 1's own is ~98 px). Measured on the same
+#: pages: every line of this guide's own type has a longest run under 30 px
+#: (the widest single glyph or ligature any face here draws), so 60 sits
+#: comfortably between "the narrowest real diagram" and "the widest real
+#: glyph" rather than between "the widest diagram" and "the narrowest
+#: glyph", which is the gap the original 300 measured.
+RULE_RUN_PX = 60
 
 
 def longest_run(row: np.ndarray) -> int:
@@ -182,6 +194,19 @@ def type_bands(page: Image.Image) -> List[Tuple[int, int]]:
     ruled row in it (an unbroken run longer than :data:`RULE_RUN_PX`) is one of
     those drawings, and every other band is a line of type, measured as
     before.
+
+    **CARD-201 note.** :data:`RULE_RUN_PX` is never scaled by a page's DPI
+    here, even though :class:`TestGuidePage_PointSizeIsIndependentOfDpi`
+    renders the same guide page at both 300 and 600 DPI. A guide diagram is
+    laid out through ``compute_layout`` against the module constant
+    ``nonogram.export.layout.DPI`` — not against
+    :attr:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.dpi`, the one
+    that test varies (G-3 forbids this card from reaching into COMP-007 to
+    change that) — so a diagram's own pixel run stays fixed across both
+    renders while type (sized off ``self.dpi``) does not. :data:`RULE_RUN_PX`
+    is measured to sit below every diagram's run and above every glyph run
+    at both 300 and 600 DPI precisely because the diagram side never moves;
+    scaling it with DPI would only close that gap, not widen it.
     """
     dark = np.asarray(page.convert("L")) < INK_THRESHOLD
     return [
@@ -443,6 +468,18 @@ class TestGuidePage_TypeIsBookSized:
         )
 
 
+#: A line diagram's frame bleeds a heavy rule's *half*-width past its own
+#: logical edge by design — the same "half a heavy rule hangs outside the
+#: box" every framed grid in this book draws (``_stroke_drawing``'s own
+#: docstring; CARD-146 built it this way for every puzzle page, not just the
+#: guide's). Text carries no such bleed, so this tolerance applies to
+#: ``left``/``right`` only, never ``top``/``bottom``. CARD-201's own
+#: diagrams are the first guide-page content wide enough, at the 10 cm
+#: minimum trim, to actually reach a stored trim's own margin and show it —
+#: measured there at 2-3 px, comfortably under this tolerance's 10.
+FRAME_BLEED_PX = 10
+
+
 class TestGuidePage_TextFitsTheUsableFrame:
     """AC-237 — the longest text the book ships fits inside the frame.
 
@@ -453,15 +490,17 @@ class TestGuidePage_TextFitsTheUsableFrame:
     wrapping nor the choice of form is trusted here: "it fits" is measured on
     the page — every mark inside the usable area COMP-007 reported, and the
     last mark above the bottom margin — on Book 1, on the 10 cm minimum trim,
-    and across the corpus of trims and counts below.
+    and across the corpus of trims and counts below. :data:`FRAME_BLEED_PX`
+    allows for a line diagram's own frame's by-design half-heavy-rule bleed
+    sideways (never down), the same every puzzle page's frame already has.
     """
 
     def test_every_mark_sits_inside_the_usable_area(self, book1_generator, book1_frame):
         """On the book this project ships, with the largest counts it prints."""
         page = book1_generator.create_guide_page(999_999, 333_333, 333_333, 333_333)
         left, top, right, bottom = ink_box(page)
-        assert left >= book1_frame.left, f"ink at x={left}, margin at {book1_frame.left}"
-        assert right <= book1_frame.right, f"ink at x={right}, margin at {book1_frame.right}"
+        assert left >= book1_frame.left - FRAME_BLEED_PX, f"ink at x={left}, margin at {book1_frame.left}"
+        assert right <= book1_frame.right + FRAME_BLEED_PX, f"ink at x={right}, margin at {book1_frame.right}"
         assert top >= book1_frame.top, f"ink at y={top}, margin at {book1_frame.top}"
         assert bottom <= book1_frame.bottom, (
             f"the last line's ink reaches y={bottom} and the bottom margin is "
@@ -474,8 +513,9 @@ class TestGuidePage_TextFitsTheUsableFrame:
         frame = page_frame(generator.page_spec(1))
         page = generator.create_guide_page(999_999, 333_333, 333_333, 333_333)
         left, top, right, bottom = ink_box(page)
-        assert (left, top) >= (frame.left, frame.top)
-        assert right <= frame.right, (
+        assert left >= frame.left - FRAME_BLEED_PX
+        assert top >= frame.top
+        assert right <= frame.right + FRAME_BLEED_PX, (
             f"the longest line reaches x={right} of a measure that ends at "
             f"{frame.right} on a {MIN_TRIM_CM} cm trim"
         )
@@ -504,8 +544,8 @@ class TestGuidePage_TextFitsTheUsableFrame:
                 f"{case['width_cm']}x{case['height_cm']} cm, counts "
                 f"{case['counts']}"
             )
-            assert left >= frame.left, f"{where}: ink at x={left} < {frame.left}"
-            assert right <= frame.right, f"{where}: ink at x={right} > {frame.right}"
+            assert left >= frame.left - FRAME_BLEED_PX, f"{where}: ink at x={left} < {frame.left}"
+            assert right <= frame.right + FRAME_BLEED_PX, f"{where}: ink at x={right} > {frame.right}"
             assert top >= frame.top, f"{where}: ink at y={top} < {frame.top}"
             assert bottom <= frame.bottom, f"{where}: ink at y={bottom} > {frame.bottom}"
 
@@ -538,12 +578,33 @@ class TestGuidePage_PointSizeIsIndependentOfDpi:
         return generator
 
     def measure(self, dpi: int, monkeypatch) -> Dict[str, float]:
-        """The point sizes and glyph boxes of a guide page drawn at ``dpi``."""
+        """The point sizes and glyph boxes of a guide page drawn at ``dpi``.
+
+        **CARD-201.** The title is read off the page's raw, unfiltered ink
+        bands (:func:`ink_bands`) rather than :func:`type_bands`'s own
+        ``[0]``: nothing is ever drawn above the title, so it is always the
+        topmost band regardless of how wide its own glyph run is. This
+        matters because :data:`RULE_RUN_PX` cannot scale with ``dpi`` here —
+        a guide diagram is laid out through ``compute_layout`` against
+        :data:`nonogram.export.layout.DPI`, a module constant this class
+        does not (and, by G-3, must not) monkeypatch, so a diagram's own
+        pixel run stays fixed while ``self.dpi``-driven type does not. A
+        fixed, unscaled threshold is exactly what separates the two at every
+        ``dpi`` this test tries: the widest real glyph run measured here is
+        well under it at every resolution, and every guide diagram's run
+        sits well over it, unchanged. Scaling the threshold with ``dpi``
+        would close that gap on the diagram side without ever needing to
+        open it on the title's, which is why the title is read separately
+        instead.
+        """
         page = self.generator_at(dpi, monkeypatch).create_guide_page(4, 2, 1, 1)
-        bands = type_bands(page)
-        assert len(bands) >= 9, f"only {len(bands)} lines of ink at {dpi} DPI"
-        title_px = bands[0][1] - bands[0][0] + 1
-        body_px = max(bottom - top + 1 for top, bottom in bands[1:])
+        raw_bands = ink_bands(page)
+        assert raw_bands, f"a blank page at {dpi} DPI"
+        title_top, title_bottom = raw_bands[0]
+        title_px = title_bottom - title_top + 1
+        body_bands = [band for band in type_bands(page) if band[0] > title_bottom]
+        assert len(body_bands) >= 8, f"only {len(body_bands)} lines of body ink at {dpi} DPI"
+        body_px = max(bottom - top + 1 for top, bottom in body_bands)
         return {
             "title_px": title_px,
             "body_px": body_px,
@@ -635,31 +696,44 @@ class TestGuidePage_LeadingClearsTheType:
         are separated by construction and comparing neighbouring bands proves
         nothing. What does is the count: two lines whose ink touches come out
         as one band, so the page has fewer bands than it has lines. The counts
-        are pinned for the four-puzzle Book 1 page (the full form, CARD-167),
-        written out rather than derived from the generator's text:
+        are pinned for the four-puzzle Book 1 page's page 1 (the full form,
+        **recomputed for CARD-201's 2-page tutorial** — page 1 is now the
+        basic-technique half, not the single worked example CARD-167 pinned
+        14/4 for), written out rather than derived from the generator's text
+        (cross-checked by reproducing each paragraph's own word-wrap while
+        building this card, not merely assumed):
 
-        * 14 lines of type — the title; the explanation (2 lines); the four
-          count lines; "Worked example: ..."; the four step captions (1, 1, 2
-          and 1 lines); the closing line;
-        * 4 drawings — one per step of the worked example, each the same
-          one-row line, so all four bands are the same height.
+        * 26 lines of type — the title; the intro (1 line); "How to read a
+          clue" heading + its text (2 lines); the basic-rule caption (1
+          line); "What a cell can be" heading + 3 cell states, each a
+          heading and a caption (1 + 3x2 = 7 lines); "Start with certainty"
+          heading (1 line); technique 1 "Complete lines" (heading + caption,
+          2 lines, no row note); technique 2 "Squeeze from both ends"
+          (heading + 2-line caption + its last row's "certain" note, 4
+          lines); technique 3 "Mark spaces around a completed block"
+          (heading + 2-line caption, 3 lines, no row note); "Switching
+          techniques" heading + its text (2 lines);
+        * 9 drawings — the basic-rule line, the 3 cell-state icons, and one
+          row per technique (1 + 3 + 1 = 5), all drawn at the same cell
+          pitch so every one of the 9 bands is the same height.
 
-        A caption touching its drawing merges into the drawing's band: the
-        type count drops to 13 and that drawing's band grows taller than the
-        other three. Two lines of type touching drop the type count.
+        A caption touching its drawing merges into the drawing's band,
+        dropping the type count and growing that drawing's band taller than
+        the rest; two lines of type touching drops the type count the same
+        way.
         """
         every_band = ink_bands(guide_page)
         drawings = [band for band in every_band if band not in guide_bands]
-        assert len(guide_bands) == 14, (
-            f"{len(guide_bands)} lines of type found where the page sets 14: "
+        assert len(guide_bands) == 26, (
+            f"{len(guide_bands)} lines of type found where the page sets 26: "
             "a line was lost, or two lines' ink ran together"
         )
-        assert len(drawings) == 4, (
-            f"{len(drawings)} drawn bands found where the worked example "
-            "draws 4"
+        assert len(drawings) == 9, (
+            f"{len(drawings)} drawn bands found where page 1's basic rule, "
+            "3 cell-state icons and 5 technique rows draw 9"
         )
         heights = {bottom - top + 1 for top, bottom in drawings}
         assert len(heights) == 1, (
-            f"the worked example's four lines are {sorted(heights)} px tall: "
+            f"the 9 drawings are {sorted(heights)} px tall: "
             "one has merged with the ink next to it"
         )

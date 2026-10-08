@@ -1,38 +1,84 @@
-"""The guide page is "How to Solve Nonograms" with a worked example (CARD-167).
+"""The guide page is "How to Solve Nonograms" with a worked example (CARD-167),
+now a 2-page tutorial sourced from the owner's reference guide (CARD-201).
 
-FR-041 (amended 2026-10-04), AC-324..AC-326, one class each.
+FR-041 (amended 2026-10-04), AC-324..AC-326 (CARD-167; ``TestGuidePage_TitledHowToSolveNonograms``
+is the one survivor — the title it checks is unchanged by CARD-201, an owner
+decision recorded in that card's Worktree notes). CARD-201's own card-level
+acceptance criteria are AC-1..AC-8, one class each below (``TestGuidePage_CarriesAWorkedExampleOnOnePage``
+and ``TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged``, CARD-167's
+own AC-325/AC-326 classes, are retired: their premise — the worked example is
+on page 1, alone, and the guide is exactly interior page 1 — is no longer
+true. AC-325's content is superseded by AC-2/AC-4 below; AC-326's by AC-5/AC-6
+(the latter in ``tests/test_book_pdf_memory.py``); AC-8 below is the direct
+replacement for AC-325's "pixel-identical worked example" half).
 
 **Everything is read off pages.** The book is exported, its interior PDF read
-back with ``tests.helpers.pdf_pages`` and page 1 measured as pixels: the title
-is found by searching the page for the title's own glyphs, the worked example's
-lines by their ruled rows, each square's state by how much of it is ink, and
-type sizes by measuring glyph boxes. Nothing here reads the step list, the
-title constant or a type size from :mod:`nonogram.admin.book_pdf_generator`;
-the numbers the criteria give (the two titles, the clue ``3 1`` on six squares,
-the 10 pt floor, CON-018's margins) are written out below.
+back with ``tests.helpers.pdf_pages`` and its pages measured as pixels: a
+title is found by searching the page for its own glyphs, a diagram by
+rendering it afresh through the same project-wide painters
+(:func:`~nonogram.admin.book_pdf_generator.example_line_layout`/
+:func:`~nonogram.admin.book_pdf_generator.draw_example_line`,
+:func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`,
+:func:`~nonogram.admin.book_pdf_generator._draw_pipeline_diagram`,
+:func:`~nonogram.admin.book_pdf_generator._draw_difficulty_box`) with this
+file's own literal, written-out clue/length/fill/caption data and then
+looking for that rendering on the page, and type sizes by measuring glyph
+boxes. Every expected clue, length, filled/crossed cell set and verbatim
+sentence below is **written out**, matching what
+``docs/guides/how_to_solve_nonograms_v2.pdf`` and
+``nonogram.admin.book_pdf_generator`` were read to contain while building
+this card — not imported from the module under test, with the sole
+exception of AC-8 (about the refactor of the painters themselves, so it
+necessarily calls them) and the handful of purely mechanical sizing helpers
+(``_guide_face``, ``type_px``, ``page_frame``, the two point-size constants)
+no assertion here treats as "content".
 
-AC-326 needs the same book exported with the old guide page and with the new
-one. The old page is :func:`old_guide_page`, a test-local transcription of
-``create_guide_page`` as it stood before this card (title "How to Use This
-Book", the count breakdown and three instruction lines), patched in for one
-export of the same book.
+**Why a diagram is checked by re-rendering it, not by decoding its pixels.**
+A nonogram diagram with two or more adjacent filled cells draws no visible
+rule between them (the same ink, "a heavy rule stays continuous across a
+filled square" — :func:`draw_example_line`'s own docstring) — which is
+exactly how a real puzzle page looks too, not a drawing defect. CARD-167's
+own worked example sidestepped this by calibrating its column rules off its
+*first* step, which it drew with every cell still undecided; none of
+CARD-201's new diagrams have an undecided cell to calibrate from (several —
+"Complete lines" chief among them — are entirely filled), so that technique
+does not generalise to them. Rendering the same expected content through the
+project's own already-tested painters and asking whether it appears on the
+page (correlation for presence, exact pixel equality for AC-8's identity
+claim) sidesteps decoding rules altogether and is no weaker a check: a wrong
+clue, a wrong cell, or a wrong row order changes the rendered image and the
+check fails.
 """
 
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 import pytest
 from PIL import Image, ImageDraw, ImageFont
 
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_frame
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    DifficultyLabel,
+    ExampleStep,
+    GuidePipelineStep,
+    _draw_difficulty_box,
+    _draw_pipeline_diagram,
+    _guide_face,
+    draw_example_line,
+    example_line_layout,
+    guide_icon_layout,
+    interior_page_count,
+    page_frame,
+    type_px,
+)
 
 from tests.helpers.book_corpus import corpus_book, export_of, page_digest, puzzle
 from tests.helpers.page_ink import drawing_of
-from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
+from tests.helpers.pdf_pages import pdf_page_count, pdf_pages
 
 # --------------------------------------------------------------------------
 # What the acceptance criteria say, written out
@@ -41,7 +87,10 @@ from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
 NEW_TITLE = "How to Solve Nonograms"
 OLD_TITLE = "How to Use This Book"
 
-#: The worked example's line (AC-325): the clue 3 1 on six squares.
+#: Page 2's title (CARD-201).
+TITLE_2 = "When the Puzzle Gets Harder"
+
+#: The worked example's line (AC-325/AC-8): the clue 3 1 on six squares.
 CLUE = (3, 1)
 LENGTH = 6
 
@@ -56,17 +105,16 @@ POINTS_PER_INCH = 72.0
 #: (CARD-149's 22 pt and 11 pt), as whole pixels at 300 DPI.
 TITLE_PX = round(22 * BOOK_DPI / POINTS_PER_INCH)
 BODY_PX = round(11 * BOOK_DPI / POINTS_PER_INCH)
+#: The pipeline/difficulty box painters letter in 14.4 pt (CARD-201's
+#: ``DIVIDER_PT``-sized body face); mechanical sizing, not content.
+BODY_PT = 11.0
+LEADING_PT = 17.0
 
 ARIAL = "/System/Library/Fonts/Arial.ttf"
 INK_THRESHOLD = 128
 
 #: A row whose ink runs unbroken for longer than this is a ruled line.
-RULE_RUN_PX = 300
-
-#: CON-018's margins in pixels at 300 DPI: 0.5 in gutter (left on the
-#: right-hand page 1) and 0.375 in elsewhere.
-GUTTER_PX = 150
-OUTSIDE_PX = 112.5
+RULE_RUN_PX = 60
 
 
 def face(size_px: int) -> ImageFont.ImageFont:
@@ -199,7 +247,7 @@ def dark(image: Image.Image) -> np.ndarray:
     return np.asarray(image.convert("L")) < INK_THRESHOLD
 
 
-def bands(mask: np.ndarray) -> List[Tuple[int, int]]:
+def ink_bands(mask: np.ndarray) -> List[Tuple[int, int]]:
     """``(top, bottom)`` of each run of inked rows."""
     rows = np.flatnonzero(mask.any(axis=1))
     if not rows.size:
@@ -222,12 +270,12 @@ def is_ruled(mask: np.ndarray, band: Tuple[int, int]) -> bool:
 
 def type_bands(mask: np.ndarray) -> List[Tuple[int, int]]:
     """The bands that are lines of type (no ruled row in them)."""
-    return [band for band in bands(mask) if not is_ruled(mask, band)]
+    return [band for band in ink_bands(mask) if not is_ruled(mask, band)]
 
 
 def drawn_bands(mask: np.ndarray) -> List[Tuple[int, int]]:
-    """The bands that carry a ruled row: the worked example's lines."""
-    return [band for band in bands(mask) if is_ruled(mask, band)]
+    """The bands that carry a ruled row: a diagram's own lines."""
+    return [band for band in ink_bands(mask) if is_ruled(mask, band)]
 
 
 def probe(text: str, font: ImageFont.ImageFont) -> np.ndarray:
@@ -240,6 +288,18 @@ def probe(text: str, font: ImageFont.ImageFont) -> np.ndarray:
     return mask[rows[0] : rows[-1] + 1, cols[0] : cols[-1] + 1]
 
 
+def tight(mask: np.ndarray) -> np.ndarray:
+    """``mask`` cropped tight to its own ink (``probe``'s crop, for any mask)."""
+    rows, cols = np.flatnonzero(mask.any(axis=1)), np.flatnonzero(mask.any(axis=0))
+    assert rows.size and cols.size, "a blank mask has no ink to crop to"
+    return mask[rows[0] : rows[-1] + 1, cols[0] : cols[-1] + 1]
+
+
+def diagram_mask(image: Image.Image) -> np.ndarray:
+    """A freshly-rendered diagram's own ink, cropped tight (see ``tight``)."""
+    return tight(dark(image))
+
+
 def occurrences(page_mask: np.ndarray, template: np.ndarray, share: float = 0.9) -> int:
     """How many places on the page carry ``template``'s ink and little else.
 
@@ -248,6 +308,11 @@ def occurrences(page_mask: np.ndarray, template: np.ndarray, share: float = 0.9)
     the window is the template's (precision). Correlations by FFT, so every
     position of the page is tried. Neighbouring hits of one occurrence are
     merged by counting connected groups of matching positions.
+
+    A small, feature-poor template (a single filled cell, say) can match many
+    places inside *any* larger solid-black region on the page, so every call
+    below restricts ``page_mask`` to the one band the content is expected at
+    (``drawn_bands``'s own ordering) rather than searching the whole page.
     """
     height, width = page_mask.shape
     th, tw = template.shape
@@ -264,9 +329,23 @@ def occurrences(page_mask: np.ndarray, template: np.ndarray, share: float = 0.9)
     if not hits.any():
         return 0
     groups = 0
-    for top, bottom in bands(hits):
+    for top, bottom in ink_bands(hits):
         columns = np.flatnonzero(hits[top : bottom + 1].any(axis=0))
         groups += 1 + int((np.diff(columns) > 1).sum())
+    return groups
+
+
+def column_groups(columns: np.ndarray) -> List[List[int]]:
+    if not columns.size:
+        return []
+    groups, current = [], [int(columns[0])]
+    for value in columns[1:]:
+        if value == current[-1] + 1:
+            current.append(int(value))
+        else:
+            groups.append(current)
+            current = [int(value)]
+    groups.append(current)
     return groups
 
 
@@ -282,14 +361,7 @@ def baseline_row(counts: np.ndarray) -> int:
 
 
 def cap_height_points(mask: np.ndarray, band: Tuple[int, int], reference: float) -> float:
-    """A line of type's size in points, from its top to its baseline.
-
-    The baseline is the band's last row once the sparse rows at its foot are
-    dropped — descenders: rows holding less than :data:`TAIL_SHARE` of the
-    band's busiest row — and the top of a line is its capitals' and
-    ascenders' height. ``reference`` is the face's own top-to-baseline height
-    per em, measured on a probe, so the result is a measurement of the line.
-    """
+    """A line of type's size in points, from its top to its baseline."""
     top, bottom = band
     baseline = top + baseline_row(mask[top : bottom + 1].sum(axis=1))
     em_px = (baseline - top + 1) / reference
@@ -313,92 +385,71 @@ def digit_reference() -> float:
     return top_to_baseline("31", ImageFont.load_default(size=REFERENCE_SIZE))
 
 
-def column_groups(columns: np.ndarray) -> List[List[int]]:
-    if not columns.size:
-        return []
-    groups, current = [], [int(columns[0])]
-    for value in columns[1:]:
-        if value == current[-1] + 1:
-            current.append(int(value))
-        else:
-            groups.append(current)
-            current = [int(value)]
-    groups.append(current)
-    return groups
+def gutter_glyph_points(layout, image: Image.Image, reference: float) -> List[float]:
+    """The point size of every clue-digit glyph in ``image``'s own left gutter.
 
+    ``image`` is a fresh render from :func:`example_line_layout`/
+    :func:`draw_example_line`, so ``layout`` is already in hand: the grid's
+    own left edge, in the *image's* coordinates, is the gap between
+    ``layout``'s leftmost vertical line and the crop's own origin
+    (``draw_example_line``'s own docstring: the image "starts at the
+    drawing's left edge... minus a heavy rule of white", written out here
+    rather than re-imported since it is the crop's documented contract, not
+    an internal it hides). Left of that gap is the clue gutter.
 
-def read_lines(mask: np.ndarray) -> List[Dict[str, object]]:
-    """The worked example's drawn lines: each one's clue glyphs and square states.
-
-    Vertical rules are the columns inked over (nearly) a band's whole height.
-    A filled square is such a column too, so the rules are read off the
-    **first** line — whose squares :meth:`test_the_steps_solve_the_line_from_the_clue_to_the_finished_line`
-    asserts are all empty — and every later line is checked to span exactly
-    the same columns before those rules are applied to it. The first rule is
-    the frame's left side, the rest bound the squares, and the clue sits
-    between the first two.
+    This does not reuse the project's own ``column_groups``-over-full-height
+    rule-finder: a filled cell is ink the same full height as a rule, which
+    is exactly why that approach needs a line with no filled cell to
+    calibrate against (CARD-167's original worked example had one; none of
+    CARD-201's new diagrams reliably do). The gutter has no such problem —
+    its own border is read off by *rows* (always a true gap above and below
+    the clue text, fill pattern or not), and the border columns it still
+    carries are simply the outermost of the glyph groups found, dropped
+    before measuring.
     """
-    found = drawn_bands(mask)
-    if not found:
+    pad = layout.thick_rule
+    xs = [line.position for line in layout.vertical_lines]
+    left_origin = (layout.frame.left if layout.frame is not None else xs[0]) - pad
+    grid_left = xs[0] - left_origin
+    if grid_left <= 0:
         return []
-    first = mask[found[0][0] : found[0][1] + 1]
-    rules = column_groups(np.flatnonzero(first.sum(axis=0) >= 0.9 * first.shape[0]))
-    extent = column_groups(np.flatnonzero(first.any(axis=0)))
-    span = (extent[0][0], extent[-1][-1])
-    lines = []
-    for top, bottom in found:
-        strip = mask[top : bottom + 1]
-        inked = np.flatnonzero(strip.any(axis=0))
-        width = strip[:, span[0] : span[1] + 1].any(axis=0).sum()
-        horizontal = column_groups(np.flatnonzero(strip.sum(axis=1) >= 0.9 * width))
-        inner_top = horizontal[0][-1] + 1
-        inner_bottom = horizontal[-1][0] - 1
-        states = []
-        for left, right in zip(rules[1:], rules[2:]):
-            inset = 6
-            cell = strip[inner_top + inset : inner_bottom - inset + 1, left[-1] + 1 + inset : right[0] - inset]
-            share = cell.mean()
-            states.append("filled" if share > 0.8 else "crossed" if share > 0.02 else "empty")
-        gutter = strip[inner_top : inner_bottom + 1, rules[0][-1] + 1 : rules[1][0]]
-        glyphs = []
-        for blob in column_groups(np.flatnonzero(gutter.any(axis=0))):
-            piece = gutter[:, blob[0] : blob[-1] + 1]
-            rows = np.flatnonzero(piece.any(axis=1))
-            glyphs.append(piece[rows[0] : rows[-1] + 1])
-        lines.append(
-            {
-                "rules": len(rules),
-                "rule_widths": [len(rule) for rule in rules],
-                "span": (int(inked[0]), int(inked[-1])),
-                "states": states,
-                "glyphs": glyphs,
-            }
-        )
-    return lines
+    mask = dark(image)
+    gutter = mask[:, :grid_left]
+    width = gutter.shape[1]
+    horizontal = column_groups(np.flatnonzero(gutter.sum(axis=1) >= 0.9 * width))
+    assert len(horizontal) >= 2, "no clue box border found in the gutter"
+    inner_top, inner_bottom = horizontal[0][-1] + 1, horizontal[-1][0] - 1
+    core = gutter[inner_top : inner_bottom + 1]
+    groups = column_groups(np.flatnonzero(core.any(axis=0)))[1:-1]
+    points = []
+    for group in groups:
+        strip = core[:, group[0] : group[-1] + 1]
+        rows = np.flatnonzero(strip.any(axis=1))
+        points.append((rows[-1] - rows[0] + 1) / reference * POINTS_PER_INCH / BOOK_DPI)
+    return points
 
 
-def read_digit(glyph: np.ndarray) -> Tuple[str, int]:
-    """The digit (in Pillow's default face, the clue face) ``glyph`` best matches.
+def render_line(
+    spec, clue: Tuple[int, ...], length: int, filled: frozenset = frozenset(), crossed: frozenset = frozenset()
+):
+    """One guide line through the project's own painters, layout and image both."""
+    layout = example_line_layout(spec, clue, length)
+    return layout, draw_example_line(layout, ExampleStep("", "", filled, crossed))
 
-    Returns ``(digit, height_px)``. Each digit is rendered at the size that
-    gives it ``glyph``'s height and compared by intersection over union.
-    """
-    best, best_score = "", -1.0
-    for digit in "0123456789":
-        ratio = probe(digit, ImageFont.load_default(size=REFERENCE_SIZE)).shape[0] / REFERENCE_SIZE
-        size = max(1, round(glyph.shape[0] / ratio))
-        for trial in (size - 1, size, size + 1):
-            reference = probe(digit, ImageFont.load_default(size=trial))
-            h = min(reference.shape[0], glyph.shape[0])
-            w = max(reference.shape[1], glyph.shape[1])
-            a = np.zeros((h, w), bool)
-            b = np.zeros((h, w), bool)
-            a[:, : glyph.shape[1]] = glyph[:h]
-            b[:, : reference.shape[1]] = reference[:h]
-            score = (a & b).sum() / max((a | b).sum(), 1)
-            if score > best_score:
-                best, best_score = digit, score
-    return best, glyph.shape[0]
+
+def render_icon(spec, filled: bool, crossed: bool) -> Image.Image:
+    """One bare cell-state icon through :func:`guide_icon_layout`."""
+    layout = guide_icon_layout(spec)
+    return draw_example_line(
+        layout,
+        ExampleStep("", "", frozenset({0}) if filled else frozenset(), frozenset({0}) if crossed else frozenset()),
+    )
+
+
+def diagram_at(page_mask: np.ndarray, drawn: List[Tuple[int, int]], index: int, template: np.ndarray) -> int:
+    """How many times ``template`` occurs inside ``drawn[index]``'s own band."""
+    top, bottom = drawn[index]
+    return occurrences(page_mask[top : bottom + 1], template)
 
 
 def placements() -> List[Tuple[bool, ...]]:
@@ -411,18 +462,19 @@ def placements() -> List[Tuple[bool, ...]]:
     return found
 
 
-def frame_px(width: int, height: int) -> Tuple[float, float, float, float]:
-    """Page 1's usable area from CON-018's margins: (left, top, right, bottom)."""
-    return GUTTER_PX, OUTSIDE_PX, width - OUTSIDE_PX, height - OUTSIDE_PX
-
-
 # --------------------------------------------------------------------------
-# AC-324
+# AC-324 (CARD-167; survives CARD-201 unchanged — an owner decision)
 # --------------------------------------------------------------------------
 
 
 class TestGuidePage_TitledHowToSolveNonograms:
-    """AC-324 — page 1's title reads "How to Solve Nonograms"; the old title is nowhere."""
+    """AC-324 — page 1's title reads "How to Solve Nonograms"; the old title is nowhere.
+
+    **CARD-201 note.** The title text and its position (``frame.top``) are
+    unchanged by this card (an owner-decision flag, resolved in this card's
+    Worktree notes in favour of keeping it) — only what is drawn beneath it
+    changed, which this class never looks at.
+    """
 
     def test_the_exported_interior_page_1_is_titled_how_to_solve_nonograms(self, new_pages):
         mask = dark(new_pages[0])
@@ -447,238 +499,507 @@ class TestGuidePage_TitledHowToSolveNonograms:
 
 
 # --------------------------------------------------------------------------
-# AC-325
+# AC-1 — the guide section is exactly 2 pages
 # --------------------------------------------------------------------------
 
 
-class TestGuidePage_CarriesAWorkedExampleOnOnePage:
-    """AC-325 — one line, its clue, solved step by step, on page 1 alone, >= 10 pt."""
+def old_style_total(puzzle_count: int, dividers: int = None, pages: int = None, answers: int = None) -> int:
+    """``interior_page_count``'s own formula with the pre-CARD-201 leading
+    term (1 guide page, not 2) — written out as the independent "before"
+    this AC's "+1" claim is checked against, not derived from the function
+    under test.
+    """
+    d = min(3, puzzle_count) if dividers is None else dividers
+    p = puzzle_count if pages is None else pages
+    a = puzzle_count if answers is None else answers
+    return 1 + d + p + (a + 1 if puzzle_count else 0)
 
-    @pytest.fixture(scope="class")
-    def lines(self, new_pages) -> List[Dict[str, object]]:
-        mask = dark(new_pages[0])
-        return read_lines(mask)
 
-    def test_page_1_draws_the_line_of_six_squares_at_each_step(self, lines):
-        assert len(lines) == 4, f"page 1 carries {len(lines)} drawn lines, not 4 steps"
-        assert len({line["span"] for line in lines}) == 1, "the four lines are not aligned"
-        for number, line in enumerate(lines, start=1):
-            # The frame's left side and the 7 boundaries of 6 squares.
-            assert line["rules"] == LENGTH + 2, f"step {number}: {line['rules']} rules"
-            assert len(line["states"]) == LENGTH
-
-    def test_the_lines_are_ruled_like_the_books_puzzle_pages(self, lines, new_pages):
-        """ADR-0037/R2 on the example: thin >= 0.25 mm, heavy = 2 x thin.
-
-        Measured on the first line (no square filled): the frame's side and
-        the grid's two edges and its every-5th boundary are heavy, the rest
-        thin — and the two widths are the widths the rules of the book's own
-        20x20 puzzle page (interior page 3) measure on the same page scan.
-        """
-        widths = lines[0]["rule_widths"]
-        thin = min(widths)
-        assert thin >= 0.25 / 25.4 * BOOK_DPI, f"the thin rule is {thin} px"
-        heavy = 2 * thin
-        assert widths == [heavy, heavy, thin, thin, thin, thin, heavy, heavy], widths
-
-        puzzle_page = dark(new_pages[2])
-        runs = np.array([longest_run(column) for column in puzzle_page.T])
-        full = column_groups(np.flatnonzero(runs >= 0.9 * runs.max()))
-        assert {len(rule) for rule in full} == {thin, heavy}
-
-    def test_every_step_carries_the_clue_3_1(self, lines):
-        for number, line in enumerate(lines, start=1):
-            digits = "".join(read_digit(glyph)[0] for glyph in line["glyphs"])
-            assert digits == "31", f"step {number}'s clue reads {digits!r}"
-
-    def test_the_steps_solve_the_line_from_the_clue_to_the_finished_line(self, lines):
-        steps = [line["states"] for line in lines]
-        solutions = placements()
-        assert len(solutions) == 3, "3 1 fits a row of 6 in three ways"
-
-        # From the clue: nothing decided.
-        assert steps[0] == ["empty"] * LENGTH
-        # The overlap: exactly the squares every placement fills.
-        every = [all(line[i] for line in solutions) for i in range(LENGTH)]
-        assert [state == "filled" for state in steps[1]] == every
-        assert "crossed" not in steps[1]
-        # Each step keeps what the one before decided.
-        for earlier, later in zip(steps, steps[1:]):
-            for before, after in zip(earlier, later):
-                assert before == "empty" or before == after
-        # The finished line: every square decided, and its runs are the clue.
-        finished = steps[-1]
-        assert "empty" not in finished
-        filled = tuple(state == "filled" for state in finished)
-        assert filled in solutions
-        # The gap step: once a crossed square rules placements out, exactly
-        # one remains, and it is the finished line.
-        crossed = [i for i, state in enumerate(steps[2]) if state == "crossed"]
-        remaining = [line for line in solutions if not any(line[i] for i in crossed)]
-        assert remaining == [filled]
-
-    def test_nothing_of_the_example_reaches_interior_page_2(self, new_pages, old_pages):
-        page_2 = new_pages[1]
-        assert not drawn_bands(dark(page_2)), "interior page 2 carries a ruled line"
-        assert page_digest(page_2) == page_digest(old_pages[1])
-
-    def test_every_mark_on_page_1_sits_inside_its_usable_area(self, new_pages):
-        page = new_pages[0]
-        mask = dark(page)
-        rows, cols = np.flatnonzero(mask.any(axis=1)), np.flatnonzero(mask.any(axis=0))
-        left, top, right, bottom = frame_px(*page.size)
-        assert left <= cols[0] and cols[-1] <= right
-        assert top <= rows[0] and rows[-1] <= bottom
-
-    def test_every_line_of_type_on_page_1_holds_10pt(self, new_pages):
-        """Each line measured from its top to its baseline.
-
-        The premise, which this test also enforces: every line of the page's
-        copy reaches cap height (a capital, a digit or an ascender). A line of
-        x-height letters only would measure about 0.72 of its size and fail
-        here, which is a copy problem to fix (CARD-167 reworded step 2 so that
-        "way." no longer wraps onto a line of its own at the Book 1 trim).
-        """
-        mask = dark(new_pages[0])
-        reference = text_reference()
-        sizes = [cap_height_points(mask, band, reference) for band in type_bands(mask)]
-        assert len(sizes) >= 9
-        assert min(sizes) >= FLOOR_PT, f"a line of type measures {min(sizes):.2f} pt"
-        # And the measurement measures: the body is 11 pt, the title 22.
-        assert sizes[0] == pytest.approx(22, abs=0.8)
-        assert sorted(sizes)[len(sizes) // 2] == pytest.approx(11, abs=0.6)
-
-    def test_every_clue_digit_holds_10pt(self, lines):
-        reference = digit_reference()
-        assert len(lines) == 4
-        for number, line in enumerate(lines, start=1):
-            # "3" and "1": a gutter read as empty must not pass for small type.
-            assert len(line["glyphs"]) == 2, f"step {number}: {len(line['glyphs'])} clue glyphs"
-            for glyph in line["glyphs"]:
-                points = glyph.shape[0] / reference * POINTS_PER_INCH / BOOK_DPI
-                assert points >= FLOOR_PT, f"step {number}: a clue digit is {points:.2f} pt"
-
-    def test_the_6x9_trim_carries_the_whole_example_inside_its_frame(self):
-        generator = BookPDFGenerator(six_by_nine_book())
-        page = generator.create_guide_page(150, 50, 50, 50)
-        mask = dark(page)
-        assert page.size == (1800, 2700)
-        lines = read_lines(mask)
-        assert len(lines) == 4
-        assert lines[0]["states"] == ["empty"] * LENGTH
-        finished = tuple(state == "filled" for state in lines[-1]["states"])
-        assert "empty" not in lines[-1]["states"] and finished in placements()
-        rows, cols = np.flatnonzero(mask.any(axis=1)), np.flatnonzero(mask.any(axis=0))
-        left, top, right, bottom = frame_px(*page.size)
-        assert left <= cols[0] and cols[-1] <= right
-        assert top <= rows[0] and rows[-1] <= bottom
-        reference = text_reference()
-        sizes = [cap_height_points(mask, band, reference) for band in type_bands(mask)]
-        assert min(sizes) >= FLOOR_PT
-        assert occurrences(mask, probe(NEW_TITLE, face(TITLE_PX))) == 1
-        # The clue digits hold the floor and the rules are the book's (thin
-        # >= 0.25 mm, heavy = 2 x thin) on this trim too.
-        digit_ref = digit_reference()
-        for number, line in enumerate(lines, start=1):
-            assert len(line["glyphs"]) == 2, f"step {number}: {len(line['glyphs'])} clue glyphs"
-            for glyph in line["glyphs"]:
-                points = glyph.shape[0] / digit_ref * POINTS_PER_INCH / BOOK_DPI
-                assert points >= FLOOR_PT, f"step {number}: a clue digit is {points:.2f} pt"
-        widths = lines[0]["rule_widths"]
-        thin = min(widths)
-        assert thin >= 0.25 / 25.4 * BOOK_DPI, f"the thin rule is {thin} px"
-        heavy = 2 * thin
-        assert widths == [heavy, heavy, thin, thin, thin, thin, heavy, heavy], widths
+class TestGuidePage_IsTwoPages:
+    """AC-1 — the guide is exactly 2 pages, right before the first puzzle/divider page."""
 
     @pytest.mark.parametrize(
-        ("height_cm", "type_lines", "form"),
+        ("count", "dividers", "pages", "answers"),
         [
-            # 10 x 10 cm: only the short labels fit -- the title and the
-            # four one-line labels ("1. The clue" .. "4. Solved").
-            (10.0, 5, "short labels"),
-            # 10 x 14 cm: the full captions fit without the explanation --
-            # the title and the captions wrapped to 3, 3, 3 and 1 lines.
-            (14.0, 11, "full captions alone"),
+            (0, None, None, None),
+            (1, None, None, None),
+            (6, None, None, None),
+            (150, None, None, None),
+            (6, 2, 4, 6),
+            (0, 0, 0, 0),
         ],
     )
-    def test_the_10cm_trim_holds_10pt_in_its_fallback_forms(self, height_cm, type_lines, form):
-        """CON-020 on the two fallback forms, at the minimum 10 cm width.
+    def test_interior_page_count_adds_exactly_one_guide_page(self, count, dividers, pages, answers):
+        assert interior_page_count(count, pages, answers, dividers) == old_style_total(
+            count, dividers, pages, answers
+        ) + 1
 
-        The line count identifies the form measured, so the floor is shown on
-        each form rather than on whichever one the page happened to pick. The
-        title is set below 22 pt here (it is wider than a 10 cm measure); this
-        test does not reach the clamp that keeps it at or above the body size,
-        which no stored trim is narrow enough to engage.
+    def test_the_exported_interior_opens_with_both_guide_pages_then_the_first_puzzle_or_divider(self):
+        book_puzzles = [puzzle("card201-1", 10, 10, 3, "easy", "Picture 1")]
+        export = export_of(BookPDFGenerator(corpus_book("card-201-ac1")), book_puzzles)
+        pages = pdf_pages(export)
+        assert len(pages) == interior_page_count(1)
+
+        page_1, page_2, page_3 = dark(pages[0]), dark(pages[1]), dark(pages[2])
+        assert occurrences(page_1, probe(NEW_TITLE, face(TITLE_PX))) == 1, (
+            "interior page 1 is not titled the guide's own title"
+        )
+        assert occurrences(page_2, probe(TITLE_2, face(TITLE_PX))) == 1, (
+            "interior page 2 is not titled the guide's own page-2 title"
+        )
+        assert occurrences(page_3, probe(NEW_TITLE, face(TITLE_PX))) == 0
+        assert occurrences(page_3, probe(TITLE_2, face(TITLE_PX))) == 0, (
+            "interior page 3 still carries a guide title: the guide is more than 2 pages"
+        )
+
+
+# --------------------------------------------------------------------------
+# AC-2 — page 1: the basic rule, the three cell states, start with certainty
+# --------------------------------------------------------------------------
+
+
+class TestGuidePage_PageOneCarriesTheBasicTechniques:
+    """AC-2 — page 1 carries the basic rule, the 3 cell states and 3 techniques.
+
+    Every diagram is checked in the order :func:`create_guide_page` draws it
+    (this class's own ``PAGE_ONE_...`` constants, written out — see the
+    module docstring for why a diagram is checked by re-rendering and
+    matching rather than by decoding its pixels).
+    """
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def generator() -> BookPDFGenerator:
+        return BookPDFGenerator(corpus_book("card-201-ac2"))
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def spec(generator):
+        return generator.page_spec(1)
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def page_mask(generator) -> np.ndarray:
+        return dark(generator.create_guide_page(4, 2, 1, 1, page_number=1))
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def drawn(page_mask) -> List[Tuple[int, int]]:
+        found = drawn_bands(page_mask)
+        assert len(found) == 9, (
+            f"page 1 draws {len(found)} diagrams, not the 9 this class expects: "
+            "1 basic-rule line, 3 cell-state icons, 1 complete-line, 3 squeeze "
+            "rows, 1 mark-spaces line"
+        )
+        return found
+
+    def test_the_basic_rule_is_3_2_1_on_8_squares_filled_and_crossed_as_the_guide_describes(
+        self, spec, page_mask, drawn
+    ):
+        _, image = render_line(spec, (3, 2, 1), 8, frozenset({0, 1, 2, 4, 5, 7}), frozenset({3, 6}))
+        assert diagram_at(page_mask, drawn, 0, diagram_mask(image)) == 1
+
+    @pytest.mark.parametrize(
+        ("index", "filled", "crossed"),
+        [(1, False, False), (2, True, False), (3, False, True)],
+    )
+    def test_the_three_cell_state_icons_are_unknown_filled_and_empty_in_that_order(
+        self, spec, page_mask, drawn, index, filled, crossed
+    ):
+        image = render_icon(spec, filled, crossed)
+        assert diagram_at(page_mask, drawn, index, diagram_mask(image)) == 1
+
+    def test_complete_lines_fills_every_one_of_10_squares(self, spec, page_mask, drawn):
+        _, image = render_line(spec, (10,), 10, frozenset(range(10)), frozenset())
+        assert diagram_at(page_mask, drawn, 4, diagram_mask(image)) == 1
+
+    @pytest.mark.parametrize(
+        ("index", "filled"),
+        [
+            (5, frozenset(range(8))),
+            (6, frozenset(range(2, 10))),
+            (7, frozenset(range(2, 8))),
+        ],
+    )
+    def test_squeeze_from_both_ends_pushes_left_then_right_then_keeps_the_certain_overlap(
+        self, spec, page_mask, drawn, index, filled
+    ):
+        _, image = render_line(spec, (8,), 10, filled, frozenset())
+        assert diagram_at(page_mask, drawn, index, diagram_mask(image)) == 1
+
+    def test_mark_spaces_crosses_the_cells_beside_a_completed_block(self, spec, page_mask, drawn):
+        _, image = render_line(spec, (3,), 8, frozenset({2, 3, 4}), frozenset({1, 5}))
+        assert diagram_at(page_mask, drawn, 8, diagram_mask(image)) == 1
+
+    def test_every_diagram_is_drawn_at_the_books_own_cell_pitch(self, generator, spec, page_mask, drawn):
+        """"at the book's own cell pitch" (AC-2): the same pitch a real puzzle
+        page prints, measured independently off a real one.
         """
-        page = BookPDFGenerator(ten_cm_wide_book(height_cm)).create_guide_page(
-            999_999, 333_333, 333_333, 333_333
-        )
-        mask = dark(page)
-        found = type_bands(mask)
-        assert len(found) == type_lines, (
-            f"10 x {height_cm:g} cm sets {len(found)} lines of type, not the "
-            f"{type_lines} of the {form} form"
-        )
-        reference = text_reference()
-        sizes = [cap_height_points(mask, band, reference) for band in found]
-        assert min(sizes) >= FLOOR_PT, f"a line of type measures {min(sizes):.2f} pt"
-        lines = read_lines(mask)
-        assert len(lines) == 4
-        digit_ref = digit_reference()
-        for number, line in enumerate(lines, start=1):
-            assert len(line["glyphs"]) == 2, f"step {number}: {len(line['glyphs'])} clue glyphs"
-            for glyph in line["glyphs"]:
-                points = glyph.shape[0] / digit_ref * POINTS_PER_INCH / BOOK_DPI
-                assert points >= FLOOR_PT, f"step {number}: a clue digit is {points:.2f} pt"
-
-
-# --------------------------------------------------------------------------
-# AC-326
-# --------------------------------------------------------------------------
-
-
-class TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged:
-    """AC-326 — old guide page vs new: same page count, guide = page 1, parity kept."""
-
-    def test_both_interiors_hold_the_same_number_of_pages(self, old_export, new_export):
-        assert pdf_page_count(old_export) == pdf_page_count(new_export)
-        # Guide, "Easy" divider, 3 puzzles, SOLUTIONS, 3 answer pages (one
-        # per puzzle, CARD-198) = 9.
-        assert pdf_page_count(new_export) >= 7
-
-    def test_the_guide_page_is_exactly_interior_page_1_in_each(self, old_pages, new_pages):
-        generator = BookPDFGenerator(corpus_book("card-167"))
-        assert same_page(old_pages[0], old_guide_page(generator, 3, 3, 0, 0))
-        assert same_page(new_pages[0], generator.create_guide_page(3, 3, 0, 0))
-        assert not same_page(old_pages[0], new_pages[0])
-        # Page 2 is the same page in both: no guide page continues onto it.
-        assert page_digest(old_pages[1]) == page_digest(new_pages[1])
-
-    def test_every_later_page_is_the_same_page_with_the_same_parity(self, old_pages, new_pages):
-        assert len(old_pages) == len(new_pages)
-        for number in range(2, len(new_pages) + 1):
-            assert page_digest(old_pages[number - 1]) == page_digest(new_pages[number - 1]), (
-                f"interior page {number} differs between the two exports"
-            )
-        # Parity, observed: a right-hand (odd) page's drawing sits right of
-        # the trim's middle by half the gutter/outside difference, a
-        # left-hand one left of it. Since CARD-198 this also catches the
-        # book's three answer pages (one full solved page per puzzle, the
-        # same 20x20 extent as the blank ones, and still read as 20 rows
-        # here on this corpus's simple grid) alongside the three puzzle
-        # pages — six pages of parity evidence instead of three, which is a
-        # stronger version of the same claim, not a different one.
-        puzzles = 0
-        for number, page in enumerate(new_pages, start=1):
+        corpus = [puzzle("card201-ac2-cell", 20, 20, 6, "easy", "Picture")]
+        export = export_of(generator, corpus)
+        pages = pdf_pages(export)
+        book_cell_px = None
+        for page in pages:
             try:
                 drawing = drawing_of(page)
             except ValueError:
                 continue
-            if drawing.rows != 20:
+            if drawing.rows == 20:
+                book_cell_px = drawing.cell
+                break
+        assert book_cell_px is not None, "no 20-row puzzle page found to measure the book's cell"
+
+        _, complete_image = render_line(spec, (10,), 10, frozenset(range(10)), frozenset())
+        diagram_width = diagram_mask(complete_image).shape[1]
+        # 10 cells plus the frame's own two heavy rules either side (roughly
+        # 2 cells' worth at this book's rule widths) — a loose bound, since
+        # this test asks only that the diagram is at THIS book's pitch, not
+        # that it reproduces the frame's own exact width to the pixel.
+        assert 9.5 * book_cell_px <= diagram_width <= 12.5 * book_cell_px, (
+            f"a 10-cell diagram is {diagram_width} px wide; this book's own "
+            f"cell is {book_cell_px:.1f} px"
+        )
+
+
+# --------------------------------------------------------------------------
+# AC-3 — page 2: region splitting, arrangement comparison, the assume
+# pipeline, the difficulty-label box
+# --------------------------------------------------------------------------
+
+
+class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
+    """AC-3 — page 2 carries the region split, the comparison, the pipeline
+    and the difficulty-label box, its 3 sentences verbatim.
+    """
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def generator() -> BookPDFGenerator:
+        return BookPDFGenerator(corpus_book("card-201-ac3"))
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def spec(generator):
+        return generator.page_spec(2)
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def page_mask(generator) -> np.ndarray:
+        return dark(generator.create_guide_page(4, 2, 1, 1, page_number=2))
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def drawn(page_mask) -> List[Tuple[int, int]]:
+        found = drawn_bands(page_mask)
+        assert len(found) == 12, (
+            f"page 2 draws {len(found)} diagrams, not the 12 this class "
+            "expects: 2 region-split rows, 4 arrangement-comparison rows, "
+            "the pipeline, the difficulty box and the original 4-step "
+            "worked example (AC-8's own content, recapped here)"
+        )
+        return found
+
+    def test_page_2_is_titled_when_the_puzzle_gets_harder(self, page_mask):
+        title = type_bands(page_mask)[0]
+        assert occurrences(page_mask[title[0] - 5 : title[1] + 6], probe(TITLE_2, face(TITLE_PX))) == 1
+
+    @pytest.mark.parametrize(
+        ("index", "crossed"),
+        [(0, frozenset({3, 5})), (1, frozenset({3, 4, 5}))],
+    )
+    def test_the_region_split_rules_out_cells_the_remaining_run_cannot_reach(
+        self, spec, page_mask, drawn, index, crossed
+    ):
+        _, image = render_line(spec, (2, 3), 10, frozenset(), crossed)
+        assert diagram_at(page_mask, drawn, index, diagram_mask(image)) == 1
+
+    @pytest.mark.parametrize(
+        ("index", "filled"),
+        [
+            (2, frozenset({0, 1, 2})),
+            (3, frozenset({1, 2, 3})),
+            (4, frozenset({5, 6, 7})),
+            (5, frozenset()),
+        ],
+    )
+    def test_the_arrangement_comparison_shows_three_placements_then_what_they_agree_on(
+        self, spec, page_mask, drawn, index, filled
+    ):
+        _, image = render_line(spec, (3,), 10, filled, frozenset({4}))
+        assert diagram_at(page_mask, drawn, index, diagram_mask(image)) == 1
+
+    def test_the_assume_follow_breaks_proved_pipeline_draws_its_four_boxes_in_order(
+        self, generator, spec, page_mask, drawn
+    ):
+        text_font = _guide_face(type_px(BODY_PT, generator.dpi))
+        steps = (
+            GuidePipelineStep("ASSUME", "square"),
+            GuidePipelineStep("FOLLOW", "dots"),
+            GuidePipelineStep("BREAKS", "bang"),
+            GuidePipelineStep("PROVED", "cross"),
+        )
+        image = _draw_pipeline_diagram(spec, steps, text_font)
+        assert diagram_at(page_mask, drawn, 6, diagram_mask(image)) == 1
+
+    def test_the_difficulty_box_carries_its_three_sentences_verbatim(self, generator, spec, page_mask, drawn):
+        """"verbatim from the source PDF" (AC-3): a changed word changes this
+        rendering (different wrap, different glyphs), so a match here is
+        evidence of the exact wording, not just that a box is drawn.
+        """
+        frame = page_frame(spec)
+        measure = frame.right - frame.left
+        text_font = _guide_face(type_px(BODY_PT, generator.dpi))
+        leading = type_px(LEADING_PT, generator.dpi)
+        labels = (
+            DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
+            DifficultyLabel(
+                "MEDIUM",
+                "Needs deeper line logic and may need contradiction for part of the grid.",
+            ),
+            DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
+        )
+        image = _draw_difficulty_box(spec, labels, measure, text_font, leading, with_text=True)
+        assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 1
+
+    def test_a_wrong_difficulty_sentence_does_not_match(self, generator, spec, page_mask, drawn):
+        """The comparison has teeth: change one word and the match is gone."""
+        frame = page_frame(spec)
+        measure = frame.right - frame.left
+        text_font = _guide_face(type_px(BODY_PT, generator.dpi))
+        leading = type_px(LEADING_PT, generator.dpi)
+        labels = (
+            DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
+            DifficultyLabel("MEDIUM", "This sentence was never on the page."),
+            DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
+        )
+        image = _draw_difficulty_box(spec, labels, measure, text_font, leading, with_text=True)
+        assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 0
+
+
+# --------------------------------------------------------------------------
+# AC-4 — CON-020's 10 pt floor on both pages, at every stored trim
+# --------------------------------------------------------------------------
+
+
+class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
+    """AC-4 — every line of type, and a representative sample of diagram
+    clue digits (one 1-digit, one 2-digit and one 3-digit clue), hold
+    CON-020's 10 pt floor on both guide pages, at the three trims this
+    project's own corpus already exercises the guide page at: Book 1, 6x9
+    and the narrowest supported (10 cm) trim.
+
+    Exhaustively re-measuring every clue digit of every diagram at every
+    trim would reassert the same per-length pitch repeatedly (the floor is a
+    property of the trim and the face, not of which particular clue is
+    drawn) — the three clue arities below (1, 2 and 3 digits) are this
+    page's only distinct shapes, so one of each is the floor's full surface.
+    """
+
+    @pytest.mark.parametrize(
+        ("generator_factory", "page_numbers"),
+        [
+            (lambda: BookPDFGenerator(corpus_book("card-201-ac4-book1")), (1, 2)),
+            (lambda: BookPDFGenerator(six_by_nine_book()), (1, 2)),
+            (lambda: BookPDFGenerator(ten_cm_wide_book(20.0)), (1, 2)),
+        ],
+        ids=["book1", "6x9", "10cm-wide"],
+    )
+    def test_every_line_of_type_holds_10pt_on_both_pages(self, generator_factory, page_numbers):
+        generator = generator_factory()
+        reference = text_reference()
+        for page_number in page_numbers:
+            page = generator.create_guide_page(999_999, 333_333, 333_333, 333_333, page_number=page_number)
+            mask = dark(page)
+            found = type_bands(mask)
+            assert found, f"page {page_number} carries no type at all"
+            sizes = [cap_height_points(mask, band, reference) for band in found]
+            assert min(sizes) >= FLOOR_PT, (
+                f"page {page_number}: a line of type measures {min(sizes):.2f} pt"
+            )
+
+    @pytest.mark.parametrize(
+        ("generator_factory",),
+        [
+            (lambda: BookPDFGenerator(corpus_book("card-201-ac4-digits-book1")),),
+            (lambda: BookPDFGenerator(six_by_nine_book()),),
+            (lambda: BookPDFGenerator(ten_cm_wide_book(20.0)),),
+        ],
+        ids=["book1", "6x9", "10cm-wide"],
+    )
+    def test_a_1_2_and_3_digit_clue_each_hold_10pt_on_each_page(self, generator_factory):
+        generator = generator_factory()
+        digit_ref = digit_reference()
+        # (page_number, clue, length) — one 1-digit, one 2-digit (page 1's
+        # "Complete lines", clue 10) and one 3-digit (page 1's basic rule,
+        # clue 3 2 1) clue.
+        for page_number, clue, length in ((1, (3,), 8), (1, (10,), 10), (1, (3, 2, 1), 8), (2, (3,), 10)):
+            spec = generator.page_spec(page_number)
+            layout, image = render_line(spec, clue, length)
+            points = gutter_glyph_points(layout, image, digit_ref)
+            assert points, f"page {page_number}, clue {clue}: no clue glyph found"
+            assert min(points) >= FLOOR_PT, (
+                f"page {page_number}, clue {clue}: a clue digit measures {min(points):.2f} pt"
+            )
+
+
+# --------------------------------------------------------------------------
+# AC-5 — the extra page shifts everything by one, parity kept
+# --------------------------------------------------------------------------
+
+
+class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
+    """AC-5 — SOLUTIONS and the answer pages move one page later; every
+    page's parity still equals its own 1-based position (FR-043/INV-013).
+
+    The byte-identity half of this claim — every page from the first
+    puzzle/divider page onward carries the *same content*, only shifted — is
+    AC-6's own, much stronger, test
+    (``TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne``
+    in ``tests/test_book_pdf_memory.py``). This class checks the page count
+    and parity claims directly instead of re-deriving that proof.
+    """
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def corpus() -> List[Dict[str, object]]:
+        """3 easy, 2 medium, 1 hard — the AC's own example book.
+
+        Sized 20 cells and up and no two the same within a tier: small
+        enough to stay comfortably inside every stored trim, but too wide
+        for two to share a two-up page (FR-040) — this test wants exactly
+        6 puzzle pages (one per puzzle), not a pairing saving.
+        """
+        return (
+            [puzzle(f"card201-ac5-easy-{n}", 20 + n, 20 + n, 3, "easy", f"Easy {n}") for n in range(3)]
+            + [puzzle(f"card201-ac5-medium-{n}", 25 + n, 25 + n, 4, "medium", f"Medium {n}") for n in range(2)]
+            + [puzzle("card201-ac5-hard-0", 30, 30, 5, "hard", "Hard 0")]
+        )
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def export(corpus) -> bytes:
+        return export_of(BookPDFGenerator(corpus_book("card-201-ac5")), corpus)
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def pages(export) -> List[Image.Image]:
+        return pdf_pages(export)
+
+    def test_the_page_count_is_exactly_one_more_than_before_this_card(self, export, corpus):
+        # 3 tiers, each non-empty: 3 dividers. 6 puzzles, none pairable
+        # across tiers or at these sizes: 6 puzzle pages, 6 answer pages.
+        assert pdf_page_count(export) == old_style_total(6, dividers=3, pages=6, answers=6) + 1
+        assert pdf_page_count(export) == interior_page_count(6, 6, 6, 3)
+
+    def test_every_pages_parity_still_equals_its_own_position(self, pages):
+        """A right-hand (odd) page's drawing sits right of the trim's middle
+        by half the gutter/outside difference, a left-hand (even) one left
+        of it — read off puzzle AND answer pages alike, since CARD-198 both
+        carry the same 20x20-style drawing shape this corpus's puzzles give.
+        """
+        checked = 0
+        for number, page in enumerate(pages, start=1):
+            try:
+                drawing = drawing_of(page)
+            except ValueError:
                 continue
-            puzzles += 1
             offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
             assert (offset > 0) == (number % 2 == 1), (
-                f"interior page {number} is centred {offset:.1f} px off the middle"
+                f"interior page {number} is centred {offset:.1f} px off the "
+                f"middle, the wrong side for {'an odd' if number % 2 else 'an even'} page"
             )
-        assert puzzles == 6
+            checked += 1
+        assert checked >= 6, f"only {checked} pages carried a measurable drawing"
+
+
+# --------------------------------------------------------------------------
+# AC-8 — the generalised helpers reproduce the original worked example
+# --------------------------------------------------------------------------
+
+
+#: The worked example's 4 steps (CARD-167's own authored narrative, G-1:
+#: unchanged by this card), written out as (filled, crossed) pairs. Step 2's
+#: exact cells withhold one already-implied fact for step 4 (a pedagogical
+#: choice, not something :func:`placements` alone determines), so these are
+#: transcribed rather than derived.
+WORKED_EXAMPLE_FILLS: Tuple[Tuple[frozenset, frozenset], ...] = (
+    (frozenset(), frozenset()),
+    (frozenset({1, 2}), frozenset()),
+    (frozenset({1, 2, 3}), frozenset({0, 4})),
+    (frozenset({1, 2, 3, 5}), frozenset({0, 4})),
+)
+
+
+class TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample:
+    """AC-8 — ``example_line_layout``/``draw_example_line`` called with the
+    original ``(3, 1)``/``6`` arguments draw pixel-identical output to
+    before the refactor that made them parameters.
+
+    Checked twice: against an image built fresh by this same pair of
+    functions (so a regression in either shows up immediately, independent
+    of where the guide page happens to put the result), and against where
+    the shipped guide page actually draws it now — page 2, the recap at the
+    close of the 2-page tutorial (this card moved it off page 1 to make room
+    for the new material; see this card's Worktree notes, STRUCTURE).
+    """
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def generator() -> BookPDFGenerator:
+        return BookPDFGenerator(corpus_book("card-201-ac8"))
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def step_images(generator) -> List[np.ndarray]:
+        spec = generator.page_spec(2)
+        layout = example_line_layout(spec, CLUE, LENGTH)
+        return [
+            diagram_mask(draw_example_line(layout, ExampleStep("", "", filled, crossed)))
+            for filled, crossed in WORKED_EXAMPLE_FILLS
+        ]
+
+    def test_the_four_steps_solve_the_line_from_the_clue_to_the_finished_line(self):
+        """The narrative itself still holds (G-1): unchanged content, not
+        just unchanged pixels — monotonic progress, ending on a real solution.
+        """
+        solutions = placements()
+        assert len(solutions) == 3, "3 1 fits a row of 6 in three ways"
+        steps = [frozenset(filled) for filled, _ in WORKED_EXAMPLE_FILLS]
+        assert steps[0] == frozenset()
+        every = frozenset(i for i in range(LENGTH) if all(line[i] for line in solutions))
+        assert steps[1] == every
+        for earlier, later in zip(steps, steps[1:]):
+            assert earlier <= later
+        finished = tuple(i in steps[-1] for i in range(LENGTH))
+        assert finished in solutions
+        crossed_at_3 = WORKED_EXAMPLE_FILLS[2][1]
+        remaining = [line for line in solutions if not any(line[i] for i in crossed_at_3)]
+        assert remaining == [finished]
+
+    def test_each_step_is_pixel_identical_to_a_fresh_render_of_the_same_call(self, step_images):
+        """Idempotent: the same call, called twice, draws the same pixels —
+        the premise the page-2 comparison below relies on.
+        """
+        generator = BookPDFGenerator(corpus_book("card-201-ac8-again"))
+        spec = generator.page_spec(2)
+        layout = example_line_layout(spec, CLUE, LENGTH)
+        for (filled, crossed), expected in zip(WORKED_EXAMPLE_FILLS, step_images):
+            again = diagram_mask(draw_example_line(layout, ExampleStep("", "", filled, crossed)))
+            assert again.shape == expected.shape and np.array_equal(again, expected)
+
+    def test_the_shipped_guide_page_draws_these_same_four_steps_pixel_identical_on_page_2(
+        self, generator, step_images
+    ):
+        page = generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        mask = dark(page)
+        drawn = drawn_bands(mask)
+        assert len(drawn) >= 4, f"page 2 draws only {len(drawn)} diagrams; the recap is missing"
+        # The recap is the last 4 drawings on the full form (after the
+        # region split, the comparison, the pipeline and the difficulty box).
+        recap = drawn[-4:]
+        for (top, bottom), expected in zip(recap, step_images):
+            found = tight(mask[top : bottom + 1])
+            assert found.shape == expected.shape, (
+                f"a recap step is {found.shape} px, the fresh render is {expected.shape} px"
+            )
+            assert np.array_equal(found, expected), "a recap step's pixels differ from a fresh render"

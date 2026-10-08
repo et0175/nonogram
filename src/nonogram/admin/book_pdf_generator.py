@@ -115,8 +115,10 @@ the last named level, exactly as their band prints "Puzzle 12" and stops
 puzzle's 1-based position among the *puzzles* in print order, unbroken across
 the levels (AC-255), while a divider is a page like any other and takes its
 parity from its interior position like any other (FR-043, CARD-116). With the
-guide page at interior page 1 and the "Easy" divider at 2, the first puzzle
-page is interior page 3 — a right-hand page (AC-287).
+guide at interior pages 1-2 (CARD-201) and the "Easy" divider at 3, the first
+puzzle page is interior page 4 — a left-hand page (CARD-201 moved this
+example's own numbers by one; the relationship it illustrates — a divider's
+parity like any other page's — is unchanged, AC-287).
 
 Two-up pairing needs no level rule of its own: a page is shared only by two
 puzzles of **equal** tier (INV-010), and a level *is* a tier's run, so no pair
@@ -433,22 +435,37 @@ DIVIDER_PT = 14.4
 
 #: The guide page's title (FR-041, AC-324, CARD-167). It was "How to Use This
 #: Book" until the page started teaching how to solve.
+#:
+#: **Kept unchanged by CARD-201** (an owner-decision flag resolved in that
+#: card's Worktree notes): the source PDF's own heading is "HOW TO SOLVE A
+#: NONOGRAM" (all caps, singular), but this title is already an
+#: owner-approved, shipped one from CARD-167, and the source document's own
+#: capitalisation is its own design, not a wording instruction.
 GUIDE_TITLE = "How to Solve Nonograms"
+
+#: How many interior pages the guide occupies (FR-041, CARD-201): the
+#: leading term of :func:`interior_page_count`'s formula, named rather than
+#: a bare ``2`` in that function's return statement. ``1`` until CARD-201's
+#: "full 1-2 page tutorial" (FR-041's own deferred clause) landed as 2 pages.
+GUIDE_PAGE_COUNT = 2
 
 #: The line the guide page's worked example solves (FR-041, AC-325): the clue
 #: ``3 1`` on a row of six squares.
 WORKED_EXAMPLE_CLUE: Tuple[int, ...] = (3, 1)
 WORKED_EXAMPLE_LENGTH = 6
 
-#: The guide page's opening paragraph, printed under the title on the page's
-#: full form (CARD-167). A module constant since CARD-169 so the Finalise
-#: screen's preview reads the same text.
-GUIDE_INTRO = (
-    "Each number beside a row or above a column is a run of "
-    "filled squares in that line, in order, with at least one "
-    "empty square between runs. Fill the squares you are sure "
-    "of, and cross out the ones you are sure are empty."
-)
+#: Page 1's opening line, printed under the title on the page's full form
+#: (CARD-167; reworded verbatim from the owner's reference guide by
+#: CARD-201). A module constant since CARD-169 so the Finalise screen's
+#: preview reads the same text.
+#:
+#: **CARD-201 replaced this constant's text.** Until this card it explained
+#: the clue-to-run rule in prose ("Each number beside a row..."); that
+#: explanation did not disappear, it moved into :data:`GUIDE_BASIC_RULE_TEXT`
+#: beside its own worked diagram. This constant is now the tutorial's single
+#: opening sentence, read off
+#: ``docs/guides/how_to_solve_nonograms_v2.pdf`` page 1 verbatim.
+GUIDE_INTRO = "Read the clues. Fill what must be black. Mark what must be empty."
 
 #: The line that introduces the worked example on the page's full form,
 #: built from the clue and the row length it names (CARD-169).
@@ -458,11 +475,22 @@ GUIDE_EXAMPLE_HEADING = (
     + f" on a row of {WORKED_EXAMPLE_LENGTH} squares."
 )
 
-#: The guide page's closing sentence, printed on the page's full form
+#: Page 2's closing heading and sentence, printed on the page's full form
 #: (CARD-167; a module constant since CARD-169).
+#:
+#: **CARD-201 replaced this constant's text.** The owner's reference guide's
+#: own closing is CON-005's uniqueness guarantee stated for a reader rather
+#: than for a requirements document — "Every puzzle in this book is checked
+#: by the solver before publication. There is exactly one solution, and no
+#: puzzle that requires guessing is included." — carried verbatim; "The
+#: answers are at the back of the book." is this book's own practical
+#: addition (CARD-167), kept because it is still true and still useful, and
+#: not part of what the source document asks to be verbatim.
+GUIDE_CLOSING_HEADING = "One solution. No guessing."
 GUIDE_CLOSING = (
-    "Every puzzle in this book has exactly one solution. The "
-    "answers are at the back of the book."
+    "Every puzzle in this book is checked by the solver before publication. "
+    "There is exactly one solution, and no puzzle that requires guessing is "
+    "included. The answers are at the back of the book."
 )
 
 
@@ -515,6 +543,302 @@ WORKED_EXAMPLE_STEPS: Tuple[ExampleStep, ...] = (
         "4. Solved",
         frozenset({1, 2, 3, 5}),
         frozenset({0, 4}),
+    ),
+)
+
+
+# ---------------------------------------------------------------------------
+# The 2-page tutorial's new content (CARD-201)
+# ---------------------------------------------------------------------------
+#
+# FR-041's own deferred clause ("the full 1-2 page tutorial") — content
+# hand-transcribed from ``docs/guides/how_to_solve_nonograms_v2.pdf`` (2
+# pages, committed alongside this card as a read-only provenance record; no
+# code reads the PDF file itself at runtime, same pattern as every other
+# hard-coded guide-page string). Every line diagram below is drawn through
+# the generalised :func:`example_line_layout`/:func:`draw_example_line` pair
+# (point 1 of this card's "Target"); the three cell-state icons, the
+# 4-step assume/follow/breaks/proved pipeline and the difficulty box are the
+# genuinely new drawing shapes the card's own analysis named — see
+# :func:`guide_icon_layout`, :func:`_draw_pipeline_diagram` and
+# :func:`_draw_difficulty_box`.
+
+
+@dataclass(frozen=True)
+class GuideCellState:
+    """One of the three cell states the guide page teaches (CARD-201).
+
+    Attributes:
+        heading: "Unknown" / "Filled" / "Empty".
+        caption: Its one-line gloss ("not decided yet", ...).
+        filled: Whether the icon's bare cell is drawn filled.
+        crossed: Whether it is drawn crossed. Never both.
+    """
+
+    heading: str
+    caption: str
+    filled: bool
+    crossed: bool
+
+
+#: "Use three cell states" (page 1, item 3): Unknown, Filled, Empty, each a
+#: bare cell through :func:`guide_icon_layout` (CARD-201).
+GUIDE_CELL_STATES_HEADING = "Use three cell states"
+GUIDE_CELL_STATES: Tuple[GuideCellState, ...] = (
+    GuideCellState("Unknown", "not decided yet", filled=False, crossed=False),
+    GuideCellState("Filled", "definitely black", filled=True, crossed=False),
+    GuideCellState("Empty", "definitely white", filled=False, crossed=True),
+)
+
+#: "The basic rule" (page 1, item 2): a clue is a run of consecutive filled
+#: cells, in order, with at least one empty cell between runs — worked with
+#: "3 2 1" on the minimal 8-cell line that forces a unique arrangement
+#: (3 + 1 + 2 + 1 + 1 = 8), a different clue/length pair from the original
+#: worked example's "3 1" on 6 (G-1: that example is unchanged, not reused
+#: here).
+GUIDE_BASIC_RULE_HEADING = "The basic rule"
+GUIDE_BASIC_RULE_TEXT = (
+    "Each clue describes a run of consecutive filled cells. If a line has "
+    "more than one number, the runs appear in that order, with at least one "
+    "empty cell between them."
+)
+GUIDE_BASIC_RULE_CLUE: Tuple[int, ...] = (3, 2, 1)
+GUIDE_BASIC_RULE_LENGTH = 8
+GUIDE_BASIC_RULE_FILLED: frozenset = frozenset({0, 1, 2, 4, 5, 7})
+GUIDE_BASIC_RULE_CROSSED: frozenset = frozenset({3, 6})
+GUIDE_BASIC_RULE_CAPTION = "3 2 1 means 3 filled, gap, 2 filled, gap, 1 filled."
+
+
+@dataclass(frozen=True)
+class GuideRow:
+    """One drawn line inside a :class:`GuideTechnique`'s diagram (CARD-201).
+
+    Attributes:
+        filled: The 0-based squares drawn filled.
+        crossed: The 0-based squares drawn crossed out.
+        note: A short label printed beside this row alone ("certain",
+            "Compare"), or ``""`` for none.
+    """
+
+    filled: frozenset
+    crossed: frozenset
+    note: str = ""
+
+
+@dataclass(frozen=True)
+class GuideTechnique:
+    """One numbered technique on the guide's 2-page tutorial (CARD-201).
+
+    Every row of :attr:`rows` is drawn on the same ``(clue, length)`` line
+    through :func:`example_line_layout`/:func:`draw_example_line`, stacked top
+    to bottom — one row for a technique with a single diagram (CARD-201's
+    "complete lines"), several for one that compares positions ("squeeze
+    from both ends", "keep what every arrangement agrees on").
+
+    Attributes:
+        heading: The numbered heading, e.g. "1. Complete lines" — also the
+            short label printed in the page's labels-only fallback form,
+            since every heading here already is one line.
+        caption: The explanation paragraph, full form only.
+        clue: The row clue every one of ``rows`` is drawn with.
+        length: The row's length in cells.
+        rows: One or more :class:`GuideRow`, drawn stacked.
+    """
+
+    heading: str
+    caption: str
+    clue: Tuple[int, ...]
+    length: int
+    rows: Tuple[GuideRow, ...]
+
+
+#: "Start with certainty" (page 1, item 4): three techniques, each with one
+#: worked diagram (CARD-201).
+GUIDE_CERTAINTY_HEADING = "Start with certainty"
+GUIDE_TECHNIQUES_1: Tuple[GuideTechnique, ...] = (
+    GuideTechnique(
+        heading="1. Complete lines",
+        caption="If the clue fills the whole line, every cell is known immediately.",
+        clue=(10,),
+        length=10,
+        rows=(GuideRow(frozenset(range(10)), frozenset()),),
+    ),
+    GuideTechnique(
+        heading="2. Squeeze from both ends",
+        caption=(
+            "For a long run, place it as far left as possible and then as "
+            "far right as possible. Cells covered both times must be filled."
+        ),
+        clue=(8,),
+        length=10,
+        rows=(
+            GuideRow(frozenset(range(8)), frozenset()),
+            GuideRow(frozenset(range(2, 10)), frozenset()),
+            GuideRow(frozenset(range(2, 8)), frozenset(), note="certain"),
+        ),
+    ),
+    GuideTechnique(
+        heading="3. Mark spaces around a completed block",
+        caption=(
+            "Once a run is complete, cells immediately beside it must be "
+            "empty. Marking empties often unlocks the next deduction."
+        ),
+        clue=(3,),
+        length=8,
+        rows=(GuideRow(frozenset({2, 3, 4}), frozenset({1, 5})),),
+    ),
+)
+
+#: Page 1's closing callout (item 5): text only, no diagram (CARD-201).
+GUIDE_SWITCHING_HEADING = "Keep switching between rows and columns"
+GUIDE_SWITCHING_TEXT = (
+    "Every confirmed black or empty cell gives new information in the "
+    "crossing line. Recheck both directions after every discovery."
+)
+
+#: Page 2's title (CARD-201) — title-cased like the shipped :data:`GUIDE_TITLE`
+#: rather than the source PDF's all-caps heading (see the matching owner-
+#: decision note on :data:`GUIDE_TITLE` in the card's Worktree notes).
+GUIDE2_TITLE = "When the Puzzle Gets Harder"
+GUIDE2_INTRO = "Use stronger deductions only when the simpler ones stop producing new cells."
+
+#: Page 2's first two numbered techniques (item 2): each with one worked
+#: diagram, the same :class:`GuideTechnique` shape as page 1's (CARD-201).
+#: The third technique, "Assume, and watch it break", is not a line diagram
+#: (see :data:`GUIDE_ASSUME_STEPS` below) and so is not one of these.
+GUIDE_TECHNIQUES_2: Tuple[GuideTechnique, ...] = (
+    GuideTechnique(
+        heading="1. Use what you already know",
+        caption=(
+            "Known empty cells split a line into smaller regions. If a "
+            "remaining run cannot fit inside a region, those cells can be "
+            "ruled out."
+        ),
+        clue=(2, 3),
+        length=10,
+        rows=(
+            GuideRow(frozenset(), frozenset({3, 5})),
+            GuideRow(
+                frozenset(),
+                frozenset({3, 4, 5}),
+                note="The one-cell region cannot hold 2 or 3.",
+            ),
+        ),
+    ),
+    GuideTechnique(
+        heading="2. Keep what every arrangement agrees on",
+        caption=(
+            "Consider the legal ways the clue can still fit the line. A "
+            "cell that is filled in every surviving arrangement is certain; "
+            "a cell empty in every arrangement is certainly empty."
+        ),
+        clue=(3,),
+        length=10,
+        rows=(
+            GuideRow(frozenset({0, 1, 2}), frozenset({4})),
+            GuideRow(frozenset({1, 2, 3}), frozenset({4})),
+            GuideRow(frozenset({5, 6, 7}), frozenset({4})),
+            # Capitalised (not "compare"): an x-height-only word has no
+            # capital or ascender for the cap-height-to-baseline measurement
+            # CON-020's floor is checked by (this suite's own convention
+            # since CARD-149) to find a top edge above the x-height, which
+            # undercounts its size by nearly a quarter even though it is
+            # drawn at the same 11 pt as every other line here — the same
+            # class of defect CARD-167 fixed by rewording its own copy
+            # (this file's docstring: "'way.' no longer wraps onto its own
+            # line"). Measured while building CARD-201.
+            GuideRow(frozenset(), frozenset({4}), note="Compare"),
+        ),
+    ),
+)
+
+
+#: The four icon kinds :func:`_draw_pipeline_diagram` knows how to draw —
+#: see :class:`GuidePipelineStep`.
+PIPELINE_ICON_SQUARE = "square"
+PIPELINE_ICON_DOTS = "dots"
+PIPELINE_ICON_BANG = "bang"
+PIPELINE_ICON_CROSS = "cross"
+
+
+@dataclass(frozen=True)
+class GuidePipelineStep:
+    """One box of the "assume, and watch it break" pipeline (CARD-201).
+
+    Attributes:
+        label: The box's word ("ASSUME", "FOLLOW", "BREAKS", "PROVED").
+        icon: One of the ``PIPELINE_ICON_*`` kinds, drawn under the word by
+            :func:`_draw_pipeline_diagram`. A **kind**, not a glyph: the
+            source PDF draws ASSUME as a filled square and PROVED as a cross,
+            the same filled-square and crossed-square ink this page already
+            draws for the "Filled"/"Empty" cell states
+            (:data:`GUIDE_CELL_STATES`), so those two are drawn with
+            :class:`ImageDraw`'s own rectangle/line primitives rather than a
+            Unicode glyph a fallback face might not carry; FOLLOW's "..." and
+            BREAKS's "!" are plain ASCII, safe on any face including the
+            no-Arial fallback (``without_arial`` in
+            ``tests/test_book_interior_type_floor.py``). "No new iconography
+            invented beyond what the source PDF already shows" (this card's
+            own "Target") — these are the same four marks, drawn in the
+            page's established visual language instead of its font's.
+    """
+
+    label: str
+    icon: str
+
+
+#: Page 2's third technique (item 2c): not a puzzle-line diagram — a simple
+#: 4-box sequence with an arrow between each (CARD-201). Drawn by
+#: :func:`_draw_pipeline_diagram`.
+GUIDE_ASSUME_HEADING = "3. Assume, and watch it break"
+GUIDE_ASSUME_TEXT = (
+    "If everything stalls, temporarily treat one unsettled cell as filled "
+    "and follow the consequences through its row and column. If a clue "
+    "becomes impossible, the assumption was wrong."
+)
+GUIDE_ASSUME_STEPS: Tuple[GuidePipelineStep, ...] = (
+    GuidePipelineStep("ASSUME", PIPELINE_ICON_SQUARE),
+    GuidePipelineStep("FOLLOW", PIPELINE_ICON_DOTS),
+    GuidePipelineStep("BREAKS", PIPELINE_ICON_BANG),
+    GuidePipelineStep("PROVED", PIPELINE_ICON_CROSS),
+)
+GUIDE_ASSUME_CLOSING = (
+    "This is not guessing: erase the temporary trial and keep only what the "
+    "contradiction proves."
+)
+
+
+@dataclass(frozen=True)
+class DifficultyLabel:
+    """One column of the "what the difficulty labels mean" box (CARD-201).
+
+    Attributes:
+        name: "EASY" / "MEDIUM" / "HARD" — ADR-0031's three tiers.
+        text: Its one-sentence gloss, carried verbatim from the source PDF
+            (this card's "Target" point 3: "this box alone is the doc's
+            entire description of what our difficulty levels are about").
+    """
+
+    name: str
+    text: str
+
+
+#: Page 2, item 3: the difficulty-label box, drawn by
+#: :func:`_draw_difficulty_box` (CARD-201).
+GUIDE_DIFFICULTY_HEADING = "What the difficulty labels mean"
+GUIDE_DIFFICULTY_LABELS: Tuple[DifficultyLabel, ...] = (
+    DifficultyLabel(
+        "EASY",
+        "Squeezing and direct deductions are enough from start to finish.",
+    ),
+    DifficultyLabel(
+        "MEDIUM",
+        "Needs deeper line logic and may need contradiction for part of "
+        "the grid.",
+    ),
+    DifficultyLabel(
+        "HARD",
+        "Contradiction reasoning is needed through much of the grid.",
     ),
 )
 
@@ -877,6 +1201,128 @@ def _set_band(draw: ImageDraw.ImageDraw, band: HeaderBand, text: str, room: int)
     )
 
 
+def _guide_rule_width(spec: PageSpec) -> int:
+    """This page's thin rule width, in pixels (CARD-201).
+
+    Borrowed from a puzzle probe layout (:data:`_PROBE_CLUES`, the same probe
+    :func:`page_frame` reads) so the pipeline diagram's and the difficulty
+    box's borders are drawn at the same weight as every ruled line on this
+    book's pages (ADR-0037/R2), through ``compute_layout`` rather than an
+    invented stroke width (ADR-0036/R2, G-3).
+    """
+    return compute_layout(_PROBE_CLUES, _PROBE_CLUES, spec).thin_rule
+
+
+def _draw_pipeline_diagram(
+    spec: PageSpec, steps: Tuple[GuidePipelineStep, ...], label_font: Any
+) -> Image.Image:
+    """"Assume, and watch it break": four bordered boxes joined by arrows (CARD-201).
+
+    Not a puzzle-line diagram (this card's own "Target" point 2) — there is
+    no clue, no grid, nothing for :func:`example_line_layout` to lay out — so
+    this draws directly: each box bordered at :func:`_guide_rule_width`,
+    lettered with the step's word and, under it, its icon (a filled or
+    crossed square for ASSUME/PROVED, drawn with the same primitives
+    :func:`draw_example_line` fills and crosses a cell with; plain ASCII
+    ``"..."``/``"!"`` for FOLLOW/BREAKS — see :class:`GuidePipelineStep`), an
+    arrowhead-tipped line joining each box to the next. Pure black ink, no
+    fill but the icon's own (G-5).
+    """
+    rule = _guide_rule_width(spec)
+    border = max(rule, 1)
+    pad = label_font.size
+    icon = label_font.size * 2
+    bbox = label_font.getbbox("Mg")
+    label_h = bbox[3] - bbox[1]
+    box_w = int(max(label_font.getlength(step.label) for step in steps) + pad * 2)
+    box_h = int(pad * 3 + label_h + icon)
+    arrow_w = pad * 3
+    width = len(steps) * box_w + (len(steps) - 1) * arrow_w
+    canvas = Image.new("RGB", (width, box_h), BACKGROUND)
+    draw = ImageDraw.Draw(canvas)
+    icon_top = pad * 2 + label_h
+    x = 0
+    for index, step in enumerate(steps):
+        draw.rectangle((x, 0, x + box_w, box_h - 1), outline=INK, width=border)
+        draw.text(
+            (x + box_w / 2, pad), step.label, font=label_font, fill=INK, anchor="ma"
+        )
+        cx, cy = x + box_w / 2, icon_top + icon / 2
+        half = icon * 0.3
+        if step.icon == PIPELINE_ICON_SQUARE:
+            draw.rectangle((cx - half, cy - half, cx + half, cy + half), fill=INK)
+        elif step.icon == PIPELINE_ICON_CROSS:
+            draw.line([(cx - half, cy - half), (cx + half, cy + half)], fill=INK, width=border)
+            draw.line([(cx - half, cy + half), (cx + half, cy - half)], fill=INK, width=border)
+        elif step.icon == PIPELINE_ICON_DOTS:
+            draw.text((cx, cy), "...", font=label_font, fill=INK, anchor="mm")
+        elif step.icon == PIPELINE_ICON_BANG:
+            draw.text((cx, cy), "!", font=label_font, fill=INK, anchor="mm")
+        else:  # pragma: no cover - defensive; every kind above is handled
+            raise ValueError(f"unknown pipeline icon kind: {step.icon!r}")
+        x += box_w
+        if index < len(steps) - 1:
+            mid_y = box_h // 2
+            tip_x = x + arrow_w - border
+            draw.line([(x + border, mid_y), (tip_x, mid_y)], fill=INK, width=border)
+            head = max(border * 3, pad // 2)
+            draw.polygon(
+                [(tip_x, mid_y), (tip_x - head, mid_y - head), (tip_x - head, mid_y + head)],
+                fill=INK,
+            )
+            x += arrow_w
+    return canvas
+
+
+def _draw_difficulty_box(
+    spec: PageSpec,
+    labels: Tuple[DifficultyLabel, ...],
+    measure: int,
+    text_font: Any,
+    leading: int,
+    *,
+    with_text: bool,
+) -> Image.Image:
+    """"What the difficulty labels mean": a bordered column box (CARD-201).
+
+    A ``measure``-wide box, one column per entry of ``labels``, bordered at
+    this page's own thin rule (:func:`_guide_rule_width`) — the source PDF's
+    grey-filled highlight box becomes a plain bordered box in the book's own
+    ink and paper, never a new grey ink (G-5). Each column holds its tier's
+    name; when ``with_text`` is set (the full and captions-only fallback
+    forms) its one-sentence gloss follows, wrapped to the column's own
+    measure (:func:`wrap_words`). ``with_text=False`` (the labels-only form)
+    draws the three names alone, so even the page's narrowest fallback still
+    says what EASY/MEDIUM/HARD are called.
+    """
+    rule = _guide_rule_width(spec)
+    pad = text_font.size
+    gutter = pad
+    column_w = (measure - 2 * pad - gutter * (len(labels) - 1)) // len(labels)
+    bbox = text_font.getbbox("Mg")
+    name_h = bbox[3] - bbox[1]
+    columns: List[List[str]] = []
+    for label in labels:
+        lines = [label.name]
+        if with_text:
+            lines.extend(wrap_words(label.text, text_font, column_w))
+        columns.append(lines)
+    body_lines = max(len(lines) - 1 for lines in columns)
+    height = pad * 2 + name_h + (pad // 2 + body_lines * leading if body_lines else 0)
+    canvas = Image.new("RGB", (measure, height), BACKGROUND)
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle((0, 0, measure - 1, height - 1), outline=INK, width=rule)
+    x = pad
+    for lines in columns:
+        draw.text((x, pad), lines[0], font=text_font, fill=INK)
+        y = pad + name_h + pad // 2
+        for line in lines[1:]:
+            draw.text((x, y), line, font=text_font, fill=INK)
+            y += leading
+        x += column_w + gutter
+    return canvas
+
+
 @dataclass(frozen=True)
 class PuzzlePagePlan:
     """One page of the interior's puzzle section: one puzzle, or two (FR-040).
@@ -1188,18 +1634,31 @@ def page_frame(spec: PageSpec) -> PageFrame:
     )
 
 
-def example_line_layout(spec: PageSpec) -> Layout:
-    """The worked example's line, laid out by COMP-007 on the guide page's sheet.
+def example_line_layout(spec: PageSpec, clue: Tuple[int, ...], length: int) -> Layout:
+    """One guide-page line, laid out by COMP-007 on the guide page's sheet.
 
     :func:`~nonogram.export.layout.compute_layout` is asked for a one-row
-    puzzle whose row clue is :data:`WORKED_EXAMPLE_CLUE`, on ``spec`` — the
-    book's own sheet — so the cell pitch, the thin and heavy rules, the frame
-    and the clue size are the ones a puzzle on this book's page gets. The
-    column clues are placeholders that only give the layout its six columns:
-    the column gutter they occupy is not drawn (:func:`draw_example_line`).
+    puzzle whose row clue is ``clue`` on a line of ``length`` cells, on
+    ``spec`` — the book's own sheet — so the cell pitch, the thin and heavy
+    rules, the frame and the clue size are the ones a puzzle on this book's
+    page gets. The column clues are placeholders that only give the layout
+    its ``length`` columns: the column gutter they occupy is not drawn
+    (:func:`draw_example_line`).
+
+    **Generalised by CARD-201** (AC-8): until this card ``clue`` and
+    ``length`` were always :data:`WORKED_EXAMPLE_CLUE` and
+    :data:`WORKED_EXAMPLE_LENGTH`, read off the module rather than taken as
+    arguments — the one worked example the guide page drew. The 2-page
+    tutorial draws several different lines (a 10-cell complete line, an
+    8-on-10 squeeze, a 3-on-8 mark-spaces line, and more), each its own
+    ``(clue, length)`` pair through this same call, so the pair became
+    parameters instead of a second hard-wired constant per new diagram. The
+    four original worked-example steps pass :data:`WORKED_EXAMPLE_CLUE`/
+    :data:`WORKED_EXAMPLE_LENGTH` explicitly now; the signature changed, not
+    what that call draws (AC-8 pins the output pixel-identical).
     """
-    columns = ((0,),) * WORKED_EXAMPLE_LENGTH
-    layout = compute_layout((WORKED_EXAMPLE_CLUE,), columns, spec)
+    columns = ((0,),) * length
+    layout = compute_layout((clue,), columns, spec)
     # A single row: the vertical rules and the frame start at the grid's top
     # instead of running up through the column gutter, and no column clue is
     # written.
@@ -1212,8 +1671,35 @@ def example_line_layout(spec: PageSpec) -> Layout:
     )
 
 
+def guide_icon_layout(spec: PageSpec) -> Layout:
+    """A single bare cell at the book's own pitch — no clue, no frame (CARD-201).
+
+    :func:`example_line_layout` trims :func:`~nonogram.export.layout.compute_layout`'s
+    output to one row with its row clue kept (the worked example always names
+    its line's clue). The three cell-state icons (Unknown / Filled / Empty)
+    are not a line of a puzzle at all — a bare square, captioned in prose
+    beside it rather than numbered — so this trims further: the column clue
+    is cleared exactly as :func:`example_line_layout` does, the row clue is
+    cleared too, and the frame is dropped so :func:`draw_example_line`'s crop
+    starts at the grid's own left edge (``xs[0]``) instead of the row-clue
+    gutter's. What is left is the grid's own 1x1 box and nothing else — still
+    sized and ruled at this page's cell pitch and rule widths, still reached
+    only through ``compute_layout`` (ADR-0036/R2, G-3): no new placement
+    arithmetic, only a narrower slice of what it already returns.
+    """
+    layout = compute_layout(((0,),), ((0,),), spec)
+    top = layout.grid_top
+    return replace(
+        layout,
+        vertical_lines=tuple(replace(line, start=top) for line in layout.vertical_lines),
+        row_clues=(),
+        column_clues=(),
+        frame=None,
+    )
+
+
 def draw_example_line(layout: Layout, step: ExampleStep) -> Image.Image:
-    """One step of the worked example, cropped tight around its ink.
+    """One step of a guide-page line, cropped tight around its ink.
 
     Filled squares first, then crosses, then the rules and frame over them
     (:func:`_stroke_drawing`, the two-up page's stroking) and the clue numbers
@@ -1223,6 +1709,13 @@ def draw_example_line(layout: Layout, step: ExampleStep) -> Image.Image:
 
     The image returned starts at the drawing's left edge (minus a heavy rule
     of white) and at the grid's top edge (minus a heavy rule of white).
+
+    **Already general (CARD-201).** This function reads nothing module-level:
+    ``layout``'s own extent (``layout.vertical_lines``/``horizontal_lines``)
+    bounds the loops below, so the one-row six-column worked example, a
+    10-cell complete line, an 8-on-10 squeeze and a bare 1x1 cell icon
+    (:func:`guide_icon_layout`) all draw through this same call — only
+    :func:`example_line_layout`'s signature needed generalising (AC-8).
     """
     pad = layout.thick_rule
     xs = [line.position for line in layout.vertical_lines]
@@ -1282,10 +1775,11 @@ def interior_page_count(
 ) -> int:
     """The interior's page count for ``puzzle_count`` rendered puzzles.
 
-    The page plan :meth:`BookPDFGenerator.interior` builds — one guide page,
-    one divider per non-empty level, the puzzle pages, then (only when there
-    are puzzles) the SOLUTIONS divider and the answer pages; never the cover
-    (FR-030 as amended by FR-043).
+    The page plan :meth:`BookPDFGenerator.interior` builds — :data:`GUIDE_PAGE_COUNT`
+    guide pages (CARD-201: the 2-page "how to solve" tutorial, FR-041's own
+    deferred clause), one divider per non-empty level, the puzzle pages, then
+    (only when there are puzzles) the SOLUTIONS divider and the answer pages;
+    never the cover (FR-030 as amended by FR-043).
     ``interior`` checks its own output against this, so a change to the make-up
     of the pages that forgets this function fails loudly instead of shipping a
     book whose stated page count is not its page count.
@@ -1350,7 +1844,7 @@ def interior_page_count(
     )
     if dividers < 0:
         raise ValueError(f"divider page count cannot be negative, got {dividers}")
-    return 1 + dividers + pages + (answers + 1 if puzzle_count else 0)
+    return GUIDE_PAGE_COUNT + dividers + pages + (answers + 1 if puzzle_count else 0)
 
 
 def _named_puzzles(
@@ -1561,19 +2055,30 @@ class BookPDFGenerator:
         hard_count: int,
         page_number: int = 1,
     ) -> Image.Image:
-        """The guide page: "How to Solve Nonograms" and a worked example (FR-041).
+        """One page of the 2-page "how to solve" tutorial (FR-041, CARD-201).
 
         Args:
             puzzle_count: Total number of puzzles
             easy_count: Number of easy puzzles
             medium_count: Number of medium puzzles
             hard_count: Number of hard puzzles
-            page_number: Its 1-based position in the interior. The guide page
-                *is* interior page 1 (FR-043), so the default is the only
-                value the export uses; it is a parameter because the page's
-                margins are mirrored by that position like any other page's.
+            page_number: Its 1-based position in the interior, **and** which
+                half of the tutorial it draws: odd (1) draws page 1 (the
+                title :data:`GUIDE_TITLE`, the basic rule, the three cell
+                states, "start with certainty" and the original worked
+                example); even (2) draws page 2 (:data:`GUIDE2_TITLE`, the
+                harder techniques, the difficulty-label box and the closing).
+                The two always coincide — the guide is always interior pages
+                1 and 2 — so this one parameter carries both meanings rather
+                than adding a second that could disagree with it (a STRUCTURE
+                decision recorded in this card's Worktree notes). The page's
+                margins are mirrored by this same position like any other
+                page's (FR-043).
 
-        Three counts, one per tier, since CARD-098 retired ADR-0025's fourth.
+        Three counts, one per tier, since CARD-098 retired ADR-0025's fourth;
+        printed on page 2, beside the difficulty-label box they give meaning
+        to (CARD-201 moved them off page 1, which is now the basic-technique
+        half of the tutorial and has no room left for them).
 
         **Its type is stated in points** — :data:`GUIDE_BODY_PT`,
         :data:`GUIDE_TITLE_PT`, :data:`GUIDE_LEADING_PT` — and converted to
@@ -1581,15 +2086,32 @@ class BookPDFGenerator:
         (CARD-149). The title is set smaller only when it is wider than the
         usable measure, and never below the body size.
 
-        **The worked example (CARD-167).** :data:`WORKED_EXAMPLE_STEPS`, each
-        step a caption over the line drawn by :func:`draw_example_line` from
-        :func:`example_line_layout` — the book's own cell, rules and clue
-        size. Text is wrapped to the usable measure. The page is set in the
-        first of three forms whose last mark sits above the bottom margin: the
-        full one (a short explanation, the puzzle counts, the example with
-        full captions, a closing line); the example with full captions alone;
-        or the example with short labels, which is drawn whatever happens. It
-        is always one page.
+        **Every diagram is one of two shapes.** A line diagram (the basic
+        rule's "3 2 1", every :class:`GuideTechnique`'s rows, the original
+        worked example) is drawn by :func:`draw_example_line` over a layout
+        :func:`example_line_layout` built for that diagram's own clue and
+        length (CARD-201 generalised both to take them as arguments, AC-8);
+        a bare cell icon (:data:`GUIDE_CELL_STATES`) the same way over
+        :func:`guide_icon_layout`. The pipeline and the difficulty box are
+        not puzzle-line diagrams and are drawn by
+        :func:`_draw_pipeline_diagram`/:func:`_draw_difficulty_box`.
+
+        **Five fallback forms, per page — the original three, plus two more
+        CARD-201 adds for the 10 cm minimum trim alone:** the full one
+        (every heading, every explanation paragraph, every diagram, the
+        closing); the captions form (drops the explanation paragraphs and
+        the puzzle-count/closing text, keeps every heading, diagram and
+        short note); the labels form (headings and diagrams alone, every
+        note dropped too); and two more, strictly more aggressive, that drop
+        specific diagrams rather than any text below CON-020's floor — see
+        :func:`set_page`'s own ``bare_level`` parameter inside this method.
+        Whichever is the first whose last mark sits above the bottom margin
+        is drawn. A 2-page tutorial is more text than the one page it
+        replaces, so the smallest stored trims need this fallback at least
+        as much as the original page did (AC-4) — measured (not assumed) to
+        need it: the 10 cm minimum trim does not fit even the labels form
+        without the two extra levels; every other stored trim (Book 1, 6 x 9
+        in) fits one of the original three. See this card's Worktree notes.
 
         Returns:
             Guide page as PIL Image
@@ -1598,6 +2120,7 @@ class BookPDFGenerator:
         frame = page_frame(spec)
         guide = Image.new("RGB", (frame.width, frame.height), "white")
         draw = ImageDraw.Draw(guide)
+        page_one = page_number % 2 == 1
 
         # The page's type, stated in points and converted once against the
         # resolution this page is drawn at (CARD-149, AC-236/AC-238). Pillow
@@ -1610,63 +2133,262 @@ class BookPDFGenerator:
         measure = frame.right - frame.left
         title_font = _guide_face(title_size)
         text_font = _guide_face(body_size)
+        title_text = GUIDE_TITLE if page_one else GUIDE2_TITLE
         # On a narrow trim the title is wider than the measure: set it a pixel
         # smaller at a time until it fits, never below the body size.
-        while title_size > body_size and title_font.getlength(GUIDE_TITLE) > measure:
+        while title_size > body_size and title_font.getlength(title_text) > measure:
             title_size -= 1
             title_font = _guide_face(title_size)
 
         # Inside the usable area the layout reported, so the guide page keeps
         # the book's mirrored margins like every other interior page.
-        draw.text((frame.left, frame.top), GUIDE_TITLE, fill="black", font=title_font)
+        draw.text((frame.left, frame.top), title_text, fill="black", font=title_font)
 
-        example = example_line_layout(spec)
-        lines = [draw_example_line(example, step) for step in WORKED_EXAMPLE_STEPS]
         first = frame.top + type_px(GUIDE_TITLE_GAP_PT, self.dpi)
         ascent, descent = text_font.getmetrics()
 
-        def set_page(full: bool, captions: bool) -> Tuple[List[Tuple[int, Any]], int]:
+        # Every line diagram this page draws, built once regardless of which
+        # fallback form is chosen: one `example_line_layout` call per
+        # distinct (clue, length) pair, cached so a technique whose rows
+        # share a line (the squeeze, the comparison) lays it out once.
+        line_layouts: Dict[Tuple[Tuple[int, ...], int], Layout] = {}
+
+        def line_image(clue: Tuple[int, ...], length: int, filled: frozenset, crossed: frozenset) -> Image.Image:
+            key = (clue, length)
+            layout = line_layouts.get(key)
+            if layout is None:
+                layout = example_line_layout(spec, clue, length)
+                line_layouts[key] = layout
+            return draw_example_line(layout, ExampleStep("", "", filled, crossed))
+
+        def technique_rows(technique: GuideTechnique) -> List[Image.Image]:
+            return [
+                line_image(technique.clue, technique.length, row.filled, row.crossed)
+                for row in technique.rows
+            ]
+
+        icon_layout = guide_icon_layout(spec)
+        cell_state_images = [
+            draw_example_line(
+                icon_layout,
+                ExampleStep(
+                    "",
+                    "",
+                    frozenset({0}) if state.filled else frozenset(),
+                    frozenset({0}) if state.crossed else frozenset(),
+                ),
+            )
+            for state in GUIDE_CELL_STATES
+        ]
+        basic_rule_image = line_image(
+            GUIDE_BASIC_RULE_CLUE,
+            GUIDE_BASIC_RULE_LENGTH,
+            GUIDE_BASIC_RULE_FILLED,
+            GUIDE_BASIC_RULE_CROSSED,
+        )
+        worked_example_layout = line_layouts.setdefault(
+            (WORKED_EXAMPLE_CLUE, WORKED_EXAMPLE_LENGTH),
+            example_line_layout(spec, WORKED_EXAMPLE_CLUE, WORKED_EXAMPLE_LENGTH),
+        )
+        worked_example_images = [
+            draw_example_line(worked_example_layout, step) for step in WORKED_EXAMPLE_STEPS
+        ]
+        pipeline_image = _draw_pipeline_diagram(spec, GUIDE_ASSUME_STEPS, text_font)
+
+        def set_page(
+            full: bool, captions: bool, bare_level: int = 0
+        ) -> Tuple[List[Tuple[int, Any]], int]:
             """Every mark below the title as ``(y, text or image)``, and the
-            lowest pixel they reach."""
+            lowest pixel they reach.
+
+            ``bare_level`` extends the original three fallback forms
+            (CARD-201) with two more, each strictly more aggressive than the
+            last, so a page that misses the labels-only form by a handful of
+            pixels does not jump straight to the most stripped-down one —
+            every stored trim this project ships fits one of these five
+            (measured, not assumed — see this card's Worktree notes), the 10
+            cm minimum trim needing the last:
+
+            * ``0`` (labels-only, unchanged): every heading, every diagram in
+              full, the worked-example recap and the pipeline on page 2.
+            * ``1``: a technique with more than one row (the squeeze, the
+              region split, the arrangement comparison) draws only its last
+              row — the one that states the conclusion, not the reasoning
+              that reaches it — and page 2 drops the pipeline diagram and the
+              worked-example recap (a restatement of a technique page 1
+              already taught in full, not new material).
+            * ``2``: also drops page 1's purely illustrative cell-state
+              pictures (the heading alone still names "Unknown"/"Filled"/
+              "Empty") and page 1's "mark spaces" diagram (heading only), and
+              tightens the gaps between sections — never any text below
+              CON-020's floor, which no level here touches: only which
+              diagrams and gaps are drawn change, never a font size.
+            """
             marks: List[Tuple[int, Any]] = []
-            y = first
-            bottom = y
+            state = {"y": first, "bottom": first}
 
             def paragraph(text: str) -> None:
-                nonlocal y, bottom
                 for line in wrap_words(text, text_font, measure):
-                    marks.append((y, line))
-                    bottom = y + ascent + descent
-                    y += leading
+                    marks.append((state["y"], line))
+                    state["bottom"] = state["y"] + ascent + descent
+                    state["y"] += leading
 
-            if full:
-                paragraph(GUIDE_INTRO)
-                y += leading
-                paragraph(f"This book contains {puzzle_count} puzzles:")
-                paragraph(f"Easy: {easy_count}")
-                paragraph(f"Medium: {medium_count}")
-                paragraph(f"Hard: {hard_count}")
-                y += leading
-                paragraph(GUIDE_EXAMPLE_HEADING)
-            for step, image in zip(WORKED_EXAMPLE_STEPS, lines):
-                paragraph(step.caption if captions else step.label)
-                marks.append((y, image))
-                bottom = y + image.height
-                y = bottom + leading // 2
-            if full:
-                y += leading // 2
-                paragraph(GUIDE_CLOSING)
-            return marks, bottom
+            def picture(img: Image.Image, gap: int) -> None:
+                marks.append((state["y"], img))
+                state["bottom"] = state["y"] + img.height
+                state["y"] = state["bottom"] + gap
 
-        for full, captions in ((True, True), (False, True), (False, False)):
-            marks, bottom = set_page(full, captions)
+            def space(amount: Optional[int] = None) -> None:
+                if amount is None:
+                    amount = leading // 6 if bare_level >= 2 else leading // 2
+                state["y"] += amount
+
+            def technique(
+                entry: GuideTechnique,
+                rows: List[Image.Image],
+                *,
+                draw_diagram: bool = True,
+            ) -> None:
+                paragraph(entry.heading)
+                if full:
+                    paragraph(entry.caption)
+                if draw_diagram:
+                    # Level >= 1 on a technique with more than one row: the
+                    # final row is the one that states the technique's
+                    # conclusion ("certain" on the squeeze, the ruled-out
+                    # cells on the region split) — the intermediate rows are
+                    # the reasoning that gets there, droppable before the
+                    # conclusion itself is.
+                    last_row_only = bare_level >= 1
+                    drawn = list(zip(entry.rows, rows))[-1:] if last_row_only else zip(entry.rows, rows)
+                    for row, row_image in drawn:
+                        picture(row_image, gap=0)
+                        if row.note and captions:
+                            paragraph(row.note)
+                space(0 if bare_level >= 2 else leading // 4)
+
+            if page_one:
+                if full:
+                    paragraph(GUIDE_INTRO)
+                    space()
+
+                paragraph(GUIDE_BASIC_RULE_HEADING)
+                if full:
+                    paragraph(GUIDE_BASIC_RULE_TEXT)
+                picture(basic_rule_image, gap=0)
+                if captions:
+                    paragraph(GUIDE_BASIC_RULE_CAPTION)
+                space()
+
+                paragraph(GUIDE_CELL_STATES_HEADING)
+                if bare_level >= 2:
+                    pass
+                else:
+                    for cell_state, cell_image in zip(GUIDE_CELL_STATES, cell_state_images):
+                        paragraph(cell_state.heading)
+                        if captions:
+                            paragraph(cell_state.caption)
+                        picture(cell_image, gap=leading // 4)
+                space()
+
+                paragraph(GUIDE_CERTAINTY_HEADING)
+                for index, entry in enumerate(GUIDE_TECHNIQUES_1):
+                    last = index == len(GUIDE_TECHNIQUES_1) - 1
+                    technique(
+                        entry, technique_rows(entry),
+                        draw_diagram=not (bare_level >= 2 and last),
+                    )
+
+                paragraph(GUIDE_SWITCHING_HEADING)
+                if full:
+                    paragraph(GUIDE_SWITCHING_TEXT)
+            else:
+                if full:
+                    paragraph(GUIDE2_INTRO)
+                    space()
+
+                for entry in GUIDE_TECHNIQUES_2:
+                    technique(entry, technique_rows(entry))
+
+                paragraph(GUIDE_ASSUME_HEADING)
+                if full:
+                    paragraph(GUIDE_ASSUME_TEXT)
+                if bare_level < 1:
+                    picture(pipeline_image, gap=leading // 4)
+                if full:
+                    paragraph(GUIDE_ASSUME_CLOSING)
+                space()
+
+                paragraph(GUIDE_DIFFICULTY_HEADING)
+                box_image = _draw_difficulty_box(
+                    spec, GUIDE_DIFFICULTY_LABELS, measure, text_font, leading,
+                    with_text=captions,
+                )
+                picture(box_image, gap=leading // 2)
+
+                if full:
+                    paragraph(f"This book contains {puzzle_count} puzzles:")
+                    paragraph(f"Easy: {easy_count}")
+                    paragraph(f"Medium: {medium_count}")
+                    paragraph(f"Hard: {hard_count}")
+                    space()
+
+                # CARD-167's original worked example (G-1: unchanged content,
+                # wording and pixel output) — "one of several worked examples
+                # on the 2-page tutorial now, not replaced" (G-1's own
+                # wording). Placed here, at the close of page 2, rather than
+                # among page 1's new content: measured (not assumed) to be
+                # the fit that lets page 1's own, newly-added material (the
+                # basic rule, the three cell states and three "start with
+                # certainty" techniques) reach its own best fallback form on
+                # every stored trim, Book 1 included — see this card's
+                # Worktree notes, STRUCTURE. Dropped first at ``bare_level``
+                # 1: it is a recap of a technique page 1 already taught in
+                # full, not new material.
+                if bare_level < 1:
+                    if captions:
+                        paragraph(GUIDE_EXAMPLE_HEADING)
+                    for step, step_image in zip(WORKED_EXAMPLE_STEPS, worked_example_images):
+                        paragraph(step.caption if captions else step.label)
+                        picture(step_image, gap=leading // 2)
+                    space()
+
+                paragraph(GUIDE_CLOSING_HEADING)
+                if full:
+                    paragraph(GUIDE_CLOSING)
+
+            return marks, state["bottom"]
+
+        for full, captions, bare_level in (
+            (True, True, 0),
+            (False, True, 0),
+            (False, False, 0),
+            (False, False, 1),
+            (False, False, 2),
+        ):
+            marks, bottom = set_page(full, captions, bare_level)
             if bottom <= frame.bottom:
                 break
+        # A line diagram's own image starts a heavy rule's width (``pad``)
+        # before its logical left edge (:func:`draw_example_line`'s own
+        # docstring: "starts at the drawing's left edge... minus a heavy
+        # rule of white"), so it must be pasted that same distance left of
+        # ``frame.left`` for its logical content — not its own blank
+        # bleed-margin — to land where the text above and below it does.
+        # Text has no such margin and is drawn straight at ``frame.left``.
+        # Measured while building this card: pasting every diagram at
+        # ``frame.left`` unadjusted (as the single-diagram original page
+        # did, where it never reached any stored trim's right edge) shifts
+        # a wide diagram's ink a heavy rule further right than its own
+        # caption text — invisible until a 10-cell line with a 3-digit
+        # clue, at the 10 cm minimum trim, crossed the usable area's own
+        # right edge because of it.
+        pad = icon_layout.thick_rule
         for y, mark in marks:
             if isinstance(mark, str):
                 draw.text((frame.left, y), mark, fill="black", font=text_font)
             else:
-                guide.paste(mark, (frame.left, y))
+                guide.paste(mark, (frame.left - pad, y))
 
         return guide
 
@@ -2152,7 +2874,7 @@ class BookPDFGenerator:
     def puzzle_pages(
         self,
         payloads: List[ExportPayload],
-        first_page: int = 2,
+        first_page: int = 1 + GUIDE_PAGE_COUNT,
         ids: Optional[List[Any]] = None,
         first_number: int = 1,
     ) -> List[PuzzlePagePlan]:
@@ -2198,11 +2920,12 @@ class BookPDFGenerator:
             payloads: The drawable puzzles in print order. A payload's
                 ``difficulty`` is the row's stored tier text, and its clue sets
                 are what the pair is fitted from.
-            first_page: The interior position of the first puzzle page. Page 1
-                is the guide page, so the default is 2 — which is what it is
-                for a book with no levels to divide; with CARD-128's dividers
-                :meth:`puzzle_section` passes the page after each level's
-                divider instead.
+            first_page: The interior position of the first puzzle page. Pages
+                1..:data:`GUIDE_PAGE_COUNT` are the guide (CARD-201's 2-page
+                tutorial), so the default is one past it — which is what it
+                is for a book with no levels to divide; with CARD-128's
+                dividers :meth:`puzzle_section` passes the page after each
+                level's divider instead.
             ids: The puzzle ids, parallel to ``payloads``, for the message of
                 the raise below. Optional: without them a failure names the
                 print numbers instead.
@@ -2264,7 +2987,7 @@ class BookPDFGenerator:
     def puzzle_section(
         self,
         payloads: List[ExportPayload],
-        first_page: int = 2,
+        first_page: int = 1 + GUIDE_PAGE_COUNT,
         ids: Optional[List[Any]] = None,
     ) -> List[SectionPage]:
         """The interior's puzzle section: a divider per level, then its pages.
@@ -2300,8 +3023,9 @@ class BookPDFGenerator:
         Args:
             payloads: The drawable puzzles in print order.
             first_page: The interior position of the section's first page,
-                which is the first level's divider. Page 1 is the guide page,
-                so the default is 2.
+                which is the first level's divider. Pages
+                1..:data:`GUIDE_PAGE_COUNT` are the guide (CARD-201), so the
+                default is one past it.
             ids: The puzzle ids, parallel to ``payloads``, for the messages
                 :meth:`puzzle_pages` raises. Each level's walk is handed its
                 own slice, so a failure still names the row it happened to.
@@ -2457,12 +3181,13 @@ class BookPDFGenerator:
     def interior(self, puzzles: List[dict]) -> Interior:
         """Every page of the interior, in print order, and what pairing saved.
 
-        ``pages[n - 1]`` is interior page ``n``: page 1 is the guide page,
-        a right-hand page (:func:`page_is_right_hand`), followed by the puzzle
-        section — a divider page opening each non-empty level and that level's
-        puzzle pages (:meth:`puzzle_section`, FR-041) — then the SOLUTIONS
-        divider and the answer pages. The list's length is the book's page
-        count (FR-030); the cover is never counted.
+        ``pages[n - 1]`` is interior page ``n``: pages 1..:data:`GUIDE_PAGE_COUNT`
+        are the guide, the 2-page "how to solve" tutorial (CARD-201), page 1
+        a right-hand page (:func:`page_is_right_hand`), followed by the
+        puzzle section — a divider page opening each non-empty level and
+        that level's puzzle pages (:meth:`puzzle_section`, FR-041) — then the
+        SOLUTIONS divider and the answer pages. The list's length is the
+        book's page count (FR-030); the cover is never counted.
 
         The puzzles print grouped easy, then medium, then hard whatever order
         the book's rows arrive in (:func:`print_order`, INV-009), and the
@@ -2637,9 +3362,10 @@ class BookPDFGenerator:
                 f"the page plan prints {printed}, not puzzles 1..{count}"
             )
         # Every page of the section — dividers included — sits between the
-        # guide page and the SOLUTIONS divider, so both of those positions
-        # count the section's length and not its puzzle pages alone.
-        first_answer_page = 3 + len(section)
+        # guide (CARD-201: GUIDE_PAGE_COUNT pages, not one) and the SOLUTIONS
+        # divider, so both of those positions count the section's length and
+        # not its puzzle pages alone.
+        first_answer_page = 1 + GUIDE_PAGE_COUNT + len(section) + 1
 
         # Calculate difficulty counts for guide — over every member of the
         # book, drawable or not, because that is what the book holds. Read
@@ -2681,13 +3407,21 @@ class BookPDFGenerator:
             drawing it wrapped — never something a consumer threw back in
             while the walk was suspended at that yield.
             """
-            yield self.create_guide_page(
-                len(puzzles),
-                counts[Tier.EASY],
-                counts[Tier.MEDIUM],
-                counts[Tier.HARD],
-                page_number=1,
-            )
+            # CARD-201: the guide is GUIDE_PAGE_COUNT pages, not one — two
+            # calls to the same method (page_number selects which half, see
+            # create_guide_page's own docstring), each yielded and released
+            # exactly as every other page is (CARD-145/CARD-198's "no page
+            # outlives the yield that hands it on", restated above).
+            for guide_page_number in range(1, GUIDE_PAGE_COUNT + 1):
+                page = self.create_guide_page(
+                    len(puzzles),
+                    counts[Tier.EASY],
+                    counts[Tier.MEDIUM],
+                    counts[Tier.HARD],
+                    page_number=guide_page_number,
+                )
+                yield page
+                del page
 
             for page_plan in section:
                 if isinstance(page_plan, DividerPagePlan):
@@ -2722,7 +3456,10 @@ class BookPDFGenerator:
             # (CARD-145's AC-3 pins that page for page).
             if not payloads:
                 return
-            yield self.create_divider_page(2 + len(section))
+            # CARD-201: the guide grew by one page, so the SOLUTIONS divider
+            # (immediately before the answer section) moved with it — one
+            # page before `first_answer_page`, by construction.
+            yield self.create_divider_page(first_answer_page - 1)
             for index, (puzzle_id, payload) in enumerate(payloads):
                 number = index + 1
                 try:
