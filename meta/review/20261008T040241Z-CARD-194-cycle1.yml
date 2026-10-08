@@ -1,0 +1,82 @@
+version: 1
+generated_at: "2026-10-08T04:02:41Z"
+target: "CARD-194 working-tree diff on card/194-player-brush-dropdown-region vs main — src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py (new), tests/test_puzzle_solver_marking.py, tests/test_puzzle_solver_maybe.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_resume.py, tests/test_puzzle_solver_percent.py, plus SCOPE+ tests/test_puzzle_solver_hint.py and tests/test_puzzle_solver_mirror.py"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/templates/puzzle_solve.html"
+    - "src/nonogram/admin/static/solver.js"
+    - "src/nonogram/admin/static/admin.css"
+    - "tests/test_puzzle_solver_brush_menu.py"
+    - "tests/test_puzzle_solver_marking.py"
+    - "tests/test_puzzle_solver_maybe.py"
+    - "tests/test_puzzle_solver_phone.py"
+    - "tests/test_puzzle_solver_resume.py"
+    - "tests/test_puzzle_solver_percent.py"
+    - "tests/test_puzzle_solver_hint.py"
+    - "tests/test_puzzle_solver_mirror.py"
+    - "meta/kanban/cards/CARD-194.md"
+  not_reached:
+    - "meta/architecture/trace.yml (FR-044 row, full read)"
+  confidence: high
+metrics:
+  diff: { files: 10, added: 492, removed: 167 }
+  max_fan_in: { symbol: "wireMarking (DOM contract: #puzzle-player-tool-trigger / [data-player-tool])", callers: 7 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/admin.css", "src/nonogram/admin/static/solver.js"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — co-change mining against git history was not run this cycle"
+
+system_contract:
+  rules_checked: 53
+  holds: 5
+  unchecked: 48
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no pyproject.toml change, no new import; dependency baseline unchanged"
+    - "ADR-0038/R1 ✓ holds — no framework, bundler, or vendored JS added; plain hand-written JS/CSS"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark and TestSolverMaybe_NoRequestPerMark green, exercising the new brush/Region paths"
+    - "ADR-0038/R4 ✓ holds — solver_state.js has zero changed lines (git diff confirmed); Region/brush state lives only in solver.js's wireMarking closure"
+    - "CON-021 ✓ holds — no new entry point; brush dropdown is client-side UI inside the existing player page, same door"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R3, ADR-0038/R5, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: each rule's scope (system_rules.py --card CARD-194) is a .py-suffixed glob or a file this diff never touches; none bears on the brush-dropdown/Region change"
+
+root_causes:
+  - id: RC-1
+    title: "pointerup's click path used the gesture's start cell unconditionally, assuming any gesture reaching pointerup without having painted must be a tap"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/static/solver.js
+    line: 648
+    title: "A pen (or any non-cancelled touch/pen) drag that moved was read as a click on its start cell when Region was off"
+    description: |
+      pointermove only updated gesture.dragging when gesture.paints was true, so for a touch/pen
+      gesture with Region off (paints = false), gesture.dragging stayed false regardless of actual
+      movement. pointerup's click path used done.start unconditionally when !done.dragging, so a pen
+      drag that moved several cells but reached pointerup without a pointercancel (confirmed via a CDP
+      probe using Input.dispatchMouseEvent with pointerType "pen": Chromium does not reliably cancel a
+      pen gesture the way it does a touch gesture) was marked as a click at the starting cell instead
+      of marking nothing, violating the card's own "pen counts as touch" decision and the "a tap is a
+      click, a drag is not" rule (CARD-194 target behaviour #8/#10).
+    suggestion: |
+      Track gesture.dragging unconditionally in pointermove (gate only the preview paint on
+      gesture.paints); in pointerup, when done.dragging is true but done.paints is false, do nothing
+      (refresh() and return) instead of falling through to the drag-commit or click branches.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "src/nonogram/admin/static/solver.js (pointermove/pointerup, this cycle)"
+    dismissed_reason: null
+    learned_pattern: null

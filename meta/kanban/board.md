@@ -31,7 +31,7 @@ _Updated: 2026-10-07 UTC_
 | 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ✓ done — all 8 merged (CARD-170 after an owner-chosen targeted fix) |
 | 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2, CARD-186 P2, CARD-188 P2 | ✓ done — all 10 merged (CARD-188 after two owner-chosen fixes) |
 | 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ▶ active — 185 merged; player chain 189 → 187; admin chain 190 → 191 → 192 (app.py); 191 ✓ committed; 192 ▶ review; 187 ✓ 9.0 committed 728c7d0, awaiting done |
-| 36 | CARD-193 P2, CARD-196 P2 | CARD-196 ✓ merged d7ba2ac (score 8.5, cycle 3/3) · CARD-193 ✓ merged c51982a (score 9.5, cycle 3/3; owner confirmed phone-fit and mirrored-clue renders before merge) · CARD-194/195 queued next |
+| 36 | CARD-193 P2, CARD-196 P2 | CARD-196 ✓ merged d7ba2ac (score 8.5, cycle 3/3) · CARD-193 ✓ merged c51982a (score 9.5, cycle 3/3) · CARD-194 ✓ merged e0214c9 (score 9.0, cycle 1/3; owner confirmed dropdown/Region renders before merge) · CARD-195 ready to start |
 | 37 | CARD-197 P2, CARD-198 P2, CARD-199 P2 | CARD-199 ✓ merged 7d4bcf8 (score 9.5, cycle 1/3) · CARD-197 ✓ merged 81156b1 (score 9.0, cycle 2/3; owner confirmed gray gridline tone and band/caption wording before merge) · CARD-198 ready to start (both deps merged) — owner solution-layout doc; ran alongside wave 36 (no file overlap) |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
@@ -54,10 +54,9 @@ _(none)_
 ## Ready
 
 ## In Progress
-- [CARD-198](cards/CARD-198.md) P2 · 1.5d · wave 37 — The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid · ▶ started 2026-10-08, worktree ../PythonProject4-CARD-198 on card/198-answer-key-one-page-per-puzzle
-- [CARD-194](cards/CARD-194.md) P2 · 1.5d · wave 36 — The puzzle player's brushes become one dropdown with a Region option; a drag scrolls the page unless Region is picked · ▶ started 2026-10-08, worktree ../PythonProject4-CARD-194 on card/194-player-brush-dropdown-region
 
 ## Review
+- [CARD-198](cards/CARD-198.md) P2 · 1.5d · wave 37 — The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid · ✓ 8.5 (cycle 1/3, 0 crit, 0 imp) · committed 4fd5418 · AC/EC/G gate 10/10 ACs + 7/7 guardrails demonstrated · awaiting done — 3 owner-confirmation items flagged (level heading dropped, "Before pairing" figure narrower, 300-page ceiling can newly refuse a book), renders at ~/Documents/nonogram-reviews/CARD-198/
 - [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · ✓ 9.0 (cycle 2/3, 0 crit, 0 imp, 2 minor) · committed 728c7d0 (implementation 2c01f7f, fc3f647) · awaiting done (owner visual check of renders in ~/Documents/nonogram-reviews/CARD-187/)
 - [CARD-192](cards/CARD-192.md) P2 · 0.75d · wave 35 — The Arrangement page can show one longest-side size, with what is left or over against the plan · ✓ 9.2 (2 cycles) · committed 04791f4 · awaiting done (owner render check)
 - [CARD-191](cards/CARD-191.md) P2 · 0.75d · wave 35 — On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side · ✓ 9.5 (2 cycles) · committed 9803893 · awaiting done (owner render check)
@@ -219,6 +218,7 @@ _(none)_
 - **CARD-197** A new full-page solved layout: clues top and left, light-gray gridlines between filled cells · score 9.0 (cycle 2/3) · merged 81156b1
 - **CARD-196** The puzzle player's clue numbers get their own size, independent of the cell, with a 12 px minimum · score 8.5 (cycle 3/3) · merged d7ba2ac
 - **CARD-193** The puzzle player fits big boards to the phone width and mirrors row clues on the right above 15 cells · score 9.5 (cycle 3/3) · merged c51982a
+- **CARD-194** The puzzle player's brushes become one dropdown with a Region option; a drag scrolls the page unless Region is picked · score 9.0 (cycle 1/3) · merged e0214c9
 - **CARD-001** Package scaffolding and CLI entry point
 - **CARD-002** Clue derivation via run-length encoding
 - **CARD-003** Random grid sourcing with size and density validation

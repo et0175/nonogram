@@ -1,11 +1,6 @@
 wave: 36
 mode: interactive
-active:
-- id: CARD-194
-  phase: implement
-  branch: card/194-player-brush-dropdown-region
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-194
-  started: '2026-10-08T00:00:00Z'
+active: []
 escalated: []
 merged:
 - id: CARD-196
@@ -16,11 +11,12 @@ merged:
   success_commit: 051aa78
   merge_commit: c51982a
   branch: card/193-player-mobile-fit
+- id: CARD-194
+  review_cycle: 1
+  success_commit: 7c82b35
+  merge_commit: e0214c9
+  branch: card/194-player-brush-dropdown-region
 queued:
-- CARD-195 (after CARD-194)
-conflict_edges:
-- pair:
-  - CARD-194
-  - CARD-195
-  reason: 'predicted: player files'
-last_updated: '2026-10-07T15:34:34Z'
+- CARD-195 (CARD-194 merged — ready to start)
+conflict_edges: []
+last_updated: '2026-10-08T05:52:27Z'

@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-08
+- CARD-194 (feature): The puzzle player's four brush buttons (Black, White, Maybe, Undecided) are now one dropdown, with a new Region option added as a fifth choice. The trigger shows the selected brush, or "Region · <brush>" when Region is on. With Region off, a mouse drag still marks as before, but a touch or pen drag scrolls the page/board instead — Region turns itself on to mark with touch, and turns back off after a drag so it doesn't stay on by accident.
+
 ## 2026-10-07
 - CARD-193 (feature): On phones (≤820 px), the puzzle player no longer floors cells at 24 px — a board now fits the stage width exactly, scrolling only where the clue-number floor needs more room than the stage has. Boards wider than 15 columns show their row clues mirrored to the right instead of the left, phones only (desktop is unchanged). Two named cases where a board still can't reach a perfectly square cell: a 30-wide board whose row-clue column is too deep, and a 25-wide board where the browser's own row-height rounding breaks cell uniformity on every fifth row.
 - CARD-197 (feature): A book's answer key can now print one full solved page per puzzle — clues top and left just like the unsolved page, with light-gray gridlines between adjacent filled cells (instead of black) so the solution reads clearly, a "Puzzle N · Tier" band above the grid and a "Puzzle N — Title" caption below. This is the rendering primitive only (not yet wired into the book export — that's CARD-198).
