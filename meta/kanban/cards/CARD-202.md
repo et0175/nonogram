@@ -672,8 +672,18 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   own independent full-suite re-run (below) as the actual confirmation for
   the whole project, not this paragraph's stale claim.
 
-- [Build gate] Orchestrator's own independent full-suite run (not the
-  implementer's claim, which its own SubagentHandback message flagged as
-  incomplete — see the correction note just above) — `./.venv/bin/python
-  -m pytest` in the CARD-202 worktree, under the
-  `meta/kanban/.full-suite.lock`: pending, about to run.
+- [Build gate] FAILED (attempt 1/2). Orchestrator's own independent
+  full-suite run (not the implementer's claim, which its own
+  SubagentHandback message flagged as incomplete — see the correction note
+  just above) — `./.venv/bin/python -m pytest` in the CARD-202 worktree,
+  under the `meta/kanban/.full-suite.lock`: **6700 passed, 9 skipped, 17
+  errors** (995.15s). All 17 errors are in
+  `tests/test_book_puzzle_frame.py`, all `AssertionError: the book printed
+  7 pages` at its `_book_pages()` fixture (line 733), which still asserts
+  `INTERIOR_PAGES = 8`. Root cause: the exact same stale-page-count pattern
+  the implementer already fixed in 11 other files (`test_book_pdf.py` et
+  al., see the SCOPE+ list above) — this file's own 3-puzzle fixture (10x10
+  + 12x12 easy-tier, both now qualifying for CARD-202's packing, plus a
+  20x20 that doesn't) was simply missed in that sweep. Not a production
+  bug — a build-gate fix dispatched (not counted as a review cycle, per
+  protocol) rather than entering forge:review on a red gate.
