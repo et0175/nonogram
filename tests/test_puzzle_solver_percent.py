@@ -397,10 +397,11 @@ def _layout(browser, live, width, height=900):
 @pytest.mark.browser
 class TestSolverPercent_SitsNextToTheCounters:
     """AC-5 / AC-354 — DOM order Errors, Hints, Progress; "Progress: 0%";
-    at 1440 on the error counter's row, left of it; at 1280 below the
-    errors / hints pair, at the toolbar's right end, with the pair on the
-    buttons' row and the buttons at the toolbar's top; no horizontal scroll
-    at 390. The count looks like the error count (tabular numerals)."""
+    at 1440 (and, since CARD-194's one trigger leaves more room than the
+    four tool buttons it replaced, also at 1280) on the error counter's
+    row, left of it, with the buttons at the toolbar's top; no horizontal
+    scroll at 390. The count looks like the error count (tabular
+    numerals)."""
 
     @pytest.mark.parametrize("width", [1440, 1280, 390])
     def test_order_text_and_style(self, browser, live, width) -> None:
@@ -437,13 +438,18 @@ class TestSolverPercent_SitsNextToTheCounters:
         bt, bb = got["buttons"][0][1], got["buttons"][0][3]
         assert abs((pb - pt) - (bb - bt)) <= 1
 
-    def test_below_the_pair_at_the_right_at_1280(self, browser, live) -> None:
+    def test_shares_the_buttons_row_at_1280(self, browser, live) -> None:
+        """CARD-194: before it, four tool buttons left too little room at
+        1280 px and Progress wrapped below the errors / hints pair there
+        (the admin.css comment on .player-counters records the old
+        measurement). One trigger is narrower, so 1280 px now fits
+        everything — the buttons, the pair and Progress — on one row,
+        same as 1440 px (see test_same_row_left_of_errors_at_1440)."""
         got = _layout(browser, live, 1280, 720)
         pl, pt, pr, pb = got["progress"]
-        _, et, _, eb = got["errors"]
-        _, ht, _, hb = got["hints"]
-        assert pt >= max(eb, hb)  # below the pair
-        assert abs(pr - got["toolbar"][2]) <= 1  # at the toolbar's right end
+        el, et, er, eb = got["errors"]
+        assert pt < eb and et < pb  # same row band as "Errors: N"
+        assert pr <= el  # drawn left of "Errors: N"
         tops = {round(b[1]) for b in got["buttons"]}
         assert tops == {round(got["toolbar"][1])}  # the buttons keep the row's top
         bt, bb = got["buttons"][0][1], got["buttons"][0][3]

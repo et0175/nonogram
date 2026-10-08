@@ -36,6 +36,7 @@ from tests.test_puzzle_solver_marking import (
     _marked,
     _states,
     _tool,
+    _trigger_text,
 )
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
@@ -460,7 +461,7 @@ class TestSolverResume_ReloadRestoresBoardCountsAndHistory:
         _reload(browser_page)
         assert _states(browser_page) == before
         assert (_error_count(browser_page), _hints_shown(browser_page)) == (errors, hints)
-        assert _button(browser_page, "Black").get_attribute("aria-pressed") == "true"  # default (c)
+        assert _trigger_text(browser_page) == "Black"  # default (c)
         _button(browser_page, "Redo").click()
         assert _states(browser_page) == boards[-1]
         for expected in reversed(boards[:-1]):

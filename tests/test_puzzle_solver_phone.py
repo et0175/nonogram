@@ -11,9 +11,11 @@ numeral needs) when that is larger — capped at 28 px as before, and the
 the numeral floor can still force a sideways scroll ("where a board cannot
 fit at 12 px, it scrolls sideways") — that is a deliberate, accepted trade-off
 for legibility, not a defect, and several tests below measure it rather than
-assume it away. Cells keep ``touch-action: none`` (a touch drag marks); every
-clue box (column, row, corner) keeps the default ``auto``, and nothing pans
-the board on a swipe any more (AC-10).
+assume it away. Since CARD-194, a cell's ``touch-action`` follows the brush
+dropdown's Region option (off by default): ``auto`` with Region off, so a
+touch drag pans instead of marking; ``none`` with Region on, as every touch
+drag below now picks first, so it marks as it always has. Every clue box
+(column, row, corner) keeps the default ``auto`` regardless (AC-10).
 
 Browser tests only (pytest-playwright + Chromium, ADR-0038/R7), refusing loudly
 when Chromium is absent (ADR-0038/R8) through CARD-160's fixtures, imported
@@ -27,6 +29,7 @@ import random
 import pytest
 
 from nonogram.solver import solve
+from tests.test_puzzle_solver_marking import _tool
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     MAJOR_EVERY,
     _encode,
@@ -554,22 +557,25 @@ ROW = 12
 RIGHT_FIVE = [(ROW, c) for c in range(BIG_SIDE - 5, BIG_SIDE)]
 
 
-def _fitted_phone_page(browser, live, tool=None):
-    """The 30 x 30 at 390 x 844 in a touch context, ``tool`` picked first (a
-    click scrolls its button into view), and the page scrolled down to ROW.
+def _fitted_phone_page(browser, live, tool=None, region=False):
+    """The 30 x 30 at 390 x 844 in a touch context, ``tool`` picked first
+    through the brush menu (CARD-194) and ``region`` picked after it when a
+    touch drag needs to mark (AC-9), and the page scrolled down to ROW.
     CARD-193: below 820 px the cell floor is removed, so most boards no
     longer scroll inside .player-stage — but this grid's two-digit column
     numbers still bind CARD-196's column floor, so it does. Either way the
     test only needs the target cells reachable, so it brings them into view
     (_scroll_cell_into_view) rather than asserting a scroll position; what
     IS asserted is that the drag itself does not change .player-stage's
-    scroll (whatever it is) — touch-action: none keeps the gesture from
-    panning the board."""
+    scroll (whatever it is) — Region on keeps .player-cell's touch-action:
+    none, which keeps the gesture from panning the board instead."""
     context = _phone(browser)
     page = context.new_page()
     _open(page, live, live.store(BIG))
     if tool:
-        page.get_by_role("button", name=tool, exact=True).click()
+        _tool(page, tool)
+    if region:
+        _tool(page, "Region")
     _scroll_cell_into_view(page, *RIGHT_FIVE[-1])
     left = _stage_scroll_left(page)
     _bring_row_to_middle(page, ROW)
@@ -584,7 +590,7 @@ class TestSolverPhone_TouchDragMarksOnAFittedBoard:
     ``scrollLeft > 0`` precondition is gone — see _fitted_phone_page)."""
 
     def test_a_touch_drag_marks_exactly_the_five_cells_under_the_finger(self, browser, live) -> None:
-        context, page, left = _fitted_phone_page(browser, live, tool="White")
+        context, page, left = _fitted_phone_page(browser, live, tool="White", region=True)
         try:
             (x0, y0), (x1, _) = _visible_centre(page, *RIGHT_FIVE[0]), _visible_centre(page, *RIGHT_FIVE[-1])
             for cell in RIGHT_FIVE[1:-1]:
@@ -627,19 +633,30 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
     check is what AC-10 actually asks for.)"""
 
     def test_cells_take_no_touch_action_and_clue_boxes_keep_the_default(self, browser_page, live) -> None:
+        """AC-13 / CARD-194: a cell's touch-action follows Region — ``auto``
+        off (so a touch drag can pan), ``none`` on (so it can mark instead).
+        Clue boxes keep the default ``auto`` either way."""
         browser_page.set_viewport_size({"width": 390, "height": 844})
         _open(browser_page, live, live.store(BIG))
 
-        actions = browser_page.evaluate(
-            """() => {
-              const of = (sel) => new Set([...document.querySelectorAll(sel)].map((el) => getComputedStyle(el).touchAction));
-              return { cells: [...of('td.player-cell')], colClues: [...of('.player-clue.is-col')],
-                       rowClues: [...of('.player-clue.is-row')], corner: [...of('.player-corner')] };
-            }"""
-        )
+        def _actions():
+            return browser_page.evaluate(
+                """() => {
+                  const of = (sel) => new Set([...document.querySelectorAll(sel)].map((el) => getComputedStyle(el).touchAction));
+                  return { cells: [...of('td.player-cell')], colClues: [...of('.player-clue.is-col')],
+                           rowClues: [...of('.player-clue.is-row')], corner: [...of('.player-corner')] };
+                }"""
+            )
 
-        assert actions["cells"] == ["none"]
+        off = _actions()
+        assert off["cells"] == ["auto"]
         for kind in ("colClues", "rowClues", "corner"):
-            assert actions[kind] == ["auto"], actions
+            assert off[kind] == ["auto"], off
+
+        _tool(browser_page, "Region")
+        on = _actions()
+        assert on["cells"] == ["none"]
+        for kind in ("colClues", "rowClues", "corner"):
+            assert on[kind] == ["auto"], on
 
 
