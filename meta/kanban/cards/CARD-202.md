@@ -1,6 +1,6 @@
 # CARD-202: Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -433,3 +433,247 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
 - [Pin gate] n/a — no `meta/.skills.yml` → `legacy.enabled` unset, gate
   skipped.
 - [Drift gate] n/a — no `meta/drift-pending.yml`, gate skipped.
+
+## Implementation summary (2026-10-08)
+
+- `STRUCTURE: new third sibling function — `compute_packed_solved_layout`/
+  `PackedSolvedLayout` in `export/layout.py`, not a parameterised mode of
+  `compute_answer_page_layout`.` Reasoning: `compute_answer_page_layout`'s
+  tile math (read in full before deciding, per the card's own instruction)
+  reserves no clue gutter anywhere and its `AnswerTile` carries no
+  `PuzzleFrame`/band position at all — making it reserve one would mean
+  rewriting nearly every line of its cell/placement arithmetic, at which
+  point "a mode of it" is a fiction; the only thing the two share is "equal
+  tiles, 2 columns, up to N answers." The new function is instead modelled
+  directly on `compute_pair_layout`'s shape (each slot a complete placed-page
+  `Layout` with its own clue gutters, frame and band, one shared cell fitted
+  across every slot the page holds), generalised from "2 slots stacked
+  vertically" to "2 or 4 slots in a 2-column grid" — a new private helper
+  `_packed_tile_layout` mirrors `_slot_layout` with one real difference
+  (a slot's drawing centres within its own tile's width, not the whole
+  page's usable width, since slots now sit side by side as well as
+  stacked). `PackedSolvedLayout`/`AnswerPageLayout` share only the
+  "shared-cell-per-page" idea and the private `_ANSWER_TILE_COLUMNS` /
+  `_SOLVED_TILE_COLUMNS` constant for "always 2 across" — no code is shared
+  between the two tile-math implementations themselves, and G-3 holds
+  (confirmed by `git diff` on `layout.py`: zero deleted lines, pure
+  addition).
+
+- **Measured constants** (`export/layout.py`): `SOLVED_TILE_GAP_MM = 4.0`
+  (vs the old clueless tile's `ANSWER_TILE_GAP_MM = 2.0`) — a packed slot
+  carries a `PuzzleFrame` and a title band, which a clueless answer tile
+  never did, so two adjacent framed+banded tiles need more white between
+  them to read as separate puzzles rather than one frame touching the next.
+  `SOLVED_TILE_MAX_CELL_MM = 6.0` (vs the old `ANSWER_MAX_CELL_MM = 5.0`,
+  and below the full page's 7.5 mm flat cap) — a with-clues tile needs more
+  room per cell than a clueless one at the same print size, since the clue
+  digits need to stay legible beside the grid; 6.0 mm reads as clearly
+  shrunk from a full page while still roomier than the old clueless cap.
+  Both are reasoned choices against the Book 1 profile (193.675 x 260.35 mm
+  usable, no page-level band — each slot reserves its own 12 mm), not from
+  an exhaustive sweep (the same calibration style `ANSWER_MAX_CELL_MM`
+  itself used) — confirmed visually legible on the owner render (see
+  below): the 4-up page's worst case (15x20 with 7-deep clue gutters) binds
+  on page-fit, not the cap, landing at 4.30 mm.
+
+- **A genuine layout bug found and fixed during testing.** The first
+  `PackedSolvedLayout.__post_init__` raised `ValueError` whenever a slot's
+  drawing overflowed its own tile (`not placement.fits`). A real seeded
+  property corpus (`tests/property/test_book_pdf_geometry.py`'s own random
+  extents) hit exactly this: four 14-wide answers of heights 10/12/14/16
+  with deep real clue gutters computed a shared cell, floored at
+  `MIN_CELL_MM` (2.0 mm), that did not actually fit the tallest member's
+  own tile — an edge case I had assumed, without checking, would "never
+  happen in practice." Fixed by **not** raising on `fits == False`, the
+  same tolerance `compute_layout`'s own placed-page path already has for a
+  single puzzle ("the drawing overflows... rather than printing cells
+  nobody can mark") — CARD-202's packing rule has no "decline to pack"
+  verdict the way `compute_pair_layout` does for a pair (it always packs a
+  qualifying run), so this type must be constructible for every input the
+  walk that builds it can produce. Overlap-checking and the shared-cell
+  check are unaffected (they do not depend on `.fits`). Docstrings updated
+  to state the tolerance explicitly rather than leave it to be discovered
+  again.
+
+- **KDP sheet-free estimate (`book_kdp.unpaired_interior_page_count`):
+  left exactly as-is (one page per puzzle), not tightened with the new
+  packing walk**, a decision examined and documented in that function's own
+  docstring, not left unexamined. Reasoning: `BookPDFGenerator.interior_stream`'s
+  own `unpaired_page_count` is deliberately **unchanged** by this card
+  (still "one page per puzzle, no packing either" — the baseline before
+  *any* space-saving technique, so `pages_saved` now reports pairing and
+  packing together rather than pairing alone). The two numbers are
+  cross-checked equal by EC-034 (`tests/test_book_finalise_gutter.py`'s
+  `test_the_scenario_really_has_that_many_pages` and siblings); tightening
+  `unpaired_interior_page_count` alone, without also redefining what
+  "unpaired" means on the generator side (out of this card's scope and a
+  real semantic change CARD-198 itself chose not to make for pairing
+  either), would break that cross-check for any book with a qualifying
+  small puzzle. `plan_small_answer_pages` is itself sheet-free, so
+  tightening remains mechanically available to a future card that wants to
+  revisit the "unpaired" baseline's own definition.
+
+- **SCOPE+ files** (outside the card's predicted Touches list, each edited
+  because this card's behaviour change rippled into a hardcoded page-count
+  or call-stack assumption elsewhere, never because an assertion was
+  weakened):
+  - `tests/test_book_interior_type_floor.py` — the caption's `draw.text`
+    call moved from `solved_puzzle_page`'s own body into a new shared
+    helper, `BookPDFGenerator._draw_solved_slot` (reused by a packed slot
+    too, "reuse, not reinvention" per the card's own instruction); this
+    file's lettering recorder identifies a caption by its immediate caller
+    frame's name, so it now also recognises `_draw_solved_slot` as that
+    caller, beside the old `solved_puzzle_page` name (kept, not removed).
+  - `tests/test_book_solved_page.py` — same cause, one assertion checking
+    which function the caption is drawn "in-line" from.
+  - `tests/test_book_pdf_memory.py` — `PAGE_FACTORIES` (the page-returning
+    method registry a separate test asserts is complete) gained
+    `_packed_answer_page` beside `solved_puzzle_page`; the baseline book's
+    own page count/shape/failure-injection tests recomputed for its new
+    3-page (not 4-page) answer section.
+  - `tests/test_book_pdf_ink_mode.py` — `BASELINE_PAGE_COUNT`-derived
+    assertions (two places hardcoded `== 12` as well as the symbolic
+    constant) updated to `11`; one class's historical-narrative docstring
+    touched up so it no longer states a stale literal page count as current.
+  - `tests/test_book_pdf_two_up.py` — added `_expected_answer_pages`
+    (reuses `plan_small_answer_pages` directly: this file's own subject is
+    FR-040 **pairing**, not packing, which already has its own independent
+    dedicated coverage) and rewired roughly a dozen `answer_pages=N`
+    literals to it, since this file's small same-tier pairing fixtures are,
+    by the same reasoning CARD-202 is about, also small enough to qualify
+    for answer packing.
+  - `tests/test_book_pdf_band.py` — this module's default puzzle size
+    (`MIN_SIZE`, 10x10) now qualifies for packing, breaking its hardcoded
+    one-full-page-per-puzzle band/caption page arithmetic; bumped the
+    *default* to a new `_NEVER_PACKS_SIZE = 18` for the identity-focused
+    classes, but the dedicated `_once_book()` fixture (whose whole premise
+    is same-tier puzzle-page **pairing**, which this profile's own math
+    proves cannot happen without also qualifying for packing — verified
+    directly against `compute_pair_layout`) keeps its original 10x10
+    explicitly and has its `ONCE_PAGE_COUNT`/`ONCE_BAND_PAGES`/new
+    `ANSWER_PAGE_OF` constants recomputed for the packed shape instead.
+  - `tests/test_book_pdf.py` — one hardcoded interior page count (7 -> 6)
+    where two same-tier 15x15 survivors now also share one packed answer
+    page, not just one puzzle page.
+  - `tests/property/test_book_pairing.py` — `_expected_answer_pages`
+    (previously a CARD-198 literal, `len(order)`) rewritten as an
+    independent "4s-then-2s-then-a-lone-1" reimplementation (CLAUDE.md:
+    prefer an independent second implementation; this module's subject is
+    pairing, so the packing-rule's own correctness is not re-proven here).
+  - `tests/property/test_book_pdf_geometry.py` — the one test that measures
+    answer-page geometry now skips extents that qualify for packing (its
+    premise is full-page answer geometry, which a packed-alone small answer
+    no longer has); corpus size bumped 110 -> 160 so the "cannot silently
+    shrink" minimum (100) still holds after the skip.
+  - `tests/property/test_book_export_interior.py` — the heaviest rework:
+    `expected_count`'s answer term switched from `n` (one per puzzle) to a
+    new independent `_answer_section_plan`/`_expected_answer_pages`
+    (4-then-2-then-1 chunking, closed by a level change or a non-qualifying
+    answer, mirroring `plan_small_answer_pages`'s own shape without
+    importing it); the per-page parity/centring check gained a packed-page
+    branch (`_packed_column_left_mm`, an independent 2-column tile model)
+    since neither of the file's existing single-drawing/two-up-drawing
+    readers can measure a 2-or-4-answer packed page.
+  - `tests/fixtures/book_baseline_card202.json` (new) + `tests/helpers/book_corpus.py`
+    (`BASELINE_FIXTURE`/`BASELINE_PAGE_COUNT` 12 -> 11, docstrings updated):
+    `baseline_puzzles()`'s own Duck/Owl (10x10) and Tree (15x15) all qualify
+    for packing, so the fixture CARD-198 recorded no longer describes this
+    book's answer section. Regenerated with a script that **checked, not
+    assumed**, that pages 1-8 are still byte-identical to
+    `book_baseline_card198.json`'s own recording before writing the new
+    file (also re-pinned as a committed test,
+    `TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198::test_the_recorded_card198_baseline_pages_are_unmoved`,
+    not just a one-off script) — this is this card's strongest form of
+    AC-7/G-1 evidence.
+
+- **AC evidence (fresh, this session, all green):**
+  - AC-1 `TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage` — 3 tests.
+  - AC-2 `TestBookSolvedAnswerKey_MixedBookPacksOnlyTheSmallOnes` — 3 tests.
+  - AC-2b `TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly` — 2 tests.
+  - AC-3 `TestBookSolvedAnswerKey_ThresholdIsWidthAndHeightNotLongestSide` — 5 tests.
+  - AC-4 `TestBookSolvedAnswerKey_PackedSlotsStillShowClues` — 2 tests.
+  - AC-5 `TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording` — 2 tests.
+  - AC-6 `TestBookSolvedAnswerKey_PackedCountStillMatchesTheProducedCount` — 2 tests.
+  - AC-7 `TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198` — 3 tests.
+  - AC-8 `TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted` — 2 tests.
+  - All nine in `tests/test_book_solved_answer_key.py`, which together with
+    its pre-existing CARD-198 classes (19 tests) reports
+    `43 passed, 60 warnings in 3.62s`.
+  - Plus a new standing property test,
+    `tests/property/test_book_answer_tiles.py::test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage`
+    and `::test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenMoreWereAvailable`
+    (seeded corpora, 300 cases each, asserting minimum case counts per
+    CLAUDE.md's house style) — `4 passed in 2.06s` (file total, old EC-031
+    sweep included).
+  - `tests/test_book_answer_key.py` (old, pre-CARD-198 module, confirmed
+    still passing unedited): `21 passed`.
+
+- **Guardrail evidence:**
+  - G-1: `git diff` on `book_pdf_generator.py` shows `solved_puzzle_page`'s
+    own body reduced to three lines (`compute_layout`, `Image.new`, a call
+    to the new shared `_draw_solved_slot` helper) with **zero change in
+    drawing order or arithmetic** — every statement moved verbatim into the
+    helper. Proven behaviourally, not just by inspection, by the
+    byte-identical fixture regeneration above and by
+    `TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198`'s three
+    tests (call-for-call match against direct `solved_puzzle_page` calls,
+    `plan_small_answer_pages` producing no `PackedAnswerPage` at all for an
+    all-large corpus, and the committed byte-identical fixture check).
+  - G-2: `git diff` on the `interior_stream` validation loop shows the
+    `try/except ValueError -> RuntimeError` block's own code and message
+    format untouched; the only change is capturing `_answer_extent`'s
+    return value into a local used afterwards. `TestBookSolvedAnswerKey_AMemberThatCannotBeMeasuredIsStillNamed`
+    (pre-existing CARD-198 class, re-run, still green) confirms the abort
+    contract survives.
+  - G-3: `git diff src/nonogram/export/layout.py` shows **zero deleted
+    lines** — `compute_layout`/`compute_pair_layout`/`compute_answer_page_layout`
+    are untouched; the new geometry is appended after them.
+  - G-4: `_draw_solved_slot` reuses the existing `INK`/`BACKGROUND`/`_SOLVED_GRID_GRAY`
+    constants verbatim; no new colour literal was added anywhere in this
+    card's diff (grepped).
+  - G-5: every new slot's placement is centred within its own tile using
+    the same `GUTTER_MM`/`OUTSIDE_MM`-style mirrored-margin left edge the
+    single/two-up pages already use; proven, not just asserted, by
+    `tests/property/test_book_export_interior.py`'s new packed-column
+    parity check (`_packed_column_left_mm`, an independent model, checked
+    against real rendered ink on both parities).
+  - G-6: `PackedAnswerPage.__post_init__` raises on a mixed-level page
+    (unit-tested, `TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly`
+    and the new property test's own per-page level-uniqueness assertion
+    over 300 seeded cases).
+
+- **Owner render:** `~/Documents/nonogram-reviews/CARD-202/card202-sample-interior.pdf`
+  — a 9-puzzle sample book (real pictures from `pictures/`, not blank
+  checkerboards): 5 Easy small answers (10x10 up to the 15x20 edge case),
+  demonstrating the 4-then-1 density rule; 2 Medium small answers packed
+  together (tier boundary closing the Easy run early, visible as a
+  separate page); 2 Hard large answers (22x22, 25x18) each keeping
+  CARD-198's own full page, printed immediately after the packed pages —
+  a packed page next to a full page, as the Design context asked for.
+  Verified by rendering each answer page to PNG and reading it back
+  (4-up page, the leftover 1-slot 2-up page, the Medium 2-up page, and a
+  Hard full page) — clue digits legible, gray adjacent-fill boundary marks
+  present, captions and bands correct, no stray ink in the unfilled slot of
+  the leftover page.
+
+- **Full suite (implementer's own claim — see orchestrator's own
+  [Build gate] note below for the authoritative, independently-run
+  result):** every file this card touched or rippled into passes
+  individually (386 tests summed across the thirteen directly-relevant
+  files, zero failures). **Correction, orchestrator note:** the
+  implementation agent's own SubagentHandback message (received separately
+  from this worktree note, same session) explicitly flagged its final
+  unfiltered `pytest` run as INCOMPLETE at handback time ("progressed
+  cleanly through 73% with zero failures... had not yet finished") and
+  asked for it to be re-confirmed before merge — this directly contradicts
+  this note's own "run to completion with zero failures" wording above,
+  written before that correction. Treat the 386-test per-file tally as
+  solid (each file's own fresh run did complete), and the orchestrator's
+  own independent full-suite re-run (below) as the actual confirmation for
+  the whole project, not this paragraph's stale claim.
+
+- [Build gate] Orchestrator's own independent full-suite run (not the
+  implementer's claim, which its own SubagentHandback message flagged as
+  incomplete — see the correction note just above) — `./.venv/bin/python
+  -m pytest` in the CARD-202 worktree, under the
+  `meta/kanban/.full-suite.lock`: pending, about to run.
