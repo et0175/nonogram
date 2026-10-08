@@ -222,6 +222,9 @@ __all__ = [
     "PAGE_MARGIN_MM",
     "PAGE_WIDTH_MM",
     "TWO_UP_MIN_CELL_MM",
+    "SOLVED_TILE_CAPACITIES",
+    "SOLVED_TILE_GAP_MM",
+    "SOLVED_TILE_MAX_CELL_MM",
     "AnswerPageLayout",
     "AnswerTile",
     "CellCapPolicy",
@@ -231,6 +234,7 @@ __all__ = [
     "Layout",
     "Orientation",
     "OrientationPolicy",
+    "PackedSolvedLayout",
     "PageParity",
     "PagePlacement",
     "PageSpec",
@@ -239,6 +243,7 @@ __all__ = [
     "comfort_cap_mm",
     "compute_answer_page_layout",
     "compute_layout",
+    "compute_packed_solved_layout",
     "compute_pair_layout",
     "header_band",
 ]
@@ -2589,4 +2594,436 @@ def _answer_tile(
         thick_rule=thick,
         vertical_lines=_axis_lines(xs, start=ys[0], end=ys[-1], thin=thin, thick=thick),
         horizontal_lines=_axis_lines(ys, start=xs[0], end=xs[-1], thin=thin, thick=thick),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Packed solved-answer tiles, with clues (FR-042, CARD-202, owner decisions
+# resolved 2026-10-08 via AskUserQuestion, ADR-0036/R2)
+# ---------------------------------------------------------------------------
+#
+# CARD-198 replaced the packed, clueless answer key above
+# (:func:`compute_answer_page_layout`) with one full solved page per puzzle,
+# **with clues** (:func:`compute_layout`'s own geometry, reused verbatim by
+# ``book_pdf_generator.solved_puzzle_page``). That grew the answer section by
+# roughly sixfold for a book of mostly-small puzzles. CARD-202 narrows
+# CARD-198's rule for puzzles small enough to still read clearly shrunk
+# (width<=15 and height<=20): pack 4 of them to a page, falling back to 2 only
+# for a leftover one or two — but **keep the clues and the title band**, which
+# is exactly what :func:`compute_answer_page_layout` above cannot do: that
+# function's tile math (confirmed by reading it, not assumed — see CARD-202's
+# Worktree notes) reserves no clue gutter anywhere, and its :class:`AnswerTile`
+# carries no :class:`PuzzleFrame` and no band position.
+#
+# So this is a genuinely new geometry, not a mode of the old one: each slot
+# below is a complete placed-page :class:`Layout` — clue gutters, a frame, a
+# band position — exactly as :func:`compute_pair_layout`'s two slots are,
+# generalised from "two same-size puzzles stacked one above the other" to "2
+# or 4 *small* answers in a 2-column grid, one shared cell for the whole
+# page" (the shared-cell idea is :func:`compute_answer_page_layout`'s own
+# precedent, carried over). CARD-202's Worktree notes record, as
+# ``STRUCTURE``, why this is a third sibling function rather than a
+# parameterised "reserve clue gutters" mode of either existing one.
+
+#: The two packed-slot counts this card defines: 4 whenever that many
+#: qualifying answers are next in the book's packing walk, 2 only for a
+#: leftover one or two at the end of a qualifying run (owner decision,
+#: resolved 2026-10-08) — never 6, unlike the old packed key's ``SIX_UP``: a
+#: six-up tile has no clue gutter to spare at this card's cap.
+SOLVED_TILE_CAPACITIES = (2, 4)
+
+#: A packed solved page is always two tiles across — the same fact
+#: :data:`_ANSWER_TILE_COLUMNS` names for the old clueless tiling. One
+#: constant, reused rather than duplicated: it is the same fact both times,
+#: "2 or 4" always meaning 2 columns, with the row count the only thing that
+#: changes.
+_SOLVED_TILE_COLUMNS = _ANSWER_TILE_COLUMNS
+
+#: The blank strip between two packed slots, in millimetres — this card's own
+#: measured call, deliberately not :data:`ANSWER_TILE_GAP_MM`'s 2.0 mm. A
+#: packed slot carries a :class:`PuzzleFrame` (stroked by
+#: ``book_pdf_generator._stroke_drawing``, the same call a two-up slot's
+#: frame is stroked with) and a title band, where an old answer tile carried
+#: neither — two adjacent *framed* tiles need more white between them than two
+#: bare grids do, or the eye reads one frame as touching the next rather than
+#: as two separate puzzles.
+SOLVED_TILE_GAP_MM = 4.0
+
+#: The cap on a packed slot's cell, in millimetres — this card's own measured
+#: call against the Book 1 profile (point 1 of "What to implement"),
+#: deliberately not :data:`ANSWER_MAX_CELL_MM` (5.0 mm) reused verbatim: a
+#: with-clues tile needs *more* room per cell than a clueless one at the same
+#: print size, because the clue digits (``_write_clues``) must stay legible
+#: beside the grid, not only the filled cells read clearly. 6.0 mm sits
+#: between the old clueless tile's 5.0 mm and the full page's 7.5 mm flat cap
+#: — clearly shrunk from a full page (the owner's whole point), but roomier
+#: than a tile with no clues to fit at all. On the Book 1 profile (193.675 x
+#: 260.35 mm usable; a packed page carries no *page-level* band — each slot
+#: reserves its own, like a puzzle page's own band) this cap is what keeps a
+#: page of small, clue-light answers (two 10x10s, say) from blowing up to fill
+#: the whole tile; the threshold's own worst case — 15 wide x 20 tall, with the
+#: deepest clue gutters such a grid can have — is held well under the cap by
+#: *page fit* instead (measured in ``tests/test_book_solved_answer_key.py``).
+SOLVED_TILE_MAX_CELL_MM = 6.0
+
+
+@dataclass(frozen=True, slots=True)
+class PackedSolvedLayout:
+    """2 or 4 small answers on one book page, each with its own clues and band (CARD-202).
+
+    A value object, valid by construction: :meth:`__post_init__` refuses any
+    page whose slots do not share one cell or whose tiles overlap, so a
+    caller holding one never re-checks those. A slot's own drawing
+    overflowing its tile (:attr:`PagePlacement.fits` ``False``) is *not*
+    refused here — the same tolerance :func:`compute_layout`'s own placed
+    page keeps (its docstring: "the drawing overflows... rather than
+    printing cells nobody can mark"): :data:`MIN_CELL_MM` can still floor the
+    shared cell above what every member's own tile has room for in a genuine
+    edge case (a 15-wide, very-deep-clued answer sharing a 4-up page's
+    narrower tile with taller neighbours), and CARD-202's packing rule has no
+    "decline to pack" verdict for a qualifying run the way
+    :func:`compute_pair_layout` does for a pair — it always packs, so this
+    type must be constructible for every input the walk that builds it can
+    produce, the same way a single placed page always is.
+
+    Each slot is an ordinary placed-page :class:`Layout`, exactly as a single
+    puzzle page or a two-up slot is — clue gutters, a frame, a band position —
+    so ``book_pdf_generator``'s existing drawing steps
+    (``_stroke_drawing``, ``_write_clues``, ``_set_band``, the caption) draw a
+    packed slot with no new drawing code, only a new call site (ADR-0036/R2).
+
+    The page carries **no page-level title band**: each slot's own band is
+    reserved inside its tile (unlike a single puzzle page, like an old answer
+    page), so the usable area shared out below is the trim minus the four
+    margins only.
+
+    Attributes:
+        parity: The page's side of the spread, exactly as a puzzle page's.
+        capacity: 2 or 4 (:data:`SOLVED_TILE_CAPACITIES`) — the tiling the
+            page was measured for, not how many answers it was given. A
+            half-filled page (fewer slots than capacity) keeps its capacity's
+            cell size and tile grid; the unfilled tile positions are simply
+            not laid out.
+        tile_rows: ``capacity // 2``.
+        tile_columns: Always :data:`_SOLVED_TILE_COLUMNS`, i.e. 2.
+        width: The trim's width in device pixels — the same for every slot,
+            since every slot shares one page-sized image
+            (``book_pdf_generator`` draws them all onto one canvas).
+        height: The trim's height.
+        cell_mm: The one cell every slot on the page shares, exactly, in
+            millimetres: the largest cell at which every slot's drawing (its
+            real clue depths plus its grid) fits its own tile below its own
+            band, capped at :data:`SOLVED_TILE_MAX_CELL_MM` and never below
+            :data:`MIN_CELL_MM`.
+        slots: One :class:`Layout` per answer given, in fill order — left to
+            right, then top to bottom. At most ``capacity`` of them.
+        dpi: The resolution every coordinate above is expressed at.
+
+    Raises:
+        ValueError: the capacity is not one this card defines, the tile rows
+            do not match it, there are more slots than the capacity allows, a
+            slot is not a placed page, two slots disagree about the shared
+            cell, or two tiles overlap.
+    """
+
+    parity: PageParity
+    capacity: int
+    tile_rows: int
+    tile_columns: int
+    width: int
+    height: int
+    cell_mm: float
+    slots: tuple[Layout, ...]
+    dpi: int = DPI
+
+    def __post_init__(self) -> None:
+        if self.capacity not in SOLVED_TILE_CAPACITIES:
+            raise ValueError(
+                f"a packed solved page holds {' or '.join(map(str, SOLVED_TILE_CAPACITIES))} "
+                f"answers, not {self.capacity}"
+            )
+        if self.tile_columns * self.tile_rows != self.capacity:
+            raise ValueError(
+                f"a packed page of {self.capacity} is {self.tile_columns} x "
+                f"{self.tile_rows} tiles, which is {self.tile_columns * self.tile_rows}"
+            )
+        if not self.slots:
+            raise ValueError("a packed solved page holds at least one answer")
+        if len(self.slots) > self.capacity:
+            raise ValueError(f"{len(self.slots)} answers on a page that holds {self.capacity}")
+        placements: list[PagePlacement] = []
+        for index, slot in enumerate(self.slots):
+            placement = slot.page
+            if placement is None:
+                raise ValueError(f"packed slot {index} must be a placed page")
+            if placement.cell_mm != self.cell_mm:
+                raise ValueError(
+                    "every slot of a packed page shares one cell, not "
+                    f"{placement.cell_mm} (page says {self.cell_mm})"
+                )
+            placements.append(placement)
+        for position, earlier in enumerate(placements):
+            for later in placements[position + 1 :]:
+                if _placements_overlap(earlier, later):
+                    raise ValueError("two packed slots sit on overlapping tiles")
+
+
+def _placements_overlap(one: PagePlacement, other: PagePlacement) -> bool:
+    """Do two slots' tiles (each one's own usable area) share any area?
+
+    Touching edges do not count as overlapping — the same rule
+    :func:`_tiles_overlap` uses for the old clueless tiling's tiles.
+    """
+    return (
+        one.usable_left < other.usable_right
+        and other.usable_left < one.usable_right
+        and one.usable_top < other.usable_bottom
+        and other.usable_top < one.usable_bottom
+    )
+
+
+def compute_packed_solved_layout(
+    members: Sequence[tuple[ClueSet, ClueSet]],
+    capacity: int,
+    page_spec: PageSpec,
+) -> PackedSolvedLayout:
+    """Lay out 2 or 4 small answers, with clues, on one shared book page (CARD-202).
+
+    The packed half of this card's new geometry: given up to ``capacity``
+    answers' clue sets, in the order they fill the page (left to right, then
+    top to bottom), measure one page of equal 2-column tiles — exactly
+    :func:`compute_answer_page_layout`'s own shared-tile idea — except that
+    each tile here reserves its own clue gutters and its own title band
+    (:data:`PageSpec.band_mm`), so each slot comes back a complete placed-page
+    :class:`Layout` rather than a clueless :class:`AnswerTile`.
+
+    The cell, in millimetres, on the usable area (trim minus the four
+    margins; no *page-level* band — each slot reserves its own)::
+
+        tile width  = (usable width - SOLVED_TILE_GAP_MM) / 2
+        tile height = (usable height - (rows - 1) x SOLVED_TILE_GAP_MM) / rows
+        drawing height = tile height - page_spec.band_mm
+        cell = clamp(MIN_CELL_MM,
+                     min(SOLVED_TILE_MAX_CELL_MM,
+                         min over members of
+                             min(tile width / drawing columns,
+                                 drawing height / drawing rows)),
+                     above MIN_CELL_MM)
+
+    where ``rows`` is ``capacity // 2`` and a member's drawing columns/rows
+    are its real clue depth (:func:`_gutter_depth`) plus its grid, exactly as
+    :func:`compute_layout` measures a single page's own drawing. One cell for
+    every slot on the page, chosen so every member handed in actually fits —
+    the same "one shared cell, fitted to the hardest member" rule
+    :func:`compute_pair_layout` uses for two same-size puzzles, generalised to
+    up to four possibly-different small ones.
+
+    Args:
+        members: Up to ``capacity`` answers as ``(row_clues, column_clues)``
+            pairs, in the order they fill the page.
+        capacity: 2 or 4, one of :data:`SOLVED_TILE_CAPACITIES`. Which one a
+            page gets is the caller's packing-walk decision (CARD-202's
+            density rule), not this function's.
+        page_spec: The book page: a placed page (a parity, hence portrait
+            only) with a flat cell cap. Its ``band_mm`` is each slot's own
+            band, reserved per tile rather than once for the page.
+
+    Returns:
+        The :class:`PackedSolvedLayout` the renderer draws every slot from.
+
+    Raises:
+        TypeError: ``page_spec`` is not a :class:`PageSpec`.
+        ValueError: ``page_spec`` is not a placed page with a flat cap,
+            ``capacity`` is not one this card defines, ``members`` is empty or
+            holds more answers than the capacity, a member is not a
+            ``(row_clues, column_clues)`` pair, one of its clue sets is empty
+            while the other is not, or the usable area cannot hold that many
+            tiles above their own bands.
+    """
+    if not isinstance(page_spec, PageSpec):
+        raise TypeError(f"page_spec must be a PageSpec, not {type(page_spec).__name__}")
+    if page_spec.parity is None or page_spec.cell_cap is CellCapPolicy.COMFORT_CURVE:
+        raise ValueError(
+            "a packed solved page is laid out only on a placed, portrait-only page "
+            "with a flat cell cap (a PageSpec with a parity and a cap in mm); this "
+            f"spec (parity {page_spec.parity}, cap {page_spec.cell_cap}) never packs"
+        )
+    if capacity not in SOLVED_TILE_CAPACITIES:
+        raise ValueError(
+            f"a packed solved page holds {' or '.join(map(str, SOLVED_TILE_CAPACITIES))} "
+            f"answers, not {capacity!r}"
+        )
+    pairs = tuple(
+        _pair_member(member, f"member {index}") for index, member in enumerate(members)
+    )
+    if not pairs:
+        raise ValueError("a packed solved page holds at least one answer")
+    if len(pairs) > capacity:
+        raise ValueError(f"{len(pairs)} answers on a page that holds {capacity}")
+
+    tile_rows = capacity // _SOLVED_TILE_COLUMNS
+    gap_mm = _exact_mm(SOLVED_TILE_GAP_MM)
+    band_mm = _exact_mm(page_spec.band_mm)
+    usable_width_mm = (
+        _exact_mm(page_spec.width_mm)
+        - _exact_mm(page_spec.gutter_mm)
+        - _exact_mm(page_spec.outside_mm)
+    )
+    usable_height_mm = (
+        _exact_mm(page_spec.height_mm)
+        - _exact_mm(page_spec.top_mm)
+        - _exact_mm(page_spec.bottom_mm)
+    )
+    tile_width_mm = (usable_width_mm - gap_mm) / _SOLVED_TILE_COLUMNS
+    tile_height_mm = (usable_height_mm - (tile_rows - 1) * gap_mm) / tile_rows
+    drawing_height_mm = tile_height_mm - band_mm
+    if tile_width_mm <= 0 or drawing_height_mm <= 0:
+        raise ValueError(
+            f"a {page_spec.width_mm:g} x {page_spec.height_mm:g} mm page cannot hold "
+            f"{capacity} packed slots above their {page_spec.band_mm:g} mm bands"
+        )
+
+    extents = tuple(
+        (
+            _gutter_depth(row_clues) + len(column_clues),
+            _gutter_depth(column_clues) + len(row_clues),
+        )
+        for row_clues, column_clues in pairs
+    )
+    cap_mm = _exact_mm(SOLVED_TILE_MAX_CELL_MM)
+    fit_mm = min(
+        min(tile_width_mm / drawing_columns, drawing_height_mm / drawing_rows)
+        for drawing_columns, drawing_rows in extents
+    )
+    exact_cell_mm = max(_exact_mm(MIN_CELL_MM), min(cap_mm, fit_mm))
+    cell_mm = float(exact_cell_mm)
+    pitch = _exact_px(exact_cell_mm)
+
+    usable_left_px = _exact_px(page_spec.left_margin_mm)
+    usable_top_px = _exact_px(page_spec.top_mm)
+    tile_width_px = _exact_px(tile_width_mm)
+    tile_height_px = _exact_px(tile_height_mm)
+    gap_px = _exact_px(gap_mm)
+
+    slots = tuple(
+        _packed_tile_layout(
+            row_clues,
+            column_clues,
+            page_spec,
+            cell_mm=cell_mm,
+            pitch=pitch,
+            tile_left=usable_left_px
+            + (index % _SOLVED_TILE_COLUMNS) * (tile_width_px + gap_px),
+            tile_width=tile_width_px,
+            band_top=usable_top_px
+            + (index // _SOLVED_TILE_COLUMNS) * (tile_height_px + gap_px),
+            tile_bottom=usable_top_px
+            + (index // _SOLVED_TILE_COLUMNS) * (tile_height_px + gap_px)
+            + tile_height_px,
+        )
+        for index, (row_clues, column_clues) in enumerate(pairs)
+    )
+    return PackedSolvedLayout(
+        parity=page_spec.parity,
+        capacity=capacity,
+        tile_rows=tile_rows,
+        tile_columns=_SOLVED_TILE_COLUMNS,
+        width=_round_px(_exact_px(page_spec.width_mm)),
+        height=_round_px(_exact_px(page_spec.height_mm)),
+        cell_mm=cell_mm,
+        slots=slots,
+    )
+
+
+def _packed_tile_layout(
+    row_clues: ClueSet,
+    column_clues: ClueSet,
+    page_spec: PageSpec,
+    *,
+    cell_mm: float,
+    pitch: Fraction,
+    tile_left: Fraction,
+    tile_width: Fraction,
+    band_top: Fraction,
+    tile_bottom: Fraction,
+) -> Layout:
+    """One packed slot: a placed-page :class:`Layout` inside its own tile box.
+
+    Built the way :func:`_slot_layout` builds a two-up slot — the cell and the
+    band's row handed in rather than fitted, every boundary rounded once
+    (:func:`_boundaries`) — with one difference: a two-up slot's drawing is
+    centred across the **whole page's** usable width, because the two slots
+    share one column; a packed slot's drawing is centred across its **own
+    tile's** width instead (``tile_left`` .. ``tile_left + tile_width``),
+    because two (or four) slots share one page side by side. That is also why
+    this is not :func:`_slot_layout` itself with different arguments: the
+    width this centres against is a parameter here and a spec-wide constant
+    there.
+
+    ``tile_left``/``tile_width``/``band_top``/``tile_bottom`` become the
+    slot's own :class:`PagePlacement` ``usable_left``/``usable_right``/
+    ``usable_top``/``usable_bottom`` — the tile's own box, not the page's —
+    which is what lets :class:`PackedSolvedLayout` detect two overlapping
+    tiles the same way :class:`AnswerPageLayout` detects two overlapping
+    answer tiles.
+    """
+    rows, columns = len(row_clues), len(column_clues)
+    row_gutter_cells = _gutter_depth(row_clues)
+    column_gutter_cells = _gutter_depth(column_clues)
+    drawing_columns = row_gutter_cells + columns
+    drawing_rows = column_gutter_cells + rows
+
+    spare = tile_width - drawing_columns * pitch
+    left = tile_left + max(spare, Fraction(0)) / 2
+    top = band_top + _exact_px(page_spec.band_mm)
+
+    xs = _boundaries(left, pitch, drawing_columns)
+    ys = _boundaries(top, pitch, drawing_rows)
+    grid_xs = xs[row_gutter_cells:]
+    grid_ys = ys[column_gutter_cells:]
+    grid_right, grid_bottom = grid_xs[-1], grid_ys[-1]
+    thin, thick = _rule_widths(pitch, page_spec)
+    return Layout(
+        rows=rows,
+        columns=columns,
+        orientation="portrait",
+        cell=math.floor(pitch),
+        margin=_round_px(band_top),
+        row_gutter_cells=row_gutter_cells,
+        column_gutter_cells=column_gutter_cells,
+        width=_round_px(_exact_px(page_spec.width_mm)),
+        height=_round_px(_exact_px(page_spec.height_mm)),
+        grid_left=grid_xs[0],
+        grid_top=grid_ys[0],
+        grid_right=grid_right,
+        grid_bottom=grid_bottom,
+        thin_rule=thin,
+        thick_rule=thick,
+        clue_font_size=max(1, round(pitch * _CLUE_FONT_RATIO)),
+        vertical_lines=_axis_lines(grid_xs, start=ys[0], end=grid_bottom, thin=thin, thick=thick),
+        horizontal_lines=_axis_lines(grid_ys, start=xs[0], end=grid_right, thin=thin, thick=thick),
+        row_clues=_place_row_clues(row_clues, depth=row_gutter_cells, xs=xs, ys=grid_ys),
+        column_clues=_place_column_clues(
+            column_clues, depth=column_gutter_cells, xs=grid_xs, ys=ys
+        ),
+        page=PagePlacement(
+            parity=page_spec.parity,
+            cell_mm=cell_mm,
+            usable_left=_round_px(tile_left),
+            usable_top=_round_px(band_top),
+            usable_right=_round_px(tile_left + tile_width),
+            usable_bottom=_round_px(tile_bottom),
+            drawing_left=xs[0],
+            drawing_top=ys[0],
+            drawing_right=grid_right,
+            drawing_bottom=grid_bottom,
+        ),
+        frame=_puzzle_frame(
+            xs,
+            ys,
+            grid_right=grid_right,
+            grid_bottom=grid_bottom,
+            thick=thick,
+            page_spec=page_spec,
+        ),
     )

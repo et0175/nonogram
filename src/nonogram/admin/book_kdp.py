@@ -395,6 +395,24 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
     grid independently of the generator's own abort shape (G-6), and a row's
     answer must still be measurable for *some* page count to exist at all.
 
+    **CARD-202 leaves the answer term exactly as it is here (one page per
+    puzzle), a decision this card examined and did not make silently.**
+    CARD-202's packing walk (:func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`)
+    is itself sheet-free — a pure function of extents and levels, exactly like
+    the old packed key's own walk was — so tightening this estimate with it
+    is *mechanically* possible. It is not done, because the EC-034 cross-check
+    this docstring already promises — equal to the generator's own
+    ``unpaired_page_count`` — pins "before pairing" to mean "one page per
+    puzzle, no packing either", the same baseline
+    :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.interior_stream`
+    deliberately keeps unchanged by CARD-202 (see that method's own comment on
+    ``unpaired_page_count``, and this card's Worktree notes). Tightening this
+    function alone, without also redefining what "unpaired" means on the
+    generator side, would break that equality for any book with a qualifying
+    small puzzle — so the two stay matched upper bounds, and
+    :attr:`~nonogram.admin.book_pdf_generator.Interior.pages_saved` now reports
+    pairing *and* packing together instead.
+
     Nothing here is new arithmetic: the make-up is
     :func:`~nonogram.admin.book_pdf_generator.interior_page_count`, the order
     is :func:`~nonogram.admin.book_pdf_generator.print_order` and the levels
