@@ -344,11 +344,23 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
     """
     rng = random.Random(1160032)
     checked = 0
-    for case in range(110):
+    for case in range(160):
+        # CARD-202 (SCOPE+): more cases than before, to keep at least 100
+        # genuinely checked even after skipping qualifying (packable)
+        # extents below — the corpus must not silently shrink.
         sheet = BOOK1 if case % 10 == 0 else _random_sheet(rng)
         puzzle = _puzzle(rng)
         columns, rows, across, down = _extent(puzzle)
         if sheet.page_fit_mm(across, down) < MIN_CELL_MM:
+            continue
+        if columns <= 15 and rows <= 20:
+            # CARD-202: a puzzle this size qualifies for answer packing, even
+            # alone (one packed slot on its own 2-up page, not a full page),
+            # which measures at a different geometry (centred in its own
+            # tile, not the full usable width) — this property is about the
+            # full-page case, which packed small-answer tiles have their own
+            # dedicated coverage for instead (``tests/test_book_solved_answer_key.py``,
+            # ``tests/property/test_book_answer_tiles.py``).
             continue
 
         # The same drawing three times — easy, medium and ungraded — which is

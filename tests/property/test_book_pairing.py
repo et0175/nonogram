@@ -240,16 +240,53 @@ def _puzzle(rng: random.Random, small: bool = False) -> Puzzle:
     return puzzle
 
 
-def _expected_answer_pages(order: list[Puzzle]) -> int:
-    """How many pages the answer section takes for ``order`` (CARD-198).
+def _pages_for_a_qualifying_run(length: int) -> int:
+    """CARD-202's own chunking, over a run length alone: 4 at a time while at
+    least 4 remain, then 2 at a time while at least 2 remain, then a lone 1
+    if one is left over (owner decision, resolved 2026-10-08)."""
+    pages = 0
+    while length >= 4:
+        pages += 1
+        length -= 4
+    while length >= 2:
+        pages += 1
+        length -= 2
+    if length == 1:
+        pages += 1
+    return pages
 
-    One full solved page per puzzle, unconditionally — no packing, no level
-    rule. Written out here rather than imported: this module's subject is
-    the *pairing* walk, and an answer-page count re-derived from the
-    generator's own constant would say nothing about the interior it is
-    counting.
+
+def _expected_answer_pages(order: list[Puzzle]) -> int:
+    """How many pages the answer section takes for ``order``.
+
+    CARD-202: a puzzle small enough (width<=15, height<=20) packs with its
+    same-level run instead of CARD-198's one page each; a level change or a
+    non-qualifying puzzle closes the run (G-6). Written out here rather than
+    imported (``nonogram.admin.book_answer_key.plan_small_answer_pages``):
+    this module's subject is the *pairing* walk, and an answer-page count
+    re-derived from the generator's own packing function would say nothing
+    about the interior it is counting.
     """
-    return len(order)
+    pages = 0
+    run_length = 0
+    run_level = None
+    in_run = False
+    for puzzle in order:
+        qualifies = puzzle.columns <= 15 and puzzle.rows <= 20
+        level = puzzle.tier_of_record
+        if qualifies and in_run and level == run_level:
+            run_length += 1
+            continue
+        if in_run:
+            pages += _pages_for_a_qualifying_run(run_length)
+            in_run = False
+        if qualifies:
+            run_length, run_level, in_run = 1, level, True
+        else:
+            pages += 1
+    if in_run:
+        pages += _pages_for_a_qualifying_run(run_length)
+    return pages
 
 
 #: Where each level sits in the printed book (INV-009), and where a row whose

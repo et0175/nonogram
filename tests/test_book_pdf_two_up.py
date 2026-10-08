@@ -46,9 +46,11 @@ import pytest
 from PIL import Image
 
 from nonogram import clues
+from nonogram.admin.book_answer_key import Answer, plan_small_answer_pages
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.difficulty import tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -172,6 +174,28 @@ def _puzzle(
 def _interior(puzzles: Sequence[dict]) -> list[Image.Image]:
     """The book's interior in print order; ``pages[n - 1]`` is interior page ``n``."""
     return BookPDFGenerator(_book()).interior_pages(list(puzzles))
+
+
+def _expected_answer_pages(puzzles: Sequence[dict]) -> int:
+    """How many answer pages CARD-202's packing takes for ``puzzles``, in order.
+
+    This module's own subject is FR-040 pairing, not CARD-202's packing rule
+    (that rule has its own dedicated unit, property and byte-comparison
+    coverage in ``tests/test_book_solved_answer_key.py`` and
+    ``tests/property/test_book_answer_tiles.py``) — so the answer-page term of
+    this module's page-count assertions reuses the production walk directly,
+    rather than re-deriving it a second time for a file that is not testing it.
+    """
+    answers = [
+        Answer(
+            number=index + 1,
+            width=puzzle["width"],
+            height=puzzle["height"],
+            level=tier_of_record(puzzle["difficulty_tier"]),
+        )
+        for index, puzzle in enumerate(puzzles)
+    ]
+    return len(plan_small_answer_pages(answers))
 
 
 # --------------------------------------------------------------------------
@@ -359,13 +383,16 @@ class TestBookPdf_TwoSmallSameTierNeighboursShareAPage:
         assert abs(_shared_cell_mm(first, first) - STANDARD_CELL_MM) < 1e-9
 
     def test_both_puzzles_print_on_one_page(self):
-        pages = _interior(
-            [_puzzle(**_SMALL_PAIR, puzzle_id="a"), _puzzle(**_SMALL_PAIR, puzzle_id="b")]
-        )
+        puzzles = [_puzzle(**_SMALL_PAIR, puzzle_id="a"), _puzzle(**_SMALL_PAIR, puzzle_id="b")]
+        pages = _interior(puzzles)
 
-        # Guide, one shared puzzle page, divider, two answer pages (CARD-198:
-        # one per puzzle, where this book took one packed page before).
-        assert len(pages) == _interior_pages(puzzle_pages=1, answer_pages=2)
+        # Guide, one shared puzzle page, divider, and the answer section:
+        # since CARD-202 these two 10x10s (same tier, both qualifying) pack
+        # onto one answer page too — a different saving from the puzzle
+        # section's own pairing, computed independently of it.
+        assert len(pages) == _interior_pages(
+            puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
+        )
         assert _page_shapes(pages, 3, 1) == [[(10, 10), (10, 10)]]
 
     def test_both_slots_print_at_the_standard_cell(self):
@@ -381,14 +408,15 @@ class TestBookPdf_TwoSmallSameTierNeighboursShareAPage:
 
     def test_printed_alone_they_would_have_taken_two_pages(self):
         """The saving this AC is about: the same two puzzles, different tiers."""
-        pages = _interior(
-            [
-                _puzzle(**_SMALL_PAIR, puzzle_id="a"),
-                _puzzle(**_SMALL_PAIR, tier="medium", puzzle_id="b"),
-            ]
-        )
+        puzzles = [
+            _puzzle(**_SMALL_PAIR, puzzle_id="a"),
+            _puzzle(**_SMALL_PAIR, tier="medium", puzzle_id="b"),
+        ]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=2, levels=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles), levels=2
+        )
         # Interior page 3 is the easy one, page 5 the medium one: each level
         # opens with a divider of its own (CARD-128).
         assert _page_shapes(pages, 3, 1) == [[(10, 10)]]
@@ -410,9 +438,12 @@ class TestBookPdf_TwelvePairSharesPageBelowStandardCell:
     PAIR = dict(columns=12, rows=12, depth=4)
 
     def test_both_puzzles_print_on_one_page_at_the_fitted_cell(self):
-        pages = _interior([_puzzle(**self.PAIR, puzzle_id="a"), _puzzle(**self.PAIR, puzzle_id="b")])
+        puzzles = [_puzzle(**self.PAIR, puzzle_id="a"), _puzzle(**self.PAIR, puzzle_id="b")]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=1, answer_pages=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
+        )
         assert _page_shapes(pages, 3, 1) == [[(12, 12), (12, 12)]]
         for slot in drawings_of(pages[2]):
             assert abs(_mm(slot.cell) - 7.39) < CELL_TOLERANCE_MM, _mm(slot.cell)
@@ -451,9 +482,12 @@ class TestBookPdf_PairJustAboveTwoUpMinimumShares:
     """AC-244 — 33 cells of drawing height share a page at 7.16 mm."""
 
     def test_the_pair_prints_on_one_page(self):
-        pages = _interior([_puzzle(**_FIFTEEN, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")])
+        puzzles = [_puzzle(**_FIFTEEN, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=1, answer_pages=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
+        )
         assert _page_shapes(pages, 3, 1) == [[(15, 15), (10, 10)]]
 
     def test_both_slots_print_at_the_shared_7_16_mm_cell(self):
@@ -476,11 +510,12 @@ class TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare:
     """AC-245 — one more cell of column-clue gutter, 6.95 mm, and they separate."""
 
     def test_the_two_puzzles_print_on_two_pages(self):
-        pages = _interior(
-            [_puzzle(**_FIFTEEN_DEEPER, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")]
-        )
+        puzzles = [_puzzle(**_FIFTEEN_DEEPER, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=2), "guide, two puzzle pages, divider, two answer pages"
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
+        ), "guide, two puzzle pages, divider, the answer section"
         assert _page_shapes(pages, 3, 2) == [[(15, 15)], [(10, 10)]]
 
     def test_the_cell_that_pair_would_need_is_under_the_minimum(self):
@@ -511,9 +546,12 @@ class TestBookPdf_FifteenPlusTwelveDoesNotPair:
     TWELVE = dict(columns=12, rows=12, depth=4, column_depth=4)
 
     def test_the_two_puzzles_print_on_two_pages(self):
-        pages = _interior([_puzzle(**_FIFTEEN, puzzle_id="a"), _puzzle(**self.TWELVE, puzzle_id="b")])
+        puzzles = [_puzzle(**_FIFTEEN, puzzle_id="a"), _puzzle(**self.TWELVE, puzzle_id="b")]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
+        )
         assert _page_shapes(pages, 3, 2) == [[(15, 15)], [(12, 12)]]
 
     def test_the_cell_that_pair_would_need_is_6_57_mm(self):
@@ -541,9 +579,12 @@ class TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare:
     WIDE = dict(columns=22, rows=10, depth=6, column_depth=2)
 
     def test_the_two_puzzles_print_on_two_pages(self):
-        pages = _interior([_puzzle(**self.WIDE, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")])
+        puzzles = [_puzzle(**self.WIDE, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
+        )
         assert _page_shapes(pages, 3, 2) == [[(22, 10)], [(10, 10)]]
 
     def test_the_height_would_have_fitted_and_the_width_is_what_refuses(self):
@@ -571,27 +612,29 @@ class TestBookPdf_DifferentTiersNeverPair:
     """
 
     def test_the_easy_and_the_medium_print_on_two_pages(self):
-        pages = _interior(
-            [
-                _puzzle(**_SMALL_PAIR, tier="easy", puzzle_id="easy"),
-                _puzzle(**_SMALL_PAIR, tier="medium", puzzle_id="medium"),
-            ]
-        )
+        puzzles = [
+            _puzzle(**_SMALL_PAIR, tier="easy", puzzle_id="easy"),
+            _puzzle(**_SMALL_PAIR, tier="medium", puzzle_id="medium"),
+        ]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=2, levels=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles), levels=2
+        )
         assert _page_shapes(pages, 3, 1) == [[(10, 10)]]
         assert _page_shapes(pages, 5, 1) == [[(10, 10)]]
 
     def test_the_same_two_drawings_do_share_a_page_at_one_tier(self):
         """The control: only the tier changed between this and the AC's book."""
-        pages = _interior(
-            [
-                _puzzle(**_SMALL_PAIR, tier="easy", puzzle_id="one"),
-                _puzzle(**_SMALL_PAIR, tier="easy", puzzle_id="two"),
-            ]
-        )
+        puzzles = [
+            _puzzle(**_SMALL_PAIR, tier="easy", puzzle_id="one"),
+            _puzzle(**_SMALL_PAIR, tier="easy", puzzle_id="two"),
+        ]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=1, answer_pages=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
+        )
 
     @pytest.mark.parametrize(
         "first_tier, second_tier",
@@ -605,27 +648,29 @@ class TestBookPdf_DifferentTiersNeverPair:
     def test_two_spellings_of_one_tier_are_one_tier(self, first_tier, second_tier):
         """ADR-0031's tier of record, not the string: "easy" and "Easy" pair, and
         so do "hard" and ADR-0031/R3's retired "guess"."""
-        pages = _interior(
-            [
-                _puzzle(**_SMALL_PAIR, tier=first_tier, puzzle_id="one"),
-                _puzzle(**_SMALL_PAIR, tier=second_tier, puzzle_id="two"),
-            ]
-        )
+        puzzles = [
+            _puzzle(**_SMALL_PAIR, tier=first_tier, puzzle_id="one"),
+            _puzzle(**_SMALL_PAIR, tier=second_tier, puzzle_id="two"),
+        ]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=1, answer_pages=2)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
+        )
 
     @pytest.mark.parametrize("tier", [None, "", "extreme", 17])
     def test_a_row_with_no_tier_of_record_never_pairs(self, tier):
         """A puzzle whose stored grade is not a tier has no tier, so it has no
         tier equal to its neighbour's — not even another ungraded row's."""
-        pages = _interior(
-            [
-                _puzzle(**_SMALL_PAIR, tier=tier, puzzle_id="one"),
-                _puzzle(**_SMALL_PAIR, tier=tier, puzzle_id="two"),
-            ]
-        )
+        puzzles = [
+            _puzzle(**_SMALL_PAIR, tier=tier, puzzle_id="one"),
+            _puzzle(**_SMALL_PAIR, tier=tier, puzzle_id="two"),
+        ]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=2, levels=0)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles), levels=0
+        )
 
 
 # --------------------------------------------------------------------------
@@ -651,9 +696,12 @@ class TestBookPdf_PairingNeverReordersToFindAPartner:
         ]
 
     def test_the_three_puzzles_print_on_three_pages_in_order(self):
-        pages = _interior(self._book_order())
+        puzzles = self._book_order()
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=3, answer_pages=3), "guide, three puzzle pages, divider, three answer pages"
+        assert len(pages) == _interior_pages(
+            puzzle_pages=3, answer_pages=_expected_answer_pages(puzzles)
+        ), "guide, three puzzle pages, divider, the answer section"
         assert _page_shapes(pages, 3, 3) == [[(10, 10)], [(20, 20)], [(10, 10)]]
 
     def test_a_and_c_would_have_fitted_together(self):
@@ -668,9 +716,12 @@ class TestBookPdf_PairingNeverReordersToFindAPartner:
         """The control: the same three puzzles in an order that does pair."""
         a, b, c = self._book_order()
 
-        pages = _interior([a, c, b])
+        puzzles = [a, c, b]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=3), "one page saved, and only in the puzzle section"
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
+        ), "one page saved in the puzzle section; the answer section is its own count"
         assert _page_shapes(pages, 3, 2) == [[(10, 10), (10, 10)], [(20, 20)]]
 
 
@@ -681,9 +732,12 @@ class TestBookPdf_OddPuzzleOutPrintsAlone:
         return [_puzzle(**_SMALL_PAIR, puzzle_id=name) for name in ("one", "two", "three")]
 
     def test_puzzles_one_and_two_share_a_page_and_three_prints_alone(self):
-        pages = _interior(self._three())
+        puzzles = self._three()
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=3), "guide, two puzzle pages, divider, three answer pages"
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
+        ), "guide, two puzzle pages, divider, the answer section"
         assert _page_shapes(pages, 3, 2) == [[(10, 10), (10, 10)], [(10, 10)]]
 
     def test_the_third_page_is_a_single_puzzle_page(self):
@@ -698,9 +752,12 @@ class TestBookPdf_OddPuzzleOutPrintsAlone:
 
     def test_a_fourth_puzzle_joins_the_odd_one_out(self):
         """The walk resumes at the puzzle left alone, so a fourth pairs with it."""
-        pages = _interior(self._three() + [_puzzle(**_SMALL_PAIR, puzzle_id="four")])
+        puzzles = self._three() + [_puzzle(**_SMALL_PAIR, puzzle_id="four")]
+        pages = _interior(puzzles)
 
-        assert len(pages) == _interior_pages(puzzle_pages=2, answer_pages=4), "guide, two shared puzzle pages, divider, four answer pages"
+        assert len(pages) == _interior_pages(
+            puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
+        ), "guide, two shared puzzle pages, divider, the answer section"
         assert _page_shapes(pages, 3, 2) == [
             [(10, 10), (10, 10)],
             [(10, 10), (10, 10)],
@@ -730,13 +787,14 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
     LOWER_BAND_TOP_MM = BOOK1_HEIGHT_MM - BOTTOM_MM - 14 * STANDARD_CELL_MM - BAND_MM
 
     def _page(self):
-        pages = _interior(
-            [
-                _puzzle(**_SMALL_PAIR, puzzle_id="one"),
-                _puzzle(**_SMALL_PAIR, puzzle_id="two"),
-            ]
-        )
-        assert len(pages) == _interior_pages(puzzle_pages=1, answer_pages=2), "the pair does share a page"
+        puzzles = [
+            _puzzle(**_SMALL_PAIR, puzzle_id="one"),
+            _puzzle(**_SMALL_PAIR, puzzle_id="two"),
+        ]
+        pages = _interior(puzzles)
+        assert len(pages) == _interior_pages(
+            puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
+        ), "the pair does share a page"
         return pages[2]  # interior page 3
 
     def test_the_lower_band_sits_where_the_pair_leaves_it(self):

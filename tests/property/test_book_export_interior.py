@@ -43,6 +43,7 @@ import re
 from collections import Counter
 from io import BytesIO
 
+import numpy as np
 import pytest
 from PIL import Image, ImageDraw
 
@@ -74,6 +75,17 @@ USABLE_WIDTH_MM = 8.5 * 25.4 - GUTTER_MM - OUTSIDE_MM
 USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 12.0
 STANDARD_CELL_MM = 7.5
 PX_PER_MM = 300 / 25.4
+
+#: CARD-202's own packed-tile constants, written out here independently (not
+#: imported from ``nonogram.export.layout``'s ``SOLVED_TILE_GAP_MM`` /
+#: ``SOLVED_TILE_MAX_CELL_MM``): a packed page is always two tiles across,
+#: each reserving its own 12 mm band (the puzzle page's own band height,
+#: reused per slot) rather than one page-level band.
+PACKED_GAP_MM = 4.0
+PACKED_MAX_CELL_MM = 6.0
+PACKED_BAND_MM = 12.0
+PACKED_TILE_WIDTH_MM = (USABLE_WIDTH_MM - PACKED_GAP_MM) / 2
+PACKED_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM
 
 #: FR-040's two-up minimum, and the usable height a page has left once it
 #: reserves a band for each of two puzzles rather than one.
@@ -147,6 +159,51 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
     spare = USABLE_WIDTH_MM - across * cell
     left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
     return left_margin + max(spare, 0.0) / 2
+
+
+def _packed_cell_mm(group):
+    """CARD-202's one shared cell for ``group`` (2 or 4 small answers), in mm.
+
+    Independent of :func:`~nonogram.export.layout.compute_packed_solved_layout`
+    (CLAUDE.md: prefer an independent second implementation): two equal
+    tiles across, each reserving its own band, the largest cell at which
+    every answer's own drawing fits its own tile below its own band, capped
+    at :data:`PACKED_MAX_CELL_MM`.
+    """
+    rows = -(-len(group) // 2)  # ceil(len(group) / 2)
+    tile_height = (
+        PACKED_USABLE_HEIGHT_MM - (rows - 1) * PACKED_GAP_MM
+    ) / rows
+    drawing_height = tile_height - PACKED_BAND_MM
+    return min(
+        PACKED_MAX_CELL_MM,
+        min(PACKED_TILE_WIDTH_MM / _across(p) for p in group),
+        min(drawing_height / _down(p) for p in group),
+    )
+
+
+def _packed_column_left_mm(group, column, page_number):
+    """Where packed page ``page_number``'s ``column`` (0 left, 1 right) puts
+    the **least-padded** of its own answers' drawing left edges, or ``None``
+    when ``column`` holds no answer at all (a lone leftover's packed page
+    fills only column 0; column 1 is empty and has no ink to measure).
+
+    A packed page's two columns can each hold more than one row (a 4-up
+    page), and two rows need not agree on how much their own drawing is
+    centred inside the shared tile — only the minimum (the widest answer in
+    that column) is safe to compare against measured ink, since the other
+    row's ink falls to its right.
+    """
+    indices = list(range(column, len(group), 2))
+    if not indices:
+        return None
+    tile_left = (
+        (GUTTER_MM if page_number % 2 else OUTSIDE_MM)
+        + column * (PACKED_TILE_WIDTH_MM + PACKED_GAP_MM)
+    )
+    cell = _packed_cell_mm(group)
+    spares = (PACKED_TILE_WIDTH_MM - _across(group[i]) * cell for i in indices)
+    return tile_left + max(min(spares), 0.0) / 2
 
 
 @pytest.fixture
@@ -313,6 +370,66 @@ def _divider_pages(puzzles):
     })
 
 
+def _qualifies_for_packing(puzzle):
+    """CARD-202's threshold, written out here rather than imported
+    (:func:`~nonogram.admin.book_answer_key.qualifies_for_packing`):
+    width<=15 and height<=20, both sides checked separately."""
+    return puzzle["width"] <= 15 and puzzle["height"] <= 20
+
+
+def _grouped_run(run):
+    """A same-level qualifying run cut into CARD-202's own page groups:
+    4 at a time while at least 4 remain, then 2 at a time while at least 2
+    remain, then a lone 1 if one is left over (owner decision, resolved
+    2026-10-08). Pure arithmetic over the run alone, independent of
+    :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`
+    (CLAUDE.md: prefer an independent second implementation)."""
+    groups = []
+    index = 0
+    while index < len(run):
+        remaining = len(run) - index
+        take = 4 if remaining >= 4 else min(remaining, 2)
+        groups.append(tuple(run[index : index + take]))
+        index += take
+    return groups
+
+
+def _answer_section_plan(printed):
+    """``printed``'s answers (the book's print order) grouped into answer
+    pages exactly as CARD-202 packs them: one ``(kind, group)`` per page, in
+    print order. ``kind`` is ``"full"`` for a large (non-qualifying) answer's
+    own CARD-198 page (always a 1-tuple, drawn by ``solved_puzzle_page``) or
+    ``"packed"`` for a CARD-202 packed page (a 1-, 2- or 4-tuple — a lone
+    qualifying leftover still packs, with one slot empty, drawn by
+    ``_packed_answer_page``; the two kinds of 1-tuple are drawn by different
+    methods at different geometry and must not be conflated). A level change
+    or a non-qualifying answer closes a run of qualifying answers (G-6).
+    """
+    plan = []
+    run = []
+    run_level = None
+    for puzzle in printed:
+        level = _LEVEL.get(str(puzzle["difficulty_tier"]).lower(), 3)
+        if _qualifies_for_packing(puzzle) and run and level == run_level:
+            run.append(puzzle)
+            continue
+        if run:
+            plan.extend(("packed", group) for group in _grouped_run(run))
+            run = []
+        if _qualifies_for_packing(puzzle):
+            run, run_level = [puzzle], level
+        else:
+            plan.append(("full", (puzzle,)))
+    if run:
+        plan.extend(("packed", group) for group in _grouped_run(run))
+    return plan
+
+
+def _expected_answer_pages(printed):
+    """How many answer pages CARD-202's packing takes, for ``printed``."""
+    return len(_answer_section_plan(printed))
+
+
 #: ``data-interior-page-count="N"`` on the Finalise screen: the page count the
 #: finalise step reads and checks KDP's gutter table at (CARD-129, EC-034).
 _FINALISE_PAGE_COUNT = re.compile(r'data-interior-page-count="(\d+)"')
@@ -441,13 +558,15 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
 
         # Today's content with the cover gone: guide, the pages the puzzles
         # take (two-up pairing can make them fewer than the puzzles, FR-040),
-        # divider, and one full solved answer page per puzzle (CARD-198: no
-        # packing — the answer section is always exactly ``n`` pages).
+        # divider, and the answer section — one full solved page per large
+        # answer (CARD-198) or 2-or-4 small answers packed to a page
+        # (CARD-202, :func:`_expected_answer_pages`).
         printed = _as_the_interior_prints_them(case)
         plan = _puzzle_page_plan(printed)
         section = _section_plan(printed)
         dividers = _divider_pages(printed)
-        expected_count = 1 + dividers + len(plan) + (n + 1 if n else 0)
+        expected_answers = _expected_answer_pages(printed)
+        expected_count = 1 + dividers + len(plan) + (expected_answers + 1 if n else 0)
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
         if reported is not None:
@@ -471,9 +590,8 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             assert page_count == len(interior), label
             # The other two figures the screen reports, against this module's
             # own walks: the same interior with every puzzle on a page of its
-            # own (FR-040), and the drawable-puzzle count (CARD-198: one
-            # answer page per puzzle, no packing).
-            assert answer_pages == n, label
+            # own (FR-040), and CARD-202's own packed-or-full answer count.
+            assert answer_pages == expected_answers, label
             assert unpaired == 1 + dividers + n + (n + 1 if n else 0), label
             assert unpaired >= page_count, label
             seen["finalise count"] += 1
@@ -521,25 +639,66 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             # counted together and both combinations are required below.
             seen[f"{make_up} {'right-hand' if page_number % 2 else 'left-hand'}"] += 1
 
-        # The same clause on the answer pages. Since CARD-198 an answer page
-        # *is* a full-page drawing — solved_puzzle_page calls the same
-        # compute_layout as an unsolved single page at that position — so it
-        # is measured exactly like one of the puzzle-section's own single
-        # pages, through the same :func:`_expected_drawing_left_mm` and the
-        # same independent :func:`drawing_of` reader (safe for a solved
-        # page's ``.left``/``.top``, per that helper's own docstring, even
-        # though ``.columns``/``.rows`` are not).
-        for offset, puzzle in enumerate(printed):
-            page_number = 3 + dividers + len(plan) + offset
-            drawn_left_mm = drawing_of(interior[page_number - 1]).left / PX_PER_MM
-            expected_mm = _expected_drawing_left_mm(puzzle, page_number)
-            assert abs(drawn_left_mm - expected_mm) < 0.1, (
-                f"{label}: answer page {page_number} "
-                f"({'right' if page_number % 2 else 'left'}-hand) "
-                f"starts its drawing at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
-            )
-            seen["right-hand" if page_number % 2 else "left-hand"] += 1
+        # The same clause on the answer pages. Since CARD-198 an *unpacked*
+        # (single-answer) answer page is a full-page drawing —
+        # solved_puzzle_page calls the same compute_layout as an unsolved
+        # single page at that position — so it is measured exactly like one
+        # of the puzzle section's own single pages, through the same
+        # :func:`_expected_drawing_left_mm` and the same independent
+        # :func:`drawing_of` reader (safe for a solved page's
+        # ``.left``/``.top``, per that helper's own docstring, even though
+        # ``.columns``/``.rows`` are not).
+        #
+        # CARD-202 packs some answers 2-or-4 to a page, and neither
+        # `drawing_of` (one drawing) nor `drawings_of` (two, stacked
+        # vertically) reads a 2-column packed tile — so a packed page's
+        # parity is checked per column instead, against
+        # :func:`_packed_column_left_mm`'s own independent tile model: the
+        # page is split at its own horizontal centre (safely inside the gap
+        # between the two tiles on either parity, since the margin
+        # difference — gutter minus outside — is much smaller than the gap
+        # zone the two tiles leave between them), and each half's own
+        # leftmost ink column is measured directly.
+        answer_page_number = 3 + dividers + len(plan)
+        for kind, group in _answer_section_plan(printed):
+            page = interior[answer_page_number - 1]
+            right_hand = page_is_right_hand(answer_page_number)
+            if kind == "full":
+                (puzzle,) = group
+                drawn_left_mm = drawing_of(page).left / PX_PER_MM
+                expected_mm = _expected_drawing_left_mm(puzzle, answer_page_number)
+                assert abs(drawn_left_mm - expected_mm) < 0.1, (
+                    f"{label}: answer page {answer_page_number} "
+                    f"({'right' if right_hand else 'left'}-hand) "
+                    f"starts its drawing at {drawn_left_mm:.3f} mm, not {expected_mm:.3f} mm"
+                )
+                seen["single answer page"] += 1
+            else:
+                half = page.width // 2
+                for column, (left, right) in enumerate(((0, half), (half, page.width))):
+                    expected_mm = _packed_column_left_mm(
+                        group, column, answer_page_number
+                    )
+                    if expected_mm is None:
+                        continue  # a lone leftover's packed page: column empty
+                    crop = page.crop((left, 0, right, page.height))
+                    ink = np.asarray(crop.convert("L")) < 128
+                    cols_with_ink = np.where(ink.any(axis=0))[0]
+                    assert cols_with_ink.size, (
+                        f"{label}: packed answer page {answer_page_number} "
+                        f"column {column} has no ink at all"
+                    )
+                    drawn_mm = (cols_with_ink.min() + left) / PX_PER_MM
+                    assert abs(drawn_mm - expected_mm) < 0.5, (
+                        f"{label}: packed answer page {answer_page_number} "
+                        f"({'right' if right_hand else 'left'}-hand) column "
+                        f"{column} starts its ink at {drawn_mm:.3f} mm, not "
+                        f"{expected_mm:.3f} mm"
+                    )
+                seen["packed answer page"] += 1
+            seen["right-hand" if right_hand else "left-hand"] += 1
             seen["answer page"] += 1
+            answer_page_number += 1
 
         seen[case["route"]] += 1
         seen["with cover" if case["cover"] is not None else "without cover"] += 1
@@ -563,10 +722,15 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
     assert seen["two-up page right-hand"] >= 2, seen
     assert seen["two-up page left-hand"] >= 2, seen
     assert seen["single page right-hand"] >= 2 and seen["single page left-hand"] >= 2, seen
-    # The answer pages were measured too — since CARD-198 one per puzzle, so
-    # this is now exactly the same shape of claim the puzzle-page loop above
-    # already makes, just over the answer section instead.
+    # The answer pages were measured too — one page per large answer
+    # (CARD-198) or 2-or-4 small answers packed to a page (CARD-202) — the
+    # same shape of claim the puzzle-page loop above already makes, just
+    # over the answer section instead. Both kinds of answer page are in the
+    # corpus (the "small" pairing-corner cases are also small enough, at
+    # width<=20, to sometimes qualify for packing at width<=15).
     assert seen["answer page"] >= 20, seen
+    assert seen["single answer page"] >= 5, seen
+    assert seen["packed answer page"] >= 1, seen
     # CARD-129: the finalise page count was really read, on enough books and
     # on both sides of the cover — a clause that only ran on the one route
     # that has no Finalise screen would pass vacuously. Three of the four
