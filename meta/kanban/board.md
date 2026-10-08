@@ -30,7 +30,7 @@ _Updated: 2026-10-07 UTC_
 | 32 | CARD-164 P1, CARD-165 P2, CARD-166 P2, CARD-167 P2, CARD-168 P2 | ✓ done — all 5 merged; full suite exit 0 |
 | 33 | CARD-169 P1, CARD-170 P1, CARD-171 P2, CARD-172 P2, CARD-173 P2, CARD-174 P2, CARD-175 P3, CARD-176 P2 | ✓ done — all 8 merged (CARD-170 after an owner-chosen targeted fix) |
 | 34 | CARD-177 P1, CARD-178 P2, CARD-179 P2, CARD-180 P3, CARD-181 P3, CARD-182 P3, CARD-183 P3, CARD-184 P2, CARD-186 P2, CARD-188 P2 | ✓ done — all 10 merged (CARD-188 after two owner-chosen fixes) |
-| 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ▶ active — 185 merged; player chain 189 → 187; admin chain 190 → 191 → 192 (app.py); 191 ✓ committed; 192 ▶ review; 187 ✓ 9.0 committed 728c7d0, awaiting done |
+| 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ✓ all 6 merged (185 ae25661, 189 0b637a9, 187 b291141, 190 22ce971, 191 cccfecb, 192 da93164) — board bookkeeping was stale, swept 2026-10-08 |
 | 36 | CARD-193 P2, CARD-196 P2 | CARD-196 ✓ merged d7ba2ac (score 8.5, cycle 3/3) · CARD-193 ✓ merged c51982a (score 9.5, cycle 3/3) · CARD-194 ✓ merged e0214c9 (score 9.0, cycle 1/3) · CARD-195 ✓ merged 1b4bc97 (score 9.3, cycle 2/3; owner caught a real native pinch-zoom bug by eye in cycle 1's renders, fixed in cycle 2) · wave 36 complete |
 | 37 | CARD-197 P2, CARD-198 P2, CARD-199 P2 | CARD-199 ✓ merged 7d4bcf8 (score 9.5, cycle 1/3) · CARD-197 ✓ merged 81156b1 (score 9.0, cycle 2/3) · CARD-198 ✓ merged da0f8bb (score 8.5, cycle 1/3; owner confirmed the three flagged consequences — level heading dropped, Finalise label narrower, page-growth ceiling risk — before merge) · wave 37 complete — owner solution-layout doc |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
@@ -56,12 +56,6 @@ _(none)_
 ## In Progress
 
 ## Review
-- [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · ✓ 9.0 (cycle 2/3, 0 crit, 0 imp, 2 minor) · committed 728c7d0 (implementation 2c01f7f, fc3f647) · awaiting done (owner visual check of renders in ~/Documents/nonogram-reviews/CARD-187/)
-- [CARD-192](cards/CARD-192.md) P2 · 0.75d · wave 35 — The Arrangement page can show one longest-side size, with what is left or over against the plan · ✓ 9.2 (2 cycles) · committed 04791f4 · awaiting done (owner render check)
-- [CARD-191](cards/CARD-191.md) P2 · 0.75d · wave 35 — On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side · ✓ 9.5 (2 cycles) · committed 9803893 · awaiting done (owner render check)
-- [CARD-189](cards/CARD-189.md) P2 · 0.5d · wave 35 — In the puzzle player, a click follows the selected brush · ✓ 9.0 (3 cycles) · committed 481a4e6 · awaiting done (owner render check)
-- [CARD-190](cards/CARD-190.md) P2 · 0.5d · wave 35 — Puzzle review's size filter goes by the longest side, like book selection · ✓ 9.5 (3 cycles) · committed 1eaefac · awaiting done (owner render check)
-- [CARD-185](cards/CARD-185.md) P2 · 1d · wave 35 — The puzzle player reopens a puzzle in the state it was left in (this browser only) · ✓ 9.5 (2 cycles) · committed a7e72d2 · awaiting done (owner render check)
 
 ## Blocked
 
@@ -76,6 +70,12 @@ _(none)_
 - **CARD-184** One test holds every interior face to CON-020's 10 pt floor, and the two faces below it today are fixed · score 9.5 (cycle 1/3) · merged 9117567
 - **CARD-186** The puzzle player gets a "?" mark and a "?" brush for assumptions · score 9.0 (2 cycles) · merged ddfc116
 - **CARD-188** The puzzle player circles a clue number once the player's marks settle its run · score 9.0 (cycle 4, owner-granted) · merged 0d7c82e
+- **CARD-185** The puzzle player reopens a puzzle in the state it was left in (this browser only) · score 9.5 (cycle 2/3) · merged ae25661
+- **CARD-189** In the puzzle player, a click follows the selected brush · score 9.0 (cycle 3/3) · merged 0b637a9
+- **CARD-187** The puzzle player shows the percent of correctly marked cells next to the error counter · score 9.0 (cycle 2/3) · merged b291141
+- **CARD-190** Puzzle review's size filter goes by the longest side, like book selection · score 9.5 (cycle 3/3) · merged 22ce971
+- **CARD-191** On the Arrangement step, a "Sort by size" button orders each level by longest side, then shortest side · score 9.5 (cycle 2/3) · merged cccfecb
+- **CARD-192** The Arrangement page can show one longest-side size, with what is left or over against the plan · score 9.2 (cycle 1/3) · merged da93164
 - **CARD-169** The Finalise screen's guide preview shows "How to Solve Nonograms" and its worked example, read from the generator · score 9.5 (2 cycles) · merged cd13b6a
 - **CARD-170** Prove from the PDF's pixels that a puzzle's band prints once ("Puzzle 5 · Hard" drawn twice?) · score 9.5 (3 cycles; stalled at cycle 2, owner-chosen targeted fix) · merged a5a2b99
 - **CARD-171** Finalise names a page-plan error on screen, and logs every other error it flashes · score 10.0 (2 cycles) · merged 7713c65
