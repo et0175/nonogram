@@ -102,15 +102,17 @@ it is a new COMP-007 layout primitive.
    clueless tile and a with-clues tile needs more room per cell at the same
    print size — re-derive, do not assume the old numbers still fit.
 2. **New packing rule (`book_answer_key.py` or a sibling pure module).**
-   Given the book's answers in order, decide which ones qualify
-   (width<=15 and height<=20, via `_answer_extent`) and how 2-vs-4 density is
-   chosen for a page of qualifying answers — **a real open decision, not
-   resolved by this brief** (see Design context). Whether a page may mix
-   answers of different tiers (the old `pack_answer_pages` forbids it; the
-   doc does not say) is a second open decision. A non-qualifying answer
-   (anything bigger than 15x20) keeps CARD-198's one-full-page treatment
-   unconditionally — this card narrows CARD-198's rule, it does not replace
-   it wholesale.
+   Given the book's answers in order, decide which ones qualify (width<=15
+   and height<=20, via `_answer_extent`). Walk qualifying answers within one
+   tier's run: pack 4 per page whenever 4 are next in sequence, falling back
+   to a 2-up page only for a leftover odd one or two at the end of that
+   tier's qualifying run (owner decision, resolved 2026-10-08 — see Design
+   context). **A page never mixes tiers** — a tier boundary closes the
+   current packed page early (even short of 4), same rule as the old
+   `pack_answer_pages`/`AnswerPage.__post_init__` (owner decision, resolved
+   2026-10-08). A non-qualifying answer (anything bigger than 15x20) keeps
+   CARD-198's one-full-page treatment unconditionally — this card narrows
+   CARD-198's rule, it does not replace it wholesale.
 3. **Renderer (`book_pdf_generator.py`).** A new page-drawing method beside
    `solved_puzzle_page`/`_two_up_page` that, for a page of 2 or 4 small
    answers, calls the new layout for each slot and draws each slot with the
@@ -147,11 +149,11 @@ it is a new COMP-007 layout primitive.
 
 ## Acceptance criteria
 
-- **AC-1** (happy): *Given* a book where every puzzle is width<=15 and
-  height<=20, *when* the book PDF is generated, *then* the answer section
-  holds fewer pages than one-per-puzzle would, packed 2-or-4 per page per
-  this card's density rule (rule to be pinned by the implementer's resolved
-  design decision — see Design context), in puzzle-number order.
+- **AC-1** (happy): *Given* a single-tier book where every puzzle is
+  width<=15 and height<=20, *when* the book PDF is generated, *then* the
+  answer section packs 4 qualifying answers per page whenever 4 are next in
+  sequence, falling back to a 2-up page only for a leftover odd one or two,
+  in puzzle-number order — fewer pages than CARD-198's one-per-puzzle.
   *test: TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage (new, in a new or extended tests/test_book_solved_answer_key.py class)*
 - **AC-2** (happy): *Given* a book mixing small (width<=15, height<=20) and
   large puzzles, *when* the answer section is read, *then* every small
@@ -160,6 +162,12 @@ it is a new COMP-007 layout primitive.
   sequence across both kinds is unbroken (no puzzle's answer is skipped,
   duplicated, or printed out of order).
   *test: TestBookSolvedAnswerKey_MixedBookPacksOnlyTheSmallOnes*
+- **AC-2b** (boundary, tier boundary closes a page early): *Given* a run of
+  5 qualifying small answers where the first 3 are Easy and the next 2 are
+  Medium, *when* the answer section is built, *then* the page holding the
+  3 Easy answers closes at 2-up (not padded to 4 with a Medium answer), and
+  the 2 Medium answers start a new page — no packed page ever mixes tiers.
+  *test: TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly*
 - **AC-3** (boundary, the threshold edge): *Given* an answer exactly
   15 wide x 20 tall, and one 16 wide (or 21 tall), *when* the answer section
   is built, *then* the 15x20 answer qualifies for packing and the
@@ -173,9 +181,9 @@ it is a new COMP-007 layout primitive.
   *test: TestBookSolvedAnswerKey_PackedSlotsStillShowClues*
 - **AC-5** (happy, caption/band per slot): *Given* a packed page, *when*
   each slot is read, *then* its caption reads `answer_caption(number,
-  title)` when there is room, and [its title band reads `band_identity`/is
-  dropped per the implementer's resolved design decision — see Design
-  context] — pin whichever this card ships.
+  title)` when there is room, and its title band reads
+  `band_identity(number, tier)` exactly as a full answer page's does — the
+  band is kept, not dropped, on every packed slot.
   *test: TestBookSolvedAnswerKey_PackedSlotIdentityMatchesTheFullPageWording*
 - **AC-6** (negative, page-count/parity preserved): *Given* any book,
   *when* `InteriorStream.answer_page_count` and `_as_planned`'s own tripwire
@@ -214,6 +222,9 @@ it is a new COMP-007 layout primitive.
   beyond CARD-197's existing `(v, v, v)` gray-gridline tone.
 - G-5: FR-030/ADR-0036 mirrored-margin placement is respected by every new
   slot exactly as it already is for a two-up page's two slots.
+- G-6: A packed page never mixes tiers (owner decision, resolved
+  2026-10-08) — a tier boundary closes the current packed page early, even
+  short of 4, rather than filling it with a different tier's answer.
 
 ## System contract
 
@@ -307,32 +318,26 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
 - **Output:** the book's answer-key section — a subset of its pages (small
   puzzles) packed 2-or-4 to a page with clues, the rest (CARD-198's
   one-per-puzzle full pages) unchanged.
-- **Owner decisions needed before this card is implemented (flagged here,
-  not guessed at):**
-  1. **The exact 2-vs-4 density rule.** Candidates: (a) mirror the old
-     `page_capacity`'s greedy "4 unless everything on the page is small
-     enough for 6" shape, adapted to a 2/4 choice by some new secondary
-     threshold; (b) always 4-up when 4 qualifying answers are available in
-     sequence, falling back to 2-up only for a leftover odd one or two; (c)
-     something else. The doc's "2 or 4" does not by itself pin which.
-  2. **Whether a packed page may mix tiers.** The old `pack_answer_pages`
-     forbids mixing levels on one page (`AnswerPage.__post_init__`); the
-     doc's ask says nothing about tier. Keeping that constraint costs more
-     pages (a level boundary closes a page early, as the old module's own
-     docstring explains); dropping it packs tighter but loses the
-     one-level-per-page property CARD-198's "no separate level-heading or
-     divider page" decision leaned on (every page's own band already names
-     its tier — a mixed-tier packed page still shows each slot's own tier
-     via its own band, so this may be a safe relaxation, but it is a real
-     behavior change from the pre-CARD-198 key and needs an explicit call).
-  3. **Whether a packed slot keeps its title band** (`band_identity`,
-     "Puzzle N · Tier") the way a two-up puzzle page's slots do, or drops it
-     for space the way CARD-198 dropped the old per-level heading — flag
-     this rather than silently picking, the same discipline CARD-198 used
-     for its own level-heading removal.
+- **Owner decisions (resolved 2026-10-08, via AskUserQuestion, before this
+  card started):**
+  1. **2-vs-4 density rule: always 4-up, 2-up only for leftovers.** Pack 4
+     qualifying answers per page whenever 4 are available next in sequence;
+     an odd one or two left at the end of a qualifying run (or of the book)
+     prints 2-up instead. The old `page_capacity`'s greedy-6-unless-forced-4
+     shape is NOT used — there is no secondary size threshold gating 2 vs 4
+     beyond "how many are left in the run."
+  2. **Tier mixing: NOT allowed.** A packed page holds answers from one tier
+     only, same as the old `pack_answer_pages`/`AnswerPage.__post_init__`
+     rule — a run of qualifying answers closes its current page early
+     (even short of 4) at a tier boundary, exactly as the old module's own
+     docstring describes, and starts a new page for the next tier.
+  3. **Title band: kept.** Every packed slot shows `band_identity(number,
+     tier)` ("Puzzle N · Tier"), the same as a two-up puzzle page's slots
+     and a full-page answer — not dropped for space.
   4. **The new per-slot cell-size cap and gap constants** (point 1 of "What
-     to implement") — a real measured value against the Book 1 profile,
-     not yet derived in this draft.
+     to implement") remain the implementer's own measured call against the
+     Book 1 profile — an engineering measurement, not a policy decision, so
+     it was not put to the owner.
 - **Renders:** `~/Documents/nonogram-reviews/CARD-202/` (owner visual check
   before merge) — a small sample book mixing a few small puzzles (some at
   exactly the 15x20 edge, some well inside it) with a couple of large ones,
@@ -416,3 +421,15 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   state this card's packing rule) and updating `meta/architecture/trace.yml`
   — architect-station follow-up, same pattern CARD-198 used for its own
   FR-042 staleness.
+- [Owner decisions] 2026-10-08, via AskUserQuestion, before this card
+  started: (1) density — always 4-up, 2-up only for leftovers; (2) tier
+  mixing — not allowed, a tier boundary closes a packed page early; (3)
+  title band — kept on every packed slot. All three folded into "What to
+  implement," the ACs, and a new Guardrail G-6. The 4th open item (the
+  per-slot cell-size cap/gap constants) stays the implementer's own
+  measured call, as it was never a policy question.
+- [Env] forge 2026.8.17 (no `meta/.skills.yml` → no `forge.min_version` to
+  compare against; version still resolved and noted per protocol).
+- [Pin gate] n/a — no `meta/.skills.yml` → `legacy.enabled` unset, gate
+  skipped.
+- [Drift gate] n/a — no `meta/drift-pending.yml`, gate skipped.
