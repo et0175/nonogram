@@ -1,6 +1,6 @@
 # CARD-194: The puzzle player's brushes become one dropdown with a Region option; a drag scrolls the page unless Region is picked
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/194-player-brush-dropdown-region
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-194
 **Source:** owner mobile solver feedback, 2026-10-06 (owner decision: brushes become one dropdown with Region; a drag scrolls the page unless Region is picked)
 **Idea:** —
 **Wave:** 36

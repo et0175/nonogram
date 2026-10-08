@@ -1,6 +1,6 @@
 # CARD-198: The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/198-answer-key-one-page-per-puzzle
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-198
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-07 (owner decisions on the book's answer-key replacement)
 **Idea:** —
 **Wave:** 37

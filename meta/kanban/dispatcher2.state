@@ -1,6 +1,11 @@
 wave: 37
 mode: interactive
-active: []
+active:
+- id: CARD-198
+  phase: implement
+  branch: card/198-answer-key-one-page-per-puzzle
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-198
+  started: '2026-10-08T00:00:00Z'
 escalated: []
 merged:
 - id: CARD-199
@@ -17,7 +22,6 @@ merged:
   branch: card/197-solved-page-renderer
   started: '2026-10-07T11:51:38Z'
   closed: '2026-10-07T14:55:00Z'
-queued:
-- CARD-198 (CARD-197 and CARD-199 both merged — ready to start)
+queued: []
 conflict_edges: []
 last_updated: '2026-10-07T14:55:00Z'

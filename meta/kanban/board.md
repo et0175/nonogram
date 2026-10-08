@@ -52,10 +52,10 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-- [CARD-198](cards/CARD-198.md) P2 · 1.5d · wave 37 — The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid · unblocked — both CARD-197 (81156b1) and CARD-199 (7d4bcf8) merged
-- [CARD-194](cards/CARD-194.md) P2 · 1.5d · wave 36 — The puzzle player's brushes become one dropdown with a Region option; a drag scrolls the page unless Region is picked · unblocked — CARD-193 merged (c51982a); CARD-195 still waits on this one
 
 ## In Progress
+- [CARD-198](cards/CARD-198.md) P2 · 1.5d · wave 37 — The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid · ▶ started 2026-10-08, worktree ../PythonProject4-CARD-198 on card/198-answer-key-one-page-per-puzzle
+- [CARD-194](cards/CARD-194.md) P2 · 1.5d · wave 36 — The puzzle player's brushes become one dropdown with a Region option; a drag scrolls the page unless Region is picked · ▶ started 2026-10-08, worktree ../PythonProject4-CARD-194 on card/194-player-brush-dropdown-region
 
 ## Review
 - [CARD-187](cards/CARD-187.md) P3 · 0.5d · wave 35 — The puzzle player shows the percent of correctly marked cells next to the error counter · ✓ 9.0 (cycle 2/3, 0 crit, 0 imp, 2 minor) · committed 728c7d0 (implementation 2c01f7f, fc3f647) · awaiting done (owner visual check of renders in ~/Documents/nonogram-reviews/CARD-187/)
