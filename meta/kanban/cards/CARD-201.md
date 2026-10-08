@@ -1,6 +1,6 @@
 # CARD-201: The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** —
-**Worktree:** —
+**Branch:** card/201-guide-page-how-to-solve
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-201
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 2: how-to-solve section + difficulty-label description, content from docs/guides/how_to_solve_nonograms_v2.pdf)
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/static/admin.css, docs/guides/how_to_solve_nonograms_v2.pdf, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/test_book_finalise_guide_preview.py, tests/test_book_finalise_gutter.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card201.json (new)
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-08T14:32:38Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -481,3 +481,8 @@ _(No check — excluded as narrative, not rules: CON-004, CON-006, CON-007, CON-
   one card per the brief's instruction (one coherent change — splitting the
   content from its page-count consequence would leave either half
   unshippable on its own).
+- [Env] forge 2026.8.17 (no `meta/.skills.yml` → no `forge.min_version` to
+  compare against; version still resolved and noted per protocol).
+- [Pin gate] n/a — no `meta/.skills.yml` → `legacy.enabled` unset, gate
+  skipped.
+- [Drift gate] n/a — no `meta/drift-pending.yml`, gate skipped.
