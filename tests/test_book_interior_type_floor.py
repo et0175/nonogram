@@ -88,6 +88,16 @@ BAND_SETTERS = frozenset(
 #: drew them no longer exists), so there is no "answer heading" kind any
 #: longer — only the caption :meth:`BookPDFGenerator.solved_puzzle_page`
 #: draws directly, tagged below by that caller.
+#:
+#: CARD-202 note (SCOPE+): the caption's own ``draw.text`` call moved from
+#: ``solved_puzzle_page``'s body into a new shared helper,
+#: ``BookPDFGenerator._draw_solved_slot`` — both a full answer page and a
+#: packed slot draw their caption through it now (reuse, not reinvention;
+#: see that method's own docstring). The immediate caller the spy sees is
+#: therefore ``_draw_solved_slot`` on every page, full or packed, which is
+#: why :attr:`TextCall.kind` below checks for either name: the two calls are
+#: the same kind of caption either way, and the old name is kept in the
+#: check (rather than dropped) only because nothing here requires removing it.
 
 #: The smallest trim a book may be stored with
 #: (``book_page_spec.MIN_TRIM_CM``), written out rather than imported, and the
@@ -172,7 +182,7 @@ class TextCall:
             return "divider"
         if self.caller in BAND_SETTERS:
             return "band"
-        if self.caller[1] == "solved_puzzle_page":
+        if self.caller[1] in ("solved_puzzle_page", "_draw_solved_slot"):
             return "answer caption"
         return "other"
 
