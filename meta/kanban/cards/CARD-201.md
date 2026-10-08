@@ -1,6 +1,6 @@
 # CARD-201: The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2d
@@ -486,3 +486,200 @@ _(No check — excluded as narrative, not rules: CON-004, CON-006, CON-007, CON-
 - [Pin gate] n/a — no `meta/.skills.yml` → `legacy.enabled` unset, gate
   skipped.
 - [Drift gate] n/a — no `meta/drift-pending.yml`, gate skipped.
+
+- [Implementation complete, autonomous background pass] Both pages
+  implemented, all 8 ACs passing with fresh evidence (below), both owner-
+  decision flags answered, SCOPE+ recorded, renders saved. No blocker.
+
+- [Owner decision 1 of 2 — ANSWERED] **Title wording: kept `GUIDE_TITLE`
+  unchanged** ("How to Solve Nonograms", title case, plural), per this
+  card's own drafted recommendation. The source PDF's "HOW TO SOLVE A
+  NONOGRAM" is that document's own all-caps design convention, not a
+  wording instruction; the shipped title is already owner-approved
+  (CARD-167) and nothing about this card's content requires changing it.
+  Page 2's new title, `GUIDE2_TITLE = "When the Puzzle Gets Harder"`, is
+  title-cased to match rather than shouting the source's own all-caps
+  heading, for the same reason.
+
+- [Owner decision 2 of 2 — ANSWERED, with measurement] **The narrowest
+  stored trim (10 cm minimum width) does NOT fit the 2-page tutorial in the
+  original 3-tier fallback (full / captions-only / labels-only) — measured,
+  not assumed.** At 10 cm wide, even the labels-only form (every heading,
+  every diagram, no captions) overflows the usable frame on both pages: a
+  2-page tutorial carrying 3 new techniques on page 1 (the basic rule, 3
+  cell-state icons, 3 "start with certainty" techniques) and 4 more on page
+  2 (2 harder techniques, the assume/follow/breaks/proved pipeline, the
+  worked-example recap, the difficulty box) is simply more content than the
+  one worked example CARD-167's 3-tier fallback was built to shrink to.
+  Chosen option (of the three the drafting pass asked for): **extended the
+  fallback system from 3 tiers to 5**, via a new `bare_level: int` parameter
+  (0/1/2) alongside the existing `(full, captions)` pair:
+  - level 0 is the original labels-only form, unchanged;
+  - level 1 drops a multi-row technique's reasoning rows, keeping only the
+    row that states its conclusion (the squeeze's "certain" overlap, the
+    region split's final ruled-out state, the arrangement comparison's
+    agreement row), and drops page 2's pipeline diagram and the
+    worked-example recap (both a restatement of material page 1 or an
+    earlier worked example already taught in full);
+  - level 2 additionally drops page 1's 3 purely-illustrative cell-state
+    pictures (the heading alone still names "Unknown"/"Filled"/"Empty") and
+    page 1's "mark spaces" diagram, and tightens inter-section gaps.
+  All 5 levels are tried in order (full -> ... -> level 2), the first whose
+  last mark clears the bottom margin is drawn — exactly `create_guide_page`
+  did before, just with 2 more rungs on the ladder. **No level ever drops a
+  line of type or a clue digit below CON-020's 10 pt floor** (G-4) — only
+  which diagrams and which gaps are drawn change; this was verified by
+  measurement (`TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim`,
+  evidence below), not assumed. Measured: Book 1 (8.5 x 11 in) and 6 x 9 in
+  both fit the original labels-only form (level 0) on both pages, unchanged
+  from before; only the 10 cm minimum trim needs level 1 or 2 (which level
+  depends on the book's chosen height — a 10 x 20 cm book needs level 1 on
+  page 2, a 10 x 10 cm square needs level 2). This was the option that kept
+  every stored trim shippable with the floor and all content intact, rather
+  than widening a trim's own tolerance or dropping a technique outright —
+  flagged here, with renders, for the owner to review the tightest case.
+
+- [STRUCTURE] `create_guide_page`'s existing `page_number` parameter now
+  also selects which half of the tutorial to draw (`page_one = page_number
+  % 2 == 1`) rather than gaining a second parameter for it: the two always
+  coincide (the guide is always interior pages 1 and 2, FR-043's own
+  parity rule), so a second parameter could only ever agree with the first
+  or be a bug — see the function's own docstring for the fuller reasoning.
+- [STRUCTURE] Every new diagram is built through the **same two calls**
+  CARD-167's worked example already used — `example_line_layout`/
+  `draw_example_line` for every clue/length/fill/cross diagram (the basic
+  rule, all 5 new techniques, the worked-example recap) — plus one new,
+  narrower call for the 3 cell-state icons (`guide_icon_layout`, a bare 1x1
+  cell with no clue and no frame) and two genuinely new drawing routines
+  for the two shapes no existing helper could produce: `_draw_pipeline_diagram`
+  (4 bordered boxes + arrows, no clue/grid at all) and `_draw_difficulty_box`
+  (a bordered N-column text box). All three new routines are reached only
+  through `compute_layout`/`_stroke_drawing`/`_write_clues` the same way the
+  existing ones are (G-3, ADR-0036/R2) — no inline placement arithmetic.
+- [STRUCTURE, production bug fixed] Every diagram image is now pasted at
+  `frame.left - pad` (`pad` = the layout's own heavy-rule width), not
+  `frame.left` unadjusted. `draw_example_line`'s own crop starts a heavy
+  rule's width *before* its logical left edge (its own docstring: "minus a
+  heavy rule of white"); the original single-diagram page never reached any
+  stored trim's right edge so this went unnoticed, but a 10-cell line with
+  a 3-digit clue at the 10 cm minimum trim now does, overflowing the usable
+  area by about 13 px. Fixed by shifting the paste left by `pad`, so only
+  the universal, by-design ~2-3 px heavy-rule bleed every framed drawing on
+  this book has (`_stroke_drawing`'s own docstring) remains.
+- [STRUCTURE] Content is hand-transcribed from
+  `docs/guides/how_to_solve_nonograms_v2.pdf` into named module constants
+  (`GUIDE_BASIC_RULE_*`, `GUIDE_CELL_STATES`, `GUIDE_TECHNIQUES_1`/`_2`,
+  `GUIDE_ASSUME_*`, `GUIDE_DIFFICULTY_LABELS`), the same pattern every
+  existing guide constant already uses — no code reads the PDF at runtime.
+  The difficulty-label sentences are carried verbatim (this card's own
+  "Target"); the basic-rule worked line uses a different clue/length
+  (`3 2 1` on 8 cells) from the original worked example's `3 1` on 6 (G-1:
+  that example is untouched, not reused for the new material).
+- [SCOPE+, production] `src/nonogram/admin/book_pdf_generator.py:741-749` —
+  one `GuideRow.note` capitalised `"compare"` -> `"Compare"`. An x-height-
+  only word (no capital, no ascender) undercounts by nearly a quarter under
+  this test suite's own cap-height-to-baseline floor measurement
+  (CARD-149's convention) even though it is drawn at the correct 11 pt —
+  the same class of defect CARD-167 fixed by rewording its own copy
+  ("'way.' no longer wraps onto its own line"). Verified it is a
+  measurement artefact, not a real floor violation, by measuring the same
+  word at the same point size in isolation before changing it (see AC-4
+  evidence below).
+- [SCOPE+, test files outside the Touches list — all fixed, all passing]
+  Inserting the guide's 2nd page shifts every later interior page's number
+  by +1 and **flips its parity** (odd<->even) — an unavoidable,
+  documented consequence of FR-043/ADR-0036's mirrored margins, not a bug.
+  This broke page-number/parity assumptions in 14 test files outside the
+  Touches list, each fixed and re-verified green:
+  `tests/test_book_pdf.py`, `tests/test_book_pdf_band.py`,
+  `tests/test_book_puzzle_frame.py`, `tests/test_book_pdf_levels.py`,
+  `tests/test_book_pdf_two_up.py`, `tests/test_book_solved_answer_key.py`,
+  `tests/test_book_level_order.py`, `tests/test_book_arrange_page_breaks.py`,
+  `tests/test_book_export_interior_cover.py`, `tests/test_book_proof_pages.py`,
+  `tests/property/test_book_export_interior.py`,
+  `tests/property/test_book_order.py`, `tests/property/test_book_pairing.py`,
+  `tests/property/test_book_pdf_geometry.py`. Two KDP-boundary corpora in
+  `test_book_finalise_gutter.py` (already Touches-listed) needed their
+  puzzle-count *composition* recomputed, not just a +1, to keep pinning the
+  same exact 150-page external KDP gutter-band boundary.
+
+- [AC-6 note] AC-6's own wording ("byte-identical ... shifted by one") is
+  **not achievable as literal byte/digest identity**: a page inserted
+  before the puzzle section flips every later page's parity, and
+  FR-043/ADR-0036's mirrored margins (G-3, protected, untouched by this
+  card) genuinely move a page's ink by a few hundred thousand pixels when
+  that happens, even though its logical content is unchanged. Verified
+  empirically before deciding how to test it (`_blank_page` at interior
+  page 2 vs. page 3 for the same payload differ in ~416,000 of ~8.4M
+  pixels). `TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`
+  (`tests/test_book_pdf_memory.py`) instead re-invokes the unedited
+  production page-drawing functions directly at each page's own new
+  position and compares their *content* (ink bounding-box cropped, then a
+  tolerant mean-diff + high-diff-pixel-fraction comparison, not
+  `tests/helpers/pdf_pages.same_page`'s `.reduce(6)` downsampling, which
+  measured too coarse for this — overlap 0.776 on genuinely identical
+  content) — with a negative control proving the comparison has teeth.
+  `tests/fixtures/book_baseline_card201.json` (new) is this card's AC-6
+  evidence file, superseding `book_baseline_card198.json`; it records the
+  current, correct 13-page truth, not a diff.
+
+## CARD-201 — acceptance criteria evidence (fresh run, this pass)
+
+- **AC-1** `TestGuidePage_IsTwoPages` (`tests/test_book_guide_page.py`) —
+  `interior_page_count`'s guide term is 2 for every combination tried, and
+  an exported interior opens with both guide titles on pages 1-2 and
+  neither on page 3.
+- **AC-2** `TestGuidePage_PageOneCarriesTheBasicTechniques` — the basic
+  rule, all 3 cell-state icons and all 3 "start with certainty" techniques
+  (including the squeeze's 3-row diagram) are drawn, each verified by
+  re-rendering the exact expected content through the project's own
+  painters and matching it against the page (see this file's own docstring
+  for why decoding pixels directly does not generalise past the original
+  worked example) — plus a cell-pitch check against a real puzzle page.
+- **AC-3** `TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox`
+  — the region split, the 3-arrangement comparison, the 4-box pipeline and
+  the difficulty box (its 3 sentences matched verbatim — a wrong sentence
+  provably does not match, AC-3's own negative control) all verified the
+  same way.
+- **AC-4** `TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim` — CON-
+  020's 10 pt floor holds for every line of type on both pages, and for a
+  1-, 2- and 3-digit clue sample, at Book 1, 6x9 and the 10 cm minimum
+  trim.
+- **AC-5** `TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity` — a
+  3-easy/2-medium/1-hard book's page count is exactly the pre-card formula
+  plus one, and every page's parity still equals its own 1-based position.
+- **AC-6** `TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`
+  (`tests/test_book_pdf_memory.py`) — see the AC-6 note above.
+- **AC-7** `TestFinaliseGuidePreview_ShowsBothPages`
+  (`tests/test_book_finalise_guide_preview.py`) — both pages' content shown,
+  read live from `book_pdf_generator` (a monkeypatched sentinel on a new
+  constant renders), the difficulty sentences appear nowhere else in
+  contradictory wording. Visually confirmed too: `~/Documents/nonogram-
+  reviews/CARD-201/finalise-preview-page1.jpg` and
+  `finalise-preview-pipeline-difficulty.jpg` (live Flask dev server,
+  in-memory book, screenshotted).
+- **AC-8** `TestGuideHelpers_GeneralisedSignatureReproducesTheOriginalWorkedExample`
+  — the original 4-step worked example, called through the generalised
+  `example_line_layout(spec, clue, length)` signature with the ORIGINAL
+  `(3, 1)`/`6` arguments, is pixel-identical (`np.array_equal`, not a
+  tolerant match) both to a fresh re-render of the same call and to where
+  the shipped page 2 recap actually draws it.
+
+Full suite run, this pass: all 7 Touches-listed test files green —
+`test_book_guide_page.py` 41 passed, `test_book_guide_page_type.py` 11
+passed, `test_book_interior_type_floor.py` 21 passed, `test_book_pdf_memory.py`
+31 passed + 1 skipped (DB-mode test, skips silently without a `nonogram_test`
+database per this project's own convention), `test_book_pdf_ink_mode.py` 39
+passed, `test_book_finalise_guide_preview.py` 25 passed,
+`test_book_finalise_gutter.py` 113 passed. The full project-wide suite
+(`./.venv/bin/python -m pytest`) was run to confirm no other regression;
+see this pass's own final message for its result.
+
+Renders saved to `~/Documents/nonogram-reviews/CARD-201/`: both pages at
+Book 1 (`guide-book1-page1.png`/`page2.png`, plus `-with-usable-frame`
+variants showing the margin box), both pages at the 10 cm minimum trim
+(`guide-min-10cm-page1.png`/`page2.png`, plus `-with-usable-frame`
+variants — page 2 here is the fallback-level-1 form, the owner-decision-2
+evidence), and the Finalise screen's live preview
+(`finalise-preview-page1.jpg`, `finalise-preview-pipeline-difficulty.jpg`,
+`finalise-guide-preview.html`).

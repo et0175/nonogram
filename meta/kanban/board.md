@@ -58,10 +58,10 @@ _Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (rev
 - **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver · P2 · architectural · **`Revision pending: true`** — two owner mechanism-level decisions (which edge is "right" across the mirrored gutter; real QR vs. a placeholder) must be confirmed via rendered side-by-side samples before implementation starts
 
 ## In Progress
-- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · started 2026-10-08T14:32:38Z · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
 - **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · P2 · architectural · density/tier/band decisions resolved by the owner 2026-10-08 · started 2026-10-08T16:14:38Z · worktree `../PythonProject4-CARD-202` · branch `card/202-packed-small-answers`
 
 ## Review
+- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · implementation complete, all 8 ACs passing (implementer's own evidence) · orchestrator test gate + forge:review pending · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
 
 ## Blocked
 
