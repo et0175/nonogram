@@ -1,0 +1,63 @@
+version: 1
+generated_at: "2026-10-08T04:33:28Z"
+target: "CARD-198 — card/198-answer-key-one-page-per-puzzle vs main@3a0b2d1 (working tree)"
+overall_score: 8.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py (full diff + surrounding methods)"
+    - "src/nonogram/admin/book_kdp.py (full diff + module docstring)"
+    - "src/nonogram/admin/app.py (full diff, both docstring hunks)"
+    - "src/nonogram/admin/book_answer_key.py (confirmed zero diff, G-5)"
+    - "src/nonogram/export/** (confirmed zero diff, ADR-0036/R2)"
+    - "tests/helpers/book_corpus.py (full diff)"
+    - "tests/test_book_solved_answer_key.py (new, full)"
+    - "tests/test_book_answer_key.py (full diff, retirement rationale)"
+    - "tests/test_book_finalise_gutter.py (full diff incl. new AC-8/AC-10 classes)"
+    - "tests/test_book_pdf_memory.py (full diff)"
+    - "tests/test_book_pdf_band.py, test_book_pdf_two_up.py, test_book_puzzle_frame.py, test_book_pdf_levels.py, test_book_pdf.py, test_book_guide_page.py, test_book_pdf_ink_mode.py, test_book_interior_type_floor.py, test_book_export_interior_cover.py (SCOPE+ files, full diffs)"
+    - "tests/property/test_book_export_interior.py, test_book_pairing.py, test_book_pdf_geometry.py (SCOPE+ property tests, full diffs)"
+    - "tests/fixtures/book_baseline_card198.json (generated via real export, not hand-written)"
+  not_reached:
+    - "src/nonogram/admin/book_manager.py (untouched; read only via grep for ADR-0033/ADR-0035 scope check)"
+    - "src/nonogram/admin/templates/book_finalize.html (untouched; confirmed generic via card's own Worktree notes and grep)"
+  confidence: high
+metrics:
+  diff: { files: 21, added: 1168, removed: 2066 }
+  max_fan_in: { symbol: "BookPDFGenerator.interior_stream", callers: 9 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — book_kdp.py's 12-month co-change set is too sparse (3 commits) to yield a meaningful peer-file signal"
+
+system_contract:
+  rules_checked: 53
+  holds: 9
+  unchecked: 44
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no new runtime dependency added; diff is stdlib/Pillow-only (grep for new imports shows only PIL.Image/ImageDraw already in the baseline); TestDependencyBaseline_IsExactlyPillowAndNumpy passed clean in the full-suite run"
+    - "ADR-0019/R1 ✓ holds — book_pdf_generator.py/book_kdp.py's import set is unchanged in direction (book_answer_key, book_page_spec, book_plan, difficulty, export — all already-legal inward imports); test_every_import_in_the_package_points_inward passed clean in the full-suite run"
+    - "ADR-0033/R1 ✓ holds — diff touches no puzzle-membership write path (book_manager.py untouched); book_pdf_generator.py only reads puzzle rows to render pages"
+    - "ADR-0036/R1 ⚠ unchecked — no_eligible_fact: compute_layout's own default-PageSpec behavior is untouched (export/layout.py has zero diff)"
+    - "ADR-0036/R2 ✓ holds — src/nonogram/export/** has zero diff (git diff main -- src/nonogram/export/ is empty); solved_puzzle_page's geometry-producing lines are unedited (git diff shows only docstring-prose changes inside that method, confirmed by diff inspection); no new cell-fitting or rule-placement code was added to book_pdf_generator.py"
+    - "ADR-0037/R1 ✓ holds — puzzle pages still carry no picture title (band_identity unchanged); the title still prints only on the answer page's caption, now via solved_puzzle_page's caption step, which is the card's own documented non-change (card's 'ADR-0037/R1 cross-check' section)"
+    - "ADR-0037/R2 ⚠ unchecked — no_eligible_fact: rule-weight/colour logic (_stroke_drawing) is unedited; no new rule-drawing code was introduced"
+    - "CON-020 ✓ holds — the 10pt floor logic (ANSWER_TEXT_FONT_MM, type_px) in solved_puzzle_page is unedited; tests/test_book_interior_type_floor.py's AC-1 (re-targeted for the dropped 'answer heading' kind) passed clean, confirming no face below CON-020's floor was introduced"
+    - "INV-009 ✓ holds — print_order/book_level_order (the grouping functions) are unedited; the answer-section loop iterates `payloads` in the same book order print_order already produced, so level-grouping of answer pages follows automatically without new sorting code"
+    - "INV-011 ⚠ unchecked — no_eligible_fact: INV-011's own statement ('an answer-key page holds at most 6 answers while six-up...') describes the packed-key format this card retires by design (card's own Architecture-context section: 'this card makes its statement false by design'; FR-042/INV-011's formal retirement is out-of-scope for this card per its own Worktree notes). Not re-checked as a currently-true invariant; the card's design intentionally supersedes it."
+    - "INV-013 ✓ holds — page_is_right_hand/book_page_spec parity math is unedited; AC-7's new test (TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount) independently re-measures parity at the new, larger page count via drawing_of (an independent ink-based reader), not by re-deriving the formula under test"
+    - "CON-018 ⚠ unchecked — no_eligible_fact: KDP_GUTTER_BANDS table itself (book_kdp.py:141-146) is unedited by this card (CARD-199's own prior change); this card only changes what feeds interior_page_count's answer_pages argument, not the band table"
+    - "All remaining 41 rules (ADR-0022/*, ADR-0024/*, ADR-0027/*, ADR-0029/*, ADR-0032/*, ADR-0035/R1, ADR-0038/*, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-010, INV-012) ⚠ unchecked — no_eligible_fact: none of their scopes (solver, generation retry/repair, image fitting, density, difficulty scoring, storage-boundary quality score, book plan/status/pairing/membership gates, puzzle-player JS) are touched by this diff; book_pdf_generator.py/book_kdp.py/app.py are in several of their listed scope globs only incidentally (broad src/nonogram/admin/**.py globs), with no code path in this diff exercising the rule's actual subject"
+
+root_causes:
+  - id: RC-1
+    title: "Production change (packed 6-up/4-up answer key -> one solved page per puzzle) altered the interior's page-count arithmetic for every test book that includes an answer section"
+    finding_ids: []
+
+findings: []

@@ -1,6 +1,6 @@
 # CARD-198: The book's answer key becomes one full solved page per puzzle, replacing the compact 6-up grid
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -15,11 +15,11 @@
 **Wave:** 37
 **Depends on:** CARD-197, CARD-199
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_answer_key.py, tests/test_book_finalise_gutter.py, tests/test_book_pdf_memory.py, tests/test_book_solved_answer_key.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card198.json
-**Review score:** —
-**Started:** —
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** 8.5 (cycle 1/3)
+**Started:** 2026-10-08T00:00:00Z
+**Closed:** 2026-10-08T06:03:39Z
+**Actual:** 0.3d
+**Merge commit:** da0f8bb
 **Blocked by:** —
 
 ## What to implement
@@ -433,3 +433,142 @@ _Assembled 2026-10-04 by `system_rules.py --card CARD-198` (53 rules). A project
   `/forge:architect` delta work for after this card merges, per the brief. This card
   edits nothing under `meta/`.
 - [Owner decision] 2026-10-07 — drop the level-heading pages from the answer section (each page already names its tier in the band); keep both numbers (band "Puzzle N" above, caption "Puzzle N — Title" below). CARD-198 also depends on CARD-199 (raise the KDP gutter ceiling), which should land before or alongside this card so Finalise does not regress on larger books.
+
+- [Implementation summary] Production: `book_pdf_generator.py`'s `interior_stream`
+  replaces the eager `answer_key()` call with an eager per-puzzle validation pass
+  (same `_answer_extent` rectangle check, same `RuntimeError(__cause__=ValueError)`
+  "could not be laid out" shape, G-6 preserved) and the `produce()` answer loop now
+  calls `solved_puzzle_page` once per drawable puzzle in book order, titled via
+  `answer_title(custom_titles, payload.name)` exactly as `_answer_page` resolved a
+  tile's title before. `answer_key`/`_answer_page` are deleted (nothing else called
+  them — grepped clean). `InteriorStream.answer_page_count`/`unpaired_page_count`
+  both use the drawable-puzzle count directly (no packing term left to bundle in).
+  `book_kdp.py`'s `unpaired_interior_page_count` drops its `Answer`/`pack_answer_pages`
+  import and call, keeping `_grid_extent`'s validation-only rectangle check, and
+  passes `answer_pages=len(ordered)` to `interior_page_count`. `book_answer_key.py`
+  and all of `export/` are untouched (zero diff, G-5/ADR-0036/R2). `solved_puzzle_page`
+  itself has zero behavioural diff — only its docstring's stale "nothing calls this
+  yet" opening paragraph was corrected; `tests/test_book_solved_page.py` has zero
+  diff and passes (G-1).
+
+- [Owner confirmation still needed before merge — item 1 of 3] **Dropping the
+  per-level answer-key heading entirely, no replacement marker.** The old packed key
+  gave only the first page of a level's run a small "Easy"/"Medium"/"Hard" heading;
+  every other page in the run carried no level text at all. Since every per-puzzle
+  answer page now carries its own tier in its band ("Puzzle N · Tier"), on every
+  single page, this card drops the heading with no replacement (no per-level marker,
+  no divider page inside the answer section). This is this card's own reading of
+  "the owner only confirmed the page format, not a change to level grouping" — not
+  an owner instruction in its own right. See the renders at
+  `~/Documents/nonogram-reviews/CARD-198/` (old-packed/ shows the "Easy" heading on
+  page 8; new-solved/ shows no heading anywhere in the answer section) for the owner
+  to judge before merge.
+
+- [Owner confirmation still needed before merge — item 2 of 3] **The "Before pairing"
+  Finalise figure now means something narrower than before.** `InteriorStream.unpaired_page_count`
+  already used the packed answer count (`len(key)`) on both sides of its own
+  subtraction before this card (so the figure already isolated pairing from packing
+  in the code, even pre-CARD-198) — but `book_kdp.unpaired_interior_page_count`,
+  the SEPARATE sheet-free fallback Finalise reads when a book's print spec can't be
+  laid out at all, did bundle packing into its own upper bound (it called
+  `pack_answer_pages` directly). Since this card removes that packing call, the
+  sheet-free "Before pairing" figure for an unlayable-spec book is now larger than
+  it would have been before (one page per puzzle, not packed) — consistent with the
+  real, laid-out figure, but a number the owner has not been shown changing. Flagged,
+  not resolved, per the card's own Design-context note.
+
+- [Owner confirmation still needed before merge — item 3 of 3] **The 300-page KDP
+  ceiling (AC-8) can make a previously-finalising book refuse, purely from this
+  format change.** Demonstrated with a real, deliberately-constructed corpus (444
+  puzzles that pair two-up and pack six-up under the old key): under the old packed
+  key this book is 299 pages and finalises on CON-018's own stored gutter; under
+  this card the same book, same gutter, is 669 pages — over even CARD-199's widened
+  590-page ceiling — and Finalise now refuses it outright with `KdpPageCountNotModelled`'s
+  wording (never a crash, never a silent truncation — see
+  `TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling` in
+  `tests/test_book_finalise_gutter.py`). No workaround is offered by this card. The
+  card's own "Current behaviour" section separately names
+  `tests/helpers/book_corpus.py`'s 150-puzzle corpus crossing from 182 to ~305 pages
+  as a *smaller* real-world instance of the same growth — that one stays under 590
+  and still finalises; this flagged item is about the *general* risk, not only that
+  one book.
+
+- [SCOPE+ — files outside the card's Touches list, all necessary, all justified]
+  The production change broke page-count/page-position arithmetic hard-coded into
+  test fixtures across the suite, well beyond the Touches list. Confirmed via two
+  full-suite runs (second one after the SCOPE+ fixes, both before and after: 6656
+  passed / 9 skipped / 0 failed, 0 errors). Each file below was edited only to
+  recompute a page count, page index, or (in three test files) the structural
+  expectation that a packed page no longer exists — never to weaken an assertion:
+  - `src/nonogram/admin/app.py` — two docstring-only corrections: `_is_an_unpackable_row`'s
+    cross-reference to the deleted `answer_key` method (the card's own point 3
+    explicitly directs this), and `_interior_counts`'s mention of the now-dead
+    second tripwire. Zero logic changed.
+  - `tests/test_book_pdf.py`, `test_book_pdf_band.py`, `test_book_pdf_two_up.py`,
+    `test_book_puzzle_frame.py`, `test_book_pdf_levels.py`, `test_book_guide_page.py`,
+    `test_book_pdf_ink_mode.py`, `test_book_interior_type_floor.py`,
+    `test_book_export_interior_cover.py` — each had at least one fixed book whose
+    expected interior page count or specific page index assumed the old packed
+    answer key; recomputed for one-page-per-puzzle. `test_book_pdf_levels.py` also
+    lost one whole class, `TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages`
+    (AC-293), which tested the deleted `answer_key` method directly and has no
+    narrowable remnant — retired with a module-docstring note pointing to its
+    replacement coverage in `tests/test_book_solved_answer_key.py`.
+    `test_book_pdf_band.py`'s two "band prints once" tests were *strengthened*, not
+    weakened: a puzzle's band now prints on two pages by design (its own puzzle page
+    and its own answer page), and the tests now require both, not "at least one".
+  - `tests/property/test_book_export_interior.py`, `test_book_pairing.py`,
+    `test_book_pdf_geometry.py` — the three property tests covering EC-032/EC-034/
+    EC-027 all built their own independent simulation of the packed key's page
+    count and, in `test_book_pdf_geometry.py`'s case, its tile geometry. Each was
+    rewritten to simulate one-page-per-puzzle instead (a strict simplification in
+    two of the three, since `solved_puzzle_page` reuses the exact same
+    `compute_layout` call an unsolved page makes, so the answer-page geometry
+    assertions now reuse the *same* expected-left-edge helper the puzzle-page
+    assertions already used, rather than a separate CARD-133 tile formula).
+  Also not in Touches: `tests/test_book_answer_key.py` gained one new class,
+  `TestBookKdp_UnpairedCountStillRejectsAMalformedGrid`, to satisfy AC-6 (the card
+  named this test but gave no explicit file; it lives in the retained validation
+  half of this file alongside its closest sibling checks).
+
+- [AC/EC check] Fresh evidence, this session, after the SCOPE+ fixes:
+  - AC-1..AC-5, AC-7: `pytest tests/test_book_solved_answer_key.py` → 19 passed.
+  - AC-6: `pytest tests/test_book_answer_key.py::TestBookKdp_UnpairedCountStillRejectsAMalformedGrid` → 4 passed.
+  - AC-8: `pytest tests/test_book_finalise_gutter.py::TestBookFinalise_AnswerSectionGrowthCanCrossTheThreeHundredPageCeiling` → 4 passed, including a real `interior_stream` export at 669 pages (not mocked) refused with `KdpPageCountNotModelled`'s exact wording.
+  - AC-9: `pytest tests/test_book_pdf_memory.py::TestBookPdfMemory_PagesAreUnchanged` → 5 passed, against the newly-recorded `tests/fixtures/book_baseline_card198.json` (generated by a real `BookPDFGenerator` export, pages 1-8 confirmed byte-identical to `book_baseline_card184.json`).
+  - AC-10: `pytest tests/test_book_finalise_gutter.py::TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking` → 3 passed.
+  - G-1..G-7: confirmed via zero-diff (`git diff main -- <file>`) on `tests/test_book_solved_page.py`, `book_answer_key.py`, `export/**`, `tests/test_book_pdf_ink_mode.py`'s ink-mode logic (SCOPE+ edits there were page-count-only); `tests/test_book_pdf_two_up.py`/`test_book_puzzle_frame.py` pass with the same recomputation pattern (SCOPE+, not a guardrail exception — the card's "pass unedited" wording for these two files turned out to assume the old packed-key page counts and could not literally hold; flagged as a guardrail-wording tension, not silently resolved).
+  - Full suite: three complete runs this session — 6656 passed after the initial production+SCOPE+ fix pass, 6656 again after the review cycle's mutation spot-checks (all reverted clean), then 6660 passed (4 more, matching the new AC-6 `TestBookKdp_UnpairedCountStillRejectsAMalformedGrid` class added afterward) on the final confirmation run — all three 0 failed / 0 errors / 9 skipped (the project's known platform-specific `RLIMIT_AS` skip in the memory-cap tests, unrelated to this card).
+  - Review cycle: forge:review, cycle 1, score 8.5/10 (0 critical, 0 important, 1 minor — a note that `solved_puzzle_page`'s docstring was touched despite G-1's "not edited" wording, zero behavioural lines — 1 out-of-scope observation on FR-042/INV-011's stale formal text, already tracked as "Not in this card"). No further cycles needed (score ≥ 8, 0 gating findings). 6 mutation spot-checks run against production code (puzzle-number off-by-one, page-position off-by-one, `answer_page_count` off-by-one, dropped eager-validation loop, `book_kdp` answer-term off-by-one, dropped `from e` on the G-6 abort) — all 6 mutants killed by the real test suite, all reverted cleanly.
+
+- [Docs step] `tests/README.md` is scoped only to Wave-1 batch-history/puzzle-preview/
+  bulk-operations tests and names no book/PDF test file — no-op, confirmed by reading
+  it in full. No `README.md` exists under `src/nonogram/admin/` or `tests/helpers/`
+  to go stale. `CHANGELOG.md` is maintained per-card but its entries land in the
+  dispatcher's own `kanban: CARD-XXX merged` commit at merge time (confirmed via
+  `git log -- CHANGELOG.md`: CARD-197/CARD-199's entries are each one commit *after*
+  their own merge commit, authored by the dispatcher) — correctly left untouched by
+  this pipeline run.
+
+- [Renders] `~/Documents/nonogram-reviews/CARD-198/` holds `old-packed/` (9 pages,
+  produced by temporarily running main's pre-CARD-198 `book_pdf_generator.py` from
+  commit 3a0b2d1 standalone, swapped into an isolated copy of `src/` for this render
+  only — never merged into this branch) and `new-solved/` (10 pages, this card's own
+  code) for the same 3-puzzle, 2-level sample book (2 easy + 1 medium), plus a
+  `README.txt` explaining what to look at. Both are real `BookPDFGenerator` exports,
+  not mockups.
+- [Owner decisions] 2026-10-08 — all three flagged items confirmed, ship as-is:
+  (1) the per-level heading stays dropped (the per-page band already names the tier
+  on every page); (2) Finalise's "Before pairing" label stays as-is despite now
+  measuring something narrower; (3) proceed knowing a previously-finalising book can
+  now refuse outright from page growth alone (demonstrated: 444-puzzle corpus
+  299→669 pages, crossing even CARD-199's 590-page ceiling) — a clear refusal naming
+  the ceiling is accepted as sufficient for now; a mitigation (e.g. a smaller/
+  abbreviated answer format) is a separate, later problem, not a blocker here.
+- [Owner render check] 2026-10-08 — owner reviewed the old-packed/ vs new-solved/
+  comparison renders and confirmed the page-count growth and the dropped level
+  heading are both as expected and acceptable.
+- [Success] Commit `4fd5418` stands as this card's success commit; no fix cycle
+  needed (cycle 1 scored 8.5, 0 crit/imp). Only `meta/` artefacts (this card's own
+  notes, the review YAML) remained uncommitted in the worktree, synced into the main
+  repo instead.

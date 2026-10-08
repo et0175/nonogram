@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-08
+- CARD-198 (feature): A book's answer key is now one full solved page per puzzle — the same clues-top-and-left, gray-gridline layout CARD-197 added — instead of the old compact 6-up/4-up tiled grids. The per-level "Easy"/"Medium" heading is gone (each page's own band already says the tier); the answer section runs noticeably longer than before (for a 150-puzzle book, roughly 182 to 305 interior pages), so a book that grows past 590 pages still refuses to finalise, now naming that as the reason.
 - CARD-194 (feature): The puzzle player's four brush buttons (Black, White, Maybe, Undecided) are now one dropdown, with a new Region option added as a fifth choice. The trigger shows the selected brush, or "Region · <brush>" when Region is on. With Region off, a mouse drag still marks as before, but a touch or pen drag scrolls the page/board instead — Region turns itself on to mark with touch, and turns back off after a drag so it doesn't stay on by accident.
 
 ## 2026-10-07
