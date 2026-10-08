@@ -692,3 +692,84 @@ evidence), and the Finalise screen's live preview
   `RLIMIT_AS` memory-cap tests), unrelated to this card.
 - [Review] forge:review cycle 1 started 2026-10-08T17:28Z (background
   agent `@code-review`).
+- [Review 1/3] Returned 10 findings, most-severe first (this skill
+  invocation ran standalone — via ad hoc Skill("review") rather than the
+  full dispatcher procedure — so it reported findings without a numeric
+  overall score; orchestrator's own severity read below, not the
+  reviewer's own label, since the report didn't assign one):
+  - **F-1 (Critical — content correctness)** `book_pdf_generator.py:729`,
+    `GUIDE_TECHNIQUES_2`'s "Keep what every arrangement agrees on" worked
+    example: shows only 3 of the 8 legal placements of clue `(3,)` on a
+    blank 10-cell line (starts 0, 1, 5) and concludes cell 4 is "certainly
+    empty in every arrangement" — false, since placements starting at 2, 3,
+    4 all cover cell 4. **Independently re-verified by the orchestrator**:
+    legal starts for a length-3 run on a 10-cell line are 0..7 (8 total);
+    start `s` covers index 4 iff `s ∈ {2,3,4}` — all three exist among the
+    8, so cell 4 is filled in at least 3 of 8 arrangements, not empty in
+    all. Confirmed real, not a reviewer error. This is new content the
+    implementer invented (the source PDF's own version of this diagram is
+    an image, not machine-readable text, so no clue/placement numbers were
+    available to transcribe verbatim) — ships a false logical deduction, in
+    the implementer's own words, as the book's signature technique for
+    exactly the AC-3 content this card was built to add. Gating.
+  - **F-2 (Important/Critical — crash risk)** `book_pdf_generator.py:1233`,
+    `_draw_pipeline_diagram`/`_draw_difficulty_box` read `.size` directly
+    off a `_guide_face()` font; that function's own docstring says the
+    returned face is "unsized" (no `.size` attribute) whenever Arial isn't
+    found (hardcoded to a macOS-only path — always true on a non-macOS
+    host) AND Pillow is below 10.1 — a combination `pyproject.toml`'s
+    unbounded `Pillow>=10.0` floor still permits. This project's admin
+    panel is deployed on a real non-Mac service (see memory: Render-hosted,
+    Postgres-backed production instance, distinct from local dev) — not a
+    hypothetical platform. If that deployment's Pillow happens to be
+    10.0.x, every book export crashes on this new code path with
+    `AttributeError`. Gating — needs either a version floor bump
+    (`Pillow>=10.1`, an ADR-0006-adjacent decision) or (preferred, smaller)
+    making the two new drawing routines degrade the same way
+    `test_book_interior_type_floor.py`'s existing guard already expects
+    elsewhere in this file.
+  - **F-3 (Important — visible rendering defect)**
+    `book_pdf_generator.py:1246`, `_draw_pipeline_diagram` draws the last
+    pipeline box's right border at `x + box_w`, exactly the canvas's pixel
+    width (one past the last valid pixel) — Pillow clips it, so the
+    "PROVED" box ships with no right border on every exported book's guide
+    page 2 (confirmed by the reviewer's own direct Pillow rendering test).
+    The same off-by-one also places every non-final box's right border 1px
+    into the arrow gutter. Gating — a shipped visual defect on every book.
+  - **F-4 (Important — test-coverage blind spot)**
+    `tests/test_book_guide_page.py:267`, AC-4's CON-020 floor sweep
+    classifies a whole ink band as a non-text diagram whenever any row has
+    a long horizontal run; the new bordered boxes
+    (`_draw_pipeline_diagram`/`_draw_difficulty_box`) draw a border
+    touching every row, merging their own label/prose text into that
+    "ruled" classification — so a future regression shrinking either box's
+    label text below CON-020's 10pt floor would NOT be caught by
+    `test_every_line_of_type_holds_10pt_on_both_pages`, despite that being
+    the test's one stated job. Gating (CON-020 is a mandatory system-
+    contract rule; this quietly narrows its only automated check).
+  - **F-5..F-10 (Minor/moderate, not gating this cycle, fix opportunistically
+    if cheap):** a previously-dead `_stroke_drawing` branch
+    (`frame is None`) is now live via `guide_icon_layout`, contradicting its
+    own "callers can't take this branch" docstring (:1121); stale
+    singular-"page 1 is the guide page" comments in `app.py:806` and
+    `book_pdf_generator.py` not updated for `GUIDE_PAGE_COUNT=2`; the
+    fallback ladder stacks two independent trimming mechanisms
+    (full/captions booleans + bare_level 0/1/2) rather than one
+    data-driven scheme (:2198); `bare_level`'s `[-1:]` truncation is
+    positional, not content-marked, so it only coincidentally picks "the
+    conclusion row" for today's 5 techniques (:2262); `book_finalize.html`
+    duplicates the guide_techniques_1/2 Jinja block byte-for-byte except
+    one attribute name (:76,:99); `_draw_difficulty_box` is rebuilt from
+    scratch on every fallback attempt (up to 5x) instead of cached like
+    every sibling image (:2323).
+  - One candidate investigated and explicitly excluded by the reviewer
+    (judged a reasoned, justified tradeoff, not a defect):
+    `test_book_pdf_ink_mode.py`'s retirement of
+    `TestBookInk_ColourInteriorIsUnchanged`'s positional-fixture checks —
+    the guide's page-count bump breaks every downstream page's
+    position/parity, making the old fixture-based check a guaranteed false
+    positive; the replacement's docstring justifies this and a live
+    cross-check test still covers the AC's core intent.
+  - **Verdict: cycle 1 does not meet the bar** (4 gating findings: 1
+    content-correctness, 1 crash-risk, 1 visible-defect, 1 test-blind-spot)
+    — routing to forge:fix for F-1..F-4, cycle 2.
