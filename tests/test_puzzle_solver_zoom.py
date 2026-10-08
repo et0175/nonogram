@@ -304,10 +304,24 @@ class TestSolverZoom_PinchOnTheBoardZooms:
             _dispatch_touch(cdp, "touchStart", [(cx - 50, cy), (cx + 50, cy)])
             _dispatch_touch(cdp, "touchMove", [(cx - 100, cy), (cx + 100, cy)])
             _dispatch_touch(cdp, "touchEnd", [])
+            # The browser's own native pinch-zoom (distinct from
+            # --player-zoom) commits asynchronously — it is not yet visible
+            # in window.visualViewport.scale immediately after touchEnd,
+            # only after the browser has had a moment to settle. Waiting
+            # here is what makes the assertion below a real regression
+            # guard rather than one that reads too early and always
+            # passes: this is exactly how a real instance of the native
+            # zoom escaped detection during this card's own development —
+            # .player-cell's touch-action was still "auto" with Region off,
+            # letting the compositor commit to the browser's native
+            # pinch-zoom before any of this card's own JS ran; fixed by
+            # pan-x pan-y (admin.css, test_puzzle_solver_phone.py).
+            page.wait_for_timeout(300)
 
             assert abs(_zoom_percent(page) - 200) <= 1
             assert _states(page) == before_states
             assert page.evaluate("[window.scrollX, window.scrollY]") == [0, 0]
+            assert page.evaluate("window.visualViewport.scale") == 1
         finally:
             context.close()
 

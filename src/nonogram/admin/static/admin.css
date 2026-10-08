@@ -481,9 +481,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    see below) instead of marking; on, touch-action: none keeps the drag from
    scrolling so it can mark. Mouse drags always mark (touch-action never
    affects mouse). user-select none keeps a mouse drag from selecting clue
-   numbers. */
+   numbers.
+   pan-x pan-y, not auto (CARD-195): a cell's own two-finger pinch (this
+   card's zoom) must never become the browser's native page pinch-zoom.
+   touch-action is read by the compositor thread before any JS runs, so
+   solver.js's own preventDefault() cannot retroactively cancel a native
+   pinch-zoom gesture that touch-action: auto already let the compositor
+   commit to — confirmed via CDP's Page.getLayoutMetrics showing a
+   genuine visualViewport.scale > 1 after such a gesture with auto still
+   in place. pan-x pan-y keeps single-finger panning (the reason for this
+   rule in the first place) identical to auto, while dropping pinch-zoom/
+   double-tap-zoom eligibility, so this card's own JS pinch handler is the
+   only thing that can ever act on a two-finger touch starting on a cell. */
 .player-board { user-select: none; -webkit-user-select: none; }
-.player-cell { cursor: pointer; touch-action: auto; }
+.player-cell { cursor: pointer; touch-action: pan-x pan-y; }
 .player-board.is-region .player-cell { touch-action: none; }
 /* Sizing on phones (CARD-193, owner decision 2026-10-06): below the shell
    breakpoint the cell floor is removed (0 px, never binds) so the board
@@ -493,9 +504,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    CARD-182's 24 px phone floor, which guaranteed a WCAG 2.2 (2.5.8) tap
    target at the cost of a sideways scroll on a deep board — the owner chose
    shrinking cells with no floor instead. Clue boxes always keep the default
-   touch-action (auto); since CARD-194 a cell does too while Region is off,
-   so a swipe starting on a cell pans the (now rarely scrollable) board the
-   same way one starting on the clue band always has. */
+   touch-action (auto); since CARD-194 a cell also allows panning while
+   Region is off (pan-x pan-y, not auto, since CARD-195 — see above), so a
+   swipe starting on a cell pans the (now rarely scrollable) board the same
+   way one starting on the clue band always has. */
 @media (max-width: 820px) { .player-stage { --player-cell-min: 0px; } }
 /* ToolPicker + history controls: one row above the board (wrapping on a
    phone); the usage hint sits below the board. Undo, redo and reset stay
