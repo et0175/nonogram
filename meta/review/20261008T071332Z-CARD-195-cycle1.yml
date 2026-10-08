@@ -1,0 +1,134 @@
+version: 1
+generated_at: "2026-10-08T07:13:32Z"
+target: "CARD-195 implementation — card/195-player-zoom vs main; src/nonogram/admin/static/admin.css, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_zoom.py (new)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css
+    - src/nonogram/admin/static/solver.js
+    - src/nonogram/admin/static/solver_state.js
+    - src/nonogram/admin/templates/puzzle_solve.html
+    - tests/test_puzzle_solver_zoom.py
+    - tests/test_puzzle_solver_phone.py
+    - tests/test_puzzle_solver_brush_menu.py
+    - tests/test_puzzle_solver_marking.py
+    - tests/test_puzzle_solver_page.py
+    - tests/test_puzzle_solver_percent.py
+    - tests/test_puzzle_solver_hint.py
+    - tests/test_admin_design_tokens.py
+    - meta/kanban/cards/CARD-195.md
+  not_reached:
+    - meta/architecture/ (not read in full; relied on the card's own assembled System contract list)
+  confidence: high
+metrics:
+  diff: { files: 4, added: 303, removed: 8 }
+  max_fan_in: { symbol: "drawBoard", callers: 1 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — single-card, single-worktree diff; no multi-file git history mined"
+system_contract:
+  rules_checked: 28
+  holds: 7
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — no framework/build step added; solver.js/solver_state.js remain plain ES modules, admin.css plain CSS (read in full)"
+    - "ADR-0038/R2 ✓ holds — TestSolverMarking_NoRequestPerMark (guardrail, unedited) and TestSolverZoom_IsNotSavedAndSendsNothing (AC-12, new) both green: zoom issues no request"
+    - "ADR-0038/R4 ✓ holds — the 4 new zoom exports (clampZoom/stepZoom/pinchZoom/anchoredScroll) touch no DOM (grepped: no document/window/fetch/localStorage); TestPlayerAssets::test_the_state_module_touches_no_dom passes unedited"
+    - "ADR-0038/R5 ✓ holds — no new static files added; TestPlayerAssets::test_every_admin_asset_ships_in_the_wheel passes unedited"
+    - "ADR-0038/R7 ✓ holds — new tests use @pytest.mark.browser via the existing browser_page/browser_type fixtures, same loud-fail pattern"
+    - "ADR-0038/R8 ✓ holds — same fixtures (ADR-0038/R8's loud skip), confirmed Chromium is real (not mocked) in all new tests"
+    - "CON-021 ✓ holds — AC-3 and AC-12 (new tests) directly assert the one allowed localStorage save is byte-identical before/after every zoom operation"
+    - "ADR-0038/R3, R6 ⚠ N/A (no_eligible_fact) — clues/solution sourcing untouched by this diff"
+    - "CON-009, CON-010, CON-011, CON-012, CON-015, CON-016 ⚠ N/A (no_eligible_fact) — web server binding, CORS, grid-size validation, aspect guard untouched"
+    - "ADR-0006/R1 ✓ holds — no third-party runtime dependency added; pyproject.toml not touched by this diff"
+    - "ADR-0019/R1, ADR-0022/R1/R3/R4, ADR-0024/R1-R5, ADR-0027/R1/R2, ADR-0029/R1-R5, ADR-0032/R1/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1/R2, ADR-0037/R1/R2, CON-005, INV-001/002/003/005/006/007/008/009/010/011 ⚠ N/A (no_eligible_fact) — generation/solver/difficulty/book/export subsystems untouched by this diff"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/admin.css
+    line: 523
+    title: "Zoom buttons use a literal 5px padding instead of a --space-* token"
+    description: |
+      .player-zoom .btn sets padding-left/right: 5px (a literal length), the only value between
+      the 4px (--space-1) and 8px (--space-2) tokens. No existing token lands between 24px
+      (AC-11's own floor) and the 1280px toolbar-fit budget (see the test fix for
+      TestSolverPercent_SitsNextToTheCounters::test_shares_the_buttons_row_at_1280, caught and
+      fixed during this same implementation pass).
+    suggestion: |
+      Acceptable as-is: G-5's actual text restricts colour literals, not lengths, and admin.css
+      already carries many literal px lengths (--player-cell-min: 14px, etc.) in this same file.
+      Noted for visibility, not requiring a fix.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 679
+    title: "Pinch's own anchor-keeping (target behaviour #5, second half) has no AC-level browser assertion"
+    description: |
+      AC-5 verifies the button zoom's anchor formula numerically (stage scrolled to centre,
+      zoom-out keeps the same cell within one cell of centre). The pinch path uses the identical
+      anchoredScroll formula (solver.js pinchMove, solver_state.js anchoredScroll) and is unit-
+      tested at the pure-function level (TestZoomArithmetic_PureFunctions), and AC-6 confirms the
+      pinch changes zoom and scrollX/scrollY of the page stay 0 — but no browser-level test checks
+      that the pinch's own on-stage anchor point stays fixed across a multi-step pinch the way
+      AC-5 checks the button case.
+    suggestion: |
+      Optional follow-up: a browser test pinching mid-board and asserting the pre-pinch midpoint
+      cell stays within N cells of the post-pinch midpoint, mirroring AC-5's shape for the pinch
+      path specifically.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/static/solver.js
+    line: 770
+    title: "Pinch-vs-native-gesture boundary verified only via CDP-synthetic touch events"
+    description: |
+      The pinch rule (a)/(d) split (first pointer's start cell decides whether this is the
+      board's pinch or the browser's own) is exercised by AC-6/AC-7/AC-8 using CDP
+      Input.dispatchTouchEvent, which delivers pointer events directly without necessarily
+      reproducing a real OS/touchscreen's native gesture-recognition timing. The card's own
+      Worktree notes flag this exact gap ("the pinch on cells must be re-verified on a real touch
+      device before merge").
+    suggestion: |
+      Carried forward as the card's own open item — not something this review can close through
+      more automated testing; needs the owner's real-device check or explicit acceptance of the
+      CDP-level evidence as sufficient.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

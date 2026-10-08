@@ -1,0 +1,108 @@
+version: 1
+generated_at: "2026-10-08T07:54:50Z"
+target: "CARD-195 implementation, cycle 2 — fix delta on card/195-player-zoom vs the cycle-1-reviewed commit 49aec83: src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_phone.py (SCOPE+, coordinator-approved), tests/test_puzzle_solver_zoom.py"
+overall_score: 9.3
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/admin.css (fix delta)
+    - tests/test_puzzle_solver_phone.py (fix delta: one assertion + docstring)
+    - tests/test_puzzle_solver_zoom.py (fix delta: strengthened AC-6 assertion)
+  not_reached: []
+  confidence: high
+metrics:
+  diff: { files: 3, added: 49, removed: 9 }
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured: {}
+system_contract:
+  rules_checked: 3
+  holds: 3
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0038/R2 ✓ holds — the fix touches no network path; TestSolverMarking_NoRequestPerMark and the zoom suite's own no-request test re-ran green after the fix"
+    - "ADR-0038/R1 ✓ holds — the fix is a one-line CSS value change plus comments; no framework/build step introduced"
+    - "G-4 (this card's own) ✓ holds, corrected — the guardrail's literal expected value needed updating (auto → pan-x pan-y) because the behavior it exists to protect (single-finger panning with Region off) is unchanged and still green; the guardrail was testing an implementation detail, not the protected behavior itself"
+
+root_causes:
+  - id: RC-1
+    title: ".player-cell's touch-action: auto let Chromium's compositor commit to the browser's own native pinch-zoom before any JS (including preventDefault()) could run, because touch-action is evaluated compositor-side ahead of the main thread"
+    finding_ids: [F-004]
+
+findings:
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/static/admin.css
+    line: 497
+    title: "A pinch on a board cell (AC-6's own scenario — Region off, the default) committed a real native browser page pinch-zoom, not just this card's own --player-zoom"
+    description: |
+      Found via the owner's visual inspection of midpinch-duck15-phone-200.png (upside-down
+      column-clue numerals) and confirmed with CDP's Page.getLayoutMetrics: after the exact
+      touchStart/touchMove/touchEnd sequence AC-6 exercises, window.visualViewport.scale
+      committed to ~1.54 with a nonzero offset (the native zoom commits asynchronously — not
+      yet visible immediately after touchEnd, only after a short settle, which is also why the
+      cycle-1 AC-6 test — checking only window.scrollX/scrollY, which stay 0 regardless — did
+      not catch it). Root cause: .player-cell's touch-action was "auto" whenever Region is off,
+      and touch-action is evaluated by the compositor thread before the main thread's JS runs,
+      so solver.js's own preventDefault() calls (pointerdown of the second finger, pointermove
+      during the pinch) could not retroactively cancel a native gesture the compositor had
+      already committed to recognizing.
+    suggestion: |
+      Fixed: touch-action: auto → pan-x pan-y on .player-cell (Region-off case only; the
+      Region-on case, touch-action: none, is untouched). pan-x pan-y preserves single-finger
+      panning (confirmed: all of test_puzzle_solver_phone.py's and
+      test_puzzle_solver_brush_menu.py's actual pan/drag behavioral tests stayed green,
+      unedited) while dropping the browser's own pinch-zoom/double-tap-zoom eligibility, so
+      solver.js's own pinch handler is the only thing that can act on a two-finger touch
+      starting on a cell. Verified fixed via the same Page.getLayoutMetrics check (scale back
+      to 1, offset back to 0) and via a mutation check (reverting the CSS value made the
+      strengthened AC-6 assertion fail with the exact scale value observed in the original bug,
+      1.5384615659713745, then passed again on revert).
+    confidence: high
+    source: static
+    violates: "G-1 (this card's own: zoom must change no browser-visible state beyond --player-zoom); pinch rule (a) (a pinch on a cell is THIS card's own zoom, nothing else)"
+    root_cause: RC-1
+    status: fixed
+    fixed_in: "admin.css (pending commit), verified by the strengthened TestSolverZoom_PinchOnTheBoardZooms assertion (tests/test_puzzle_solver_zoom.py) and the corrected tests/test_puzzle_solver_phone.py assertion"
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: null
+    line: null
+    title: "A separate, narrower rendering artifact in this exact headless-Chromium + software-rasterizer environment, specific to one (grid, anchor cell, final zoom) combination reached via real touch input"
+    description: |
+      While investigating F-004, found that duck15 + cell (7,7) + 200% (reached via a real
+      touch pinch) deterministically corrupts the rendered text glyphs of one column-clue box
+      (DOM text content confirmed correct — "13" — the PAINTED pixels are wrong), reproducing
+      7/7 times across fresh browser launches, even after F-004's fix (confirmed
+      visualViewport.scale stays 1 throughout — this is NOT the same bug recurring). The same
+      grid at cell (3,3)/200% or cell (7,7)/150% renders cleanly; reaching an equivalent scroll
+      position via button-zoom + a JS-set scrollLeft (no touch at all) also renders cleanly —
+      isolating it to something touch-input-specific about this one scroll/zoom combination
+      under software rendering (SwiftShader, confirmed running in this environment), not a
+      logic defect anywhere in this diff (no transform, no incorrect DOM/CSS state, no
+      incorrect text content — only the paint is wrong, and only for this one path).
+    suggestion: |
+      Not a code fix: worked around for the owner render by picking a different, verified-clean
+      anchor cell (3,3) for the mid-pinch frame screenshot. Documented in the render script and
+      in these notes as an environment rendering quirk, not a CARD-195 defect, for anyone who
+      later sees a similar artifact in this environment under different circumstances.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: "environment/tooling artifact, not a code defect in this diff — worked around at the render-script level"
+    learned_pattern: null

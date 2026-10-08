@@ -1,11 +1,6 @@
 wave: 36
 mode: interactive
-active:
-- id: CARD-195
-  phase: implement
-  branch: card/195-player-zoom
-  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-195
-  started: '2026-10-08T09:30:00Z'
+active: []
 escalated: []
 merged:
 - id: CARD-196
@@ -21,6 +16,12 @@ merged:
   success_commit: 7c82b35
   merge_commit: e0214c9
   branch: card/194-player-brush-dropdown-region
+- id: CARD-195
+  review_cycle: 2
+  success_commit: 9a1feee
+  merge_commit: 1b4bc97
+  branch: card/195-player-zoom
+  note: cycle 2 fixed a real bug the owner caught by eye in cycle 1's renders (native pinch-zoom leak via touch-action, see card notes)
 queued: []
 conflict_edges: []
-last_updated: '2026-10-08T09:30:00Z'
+last_updated: '2026-10-08T08:12:48Z'
