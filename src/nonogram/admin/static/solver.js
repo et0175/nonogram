@@ -178,6 +178,47 @@
 // data-state = the cell's state. Every fifth line on both axes is heavier:
 // a cell or clue box after one carries .major-right / .major-below (never the
 // last line, which is the board's frame).
+//
+// ZOOM (CARD-195, FR-044). A view setting that multiplies the fitted cell
+// side (admin.css --player-zoom on table.player-board); it changes no board
+// state, is never recorded, never in serializeState/the save, and starts at
+// ZOOM_MIN (100%) on every load — wireMarking's local `zoom` variable is
+// never read by anything outside this file. 100% to 300%, in ZOOM_STEP
+// (25-point) steps on the zoom buttons ([data-player-zoom-action="in"/"out"]
+// in .player-zoom) and continuously on a two-finger pinch; the readout
+// ([data-player-zoom-readout]) is plain text, not a live region. The pure
+// arithmetic (clamping, a button's next step, a pinch's ratio, and the
+// anchor-preserving scroll formula) lives in solver_state.js (ADR-0038/R4);
+// this file only reads the pointers, the DOM and .player-stage's scroll
+// position and calls it.
+//   buttons   applyZoom(stepZoom(zoom, "in"|"out"), cx, cy) with (cx, cy) the
+//             centre of .player-stage's own visible box (its clientWidth/2,
+//             clientHeight/2) as the anchor, so that point's board content
+//             stays where it was (target behaviour #5). A press at either
+//             end of the range is a no-op (stepZoom itself clamps), so no
+//             extra aria-disabled guard is needed.
+//   pinch     Two touch or pen pointers down, the first of them started on a
+//             board cell, is the board's pinch (pinch rule a): it cancels
+//             any single-pointer gesture in progress exactly as rule (b)
+//             says (the preview is reverted through player.show of the
+//             recorded board, `gesture` and `lastClick` are cleared, and the
+//             first pointer's own later pointerup is ignored — tracked by
+//             `pinch` itself: once set, every pointerup/pointercancel of
+//             either of its two pointers ends it with no commit, whichever
+//             of the two the browser releases first), then on every move of
+//             either pointer recomputes the zoom from pinchZoom(starting
+//             zoom, starting distance, current distance) (rule c) and
+//             anchors on the pointers' current midpoint, in the stage's own
+//             box — not the page's. Two pointers landing with the first NOT
+//             on a board cell (a clue box, or off the board entirely) is
+//             rule (d): solver.js does nothing — no preventDefault, no
+//             pointer capture — so the browser's own page pinch runs
+//             instead, which is why clue boxes keep touch-action: auto
+//             (admin.css, unchanged by this card). A third touch/pen pointer
+//             while one of the two is already tracked, or while a pinch is
+//             already active, is ignored outright. Mouse pointers never
+//             reach any of this (rule f — only "touch"/"pen" pointerTypes
+//             are tracked in `touchPoints`/`touchStartCell` at all).
 
 import {
   EMPTY, FILLED, MAYBE, UNKNOWN, applyStroke, clickStroke, copyBoard, createBoard, createHistory,
@@ -190,6 +231,8 @@ import { solvedPercent } from "./solver_state.js";
 import { circledClues } from "./solver_state.js";
 // The save in this browser (CARD-185): see SAVE below.
 import { deserializeState, saveKey, serializeState } from "./solver_state.js";
+// Zoom (CARD-195): see ZOOM below.
+import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, pinchZoom, stepZoom } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -253,7 +296,11 @@ function clueBox(tag, kind, label, clue) {
 // corner after the last column clue, so the row-clue gutter draws on the
 // right (admin.css .player-board.is-mirrored); the `cells` array stays
 // row-major regardless — only DOM placement within each row changes.
-function drawBoard(stage, payload, mirrored) {
+// `zoomPercent` (CARD-195, 100..300) sets --player-zoom as the multiplier
+// admin.css's cell clamp multiplies by (100 -> 1); a mirror redraw (the only
+// other caller of drawBoard, see redraw() in start()) passes the current
+// zoom through too, so re-mirroring never resets it.
+function drawBoard(stage, payload, mirrored, zoomPercent) {
   const { width, height, rows, columns } = payload;
   const table = document.createElement("table");
   table.className = mirrored ? "player-board is-mirrored" : "player-board";
@@ -261,6 +308,7 @@ function drawBoard(stage, payload, mirrored) {
   // The cell side is computed in CSS from these (admin.css, --player-cell).
   table.style.setProperty("--player-cols", width);
   table.style.setProperty("--player-rows", height);
+  table.style.setProperty("--player-zoom", String(zoomPercent / 100));
   // The widest row band in ch: each row number takes its digits and a 1.45 ch
   // gap (admin.css .player-clue.is-row), and the row has 0.5 ch of padding.
   table.style.setProperty("--player-row-ch", Math.max(...rows.map((c) => c.reduce((sum, n) => sum + String(n).length + 1.45, 0.5))));
@@ -385,8 +433,11 @@ function start() {
   // history — called once at load and again, from the same recorded board,
   // whenever mirrorQuery crosses 820 px (CARD-193: nothing recorded is
   // lost — history, undo/redo and the save are untouched by a redraw).
+  // `marking` (below) always exists by the time this runs (the first call
+  // is textually after `const marking = wireMarking(...)`) — CARD-195's
+  // zoom (marking.getZoom()) survives a mirror redraw the same way.
   function redraw() {
-    cellElements = drawBoard(stage, payload, isMirrored());
+    cellElements = drawBoard(stage, payload, isMirrored(), marking.getZoom());
     table = stage.querySelector(".player-board");
     clueNumbers = clueNumbersOf(table);
     paint(cellElements, board);
@@ -544,8 +595,10 @@ function isAt(position, [row, col]) {
 // (show — a drag's preview) and records a new history (commit, with the hint
 // it recorded, if any), and removes this puzzle's save (forget — after a
 // confirmed reset, see SAVE). Returns { refresh,
-// commit }: refresh re-syncs the controls after the lock changed elsewhere;
-// commit records a history from elsewhere (setBoard) exactly as an input does.
+// commit, getZoom }: refresh re-syncs the controls after the lock changed
+// elsewhere; commit records a history from elsewhere (setBoard) exactly as
+// an input does; getZoom (CARD-195) is the current zoom percent, read by
+// redraw() in start() so a mirror redraw keeps it.
 //: The brush each menu item paints, keyed by its data-player-tool (see
 //: "menu" above) — "region" is deliberately absent: it is never a brush and
 //: never reaches solver_state.js.
@@ -567,6 +620,91 @@ function wireMarking(container, player) {
   let region = false; // the Region option (see "menu" above) — never a cell state
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
+
+  // Zoom (CARD-195, see ZOOM above). `zoom` is a percent, 100..300, view
+  // state only — never saved, never reset by anything but a fresh load.
+  const zoomOut = controls.querySelector('[data-player-zoom-action="out"]');
+  const zoomIn = controls.querySelector('[data-player-zoom-action="in"]');
+  const zoomReadout = controls.querySelector("[data-player-zoom-readout]");
+  let zoom = ZOOM_MIN;
+  // Every active touch/pen pointer's current position ({x, y}, in viewport
+  // coordinates) and the board cell it started on (a [row, col] from
+  // cellUnder, or null when it started on a clue box or off the board) —
+  // kept regardless of `gesture`/Region, purely to recognise and drive a
+  // pinch (pinch rule a/d). Never touched for a mouse pointer (rule f).
+  const touchPoints = new Map();
+  const touchStartCell = new Map();
+  // { firstId, secondId, startZoom, startDistance } of the active pinch, or
+  // null. Set only by beginPinch; cleared the instant either pointer lifts
+  // or cancels (pinch rule b: a pinch that ends with one finger still down
+  // marks nothing — covered by `gesture` staying null throughout a pinch,
+  // so that finger's own later pointerup falls through to the ordinary
+  // "nothing to commit" path once pinch is cleared).
+  let pinch = null;
+
+  function distanceBetween(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  }
+
+  // The readout and the buttons' aria-disabled, from the current `zoom`.
+  function syncZoom() {
+    zoomReadout.textContent = `${Math.round(zoom)}%`;
+    zoomOut.setAttribute("aria-disabled", String(zoom <= ZOOM_MIN));
+    zoomIn.setAttribute("aria-disabled", String(zoom >= ZOOM_MAX));
+  }
+
+  // Moves to `nextPercent` (clamped by the caller's own arithmetic —
+  // stepZoom or pinchZoom, never this function), keeping `(anchorX,
+  // anchorY)` — a point's offset inside .player-stage's own visible box,
+  // not the page's — over the same board point (target behaviour #5,
+  // solver_state.js anchoredScroll). A no-op `nextPercent` (already at the
+  // clamped end of the range) touches neither the table nor the scroll
+  // position, only re-syncs the readout/buttons (idempotent either way).
+  function applyZoom(nextPercent, anchorX, anchorY) {
+    const old = zoom;
+    zoom = nextPercent;
+    if (zoom !== old) {
+      const table = container.querySelector(".player-board");
+      if (table) table.style.setProperty("--player-zoom", String(zoom / 100));
+      container.scrollLeft = anchoredScroll(container.scrollLeft, anchorX, old, zoom);
+      container.scrollTop = anchoredScroll(container.scrollTop, anchorY, old, zoom);
+    }
+    syncZoom();
+  }
+
+  // Pinch rule (a)/(b): `firstId` started on a board cell, `secondId` just
+  // landed — ends whatever single-pointer gesture was in progress (its
+  // preview is reverted, never committed) and starts tracking the pinch
+  // from the two pointers' current positions.
+  function beginPinch(firstId, secondId) {
+    if (gesture) {
+      player.show(player.getHistory().board); // revert the preview, commit nothing
+      gesture = null;
+    }
+    lastClick = null;
+    pinch = {
+      firstId,
+      secondId,
+      startZoom: zoom,
+      // Math.max(…, 1): pinchZoom (solver_state.js) refuses a non-positive
+      // starting distance; two fingers reported at the exact same point
+      // (not a real pinch, but not impossible from synthetic input) must
+      // not throw here instead of simply not zooming yet.
+      startDistance: Math.max(distanceBetween(touchPoints.get(firstId), touchPoints.get(secondId)), 1),
+    };
+    refresh();
+  }
+
+  // Pinch rule (c): the current zoom from the two pointers' current
+  // positions, anchored on their midpoint (in the stage's own box).
+  function pinchMove() {
+    const p1 = touchPoints.get(pinch.firstId);
+    const p2 = touchPoints.get(pinch.secondId);
+    const stageBox = container.getBoundingClientRect();
+    const midX = (p1.x + p2.x) / 2 - stageBox.left;
+    const midY = (p1.y + p2.y) / 2 - stageBox.top;
+    applyZoom(pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2)), midX, midY);
+  }
 
   // The trigger's name/text and which menu item is checked, from `tool` and
   // `region` (see "menu" above).
@@ -635,6 +773,29 @@ function wireMarking(container, player) {
   }
 
   container.addEventListener("pointerdown", (event) => {
+    // Pinch bookkeeping (CARD-195) runs ahead of — and independently of —
+    // the single-pointer gesture logic below, for touch/pen pointers only
+    // (rule f): the very first check it would otherwise hit, `if (gesture)
+    // return`, would swallow a second finger's pointerdown entirely.
+    if (event.pointerType === "touch" || event.pointerType === "pen") {
+      if (pinch) return; // a third pointer while a pinch is active: ignored
+      const cell = cellUnder(container, event.clientX, event.clientY);
+      if (touchPoints.size === 1) {
+        // The second touch/pen pointer: pinch rule (a) when the first one
+        // started on a board cell, rule (d) — leave it to the browser —
+        // otherwise. Either way this pointer never starts its own gesture.
+        const [firstId] = touchPoints.keys();
+        touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+        touchStartCell.set(event.pointerId, cell);
+        if (touchStartCell.get(firstId) !== null) {
+          event.preventDefault();
+          beginPinch(firstId, event.pointerId);
+        }
+        return;
+      }
+      touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      touchStartCell.set(event.pointerId, cell);
+    }
     if (gesture || player.locked() || (event.pointerType === "mouse" && event.button !== 0)) return;
     const start = cellUnder(container, event.clientX, event.clientY);
     if (!start) return;
@@ -655,6 +816,12 @@ function wireMarking(container, player) {
   });
 
   container.addEventListener("pointermove", (event) => {
+    if (touchPoints.has(event.pointerId)) touchPoints.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (pinch && (event.pointerId === pinch.firstId || event.pointerId === pinch.secondId)) {
+      event.preventDefault();
+      pinchMove();
+      return;
+    }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const position = cellUnder(container, event.clientX, event.clientY);
     const previous = gesture.path.at(-1) ?? gesture.start;
@@ -673,6 +840,21 @@ function wireMarking(container, player) {
   });
 
   container.addEventListener("pointerup", (event) => {
+    if (touchPoints.has(event.pointerId)) {
+      touchPoints.delete(event.pointerId);
+      touchStartCell.delete(event.pointerId);
+      // Pinch rule (b): the first pointer's later pointerup is ignored, and
+      // a pinch that ends with one finger still down marks nothing —
+      // either pointer lifting ends the pinch outright, with no commit; the
+      // *other* finger, if still down, falls through below with `gesture`
+      // still null (beginPinch cleared it), so its own eventual pointerup
+      // is the ordinary "nothing to commit" no-op.
+      if (pinch && (event.pointerId === pinch.firstId || event.pointerId === pinch.secondId)) {
+        pinch = null;
+        refresh();
+        return;
+      }
+    }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     const done = gesture;
     gesture = null;
@@ -704,11 +886,27 @@ function wireMarking(container, player) {
   });
 
   container.addEventListener("pointercancel", (event) => {
+    if (touchPoints.has(event.pointerId)) {
+      touchPoints.delete(event.pointerId);
+      touchStartCell.delete(event.pointerId);
+      if (pinch && (event.pointerId === pinch.firstId || event.pointerId === pinch.secondId)) {
+        pinch = null;
+        refresh();
+        return;
+      }
+    }
     if (!gesture || event.pointerId !== gesture.pointerId) return;
     gesture = null;
     lastClick = null;
     player.show(player.getHistory().board);
     refresh();
+  });
+
+  zoomOut.addEventListener("click", () => {
+    applyZoom(stepZoom(zoom, "out"), container.clientWidth / 2, container.clientHeight / 2);
+  });
+  zoomIn.addEventListener("click", () => {
+    applyZoom(stepZoom(zoom, "in"), container.clientWidth / 2, container.clientHeight / 2);
   });
 
   trigger.addEventListener("click", () => {
@@ -820,9 +1018,10 @@ function wireMarking(container, player) {
 
   syncTrigger();
   refresh();
+  syncZoom();
   controls.hidden = false;
   document.getElementById("puzzle-player-hint").hidden = false;
-  return { refresh, commit };
+  return { refresh, commit, getZoom: () => zoom };
 }
 
 start();

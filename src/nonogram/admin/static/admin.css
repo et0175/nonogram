@@ -392,7 +392,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
   --player-chrome-h: calc(var(--topbar-h) + var(--space-6) + var(--space-12)
     + var(--control-h) + var(--space-4) + var(--space-8));
   container-type: inline-size;
-  overflow-x: auto;
+  /* Zoom (CARD-195): the stage scrolls in both directions once a zoomed
+     board (or, same as before, a column-floor-bound one at 100%, CARD-196)
+     outgrows it — vertically too, which it never did before this card. The
+     height cap is the same --player-chrome-h the 100% fit already sizes
+     against, so at 100% on a board that fits, nothing changes. */
+  max-height: calc(100svh - var(--player-chrome-h));
+  overflow: auto;
 }
 .player-fallback { color: var(--color-text-secondary); font-style: italic; }
 .player-board {
@@ -407,11 +413,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      of the two. */
   --player-numeral-min: 12px;
   --player-col-floor: calc(var(--player-col-digits, 1) * 0.6 * var(--player-numeral-min));
-  --player-cell: clamp(max(var(--player-cell-min), var(--player-col-floor)),
+  /* Zoom (CARD-195): --player-zoom (set on the table by solver.js, a
+     multiplier — 1 at 100%, default when the script has not run yet)
+     multiplies the whole fitted clamp. Font size (below) is calc()'d from
+     --player-cell, so numerals and rules scale with it; the fit/floor
+     terms themselves are untouched — they read .player-stage's own cqi
+     and the viewport's svh, neither of which zoom changes — so 100% is
+     still exactly the fitted size CARD-193 computed. */
+  --player-zoom: 1;
+  --player-cell: calc(clamp(max(var(--player-cell-min), var(--player-col-floor)),
     min(calc((100cqi - var(--player-rule) - var(--player-rule-major) - var(--player-row-ch) * 0.6 * var(--player-numeral-min)) / var(--player-cols)),
         calc((100cqi - var(--player-rule) - var(--player-rule-major)) / (var(--player-cols) + var(--player-row-ch) * 0.36)),
         (100svh - var(--player-chrome-h)) / (var(--player-rows) + var(--player-col-depth) + 1)),
-    var(--player-cell-max));
+    var(--player-cell-max)) * var(--player-zoom));
   border-collapse: separate;
   border-spacing: 0;
   font-family: var(--font-num);
@@ -467,9 +481,20 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    see below) instead of marking; on, touch-action: none keeps the drag from
    scrolling so it can mark. Mouse drags always mark (touch-action never
    affects mouse). user-select none keeps a mouse drag from selecting clue
-   numbers. */
+   numbers.
+   pan-x pan-y, not auto (CARD-195): a cell's own two-finger pinch (this
+   card's zoom) must never become the browser's native page pinch-zoom.
+   touch-action is read by the compositor thread before any JS runs, so
+   solver.js's own preventDefault() cannot retroactively cancel a native
+   pinch-zoom gesture that touch-action: auto already let the compositor
+   commit to — confirmed via CDP's Page.getLayoutMetrics showing a
+   genuine visualViewport.scale > 1 after such a gesture with auto still
+   in place. pan-x pan-y keeps single-finger panning (the reason for this
+   rule in the first place) identical to auto, while dropping pinch-zoom/
+   double-tap-zoom eligibility, so this card's own JS pinch handler is the
+   only thing that can ever act on a two-finger touch starting on a cell. */
 .player-board { user-select: none; -webkit-user-select: none; }
-.player-cell { cursor: pointer; touch-action: auto; }
+.player-cell { cursor: pointer; touch-action: pan-x pan-y; }
 .player-board.is-region .player-cell { touch-action: none; }
 /* Sizing on phones (CARD-193, owner decision 2026-10-06): below the shell
    breakpoint the cell floor is removed (0 px, never binds) so the board
@@ -479,9 +504,10 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    CARD-182's 24 px phone floor, which guaranteed a WCAG 2.2 (2.5.8) tap
    target at the cost of a sideways scroll on a deep board — the owner chose
    shrinking cells with no floor instead. Clue boxes always keep the default
-   touch-action (auto); since CARD-194 a cell does too while Region is off,
-   so a swipe starting on a cell pans the (now rarely scrollable) board the
-   same way one starting on the clue band always has. */
+   touch-action (auto); since CARD-194 a cell also allows panning while
+   Region is off (pan-x pan-y, not auto, since CARD-195 — see above), so a
+   swipe starting on a cell pans the (now rarely scrollable) board the same
+   way one starting on the clue band always has. */
 @media (max-width: 820px) { .player-stage { --player-cell-min: 0px; } }
 /* ToolPicker + history controls: one row above the board (wrapping on a
    phone); the usage hint sits below the board. Undo, redo and reset stay
@@ -496,6 +522,17 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-toolbar[hidden] { display: none; }
 .player-tools { position: relative; display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .player-history { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+/* Zoom (CARD-195): a third group, after .player-history and before
+   .player-counters (G-6 — the DOM order and Tab-order tests check this).
+   The readout is a plain <span>, not a live region (target behaviour #3). */
+.player-zoom { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); }
+/* Narrower side padding than the toolbar's other buttons (like
+   .player-tool-trigger above): "-"/"+" are single glyphs, and the group
+   would otherwise be wide enough to push "Progress: N%" onto its own row
+   at 1280 px (TestSolverPercent_SitsNextToTheCounters, G-6/the counters'
+   own layout — guarded unedited). Still >= 24px square (AC-11). */
+.player-zoom .btn { padding-left: 5px; padding-right: 5px; }
+.player-zoom-readout { min-width: 4ch; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-size: var(--text-base); color: var(--color-text); text-align: center; }
 .player-toolbar .btn { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); }
 /* The trigger keeps the same side padding the four tool buttons took before
    CARD-194, which is what keeps the toolbar's row count unchanged at a

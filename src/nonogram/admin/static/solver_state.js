@@ -563,6 +563,65 @@ export function hintCount(history) {
 }
 
 // ---------------------------------------------------------------------------
+// Zoom (CARD-195, FR-044). A view setting only: it changes no board state, is
+// never recorded, serialized or saved (see SAVE in solver.js), and solver.js
+// resets it to ZOOM_MIN on every page load. The percent (100..300) is the
+// unit everywhere here and in solver.js's readout and CSS `--player-zoom`
+// (which solver.js divides by 100 before setting it) — there is no separate
+// "multiplier" representation.
+
+export const ZOOM_MIN = 100;
+export const ZOOM_MAX = 300;
+export const ZOOM_STEP = 25;
+
+// `value` folded into [ZOOM_MIN, ZOOM_MAX].
+export function clampZoom(value) {
+  return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+}
+
+// The zoom one button press moves to: the next multiple of ZOOM_STEP from
+// `current` in `direction` ("in" raises, "out" lowers), clamped to
+// [ZOOM_MIN, ZOOM_MAX]. `current` need not itself be a multiple of
+// ZOOM_STEP (a pinch leaves it at any value in range) — "in" finds the
+// smallest multiple strictly above it, "out" the largest multiple strictly
+// below it; a tiny (1e-6) tolerance treats a value already practically on a
+// multiple as exactly there, so floating-point noise never skips a whole
+// step. `direction` other than "in"/"out" is refused with RangeError.
+export function stepZoom(current, direction) {
+  if (direction !== "in" && direction !== "out") {
+    throw new RangeError(`"${direction}" is not a zoom direction ("in" or "out")`);
+  }
+  const steps = current / ZOOM_STEP;
+  const next = direction === "in"
+    ? (Math.floor(steps + 1e-6) + 1) * ZOOM_STEP
+    : (Math.ceil(steps - 1e-6) - 1) * ZOOM_STEP;
+  return clampZoom(next);
+}
+
+// Pinch zoom rule (c): `startZoom` scaled by how much farther apart the
+// pointers are now than when the pinch began, clamped to range. A
+// `startDistance` that is not a positive number is refused with RangeError
+// (a pinch's two starting points can never coincide in solver.js, but this
+// stays a guarded boundary rather than dividing by zero or a negative).
+export function pinchZoom(startZoom, startDistance, currentDistance) {
+  if (!(startDistance > 0)) {
+    throw new RangeError(`pinchZoom needs a positive starting distance, not ${startDistance}`);
+  }
+  return clampZoom(startZoom * (currentDistance / startDistance));
+}
+
+// The "keep the view" formula (target behaviour #5), one axis at a time:
+// `scroll` is .player-stage's current scrollLeft or scrollTop, `anchor` is
+// the point that must stay put — its offset from the stage's own visible
+// box, not the page — and `oldZoom`/`newZoom` are percents (so the ratio is
+// the same whether solver.js passes 100/300 or the equivalent 1/3
+// multipliers). Returns the scroll position that keeps `anchor` over the
+// same board point after the zoom changes from `oldZoom` to `newZoom`.
+export function anchoredScroll(scroll, anchor, oldZoom, newZoom) {
+  return (scroll + anchor) * (newZoom / oldZoom) - anchor;
+}
+
+// ---------------------------------------------------------------------------
 // Saving a game in this browser (CARD-185; FR-044 AC-360..AC-365, EC-046/047)
 //
 // Pure: these functions build and read the TEXT of a save. Reading and

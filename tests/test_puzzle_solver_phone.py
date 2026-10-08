@@ -633,9 +633,21 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
     check is what AC-10 actually asks for.)"""
 
     def test_cells_take_no_touch_action_and_clue_boxes_keep_the_default(self, browser_page, live) -> None:
-        """AC-13 / CARD-194: a cell's touch-action follows Region — ``auto``
-        off (so a touch drag can pan), ``none`` on (so it can mark instead).
-        Clue boxes keep the default ``auto`` either way."""
+        """AC-13 / CARD-194: a cell's touch-action follows Region — ``pan-x
+        pan-y`` off (so a touch drag can pan) (CARD-195: changed from
+        ``auto`` — a two-finger pinch starting on a cell with Region off,
+        AC-6's own scenario, was found to commit a real native browser
+        page pinch-zoom before this card's own JS ever ran, because
+        ``touch-action: auto`` lets the compositor thread recognise and
+        commit to the browser's native pinch-zoom gesture before the main
+        thread's `preventDefault()` can have any effect on it — confirmed
+        with CDP's `Page.getLayoutMetrics` showing a committed
+        `visualViewport.scale` > 1 after such a gesture; `pan-x pan-y`
+        keeps single-finger panning identical while dropping pinch-zoom/
+        double-tap-zoom eligibility, so this card's own pinch handler is
+        the only thing that can act on a two-finger touch starting on a
+        cell), ``none`` on (so it can mark instead). Clue boxes keep the
+        default ``auto`` either way."""
         browser_page.set_viewport_size({"width": 390, "height": 844})
         _open(browser_page, live, live.store(BIG))
 
@@ -649,7 +661,7 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
             )
 
         off = _actions()
-        assert off["cells"] == ["auto"]
+        assert off["cells"] == ["pan-x pan-y"]
         for kind in ("colClues", "rowClues", "corner"):
             assert off[kind] == ["auto"], off
 
