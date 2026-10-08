@@ -84,8 +84,10 @@ BAND_SETTERS = frozenset(
     }
 )
 
-#: The level names an answer page's heading prints (FR-042).
-LEVEL_NAMES = frozenset({"Easy", "Medium", "Hard"})
+#: CARD-198 note: FR-042's level headings are gone (the packed key that
+#: drew them no longer exists), so there is no "answer heading" kind any
+#: longer — only the caption :meth:`BookPDFGenerator.solved_puzzle_page`
+#: draws directly, tagged below by that caller.
 
 #: The smallest trim a book may be stored with
 #: (``book_page_spec.MIN_TRIM_CM``), written out rather than imported, and the
@@ -118,8 +120,8 @@ BOOKS = {"book1": corpus_book, "min-trim": min_trim_book}
 
 #: How many interior pages each book's export of the baseline puzzles draws,
 #: asserted so the walk cannot silently shrink. Book 1 is the baseline book's
-#: eleven (``BASELINE_PAGE_COUNT``); the 10x10 cm trim packs its answer key
-#: onto one more page.
+#: own count (``BASELINE_PAGE_COUNT``); the 10x10 cm trim's tighter sheet
+#: changes what the puzzle section's pairing walk can fit, one page longer.
 PAGE_COUNTS = {"book1": BASELINE_PAGE_COUNT, "min-trim": BASELINE_PAGE_COUNT + 1}
 
 
@@ -170,8 +172,8 @@ class TextCall:
             return "divider"
         if self.caller in BAND_SETTERS:
             return "band"
-        if self.caller[1] == "render_answer_page":
-            return "answer heading" if self.text in LEVEL_NAMES else "answer caption"
+        if self.caller[1] == "solved_puzzle_page":
+            return "answer caption"
         return "other"
 
     def describe(self) -> str:
@@ -289,14 +291,17 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         assert below_floor(recording(book, arial=True)) == []
 
     def test_the_recording_covers_every_kind_of_interior_lettering(self, book):
+        """CARD-198: "answer heading" is gone — there is no level heading
+        left to draw inside the answer section at all. "answer caption" is
+        also not required on ``min-trim``: CARD-197's AC-6 omits the caption
+        rather than overlap the drawing when the trim leaves no slack for
+        it, which the 10x10 cm book genuinely does not.
+        """
         kinds = {call.kind for call in recording(book, arial=True)}
-        assert {
-            "guide",
-            "divider",
-            "band",
-            "answer heading",
-            "answer caption",
-        } <= kinds
+        required = {"guide", "divider", "band"}
+        if book != "min-trim":
+            required.add("answer caption")
+        assert required <= kinds
 
 
 # --------------------------------------------------------------------------

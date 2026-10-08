@@ -666,7 +666,8 @@ PAIR_HEIGHT_MM = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
 #: The pair these criteria are read on, and the puzzle that prints alone after
 #: it so that a two-up slot and a single page can be compared **on one book**.
 #: All three are Easy, so the interior is one level: guide, the "Easy" divider,
-#: the two-up page, the single page, SOLUTIONS, one answer page.
+#: the two-up page, the single page, SOLUTIONS, three answer pages (CARD-198:
+#: one per puzzle, where this book took one packed page before that card).
 UPPER_PUZZLE = dict(columns=10, rows=10, row_depth=2, column_depth=2)
 LOWER_PUZZLE = dict(columns=12, rows=12, row_depth=3, column_depth=3)
 SINGLE_PUZZLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
@@ -675,7 +676,7 @@ SINGLE_PUZZLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
 #: than trusted by :func:`_book_pages`.
 TWO_UP_PAGE = 3
 SINGLE_PAGE = 4
-INTERIOR_PAGES = 6
+INTERIOR_PAGES = 8
 
 
 def _book() -> Book:

@@ -5,7 +5,18 @@
     AC-255  TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers
     AC-256  TestBookPdf_EmptyLevelHasNoDivider
     AC-260  TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel
-    AC-293  TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages
+
+CARD-198 note (SCOPE+, flagged rather than silently absorbed): AC-293
+(``TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages``) pinned the
+*packed* answer key's own per-level behaviour — ``BookPDFGenerator.answer_key``
+giving each of three levels its own run of six-up pages — which CARD-198
+deletes along with that method. This file names no CARD-198 Touches path,
+but ``BookPDFGenerator.answer_key`` no longer exists, so that one class could
+not pass unedited; it has been retired rather than narrowed, since nothing
+of its packed-key claim survives for a test to still make. The behaviour
+this card replaces it with — one full solved page per puzzle, in book order,
+across the same three-level plan — is pinned fresh by
+``tests/test_book_solved_answer_key.py``'s AC-1/AC-4, not reproduced here.
 
 AC-287 belongs to the interior's parity and lives with the rest of it, in
 ``tests/test_book_pdf.py`` (``TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1``).
@@ -345,18 +356,20 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
     def test_the_interior_is_that_section_between_the_guide_and_the_key(self) -> None:
         """The whole file: guide, the eight pages above, SOLUTIONS, the key.
 
-        Five answers of 20x20 fit one six-up page per level, so the key is
-        three pages — which is what makes 13 the interior's page count, and
-        what the generator must have reported before it drew anything.
+        CARD-198: the answer section is one full solved page per puzzle,
+        so these five puzzles take five answer pages — where the packed key
+        once took three, one per level — which is what makes 15 the
+        interior's page count, and what the generator must have reported
+        before it drew anything.
         """
         puzzles, pages = self._pages()
         stream = BookPDFGenerator(_book()).interior_stream(puzzles)
 
-        assert len(pages) == 13
-        assert stream.page_count == 13
+        assert len(pages) == 15
+        assert stream.page_count == 15
         assert is_divider(pages[9]), "interior page 10 is the SOLUTIONS divider"
         assert divider_word(pages[9], 10) == SOLUTIONS
-        assert stream.answer_page_count == 3
+        assert stream.answer_page_count == 5
         assert not any(is_divider(page) for page in pages[10:])
 
 
@@ -492,15 +505,17 @@ class TestBookPdf_EmptyLevelHasNoDivider:
     def test_the_interior_is_one_page_shorter_than_three_levels_would_make_it(
         self,
     ) -> None:
-        """Guide, Easy, 3 puzzles, Medium, 2 puzzles, SOLUTIONS, 2 answer pages.
+        """Guide, Easy, 3 puzzles, Medium, 2 puzzles, SOLUTIONS, 5 answer pages.
 
-        Eleven pages, and a third level would have made it twelve. The key is
-        two pages because each level starts one of its own (CARD-134), not
-        because five answers overflow a six-up page.
+        Fourteen pages, and a third level's divider would have made it
+        fifteen — one divider page, not one answer page: since CARD-198 the
+        answer section is one full page per puzzle regardless of levels
+        (five of them either way), so only the *divider* count is what a
+        third level would add here.
         """
         pages = _interior(_book_of(*self.MEMBERS))
 
-        assert len(pages) == 11
+        assert len(pages) == 14
         assert interior_shape(pages[:8]) == [
             "divider Easy",
             "puzzle",
@@ -572,92 +587,3 @@ class TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel:
 
         assert [puzzle["id"] for puzzle in puzzles] == before
         assert before == ["M1", "E1", "H1", "E2"]
-
-
-# --------------------------------------------------------------------------
-# AC-293 — the default plan's answer key across three levels
-# --------------------------------------------------------------------------
-
-
-class TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages:
-    """AC-293 (FR-042, INV-011) — 150 puzzles at 40/40/20 take 31 answer pages.
-
-    ADR-0034's default plan with AC-198's prefill, level by level: easy 50
-    answers at most 20 cells on the longest side and then 10 longer, medium 34
-    then 26, hard 6 then 24. Because every level starts a page of its own
-    (CARD-134), the key is easy 11 + medium 13 + hard 7 = **31** answer pages,
-    after the one SOLUTIONS divider — 32 pages in all, where the same 150
-    answers packed without level-first pages take 30 (AC-270).
-
-    Counted, not rendered: 150 puzzle pages and 31 answer pages of ink would
-    make this the slowest test in the suite. What is exercised is the answer
-    walk the export itself makes over the same 150 payloads, plus — for the
-    "after 1 SOLUTIONS page" half — the interior's own page plan, which knows
-    all of its counts before a pixel exists.
-    """
-
-    #: (stored tier, small answers, large answers) per level, in book order.
-    PLAN = (("easy", 50, 10), ("medium", 34, 26), ("hard", 6, 24))
-
-    #: Each level's share of the key, and the total.
-    PER_LEVEL = (11, 13, 7)
-    PAGES = 31
-
-    @staticmethod
-    def _rows() -> List[dict]:
-        """The 150 rows, in plan order: each level's small answers, then its large."""
-        rows: List[dict] = []
-        for tier, small, large in (
-            TestBookAnswerKey_DefaultPlanThreeLevelsTakesThirtyOnePages.PLAN
-        ):
-            for index in range(small):
-                rows.append(
-                    _puzzle(f"{tier}-s{index}", tier, 20, 20, mark=index)
-                )
-            for index in range(large):
-                rows.append(
-                    _puzzle(f"{tier}-l{index}", tier, 25, 25, mark=index)
-                )
-        return rows
-
-    def test_the_book_is_the_default_plan(self) -> None:
-        """The premise: 150 puzzles split 40 / 40 / 20 (ADR-0034, AC-198)."""
-        rows = self._rows()
-        counts = [small + large for _, small, large in self.PLAN]
-
-        assert len(rows) == 150
-        assert counts == [60, 60, 30]
-
-    def test_the_key_is_thirty_one_pages_eleven_thirteen_and_seven(self) -> None:
-        key = BookPDFGenerator(_book()).answer_key(
-            [BookPDFGenerator._payload(row) for row in self._rows()]
-        )
-        per_level: List[int] = []
-        for page in key:
-            if page.heading is not None:
-                per_level.append(0)
-            per_level[-1] += 1
-
-        assert len(key) == self.PAGES
-        assert per_level == list(self.PER_LEVEL)
-        assert [page.heading for page in key if page.heading] == list(LEVEL_NAMES)
-
-    def test_every_one_of_the_hundred_and_fifty_answers_appears_once_in_order(
-        self,
-    ) -> None:
-        key = BookPDFGenerator(_book()).answer_key(
-            [BookPDFGenerator._payload(row) for row in self._rows()]
-        )
-        printed = [number for page in key for number in page.numbers]
-
-        assert printed == list(range(1, 151))
-
-    def test_the_key_follows_one_solutions_page_in_the_interiors_plan(self) -> None:
-        """31 answer pages after 1 divider — and the whole interior's count.
-
-        Guide + 3 level dividers + 150 puzzle pages + SOLUTIONS + 31 answers.
-        """
-        stream = BookPDFGenerator(_book()).interior_stream(self._rows())
-
-        assert stream.answer_page_count == self.PAGES
-        assert stream.page_count == 1 + 3 + 150 + 1 + self.PAGES

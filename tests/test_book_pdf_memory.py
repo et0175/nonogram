@@ -81,36 +81,48 @@ terms are live at the same time, both measured:
 * **COMP-007's transient second bitmap.** :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._blank_page`
   calls :func:`nonogram.export.pdf.render_pages`, which builds *two* full-size
   pages from one payload — the blank one and a solved one it has no use for
-  since FR-042 — and binds ``blank, _ = render_pages(...)``, so the discarded
-  page is alive until that frame returns. ``render_pages`` is a COMP-007
-  function, not a generator method, so it is outside :data:`PAGE_FACTORIES` by
-  construction and the probe never sees it. Registering **both** pages it
-  returns and running the real export measures **10 pages and a peak of
-  50,490,000 B — 2.00 page bitmaps — on the 11-page baseline book**, and **332
-  pages and the same 50,490,000 B on the 182-page corpus book**. It is a
-  constant, not a per-page term: every puzzle page pays it, none of them
-  accumulates it, and it is the merge-base's code untouched (G-1).
+  — and binds ``blank, _ = render_pages(...)``, so the discarded page is
+  alive until that frame returns. ``render_pages`` is a COMP-007 function,
+  not a generator method, so it is outside :data:`PAGE_FACTORIES` by
+  construction and the probe never sees it (a bespoke one-off probe wrapping
+  ``render_pages`` itself, run once to produce the figures CARD-145 recorded
+  here, measured a peak of 50,490,000 B — 2.00 page bitmaps — on the book
+  of that time; CARD-198 changed only the *answer* section, which this
+  transient term has nothing to do with, so the figure is unaffected by this
+  card and was not re-run). It is a constant, not a per-page term: every
+  puzzle page pays it, none of them accumulates it, and it is the
+  merge-base's code untouched (G-1).
 * **The written PDF.** It accumulates in the returned ``BytesIO`` at a
-  measured ~0.45 MB per page, so a 182-page interior holds 82,015,934 B of
-  compressed output at the end. That *is* a linear term, and
+  measured ~0.38 MB per page on the 305-page corpus book (CARD-198: up from
+  ~0.45 MB per page on the smaller 182-page corpus this figure was first
+  measured against, each puzzle's own answer page now carrying real ink
+  instead of a packed key sharing a tile's ink across several puzzles), so
+  a 305-page interior holds 116,112,809 B of compressed output at the end
+  — measured directly, not derived. That *is* a linear term, and
   :meth:`TestBookPdfMemory_RealBookExportsUnderTheCap.test_the_residual_linear_term_is_the_written_file_and_it_is_small`
   measures and states it rather than letting the module read as a claim of
   constant memory.
 
-So the process's page-size envelope for a 182-page book is **50.5 MB of
-bitmap + 81.9 MB of file = 132.3 MB**, about a quarter of the 512 MB
-instance — 26 % on the same decimal-MB reading that made the old figure
-21 % — and not the 107.1 MB a "one page bitmap" reading of the assertions
-gives.
-Measured end to end, a child process exporting that book peaks at
-**150.8-169.9 MB** resident over five runs, interpreter and imports included.
-Peak is **O(one retained page) + O(a transient constant) + O(the file)**.
+So the process's page-size envelope for the 305-page corpus book is **50.5 MB
+of bitmap + 110.7 MB of file = 161.2 MB** (CARD-198: up from 132.3 MB on the
+182-page book this module first measured, the file term growing with the
+corpus — 31 % of the 512 MB instance on the same decimal-MB reading, still
+comfortably inside it, and not the 25.2 MB a naive "one page bitmap" reading
+of the bitmap-only assertions would suggest for the file term too.
+Peak is **O(one retained page) + O(a transient constant) + O(the file)** —
+the child-process resident-set range CARD-145 originally measured
+end-to-end (150.8-169.9 MB over five runs, on the smaller corpus) was not
+re-run for CARD-198's larger one; the shape of the claim — bounded, and
+linear only in the file term — is what :class:`TestBookPdfMemory_RealBookExportsUnderTheCap`
+still measures live, against the real 305-page book, on every run.
 
 Cost: the corpus book is exported **once** for the whole module (a
-module-scoped fixture), for about 7 seconds of real rendering and writing;
-AC-2's executed cap adds three child processes, about 6 seconds, and the
-whole file runs in well under a minute. The 150-puzzle book is never faked —
-a page count is the one thing a memory test must not fake.
+module-scoped fixture), for a few seconds of real rendering and writing (up
+somewhat since CARD-198, which gives every puzzle its own full answer page
+instead of a shared packed tile); AC-2's executed cap adds three child
+processes, and the whole file still runs well under a minute. The
+150-puzzle book is never faked — a page count is the one thing a memory
+test must not fake.
 """
 
 from __future__ import annotations
@@ -175,7 +187,7 @@ PAGE_BITMAP_BYTES = 2550 * 3300 * 3
 #: Replacing any one of them raises the measured peak to exactly 2.00, so the
 #: assertion is an equality: a cap of "at most two" is satisfied by the shape
 #: this card exists to remove one ``del`` away from, and would not fail.
-#: Measured stable at 1.00 on the 11-page book, on the 182-page book and on
+#: Measured stable at 1.00 on the 12-page book, on the 305-page book and on
 #: ``export_book``'s two files, with and without the cycle detector.
 #:
 #: **"Retains" is the exact word, and it is narrower than "the process holds
@@ -185,10 +197,14 @@ PAGE_BITMAP_BYTES = 2550 * 3300 * 3
 #: build the process does hold a second full-size bitmap: COMP-007's
 #: ``render_pages`` returns a blank page and a solved page, and ``_blank_page``
 #: keeps the discarded one until its frame exits. Registering both of them
-#: measures a peak of **50,490,000 B = 2.00 page bitmaps** — on the 11-page
-#: book (13 pages registered) and unchanged on the 182-page one (332
-#: registered), which is what makes it a constant rather than a term that
-#: grows with the book. So the honest *process* figure is two bitmaps; the
+#: measures a peak of **50,490,000 B = 2.00 page bitmaps** — on the 12-page
+#: book (14 pages registered, re-measured for CARD-198: up from 13 on the
+#: 11-page book this figure was first recorded against — the two extra
+#: single-puzzle pages that call ``_blank_page`` are unchanged by this card,
+#: only the answer section grew) and unchanged on the 305-page corpus one
+#: (455 registered, re-measured; was 332 on the 182-page corpus), which is
+#: what makes it a constant rather than a term that grows with the book. So
+#: the honest *process* figure is two bitmaps; the
 #: honest *retention* figure, and the only one an assertion in this module is
 #: about, is one. The module docstring carries the numbers.
 PEAK_IN_PAGES = 1
@@ -213,14 +229,11 @@ PAGE_FACTORIES = (
     "create_divider_page",
     "_blank_page",
     "_two_up_page",
-    "_answer_page",
-    # CARD-197: a seventh, in the same house style (-> Image.Image) as the
-    # six above, per this module's own instruction at
-    # TestBookPdfMemory_TheInstrumentWrapsEveryPageFactory — added here by
-    # hand so the instrument's coverage stays complete. No route calls it yet
-    # (CARD-198's job; G-4's own substance — the interior's page count and
-    # parity — is unaffected): this entry only keeps the probe able to see it
-    # the day a caller does.
+    # CARD-198 deleted "_answer_page" (the packed key's own page factory,
+    # FR-042) along with the packed key itself — nothing in BookPDFGenerator
+    # answers to that name any longer. "solved_puzzle_page" (CARD-197) is
+    # its replacement in this list: since CARD-198 it is what draws every
+    # answer page, wired into interior_stream's own answer-section loop.
     "solved_puzzle_page",
 )
 
@@ -411,9 +424,11 @@ def corpus_export() -> MeasuredExport:
     """The 150-puzzle book, exported end to end once for the whole module.
 
     A real export of a real book: 150 puzzles, none of which pairs two-up, so
-    the interior is 1 guide + 150 puzzle pages + 1 divider + 27 answer pages =
-    182 pages of 25.2 MB bitmap each. Roughly seven seconds; shared, because
-    two tests need it and neither needs its own copy.
+    the interior is 1 guide + 3 dividers + 150 puzzle pages + 1 SOLUTIONS
+    divider + 150 answer pages (CARD-198: one per puzzle, where the former
+    packed key took 27) = :data:`~tests.helpers.book_corpus.CORPUS_PAGE_COUNT`
+    (305) pages of 25.2 MB bitmap each. A few seconds; shared, because two
+    tests need it and neither needs its own copy.
     """
     return _measured(
         lambda: export_of(BookPDFGenerator(corpus_book()), corpus_puzzles())
@@ -422,7 +437,7 @@ def corpus_export() -> MeasuredExport:
 
 @pytest.fixture(scope="module")
 def small_export() -> MeasuredExport:
-    """The eleven-page baseline book, exported the same way, for comparison."""
+    """The baseline book (:data:`BASELINE_PAGE_COUNT` pages), exported the same way, for comparison."""
     return _measured(
         lambda: export_of(BookPDFGenerator(corpus_book()), baseline_puzzles())
     )
@@ -488,12 +503,14 @@ def _returns_a_page(member: Any) -> bool:
 
 
 class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
-    """A 182-page book's peak page-bitmap memory is a small book's peak.
+    """A 305-page book's peak page-bitmap memory is a small book's peak.
 
     "Within a small constant" is stated in **page bitmaps**, not megabytes,
     because a page bitmap is the unit the defect was measured in: the old
     shape's peak was one page bitmap per page, and what this asserts is that
-    the difference between a 182-page book and an 11-page one is under one.
+    the difference between a 305-page book (CARD-198: up from 182, since the
+    answer section now takes one page per puzzle instead of a packed tile)
+    and a 12-page one is under one.
 
     Non-growth is necessary and not sufficient, and this class asserts both
     halves: a shape that held a *constant* two pages would not grow with the
@@ -569,10 +586,11 @@ class TestBookPdfMemory_PeakDoesNotGrowWithPageCount:
         killed by.
 
         This is the one test in the module that deliberately holds the old
-        shape's whole cost — all eight pages of the baseline book at once,
-        **202 MB** of live bitmap. That is the point of it, and it is also why
-        it is run on the eleven-page book and never on the 182-page one, whose
-        list would be 4.5 GB.
+        shape's whole cost — every page of the baseline book at once,
+        **202 MB** of live bitmap (a figure predating CARD-128's level
+        dividers, left as recorded). That is the point of it, and it is also
+        why it is run on the twelve-page book and never on the 305-page one
+        (CARD-198: up from 182), whose list would be 7.70 GB.
         """
         pages = BookPDFGenerator(corpus_book()).interior_pages(baseline_puzzles())
         assert len(pages) == BASELINE_PAGE_COUNT
@@ -621,7 +639,8 @@ CHILD_OVER_CAP_EXIT = 91
 #: 807,840,000 B (770 MiB).
 #:
 #: **Derived from measurement, and deliberately not 512 MB.** The instance size
-#: is the wrong number for this cap: the streaming child needs ~160 MB, and
+#: is the wrong number for this cap: the streaming child needs ~199 MB
+#: (CARD-198: up from ~160 MB on the smaller 182-page corpus), and
 #: pitting that plus an interpreter's own footprint against 512 MB would make
 #: the test's verdict depend on how much address space CPython, NumPy and
 #: Pillow happen to reserve on the machine it runs on — which is the flake this
@@ -632,32 +651,44 @@ CHILD_OVER_CAP_EXIT = 91
 #: ===================================== ================= ==================
 #: measured on this machine               bytes             page bitmaps
 #: ===================================== ================= ==================
-#: interpreter + imports, nothing drawn   62.1 MB           2.46
-#: + the corpus book and one page          96.1 MB           3.81  (the floor)
-#: the streaming child's peak RSS         150.8-169.9 MB    5.97-6.73
+#: interpreter + imports, nothing drawn   62.1-62.5 MB      2.46-2.47
+#: + the corpus book and one page          102.6 MB          4.06  (the floor)
+#: the streaming child's peak RSS         ~199.0 MB         ~7.88
 #: **the cap**                            **807.8 MB**      **32**
-#: the list shape: 182 bitmaps + file     ~4.68 GB          ~182
+#: the list shape: 305 bitmaps + file     ~7.82 GB          ~309.8
 #: ===================================== ================= ==================
 #:
-#: So the cap sits **4.7x above** the largest streaming measurement and
-#: **5.7x below** what the list shape needs — close to the geometric middle of
-#: the two (which is 34.7 page bitmaps). Neither half is marginal, and neither
-#: verdict can turn on an interpreter's footprint: the platform's own floor is
-#: 3.81 page bitmaps, 11.9 % of the cap. Both margins are re-measured on every
-#: run and asserted (:data:`CHILD_HEADROOM`, :data:`CHILD_FLOOR_SHARE`) rather
-#: than trusted from this table.
+#: Re-measured for CARD-198 on the card's own 305-page corpus book (up from
+#: 182): the streaming child's peak RSS moved from 150.8-169.9 MB to ~199 MB,
+#: because the one linear term — the file accumulating in the returned
+#: ``BytesIO`` — is now 116.1 MB where it was 82.0 MB (every puzzle's own
+#: full answer page now carries real ink, where the packed key shared a
+#: tile's ink across several puzzles); the floor and the interpreter's own
+#: footprint are unaffected, since neither scales with the page count.
+#:
+#: So the cap sits **4.06x above** the streaming measurement and **9.7x
+#: below** what the list shape needs — still not marginal on either side,
+#: and the gap closed only on the streaming side, from the 4.7x it was
+#: before. Neither verdict can turn on an interpreter's footprint: the
+#: platform's own floor is 4.06 page bitmaps, 12.7 % of the cap. Both
+#: margins are re-measured on every run and asserted
+#: (:data:`CHILD_HEADROOM`, :data:`CHILD_FLOOR_SHARE`) rather than trusted
+#: from this table.
 CHILD_CAP_IN_PAGES = 32
 CHILD_CAP_BYTES = CHILD_CAP_IN_PAGES * PAGE_BITMAP_BYTES
 
 #: How much of the cap the streaming child must leave unused, as a divisor: its
-#: measured peak times this must still fit. Measured 4.7x on this machine, so a
-#: required 3x has room in it and still fails long before the shape does.
+#: measured peak times this must still fit. Measured 4.06x on this machine
+#: (CARD-198: down from 4.7x, since the file term grew with the larger
+#: corpus — see the table above), so a required 3x still has room in it and
+#: still fails long before the shape does.
 CHILD_HEADROOM = 3
 
 #: The share of the cap the platform's own floor — interpreter, imports, one
 #: page — may take before the cap stops being able to tell a *shape* apart from
 #: a *footprint*. Over this, the test skips rather than reports either verdict.
-#: Measured 11.9 % here.
+#: Measured 12.7 % here (CARD-198: was 11.9 %; the floor itself barely moved,
+#: so this is almost entirely the cap's own fixed denominator).
 CHILD_FLOOR_SHARE = 0.25
 
 #: Ask the kernel to bound the child's address space. The honest mechanism —
@@ -671,7 +702,8 @@ RLIMIT_MECHANISM = "rlimit"
 #: enforced by the child rather than by the kernel, so it works where
 #: ``RLIMIT_AS`` does not. RSS is a poor instrument for measuring a *shape*
 #: (this module's docstring says why, with the numbers); it is a fine one for
-#: separating 160 MB from 4.6 GB.
+#: separating ~199 MB from ~7.8 GB (CARD-198's own figures; was 160 MB from
+#: 4.6 GB on the smaller corpus).
 SENTRY_MECHANISM = "sentry"
 
 
@@ -908,7 +940,7 @@ def _assert_the_streaming_child_fitted(child: CappedChild) -> None:
 
 
 class TestBookPdfMemory_RealBookExportsUnderTheCap:
-    """A 150-puzzle book exports to a valid 182-page PDF inside the envelope.
+    """A 150-puzzle book exports to a valid 305-page PDF inside the envelope.
 
     The card asks for "a 150-page book exports successfully **under a memory
     cap that the current code fails**". Both halves are covered here, and the
@@ -919,7 +951,7 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
     (``test_one_cap_the_streaming_shape_survives_and_the_list_shape_dies_under``
     and its ``RLIMIT_AS`` twin). A child installs a memory cap of 32 page
     bitmaps *before it imports anything*, then exports this very book: the
-    streaming shape finishes and reports the 182 pages read back out of the
+    streaming shape finishes and reports the 305 pages read back out of the
     file it wrote, and the list shape — ``interior_pages``, the shape this card
     removed from the export path — is killed by the cap partway through. That
     is "a cap the current code fails" as a process that dies, not as a
@@ -929,15 +961,16 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
 
     **Arithmetic, and kept** — ``test_the_old_shape_would_not_have_fitted_the_envelope``
     derives the list shape's peak for this same book from the instrument's own
-    measured per-page constant (182 x 25,245,000 = 4.59 GB) against the 512 MB
-    envelope. It is the only evidence that reaches the *deployed* number rather
-    than a test cap, it costs nothing, and it runs on every platform — including
-    the ones where the executed half can only skip.
+    measured per-page constant (305 x 25,245,000 = 7.70 GB, CARD-198: up from
+    182 x 25,245,000 = 4.59 GB) against the 512 MB envelope. It is the only
+    evidence that reaches the *deployed* number rather than a test cap, it
+    costs nothing, and it runs on every platform — including the ones where
+    the executed half can only skip.
 
     What is measured in this process, alongside:
 
     1. A 150-puzzle book is exported end to end, and the file that comes out
-       is a valid PDF whose page tree holds the 182 pages the plan declared.
+       is a valid PDF whose page tree holds the 305 pages the plan declared.
        The page count is never faked — the pages are drawn.
     2. Its measured peak live page-bitmap memory — what the *panel* retains
        across a page boundary — is one page bitmap. The process holds a second
@@ -955,13 +988,13 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
         assert CORPUS_PAGE_COUNT >= 150, "the card's book is 150+ pages"
 
     def test_its_peak_page_memory_is_one_page_bitmap(self, corpus_export):
-        """The 182-page book retains one page bitmap, exactly, end to end.
+        """The 305-page book retains one page bitmap, exactly, end to end.
 
         "Retains" rather than "holds": this is the peak over the pages the
         panel itself keeps, which is what stopped growing with the page count.
         COMP-007's ``render_pages`` holds a second full-size bitmap transiently
         inside each puzzle-page build — a measured constant of 50,490,000 B for
-        this book as for the 11-page one — and :data:`PEAK_IN_PAGES` records it.
+        this book as for the 12-page one — and :data:`PEAK_IN_PAGES` records it.
         """
         probe = corpus_export.probe
 
@@ -976,7 +1009,7 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
         Two fresh interpreters — spawned, never forked, so neither starts
         inside this session's heap — install the same 807.8 MB bound before
         they import PIL, and then export the same 150-puzzle book. The
-        streaming child finishes and reports 182 pages *read back out of the
+        streaming child finishes and reports 305 pages *read back out of the
         PDF it wrote*; the list child (``interior_pages``, then written) is
         killed by the cap partway through. Nothing about pytest is at risk:
         the process that dies is a child.
@@ -990,8 +1023,9 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
         under the kernel's bound instead.
 
         **Why this is not a flake.** The cap is 32 page bitmaps; the streaming
-        child measures 5.97-6.73 of them and the list shape needs ~182. Both
-        margins are re-measured on every run, not trusted: the streaming
+        child measures ~7.88 of them (CARD-198: up from 5.97-6.73 on the
+        smaller corpus) and the list shape needs ~305.8. Both margins are
+        re-measured on every run, not trusted: the streaming
         child's headroom is asserted (:data:`CHILD_HEADROOM`), the platform's
         own floor is measured first and skips the test if it has grown into
         the cap (:func:`_habitable`), and the list child is required to die
@@ -1149,8 +1183,9 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
         """CARD-145 item 4's measurement, kept live (see the card's notes).
 
         The card feared a route that "looks dead for two minutes" and asked
-        for a progress mechanism. A 182-page book exports in single-digit
-        seconds on this machine, which is why item 4 was deferred rather than
+        for a progress mechanism. A 305-page book (CARD-198: up from 182)
+        exports in single-digit seconds on this machine, which is why item 4
+        was deferred rather than
         built. This is the number that decision rests on; if it ever stops
         being true, the decision is due for review and this says so by
         failing.
@@ -1171,7 +1206,10 @@ class TestBookPdfMemory_PagesAreUnchanged:
     """Every exported page is the page the baseline recorded, to the pixel (G-1).
 
     The evidence is ``tests/helpers/book_corpus.BASELINE_FIXTURE``, currently
-    ``tests/fixtures/book_baseline_card147.json``, recorded by exporting
+    ``tests/fixtures/book_baseline_card198.json`` (CARD-198 is this chain's
+    seventh recording — CARD-167 and CARD-184 both superseded it in between
+    without a mention here, a pre-existing gap in this docstring's own
+    history that CARD-198 does not take on fixing), recorded by exporting
     ``tests/helpers/book_corpus.baseline_puzzles``, reading the pages back
     **out of the PDF** with the shared ``pdf_pages`` helper, and digesting each
     one's raw bitmap. It covers the whole path: draw, JPEG-encode, write,
@@ -1218,16 +1256,18 @@ class TestBookPdfMemory_PagesAreUnchanged:
     warning admits — a deliberate change to what a page prints — and every
     file in the chain says so.
 
-    **The machine's own face costs five pages of evidence, not eleven.** Only
-    interior page 1 (the guide) and the four divider pages — 2, 4 and 6 for
-    the levels (CARD-128) and 8 for SOLUTIONS — are lettered in
-    ``ImageFont.truetype("…/Arial.ttf")`` with a ``load_default`` fallback; the
-    other six are drawn in the bundled band face and Pillow's built-in clue
-    face and are comparable on any machine. So a fingerprint mismatch skips
+    **The machine's own face costs five pages of evidence, not twelve
+    (CARD-198: up from eleven).** Only interior page 1 (the guide) and the
+    four divider pages — 2, 4 and 6 for the levels (CARD-128) and 8 for
+    SOLUTIONS — are lettered in ``ImageFont.truetype("…/Arial.ttf")`` with a
+    ``load_default`` fallback; the other seven (CARD-198: up from six — the
+    new fourth answer page) are drawn in the bundled band face and Pillow's
+    built-in clue face and are comparable on any machine. So a fingerprint
+    mismatch skips
     **those five pages** and compares the rest, rather than taking the whole
     book's pixel evidence down with it — which on the project's own Linux
     deployment image, where Arial is not at that path, is the difference
-    between six pages of G-1 evidence and none.
+    between seven pages of G-1 evidence and none (CARD-198: up from six).
     """
 
     @pytest.fixture(scope="class")
@@ -1330,11 +1370,11 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert len(exported_bytes) == baseline["interior_bytes"]
 
     def test_the_corpus_covers_every_page_kind_the_interior_has(self, exported):
-        """The evidence's own premise: eleven pages, one of every kind.
+        """The evidence's own premise: twelve pages, one of every kind.
 
-        A baseline of eleven identical blank pages would pass the comparison
-        above and prove nothing — but so would eleven *distinct* pages of the
-        wrong kinds. Dropping a divider for a fourth answer page keeps them
+        A baseline of twelve identical blank pages would pass the comparison
+        above and prove nothing — but so would twelve *distinct* pages of the
+        wrong kinds. Dropping a divider for a fifth answer page keeps them
         all distinct while the baseline silently stops covering the divider.
         So each kind is identified positively, and distinctness is kept beside
         it. The book prints grouped easy, medium, hard (INV-009, CARD-128), so
@@ -1350,7 +1390,9 @@ class TestBookPdfMemory_PagesAreUnchanged:
           30x30 hard the baseline book declares are **read back off their
           ink** (``drawing_of``), not asked of the layout — in that order,
           because the levels print in that order;
-        * pages 9, 10 and 11 are answer pages, one per level: each carries
+        * pages 9-12 are answer pages, one per puzzle since CARD-198 (book
+          order: Duck, Owl, Tree, Snowflake — puzzles 2 and 3 share puzzle
+          page 3 but still each print their own answer page): each carries
           solid blocks of ink a filled cell wide, which no blank puzzle page or
           divider has anywhere on it (the guide page has, since CARD-167:
           its worked example).
@@ -1381,7 +1423,7 @@ class TestBookPdfMemory_PagesAreUnchanged:
                 "two 10x10 puzzles the two-up page pairs"
             )
 
-        for number in (9, 10, 11):
+        for number in (9, 10, 11, 12):
             assert solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} should be an answer page, whose "
                 "filled cells are solid blocks of ink"
@@ -1447,12 +1489,13 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         return measured.data
 
     def test_the_whole_book_holds_one_page_bitmap_at_a_time(self, measured):
-        """Both files, nine pages, one retained page bitmap — the cover keeps none.
+        """Both files, thirteen pages, one retained page bitmap — the cover keeps none.
 
         ``export_book`` writes the interior and then the cover, and the peak
         over the pair is the same single page bitmap either file costs alone.
-        The nine pages are the eight interior pages and the cover, counted by
-        the instrument, so a measurement over a book that was never drawn
+        The thirteen pages are :data:`BASELINE_PAGE_COUNT`'s twelve interior
+        pages (CARD-198: up from eleven) and the cover, counted by the
+        instrument, so a measurement over a book that was never drawn
         cannot pass this.
 
         As everywhere in this module, the number is what the **panel** retains
@@ -1473,12 +1516,13 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
 
         This is what the old shape would have failed loudest: materialising
         the interior inside ``export_book`` — the list this card removed —
-        measures **12.00** page bitmaps on this eleven-page book, 303 MB, and
-        4.6 GB on the 182-page one.
+        measures **13.00** page bitmaps on this twelve-page book (CARD-198:
+        up from eleven), 328 MB, and 7.70 GB on the 305-page one (CARD-198:
+        up from 182).
         """
         probe = measured.probe
 
-        assert probe.seen == BASELINE_PAGE_COUNT + 1, "eight interior pages and a cover"
+        assert probe.seen == BASELINE_PAGE_COUNT + 1, "twelve interior pages and a cover"
         assert probe.page_bytes == PAGE_BITMAP_BYTES
         assert probe.peak == PEAK_IN_PAGES * PAGE_BITMAP_BYTES, (
             f"export_book peaked at {probe.peak_in_pages:.2f} page bitmaps "
@@ -1539,7 +1583,7 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         """The counts come off the page plan now — they must still be the file's."""
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
         assert export.interior_page_count == BASELINE_PAGE_COUNT
-        assert export.answer_page_count == 3
+        assert export.answer_page_count == 4  # one per puzzle, CARD-198
         assert export.pages_saved == 1  # the one two-up page (FR-040)
 
     def test_parity_still_counts_from_interior_page_1(self, export):
@@ -1599,7 +1643,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
     measured.
     """
 
-    def test_a_page_that_fails_at_page_9_of_11_hands_the_caller_nothing(self):
+    def test_a_page_that_fails_at_page_9_of_12_hands_the_caller_nothing(self):
         """Eight pages were already in the buffer, and no file came out.
 
         The mechanism is that the buffer is a local of ``_write_pdf`` and is
@@ -1608,10 +1652,14 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
         both halves — that real bytes had been written (so the test is not
         passing on a failure that happened too early to matter) and that the
         caller got an exception rather than a truncated PDF.
+
+        ``solved_puzzle_page`` (CARD-197) is what draws every answer page
+        since CARD-198 replaced the packed key's own ``_answer_page`` with
+        it, so it is the method forced to fail here.
         """
         written: List[int] = []
         write_page = BookPDFGenerator._write_page
-        answer_page = BookPDFGenerator._answer_page
+        solved_puzzle_page = BookPDFGenerator.solved_puzzle_page
 
         def counting(self, *args, **kwargs):
             written.append(1)
@@ -1621,17 +1669,17 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             raise ValueError("this answer will not draw")
 
         BookPDFGenerator._write_page = counting
-        BookPDFGenerator._answer_page = refuses
+        BookPDFGenerator.solved_puzzle_page = refuses
         try:
             with pytest.raises(RuntimeError) as raised:
                 export_of(BookPDFGenerator(corpus_book()), baseline_puzzles())
         finally:
             BookPDFGenerator._write_page = write_page
-            BookPDFGenerator._answer_page = answer_page
+            BookPDFGenerator.solved_puzzle_page = solved_puzzle_page
 
         assert "could not be drawn" in str(raised.value)
         # Guide, three level dividers, the two-up page, two single-puzzle
-        # pages and the SOLUTIONS divider: eight pages of a planned eleven
+        # pages and the SOLUTIONS divider: eight pages of a planned twelve
         # were bytes in the buffer already.
         assert written == [1] * 8, written
 

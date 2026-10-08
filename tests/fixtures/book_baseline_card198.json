@@ -1,0 +1,133 @@
+{
+  "card": "CARD-198",
+  "supersedes": "tests/fixtures/book_baseline_card184.json",
+  "recorded_from_commit": "card/198-answer-key-one-page-per-puzzle (success commit)",
+  "recorded_from_commit_note": "CARD-198's implementation, based on main at 3a0b2d1: the commit that replaces the book's packed 6-up/4-up answer key with one full solved page per puzzle (BookPDFGenerator.solved_puzzle_page, CARD-197, reused verbatim). Unlike its predecessors in this chain, this file lands in the SAME commit as the production change (per this card's own pipeline rules), not a following one, so a short hash recorded here would describe a commit that does not exist until this one is made; the branch name is recorded instead. This file is recorded against that commit's own book_corpus.baseline_puzzles(), whose answer section grows from three packed pages (one per level) to four (one per puzzle, since puzzles 2 and 3 share one puzzle page but each still print their own answer page).",
+  "recorded_on": "2026-10-08",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-198 deliberately changes the interior's answer section: interior pages 9-11, the packed key's three answer pages (one per level), are replaced by four pages 9-12, one full solved page per puzzle in book order (Duck, Owl, Tree, Snowflake), each now also carrying its own clues and revealed fill rather than a packed tile. Pages 1-8 (the guide page, the three level dividers, the two-up page, the two single-puzzle pages and the SOLUTIONS divider) are CARD-184's digests byte for byte (CARD-198 G-2, checked below, not assumed) — only the answer section moved, and it grew by one page.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-198. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares, unaffected by CARD-198 (CARD-147's own fact). NOT the same thing as each page entry's \"mode\" below, which is \"RGB\" and always will be: that field is what pdf_pages hands back after its own convert(\"RGB\"), not what the file says.",
+  "changed_pages": [
+    9,
+    10,
+    11,
+    12
+  ],
+  "changed_pages_note": "CHECKED, NOT ASSUMED: pages 1-8 were compared against book_baseline_card184.json's entries before this file was written, with the font fingerprint reproduced on this machine first, and found byte-identical (CARD-198 G-2, AC-9). Page 12 is new — CARD-184's book had only eleven pages — so \"changed\" here means \"not present in, or not equal to, the predecessor\": pages 9-11 moved in place and page 12 is an addition.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "Unchanged from CARD-149/184's value, reproduced on this machine before this file was written. The guide page still letters its title at 92 px and its body at 46 px, and the divider at type_px(DIVIDER_PT, 300) = 60 px. The answer pages' band and caption letter in the packaged DejaVu Sans (solved_puzzle_page, CARD-197), which does not depend on the machine.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "Unchanged from CARD-147: page 1 is the guide page (Arial, with the load_default fallback), pages 2, 4, 6 and 8 the dividers. None of the four new-shape answer pages (9-12) are machine-lettered.",
+  "interior_bytes": 2981925,
+  "interior_bytes_note": "The black-and-white interior of this book: 2,981,925 bytes where CARD-184 recorded 2,437,097 for an eleven-page book. The difference is pages 9-12's own JPEG streams: pages 1-8 contribute the same bytes they always did (CARD-198 G-2).",
+  "colour_interior_bytes": 3443143,
+  "colour_interior_bytes_note": "The same book with a COLOUR interior: 3,443,143 bytes where CARD-184 recorded 2,845,507 for the eleven-page book. Read by tests/test_book_pdf_ink_mode.py only to show the length moved (TestBookInk_ColourInteriorIsUnchanged), not to pin a new one — no CARD-198 colour-specific fixture is recorded (out of this card's Touches); see that test module's own CARD-198 note.",
+  "page_count": 12,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "13d283759948858fc09e96d485cd093766b5e9f41a5d891481f3810760e883e1"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "be5e748146944022fb835107269d758aa6c86185d6c50a047ab878ed316e5d96"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "082831c87cc10e622cc75eef2d86b1f250ff25e157adbbbb85ed53220330f3cb"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e82541ea7b0bd6b3b90853daa6808199886e723451d6b1cc101b1ee6d93ae534"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "cd9b1411e223128a152c5e992bca23b14ef62fcfb5daf7e4ada045f75ccd3ab3"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "232d1c319fe3cc4d88a2e343deecc1f89feb3cdad08220c99cd999531e66eba1"
+    }
+  ]
+}

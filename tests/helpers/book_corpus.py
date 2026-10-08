@@ -12,19 +12,21 @@ Two corpora, for two different questions:
 :func:`baseline_puzzles` is the **small, complete** book — four puzzles that
 between them make the interior hold one of every page kind the generator can
 produce: the guide page, a level divider (TERM-031, CARD-128), a
-single-puzzle page, a two-up page (FR-040), the SOLUTIONS divider and three
-answer pages of the packed key (FR-042). Eleven interior pages, every one of
-them a different kind of drawing. That is the
-book :data:`BASELINE_FIXTURE` records, and the one AC-3 compares page for
-page.
+single-puzzle page, a two-up page (FR-040), the SOLUTIONS divider and one
+full solved answer page per puzzle (FR-042, CARD-198 — four pages, where the
+former packed key took three since all three of its levels held one page
+each either way). Twelve interior pages, every one of them a different kind
+of drawing. That is the book :data:`BASELINE_FIXTURE` records, and the one
+AC-3 compares page for page.
 
 :func:`corpus_puzzles` is the **large** book — a seeded corpus of 150 puzzles
 (no ``hypothesis``: stdlib ``random.Random``, per CLAUDE.md), grouped by tier
 the way INV-009 groups a real book, each one too large for two-up pairing to
-shorten the interior. It yields a 182-page interior: 1 guide + 3 level
-dividers + 150 puzzle pages + the SOLUTIONS divider + 27 answer pages. That is
-the "150-page book" AC-1 and AC-2 talk about, and it is a real export — the
-page count is never faked.
+shorten the interior. Since CARD-198 it yields a roughly 305-page interior:
+1 guide + 3 level dividers + 150 puzzle pages + the SOLUTIONS divider + 150
+answer pages — one per puzzle, where the former packed key took only 27. That
+is the "150-page book" AC-1 and AC-2 talk about, and it is a real export —
+the page count is never faked.
 
 **The same book, exported inside a capped child process.**
 :func:`capped_export_report` exports :func:`corpus_puzzles` in whatever
@@ -119,18 +121,31 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   those — moved on top of CARD-167's eleven, with ``interior_bytes`` and
 #:   ``colour_interior_bytes``.
 #:
-#: All eight files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card184.json"
+#: * ``book_baseline_card198.json`` — CARD-198 replaces the packed 6-up/4-up
+#:   answer key with one full solved page per puzzle: the interior grows
+#:   from eleven pages to **twelve** (the baseline book's three levels each
+#:   held exactly one puzzle, so the old packed key already took one page
+#:   per level — CARD-198 adds a fourth answer page only because puzzles 2
+#:   and 3 share one *puzzle* page but still each get their own *answer*
+#:   page). Pages 1-8 (guide through the SOLUTIONS divider) are
+#:   byte-identical to CARD-184's recording (AC-9); pages 9-12 are new.
+#:   ``font_dependent_pages`` is unchanged: the four machine-lettered pages
+#:   are still 1, 2, 4 and 6, none of them in the answer section.
+#:
+#: All nine files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card198.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
-#: that use it so the corpus cannot silently shrink (CLAUDE.md). Eight until
-#: CARD-128 gave its three levels a divider page each.
-BASELINE_PAGE_COUNT = 11
+#: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
+#: CARD-198 took the packed answer key (three pages, one per level) to one
+#: full solved page per puzzle (four pages, one per puzzle).
+BASELINE_PAGE_COUNT = 12
 
 #: How many puzzles the large corpus holds, and the interior that follows:
-#: 1 guide + 3 level dividers + 150 puzzle pages + SOLUTIONS + 27 answer pages.
+#: 1 guide + 3 level dividers + 150 puzzle pages + SOLUTIONS + 150 answer
+#: pages (CARD-198: one per puzzle, where the packed key took 27).
 CORPUS_PUZZLE_COUNT = 150
-CORPUS_PAGE_COUNT = 182
+CORPUS_PAGE_COUNT = 1 + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
 
 
 def _cm(millimetres: float) -> str:
@@ -213,11 +228,15 @@ def baseline_puzzles() -> List[Dict[str, Any]]:
     prints grouped easy, then medium, then hard (INV-009), so this list — hard
     first — exercises the grouping as well as the page kinds: the interior
     runs guide, "Easy", the two-up page, "Medium", the 15x15, "Hard", the
-    30x30, SOLUTIONS, and one answer page per level. Eleven pages, three of
-    them level dividers.
+    30x30, SOLUTIONS, and (since CARD-198) one answer page per puzzle: Duck,
+    Owl, Tree, Snowflake. Twelve pages, three of them level dividers.
 
-    Three tiers in three runs also gives the packed answer key three pages,
-    each opening a level (FR-042), behind the SOLUTIONS divider.
+    Four puzzles behind the SOLUTIONS divider also gives the answer section
+    one more page than the puzzle section's seven puzzle-or-divider pages
+    minus the two-up pairing: puzzles 2 and 3 share one *puzzle* page but
+    still print two separate *answer* pages (FR-042, CARD-198) — the one
+    difference this book's answer section no longer mirrors its puzzle
+    section's page count.
     """
     return [
         puzzle("card145-1", 30, 30, 9, "hard", "Snowflake"),
@@ -237,8 +256,8 @@ def corpus_puzzles(
     clues — large enough that no two of them share a page however their tiers
     fall, so the interior's length is the puzzle count and not a verdict of the
     pairing walk. Tiers run Easy, then Medium, then Hard, which is the order
-    INV-009 groups a book in and the order that gives the packed key one run
-    per level — and, since CARD-128, the puzzle section three divider pages.
+    INV-009 groups a book in and, since CARD-128, the order that gives the
+    puzzle section three divider pages.
     """
     if count < 3:
         raise ValueError(f"the corpus is grouped into three tiers, not {count}")

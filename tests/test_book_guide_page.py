@@ -642,7 +642,8 @@ class TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged:
 
     def test_both_interiors_hold_the_same_number_of_pages(self, old_export, new_export):
         assert pdf_page_count(old_export) == pdf_page_count(new_export)
-        # Guide, "Easy" divider, 3 puzzles, SOLUTIONS, one answer page.
+        # Guide, "Easy" divider, 3 puzzles, SOLUTIONS, 3 answer pages (one
+        # per puzzle, CARD-198) = 9.
         assert pdf_page_count(new_export) >= 7
 
     def test_the_guide_page_is_exactly_interior_page_1_in_each(self, old_pages, new_pages):
@@ -661,7 +662,12 @@ class TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged:
             )
         # Parity, observed: a right-hand (odd) page's drawing sits right of
         # the trim's middle by half the gutter/outside difference, a
-        # left-hand one left of it.
+        # left-hand one left of it. Since CARD-198 this also catches the
+        # book's three answer pages (one full solved page per puzzle, the
+        # same 20x20 extent as the blank ones, and still read as 20 rows
+        # here on this corpus's simple grid) alongside the three puzzle
+        # pages — six pages of parity evidence instead of three, which is a
+        # stronger version of the same claim, not a different one.
         puzzles = 0
         for number, page in enumerate(new_pages, start=1):
             try:
@@ -675,4 +681,4 @@ class TestGuidePage_WorkedExampleLeavesPageCountAndParityUnchanged:
             assert (offset > 0) == (number % 2 == 1), (
                 f"interior page {number} is centred {offset:.1f} px off the middle"
             )
-        assert puzzles == 3
+        assert puzzles == 6

@@ -94,9 +94,8 @@ prevent. So "0.95" passes and "0.945" does not, and no value is ever rounded
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP
-from typing import Any, List, Optional, Sequence, Tuple
+from typing import Any, Optional, Sequence, Tuple
 
-from nonogram.admin.book_answer_key import Answer, pack_answer_pages
 from nonogram.admin.book_page_spec import BOOK1_PROFILE
 from nonogram.admin.book_pdf_generator import interior_page_count, print_order
 from nonogram.difficulty import tier_of_record
@@ -358,9 +357,9 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
 
     The page count :class:`~nonogram.admin.book_pdf_generator.InteriorStream`
     reports as ``unpaired_page_count`` — one guide page, one divider per
-    non-empty named level, one page per puzzle, the SOLUTIONS divider and the
-    **packed** answer key (FR-042) — computed from the book's rows **without a
-    sheet**.
+    non-empty named level, one page per puzzle, the SOLUTIONS divider and one
+    full solved answer page per puzzle (FR-042, CARD-198) — computed from the
+    book's rows **without a sheet**.
 
     It exists for one case, and it is the case the check would otherwise have
     no answer for: a book whose stored print specification cannot be laid out
@@ -369,48 +368,55 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
     interior to count, and so no page count to name a KDP band from — yet a
     gutter that narrow is below *every* band of :data:`KDP_GUTTER_BANDS`, so
     the refusal is certain and only the wording needs a number. Two-up pairing
-    is the one term of the interior's make-up that needs a sheet
+    is the only term of the interior's make-up that needs a sheet
     (:func:`~nonogram.export.layout.compute_pair_layout` fits the shared cell
-    on the page); the guide page, the level dividers, the SOLUTIONS divider and
-    the packed key do not, so all of those are the book's real ones here and
-    only the pairing term is replaced by its upper bound, one page per puzzle.
+    on the page); the guide page, the level dividers, the SOLUTIONS divider
+    and the one-per-puzzle answer section do not, so all of those are the
+    book's real ones here and only the pairing term is replaced by its upper
+    bound, one page per puzzle.
 
-    That makes this an **upper bound** on such a book's interior, never an
-    under-count, so it can only ever name a band at or above the true one — and
-    it is exact for any book whose puzzles are too large to share a page, which
-    a real curated book of 20x20s and 30x30s largely is. It is the same figure
-    the Finalise screen shows as "before pairing", and it is cross-checked
-    against the generator's own ``unpaired_page_count`` over the property
-    corpus (EC-034), so the two cannot drift apart.
+    Since CARD-198 the answer term needs no sheet **for a different reason
+    than packing did**: before, the packed key's term was sheet-free because
+    the packing walk (:func:`~nonogram.admin.book_answer_key.pack_answer_pages`)
+    is itself a pure function of extents and levels; now it is sheet-free
+    because it needs no walk at all — one page per puzzle is simply the
+    puzzle count. Either way this makes the function an **upper bound** on
+    such a book's interior, never an under-count, so it can only ever name a
+    band at or above the true one — and it is exact for any book whose
+    puzzles are too large to share a page, which a real curated book of
+    20x20s and 30x30s largely is. It is the same figure the Finalise screen
+    shows as "before pairing", and it is cross-checked against the
+    generator's own ``unpaired_page_count`` over the property corpus
+    (EC-034), so the two cannot drift apart.
+
+    The rectangle check below (:func:`_grid_extent`) is kept and still run
+    over every row, even though its result no longer feeds a packing walk:
+    it is what lets ``app.py``'s ``_is_an_unpackable_row`` detect a malformed
+    grid independently of the generator's own abort shape (G-6), and a row's
+    answer must still be measurable for *some* page count to exist at all.
 
     Nothing here is new arithmetic: the make-up is
     :func:`~nonogram.admin.book_pdf_generator.interior_page_count`, the order
-    is :func:`~nonogram.admin.book_pdf_generator.print_order`, the levels are
-    :func:`~nonogram.difficulty.tier_of_record`'s and the key is
-    :func:`~nonogram.admin.book_answer_key.pack_answer_pages`'s — the same four
-    calls the generator makes.
+    is :func:`~nonogram.admin.book_pdf_generator.print_order` and the levels
+    are :func:`~nonogram.difficulty.tier_of_record`'s — the same calls the
+    generator makes.
 
     Raises:
         ValueError: a row's solution grid is not a non-empty rectangle, so its
-            answer cannot be packed and the book has no page count at all.
+            answer cannot be measured and the book has no page count at all.
     """
     ordered = print_order(list(puzzles))
     levels = [
         tier_of_record(row.get("difficulty_tier")) if hasattr(row, "get") else None
         for row in ordered
     ]
-    answers: List[Answer] = []
-    for index, (row, level) in enumerate(zip(ordered, levels)):
-        columns, rows = _grid_extent(row, index + 1)
-        answers.append(
-            Answer(number=index + 1, width=columns, height=rows, level=level)
-        )
+    for index, row in enumerate(ordered):
+        _grid_extent(row, index + 1)
     dividers = len({level for level in levels if level is not None})
-    key = pack_answer_pages(answers) if answers else []
     return interior_page_count(
         len(ordered),
         puzzle_pages=len(ordered),
-        answer_pages=len(key),
+        answer_pages=len(ordered),
         level_dividers=dividers,
     )
 

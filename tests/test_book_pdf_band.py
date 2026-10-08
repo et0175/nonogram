@@ -64,7 +64,6 @@ from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import BookPDFGenerator, band_identity
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
-from nonogram.export.png import render_answer_page
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_pages
@@ -138,16 +137,6 @@ def expected_band(number: int, stored_tier: object) -> str:
 #: here for the same reason :data:`BAND_TEMPLATE` is — a second implementation
 #: of the rule, not ``book_answer_key``'s own ``answer_caption`` run twice.
 ANSWER_CAPTION = "Puzzle {number} — {title}"
-
-#: The same caption with the title withheld. Not a rule of FR-042 but the
-#: **control** the retargeted AC-194 tests need: a page captioned with this
-#: is the page the key would carry if the title were not printed, and the
-#: title's ink is what stands between the two.
-UNTITLED_ANSWER_CAPTION = "Puzzle {number}"
-
-#: FR-042's six-up tiling — every answer here is a MIN_SIZE grid, so no page
-#: of these books is ever taken down to four-up (INV-011).
-SIX_UP = 6
 
 
 # --------------------------------------------------------------------------
@@ -283,10 +272,9 @@ def solutions_page_number(puzzles: Sequence[dict]) -> int:
 def answer_page_number(puzzles: Sequence[dict], index: int = 0) -> int:
     """Where puzzle ``index``'s answer prints.
 
-    Only for books whose answers take one page each — the three-tier book of
-    AC-194, where every level starts a page of its own (AC-290), and the
-    one-puzzle books — so the answer's page is its number's place after the
-    SOLUTIONS divider.
+    One full answer page per puzzle, in book order, behind the SOLUTIONS
+    divider (CARD-198) — so the answer's page is simply its print number's
+    place after that divider, for any book this module builds.
     """
     number, _ = print_plan(puzzles)[index]
     return solutions_page_number(puzzles) + number
@@ -324,27 +312,38 @@ def _pages_with_band(
 
 
 def _answer_page(
-    entries: Sequence[tuple[dict, str]],
+    puzzle: dict,
+    number: int,
     page_number: int,
-    heading: str | None,
+    *,
+    title: str | None,
     book: Book | None = None,
 ) -> Image.Image:
-    """One page of the packed answer key, drawn from captions written out here.
+    """One puzzle's full answer page, drawn through CARD-197's own primitive.
 
-    FR-042's form of the key (CARD-134): the answers are tiles on a shared
-    page, each under its caption, the page headed by its level. The captions
-    this module names go in, so comparing the result with the generator's page
-    is about which answers, in which order, under which captions, and nothing
-    else — the same technique :func:`_pages_with_band` uses for a band, moved
-    onto the page shape FR-042 replaced the per-puzzle answer page with
-    (guardrail G-2a).
+    FR-042's key was a packed page of tiles (CARD-134) from that card until
+    CARD-198 replaced it with one full solved page per puzzle
+    (``BookPDFGenerator.solved_puzzle_page``) — the very call the generator's
+    own answer-section loop makes, so this helper draws through it rather
+    than reimplementing its geometry a second time (guardrail G-2a,
+    retargeted again under CARD-198, back to a one-answer-page-per-puzzle
+    shape — not byte-for-byte the pre-FR-042 original, since CARD-197's
+    primitive draws clues, fill and gray gridlines a bare answer tile never
+    did, but one page per puzzle all the same).
     """
-    return render_answer_page(
-        [(puzzle["grid"], caption) for puzzle, caption in entries],
-        SIX_UP,
-        book_page_spec(book if book is not None else _book(), page_number),
-        heading,
+    payload = ExportPayload(
+        grid=puzzle["grid"],
+        row_clues=tuple(tuple(clue) for clue in puzzle["clues_rows"]),
+        column_clues=tuple(tuple(clue) for clue in puzzle["clues_cols"]),
+        seed=0,
+        mode="random",
+        width=puzzle["width"],
+        height=puzzle["height"],
+        name=puzzle.get("puzzle_name"),
+        difficulty=puzzle["difficulty_tier"],
     )
+    generator = BookPDFGenerator(book if book is not None else _book())
+    return generator.solved_puzzle_page(payload, number, page_number, title=title)
 
 
 # --------------------------------------------------------------------------
@@ -469,22 +468,24 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
     def test_the_answer_page_carries_the_title_and_the_same_identity(self) -> None:
         """The title is on the answer page and is not on the puzzle page.
 
-        Retargeted under G-2a: FR-042 deleted the one-answer-page-per-puzzle
-        form this used to compare against byte for byte, so the *rule* is
-        asserted on the packed key instead. Three measurements, one book:
+        Retargeted under G-2a (FR-042's packed key), and again under CARD-198
+        (one full solved page per puzzle, CARD-197's own primitive): the
+        *rule* this AC states has survived two different answer-page shapes
+        unchanged. Three measurements, one book:
 
         * **absent** — the puzzle page is, pixel for pixel, the page of a
           payload carrying no name at all, so "Snowflake" is nowhere on it;
-        * **present** — the answer page is the packed page captioned
-          "Puzzle 1 — Snowflake", exactly, so it carries the title and the
-          same number the band opposite it prints;
-        * **contributing** — that page is *not* the one captioned "Puzzle 1",
-          so the title is ink and not merely a string that was offered.
+        * **present** — the answer page is exactly
+          ``solved_puzzle_page(payload, 1, page_number, title="Snowflake")``,
+          so it carries the title and the same number the band opposite it
+          prints;
+        * **contributing** — that page is *not* the one titled ``None``
+          (captioned "Puzzle 1" alone), so the title is ink and not merely a
+          string that was offered.
 
         One ``number`` feeds the band and the caption, so the two pages are
         being required to agree on the same N rather than on two numbers that
-        happen to be spelled alike; the tier reaches the answer page as the
-        level heading FR-042 puts at the top of it.
+        happen to be spelled alike.
         """
         number = 1
         puzzle = _puzzle(name=self.NAME)
@@ -499,33 +500,23 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         assert pages[puzzle_page_number([puzzle]) - 1].tobytes() == expected_puzzle.tobytes()
 
         answer = pages[answer_page_number([puzzle]) - 1]
-        titled = ANSWER_CAPTION.format(number=number, title=self.NAME)
         assert answer.tobytes() == _answer_page(
-            [(puzzle, titled)], answer_page_number([puzzle]), "Easy"
+            puzzle, number, answer_page_number([puzzle]), title=self.NAME
         ).tobytes()
         assert answer.tobytes() != _answer_page(
-            [(puzzle, UNTITLED_ANSWER_CAPTION.format(number=number))],
-            answer_page_number([puzzle]),
-            "Easy",
+            puzzle, number, answer_page_number([puzzle]), title=None
         ).tobytes(), "the title contributes no ink to the answer page"
 
     def test_the_title_is_ink_the_answer_band_would_not_have_without_it(self) -> None:
-        """Withhold the title and the *same* packed page loses ink, in one place.
+        """Withhold the title and the *same* answer page loses ink, in one place.
 
-        Retargeted under G-2b. What this used to compare the key against was
-        ``_pages_with_band(...)[1]`` — the full clued per-puzzle answer page
-        FR-042 deleted — so it compared two page *kinds*, which differ (~3% of
-        their pixels) whether or not a title is printed, and its companion
-        ``_has_ink(_band_strip(page))`` could not fail either: on a packed
-        page the top 12 mm is where the first answer *tile* sits, so that
-        strip carries ink with no heading and an untitled caption. Both were
-        assertions that read as evidence and were not.
-
-        The control is now the same page kind, one caption apart: the packed
-        page of this very answer captioned "Puzzle 1" — what the key would
-        print if the title were withheld (``answer_caption`` stops at the
-        number when there is no title, and the em dash is not printed with
-        nothing after it). Three measurements of the one difference:
+        Retargeted under G-2b (FR-042's packed key), and again under
+        CARD-198 (one full solved page per puzzle). The control is the same
+        page kind, one caption apart: this very answer page drawn again with
+        ``title=None`` — what ``solved_puzzle_page`` prints if the title were
+        withheld (``answer_caption`` stops at the number when there is no
+        title, and the em dash is not printed with nothing after it). Three
+        measurements of the one difference:
 
         * the two pages are **not** equal, so the title changed the page;
         * the titled page carries **strictly more** ink. The caption's face
@@ -553,11 +544,7 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         page_number = answer_page_number([puzzle])
         page = _interior([puzzle])[page_number - 1]
 
-        untitled = _answer_page(
-            [(puzzle, UNTITLED_ANSWER_CAPTION.format(number=number))],
-            page_number,
-            "Easy",
-        )
+        untitled = _answer_page(puzzle, number, page_number, title=None)
         assert page.tobytes() != untitled.tobytes(), "the title changed nothing"
         assert _ink_pixels(page) > _ink_pixels(untitled), "the title added no ink"
 
@@ -573,18 +560,20 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
     def test_the_answer_number_is_the_number_printed_on_the_puzzle(self) -> None:
         """Every answer is captioned with its own puzzle's number, not its page's.
 
-        A book of three at three tiers, so FR-042 gives each level a page of
-        its own (AC-290) and the answers land on interior pages 6, 7 and 8 —
-        which means an answer captioned from its position in the interior
-        rather than from the puzzle it answers would read "Puzzle 6" and be
+        A book of three at three tiers, so FR-042/CARD-128 gives each level a
+        divider of its own and the three puzzles print on pages 3, 5 and 7 —
+        their own full answer pages following on 8, 9 and 10 — which means an
+        answer captioned from its position in the interior rather than from
+        the puzzle it answers would read a number one or two off and be
         caught. Each page is compared whole, so a caption carrying the wrong
-        number, the wrong title or the wrong level heading fails, and each is
-        then re-checked against its untitled control so the title is shown to
-        be ink on every one of them.
+        number or the wrong title fails, and each is then re-checked against
+        its untitled control so the title is shown to be ink on every one of
+        them.
 
-        Retargeted under G-2a: the assertion moved from the deleted per-puzzle
-        answer page onto the packed key, and the rule it asserts — the title
-        prints here and its number is the puzzle's — is unchanged.
+        Retargeted under G-2a, and again under CARD-198: the assertion moved
+        from the per-puzzle answer page to the packed key and back again, and
+        the rule it asserts — the title prints here and its number is the
+        puzzle's — is unchanged throughout.
         """
         puzzles = [
             _puzzle(name=f"Picture {index}", puzzle_id=f"p{index}", tier=tier)
@@ -592,27 +581,16 @@ class TestBookPdf_AnswerKeyCarriesPictureTitle:
         ]
         pages = _interior(puzzles)
 
-        for index, (puzzle, label) in enumerate(zip(puzzles, ("Easy", "Medium", "Hard"))):
+        for index, puzzle in enumerate(puzzles):
             number = index + 1
             page_number = answer_page_number(puzzles, index)
             page = pages[page_number - 1]
 
             assert page.tobytes() == _answer_page(
-                [
-                    (
-                        puzzle,
-                        ANSWER_CAPTION.format(
-                            number=number, title=puzzle["puzzle_name"]
-                        ),
-                    )
-                ],
-                page_number,
-                label,
+                puzzle, number, page_number, title=puzzle["puzzle_name"]
             ).tobytes(), f"answer {number}"
             assert page.tobytes() != _answer_page(
-                [(puzzle, UNTITLED_ANSWER_CAPTION.format(number=number))],
-                page_number,
-                label,
+                puzzle, number, page_number, title=None
             ).tobytes(), f"answer {number} shows no title"
 
 
@@ -948,16 +926,22 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
 #: tier — prints alone through COMP-007's ``render_pages``.
 ONCE_TIERS = ("easy", "easy", "medium", "medium", "hard")
 
-#: This module's reading of that book's interior (FR-041, FR-040, FR-042):
-#: 1 guide; 2 Easy divider; 3 Puzzles 1-2 two-up; 4 Medium divider; 5 Puzzles
-#: 3-4 two-up; 6 Hard divider; 7 Puzzle 5 alone; 8 SOLUTIONS divider; 9-11
-#: one answer page per level (AC-290). ``print_plan`` above models only books
-#: that never pair, so the pages are written out here instead.
-ONCE_PAGE_COUNT = 11
+#: This module's reading of that book's interior (FR-041, FR-040, FR-042,
+#: CARD-198): 1 guide; 2 Easy divider; 3 Puzzles 1-2 two-up; 4 Medium
+#: divider; 5 Puzzles 3-4 two-up; 6 Hard divider; 7 Puzzle 5 alone; 8
+#: SOLUTIONS divider; 9-13 one full answer page per puzzle (CARD-198, up
+#: from the packed key's one page per level, 9-11, before this card).
+#: ``print_plan`` above models only books that never pair, so the pages are
+#: written out here instead.
+ONCE_PAGE_COUNT = 13
 ONCE_BAND_PAGES = {1: 3, 2: 3, 3: 5, 4: 5, 5: 7}
 HARD_ALONE_PAGE = 7
 TWO_UP_PAGE = 3
-HARD_ANSWER_PAGE = 11
+
+#: Page 8 is the SOLUTIONS divider, so puzzle N's own full answer page is
+#: 8 + N (CARD-198: one per puzzle, in book order, right after it).
+ONCE_SOLUTIONS_PAGE = 8
+HARD_ANSWER_PAGE = ONCE_SOLUTIONS_PAGE + 5
 
 #: The band's type size: 5 mm at 300 DPI (COMP-007's header size), in pixels.
 BAND_FONT_PX = round(5.0 * PX_PER_MM)
@@ -1160,16 +1144,24 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     def test_every_band_is_found_once_on_its_own_page_and_nowhere_else(
         self, once_pages: list[Image.Image]
     ) -> None:
-        """"Nowhere else" means as a line of its own: a copy beside the drawing
-        or over other ink is not found (see the section comment; the recorder
-        covers it)."""
+        """Each band is found on exactly two pages, and nowhere else.
+
+        Since CARD-198 a puzzle's band prints twice, by design: once on its
+        own puzzle page (COMP-007's header / ``_set_band``) and once on its
+        own full answer page (``solved_puzzle_page`` reuses the same
+        ``_set_band`` call, CARD-197's step 7) — never on any *other*
+        puzzle's page of either kind. "Nowhere else" still means as a line
+        of its own: a copy beside the drawing or over other ink is not
+        found (see the section comment; the recorder covers it).
+        """
         bands = _once_bands()
         found = sorted(
             (hit.page, hit.text, hit.size) for hit in _find(once_pages, bands.values())
         )
         assert found == sorted(
-            (ONCE_BAND_PAGES[number], text, BAND_FONT_PX)
+            (page, text, BAND_FONT_PX)
             for number, text in bands.items()
+            for page in (ONCE_BAND_PAGES[number], ONCE_SOLUTIONS_PAGE + number)
         )
 
     @pytest.mark.parametrize(
@@ -1217,12 +1209,13 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     def test_the_search_finds_an_answer_caption_at_its_own_size(
         self, once_pages: list[Image.Image]
     ) -> None:
-        """Control: the search sees the answer key's lettering.
+        """Control: the search sees the answer key's lettering too.
 
-        The Hard answer's caption is found once, on its answer page, at a size
-        other than the band's — so "no answer page carries the band" above is
-        a search that would have found a band set there at the caption's size
-        on rows clear of other ink sideways, as the caption is.
+        The Hard answer's caption is found once, on its own answer page, at
+        a size other than the band's — the caption and the band are two
+        different lines of type on the same page since CARD-198 (the band
+        above the drawing, the caption below it), and the search tells them
+        apart by size as well as by text, which is what this pins.
         """
         caption = ANSWER_CAPTION.format(number=5, title="Snowflake")
         found = _find(once_pages, [caption])
@@ -1307,10 +1300,15 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
     def test_each_written_page_received_each_of_its_bands_exactly_once(
         self, band_draws: _BandDraws
     ) -> None:
+        """Each puzzle's band is drawn once on its puzzle page and once on
+        its own answer page (CARD-198: ``solved_puzzle_page`` reuses the
+        same ``_set_band`` call its puzzle page uses)."""
         bands = _once_bands()
         expected: dict[int, Counter] = {}
         for number, page_number in ONCE_BAND_PAGES.items():
             expected.setdefault(page_number, Counter())[bands[number]] += 1
+        for number, text in bands.items():
+            expected.setdefault(ONCE_SOLUTIONS_PAGE + number, Counter())[text] += 1
         assert band_draws.written == expected
 
     def test_no_band_is_drawn_on_a_page_after_it_was_written(
