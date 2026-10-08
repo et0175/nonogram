@@ -1,6 +1,6 @@
 # CARD-195: The puzzle player can zoom the board in and out
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** feature
 **Estimate:** 1.0d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/195-player-zoom
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-195
 **Source:** owner mobile solver feedback, 2026-10-06 (zoom request, after the phone fit-to-width of CARD-193)
 **Idea:** —
 **Wave:** 36

@@ -1,6 +1,11 @@
 wave: 36
 mode: interactive
-active: []
+active:
+- id: CARD-195
+  phase: implement
+  branch: card/195-player-zoom
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-195
+  started: '2026-10-08T09:30:00Z'
 escalated: []
 merged:
 - id: CARD-196
@@ -16,7 +21,6 @@ merged:
   success_commit: 7c82b35
   merge_commit: e0214c9
   branch: card/194-player-brush-dropdown-region
-queued:
-- CARD-195 (CARD-194 merged — ready to start)
+queued: []
 conflict_edges: []
-last_updated: '2026-10-08T05:52:27Z'
+last_updated: '2026-10-08T09:30:00Z'
