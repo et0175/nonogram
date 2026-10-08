@@ -154,6 +154,7 @@ card names its card._
 
 ## Features and UX (not carded yet)
 - [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the persisted puzzle-number mapping (raw-requirements Delta 2026-09-24 (a)); the admin POC ships the solution inside the page, which a public solver must not   @feature
+- [ ] CARD-204 ships a placeholder QR-code slot (2x2cm) on book puzzle pages with no real link; this is the project that eventually replaces it with a real code pointing at a real page — do it once hosting/URL namespace/puzzle-number mapping above is decided   @feature
 
 ## Process (forge machinery, not this repo's code)
 - [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of" (a Jinja template can't import); CARD-126 G-4 names a test a later card (CARD-131) creates, so it was unverifiable before then; forge:commit's no-Co-Authored-By rule contradicts the required attribution line   @tech-debt
