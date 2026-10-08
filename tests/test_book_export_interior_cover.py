@@ -46,17 +46,18 @@ def _interior_pages(puzzle_count, answer_pages, levels=1):
     ``test_a_puzzle_of_this_module_never_shares_a_page_with_the_next``, so a
     pairing rule or profile that made it false is caught by name rather than
     as a page-count failure with no stated cause.
-    ``answer_pages`` is what FR-042's packed key takes (CARD-134) —
-    these books are all one level and at most 20 cells a side, so six answers
-    share a page. A book with no puzzles has no divider and no key at all.
+    ``answer_pages`` is how many pages the answer section takes (CARD-198:
+    one full solved page per puzzle, no packing) — named at the call site
+    for what it is now, not derived from a packing walk. A book with no
+    puzzles has no divider and no answer section at all.
     """
     if puzzle_count == 0:
         return 1
     return 1 + levels + puzzle_count + 1 + answer_pages
 
 
-#: This module's standard book: three easy 20x20s, so its key is one page.
-STANDARD_BOOK_PAGES = _interior_pages(3, 1)
+#: This module's standard book: three easy 20x20s, one answer page each.
+STANDARD_BOOK_PAGES = _interior_pages(3, 3)
 
 
 def _rectangle(width, height, left, top, right, bottom):
@@ -186,10 +187,11 @@ class TestBookExport_InteriorStartsAtGuidePage:
         assert same_page(interior[0], _guide_page(3, 3))
 
     def test_the_interior_runs_guide_puzzles_divider_answers(self, covered_book):
-        """1 guide + the "Easy" divider + 3 puzzles + SOLUTIONS + the key.
+        """1 guide + the "Easy" divider + 3 puzzles + SOLUTIONS + 3 answers.
 
-        The key is one page since FR-042 packed it (CARD-134); before that it
-        was three, one per puzzle. What this AC is about is the *order* of the
+        The answer section is three pages, one per puzzle (CARD-198) — FR-042
+        packed it to one page for a while (CARD-134), before this card
+        unpacked it again. What this AC is about is the *order* of the
         sections and the cover's absence from them, and neither moved.
         """
         client, book_id = covered_book
@@ -367,17 +369,17 @@ class TestBookFinalise_OffersBothDownloads:
         # The cover is no longer listed as a page of the book.
         assert "Cover page (" not in body
         # Since CARD-129 the figure is the interior's **own** page count, not
-        # the un-paired, un-packed bound the screen used to print with a "~":
-        # a 3-puzzle book of easy 20x20s is 1 guide + 1 divider + 3 puzzle
-        # pages + SOLUTIONS + 1 six-up answer page.
-        assert f'data-interior-page-count="{_interior_pages(3, 1)}"' in body
+        # the un-paired bound the screen used to print with a "~": a
+        # 3-puzzle book of easy 20x20s is 1 guide + 1 divider + 3 puzzle
+        # pages + SOLUTIONS + 3 answer pages (CARD-198: one per puzzle).
+        assert f'data-interior-page-count="{_interior_pages(3, 3)}"' in body
         assert 'data-interior-page-count-exact="true"' in body
         # The figure the owner reads, not the attribute beside it: the text of
         # the very <dd> that carries the count is the bare number, with no
         # "~" in front (CARD-153, F-004 — the old split-and-slice looked only
         # at the attribute's own value and could never fail), and the
         # sentence under the interior's contents does not say "About".
-        pages = _interior_pages(3, 1)
+        pages = _interior_pages(3, 3)
         (shown,) = re.findall(
             r'<dd[^>]*\bdata-interior-page-count="\d+"[^>]*>(.*?)</dd>', body, re.S
         )
@@ -586,27 +588,29 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
     Cross-checked against the page tree of the PDF the export writes, not
     against the plan function's own arithmetic.
 
-    **What FR-042 changed here.** ``interior_page_count`` now takes how many
-    pages the *answers* take as well as how many the puzzles take, and both
-    default to one page each. Called with the puzzle count alone — which is
-    how the Finalise screen calls it — it is therefore the un-paired,
-    un-packed plan: an **upper bound**, which is what that screen has always
-    labelled it ("~") and what CARD-129 owns making exact (EC-034). Since the
-    packed key (CARD-134) that bound is wider, and wider again since CARD-128
-    put the most dividers a book of that many puzzles could open into it: a
-    three-puzzle book plans 11 and writes 7.
+    **What FR-042/CARD-198 changed here.** ``interior_page_count`` takes how
+    many pages the *answers* take as well as how many the puzzles take, and
+    both default to one page each. Called with the puzzle count alone —
+    which is how the Finalise screen calls it — it is therefore the
+    un-paired plan: an **upper bound**, which is what that screen has
+    always labelled it ("~") and what CARD-129 owns making exact (EC-034).
+    Since CARD-198 the answer term is no longer a packing saving to widen
+    the bound with — one answer page per puzzle is exact either way — so
+    what still widens the one-argument call beyond the real file is only
+    the divider term, CARD-128's "the most dividers a book of that many
+    puzzles could open": a three-puzzle book of one level plans 11 and
+    writes 9.
 
     So the two statements are asserted separately, and both against the
     written file: the plan given every term is the file's page count exactly,
     and the screen's figure is never less than it.
     """
 
-    #: How many answer pages these books take: six answers to a page, all one
-    #: level and none above 20 cells a side (FR-042). Written out here rather
-    #: than asked of the packing walk.
+    #: How many answer pages these books take: one per puzzle, unconditionally
+    #: (CARD-198). Written out here rather than asked of the generator.
     @staticmethod
     def _answer_pages(puzzle_count):
-        return -(-puzzle_count // 6)
+        return puzzle_count
 
     @staticmethod
     def _interior_of(puzzle_count):
@@ -744,9 +748,9 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
 
         # The figure on the screen, against this module's own arithmetic and
         # not against the function that produced it. Since CARD-129 it is the
-        # **exact** count of the file the button beside it downloads (EC-034),
-        # so the puzzle-page term is still the count (a 20x20 never pairs
-        # here) but the answer term is the packed key's, not one page each.
+        # **exact** count of the file the button beside it downloads (EC-034):
+        # the puzzle-page term is the count (a 20x20 never pairs here), and
+        # since CARD-198 the answer term is the count too — one page each.
         exact = _interior_pages(
             puzzle_count, self._answer_pages(puzzle_count), min(1, puzzle_count)
         )

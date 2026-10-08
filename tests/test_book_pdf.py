@@ -328,11 +328,10 @@ class TestBookPdf_PageSizeEqualsStoredTrim:
 
     #: This fixture's interior: the guide page, the "Easy" divider that opens
     #: the book's one level (CARD-128), three puzzle pages (none of these
-    #: three pairs) and the SOLUTIONS divider, then the **one** answer page
-    #: FR-042's packed key takes — the three answers are one level, and the
-    #: 30x30 among them makes the page four-up, which holds all three
-    #: (CARD-134).
-    PAGES = 1 + 1 + 3 + 1 + 1
+    #: three pairs) and the SOLUTIONS divider, then three answer pages — one
+    #: full solved page per puzzle (CARD-198, up from the packed key's one
+    #: four-up page before this card).
+    PAGES = 1 + 1 + 3 + 1 + 3
 
     def test_every_interior_page_of_the_pdf_is_the_stored_trim(self, export):
         pages = pdf_pages(export.interior.getvalue())
@@ -684,9 +683,10 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
         )
 
         # Guide 1, the "Easy" divider 2, the two survivors 3 and 4, the
-        # SOLUTIONS divider 5, and the packed key's one page 6 — both answers
-        # are one level and fit a six-up page (FR-042, CARD-134).
-        assert len(pages) == 6
+        # SOLUTIONS divider 5, and two answer pages 6-7 — one full solved
+        # page per survivor (CARD-198, up from the packed key's one page
+        # before this card).
+        assert len(pages) == 7
         first_mm = _mm(drawing_of(pages[2]).left)
         second_mm = _mm(drawing_of(pages[3]).left)
 

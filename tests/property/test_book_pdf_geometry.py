@@ -325,22 +325,22 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
 
     One book of the same puzzle twice puts it on interior page 2 (left-hand) and
     page 3 (right-hand), and — the two copies being of two levels, which no
-    answer page may mix (FR-042) — its two answer pages on 5 (right-hand) and 6
-    (left-hand), so both parities are measured on both page kinds with the
-    drawing held constant.
+    answer page may mix (FR-040/INV-010 for the puzzle pages; the answer
+    section follows the same book order, CARD-198) — its two answer pages on
+    opposite parity too, so both parities are measured on both page kinds
+    with the drawing held constant.
 
-    **What is measured on an answer page, since FR-042 packed the key.** An
-    answer page no longer carries a placed full-page *drawing*: it carries the
-    key's tiles, whose sizes and positions inside the usable area are
-    COMP-007's (CARD-133, swept by
-    ``tests/property/test_book_answer_tiles.py``) and not this module's
-    arithmetic. So the absolute left edge predicted by ``drawing_left_mm`` is
-    asserted on the two puzzle pages, where it is the statement EC-032 makes,
-    and the answer pages carry the half of EC-032 that is still about the
-    **sheet** and that a tiled page states just as sharply: the same answer, on
-    two pages of opposite parity, sits exactly ``gutter - outside`` further
-    right on the odd one, and at the same height on both. A key laid out on the
-    wrong side of the spread fails that by the whole of the margin difference.
+    **What is measured on an answer page, since CARD-198.** An answer page is
+    now a full-page drawing of its own puzzle — :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.solved_puzzle_page`
+    calls the very same :func:`~nonogram.export.layout.compute_layout` an
+    unsolved page at that position would — so EC-032's full statement (the
+    absolute left edge ``drawing_left_mm`` predicts, and the centring check)
+    is made on it exactly as on a puzzle page. The one thing still read
+    defensively is :attr:`Drawing.columns`/``.rows``: a revealed answer's
+    filled runs can be mistaken for rules (``tests/helpers/page_ink.py``'s own
+    caveat), so those two fields are asserted only on the blank puzzle pages,
+    never on an answer page — :attr:`Drawing.left`/``.top``/``.grid_bottom``/
+    ``.cell`` are safe on either kind and are what this test actually needs.
     """
     rng = random.Random(1160032)
     checked = 0
@@ -356,16 +356,12 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # divider page (CARD-128). The interior runs guide 1, the "Easy"
         # divider 2, the easy copy 3, the "Medium" divider 4, the medium copy
         # 5, the ungraded copy 6 (an ungraded run has no name, so it opens no
-        # divider), SOLUTIONS 7, and one answer page per level: 8 "Easy", 9
-        # "Medium", 10 unheaded.
+        # divider), SOLUTIONS 7, and one answer page per puzzle (CARD-198):
+        # 8 easy, 9 medium, 10 ungraded.
         #
         # So the same drawing sits on interior 5 and 6 — **opposite** parity —
-        # and its answer on 8 and 9, opposite parity and both headed. Two
-        # copies alone would no longer do: one puzzle per named level always
-        # lands on an odd page, and an unheaded answer page's tiles are drawn
-        # at another cell (the heading's line costs height), so a headed page
-        # and an unheaded one cannot be compared edge to edge. No two of the
-        # three ever share a page: no two of their tiers are equal (FR-040,
+        # and its answer on 8 and 9, also opposite parity. No two of the three
+        # ever share a page: no two of their tiers are equal (FR-040,
         # INV-010), and an ungraded row never pairs at all.
         pages = BookPDFGenerator(sheet.book).interior_pages([
             dict(puzzle, difficulty_tier="easy", id="p-easy"),
@@ -377,43 +373,41 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         )
 
         # (interior page number, the page) for every page carrying the drawing.
-        # The two blank puzzle pages are also measured for width and cell; an
-        # answer page's revealed cells are long runs of ink themselves, so its
-        # rules cannot be counted (see ``tests/helpers/page_ink.py``) and only
-        # its two placed edges are read.
         by_number = {
             number: drawing_of(pages[number - 1]) for number in (5, 6, 8, 9)
         }
-        for number in (5, 6):
+        for number in (5, 6, 8, 9):
             drawing = by_number[number]
             expected_left = sheet.drawing_left_mm(number, across, down)
             assert abs(_mm(drawing.left) - expected_left) <= 2 * HALF_PIXEL_MM + 1e-9, (
                 sheet, number, _mm(drawing.left), expected_left
             )
-            # The top edge is the fixed offset every puzzle page uses.
+            # The top edge is the fixed offset every puzzle page uses — and,
+            # since CARD-198, every answer page too (the same compute_layout
+            # call, the same band).
             assert abs(_mm(drawing.top) - (TOP_MM + BAND_MM)) <= HALF_PIXEL_MM + 1e-9
 
-        # Both answer pages lie inside their own page's usable area — the only
-        # absolute statement about a tiled page this module can make without
-        # re-deriving COMP-007's tiling.
-        for number in (8, 9):
-            drawing = by_number[number]
-            left_margin_mm = sheet.left_margin_mm(number)
-            assert _mm(drawing.left) >= left_margin_mm - 2 * HALF_PIXEL_MM, (
-                sheet, number, _mm(drawing.left), left_margin_mm
-            )
-            assert _mm(drawing.grid_right) <= (
-                left_margin_mm + sheet.usable_width_mm + 2 * HALF_PIXEL_MM
-            ), (sheet, number)
-
+        # ``columns``/``rows`` only on the two blank puzzle pages: an answer
+        # page's revealed cells are long runs of ink themselves, so its rules
+        # cannot be counted that way (``tests/helpers/page_ink.py``'s own
+        # caveat) — ``left``/``top``/``grid_bottom``/``cell``, read above and
+        # below, stay safe on either kind.
         for number in (5, 6):
             drawing = by_number[number]
             assert (drawing.columns, drawing.rows) == (columns, rows)
-            # Centred across this page's usable width: the white left of the
-            # drawing equals the white right of it, both measured off the page.
-            # (The drawing runs ``across`` cells from its left edge — a cell
-            # being the rule-to-rule pitch the grid itself shows.)
-            if sheet.usable_width_mm - across * sheet.cell_mm(across, down) >= 0:
+
+        # Centred across this page's usable width: the white left of the
+        # drawing equals the white right of it, both measured off the page.
+        # (The drawing runs ``across`` cells from its left edge — a cell
+        # being the rule-to-rule pitch the grid itself shows.) ``.cell`` is
+        # derived from ``.columns`` (page_ink.py's own caveat: unsafe on a
+        # revealed answer page), so this second, ink-based centring check
+        # stays on the two blank puzzle pages only — the exact-left check
+        # just above already proves centring on the answer pages, since
+        # ``sheet.drawing_left_mm`` is itself derived from the centring rule.
+        if sheet.usable_width_mm - across * sheet.cell_mm(across, down) >= 0:
+            for number in (5, 6):
+                drawing = by_number[number]
                 left_spare = _mm(drawing.left) - sheet.left_margin_mm(number)
                 right_spare = sheet.usable_width_mm - left_spare - across * _mm(drawing.cell)
                 assert abs(left_spare - right_spare) <= 4 * HALF_PIXEL_MM + 1e-9, (
@@ -432,9 +426,9 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
             )
 
         # Parity moves the drawing sideways only — on the two puzzle pages,
-        # which are the same page but for their side of the spread, and on the
-        # two answer pages, which carry the same single answer under headings
-        # of their own ("Easy" and "Medium", AC-291) and so are tiled alike.
+        # which are the same page but for their side of the spread, and on
+        # the two answer pages, which are the same puzzle's own full solved
+        # page (CARD-198) drawn twice, so both pairs move alike.
         assert by_number[5].top == by_number[6].top, (sheet, by_number[5].top)
         assert by_number[8].top == by_number[9].top, (sheet, by_number[8].top)
         assert by_number[5].grid_bottom == by_number[6].grid_bottom

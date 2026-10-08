@@ -240,33 +240,16 @@ def _puzzle(rng: random.Random, small: bool = False) -> Puzzle:
     return puzzle
 
 
-#: How many answers FR-042 puts on a page while every answer on it is at most
-#: 20 cells on its longest side. Every puzzle of the rendered corpus below is
-#: drawn at 10..14 a side (``_puzzle(small=True)``), so that is the tiling of
-#: every page of every key here and the four-up one never arises.
-ANSWERS_PER_PAGE = 6
-
-
 def _expected_answer_pages(order: list[Puzzle]) -> int:
-    """How many pages FR-042's packed key takes for ``order`` (CARD-134).
+    """How many pages the answer section takes for ``order`` (CARD-198).
 
-    No answer page holds two levels, so each run of one tier of record takes
-    ``ceil(its length / 6)`` pages of its own. Written out here rather than
-    asked of ``book_answer_key``: this module's subject is the *pairing* walk,
-    and an answer-page count re-derived with the key's own function would say
-    nothing about the interior it is counting.
+    One full solved page per puzzle, unconditionally — no packing, no level
+    rule. Written out here rather than imported: this module's subject is
+    the *pairing* walk, and an answer-page count re-derived from the
+    generator's own constant would say nothing about the interior it is
+    counting.
     """
-    pages = 0
-    run = 0
-    previous: object = object()
-    for puzzle in order:
-        level = puzzle.tier_of_record
-        if run and level != previous:
-            pages += -(-run // ANSWERS_PER_PAGE)
-            run = 0
-        previous = level
-        run += 1
-    return pages + -(-run // ANSWERS_PER_PAGE)
+    return len(order)
 
 
 #: Where each level sits in the printed book (INV-009), and where a row whose
@@ -448,7 +431,7 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         label = (sheet, [str(p) for p in order])
 
         # Guide, a divider per non-empty level, the puzzle pages, the
-        # SOLUTIONS divider, the packed answer key (FR-042).
+        # SOLUTIONS divider, one answer page per puzzle (CARD-198).
         assert len(interior) == (
             1 + dividers + len(expected) + 1 + _expected_answer_pages(printed)
         ), label

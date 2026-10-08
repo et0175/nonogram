@@ -33,10 +33,12 @@ recorded digest. It moves **none** of them. ``tests/helpers/pdf_pages.py``
 reads a page back out of the PDF and normalises it to RGB, and a JPEG keeps the
 luma plane: libjpeg's integer RGB->YCbCr maps a grey ``(v, v, v)`` to ``Y = v``
 with ``Cb = Cr = 128``, the same luma quantisation table is used either way, and
-``Cb = Cr = 128`` decodes back to ``R = G = B = Y`` exactly. So the eleven pages
-decoded out of a grayscale interior are **byte-identical** to the eleven decoded
-out of the RGB one, and ``book_baseline_card147.json`` records that as its
-finding rather than eleven moved digests. What *does* move is the file's length,
+``Cb = Cr = 128`` decodes back to ``R = G = B = Y`` exactly. So every page
+decoded out of a grayscale interior is **byte-identical** to the matching page
+decoded out of the RGB one (eleven of them, on the book this was first
+recorded against before CARD-198 grew its answer section by one page), and
+``book_baseline_card147.json`` records that as its finding rather than moved
+digests. What *does* move is the file's length,
 which is the whole point: one channel of JPEG instead of three.
 :class:`TestBookInk_BlackAndWhiteInteriorIsGrayscale` asserts both halves — the
 file declares ``DeviceGray`` and is materially smaller, and not one mark moved.
@@ -246,7 +248,7 @@ def interiors_both_ways(puzzles, book_id: str = "card-147") -> Tuple[bytes, byte
 
 @pytest.fixture(scope="module")
 def baseline_exports() -> Tuple[bytes, bytes]:
-    """The eleven-page baseline book, exported both ways, once for the module."""
+    """The baseline book (:data:`BASELINE_PAGE_COUNT` pages), exported both ways."""
     return interiors_both_ways(baseline_puzzles())
 
 
@@ -394,7 +396,7 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         monkeypatch.setattr(BookPDFGenerator, "_write_page", write_page_and_compare)
         export_of(generator, baseline_puzzles())
 
-        assert checked == BASELINE_PAGE_COUNT == 11, f"only {checked} pages compared"
+        assert checked == BASELINE_PAGE_COUNT == 12, f"only {checked} pages compared"
 
     def test_the_two_files_hold_the_same_marks_page_for_page(self, baseline_exports):
         """And the same after the encode: the two files decode to one ink.
@@ -473,8 +475,33 @@ class TestBookInk_ColourInteriorIsUnchanged:
 
     Checked against ``tests/fixtures/book_baseline_card146.json`` — the
     recording of this very book made before a line of this card existed, left
-    unregenerated. Both halves of "byte-identical": the eleven page digests and
-    the file's own length.
+    unregenerated. Both halves of "byte-identical" are checked for pages 1-8
+    (the guide page through the SOLUTIONS divider): the page digests and the
+    file's own length.
+
+    **CARD-198 note (SCOPE+, flagged rather than silently absorbed).** This
+    class's scope was narrowed here: CARD-198 replaced
+    ``tests.helpers.book_corpus.baseline_puzzles``'s packed three-page answer
+    key with one full solved page per puzzle (four pages), so the book this
+    class exports is no longer eleven pages but
+    :data:`~tests.helpers.book_corpus.BASELINE_PAGE_COUNT` (twelve), and pages
+    9-11 are no longer the three pages ``book_baseline_card184.json``
+    recorded for the *packed* key — there is nothing in that fixture, or any
+    other recorded here, for what the new pages 9-12 should look like, because
+    they are a deliberate, different drawing (CARD-198's own
+    ``solved_puzzle_page``, not a lettering tweak to the old one). This class
+    was written for CARD-147 and names no CARD-198 Touches file, but
+    ``BASELINE_PAGE_COUNT``/``baseline_puzzles`` are shared with
+    ``tests/helpers/book_corpus.py`` (which CARD-198 does touch), so it could
+    not literally pass unedited once that book's own answer section changed
+    shape — this is the same kind of guardrail tension CARD-197 flagged over
+    ADR-0037/R1, not a silent rewrite of G-7's intent. What CARD-147's AC-2
+    is actually about — colour and black-and-white agree pixel for pixel on
+    *every* page, answer pages included — is still fully covered, and without
+    any static fixture at all, by
+    :meth:`TestBookInk_BlackAndWhiteInteriorIsGrayscale.test_the_two_files_hold_the_same_marks_page_for_page`
+    just above, which compares the two *live* exports to each other on every
+    page of the current book, pages 9-12 included.
 
     The length is gated on the machine's face, exactly as
     ``tests/test_book_pdf_memory.py`` gates it: the guide page and the four
@@ -482,24 +509,27 @@ class TestBookInk_ColourInteriorIsUnchanged:
     their JPEG streams are a different length under another face.
     """
 
-    def test_the_eleven_pages_are_the_pages_card146_recorded(
+    #: Pages 1-8: the guide page through the SOLUTIONS divider — unaffected
+    #: by CARD-198 (its own G-2/AC-9 draws the same line). Pages 9-12, the
+    #: answer section, are not compared against any pre-CARD-198 recording —
+    #: see the class docstring.
+    UNCHANGED_PAGES = 8
+
+    def test_pages_one_to_eight_are_the_pages_card146_recorded(
         self, baseline_exports, pre_card_baseline, same_face
     ):
         _bw, colour = baseline_exports
-        now = page_digests(pdf_pages(colour))
-        recorded = list(pre_card_baseline["pages"])
-        machine_face = set(pre_card_baseline["font_dependent_pages"])
+        now = page_digests(pdf_pages(colour))[: self.UNCHANGED_PAGES]
+        recorded = list(pre_card_baseline["pages"])[: self.UNCHANGED_PAGES]
+        machine_face = set(pre_card_baseline["font_dependent_pages"]) & set(
+            range(1, self.UNCHANGED_PAGES + 1)
+        )
         with GUIDE_PAGE_BASELINE.open(encoding="utf-8") as handle:
             guide_moved = json.load(handle)
         assert guide_moved["changed_pages"] == [1]
         recorded[0] = guide_moved["pages"][0]
-        with ANSWER_PAGES_BASELINE.open(encoding="utf-8") as handle:
-            answers_moved = json.load(handle)
-        assert answers_moved["changed_pages"] == [9, 10, 11]
-        for number in answers_moved["changed_pages"]:
-            recorded[number - 1] = answers_moved["pages"][number - 1]
 
-        assert len(now) == len(recorded) == BASELINE_PAGE_COUNT
+        assert len(now) == len(recorded) == self.UNCHANGED_PAGES
         compared = 0
         for number, (drawn, was) in enumerate(zip(now, recorded, strict=True), start=1):
             if number in machine_face and not same_face:
@@ -508,32 +538,63 @@ class TestBookInk_ColourInteriorIsUnchanged:
             assert drawn["mode"] == "RGB"
             compared += 1
 
-        expected = BASELINE_PAGE_COUNT - (0 if same_face else len(machine_face))
+        expected = self.UNCHANGED_PAGES - (0 if same_face else len(machine_face))
         assert compared == expected, f"compared {compared}, expected {expected}"
 
-    def test_the_colour_interior_is_the_length_it_always_was(
-        self, baseline_exports, pre_card_baseline, same_face
+    def test_the_new_answer_pages_are_not_claimed_unchanged_by_this_fixture(
+        self, baseline_exports, pre_card_baseline
     ):
+        """The control: CARD-198's pages 9-12 are not in CARD-146's recording.
+
+        ``pre_card_baseline`` has only :data:`BASELINE_PAGE_COUNT` minus one
+        pages (eleven) — the shape the book held before this card — so a
+        caller asking it for page 9 through 12 the way the pre-CARD-198 code
+        read them is reaching past a recording that was never updated for the
+        new page count. This is the control for the narrowing above: if this
+        failed (i.e. the fixture *did* somehow have twelve pages), the
+        narrowing to :data:`UNCHANGED_PAGES` above would be hiding evidence
+        rather than avoiding a comparison with nothing to compare against.
+        """
+        _bw, colour = baseline_exports
+        assert len(page_digests(pdf_pages(colour))) == BASELINE_PAGE_COUNT == 12
+        assert len(pre_card_baseline["pages"]) == 11
+
+    def test_the_colour_interior_is_no_longer_card184s_recorded_length(
+        self, baseline_exports, same_face
+    ):
+        """CARD-198 note: this used to pin an exact byte count (AC-2).
+
+        ``book_baseline_card184.json``'s ``colour_interior_bytes`` was
+        recorded for the eleven-page, packed-key book. CARD-198 changed that
+        book's own answer section (see the class docstring), so the file is
+        a different length now on *any* machine — gated on the face only
+        because an unrelated length difference would otherwise mask this
+        one. No CARD-198 colour fixture is recorded (out of this card's
+        Touches), so this asserts the one thing that can honestly be said
+        without inventing an unrecorded number: the length moved.
+        """
         if not same_face:
             pytest.skip(
                 "this machine letters the guide page and the dividers in "
-                "another face, so the file's length is not the recorded one"
+                "another face, so the file's length is not comparable to "
+                "the recorded one either way"
             )
         _bw, colour = baseline_exports
         with ANSWER_PAGES_BASELINE.open(encoding="utf-8") as handle:
             answers_moved = json.load(handle)
-        assert len(colour) == answers_moved["colour_interior_bytes"]
+        assert len(colour) != answers_moved["colour_interior_bytes"]
 
-    def test_the_black_and_white_interior_is_not_that_length(
-        self, baseline_exports, pre_card_baseline, same_face
+    def test_black_and_white_is_still_shorter_than_colour_at_the_new_length(
+        self, baseline_exports, same_face
     ):
-        """The control for the test above: the equality is not vacuous."""
+        """The control for the test above: both files moved, and stayed ordered."""
         if not same_face:
             pytest.skip("see the test above")
-        bw, _colour = baseline_exports
+        bw, colour = baseline_exports
         with ANSWER_PAGES_BASELINE.open(encoding="utf-8") as handle:
             answers_moved = json.load(handle)
         assert len(bw) != answers_moved["colour_interior_bytes"]
+        assert len(bw) < len(colour)
 
 
 # --------------------------------------------------------------------------

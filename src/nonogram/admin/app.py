@@ -901,9 +901,11 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
     :func:`~nonogram.admin.book_page_spec.book_page_spec` (and the ink-mode
     column beside it), so it is caught around the constructor and nowhere
     else. Anything :meth:`interior_stream` raises once the sheet exists — the
-    two plan tripwires ("the page plan prints ...", "the answer key holds
-    ...") above all — means the exporter or the book's rows are wrong, not
-    that the count is a guess. It is logged with its traceback and re-raised,
+    page-plan tripwire ("the page plan prints ...") above all (CARD-198
+    dropped its former "the answer key holds ..." sibling once packing was
+    removed; there is nothing left for it to catch) — means the exporter or
+    the book's rows are wrong, not that the count is a guess. It is logged
+    with its traceback and re-raised,
     so the screen shows an error rather than a plausible "About N" — unless
     it is the generator's "could not be laid out" abort (a ``RuntimeError``
     caused by a ``ValueError``) *and* the rows themselves fail the sheet-free
@@ -1023,12 +1025,15 @@ def _is_an_unpackable_row(error: BaseException, puzzles) -> bool:
     * **The exception's own shape.** The generator documents its "puzzle <id>
       could not be laid out" abort as a ``RuntimeError`` carrying the original
       measurement failure as its ``__cause__`` — for a grid that is not a
-      non-empty rectangle, the ``ValueError`` its answer-extent check raises
-      (:meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.answer_key`).
-      The two plan tripwires ("the page plan prints ...", "the answer key
-      holds ...") are raised bare, with no cause, so they never match. The
-      pairing walk's shared-page layout failure *does* take this shape, on
-      rows that are well-formed (review F-008) — hence the second signal.
+      non-empty rectangle, the ``ValueError`` the eager answer-validation pass
+      inside
+      :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.interior_stream`
+      raises (CARD-198; this validation replaced the former
+      ``answer_key`` method's own identical check when packing was removed).
+      The page-plan tripwire ("the page plan prints ...") is raised bare,
+      with no cause, so it never matches. The pairing walk's shared-page
+      layout failure *does* take this shape, on rows that are well-formed
+      (review F-008) — hence the second signal.
     * **The rows themselves.** The sheet-free count
       (:func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`) asks the
       same question of the rows independently of the plan and refuses exactly
@@ -4625,9 +4630,10 @@ def create_app(debug=None):
             "medium_count": medium_count,
             "hard_count": hard_count,
             # The interior's pages only — guide page, level dividers, the one-
-            # and two-up puzzle pages, the SOLUTIONS divider and the packed
-            # answer-key pages; the cover file is a second file and is never
-            # counted (FR-043, FR-030, AC-288). Since CARD-129 this is the
+            # and two-up puzzle pages, the SOLUTIONS divider and one full
+            # solved answer page per puzzle (CARD-198); the cover file is a
+            # second file and is never counted (FR-043, FR-030, AC-288).
+            # Since CARD-129 this is the
             # export's own page plan and therefore the count the exported file
             # really has (EC-034) — and the count the KDP gutter check above is
             # made against — with the "before pairing" and answer-key figures
