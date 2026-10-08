@@ -50,10 +50,13 @@ def _interior_pages(puzzle_count, answer_pages, levels=1):
     one full solved page per puzzle, no packing) — named at the call site
     for what it is now, not derived from a packing walk. A book with no
     puzzles has no divider and no answer section at all.
+
+    The guide's own term is **2** (CARD-201's 2-page "how to solve" tutorial,
+    up from 1 before this card) in both branches.
     """
     if puzzle_count == 0:
-        return 1
-    return 1 + levels + puzzle_count + 1 + answer_pages
+        return 2
+    return 2 + levels + puzzle_count + 1 + answer_pages
 
 
 #: This module's standard book: three easy 20x20s, one answer page each.
@@ -215,8 +218,9 @@ class TestBookExport_InteriorStartsAtGuidePage:
         )
 
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
-        # Guide, the "Easy" divider, the puzzle, SOLUTIONS, its answer.
-        assert export.interior_page_count == 5
+        # The 2-page guide (CARD-201), the "Easy" divider, the puzzle,
+        # SOLUTIONS, its answer.
+        assert export.interior_page_count == 6
 
 
 class TestBookExport_InteriorHoldsNoCoverPage:
@@ -640,15 +644,15 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         which would take every page-count assertion in this module down with
         it without naming the reason.
 
-        So it is measured, not assumed: the written interior is guide + the
-        one level's divider + puzzle pages + SOLUTIONS + key, so what is left
-        after the three fixed pages and the key's own term is the puzzle-page
-        count, and it is the puzzle count. These books are one tier
-        throughout, so a pairing walk that paired anything at all would be
-        seen here — and so would a second divider.
+        So it is measured, not assumed: the written interior is the 2-page
+        guide (CARD-201) + the one level's divider + puzzle pages + SOLUTIONS
+        + key, so what is left after the four fixed pages and the key's own
+        term is the puzzle-page count, and it is the puzzle count. These
+        books are one tier throughout, so a pairing walk that paired
+        anything at all would be seen here — and so would a second divider.
         """
         written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
-        puzzle_pages = written - 3 - self._answer_pages(puzzle_count)
+        puzzle_pages = written - 4 - self._answer_pages(puzzle_count)
 
         assert puzzle_pages == puzzle_count
 

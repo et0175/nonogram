@@ -665,18 +665,19 @@ PAIR_HEIGHT_MM = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
 
 #: The pair these criteria are read on, and the puzzle that prints alone after
 #: it so that a two-up slot and a single page can be compared **on one book**.
-#: All three are Easy, so the interior is one level: guide, the "Easy" divider,
-#: the two-up page, the single page, SOLUTIONS, three answer pages (CARD-198:
-#: one per puzzle, where this book took one packed page before that card).
+#: All three are Easy, so the interior is one level: the 2-page guide
+#: (CARD-201), the "Easy" divider, the two-up page, the single page,
+#: SOLUTIONS, three answer pages (CARD-198: one per puzzle, where this book
+#: took one packed page before that card).
 UPPER_PUZZLE = dict(columns=10, rows=10, row_depth=2, column_depth=2)
 LOWER_PUZZLE = dict(columns=12, rows=12, row_depth=3, column_depth=3)
 SINGLE_PUZZLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
 
 #: Which interior page is which, once the walk above has run. Asserted rather
 #: than trusted by :func:`_book_pages`.
-TWO_UP_PAGE = 3
-SINGLE_PAGE = 4
-INTERIOR_PAGES = 8
+TWO_UP_PAGE = 4
+SINGLE_PAGE = 5
+INTERIOR_PAGES = 9
 
 
 def _book() -> Book:
@@ -761,7 +762,7 @@ def _shared_cell_mm(upper: dict, lower: dict) -> float:
 
 
 def _expected_pair_boxes(
-    upper: dict, lower: dict, parity: PageParity = PageParity.ODD
+    upper: dict, lower: dict, parity: PageParity = PageParity.EVEN
 ) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
     """Where the two drawings sit on a two-up page: ``(left, top, right, bottom)``.
 
@@ -801,7 +802,7 @@ def _expected_pair_boxes(
     )
 
 
-def _expected_single_box(puzzle: dict, parity: PageParity = PageParity.EVEN):
+def _expected_single_box(puzzle: dict, parity: PageParity = PageParity.ODD):
     """The same rectangle for the puzzle that prints alone, on its own page."""
     return _expected_box(
         _spec(parity=parity),

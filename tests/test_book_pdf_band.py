@@ -239,14 +239,14 @@ def print_plan(puzzles: Sequence[dict]) -> dict[int, tuple[int, int]]:
     This module's own reading of the printed book: the rows grouped easy, then
     medium, then hard — a **stable** sort on the level alone, so the order
     inside a level is the one the book was handed in — numbered 1..n over the
-    puzzles, and laid out from interior page 2 with one divider page opening
-    each non-empty *named* level. Every book here is one of 15..20-cell
-    drawings that never pair (see the class docstrings), so a puzzle takes a
-    page.
+    puzzles, and laid out from interior page 3 (CARD-201: the guide is now 2
+    pages, not 1) with one divider page opening each non-empty *named* level.
+    Every book here is one of 15..20-cell drawings that never pair (see the
+    class docstrings), so a puzzle takes a page.
     """
     order = sorted(range(len(puzzles)), key=lambda index: level_rank(puzzles[index]["difficulty_tier"]))
     plan: dict[int, tuple[int, int]] = {}
-    page = 2
+    page = 3
     opened: object = None
     for number, index in enumerate(order, start=1):
         rank = level_rank(puzzles[index]["difficulty_tier"])
@@ -927,20 +927,21 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
 ONCE_TIERS = ("easy", "easy", "medium", "medium", "hard")
 
 #: This module's reading of that book's interior (FR-041, FR-040, FR-042,
-#: CARD-198): 1 guide; 2 Easy divider; 3 Puzzles 1-2 two-up; 4 Medium
-#: divider; 5 Puzzles 3-4 two-up; 6 Hard divider; 7 Puzzle 5 alone; 8
-#: SOLUTIONS divider; 9-13 one full answer page per puzzle (CARD-198, up
-#: from the packed key's one page per level, 9-11, before this card).
+#: CARD-198, CARD-201): 1-2 the guide (CARD-201's 2-page tutorial, up from
+#: one page before this card); 3 Easy divider; 4 Puzzles 1-2 two-up; 5 Medium
+#: divider; 6 Puzzles 3-4 two-up; 7 Hard divider; 8 Puzzle 5 alone; 9
+#: SOLUTIONS divider; 10-14 one full answer page per puzzle (CARD-198, up
+#: from the packed key's one page per level, before that card).
 #: ``print_plan`` above models only books that never pair, so the pages are
 #: written out here instead.
-ONCE_PAGE_COUNT = 13
-ONCE_BAND_PAGES = {1: 3, 2: 3, 3: 5, 4: 5, 5: 7}
-HARD_ALONE_PAGE = 7
-TWO_UP_PAGE = 3
+ONCE_PAGE_COUNT = 14
+ONCE_BAND_PAGES = {1: 4, 2: 4, 3: 6, 4: 6, 5: 8}
+HARD_ALONE_PAGE = 8
+TWO_UP_PAGE = 4
 
-#: Page 8 is the SOLUTIONS divider, so puzzle N's own full answer page is
-#: 8 + N (CARD-198: one per puzzle, in book order, right after it).
-ONCE_SOLUTIONS_PAGE = 8
+#: Page 9 is the SOLUTIONS divider, so puzzle N's own full answer page is
+#: 9 + N (CARD-198: one per puzzle, in book order, right after it).
+ONCE_SOLUTIONS_PAGE = 9
 HARD_ANSWER_PAGE = ONCE_SOLUTIONS_PAGE + 5
 
 #: The band's type size: 5 mm at 300 DPI (COMP-007's header size), in pixels.

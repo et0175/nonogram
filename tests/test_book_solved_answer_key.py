@@ -135,7 +135,10 @@ def first_answer_page(book: Book, puzzles: Sequence[dict]) -> int:
     silently disagree with the walk it is predicting.
     """
     section = BookPDFGenerator(book).section_plan(list(puzzles)).pages
-    return 3 + len(section)
+    # CARD-201: the guide grew from 1 page to 2, so the answer section (right
+    # after the SOLUTIONS divider, which is right after the puzzle section)
+    # moved one page later — 4 + len(section), not 3.
+    return 4 + len(section)
 
 
 def _interior(puzzles: Sequence[dict], book: Optional[Book] = None) -> List[Image.Image]:
@@ -181,7 +184,7 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
 
     def test_a_book_with_no_puzzles_has_no_answer_section_at_all(self) -> None:
         pages = _interior([])
-        assert len(pages) == 1, "the guide page alone"
+        assert len(pages) == 2, "the 2-page guide alone (CARD-201)"
 
 
 # --------------------------------------------------------------------------
@@ -359,14 +362,14 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
             assert page.tobytes() != not_a_divider.tobytes()
 
     def test_the_total_page_count_has_no_room_for_a_heading_page(self) -> None:
-        """1 guide + 2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 10.
+        """2 guide (CARD-201) + 2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 11.
 
         A per-level heading page inside the answer section (the alternative
         CARD-198's own "What to implement" considered and rejected) would
-        make this 11 or 12 instead.
+        make this 12 or 13 instead.
         """
         book, puzzles, pages = self._book_and_pages()
-        assert len(pages) == 1 + 2 + 3 + 1 + 3 == 10
+        assert len(pages) == 2 + 2 + 3 + 1 + 3 == 11
 
 
 # --------------------------------------------------------------------------
@@ -459,8 +462,8 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
         Page 1 (the guide) and the SOLUTIONS/level divider pages carry no
         ruled grid for :func:`drawing_of` to measure, so each divider is
         skipped (``drawing_of`` itself raises on it — a page with no grid at
-        all, never a silently wrong measurement) and the guide page's parity
-        is read the same independent way
+        all, never a silently wrong measurement) and the guide's own two
+        pages' parity (CARD-201) is read the same independent way
         ``tests/test_book_pdf_memory.py``'s own parity test reads it: the
         leftmost ink column, which sits at the gutter margin on a right-hand
         page and at the (narrower) outside margin on a left-hand one.
@@ -473,12 +476,12 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
 
         for number, page in enumerate(pages, start=1):
             right_hand = page_is_right_hand(number)
-            if number == 1:
+            if number in (1, 2):
                 ink = np.asarray(page.convert("L")) < 128
                 leftmost = int(np.where(ink.any(axis=0))[0].min())
                 # Book 1: gutter 0.5in (150 px), outside 0.375in (112.5 px).
                 assert (leftmost > 130) == right_hand, (
-                    f"interior page 1's leftmost ink is at {leftmost}px"
+                    f"interior page {number}'s leftmost ink is at {leftmost}px"
                 )
                 checked += 1
                 continue
@@ -494,8 +497,8 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
             )
             checked += 1
 
-        # The guide page, the two-up-free puzzle pages and the answer pages:
-        # everything but the two divider pages (Easy, SOLUTIONS).
+        # The guide's two pages, the two-up-free puzzle pages and the answer
+        # pages: everything but the two divider pages (Easy, SOLUTIONS).
         assert checked == len(pages) - 2
 
     def test_page_is_right_hand_itself_alternates_from_page_one(self) -> None:

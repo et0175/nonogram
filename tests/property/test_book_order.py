@@ -312,8 +312,9 @@ def assert_the_interior_really_prints_that(shelf, order, context) -> None:
     stream = BookPDFGenerator(None).interior_stream(_rows(shelf, order))
     pages = list(stream.pages)
 
-    # Guide page, the section's pages, the SOLUTIONS divider, the packed key.
-    expected = 1 + dividers + puzzle_pages + 1 + stream.answer_page_count
+    # The 2-page guide (CARD-201), the section's pages, the SOLUTIONS
+    # divider, the packed key.
+    expected = 2 + dividers + puzzle_pages + 1 + stream.answer_page_count
     assert stream.page_count == expected, context
     assert len(pages) == expected, context
     assert {page.size for page in pages} == {pages[0].size}, context

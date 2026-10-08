@@ -329,7 +329,7 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
         # The walk's own shape: one page per plan entry, positions running on
         # from the guide page, and one or two puzzles on each.
         assert [entry.numbers for entry in plan] == expected, label
-        assert [entry.page_number for entry in plan] == list(range(2, 2 + len(plan))), label
+        assert [entry.page_number for entry in plan] == list(range(3, 3 + len(plan))), label
         for entry in plan:
             assert 1 <= len(entry.numbers) <= 2, label
             assert entry.is_two_up == (len(entry.numbers) == 2), label
@@ -430,16 +430,18 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         interior = BookPDFGenerator(sheet.book).interior_pages(rows)
         label = (sheet, [str(p) for p in order])
 
-        # Guide, a divider per non-empty level, the puzzle pages, the
-        # SOLUTIONS divider, one answer page per puzzle (CARD-198).
+        # The 2-page guide (CARD-201), a divider per non-empty level, the
+        # puzzle pages, the SOLUTIONS divider, one answer page per puzzle
+        # (CARD-198).
         assert len(interior) == (
-            1 + dividers + len(expected) + 1 + _expected_answer_pages(printed)
+            2 + dividers + len(expected) + 1 + _expected_answer_pages(printed)
         ), label
 
-        # Which interior page each planned puzzle page landed on: page 1 is
-        # the guide, and each named level's run opens with a divider page.
+        # Which interior page each planned puzzle page landed on: pages 1-2
+        # are the guide (CARD-201), and each named level's run opens with a
+        # divider page.
         numbers_of: list[int] = []
-        page_number = 2
+        page_number = 3
         opened: object = object()
         for group in expected:
             level = printed[group[0] - 1].tier_of_record
