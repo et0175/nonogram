@@ -1069,16 +1069,16 @@ class TestGuidePage_LeadingClearsTheType:
         (cross-checked by reproducing each paragraph's own word-wrap while
         building this card, not merely assumed):
 
-        * 26 lines of type — the title; the intro (1 line); "How to read a
-          clue" heading + its text (2 lines); the basic-rule caption (1
-          line); "What a cell can be" heading + 3 cell states, each a
+        * 26 lines of type — the title; the intro (1 line); "The basic
+          rule" heading + its text (2 lines); the basic-rule caption (1
+          line); "Use three cell states" heading + 3 cell states, each a
           heading and a caption (1 + 3x2 = 7 lines); "Start with certainty"
           heading (1 line); technique 1 "Complete lines" (heading + caption,
           2 lines, no row note); technique 2 "Squeeze from both ends"
           (heading + 2-line caption + its last row's "certain" note, 4
           lines); technique 3 "Mark spaces around a completed block"
-          (heading + 2-line caption, 3 lines, no row note); "Switching
-          techniques" heading + its text (2 lines);
+          (heading + 2-line caption, 3 lines, no row note); "Keep switching
+          between rows and columns" heading + its text (2 lines);
         * 9 drawings — the basic-rule line, the 3 cell-state icons, and one
           row per technique (1 + 3 + 1 = 5), all drawn at the same cell
           pitch so every one of the 9 bands is the same height.
