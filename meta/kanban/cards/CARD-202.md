@@ -687,3 +687,22 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   20x20 that doesn't) was simply missed in that sweep. Not a production
   bug — a build-gate fix dispatched (not counted as a review cycle, per
   protocol) rather than entering forge:review on a red gate.
+- [Build-gate fix] `tests/test_book_puzzle_frame.py`'s `INTERIOR_PAGES` was
+  still 8, missed in the original SCOPE+ sweep — same pattern as
+  `test_book_pdf.py`'s 7->6 fix. Its `_book_pages()` fixture builds a 3-puzzle
+  book (UPPER_PUZZLE 10x10, LOWER_PUZZLE 12x12, SINGLE_PUZZLE 20x20, all
+  Easy tier); UPPER and LOWER both qualify for this card's packing rule
+  (width<=15 and height<=20, same tier, adjacent in book order) and now
+  share one packed answer page instead of each getting its own full page,
+  shrinking the answer section from 3 pages to 2 and the book from 8
+  interior pages to 7. `TWO_UP_PAGE` (3) and `SINGLE_PAGE` (4) were checked
+  and confirmed unaffected — they index positions inside the puzzle
+  section, before the SOLUTIONS divider, which this card's packing change
+  doesn't touch. Corrected `INTERIOR_PAGES` to 7 and refreshed the
+  fixture's stale comment; all 66 tests in the file now green. Fix agent's
+  own full-suite re-run: 6726 collected, 6717 passed, 9 skipped
+  (pre-existing DB-mode skips, unrelated), 0 failed, 0 errors. No other
+  files were affected — this was the only stale constant found. Commit
+  b963fe5. Orchestrator's own independent re-confirmation below, per the
+  standing "fresh evidence, not the implementer's claim" practice this
+  session follows throughout.
