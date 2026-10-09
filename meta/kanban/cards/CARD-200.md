@@ -1,6 +1,6 @@
 # CARD-200: The book's interior PDF gets a visible page number on every page and a table-of-contents page
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/200-page-numbers-and-toc
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-200
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 1: "Please add page numbers and a table of content")
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-201
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_toc.py, tests/test_book_page_numbers.py, tests/test_book_finalise_gutter.py, tests/test_book_guide_page.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/test_book_arrange_page_breaks.py, tests/test_book_solved_answer_key.py, tests/property/test_book_export_interior.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card200.json
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-09T13:58:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -437,3 +437,8 @@ fix the source artifact, never this list._
   sites + the arithmetic ripple + the new baseline fixture (~0.75d); (b) the TOC page
   itself + its own tests + the SCOPE+ fixture recomputation across the Touches list's
   test files (~0.75d).
+- [Env] forge 2026.8.17 (no `meta/.skills.yml` → no `forge.min_version` to
+  compare against; version still resolved and noted per protocol).
+- [Pin gate] n/a — no `meta/.skills.yml` → `legacy.enabled` unset, gate
+  skipped.
+- [Drift gate] n/a — no `meta/drift-pending.yml`, gate skipped.
