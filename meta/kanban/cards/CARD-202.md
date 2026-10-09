@@ -715,3 +715,64 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   window, not a suite regression). The 9 skips match this project's known
   platform/DB-mode skip set. Gate clear — proceeding to forge:review.
 - [Review] forge:review cycle 1 started (background agent `@code-review`).
+- [Review 1/3] Returned 10 findings, most-severe first (standalone skill
+  invocation, no numeric score returned — orchestrator's own severity read
+  below):
+  - **F-1 (Critical — silent data corruption, independently reproduced)**
+    `export/layout.py:2671`, `compute_packed_solved_layout`/
+    `PackedSolvedLayout` has no "decline to pack" fallback (unlike
+    `compute_pair_layout`'s precedent of returning `None` below its own
+    minimum) — when the `MIN_CELL_MM` floor binds, every slot can overflow
+    its own tile far past `SOLVED_TILE_GAP_MM`'s 4mm gap, and only
+    tile-BOX overlap is checked, never drawing-EXTENT overlap. The
+    reviewer reproduced this directly against the real production code on
+    a valid KDP-minimum 10x10cm trim with 4 qualifying small answers
+    (15-wide, heights 10/15/18/20): every slot's `PagePlacement.fits` is
+    `False`, with `overflow_right=107px` and `overflow_bottom` up to
+    `396px` on a ~100mm-tall page (roughly a third of the page) — one
+    puzzle's clue/grid ink genuinely overlaps a neighbouring puzzle's tile
+    or spills off the page entirely, and nothing aborts, warns, or falls
+    back to a lower density; it silently ships a corrupted answer page.
+    This is materially worse than the single-puzzle `compute_layout`
+    overflow precedent this card's own implementation notes invoked to
+    justify tolerating `fits=False` — that precedent accepts one puzzle's
+    own ink running past ITS OWN margin; this is two different puzzles'
+    ink overlapping EACH OTHER, illegible and unprintable. Gating.
+  - **F-2 (Important — misleading owner-facing stat, corroborated by 3
+    finder angles)** `app.py:4652` / `templates/book_finalize.html:134`,
+    the Finalise screen's "pages_saved_by_pairing"/"Before pairing ...
+    shared" label still attributes the WHOLE `unpaired_page_count -
+    page_count` delta to two-up pairing, but this card's own new
+    docstrings (`book_pdf_generator.py` ~996-1065) already admit the
+    number now measures "pairing and packing together." A book with
+    several small same-tier puzzles but few pairable ones would show e.g.
+    "Before pairing: 40 - 6 shared" when all 6 came from packing, not
+    pairing — the owner (or a future maintainer) reads the wrong cause.
+    Gating (cheap to fix: surface the two savings separately rather than
+    relabeling, or fix the wording to match what CARD-198's own Finalise
+    note already flagged as "a number the owner has not been shown
+    changing").
+  - **F-3 (Minor — stale docstring claim, now false)**
+    `book_pdf_generator.py:1443`, `_answer_extent`'s docstring still says
+    "no packing reads this number any longer" — this card's own
+    `Answer(width=..., height=...)` construction (~2693-2698) now DOES
+    feed `qualifies_for_packing` from it. Cheap, bundle into the fix pass.
+  - **F-4..F-10 (Minor/moderate, not gating, noted not required this
+    cycle):** `_placements_overlap` duplicates `_tiles_overlap`'s identical
+    rectangle test instead of sharing it (:2771); `_packed_tile_layout`
+    duplicates ~70 of `_slot_layout`'s ~90 lines (:2938); `produce()`
+    checks `isinstance(..., PackedAnswerPage)` twice instead of giving
+    both page kinds a common `numbers` property (:2832);
+    `unpaired_interior_page_count`'s coupling to the generator's own
+    "unpaired" baseline is enforced only by a docstring cross-reference,
+    not a test (:395, `book_kdp.py`); `plan_small_answer_pages`'s
+    strictly-increasing precondition check is copy-pasted from
+    `pack_answer_pages`'s identical one (:511, `book_answer_key.py`);
+    extracting `solved_puzzle_page`'s body into `_draw_solved_slot`
+    dropped several inline rationale comments in favour of a shorter
+    docstring (:1992); `SOLVED_TILE_GAP_MM`/`SOLVED_TILE_MAX_CELL_MM` are a
+    fourth independent "room per tile" constant family with no shared
+    derivation tying it to the other three (:332).
+  - **Verdict: cycle 1 does not meet the bar** (1 Critical silent-
+    corruption bug, 1 Important misleading-stat, 1 trivial stale docstring)
+    — routing to forge:fix for F-1..F-3, cycle 2.
