@@ -35,6 +35,7 @@ from __future__ import annotations
 import html
 import uuid
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -1925,3 +1926,120 @@ class TestFinalisePost_PlanGateRefusalIsNotAnError:
         assert "x medium: 0% against 100%" in shown, shown
         assert panel.status(book_id) == DRAFT
         assert _panel_errors(caplog) == []
+
+
+# --------------------------------------------------------------------------
+# Review cycle 2, F-2 (gating) — the sheet-free TOC estimate must never
+# under-count for a book stored on a smaller-than-Book-1 trim.
+# --------------------------------------------------------------------------
+
+
+class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
+    """``unpaired_interior_page_count`` fires only when a book's stored print
+    specification cannot be laid out at all — the one case with no real page
+    count left to cross-check its estimate against. Before this fix it
+    always measured the TOC term on CON-018's Book 1 profile regardless of
+    what the book's own trim actually was, so a book stored on a *shorter*
+    trim than Book 1 could silently get an under-count: this function's own
+    docstring promises an upper bound, never an under-count, and the old
+    code broke that promise for exactly the books it mattered most for.
+    """
+
+    #: 40 puzzles is enough to force more than one TOC page even on Book 1's
+    #: own profile (confirmed by direct measurement, not assumed — see the
+    #: test below that checks this), and few enough that a 12 cm trim's own
+    #: shrunken entries-per-page still forces strictly more TOC pages than
+    #: Book 1's.
+    _PUZZLE_COUNT = 40
+
+    @staticmethod
+    def _rows():
+        return [alone("easy", n) for n in range(1, 40 + 1)]
+
+    def test_the_corpus_really_forces_more_than_one_toc_page_on_book_one(self) -> None:
+        """Confirms this class's own precondition, rather than assuming it."""
+        base = unpaired_interior_page_count(self._rows())
+        book1_explicit = unpaired_interior_page_count(
+            self._rows(), book=SimpleNamespace(trim_height_cm="27.94")
+        )
+        assert base == book1_explicit, (
+            "an explicit Book 1 height should match the no-book default "
+            "exactly — if it does not, the fix changed the common case"
+        )
+
+    def test_a_smaller_trim_gets_a_toc_estimate_at_least_as_large_as_book_ones(
+        self,
+    ) -> None:
+        rows = self._rows()
+        book1_count = unpaired_interior_page_count(rows)
+        smaller_count = unpaired_interior_page_count(
+            rows, book=SimpleNamespace(trim_height_cm="12.00")
+        )
+
+        assert smaller_count >= book1_count, (
+            "a book stored on a trim shorter than Book 1 must never count "
+            "fewer pages than the Book-1-profile estimate — this is the "
+            "function's own 'never under-count' contract"
+        )
+        assert smaller_count > book1_count, (
+            "a 12 cm trim is short enough that its own entries-per-page "
+            "should force strictly more TOC pages than Book 1's — if this "
+            "no longer holds, the fix is not actually reading the book's "
+            "own trim, or this corpus no longer demonstrates it"
+        )
+
+    def test_a_taller_trim_does_not_get_fewer_toc_pages_either(self) -> None:
+        """The contract runs both ways: a *larger* trim's own, roomier
+        entries-per-page must not under-count relative to Book 1 either —
+        this function's job is "never under-count", not "always match
+        Book 1".
+        """
+        rows = self._rows()
+        book1_count = unpaired_interior_page_count(rows)
+        taller_count = unpaired_interior_page_count(
+            rows, book=SimpleNamespace(trim_height_cm="48.00")
+        )
+
+        assert taller_count <= book1_count
+
+    def test_a_book_with_no_readable_trim_falls_back_to_the_book_one_default(
+        self,
+    ) -> None:
+        """The genuinely-last-resort case: nothing at all to measure from."""
+        rows = self._rows()
+        book1_count = unpaired_interior_page_count(rows)
+
+        assert unpaired_interior_page_count(rows, book=None) == book1_count
+        assert (
+            unpaired_interior_page_count(rows, book=SimpleNamespace()) == book1_count
+        )
+        assert (
+            unpaired_interior_page_count(
+                rows, book=SimpleNamespace(trim_height_cm="not-a-number")
+            )
+            == book1_count
+        )
+
+    def test_end_to_end_through_the_real_unreadable_spec_path(self, panel) -> None:
+        """The function's own real caller: ``app.py``'s ``_interior_counts``,
+        on a book whose stored gutter is too narrow for any sheet at all
+        (AC-179's own ``GUTTER_060``) *and* whose trim is shorter than Book
+        1 — the one real combination this review finding was about. Before
+        this fix the shown "About N" figure was the Book-1-profile estimate
+        regardless of this book's own, shorter trim.
+        """
+        book_id = panel.book(((alone, "easy", self._PUZZLE_COUNT),), gutter=GUTTER_060)
+        stored = panel.books.get_book(book_id)
+        book1_height = stored.trim_height_cm
+        book1_counts = _counts_of(panel, book_id)
+        assert book1_counts.exact is False  # no sheet: the approximate path
+
+        stored.trim_height_cm = "12.00"
+        shrunk_counts = _counts_of(panel, book_id)
+
+        assert shrunk_counts.exact is False
+        assert shrunk_counts.page_count > book1_counts.page_count, (
+            f"shrinking the book's own trim from {book1_height} cm to 12 cm "
+            "should raise the shown approximate page count, not leave it "
+            "pinned to the Book 1 profile's own estimate"
+        )

@@ -941,7 +941,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
         generator = BookPDFGenerator(book)
     except ValueError as unreadable:
         try:
-            bound = unpaired_interior_page_count(puzzles)
+            bound = unpaired_interior_page_count(puzzles, book=book)
         except ValueError:
             return None
         return InteriorCounts(
