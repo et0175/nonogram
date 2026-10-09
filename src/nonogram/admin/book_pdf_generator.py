@@ -733,21 +733,41 @@ GUIDE_TECHNIQUES_2: Tuple[GuideTechnique, ...] = (
             "a cell empty in every arrangement is certainly empty."
         ),
         clue=(3,),
-        length=10,
+        length=5,
+        # Review cycle 1, F-1 (gating): the previous version of this example
+        # used length=10 and showed only 3 of its 8 legal placements (starts
+        # 0, 1, 5), concluding cell 4 was "certainly empty in every
+        # arrangement" — false, since starts 2, 3 and 4 (not shown) all cover
+        # cell 4. A run of 3 on a 10-cell line has NO invariant cell at all:
+        # every index 0..9 is reachable by some start, and no index is
+        # covered by all 8 starts (each cell is covered by at most 3 of the
+        # 8). Fixed by shrinking the line to 5 cells, where a run of 3 has
+        # exactly `length - clue + 1 = 3` legal placements — so the three
+        # rows below are literally ALL of them, not a chosen subset:
+        #   start 0 -> {0, 1, 2}
+        #   start 1 -> {1, 2, 3}
+        #   start 2 -> {2, 3, 4}
+        # Cell 2 is the only index covered by every one of the 3 starts (0
+        # only by start 0; 1 by starts 0-1; 3 by starts 1-2; 4 only by start
+        # 2) — filled in every surviving arrangement, so it is genuinely
+        # "certain". Verified against literally all legal placements (not
+        # just the three shown) by
+        # tests/test_book_guide_page.py::TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox::test_the_arrangement_comparison_is_verified_against_every_legal_placement,
+        # which brute-forces every start for this clue/length independently
+        # of this constant.
+        #
+        # "Compare" (not "compare"): an x-height-only word has no capital or
+        # ascender for the cap-height-to-baseline measurement CON-020's
+        # floor is checked by (this suite's own convention since CARD-149),
+        # which undercounts its size by nearly a quarter even though it is
+        # drawn at the same 11 pt as every other line here — the same class
+        # of defect CARD-167 fixed by rewording its own copy. Measured while
+        # building CARD-201; unrelated to the F-1 content fix above.
         rows=(
-            GuideRow(frozenset({0, 1, 2}), frozenset({4})),
-            GuideRow(frozenset({1, 2, 3}), frozenset({4})),
-            GuideRow(frozenset({5, 6, 7}), frozenset({4})),
-            # Capitalised (not "compare"): an x-height-only word has no
-            # capital or ascender for the cap-height-to-baseline measurement
-            # CON-020's floor is checked by (this suite's own convention
-            # since CARD-149) to find a top edge above the x-height, which
-            # undercounts its size by nearly a quarter even though it is
-            # drawn at the same 11 pt as every other line here — the same
-            # class of defect CARD-167 fixed by rewording its own copy
-            # (this file's docstring: "'way.' no longer wraps onto its own
-            # line"). Measured while building CARD-201.
-            GuideRow(frozenset(), frozenset({4}), note="Compare"),
+            GuideRow(frozenset({0, 1, 2}), frozenset()),
+            GuideRow(frozenset({1, 2, 3}), frozenset()),
+            GuideRow(frozenset({2, 3, 4}), frozenset()),
+            GuideRow(frozenset({2}), frozenset(), note="Compare"),
         ),
     ),
 )
@@ -1100,11 +1120,17 @@ def _stroke_drawing(draw: ImageDraw.ImageDraw, slot: Layout) -> None:
 
     Drawn after the grid, and for the same reason the grid draws its heavy rules
     last: where the frame crosses a thin rule, the heavy line is the one that
-    survives the overlap and stays continuous. ``slot.frame`` is ``None`` only
-    on an unframed sheet, which a two-up slot never is — a pair is a placed page
-    (:class:`~nonogram.export.layout.PairLayout` refuses anything else) and a
-    placed page is framed — so the guard is a total function's, not a branch
-    this module's callers can take.
+    survives the overlap and stays continuous. ``slot.frame`` is ``None`` on an
+    unframed sheet — which a two-up slot never is, since a pair is a placed
+    page (:class:`~nonogram.export.layout.PairLayout` refuses anything else)
+    and a placed page is framed, so from *that* caller the guard was a total
+    function's, not a branch it could take.
+
+    **No longer true of every caller (CARD-201).** :func:`guide_icon_layout`
+    deliberately drops its frame (a bare cell icon, no clue gutter to frame)
+    and still draws through :func:`draw_example_line`, which calls this
+    function unconditionally — so the guard below is live, taken every time
+    the guide page's three cell-state icons are drawn, not dead code.
     """
     oriented: List[Tuple[Any, bool]] = [
         *((line, True) for line in slot.vertical_lines),
@@ -1118,7 +1144,7 @@ def _stroke_drawing(draw: ImageDraw.ImageDraw, slot: Layout) -> None:
         draw.line(ends, fill=INK, width=line.width)
 
     frame = slot.frame
-    if frame is None:  # pragma: no cover - a two-up slot is a placed, framed page
+    if frame is None:  # guide_icon_layout's bare cell icon (CARD-201) — live, not dead
         return
     left, top, right, bottom = frame.left, frame.top, frame.right, frame.bottom
     for side in (
@@ -1214,7 +1240,7 @@ def _guide_rule_width(spec: PageSpec) -> int:
 
 
 def _draw_pipeline_diagram(
-    spec: PageSpec, steps: Tuple[GuidePipelineStep, ...], label_font: Any
+    spec: PageSpec, steps: Tuple[GuidePipelineStep, ...], label_font: Any, label_size: int
 ) -> Image.Image:
     """"Assume, and watch it break": four bordered boxes joined by arrows (CARD-201).
 
@@ -1227,11 +1253,23 @@ def _draw_pipeline_diagram(
     ``"..."``/``"!"`` for FOLLOW/BREAKS — see :class:`GuidePipelineStep`), an
     arrowhead-tipped line joining each box to the next. Pure black ink, no
     fill but the icon's own (G-5).
+
+    ``label_size`` is the pixel size ``label_font`` was asked for from
+    :func:`_guide_face`, passed explicitly rather than read back off
+    ``label_font.size`` (review cycle 1, F-2, gating): ``_guide_face`` can
+    return an "unsized" face with no ``.size`` attribute at all — its own
+    docstring says so — on any non-macOS host with a Pillow older than 10.1,
+    a combination ``pyproject.toml``'s unbounded ``Pillow>=10.0`` floor still
+    allows. Every other caller of a ``_guide_face`` font in this file already
+    avoids ``.size`` the same way (``create_guide_page``'s title/body fonts
+    measure with ``getlength``/``getmetrics``; ``create_divider_page``'s with
+    ``draw.textbbox``) — this reuses that approach by taking the size as a
+    parameter instead of reading it off the font.
     """
     rule = _guide_rule_width(spec)
     border = max(rule, 1)
-    pad = label_font.size
-    icon = label_font.size * 2
+    pad = label_size
+    icon = label_size * 2
     bbox = label_font.getbbox("Mg")
     label_h = bbox[3] - bbox[1]
     box_w = int(max(label_font.getlength(step.label) for step in steps) + pad * 2)
@@ -1243,7 +1281,16 @@ def _draw_pipeline_diagram(
     icon_top = pad * 2 + label_h
     x = 0
     for index, step in enumerate(steps):
-        draw.rectangle((x, 0, x + box_w, box_h - 1), outline=INK, width=border)
+        # Review cycle 1, F-3 (gating): ``x + box_w`` is one pixel past this
+        # box's own right edge — for the last box that is the canvas's exact
+        # pixel width, one past the last valid pixel, so Pillow clipped it
+        # and "PROVED" shipped with no visible right border; for every
+        # earlier box it drew 1px into the arrow gutter instead of the box.
+        # ``x + box_w - 1`` is the box's own last column (confirmed by
+        # rendering the fix and pixel-checking every box, the last included,
+        # for a complete, un-clipped 4-sided border that stays clear of the
+        # arrows — see test_the_last_pipeline_box_has_a_complete_unclipped_border).
+        draw.rectangle((x, 0, x + box_w - 1, box_h - 1), outline=INK, width=border)
         draw.text(
             (x + box_w / 2, pad), step.label, font=label_font, fill=INK, anchor="ma"
         )
@@ -1279,6 +1326,7 @@ def _draw_difficulty_box(
     labels: Tuple[DifficultyLabel, ...],
     measure: int,
     text_font: Any,
+    text_size: int,
     leading: int,
     *,
     with_text: bool,
@@ -1294,9 +1342,14 @@ def _draw_difficulty_box(
     measure (:func:`wrap_words`). ``with_text=False`` (the labels-only form)
     draws the three names alone, so even the page's narrowest fallback still
     says what EASY/MEDIUM/HARD are called.
+
+    ``text_size`` is ``text_font``'s own pixel size, passed explicitly rather
+    than read off ``text_font.size`` — see :func:`_draw_pipeline_diagram`'s
+    docstring (review cycle 1, F-2, gating) for why ``.size`` is never safe
+    to read off a ``_guide_face`` font.
     """
     rule = _guide_rule_width(spec)
-    pad = text_font.size
+    pad = text_size
     gutter = pad
     column_w = (measure - 2 * pad - gutter * (len(labels) - 1)) // len(labels)
     bbox = text_font.getbbox("Mg")
@@ -2193,7 +2246,7 @@ class BookPDFGenerator:
         worked_example_images = [
             draw_example_line(worked_example_layout, step) for step in WORKED_EXAMPLE_STEPS
         ]
-        pipeline_image = _draw_pipeline_diagram(spec, GUIDE_ASSUME_STEPS, text_font)
+        pipeline_image = _draw_pipeline_diagram(spec, GUIDE_ASSUME_STEPS, text_font, body_size)
 
         def set_page(
             full: bool, captions: bool, bare_level: int = 0
@@ -2321,7 +2374,7 @@ class BookPDFGenerator:
 
                 paragraph(GUIDE_DIFFICULTY_HEADING)
                 box_image = _draw_difficulty_box(
-                    spec, GUIDE_DIFFICULTY_LABELS, measure, text_font, leading,
+                    spec, GUIDE_DIFFICULTY_LABELS, measure, text_font, body_size, leading,
                     with_text=captions,
                 )
                 picture(box_image, gap=leading // 2)
@@ -2426,7 +2479,8 @@ class BookPDFGenerator:
         """Export a book as its two files: the interior PDF and the cover file.
 
         The one entry point every export route goes through (FR-043, INV-013).
-        The interior holds no cover page — its page 1 is the guide page — and
+        The interior holds no cover page — its pages 1-2 are the guide
+        (CARD-201's 2-page tutorial, ``GUIDE_PAGE_COUNT``) — and
         the cover file is a single page at the book's page size holding the
         uploaded ``cover_image`` when one is given, otherwise the generated
         title cover. Front cover only: the KDP cover wrap (spine, back cover,

@@ -64,6 +64,7 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DifficultyLabel,
     ExampleStep,
+    GUIDE_TECHNIQUES_2,
     GuidePipelineStep,
     _draw_difficulty_box,
     _draw_pipeline_diagram,
@@ -269,8 +270,91 @@ def is_ruled(mask: np.ndarray, band: Tuple[int, int]) -> bool:
 
 
 def type_bands(mask: np.ndarray) -> List[Tuple[int, int]]:
-    """The bands that are lines of type (no ruled row in them)."""
-    return [band for band in ink_bands(mask) if not is_ruled(mask, band)]
+    """The bands that are lines of type.
+
+    Review cycle 1, F-4 (gating): a plain (unbordered) band with no ruled
+    row at all is type, as before. A bordered box (``_draw_pipeline_diagram``'s
+    box borders, ``_draw_difficulty_box``'s box border) draws a border that
+    touches every row of its own bounding area, which used to make
+    ``is_ruled`` classify the WHOLE box — border, labels and sentences alike
+    — as "ruled", silently dropping its interior text out of CON-020's floor
+    check.
+
+    Fixed by also looking *inside* an otherwise-ruled band for a genuinely
+    bordered box's own structure and, when found, still checking its
+    interior text — the border itself stays excluded (treated as a rule),
+    but text drawn inside it is checked exactly like text anywhere else.
+    ``drawn_bands`` (below) is intentionally left untouched: diagram look-up
+    still needs the WHOLE box, border and text together, as one region to
+    match a freshly rendered diagram against.
+
+    **Why this does not just re-run ``is_ruled`` row by row.** A long box
+    label at this page's own type size (e.g. "FOLLOW", "PROVED") can have a
+    single row whose own glyphs' ink is contiguous for more than
+    ``RULE_RUN_PX`` — ordinary letter shapes, not a rule — which briefly
+    broke exactly that check (measured while fixing F-4): it carved one real
+    line of label text into two row-fragments at that row, each then
+    "measured" as if it were its own complete line, both nonsense values. A
+    box's own border row needs no length threshold at all: it is, by
+    construction, ink at *every single column* between its own left and
+    right border strokes — something no line of text, however dense, does
+    (there is always a blank margin before the first glyph and after the
+    last, and gaps between words). So a border row is found structurally —
+    first the box's own left/right border columns (ink on literally every
+    row of the band), then any row that is 100% ink between a box's own pair
+    of border columns — rather than by a run-length guess.
+    """
+    bands: List[Tuple[int, int]] = []
+    for band in ink_bands(mask):
+        if not is_ruled(mask, band):
+            bands.append(band)
+            continue
+        top, bottom = band
+        sub = mask[top : bottom + 1]
+        border_cols = sub.all(axis=0)
+        col_idx = np.flatnonzero(border_cols)
+        if not col_idx.size:
+            # No full-height vertical stroke at all -- not a bordered box,
+            # just a dense diagram (e.g. a filled nonogram line). Unchanged
+            # from before: the whole band stays excluded.
+            continue
+
+        # Group the full-height columns into contiguous strokes, then pair
+        # them up left/right -- one pair per box (CARD-201's pipeline draws
+        # 4 side-by-side boxes, so 4 pairs; the difficulty box draws 1).
+        runs: List[Tuple[int, int]] = []
+        start_c = prev_c = int(col_idx[0])
+        for c in col_idx[1:]:
+            c = int(c)
+            if c == prev_c + 1:
+                prev_c = c
+            else:
+                runs.append((start_c, prev_c))
+                start_c = prev_c = c
+        runs.append((start_c, prev_c))
+        box_spans = list(zip(runs[0::2], runs[1::2]))
+
+        def is_border_row(row_mask: np.ndarray) -> bool:
+            for left_run, right_run in box_spans:
+                lo, hi = left_run[1] + 1, right_run[0]
+                if hi > lo and not row_mask[lo:hi].all():
+                    return False
+            return True
+
+        interior = sub & ~border_cols
+        start = None
+        for offset, row in enumerate(range(top, bottom + 1)):
+            border_row = is_border_row(sub[offset])
+            has_interior_ink = interior[offset].any()
+            if border_row or not has_interior_ink:
+                if start is not None:
+                    bands.append((start, row - 1))
+                    start = None
+            elif start is None:
+                start = row
+        if start is not None:
+            bands.append((start, bottom))
+    return bands
 
 
 def drawn_bands(mask: np.ndarray) -> List[Tuple[int, int]]:
@@ -718,28 +802,125 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
         [
             (2, frozenset({0, 1, 2})),
             (3, frozenset({1, 2, 3})),
-            (4, frozenset({5, 6, 7})),
-            (5, frozenset()),
+            (4, frozenset({2, 3, 4})),
+            (5, frozenset({2})),
         ],
     )
     def test_the_arrangement_comparison_shows_three_placements_then_what_they_agree_on(
         self, spec, page_mask, drawn, index, filled
     ):
-        _, image = render_line(spec, (3,), 10, filled, frozenset({4}))
+        """Review cycle 1, F-1 (gating): this used to pin a clue=(3,),
+        length=10 example showing only 3 of its 8 legal placements and
+        concluding cell 4 was "certainly empty in every arrangement" — false
+        (starts 2, 3 and 4, none of them shown, all cover cell 4). Fixed to
+        clue=(3,), length=5, where a run of 3 has exactly 3 legal placements
+        — the three rows pinned here (starts 0, 1, 2) are literally ALL of
+        them, not a sample — and the fourth row is the one cell every one of
+        those 3 agrees on. See
+        test_the_arrangement_comparison_is_verified_against_every_legal_placement
+        below for the brute-force cross-check, and the matching comment on
+        ``GUIDE_TECHNIQUES_2`` in ``book_pdf_generator.py``.
+        """
+        _, image = render_line(spec, (3,), 5, filled, frozenset())
         assert diagram_at(page_mask, drawn, index, diagram_mask(image)) == 1
+
+    def test_the_arrangement_comparison_is_verified_against_every_legal_placement(self):
+        """Review cycle 1, F-1 (gating): brute-force, independent of
+        ``GUIDE_TECHNIQUES_2``, that cell 2 really is filled in every legal
+        placement of a run of 3 on a 5-cell line, and is the ONLY such cell —
+        so the "certain" conclusion the comparison row draws is mathematically
+        correct, not just plausible-looking. This recomputes placements from
+        scratch (a plain loop over every start) rather than reading the
+        constant under test, so a future edit that reintroduces an
+        unverified placement/conclusion mismatch is caught here.
+        """
+        clue_length, line_length = 3, 5
+        legal_starts = range(0, line_length - clue_length + 1)
+        placements = [frozenset(range(start, start + clue_length)) for start in legal_starts]
+        assert len(placements) == 3, "the worked example claims to show every legal placement"
+
+        agreed_filled = frozenset.intersection(*placements)
+        agreed_empty = frozenset(range(line_length)) - frozenset.union(*placements)
+        assert agreed_filled == frozenset({2})
+        assert agreed_empty == frozenset()
+
+        # And the technique's own rows, read from the module, match exactly.
+        technique = next(t for t in GUIDE_TECHNIQUES_2 if t.heading.startswith("2."))
+        assert technique.clue == (3,)
+        assert technique.length == line_length
+        shown = [row.filled for row in technique.rows[:-1]]
+        assert set(shown) == set(placements)
+        assert technique.rows[-1].filled == agreed_filled
 
     def test_the_assume_follow_breaks_proved_pipeline_draws_its_four_boxes_in_order(
         self, generator, spec, page_mask, drawn
     ):
-        text_font = _guide_face(type_px(BODY_PT, generator.dpi))
+        body_size = type_px(BODY_PT, generator.dpi)
+        text_font = _guide_face(body_size)
         steps = (
             GuidePipelineStep("ASSUME", "square"),
             GuidePipelineStep("FOLLOW", "dots"),
             GuidePipelineStep("BREAKS", "bang"),
             GuidePipelineStep("PROVED", "cross"),
         )
-        image = _draw_pipeline_diagram(spec, steps, text_font)
+        image = _draw_pipeline_diagram(spec, steps, text_font, body_size)
         assert diagram_at(page_mask, drawn, 6, diagram_mask(image)) == 1
+
+    def test_the_last_pipeline_box_has_a_complete_unclipped_border(self, generator, spec):
+        """Review cycle 1, F-3 (gating): the last box's right border used to
+        be drawn at ``x + box_w``, exactly the canvas's pixel width — one
+        column past the last valid pixel, so Pillow clipped it and "PROVED"
+        shipped with no visible right border; every earlier box's right
+        border landed 1px into the arrow gutter instead of on the box. This
+        renders the diagram directly (not through the full guide page) and
+        pixel-checks every box for a complete, un-clipped rectangle on all 4
+        sides, confirming the fix rather than assuming it.
+        """
+        body_size = type_px(BODY_PT, generator.dpi)
+        text_font = _guide_face(body_size)
+        steps = (
+            GuidePipelineStep("ASSUME", "square"),
+            GuidePipelineStep("FOLLOW", "dots"),
+            GuidePipelineStep("BREAKS", "bang"),
+            GuidePipelineStep("PROVED", "cross"),
+        )
+        image = _draw_pipeline_diagram(spec, steps, text_font, body_size)
+        mask = dark(image)
+        height, width = mask.shape
+
+        # A column where every single row is ink can only be a box's left or
+        # right vertical border (full height) -- the arrows, arrowheads and
+        # icons never reach every row, measured directly rather than assumed.
+        full_height_cols = [c for c in range(width) if mask[:, c].all()]
+        runs: List[Tuple[int, int]] = []
+        start = prev = None
+        for c in full_height_cols:
+            if start is None:
+                start = prev = c
+            elif c == prev + 1:
+                prev = c
+            else:
+                runs.append((start, prev))
+                start = prev = c
+        if start is not None:
+            runs.append((start, prev))
+
+        assert len(runs) == 2 * len(steps), (
+            f"expected {2 * len(steps)} full-height border strokes (left+right "
+            f"of each of {len(steps)} boxes), found {len(runs)}: {runs}"
+        )
+        # The last box's right border is the canvas's own last column -- not
+        # clipped off the edge, the exact defect F-3 fixed.
+        assert runs[-1][1] == width - 1, (
+            f"last box's right border ends at column {runs[-1][1]}, not the "
+            f"canvas's last column {width - 1} -- it is being clipped"
+        )
+        # Every box is a complete rectangle: its top and bottom rows are
+        # solid ink between its own two border strokes, not just two
+        # disconnected vertical lines.
+        for left, right in zip(runs[0::2], runs[1::2]):
+            assert mask[0, left[0] : right[1] + 1].all(), "a box's top border has a gap"
+            assert mask[height - 1, left[0] : right[1] + 1].all(), "a box's bottom border has a gap"
 
     def test_the_difficulty_box_carries_its_three_sentences_verbatim(self, generator, spec, page_mask, drawn):
         """"verbatim from the source PDF" (AC-3): a changed word changes this
@@ -748,7 +929,8 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
         """
         frame = page_frame(spec)
         measure = frame.right - frame.left
-        text_font = _guide_face(type_px(BODY_PT, generator.dpi))
+        body_size = type_px(BODY_PT, generator.dpi)
+        text_font = _guide_face(body_size)
         leading = type_px(LEADING_PT, generator.dpi)
         labels = (
             DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
@@ -758,22 +940,85 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
             ),
             DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
         )
-        image = _draw_difficulty_box(spec, labels, measure, text_font, leading, with_text=True)
+        image = _draw_difficulty_box(spec, labels, measure, text_font, body_size, leading, with_text=True)
         assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 1
 
     def test_a_wrong_difficulty_sentence_does_not_match(self, generator, spec, page_mask, drawn):
         """The comparison has teeth: change one word and the match is gone."""
         frame = page_frame(spec)
         measure = frame.right - frame.left
-        text_font = _guide_face(type_px(BODY_PT, generator.dpi))
+        body_size = type_px(BODY_PT, generator.dpi)
+        text_font = _guide_face(body_size)
         leading = type_px(LEADING_PT, generator.dpi)
         labels = (
             DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
             DifficultyLabel("MEDIUM", "This sentence was never on the page."),
             DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
         )
-        image = _draw_difficulty_box(spec, labels, measure, text_font, leading, with_text=True)
+        image = _draw_difficulty_box(spec, labels, measure, text_font, body_size, leading, with_text=True)
         assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 0
+
+    def test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face(self, spec):
+        """Review cycle 1, F-2 (gating): ``_guide_face`` can return an
+        "unsized" face — no ``.size`` attribute at all — whenever Arial isn't
+        found *and* Pillow is older than 10.1 (its own docstring says so);
+        ``pyproject.toml``'s unbounded ``Pillow>=10.0`` floor still permits
+        that combination. ``_draw_pipeline_diagram``/``_draw_difficulty_box``
+        used to read ``label_font.size``/``text_font.size`` directly, which
+        would raise ``AttributeError`` the instant either routine ran on such
+        a host — this project's Pillow (see ``./.venv``) is >= 10.1, so that
+        crash cannot be reproduced by actually starving Pillow of Arial; a
+        stand-in face that genuinely has no ``.size`` is used instead, the
+        same shape a real sizeless face has (every method a real one has,
+        just no ``.size``).
+
+        Negative control, so this test has teeth: ``sizeless.size`` itself
+        raises ``AttributeError`` below, proving the stand-in really lacks
+        the attribute the old code crashed on — if a future edit
+        reintroduced ``font.size`` inside either routine, this test would
+        fail with that same ``AttributeError`` instead of passing silently.
+        """
+
+        class _SizelessFace:
+            """Delegates every method to a real font except ``.size``."""
+
+            def __init__(self, real):
+                object.__setattr__(self, "_real", real)
+
+            def __getattr__(self, name):
+                if name == "size":
+                    raise AttributeError("'_SizelessFace' object has no attribute 'size'")
+                return getattr(object.__getattribute__(self, "_real"), name)
+
+        real_font = _guide_face(type_px(BODY_PT, BOOK_DPI))
+        sizeless = _SizelessFace(real_font)
+        with pytest.raises(AttributeError):
+            _ = sizeless.size  # the negative control: this double has teeth
+
+        steps = (
+            GuidePipelineStep("ASSUME", "square"),
+            GuidePipelineStep("FOLLOW", "dots"),
+            GuidePipelineStep("BREAKS", "bang"),
+            GuidePipelineStep("PROVED", "cross"),
+        )
+        pipeline_image = _draw_pipeline_diagram(spec, steps, sizeless, type_px(BODY_PT, BOOK_DPI))
+        assert pipeline_image.size[0] > 0 and pipeline_image.size[1] > 0
+
+        labels = (
+            DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
+            DifficultyLabel(
+                "MEDIUM",
+                "Needs deeper line logic and may need contradiction for part of the grid.",
+            ),
+            DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
+        )
+        frame = page_frame(spec)
+        measure = frame.right - frame.left
+        leading = type_px(LEADING_PT, BOOK_DPI)
+        box_image = _draw_difficulty_box(
+            spec, labels, measure, sizeless, type_px(BODY_PT, BOOK_DPI), leading, with_text=True
+        )
+        assert box_image.size[0] > 0 and box_image.size[1] > 0
 
 
 # --------------------------------------------------------------------------
@@ -840,6 +1085,51 @@ class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
             assert min(points) >= FLOOR_PT, (
                 f"page {page_number}, clue {clue}: a clue digit measures {min(points):.2f} pt"
             )
+
+    def test_a_regression_shrinking_a_boxs_label_text_is_still_caught_by_the_floor_check(self):
+        """Review cycle 1, F-4 (gating), negative control. Before the fix,
+        ``type_bands`` classified a bordered box's ENTIRE bounding area --
+        border, labels and sentences alike -- as "ruled" (because its border
+        touches every row) and excluded it wholesale, so a regression
+        shrinking a box's own label text below CON-020's 10pt floor would
+        NOT have been caught here, despite that being this test's one
+        stated job (F-4's exact finding).
+
+        This builds the difficulty box directly with a deliberately tiny
+        (6pt) label font -- a stand-in for that hypothetical regression,
+        never shipped in production (``GUIDE_DIFFICULTY_LABELS`` and
+        ``GUIDE_BODY_PT`` are untouched) -- and confirms the fixed
+        classifier now (a) still finds type INSIDE the box at all, and (b)
+        correctly measures it below the floor, rather than silently
+        reporting no type to check (the old, gating behaviour).
+        """
+        spec = BookPDFGenerator(six_by_nine_book()).page_spec(2)
+        tiny_size = type_px(6.0, BOOK_DPI)
+        tiny_font = _guide_face(tiny_size)
+        labels = (
+            DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
+            DifficultyLabel(
+                "MEDIUM",
+                "Needs deeper line logic and may need contradiction for part of the grid.",
+            ),
+            DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
+        )
+        frame = page_frame(spec)
+        measure = frame.right - frame.left
+        leading = type_px(LEADING_PT, BOOK_DPI)
+        image = _draw_difficulty_box(spec, labels, measure, tiny_font, tiny_size, leading, with_text=True)
+        mask = dark(image)
+        found = type_bands(mask)
+        assert found, (
+            "the fixed classifier must still find SOME type inside the box "
+            "-- excluding it wholesale is the exact defect F-4 fixed"
+        )
+        reference = text_reference()
+        sizes = [cap_height_points(mask, band, reference) for band in found]
+        assert min(sizes) < FLOOR_PT, (
+            f"a box label shrunk to 6pt measured {min(sizes):.2f}pt by this classifier -- "
+            "if that is >= FLOOR_PT the classifier is still missing the box's own text"
+        )
 
 
 # --------------------------------------------------------------------------

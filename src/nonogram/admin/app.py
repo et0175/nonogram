@@ -803,7 +803,8 @@ def _printed_places(book, puzzles):
         ``(places, divider_pages)``. ``places`` maps ``id(row)`` — the identity
         of a row object the caller passed in — to
         ``{"page", "opens_page", "shares_page"}``: the **interior** page number
-        the puzzle prints on (page 1 is the guide page, INV-013), whether it is
+        the puzzle prints on (pages 1-2 are the guide, CARD-201's 2-page
+        tutorial, INV-013), whether it is
         the first puzzle on that page, and whether it shares the page with its
         neighbour (FR-040, INV-010). ``divider_pages`` maps a level's tier value
         to the interior page of the divider page that opens it (CARD-128).
