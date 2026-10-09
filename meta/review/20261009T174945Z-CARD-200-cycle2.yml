@@ -1,0 +1,152 @@
+version: 1
+generated_at: "2026-10-09T17:49:45Z"
+target: "card/200-page-numbers-and-toc — confirmation cycle 2, fix delta b2a1aed (F-1) + 8cf5490 (F-2) + c616faf (notes), on top of cycle-1's reviewed diff"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py (lines 1260-1410, 3280-3830, 3980-4140 — _draw_folio, _blank_page, _two_up_page, _packed_answer_page, solved_puzzle_page, section_plan/measured_toc_page_count call sites)
+    - src/nonogram/admin/book_kdp.py (full _toc_frame_for/unpaired_interior_page_count region, imports)
+    - src/nonogram/admin/app.py (lines 900-1070 — _interior_counts, _is_an_unpackable_row)
+    - src/nonogram/admin/book_page_spec.py (lines 160-420 — book_page_spec, _stored_mm, BOOK1_PROFILE)
+    - src/nonogram/export/layout.py (PagePlacement, PairLayout, PackedSolvedLayout, compute_packed_solved_layout)
+    - src/nonogram/admin/book_answer_key.py (PackedAnswerPage, plan_small_answer_pages)
+    - tests/test_book_page_numbers.py (full new F-1 class), tests/test_book_finalise_gutter.py (full new F-2 class)
+    - meta/kanban/cards/CARD-200.md (full, incl. Worktree notes and Fix 1 section)
+  not_reached:
+    - src/nonogram/export/layout.py (full file — only the structures above were read in depth)
+    - src/nonogram/admin/templates/book_finalize.html (grepped only, not read in full)
+    - the remainder of book_pdf_generator.py outside the cited ranges (guide/divider/TOC page drawing, interior_stream's full walk)
+    - the full 6833-test suite run (not re-executed in full here; ~260 directly relevant tests were run and verified clean, plus the task's own independently-reported clean full run was taken as given)
+  confidence: high
+
+metrics:
+  diff:
+    files: 6
+    added: 814
+    removed: 79
+  max_fan_in:
+    symbol: "unpaired_interior_page_count"
+    callers: 2
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (45 commits/12mo, 21 fix-labeled = 47% defect density)"
+    - "src/nonogram/admin/app.py (169 commits/12mo, dominant hotspot file; this delta's own touch is a single 1-line kwarg addition)"
+  cochange_missing: []
+  unmeasured:
+    bus_factor: "no_eligible_fact — every commit on these files is authored by the same account (\"Claude Code\"), an AI-driven pipeline; the traditional single-human bus-factor signal does not apply"
+
+system_contract:
+  rules_checked: 53
+  holds: 8
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0033/R1 ✓ holds — checked: no diff line in b2a1aed/8cf5490/c616faf writes a puzzle grid/clue/tier/book_id field; the delta only reads trim_height_cm and PDF-rendering geometry"
+    - "ADR-0036/R2 ✓ holds — checked: every new computation in the fix (_blank_page's second compute_layout call, _packed_answer_page's corner-slot lookup, book_kdp._toc_frame_for) reuses compute_layout/book_page_spec/page_frame; no ad-hoc geometry invented in the admin layer"
+    - "ADR-0037/R1 ✓ holds — checked: the delta touches no band/title code (_set_band, band_identity untouched by b2a1aed/8cf5490)"
+    - "CON-020 ✓ holds — checked: FOLIO_PT/font-size logic untouched by the fix delta (only the collision-check geometry changed); tests/test_book_interior_type_floor.py re-run clean (all green) against the fixed code"
+    - "INV-009 ✓ holds — checked: pairing/ordering logic untouched by the delta; tests/test_book_pdf_two_up.py, tests/test_book_answer_key.py re-run clean"
+    - "INV-010 ✓ holds — checked: same evidence as INV-009 (pairing rule itself not touched, only the folio corner-collision check added downstream of it)"
+    - "INV-011 ✓ holds — checked: answer-key capacity/ordering math (PackedAnswerPage, plan_small_answer_pages) untouched by the delta — only a read-only corner-slot lookup was added after layout; tests/test_book_answer_key.py re-run clean"
+    - "INV-013 ✓ holds — checked: parity/page-1-right-hand logic untouched by the delta; tests/property/test_book_export_interior.py re-run clean"
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing: declared check ref \"TestDependencyBaseline_IsExactlyPillowAndNumpy\" does not exist as a test/class name anywhere in the repo (grep confirms; the real covering test is tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed, which only mentions the declared name in its own docstring) — pre-existing drift, not introduced by this card. Manual read of this delta found no new third-party dependency (only stdlib types.SimpleNamespace) and pyproject.toml is untouched by b2a1aed/8cf5490/c616faf."
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0035/R1, ADR-0036/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, ADR-0038/R7, ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked — no_eligible_fact: this 3-production-file fix delta (book_pdf_generator.py's folio-collision geometry, book_kdp.py's TOC-frame estimate, app.py's one kwarg) touches none of solver/, sourcing/, difficulty.py, orchestrator.py, cli.py, web/, the player JS/static assets, book plan/status/membership logic, or grid/clue computation that these rules govern"
+
+root_causes:
+  - id: RC-1
+    title: "The new F-1 regression test class (TestBookPageNumbers_FolioNeverCollidesWithTheGrid) exercises only fully-filled packed-answer pages, never the single-leftover (capacity-2, 1-filled) case the fix's own docstring names as reachable"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_page_numbers.py
+    line: 713
+    title: "Packed-answer-page F-1 fix is correct but its dedicated regression class doesn't cover the one real half-filled corner case"
+    description: |
+      src/nonogram/admin/book_pdf_generator.py:3806-3809 computes `corner_index`
+      and gates `corner_placement` with `corner_index < len(layout.slots)`. This
+      is the correct operator (verified: it matches PackedSolvedLayout's
+      documented and constructed fill order — contiguous from index 0, row-major,
+      confirmed by reading compute_packed_solved_layout's own slot-building loop
+      in src/nonogram/export/layout.py).
+
+      Mutation test performed (capture/mutate/test/restore, verified clean
+      afterwards): changing the operator to `<=` survives undetected against
+      tests/test_book_page_numbers.py alone (all 14 tests, including both new
+      TestBookPageNumbers_FolioNeverCollidesWithTheGrid packed-answer tests,
+      pass unchanged) — because both of that class's packed-answer tests use a
+      fully-filled plan (4-of-4 and 2-of-2), where `corner_index < len(slots)`
+      and `corner_index <= len(slots)` agree.
+
+      The gap matters because the scenario the mutant actually breaks is real
+      and reachable: `plan_small_answer_pages` (src/nonogram/admin/book_answer_key.py)
+      explicitly produces "a page holding the last 1 if one is left over" —
+      a capacity-2 PackedAnswerPage with exactly one answer. Probed directly
+      (not merely reasoned): a 1-of-2 packed page at an odd (right-hand) page
+      number puts `corner_index == len(layout.slots)` exactly, the one value
+      where `<` and `<=` disagree — with `<=`, `layout.slots[corner_index]`
+      is an IndexError (slots has only index 0).
+
+      This is NOT a live production bug: the actual (unmutated) code uses the
+      correct `<` and was verified by direct execution (a scratch probe
+      building a real single-answer PackedAnswerPage at page numbers 7 and 8)
+      to render without error and omit/draw the folio correctly on both
+      parities. It is also not an undetected regression risk suite-wide: running
+      the same mutant against the broader related test set (test_book_pdf.py,
+      test_book_pdf_two_up.py, test_book_solved_answer_key.py, etc. — 8 files)
+      produces ~16 failures/errors elsewhere, so the full suite (the 6833-test
+      run this review was handed) would catch a real regression here. The gap
+      is specifically that F-1's own dedicated "the folio must never collide"
+      regression class claims to cover every corner-slot-empty case but relies
+      on unrelated tests to actually pin this one.
+    suggestion: |
+      Add a test to TestBookPageNumbers_FolioNeverCollidesWithTheGrid
+      constructing a single-answer PackedAnswerPage (capacity 2) and calling
+      _packed_answer_page at an odd (right-hand) page_number, asserting it
+      renders without exception and the folio is drawn (since the one filled
+      slot is the left/non-corner position on a right-hand page, there is
+      nothing to collide with) — mirroring the existing
+      test_packed_answer_page_still_draws_when_the_corner_tile_has_room
+      control but with a genuinely unfilled corner rather than a fully-filled
+      page.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_arrange_page_breaks.py
+    line: 123
+    title: "Stale docstring reference to the pre-rename private function name"
+    description: |
+      The docstring still reads "`_toc_entries_per_page`/`_toc_page_count`"
+      after 8cf5490 renamed `_toc_page_count` to the now-public
+      `measured_toc_page_count`. No functional impact (it's prose inside a
+      test docstring, not a reference the interpreter resolves), but it is
+      drift the rename missed.
+    suggestion: |
+      Update the docstring to say `measured_toc_page_count` in place of
+      `_toc_page_count`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

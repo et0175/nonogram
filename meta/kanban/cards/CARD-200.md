@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** CARD-201
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_toc.py, tests/test_book_page_numbers.py, tests/test_book_finalise_gutter.py, tests/test_book_guide_page.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/test_book_arrange_page_breaks.py, tests/test_book_solved_answer_key.py, tests/property/test_book_export_interior.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card200.json
-**Review score:** —
+**Review score:** 10.0/10 (cycle 3, final)
 **Started:** 2026-10-09T13:58:53Z
 **Closed:** —
 **Actual:** —
@@ -729,3 +729,107 @@ fix the source artifact, never this list._
   - **Verdict: cycle 1 does not meet the bar** (2 gating findings: F-1 a
     reproducible visual defect, F-2 a KDP-gutter contract violation) —
     routing to forge:fix for F-1/F-2, cycle 2.
+- [Fix 1] F-1/F-2 fixed in the worktree (full details in that branch's own
+  `[Fix 1]` entry, commits `b2a1aed`/`8cf5490`/`c616faf`). **F-1**: reproduced
+  the reviewer's exact page-fit-bound scenario first, then found the same
+  defect already latent (masked by a loose tolerance) in the card's own
+  `_min_trim_book` test fixture. `_draw_folio` gained optional
+  `content_right`/`content_left`, consulted only when `content_bottom`
+  already shows no vertical room, so a real corner collision can be told
+  apart from a one-axis false positive. `_blank_page` now recomputes its own
+  puzzle's real `Layout` for a true `content_bottom`; `_two_up_page` reads
+  all four figures off `pair.lower.page` (confirmed — not `pair.upper.page`
+  — the true bottom-outer slot); `_packed_answer_page` identifies whichever
+  tile can physically reach the folio's own corner, passing no content
+  figures when that corner was left unfilled. New test class
+  `TestBookPageNumbers_FolioNeverCollidesWithTheGrid` (7 tests) plus an
+  update to the pre-existing min-trim test. Evidence:
+  `test_book_page_numbers.py` 14 passed; combined related-file run 508
+  passed, 1 skipped (pre-existing unrelated platform skip); full suite 6833
+  passed, 9 skipped, 0 failed (12 more passing than the prior gate, matching
+  the 12 new tests added). **F-2**: `unpaired_interior_page_count` now
+  measures its TOC estimate against the book's own stored `trim_height_cm`
+  (via a synthetic stand-in carrying `BOOK1_PROFILE`'s safe width/margins
+  through the real `book_page_spec` validator), falling back to the Book 1
+  profile only when truly nothing can be measured — never smaller than the
+  old default. `_toc_page_count`/`_default_toc_frame` made public as
+  `measured_toc_page_count`/`default_toc_frame` (renamed, not just
+  un-prefixed, to dodge a real `UnboundLocalError` against `section_plan`'s
+  own same-named local). New test class
+  `TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc` (5 tests).
+  F-3/F-4 left untouched, per the review's own explicit scope.
+- [Build gate, attempt 3] Orchestrator's own independent full-suite
+  confirmation of the Fix 1 commits, environment quiet beforehand: **6833
+  passed, 9 skipped, 0 failed, 0 errors, exit 0** (952.98s) — matches the fix
+  agent's own reported evidence exactly. Gate clear — proceeding to
+  forge:review cycle 2.
+- [Review 2/3] Confirmation cycle, differential re-review of the fix delta
+  (standalone skill invocation). **Verdict: both F-1 and F-2 hold** — risk
+  LOW, lane FAST, score **8.5/10**. 0 Critical, 1 Important, 1 Minor, 2
+  Out-of-scope. Adversarially re-derived (not just re-running the fix
+  agent's own new tests): re-derived the two-up/packed-answer geometry
+  directly against `PairLayout`/`PackedSolvedLayout`, confirmed the two-up
+  page's *upper* slot structurally cannot reach the folio corner, traced
+  `book_kdp`'s one real production call site (`app.py:944`) plus confirmed
+  the second, unmodified call site (`app.py:1069`) is genuinely unaffected,
+  and ran a capped 3-mutant mutation check (capture/mutate/test/restore, all
+  restores verified byte-clean). Result:
+  - **F-001 (Important)**: the mutation check found a real, reachable gap —
+    `plan_small_answer_pages`'s "single leftover puzzle on a right-hand
+    page" shape (where the packed-answer page's corner slot is left empty)
+    isn't exercised by the new F-1 regression tests, which only ever built
+    fully-filled packed pages; a mutant flipping the corner-slot gate's `<`
+    to `<=` survived against that test file alone (though caught
+    incidentally by 8 unrelated files, and confirmed via a direct scratch
+    probe that the real, unmutated code already handles the case correctly
+    — a test-coverage gap, not a live bug).
+  - **F-002 (Minor)**: a stale docstring reference to the pre-rename private
+    function name in `tests/test_book_arrange_page_breaks.py:123`, missed
+    by F-2's rename — cosmetic only.
+  - System contract: 53 rules checked, 8 ✓ holds, 45 ⚠ unchecked (44
+    `no_eligible_fact`, 1 pre-existing `check_ref_missing` on ADR-0006/R1,
+    unrelated model drift), 0 ✗ violated.
+  - F-3/F-4 not re-flagged, per instruction.
+- [Fix 2] F-001/F-002 fixed in the worktree (full details in that branch's
+  own `[Fix 2]` entry, commits `0254401`/`d2706db`) — **test-only change, no
+  production code touched**. Added
+  `test_packed_answer_page_with_one_leftover_answer_still_draws_the_folio`
+  to the same class: a capacity-2 `PackedAnswerPage` with exactly one
+  leftover answer, landing in the folio's own corner slot (empty) on a
+  right-hand page — the one shape where `<` and `<=` disagree. Mutation-probe
+  discipline run directly: captured the file's SHA-256, reproduced the exact
+  mutation, confirmed the two pre-existing tests still miss it (2 passed),
+  confirmed the new test now fails on it (`IndexError: tuple index out of
+  range`, exactly as predicted), reverted, re-checked SHA-256 identical —
+  byte-clean restore. F-002's docstring updated to the real current name
+  (`measured_toc_page_count`); `_toc_entries_per_page` confirmed correctly
+  untouched by the rename. Evidence: `test_book_page_numbers.py` +
+  `test_book_arrange_page_breaks.py` 34 passed; full suite 6834 passed, 9
+  skipped, 0 failed (exactly one more than the prior gate). F-3/F-4 remain
+  untouched.
+- [Build gate, attempt 4] Orchestrator's own independent verification of the
+  Fix 2 commits (test-only change — a full 16-minute suite rerun judged
+  unnecessary given the change's minimal risk surface): targeted run of both
+  touched test files, **34 passed, 0 failed, exit 0**, matching the fix
+  agent's reported evidence. Diff confirmed test-only via `git diff --stat`
+  (2 test files + card notes, no production file touched). Gate clear —
+  proceeding to forge:review cycle 3.
+- [Review 3/3 — FINAL] Confirmation cycle, differential re-review of the
+  tiny test-only fix delta (standalone skill invocation). Independently
+  re-derived the F-001 mutation probe rather than trusting the fix agent's
+  self-report: reproduced the exact mutation, got the exact same 7-passed/
+  1-failed split with the identical `IndexError`, reverted, confirmed a
+  byte-identical restore via SHA-256 — plus independently traced
+  `PackedSolvedLayout`'s own construction arithmetic to confirm the test's
+  geometry claim is correct, not just empirically passing. F-002 confirmed
+  correct against the real current function names. **Verdict: 0 Critical, 0
+  Important, 0 Minor, 0 Out-of-scope — score 10.0/10. Card is ready to
+  merge.** System contract: 53 rules checked, 8 ✓ holds (carried forward,
+  scope doesn't intersect this delta), 45 ⚠ unchecked (1 carried
+  `check_ref_missing`/ADR-0006/R1, 7 freshly re-verified `no_eligible_fact`
+  for touched test-file scope, 37 carried `no_eligible_fact`), 0 ✗ violated.
+  Review reports synced from worktree to main: `meta/review/
+  20261009T174945Z-CARD-200-cycle2.yml`, `meta/review/
+  20261009T193000Z-CARD-200-cycle3.yml` (no cycle-1 YAML was ever found to
+  sync — that cycle's standalone invocation did not produce one before
+  handing back; noted, not fixed retroactively).

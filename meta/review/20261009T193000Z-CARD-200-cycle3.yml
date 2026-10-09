@@ -1,0 +1,61 @@
+version: 1
+generated_at: "2026-10-09T19:30:00Z"
+target: "card/200-page-numbers-and-toc — confirmation cycle 3 (FINAL), fix delta 0254401 (F-001 regression test + F-002 docstring) + d2706db (worktree notes), on top of cycle-2's reviewed state (score 8.5, 0 Critical, 1 Important/F-001, 1 Minor/F-002)"
+overall_score: 10.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/test_book_page_numbers.py (full diff hunk + full TestBookPageNumbers_FolioNeverCollidesWithTheGrid class, full _folio_calls/_folios/_TextCall helpers, module docstring)
+    - tests/test_book_arrange_page_breaks.py (full diff hunk, first_section_page docstring/body)
+    - src/nonogram/admin/book_pdf_generator.py (_packed_answer_page, lines 3760-3825; page_is_right_hand, lines 1988-1996; _toc_entries_per_page/measured_toc_page_count naming, lines 2035-2214, 3073-3086, 4115-4123, 4478)
+    - src/nonogram/admin/book_kdp.py (grep-confirmed measured_toc_page_count references, lines 106,437,449,450,484,497-498)
+    - src/nonogram/export/layout.py (PackedSolvedLayout dataclass + compute_packed_solved_layout, lines 2670-2970 — fill-order/slots-length semantics underpinning the new test's geometry claim)
+    - src/nonogram/admin/book_answer_key.py (PackedAnswerPage.capacity, plan_small_answer_pages — capacity-2/one-leftover shape)
+    - meta/kanban/cards/CARD-200.md ([Fix 2] section, lines 808-879)
+    - meta/review/20261009T174945Z-CARD-200-cycle2.yml (full prior report, read for context)
+  not_reached:
+    - the remainder of book_pdf_generator.py outside the cited ranges (unchanged since cycle 2, out of this cycle's delta scope)
+    - the full 6834-test suite (not re-executed in full here; independently re-ran the 34 directly-relevant tests clean, plus an independent mutation-probe re-derivation; the fix agent's own separately-reported full clean run, 6834 passed/9 skipped/0 failed, was taken as given per the task's framing and the confirmation-mode guidance not to re-derive provably-unchanged territory)
+  confidence: high
+
+metrics:
+  diff:
+    files: 3
+    added: 118
+    removed: 1
+  max_fan_in:
+    symbol: "test_packed_answer_page_with_one_leftover_answer_still_draws_the_folio"
+    callers: 0
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — the changed symbol is a leaf pytest test function and a docstring literal; by design neither has callers to count"
+    hotspots: "no_eligible_fact — fix delta touches only tests/test_book_page_numbers.py (3 commits/12mo) and tests/test_book_arrange_page_breaks.py (6 commits/12mo), neither a churn/defect-density hotspot; production hotspot file book_pdf_generator.py is untouched by this delta"
+
+system_contract:
+  rules_checked: 53
+  holds: 8
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "ADR-0033/R1 ✓ holds — carried(cycle 2, delta-clean): fix delta (0254401, d2706db) touches no production file, only tests/test_book_page_numbers.py, tests/test_book_arrange_page_breaks.py, meta/kanban/cards/CARD-200.md — none intersect this rule's scope"
+    - "ADR-0036/R2 ✓ holds — carried(cycle 2, delta-clean): same file-scope argument"
+    - "ADR-0037/R1 ✓ holds — carried(cycle 2, delta-clean): same file-scope argument"
+    - "CON-020 ✓ holds — carried(cycle 2, delta-clean): same file-scope argument"
+    - "INV-009 ✓ holds — carried(cycle 2, delta-clean): same file-scope argument"
+    - "INV-010 ✓ holds — carried(cycle 2, delta-clean): same file-scope argument"
+    - "INV-011 ✓ holds — carried(cycle 2, delta-clean): same file-scope argument"
+    - "INV-013 ✓ holds — carried(cycle 2, delta-clean): same file-scope argument"
+    - "ADR-0006/R1 ⚠ unchecked — check_ref_missing, carried(cycle 2, delta-clean): declared check ref still does not exist (pre-existing drift, not this card's); re-confirmed pyproject.toml and src/nonogram/** are untouched by 0254401/d2706db, so the carried verdict's basis is unchanged"
+    - "ADR-0038/R7, ADR-0038/R8 ⚠ unchecked — no_eligible_fact (fresh check this cycle, not carried: their scope is tests/**, which this delta's two touched test files technically intersect): re-verified directly — 0254401 adds one plain pytest unit test (no pytest-playwright/Chromium usage) and edits one docstring; pyproject.toml is untouched by either commit in this delta. Nothing in this diff bears on browser-test declaration or execution."
+    - "CON-005, CON-009, CON-010, CON-011, CON-012 ⚠ unchecked — no_eligible_fact (fresh check this cycle, not carried: global scope): re-verified directly — this delta's content (a PDF packed-answer-page corner-collision regression test, a docstring rename-follow-up) touches none of solver uniqueness, the web UI's HTTP bind/origin handling, grid-dimension validation, or image aspect-ratio cropping"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0035/R1, ADR-0036/R1, ADR-0037/R2, ADR-0038/R1, ADR-0038/R2, ADR-0038/R3, ADR-0038/R4, ADR-0038/R6, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-012 ⚠ unchecked — no_eligible_fact, carried(cycle 2, delta-clean): all scoped to src/nonogram/** production paths or other components this 2-test-file/1-card-note delta does not touch"
+
+root_causes: []
+
+findings: []
