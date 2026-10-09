@@ -776,3 +776,161 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   - **Verdict: cycle 1 does not meet the bar** (1 Critical silent-
     corruption bug, 1 Important misleading-stat, 1 trivial stale docstring)
     — routing to forge:fix for F-1..F-3, cycle 2.
+
+- [Fix 1] All three gating findings fixed; F-4..F-10 left untouched per the
+  reviewer's own "not required this cycle" verdict.
+
+  - **F-1 (Critical) — fixed.** Root cause: `compute_packed_solved_layout`
+    (`export/layout.py`) floored its shared cell at `MIN_CELL_MM` whenever
+    the real fit came in lower, the same tolerance `compute_layout` keeps
+    for a *single* placed page — but that tolerance only ever lets one
+    puzzle's own ink run past its own margin, where here it let one
+    puzzle's ink spill into a *neighbouring* puzzle's tile, which
+    `PackedSolvedLayout.__post_init__` could never catch (it only checks
+    that the TILE BOXES don't overlap, never the drawing extents).
+
+    Design decision: `compute_packed_solved_layout` now takes
+    `compute_pair_layout`'s own "decline below the minimum" contract —
+    when the largest cell every member actually fits at (`fit_mm`) is
+    below `MIN_CELL_MM`, it returns `None` instead of flooring, and its
+    return type is now `PackedSolvedLayout | None`. This is a *geometric*
+    guarantee, not a heuristic: whenever the function does return a
+    layout, every member's drawing provably fits its own tile in exact
+    millimetres (`cell_mm = min(cap_mm, fit_mm)`, never forced above
+    `fit_mm`), so no slot can ever overflow into a neighbour's tile — the
+    hard constraint holds by construction, not by luck of the inputs this
+    fix happened to be tested against.
+
+    The packing walk (`book_pdf_generator.py`) needed a real "decline,
+    then retry at lower density, then fall back to full pages" mechanism
+    threaded through it, since `plan_small_answer_pages`
+    (`book_answer_key.py`) is deliberately pure and extent-only (no
+    `PageSpec`, no real clue depth — COMP-007 geometry is not its job,
+    ADR-0036/R2) and so cannot see this failure coming. Added two new
+    functions, `_packed_page_is_feasible`/`_degrade_infeasible_packed_pages`,
+    called from `interior_stream` right after `plan_small_answer_pages`
+    and *before* `len(answer_plan)` is read for the page count (which is
+    baked into the PDF's pre-allocated object table) — so a page that
+    would overlap is replaced, in place, before any page number or page
+    count downstream ever sees the optimistic plan. The walk: a feasible
+    page passes through unchanged; a 4-up that isn't tries two 2-ups
+    independently; a 2-up (or a lone leftover) that isn't degrades to one
+    full page per answer — CARD-198's original, always-constructible
+    guarantee, confirmed true for every size this bug can occur at:
+    `compute_layout` has no "decline" verdict at all, and its own
+    single-page overflow tolerance only ever lets *that* puzzle's ink run
+    past *its own* margin, never another's, so a single answer always
+    lays out safely regardless of how deep its clues are. A new tripwire
+    (mirroring the existing "the page plan prints ..." one for puzzle
+    pages) checks the degraded plan still prints every puzzle number
+    exactly once, in order — the degrade pass only ever splits a page into
+    more, smaller ones, and this proves it, rather than trusts it, the
+    moment that stops being true. A malformed member (clue sets that
+    disagree about the grid) is handled as a distinct case from "declines
+    to pack" — `compute_packed_solved_layout` answers "no" to a geometry
+    question by returning `None`, never by raising, so an exception from
+    it means the page could never be laid out at any capacity and aborts
+    named (`RuntimeError`, "... could not be laid out: ...") rather than
+    being read as a degrade signal; this is what keeps
+    `tests/test_book_pdf.py::TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle`
+    green with the new pre-check in place.
+
+    Evidence (fresh, this session):
+    - `tests/test_layout_packed_solved.py` (new, 9 tests) pins the
+      geometry half directly: the reviewer's exact KDP-minimum-trim,
+      4-qualifying-answer scenario now returns `None` at 4-up
+      (`TestPackedSolvedLayout_FourUpDeclinesOnTheKdpMinimumTrim`,
+      with the worked-by-hand floor-violation check); the same four pack
+      fine at 2-up instead
+      (`TestPackedSolvedLayout_TheSameAnswersPackTwoUpInstead`); a deeper
+      gutter declines even at 2-up
+      (`TestPackedSolvedLayout_EvenTwoUpDeclinesWhenTheGuttersAreDeepEnough`);
+      and every layout the function *does* return has every slot's
+      `PagePlacement.fits` `True`
+      (`TestPackedSolvedLayout_EverySurvivingSlotActuallyFitsItsOwnTile`,
+      with a shallow-gutter control case proving the fix didn't just make
+      4-up always decline). `9 passed`.
+    - `tests/test_book_pdf_packed_degrade.py` (new, 10 tests) pins the
+      walk half, white-box, with synthetic clue depths reaching every
+      branch a real KDP-min-trim grid cannot: a feasible page passed
+      through unchanged (identity-checked, not just equality); a 4-up
+      degrading to two working 2-ups; one 2-up half still failing and
+      falling back to two singles while the other half stays packed; a
+      2-up (and a lone leftover) that fails falling straight to plain
+      `Answer`s; and a mixed plan proving no answer is ever dropped,
+      duplicated or reordered. `10 passed`.
+    - `tests/test_book_solved_answer_key.py::TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully`
+      (new, 6 tests) is the end-to-end proof, over a real
+      `BookPDFGenerator`, a real KDP-minimum 10cm x 10cm book
+      (`_kdp_min_book`) and real rendered grids: the naive, extent-only
+      walk really would pack all four onto one dangerous 4-up page; that
+      exact page is what the fixed `compute_packed_solved_layout` now
+      declines; the walk degrades it to two working 2-up pages; every
+      surviving slot's `PagePlacement.fits` is `True` on both (the
+      structural "no two puzzles' ink can share a pixel" proof); the book
+      still exports, at the degraded page count; and the rendered pages
+      match the degraded plan drawn directly (the same "wiring draws
+      exactly what the walk planned" style the card's own happy-path
+      tests already use). `6 passed`.
+    - The pre-existing `tests/test_book_pdf.py::TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle`
+      (6 tests, malformed-clue-set fixtures) and the full
+      `tests/test_book_solved_answer_key.py` (53 tests, all pre-existing
+      AC classes plus the four new F-1/F-2 classes) both still green:
+      `6 passed` and `53 passed`.
+
+  - **F-2 (Important) — fixed.** Root cause: `pages_saved_by_pairing`
+    (`app.py`) was computed as `unpaired_page_count - page_count`, the
+    *whole* saving between "nothing shared" and "everything this book
+    actually shares" — which this card's own packing folded CARD-202's
+    saving into without renaming the figure.
+
+    Design decision: option (a) from the brief (surface the two savings
+    separately) rather than (b) (reword one figure) — the underlying
+    numbers to do it correctly were already one `interior_page_count` call
+    away (`len(plan)` from the pairing walk, `count` as the no-packing
+    answer-term, exactly as `unpaired_page_count` itself is already
+    computed), so splitting was no larger a change than rewording would
+    have been, and it is strictly more informative. Added
+    `paired_only_page_count` (pairing applied, CARD-202 packing not) to
+    `InteriorStream` (`book_pdf_generator.py`) and `InteriorCounts`
+    (`app.py`), with two new properties/derived figures,
+    `pages_saved_by_pairing = unpaired_page_count - paired_only_page_count`
+    and `pages_saved_by_packing = paired_only_page_count - page_count` —
+    additive by construction (`pages_saved_by_pairing +
+    pages_saved_by_packing == pages_saved`, the old mixed figure, always).
+    Scoped to `InteriorStream`/`InteriorCounts` only (the Finalise
+    screen's own path) and deliberately not threaded into `Interior`/
+    `BookExport` (the actual file-export path), which surfaces no such
+    stat to the owner anywhere — narrower than the brief's own ceiling,
+    not a regression. The template (`book_finalize.html`) keeps "Before
+    pairing ... shared" (now accurate, since `pages_saved_by_pairing` no
+    longer includes packing's share) and gains a parallel "Answer pages
+    ... packed" note using the new `pages_saved_by_packing`, the same
+    visual pattern the pairing row already used.
+
+    Evidence (fresh, this session):
+    - `tests/test_book_solved_answer_key.py::TestBookSolvedAnswerKey_PagesSavedSplitsPairingFromPacking`
+      (new, 4 tests): a 4-puzzle fixture (15x20, 7-deep clues) built so
+      two-up puzzle-page pairing provably never applies
+      (`compute_pair_layout` needs >=7 mm/cell; this pair's own combined
+      height leaves far less — checked directly against
+      `BookPDFGenerator.puzzle_pages`, not assumed) reports
+      `pages_saved_by_pairing == 0` and `pages_saved_by_packing ==
+      pages_saved` — exactly the misattribution the reviewer flagged, now
+      correctly attributed; a second, mixed fixture (6 x 10x10 easy,
+      pairing *and* packing both actually firing) proves the general
+      additive invariant holds with both terms non-zero, not just in the
+      zero-pairing corner case; a fourth test reads `app.py`'s own
+      `_interior_counts` helper directly, confirming the exact object the
+      Finalise template is built from carries the split. `4 passed`.
+    - `tests/test_book_finalise_gutter.py` (65 tests, exercises the real
+      `panel.finalise(book_id)` Flask route and template end to end,
+      unedited) still green, confirming the template renders with the new
+      `pages_saved_by_packing` context key: `65 passed`.
+
+  - **F-3 (Minor) — fixed.** `_answer_extent`'s docstring
+    (`book_pdf_generator.py`) corrected: no longer says "no packing reads
+    this number any longer"; now states that this card's own
+    `Answer(width=..., height=...)` construction feeds
+    `qualifies_for_packing` from exactly this return value. Doc-only, no
+    test needed beyond the full suite not regressing.
