@@ -1474,12 +1474,15 @@ def _level_runs(
 def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int]:
     """One answer's ``(width, height)`` in cells, read off its solved grid.
 
-    Used since CARD-198 for validation only — no packing reads this number any
-    longer — but taken from the **grid** rather than from the row's
-    ``width``/``height`` columns for the same reason it always was: the grid
-    is what is actually drawn, and a row whose columns disagreed with its
-    grid must be caught here rather than reaching a renderer that trusts the
-    grid alone.
+    Used since CARD-198 for validation (a row whose columns disagreed with
+    its grid must be caught here rather than reaching a renderer that trusts
+    the grid alone) **and**, since CARD-202, for packing: this return value
+    feeds the ``Answer(width=..., height=...)`` the generator builds for
+    :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`, which is
+    what :func:`~nonogram.admin.book_answer_key.qualifies_for_packing` reads.
+    Taken from the **grid** rather than from the row's ``width``/``height``
+    columns for the same reason it always was: the grid is what is actually
+    drawn.
 
     Reimplemented here rather than imported: ``png._answer_extent`` is private
     to that module and ``export/`` exposes no public call that measures a grid
