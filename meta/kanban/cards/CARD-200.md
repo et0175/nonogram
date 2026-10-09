@@ -681,3 +681,51 @@ fix the source artifact, never this list._
   failed, 0 errors, exit 0** (952.98s) — one more passing test than attempt 1,
   exactly the previously-flaky memory-margin test, now stable. Gate clear —
   proceeding to forge:review cycle 1.
+- [Review] forge:review cycle 1 started (background agent `@code-review`).
+- [Review 1/3] 4 findings, most-severe first (standalone skill invocation,
+  no numeric score returned — orchestrator's own severity read below):
+  - **F-1 (Critical — reproducible visual defect: folio overlapping puzzle
+    ink)** `book_pdf_generator.py:3300` (`_blank_page`), `:3401`
+    (`_two_up_page`), `:3690` (`_packed_answer_page`): all three call
+    `_draw_folio` unconditionally, with no `content_bottom`, so the
+    collision check treats the ENTIRE usable height as free room instead
+    of the grid's real bottom/right edge. Reproduced by the reviewer
+    directly calling `compute_layout`: a 30x30 puzzle with row-clue depth
+    1 / column-clue depth 10 on Book 1's default trim gives
+    `usable_bottom - drawing_bottom == 0` and `usable_right -
+    drawing_right == 8px`, while the folio digit is 27-81px wide — the
+    page number prints directly on top of the puzzle's own grid border
+    and clue digits. Contradicts `_blank_page`'s own docstring claim that
+    the grid "is centred well inside its margins in practice" (empirically
+    false for a page-fit-bound grid) and AC-1's own "too small a slack,
+    omit" rule. `solved_puzzle_page` already gets this right (reuses the
+    caption's own `drawing_bottom` slack check) — the other three page
+    kinds need the same treatment. Gating.
+  - **F-2 (Important — contract violation, narrow but real physical-print
+    risk)** `book_kdp.py:457`, `unpaired_interior_page_count` omits
+    `toc_pages`, falling back to `interior_page_count`'s Book-1-profile
+    TOC estimate regardless of the book's own (possibly smaller) trim —
+    already disclosed in the implementer's own docstring as "could in
+    principle need one more TOC page than this estimate states," but the
+    reviewer correctly escalates this past a disclosed-limitation note:
+    this function's own contract is "upper bound, never an under-count,"
+    and its return value feeds the KDP gutter-band lookup for exactly the
+    one case (an unreadable/unlayable stored spec) where there is no real
+    sheet to cross-check the estimate against — an under-count here can
+    select a laxer (too-narrow) gutter band than the book will actually
+    need once its trim is fixed, a real binding/print-margin risk, not
+    just an imprecise number. Gating.
+  - **F-3 (Minor, not gating):** `puzzle_pages`'s default `first_page:
+    int = 1 + GUIDE_PAGE_COUNT` (`:3698`) was not updated for the TOC
+    offset — stale, but self-consistent with `test_book_pairing.py`'s own
+    unchanged direct-call assertion (both equally stale, nothing breaks
+    today); a future caller trusting the default would get a wrong page
+    number with no error. Worth a docstring note or an update, not urgent.
+  - **F-4 (Minor, not gating):** `TOC_ENTRY_GAP_PT` (`:3070`) is documented
+    only as a vertical leading constant but is reused for the horizontal
+    label/page-number gap in `create_toc_page` — undocumented double duty,
+    a future vertical-spacing retune would silently also change horizontal
+    spacing.
+  - **Verdict: cycle 1 does not meet the bar** (2 gating findings: F-1 a
+    reproducible visual defect, F-2 a KDP-gutter contract violation) —
+    routing to forge:fix for F-1/F-2, cycle 2.
