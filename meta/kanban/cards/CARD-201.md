@@ -1362,6 +1362,28 @@ evidence), and the Finalise screen's live preview
     tall-trim and a synthetic page-2 overflow are still caught at zero
     tolerance (the helper's `else` branch, unchanged from before).
 
+    **Owner re-confirmation, with the full physical-print risk disclosed.**
+    Before merge, the orchestrator computed the exact numbers rather than
+    trust the abstract "~111 px" framing: on the affected trims, the total
+    bottom margin is only 113px deep (0.375in, KDP's standard print
+    margin; `book_page_spec`'s default `bottom_in=0.375`), and the measured
+    111px overflow consumes 98% of it — the last line of text ends
+    essentially at the page's own physical trim edge (y=1180 of a
+    1181px-tall canvas), not merely "into some spare white space." For a
+    real printed KDP book, normal trim-cutting manufacturing tolerance
+    could plausibly slice through content sitting this close to the edge
+    in some printed copies — a real physical-product risk, not just a
+    digital/cosmetic one. This was confirmed visually too (a render,
+    `~/Documents/nonogram-reviews/CARD-201/guide-10x10cm-worstcase-page1-overflow-closeup.png`,
+    shows the heading text crossing both the usable-frame line and the
+    physical-page-edge line). Put back to the owner with this corrected,
+    concrete framing (not the original abstract pixel count) via
+    AskUserQuestion. **Owner re-confirmed: still accept** — these trims
+    (height-under-~12cm, 4 of 48 corpus cases) are edge-case shapes
+    unlikely to be chosen for a real book, and the small residual risk is
+    accepted rather than spending further engineering effort on it. No
+    further code change made.
+
     **Test evidence, this pass (final, after the owner's decision).**
     `tests/test_book_guide_page.py` alone: 49 passed (up from 45: 4 new
     tests for F-21's own code fix). `tests/test_book_guide_page_type.py`
@@ -1493,3 +1515,18 @@ evidence), and the Finalise screen's live preview
   passing unchanged throughout every cycle (F-22's fix is Finalise-preview
   CSS only, no PDF ink path); G-7 via AC-7 plus F-22's confirmation that no
   new constant was duplicated into `app.py`/the template. Gate passes.
+- [Owner render] Regenerated the full render set at
+  `~/Documents/nonogram-reviews/CARD-201/` against the final commit
+  (the original set predated most of the fix cycles and was stale) —
+  Book 1 and 10cm-minimum-trim guide pages 1-2, a new render of the one
+  owner-accepted overflow edge case (10x10cm worst-case, with a
+  usable-frame/physical-edge overlay), and the Finalise screen's live
+  preview including a close-up on the now-fixed pipeline connector
+  arrows. Orchestrator personally viewed the key renders (not just the
+  rendering agent's own description): confirmed the arrangement-
+  comparison worked example is now mathematically exhaustive and correct
+  (a 5-cell/run-of-3 line, all 3 placements shown, the "Compare" row
+  correctly highlighting only the one cell common to all three), the
+  pipeline diagram's 4 boxes all have complete borders, and the overflow
+  render clearly shows the accepted edge case. This personal visual check
+  is what surfaced the precise margin-depth finding recorded above.
