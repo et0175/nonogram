@@ -934,3 +934,45 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
     `Answer(width=..., height=...)` construction feeds
     `qualifies_for_packing` from exactly this return value. Doc-only, no
     test needed beyond the full suite not regressing.
+
+- [Build gate] FAILED (attempt 1/2, retest after F-1..F-3 fixes).
+  Orchestrator's own independent full-suite run — `./.venv/bin/python -m
+  pytest` in the CARD-202 worktree, under the `meta/kanban/.full-suite.lock`:
+  **6745 passed, 9 skipped, 1 failed** (1046.68s). The one failure is a
+  real regression, not flake:
+  `tests/test_book_select_floor_tiles.py::TestBookFloorTiles_UnmeasurableCellsFailClosed::test_the_finalise_count_holds_the_same_posture`
+  — this test deliberately corrupts a stored puzzle's `clues_cols` to `[]`
+  (an unmeasurable/malformed grid, "10 row clue(s) but 0 column clue(s)")
+  and expects `/book/<id>/finalize` to degrade gracefully (200, "page
+  count not shown"), the pre-existing posture `app.py`'s
+  `_is_an_unpackable_row`/`_interior_counts` establish for exactly this
+  shape of error. It now gets an uncaught 500 instead.
+
+  Traced (not just observed) via the full traceback in
+  `/tmp/full_suite_card202_postfix.log`: the malformed grid is NOT caught
+  by CARD-198's own eager validation pass (`_answer_extent`) — it only
+  surfaces later, inside THIS card's new `_packed_page_is_feasible`
+  (`book_pdf_generator.py:1545`), which calls
+  `compute_packed_solved_layout` → `_pair_member`
+  (`export/layout.py:1867`), whose stricter rectangle check is what
+  actually raises `ValueError: member 0: clue sets disagree about the
+  grid: 10 row clue(s) but 0 column clue(s)`. `_packed_page_is_feasible`
+  correctly re-wraps this as `RuntimeError(... could not be laid out
+  ...) from e` (the established shape), but `_is_an_unpackable_row`'s own
+  two-signal check (RuntimeError-caused-by-ValueError, AND
+  `book_kdp.unpaired_interior_page_count` independently raising
+  `ValueError` on the same rows) apparently does not confirm signal 2 for
+  this specific malformed shape, so the error is treated as "the
+  exporter's bug" and re-raised uncaught rather than recognized as "a
+  malformed row." Orchestrator's working hypothesis (for the fix agent to
+  confirm or correct): `_answer_extent`/`book_kdp`'s own `_grid_extent`
+  are both more lenient than `_pair_member`'s check for an
+  empty-one-side-only clue mismatch, so this malformed puzzle slips past
+  BOTH of CARD-198's and CARD-202's own earlier extent readers and is
+  only ever caught by the new, stricter validation three layers deep —
+  which `_is_an_unpackable_row` was never taught to recognize as "the
+  same kind of malformed row," since before this card, nothing in the
+  answer-page path called anything as strict as `_pair_member` for a
+  single-page (non-paired, non-packed) answer. Not yet fixed — routed to
+  a dedicated fix pass rather than guessed at blind. Full traceback
+  preserved at `/tmp/full_suite_card202_postfix.log` for the fix agent.
