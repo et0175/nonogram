@@ -1,6 +1,6 @@
 # CARD-201: The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2d
@@ -20,10 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — implementation: review cycle 3 (the last
-allowed) found 3 new gating findings (F-20/F-21/F-22) — owner decision
-needed on how to proceed rather than silently exceeding
-`config.yml review.max_cycles: 3`
+**Blocked by:** —
 
 ## What to implement
 
@@ -1171,5 +1168,10 @@ evidence), and the Finalise screen's live preview
     F-20/F-21 real shipped visual defects on valid/already-tested trims,
     F-22 a new preview-only bug) — but this is the card's LAST allowed
     review cycle. Per the dispatcher's own escalation protocol, this is
-    an ESCALATION POINT, not an automatic cycle 4: routing to the owner
+    an ESCALATION POINT, not an automatic cycle 4: routed to the owner
     for a decision rather than silently exceeding `max_cycles: 3`.
+  - **Owner decision, 2026-10-09:** fix all 3 (F-20/F-21/F-22), then one
+    more confirmation pass — the review budget is extended by one cycle
+    for this card specifically, since every prior cycle converged on
+    fewer/smaller issues, not more, and all 3 findings are narrow and
+    well-diagnosed rather than architectural.

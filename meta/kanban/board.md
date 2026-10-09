@@ -60,10 +60,10 @@ _Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (rev
 ## In Progress
 
 ## Review
+- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · cycle 3 found 3 new findings (overflow, orphaned heading, preview CSS bug) — owner approved one extra cycle, fix in progress · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
 - **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · P2 · architectural · 2 fix cycles + AC/EC/G gate all passed, no gating findings remain (8 minor logged to backlog) · ready for owner sign-off + merge · worktree `../PythonProject4-CARD-202` · branch `card/202-packed-small-answers`
 
 ## Blocked
-- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · cycles 1 and 2 fully fixed and confirmed · cycle 3 (the last allowed) found 3 new gating findings (a reproduced visual overflow, an orphaned heading on the 10cm minimum trim, a preview-only CSS bug) — escalated to the owner rather than silently exceeding the 3-cycle review budget · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
 
 ## Done
 - **CARD-177** Finalise and the book PDF downloads flash a generic error, not the exception's text · score 9.0 (1 cycle) · merged d1995fd
