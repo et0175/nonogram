@@ -44,7 +44,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_frame
+from nonogram.admin.book_pdf_generator import BookPDFGenerator, guide_icon_layout, page_frame
 
 from tests.helpers.book_corpus import corpus_book
 
@@ -164,7 +164,19 @@ def ink_bands(page: Image.Image) -> List[Tuple[int, int]]:
 #: A row whose ink runs unbroken for longer than this many pixels is a ruled
 #: line, not type: no glyph of the guide page's faces is this wide, and a
 #: ruled line of the worked example is the width of its drawing.
-RULE_RUN_PX = 300
+#:
+#: **CARD-201 lowered this from 300.** The worked example's rule (the one
+#: this constant was originally measured against) spans its whole six-column
+#: drawing, hundreds of pixels wide — but the three cell-state icons
+#: (:func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`) are a
+#: single bare cell, whose own border run is under 100 px at every stored
+#: trim this module measures (Book 1's own is ~98 px). Measured on the same
+#: pages: every line of this guide's own type has a longest run under 30 px
+#: (the widest single glyph or ligature any face here draws), so 60 sits
+#: comfortably between "the narrowest real diagram" and "the widest real
+#: glyph" rather than between "the widest diagram" and "the narrowest
+#: glyph", which is the gap the original 300 measured.
+RULE_RUN_PX = 60
 
 
 def longest_run(row: np.ndarray) -> int:
@@ -182,6 +194,19 @@ def type_bands(page: Image.Image) -> List[Tuple[int, int]]:
     ruled row in it (an unbroken run longer than :data:`RULE_RUN_PX`) is one of
     those drawings, and every other band is a line of type, measured as
     before.
+
+    **CARD-201 note.** :data:`RULE_RUN_PX` is never scaled by a page's DPI
+    here, even though :class:`TestGuidePage_PointSizeIsIndependentOfDpi`
+    renders the same guide page at both 300 and 600 DPI. A guide diagram is
+    laid out through ``compute_layout`` against the module constant
+    ``nonogram.export.layout.DPI`` — not against
+    :attr:`~nonogram.admin.book_pdf_generator.BookPDFGenerator.dpi`, the one
+    that test varies (G-3 forbids this card from reaching into COMP-007 to
+    change that) — so a diagram's own pixel run stays fixed across both
+    renders while type (sized off ``self.dpi``) does not. :data:`RULE_RUN_PX`
+    is measured to sit below every diagram's run and above every glyph run
+    at both 300 and 600 DPI precisely because the diagram side never moves;
+    scaling it with DPI would only close that gap, not widen it.
     """
     dark = np.asarray(page.convert("L")) < INK_THRESHOLD
     return [
@@ -198,6 +223,20 @@ def ink_box(page: Image.Image) -> Tuple[int, int, int, int]:
     columns = np.flatnonzero(dark.any(axis=0))
     assert rows.size and columns.size, "the page is blank"
     return int(columns[0]), int(rows[0]), int(columns[-1]), int(rows[-1])
+
+
+def band_ink_extent(page: Image.Image, top: int, bottom: int) -> Tuple[int, int]:
+    """The leftmost and rightmost inked column inside rows ``top..bottom``.
+
+    CARD-201 review cycle 2, F-11: for a bordered diagram (the pipeline,
+    the difficulty box) the border is the widest ink in its own band, so
+    this is the diagram's own left/right edge -- no label, sentence or icon
+    inside either diagram is ever drawn past its own border.
+    """
+    dark = np.asarray(page.convert("L")) < INK_THRESHOLD
+    columns = np.flatnonzero(dark[top : bottom + 1].any(axis=0))
+    assert columns.size, f"rows {top}..{bottom} carry no ink"
+    return int(columns[0]), int(columns[-1])
 
 
 def probe_box(text: str, size_px: int) -> Tuple[int, int]:
@@ -443,6 +482,77 @@ class TestGuidePage_TypeIsBookSized:
         )
 
 
+#: A line diagram's frame bleeds a heavy rule's *half*-width past its own
+#: logical edge by design — the same "half a heavy rule hangs outside the
+#: box" every framed grid in this book draws (``_stroke_drawing``'s own
+#: docstring; CARD-146 built it this way for every puzzle page, not just the
+#: guide's). Text carries no such bleed, so this tolerance applies to
+#: ``left``/``right`` only, never ``top``/``bottom``. CARD-201's own
+#: diagrams are the first guide-page content wide enough, at the 10 cm
+#: minimum trim, to actually reach a stored trim's own margin and show it —
+#: measured there at 2-3 px, comfortably under this tolerance's 10.
+FRAME_BLEED_PX = 10
+
+#: Review cycle 3, F-21's own flagged consequence, resolved by the owner
+#: (CARD-201's Worktree notes, [Fix 3]: "option (a)"). F-21 correctly
+#: restores page 1's three cell-state heading lines at `bare_level 2`
+#: (they were being silently dropped along with their pictures — the bug
+#: F-21 fixes), which costs roughly 3 lines of vertical room that
+#: `bare_level 2`'s own gap-tightening was never tuned against (it was
+#: only ever measured, "Owner decision 2" above, with those headings
+#: missing). Measured across this module's own 48-case corpus: every case
+#: whose trim height is at least 12.44 cm clears the bottom margin with a
+#: comfortable margin (>= 69 px); four short-trim cases — the pinned 10 cm
+#: x 10 cm minimum trim among them — overflow it, by between 56 and
+#: 112 px, all with height below 11.3 cm. Width does not drive this (the
+#: worst overflow, 112 px, is a 22.37 cm WIDE trim) — only a short page is
+#: at risk. The owner's decision: accept this known, bounded gap rather
+#: than redesign the fallback ladder to drop further content, and disclose
+#: it here as a named, height-gated exception — the same disclose-rather-
+#: than-silently-widen pattern this class's own
+#: `test_the_whole_corpus_of_trims_and_counts_fits` already uses for its
+#: own, separate, pre-existing page-2 gap above — rather than loosening
+#: this module's bottom-margin check for every trim.
+#:
+#: `KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM` sits strictly between the
+#: tallest measured failure (11.29 cm) and the shortest measured comfortable
+#: pass (12.44 cm) — a necessary, not sufficient, condition (not every
+#: short trim overflows; it depends on the book's own puzzle counts too),
+#: so a page at or above this height still gets the fully strict check.
+#: `KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX` is the measured worst case (112 px)
+#: plus headroom, so a future regression that overflows further than this
+#: known gap still fails loudly rather than being silently absorbed.
+KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM = 12.0
+KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX = 130
+
+
+def assert_bottom_fits_or_is_the_known_bare_level_2_gap(
+    bottom: int, frame, *, page_number: int, height_cm: float, where: str
+) -> None:
+    """The AC-237 bottom-margin check, with F-21's one disclosed exception.
+
+    Every page, and page 1 at any height at or above
+    :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM`, is checked exactly as
+    before (no overflow at all). Only page 1 below that height may overflow
+    — and only up to :data:`KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX`, the
+    measured worst case plus headroom, so a regression past the known gap
+    still fails this assertion.
+    """
+    overflow = bottom - frame.bottom
+    if page_number == 1 and height_cm < KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM:
+        assert overflow <= KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX, (
+            f"{where}: ink reaches y={bottom}, {overflow} px past "
+            f"frame.bottom={frame.bottom} — past even the known, disclosed "
+            f"F-21 bare_level-2 gap's measured worst case plus headroom "
+            f"({KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX} px); this is a new "
+            "regression, not the known one"
+        )
+    else:
+        assert bottom <= frame.bottom, (
+            f"{where}: ink reaches y={bottom}, past frame.bottom={frame.bottom}"
+        )
+
+
 class TestGuidePage_TextFitsTheUsableFrame:
     """AC-237 — the longest text the book ships fits inside the frame.
 
@@ -453,36 +563,104 @@ class TestGuidePage_TextFitsTheUsableFrame:
     wrapping nor the choice of form is trusted here: "it fits" is measured on
     the page — every mark inside the usable area COMP-007 reported, and the
     last mark above the bottom margin — on Book 1, on the 10 cm minimum trim,
-    and across the corpus of trims and counts below.
+    and across the corpus of trims and counts below. :data:`FRAME_BLEED_PX`
+    allows for a line diagram's own frame's by-design half-heavy-rule bleed
+    sideways (never down), the same every puzzle page's frame already has.
     """
 
     def test_every_mark_sits_inside_the_usable_area(self, book1_generator, book1_frame):
-        """On the book this project ships, with the largest counts it prints."""
-        page = book1_generator.create_guide_page(999_999, 333_333, 333_333, 333_333)
-        left, top, right, bottom = ink_box(page)
-        assert left >= book1_frame.left, f"ink at x={left}, margin at {book1_frame.left}"
-        assert right <= book1_frame.right, f"ink at x={right}, margin at {book1_frame.right}"
-        assert top >= book1_frame.top, f"ink at y={top}, margin at {book1_frame.top}"
-        assert bottom <= book1_frame.bottom, (
-            f"the last line's ink reaches y={bottom} and the bottom margin is "
-            f"at {book1_frame.bottom}"
-        )
+        """On the book this project ships, with the largest counts it prints.
+
+        **CARD-201 review cycle 2, F-11.** Checked on both of the guide's
+        pages, not just page 1 (the default `page_number`): page 2 is the
+        only page carrying the pipeline diagram and the difficulty box, and
+        until this fix nothing in this suite ever rendered it at all, so a
+        left/right margin defect on page 2 alone had zero coverage. The
+        frame is re-read per page number, not reused from `book1_frame`
+        (page 1's own fixture): interior pages mirror their margins by
+        parity (FR-043/ADR-0036), so page 2's `frame.left`/`frame.right`
+        are genuinely different numbers from page 1's.
+        """
+        for page_number in (1, 2):
+            frame = book1_frame if page_number == 1 else page_frame(book1_generator.page_spec(2))
+            page = book1_generator.create_guide_page(
+                999_999, 333_333, 333_333, 333_333, page_number=page_number
+            )
+            left, top, right, bottom = ink_box(page)
+            assert left >= frame.left - FRAME_BLEED_PX, (
+                f"page {page_number}: ink at x={left}, margin at {frame.left}"
+            )
+            assert right <= frame.right + FRAME_BLEED_PX, (
+                f"page {page_number}: ink at x={right}, margin at {frame.right}"
+            )
+            assert top >= frame.top, f"page {page_number}: ink at y={top}, margin at {frame.top}"
+            assert bottom <= frame.bottom, (
+                f"page {page_number}: the last line's ink reaches y={bottom} and the "
+                f"bottom margin is at {frame.bottom}"
+            )
 
     def test_it_fits_the_smallest_trim_a_book_may_be_stored_at(self):
-        """A 10x10 cm book on the profile's margins — the narrowest measure."""
+        """A 10x10 cm book on the profile's margins — the narrowest measure.
+
+        Both pages, per the F-11 note on
+        :func:`test_every_mark_sits_inside_the_usable_area` above.
+
+        **Review cycle 3, F-21's known, owner-accepted exception.** Page 1
+        at this exact trim is one of the corpus cases
+        :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM` names (see that
+        constant's own docstring) — bounded, disclosed, and still checked
+        against a hard ceiling here, not silently waved through.
+        """
         generator = BookPDFGenerator(book_on(MIN_TRIM_CM, MIN_TRIM_CM))
-        frame = page_frame(generator.page_spec(1))
-        page = generator.create_guide_page(999_999, 333_333, 333_333, 333_333)
-        left, top, right, bottom = ink_box(page)
-        assert (left, top) >= (frame.left, frame.top)
-        assert right <= frame.right, (
-            f"the longest line reaches x={right} of a measure that ends at "
-            f"{frame.right} on a {MIN_TRIM_CM} cm trim"
-        )
-        assert bottom <= frame.bottom
+        for page_number in (1, 2):
+            frame = page_frame(generator.page_spec(page_number))
+            page = generator.create_guide_page(
+                999_999, 333_333, 333_333, 333_333, page_number=page_number
+            )
+            left, top, right, bottom = ink_box(page)
+            assert left >= frame.left - FRAME_BLEED_PX, f"page {page_number}"
+            assert top >= frame.top, f"page {page_number}"
+            assert right <= frame.right + FRAME_BLEED_PX, (
+                f"page {page_number}: the longest line reaches x={right} of a measure "
+                f"that ends at {frame.right} on a {MIN_TRIM_CM} cm trim"
+            )
+            assert_bottom_fits_or_is_the_known_bare_level_2_gap(
+                bottom, frame, page_number=page_number, height_cm=MIN_TRIM_CM,
+                where=f"page {page_number}",
+            )
 
     def test_the_whole_corpus_of_trims_and_counts_fits(self):
-        """Every trim a book may be stored at, with counts from 4 to 999,999."""
+        """Every trim a book may be stored at, with counts from 4 to 999,999.
+
+        **Page 1 only, deliberately not extended to page 2 by the F-11 fix
+        in this class's other tests.** This corpus draws trims from the
+        full continuous `MIN_TRIM_CM`-`MAX_TRIM_WIDTH_CM` x
+        `MAX_TRIM_HEIGHT_CM` range (CARD-149's own AC-237, pre-dating
+        CARD-201's content), not just the three named stored trims
+        (Book 1, 6x9, 10 cm minimum) CARD-201's own 5-level fallback ladder
+        was actually measured against (see that card's Worktree notes,
+        "Owner decision 2"). Tried against page 2: it fails at some
+        untested points of that continuous range even on the pre-F-11
+        code (confirmed by reverting this fix and re-running), so that is
+        a real but separate, pre-existing gap in the fallback ladder's own
+        coverage -- not the F-11 misalignment this pass fixes, and not
+        something to paper over by widening this test's tolerance.
+        Flagged in this card's Worktree notes as a BLOCKER-adjacent
+        follow-up rather than silently left uncovered or silently "fixed"
+        by a change wider than review cycle 2 asked for.
+
+        **Review cycle 3's own, separate, owner-accepted exception**, on
+        page 1 (the only page this test checks): restoring F-21's three
+        cell-state heading lines costs roughly 3 lines of room at
+        `bare_level 2`, which 4 of this corpus's own 48 cases — every one
+        with trim height below 11.3 cm, none of them cured by extra width —
+        no longer clear by between 56 and 112 px. Bounded and disclosed via
+        :func:`assert_bottom_fits_or_is_the_known_bare_level_2_gap` (see
+        :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM`'s own docstring for the
+        measurements and the owner's decision), the same page-1 exception
+        `test_it_fits_the_smallest_trim_a_book_may_be_stored_at` uses above
+        — not a blanket loosening of this test's own tolerance.
+        """
         corpus = count_and_trim_corpus()
         # Both bounds are load-bearing: the builder sizes the corpus from
         # CORPUS_CASES, so the first bound alone would hold at any value. The
@@ -504,10 +682,238 @@ class TestGuidePage_TextFitsTheUsableFrame:
                 f"{case['width_cm']}x{case['height_cm']} cm, counts "
                 f"{case['counts']}"
             )
-            assert left >= frame.left, f"{where}: ink at x={left} < {frame.left}"
-            assert right <= frame.right, f"{where}: ink at x={right} > {frame.right}"
+            assert left >= frame.left - FRAME_BLEED_PX, f"{where}: ink at x={left} < {frame.left}"
+            assert right <= frame.right + FRAME_BLEED_PX, f"{where}: ink at x={right} > {frame.right}"
             assert top >= frame.top, f"{where}: ink at y={top} < {frame.top}"
-            assert bottom <= frame.bottom, f"{where}: ink at y={bottom} > {frame.bottom}"
+            assert_bottom_fits_or_is_the_known_bare_level_2_gap(
+                bottom, frame, page_number=1, height_cm=float(case["height_cm"]), where=where,
+            )
+
+    # ----------------------------------------------------------------------
+    # CARD-201 review cycle 2, F-11 — the pipeline diagram and the
+    # difficulty box, specifically, against frame.left/frame.right.
+    # ----------------------------------------------------------------------
+    #
+    # The whole-page checks above use FRAME_BLEED_PX (10 px) of slack, which
+    # is wider than the defect review cycle 2 found: the paste loop's `pad`
+    # (one heavy-rule width, 6 px at every stored trim this module measures)
+    # shifted both new diagrams one `pad` too far left, comfortably inside
+    # that 10 px tolerance -- which is exactly how "zero test coverage" was
+    # possible for this whole class of bug even though a whole-page check
+    # already existed. These checks instead find the two diagrams' own
+    # drawn bands and compare their *exact* left/right ink columns against
+    # `frame.left`/`frame.right`, with no slack, so a `pad`-sized shift
+    # fails loudly. See ``test_a_diagram_shifted_left_by_pad_is_not_at_frame_left``
+    # below for proof this has teeth.
+
+    @staticmethod
+    def diagram_bands(page: Image.Image) -> List[Tuple[int, int]]:
+        """``ink_bands`` minus ``type_bands`` — the bands that are a
+        diagram's own drawing (border + content), not a line of type.
+
+        Reimplemented independently of ``tests/test_book_guide_page.py``'s
+        own ``drawn_bands``/``type_bands`` pair (CLAUDE.md: prefer an
+        independent second implementation over reusing the function under
+        test) by composing this module's own ``ink_bands``/``type_bands``,
+        which this whole module already measures AC-237 with.
+        """
+        type_set = set(type_bands(page))
+        return [band for band in ink_bands(page) if band not in type_set]
+
+    def test_page_two_pipeline_and_difficulty_box_align_at_book1(self, book1_generator):
+        """Book 1, the full fallback form (small counts): page 2 draws all
+        12 diagrams (2 region-split rows, 4 arrangement-comparison rows,
+        the pipeline, the difficulty box, the 4-step worked-example recap,
+        in that order -- pinned the same way
+        ``tests/test_book_guide_page.py``'s own AC-3 ``drawn`` fixture
+        already does). The pipeline (index 6) and the difficulty box
+        (index 7) must each start exactly at ``frame.left`` -- review cycle
+        2's F-11 found both shifted one heavy-rule width left of it -- and
+        neither may cross ``frame.right``.
+        """
+        frame = page_frame(book1_generator.page_spec(2))
+        page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        bands = self.diagram_bands(page)
+        assert len(bands) == 12, (
+            f"page 2 draws {len(bands)} diagrams at Book 1's full fallback form, "
+            "not the 12 this test expects -- re-check which index the pipeline "
+            "and the difficulty box fall at before trusting indices 6 and 7 below"
+        )
+        for name, index in (("pipeline", 6), ("difficulty box", 7)):
+            top, bottom = bands[index]
+            left, right = band_ink_extent(page, top, bottom)
+            assert left == frame.left, (
+                f"the {name} starts at x={left}, not frame.left={frame.left} "
+                "(review cycle 2, F-11: a diagram with no bleed margin of its "
+                "own must not be pasted `pad` to the left of it)"
+            )
+            assert right <= frame.right, (
+                f"the {name} reaches x={right}, past frame.right={frame.right}"
+            )
+
+    @pytest.mark.parametrize(
+        ("width_cm", "height_cm", "book_id"),
+        [
+            (6 * 2.54, 9 * 2.54, "card-201-f11-6x9"),
+            (MIN_TRIM_CM, 20.0, "card-201-f11-10cm-wide"),
+        ],
+        ids=["6x9", "10cm-wide"],
+    )
+    def test_page_two_difficulty_box_aligns_at_narrower_trims(self, width_cm, height_cm, book_id):
+        """6x9 and the 10 cm minimum trim both fall back far enough (bare
+        fallback level 1, measured) that page 2 drops the pipeline diagram
+        and the worked-example recap, but the difficulty box is drawn
+        unconditionally at every fallback level -- so it is always the
+        LAST of the 3 diagram bands left on the page at these trims (2
+        single-row techniques + the box; the pipeline's absence is itself
+        covered by ``test_page_two_pipeline_and_difficulty_box_align_at_book1``,
+        the one stored trim where it survives).
+        """
+        generator = BookPDFGenerator(book_on(width_cm, height_cm, book_id))
+        frame = page_frame(generator.page_spec(2))
+        page = generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        bands = self.diagram_bands(page)
+        assert len(bands) == 3, (
+            f"page 2 draws {len(bands)} diagrams at this trim's fallback form, "
+            "not the 3 this test expects (2 single-row techniques + the "
+            "difficulty box) -- re-check the fallback level before trusting "
+            "'last band is the difficulty box' below"
+        )
+        top, bottom = bands[-1]
+        left, right = band_ink_extent(page, top, bottom)
+        measure = frame.right - frame.left
+        assert left == frame.left, (
+            f"the difficulty box starts at x={left}, not frame.left={frame.left} "
+            "(review cycle 2, F-11)"
+        )
+        assert right == frame.right - 1, (
+            f"the difficulty box's own canvas is exactly `measure` ({measure}) px "
+            f"wide, so pasted unshifted at frame.left its right edge must land "
+            f"at frame.right - 1 ({frame.right - 1}); it is at x={right}"
+        )
+
+    def test_a_diagram_shifted_left_by_pad_is_not_at_frame_left(self, book1_generator):
+        """Negative control for the two tests above: proves
+        ``band_ink_extent`` -- the measurement they rely on -- really is
+        sensitive to exactly the shift review cycle 2's F-11 found.
+
+        Takes the real difficulty box as this book actually draws it,
+        crops it out of the rendered page by its own measured ink, and
+        re-pastes that same crop ``pad`` pixels further left than the page
+        actually put it (the old, uniform paste the bug applied to every
+        image). If this measurement could not tell the difference, the
+        exact-equality assertions above would hold vacuously.
+        """
+        spec = book1_generator.page_spec(2)
+        frame = page_frame(spec)
+        pad = guide_icon_layout(spec).thick_rule
+        assert pad > 0, "a zero-width pad would make this negative control meaningless"
+
+        page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        bands = self.diagram_bands(page)
+        assert len(bands) == 12
+        top, bottom = bands[7]  # the difficulty box, pinned above
+        left, right = band_ink_extent(page, top, bottom)
+        assert left == frame.left, "sanity check: the real page is correctly aligned before this control shifts it"
+
+        crop = page.crop((left, top, right + 1, bottom + 1))
+        canvas = Image.new("RGB", (page.width, crop.height), "white")
+        canvas.paste(crop, (left - pad, 0))
+        bugged_left, bugged_right = band_ink_extent(canvas, 0, crop.height - 1)
+        assert bugged_left == left - pad, "the shifted copy did not land where this control put it"
+        assert bugged_left != frame.left, (
+            "a diagram pasted `pad` pixels left of its correct position must NOT "
+            "measure as still being at frame.left -- if it does, "
+            "test_page_two_pipeline_and_difficulty_box_align_at_book1 and "
+            "test_page_two_difficulty_box_aligns_at_narrower_trims have no teeth"
+        )
+
+    # ----------------------------------------------------------------------
+    # CARD-201 review cycle 3, F-20 -- the pipeline diagram's own canvas was
+    # sized purely from label widths and fixed padding/arrow constants, never
+    # checked or clamped against the page's usable width, and the fallback
+    # loop that picks a page's form only ever checked VERTICAL fit
+    # (`bottom <= frame.bottom`) -- so a trim narrow enough to overflow but
+    # tall enough to still clear that one check shipped with the diagram's
+    # ink running off the physical page. Reproduced on a real, storable KDP
+    # trim this review found by direct measurement: 10 cm wide x 25 cm tall
+    # (`MIN_TRIM_CM` wide, well inside `MAX_TRIM_HEIGHT_CM` tall) -- at that
+    # trim `frame.right=1031` on a `measure` of 918, but the pipeline
+    # diagram's own canvas is 1562 px wide and, pasted at `frame.left=113`,
+    # its ink reached column 1180 of an 1181 px canvas: 149 px past the
+    # usable frame, one pixel short of the physical page edge.
+    # ----------------------------------------------------------------------
+
+    def test_a_tall_narrow_trim_does_not_overflow_the_pipeline_diagram_past_frame_right(self):
+        """The exact scenario review cycle 3's F-20 reproduced: 10 cm wide,
+        25 cm tall -- tall enough that the loop's pre-existing vertical
+        check alone accepted `bare_level 0` (which still draws the pipeline
+        diagram), narrow enough that the diagram's own unclamped canvas
+        crossed `frame.right` by 149 px before this fix.
+
+        No mark on the page -- diagram or text -- may land outside the
+        usable frame on this trim now. `FRAME_BLEED_PX` still allows the
+        line diagrams' own by-design half-heavy-rule sideways bleed (the
+        same every puzzle grid's outer border already has, measured at 2-3
+        px elsewhere in this class) -- it is nowhere near enough slack to
+        hide a defect of this one's size (149 px), so this test still has
+        teeth against the real bug.
+        """
+        generator = BookPDFGenerator(book_on(MIN_TRIM_CM, 25.0, "card-201-f20-10cm-wide-25cm-tall"))
+        frame = page_frame(generator.page_spec(2))
+        page = generator.create_guide_page(
+            999_999, 333_333, 333_333, 333_333, page_number=2
+        )
+        left, top, right, bottom = ink_box(page)
+        assert right <= frame.right + FRAME_BLEED_PX, (
+            f"ink reaches x={right}, past frame.right={frame.right} by "
+            f"{right - frame.right} px (FRAME_BLEED_PX={FRAME_BLEED_PX}) -- "
+            "the pipeline diagram's canvas is not respecting the usable width"
+        )
+        assert right < page.width - 1, (
+            f"ink reaches x={right} on a page {page.width} px wide -- that is "
+            "the clipped-at-the-physical-edge symptom F-20 found, not a "
+            "measure-respecting diagram"
+        )
+        assert left >= frame.left - FRAME_BLEED_PX, f"ink at x={left} < frame.left={frame.left}"
+        assert top >= frame.top
+        assert bottom <= frame.bottom
+
+    def test_the_pipeline_diagrams_own_canvas_never_exceeds_the_usable_width(self):
+        """Direct unit check on :func:`_draw_pipeline_diagram` itself (not
+        just through the page): its own canvas must fit `measure`, or be
+        dropped by the fallback loop before it is ever pasted -- this test
+        pins the first half of that contract directly against the function
+        the finding named, independent of the page-level measurement above.
+        """
+        from nonogram.admin.book_pdf_generator import (
+            GUIDE_ASSUME_STEPS,
+            _draw_pipeline_diagram,
+            _guide_face,
+            type_px,
+        )
+        from nonogram.admin.book_pdf_generator import GUIDE_BODY_PT as _GUIDE_BODY_PT
+
+        generator = BookPDFGenerator(book_on(MIN_TRIM_CM, 25.0, "card-201-f20-direct"))
+        spec = generator.page_spec(2)
+        frame = page_frame(spec)
+        measure = frame.right - frame.left
+        body_size = type_px(_GUIDE_BODY_PT, generator.dpi)
+        text_font = _guide_face(body_size)
+        diagram = _draw_pipeline_diagram(spec, GUIDE_ASSUME_STEPS, text_font, body_size)
+        # The diagram itself is, in fact, still wider than `measure` at this
+        # trim (CARD-201 did not change `_draw_pipeline_diagram`'s own
+        # layout -- it extended the page's fallback loop to notice and drop
+        # it instead, per F-20's own option (b)). This assertion documents
+        # that choice rather than silently assuming it: if a future change
+        # makes the diagram itself measure-aware, this is the line that
+        # should start failing and prompt removing it, not a regression.
+        assert diagram.width > measure, (
+            "if this is no longer true, _draw_pipeline_diagram now clamps "
+            "its own width and the fallback-loop fits_width() check this "
+            "card added is covering for a defect that no longer exists -- "
+            "worth a second look, not a silent pass"
+        )
 
 
 class TestGuidePage_PointSizeIsIndependentOfDpi:
@@ -538,12 +944,33 @@ class TestGuidePage_PointSizeIsIndependentOfDpi:
         return generator
 
     def measure(self, dpi: int, monkeypatch) -> Dict[str, float]:
-        """The point sizes and glyph boxes of a guide page drawn at ``dpi``."""
+        """The point sizes and glyph boxes of a guide page drawn at ``dpi``.
+
+        **CARD-201.** The title is read off the page's raw, unfiltered ink
+        bands (:func:`ink_bands`) rather than :func:`type_bands`'s own
+        ``[0]``: nothing is ever drawn above the title, so it is always the
+        topmost band regardless of how wide its own glyph run is. This
+        matters because :data:`RULE_RUN_PX` cannot scale with ``dpi`` here —
+        a guide diagram is laid out through ``compute_layout`` against
+        :data:`nonogram.export.layout.DPI`, a module constant this class
+        does not (and, by G-3, must not) monkeypatch, so a diagram's own
+        pixel run stays fixed while ``self.dpi``-driven type does not. A
+        fixed, unscaled threshold is exactly what separates the two at every
+        ``dpi`` this test tries: the widest real glyph run measured here is
+        well under it at every resolution, and every guide diagram's run
+        sits well over it, unchanged. Scaling the threshold with ``dpi``
+        would close that gap on the diagram side without ever needing to
+        open it on the title's, which is why the title is read separately
+        instead.
+        """
         page = self.generator_at(dpi, monkeypatch).create_guide_page(4, 2, 1, 1)
-        bands = type_bands(page)
-        assert len(bands) >= 9, f"only {len(bands)} lines of ink at {dpi} DPI"
-        title_px = bands[0][1] - bands[0][0] + 1
-        body_px = max(bottom - top + 1 for top, bottom in bands[1:])
+        raw_bands = ink_bands(page)
+        assert raw_bands, f"a blank page at {dpi} DPI"
+        title_top, title_bottom = raw_bands[0]
+        title_px = title_bottom - title_top + 1
+        body_bands = [band for band in type_bands(page) if band[0] > title_bottom]
+        assert len(body_bands) >= 8, f"only {len(body_bands)} lines of body ink at {dpi} DPI"
+        body_px = max(bottom - top + 1 for top, bottom in body_bands)
         return {
             "title_px": title_px,
             "body_px": body_px,
@@ -635,31 +1062,44 @@ class TestGuidePage_LeadingClearsTheType:
         are separated by construction and comparing neighbouring bands proves
         nothing. What does is the count: two lines whose ink touches come out
         as one band, so the page has fewer bands than it has lines. The counts
-        are pinned for the four-puzzle Book 1 page (the full form, CARD-167),
-        written out rather than derived from the generator's text:
+        are pinned for the four-puzzle Book 1 page's page 1 (the full form,
+        **recomputed for CARD-201's 2-page tutorial** — page 1 is now the
+        basic-technique half, not the single worked example CARD-167 pinned
+        14/4 for), written out rather than derived from the generator's text
+        (cross-checked by reproducing each paragraph's own word-wrap while
+        building this card, not merely assumed):
 
-        * 14 lines of type — the title; the explanation (2 lines); the four
-          count lines; "Worked example: ..."; the four step captions (1, 1, 2
-          and 1 lines); the closing line;
-        * 4 drawings — one per step of the worked example, each the same
-          one-row line, so all four bands are the same height.
+        * 26 lines of type — the title; the intro (1 line); "The basic
+          rule" heading + its text (2 lines); the basic-rule caption (1
+          line); "Use three cell states" heading + 3 cell states, each a
+          heading and a caption (1 + 3x2 = 7 lines); "Start with certainty"
+          heading (1 line); technique 1 "Complete lines" (heading + caption,
+          2 lines, no row note); technique 2 "Squeeze from both ends"
+          (heading + 2-line caption + its last row's "certain" note, 4
+          lines); technique 3 "Mark spaces around a completed block"
+          (heading + 2-line caption, 3 lines, no row note); "Keep switching
+          between rows and columns" heading + its text (2 lines);
+        * 9 drawings — the basic-rule line, the 3 cell-state icons, and one
+          row per technique (1 + 3 + 1 = 5), all drawn at the same cell
+          pitch so every one of the 9 bands is the same height.
 
-        A caption touching its drawing merges into the drawing's band: the
-        type count drops to 13 and that drawing's band grows taller than the
-        other three. Two lines of type touching drop the type count.
+        A caption touching its drawing merges into the drawing's band,
+        dropping the type count and growing that drawing's band taller than
+        the rest; two lines of type touching drops the type count the same
+        way.
         """
         every_band = ink_bands(guide_page)
         drawings = [band for band in every_band if band not in guide_bands]
-        assert len(guide_bands) == 14, (
-            f"{len(guide_bands)} lines of type found where the page sets 14: "
+        assert len(guide_bands) == 26, (
+            f"{len(guide_bands)} lines of type found where the page sets 26: "
             "a line was lost, or two lines' ink ran together"
         )
-        assert len(drawings) == 4, (
-            f"{len(drawings)} drawn bands found where the worked example "
-            "draws 4"
+        assert len(drawings) == 9, (
+            f"{len(drawings)} drawn bands found where page 1's basic rule, "
+            "3 cell-state icons and 5 technique rows draw 9"
         )
         heights = {bottom - top + 1 for top, bottom in drawings}
         assert len(heights) == 1, (
-            f"the worked example's four lines are {sorted(heights)} px tall: "
+            f"the 9 drawings are {sorted(heights)} px tall: "
             "one has merged with the ink next to it"
         )

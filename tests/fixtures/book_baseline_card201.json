@@ -1,0 +1,134 @@
+{
+  "card": "CARD-201",
+  "supersedes": "tests/fixtures/book_baseline_card201.json (this file's own stale, CARD-201-branch-alone recording)",
+  "recorded_from_commit": "main, after merging card/201-guide-page-how-to-solve (post-merge, CARD-202 included)",
+  "recorded_from_commit_note": "This file's own previous recording (recorded_from_commit: 'card/201-guide-page-how-to-solve (implementation commit)') was taken on the CARD-201 feature branch BEFORE it was merged into main, and main already held CARD-202's answer-section packing (width<=15/height<=20 small answers share 2-or-4 to a page) at that point -- CARD-201's branch predates CARD-202 entirely (verified: nonogram.admin.book_answer_key.PackedAnswerPage does not exist on that branch). So the stale recording's 13-page, four-full-answer-page book never actually matched what merging CARD-201 into main would produce. This re-recording is taken AFTER the merge, against the final combined code: CARD-201's 2-page guide AND CARD-202's packing both in effect. Pages 1-9 (the guide, the three level dividers, the two-up page, the two single-puzzle pages, and the SOLUTIONS divider) are CHECKED, NOT ASSUMED, byte-identical to the stale recording's own pages 1-9 -- CARD-202's packing touches only the answer section, never anything before the SOLUTIONS divider, by construction. Only the answer section moved: the stale recording's four full answer pages (10-13, one per puzzle, CARD-198's shape with no packing) become three packed-or-full pages (10-12: Duck+Owl share packed page 10, Tree packs alone onto page 11, Snowflake keeps its own full page 12) -- the book shrinks from thirteen pages to twelve.",
+  "recorded_on": "2026-10-08",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "Merging CARD-201 (2-page guide) into main (which already has CARD-202's answer-section packing) combines two independent effects that this file's stale, CARD-201-branch-only recording could not reflect: CARD-201 shifts every page from the first puzzle/divider page onward by +1 (the guide's second page) and flips its parity; CARD-202 shrinks the answer section from one full page per puzzle to 2-or-4 small answers packed per page, wherever they qualify (width<=15 and height<=20) and share a tier. Applied together on this book (Duck, Owl both 10x10 Easy; Tree 15x15 Medium; Snowflake 30x30 Hard): Duck+Owl share one packed page, Tree packs alone onto its own packed page (no other qualifying answer in its level), and Snowflake still gets its own full page -- three answer pages, not four, at interior pages 10-12, not 9-11 (CARD-202 alone) and not 10-13 (CARD-201 alone, no packing). Twelve interior pages in all.",
+  "warning": "This is evidence of what the book PDF looks like with CARD-201 and CARD-202 both merged into main. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes/colour_interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "This machine's Arial-or-fallback fingerprint, reproduced before this file was written (tests.helpers.book_corpus.font_fingerprint). A machine with a different fingerprint skips the font_dependent_pages below rather than failing on them.",
+  "font_dependent_pages": [
+    1,
+    2,
+    3,
+    5,
+    7,
+    9
+  ],
+  "font_dependent_pages_note": "Unchanged from the stale recording: both guide pages (1, 2), the three level dividers (3, 5, 7) and the SOLUTIONS divider (9) are machine-lettered (Arial, with the load_default fallback). None of the three packed/full answer pages (10-12) are machine-lettered -- a packed slot's band and caption letter in the packaged DejaVu Sans, exactly as a full answer page's already did (CARD-197/CARD-202).",
+  "interior_bytes": 3310666,
+  "interior_bytes_note": "The black-and-white interior of this book: 3310666 bytes, where the stale (unpacked, 13-page) recording held 3483012 for the same card's own pre-merge state. The difference is pages 10-13's four full-answer JPEG streams replaced by pages 10-12's three packed-or-full ones; pages 1-9 contribute the same bytes they always did (checked above).",
+  "page_count": 12,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "759d3b64874de8715bac735ba11802b2151bbcd0a847456ec3a841d0bcf862d4"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "efd8503b7f4b31479093ffb2424d31390374f7fc7dc8c7b5fd6cac2b0f0069c7"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "0a1223e7c4ddc4c3f7a380c81f016446b6b1c73cb682292385892a30945593a2"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "dcf147d948547aa715bb021172c32817f44d5530f08d9449006e7b590437de20"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "c383f8360430a78ce2d1e4524be1840e7fb17b40dcf32197f5f4578a6c6affa0"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "48097be6a36ad81e6d6b9075154552e27217997ef635cb075a1ffd88086a3543"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "53dfb03a08838204b900d2d0348c31ddbc78872630d941e931a0859f1c47e783"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "232d1c319fe3cc4d88a2e343deecc1f89feb3cdad08220c99cd999531e66eba1"
+    }
+  ],
+  "colour_interior_bytes": 3775345,
+  "colour_interior_bytes_note": "The same book with a COLOUR interior: 3775345 bytes, where the stale recording held 3985305. Read by tests/test_book_pdf_ink_mode.py only to show the length is longer than the black-and-white file's, never compared byte-for-byte against any earlier recording.",
+  "re_recorded_after_merge_with_card_202": "Both of CARD-201's own review-cycle fixes (F-1/F-3, F-11 -- guide page 2's worked example and diagram alignment) are already baked into pages 1-9 below, carried over unedited from the stale recording (CHECKED above, not re-derived) -- this re-recording's only news is the answer section's packing shape, not a further content change to the guide.",
+  "changed_pages": [
+    10,
+    11,
+    12
+  ],
+  "changed_pages_note": "CHECKED, NOT ASSUMED: pages 1-9 were compared against this file's own previous (stale, CARD-201-branch-alone) recording by this regeneration script before this file was written, and found byte-identical -- CARD-202's packing never touches anything before the SOLUTIONS divider. 'Changed' here means 'the new page 10-12 triplet replaces the old page 10-13 quadruplet', not 'pages 10-12 moved and 13 is untouched' -- page 13 no longer exists."
+}

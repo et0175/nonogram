@@ -46,12 +46,92 @@
         <div class="card">
             <div class="card-header"><h2 class="card-title mb-0">Guide page <small class="text-muted fw-normal fs-6">generated</small></h2></div>
             <div class="card-body">
-                {#- CARD-169: every sentence below is the generator's own
-                    (guide_* from book_pdf_generator), so the preview reads as
-                    the printed page's full form. -#}
+                {#- CARD-169/CARD-201: every sentence below is the generator's
+                    own (guide_* from book_pdf_generator), so the preview reads
+                    as the printed page's full form — now both pages of it. -#}
                 <div class="guide-preview" data-guide-preview>
+                    <p class="guide-page-heading text-muted">Page 1</p>
                     <h3 data-guide-title>{{ guide_title }}</h3>
                     <p data-guide-intro>{{ guide_intro }}</p>
+
+                    <h4 data-guide-basic-rule-heading>{{ guide_basic_rule_heading }}</h4>
+                    <p data-guide-basic-rule-text>{{ guide_basic_rule_text }}</p>
+                    <div class="guide-strip" aria-hidden="true">
+                        {%- for square in range(guide_basic_rule_length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in guide_basic_rule_filled else ('crossed' if square in guide_basic_rule_crossed else 'blank') }}"></span>{% endfor -%}
+                    </div>
+                    <p class="guide-diagram-caption" data-guide-basic-rule-caption>{{ guide_basic_rule_caption }}</p>
+
+                    <h4 data-guide-cell-states-heading>{{ guide_cell_states_heading }}</h4>
+                    <ul class="guide-cell-states">
+                        {% for state in guide_cell_states %}
+                        <li class="guide-cell-state" data-guide-cell-state="{{ loop.index0 }}">
+                            <span class="guide-strip" aria-hidden="true"><span class="guide-strip-cell" data-state="{{ 'filled' if state.filled else ('crossed' if state.crossed else 'blank') }}"></span></span>
+                            <strong data-guide-cell-state-heading>{{ state.heading }}</strong>
+                            <span data-guide-cell-state-caption>{{ state.caption }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+                    <h4 data-guide-certainty-heading>{{ guide_certainty_heading }}</h4>
+                    <ol class="guide-techniques">
+                        {% for technique in guide_techniques_1 %}
+                        <li class="guide-technique" data-guide-technique1="{{ loop.index0 }}">
+                            <p class="guide-step-caption" data-guide-technique-heading>{{ technique.heading }}</p>
+                            <p data-guide-technique-caption>{{ technique.caption }}</p>
+                            {% for row in technique.rows %}
+                            <div class="guide-strip" aria-hidden="true">
+                                {%- for square in range(technique.length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in row.filled else ('crossed' if square in row.crossed else 'blank') }}"></span>{% endfor -%}
+                            </div>
+                            {% if row.note %}<p class="guide-diagram-caption" data-guide-row-note>{{ row.note }}</p>{% endif %}
+                            {% endfor %}
+                        </li>
+                        {% endfor %}
+                    </ol>
+
+                    <h4 data-guide-switching-heading>{{ guide_switching_heading }}</h4>
+                    <p data-guide-switching-text>{{ guide_switching_text }}</p>
+
+                    <hr>
+                    <p class="guide-page-heading text-muted">Page 2</p>
+                    <h3 data-guide2-title>{{ guide2_title }}</h3>
+                    <p data-guide2-intro>{{ guide2_intro }}</p>
+
+                    <ol class="guide-techniques">
+                        {% for technique in guide_techniques_2 %}
+                        <li class="guide-technique" data-guide-technique2="{{ loop.index0 }}">
+                            <p class="guide-step-caption" data-guide-technique-heading>{{ technique.heading }}</p>
+                            <p data-guide-technique-caption>{{ technique.caption }}</p>
+                            {% for row in technique.rows %}
+                            <div class="guide-strip" aria-hidden="true">
+                                {%- for square in range(technique.length) %}<span class="guide-strip-cell" data-state="{{ 'filled' if square in row.filled else ('crossed' if square in row.crossed else 'blank') }}"></span>{% endfor -%}
+                            </div>
+                            {% if row.note %}<p class="guide-diagram-caption" data-guide-row-note>{{ row.note }}</p>{% endif %}
+                            {% endfor %}
+                        </li>
+                        {% endfor %}
+                    </ol>
+
+                    <h4 data-guide-assume-heading>{{ guide_assume_heading }}</h4>
+                    <p data-guide-assume-text>{{ guide_assume_text }}</p>
+                    <div class="guide-pipeline" aria-hidden="true">
+                        {% for step in guide_assume_steps %}
+                        <span class="guide-pipeline-step" data-guide-pipeline-step="{{ loop.index0 }}">
+                            <strong data-guide-pipeline-label>{{ step.label }}</strong>
+                            <span class="guide-pipeline-icon" data-icon="{{ step.icon }}"></span>
+                        </span>
+                        {% endfor %}
+                    </div>
+                    <p class="guide-diagram-caption" data-guide-assume-closing><em>{{ guide_assume_closing }}</em></p>
+
+                    <h4 data-guide-difficulty-heading>{{ guide_difficulty_heading }}</h4>
+                    <div class="guide-difficulty-box" data-guide-difficulty-box>
+                        {% for label in guide_difficulty_labels %}
+                        <div class="guide-difficulty-column" data-guide-difficulty="{{ loop.index0 }}">
+                            <strong data-guide-difficulty-name>{{ label.name }}</strong>
+                            <p data-guide-difficulty-text>{{ label.text }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
 
                     <p class="mb-1">This book contains <strong data-guide-count="total">{{ puzzle_count }}</strong> puzzles:</p>
                     <ul>
@@ -74,9 +154,10 @@
                         {% endfor %}
                     </ol>
 
+                    <p data-guide-closing-heading>{{ guide_closing_heading }}</p>
                     <p class="mb-0" data-guide-closing>{{ guide_closing }}</p>
                 </div>
-                <small class="text-muted d-block mt-2">Page 1 of the interior PDF — a right-hand page — before the first puzzle.</small>
+                <small class="text-muted d-block mt-2">Pages 1-2 of the interior PDF — page 1 a right-hand page — before the first puzzle.</small>
             </div>
         </div>
 
@@ -85,7 +166,7 @@
             <div class="card-body">
                 <h3 class="h6">Interior PDF</h3>
                 <ol class="mb-2">
-                    <li>Guide page (how to solve, a worked example, and the difficulty summary)</li>
+                    <li>Guide (2 pages): how to solve, a worked example, and what the difficulty labels mean</li>
                     <li>{{ puzzle_count }} puzzle{{ 's' if puzzle_count != 1 else '' }}, in your order, with their titles</li>
                     {% if puzzle_count %}<li>Solutions divider and answer pages</li>{% endif %}
                 </ol>

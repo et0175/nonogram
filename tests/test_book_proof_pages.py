@@ -672,12 +672,12 @@ class TestBookProof_AnnotationIsProofOnly:
             "puzzle_name": "Proof",
             "difficulty_tier": "hard",
         }
-        # Interior page 3 is the first puzzle page: page 1 is the guide page
-        # and page 2 the "Hard" divider that opens this book's one level
-        # (FR-043, CARD-128).
-        page = BookPDFGenerator(book).interior_pages([row])[2]
+        # Interior page 4 is the first puzzle page (CARD-201: up from 3):
+        # pages 1-2 are the 2-page guide and page 3 the "Hard" divider that
+        # opens this book's one level (FR-043, CARD-128).
+        page = BookPDFGenerator(book).interior_pages([row])[3]
         expected, _ = render_pages(
-            puzzle.payload("Puzzle 1 · Hard"), page_spec=book_page_spec(book, 3)
+            puzzle.payload("Puzzle 1 · Hard"), page_spec=book_page_spec(book, 4)
         )
         assert not _has_ink(_foot_strip(page))
         assert page.tobytes() == expected.tobytes()

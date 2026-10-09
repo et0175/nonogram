@@ -216,7 +216,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         expected_cell = sheet.cell_mm(across, down)
 
         pages = BookPDFGenerator(sheet.book).interior_pages([puzzle])
-        assert len(pages) == 4, "guide, puzzle, divider, answer"
+        assert len(pages) == 5, "2-page guide (CARD-201), puzzle, divider, answer"
 
         # Every page of the book is the trim, at 300 DPI — not only the puzzle's.
         trim_width_px, trim_height_px = _trim_px(sheet)
@@ -224,7 +224,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
             assert abs(page.size[0] - trim_width_px) <= 0.5, (sheet, number, page.size)
             assert abs(page.size[1] - trim_height_px) <= 0.5, (sheet, number, page.size)
 
-        drawing = drawing_of(pages[1])  # interior page 2, the puzzle
+        drawing = drawing_of(pages[2])  # interior page 3, the puzzle
         assert (drawing.columns, drawing.rows) == (columns, rows)
 
         # The cell is FR-030's, never above the standard cell.
@@ -233,7 +233,7 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         assert abs(drawn_cell_mm - expected_cell) < 0.05, (sheet, drawn_cell_mm, expected_cell)
 
         # The whole drawing lies inside the usable area, below the band.
-        page_number = 2
+        page_number = 3  # CARD-201: the puzzle is interior page 3, not 2
         usable_left = sheet.left_margin_mm(page_number) * PX_PER_MM
         usable_right = (sheet.left_margin_mm(page_number) + sheet.usable_width_mm) * PX_PER_MM
         usable_bottom = (sheet.height_mm - BOTTOM_MM) * PX_PER_MM
@@ -284,7 +284,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
         tops: set[int] = set()
 
         for index, puzzle in enumerate(puzzles):
-            page = pages[1 + index]  # interior page 2 + index
+            page = pages[2 + index]  # interior page 3 + index (CARD-201)
             columns, rows, across, down = _extent(puzzle)
 
             assert page.size[0] < page.size[1], (sheet, "portrait")
@@ -365,30 +365,30 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
 
         # The same drawing three times — easy, medium and ungraded — which is
         # what this property needs now that each named level opens with a
-        # divider page (CARD-128). The interior runs guide 1, the "Easy"
-        # divider 2, the easy copy 3, the "Medium" divider 4, the medium copy
-        # 5, the ungraded copy 6 (an ungraded run has no name, so it opens no
-        # divider), SOLUTIONS 7, and one answer page per puzzle (CARD-198):
-        # 8 easy, 9 medium, 10 ungraded.
+        # divider page (CARD-128). The interior runs the 2-page guide 1-2
+        # (CARD-201), the "Easy" divider 3, the easy copy 4, the "Medium"
+        # divider 5, the medium copy 6, the ungraded copy 7 (an ungraded run
+        # has no name, so it opens no divider), SOLUTIONS 8, and one answer
+        # page per puzzle (CARD-198): 9 easy, 10 medium, 11 ungraded.
         #
-        # So the same drawing sits on interior 5 and 6 — **opposite** parity —
-        # and its answer on 8 and 9, also opposite parity. No two of the three
-        # ever share a page: no two of their tiers are equal (FR-040,
+        # So the same drawing sits on interior 6 and 7 — **opposite** parity —
+        # and its answer on 9 and 10, also opposite parity. No two of the
+        # three ever share a page: no two of their tiers are equal (FR-040,
         # INV-010), and an ungraded row never pairs at all.
         pages = BookPDFGenerator(sheet.book).interior_pages([
             dict(puzzle, difficulty_tier="easy", id="p-easy"),
             dict(puzzle, difficulty_tier="medium", id="p-medium"),
             dict(puzzle, id="p-ungraded"),
         ])
-        assert len(pages) == 10, (
-            "guide, two level dividers, three puzzles, SOLUTIONS, three answers"
+        assert len(pages) == 11, (
+            "2-page guide, two level dividers, three puzzles, SOLUTIONS, three answers"
         )
 
         # (interior page number, the page) for every page carrying the drawing.
         by_number = {
-            number: drawing_of(pages[number - 1]) for number in (5, 6, 8, 9)
+            number: drawing_of(pages[number - 1]) for number in (6, 7, 9, 10)
         }
-        for number in (5, 6, 8, 9):
+        for number in (6, 7, 9, 10):
             drawing = by_number[number]
             expected_left = sheet.drawing_left_mm(number, across, down)
             assert abs(_mm(drawing.left) - expected_left) <= 2 * HALF_PIXEL_MM + 1e-9, (
@@ -404,7 +404,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # cannot be counted that way (``tests/helpers/page_ink.py``'s own
         # caveat) — ``left``/``top``/``grid_bottom``/``cell``, read above and
         # below, stay safe on either kind.
-        for number in (5, 6):
+        for number in (6, 7):
             drawing = by_number[number]
             assert (drawing.columns, drawing.rows) == (columns, rows)
 
@@ -418,7 +418,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # just above already proves centring on the answer pages, since
         # ``sheet.drawing_left_mm`` is itself derived from the centring rule.
         if sheet.usable_width_mm - across * sheet.cell_mm(across, down) >= 0:
-            for number in (5, 6):
+            for number in (6, 7):
                 drawing = by_number[number]
                 left_spare = _mm(drawing.left) - sheet.left_margin_mm(number)
                 right_spare = sheet.usable_width_mm - left_spare - across * _mm(drawing.cell)
@@ -431,7 +431,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # kinds are compared within their own kind: a puzzle page's drawing and
         # an answer page's tile are different measurements of different things,
         # and only the *shift between two pages of one kind* is the margin.
-        for odd, even in ((by_number[5], by_number[6]), (by_number[9], by_number[8])):
+        for odd, even in ((by_number[7], by_number[6]), (by_number[9], by_number[10])):
             shift_mm = _mm(odd.left - even.left)
             assert abs(shift_mm - (sheet.gutter_mm - sheet.outside_mm)) < 2 * HALF_PIXEL_MM, (
                 sheet, shift_mm
@@ -441,10 +441,10 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # which are the same page but for their side of the spread, and on
         # the two answer pages, which are the same puzzle's own full solved
         # page (CARD-198) drawn twice, so both pairs move alike.
-        assert by_number[5].top == by_number[6].top, (sheet, by_number[5].top)
-        assert by_number[8].top == by_number[9].top, (sheet, by_number[8].top)
-        assert by_number[5].grid_bottom == by_number[6].grid_bottom
-        assert abs(by_number[5].cell - by_number[6].cell) <= 1
+        assert by_number[6].top == by_number[7].top, (sheet, by_number[6].top)
+        assert by_number[9].top == by_number[10].top, (sheet, by_number[9].top)
+        assert by_number[6].grid_bottom == by_number[7].grid_bottom
+        assert abs(by_number[6].cell - by_number[7].cell) <= 1
 
         # Every one of those pages is the same trim.
         assert len({page.size for page in pages}) == 1
@@ -478,7 +478,8 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     sheet = BOOK1
     # One tier for the whole book, because a pair is offered only between
     # equal tiers (INV-010) and ``_puzzle`` grades nothing. One level also
-    # means one divider page, interior page 2, so the walk below starts at 3.
+    # means one divider page, interior page 3 (CARD-201: the 2-page guide is
+    # pages 1-2), so the walk below starts at 4.
     puzzles = [
         dict(_puzzle(rng, columns, rows), difficulty_tier="easy")
         for columns, rows in extents
@@ -490,7 +491,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     counted = two_up = single = 0
     tops: set[int] = set()
     index = 0
-    page_number = 3  # guide 1, the "Easy" divider 2
+    page_number = 4  # guide 1-2, the "Easy" divider 3
     while index < len(puzzles):
         page = pages[page_number - 1]
         assert page.size[0] < page.size[1], (page_number, "portrait")

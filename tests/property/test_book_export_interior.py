@@ -333,16 +333,17 @@ def _as_the_interior_prints_them(case):
 def _section_plan(puzzles):
     """The puzzle section: ``(page number, the puzzles on it)`` per page.
 
-    The guide page is interior page 1, and then each non-empty **named** level
-    opens with a divider page of its own (TERM-031, CARD-128) followed by that
-    level's pages as :func:`_puzzle_page_plan` walks them. A run of puzzles
-    whose stored tier is no level at all opens no divider — there is no name
-    to print on one — so it simply follows the last named level.
+    Interior pages 1-2 are the guide (CARD-201's 2-page tutorial), and then
+    each non-empty **named** level opens with a divider page of its own
+    (TERM-031, CARD-128) followed by that level's pages as
+    :func:`_puzzle_page_plan` walks them. A run of puzzles whose stored tier
+    is no level at all opens no divider — there is no name to print on one —
+    so it simply follows the last named level.
 
     Returns the puzzle pages only; the dividers are counted by their absence
     from the numbering (:func:`_divider_pages`).
     """
-    pages, page_number = [], 2
+    pages, page_number = [], 3
     index = 0
     while index < len(puzzles):
         level = _LEVEL.get(str(puzzles[index]["difficulty_tier"]).lower())
@@ -556,17 +557,17 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         )
         assert same_page(cover_page, expected_cover), label
 
-        # Today's content with the cover gone: guide, the pages the puzzles
-        # take (two-up pairing can make them fewer than the puzzles, FR-040),
-        # divider, and the answer section — one full solved page per large
-        # answer (CARD-198) or 2-or-4 small answers packed to a page
-        # (CARD-202, :func:`_expected_answer_pages`).
+        # Today's content with the cover gone: the 2-page guide (CARD-201),
+        # the pages the puzzles take (two-up pairing can make them fewer than
+        # the puzzles, FR-040), divider, and the answer section — one full
+        # solved page per large answer (CARD-198) or 2-or-4 small answers
+        # packed to a page (CARD-202, :func:`_expected_answer_pages`).
         printed = _as_the_interior_prints_them(case)
         plan = _puzzle_page_plan(printed)
         section = _section_plan(printed)
         dividers = _divider_pages(printed)
         expected_answers = _expected_answer_pages(printed)
-        expected_count = 1 + dividers + len(plan) + (expected_answers + 1 if n else 0)
+        expected_count = 2 + dividers + len(plan) + (expected_answers + 1 if n else 0)
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
         if reported is not None:
@@ -592,7 +593,7 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             # own walks: the same interior with every puzzle on a page of its
             # own (FR-040), and CARD-202's own packed-or-full answer count.
             assert answer_pages == expected_answers, label
-            assert unpaired == 1 + dividers + n + (n + 1 if n else 0), label
+            assert unpaired == 2 + dividers + n + (n + 1 if n else 0), label
             assert unpaired >= page_count, label
             seen["finalise count"] += 1
             seen[
@@ -659,7 +660,11 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # difference — gutter minus outside — is much smaller than the gap
         # zone the two tiles leave between them), and each half's own
         # leftmost ink column is measured directly.
-        answer_page_number = 3 + dividers + len(plan)
+        #
+        # CARD-201 grows the guide to two pages, which shifts this section's
+        # own start by one (4, not 3 — the same +1 ``expected_count`` above
+        # applies).
+        answer_page_number = 4 + dividers + len(plan)
         for kind, group in _answer_section_plan(printed):
             page = interior[answer_page_number - 1]
             right_hand = page_is_right_hand(answer_page_number)

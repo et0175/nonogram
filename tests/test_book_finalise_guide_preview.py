@@ -9,6 +9,17 @@ AC-5 (the hoist leaves the printed page pixel-identical) is carried by the
 existing book baseline (``tests/fixtures/book_baseline_card167.json``) and
 ``tests/test_book_guide_page.py``, unedited.
 
+CARD-201 adds:
+
+    AC-7  TestFinaliseGuidePreview_ShowsBothPages
+
+— the 2-page tutorial's new content (the basic rule, the three cell states,
+"start with certainty", page 2's own techniques, the assume/follow/breaks/
+proved pipeline and the difficulty-label box), read live from
+``book_pdf_generator`` exactly as the original AC-3 proved for the first
+page's own constants (a monkeypatched sentinel on a new constant must appear
+in the rendered preview too).
+
 The page is read structurally: a small ``html.parser`` reader collects the
 guide card's marked elements (``data-guide-*``) and each strip cell's
 ``data-state``, so a test asserts what the owner sees in the card rather than
@@ -62,33 +73,100 @@ class GuideCard(HTMLParser):
     """The guide preview's marked parts, read out of the rendered page.
 
     Attributes:
-        title, intro, example_heading, closing: the text of the element
-            carrying that ``data-guide-*`` marker (``None`` if absent).
+        title, intro, example_heading, closing, and (CARD-201) every other
+        page-level heading/paragraph the template marks with a
+        ``data-guide-*``/``data-guide2-*`` attribute: the text of that
+        element (``None`` if absent).
         counts: ``{"total"|"easy"|"medium"|"hard": text}``.
         steps: one ``{"caption": text, "cells": [state, ...], "strip":
             attrs}`` per ``data-guide-step``, in document order (``strip``
-            is the ``.guide-strip`` element's attribute dict).
+            is the ``.guide-strip`` element's attribute dict) — CARD-167's
+            original worked example, unmoved by CARD-201 except for where it
+            sits on the page.
+        techniques_1, techniques_2: one ``{"heading": text, "caption": text,
+            "rows": [{"cells": [...], "note": text or None}, ...]}`` per
+            ``data-guide-technique1``/``2``, in document order (CARD-201).
+        cell_states: one ``{"heading": text, "caption": text, "cells": [...]}``
+            per ``data-guide-cell-state`` (CARD-201; ``cells`` is the bare
+            icon's one-cell strip).
+        pipeline_steps: one ``{"label": text, "icon": the ``data-icon``
+            value}`` per ``data-guide-pipeline-step`` (CARD-201).
+        difficulty: one ``{"name": text, "text": text}`` per
+            ``data-guide-difficulty`` (CARD-201).
         text: every text node inside the guide preview, joined.
+
+    **How a strip/cell/note is routed to the right container.** Unlike the
+    original (CARD-167) parser, which had exactly one repeating container
+    (``data-guide-step``) and could always write to ``self.steps[-1]``,
+    CARD-201 adds several more (a technique's several rows, a cell state's
+    bare icon, a pipeline step's icon) nested at different depths on the
+    same page. A stack of currently-open containers — pushed when a
+    ``data-guide-*`` container attribute opens, popped when it closes at the
+    matching depth — means a ``.guide-strip``/``.guide-strip-cell``/
+    ``[data-guide-row-note]`` is always routed to whichever container is
+    innermost at that point, however many are nested.
     """
 
+    #: Page-level fields: one value each, captured by the text inside the
+    #: element carrying the marker attribute.
     _FIELDS = {
         "data-guide-title": "title",
         "data-guide-intro": "intro",
+        "data-guide-basic-rule-heading": "basic_rule_heading",
+        "data-guide-basic-rule-text": "basic_rule_text",
+        "data-guide-basic-rule-caption": "basic_rule_caption",
+        "data-guide-cell-states-heading": "cell_states_heading",
+        "data-guide-certainty-heading": "certainty_heading",
+        "data-guide-switching-heading": "switching_heading",
+        "data-guide-switching-text": "switching_text",
+        "data-guide2-title": "guide2_title",
+        "data-guide2-intro": "guide2_intro",
+        "data-guide-assume-heading": "assume_heading",
+        "data-guide-assume-text": "assume_text",
+        "data-guide-assume-closing": "assume_closing",
+        "data-guide-difficulty-heading": "difficulty_heading",
         "data-guide-example-heading": "example_heading",
+        "data-guide-closing-heading": "closing_heading",
         "data-guide-closing": "closing",
+    }
+
+    #: Container markers: attribute -> (list to append a fresh dict to, the
+    #: dict's own shape). Pushed onto ``self._containers`` while open.
+    _CONTAINER_SHAPES = {
+        "data-guide-technique1": lambda: {"heading": None, "caption": None, "rows": []},
+        "data-guide-technique2": lambda: {"heading": None, "caption": None, "rows": []},
+        "data-guide-cell-state": lambda: {"heading": None, "caption": None, "cells": []},
+        "data-guide-pipeline-step": lambda: {"label": None, "icon": None},
+        "data-guide-difficulty": lambda: {"name": None, "text": None},
     }
 
     def __init__(self, page: str):
         super().__init__(convert_charrefs=True)
-        self.title = self.intro = self.example_heading = self.closing = None
+        for field in self._FIELDS.values():
+            setattr(self, field, None)
         self.counts: dict[str, str] = {}
         self.steps: list[dict] = []
+        self.techniques_1: list[dict] = []
+        self.techniques_2: list[dict] = []
+        self.cell_states: list[dict] = []
+        self.pipeline_steps: list[dict] = []
+        self.difficulty: list[dict] = []
         self._chunks: list[str] = []
         self._depth = 0  # element depth inside the guide preview; 0 = outside
         self._capture: list[tuple[int, str, list[str]]] = []
+        #: Stack of (depth it opened at, the container dict, which list it
+        #: lives in: "technique1"/"technique2"/"cell_state"/"pipeline"/"difficulty").
+        self._containers: list[tuple[int, dict, str]] = []
         self.feed(page)
         self.close()
         self.text = " ".join(" ".join(self._chunks).split())
+
+    def _current(self, kind: str | None = None) -> dict | None:
+        """The innermost open container, optionally restricted to ``kind``."""
+        for _, container, container_kind in reversed(self._containers):
+            if kind is None or container_kind == kind:
+                return container
+        return None
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -97,19 +175,80 @@ class GuideCard(HTMLParser):
                 self._depth = 1
             return
         self._depth += 1
+        classes = (attrs.get("class") or "").split()
+
         for marker, field in self._FIELDS.items():
             if marker in attrs:
                 self._capture.append((self._depth, field, []))
         if "data-guide-count" in attrs:
             self._capture.append((self._depth, "count:" + attrs["data-guide-count"], []))
+        if "data-guide-technique-heading" in attrs:
+            self._capture.append((self._depth, "container:heading", []))
+        if "data-guide-technique-caption" in attrs:
+            self._capture.append((self._depth, "container:caption", []))
+        if "data-guide-cell-state-heading" in attrs:
+            self._capture.append((self._depth, "container:heading", []))
+        if "data-guide-cell-state-caption" in attrs:
+            self._capture.append((self._depth, "container:caption", []))
+        if "data-guide-pipeline-label" in attrs:
+            self._capture.append((self._depth, "container:label", []))
+        if "data-guide-difficulty-name" in attrs:
+            self._capture.append((self._depth, "container:name", []))
+        if "data-guide-difficulty-text" in attrs:
+            self._capture.append((self._depth, "container:text", []))
+
+        _TARGET_LISTS = {
+            "step": self.steps,
+            "technique1": self.techniques_1,
+            "technique2": self.techniques_2,
+            "cell_state": self.cell_states,
+            "pipeline": self.pipeline_steps,
+            "difficulty": self.difficulty,
+        }
         if "data-guide-step" in attrs:
-            self.steps.append({"caption": None, "cells": [], "strip": None})
-        if "guide-step-caption" in (attrs.get("class") or "").split():
+            container = {"caption": None, "cells": [], "strip": None}
+            self.steps.append(container)
+            self._containers.append((self._depth, container, "step"))
+        for marker, kind in (
+            ("data-guide-technique1", "technique1"),
+            ("data-guide-technique2", "technique2"),
+            ("data-guide-cell-state", "cell_state"),
+            ("data-guide-pipeline-step", "pipeline"),
+            ("data-guide-difficulty", "difficulty"),
+        ):
+            if marker in attrs:
+                container = self._CONTAINER_SHAPES[marker]()
+                _TARGET_LISTS[kind].append(container)
+                self._containers.append((self._depth, container, kind))
+
+        if "guide-step-caption" in classes and "data-guide-technique-heading" not in attrs:
             self._capture.append((self._depth, "caption", []))
-        if "guide-strip" in (attrs.get("class") or "").split():
-            self.steps[-1]["strip"] = attrs
-        if "guide-strip-cell" in (attrs.get("class") or "").split():
-            self.steps[-1]["cells"].append(attrs.get("data-state"))
+        if "guide-strip" in classes:
+            technique = self._current("technique1") or self._current("technique2")
+            cell_state = self._current("cell_state")
+            step = self._current("step")
+            if technique is not None:
+                technique["rows"].append({"cells": [], "note": None})
+            elif cell_state is not None:
+                pass  # the icon's own cells append straight to cell_state["cells"]
+            elif step is not None:
+                step["strip"] = attrs
+        if "guide-strip-cell" in classes:
+            technique = self._current("technique1") or self._current("technique2")
+            cell_state = self._current("cell_state")
+            step = self._current("step")
+            if technique is not None:
+                technique["rows"][-1]["cells"].append(attrs.get("data-state"))
+            elif cell_state is not None:
+                cell_state["cells"].append(attrs.get("data-state"))
+            elif step is not None:
+                step["cells"].append(attrs.get("data-state"))
+        if "data-guide-row-note" in attrs:
+            self._capture.append((self._depth, "container:row_note", []))
+        if "data-icon" in attrs:
+            pipeline = self._current("pipeline")
+            if pipeline is not None:
+                pipeline["icon"] = attrs["data-icon"]
 
     def handle_endtag(self, tag):
         if self._depth == 0:
@@ -121,8 +260,26 @@ class GuideCard(HTMLParser):
                 self.counts[field[len("count:"):]] = value
             elif field == "caption":
                 self.steps[-1]["caption"] = value
+            elif field == "container:heading":
+                container = self._current("technique1") or self._current("technique2") or self._current("cell_state")
+                container["heading"] = value
+            elif field == "container:caption":
+                container = self._current("technique1") or self._current("technique2") or self._current("cell_state")
+                container["caption"] = value
+            elif field == "container:label":
+                self._current("pipeline")["label"] = value
+            elif field == "container:name":
+                self._current("difficulty")["name"] = value
+            elif field == "container:text":
+                self._current("difficulty")["text"] = value
+            elif field == "container:row_note":
+                technique = self._current("technique1") or self._current("technique2")
+                if technique is not None and technique["rows"]:
+                    technique["rows"][-1]["note"] = value
             else:
                 setattr(self, field, value)
+        while self._containers and self._containers[-1][0] == self._depth:
+            self._containers.pop()
         self._depth -= 1
 
     def handle_data(self, data):
@@ -357,10 +514,11 @@ class TestFinaliseGuidePreview_CountsIntroAndClosing:
         card = GuideCard(page)
         assert card.intro == generator.GUIDE_INTRO
         assert card.closing == generator.GUIDE_CLOSING
-        assert card.intro.startswith("Each number beside a row or above a column")
+        assert card.intro == "Read the clues. Fill what must be black. Mark what must be empty."
         assert card.closing == (
-            "Every puzzle in this book has exactly one solution. "
-            "The answers are at the back of the book."
+            "Every puzzle in this book is checked by the solver before publication. "
+            "There is exactly one solution, and no puzzle that requires guessing is "
+            "included. The answers are at the back of the book."
         )
 
     def test_counts(self, page):
@@ -380,5 +538,132 @@ class TestFinaliseGuidePreview_CountsIntroAndClosing:
         assert "instructions and difficulty summary" not in page
         items = ContentsCard(page).items
         assert items[0] == (
-            "Guide page (how to solve, a worked example, and the difficulty summary)"
+            "Guide (2 pages): how to solve, a worked example, and what the "
+            "difficulty labels mean"
         )
+
+
+# --------------------------------------------------------------------------
+# CARD-201 AC-7 — the 2-page tutorial's new content, read live
+# --------------------------------------------------------------------------
+
+
+class TestFinaliseGuidePreview_ShowsBothPages:
+    """AC-7 — the preview shows page 2's content too, read live from the generator.
+
+    Every one of CARD-201's new constants is checked the same way AC-3
+    checked the original ones: read back structurally (not just "the text
+    appears somewhere"), and proved live (not a copy in ``app.py`` or the
+    template) with the same monkeypatched-sentinel technique.
+    """
+
+    @pytest.fixture
+    def card(self, panel):
+        return GuideCard(panel.shown(panel.book("easy", "easy", "medium", "hard")))
+
+    def test_page_2_title_and_intro(self, card):
+        assert card.guide2_title == generator.GUIDE2_TITLE == "When the Puzzle Gets Harder"
+        assert card.guide2_intro == generator.GUIDE2_INTRO
+
+    def test_page_1_new_headings_and_text(self, card):
+        assert card.basic_rule_heading == generator.GUIDE_BASIC_RULE_HEADING
+        assert card.basic_rule_text == generator.GUIDE_BASIC_RULE_TEXT
+        assert card.basic_rule_caption == generator.GUIDE_BASIC_RULE_CAPTION
+        assert card.cell_states_heading == generator.GUIDE_CELL_STATES_HEADING
+        assert card.certainty_heading == generator.GUIDE_CERTAINTY_HEADING
+        assert card.switching_heading == generator.GUIDE_SWITCHING_HEADING
+        assert card.switching_text == generator.GUIDE_SWITCHING_TEXT
+
+    def test_the_three_cell_states_in_order_with_their_bare_icon(self, card):
+        assert len(card.cell_states) == len(generator.GUIDE_CELL_STATES) == 3
+        for shown, state in zip(card.cell_states, generator.GUIDE_CELL_STATES):
+            assert shown["heading"] == state.heading
+            assert shown["caption"] == state.caption
+            (cell,) = shown["cells"]
+            expected = "filled" if state.filled else ("crossed" if state.crossed else "blank")
+            assert cell == expected, state.heading
+
+    def test_start_with_certainty_techniques_in_order_with_their_rows(self, card):
+        assert len(card.techniques_1) == len(generator.GUIDE_TECHNIQUES_1) == 3
+        for shown, technique in zip(card.techniques_1, generator.GUIDE_TECHNIQUES_1):
+            assert shown["heading"] == technique.heading
+            assert shown["caption"] == technique.caption
+            assert len(shown["rows"]) == len(technique.rows)
+            for shown_row, row in zip(shown["rows"], technique.rows):
+                assert len(shown_row["cells"]) == technique.length
+                for square, state in enumerate(shown_row["cells"]):
+                    expected = (
+                        "filled" if square in row.filled
+                        else "crossed" if square in row.crossed
+                        else "blank"
+                    )
+                    assert state == expected, (technique.heading, square)
+                assert shown_row["note"] == (row.note or None)
+
+    def test_page_2_techniques_in_order_with_their_rows(self, card):
+        assert len(card.techniques_2) == len(generator.GUIDE_TECHNIQUES_2) == 2
+        for shown, technique in zip(card.techniques_2, generator.GUIDE_TECHNIQUES_2):
+            assert shown["heading"] == technique.heading
+            assert shown["caption"] == technique.caption
+            assert len(shown["rows"]) == len(technique.rows)
+            for shown_row, row in zip(shown["rows"], technique.rows):
+                assert len(shown_row["cells"]) == technique.length
+                assert shown_row["note"] == (row.note or None)
+
+    def test_the_assume_pipeline_in_order_with_its_icons(self, card):
+        assert card.assume_heading == generator.GUIDE_ASSUME_HEADING
+        assert card.assume_text == generator.GUIDE_ASSUME_TEXT
+        assert card.assume_closing == generator.GUIDE_ASSUME_CLOSING
+        assert len(card.pipeline_steps) == len(generator.GUIDE_ASSUME_STEPS) == 4
+        for shown, step in zip(card.pipeline_steps, generator.GUIDE_ASSUME_STEPS):
+            assert shown["label"] == step.label
+            assert shown["icon"] == step.icon
+
+    def test_the_difficulty_box_carries_the_three_sentences_verbatim(self, card):
+        assert card.difficulty_heading == generator.GUIDE_DIFFICULTY_HEADING
+        assert len(card.difficulty) == len(generator.GUIDE_DIFFICULTY_LABELS) == 3
+        for shown, label in zip(card.difficulty, generator.GUIDE_DIFFICULTY_LABELS):
+            assert shown["name"] == label.name
+            assert shown["text"] == label.text
+
+    def test_the_difficulty_sentences_appear_nowhere_else_in_contradictory_wording(
+        self, card
+    ):
+        """The stats block elsewhere on this screen shows Easy/Medium/Hard
+        puzzle *counts* (a number), never a sentence describing what the
+        tier means — so there is no second, independently-worded
+        description of the difficulty labels for this one to disagree with.
+        Each of the three sentences this box carries appears in the page
+        exactly once.
+        """
+        for label in generator.GUIDE_DIFFICULTY_LABELS:
+            assert card.text.count(label.text) == 1, label.text
+
+    def test_sentinels_on_the_new_constants_render_live(self, panel, monkeypatch):
+        book_id = panel.book("easy", "easy", "medium", "hard")
+        guide2_title = "SENTINEL-GUIDE2-TITLE-201"
+        difficulty_text = "SENTINEL-DIFFICULTY-TEXT-201"
+        assume_closing = "SENTINEL-ASSUME-CLOSING-201"
+        original_labels = generator.GUIDE_DIFFICULTY_LABELS
+        shipped = (
+            generator.GUIDE2_TITLE,
+            generator.GUIDE_DIFFICULTY_LABELS[0].text,
+            generator.GUIDE_ASSUME_CLOSING,
+        )
+
+        monkeypatch.setattr(generator, "GUIDE2_TITLE", guide2_title)
+        monkeypatch.setattr(
+            generator,
+            "GUIDE_DIFFICULTY_LABELS",
+            (dataclasses.replace(original_labels[0], text=difficulty_text),)
+            + tuple(original_labels[1:]),
+        )
+        monkeypatch.setattr(generator, "GUIDE_ASSUME_CLOSING", assume_closing)
+
+        card = GuideCard(panel.shown(book_id))
+
+        assert card.guide2_title == guide2_title
+        assert card.difficulty[0]["text"] == difficulty_text
+        assert card.assume_closing == assume_closing
+        for text in shipped:
+            assert text not in card.text

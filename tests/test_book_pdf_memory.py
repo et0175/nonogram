@@ -136,7 +136,7 @@ import time
 import tracemalloc
 import warnings
 import weakref
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
@@ -144,7 +144,16 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_answer_key import Answer, PackedAnswerPage, answer_title, plan_small_answer_pages
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    DividerPagePlan,
+    PuzzlePagePlan,
+    _answer_extent,
+    _degrade_infeasible_packed_pages,
+    _pairable_tier,
+)
+from nonogram.export.layout import compute_pair_layout
 from tests.helpers.book_corpus import (
     BASELINE_PAGE_COUNT,
     BASELINE_SHAPE,
@@ -1309,10 +1318,11 @@ class TestBookPdfMemory_PagesAreUnchanged:
         machine_face = set(baseline["font_dependent_pages"])
 
         assert len(now) >= BASELINE_PAGE_COUNT, "the corpus cannot silently shrink"
-        assert machine_face == {1, 2, 4, 6, 8}, (
-            "the fixture names the guide page, the three level dividers and "
-            "the SOLUTIONS divider as the machine-lettered pages; if that "
-            "changed, the baseline's font_dependent_pages must be re-derived"
+        assert machine_face == {1, 2, 3, 5, 7, 9}, (
+            "the fixture names both guide pages (CARD-201), the three level "
+            "dividers and the SOLUTIONS divider as the machine-lettered "
+            "pages; if that changed, the baseline's font_dependent_pages "
+            "must be re-derived"
         )
 
         compared = 0
@@ -1374,70 +1384,73 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert len(exported_bytes) == baseline["interior_bytes"]
 
     def test_the_corpus_covers_every_page_kind_the_interior_has(self, exported):
-        """The evidence's own premise: twelve pages, one of every kind.
+        """The evidence's own premise: thirteen pages, one of every kind.
 
-        A baseline of twelve identical blank pages would pass the comparison
-        above and prove nothing — but so would twelve *distinct* pages of the
-        wrong kinds. Dropping a divider for a fifth answer page keeps them
-        all distinct while the baseline silently stops covering the divider.
-        So each kind is identified positively, and distinctness is kept beside
-        it. The book prints grouped easy, medium, hard (INV-009, CARD-128), so
-        the kinds run:
+        A baseline of thirteen identical blank pages would pass the
+        comparison above and prove nothing — but so would thirteen *distinct*
+        pages of the wrong kinds. Dropping a divider for a fifth answer page
+        keeps them all distinct while the baseline silently stops covering
+        the divider. So each kind is identified positively, and distinctness
+        is kept beside it. The book prints grouped easy, medium, hard
+        (INV-009, CARD-128), so the kinds run:
 
-        * pages 1 and 8 are the guide page and the SOLUTIONS divider, and
-          pages 2, 4 and 6 the "Easy", "Medium" and "Hard" level dividers —
-          each compared against the page the generator draws for it;
-        * page 3 is the two-up page (FR-040), the book's two easy 10x10s:
+        * pages 1 and 2 are the guide's own two pages (CARD-201), page 9 the
+          SOLUTIONS divider, and pages 3, 5 and 7 the "Easy", "Medium" and
+          "Hard" level dividers — each compared against the page the
+          generator draws for it;
+        * page 4 is the two-up page (FR-040), the book's two easy 10x10s:
           each half of it carries its own complete 10x10 grid, which no
           single-puzzle page can do;
-        * pages 5 and 7 are single-puzzle pages, and the 15x15 medium and the
+        * pages 6 and 8 are single-puzzle pages, and the 15x15 medium and the
           30x30 hard the baseline book declares are **read back off their
           ink** (``drawing_of``), not asked of the layout — in that order,
           because the levels print in that order;
-        * pages 9-11 are answer pages (CARD-202: Duck and Owl, both small
-          enough to pack, share packed page 9; Tree, the only qualifying
-          answer in its level, packs alone onto page 10; Snowflake, too large
-          to qualify, still gets CARD-198's own full page 11) — each carries
+        * pages 10-12 are answer pages (CARD-201's guide growth shifts the
+          section by one; CARD-202: Duck and Owl, both small enough to pack,
+          share packed page 10; Tree, the only qualifying answer in its
+          level, packs alone onto page 11; Snowflake, too large to qualify,
+          still gets CARD-198's own full page 12) — each carries
           solid blocks of ink a filled cell wide, which no blank puzzle page or
-          divider has anywhere on it (the guide page has, since CARD-167:
-          its worked example).
+          divider has anywhere on it (the guide pages have, since CARD-167/
+          CARD-201: the worked example and the other line diagrams).
         """
         assert len(exported) == BASELINE_PAGE_COUNT
         generator = BookPDFGenerator(corpus_book())
 
-        assert same_page(exported[0], generator.create_guide_page(4, 2, 1, 1))
-        assert same_page(exported[7], generator.create_divider_page(8))
-        for number, level in ((2, "Easy"), (4, "Medium"), (6, "Hard")):
+        assert same_page(exported[0], generator.create_guide_page(4, 2, 1, 1, page_number=1))
+        assert same_page(exported[1], generator.create_guide_page(4, 2, 1, 1, page_number=2))
+        assert same_page(exported[8], generator.create_divider_page(9))
+        for number, level in ((3, "Easy"), (5, "Medium"), (7, "Hard")):
             assert same_page(
                 exported[number - 1], generator.create_divider_page(number, level)
             ), f"interior page {number} should be the {level!r} level divider"
 
-        for number, side in ((5, 15), (7, 30)):
+        for number, side in ((6, 15), (8, 30)):
             drawing = drawing_of(exported[number - 1])
             assert (drawing.columns, drawing.rows) == (side, side), (
                 f"interior page {number} should be the book's {side}x{side} "
                 "puzzle printed alone"
             )
 
-        two_up = exported[2]
+        two_up = exported[3]
         upper = two_up.crop((0, 0, two_up.width, two_up.height // 2))
         lower = two_up.crop((0, two_up.height // 2, two_up.width, two_up.height))
         for half, drawing in (("upper", drawing_of(upper)), ("lower", drawing_of(lower))):
             assert (drawing.columns, drawing.rows) == (10, 10), (
-                f"the {half} half of interior page 3 should carry one of the "
+                f"the {half} half of interior page 4 should carry one of the "
                 "two 10x10 puzzles the two-up page pairs"
             )
 
-        for number in (9, 10, 11):
+        for number in (10, 11, 12):
             assert solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} should be an answer page, whose "
                 "filled cells are solid blocks of ink"
             )
-        # Not page 1: since CARD-167 the guide page's worked example draws
-        # filled squares too. It is identified positively above, as the page
-        # the generator draws for the guide, so it cannot pass for an answer
-        # page here.
-        for number in (2, 3, 4, 5, 6, 7, 8):
+        # Not pages 1-2: since CARD-167/CARD-201 the guide's own worked
+        # example and line diagrams draw filled squares too. They are
+        # identified positively above, as the pages the generator draws for
+        # the guide, so they cannot pass for an answer page here.
+        for number in (3, 4, 5, 6, 7, 8, 9):
             assert not solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} carries filled cells — it is an "
                 "answer page, and the baseline no longer covers its kind"
@@ -1457,6 +1470,230 @@ class TestBookPdfMemory_PagesAreUnchanged:
         page.putpixel((7, 9), (0, 0, 0))
 
         assert page_digests([page]) != before
+
+
+# --------------------------------------------------------------------------
+# CARD-201 AC-6 — every page after the guide, shifted by one, unchanged
+# --------------------------------------------------------------------------
+
+
+def _ink_bbox_crop(image: Image.Image) -> Image.Image:
+    """``image`` cropped tight to its own ink's bounding box.
+
+    Used to compare two pages of the same content at two different interior
+    positions: a book page's margins are mirrored by parity (ADR-0036), so
+    the same content drawn one page later (the opposite parity) sits at a
+    different *absolute* pixel offset — cropping to each page's own ink
+    bounding box first cancels that known, legitimate shift out, leaving
+    only whether the content itself agrees.
+    """
+    mask = np.asarray(image.convert("L")) < INK_LEVEL
+    rows = np.flatnonzero(mask.any(axis=1))
+    cols = np.flatnonzero(mask.any(axis=0))
+    return image.crop((int(cols[0]), int(rows[0]), int(cols[-1]) + 1, int(rows[-1]) + 1))
+
+
+#: How many pixels an ink bounding box's own measured edge may differ by
+#: between two parities before :func:`_matches_shifted_content` treats it as
+#: a real size disagreement rather than the bbox measurement's own rounding.
+_BBOX_SLACK_PX = 2
+
+
+def _matches_shifted_content(a: Image.Image, b: Image.Image) -> bool:
+    """Whether two ink-bbox-cropped pages carry the same content.
+
+    **Not** ``tests.helpers.pdf_pages.same_page``: that helper's ink-overlap
+    check downsamples by 6 before comparing (fast, and tuned for telling a
+    mostly-white page from another one, or a colour encode from a grayscale
+    one of the *same* drawing at the *same* position). A blank puzzle page's
+    own ink is almost entirely thin rules — one or two pixels wide — so a
+    1 px rounding difference between two parities (measured while building
+    this card: ``_two_up_page``'s and ``solved_puzzle_page``'s rules sit at
+    most 1 px off between a page and the same content redrawn at the
+    opposite parity) falls on a *different* side of a downsampling block
+    often enough to read as a large chunk of disagreement at 6x reduction,
+    even though the full-resolution pixel agreement is in fact above 99%.
+
+    So this compares at full resolution instead: the mean absolute grey
+    difference (same statistic ``same_page`` itself uses, just not
+    downsampled) and the share of pixels whose difference exceeds half the
+    ink threshold — both measured, on this card's own genuinely-matching
+    pages, at a small fraction of the thresholds below; a changed clue, a
+    missing fill or a relabelled band moves either figure by an order of
+    magnitude, which is what :meth:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne.test_the_comparison_has_teeth`
+    pins.
+
+    The two crops' sizes can themselves differ by a pixel: the ink bounding
+    box's own edge is one more rounded measurement, taken independently on
+    each page, so the box a page's content fills can come out a pixel wider
+    or taller at the opposite parity even though nothing inside it moved by
+    more than that. Within :data:`_BBOX_SLACK_PX` this compares the
+    top-left-aligned overlap of the two (the only region both can hold an
+    opinion about); past it, the crops disagree about something bigger than
+    rounding and the sizes are left to differ in the failure message.
+    """
+    if abs(a.width - b.width) > _BBOX_SLACK_PX or abs(a.height - b.height) > _BBOX_SLACK_PX:
+        return False
+    width, height = min(a.width, b.width), min(a.height, b.height)
+    grey_a = np.asarray(a.crop((0, 0, width, height)).convert("L"), dtype=np.int16)
+    grey_b = np.asarray(b.crop((0, 0, width, height)).convert("L"), dtype=np.int16)
+    diff = np.abs(grey_a - grey_b)
+    return float(diff.mean()) < 8.0 and float((diff > 50).mean()) < 0.03
+
+
+class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
+    """AC-6 (G-2) — every page from the first puzzle/divider page onward
+    keeps the same content it had before CARD-201; only its page number
+    shifts by one.
+
+    **Why this is not a byte-for-byte digest comparison against a pre-card
+    fixture, unlike :class:`TestBookPdfMemory_PagesAreUnchanged` above.**
+    Inserting the guide's second page flips the parity (recto/verso) of
+    every page after it — an unavoidable fact of pagination, not a
+    regression — and COMP-007 mirrors a book page's margins by parity
+    (ADR-0036/the "Mirrored margins" clarification): the gutter and outside
+    margins swap sides, so the same content's absolute ink position shifts
+    sideways by (gutter - outside) and a handful of ruled lines round to a
+    different pixel at the new, opposite parity. A sha256 of the raw bitmap
+    would differ for that reason alone on *every* page, which is not what
+    G-2 claims ("the same content... only its page number shifts") and
+    would fail this test on the one thing it is not about — verified
+    empirically while building this card: ``_blank_page`` at interior page 2
+    and at interior page 3 for the same payload differ by thousands of
+    pixels (the margin shift alone), even though neither function was
+    touched (G-2).
+
+    So instead: for each page from the first puzzle/divider page onward,
+    this builds a "reference" page by calling the SAME, unedited drawing
+    function (``_blank_page`` / ``_two_up_page`` / ``create_divider_page`` /
+    ``solved_puzzle_page`` — G-2 forbids editing any of them) at the page
+    number this content held *before* CARD-201 (one less than its real,
+    exported position), and compares it against the real exported page —
+    each cropped to its own ink's bounding box (:func:`_ink_bbox_crop`, which
+    cancels the legitimate parity-mirrored margin shift out) and compared
+    with :func:`_matches_shifted_content` (a full-resolution mean-difference
+    comparison, not ``same_page``'s downsampled ink-overlap one — see that
+    function's own docstring for why a blank puzzle page's thin rules need
+    the distinction) rather than an exact digest. A changed clue, a wrong
+    fill, a missing frame or a relabelled band would all still fail this
+    comparison; only the documented margin shift and its sub-pixel rounding
+    are tolerated.
+    """
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def generator(cls) -> BookPDFGenerator:
+        return BookPDFGenerator(corpus_book())
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def plan(cls, generator):
+        return generator.section_plan(baseline_puzzles())
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def exported(cls, generator, plan):
+        return pdf_pages(export_of(generator, baseline_puzzles()))
+
+    def _reference(self, generator, plan, entry):
+        """The unedited drawing function's own output at ``entry``'s pre-CARD-201 page number."""
+        old_number = entry.page_number - 1
+        if isinstance(entry, DividerPagePlan):
+            return generator.create_divider_page(old_number, entry.text)
+        payloads = [plan.payloads[number - 1] for number in entry.numbers]
+        if entry.pair is None:
+            (payload,) = payloads
+            return generator._blank_page(payload, entry.numbers[0], old_number)
+        old_pair = compute_pair_layout(
+            (payloads[0].row_clues, payloads[0].column_clues),
+            (payloads[1].row_clues, payloads[1].column_clues),
+            generator.page_spec(old_number),
+        )
+        old_entry = replace(entry, page_number=old_number, pair=old_pair)
+        return generator._two_up_page(old_entry, payloads)
+
+    def test_every_puzzle_or_divider_page_matches_its_pre_card_content(
+        self, generator, plan, exported
+    ):
+        checked = 0
+        for entry in plan.pages:
+            new_page = exported[entry.page_number - 1]
+            reference = self._reference(generator, plan, entry)
+            assert _matches_shifted_content(_ink_bbox_crop(new_page), _ink_bbox_crop(reference)), (
+                f"interior page {entry.page_number} does not match the content "
+                f"its pre-CARD-201 position ({entry.page_number - 1}) held"
+            )
+            checked += 1
+        assert checked == len(plan.pages) >= 5, checked
+
+    def test_the_solutions_divider_matches_its_pre_card_content(self, generator, plan, exported):
+        # first_answer_page = 1 + GUIDE_PAGE_COUNT + len(section) + 1
+        # (book_pdf_generator.interior_stream); this divider is one page
+        # before it.
+        new_number = 1 + 2 + len(plan.pages)
+        reference = generator.create_divider_page(new_number - 1, "SOLUTIONS")
+        assert _matches_shifted_content(
+            _ink_bbox_crop(exported[new_number - 1]), _ink_bbox_crop(reference)
+        )
+
+    def test_every_answer_page_matches_its_pre_card_content(self, generator, plan, exported):
+        """CARD-202 note: an answer page is packed-or-full, not always full.
+
+        Before CARD-202, every answer printed on a full page of its own, so
+        the pre-CARD-201 reference for each one was a direct
+        ``solved_puzzle_page`` call. CARD-202 packs small, same-tier answers
+        2-or-4 to a page instead, so the reference must be built through
+        whichever drawing function the real export actually used for that
+        page — this reruns the same production walk ``interior_stream``
+        itself runs (``plan_small_answer_pages``, then the same feasibility
+        degrade pass) to find out which kind each page is, rather than
+        assuming a full page and comparing the wrong drawing to the right
+        one.
+        """
+        first_answer_page = 1 + 2 + len(plan.pages) + 1
+        titles = generator.custom_titles()
+        payloads = list(zip(plan.ids, plan.payloads))
+
+        answers = []
+        for index, (_, payload) in enumerate(payloads):
+            number = index + 1
+            width, height = _answer_extent(payload, number)
+            answers.append(
+                Answer(number=number, width=width, height=height, level=_pairable_tier(payload))
+            )
+        answer_plan = _degrade_infeasible_packed_pages(
+            plan_small_answer_pages(answers), payloads, generator.page_spec(first_answer_page)
+        )
+
+        checked = 0
+        for index, entry in enumerate(answer_plan):
+            new_number = first_answer_page + index
+            old_number = new_number - 1
+            if isinstance(entry, PackedAnswerPage):
+                reference = generator._packed_answer_page(entry, payloads, old_number, titles)
+            else:
+                puzzle_id, payload = payloads[entry.number - 1]
+                title = answer_title(titles.get(str(puzzle_id)), payload.name)
+                reference = generator.solved_puzzle_page(payload, entry.number, old_number, title=title)
+            assert _matches_shifted_content(
+                _ink_bbox_crop(exported[new_number - 1]), _ink_bbox_crop(reference)
+            ), f"answer page {new_number} does not match its pre-CARD-201 content"
+            checked += 1
+        assert checked == len(answer_plan) == 3, checked
+
+    def test_the_comparison_has_teeth(self, generator):
+        """Control: a genuinely different puzzle fails this same comparison."""
+        plan = generator.section_plan(baseline_puzzles())
+        entry = next(e for e in plan.pages if isinstance(e, PuzzlePagePlan) and e.pair is None)
+        payload = plan.payloads[entry.numbers[0] - 1]
+        real = generator._blank_page(payload, entry.numbers[0], entry.page_number - 1)
+        other_payload = next(
+            plan.payloads[e.numbers[0] - 1]
+            for e in plan.pages
+            if isinstance(e, PuzzlePagePlan) and e.pair is None and e is not entry
+        )
+        other = generator._blank_page(other_payload, entry.numbers[0], entry.page_number - 1)
+        assert not _matches_shifted_content(_ink_bbox_crop(real), _ink_bbox_crop(other))
 
 
 # --------------------------------------------------------------------------
@@ -1596,22 +1833,24 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         assert export.pages_saved == 2
 
     def test_parity_still_counts_from_interior_page_1(self, export):
-        """The guide page is right-hand, and the two single-puzzle pages are not.
+        """The guide's page 1 is right-hand, and the two single-puzzle pages are not.
 
-        Parity counts from interior page 1 — the guide page, which is
-        right-hand — and the cover file is never numbered (FR-043, INV-013,
-        G-2). On Book 1 the binding-side gutter is 0.5 in and the outside
-        margin 0.375 in, so a right-hand page's usable area starts 150 px from
-        the left and a left-hand page's 112.5 px, and a drawing centred across
-        that area sits 18.75 px right of the trim's middle on a right-hand
-        page and 18.75 px left of it on a left-hand one.
+        Parity counts from interior page 1 — the guide's own first page,
+        which is right-hand — and the cover file is never numbered (FR-043,
+        INV-013, G-2). On Book 1 the binding-side gutter is 0.5 in and the
+        outside margin 0.375 in, so a right-hand page's usable area starts
+        150 px from the left and a left-hand page's 112.5 px, and a drawing
+        centred across that area sits 18.75 px right of the trim's middle on
+        a right-hand page and 18.75 px left of it on a left-hand one.
 
-        The baseline book's two single-puzzle pages are interior 5 and
-        interior 7 since CARD-128 gave each of its three levels a divider
-        page, both **odd**, so both must sit right of the middle. That is the
-        measurement that would break if the cover ever rejoined the interior's
-        numbering: every interior page's parity would flip, and these two
-        would land 18.75 px to the *left* instead.
+        **CARD-201 note (SCOPE+): this moved.** The baseline book's two
+        single-puzzle pages are interior 6 and interior 8 now (up from 5 and
+        7 before this card — the guide's own second page shifts everything
+        after it by one), both **even**, so both must sit *left* of the
+        middle — the opposite of their pre-CARD-201 parity. That is still
+        the measurement that would break if the cover ever rejoined the
+        interior's numbering: every interior page's parity would flip again,
+        and these two would land 18.75 px to the *right* instead.
 
         Measured off the ink alone: the drawing's own edges — its clue
         gutter's outer edge and its grid's right border — never
@@ -1620,20 +1859,30 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         interior = pdf_pages(export.interior.getvalue())
         middle = interior[0].width / 2
 
-        for number in (5, 7):
+        for number in (6, 8):
             drawing = drawing_of(interior[number - 1])
             offset = (drawing.left + drawing.grid_right) / 2 - middle
-            assert 12 < offset < 25, (
+            assert -25 < offset < -12, (
                 f"interior page {number} is centred {offset:.1f} px off the "
-                "middle; a right-hand page is about +18.75"
+                "middle; a left-hand page is about -18.75"
             )
 
         # And page 1 itself: the guide page's text starts at the gutter
         # margin, 150 px in, not at the 112.5 px outside margin a left-hand
         # page would give it.
+        #
+        # **CARD-201 note (SCOPE+): the lower bound widened.** Page 1's own
+        # leftmost ink is now a diagram's frame (the basic-rule line or a
+        # cell-state icon), not a letter — every framed drawing on this book
+        # bleeds up to half a heavy rule past its own nominal edge by design
+        # (``_stroke_drawing``'s own docstring; this suite's other guide-page
+        # tests tolerate the same bleed as ``FRAME_BLEED_PX`` in
+        # ``tests/test_book_guide_page_type.py``), which a letter's ink never
+        # did. Measured at this book's own rule widths: 6 px short of 150,
+        # comfortably inside a 10 px allowance.
         ink = np.asarray(interior[0].convert("L")) < 128
         leftmost = int(np.where(ink.any(axis=0))[0].min())
-        assert 145 < leftmost < 160, leftmost
+        assert 139 < leftmost < 160, leftmost
 
 
 # --------------------------------------------------------------------------
@@ -1652,7 +1901,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
     measured.
     """
 
-    def test_a_page_that_fails_at_page_9_of_11_hands_the_caller_nothing(self):
+    def test_a_page_that_fails_at_page_10_of_12_hands_the_caller_nothing(self):
         """Eight pages were already in the buffer, and no file came out.
 
         The mechanism is that the buffer is a local of ``_write_pdf`` and is
@@ -1694,13 +1943,13 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
             BookPDFGenerator._packed_answer_page = packed_answer_page
 
         assert "could not be drawn" in str(raised.value)
-        # Guide, three level dividers, the two-up page, two single-puzzle
-        # pages and the SOLUTIONS divider: eight pages of a planned eleven
-        # were bytes in the buffer already (CARD-202: the baseline book's
-        # answer section is now 3 packed-or-full pages, not CARD-198's 4, but
-        # the first one — where this failure lands — is still the ninth page
-        # either way).
-        assert written == [1] * 8, written
+        # The 2-page guide (CARD-201), three level dividers, the two-up
+        # page, two single-puzzle pages and the SOLUTIONS divider: nine
+        # pages of a planned twelve were bytes in the buffer already
+        # (CARD-202: the baseline book's answer section is now 3
+        # packed-or-full pages, not CARD-198's 4, but the first one — where
+        # this failure lands — is still the tenth page either way).
+        assert written == [1] * 9, written
 
     def test_a_producer_that_yields_too_few_pages_never_reaches_the_trailer(self):
         """A short stream would leave the page tree pointing at nothing."""

@@ -11,23 +11,24 @@ Two corpora, for two different questions:
 
 :func:`baseline_puzzles` is the **small, complete** book — four puzzles that
 between them make the interior hold one of every page kind the generator can
-produce: the guide page, a level divider (TERM-031, CARD-128), a
+produce: the guide (CARD-201: 2 pages), a level divider (TERM-031, CARD-128), a
 single-puzzle page, a two-up page (FR-040), the SOLUTIONS divider and the
 answer section (FR-042). Since CARD-202 three of its puzzles (Duck, Owl,
 Tree) qualify for packing (width<=15, height<=20) and pack onto two pages
 (Duck+Owl 2-up, Tree alone 2-up), while the fourth (Snowflake, 30x30) still
 gets CARD-198's own full page — three answer pages, not the four pages
 CARD-198 alone would have drawn, and not the three pages the pre-CARD-198
-packed key drew either (one per *level*, a different three). Eleven interior
-pages in all, still every one of them a different kind of drawing. That is
+packed key drew either (one per *level*, a different three). Twelve interior
+pages in all (CARD-201: up from eleven — the guide's second page), still
+every one of them a different kind of drawing. That is
 the book :data:`BASELINE_FIXTURE` records, and the one AC-3 compares page for
 page.
 
 :func:`corpus_puzzles` is the **large** book — a seeded corpus of 150 puzzles
 (no ``hypothesis``: stdlib ``random.Random``, per CLAUDE.md), grouped by tier
 the way INV-009 groups a real book, each one too large for two-up pairing to
-shorten the interior. Since CARD-198 it yields a roughly 305-page interior:
-1 guide + 3 level dividers + 150 puzzle pages + the SOLUTIONS divider + 150
+shorten the interior. Since CARD-201 it yields a roughly 306-page interior:
+2 guide + 3 level dividers + 150 puzzle pages + the SOLUTIONS divider + 150
 answer pages — one per puzzle, where the former packed key took only 27. That
 is the "150-page book" AC-1 and AC-2 talk about, and it is a real export —
 the page count is never faked.
@@ -148,21 +149,44 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   byte-identical to CARD-198's recording (G-1, G-2); `font_dependent_pages`
 #:   is unchanged (1, 2, 4, 6, 8 — the answer section is never machine-lettered).
 #:
+#: * ``book_baseline_card201.json`` — CARD-201 grows the guide from one page
+#:   to two (the full "how to solve" tutorial, FR-041's own deferred clause):
+#:   every page from the first puzzle/divider page onward (interior page 1
+#:   onward in CARD-202's eleven-page recording above) moves one page later,
+#:   so the interior grows from CARD-202's eleven pages to **twelve** — not
+#:   thirteen: CARD-201 only shifts *where* the puzzle/divider/answer section
+#:   starts, it does not touch CARD-202's own packing decision, which still
+#:   holds Duck+Owl and Tree to two packed answer pages and Snowflake to one
+#:   full page (three answer pages, now at interior pages 10-12 instead of
+#:   9-11). This is the one recording in the chain whose ``changed_pages``
+#:   cannot be "the pages that moved" in the byte sense every predecessor's
+#:   can: a page inserted before the puzzle section flips every later page's
+#:   parity (recto/verso), and COMP-007 mirrors a book page's margins by
+#:   parity (ADR-0036), so no later page is byte-identical to its pre-card
+#:   self even though its *content* — which puzzle, which tier, which clues,
+#:   which fill — is unchanged (G-2). See ``tests/test_book_pdf_memory.py``'s
+#:   ``TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne``
+#:   for how AC-6 is verified instead: by content, cropped to each page's own
+#:   ink (position-invariant to the parity-mirrored margin), not by raw bytes.
+#:   ``font_dependent_pages`` grows from five pages to six: both guide pages
+#:   are machine-lettered now, not only the first.
+#:
 #: All ten files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card202.json"
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card201.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
 #: CARD-198 took the packed answer key (three pages, one per level) to one
-#: full solved page per puzzle (twelve); CARD-202 packs Duck+Owl and Tier
-#: back onto two pages instead of three, back down to eleven.
-BASELINE_PAGE_COUNT = 11
+#: full solved page per puzzle (twelve); CARD-202 packed Duck+Owl and Tree
+#: back onto two pages instead of three, back down to eleven; CARD-201 then
+#: grew the guide from one page to two, back up to twelve.
+BASELINE_PAGE_COUNT = 12
 
 #: How many puzzles the large corpus holds, and the interior that follows:
-#: 1 guide + 3 level dividers + 150 puzzle pages + SOLUTIONS + 150 answer
-#: pages (CARD-198: one per puzzle, where the packed key took 27).
+#: 2 guide (CARD-201) + 3 level dividers + 150 puzzle pages + SOLUTIONS + 150
+#: answer pages (CARD-198: one per puzzle, where the packed key took 27).
 CORPUS_PUZZLE_COUNT = 150
-CORPUS_PAGE_COUNT = 1 + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
+CORPUS_PAGE_COUNT = 2 + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
 
 
 def _cm(millimetres: float) -> str:

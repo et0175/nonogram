@@ -106,10 +106,11 @@ from nonogram.export.layout import compute_pair_layout
 from tests.helpers.pdf_pages import pdf_pages
 from tests.helpers.two_up_ink import drawings_of
 
-#: The interior's first page is the guide page (INV-013), so the puzzle section
-#: — the first level's divider page — starts at 2. Written out rather than
-#: imported: it is the number the screen's labels are checked against.
-FIRST_SECTION_PAGE = 2
+#: The interior's first pages are the 2-page guide (INV-013, CARD-201), so the
+#: puzzle section — the first level's divider page — starts at 3 (up from 2
+#: before this card). Written out rather than imported: it is the number the
+#: screen's labels are checked against.
+FIRST_SECTION_PAGE = 3
 
 
 # --------------------------------------------------------------------------
@@ -447,8 +448,8 @@ class TestArrangeBreaks_BigPuzzlesAreOnePerPage:
 
         pages, dividers = shown_plan(panel.arrange(book_id))
 
-        assert dividers == {"easy": 2}, dividers
-        assert pages == {1: 3, 2: 4, 3: 5, 4: 6, 5: 7}, pages
+        assert dividers == {"easy": 3}, dividers
+        assert pages == {1: 4, 2: 5, 3: 6, 4: 7, 5: 8}, pages
         assert len(set(pages.values())) == 5, "a 30x30 has a page to itself"
 
     def test_the_screen_and_the_book_agree_that_nothing_pairs(self, panel) -> None:
@@ -468,10 +469,10 @@ class TestArrangeBreaks_BigPuzzlesAreOnePerPage:
         labels = shown_labels(panel.arrange(book_id))
 
         assert labels == [
-            "page 2 · Hard divider page",
-            "page 3",
+            "page 3 · Hard divider page",
             "page 4",
             "page 5",
+            "page 6",
         ], labels
 
 
@@ -492,11 +493,11 @@ class TestArrangeBreaks_PairedNeighboursShareAPage:
         markup = panel.arrange(book_id)
         pages, dividers = shown_plan(markup)
 
-        assert dividers == {"easy": 2}
-        assert pages == {1: 3, 2: 3}, "both puzzles print on interior page 3"
+        assert dividers == {"easy": 3}
+        assert pages == {1: 4, 2: 4}, "both puzzles print on interior page 4"
         assert shown_labels(markup) == [
-            "page 2 · Easy divider page",
-            "page 3 · two puzzles",
+            "page 3 · Easy divider page",
+            "page 4 · two puzzles",
         ], "one label for the shared page, and it says the page is shared"
         assert (pages, dividers) == planned_by_hand(book, rows)
         assert (pages, dividers) == generated_plan(book, rows)
@@ -523,7 +524,7 @@ class TestArrangeBreaks_PairedNeighboursShareAPage:
 
         pages, _dividers = shown_plan(panel.arrange(book_id))
 
-        assert pages == {1: 3, 2: 3, 3: 4}, pages
+        assert pages == {1: 4, 2: 4, 3: 5}, pages
 
     def test_two_neighbours_of_different_tiers_do_not_share(self, panel) -> None:
         """INV-010 is untouched: equal tiers only, whatever the screen shows."""
@@ -534,8 +535,8 @@ class TestArrangeBreaks_PairedNeighboursShareAPage:
 
         pages, dividers = shown_plan(panel.arrange(book_id))
 
-        assert dividers == {"easy": 2, "medium": 4}
-        assert pages == {1: 3, 2: 5}, pages
+        assert dividers == {"easy": 3, "medium": 5}
+        assert pages == {1: 4, 2: 6}, pages
 
 
 # --------------------------------------------------------------------------
@@ -563,8 +564,8 @@ class TestArrangeBreaks_NumbersMatchTheGeneratedInterior:
         pages, dividers = shown_plan(panel.arrange(book_id))
         printed = pdf_pages(panel.interior_pdf(book_id))
 
-        assert pages == {1: 3, 2: 3, 3: 5}, pages
-        assert dividers == {"easy": 2, "hard": 4}, dividers
+        assert pages == {1: 4, 2: 4, 3: 6}, pages
+        assert dividers == {"easy": 3, "hard": 5}, dividers
         assert len(printed) >= max(pages.values()), (
             f"the screen names page {max(pages.values())} of a {len(printed)}-page interior"
         )
@@ -859,15 +860,15 @@ class TestArrangeBreaks_LevelStartsANewPage:
         pages, dividers = shown_plan(markup)
 
         assert shown_labels(markup) == [
-            "page 2 · Easy divider page",
-            "page 3",
-            "page 4 · Medium divider page",
-            "page 5",
-            "page 6 · Hard divider page",
-            "page 7",
+            "page 3 · Easy divider page",
+            "page 4",
+            "page 5 · Medium divider page",
+            "page 6",
+            "page 7 · Hard divider page",
+            "page 8",
         ], "the book runs easy, medium, hard and each level opens a page of its own"
-        assert dividers == {"easy": 2, "medium": 4, "hard": 6}
-        assert pages == {1: 3, 2: 5, 3: 7}
+        assert dividers == {"easy": 3, "medium": 5, "hard": 7}
+        assert pages == {1: 4, 2: 6, 3: 8}
         for level, divider_page in dividers.items():
             first = min(page for number, page in pages.items() if page > divider_page)
             assert first == divider_page + 1, (
@@ -953,7 +954,7 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         markup = panel.arrange(book_id)
 
         assert 'id="page-plan-unavailable"' not in markup
-        assert shown_labels(markup) == ["page 2 · Easy divider page", "page 3"]
+        assert shown_labels(markup) == ["page 3 · Easy divider page", "page 4"]
 
     def test_the_declared_failure_is_logged_as_a_warning(self, panel, caplog) -> None:
         """A stored trim that is not a sheet is the book's fault, not a bug."""
@@ -1032,16 +1033,16 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         pages, dividers = shown_plan(markup)
 
         assert shown_orders(markup) == [1, 2, 3], "the dropped row is still listed"
-        assert shown_rows(markup) == [3, None, 4], (
+        assert shown_rows(markup) == [4, None, 5], (
             "the row the book cannot print carries no page, and the row after it "
             "keeps the page the plan gives it"
         )
-        assert dividers == {"easy": 2}
-        assert pages == {1: 3, 2: 4}, pages
+        assert dividers == {"easy": 3}
+        assert pages == {1: 4, 2: 5}, pages
         assert (pages, dividers) == planned_by_hand(book, drawable)
         assert (pages, dividers) == generated_plan(book, panel.rows_of(book_id))
         assert shown_labels(markup) == [
-            "page 2 · Easy divider page",
-            "page 3",
+            "page 3 · Easy divider page",
             "page 4",
+            "page 5",
         ], "two printable puzzles, two pages, and no label for the third row"

@@ -341,6 +341,65 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .guide-strip-cell[data-state="crossed"]::before { transform: rotate(45deg); }
 .guide-strip-cell[data-state="crossed"]::after { transform: rotate(-45deg); }
 
+/* ---------- Guide page preview, page 2 (CARD-201) ---------- */
+/* A plain section label ("Page 1" / "Page 2") separating the two printed
+   pages inside the one scrollable preview card — not printed, a preview-only
+   orientation aid. */
+.guide-page-heading { margin: 0 0 var(--space-2); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.04em; }
+.guide-preview hr { margin: var(--space-5) 0; border-color: var(--color-border); }
+/* The short line under a diagram (the basic rule's "3 2 1 means...", a
+   technique row's "certain"/"compare", the assume pipeline's italic closing)
+   — same small, muted treatment the printed page sets it in body type at,
+   distinguished only by position, matching this book's own convention of
+   using no bold/italic iconography beyond the source content's own. */
+.guide-diagram-caption { margin: var(--space-1) 0 var(--space-3); color: var(--color-text-secondary); }
+.guide-preview .guide-techniques { list-style: none; padding-left: 0; }
+.guide-technique + .guide-technique { margin-top: var(--space-3); }
+.guide-technique .guide-strip + .guide-strip { margin-top: 1px; }
+/* The three cell-state rows: one bare cell (CARD-201's `guide_icon_layout`)
+   beside its name and gloss, reusing the worked example's own strip tokens
+   at a single cell rather than a new icon language. */
+.guide-cell-states { list-style: none; padding-left: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.guide-cell-state { display: flex; align-items: center; gap: var(--space-3); }
+/* The "assume, and watch it break" pipeline: four bordered boxes and an
+   arrow between them, the same plain-ink, no-new-colour treatment the
+   printed page's `_draw_pipeline_diagram` draws (G-5). */
+.guide-pipeline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; }
+.guide-pipeline-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--grid-ink); border-radius: var(--radius-control); background: var(--grid-paper); }
+/* Review cycle 3, F-22 (gating): `.guide-pipeline-step` is itself a column
+   flexbox, so a `::before` attached to it becomes that box's own FIRST flex
+   child -- stacked above the step's label, inside the box, not a connector
+   between two boxes. Taken out of flex flow with `position: absolute` and
+   centred, via `translate(-50%, -50%)`, on the midpoint of the `gap` the
+   row container (`.guide-pipeline`) already places between two steps
+   (`left: calc(var(--space-2) / -2)` sits the arrow's own centre half a gap
+   to the left of this step's own left edge, which is the gap's midpoint
+   regardless of the arrow glyph's own rendered width) -- the same
+   `position: relative` anchor every other `::before`/`::after` pair in this
+   file already uses (`.guide-pipeline-icon[data-icon="cross"]`). */
+.guide-pipeline-step + .guide-pipeline-step::before {
+  content: "\2192";
+  position: absolute;
+  left: calc(var(--space-2) / -2);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--grid-ink);
+}
+.guide-pipeline-icon { width: 1rem; height: 1rem; position: relative; }
+.guide-pipeline-icon[data-icon="square"] { background: var(--grid-ink); }
+.guide-pipeline-icon[data-icon="cross"]::before, .guide-pipeline-icon[data-icon="cross"]::after { content: ""; position: absolute; inset: 0; margin: auto; width: 100%; height: var(--border-width); background: var(--grid-ink); top: 50%; }
+.guide-pipeline-icon[data-icon="cross"]::before { transform: rotate(45deg); }
+.guide-pipeline-icon[data-icon="cross"]::after { transform: rotate(-45deg); }
+.guide-pipeline-icon[data-icon="dots"]::before { content: "..."; }
+.guide-pipeline-icon[data-icon="bang"]::before { content: "!"; }
+/* "What the difficulty labels mean": a plain bordered box, three columns —
+   the source PDF's grey highlight box rendered in this book's own ink/paper
+   tones (G-5: no new grey), the same border weight `.guide-preview` already
+   uses for its own outer card. */
+.guide-difficulty-box { display: flex; flex-wrap: wrap; gap: var(--space-4); border: var(--border-width) solid var(--grid-ink); border-radius: var(--radius-control); padding: var(--space-3) var(--space-4); margin: var(--space-2) 0; }
+.guide-difficulty-column { flex: 1 1 10rem; }
+.guide-difficulty-column p { margin: var(--space-1) 0 0; }
+
 /* ---------- Puzzle detail modal ---------- */
 .puzzle-detail-modal { display: none; position: fixed; inset: 0; z-index: 1050; background: rgb(28 35 51 / 0.45); }
 .puzzle-detail-modal.is-open { display: block; }

@@ -356,10 +356,11 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
     """The interior's page count with every puzzle on a page of its own.
 
     The page count :class:`~nonogram.admin.book_pdf_generator.InteriorStream`
-    reports as ``unpaired_page_count`` — one guide page, one divider per
-    non-empty named level, one page per puzzle, the SOLUTIONS divider and one
-    full solved answer page per puzzle (FR-042, CARD-198) — computed from the
-    book's rows **without a sheet**.
+    reports as ``unpaired_page_count`` — the guide pages (CARD-201's 2-page
+    "how to solve" tutorial, :data:`~nonogram.admin.book_pdf_generator.GUIDE_PAGE_COUNT`),
+    one divider per non-empty named level, one page per puzzle, the SOLUTIONS
+    divider and one full solved answer page per puzzle (FR-042, CARD-198) —
+    computed from the book's rows **without a sheet**.
 
     It exists for one case, and it is the case the check would otherwise have
     no answer for: a book whose stored print specification cannot be laid out
@@ -370,7 +371,7 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
     the refusal is certain and only the wording needs a number. Two-up pairing
     is the only term of the interior's make-up that needs a sheet
     (:func:`~nonogram.export.layout.compute_pair_layout` fits the shared cell
-    on the page); the guide page, the level dividers, the SOLUTIONS divider
+    on the page); the guide pages, the level dividers, the SOLUTIONS divider
     and the one-per-puzzle answer section do not, so all of those are the
     book's real ones here and only the pairing term is replaced by its upper
     bound, one page per puzzle.

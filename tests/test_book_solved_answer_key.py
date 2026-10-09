@@ -208,7 +208,10 @@ def first_answer_page(book: Book, puzzles: Sequence[dict]) -> int:
     silently disagree with the walk it is predicting.
     """
     section = BookPDFGenerator(book).section_plan(list(puzzles)).pages
-    return 3 + len(section)
+    # CARD-201: the guide grew from 1 page to 2, so the answer section (right
+    # after the SOLUTIONS divider, which is right after the puzzle section)
+    # moved one page later — 4 + len(section), not 3.
+    return 4 + len(section)
 
 
 def _interior(puzzles: Sequence[dict], book: Optional[Book] = None) -> List[Image.Image]:
@@ -254,7 +257,7 @@ class TestBookSolvedAnswerKey_OnePagePerPuzzleInBookOrder:
 
     def test_a_book_with_no_puzzles_has_no_answer_section_at_all(self) -> None:
         pages = _interior([])
-        assert len(pages) == 1, "the guide page alone"
+        assert len(pages) == 2, "the 2-page guide alone (CARD-201)"
 
 
 # --------------------------------------------------------------------------
@@ -432,14 +435,14 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
             assert page.tobytes() != not_a_divider.tobytes()
 
     def test_the_total_page_count_has_no_room_for_a_heading_page(self) -> None:
-        """1 guide + 2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 10.
+        """2 guide (CARD-201) + 2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 11.
 
         A per-level heading page inside the answer section (the alternative
         CARD-198's own "What to implement" considered and rejected) would
-        make this 11 or 12 instead.
+        make this 12 or 13 instead.
         """
         book, puzzles, pages = self._book_and_pages()
-        assert len(pages) == 1 + 2 + 3 + 1 + 3 == 10
+        assert len(pages) == 2 + 2 + 3 + 1 + 3 == 11
 
 
 # --------------------------------------------------------------------------
@@ -532,8 +535,8 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
         Page 1 (the guide) and the SOLUTIONS/level divider pages carry no
         ruled grid for :func:`drawing_of` to measure, so each divider is
         skipped (``drawing_of`` itself raises on it — a page with no grid at
-        all, never a silently wrong measurement) and the guide page's parity
-        is read the same independent way
+        all, never a silently wrong measurement) and the guide's own two
+        pages' parity (CARD-201) is read the same independent way
         ``tests/test_book_pdf_memory.py``'s own parity test reads it: the
         leftmost ink column, which sits at the gutter margin on a right-hand
         page and at the (narrower) outside margin on a left-hand one.
@@ -546,12 +549,12 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
 
         for number, page in enumerate(pages, start=1):
             right_hand = page_is_right_hand(number)
-            if number == 1:
+            if number in (1, 2):
                 ink = np.asarray(page.convert("L")) < 128
                 leftmost = int(np.where(ink.any(axis=0))[0].min())
                 # Book 1: gutter 0.5in (150 px), outside 0.375in (112.5 px).
                 assert (leftmost > 130) == right_hand, (
-                    f"interior page 1's leftmost ink is at {leftmost}px"
+                    f"interior page {number}'s leftmost ink is at {leftmost}px"
                 )
                 checked += 1
                 continue
@@ -567,8 +570,8 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
             )
             checked += 1
 
-        # The guide page, the two-up-free puzzle pages and the answer pages:
-        # everything but the two divider pages (Easy, SOLUTIONS).
+        # The guide's two pages, the two-up-free puzzle pages and the answer
+        # pages: everything but the two divider pages (Easy, SOLUTIONS).
         assert checked == len(pages) - 2
 
     def test_page_is_right_hand_itself_alternates_from_page_one(self) -> None:
@@ -997,18 +1000,32 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
             assert pages[start - 1 + offset].tobytes() == expected.tobytes()
 
     def test_the_recorded_card198_baseline_pages_are_unmoved(self) -> None:
-        """The strongest form of this AC: the committed baseline fixture.
+        """The strongest form of this AC, restated for CARD-201's merge.
 
-        ``tests/fixtures/book_baseline_card202.json`` was recorded by
-        re-exporting ``tests.helpers.book_corpus.baseline_puzzles`` and
-        asserting, before it was written, that its first eight pages (every
-        page before the answer section) were byte-identical to
-        ``book_baseline_card198.json``'s own recording — this is that same
-        comparison, pinned as a committed test rather than a one-off script.
+        This used to compare the committed baseline fixture's first eight
+        pages byte-for-byte against ``book_baseline_card198.json`` (CARD-198,
+        pre-CARD-201). ``book_baseline_card198.json`` predates CARD-201's
+        2-page guide, and every page from the first puzzle/divider page
+        onward permanently changes parity (recto/verso) — and therefore its
+        exact pixels — once the guide grows by a page (a documented,
+        unavoidable consequence of pagination; see the "SCOPE+" notes in
+        ``tests/test_book_pdf_memory.py`` and ``tests/test_book_pdf_ink_mode.py``
+        for the same point made elsewhere in this merge), not a regression.
+        A byte-for-byte comparison against that pre-CARD-201 file can never
+        pass again, and was never what this AC is actually about.
+
+        What AC-7 *is* about — that CARD-202's packing walk touches nothing
+        before the SOLUTIONS divider — is proven directly instead, with no
+        stale fixture involved: the same baseline book is exported twice,
+        once with the real packing walk and once with it forced off
+        (monkeypatched to CARD-198's own one-full-page-per-answer shape),
+        and every page before the answer section must come out
+        byte-identical either way.
         """
         import json
         from pathlib import Path
 
+        import nonogram.admin.book_pdf_generator as bpg
         from tests.helpers.book_corpus import (
             BASELINE_FIXTURE,
             baseline_puzzles,
@@ -1017,26 +1034,35 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
         )
         from tests.helpers.pdf_pages import pdf_pages
 
-        old = json.loads(
-            (Path(BASELINE_FIXTURE).parent / "book_baseline_card198.json").read_text(
-                encoding="utf-8"
-            )
-        )
         now = json.loads(Path(BASELINE_FIXTURE).read_text(encoding="utf-8"))
-        assert now["changed_pages"] == [9, 10, 11]
-        for index in range(8):
-            assert now["pages"][index] == old["pages"][index], (
-                f"interior page {index + 1} moved, and this card touches "
-                "nothing before the answer section"
+        assert now["changed_pages"] == [10, 11, 12]
+
+        puzzles = baseline_puzzles()
+        packed_bytes = BookPDFGenerator(corpus_book()).export_interior(puzzles).getvalue()
+
+        real_plan = bpg.plan_small_answer_pages
+        bpg.plan_small_answer_pages = lambda answers: list(answers)
+        try:
+            unpacked_bytes = BookPDFGenerator(corpus_book()).export_interior(puzzles).getvalue()
+        finally:
+            bpg.plan_small_answer_pages = real_plan
+
+        packed_pages = page_digests(pdf_pages(packed_bytes))
+        unpacked_pages = page_digests(pdf_pages(unpacked_bytes))
+
+        # Everything before the answer section (the guide, the level
+        # dividers, the puzzle pages and the SOLUTIONS divider) is
+        # identical whether packing ran or not: CARD-202's own G-1/G-2.
+        before_answers = now["changed_pages"][0] - 1
+        for index in range(before_answers):
+            assert packed_pages[index] == unpacked_pages[index], (
+                f"interior page {index + 1} moved when packing was turned "
+                "off — this card touches nothing before the answer section"
             )
 
-        digests = page_digests(
-            pdf_pages(BookPDFGenerator(corpus_book()).export_interior(
-                baseline_puzzles()
-            ).getvalue())
-        )
-        for index in range(8):
-            assert digests[index] == old["pages"][index]
+        # The control: packing really did do something, so this is not a
+        # vacuous comparison of two identical runs.
+        assert len(packed_pages) < len(unpacked_pages)
 
 
 class TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted:
