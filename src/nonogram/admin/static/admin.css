@@ -365,8 +365,26 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    arrow between them, the same plain-ink, no-new-colour treatment the
    printed page's `_draw_pipeline_diagram` draws (G-5). */
 .guide-pipeline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) 0; }
-.guide-pipeline-step { display: flex; flex-direction: column; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--grid-ink); border-radius: var(--radius-control); background: var(--grid-paper); }
-.guide-pipeline-step + .guide-pipeline-step::before { content: "\2192"; margin-right: var(--space-2); color: var(--grid-ink); }
+.guide-pipeline-step { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: var(--border-width) solid var(--grid-ink); border-radius: var(--radius-control); background: var(--grid-paper); }
+/* Review cycle 3, F-22 (gating): `.guide-pipeline-step` is itself a column
+   flexbox, so a `::before` attached to it becomes that box's own FIRST flex
+   child -- stacked above the step's label, inside the box, not a connector
+   between two boxes. Taken out of flex flow with `position: absolute` and
+   centred, via `translate(-50%, -50%)`, on the midpoint of the `gap` the
+   row container (`.guide-pipeline`) already places between two steps
+   (`left: calc(var(--space-2) / -2)` sits the arrow's own centre half a gap
+   to the left of this step's own left edge, which is the gap's midpoint
+   regardless of the arrow glyph's own rendered width) -- the same
+   `position: relative` anchor every other `::before`/`::after` pair in this
+   file already uses (`.guide-pipeline-icon[data-icon="cross"]`). */
+.guide-pipeline-step + .guide-pipeline-step::before {
+  content: "\2192";
+  position: absolute;
+  left: calc(var(--space-2) / -2);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--grid-ink);
+}
 .guide-pipeline-icon { width: 1rem; height: 1rem; position: relative; }
 .guide-pipeline-icon[data-icon="square"] { background: var(--grid-ink); }
 .guide-pipeline-icon[data-icon="cross"]::before, .guide-pipeline-icon[data-icon="cross"]::after { content: ""; position: absolute; inset: 0; margin: auto; width: 100%; height: var(--border-width); background: var(--grid-ink); top: 50%; }
