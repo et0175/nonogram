@@ -1460,3 +1460,36 @@ evidence), and the Finalise screen's live preview
   F-20/F-21/F-22).
 - [Review] forge:review cycle 4 started (background agent `@code-review`,
   owner-approved extra confirmation cycle over F-20/F-21/F-22's fixes).
+- [Review 4/4 — FINAL] F-20, F-21 (including the owner-approved,
+  corrected-scope documented exception) and F-22 all independently
+  re-verified to hold: direct test execution of every related file, plus
+  3 independent finder angles (cross-file call-site tracing, reuse/
+  simplification/efficiency/altitude, CLAUDE.md conventions) all clean.
+  The extensive page-count/parity ripple across ~15 test files was
+  verified consistent throughout. One Minor, non-gating finding: a test
+  docstring (`tests/test_book_guide_page_type.py:1072`,
+  `test_no_two_lines_ink_runs_together`) named stale/made-up heading text
+  ("How to read a clue" / "What a cell can be" / "Switching techniques")
+  instead of the real shipped constants
+  (`GUIDE_BASIC_RULE_HEADING`/`GUIDE_CELL_STATES_HEADING`/
+  `GUIDE_SWITCHING_HEADING`). Fixed directly (docstring-only, no logic
+  change; commit `d197964`), 17/17 tests in the file still pass.
+  **Verdict: cycle 4 meets the bar.** No gating findings. Proceeding to
+  the AC/EC/G verification gate.
+- [AC/EC/G check] All 8 ACs (AC-1..AC-8) have dedicated, named tests with
+  fresh pass evidence recorded across the implementation pass and all 3
+  fix cycles above — re-confirmed still accurate by the final gate's 6742
+  passed. No "## Engineering constraints" section exists on this card
+  (none applies). All 7 guardrails (G-1..G-7) hold, each with fresh
+  evidence: G-1 via AC-8's pixel-identity test (unaffected by F-1's
+  correction to a DIFFERENT worked example); G-2/G-6 via AC-5's parity
+  test plus every SCOPE+ page-position-ripple fix across 4 cycles, none
+  of which touched `interior_page_count`'s other terms or any
+  puzzle/two-up/divider/answer-page drawing function; G-3 confirmed —
+  `export/**` was never touched by this card at any point (that is
+  CARD-202's own, separate domain); G-4 via AC-4 plus F-4's own
+  negative-control fix (cycle 1) proving the type-floor check has teeth
+  against bordered boxes; G-5 via `tests/test_book_pdf_ink_mode.py`
+  passing unchanged throughout every cycle (F-22's fix is Finalise-preview
+  CSS only, no PDF ink path); G-7 via AC-7 plus F-22's confirmation that no
+  new constant was duplicated into `app.py`/the template. Gate passes.
