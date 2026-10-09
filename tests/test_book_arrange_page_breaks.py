@@ -95,6 +95,7 @@ from dataclasses import replace
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
+from PIL import ImageFont
 
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.image_manager as image_manager_module
@@ -102,15 +103,58 @@ from nonogram import clues as clues_module
 from nonogram.admin.book_manager import BookManager
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.difficulty import Tier, tier_of_record
-from nonogram.export.layout import compute_pair_layout
+from nonogram.export.layout import DPI, compute_layout, compute_pair_layout
 from tests.helpers.pdf_pages import pdf_pages
 from tests.helpers.two_up_ink import drawings_of
 
-#: The interior's first pages are the 2-page guide (INV-013, CARD-201), so the
-#: puzzle section — the first level's divider page — starts at 3 (up from 2
-#: before this card). Written out rather than imported: it is the number the
-#: screen's labels are checked against.
-FIRST_SECTION_PAGE = 3
+#: The interior's first pages are the 2-page guide (INV-013, CARD-201). Since
+#: CARD-200 the table of contents follows it, so the puzzle section — the
+#: first level's divider page — starts one page later still, at
+#: :func:`first_section_page` rather than a literal: how many TOC pages a
+#: book of this many drawable puzzles takes depends on its own trim, not a
+#: fixed constant any more.
+GUIDE_PAGES = 2
+
+
+def first_section_page(book, puzzle_count: int) -> int:
+    """Where the puzzle section starts: 1 + the guide + the TOC (CARD-200).
+
+    An independent reimplementation of ``book_pdf_generator``'s own
+    ``_toc_entries_per_page``/``_toc_page_count`` — the same "authorities on
+    geometry" (:func:`~nonogram.admin.book_page_spec.book_page_spec`,
+    :func:`~nonogram.export.layout.compute_layout`) this file's own
+    :func:`planned_by_hand` already reads directly, plus Pillow's own font
+    metrics for the same two faces/sizes ``book_pdf_generator`` sets its TOC
+    title and entries in (CARD-149's own point-to-pixel conversion) — not
+    imported from the module under test, so the comparison stays two answers
+    rather than one answer read twice.
+    """
+    if puzzle_count <= 0:
+        return 1 + GUIDE_PAGES
+    spec = book_page_spec(book, 1)
+    layout = compute_layout(((1,),), ((1,),), spec)
+    placement = layout.page
+    usable_height = placement.usable_bottom - placement.usable_top
+
+    def px(points: float) -> int:
+        return round(points * DPI / 72.0)
+
+    def face(size: int):
+        try:
+            return ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
+        except OSError:
+            try:
+                return ImageFont.load_default(size)
+            except TypeError:  # pragma: no cover - Pillow < 10.1
+                return ImageFont.load_default()
+
+    title_ascent, title_descent = face(px(22.0)).getmetrics()  # GUIDE_TITLE_PT
+    title_space = title_ascent + title_descent + px(36.0)  # GUIDE_TITLE_GAP_PT
+    entry_ascent, entry_descent = face(px(10.0)).getmetrics()  # TOC_ENTRY_PT
+    entry_height = entry_ascent + entry_descent + px(4.0)  # TOC_ENTRY_GAP_PT
+    per_page = max(1, (usable_height - title_space) // entry_height)
+    toc_pages = -(-puzzle_count // per_page)
+    return 1 + GUIDE_PAGES + toc_pages
 
 
 # --------------------------------------------------------------------------
@@ -380,7 +424,7 @@ def planned_by_hand(
 
     pages: Dict[int, int] = {}
     dividers: Dict[str, int] = {}
-    page = FIRST_SECTION_PAGE
+    page = first_section_page(book, len(ordered))
     index = 0
     while index < len(ordered):
         level = tiers[index]
@@ -448,8 +492,10 @@ class TestArrangeBreaks_BigPuzzlesAreOnePerPage:
 
         pages, dividers = shown_plan(panel.arrange(book_id))
 
-        assert dividers == {"easy": 3}, dividers
-        assert pages == {1: 4, 2: 5, 3: 6, 4: 7, 5: 8}, pages
+        # CARD-200: +1 on every page number below — the TOC's own page,
+        # ahead of the puzzle section.
+        assert dividers == {"easy": 4}, dividers
+        assert pages == {1: 5, 2: 6, 3: 7, 4: 8, 5: 9}, pages
         assert len(set(pages.values())) == 5, "a 30x30 has a page to itself"
 
     def test_the_screen_and_the_book_agree_that_nothing_pairs(self, panel) -> None:
@@ -468,11 +514,12 @@ class TestArrangeBreaks_BigPuzzlesAreOnePerPage:
 
         labels = shown_labels(panel.arrange(book_id))
 
+        # CARD-200: +1 on every page number below — the TOC's own page.
         assert labels == [
-            "page 3 · Hard divider page",
-            "page 4",
+            "page 4 · Hard divider page",
             "page 5",
             "page 6",
+            "page 7",
         ], labels
 
 
@@ -493,11 +540,12 @@ class TestArrangeBreaks_PairedNeighboursShareAPage:
         markup = panel.arrange(book_id)
         pages, dividers = shown_plan(markup)
 
-        assert dividers == {"easy": 3}
-        assert pages == {1: 4, 2: 4}, "both puzzles print on interior page 4"
+        # CARD-200: +1 on every page number below — the TOC's own page.
+        assert dividers == {"easy": 4}
+        assert pages == {1: 5, 2: 5}, "both puzzles print on interior page 5"
         assert shown_labels(markup) == [
-            "page 3 · Easy divider page",
-            "page 4 · two puzzles",
+            "page 4 · Easy divider page",
+            "page 5 · two puzzles",
         ], "one label for the shared page, and it says the page is shared"
         assert (pages, dividers) == planned_by_hand(book, rows)
         assert (pages, dividers) == generated_plan(book, rows)
@@ -524,7 +572,8 @@ class TestArrangeBreaks_PairedNeighboursShareAPage:
 
         pages, _dividers = shown_plan(panel.arrange(book_id))
 
-        assert pages == {1: 4, 2: 4, 3: 5}, pages
+        # CARD-200: +1 on every page number — the TOC's own page.
+        assert pages == {1: 5, 2: 5, 3: 6}, pages
 
     def test_two_neighbours_of_different_tiers_do_not_share(self, panel) -> None:
         """INV-010 is untouched: equal tiers only, whatever the screen shows."""
@@ -535,8 +584,9 @@ class TestArrangeBreaks_PairedNeighboursShareAPage:
 
         pages, dividers = shown_plan(panel.arrange(book_id))
 
-        assert dividers == {"easy": 3, "medium": 5}
-        assert pages == {1: 4, 2: 6}, pages
+        # CARD-200: +1 on every page number — the TOC's own page.
+        assert dividers == {"easy": 4, "medium": 6}
+        assert pages == {1: 5, 2: 7}, pages
 
 
 # --------------------------------------------------------------------------
@@ -564,8 +614,9 @@ class TestArrangeBreaks_NumbersMatchTheGeneratedInterior:
         pages, dividers = shown_plan(panel.arrange(book_id))
         printed = pdf_pages(panel.interior_pdf(book_id))
 
-        assert pages == {1: 4, 2: 4, 3: 6}, pages
-        assert dividers == {"easy": 3, "hard": 5}, dividers
+        # CARD-200: +1 on every page number — the TOC's own page.
+        assert pages == {1: 5, 2: 5, 3: 7}, pages
+        assert dividers == {"easy": 4, "hard": 6}, dividers
         assert len(printed) >= max(pages.values()), (
             f"the screen names page {max(pages.values())} of a {len(printed)}-page interior"
         )
@@ -597,7 +648,7 @@ class TestArrangeBreaks_NumbersMatchTheGeneratedInterior:
         printed = pdf_pages(panel.interior_pdf(book_id))
 
         last_puzzle_page = max(pages.values())
-        assert min(dividers.values()) == FIRST_SECTION_PAGE
+        assert min(dividers.values()) == first_section_page(panel.book(book_id), 2)
         assert len(printed) > last_puzzle_page, (
             "the SOLUTIONS divider and the answer key follow the puzzle pages"
         )
@@ -859,16 +910,17 @@ class TestArrangeBreaks_LevelStartsANewPage:
         markup = panel.arrange(book_id)
         pages, dividers = shown_plan(markup)
 
+        # CARD-200: +1 on every page number below — the TOC's own page.
         assert shown_labels(markup) == [
-            "page 3 · Easy divider page",
-            "page 4",
-            "page 5 · Medium divider page",
-            "page 6",
-            "page 7 · Hard divider page",
-            "page 8",
+            "page 4 · Easy divider page",
+            "page 5",
+            "page 6 · Medium divider page",
+            "page 7",
+            "page 8 · Hard divider page",
+            "page 9",
         ], "the book runs easy, medium, hard and each level opens a page of its own"
-        assert dividers == {"easy": 3, "medium": 5, "hard": 7}
-        assert pages == {1: 4, 2: 6, 3: 8}
+        assert dividers == {"easy": 4, "medium": 6, "hard": 8}
+        assert pages == {1: 5, 2: 7, 3: 9}
         for level, divider_page in dividers.items():
             first = min(page for number, page in pages.items() if page > divider_page)
             assert first == divider_page + 1, (
@@ -954,7 +1006,8 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         markup = panel.arrange(book_id)
 
         assert 'id="page-plan-unavailable"' not in markup
-        assert shown_labels(markup) == ["page 3 · Easy divider page", "page 4"]
+        # CARD-200: +1 on every page number — the TOC's own page.
+        assert shown_labels(markup) == ["page 4 · Easy divider page", "page 5"]
 
     def test_the_declared_failure_is_logged_as_a_warning(self, panel, caplog) -> None:
         """A stored trim that is not a sheet is the book's fault, not a bug."""
@@ -1033,16 +1086,17 @@ class TestArrangeBreaks_WhenThereIsNoPlanToShow:
         pages, dividers = shown_plan(markup)
 
         assert shown_orders(markup) == [1, 2, 3], "the dropped row is still listed"
-        assert shown_rows(markup) == [4, None, 5], (
+        # CARD-200: +1 on every page number below — the TOC's own page.
+        assert shown_rows(markup) == [5, None, 6], (
             "the row the book cannot print carries no page, and the row after it "
             "keeps the page the plan gives it"
         )
-        assert dividers == {"easy": 3}
-        assert pages == {1: 4, 2: 5}, pages
+        assert dividers == {"easy": 4}
+        assert pages == {1: 5, 2: 6}, pages
         assert (pages, dividers) == planned_by_hand(book, drawable)
         assert (pages, dividers) == generated_plan(book, panel.rows_of(book_id))
         assert shown_labels(markup) == [
-            "page 3 · Easy divider page",
-            "page 4",
+            "page 4 · Easy divider page",
             "page 5",
+            "page 6",
         ], "two printable puzzles, two pages, and no label for the third row"

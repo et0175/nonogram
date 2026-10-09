@@ -364,7 +364,11 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         monkeypatch.setattr(BookPDFGenerator, "_write_page", write_page_and_compare)
         export_of(generator, baseline_puzzles())
 
-        assert checked == BASELINE_PAGE_COUNT == 12, f"only {checked} pages compared"
+        # CARD-200: BASELINE_PAGE_COUNT is now 13 (the guide's own twelve,
+        # plus the one-page table of contents inserted after it) — the
+        # literal beside it is kept, as before, so the corpus's own length
+        # cannot silently drift even if the import is ever swapped out.
+        assert checked == BASELINE_PAGE_COUNT == 13, f"only {checked} pages compared"
 
     def test_the_two_files_hold_the_same_marks_page_for_page(self, baseline_exports):
         """And the same after the encode: the two files decode to one ink.

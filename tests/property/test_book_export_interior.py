@@ -330,11 +330,13 @@ def _as_the_interior_prints_them(case):
     )
 
 
-def _section_plan(puzzles):
+def _section_plan(puzzles, toc_pages=1):
     """The puzzle section: ``(page number, the puzzles on it)`` per page.
 
-    Interior pages 1-2 are the guide (CARD-201's 2-page tutorial), and then
-    each non-empty **named** level opens with a divider page of its own
+    Interior pages 1-2 are the guide (CARD-201's 2-page tutorial), then
+    ``toc_pages`` pages of table of contents (CARD-200 — this module's own
+    cases never hold enough puzzles to need more than the default one), and
+    then each non-empty **named** level opens with a divider page of its own
     (TERM-031, CARD-128) followed by that level's pages as
     :func:`_puzzle_page_plan` walks them. A run of puzzles whose stored tier
     is no level at all opens no divider — there is no name to print on one —
@@ -343,7 +345,7 @@ def _section_plan(puzzles):
     Returns the puzzle pages only; the dividers are counted by their absence
     from the numbering (:func:`_divider_pages`).
     """
-    pages, page_number = [], 3
+    pages, page_number = [], 3 + toc_pages
     index = 0
     while index < len(puzzles):
         level = _LEVEL.get(str(puzzles[index]["difficulty_tier"]).lower())
@@ -564,10 +566,23 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # packed to a page (CARD-202, :func:`_expected_answer_pages`).
         printed = _as_the_interior_prints_them(case)
         plan = _puzzle_page_plan(printed)
-        section = _section_plan(printed)
+        # CARD-200: the table of contents, one page, between the guide and
+        # the puzzle section — only when there is a puzzle to list, the same
+        # "only when there are puzzles" guard the SOLUTIONS divider and the
+        # answer section already have. Always exactly one page here: every
+        # case this module generates holds at most 4 puzzles (`_random_case`),
+        # far under what one TOC page holds on this module's own Book 1
+        # profile trim (`TRIM_PX`) — not re-derived from the font metrics
+        # `book_pdf_generator._toc_entries_per_page` measures, the one place
+        # in this file an independent reimplementation would just be that
+        # same Pillow measurement a second time.
+        expected_toc = 1 if n else 0
+        section = _section_plan(printed, toc_pages=expected_toc)
         dividers = _divider_pages(printed)
         expected_answers = _expected_answer_pages(printed)
-        expected_count = 2 + dividers + len(plan) + (expected_answers + 1 if n else 0)
+        expected_count = (
+            2 + expected_toc + dividers + len(plan) + (expected_answers + 1 if n else 0)
+        )
         assert len(interior) == expected_count, label
         assert pdf_page_count(interior_bytes) == expected_count, label
         if reported is not None:
@@ -593,7 +608,11 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             # own walks: the same interior with every puzzle on a page of its
             # own (FR-040), and CARD-202's own packed-or-full answer count.
             assert answer_pages == expected_answers, label
-            assert unpaired == 2 + dividers + n + (n + 1 if n else 0), label
+            # CARD-200: the TOC's own term is unchanged by pairing/packing,
+            # so it is part of the unpaired baseline too (the same
+            # `toc_pages=toc_page_count` passed to every one of
+            # `interior_stream`'s own `interior_page_count` calls).
+            assert unpaired == 2 + expected_toc + dividers + n + (n + 1 if n else 0), label
             assert unpaired >= page_count, label
             seen["finalise count"] += 1
             seen[
@@ -663,8 +682,12 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         #
         # CARD-201 grows the guide to two pages, which shifts this section's
         # own start by one (4, not 3 — the same +1 ``expected_count`` above
-        # applies).
-        answer_page_number = 4 + dividers + len(plan)
+        # applies). CARD-200 shifts it once more by the TOC's own length
+        # (``expected_toc``, already computed above for ``expected_count``) —
+        # one more front-matter section between the guide and the puzzle
+        # section, the same term every other page position in this test
+        # already carries.
+        answer_page_number = 4 + expected_toc + dividers + len(plan)
         for kind, group in _answer_section_plan(printed):
             page = interior[answer_page_number - 1]
             right_hand = page_is_right_hand(answer_page_number)

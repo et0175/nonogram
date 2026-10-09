@@ -171,22 +171,50 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``font_dependent_pages`` grows from five pages to six: both guide pages
 #:   are machine-lettered now, not only the first.
 #:
-#: All ten files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card201.json"
+#: * ``book_baseline_card200.json`` — CARD-200 inserts a 1-page table of
+#:   contents (this book's four puzzles fit Book 1's own TOC capacity with
+#:   room to spare) between the guide and the puzzle section, and adds a
+#:   bottom-outer-corner page-number folio to every interior page but the
+#:   cover. Every page's digest moves: pages 1-2 gain only the new folio,
+#:   page 3 is entirely new (the TOC), and every page from 4 onward both
+#:   shifts by the TOC's one page (another parity flip, the same kind
+#:   CARD-201's own recording already explains) and gains the new folio.
+#:   The interior grows from CARD-201's twelve pages to **thirteen**.
+#:   ``font_dependent_pages`` grows from six pages to seven: the TOC page
+#:   (3) is machine-lettered too (its title and every entry set through
+#:   ``_guide_face``, the same Arial-or-fallback path the guide and divider
+#:   pages already use) — the folio itself is not font-dependent (it reuses
+#:   ``_band_font``, the packaged DejaVu Sans, exactly as the answer caption
+#:   does). See ``tests/test_book_pdf_memory.py``'s
+#:   ``TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged`` for the
+#:   narrower "nothing but the footer band moved" claim, verified by
+#:   content rather than by this whole-page digest.
+#:
+#: All eleven files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card200.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
 #: CARD-198 took the packed answer key (three pages, one per level) to one
 #: full solved page per puzzle (twelve); CARD-202 packed Duck+Owl and Tree
 #: back onto two pages instead of three, back down to eleven; CARD-201 then
-#: grew the guide from one page to two, back up to twelve.
-BASELINE_PAGE_COUNT = 12
+#: grew the guide from one page to two, back up to twelve; CARD-200 then
+#: inserts a 1-page table of contents (this book's four puzzles fit Book 1's
+#: own trim's TOC capacity with room to spare) immediately after the guide,
+#: up to **thirteen**.
+BASELINE_PAGE_COUNT = 13
 
 #: How many puzzles the large corpus holds, and the interior that follows:
-#: 2 guide (CARD-201) + 3 level dividers + 150 puzzle pages + SOLUTIONS + 150
-#: answer pages (CARD-198: one per puzzle, where the packed key took 27).
+#: 2 guide (CARD-201) + 4 TOC pages (CARD-200: 150 entries at Book 1's own
+#: ~43-entries-per-page capacity, measured off
+#: ``book_pdf_generator._toc_entries_per_page`` rather than guessed) + 3
+#: level dividers + 150 puzzle pages + SOLUTIONS + 150 answer pages
+#: (CARD-198: one per puzzle, where the packed key took 27).
 CORPUS_PUZZLE_COUNT = 150
-CORPUS_PAGE_COUNT = 2 + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
+CORPUS_TOC_PAGE_COUNT = 4
+CORPUS_PAGE_COUNT = (
+    2 + CORPUS_TOC_PAGE_COUNT + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
+)
 
 
 def _cm(millimetres: float) -> str:
@@ -362,6 +390,10 @@ def page_digests(pages: Sequence[Image.Image]) -> List[Dict[str, Any]]:
 #: * ``create_guide_page`` — ``title_font``, size **92**
 #: * ``create_guide_page`` — ``text_font``, size **46**
 #: * ``create_divider_page`` — ``divider_font``, size **60**
+#: * ``create_toc_page`` (CARD-200) — ``entry_font``, size **42**: its own
+#:   ``title_font`` is the same 92 the guide's title already covers
+#:   (``TOC_ENTRY_PT`` 10 pt converted the same way, ``type_px(10, 300)``);
+#:   the entries are the one new size the TOC adds.
 #:
 #: The divider's 60 is an integer literal at its call site. The guide page's
 #: two are no longer literals: CARD-149 states that page's type in points
@@ -388,7 +420,8 @@ def page_digests(pages: Sequence[Image.Image]) -> List[Dict[str, Any]]:
 #: deliberately, so this tuple and ``book_baseline_card149.json``'s
 #: ``font_fingerprint`` moved together, in the same commit, with the machine
 #: first shown to reproduce CARD-144's recorded fingerprint at the old sizes.
-MACHINE_FACE_SIZES = (92, 46, 60)
+#: CARD-200 adds **42** (the TOC's own entry size) the same way.
+MACHINE_FACE_SIZES = (92, 46, 60, 42)
 
 
 def font_fingerprint() -> str:

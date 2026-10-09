@@ -33,8 +33,8 @@ TRIM_PX = (2550, 3300)
 BOOK_TITLE = "Winter Pictures"
 
 
-def _interior_pages(puzzle_count, answer_pages, levels=1):
-    """The interior's page count: guide, levels, puzzles, divider, the key.
+def _interior_pages(puzzle_count, answer_pages, levels=1, toc_pages=1):
+    """The interior's page count: guide, TOC, levels, puzzles, divider, the key.
 
     FR-043's make-up with every variable term named rather than left as
     literals. ``levels`` is how many divider pages the puzzle section opens —
@@ -49,14 +49,22 @@ def _interior_pages(puzzle_count, answer_pages, levels=1):
     ``answer_pages`` is how many pages the answer section takes (CARD-198:
     one full solved page per puzzle, no packing) — named at the call site
     for what it is now, not derived from a packing walk. A book with no
-    puzzles has no divider and no answer section at all.
+    puzzles has no divider, no TOC and no answer section at all.
 
     The guide's own term is **2** (CARD-201's 2-page "how to solve" tutorial,
-    up from 1 before this card) in both branches.
+    up from 1 before this card) in both branches. ``toc_pages`` (CARD-200)
+    defaults to **1**: every book this module writes is a Book 1 profile
+    (8.5 x 11 in) book of 1, 3 or 7 puzzles, and a TOC page on that trim
+    holds far more than 7 rows (measured against
+    ``book_pdf_generator.interior_page_count``'s own bare-count figures,
+    which agree at this module's own puzzle counts) — a second, independent
+    figure stated for this module's own small books rather than imported
+    from the function under test, the same discipline every other term here
+    already follows.
     """
     if puzzle_count == 0:
         return 2
-    return 2 + levels + puzzle_count + 1 + answer_pages
+    return 2 + toc_pages + levels + puzzle_count + 1 + answer_pages
 
 
 #: This module's standard book: three easy 20x20s, one answer page each.
@@ -218,9 +226,9 @@ class TestBookExport_InteriorStartsAtGuidePage:
         )
 
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
-        # The 2-page guide (CARD-201), the "Easy" divider, the puzzle,
-        # SOLUTIONS, its answer.
-        assert export.interior_page_count == 6
+        # The 2-page guide (CARD-201), the 1-page TOC (CARD-200), the "Easy"
+        # divider, the puzzle, SOLUTIONS, its answer.
+        assert export.interior_page_count == 7
 
 
 class TestBookExport_InteriorHoldsNoCoverPage:
@@ -645,14 +653,16 @@ class TestBookFinalise_PageCountIsTheExportsPagePlan:
         it without naming the reason.
 
         So it is measured, not assumed: the written interior is the 2-page
-        guide (CARD-201) + the one level's divider + puzzle pages + SOLUTIONS
-        + key, so what is left after the four fixed pages and the key's own
-        term is the puzzle-page count, and it is the puzzle count. These
-        books are one tier throughout, so a pairing walk that paired
-        anything at all would be seen here — and so would a second divider.
+        guide (CARD-201) + the 1-page TOC (CARD-200, every book in this
+        module is far under one TOC page's own capacity) + the one level's
+        divider + puzzle pages + SOLUTIONS + key, so what is left after the
+        five fixed pages and the key's own term is the puzzle-page count,
+        and it is the puzzle count. These books are one tier throughout, so
+        a pairing walk that paired anything at all would be seen here — and
+        so would a second divider.
         """
         written = pdf_page_count(self._interior_of(puzzle_count).getvalue())
-        puzzle_pages = written - 4 - self._answer_pages(puzzle_count)
+        puzzle_pages = written - 5 - self._answer_pages(puzzle_count)
 
         assert puzzle_pages == puzzle_count
 

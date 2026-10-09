@@ -59,6 +59,12 @@ POINTS_PER_INCH = 72.0
 #: The divider's size, in points (AC-4): the 60 px it was at 300 DPI.
 DIVIDER_PT = 14.4
 
+#: CARD-200: the folio's own size, in points — CON-020's floor exactly
+#: (``book_pdf_generator.FOLIO_PT``), written out rather than imported so
+#: this file's own independent statement of every interior face's size
+#: stays independent.
+FOLIO_PT = 10.0
+
 #: The path the interior asks Pillow for Arial at (AC-2 makes it fail).
 ARIAL_PATH = "/System/Library/Fonts/Arial.ttf"
 
@@ -337,7 +343,11 @@ class TestInteriorType_FloorHoldsWithoutArial:
 
     def test_the_dividers_are_drawn(self, book):
         dividers = [call for call in recording(book, arial=False) if call.kind == "divider"]
-        assert len(dividers) == 4  # three levels and SOLUTIONS
+        # Three levels and SOLUTIONS, two draw.text calls each since
+        # CARD-200 (the word, then the folio sharing its bottom-outer
+        # corner — both carry "create_divider_page" in their call chain,
+        # so both are tagged "divider" by `TextCall.kind`).
+        assert len(dividers) == 8
 
 
 # --------------------------------------------------------------------------
@@ -387,7 +397,13 @@ class TestInteriorType_OnlyPuzzleClueDigitsAreExempt:
 
 
 class TestDividerPage_PointSizeIsIndependentOfDpi:
-    """AC-4 — the divider is 14.4 pt at 300 DPI and at 600 DPI."""
+    """AC-4 — the divider is 14.4 pt at 300 DPI and at 600 DPI.
+
+    CARD-200 (SCOPE+): a divider page now draws two faces, not one — its
+    own word, then the folio sharing its bottom-outer corner — so this
+    test's own spy now expects two sizes, in the order they are drawn, not
+    one.
+    """
 
     @staticmethod
     def divider_points(dpi: int, monkeypatch: pytest.MonkeyPatch) -> List[float]:
@@ -407,8 +423,20 @@ class TestDividerPage_PointSizeIsIndependentOfDpi:
         assert sizes and None not in sizes
         return [size * POINTS_PER_INCH / dpi for size in sizes]
 
+    @staticmethod
+    def _expected_folio_pt(dpi: int) -> float:
+        """:data:`FOLIO_PT` round-tripped through whole device pixels.
+
+        Unlike :data:`DIVIDER_PT` (14.4 pt is exactly 60 px at 300 DPI, no
+        rounding), 10.0 pt rounds to 42 px at 300 DPI — 10.08 pt, not 10.0 —
+        so the independent expectation here is the same whole-pixel rounding
+        :func:`~nonogram.admin.book_pdf_generator.type_px` performs, written
+        out rather than imported, not a loosened tolerance.
+        """
+        return round(FOLIO_PT * dpi / POINTS_PER_INCH) * POINTS_PER_INCH / dpi
+
     def test_the_divider_is_the_same_size_in_points_at_300_and_600_dpi(self, monkeypatch):
         at_300 = self.divider_points(300, monkeypatch)
         at_600 = self.divider_points(600, monkeypatch)
-        assert at_300 == pytest.approx([DIVIDER_PT])
-        assert at_600 == pytest.approx([DIVIDER_PT])
+        assert at_300 == pytest.approx([DIVIDER_PT, self._expected_folio_pt(300)])
+        assert at_600 == pytest.approx([DIVIDER_PT, self._expected_folio_pt(600)])

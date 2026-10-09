@@ -207,11 +207,16 @@ def first_answer_page(book: Book, puzzles: Sequence[dict]) -> int:
     re-derived by counting levels and puzzles by hand, so this helper cannot
     silently disagree with the walk it is predicting.
     """
-    section = BookPDFGenerator(book).section_plan(list(puzzles)).pages
+    decided = BookPDFGenerator(book).section_plan(list(puzzles))
     # CARD-201: the guide grew from 1 page to 2, so the answer section (right
     # after the SOLUTIONS divider, which is right after the puzzle section)
-    # moved one page later — 4 + len(section), not 3.
-    return 4 + len(section)
+    # moved one page later — 4 + len(section), not 3. CARD-200: the table of
+    # contents (``decided.toc_page_count`` pages) sits between the guide and
+    # the puzzle section, moving everything after it later again by that
+    # many pages — read off ``section_plan``'s own answer rather than
+    # re-derived, the same "ask the one seam, don't recompute" discipline
+    # this helper's own docstring already states.
+    return 4 + decided.toc_page_count + len(decided.pages)
 
 
 def _interior(puzzles: Sequence[dict], book: Optional[Book] = None) -> List[Image.Image]:
@@ -435,14 +440,14 @@ class TestBookSolvedAnswerKey_LevelVisibleViaPerPageBandNoSeparateHeading:
             assert page.tobytes() != not_a_divider.tobytes()
 
     def test_the_total_page_count_has_no_room_for_a_heading_page(self) -> None:
-        """2 guide (CARD-201) + 2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 11.
+        """2 guide (CARD-201) + 1 TOC (CARD-200) + 2 dividers + 3 puzzles + SOLUTIONS + 3 answers = 12.
 
         A per-level heading page inside the answer section (the alternative
         CARD-198's own "What to implement" considered and rejected) would
-        make this 12 or 13 instead.
+        make this 13 or 14 instead.
         """
         book, puzzles, pages = self._book_and_pages()
-        assert len(pages) == 2 + 2 + 3 + 1 + 3 == 11
+        assert len(pages) == 2 + 1 + 2 + 3 + 1 + 3 == 12
 
 
 # --------------------------------------------------------------------------
@@ -540,12 +545,17 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
         ``tests/test_book_pdf_memory.py``'s own parity test reads it: the
         leftmost ink column, which sits at the gutter margin on a right-hand
         page and at the (narrower) outside margin on a left-hand one.
+
+        CARD-200 (SCOPE+): the table of contents page(s) carry no ruled grid
+        either — plain text, like a divider — so :func:`drawing_of` raises on
+        them the same way and they fall into the same ``except`` skip below.
         """
         book = _book()
         puzzles = _book_of(*[(22, 22)] * self.PUZZLES, depth=6, tiers=["easy"] * self.PUZZLES)
         pages = _interior(puzzles, book)
         middle = pages[0].width / 2
         checked = 0
+        decided = BookPDFGenerator(book).section_plan(list(puzzles))
 
         for number, page in enumerate(pages, start=1):
             right_hand = page_is_right_hand(number)
@@ -571,8 +581,9 @@ class TestBookSolvedAnswerKey_ParityHoldsAtTheNewPageCount:
             checked += 1
 
         # The guide's two pages, the two-up-free puzzle pages and the answer
-        # pages: everything but the two divider pages (Easy, SOLUTIONS).
-        assert checked == len(pages) - 2
+        # pages: everything but the two divider pages (Easy, SOLUTIONS) and
+        # the table of contents page(s) (CARD-200).
+        assert checked == len(pages) - 2 - decided.toc_page_count
 
     def test_page_is_right_hand_itself_alternates_from_page_one(self) -> None:
         """The control: the declared parity is alternating, not constant."""
@@ -1035,7 +1046,21 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
         from tests.helpers.pdf_pages import pdf_pages
 
         now = json.loads(Path(BASELINE_FIXTURE).read_text(encoding="utf-8"))
-        assert now["changed_pages"] == [10, 11, 12]
+        # CARD-200 (SCOPE+): the fixture this reads is now
+        # book_baseline_card200.json, whose own `changed_pages` means
+        # "literally every page" (a new TOC page plus a new folio mark on
+        # every other one, CARD-200's own doing) — a different *shape* of
+        # claim from CARD-201's own `[10, 11, 12]`, not a narrower version
+        # of it, so `changed_pages[0] - 1` is no longer "how many pages
+        # precede the answer section". That count is read directly off a
+        # real plan instead, which is what this test actually needs and
+        # does not depend on any fixture's own bookkeeping.
+        plan = BookPDFGenerator(corpus_book()).section_plan(baseline_puzzles())
+        before_answers = 1 + bpg.GUIDE_PAGE_COUNT + plan.toc_page_count + len(plan.pages)
+        assert now["page_count"] >= before_answers + 1, (
+            "the fixture's own book should still open an answer section "
+            "after this many front-matter/puzzle-section pages"
+        )
 
         puzzles = baseline_puzzles()
         packed_bytes = BookPDFGenerator(corpus_book()).export_interior(puzzles).getvalue()
@@ -1050,10 +1075,9 @@ class TestBookSolvedAnswerKey_NoSmallPuzzlesIsByteIdenticalToCard198:
         packed_pages = page_digests(pdf_pages(packed_bytes))
         unpacked_pages = page_digests(pdf_pages(unpacked_bytes))
 
-        # Everything before the answer section (the guide, the level
-        # dividers, the puzzle pages and the SOLUTIONS divider) is
+        # Everything before the answer section (the guide, the TOC, the
+        # level dividers, the puzzle pages and the SOLUTIONS divider) is
         # identical whether packing ran or not: CARD-202's own G-1/G-2.
-        before_answers = now["changed_pages"][0] - 1
         for index in range(before_answers):
             assert packed_pages[index] == unpacked_pages[index], (
                 f"interior page {index + 1} moved when packing was turned "

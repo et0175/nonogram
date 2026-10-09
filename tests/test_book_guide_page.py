@@ -614,9 +614,13 @@ class TestGuidePage_IsTwoPages:
         ],
     )
     def test_interior_page_count_adds_exactly_one_guide_page(self, count, dividers, pages, answers):
-        assert interior_page_count(count, pages, answers, dividers) == old_style_total(
-            count, dividers, pages, answers
-        ) + 1
+        # CARD-200 (SCOPE+): `toc_pages=0` isolates this AC's own "+1 guide
+        # page" claim from the table of contents' own term, added to the
+        # same formula by a later card — this test is about the guide's
+        # delta alone, not the TOC's.
+        assert interior_page_count(
+            count, pages, answers, dividers, toc_pages=0
+        ) == old_style_total(count, dividers, pages, answers) + 1
 
     def test_the_exported_interior_opens_with_both_guide_pages_then_the_first_puzzle_or_divider(self):
         book_puzzles = [puzzle("card201-1", 10, 10, 3, "easy", "Picture 1")]
@@ -1266,7 +1270,15 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
     def test_the_page_count_is_exactly_one_more_than_before_this_card(self, export, corpus):
         # 3 tiers, each non-empty: 3 dividers. 6 puzzles, none pairable
         # across tiers or at these sizes: 6 puzzle pages, 6 answer pages.
-        assert pdf_page_count(export) == old_style_total(6, dividers=3, pages=6, answers=6) + 1
+        # CARD-200 (SCOPE+): this book's 6-entry TOC is one more page on
+        # Book 1's own trim (`corpus_book`) — named explicitly here so the
+        # guide's own "+1" claim stays isolated from the TOC's own term,
+        # the same discipline `test_interior_page_count_adds_exactly_one_guide_page`
+        # above now uses.
+        assert (
+            pdf_page_count(export)
+            == old_style_total(6, dividers=3, pages=6, answers=6) + 1 + 1
+        )
         assert pdf_page_count(export) == interior_page_count(6, 6, 6, 3)
 
     def test_every_pages_parity_still_equals_its_own_position(self, pages):

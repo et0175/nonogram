@@ -457,6 +457,31 @@ GUIDE_TITLE = "How to Solve Nonograms"
 #: "full 1-2 page tutorial" (FR-041's own deferred clause) landed as 2 pages.
 GUIDE_PAGE_COUNT = 2
 
+#: The footer folio's own type, in points (CARD-200, G-4): CON-020's 10 pt
+#: floor exactly, the same size the answer caption is set in
+#: (:data:`~nonogram.export.layout.ANSWER_TEXT_FONT_MM`'s own point
+#: equivalent) — a page number needs no more emphasis than the caption it
+#: shares a corner with, and no setting below the floor is ever added.
+FOLIO_PT = 10.0
+
+#: The table of contents page's title (CARD-200) — plain and descriptive,
+#: the same register as the divider's own one-word pages rather than a
+#: styled heading; every TOC page repeats it (see :func:`create_toc_page`),
+#: so a multi-page TOC reads as one list continuing, not several unlabelled
+#: ones.
+TOC_TITLE = "Table of Contents"
+
+#: One TOC entry's own type, in points (CARD-200, G-4): CON-020's floor, the
+#: same reasoning as :data:`FOLIO_PT` — a listing row needs to be read, not
+#: to draw the eye the way the guide page's body text does, so it is set at
+#: the floor rather than at :data:`GUIDE_BODY_PT`.
+TOC_ENTRY_PT = 10.0
+
+#: The gap below one TOC entry's own line, in points (CARD-200) — a fixed,
+#: small fraction of the entry's own size rather than a second invented
+#: leading constant, so rows read as a list and not as run-on body text.
+TOC_ENTRY_GAP_PT = 4.0
+
 #: The line the guide page's worked example solves (FR-041, AC-325): the clue
 #: ``3 1`` on a row of six squares.
 WORKED_EXAMPLE_CLUE: Tuple[int, ...] = (3, 1)
@@ -1235,6 +1260,72 @@ def _set_band(draw: ImageDraw.ImageDraw, band: HeaderBand, text: str, room: int)
     )
 
 
+def _draw_folio(
+    draw: ImageDraw.ImageDraw,
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+    page_number: int,
+    dpi: int,
+    content_bottom: Optional[int] = None,
+) -> None:
+    """Draw ``page_number``'s plain-decimal folio at the bottom-outer corner (CARD-200).
+
+    ``left``/``top``/``right``/``bottom`` are one page's usable area in
+    device pixels — read off a :class:`PageFrame` (guide, divider, TOC) or a
+    grid page's own :class:`~nonogram.export.layout.PagePlacement`
+    (``usable_left``/``usable_top``/``usable_right``/``usable_bottom`` — one-
+    up, two-up, solved, packed). **They cross as four plain ints, not as the
+    frame object itself** — a correction to this card's own draft, which
+    claimed the two classes "already expose the same four ``usable_*``
+    fields by name": read in full, :class:`PageFrame` actually names them
+    ``left``/``top``/``right``/``bottom`` (no ``usable_`` prefix), so a
+    caller duck-typing on that premise would have raised ``AttributeError``
+    the first time this function tried ``frame.usable_bottom`` on a guide
+    page's :class:`PageFrame`. Normalising to four ints at each call site
+    keeps this function itself ignorant of which class its caller holds
+    (G-1: no field is added to either class to make the names agree).
+
+    ``content_bottom`` is the lowest pixel this page's own content already
+    reaches, when the caller has a real figure to offer — the same
+    measurement the answer caption's own slack check already makes
+    (``placement.usable_bottom - placement.drawing_bottom``). Left at
+    ``top`` (the full usable height counts as available) when omitted, which
+    is correct for a page kind nothing else ever competes with this corner
+    for: a one-up or two-up puzzle page's own grid is centred well inside
+    its margins in practice, and a two-up page's *lower* slot in particular
+    reports zero slack **by construction** (:class:`PairLayout`'s own
+    docstring: "the lower slot['s]... drawing's bottom edge is the bottom
+    margin"), which would wrongly omit the folio on every two-up page if this
+    function treated that zero as a real collision the way it must for a
+    solved-answer page's caption. The folio is drawn only when the slack
+    between ``content_bottom`` and ``bottom`` holds at least one line of its
+    own text — CARD-197's "omit rather than collide" rule for the answer
+    caption, generalised to every page kind that actually needs it (AC-1's
+    own final clause) rather than reinvented per kind.
+
+    The anchor is chosen so the folio's own glyph box never crosses
+    ``bottom``, ``left`` or ``right`` (G-5 is read, not changed: this is a
+    new decision about the folio's own position, not a change to where a
+    drawing already placed sits) — Pillow's ``"rb"`` anchor (right,
+    bottom-of-bbox) at ``(right, bottom)`` on a right-hand page,
+    ``"lb"`` at ``(left, bottom)`` on a left-hand one, by
+    :func:`page_is_right_hand` (FR-043).
+    """
+    size = type_px(FOLIO_PT, dpi)
+    font = _band_font(size)
+    ascent, descent = font.getmetrics()
+    line_height = ascent + descent
+    available = bottom - (top if content_bottom is None else content_bottom)
+    if available < line_height:
+        return
+    right_hand = page_is_right_hand(page_number)
+    x = right if right_hand else left
+    anchor = "rb" if right_hand else "lb"
+    draw.text((x, bottom), str(page_number), font=font, fill=INK, anchor=anchor)
+
+
 def _guide_rule_width(spec: PageSpec) -> int:
     """This page's thin rule width, in pixels (CARD-201).
 
@@ -1485,6 +1576,13 @@ class SectionPlan:
         pages: The section's pages in print order: a
             :class:`DividerPagePlan` opening each named non-empty level, each
             immediately before that level's :class:`PuzzlePagePlan`\\ s.
+        toc_page_count: How many table-of-contents pages precede this
+            section (CARD-200) — the term already baked into every page in
+            :attr:`pages` own :attr:`PuzzlePagePlan.page_number`/
+            :attr:`DividerPagePlan.page_number`, carried here too so a caller
+            that needs the interior's *own* ``first_answer_page`` arithmetic
+            (:meth:`BookPDFGenerator.interior_stream`) does not re-derive it
+            from the entry count a second time.
     """
 
     puzzles: List[Any]
@@ -1492,6 +1590,7 @@ class SectionPlan:
     printed: List[Any]
     payloads: List[ExportPayload]
     pages: List[SectionPage]
+    toc_page_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -1865,25 +1964,100 @@ def page_is_right_hand(page_number: int) -> bool:
     return page_number % 2 == 1
 
 
+@lru_cache(maxsize=1)
+def _default_toc_frame() -> "PageFrame":
+    """The TOC's usable area on CON-018's Book 1 profile (CARD-200).
+
+    Used only as the basis for :func:`interior_page_count`'s own
+    ``toc_pages`` default — the "called with the count alone" bound its
+    docstring already promises for every other optional term
+    (:data:`GUIDE_PAGE_COUNT`'s sibling terms). ``page_frame`` on
+    ``page_number=1`` is a safe stand-in for *any* interior page's usable
+    area here, for the same reason the module's own "early"
+    ``first_answer_page`` probe (``interior_stream``) relies on a
+    representative spec for a feasibility check: :func:`book_page_spec`'s
+    own docstring states that parity moves only the left/right margins, and
+    reading its body confirms ``top_mm``/``bottom_mm``/``height_mm`` never
+    depend on ``page_number`` at all — so this frame's ``top``/``bottom`` are
+    exactly any other page's, not only its width (the premise CARD-200's own
+    draft stops short of — it is extended here to height because the TOC's
+    split needs it, and verified against the real function body rather than
+    assumed).
+
+    A caller that knows the *book's own* trim (:meth:`BookPDFGenerator.section_plan`)
+    builds its own frame off ``self.page_spec`` and passes the real
+    ``toc_pages`` in instead of relying on this; this default is only ever
+    read when nothing else is known — a bare call, or
+    :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`'s own
+    estimate for a book whose stored trim may not even be valid.
+    """
+    return page_frame(book_page_spec(None, 1))
+
+
+def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
+    """How many :func:`BookPDFGenerator.create_toc_page` rows fit one TOC page.
+
+    Every TOC page repeats :data:`TOC_TITLE` (:func:`BookPDFGenerator.create_toc_page`'s
+    own docstring), so one page's entry budget is always the frame's usable
+    height minus the title's own line and gap, divided by one entry's line
+    height (:data:`TOC_ENTRY_PT` set, :data:`TOC_ENTRY_GAP_PT` under it) — a
+    pure division, not a second text-layout primitive (G-1): the same
+    :func:`_band_font`/:func:`_guide_face` metrics every other page's own
+    fitting already reads, never a value this function invents. At least one
+    entry always fits, by floor, the same shape :func:`interior_page_count`'s
+    own ``level_dividers`` default already uses for its own worst case.
+    """
+    title_font = _guide_face(type_px(GUIDE_TITLE_PT, dpi))
+    title_ascent, title_descent = title_font.getmetrics()
+    title_space = title_ascent + title_descent + type_px(GUIDE_TITLE_GAP_PT, dpi)
+    entry_font = _guide_face(type_px(TOC_ENTRY_PT, dpi))
+    entry_ascent, entry_descent = entry_font.getmetrics()
+    entry_height = entry_ascent + entry_descent + type_px(TOC_ENTRY_GAP_PT, dpi)
+    available = (frame.bottom - frame.top) - title_space
+    return max(1, available // entry_height)
+
+
+def _toc_page_count(entry_count: int, frame: "PageFrame", dpi: int) -> int:
+    """How many TOC pages ``entry_count`` listing rows need on ``frame``.
+
+    Zero when there is nothing to list (CARD-200) — the same "only when
+    there are puzzles" guard the SOLUTIONS divider and the answer section
+    already apply, extended to the table of contents that now precedes them:
+    a book with no drawable puzzle gets no TOC page at all, rather than one
+    page carrying a title and no rows.
+
+    Raises:
+        ValueError: ``entry_count`` is negative.
+    """
+    if entry_count < 0:
+        raise ValueError(f"a table of contents lists 0 or more entries, got {entry_count}")
+    if entry_count == 0:
+        return 0
+    per_page = _toc_entries_per_page(frame, dpi)
+    return -(-entry_count // per_page)
+
+
 def interior_page_count(
     puzzle_count: int,
     puzzle_pages: Optional[int] = None,
     answer_pages: Optional[int] = None,
     level_dividers: Optional[int] = None,
+    toc_pages: Optional[int] = None,
 ) -> int:
     """The interior's page count for ``puzzle_count`` rendered puzzles.
 
     The page plan :meth:`BookPDFGenerator.interior` builds — :data:`GUIDE_PAGE_COUNT`
     guide pages (CARD-201: the 2-page "how to solve" tutorial, FR-041's own
-    deferred clause), one divider per non-empty level, the puzzle pages, then
+    deferred clause), the table of contents (CARD-200, only when there are
+    puzzles to list), one divider per non-empty level, the puzzle pages, then
     (only when there are puzzles) the SOLUTIONS divider and the answer pages;
     never the cover (FR-030 as amended by FR-043).
     ``interior`` checks its own output against this, so a change to the make-up
     of the pages that forgets this function fails loudly instead of shipping a
     book whose stated page count is not its page count.
 
-    Two of the three terms are **measured by the passes that decide them**, and
-    both default to the un-shortened plan:
+    Three of the four terms are **measured by the passes that decide them**,
+    and each defaults to the un-shortened plan:
 
     ``puzzle_pages`` is how many pages those puzzles actually take. It is
     ``puzzle_count`` — one page each — until two-up pairing shortens it
@@ -1934,6 +2108,24 @@ def interior_page_count(
     the only way the two can differ — a puzzle that builds a payload and then
     will not draw aborts the export with a :class:`RuntimeError` naming it,
     rather than quietly making the file one page shorter than this number.
+
+    ``toc_pages`` (CARD-200) is how many pages the table of contents takes —
+    one row per drawable puzzle, however many of them fit a page
+    (:func:`_toc_page_count`/:func:`_toc_entries_per_page`). Unlike
+    ``level_dividers``'s own count-only default, the TOC's split genuinely
+    needs a usable height to divide by — a page's own real geometry, which a
+    caller holding only ``puzzle_count`` does not have either. Left out, it
+    is :func:`_toc_page_count` measured on :func:`_default_toc_frame` — CON-018's
+    Book 1 profile, the same default :class:`BookPDFGenerator` falls back to
+    for ``book=None`` — rather than a count-only guess, because a guess could
+    as easily under-state the real split as over it (an actual page holds
+    anywhere from a handful of rows to several dozen, depending on type size
+    and trim, so no single multiplier of ``puzzle_count`` bounds every book
+    the way ``min(3, puzzle_count)`` bounds the dividers). This keeps "called
+    with the count alone this is an upper bound on every book whose own trim
+    is Book 1 or larger" true of the TOC too; a caller that knows the book's
+    *own*, possibly smaller, trim (:meth:`BookPDFGenerator.section_plan`)
+    always passes its own measured ``toc_pages`` instead of relying on this.
     """
     if puzzle_count < 0:
         raise ValueError(f"puzzle count cannot be negative, got {puzzle_count}")
@@ -1948,7 +2140,16 @@ def interior_page_count(
     )
     if dividers < 0:
         raise ValueError(f"divider page count cannot be negative, got {dividers}")
-    return GUIDE_PAGE_COUNT + dividers + pages + (answers + 1 if puzzle_count else 0)
+    toc = (
+        _toc_page_count(puzzle_count, _default_toc_frame(), DPI)
+        if toc_pages is None
+        else toc_pages
+    )
+    if toc < 0:
+        raise ValueError(f"TOC page count cannot be negative, got {toc}")
+    return (
+        GUIDE_PAGE_COUNT + toc + dividers + pages + (answers + 1 if puzzle_count else 0)
+    )
 
 
 def _named_puzzles(
@@ -2735,6 +2936,19 @@ class BookPDFGenerator:
                 x = frame.left - pad if needs_pad else frame.left
                 guide.paste(mark, (x, y))
 
+        # CARD-200: the folio, after every mark above — `bottom` is the
+        # chosen fallback form's own lowest mark (the loop above that picked
+        # it), never re-measured, so a tight fallback on a small trim omits
+        # the folio exactly when it would otherwise collide with this page's
+        # own last line (AC-1's "too small a slack" clause), the same
+        # omit-rather-than-collide discipline CARD-197 set for the answer
+        # caption, without re-selecting which of the five fallback forms
+        # above was drawn (G-3: the content above the footer band is
+        # unedited by this card).
+        _draw_folio(
+            draw, frame.left, frame.top, frame.right, frame.bottom, page_number, self.dpi,
+            content_bottom=bottom,
+        )
         return guide
 
     def create_divider_page(self, page_number: int, text: str = "SOLUTIONS") -> Image.Image:
@@ -2750,6 +2964,13 @@ class BookPDFGenerator:
         and nothing else — but it is taken, not assumed, because the divider
         is an interior page like any other and its position is where a page's
         parity comes from (FR-043).
+
+        **Since CARD-200, one more mark: the folio.** "No band, no page
+        number... nothing fitted" above is G-3's statement about the divider
+        word itself, unedited by this card; the folio is drawn from outside
+        that one word's own geometry, at the frame's own bottom-outer corner
+        (:func:`_draw_folio`), after it, never adjusting where the centred
+        word sits.
         """
         frame = page_frame(self.page_spec(page_number))
         divider = Image.new("RGB", (frame.width, frame.height), "white")
@@ -2760,7 +2981,88 @@ class BookPDFGenerator:
         x = (frame.width - (bbox[2] - bbox[0])) // 2
         y = (frame.height - (bbox[3] - bbox[1])) // 2
         draw.text((x, y), text, fill="black", font=divider_font)
+        _draw_folio(
+            draw,
+            frame.left,
+            frame.top,
+            frame.right,
+            frame.bottom,
+            page_number,
+            self.dpi,
+            content_bottom=y + bbox[3],
+        )
         return divider
+
+    def create_toc_page(
+        self, entries: List[Tuple[str, int]], page_number: int
+    ) -> Image.Image:
+        """One page of the table of contents: each entry against its own interior page (CARD-200).
+
+        ``entries`` is **this page's own slice** — ``(label, page_number)``
+        pairs in book order — already split by :meth:`interior_stream`'s own
+        planning pass (:func:`_toc_page_count`/:func:`_toc_entries_per_page`,
+        read off the same frame this method itself builds), so this method
+        draws whatever it is handed and never re-decides how many rows share
+        a page: one source of truth for the split, not two. ``label`` is
+        whatever :func:`~nonogram.admin.book_answer_key.answer_caption`
+        already produced for that puzzle's answer-page caption (AC-5) — this
+        method performs no title lookup of its own.
+
+        Drawn the same way :meth:`create_guide_page`/:meth:`create_divider_page`
+        are: :func:`page_frame` for the usable area, :func:`_guide_face`/
+        :func:`type_px` for its type — no new text-layout primitive
+        (ADR-0036/R2, G-1). Every TOC page repeats :data:`TOC_TITLE`, so a
+        multi-page TOC reads as one list continuing rather than several
+        unlabelled pages, and so that :func:`_toc_entries_per_page`'s own
+        entries-per-page figure — measured once, off the title's own height,
+        for *every* TOC page — stays true of this one too.
+
+        A label too wide to sit beside its own page number on one line is
+        clipped, with a trailing ellipsis, rather than wrapped
+        (:func:`wrap_words` is for a paragraph of several lines; a listing
+        row is one line by definition) or left to overlap the number it
+        would otherwise share the row with.
+
+        Ends with the same bottom-outer-corner folio every interior page
+        carries (:func:`_draw_folio`) — the TOC is front matter inside the
+        interior, not an exception to FR-043's "cover never numbered" rule
+        (only the cover itself is exempt, G-2).
+        """
+        spec = self.page_spec(page_number)
+        frame = page_frame(spec)
+        page = Image.new("RGB", (frame.width, frame.height), "white")
+        draw = ImageDraw.Draw(page)
+        measure = frame.right - frame.left
+
+        title_font = _guide_face(type_px(GUIDE_TITLE_PT, self.dpi))
+        draw.text((frame.left, frame.top), TOC_TITLE, fill="black", font=title_font)
+        title_ascent, title_descent = title_font.getmetrics()
+        y = frame.top + title_ascent + title_descent + type_px(GUIDE_TITLE_GAP_PT, self.dpi)
+
+        entry_font = _guide_face(type_px(TOC_ENTRY_PT, self.dpi))
+        entry_ascent, entry_descent = entry_font.getmetrics()
+        line_height = entry_ascent + entry_descent + type_px(TOC_ENTRY_GAP_PT, self.dpi)
+
+        bottom = y
+        for label, entry_page in entries:
+            number_text = str(entry_page)
+            number_width = entry_font.getlength(number_text)
+            label_measure = measure - number_width - type_px(TOC_ENTRY_GAP_PT, self.dpi)
+            clipped = label
+            while len(clipped) > 1 and entry_font.getlength(clipped) > label_measure:
+                clipped = clipped[:-2] + "…"
+            draw.text((frame.left, y), clipped, fill="black", font=entry_font)
+            draw.text(
+                (frame.right, y), number_text, fill="black", font=entry_font, anchor="ra"
+            )
+            bottom = y + entry_ascent + entry_descent
+            y += line_height
+
+        _draw_folio(
+            draw, frame.left, frame.top, frame.right, frame.bottom, page_number, self.dpi,
+            content_bottom=bottom,
+        )
+        return page
 
     def export_book(
         self,
@@ -2959,10 +3261,30 @@ class BookPDFGenerator:
         the answer page's (CARD-198). Dropped here rather than in the caller
         so that every page this method returns is a page the interior really
         holds.
+
+        **Since CARD-200, one more mark: the folio.** No caption or any
+        other text ever competes for this page's bottom-outer corner (unlike
+        a solved-answer page's), so it is drawn unconditionally
+        (:func:`_draw_folio`'s own ``content_bottom=None`` default) —
+        reached through :func:`page_frame` again rather than threading
+        ``render_pages``'s own :class:`~nonogram.export.layout.Layout` back
+        out of it, the same "any page already has a `PageFrame`-shaped
+        usable area" reuse :meth:`create_guide_page`/:meth:`create_divider_page`
+        already rely on (G-1).
         """
         blank, _ = render_pages(
             self._puzzle_payload(payload, puzzle_number),
             page_spec=self.page_spec(puzzle_page),
+        )
+        frame = page_frame(self.page_spec(puzzle_page))
+        _draw_folio(
+            ImageDraw.Draw(blank),
+            frame.left,
+            frame.top,
+            frame.right,
+            frame.bottom,
+            puzzle_page,
+            self.dpi,
         )
         return blank
 
@@ -3012,6 +3334,26 @@ class BookPDFGenerator:
         The page is drawn rather than rendered because ``export/`` offers no
         call that draws a :class:`~nonogram.export.layout.Layout` it is handed;
         see the module docstring.
+
+        **Since CARD-200, one more mark: the folio, once per page.** Read off
+        ``pair.lower.page`` rather than ``pair.upper.page`` — a correction to
+        this card's own draft, which suggested the upper slot: reading
+        :class:`~nonogram.export.layout.PairLayout`'s own docstring and the
+        arithmetic :func:`~nonogram.export.layout.compute_pair_layout` builds
+        each slot from shows ``upper.page.usable_bottom`` is the *midline*
+        between the two slots, not the page's own bottom margin — it is
+        ``lower.page.usable_bottom`` that is the true bottom margin (and,
+        algebraically, ``lower.page.drawing_bottom`` always equals it too:
+        "whatever height the pair leaves spare falls between the two slots",
+        never below the lower one). ``usable_left``/``usable_right`` do not
+        differ between the two slots either way (both centre on the page's
+        one shared usable width), so reading all four off ``lower.page``
+        alone is both correct and sufficient — one call, not a slot-by-slot
+        one as the loop above intentionally avoids already. Drawn
+        unconditionally (no ``content_bottom``): nothing else is drawn in
+        this corner, and the lower slot's own zero slack is a fact of this
+        layout's construction, not a collision to avoid (see
+        :func:`_draw_folio`'s own docstring).
         """
         pair = plan.pair
         if pair is None:  # pragma: no cover - the walk only sends two-up plans here
@@ -3035,6 +3377,16 @@ class BookPDFGenerator:
                 band_identity(number, payload.difficulty),
                 placement.usable_right - placement.usable_left,
             )
+        footer_area = pair.lower.page
+        _draw_folio(
+            draw,
+            footer_area.usable_left,
+            footer_area.usable_top,
+            footer_area.usable_right,
+            footer_area.usable_bottom,
+            plan.page_number,
+            self.dpi,
+        )
         return page
 
     def _draw_solved_slot(
@@ -3191,6 +3543,19 @@ class BookPDFGenerator:
                 exactly as :func:`~nonogram.admin.book_answer_key.answer_caption`
                 already does.
 
+        **Since CARD-200, one more mark after the caption: the folio.**
+        Drawn here, not inside :meth:`_draw_solved_slot` (G-3: the caption
+        logic there is unedited by this card), from the same ``layout.page``
+        placement the caption's own slack check already reads — recomputed
+        independently rather than threaded out of that method, so the two
+        checks cannot be made to disagree by a future edit to one alone. The
+        folio sits in the same bottom slack as the caption, opposite corner
+        (the caption centred, the folio at the usable area's outer edge) —
+        both only need that slack to hold one line of their own text, so
+        either one, both, or neither draws depending on how much room this
+        page's own trim leaves below the grid (owner render review, Worktree
+        notes).
+
         Returns:
             The rendered page.
 
@@ -3208,6 +3573,18 @@ class BookPDFGenerator:
         self._draw_solved_slot(
             draw, layout, payload.grid, puzzle_number, payload.difficulty, title
         )
+        placement = layout.page
+        if placement is not None:  # pragma: no cover - page_spec always carries a parity
+            _draw_folio(
+                draw,
+                placement.usable_left,
+                placement.usable_top,
+                placement.usable_right,
+                placement.usable_bottom,
+                page_number,
+                self.dpi,
+                content_bottom=placement.drawing_bottom,
+            )
         return page
 
     def _packed_answer_page(
@@ -3241,6 +3618,24 @@ class BookPDFGenerator:
                 read the same way :meth:`interior_stream`'s own answer loop
                 already reads them for a full answer page.
 
+        **SCOPE+ (CARD-200), not named by this card's own "What to
+        implement": a packed answer page is still an interior page AC-1
+        asks a folio of, and this card's own Touches list predates
+        CARD-202's packed key existing at all.** Drawn off :func:`page_frame`
+        rather than ``layout`` itself: unlike :meth:`solved_puzzle_page`'s
+        full-page :class:`~nonogram.export.layout.Layout`,
+        :class:`~nonogram.export.layout.PackedSolvedLayout` carries no
+        page-level ``usable_*`` at all (G-3's "no page-level title band"
+        extends to no page-level margin reader either — only each slot's own
+        tile does) — exactly the gap :func:`page_frame` exists to fill for
+        any ``PageSpec``, drawn content or not, the same reuse
+        :meth:`create_guide_page`/:meth:`create_divider_page`/
+        :meth:`_blank_page` already rely on. Drawn unconditionally: a
+        packed page's tiles sit inset from the trim's own margins with
+        clearance between them (:data:`~nonogram.export.layout.PackedSolvedLayout`'s
+        own overlap guard), never reaching the page's bottom-outer corner the
+        way a single full answer page's grid sometimes does.
+
         Returns:
             The rendered page.
         """
@@ -3271,6 +3666,10 @@ class BookPDFGenerator:
             self._draw_solved_slot(
                 draw, slot, payload.grid, number, payload.difficulty, title
             )
+        frame = page_frame(self.page_spec(page_number))
+        _draw_folio(
+            draw, frame.left, frame.top, frame.right, frame.bottom, page_number, self.dpi
+        )
         return page
 
     def puzzle_pages(
@@ -3501,7 +3900,10 @@ class BookPDFGenerator:
         * the **section walk** (:meth:`puzzle_section`): a divider page per
           named non-empty level (CARD-128) and that level's pages, one puzzle
           each or two of equal tier that COMP-007 measured onto one page
-          (FR-040, INV-010).
+          (FR-040, INV-010) — starting the page after the table of contents
+          (CARD-200), whose own length this method measures first from the
+          payload pass's own count, so every page number in the walk's
+          output already carries the TOC's own offset.
 
         **What the pairing verdict is read from, and what it is not.** The walk
         offers each same-tier neighbour pair to
@@ -3528,7 +3930,8 @@ class BookPDFGenerator:
 
         Returns:
             The :class:`SectionPlan`: the ordered rows, the printable ones
-            themselves and their ids, and the section's pages.
+            themselves and their ids, the section's pages, and the TOC's own
+            page count (CARD-200).
 
         Raises:
             RuntimeError: a pair the walk offered could not be laid out
@@ -3556,12 +3959,28 @@ class BookPDFGenerator:
             ids.append(puzzle_id)
             printed.append(puzzle)
             payloads.append(payload)
+        # CARD-200: the table of contents sits between the guide and the
+        # puzzle section, so every page this walk hands out moves by its own
+        # length. Measured here, off this book's own trim
+        # (:func:`page_frame`/:func:`_toc_page_count`), rather than deferred
+        # to :meth:`interior_stream` — this is the *only* place the puzzle
+        # section's own ``first_page`` is decided, and the Arrangement
+        # screen's own call (``app.py``'s ``_printed_places``) goes through
+        # here too, so a screen asking "where will puzzle 12 print" and the
+        # export that actually prints it cannot disagree about the TOC's
+        # own length (G-4, the same "decided once, read twice" discipline
+        # this method's own docstring already states for the pairing walk).
+        toc_page_count = _toc_page_count(
+            len(payloads), page_frame(self.page_spec(1)), self.dpi
+        )
+        first_page = 1 + GUIDE_PAGE_COUNT + toc_page_count
         return SectionPlan(
             puzzles=ordered,
             ids=ids,
             printed=printed,
             payloads=payloads,
-            pages=self.puzzle_section(payloads, ids=ids),
+            pages=self.puzzle_section(payloads, first_page=first_page, ids=ids),
+            toc_page_count=toc_page_count,
         )
 
     def interior_pages(self, puzzles: List[dict]) -> List[Image.Image]:
@@ -3684,11 +4103,12 @@ class BookPDFGenerator:
         so an export that is going to be refused is refused before its file
         has a first byte.
 
-        *Drawn later, lazily, one page per :func:`next`.* The guide page, each
-        level's divider and the puzzle pages the walk planned, the SOLUTIONS
-        divider and one full solved page per puzzle (CARD-198), each on the
-        spec of its own interior position (FR-043), each built when it is
-        asked for and released when the next one is.
+        *Drawn later, lazily, one page per :func:`next`.* The guide page, the
+        table of contents (CARD-200, :meth:`create_toc_page`), each level's
+        divider and the puzzle pages the walk planned, the SOLUTIONS divider
+        and one full solved page per puzzle (CARD-198), each on the spec of
+        its own interior position (FR-043), each built when it is asked for
+        and released when the next one is.
         The returned generator is single-use and holds no page: see
         :class:`InteriorStream`.
 
@@ -3735,6 +4155,8 @@ class BookPDFGenerator:
         section = decided.pages
         plan = [entry for entry in section if isinstance(entry, PuzzlePagePlan)]
         dividers = len(section) - len(plan)
+        toc_page_count = decided.toc_page_count
+        titles = self.custom_titles()
 
         # The validation half of the old packed key's walk (CARD-198): each
         # answer's grid must still be a non-empty rectangle, checked and named
@@ -3808,6 +4230,44 @@ class BookPDFGenerator:
             raise RuntimeError(
                 f"the page plan prints {printed}, not puzzles 1..{count}"
             )
+
+        # CARD-200: the TOC's own rows, decided here (not inside `produce()`
+        # below) for the same reason every other page-count-bearing pass in
+        # this method runs before a pixel is drawn — a malformed title must
+        # abort before the caller has a file open, not partway through the
+        # walk. **After** the tripwire just above, deliberately: this is the
+        # first place a 1-based puzzle number is looked up in `plan`'s own
+        # page-number mapping, and the tripwire is what guarantees every
+        # number 1..count is actually in it — building this dict any earlier
+        # let a broken page plan (a dropped or duplicated puzzle) raise an
+        # uncaught `KeyError` here instead of the tripwire's own named
+        # `RuntimeError`, which is what every caller of this method (notably
+        # `app.py`'s Finalise screen) is already written to catch and log
+        # (review finding, caught before merge by
+        # `TestFinaliseCounts_PlanTripwireIsNotAnEstimate`/
+        # `TestFinaliseGet_NamesThePagePlanFailure`). One row per drawable
+        # puzzle, in book order, captioned through the **same**
+        # `answer_title`/`answer_caption` pair the answer section already
+        # resolves a title with (AC-5: no second, independent title lookup),
+        # against the puzzle's own `PuzzlePagePlan.page_number` — a paired
+        # two-up page's two puzzles therefore point at the same page number
+        # by construction, since both share one `numbers` tuple mapped to
+        # one `page_number` (AC-4).
+        page_of_number: Dict[int, int] = {
+            number: page_plan.page_number
+            for page_plan in plan
+            for number in page_plan.numbers
+        }
+        toc_entries: List[Tuple[str, int]] = [
+            (
+                answer_caption(
+                    number, answer_title(titles.get(str(puzzle_id)), payload.name)
+                ),
+                page_of_number[number],
+            )
+            for number, (puzzle_id, payload) in enumerate(payloads, start=1)
+        ]
+
         # The degrade pass above only ever splits a page into more, smaller
         # ones in place — it must never drop, duplicate or reorder an answer.
         # Checked directly, the same tripwire shape as `printed` above, rather
@@ -3827,18 +4287,17 @@ class BookPDFGenerator:
                 f"the answer-section plan prints {answer_numbers}, not puzzles 1..{count}"
             )
         # Every page of the section — dividers included — sits between the
-        # guide (CARD-201: GUIDE_PAGE_COUNT pages, not one) and the SOLUTIONS
-        # divider, so both of those positions count the section's length and
-        # not its puzzle pages alone.
-        first_answer_page = 1 + GUIDE_PAGE_COUNT + len(section) + 1
+        # TOC (CARD-200: `toc_page_count` pages, after the guide) and the
+        # SOLUTIONS divider, so both of those positions count the section's
+        # length and not its puzzle pages alone.
+        first_answer_page = 1 + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
 
         # Calculate difficulty counts for guide — over every member of the
         # book, drawable or not, because that is what the book holds. Read
-        # here, with the custom titles, rather than inside the walk below:
-        # everything that can fail without drawing fails before the caller has
-        # a file open.
+        # here rather than inside the walk below: everything that can fail
+        # without drawing fails before the caller has a file open. The
+        # custom titles were already read above, for the TOC's own rows.
         counts = tier_breakdown(puzzles)
-        titles = self.custom_titles()
 
         # The page plan is this function's own make-up; fail loudly rather
         # than let the two drift apart. It is taken over this call's *input* —
@@ -3851,8 +4310,22 @@ class BookPDFGenerator:
         # past, instead of in a `len()` over a list nobody can afford to
         # build. The answer term is `len(answer_plan)` since CARD-202: the
         # packing walk's own page count, <= `count` and strictly less
-        # whenever at least one small answer packs.
-        planned = interior_page_count(count, len(plan), len(answer_plan), dividers)
+        # whenever at least one small answer packs. `toc_pages` is
+        # `decided.toc_page_count` (CARD-200): the same length already baked
+        # into `section`'s own page numbers above, passed explicitly rather
+        # than left to this function's own sheet-free default, which assumes
+        # Book 1's profile and would silently disagree with a book stored on
+        # a smaller trim.
+        planned = interior_page_count(
+            count, len(plan), len(answer_plan), dividers, toc_pages=toc_page_count
+        )
+
+        # CARD-200: measured once here, off this book's own trim, and reused
+        # verbatim by `produce()`'s own TOC loop below — the same split
+        # `decided.toc_page_count` (`section_plan`) was already measured
+        # with, so the plan and the draw can never disagree about how a long
+        # TOC breaks across pages.
+        toc_entries_per_page = _toc_entries_per_page(page_frame(self.page_spec(1)), self.dpi)
 
         def produce() -> Iterator[Image.Image]:
             """The interior's pages in print order, one per :func:`next`.
@@ -3885,6 +4358,22 @@ class BookPDFGenerator:
                     counts[Tier.MEDIUM],
                     counts[Tier.HARD],
                     page_number=guide_page_number,
+                )
+                yield page
+                del page
+
+            # CARD-200: the table of contents, immediately after the guide
+            # and before the puzzle section — every later page's own number
+            # already accounts for `toc_page_count` (the `first_page` passed
+            # into `puzzle_section` above, via `section_plan`). Every TOC
+            # page repeats `TOC_TITLE` (`create_toc_page`'s own docstring),
+            # so `toc_entries_per_page`, measured once above, is the same
+            # split on every page rather than a per-page re-decision.
+            for index in range(toc_page_count):
+                start = index * toc_entries_per_page
+                page = self.create_toc_page(
+                    toc_entries[start : start + toc_entries_per_page],
+                    GUIDE_PAGE_COUNT + 1 + index,
                 )
                 yield page
                 del page
@@ -3974,8 +4463,14 @@ class BookPDFGenerator:
             # turns on the same point). `paired_only_page_count` below is
             # the number that lets a caller split the two apart again
             # (review F-2).
+            # `toc_pages=toc_page_count` on both calls below (CARD-200): the
+            # TOC's own length does not change with pairing or packing, so it
+            # is the one term every one of this method's three
+            # `interior_page_count` calls shares, passed explicitly rather
+            # than left to the sheet-free default for the same reason
+            # `planned` above does.
             unpaired_page_count=interior_page_count(
-                count, answer_pages=count, level_dividers=dividers
+                count, answer_pages=count, level_dividers=dividers, toc_pages=toc_page_count
             ),
             # Pairing's own baseline (review F-2): the puzzle section at its
             # actual, paired length, but the answer section still at one full
@@ -3985,7 +4480,11 @@ class BookPDFGenerator:
             # the technique that actually made it, instead of the Finalise
             # screen crediting it all to pairing.
             paired_only_page_count=interior_page_count(
-                count, len(plan), answer_pages=count, level_dividers=dividers
+                count,
+                len(plan),
+                answer_pages=count,
+                level_dividers=dividers,
+                toc_pages=toc_page_count,
             ),
             answer_page_count=len(answer_plan),
             pages=_as_planned(produce(), planned),
