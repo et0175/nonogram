@@ -68,6 +68,7 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     _as_planned,
+    _degrade_infeasible_packed_pages,
     band_identity,
     page_is_right_hand,
 )
@@ -119,6 +120,35 @@ def _book(puzzle_titles: Optional[dict] = None) -> Book:
         trim_height_cm=_cm(BOOK1_HEIGHT_MM),
         gutter_margin_cm=_cm(GUTTER_MM),
         outside_margin_cm=_cm(OUTSIDE_MM),
+        puzzle_titles=dict(puzzle_titles or {}),
+    )
+
+
+#: Amazon KDP's minimum trim (``book_page_spec.MIN_TRIM_CM``, 10.0 cm) at its
+#: minimum side margin (``book_page_spec.MIN_SIDE_MARGIN_MM``, 6.35 mm) —
+#: review F-1's own reproduction trim, restated here as a book rather than a
+#: bare :class:`PageSpec` (``tests/test_layout_packed_solved.py`` has that
+#: half) so the generator's real pipeline — real grids, real payloads, a real
+#: export — is what this file's own tests exercise it through.
+KDP_MIN_TRIM_MM = 100.0
+KDP_MIN_MARGIN_MM = 6.35
+
+
+def _kdp_min_book(puzzle_titles: Optional[dict] = None) -> Book:
+    return Book(
+        book_id="book-202-f1",
+        metadata=BookMetadata(
+            title="Tiny Trim",
+            description="A test book at KDP's minimum trim.",
+            theme="generic",
+            target_audience="adults",
+            size="",
+            page_count=0,
+        ),
+        trim_width_cm=_cm(KDP_MIN_TRIM_MM),
+        trim_height_cm=_cm(KDP_MIN_TRIM_MM),
+        gutter_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+        outside_margin_cm=_cm(KDP_MIN_MARGIN_MM),
         puzzle_titles=dict(puzzle_titles or {}),
     )
 
@@ -1100,3 +1130,158 @@ class TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted:
         assert band.size == 0 or not (band < 128).any(), (
             "no caption should have been drawn: there was no slack for one"
         )
+
+
+# --------------------------------------------------------------------------
+# Review F-1 (CARD-202, fix cycle 1) — a packed page COMP-007 cannot lay out
+# degrades instead of silently shipping overlapping ink.
+# --------------------------------------------------------------------------
+
+
+class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
+    """Review F-1's own reproduction, end to end: a real book, a real export.
+
+    Four qualifying small answers (width<=15, height<=20: heights 10/15/18/20)
+    with realistic 5-deep clue gutters, on a real KDP-minimum 10cm x 10cm book
+    (:func:`_kdp_min_book`) at KDP's own minimum side margin. On this trim the
+    naive, extent-only walk (:func:`plan_small_answer_pages`, which never
+    measures a tile) packs all four onto one 4-up page — exactly the page the
+    reviewer reproduced the bug on, which the fixed
+    :func:`~nonogram.export.layout.compute_packed_solved_layout` now declines
+    (``tests/test_layout_packed_solved.py`` pins that half directly). This
+    class proves the walk that wraps it recovers gracefully: the book still
+    exports, split across two working 2-up pages instead, and no two slots'
+    drawing extents overlap anywhere in the result.
+    """
+
+    SIZES_AND_TIERS: Tuple[Tuple[int, int, str], ...] = (
+        (15, 10, "easy"),
+        (15, 15, "easy"),
+        (15, 18, "easy"),
+        (15, 20, "easy"),
+    )
+    DEPTH = 5
+
+    @classmethod
+    def _puzzles(cls) -> List[dict]:
+        return _small_book_of(*cls.SIZES_AND_TIERS, depth=cls.DEPTH)
+
+    def test_the_naive_extent_only_walk_would_pack_all_four_on_one_page(self) -> None:
+        """Control: without the fix, this is exactly the dangerous page."""
+        answers = _answers_for(self._puzzles())
+        naive_plan = plan_small_answer_pages(list(answers))
+
+        assert len(naive_plan) == 1
+        assert isinstance(naive_plan[0], PackedAnswerPage)
+        assert naive_plan[0].capacity == 4
+        assert naive_plan[0].numbers == (1, 2, 3, 4)
+
+    def test_the_naive_four_up_page_is_exactly_what_layout_now_declines(self) -> None:
+        book = _kdp_min_book()
+        puzzles = self._puzzles()
+        gen = BookPDFGenerator(book)
+        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
+        start = first_answer_page(book, puzzles)
+
+        layout = compute_packed_solved_layout(
+            [(payload.row_clues, payload.column_clues) for _, payload in payloads],
+            4,
+            gen.page_spec(start),
+        )
+
+        assert layout is None, "the naive 4-up page must be the one the fix declines"
+
+    def test_the_walk_degrades_to_two_working_two_up_pages(self) -> None:
+        book = _kdp_min_book()
+        puzzles = self._puzzles()
+        gen = BookPDFGenerator(book)
+        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
+        start = first_answer_page(book, puzzles)
+        naive_plan = plan_small_answer_pages(list(_answers_for(puzzles)))
+
+        degraded = _degrade_infeasible_packed_pages(
+            naive_plan, payloads, gen.page_spec(start)
+        )
+
+        assert [entry.numbers for entry in degraded] == [(1, 2), (3, 4)]
+        assert all(
+            isinstance(entry, PackedAnswerPage) and entry.capacity == 2
+            for entry in degraded
+        )
+
+    def test_no_two_slots_drawing_extents_overlap_on_either_surviving_page(
+        self,
+    ) -> None:
+        """The structural proof: every slot COMP-007 keeps actually fits its tile.
+
+        ``PackedSolvedLayout`` already refuses two tiles that overlap each
+        other (construction-time); combined with every slot's drawing fitting
+        its own tile (``PagePlacement.fits``, guaranteed now that
+        ``compute_packed_solved_layout`` declines rather than floors below
+        MIN_CELL_MM), no two different puzzles' ink can share a pixel.
+        """
+        book = _kdp_min_book()
+        puzzles = self._puzzles()
+        gen = BookPDFGenerator(book)
+        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
+        start = first_answer_page(book, puzzles)
+        naive_plan = plan_small_answer_pages(list(_answers_for(puzzles)))
+        degraded = _degrade_infeasible_packed_pages(
+            naive_plan, payloads, gen.page_spec(start)
+        )
+
+        checked_any = False
+        for offset, packed in enumerate(degraded):
+            members = [payloads[number - 1] for number in packed.numbers]
+            layout = compute_packed_solved_layout(
+                [(payload.row_clues, payload.column_clues) for _, payload in members],
+                packed.capacity,
+                gen.page_spec(start + offset),
+            )
+            assert layout is not None
+            for slot in layout.slots:
+                assert slot.page is not None
+                assert slot.page.fits, "a slot's drawing must fit its own tile"
+            checked_any = True
+        assert checked_any, "the degraded plan must still hold packed pages to check"
+
+    def test_the_book_still_exports_at_the_degraded_page_count(self) -> None:
+        book = _kdp_min_book()
+        puzzles = self._puzzles()
+        start = first_answer_page(book, puzzles)
+        naive_plan = plan_small_answer_pages(list(_answers_for(puzzles)))
+        gen = BookPDFGenerator(book)
+        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
+        degraded = _degrade_infeasible_packed_pages(
+            naive_plan, payloads, gen.page_spec(start)
+        )
+
+        pages = _interior(puzzles, book)
+
+        assert len(pages) == start - 1 + len(degraded)
+        assert len(degraded) == 2, "two 2-up pages, not one 4-up and not four singles"
+
+    def test_the_rendered_pages_match_the_degraded_plan_drawn_directly(self) -> None:
+        """The wiring draws exactly the degraded plan — the same style
+        ``TestBookSolvedAnswerKey_SmallGridsPackTwoOrFourToAPage`` already
+        pins for the happy path, now exercised on the degraded one."""
+        book = _kdp_min_book()
+        puzzles = self._puzzles()
+        pages = _interior(puzzles, book)
+        start = first_answer_page(book, puzzles)
+        gen = BookPDFGenerator(book)
+        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
+        titles = gen.custom_titles()
+        naive_plan = plan_small_answer_pages(list(_answers_for(puzzles)))
+        degraded = _degrade_infeasible_packed_pages(
+            naive_plan, payloads, gen.page_spec(start)
+        )
+
+        for offset, packed_page in enumerate(degraded):
+            expected = gen._packed_answer_page(
+                packed_page, payloads, start + offset, titles
+            )
+            assert pages[start - 1 + offset].tobytes() == expected.tobytes(), (
+                f"answer page at offset {offset} does not match the direct call"
+            )
+

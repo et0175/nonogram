@@ -2673,18 +2673,29 @@ class PackedSolvedLayout:
 
     A value object, valid by construction: :meth:`__post_init__` refuses any
     page whose slots do not share one cell or whose tiles overlap, so a
-    caller holding one never re-checks those. A slot's own drawing
-    overflowing its tile (:attr:`PagePlacement.fits` ``False``) is *not*
-    refused here — the same tolerance :func:`compute_layout`'s own placed
-    page keeps (its docstring: "the drawing overflows... rather than
-    printing cells nobody can mark"): :data:`MIN_CELL_MM` can still floor the
-    shared cell above what every member's own tile has room for in a genuine
-    edge case (a 15-wide, very-deep-clued answer sharing a 4-up page's
-    narrower tile with taller neighbours), and CARD-202's packing rule has no
-    "decline to pack" verdict for a qualifying run the way
-    :func:`compute_pair_layout` does for a pair — it always packs, so this
-    type must be constructible for every input the walk that builds it can
-    produce, the same way a single placed page always is.
+    caller holding one never re-checks those.
+
+    **Review F-1 (CARD-202, fix cycle 1).** Until this fix, a slot's own
+    drawing overflowing its tile (:attr:`PagePlacement.fits` ``False``) was
+    *not* refused here, on the reasoning that :func:`compute_layout`'s own
+    placed page tolerates exactly that for a *single* puzzle's ink running
+    past its *own* margin. That reasoning did not transfer: on a packed page,
+    several *different* puzzles share one page, and when
+    :data:`MIN_CELL_MM` floors the shared cell above what a tile actually has
+    room for, the overflow is one puzzle's ink spilling into a *neighbour's*
+    tile — two overlapping nonogram grids, unprintable, not a puzzle merely
+    outgrowing its own margin. :func:`compute_packed_solved_layout` now
+    declines (returns ``None``) instead of flooring whenever that would
+    happen, exactly the contract :func:`compute_pair_layout` already has for
+    a pair — so by the time a :class:`PackedSolvedLayout` exists, every
+    slot's drawing provably fits its own tile in millimetres, and
+    :attr:`PagePlacement.fits` being ``False`` here can now only be the same
+    kind of thing a single placed page's rounding gives it: a sub-pixel
+    sliver from rounding each tile's boundary independently, never an
+    ``MIN_CELL_MM``-forced, millimetre-scale overflow. This type is thus no
+    longer constructible for *every* input the packing walk could produce —
+    the walk itself (``book_pdf_generator._degrade_infeasible_packed_pages``)
+    is what now guarantees it is only ever asked to build one that fits.
 
     Each slot is an ordinary placed-page :class:`Layout`, exactly as a single
     puzzle page or a two-up slot is — clue gutters, a frame, a band position —
@@ -2786,8 +2797,8 @@ def compute_packed_solved_layout(
     members: Sequence[tuple[ClueSet, ClueSet]],
     capacity: int,
     page_spec: PageSpec,
-) -> PackedSolvedLayout:
-    """Lay out 2 or 4 small answers, with clues, on one shared book page (CARD-202).
+) -> PackedSolvedLayout | None:
+    """Lay out 2 or 4 small answers, with clues, on one shared book page, or decline (CARD-202).
 
     The packed half of this card's new geometry: given up to ``capacity``
     answers' clue sets, in the order they fill the page (left to right, then
@@ -2803,12 +2814,9 @@ def compute_packed_solved_layout(
         tile width  = (usable width - SOLVED_TILE_GAP_MM) / 2
         tile height = (usable height - (rows - 1) x SOLVED_TILE_GAP_MM) / rows
         drawing height = tile height - page_spec.band_mm
-        cell = clamp(MIN_CELL_MM,
-                     min(SOLVED_TILE_MAX_CELL_MM,
-                         min over members of
-                             min(tile width / drawing columns,
-                                 drawing height / drawing rows)),
-                     above MIN_CELL_MM)
+        fit  = min over members of
+                   min(tile width / drawing columns, drawing height / drawing rows)
+        cell = min(SOLVED_TILE_MAX_CELL_MM, fit)   # declines below MIN_CELL_MM instead
 
     where ``rows`` is ``capacity // 2`` and a member's drawing columns/rows
     are its real clue depth (:func:`_gutter_depth`) plus its grid, exactly as
@@ -2817,6 +2825,24 @@ def compute_packed_solved_layout(
     the same "one shared cell, fitted to the hardest member" rule
     :func:`compute_pair_layout` uses for two same-size puzzles, generalised to
     up to four possibly-different small ones.
+
+    **Review F-1 (CARD-202, fix cycle 1): this now declines rather than
+    floors.** Before this fix, ``fit`` below :data:`MIN_CELL_MM` was still
+    floored up to it (``max(MIN_CELL_MM, min(cap, fit))``), the same way a
+    *single* placed page's own cell is floored — but there, the floor only
+    ever lets one puzzle's own ink run past its own margin. Here, several
+    *different* puzzles share the page: flooring a cell above what a tile
+    actually has room for lets one puzzle's ink spill into a *neighbour's*
+    tile, two overlapping grids, which is never acceptable (unlike a single
+    puzzle outgrowing its own margin). So this function now takes exactly
+    :func:`compute_pair_layout`'s own "decline below the minimum" contract:
+    when ``fit`` is below :data:`MIN_CELL_MM`, it returns ``None`` instead of
+    forcing a cell no tile can actually hold. The caller
+    (``book_pdf_generator._degrade_infeasible_packed_pages``) retries at the
+    next lower capacity on ``None``, and ultimately falls back to one full
+    page per answer (CARD-198's original, always-constructible guarantee) —
+    this function itself makes no such retry; it only ever answers one
+    capacity at a time, truthfully.
 
     Args:
         members: Up to ``capacity`` answers as ``(row_clues, column_clues)``
@@ -2829,7 +2855,12 @@ def compute_packed_solved_layout(
             band, reserved per tile rather than once for the page.
 
     Returns:
-        The :class:`PackedSolvedLayout` the renderer draws every slot from.
+        The :class:`PackedSolvedLayout` the renderer draws every slot from,
+        or ``None`` when the largest cell every member actually fits at is
+        below :data:`MIN_CELL_MM` — print ``members`` at a lower capacity, or
+        each on its own full page, instead. ``None`` is a verdict on a valid
+        set of members, exactly as :func:`compute_pair_layout` returns one
+        for a valid pair — never an error.
 
     Raises:
         TypeError: ``page_spec`` is not a :class:`PageSpec`.
@@ -2895,7 +2926,16 @@ def compute_packed_solved_layout(
         min(tile_width_mm / drawing_columns, drawing_height_mm / drawing_rows)
         for drawing_columns, drawing_rows in extents
     )
-    exact_cell_mm = max(_exact_mm(MIN_CELL_MM), min(cap_mm, fit_mm))
+    # Review F-1: decline rather than floor. Flooring `fit_mm` up to
+    # MIN_CELL_MM here (as a single placed page does for itself) would let a
+    # slot's drawing overflow its own tile by however much the floor forced
+    # — and unlike a single page overflowing its own margin, that overflow
+    # lands in a *neighbouring* puzzle's tile. So when the real fit cannot
+    # clear the floor, this capacity is not printable for these members at
+    # all; the caller retries at a lower one or falls back to full pages.
+    if fit_mm < _exact_mm(MIN_CELL_MM):
+        return None
+    exact_cell_mm = min(cap_mm, fit_mm)
     cell_mm = float(exact_cell_mm)
     pitch = _exact_px(exact_cell_mm)
 

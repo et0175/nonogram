@@ -323,6 +323,7 @@ from PIL import Image, ImageDraw, ImageFont, PdfParser
 from io import BytesIO
 
 from nonogram.admin.book_answer_key import (
+    PACKED_TWO_UP,
     Answer,
     PackedAnswerPage,
     answer_caption,
@@ -1487,6 +1488,122 @@ def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int
     return columns, rows
 
 
+def _packed_page_is_feasible(
+    plan: PackedAnswerPage,
+    payloads: Sequence[Tuple[Any, ExportPayload]],
+    page_spec: PageSpec,
+) -> bool:
+    """Whether COMP-007 can actually lay ``plan`` out at its own capacity (review F-1).
+
+    :func:`~nonogram.export.layout.compute_packed_solved_layout` returns
+    ``None`` exactly when ``plan``'s real clue depths cannot share
+    :attr:`~nonogram.admin.book_answer_key.PackedAnswerPage.capacity` slots
+    without the shared cell falling below
+    :data:`~nonogram.export.layout.MIN_CELL_MM` — the one case that function's
+    own docstring says to read as "print these some other way", never as an
+    error. ``page_spec``'s parity does not matter here (``book_page_spec``'s
+    own docstring: parity moves the margins sideways, never the usable size),
+    so one representative spec answers this for whichever interior page
+    position ``plan`` ends up printed at.
+    """
+    members = [payloads[number - 1] for number in plan.numbers]
+    clue_pairs = [(payload.row_clues, payload.column_clues) for _, payload in members]
+    try:
+        layout = compute_packed_solved_layout(clue_pairs, plan.capacity, page_spec)
+    except Exception as e:
+        # A malformed member (clue sets that disagree about the grid, say) is
+        # a different thing from "declines to pack": `compute_packed_solved_layout`
+        # answers "no" to a genuine question by returning `None`, never by
+        # raising — so an exception here means this page could never be laid
+        # out at all, at any capacity, and must abort named rather than be
+        # read as "try a lower density" (the same split `puzzle_pages` already
+        # keeps between `compute_pair_layout` returning `None` and raising).
+        ids = [puzzle_id for puzzle_id, _ in payloads]
+        raise RuntimeError(
+            f"puzzle {_named_puzzles(ids, plan.numbers)} could not be laid out: {e}"
+        ) from e
+    return layout is not None
+
+
+def _degrade_infeasible_packed_pages(
+    answer_plan: Sequence[Union[Answer, PackedAnswerPage]],
+    payloads: Sequence[Tuple[Any, ExportPayload]],
+    page_spec: PageSpec,
+) -> List[Union[Answer, PackedAnswerPage]]:
+    """Replace a packed page COMP-007 cannot lay out with one it can (review F-1).
+
+    :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` groups
+    answers from their extents alone — it is pure and measures no tile (its
+    own module docstring) — so it cannot see that a run's *real* clue depth
+    (only the actual grids carry that) will make
+    :func:`~nonogram.export.layout.compute_packed_solved_layout` decline a
+    packed page: the :data:`~nonogram.export.layout.MIN_CELL_MM` floor would
+    otherwise force a slot's drawing to spill into a *neighbouring* answer's
+    tile, which is never acceptable (unlike a single puzzle's own ink running
+    past its own margin — see that function's docstring, "review F-1").
+
+    This degrades such a page the same way :func:`~nonogram.export.layout.compute_pair_layout`'s
+    own "decline, then the caller falls back" contract already works for a
+    pair: first the next lower density in the same run (4-up -> two 2-ups),
+    and if even a 2-up pair cannot fit without overlap, all the way down to
+    CARD-198's original guarantee — each answer on a full page of its own,
+    which :func:`~nonogram.export.layout.compute_layout` always builds for
+    any puzzle in the supported size range (it has no "decline" verdict at
+    all; the single-page tolerance it does keep only ever lets *that*
+    puzzle's own ink run past *its own* margin, never another's). A page
+    that already fits at its planned capacity is returned unchanged.
+
+    Every answer in ``answer_plan`` reaches the result exactly once, in the
+    same order — this only ever splits a page into more, smaller ones; it
+    never drops, duplicates or reorders one (checked by the caller's own
+    tripwire, the same shape as the one that checks this module's puzzle-page
+    walk).
+
+    Args:
+        answer_plan: :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`'s
+            own, extent-only plan.
+        payloads: Every drawable puzzle's ``(id, ExportPayload)``, indexed by
+            1-based print number minus one, the real clue sets this check
+            needs and the pure planner never sees.
+        page_spec: Any placed book page spec for this book — parity does not
+            change the usable size (see :func:`_packed_page_is_feasible`), so
+            one spec checks every page position the plan could still use.
+
+    Returns:
+        A plan with the same answers, in the same order, where every
+        remaining :class:`~nonogram.admin.book_answer_key.PackedAnswerPage`
+        is one COMP-007 can actually draw without any two slots' ink
+        overlapping.
+    """
+    degraded: List[Union[Answer, PackedAnswerPage]] = []
+    for entry in answer_plan:
+        if not isinstance(entry, PackedAnswerPage):
+            degraded.append(entry)
+            continue
+        if _packed_page_is_feasible(entry, payloads, page_spec):
+            degraded.append(entry)
+            continue
+        if entry.capacity == PACKED_TWO_UP:
+            # No lower packed density exists: every answer on it prints alone.
+            degraded.extend(entry.answers)
+            continue
+        # A 4-up that cannot pack: try the next lower density, two 2-ups,
+        # each checked (and allowed to fail) independently — one half
+        # binding tighter than the other is exactly the case this exists for.
+        for half in (entry.answers[:2], entry.answers[2:]):
+            if not half:
+                continue
+            if len(half) == 1:
+                degraded.append(half[0])
+                continue
+            pair_page = PackedAnswerPage(half)
+            if _packed_page_is_feasible(pair_page, payloads, page_spec):
+                degraded.append(pair_page)
+            else:
+                degraded.extend(half)
+    return degraded
+
+
 class BookPDFGenerator:
     """Generates a book's interior PDF (guide, puzzles, answers) and cover file.
 
@@ -2202,6 +2319,18 @@ class BookPDFGenerator:
             plan.capacity,
             self.page_spec(page_number),
         )
+        if layout is None:
+            # pragma: no cover - `interior_stream`'s
+            # `_degrade_infeasible_packed_pages` pass (review F-1) already
+            # proved this exact plan, at this capacity, lays out on a
+            # parity-equivalent spec before it ever reaches here; a `None`
+            # here means that guarantee broke, not that this page is a normal
+            # case to recover from.
+            raise ValueError(
+                f"packed answer page {page_number} ({plan.numbers}) cannot be "
+                f"laid out at capacity {plan.capacity} after the packing walk "
+                "already found it feasible"
+            )
         page = Image.new("RGB", (layout.width, layout.height), BACKGROUND)
         draw = ImageDraw.Draw(page)
         for slot, number, (puzzle_id, payload) in zip(
@@ -2707,6 +2836,33 @@ class BookPDFGenerator:
         # one level packs 4-or-2 (G-6).
         answer_plan = plan_small_answer_pages(answers)
 
+        # Every page of the section — dividers included — sits between the
+        # guide page and the SOLUTIONS divider, so both of those positions
+        # count the section's length and not its puzzle pages alone. Computed
+        # here (rather than after the degrade pass below) because it depends
+        # only on `section`, never on `answer_plan` — any page_spec built from
+        # it measures the *same* usable size any other interior page position
+        # would (`book_page_spec`'s own docstring: parity moves the margins,
+        # never the usable size), which is exactly what lets one representative
+        # spec answer the degrade pass's feasibility check for every page
+        # position the plan could still land on.
+        first_answer_page = 3 + len(section)
+
+        # Review F-1 (CARD-202, fix cycle 1): `plan_small_answer_pages` above
+        # is pure and extent-only (its own module docstring: no tile measured,
+        # no PageSpec) — it cannot know that a run's *real* clue depth will
+        # make COMP-007's `compute_packed_solved_layout` decline a packed page
+        # the MIN_CELL_MM floor would otherwise force to overlap a neighbour's
+        # tile. This degrades any such page — 4-up to two 2-ups, then down to
+        # one full page per answer — into a plan every page of which COMP-007
+        # can actually lay out, *before* `len(answer_plan)` is read for the
+        # page count below and baked into the PDF's pre-allocated object
+        # table (`_write_pdf`). `payloads` carries the real grids and clue
+        # sets this check needs; `plan_small_answer_pages` never sees them.
+        answer_plan = _degrade_infeasible_packed_pages(
+            answer_plan, payloads, self.page_spec(first_answer_page)
+        )
+
         # The walk's own half of the page-plan tripwire below, and the one the
         # tripwire cannot make: `interior_page_count(count, len(plan))` takes
         # the puzzle-page term from the walk's output, so a walk that dropped a
@@ -2718,10 +2874,24 @@ class BookPDFGenerator:
             raise RuntimeError(
                 f"the page plan prints {printed}, not puzzles 1..{count}"
             )
-        # Every page of the section — dividers included — sits between the
-        # guide page and the SOLUTIONS divider, so both of those positions
-        # count the section's length and not its puzzle pages alone.
-        first_answer_page = 3 + len(section)
+        # The degrade pass above only ever splits a page into more, smaller
+        # ones in place — it must never drop, duplicate or reorder an answer.
+        # Checked directly, the same tripwire shape as `printed` above, rather
+        # than trusted because the implementation "only ever splits": a change
+        # to that function that broke the invariant must fail loudly here
+        # instead of shipping an answer section that silently prints twice or
+        # not at all.
+        answer_numbers = [
+            number
+            for entry in answer_plan
+            for number in (
+                entry.numbers if isinstance(entry, PackedAnswerPage) else (entry.number,)
+            )
+        ]
+        if answer_numbers != list(range(1, count + 1)):
+            raise RuntimeError(
+                f"the answer-section plan prints {answer_numbers}, not puzzles 1..{count}"
+            )
 
         # Calculate difficulty counts for guide — over every member of the
         # book, drawable or not, because that is what the book holds. Read
