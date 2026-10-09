@@ -962,3 +962,127 @@ evidence), and the Finalise screen's live preview
     routing to forge:fix for F-11, cycle 3 (the max allowed — if cycle 3
     finds a NEW gating issue, this escalates per protocol rather than
     looping further).
+
+- [Fix 2] Review cycle 2's one new gating finding (F-11), fixed in this
+  worktree (review cycle 3, the last allowed). This entry records the
+  finding, the fix, the new test coverage and fresh evidence.
+
+  - **F-11 (Important — visible misalignment, zero test coverage) — FIXED.**
+    `book_pdf_generator.py`'s guide-page paste loop (`:2439` at review time,
+    now in `create_guide_page`'s `set_page`/paste-loop closures) subtracted
+    `pad = icon_layout.thick_rule` from **every** pasted image's x-offset
+    uniformly. That correction belongs only to an image built via
+    `draw_example_line`/`example_line_layout`, which bakes in a left
+    bleed-margin of exactly that width (cycle 1's own F-3 fix was
+    compensating for it) — `_draw_pipeline_diagram` and `_draw_difficulty_box`
+    draw their own border flush at column 0, with no such margin, so
+    applying the same correction shifted both one heavy-rule-width too far
+    left: into the inner gutter margin on Book 1's right-hand page, and
+    further into the already-tight 10 cm minimum trim's margin.
+
+    **Mechanism chosen:** each mark the page builds now carries its own
+    `needs_pad: bool` flag alongside its `(y, image_or_text)` pair — `marks`
+    is a list of `(y, mark, needs_pad)` triples instead of `(y, mark)`
+    pairs. `picture(img, gap, *, needs_pad: bool = True)` defaults to
+    `True` (every existing call site — the basic rule, the cell-state
+    icons, every technique's line diagrams, the worked-example recap — is
+    a `draw_example_line` image and keeps the correction unchanged); the
+    two call sites that build the pipeline diagram and the difficulty box
+    now pass `needs_pad=False` explicitly. The paste loop reads the flag
+    per mark: `x = frame.left - pad if needs_pad else frame.left`. This
+    was the option that fit the existing shape best — the loop already
+    iterated one list of marks uniformly, so tagging each mark was less
+    invasive than giving the two new drawing functions a different return
+    convention or threading a second list through `set_page`.
+
+    **New test coverage** (`tests/test_book_guide_page_type.py`,
+    `TestGuidePage_TextFitsTheUsableFrame`, the exact class/location F-11's
+    own finding named): the class's 3 existing margin-fit tests
+    (`test_every_mark_sits_inside_the_usable_area`,
+    `test_it_fits_the_smallest_trim_a_book_may_be_stored_at`,
+    `test_the_whole_corpus_of_trims_and_counts_fits`) all defaulted to
+    `page_number=1` and so never rendered page 2 at all — the only page
+    carrying these two diagrams. The first two are now extended to loop
+    over `page_number in (1, 2)`, re-reading `page_frame` per page number
+    (page 2's frame is genuinely different from page 1's: FR-043/ADR-0036
+    mirror margins by parity). The whole-corpus test is deliberately **not**
+    extended to page 2: doing so surfaces a real but separate, pre-existing
+    gap — at some points of that test's full continuous
+    `MIN_TRIM_CM..MAX_TRIM_WIDTH_CM x MAX_TRIM_HEIGHT_CM` corpus, page 2
+    overflows its frame by ~150 px even on the pre-F-11 code (confirmed by
+    reverting this fix and re-running) — which is the fallback ladder's own
+    coverage gap (it was only ever measured against 3 named stored trims:
+    Book 1, 6x9, 10 cm minimum — see "Owner decision 2" above), not the
+    F-11 misalignment this pass fixes. Flagged below rather than silently
+    widened past or silently absorbed into this fix.
+
+    Three new tests were added, all in the same class: the class gained a
+    `diagram_bands` helper (page's `ink_bands` minus `type_bands` —
+    independently reimplemented from `tests/test_book_guide_page.py`'s own
+    `drawn_bands`/`type_bands` pair, per CLAUDE.md's "prefer an independent
+    second implementation") and a module-level `band_ink_extent` helper
+    (the leftmost/rightmost inked column inside a band's own rows — a
+    bordered diagram's border is always the widest ink in its band, so this
+    is its own left/right edge).
+    - `test_page_two_pipeline_and_difficulty_box_align_at_book1`: Book 1's
+      full fallback form draws all 12 of page 2's diagrams (pinned by a
+      `len(bands) == 12` guard, the same assumption
+      `tests/test_book_guide_page.py`'s own AC-3 `drawn` fixture already
+      makes); the pipeline (index 6) and the difficulty box (index 7) must
+      each start exactly at `frame.left` and never cross `frame.right`.
+    - `test_page_two_difficulty_box_aligns_at_narrower_trims` (parametrized
+      `6x9`/`10cm-wide`): both trims fall back far enough (measured) that
+      the pipeline and the worked-example recap are dropped, leaving
+      exactly 3 diagram bands (2 single-row techniques + the difficulty
+      box, pinned by a `len(bands) == 3` guard); the difficulty box (always
+      drawn, at every fallback level) is the last band, and must start at
+      `frame.left` and end at exactly `frame.right - 1` (its own canvas is
+      built exactly `measure` px wide).
+    - `test_a_diagram_shifted_left_by_pad_is_not_at_frame_left` (negative
+      control): crops the real, correctly-placed difficulty box out of a
+      freshly rendered page, re-pastes that same crop `pad` pixels further
+      left (reproducing the OLD, uniform paste), and asserts
+      `band_ink_extent` reports a left edge that is NOT `frame.left` —
+      proving the measurement the tests above rely on actually has teeth.
+
+    **Proof the new tests would have caught the original bug.** Reverted
+    `book_pdf_generator.py` to the pre-fix version in this same worktree
+    (`git stash` on just that file) and re-ran
+    `tests/test_book_guide_page_type.py`: all 4 new/F-11-targeted tests
+    failed, each reporting the exact `pad`-sized left offset (e.g. "the
+    difficulty box starts at x=107, not frame.left=113"; `pad` is 6 px at
+    every stored trim this module measures). Restored the fix (`git stash
+    pop`) and re-ran: all 15 tests in the file pass. This is the same
+    revert-then-restore discipline review cycle 1's own negative controls
+    used, done directly against the real production code path rather than
+    only against a synthetic double.
+
+    **Fixture re-recorded.** `tests/fixtures/book_baseline_card201.json`:
+    the fix moves the pipeline diagram and the difficulty box right by
+    `pad` on guide page 2, which moves that page's ink. Only interior page
+    2's digest, `interior_bytes` (3,484,099 -> 3,483,012) and
+    `colour_interior_bytes` (3,986,224 -> 3,985,305) changed; every other
+    page's digest, `page_count` (13) and `font_fingerprint` are unchanged
+    (diffed before writing, same discipline as cycle 1's re-recording). A
+    new `re_recorded_for_review_cycle_2_fix` field documents this, naming
+    F-11 and the mechanism, alongside the existing
+    `re_recorded_for_review_cycle_1_fix` field (left untouched).
+
+    **Test evidence, this pass (implementer's own):**
+    `tests/test_book_guide_page.py tests/test_book_guide_page_type.py
+    tests/test_book_interior_type_floor.py tests/test_book_pdf_memory.py
+    tests/test_book_pdf_ink_mode.py tests/test_book_finalise_guide_preview.py
+    tests/test_book_finalise_gutter.py` together: **289 passed, 1 skipped,
+    0 failed** (the one skip is the known DB-mode test). The fix agent also
+    ran the full project suite to completion itself this time and waited
+    for it: **6733 passed, 9 skipped, 0 failed, 0 errors** (1286.65s) —
+    exactly 4 more passing tests than the prior confirmed build-gate run
+    (6729), matching the 4 new/extended test items added, same 9 skips.
+
+  - **No blocker.** F-11 was confirmed correct by reading the source
+    directly (the paste loop really did apply one `pad` correction
+    uniformly to every mark) and reproduced by measurement before fixing
+    it; the fix needed no owner-level judgment call — it is a
+    straightforward "the correction belongs to some images, not all of
+    them" bug, and the chosen mechanism (a per-mark flag) follows the
+    existing code's own shape rather than introducing a new pattern.
