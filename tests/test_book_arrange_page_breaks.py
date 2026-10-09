@@ -152,7 +152,21 @@ def first_section_page(book, puzzle_count: int) -> int:
     title_space = title_ascent + title_descent + px(36.0)  # GUIDE_TITLE_GAP_PT
     entry_ascent, entry_descent = face(px(10.0)).getmetrics()  # TOC_ENTRY_PT
     entry_height = entry_ascent + entry_descent + px(4.0)  # TOC_ENTRY_GAP_PT
-    per_page = max(1, (usable_height - title_space) // entry_height)
+    # The folio's own reserved line (CARD-200's own `_toc_entries_per_page`
+    # docstring, "load-bearing, not a safety margin") — the packaged DejaVu
+    # Sans at FOLIO_PT=10, the same face the answer caption and the band are
+    # set in, read directly from the package rather than through
+    # ``_band_font`` (private to the module under test).
+    from importlib import resources
+    from io import BytesIO
+    from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE
+
+    folio_bytes = resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+    folio_ascent, folio_descent = ImageFont.truetype(BytesIO(folio_bytes), size=px(10.0)).getmetrics()
+    per_page = max(
+        1,
+        (usable_height - title_space - folio_ascent - folio_descent) // entry_height,
+    )
     toc_pages = -(-puzzle_count // per_page)
     return 1 + GUIDE_PAGES + toc_pages
 

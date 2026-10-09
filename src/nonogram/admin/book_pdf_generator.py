@@ -1998,14 +1998,31 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     """How many :func:`BookPDFGenerator.create_toc_page` rows fit one TOC page.
 
     Every TOC page repeats :data:`TOC_TITLE` (:func:`BookPDFGenerator.create_toc_page`'s
-    own docstring), so one page's entry budget is always the frame's usable
-    height minus the title's own line and gap, divided by one entry's line
-    height (:data:`TOC_ENTRY_PT` set, :data:`TOC_ENTRY_GAP_PT` under it) — a
-    pure division, not a second text-layout primitive (G-1): the same
-    :func:`_band_font`/:func:`_guide_face` metrics every other page's own
-    fitting already reads, never a value this function invents. At least one
-    entry always fits, by floor, the same shape :func:`interior_page_count`'s
-    own ``level_dividers`` default already uses for its own worst case.
+    own docstring), so one page's entry budget is the frame's usable height
+    minus the title's own line and gap, minus one more folio-sized line at
+    the bottom, divided by one entry's line height (:data:`TOC_ENTRY_PT` set,
+    :data:`TOC_ENTRY_GAP_PT` under it) — a pure division, not a second
+    text-layout primitive (G-1): the same :func:`_band_font`/:func:`_guide_face`
+    metrics every other page's own fitting already reads, never a value this
+    function invents.
+
+    **The folio-sized reservation is load-bearing, not a safety margin.**
+    Every TOC page but a short final one is packed to exactly this many
+    rows (:func:`BookPDFGenerator.create_toc_page` draws whatever slice it
+    is given, never fewer) — unlike a grid page, where the drawing's own
+    natural height usually leaves slack below it by chance, a TOC page with
+    no such reservation would end with its *own* last entry sitting exactly
+    at the bottom margin on every page but the last, which is precisely the
+    "slack too small to fit one line" case :func:`_draw_folio` then omits
+    the folio for (found by this card's own ``tests/test_book_toc.py``
+    while drafting it, not assumed away). Reserving one folio line here
+    instead keeps every TOC page's own folio printed, the normal case
+    AC-1 asks for, rather than making the TOC the one page kind whose folio
+    is routinely missing.
+
+    At least one entry always fits, by floor, the same shape
+    :func:`interior_page_count`'s own ``level_dividers`` default already
+    uses for its own worst case.
     """
     title_font = _guide_face(type_px(GUIDE_TITLE_PT, dpi))
     title_ascent, title_descent = title_font.getmetrics()
@@ -2013,7 +2030,10 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     entry_font = _guide_face(type_px(TOC_ENTRY_PT, dpi))
     entry_ascent, entry_descent = entry_font.getmetrics()
     entry_height = entry_ascent + entry_descent + type_px(TOC_ENTRY_GAP_PT, dpi)
-    available = (frame.bottom - frame.top) - title_space
+    folio_font = _band_font(type_px(FOLIO_PT, dpi))
+    folio_ascent, folio_descent = folio_font.getmetrics()
+    folio_space = folio_ascent + folio_descent
+    available = (frame.bottom - frame.top) - title_space - folio_space
     return max(1, available // entry_height)
 
 

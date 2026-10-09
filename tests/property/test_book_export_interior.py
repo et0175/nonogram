@@ -709,7 +709,23 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                     )
                     if expected_mm is None:
                         continue  # a lone leftover's packed page: column empty
-                    crop = page.crop((left, 0, right, page.height))
+                    # CARD-200: the page's own folio now sits in the usable
+                    # area's bottom-outer corner — inside the margin-free
+                    # region, not the bottom margin itself (the folio's own
+                    # anchor puts its glyph box's bottom edge exactly at
+                    # ``usable_bottom``, one line above it) — so a plain
+                    # leftmost-ink scan over the full page height would read
+                    # the folio's own ink on whichever half it lands in
+                    # (it is flush with the usable area's *outer* edge,
+                    # often further out than a packed tile's own left edge).
+                    # Cropped above ``BOTTOM_MM`` plus a few mm of headroom
+                    # for one line of :data:`~nonogram.admin.book_pdf_generator.FOLIO_PT`
+                    # text, which stays well clear of a packed tile's own
+                    # bottom edge (every tile keeps its drawing inside the
+                    # band below PACKED_BAND_MM and the usable height,
+                    # never down into this margin at all).
+                    bottom_limit = page.height - round((BOTTOM_MM + 6.0) * PX_PER_MM)
+                    crop = page.crop((left, 0, right, bottom_limit))
                     ink = np.asarray(crop.convert("L")) < 128
                     cols_with_ink = np.where(ink.any(axis=0))[0]
                     assert cols_with_ink.size, (
