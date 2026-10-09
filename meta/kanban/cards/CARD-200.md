@@ -804,3 +804,76 @@ Fresh evidence:
 **Not fixed, per the review's own explicit scope:** F-3 (`puzzle_pages`'s
 stale default `first_page`) and F-4 (`TOC_ENTRY_GAP_PT`'s double duty) —
 left untouched, as instructed; neither is gating.
+
+## [Fix 2] Review cycle 2 finding fixed, 2026-10-09
+
+F-001 (the one gating item from cycle 2, Important — a missing-test-coverage
+finding, not a code bug) fixed in this worktree. F-002 (Minor, a stale
+docstring) also fixed as instructed. F-3/F-4 remain explicitly out of scope,
+untouched. No sub-agents, no concurrent test runs — serial throughout.
+
+**F-001 (mutation-survival gap in the F-1 packed-answer-page regression
+class): confirmed, then closed.**
+
+The reviewer's cycle-2 mutation check found that
+`TestBookPageNumbers_FolioNeverCollidesWithTheGrid`'s two packed-answer
+tests (`test_packed_answer_page_omits_the_folio_when_the_corner_tile_is_page_fit_bound`
+and `test_packed_answer_page_still_draws_when_the_corner_tile_has_room`)
+only ever exercise a *fully-filled* packed page (4-of-4, 2-of-2) —
+`_packed_answer_page`'s corner-slot gate
+(`corner_index < len(layout.slots)`, `book_pdf_generator.py:3809`) agrees
+with a mutated `<=` on both of those shapes, so neither test actually pins
+the `<` operator itself. `plan_small_answer_pages` genuinely produces a
+different shape the class never built: a capacity-2 page holding exactly
+one leftover answer, which fills the page's left tile (slot index 0) and
+leaves the folio's own corner (the right tile, index 1, on a right-hand
+page) completely empty — `corner_index` (1) equals `len(layout.slots)`
+(1) exactly, the one value where `<` and `<=` disagree.
+
+Added `test_packed_answer_page_with_one_leftover_answer_still_draws_the_folio`
+to the same class (`tests/test_book_page_numbers.py`): builds a single-answer
+`PackedAnswerPage` (capacity 2, confirmed via `plan.capacity == 2`), calls
+`_packed_answer_page` at page 9 (confirmed right-hand via
+`page_is_right_hand`), and asserts the folio is still drawn (the real
+geometry's answer — the corner is empty, so there is nothing to collide
+with; omission or a crash would both be wrong).
+
+Mutation-probe evidence (capture/mutate/test/restore, same discipline the
+cycle-2 review itself used):
+- Captured `book_pdf_generator.py`'s SHA-256 before touching it.
+- Reproduced the reviewer's exact mutation at line 3809
+  (`corner_index < len(layout.slots)` -> `corner_index <= len(layout.slots)`).
+- Re-ran the two pre-existing packed-answer tests alone: **2 passed**,
+  confirming they still do not catch this mutant (matches the review's own
+  finding).
+- Ran the new test alone against the mutant: **failed**, raising
+  `IndexError: tuple index out of range` at `layout.slots[corner_index]` —
+  the exact failure mode the finding described.
+- Reverted the single character, then re-checked the file's SHA-256:
+  identical to the pre-mutation capture — byte-clean restore confirmed.
+- Re-ran `tests/test_book_page_numbers.py` on the restored code: **15
+  passed, 0 failed**.
+
+**F-002 (stale docstring reference): confirmed, then fixed.**
+
+`tests/test_book_arrange_page_breaks.py:123`'s `first_section_page`
+docstring still named `_toc_page_count`, the pre-rename private name; F-2
+(fix cycle 1) renamed it to the now-public `measured_toc_page_count`, and
+the sibling `_toc_entries_per_page` name alongside it was not renamed (confirmed
+by grep against `book_pdf_generator.py`, which still defines
+`_toc_entries_per_page` under that exact name). Updated the docstring's
+second name only; no behavior change.
+
+**Fresh evidence, this session, this worktree:**
+
+- `./.venv/bin/python -m pytest tests/test_book_page_numbers.py
+  tests/test_book_arrange_page_breaks.py -q` -> **34 passed, 0 failed, exit
+  code 0**.
+- Full-repo `./.venv/bin/python -m pytest` (one run, this worktree, no
+  concurrent processes): **6834 passed, 9 skipped, 0 failed, exit code 0**
+  in 966.58s (0:16:06) — exactly one more passed than cycle 1's own full
+  gate (6833 passed), matching the one new test this fix cycle added; skip
+  count and failure count both unchanged from that prior gate.
+
+**Not fixed, per the review's own explicit scope:** F-3/F-4 remain
+untouched, as instructed.
