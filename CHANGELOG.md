@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-09
+- CARD-202 (feature): The book's answer key now packs small solutions (width ≤15, height ≤20) 2-or-4 to a page instead of giving each its own full page — always 4-up when four are next in sequence, falling back to 2-up for a leftover one or two, never mixing tiers on one page. Every packed slot still shows full clues and its own "Puzzle N · Tier" band, the same as a full page. A puzzle whose shared cell would otherwise overlap a neighbour's (found during review, on a valid KDP-minimum trim) now declines that density and falls back to a looser one, or to a full page, instead of silently corrupting the page.
+
 ## 2026-10-08
 - CARD-195 (feature): The puzzle player can now zoom the board from 100% to 300%, in 25-point steps on two new buttons (next to a plain percent readout) or continuously with a two-finger pinch. When zoomed, the board scrolls in both directions inside its own stage; panning is by scrollbar, a drag on the clue bands, or (with the Region tool) a drag on the board itself. Zoom always starts back at 100% on page load. Fixed a real bug found during review: a pinch on a cell was also triggering the browser's own native page zoom underneath the app's control; it's now correctly captured by the app alone.
 - CARD-198 (feature): A book's answer key is now one full solved page per puzzle — the same clues-top-and-left, gray-gridline layout CARD-197 added — instead of the old compact 6-up/4-up tiled grids. The per-level "Easy"/"Medium" heading is gone (each page's own band already says the tier); the answer section runs noticeably longer than before (for a 150-puzzle book, roughly 182 to 305 interior pages), so a book that grows past 590 pages still refuses to finalise, now naming that as the reason.

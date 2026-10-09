@@ -1,6 +1,6 @@
 # CARD-202: Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/202-packed-small-answers
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-202
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 4: shrink small-grid solutions to 2-or-4-up); also raised informally by the owner earlier in this session, before the doc surfaced, as a design question about CARD-198's answer-section page-count growth
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_solved_answer_key.py, tests/test_book_answer_key.py, tests/property/test_book_answer_tiles.py, tests/helpers/book_corpus.py, tests/fixtures/ (a new small-grid baseline fixture)
 **Review score:** 9.0 (cycle 2/3; cycle 1 found 1 Critical + 2 Important/Minor, all fixed; cycle 2 confirmation found 0 gating findings)
 **Started:** 2026-10-08T16:14:38Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-09T10:16:39Z
+**Actual:** 2.3d
+**Merge commit:** 040f10d
 **Blocked by:** —
 
 ## What to implement
@@ -1191,3 +1191,17 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   check that no two slots' drawing extents overlap. The existing render
   remains the valid owner-facing evidence for this card's actual visual
   behaviour.
+- [Trace write-back, skipped deliberately] `meta/architecture/trace.yml`'s
+  FR-042 entry already describes neither CARD-198's nor this card's actual
+  behaviour (`description:` still says "6 answers a page... 4 once one is
+  longer", `tests:` still cites the old packed-key classes CARD-198
+  deleted) — CARD-198 deliberately left this stale and deferred it to the
+  architect station, the same precedent this card follows rather than
+  partially patching an already-wrong entry with a second, different kind
+  of staleness layered on top. Not done at merge time; both cards' deltas
+  to FR-042/INV-011 are architect-station work.
+- [Merge] Rebased onto latest `main` (all commits since the branch point
+  were kanban bookkeeping only, no code) and merged with `--no-ff`. Full
+  merge-gate suite run on the merged tree: **6750 passed, 9 skipped, 0
+  failed, exit 0** (863.12s) — matches the worktree's own final gate count
+  exactly. Worktree and branch removed.
