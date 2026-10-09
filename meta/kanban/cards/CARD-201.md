@@ -910,3 +910,8 @@ evidence), and the Finalise screen's live preview
     anticipated — F-1 used the brief's option (a)/(b) hybrid: same clue,
     shrunk line so the shown placements are genuinely exhaustive, rather
     than inventing an unrelated illustration.
+- [Build gate] PASSED (attempt 2, after F-1..F-4 fixes). Orchestrator's
+  own independent full-suite run — `./.venv/bin/python -m pytest` in the
+  CARD-201 worktree, under the `meta/kanban/.full-suite.lock`: **6729
+  passed, 9 skipped, 0 failed, 0 errors, exit 0** (1292.97s). Gate clear —
+  proceeding to forge:review cycle 2 (confirmation cycle).
