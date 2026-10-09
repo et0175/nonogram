@@ -915,3 +915,5 @@ evidence), and the Finalise screen's live preview
   CARD-201 worktree, under the `meta/kanban/.full-suite.lock`: **6729
   passed, 9 skipped, 0 failed, 0 errors, exit 0** (1292.97s). Gate clear —
   proceeding to forge:review cycle 2 (confirmation cycle).
+- [Review] forge:review cycle 2 started (background agent `@code-review`,
+  confirmation pass over F-1..F-4's fixes plus the whole diff).
