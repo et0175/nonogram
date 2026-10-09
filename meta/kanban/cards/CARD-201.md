@@ -1282,61 +1282,99 @@ evidence), and the Finalise screen's live preview
     heading was found 0 times. Restored the fix: all 4 new tests pass,
     together with all 49 tests in the file.
 
-    **[BLOCKER] A measured, disclosed side effect on the 10 cm x 10 cm
-    (minimum, square) trim's page 1, at the book's own worst-case (6-digit)
-    puzzle counts — an owner decision, not guessed at.** Restoring the
-    three heading lines this fix requires costs roughly 3 lines of
-    `leading` on page 1 at `bare_level 2`. Measured directly:
-    `tests/test_book_guide_page_type.py`'s own
+    **[BLOCKER], RESOLVED by the owner — option (a).** Restoring the three
+    heading lines this fix requires (they were being silently dropped,
+    which is the bug) costs roughly 3 lines of `leading` on page 1 at
+    `bare_level 2`. First measured directly against the one pinned 10 cm x
+    10 cm (minimum, square) trim at the book's worst-case (6-digit) puzzle
+    counts: `tests/test_book_guide_page_type.py`'s own
     `test_it_fits_the_smallest_trim_a_book_may_be_stored_at` and
-    `test_the_whole_corpus_of_trims_and_counts_fits` (both pre-existing
-    AC-4/AC-237 tests, not new) now fail on exactly this one trim+count
-    combination: the page's last ink reaches y=1180 against a
-    `frame.bottom` of 1069 — a 111 px (~1.5 lines) vertical overflow past
-    the usable frame. Confirmed by reverting only this fix: both tests
-    pass on the pre-fix code, so this is a direct, new consequence of
-    fixing F-21 correctly, not a pre-existing gap F-21 merely surfaces.
+    `test_the_whole_corpus_of_trims_and_counts_fits` (that trim is its
+    first, pinned case — both pre-existing AC-4/AC-237 tests, not new) now
+    failed there: the page's last ink reached y=1180 against a
+    `frame.bottom` of 1069 — a 111 px (~1.5 lines) vertical overflow.
+    Confirmed by reverting only this fix: both tests pass on the pre-fix
+    code, so this is a direct, new consequence of fixing F-21 correctly,
+    not a pre-existing gap F-21 merely surfaces.
 
-    Root cause: `bare_level 2`'s own gap-tightening was measured and tuned
-    (this card's own "Owner decision 2") against the PRE-FIX,
-    bug-shortened content — never validated with the three heading lines
-    actually present, because they never were until this pass.
+    Root cause: `bare_level 2`'s own gap-tightening (its docstring already
+    promises it "tightens inter-section gaps") was measured and tuned
+    ("Owner decision 2" above) against the PRE-FIX, bug-shortened content —
+    it was never validated with the three heading lines actually present,
+    because they never were until this pass.
 
     Investigated, and deliberately NOT shipped, two whitespace-only
-    mitigations before concluding this needs an owner decision:
-    * Tightening the title-to-body gap at `bare_level 2` recovers only
-      part of the 111 px and plateaus well short of zero no matter how far
-      tightened — the shortfall is not concentrated there.
-    * Also tightening the level's own inter-section gaps further (to 0)
-      gets closer, but causes a DIFFERENT new defect: on the 10 cm wide x
-      20 cm tall trim's page 2 (a trim this suite already names and pins
-      to `bare_level 1`), the reduced gap lets a heading's ink touch its
-      diagram's ink directly, merging two bands into one — caught
-      immediately by an existing test, so reverted rather than shipped.
+    mitigations before flagging this for the owner:
+    * Tightening the title-to-body gap at `bare_level 2` (reusing the
+      existing `leading // 6` ratio `space()` already uses at this level)
+      recovers only part of the 111 px, and — measured by sweeping the
+      gap's own value down — plateaus well short of zero no matter how far
+      it is tightened, confirming the shortfall is not concentrated there.
+    * Also tightening the level's own inter-section `space()` calls further
+      (from `leading // 6` to `0`) gets closer, but was reverted after
+      finding it causes a DIFFERENT new defect under measurement: on the
+      10 cm wide x 20 cm tall trim's page 2 (a trim this card's own test
+      suite already names and pins to `bare_level 1`), the reduced gap let
+      a heading's ink touch its diagram's ink directly, merging what
+      should be two separate bands into one
+      (`test_page_two_difficulty_box_aligns_at_narrower_trims[10cm-wide]`
+      caught this immediately — 4 diagram bands measured where the test
+      expects 3). That is exactly the kind of new, real defect a content-
+      blind whitespace hack can introduce, so it was reverted rather than
+      shipped.
 
-    `book_pdf_generator.py`'s fallback-ladder gap constants are left
-    exactly as F-21 needs them and no further; the two affected
-    pre-existing tests are left unmodified, still correctly stating the
-    real, current (slightly overflowing, on this one worst-case
-    combination) behavior rather than being loosened to hide it.
-    **Recommended options, owner's call:** (a) accept the ~111 px overflow
-    on this one deliberately-extreme combination and loosen those two
-    tests' bottom check with an explicit, narrow, documented exception
-    (the way this same test file's corpus test already documents its own
-    page-2 gap); or (b) choose specific additional content to drop/compress
-    at `bare_level 2` on page 1 (e.g. combining the three cell-state names
-    onto one line, or dropping one more technique's picture).
+    Both the title-gap and `GUIDE_SWITCHING_HEADING`-dropping ideas were
+    set aside as genuine content/design decisions (what, if anything, to
+    cut further at the smallest trim's deepest fallback level) rather than
+    pure engineering, and flagged to the owner rather than guessed at —
+    with two concrete options recommended: accept the overflow and
+    document it as a named exception (this test file's own corpus test
+    already does exactly this for its separate page-2 gap), or choose
+    specific additional content to drop/compress at `bare_level 2`.
 
-    **Test evidence, this pass.** `tests/test_book_guide_page.py` alone:
-    49 passed (up from 45). Combined with
-    `tests/test_book_guide_page_type.py tests/test_book_interior_type_floor.py
-    tests/test_book_pdf_memory.py tests/test_book_pdf_ink_mode.py
-    tests/test_book_finalise_guide_preview.py
+    **The owner chose option (a) — accept and document, not redesign.**
+    Before implementing, the scope was re-measured properly: the original
+    BLOCKER note above only checked the one pinned 10x10 cm case, not the
+    whole 48-case corpus. The real scope is wider — **4 of the 48 corpus
+    cases overflow, not 1** — all driven by trim HEIGHT below ~11.3 cm,
+    regardless of width (the worst overflow, 112 px, is a 22.37 cm WIDE
+    trim; a 29.31 cm wide trim also overflows). Every case at height
+    >= 12.44 cm clears with a comfortable margin (>= 69 px); the boundary
+    sits cleanly between the tallest failure (11.29 cm) and the shortest
+    comfortable pass (12.44 cm). Reported this corrected scope back before
+    committing; the owner's decision stood (the same tradeoff, just
+    implemented against its full, real extent rather than the one example
+    case originally in hand).
+
+    Implemented in `tests/test_book_guide_page_type.py`:
+    `KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM = 12.0` (strictly between the
+    measured failure/pass boundary) and
+    `KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX = 130` (the measured 112 px worst
+    case plus headroom), plus a shared
+    `assert_bottom_fits_or_is_the_known_bare_level_2_gap` helper used by
+    both affected tests: page 1 below the height ceiling may overflow, but
+    only up to the bounded maximum (so a regression past the known gap
+    still fails loudly); every other case (page 2, or page 1 at or above
+    the ceiling) is checked exactly as strictly as before — not a blanket
+    loosening. Verified the exception has teeth by monkeypatching the
+    bound tighter (50 px): the known-gap cases correctly fail against it
+    with a clear message naming the known gap; and verified a synthetic
+    tall-trim and a synthetic page-2 overflow are still caught at zero
+    tolerance (the helper's `else` branch, unchanged from before).
+
+    **Test evidence, this pass (final, after the owner's decision).**
+    `tests/test_book_guide_page.py` alone: 49 passed (up from 45: 4 new
+    tests for F-21's own code fix). `tests/test_book_guide_page_type.py`
+    alone: 17 passed (the 2 that were failing after the code fix now pass,
+    via the documented exception). Combined
+    (`tests/test_book_guide_page.py tests/test_book_guide_page_type.py
+    tests/test_book_interior_type_floor.py tests/test_book_pdf_memory.py
+    tests/test_book_pdf_ink_mode.py tests/test_book_finalise_guide_preview.py
     tests/test_book_finalise_guide_preview_layout.py
-    tests/test_book_finalise_gutter.py`: **296 passed, 1 skipped, 2
-    failed** — the 2 failures are exactly the flagged `[BLOCKER]` above,
-    the 1 skip is the known DB-mode test. No other test in this combined
-    run regressed.
+    tests/test_book_finalise_gutter.py`): **298 passed, 1 skipped, 0
+    failed** (the 1 skip is the known DB-mode test, silent skip without a
+    `nonogram_test` database per this project's own convention). No other
+    test in this combined run regressed.
 
   - **F-22 (Important — new, real, visible bug, Finalise-preview-only;
     does not affect the exported PDF) — FIXED.** `admin.css`'s
@@ -1397,3 +1435,26 @@ evidence), and the Finalise screen's live preview
     never reaches `bare_level 2` (fits at `bare_level 0`), so F-21's
     content change and F-20's width-fit check never fire on it; F-22 is a
     CSS/Finalise-preview-only change with no PDF-rendering path at all.
+
+- [Build gate, attempt 3/4] Orchestrator's own independent full-suite run,
+  against the state right after dfe88f4/3e8d4b8/5235172/6375a4e (before
+  the owner's F-21 exception was implemented) — `./.venv/bin/python -m
+  pytest` in the CARD-201 worktree, under the `meta/kanban/.full-suite.lock`:
+  **6740 passed, 9 skipped, 2 failed, exit 1** (1004.08s). The 2 failures
+  are exactly the known, disclosed F-21 consequence
+  (`test_it_fits_the_smallest_trim_a_book_may_be_stored_at`,
+  `test_the_whole_corpus_of_trims_and_counts_fits`) — nothing else. This
+  run also resolved an open question: the fix agent's own earlier
+  full-suite run (started concurrently with this orchestrator's CARD-202
+  merge-gate run) reported 10 additional failures in
+  `tests/test_print_specs.py` (`...[postgres...]`); this solo run shows
+  those 10 passing clean, confirming they were a concurrency artifact from
+  two full suites hitting the same shared Postgres test database at once —
+  not a regression from any of F-20/F-21/F-22.
+- [Build gate, attempt 4/4 — FINAL] Orchestrator's own independent
+  full-suite run against the true final commit (`cdf2807`, after the
+  owner's F-21 exception was implemented) — `./.venv/bin/python -m pytest`
+  in the CARD-201 worktree, under the `meta/kanban/.full-suite.lock`:
+  **6742 passed, 9 skipped, 0 failed, 0 errors, exit 0** (1008.14s). Gate
+  clear — proceeding to forge:review cycle 4 (confirmation pass over
+  F-20/F-21/F-22).
