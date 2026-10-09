@@ -44,7 +44,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_frame
+from nonogram.admin.book_pdf_generator import BookPDFGenerator, guide_icon_layout, page_frame
 
 from tests.helpers.book_corpus import corpus_book
 
@@ -223,6 +223,20 @@ def ink_box(page: Image.Image) -> Tuple[int, int, int, int]:
     columns = np.flatnonzero(dark.any(axis=0))
     assert rows.size and columns.size, "the page is blank"
     return int(columns[0]), int(rows[0]), int(columns[-1]), int(rows[-1])
+
+
+def band_ink_extent(page: Image.Image, top: int, bottom: int) -> Tuple[int, int]:
+    """The leftmost and rightmost inked column inside rows ``top..bottom``.
+
+    CARD-201 review cycle 2, F-11: for a bordered diagram (the pipeline,
+    the difficulty box) the border is the widest ink in its own band, so
+    this is the diagram's own left/right edge -- no label, sentence or icon
+    inside either diagram is ever drawn past its own border.
+    """
+    dark = np.asarray(page.convert("L")) < INK_THRESHOLD
+    columns = np.flatnonzero(dark[top : bottom + 1].any(axis=0))
+    assert columns.size, f"rows {top}..{bottom} carry no ink"
+    return int(columns[0]), int(columns[-1])
 
 
 def probe_box(text: str, size_px: int) -> Tuple[int, int]:
@@ -496,33 +510,77 @@ class TestGuidePage_TextFitsTheUsableFrame:
     """
 
     def test_every_mark_sits_inside_the_usable_area(self, book1_generator, book1_frame):
-        """On the book this project ships, with the largest counts it prints."""
-        page = book1_generator.create_guide_page(999_999, 333_333, 333_333, 333_333)
-        left, top, right, bottom = ink_box(page)
-        assert left >= book1_frame.left - FRAME_BLEED_PX, f"ink at x={left}, margin at {book1_frame.left}"
-        assert right <= book1_frame.right + FRAME_BLEED_PX, f"ink at x={right}, margin at {book1_frame.right}"
-        assert top >= book1_frame.top, f"ink at y={top}, margin at {book1_frame.top}"
-        assert bottom <= book1_frame.bottom, (
-            f"the last line's ink reaches y={bottom} and the bottom margin is "
-            f"at {book1_frame.bottom}"
-        )
+        """On the book this project ships, with the largest counts it prints.
+
+        **CARD-201 review cycle 2, F-11.** Checked on both of the guide's
+        pages, not just page 1 (the default `page_number`): page 2 is the
+        only page carrying the pipeline diagram and the difficulty box, and
+        until this fix nothing in this suite ever rendered it at all, so a
+        left/right margin defect on page 2 alone had zero coverage. The
+        frame is re-read per page number, not reused from `book1_frame`
+        (page 1's own fixture): interior pages mirror their margins by
+        parity (FR-043/ADR-0036), so page 2's `frame.left`/`frame.right`
+        are genuinely different numbers from page 1's.
+        """
+        for page_number in (1, 2):
+            frame = book1_frame if page_number == 1 else page_frame(book1_generator.page_spec(2))
+            page = book1_generator.create_guide_page(
+                999_999, 333_333, 333_333, 333_333, page_number=page_number
+            )
+            left, top, right, bottom = ink_box(page)
+            assert left >= frame.left - FRAME_BLEED_PX, (
+                f"page {page_number}: ink at x={left}, margin at {frame.left}"
+            )
+            assert right <= frame.right + FRAME_BLEED_PX, (
+                f"page {page_number}: ink at x={right}, margin at {frame.right}"
+            )
+            assert top >= frame.top, f"page {page_number}: ink at y={top}, margin at {frame.top}"
+            assert bottom <= frame.bottom, (
+                f"page {page_number}: the last line's ink reaches y={bottom} and the "
+                f"bottom margin is at {frame.bottom}"
+            )
 
     def test_it_fits_the_smallest_trim_a_book_may_be_stored_at(self):
-        """A 10x10 cm book on the profile's margins — the narrowest measure."""
+        """A 10x10 cm book on the profile's margins — the narrowest measure.
+
+        Both pages, per the F-11 note on
+        :func:`test_every_mark_sits_inside_the_usable_area` above.
+        """
         generator = BookPDFGenerator(book_on(MIN_TRIM_CM, MIN_TRIM_CM))
-        frame = page_frame(generator.page_spec(1))
-        page = generator.create_guide_page(999_999, 333_333, 333_333, 333_333)
-        left, top, right, bottom = ink_box(page)
-        assert left >= frame.left - FRAME_BLEED_PX
-        assert top >= frame.top
-        assert right <= frame.right + FRAME_BLEED_PX, (
-            f"the longest line reaches x={right} of a measure that ends at "
-            f"{frame.right} on a {MIN_TRIM_CM} cm trim"
-        )
-        assert bottom <= frame.bottom
+        for page_number in (1, 2):
+            frame = page_frame(generator.page_spec(page_number))
+            page = generator.create_guide_page(
+                999_999, 333_333, 333_333, 333_333, page_number=page_number
+            )
+            left, top, right, bottom = ink_box(page)
+            assert left >= frame.left - FRAME_BLEED_PX, f"page {page_number}"
+            assert top >= frame.top, f"page {page_number}"
+            assert right <= frame.right + FRAME_BLEED_PX, (
+                f"page {page_number}: the longest line reaches x={right} of a measure "
+                f"that ends at {frame.right} on a {MIN_TRIM_CM} cm trim"
+            )
+            assert bottom <= frame.bottom, f"page {page_number}"
 
     def test_the_whole_corpus_of_trims_and_counts_fits(self):
-        """Every trim a book may be stored at, with counts from 4 to 999,999."""
+        """Every trim a book may be stored at, with counts from 4 to 999,999.
+
+        **Page 1 only, deliberately not extended to page 2 by the F-11 fix
+        in this class's other tests.** This corpus draws trims from the
+        full continuous `MIN_TRIM_CM`-`MAX_TRIM_WIDTH_CM` x
+        `MAX_TRIM_HEIGHT_CM` range (CARD-149's own AC-237, pre-dating
+        CARD-201's content), not just the three named stored trims
+        (Book 1, 6x9, 10 cm minimum) CARD-201's own 5-level fallback ladder
+        was actually measured against (see that card's Worktree notes,
+        "Owner decision 2"). Tried against page 2: it fails at some
+        untested points of that continuous range even on the pre-F-11
+        code (confirmed by reverting this fix and re-running), so that is
+        a real but separate, pre-existing gap in the fallback ladder's own
+        coverage -- not the F-11 misalignment this pass fixes, and not
+        something to paper over by widening this test's tolerance.
+        Flagged in this card's Worktree notes as a BLOCKER-adjacent
+        follow-up rather than silently left uncovered or silently "fixed"
+        by a change wider than review cycle 2 asked for.
+        """
         corpus = count_and_trim_corpus()
         # Both bounds are load-bearing: the builder sizes the corpus from
         # CORPUS_CASES, so the first bound alone would hold at any value. The
@@ -548,6 +606,145 @@ class TestGuidePage_TextFitsTheUsableFrame:
             assert right <= frame.right + FRAME_BLEED_PX, f"{where}: ink at x={right} > {frame.right}"
             assert top >= frame.top, f"{where}: ink at y={top} < {frame.top}"
             assert bottom <= frame.bottom, f"{where}: ink at y={bottom} > {frame.bottom}"
+
+    # ----------------------------------------------------------------------
+    # CARD-201 review cycle 2, F-11 — the pipeline diagram and the
+    # difficulty box, specifically, against frame.left/frame.right.
+    # ----------------------------------------------------------------------
+    #
+    # The whole-page checks above use FRAME_BLEED_PX (10 px) of slack, which
+    # is wider than the defect review cycle 2 found: the paste loop's `pad`
+    # (one heavy-rule width, 6 px at every stored trim this module measures)
+    # shifted both new diagrams one `pad` too far left, comfortably inside
+    # that 10 px tolerance -- which is exactly how "zero test coverage" was
+    # possible for this whole class of bug even though a whole-page check
+    # already existed. These checks instead find the two diagrams' own
+    # drawn bands and compare their *exact* left/right ink columns against
+    # `frame.left`/`frame.right`, with no slack, so a `pad`-sized shift
+    # fails loudly. See ``test_a_diagram_shifted_left_by_pad_is_not_at_frame_left``
+    # below for proof this has teeth.
+
+    @staticmethod
+    def diagram_bands(page: Image.Image) -> List[Tuple[int, int]]:
+        """``ink_bands`` minus ``type_bands`` — the bands that are a
+        diagram's own drawing (border + content), not a line of type.
+
+        Reimplemented independently of ``tests/test_book_guide_page.py``'s
+        own ``drawn_bands``/``type_bands`` pair (CLAUDE.md: prefer an
+        independent second implementation over reusing the function under
+        test) by composing this module's own ``ink_bands``/``type_bands``,
+        which this whole module already measures AC-237 with.
+        """
+        type_set = set(type_bands(page))
+        return [band for band in ink_bands(page) if band not in type_set]
+
+    def test_page_two_pipeline_and_difficulty_box_align_at_book1(self, book1_generator):
+        """Book 1, the full fallback form (small counts): page 2 draws all
+        12 diagrams (2 region-split rows, 4 arrangement-comparison rows,
+        the pipeline, the difficulty box, the 4-step worked-example recap,
+        in that order -- pinned the same way
+        ``tests/test_book_guide_page.py``'s own AC-3 ``drawn`` fixture
+        already does). The pipeline (index 6) and the difficulty box
+        (index 7) must each start exactly at ``frame.left`` -- review cycle
+        2's F-11 found both shifted one heavy-rule width left of it -- and
+        neither may cross ``frame.right``.
+        """
+        frame = page_frame(book1_generator.page_spec(2))
+        page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        bands = self.diagram_bands(page)
+        assert len(bands) == 12, (
+            f"page 2 draws {len(bands)} diagrams at Book 1's full fallback form, "
+            "not the 12 this test expects -- re-check which index the pipeline "
+            "and the difficulty box fall at before trusting indices 6 and 7 below"
+        )
+        for name, index in (("pipeline", 6), ("difficulty box", 7)):
+            top, bottom = bands[index]
+            left, right = band_ink_extent(page, top, bottom)
+            assert left == frame.left, (
+                f"the {name} starts at x={left}, not frame.left={frame.left} "
+                "(review cycle 2, F-11: a diagram with no bleed margin of its "
+                "own must not be pasted `pad` to the left of it)"
+            )
+            assert right <= frame.right, (
+                f"the {name} reaches x={right}, past frame.right={frame.right}"
+            )
+
+    @pytest.mark.parametrize(
+        ("width_cm", "height_cm", "book_id"),
+        [
+            (6 * 2.54, 9 * 2.54, "card-201-f11-6x9"),
+            (MIN_TRIM_CM, 20.0, "card-201-f11-10cm-wide"),
+        ],
+        ids=["6x9", "10cm-wide"],
+    )
+    def test_page_two_difficulty_box_aligns_at_narrower_trims(self, width_cm, height_cm, book_id):
+        """6x9 and the 10 cm minimum trim both fall back far enough (bare
+        fallback level 1, measured) that page 2 drops the pipeline diagram
+        and the worked-example recap, but the difficulty box is drawn
+        unconditionally at every fallback level -- so it is always the
+        LAST of the 3 diagram bands left on the page at these trims (2
+        single-row techniques + the box; the pipeline's absence is itself
+        covered by ``test_page_two_pipeline_and_difficulty_box_align_at_book1``,
+        the one stored trim where it survives).
+        """
+        generator = BookPDFGenerator(book_on(width_cm, height_cm, book_id))
+        frame = page_frame(generator.page_spec(2))
+        page = generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        bands = self.diagram_bands(page)
+        assert len(bands) == 3, (
+            f"page 2 draws {len(bands)} diagrams at this trim's fallback form, "
+            "not the 3 this test expects (2 single-row techniques + the "
+            "difficulty box) -- re-check the fallback level before trusting "
+            "'last band is the difficulty box' below"
+        )
+        top, bottom = bands[-1]
+        left, right = band_ink_extent(page, top, bottom)
+        measure = frame.right - frame.left
+        assert left == frame.left, (
+            f"the difficulty box starts at x={left}, not frame.left={frame.left} "
+            "(review cycle 2, F-11)"
+        )
+        assert right == frame.right - 1, (
+            f"the difficulty box's own canvas is exactly `measure` ({measure}) px "
+            f"wide, so pasted unshifted at frame.left its right edge must land "
+            f"at frame.right - 1 ({frame.right - 1}); it is at x={right}"
+        )
+
+    def test_a_diagram_shifted_left_by_pad_is_not_at_frame_left(self, book1_generator):
+        """Negative control for the two tests above: proves
+        ``band_ink_extent`` -- the measurement they rely on -- really is
+        sensitive to exactly the shift review cycle 2's F-11 found.
+
+        Takes the real difficulty box as this book actually draws it,
+        crops it out of the rendered page by its own measured ink, and
+        re-pastes that same crop ``pad`` pixels further left than the page
+        actually put it (the old, uniform paste the bug applied to every
+        image). If this measurement could not tell the difference, the
+        exact-equality assertions above would hold vacuously.
+        """
+        spec = book1_generator.page_spec(2)
+        frame = page_frame(spec)
+        pad = guide_icon_layout(spec).thick_rule
+        assert pad > 0, "a zero-width pad would make this negative control meaningless"
+
+        page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
+        bands = self.diagram_bands(page)
+        assert len(bands) == 12
+        top, bottom = bands[7]  # the difficulty box, pinned above
+        left, right = band_ink_extent(page, top, bottom)
+        assert left == frame.left, "sanity check: the real page is correctly aligned before this control shifts it"
+
+        crop = page.crop((left, top, right + 1, bottom + 1))
+        canvas = Image.new("RGB", (page.width, crop.height), "white")
+        canvas.paste(crop, (left - pad, 0))
+        bugged_left, bugged_right = band_ink_extent(canvas, 0, crop.height - 1)
+        assert bugged_left == left - pad, "the shifted copy did not land where this control put it"
+        assert bugged_left != frame.left, (
+            "a diagram pasted `pad` pixels left of its correct position must NOT "
+            "measure as still being at frame.left -- if it does, "
+            "test_page_two_pipeline_and_difficulty_box_align_at_book1 and "
+            "test_page_two_difficulty_box_aligns_at_narrower_trims have no teeth"
+        )
 
 
 class TestGuidePage_PointSizeIsIndependentOfDpi:

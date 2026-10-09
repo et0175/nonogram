@@ -2250,7 +2250,7 @@ class BookPDFGenerator:
 
         def set_page(
             full: bool, captions: bool, bare_level: int = 0
-        ) -> Tuple[List[Tuple[int, Any]], int]:
+        ) -> Tuple[List[Tuple[int, Any, bool]], int]:
             """Every mark below the title as ``(y, text or image)``, and the
             lowest pixel they reach.
 
@@ -2277,17 +2277,28 @@ class BookPDFGenerator:
               CON-020's floor, which no level here touches: only which
               diagrams and gaps are drawn change, never a font size.
             """
-            marks: List[Tuple[int, Any]] = []
+            # Each mark carries its own ``needs_pad`` flag (review cycle 2,
+            # F-11, gating): only an image built via
+            # ``draw_example_line``/``example_line_layout`` bakes in a left
+            # bleed-margin of one heavy rule (see that function's own
+            # docstring), so only those images may be pasted ``pad`` to the
+            # left of their logical position. ``_draw_pipeline_diagram`` and
+            # ``_draw_difficulty_box`` draw their own border flush at column
+            # 0 with no such margin — pasting them with the same correction
+            # shifted both one heavy-rule-width too far left. A text mark's
+            # flag is unused (text is always drawn straight at ``frame.left``)
+            # but kept so every mark has the same shape.
+            marks: List[Tuple[int, Any, bool]] = []
             state = {"y": first, "bottom": first}
 
             def paragraph(text: str) -> None:
                 for line in wrap_words(text, text_font, measure):
-                    marks.append((state["y"], line))
+                    marks.append((state["y"], line, False))
                     state["bottom"] = state["y"] + ascent + descent
                     state["y"] += leading
 
-            def picture(img: Image.Image, gap: int) -> None:
-                marks.append((state["y"], img))
+            def picture(img: Image.Image, gap: int, *, needs_pad: bool = True) -> None:
+                marks.append((state["y"], img, needs_pad))
                 state["bottom"] = state["y"] + img.height
                 state["y"] = state["bottom"] + gap
 
@@ -2367,7 +2378,9 @@ class BookPDFGenerator:
                 if full:
                     paragraph(GUIDE_ASSUME_TEXT)
                 if bare_level < 1:
-                    picture(pipeline_image, gap=leading // 4)
+                    # No left bleed margin (``_draw_pipeline_diagram`` draws
+                    # its own border flush at column 0) — paste unadjusted.
+                    picture(pipeline_image, gap=leading // 4, needs_pad=False)
                 if full:
                     paragraph(GUIDE_ASSUME_CLOSING)
                 space()
@@ -2377,7 +2390,10 @@ class BookPDFGenerator:
                     spec, GUIDE_DIFFICULTY_LABELS, measure, text_font, body_size, leading,
                     with_text=captions,
                 )
-                picture(box_image, gap=leading // 2)
+                # No left bleed margin (``_draw_difficulty_box`` draws its own
+                # border flush at column 0, spanning the full ``measure``) —
+                # paste unadjusted.
+                picture(box_image, gap=leading // 2, needs_pad=False)
 
                 if full:
                     paragraph(f"This book contains {puzzle_count} puzzles:")
@@ -2436,12 +2452,22 @@ class BookPDFGenerator:
         # caption text — invisible until a 10-cell line with a 3-digit
         # clue, at the 10 cm minimum trim, crossed the usable area's own
         # right edge because of it.
+        #
+        # Review cycle 2, F-11 (gating): that correction belongs ONLY to
+        # images with this bleed margin. ``_draw_pipeline_diagram`` and
+        # ``_draw_difficulty_box`` draw their own border flush at column 0
+        # (no bleed at all) and set their own mark's ``needs_pad=False`` at
+        # the ``picture()`` call site above — applying the same ``pad``
+        # shift to them landed both one heavy-rule-width too far left,
+        # into the inner gutter margin on Book 1's right-hand page and
+        # further into the already-tight 10 cm minimum trim's margin.
         pad = icon_layout.thick_rule
-        for y, mark in marks:
+        for y, mark, needs_pad in marks:
             if isinstance(mark, str):
                 draw.text((frame.left, y), mark, fill="black", font=text_font)
             else:
-                guide.paste(mark, (frame.left - pad, y))
+                x = frame.left - pad if needs_pad else frame.left
+                guide.paste(mark, (x, y))
 
         return guide
 
