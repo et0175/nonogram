@@ -2221,6 +2221,11 @@ class BookPDFGenerator:
             ]
 
         icon_layout = guide_icon_layout(spec)
+        # Hoisted above the fallback loop (review cycle 3, F-20): the fit
+        # check the loop now runs needs it per attempt, and the final paste
+        # loop below needed the same value anyway (F-11) — one computation,
+        # not two.
+        pad = icon_layout.thick_rule
         cell_state_images = [
             draw_example_line(
                 icon_layout,
@@ -2428,6 +2433,57 @@ class BookPDFGenerator:
 
             return marks, state["bottom"]
 
+        def fits_width(marks: List[Tuple[int, Any, bool]]) -> bool:
+            """Whether every image ``marks`` holds stays inside ``frame.right``.
+
+            Review cycle 3, F-20 (gating): this loop used to accept the
+            first fallback level whose last mark cleared the bottom margin
+            without ever checking any mark against the RIGHT margin —
+            ``_draw_pipeline_diagram`` sizes its own canvas purely from
+            label widths and fixed padding/arrow constants, with nothing
+            clamping or wrapping that width against this page's usable
+            ``measure``, so on a trim narrow enough to overflow but tall
+            enough to still pass the only check that existed (10 cm wide x
+            25 cm tall: frame.right=1031 on a measure of 918, the pipeline's
+            own ink reaching column 1180 of an 1181 px canvas), the
+            oversized diagram was never dropped.
+
+            Rather than teach ``_draw_pipeline_diagram`` to clamp or wrap
+            its own layout, this extends the loop's existing accept/retry
+            mechanism — the one that already handles the vertical case — to
+            the horizontal one: a mark that doesn't fit at one level fails
+            this check, the loop tries the next, strictly more aggressive
+            level, and the pipeline diagram (the one mark wide enough to
+            ever trigger this) is dropped outright from ``bare_level 1``
+            onward (``set_page``'s own ``bare_level < 1`` gate), which is
+            always narrow enough to fit — the same way the vertical check
+            already relies on more aggressive levels drawing less.
+
+            A text mark is skipped: :func:`wrap_words` already wraps every
+            paragraph to ``measure`` before it is ever added to ``marks``,
+            so a text mark cannot overflow by construction and checking it
+            here would only re-verify that function, not this loop.
+
+            A ``needs_pad`` (line-diagram) mark is allowed to cross
+            ``frame.right`` by up to half a heavy rule: :func:`_stroke_drawing`
+            centres a frame's border *on* its boundary coordinate "so Pillow
+            centres it there and half a heavy rule hangs outside the box, as
+            the grid's own outer border already does" (that function's own
+            docstring) — the same by-design sideways bleed every puzzle
+            page's own grid already has, not a defect this finding is about.
+            ``_draw_pipeline_diagram``/``_draw_difficulty_box`` (``needs_pad``
+            ``False``) draw flush at column 0 with no such bleed and get none
+            of this tolerance.
+            """
+            for _y, mark, needs_pad in marks:
+                if isinstance(mark, str):
+                    continue
+                x = frame.left - pad if needs_pad else frame.left
+                bleed = (pad + 1) // 2 if needs_pad else 0
+                if x + mark.width > frame.right + bleed:
+                    return False
+            return True
+
         for full, captions, bare_level in (
             (True, True, 0),
             (False, True, 0),
@@ -2436,7 +2492,7 @@ class BookPDFGenerator:
             (False, False, 2),
         ):
             marks, bottom = set_page(full, captions, bare_level)
-            if bottom <= frame.bottom:
+            if bottom <= frame.bottom and fits_width(marks):
                 break
         # A line diagram's own image starts a heavy rule's width (``pad``)
         # before its logical left edge (:func:`draw_example_line`'s own
@@ -2461,7 +2517,8 @@ class BookPDFGenerator:
         # shift to them landed both one heavy-rule-width too far left,
         # into the inner gutter margin on Book 1's right-hand page and
         # further into the already-tight 10 cm minimum trim's margin.
-        pad = icon_layout.thick_rule
+        # ``pad`` itself is computed above, before the fallback loop (review
+        # cycle 3, F-20 needed it there too, for ``fits_width``).
         for y, mark, needs_pad in marks:
             if isinstance(mark, str):
                 draw.text((frame.left, y), mark, fill="black", font=text_font)

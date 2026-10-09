@@ -746,6 +746,93 @@ class TestGuidePage_TextFitsTheUsableFrame:
             "test_page_two_difficulty_box_aligns_at_narrower_trims have no teeth"
         )
 
+    # ----------------------------------------------------------------------
+    # CARD-201 review cycle 3, F-20 -- the pipeline diagram's own canvas was
+    # sized purely from label widths and fixed padding/arrow constants, never
+    # checked or clamped against the page's usable width, and the fallback
+    # loop that picks a page's form only ever checked VERTICAL fit
+    # (`bottom <= frame.bottom`) -- so a trim narrow enough to overflow but
+    # tall enough to still clear that one check shipped with the diagram's
+    # ink running off the physical page. Reproduced on a real, storable KDP
+    # trim this review found by direct measurement: 10 cm wide x 25 cm tall
+    # (`MIN_TRIM_CM` wide, well inside `MAX_TRIM_HEIGHT_CM` tall) -- at that
+    # trim `frame.right=1031` on a `measure` of 918, but the pipeline
+    # diagram's own canvas is 1562 px wide and, pasted at `frame.left=113`,
+    # its ink reached column 1180 of an 1181 px canvas: 149 px past the
+    # usable frame, one pixel short of the physical page edge.
+    # ----------------------------------------------------------------------
+
+    def test_a_tall_narrow_trim_does_not_overflow_the_pipeline_diagram_past_frame_right(self):
+        """The exact scenario review cycle 3's F-20 reproduced: 10 cm wide,
+        25 cm tall -- tall enough that the loop's pre-existing vertical
+        check alone accepted `bare_level 0` (which still draws the pipeline
+        diagram), narrow enough that the diagram's own unclamped canvas
+        crossed `frame.right` by 149 px before this fix.
+
+        No mark on the page -- diagram or text -- may land outside the
+        usable frame on this trim now. `FRAME_BLEED_PX` still allows the
+        line diagrams' own by-design half-heavy-rule sideways bleed (the
+        same every puzzle grid's outer border already has, measured at 2-3
+        px elsewhere in this class) -- it is nowhere near enough slack to
+        hide a defect of this one's size (149 px), so this test still has
+        teeth against the real bug.
+        """
+        generator = BookPDFGenerator(book_on(MIN_TRIM_CM, 25.0, "card-201-f20-10cm-wide-25cm-tall"))
+        frame = page_frame(generator.page_spec(2))
+        page = generator.create_guide_page(
+            999_999, 333_333, 333_333, 333_333, page_number=2
+        )
+        left, top, right, bottom = ink_box(page)
+        assert right <= frame.right + FRAME_BLEED_PX, (
+            f"ink reaches x={right}, past frame.right={frame.right} by "
+            f"{right - frame.right} px (FRAME_BLEED_PX={FRAME_BLEED_PX}) -- "
+            "the pipeline diagram's canvas is not respecting the usable width"
+        )
+        assert right < page.width - 1, (
+            f"ink reaches x={right} on a page {page.width} px wide -- that is "
+            "the clipped-at-the-physical-edge symptom F-20 found, not a "
+            "measure-respecting diagram"
+        )
+        assert left >= frame.left - FRAME_BLEED_PX, f"ink at x={left} < frame.left={frame.left}"
+        assert top >= frame.top
+        assert bottom <= frame.bottom
+
+    def test_the_pipeline_diagrams_own_canvas_never_exceeds_the_usable_width(self):
+        """Direct unit check on :func:`_draw_pipeline_diagram` itself (not
+        just through the page): its own canvas must fit `measure`, or be
+        dropped by the fallback loop before it is ever pasted -- this test
+        pins the first half of that contract directly against the function
+        the finding named, independent of the page-level measurement above.
+        """
+        from nonogram.admin.book_pdf_generator import (
+            GUIDE_ASSUME_STEPS,
+            _draw_pipeline_diagram,
+            _guide_face,
+            type_px,
+        )
+        from nonogram.admin.book_pdf_generator import GUIDE_BODY_PT as _GUIDE_BODY_PT
+
+        generator = BookPDFGenerator(book_on(MIN_TRIM_CM, 25.0, "card-201-f20-direct"))
+        spec = generator.page_spec(2)
+        frame = page_frame(spec)
+        measure = frame.right - frame.left
+        body_size = type_px(_GUIDE_BODY_PT, generator.dpi)
+        text_font = _guide_face(body_size)
+        diagram = _draw_pipeline_diagram(spec, GUIDE_ASSUME_STEPS, text_font, body_size)
+        # The diagram itself is, in fact, still wider than `measure` at this
+        # trim (CARD-201 did not change `_draw_pipeline_diagram`'s own
+        # layout -- it extended the page's fallback loop to notice and drop
+        # it instead, per F-20's own option (b)). This assertion documents
+        # that choice rather than silently assuming it: if a future change
+        # makes the diagram itself measure-aware, this is the line that
+        # should start failing and prompt removing it, not a regression.
+        assert diagram.width > measure, (
+            "if this is no longer true, _draw_pipeline_diagram now clamps "
+            "its own width and the fallback-loop fits_width() check this "
+            "card added is covering for a defect that no longer exists -- "
+            "worth a second look, not a silent pass"
+        )
+
 
 class TestGuidePage_PointSizeIsIndependentOfDpi:
     """AC-238 — the same size in points on pages of two different resolutions.
