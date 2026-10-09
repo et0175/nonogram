@@ -215,8 +215,16 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
             continue  # the floor wins and the drawing is allowed to overflow
         expected_cell = sheet.cell_mm(across, down)
 
-        pages = BookPDFGenerator(sheet.book).interior_pages([puzzle])
-        assert len(pages) == 5, "2-page guide (CARD-201), puzzle, divider, answer"
+        generator = BookPDFGenerator(sheet.book)
+        # CARD-200: a table of contents sits between the 2-page guide and the
+        # puzzle section. Its own length (`toc_page_count`) depends on the
+        # book's trim and this book's puzzle count, so it is read off the
+        # real plan for this case rather than assumed to be any fixed number.
+        toc_page_count = generator.section_plan([puzzle]).toc_page_count
+        pages = generator.interior_pages([puzzle])
+        assert len(pages) == 5 + toc_page_count, (
+            "2-page guide (CARD-201), the TOC (CARD-200), puzzle, divider, answer"
+        )
 
         # Every page of the book is the trim, at 300 DPI — not only the puzzle's.
         trim_width_px, trim_height_px = _trim_px(sheet)
@@ -224,7 +232,9 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
             assert abs(page.size[0] - trim_width_px) <= 0.5, (sheet, number, page.size)
             assert abs(page.size[1] - trim_height_px) <= 0.5, (sheet, number, page.size)
 
-        drawing = drawing_of(pages[2])  # interior page 3, the puzzle
+        # interior page 3 + toc_page_count, the puzzle (CARD-201 guide, then
+        # CARD-200's TOC, then the puzzle page)
+        drawing = drawing_of(pages[2 + toc_page_count])
         assert (drawing.columns, drawing.rows) == (columns, rows)
 
         # The cell is FR-030's, never above the standard cell.
@@ -233,7 +243,9 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_page
         assert abs(drawn_cell_mm - expected_cell) < 0.05, (sheet, drawn_cell_mm, expected_cell)
 
         # The whole drawing lies inside the usable area, below the band.
-        page_number = 3  # CARD-201: the puzzle is interior page 3, not 2
+        # CARD-201: the puzzle is interior page 3, not 2; CARD-200 then adds
+        # its own TOC pages in front of it.
+        page_number = 3 + toc_page_count
         usable_left = sheet.left_margin_mm(page_number) * PX_PER_MM
         usable_right = (sheet.left_margin_mm(page_number) + sheet.usable_width_mm) * PX_PER_MM
         usable_bottom = (sheet.height_mm - BOTTOM_MM) * PX_PER_MM
@@ -278,13 +290,20 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_pdf_pages()
         # INV-010) and opens no level divider (CARD-128) without touching the
         # extents this property is stated over. A book's two-up pages are the
         # sibling below.
-        pages = BookPDFGenerator(sheet.book).interior_pages(puzzles)
+        generator = BookPDFGenerator(sheet.book)
+        # CARD-200: the TOC's own length depends on this book's trim and
+        # puzzle count, so it is read off the real plan for this sheet rather
+        # than assumed.
+        toc_page_count = generator.section_plan(puzzles).toc_page_count
+        pages = generator.interior_pages(puzzles)
         trim_width_px, trim_height_px = _trim_px(sheet)
         expected_top_mm = TOP_MM + BAND_MM
         tops: set[int] = set()
 
         for index, puzzle in enumerate(puzzles):
-            page = pages[2 + index]  # interior page 3 + index (CARD-201)
+            # interior page 3 + index (CARD-201's guide), shifted by
+            # CARD-200's TOC pages in front of the puzzle section.
+            page = pages[2 + toc_page_count + index]
             columns, rows, across, down = _extent(puzzle)
 
             assert page.size[0] < page.size[1], (sheet, "portrait")
@@ -366,29 +385,48 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # The same drawing three times — easy, medium and ungraded — which is
         # what this property needs now that each named level opens with a
         # divider page (CARD-128). The interior runs the 2-page guide 1-2
-        # (CARD-201), the "Easy" divider 3, the easy copy 4, the "Medium"
-        # divider 5, the medium copy 6, the ungraded copy 7 (an ungraded run
-        # has no name, so it opens no divider), SOLUTIONS 8, and one answer
-        # page per puzzle (CARD-198): 9 easy, 10 medium, 11 ungraded.
+        # (CARD-201), then CARD-200's TOC (``toc_page_count`` pages, its own
+        # length depending on this book's trim/puzzle count), then the
+        # "Easy" divider, the easy copy, the "Medium" divider, the medium
+        # copy, the ungraded copy (an ungraded run has no name, so it opens
+        # no divider), SOLUTIONS, and one answer page per puzzle (CARD-198):
+        # easy, medium, ungraded in that order. Every one of those positions
+        # after the guide is shifted by ``toc_page_count``, so the "page 6"/
+        # "page 7"/etc. positions the pre-CARD-200 layout used are computed
+        # here instead of hard-coded.
         #
-        # So the same drawing sits on interior 6 and 7 — **opposite** parity —
-        # and its answer on 9 and 10, also opposite parity. No two of the
-        # three ever share a page: no two of their tiers are equal (FR-040,
-        # INV-010), and an ungraded row never pairs at all.
-        pages = BookPDFGenerator(sheet.book).interior_pages([
+        # So the same drawing sits on interior pages ``medium_page`` and
+        # ``ungraded_page`` — **opposite** parity — and its answer on
+        # ``easy_answer_page`` and ``medium_answer_page``, also opposite
+        # parity. No two of the three ever share a page: no two of their
+        # tiers are equal (FR-040, INV-010), and an ungraded row never pairs
+        # at all.
+        rows = [
             dict(puzzle, difficulty_tier="easy", id="p-easy"),
             dict(puzzle, difficulty_tier="medium", id="p-medium"),
             dict(puzzle, id="p-ungraded"),
-        ])
-        assert len(pages) == 11, (
-            "2-page guide, two level dividers, three puzzles, SOLUTIONS, three answers"
+        ]
+        generator = BookPDFGenerator(sheet.book)
+        toc_page_count = generator.section_plan(rows).toc_page_count
+        pages = generator.interior_pages(rows)
+        assert len(pages) == 11 + toc_page_count, (
+            "2-page guide, the TOC, two level dividers, three puzzles, "
+            "SOLUTIONS, three answers"
         )
+
+        # Pre-CARD-200 positions 6, 7, 9, 10 (medium copy, ungraded copy,
+        # easy answer, medium answer), each shifted by the TOC's own length.
+        medium_page = 6 + toc_page_count
+        ungraded_page = 7 + toc_page_count
+        easy_answer_page = 9 + toc_page_count
+        medium_answer_page = 10 + toc_page_count
+        page_numbers = (medium_page, ungraded_page, easy_answer_page, medium_answer_page)
 
         # (interior page number, the page) for every page carrying the drawing.
         by_number = {
-            number: drawing_of(pages[number - 1]) for number in (6, 7, 9, 10)
+            number: drawing_of(pages[number - 1]) for number in page_numbers
         }
-        for number in (6, 7, 9, 10):
+        for number in page_numbers:
             drawing = by_number[number]
             expected_left = sheet.drawing_left_mm(number, across, down)
             assert abs(_mm(drawing.left) - expected_left) <= 2 * HALF_PIXEL_MM + 1e-9, (
@@ -404,7 +442,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # cannot be counted that way (``tests/helpers/page_ink.py``'s own
         # caveat) — ``left``/``top``/``grid_bottom``/``cell``, read above and
         # below, stay safe on either kind.
-        for number in (6, 7):
+        for number in (medium_page, ungraded_page):
             drawing = by_number[number]
             assert (drawing.columns, drawing.rows) == (columns, rows)
 
@@ -418,7 +456,7 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # just above already proves centring on the answer pages, since
         # ``sheet.drawing_left_mm`` is itself derived from the centring rule.
         if sheet.usable_width_mm - across * sheet.cell_mm(across, down) >= 0:
-            for number in (6, 7):
+            for number in (medium_page, ungraded_page):
                 drawing = by_number[number]
                 left_spare = _mm(drawing.left) - sheet.left_margin_mm(number)
                 right_spare = sheet.usable_width_mm - left_spare - across * _mm(drawing.cell)
@@ -431,8 +469,14 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # kinds are compared within their own kind: a puzzle page's drawing and
         # an answer page's tile are different measurements of different things,
         # and only the *shift between two pages of one kind* is the margin.
-        for odd, even in ((by_number[7], by_number[6]), (by_number[9], by_number[10])):
-            shift_mm = _mm(odd.left - even.left)
+        #
+        # Which of each consecutive pair is actually odd/even depends on
+        # ``toc_page_count``'s own parity (CARD-200 flips it when that count
+        # is odd), so the odd one is picked by its real page number rather
+        # than assumed to be the page that would have been odd pre-CARD-200.
+        for page_a, page_b in ((medium_page, ungraded_page), (easy_answer_page, medium_answer_page)):
+            odd_page, even_page = (page_a, page_b) if page_a % 2 else (page_b, page_a)
+            shift_mm = _mm(by_number[odd_page].left - by_number[even_page].left)
             assert abs(shift_mm - (sheet.gutter_mm - sheet.outside_mm)) < 2 * HALF_PIXEL_MM, (
                 sheet, shift_mm
             )
@@ -441,10 +485,14 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # which are the same page but for their side of the spread, and on
         # the two answer pages, which are the same puzzle's own full solved
         # page (CARD-198) drawn twice, so both pairs move alike.
-        assert by_number[6].top == by_number[7].top, (sheet, by_number[6].top)
-        assert by_number[9].top == by_number[10].top, (sheet, by_number[9].top)
-        assert by_number[6].grid_bottom == by_number[7].grid_bottom
-        assert abs(by_number[6].cell - by_number[7].cell) <= 1
+        assert by_number[medium_page].top == by_number[ungraded_page].top, (
+            sheet, by_number[medium_page].top
+        )
+        assert by_number[easy_answer_page].top == by_number[medium_answer_page].top, (
+            sheet, by_number[easy_answer_page].top
+        )
+        assert by_number[medium_page].grid_bottom == by_number[ungraded_page].grid_bottom
+        assert abs(by_number[medium_page].cell - by_number[ungraded_page].cell) <= 1
 
         # Every one of those pages is the same trim.
         assert len({page.size for page in pages}) == 1
@@ -478,20 +526,24 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     sheet = BOOK1
     # One tier for the whole book, because a pair is offered only between
     # equal tiers (INV-010) and ``_puzzle`` grades nothing. One level also
-    # means one divider page, interior page 3 (CARD-201: the 2-page guide is
-    # pages 1-2), so the walk below starts at 4.
+    # means one divider page. Pre-CARD-200 that divider was interior page 3
+    # (the 2-page guide is pages 1-2) and the walk started at 4; CARD-200
+    # now inserts its own TOC pages between the guide and that divider, so
+    # both numbers are shifted by the real ``toc_page_count`` for this book.
     puzzles = [
         dict(_puzzle(rng, columns, rows), difficulty_tier="easy")
         for columns, rows in extents
     ]
-    pages = BookPDFGenerator(sheet.book).interior_pages(puzzles)
+    generator = BookPDFGenerator(sheet.book)
+    toc_page_count = generator.section_plan(puzzles).toc_page_count
+    pages = generator.interior_pages(puzzles)
     trim_width_px, trim_height_px = _trim_px(sheet)
     expected_top_mm = TOP_MM + BAND_MM
 
     counted = two_up = single = 0
     tops: set[int] = set()
     index = 0
-    page_number = 4  # guide 1-2, the "Easy" divider 3
+    page_number = 4 + toc_page_count  # guide 1-2, the TOC, the "Easy" divider
     while index < len(puzzles):
         page = pages[page_number - 1]
         assert page.size[0] < page.size[1], (page_number, "portrait")
