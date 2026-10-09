@@ -1,6 +1,6 @@
 # CARD-201: The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide
 
-**Status:** review
+**Status:** blocked
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2d
@@ -20,7 +20,10 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — implementation: review cycle 3 (the last
+allowed) found 3 new gating findings (F-20/F-21/F-22) — owner decision
+needed on how to proceed rather than silently exceeding
+`config.yml review.max_cycles: 3`
 
 ## What to implement
 
@@ -1096,3 +1099,77 @@ evidence), and the Finalise screen's live preview
 - [Review] forge:review cycle 3 started (background agent `@code-review`,
   final allowed cycle — confirmation pass over F-11's fix plus the whole
   diff).
+- [Review 3/3] F-11 held, but 10 findings surfaced re-scanning the whole
+  diff — this is the card's LAST allowed cycle (`config.yml
+  review.max_cycles: 3`), so new gating findings here are an escalation
+  point, not an automatic cycle 4. Orchestrator's own severity read:
+  - **F-20 (Important — reproduced visual overflow, zero coverage)**
+    `book_pdf_generator.py:1269`, `_draw_pipeline_diagram`'s canvas width
+    is derived only from label-text widths and fixed constants, never
+    checked against the page's usable `measure`; the fallback loop
+    (`:2431-2440`) only checks VERTICAL fit, never horizontal. Reproduced
+    on a valid KDP trim, 10cm wide x 25cm tall (`MIN_TRIM_CM`, 25.0): ink
+    reaches column 1180 on a 1181px canvas with `frame.right=1031` —
+    149px past the usable frame, one pixel short of the physical page
+    edge. This trim passes the loop's only (vertical) check at
+    `bare_level 0`, so the oversized diagram is never dropped or
+    shrunk — no test catches it (existing tests only probe 3 named
+    stored trims, none this narrow-and-this-tall together). Gating.
+  - **F-21 (Important — orphaned heading, contradicts own docstring, on
+    a real stored trim)** `book_pdf_generator.py:2348`, at `bare_level
+    >= 2` the cell-state block's `pass` branch drops BOTH the picture
+    AND `paragraph(cell_state.heading)` — contradicting
+    `create_guide_page`'s own docstring promise that "the heading alone
+    still names Unknown/Filled/Empty" at this level. The sibling
+    technique one entry later gets this right (keeps the heading
+    paragraph unconditional, only gates the diagram via
+    `draw_diagram=not(...)`); the cell-state block is the one place an
+    all-or-nothing `pass` was used instead. **This fires on the 10cm
+    minimum trim** — the card's own Fix-1 notes already say this trim
+    needs exactly bare_level 1 or 2 — so the printed book ships an
+    orphaned "Use three cell states" heading immediately followed by the
+    next section's heading, on a real, already-tested stored trim.
+    Gating.
+  - **F-22 (Important — new, real, visible bug, preview-only)**
+    `admin.css:369`, `.guide-pipeline-step + .guide-pipeline-step::before`
+    attaches the arrow pseudo-element INSIDE the (column-flex) box itself,
+    not as a connector between boxes, so the Finalise screen's live HTML
+    preview shows a stray arrow glyph stacked above each later box's own
+    label instead of sitting between boxes. The exported PDF is
+    unaffected (`_draw_pipeline_diagram` draws its own arrows directly) —
+    preview-only, but new, real, and visible. Gating (cheap CSS fix).
+  - **F-23 (Moderate, not gating but worth a decision):** `tests/test_book_pdf_ink_mode.py`'s
+    `TestBookInk_ColourInteriorIsUnchanged` had its byte-for-byte
+    comparison against independently-recorded historical baselines
+    (`book_baseline_card146/167/184.json`) replaced with a same-run
+    consistency check only (colour vs. this run's own black-and-white),
+    with no new historical baseline recorded for the 2-page guide. The
+    retirement is justified (the guide's extra page invalidates every old
+    page position) but leaves the colour path's independent-of-today's-
+    code verification weaker than before. Not gating (no shipped defect),
+    but flagged for a decision: record a fresh historical baseline now, or
+    accept the narrower same-run check going forward.
+  - **F-24 (already disclosed, re-surfaced, not new):** the full-corpus
+    page-2 fit-coverage gap Fix cycle 2 already flagged explicitly ("fails
+    at some untested points... even on the pre-F-11 code") — F-20 above is
+    very likely a concrete instance of exactly this already-accepted risk,
+    not a new, separate finding.
+  - **F-25..F-29 (Minor, not gating):** `needs_pad: bool` is a narrow,
+    one-bit mechanism that will need a third ad-hoc flag for a future
+    diagram with a different bleed convention (`:2300`); several diagram
+    images are built unconditionally for both page branches and half are
+    always discarded (`:2223`); `technique_rows` is rebuilt from scratch
+    on every one of up to 5 fallback attempts instead of cached like its
+    siblings (`:2217`); the pipeline diagram's filled/crossed icon
+    reimplements `draw_example_line`'s same two ink primitives instead of
+    sharing them, acknowledged in its own docstring (`:1297`);
+    `GUIDE_PAGE_COUNT` is presented as a general formula term but
+    `page_one = page_number % 2 == 1` silently breaks (re-renders page 1
+    twice) if it's ever bumped past 2, with no assertion guarding the
+    assumption (`:2176`).
+  - **Verdict: cycle 3 does NOT meet the bar** (3 new gating findings:
+    F-20/F-21 real shipped visual defects on valid/already-tested trims,
+    F-22 a new preview-only bug) — but this is the card's LAST allowed
+    review cycle. Per the dispatcher's own escalation protocol, this is
+    an ESCALATION POINT, not an automatic cycle 4: routing to the owner
+    for a decision rather than silently exceeding `max_cycles: 3`.
