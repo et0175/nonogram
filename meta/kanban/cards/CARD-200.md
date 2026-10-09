@@ -124,26 +124,57 @@ rule invented here.
    question (Design context) rather than silently picking a page-count-per-entry
    number, since the owner has not seen how many puzzles-per-page a TOC reads well at.
 4. **`interior_stream`'s page-count arithmetic — the real architectural cost of this
-   card.** The TOC page is a *new* entry in the interior, between the guide page and
-   the puzzle section (my placement choice — see Design context). Every downstream
-   offset shifts by however many TOC pages it takes: `first_answer_page = 3 +
-   len(section)` (`:2642`) becomes `3 + toc_page_count + len(section)`; the SOLUTIONS
-   divider's own `create_divider_page(2 + len(section))` call (`produce()`, `:2725`)
-   becomes `2 + toc_page_count + len(section)`; `interior_page_count`'s call
-   (`:2663`) needs a new `toc_pages` term (or the TOC folded into the existing
-   `level_dividers`-style additive term — `interior_page_count`'s own signature,
-   `:1277-1356`, needs reading in full to decide which is cleaner; it is the one other
-   production function besides `interior_stream` whose arithmetic must agree, exactly
-   the discipline CARD-198's own `_as_planned` tripwire exists to catch if it doesn't).
+   card. CORRECTED 2026-10-09 by the orchestrator, after both CARD-201 and CARD-202
+   merged** (this card was drafted against the pre-CARD-201/202 formulas, which no
+   longer exist — re-verified against the real, current merged code before `start`,
+   not left for the implementer to discover): the `first_answer_page = 3 + len(section)`
+   this card's draft cites is gone. There are now, by design, **two separate
+   `first_answer_page`-named values in `interior_stream`** (both already in the merged
+   code, not something this card invents) — read `interior_stream` in full before
+   touching it, do not assume either is the one you need without checking:
+   - An EARLY one (`first_answer_page = 3 + len(section)`, pre-CARD-201 value,
+     deliberately left over from before CARD-201 merged) used ONLY to build a
+     *representative* `PageSpec` (`self.page_spec(first_answer_page)`) for
+     CARD-202's packing-feasibility check (`_degrade_infeasible_packed_pages`),
+     before any tripwire or the real page count is known. The code's own comment
+     explains why the exact value doesn't matter here: usable WIDTH (what the
+     feasibility check needs) is parity-invariant — mirrored margins swap which
+     *side* the gutter is on, never the usable width's own size — so a stale page
+     number is harmless for this one, narrow purpose. **Do not "fix" this value to
+     include a TOC term** — it would be a no-op at best and confusing at worst;
+     leave this early assignment exactly as-is.
+   - The REAL, final one, a few lines later: `first_answer_page = 1 +
+     GUIDE_PAGE_COUNT + len(section) + 1` (`GUIDE_PAGE_COUNT = 2`, a module
+     constant CARD-201 added) — **this** is the one that governs the SOLUTIONS
+     divider's page number (`create_divider_page(first_answer_page - 1)`,
+     already written as an expression, not a literal) and the answer-page loop
+     (`for index, entry in enumerate(answer_plan): page_number =
+     first_answer_page + index`). **This is the one that needs a `toc_pages`
+     term**: `first_answer_page = 1 + GUIDE_PAGE_COUNT + toc_page_count +
+     len(section) + 1`.
+   `interior_page_count` (module-level function, not a method — read its current
+   docstring in full, it already explains CARD-201's and CARD-202's own terms in
+   detail) takes `puzzle_count`/`puzzle_pages`/`answer_pages`/`level_dividers` and
+   already uses `GUIDE_PAGE_COUNT` as its own leading term (not a hardcoded `1`) —
+   this card adds one more parameter, `toc_pages` (or folds it into an existing
+   additive term if that reads cleaner — implementer's call, document which and why),
+   and every call site (there are at least two — `interior_stream` itself and
+   `book_kdp.unpaired_interior_page_count`, same two-call-site shape CARD-198/
+   CARD-202 both had to keep in sync) must pass it.
    `page_is_right_hand`/every puzzle and divider page's own `page_number` argument
-   shift by `toc_page_count` too, automatically, as long as they keep reading it off
-   the same `section`/`first_answer_page` arithmetic rather than a page_number computed
-   some other way. **This is the same shape of ripple CARD-198 produced** (one new
-   front-matter concept pushes every later page's number down) — expect a comparable
-   SCOPE+ footprint across hard-coded page-count/page-index test fixtures; the Touches
-   list above names the files I found a fixed-page-count assumption in by grepping
-   `first_page=2`/`first_answer_page`/"interior page 1", but — same caveat CARD-198's
-   own notes gave — the implementer should expect more than the grep found, not fewer.
+   shift by `toc_page_count` automatically, as long as they keep reading it off the
+   same `section`/`first_answer_page` arithmetic rather than a page_number computed
+   some other way. **This is the same shape of ripple CARD-198/201/202 each already
+   produced** (a new front-matter or packing concept pushes every later page's number
+   and/or parity) — expect a comparable or larger SCOPE+ footprint across hard-coded
+   page-count/page-index test fixtures; the Touches list above was built by grepping
+   the PRE-merge codebase and is stale in its exact line numbers (not its file list) —
+   re-grep for `first_answer_page`/`GUIDE_PAGE_COUNT`/`answer_plan`/"interior page 1"
+   fresh against the current merged code, and expect MORE affected files than either
+   this list or the grep predicts, the same caveat CARD-198's own notes gave and
+   CARD-201's own merge just re-confirmed (a clean-looking merge of unconflicted code
+   can still be semantically stale — see CARD-201's own Worktree notes, "[Merge]"
+   entry, for a worked example of exactly this trap).
 
 ## Acceptance criteria
 
@@ -342,15 +373,16 @@ fix the source artifact, never this list._
   admin panel; "online solver, public phase" is still an uncarded backlog line) — both
   need the owner's direct confirmation before any card is drafted for it, not a
   drafting agent's guess.
-- [Why `Depends on: CARD-201`] CARD-201 replaces the guide page's content with a
-  2-page "How to Solve a Nonogram" guide (currently always exactly 1 page,
-  `create_guide_page`'s own `set_page` loop at `:1661-1665` always returns from its
-  3-form try, never from a failure state, but is always called once and always
-  produces one image — confirmed by reading the whole method). This card's TOC sits
-  immediately after the guide page and must read the guide's *real* page count to
-  know where it starts; drafting/implementing this card against today's 1-page
-  assumption and rebasing past CARD-201 later would silently invalidate the "day one"
-  numbers in this card's own tests. Build on CARD-201's merged state.
+- [Why `Depends on: CARD-201`] **CARD-201 has since merged** (and CARD-202 merged
+  before it) — this dependency is satisfied; build this card on `main` at its current
+  HEAD, not on any stale assumption from before either merged. CARD-201 replaced the
+  guide page's content with a 2-page "How to Solve a Nonogram" tutorial:
+  `GUIDE_PAGE_COUNT = 2` is now a real module constant, and `produce()` yields it via
+  `for guide_page_number in range(1, GUIDE_PAGE_COUNT + 1): ... create_guide_page(...,
+  page_number=guide_page_number)` — two real calls, two real images, not one call
+  producing two pages internally. This card's TOC sits immediately after the guide
+  page(s) and must read `GUIDE_PAGE_COUNT` (not assume `1`, and not hardcode `2`
+  either — read the constant) to know where it starts.
 - [Verified facts the implementer must not re-derive]
   - `page_frame` (`:1168-1188`), `PageFrame` (`:1135-1160`) — the generic
     usable-area reader every non-grid page (guide, divider, TOC) already uses.
