@@ -35,6 +35,7 @@ from __future__ import annotations
 import html
 import uuid
 from decimal import Decimal
+from types import SimpleNamespace
 
 import pytest
 
@@ -204,34 +205,44 @@ def corpus(*runs) -> list[dict]:
 #: medium (``pairs_up``, odd — 22 puzzle pages, one of them unpaired) keeps
 #: the medium tier's own count odd, so :data:`CK1_OVER_CORPUS` can still add
 #: its "one puzzle, one page" by the same odd-to-even step CK-1 is about.
-#: 2-page guide (CARD-201) + 2 level dividers + 62 puzzle pages (40 easy
-#: alone + 22 medium, 21 pairs and 1 alone) + the SOLUTIONS divider + 83
-#: answer pages (one per puzzle) = 150. Recomputed and checked against the
-#: generator's own page plan, not asserted from this arithmetic alone
-#: (``test_the_scenario_really_has_that_many_pages`` equivalents throughout
-#: this module always measure the live plan).
-AC288_CORPUS = ((alone, "easy", 40), (pairs_up, "medium", 43))
+#: 2-page guide (CARD-201) + a 2-page table of contents (CARD-200: 82
+#: entries, over the TOC's own 43-row-per-Book-1-page capacity) + 2 level
+#: dividers + 61 puzzle pages (39 easy alone + 22 medium, 21 pairs and 1
+#: alone) + the SOLUTIONS divider + 82 answer pages (one per puzzle) = 150.
+#: **CARD-200 note (recomputed, not the CARD-201 corpus):** the TOC's own
+#: 2 pages is exactly offset by one fewer easy puzzle (40 -> 39) than
+#: CARD-201 needed to hit 150 without a TOC — the boundary this test (and
+#: CK-1 below) is *about* is 150 pages exactly, so the corpus is retuned to
+#: it rather than the page-count constant renamed away from it. Recomputed
+#: and checked against the generator's own page plan, not asserted from this
+#: arithmetic alone (``test_the_scenario_really_has_that_many_pages``
+#: equivalents throughout this module always measure the live plan).
+AC288_CORPUS = ((alone, "easy", 39), (pairs_up, "medium", 43))
 AC288_PAGES = 150
 
 #: CK-1's other side: the same book with one more (pairing) medium puzzle,
 #: which is exactly one page longer — see :data:`AC288_CORPUS`'s note. The
 #: medium tier's 43 (odd, one alone) becomes 44 (even, all paired): the same
-#: 22 puzzle pages either way, and one more answer page.
-CK1_OVER_CORPUS = ((alone, "easy", 40), (pairs_up, "medium", 44))
+#: 22 puzzle pages either way, and one more answer page. Still an 83-entry,
+#: 2-page TOC (CARD-200) — one more puzzle does not cross the 43-per-page
+#: boundary a second time.
+CK1_OVER_CORPUS = ((alone, "easy", 39), (pairs_up, "medium", 44))
 CK1_OVER_PAGES = 151
 
 #: AC-179's book: 1 + 2 dividers + 140 pages + 1 + 140 answer pages (CARD-198:
-#: one per puzzle, where this book took 36 four-up pages before this card) =
-#: 284. Still inside KDP's 151-300 band, same as the 180 pages this corpus
+#: one per puzzle, where this book took 36 four-up pages before this card)
+#: + a 4-page table of contents (CARD-200: 140 entries, ceil(140 / 43)) =
+#: 289. Still inside KDP's 151-300 band, same as the 180 pages this corpus
 #: produced before CARD-198 — the corpus itself is unchanged; only what one
-#: page per puzzle, unpacked, adds up to is bigger.
+#: page per puzzle, unpacked, plus the TOC, adds up to is bigger.
 AC179_CORPUS = ((alone, "easy", 70), (alone, "medium", 70))
-AC179_PAGES = 285
+AC179_PAGES = 289
 
 #: AC-271's book: 150 puzzles, each now with its own full answer page
 #: (CARD-198: one per puzzle, where this book packed 30 before this card),
-#: behind 125 interior pages — 1 guide + 2 dividers + 121 puzzle pages (29 of
-#: them shared) + the SOLUTIONS divider. 275 interior pages in all.
+#: behind 129 interior pages — 1 guide + a 4-page TOC (CARD-200: ceil(150 / 43))
+#: + 2 dividers + 121 puzzle pages (29 of them shared) + the SOLUTIONS
+#: divider. 280 interior pages in all.
 AC271_CORPUS = (
     (alone_six_up, "easy", 90),
     (pairs_up, "medium", 58),
@@ -239,17 +250,18 @@ AC271_CORPUS = (
 )
 AC271_PUZZLES = 150
 AC271_ANSWER_PAGES = 150
-AC271_PAGES_BEFORE_THE_KEY = 126
-AC271_PAGES = 276
+AC271_TOC_PAGES = 4
+AC271_PAGES_BEFORE_THE_KEY = 130
+AC271_PAGES = 280
 
 #: CARD-199 AC-5's book: inside the new 301-500 band. **CARD-198 note:** 200
 #: medium `alone`s (down from 277 before this card, which would now land at
-#: 557 pages — the 501-590 band, not this test's target): 1 guide + 1 level
-#: divider + 200 puzzle pages + the SOLUTIONS divider + 200 answer pages
-#: (CARD-198: one per puzzle, where this book packed 50 before this card) =
-#: 403.
+#: 557 pages — the 501-590 band, not this test's target): 1 guide + a 5-page
+#: TOC (CARD-200: ceil(200 / 43)) + 1 level divider + 200 puzzle pages + the
+#: SOLUTIONS divider + 200 answer pages (CARD-198: one per puzzle, where
+#: this book packed 50 before this card) = 409.
 AC199_NEW_BAND_CORPUS = ((alone, "medium", 200),)
-AC199_NEW_BAND_PAGES = 404
+AC199_NEW_BAND_PAGES = 409
 
 #: CARD-199 AC-6's book, unchanged by CARD-198 (the corpus, not the count):
 #: 241 medium `alone`s. **CARD-198 note:** this book was pre-computed by
@@ -262,9 +274,9 @@ AC199_NEW_BAND_PAGES = 404
 #: to be refused outright as "not modelled" before CARD-199's table), so the
 #: test's own claim holds exactly as before; only the page count naming it
 #: changed, recomputed against the real page plan rather than reused from
-#: the earlier estimate.
+#: the earlier estimate. CARD-200 adds a 6-page TOC (ceil(241 / 43)): 492.
 AC199_CARD198_CORPUS = ((alone, "medium", 241),)
-AC199_CARD198_PAGES = 486
+AC199_CARD198_PAGES = 492
 
 #: CARD-198's own AC-8 book: a book that *was* inside the old 300-page
 #: ceiling, purely because of the answer section's old packing, and crosses
@@ -279,10 +291,14 @@ AC199_CARD198_PAGES = 486
 #: * CARD-198: 1 + 1 + 222 + 1 + 444 (one answer page per puzzle) = 669 —
 #:   over :data:`~nonogram.admin.book_kdp.MAX_MODELLED_PAGE_COUNT` (590)
 #:   purely from the answer section's own growth, with the puzzle section
-#:   unchanged.
+#:   unchanged;
+#: * CARD-200 adds an 11-page TOC (ceil(444 / 43)) on top of the live plan's
+#:   own 670 (not the "669" hand-arithmetic above, which this module's own
+#:   ``test_the_scenario_really_has_that_many_pages`` has always measured
+#:   against the real plan rather than trusted): 681.
 AC8_CORPUS = ((pairs_up_six, "easy", 444),)
 AC8_OLD_PACKED_PAGES = 299
-AC8_PAGES = 670
+AC8_PAGES = 681
 
 
 # --------------------------------------------------------------------------
@@ -756,7 +772,8 @@ class TestBookFinalise_PageCountIncludesAnswerKeyPages:
 
         assert f'data-interior-page-count="{AC271_PAGES}"' in shown
         assert f'data-answer-page-count="{AC271_ANSWER_PAGES}"' in shown
-        assert 'data-unpaired-page-count="305"' in shown
+        # 305 before CARD-200; +4 for this book's own 4-page TOC (150 entries).
+        assert 'data-unpaired-page-count="309"' in shown
 
 
 # --------------------------------------------------------------------------
@@ -1086,7 +1103,12 @@ class TestBookFinalise_AnswerPageCountAndBeforePairingReflectNoPacking:
         unpaired_answer_pages_if_still_packed = AC271_ANSWER_PAGES  # i.e. 150, not 30
         assert (
             counts.unpaired_page_count
-            == 2 + 2 + AC271_PUZZLES + 1 + unpaired_answer_pages_if_still_packed
+            == 2
+            + AC271_TOC_PAGES  # CARD-200: the TOC's own term, unaffected by pairing
+            + 2
+            + AC271_PUZZLES
+            + 1
+            + unpaired_answer_pages_if_still_packed
         ), "the answer term is the same 150 on both sides of the subtraction"
 
     def test_a_book_with_no_pairing_at_all_shows_no_saving(self, panel) -> None:
@@ -1117,9 +1139,11 @@ SMALL_CORPUS = ((alone, "easy", 3),)
 #: Its interior, counted by hand rather than by the code under test: 1 guide
 #: page + 1 easy divider + 3 single puzzle pages + the SOLUTIONS divider + 3
 #: full solved answer pages (CARD-198: one per puzzle, where this book took
-#: one packed four-up page before this card). Pairing nothing, this is both
-#: its exact count on a legal sheet and its sheet-free bound on an illegal one.
-SMALL_PAGES = 10
+#: one packed four-up page before this card) + a 1-page table of contents
+#: (CARD-200: 3 entries, far under one TOC page's own capacity). Pairing
+#: nothing, this is both its exact count on a legal sheet and its sheet-free
+#: bound on an illegal one.
+SMALL_PAGES = 11
 
 #: The sheet builder's reason for refusing AC-179's 0.60 cm, written out here.
 REASON_060 = "book gutter_margin_cm is 0.6 cm, below the 0.635 cm minimum side margin"
@@ -1902,3 +1926,120 @@ class TestFinalisePost_PlanGateRefusalIsNotAnError:
         assert "x medium: 0% against 100%" in shown, shown
         assert panel.status(book_id) == DRAFT
         assert _panel_errors(caplog) == []
+
+
+# --------------------------------------------------------------------------
+# Review cycle 2, F-2 (gating) — the sheet-free TOC estimate must never
+# under-count for a book stored on a smaller-than-Book-1 trim.
+# --------------------------------------------------------------------------
+
+
+class TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc:
+    """``unpaired_interior_page_count`` fires only when a book's stored print
+    specification cannot be laid out at all — the one case with no real page
+    count left to cross-check its estimate against. Before this fix it
+    always measured the TOC term on CON-018's Book 1 profile regardless of
+    what the book's own trim actually was, so a book stored on a *shorter*
+    trim than Book 1 could silently get an under-count: this function's own
+    docstring promises an upper bound, never an under-count, and the old
+    code broke that promise for exactly the books it mattered most for.
+    """
+
+    #: 40 puzzles is enough to force more than one TOC page even on Book 1's
+    #: own profile (confirmed by direct measurement, not assumed — see the
+    #: test below that checks this), and few enough that a 12 cm trim's own
+    #: shrunken entries-per-page still forces strictly more TOC pages than
+    #: Book 1's.
+    _PUZZLE_COUNT = 40
+
+    @staticmethod
+    def _rows():
+        return [alone("easy", n) for n in range(1, 40 + 1)]
+
+    def test_the_corpus_really_forces_more_than_one_toc_page_on_book_one(self) -> None:
+        """Confirms this class's own precondition, rather than assuming it."""
+        base = unpaired_interior_page_count(self._rows())
+        book1_explicit = unpaired_interior_page_count(
+            self._rows(), book=SimpleNamespace(trim_height_cm="27.94")
+        )
+        assert base == book1_explicit, (
+            "an explicit Book 1 height should match the no-book default "
+            "exactly — if it does not, the fix changed the common case"
+        )
+
+    def test_a_smaller_trim_gets_a_toc_estimate_at_least_as_large_as_book_ones(
+        self,
+    ) -> None:
+        rows = self._rows()
+        book1_count = unpaired_interior_page_count(rows)
+        smaller_count = unpaired_interior_page_count(
+            rows, book=SimpleNamespace(trim_height_cm="12.00")
+        )
+
+        assert smaller_count >= book1_count, (
+            "a book stored on a trim shorter than Book 1 must never count "
+            "fewer pages than the Book-1-profile estimate — this is the "
+            "function's own 'never under-count' contract"
+        )
+        assert smaller_count > book1_count, (
+            "a 12 cm trim is short enough that its own entries-per-page "
+            "should force strictly more TOC pages than Book 1's — if this "
+            "no longer holds, the fix is not actually reading the book's "
+            "own trim, or this corpus no longer demonstrates it"
+        )
+
+    def test_a_taller_trim_does_not_get_fewer_toc_pages_either(self) -> None:
+        """The contract runs both ways: a *larger* trim's own, roomier
+        entries-per-page must not under-count relative to Book 1 either —
+        this function's job is "never under-count", not "always match
+        Book 1".
+        """
+        rows = self._rows()
+        book1_count = unpaired_interior_page_count(rows)
+        taller_count = unpaired_interior_page_count(
+            rows, book=SimpleNamespace(trim_height_cm="48.00")
+        )
+
+        assert taller_count <= book1_count
+
+    def test_a_book_with_no_readable_trim_falls_back_to_the_book_one_default(
+        self,
+    ) -> None:
+        """The genuinely-last-resort case: nothing at all to measure from."""
+        rows = self._rows()
+        book1_count = unpaired_interior_page_count(rows)
+
+        assert unpaired_interior_page_count(rows, book=None) == book1_count
+        assert (
+            unpaired_interior_page_count(rows, book=SimpleNamespace()) == book1_count
+        )
+        assert (
+            unpaired_interior_page_count(
+                rows, book=SimpleNamespace(trim_height_cm="not-a-number")
+            )
+            == book1_count
+        )
+
+    def test_end_to_end_through_the_real_unreadable_spec_path(self, panel) -> None:
+        """The function's own real caller: ``app.py``'s ``_interior_counts``,
+        on a book whose stored gutter is too narrow for any sheet at all
+        (AC-179's own ``GUTTER_060``) *and* whose trim is shorter than Book
+        1 — the one real combination this review finding was about. Before
+        this fix the shown "About N" figure was the Book-1-profile estimate
+        regardless of this book's own, shorter trim.
+        """
+        book_id = panel.book(((alone, "easy", self._PUZZLE_COUNT),), gutter=GUTTER_060)
+        stored = panel.books.get_book(book_id)
+        book1_height = stored.trim_height_cm
+        book1_counts = _counts_of(panel, book_id)
+        assert book1_counts.exact is False  # no sheet: the approximate path
+
+        stored.trim_height_cm = "12.00"
+        shrunk_counts = _counts_of(panel, book_id)
+
+        assert shrunk_counts.exact is False
+        assert shrunk_counts.page_count > book1_counts.page_count, (
+            f"shrinking the book's own trim from {book1_height} cm to 12 cm "
+            "should raise the shown approximate page count, not leave it "
+            "pinned to the Book 1 profile's own estimate"
+        )

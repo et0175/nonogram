@@ -94,10 +94,19 @@ prevent. So "0.95" passes and "0.945" does not, and no value is ever rounded
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation, ROUND_FLOOR, ROUND_HALF_UP
+from types import SimpleNamespace
 from typing import Any, Optional, Sequence, Tuple
 
-from nonogram.admin.book_page_spec import BOOK1_PROFILE
-from nonogram.admin.book_pdf_generator import interior_page_count, print_order
+from nonogram.admin.book_page_spec import BOOK1_PROFILE, book_page_spec
+from nonogram.admin.book_pdf_generator import (
+    DPI,
+    PageFrame,
+    default_toc_frame,
+    interior_page_count,
+    measured_toc_page_count,
+    page_frame,
+    print_order,
+)
 from nonogram.difficulty import tier_of_record
 
 __all__ = [
@@ -352,7 +361,7 @@ def gutter_refusal(page_count: int, gutter_cm: float) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 
-def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
+def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> int:
     """The interior's page count with every puzzle on a page of its own.
 
     The page count :class:`~nonogram.admin.book_pdf_generator.InteriorStream`
@@ -420,6 +429,46 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
     are :func:`~nonogram.difficulty.tier_of_record`'s — the same calls the
     generator makes.
 
+    **Review cycle 2, F-2 (gating): the TOC term is now measured on the
+    book's own stored trim when any of it can be read, not silently reused
+    from CON-018's Book 1 profile regardless of what the book actually
+    stores.** Before this fix ``toc_pages`` was never passed, so
+    :func:`~nonogram.admin.book_pdf_generator.interior_page_count`'s own
+    default silently took over — :func:`~nonogram.admin.book_pdf_generator.measured_toc_page_count`
+    measured on CON-018's Book 1 profile, regardless of what trim the book
+    actually stores. That made this function's own "upper bound, never an
+    under-count" contract (this docstring's own opening paragraph) false for
+    exactly the books it would matter most for: a book stored on a
+    *smaller* trim than Book 1 genuinely can need more TOC pages than Book
+    1's own entries-per-page would predict, and this function fires only
+    for a book whose stored print specification cannot be fully laid out —
+    there is no real page count to cross-check its estimate against in that
+    case, so an under-count here would reach the KDP gutter-band lookup
+    unnoticed.
+
+    :func:`~nonogram.admin.book_pdf_generator.measured_toc_page_count`'s own
+    entries-per-page arithmetic (``_toc_entries_per_page``) reads only a
+    frame's ``top``/``bottom`` edges — never its ``left``/``right`` —
+    because the TOC's own split is a vertical one (verified against the
+    real function body, not assumed): so only the book's stored
+    ``trim_height_cm`` need be readable for a trim-accurate estimate, not a
+    fully valid :class:`~nonogram.export.layout.PageSpec`. ``book`` (when
+    given) is read through a synthetic stand-in carrying that one real
+    figure alongside :data:`~nonogram.admin.book_page_spec.BOOK1_PROFILE`'s
+    own safe width and margins — :func:`~nonogram.admin.book_page_spec.book_page_spec`
+    then lays it out exactly as it would any valid book, reusing its own
+    parsing and bounds-checking rather than re-deriving a second,
+    independent reader of the same stored column. A missing ``book``, a
+    missing/empty ``trim_height_cm``, or a stored height KDP's own bounds
+    still refuse even with the profile's safe width/margins (truly nothing
+    to measure from) falls back to :func:`~nonogram.admin.book_pdf_generator.default_toc_frame`
+    — Book 1's own profile — as the genuinely-last-resort case this was
+    always meant to be, not the general path. This can only ever make the
+    estimate larger or equal, never smaller, than the old Book-1-only
+    default: a taller book 1 profile stands in exactly as before, and a
+    shorter one only ever *adds* pages the same formula would not have
+    asked for.
+
     Raises:
         ValueError: a row's solution grid is not a non-empty rectangle, so its
             answer cannot be measured and the book has no page count at all.
@@ -432,12 +481,51 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
     for index, row in enumerate(ordered):
         _grid_extent(row, index + 1)
     dividers = len({level for level in levels if level is not None})
+    toc_pages = measured_toc_page_count(len(ordered), _toc_frame_for(book), DPI)
     return interior_page_count(
         len(ordered),
         puzzle_pages=len(ordered),
         answer_pages=len(ordered),
         level_dividers=dividers,
+        toc_pages=toc_pages,
     )
+
+
+def _toc_frame_for(book: Any) -> PageFrame:
+    """The TOC's usable area on *this* book's own stored height, if readable.
+
+    Review cycle 2, F-2: :func:`~nonogram.admin.book_pdf_generator.measured_toc_page_count`
+    (via its own ``_toc_entries_per_page``) reads only a frame's own
+    ``top``/``bottom`` edges — never ``left``/``right`` — so only
+    ``trim_height_cm`` need be real for a trim-accurate estimate here; width,
+    gutter and outside margin never move a frame's top or bottom at all
+    (:func:`~nonogram.admin.book_page_spec.book_page_spec`'s own body: top
+    and bottom always come from the profile, never from a stored column).
+    A synthetic stand-in therefore carries the book's real height alongside
+    :data:`BOOK1_PROFILE`'s own safe, always-valid width and margins, so
+    :func:`~nonogram.admin.book_page_spec.book_page_spec` lays it out with
+    its own existing validation rather than a second, independent reader of
+    the same stored column — the same "reuse the one validator" discipline
+    :func:`_grid_extent` already follows for a puzzle's own grid.
+
+    Falls back to :func:`~nonogram.admin.book_pdf_generator.default_toc_frame`
+    (Book 1's own profile) when ``book`` is ``None``, carries no readable
+    ``trim_height_cm`` at all, or stores one so far outside KDP's trim
+    bounds that even the profile's own safe width/margins cannot make it a
+    valid sheet — the genuinely-last-resort case, not the general path.
+    """
+    if book is None:
+        return default_toc_frame()
+    stand_in = SimpleNamespace(
+        trim_width_cm=BOOK1_PROFILE.trim_width_cm,
+        trim_height_cm=getattr(book, "trim_height_cm", None),
+        gutter_margin_cm=BOOK1_PROFILE.gutter_margin_cm,
+        outside_margin_cm=BOOK1_PROFILE.outside_margin_cm,
+    )
+    try:
+        return page_frame(book_page_spec(stand_in, 1))
+    except (TypeError, ValueError):
+        return default_toc_frame()
 
 
 def _grid_extent(row: Any, number: int) -> Tuple[int, int]:

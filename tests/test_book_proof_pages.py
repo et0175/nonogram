@@ -75,13 +75,13 @@ from typing import Iterable
 
 import numpy as np
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.book_proof as book_proof_module
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_frame
+from nonogram.admin.book_pdf_generator import BookPDFGenerator, _draw_folio, page_frame
 from nonogram.admin.print_specs import PrintSpec
 from nonogram.admin.book_proof import (
     PROOF_PUZZLES,
@@ -653,12 +653,23 @@ class TestBookProof_AnnotationIsProofOnly:
     """A real book page never grows the proof note (CARD-118)."""
 
     def test_a_book_page_of_the_same_fixture_carries_no_note(self) -> None:
-        """The fixture, put through the book export instead: a blank foot.
+        """The fixture, put through the book export instead: no proof note.
 
         The same grid and clues, rendered by ``BookPDFGenerator`` as an
-        ordinary member of a book, must come out as COMP-007's page and nothing
-        more — which is how "the annotation cannot reach the book" is asserted
-        as behaviour rather than as an intention.
+        ordinary member of a book, must come out as COMP-007's page plus only
+        CARD-200's own, already-accounted-for page-number folio — nothing a
+        proof annotation would add — which is how "the annotation cannot
+        reach the book" is asserted as behaviour rather than as an intention.
+
+        **CARD-200 (SCOPE+): the foot strip is no longer bare.** Every
+        interior page but the cover now carries a bottom-outer-corner folio
+        (``_draw_folio``), which — like a proof note once did — lands inside
+        ``_foot_strip``'s own crop (below the drawing, full width). So this
+        no longer asserts the strip is *ink-free*; it asserts the strip
+        carries *exactly* the folio's own known ink and nothing else, by
+        building the same ``_draw_folio`` call onto ``expected`` and
+        comparing bytes — the same rigor as before, aimed at the one mark
+        that is now legitimately there instead of at "no mark at all".
         """
         book = _book()
         puzzle = PROOF_PUZZLES[0]
@@ -672,14 +683,26 @@ class TestBookProof_AnnotationIsProofOnly:
             "puzzle_name": "Proof",
             "difficulty_tier": "hard",
         }
-        # Interior page 4 is the first puzzle page (CARD-201: up from 3):
-        # pages 1-2 are the 2-page guide and page 3 the "Hard" divider that
-        # opens this book's one level (FR-043, CARD-128).
-        page = BookPDFGenerator(book).interior_pages([row])[3]
+        # Interior page 5 is the first puzzle page (CARD-200: up from 4 —
+        # CARD-201's own 2-page guide, now followed by a 1-page table of
+        # contents): pages 1-2 are the guide, page 3 the TOC, page 4 the
+        # "Hard" divider that opens this book's one level (FR-043, CARD-128).
+        generator = BookPDFGenerator(book)
+        page = generator.interior_pages([row])[4]
         expected, _ = render_pages(
-            puzzle.payload("Puzzle 1 · Hard"), page_spec=book_page_spec(book, 4)
+            puzzle.payload("Puzzle 1 · Hard"), page_spec=book_page_spec(book, 5)
         )
-        assert not _has_ink(_foot_strip(page))
+        frame = page_frame(book_page_spec(book, 5))
+        _draw_folio(
+            ImageDraw.Draw(expected),
+            frame.left,
+            frame.top,
+            frame.right,
+            frame.bottom,
+            5,
+            generator.dpi,
+        )
+        assert _foot_strip(page).tobytes() == _foot_strip(expected).tobytes()
         assert page.tobytes() == expected.tobytes()
 
     def test_nothing_on_the_book_export_path_imports_this_module(self) -> None:

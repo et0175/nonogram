@@ -1,0 +1,152 @@
+{
+  "card": "CARD-200",
+  "supersedes": "tests/fixtures/book_baseline_card201.json",
+  "recorded_from_commit": "card/200-page-numbers-and-toc (implementation commit, after CARD-201/CARD-202 merged into main)",
+  "recorded_from_commit_note": "Recorded against this card's own implementation: a table of contents page is inserted between the guide and the puzzle section, and every interior page gains a bottom-outer-corner folio. Pages 1-2 (the guide) carry only the new folio; page 3 is new (the TOC); every page from 4 onward is CARD-201/CARD-202's own content, shifted by exactly one page (this book's TOC is one page) and carrying the new folio too.",
+  "recorded_on": "2026-10-09",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages \u2014 the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-200 adds a table-of-contents page after the guide and a page-number folio on every interior page but the cover. Both are new ink: the TOC is an entirely new page (3), and the folio adds a small mark to the bottom-outer corner of every other page, so every one of this book's thirteen pages carries different pixels from CARD-201's own twelve-page recording, even where the content above the footer band (the grid, the clues, the band, the answer caption) is byte-for-byte what it always was. See tests/test_book_pdf_memory.py's TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged for the test that verifies that narrower claim directly, by content rather than by a whole-page digest (the same 'compare by content, not by raw bytes' technique CARD-201's own TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne uses for its own parity-shift) \u2014 this fixture is the forward baseline for the next card, not itself the proof that nothing but the footer moved.",
+  "warning": "This is evidence of what the book PDF looks like with CARD-200's page numbers and table of contents in place. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes/colour_interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_fingerprint": "9915f0697b1e44cc040f9fef86c232e101a10640067bd1a001f47459a1f2b24e",
+  "font_fingerprint_note": "This machine's Arial-or-fallback fingerprint, reproduced before this file was written (tests.helpers.book_corpus.font_fingerprint). A machine with a different fingerprint skips the font_dependent_pages below rather than failing on them.",
+  "font_dependent_pages": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    10
+  ],
+  "font_dependent_pages_note": "Both guide pages (1, 2), the new TOC page (3, CARD-200: its title and every entry are set through _guide_face, the same Arial-or-fallback path the guide and divider pages already use), the three level dividers (4, 6, 8) and the SOLUTIONS divider (10) are machine-lettered. None of the three packed/full answer pages (11-13) are machine-lettered -- a packed slot's band and caption letter in the packaged DejaVu Sans, and so does every page's own new folio (CARD-200: it reuses _band_font, the same packaged face, exactly as the answer caption does -- G-4's reuse, not a new font path), so the folio never makes an otherwise machine-safe page machine-dependent.",
+  "interior_bytes": 3420073,
+  "interior_bytes_note": "The black-and-white interior of this book: 3420073 bytes, where CARD-201's own recording (no TOC, no folio) held 3310666. The difference is the new TOC page's own JPEG stream plus every page's new folio mark.",
+  "page_count": 13,
+  "colour_interior_bytes": 3916734,
+  "colour_interior_bytes_note": "The same book with a COLOUR interior: 3775345 bytes, where the stale recording held 3985305. Read by tests/test_book_pdf_ink_mode.py only to show the length is longer than the black-and-white file's, never compared byte-for-byte against any earlier recording.",
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "f8010b0b9761c92a9385f89a960d3ed903cd0d6f47e4bc9349c9423efca7eae3"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "467c28a3116241fc312441e99ed54dd73dfa71267282d29839ec4629b0a12033"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "142204d2acc84d4788d028a127859c2b7e688f214ab9a8ff06ca4779ca5c3fd6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "75dae5f3afd301aff3a0c52b2a7254e1f394c70ea35b762b3161b92c875597f5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "9659d4381497eb3ed73e7f13342d0fb7bdc4cb2a1ddf3337ba40f52002f69427"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e2e06816e4f541969c25a216fe4f7a064ec39b31458e9d142bec62e5600085ea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b8ad8298648066b871262725818b94a7448c2717b75c1305aa47a7d762b935c2"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "64574035fa6c4223579e3dd9381562db7075b3fd63c60dfeb5db73393668dcf7"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d78e41a7251ebeddf181a83fde9c92eb9efcdaf84949f76005c34a1fa4777e44"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e1ad9e4ee43ca6ca71c1550bdce983a1a272682a5adbc215b8c1dff75e681e46"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "9febe299248d89a6cec99c45c2aad7d79c6b81a8f6288a4803eac437e5bd2d71"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "0b39212e2d8b55e0afd84301db9d9d98d5feae0838c5464f5e317992bfcc4602"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "c47088d02251e2ea88f629a97d4a5f6111d3a8cb116b61dada6cc09ca382755f"
+    }
+  ],
+  "changed_pages": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13
+  ],
+  "changed_pages_note": "Every page's digest moved: pages 1-2 gained the new folio mark alone, page 3 is entirely new (the TOC), and every page from 4 onward both shifted position (this book's one TOC page) and gained the new folio mark. 'Changed' here is therefore the whole book, not a subset -- the narrower 'nothing but the footer band moved' claim is verified separately, by content, in TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged."
+}

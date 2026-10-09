@@ -66,12 +66,12 @@ from __future__ import annotations
 from typing import List, Optional, Sequence, Tuple
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_pdf_generator import DPI, BookPDFGenerator, _draw_folio, page_frame
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 
@@ -188,6 +188,14 @@ def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str)
     sheet of interior page ``page_number`` — so comparing it with the interior's
     page asserts the puzzle, its print number, its tier label and its parity
     together.
+
+    **Since CARD-200, one more mark: the folio**
+    (:func:`~nonogram.admin.book_pdf_generator._draw_folio`), drawn here the
+    same way :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._blank_page`
+    now draws it onto the real interior page — unconditionally, since
+    nothing else on a one-up puzzle page competes for its bottom-outer
+    corner. Without this, every comparison in this module would fail at the
+    folio's own pixels, not because the puzzle or its band moved.
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -200,7 +208,18 @@ def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str)
         name=None,
         difficulty=BAND_TEMPLATE.format(number=number, tier=tier),
     )
-    blank, _ = render_pages(payload, page_spec=book_page_spec(_book(), page_number))
+    spec = book_page_spec(_book(), page_number)
+    blank, _ = render_pages(payload, page_spec=spec)
+    frame = page_frame(spec)
+    _draw_folio(
+        ImageDraw.Draw(blank),
+        frame.left,
+        frame.top,
+        frame.right,
+        frame.bottom,
+        page_number,
+        DPI,
+    )
     return blank
 
 
@@ -250,16 +269,23 @@ def _carries_a_drawing(page: Image.Image) -> bool:
 
 
 def is_divider(page: Image.Image) -> bool:
-    """Whether ``page`` is a divider: one short line of type, and nothing else.
+    """Whether ``page`` is a divider: its word, its folio, and nothing else.
 
-    Measured off the page and nothing else: one band of inked rows, no block of
-    ink large enough to be a drawing, and under a thousandth of the page inked.
-    A puzzle page fails on all three (its band is a second line, its grid is a
-    block, and its ink is orders of magnitude more), and so does an answer page.
+    Measured off the page and nothing else: at most two bands of inked rows
+    — the centred word and, since CARD-200, the bottom-outer-corner folio
+    sharing the page with it (SCOPE+: this file's own heuristic predates the
+    folio and originally required exactly **one** band; a divider now
+    legitimately carries two, so a puzzle page's "a second line" tell has to
+    be a *third* band or more, never a divider's own folio counted twice) —
+    no block of ink large enough to be a drawing, and under a thousandth of
+    the page inked. A puzzle page fails on all three (its band is a second
+    *text* line plus its folio is a third, its grid is a block, and its ink
+    is orders of magnitude more), and so does an answer page (whose band,
+    caption and folio are three bands, not two).
     """
     mask = _ink(page)
     return (
-        len(_row_bands(mask.any(axis=1))) == 1
+        len(_row_bands(mask.any(axis=1))) <= 2
         and not _carries_a_drawing(page)
         and mask.sum() < page.width * page.height / 1000
     )
@@ -281,13 +307,14 @@ def divider_word(page: Image.Image, page_number: int) -> Optional[str]:
 def interior_shape(pages: Sequence[Image.Image]) -> List[str]:
     """Each interior page as ``"divider Easy"`` or ``"puzzle"``, in print order.
 
-    The guide (interior pages 1-2, CARD-201's 2-page tutorial) is left out:
-    it is not part of the puzzle section and carries lines of its own text.
-    Every other page is named by measurement — :func:`is_divider` first, then
-    the word it carries.
+    The guide (interior pages 1-2, CARD-201's 2-page tutorial) and the table
+    of contents (interior page 3, CARD-200 — this book is small enough that
+    the TOC is always exactly one page) are left out: neither is part of the
+    puzzle section. Every other page is named by measurement —
+    :func:`is_divider` first, then the word it carries.
     """
     shape: List[str] = []
-    for number, page in enumerate(pages[2:], start=3):
+    for number, page in enumerate(pages[3:], start=4):
         if is_divider(page):
             shape.append(f"divider {divider_word(page, number)}")
         else:
@@ -311,15 +338,16 @@ AC253_MEMBERS = (
 )
 
 #: Where each of them prints, and under which band: interior pages 1-2 are
-#: the guide (CARD-201), page 3 the "Easy" divider, and a divider costs a
-#: page and no number. Written out here rather than computed, because it is
-#: the claim.
+#: the guide (CARD-201), page 3 the table of contents (CARD-200 — this
+#: book's 5 entries are always exactly one TOC page), page 4 the "Easy"
+#: divider, and a divider costs a page and no number. Written out here
+#: rather than computed, because it is the claim.
 AC253_PAGES = (
-    (4, 1, "Easy"),
-    (5, 2, "Easy"),
-    (7, 3, "Medium"),
-    (8, 4, "Medium"),
-    (10, 5, "Hard"),
+    (5, 1, "Easy"),
+    (6, 2, "Easy"),
+    (8, 3, "Medium"),
+    (9, 4, "Medium"),
+    (11, 5, "Hard"),
 )
 
 
@@ -334,7 +362,7 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
     def test_the_puzzle_section_runs_divider_then_that_levels_puzzles(self) -> None:
         _, pages = self._pages()
 
-        assert interior_shape(pages[:10]) == [
+        assert interior_shape(pages[:11]) == [
             "divider Easy",
             "puzzle",
             "puzzle",
@@ -360,20 +388,20 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
 
         CARD-198: the answer section is one full solved page per puzzle,
         so these five puzzles take five answer pages — where the packed key
-        once took three, one per level — which is what makes 16 the
-        interior's page count (CARD-201: up from 15 — the guide's second
-        page), and what the generator must have reported before it drew
+        once took three, one per level — which is what makes 17 the
+        interior's page count (CARD-200: up from 16 — the one-page table of
+        contents), and what the generator must have reported before it drew
         anything.
         """
         puzzles, pages = self._pages()
         stream = BookPDFGenerator(_book()).interior_stream(puzzles)
 
-        assert len(pages) == 16
-        assert stream.page_count == 16
-        assert is_divider(pages[10]), "interior page 11 is the SOLUTIONS divider"
-        assert divider_word(pages[10], 11) == SOLUTIONS
+        assert len(pages) == 17
+        assert stream.page_count == 17
+        assert is_divider(pages[11]), "interior page 12 is the SOLUTIONS divider"
+        assert divider_word(pages[11], 12) == SOLUTIONS
         assert stream.answer_page_count == 5
-        assert not any(is_divider(page) for page in pages[11:])
+        assert not any(is_divider(page) for page in pages[12:])
 
 
 # --------------------------------------------------------------------------
@@ -384,8 +412,9 @@ class TestBookPdf_DifficultyOrderWithDividerPerLevel:
 class TestBookPdf_DividerPageCarriesLevelNameOnly:
     """AC-254 — each divider page's only content is its level's name."""
 
-    #: The three divider pages of AC-253's book, by interior position.
-    DIVIDERS = ((3, "Easy"), (6, "Medium"), (9, "Hard"))
+    #: The three divider pages of AC-253's book, by interior position
+    #: (CARD-200: each one page later than before, behind the TOC).
+    DIVIDERS = ((4, "Easy"), (7, "Medium"), (10, "Hard"))
 
     def test_the_four_divider_words_are_four_different_pages(self) -> None:
         """The premise of every comparison below: the words discriminate.
@@ -395,7 +424,7 @@ class TestBookPdf_DividerPageCarriesLevelNameOnly:
         would be a statement about nothing.
         """
         pages = {
-            word: divider_page(3, word).tobytes()
+            word: divider_page(4, word).tobytes()
             for word in (*LEVEL_NAMES, SOLUTIONS)
         }
 
@@ -408,15 +437,22 @@ class TestBookPdf_DividerPageCarriesLevelNameOnly:
             assert divider_word(pages[page_number - 1], page_number) == name
 
     def test_a_divider_carries_one_line_of_type_and_nothing_else(self) -> None:
-        """No band, no number, no drawing — measured off the page (G-3)."""
+        """No band, no drawing — measured off the page (G-3).
+
+        "No number" is the one half of this test's own original name
+        CARD-200 revises deliberately (not silently): the level's word plus
+        the new bottom-outer-corner folio is two bands of type, never a
+        third (a band proper, or a drawing) — :func:`is_divider`'s own
+        updated docstring explains why two is still "and nothing else" here.
+        """
         pages = _interior(_book_of(*AC253_MEMBERS))
 
         for page_number, name in self.DIVIDERS:
             page = pages[page_number - 1]
             mask = _ink(page)
             assert mask.any(), f"the {name} divider is blank"
-            assert len(_row_bands(mask.any(axis=1))) == 1, (
-                f"the {name} divider carries more than one line of type"
+            assert len(_row_bands(mask.any(axis=1))) == 2, (
+                f"the {name} divider does not carry exactly its word and its folio"
             )
             assert not _carries_a_drawing(page), f"the {name} divider carries a drawing"
 
@@ -424,8 +460,8 @@ class TestBookPdf_DividerPageCarriesLevelNameOnly:
         """The control: the measurement above says "no" when there is more ink."""
         pages = _interior(_book_of(*AC253_MEMBERS))
 
-        assert not is_divider(pages[3]), "a puzzle page reads as a divider"
-        assert _carries_a_drawing(pages[3])
+        assert not is_divider(pages[4]), "a puzzle page reads as a divider"
+        assert _carries_a_drawing(pages[4])
 
 
 # --------------------------------------------------------------------------
@@ -436,9 +472,11 @@ class TestBookPdf_DividerPageCarriesLevelNameOnly:
 class TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers:
     """AC-255 — 2 easy and 1 medium: the medium puzzle is "Puzzle 3 · Medium".
 
-    Its page is interior page 7 (CARD-201: up from 6) — the 2-page guide,
-    Easy divider, two puzzles, Medium divider — so by the time it prints,
-    four divider-and-guide pages have gone past and the number is still 3.
+    Its page is interior page 8 (CARD-200: up from 7, CARD-201's own note
+    now one page further behind the one-page TOC) — the 2-page guide, the
+    TOC, Easy divider, two puzzles, Medium divider — so by the time it
+    prints, five divider/guide/TOC pages have gone past and the number is
+    still 3.
     """
 
     MEMBERS = (("E1", "easy"), ("E2", "easy"), ("M1", "medium"))
@@ -447,22 +485,22 @@ class TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers:
         puzzles = _book_of(*self.MEMBERS)
         pages = _interior(puzzles)
 
-        expected = expected_puzzle_page(puzzles[2], 7, 3, "Medium")
+        expected = expected_puzzle_page(puzzles[2], 8, 3, "Medium")
 
-        assert pages[6].tobytes() == expected.tobytes()
+        assert pages[7].tobytes() == expected.tobytes()
 
     def test_it_is_not_numbered_by_its_page(self) -> None:
         """The two ways of getting it wrong: numbering by page, or per level.
 
-        Interior page 7 would be "Puzzle 7" if a divider consumed a number,
+        Interior page 8 would be "Puzzle 8" if a divider consumed a number,
         and "Puzzle 1 · Medium" if numbering restarted inside a level.
         """
         puzzles = _book_of(*self.MEMBERS)
-        page = _interior(puzzles)[6]
+        page = _interior(puzzles)[7]
 
-        for number in (7, 4, 1):
+        for number in (8, 4, 1):
             assert page.tobytes() != expected_puzzle_page(
-                puzzles[2], 7, number, "Medium"
+                puzzles[2], 8, number, "Medium"
             ).tobytes(), f"the medium puzzle prints as Puzzle {number}"
 
     def test_the_numbers_run_one_to_n_over_the_puzzles(self) -> None:
@@ -470,9 +508,9 @@ class TestBookPdf_DividerPagesDoNotConsumePuzzleNumbers:
         pages = _interior(puzzles)
 
         for puzzle, page_number, number, tier in (
-            (puzzles[0], 4, 1, "Easy"),
-            (puzzles[1], 5, 2, "Easy"),
-            (puzzles[2], 7, 3, "Medium"),
+            (puzzles[0], 5, 1, "Easy"),
+            (puzzles[1], 6, 2, "Easy"),
+            (puzzles[2], 8, 3, "Medium"),
         ):
             expected = expected_puzzle_page(puzzle, page_number, number, tier)
             assert pages[page_number - 1].tobytes() == expected.tobytes()
@@ -508,18 +546,19 @@ class TestBookPdf_EmptyLevelHasNoDivider:
     def test_the_interior_is_one_page_shorter_than_three_levels_would_make_it(
         self,
     ) -> None:
-        """Guide (2 pages), Easy, 3 puzzles, Medium, 2 puzzles, SOLUTIONS, 5 answer pages.
+        """Guide (2 pages), TOC (1), Easy, 3 puzzles, Medium, 2 puzzles, SOLUTIONS, 5 answer pages.
 
-        Fifteen pages (CARD-201: up from 14), and a third level's divider
-        would have made it sixteen — one divider page, not one answer page:
-        since CARD-198 the answer section is one full page per puzzle
+        Sixteen pages (CARD-200: up from 15, CARD-201's own note now one
+        page further behind the one-page TOC), and a third level's divider
+        would have made it seventeen — one divider page, not one answer
+        page: since CARD-198 the answer section is one full page per puzzle
         regardless of levels (five of them either way), so only the
         *divider* count is what a third level would add here.
         """
         pages = _interior(_book_of(*self.MEMBERS))
 
-        assert len(pages) == 15
-        assert interior_shape(pages[:9]) == [
+        assert len(pages) == 16
+        assert interior_shape(pages[:10]) == [
             "divider Easy",
             "puzzle",
             "puzzle",
@@ -547,12 +586,13 @@ class TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel:
     MEMBERS = (("M1", "medium"), ("E1", "easy"), ("H1", "hard"), ("E2", "easy"))
 
     #: The expected print order: which member of ``MEMBERS`` prints where, on
-    #: which page and under which band.
+    #: which page and under which band (CARD-200: each one page later than
+    #: before, behind the one-page TOC).
     PRINTED = (
-        (1, 4, 1, "Easy"),  # E1
-        (3, 5, 2, "Easy"),  # E2
-        (0, 7, 3, "Medium"),  # M1
-        (2, 9, 4, "Hard"),  # H1
+        (1, 5, 1, "Easy"),  # E1
+        (3, 6, 2, "Easy"),  # E2
+        (0, 8, 3, "Medium"),  # M1
+        (2, 10, 4, "Hard"),  # H1
     )
 
     def test_the_puzzles_print_grouped_by_level(self) -> None:
@@ -571,7 +611,7 @@ class TestBookPdf_LegacyMixedArrangementPrintsGroupedByLevel:
     def test_each_level_still_opens_with_its_own_divider(self) -> None:
         pages = _interior(_book_of(*self.MEMBERS))
 
-        assert interior_shape(pages[:9]) == [
+        assert interior_shape(pages[:10]) == [
             "divider Easy",
             "puzzle",
             "puzzle",
