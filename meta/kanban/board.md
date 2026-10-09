@@ -57,9 +57,9 @@ _Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (rev
 - **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver · P2 · architectural · **`Revision pending: true`** — two owner mechanism-level decisions (which edge is "right" across the mirrored gutter; real QR vs. a placeholder) must be confirmed via rendered side-by-side samples before implementation starts
 
 ## In Progress
-- **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · started 2026-10-09T13:58:53Z · worktree `../PythonProject4-CARD-200` · branch `card/200-page-numbers-and-toc`
 
 ## Review
+- **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · implementation complete, all 9 ACs passing, build gate passed clean (6821 passed, 0 failed) — note: a subagent-overspawn incident during implementation is documented on the card, no repo impact · forge:review cycle 1 running (started) · worktree `../PythonProject4-CARD-200` · branch `card/200-page-numbers-and-toc`
 
 ## Blocked
 
