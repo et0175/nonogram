@@ -1285,3 +1285,87 @@ class TestBookSolvedAnswerKey_InfeasiblePackedPagesDegradeGracefully:
                 f"answer page at offset {offset} does not match the direct call"
             )
 
+
+# --------------------------------------------------------------------------
+# Review F-2 (CARD-202, fix cycle 1) — the Finalise screen no longer
+# attributes CARD-202's own packing saving to two-up pairing.
+# --------------------------------------------------------------------------
+
+
+class TestBookSolvedAnswerKey_PagesSavedSplitsPairingFromPacking:
+    """Review F-2: "pages_saved_by_pairing" no longer counts packing's saving.
+
+    Four 15x20 easy answers, 7-deep clues both ways (CON-020's own
+    deepest-realistic shape for this extent): wide and tall enough, and with
+    gutters deep enough, that two-up **puzzle-page** pairing never applies
+    (``compute_pair_layout`` needs at least 7 mm/cell; this pair's combined
+    height leaves far less) — so every saving this book shows comes from
+    CARD-202's answer-packing alone. Before this fix the Finalise screen's
+    single "pages_saved_by_pairing" figure would have claimed all of it for
+    pairing, exactly the misattribution the reviewer flagged.
+    """
+
+    @staticmethod
+    def _puzzles() -> List[dict]:
+        return _small_book_of(*[(15, 20, "easy")] * 4, depth=7)
+
+    def test_puzzle_page_pairing_never_applies_to_this_shape(self) -> None:
+        """Control: confirms the fixture's own premise before trusting the split."""
+        book = _book()
+        gen = BookPDFGenerator(book)
+        plan = gen.puzzle_pages(
+            [gen._payload(p) for p in self._puzzles()]
+        )
+        assert all(page.pair is None for page in plan), (
+            "this fixture must never pair on the puzzle pages, or the split "
+            "below would not isolate packing's own saving"
+        )
+
+    def test_the_stream_reports_the_saving_as_packing_not_pairing(self) -> None:
+        book = _book()
+        puzzles = self._puzzles()
+        gen = BookPDFGenerator(book)
+
+        stream = gen.interior_stream(puzzles)
+
+        assert stream.pages_saved_by_pairing == 0
+        assert stream.pages_saved_by_packing == stream.pages_saved
+        assert stream.pages_saved_by_packing > 0, "the fixture must actually pack"
+
+    def test_the_two_splits_always_sum_to_the_old_mixed_figure(self) -> None:
+        """General invariant, not just this fixture's zero-pairing corner case."""
+        book = _book()
+        mixed_puzzles = _small_book_of(*[(10, 10, "easy")] * 6, depth=3)
+        gen = BookPDFGenerator(book)
+
+        stream = gen.interior_stream(mixed_puzzles)
+
+        assert stream.pages_saved_by_pairing + stream.pages_saved_by_packing == (
+            stream.pages_saved
+        )
+        # Both techniques must actually contribute on this fixture, or the
+        # sum above would hold vacuously (e.g. 0 + N == N tells us nothing
+        # about whether the split itself is correct).
+        assert stream.pages_saved_by_pairing > 0
+        assert stream.pages_saved_by_packing > 0
+
+    def test_the_finalise_screens_own_counts_object_carries_the_split(self) -> None:
+        """The exact value ``app.py``'s Finalise context is built from."""
+        from nonogram.admin.app import _interior_counts
+
+        book = _book()
+        puzzles = self._puzzles()
+
+        counts = _interior_counts(book, puzzles)
+
+        assert counts is not None
+        assert counts.paired_only_page_count == counts.unpaired_page_count
+        pages_saved_by_pairing = (
+            counts.unpaired_page_count - counts.paired_only_page_count
+        )
+        pages_saved_by_packing = (
+            counts.paired_only_page_count - counts.page_count
+        )
+        assert pages_saved_by_pairing == 0
+        assert pages_saved_by_packing > 0
+        assert pages_saved_by_packing == counts.unpaired_page_count - counts.page_count

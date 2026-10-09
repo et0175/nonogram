@@ -134,7 +134,7 @@
                     <dt>Before pairing</dt><dd class="num" data-unpaired-page-count="{{ unpaired_page_count }}">{{ unpaired_page_count }}{% if pages_saved_by_pairing %} <small class="text-muted fw-normal">− {{ pages_saved_by_pairing }} shared</small>{% endif %}</dd>
                     {%- endif %}
                     {%- if answer_page_count is not none %}
-                    <dt>Answer pages</dt><dd class="num" data-answer-page-count="{{ answer_page_count }}">{{ answer_page_count }}</dd>
+                    <dt>Answer pages</dt><dd class="num" data-answer-page-count="{{ answer_page_count }}">{{ answer_page_count }}{% if pages_saved_by_packing %} <small class="text-muted fw-normal">− {{ pages_saved_by_packing }} packed</small>{% endif %}</dd>
                     {%- endif %}
                     {#- CARD-136 (FR-030): the book's stored print columns —
                         the trim the cell figures below are measured on and

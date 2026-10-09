@@ -1055,6 +1055,15 @@ class InteriorStream:
         unpaired_page_count: What the same interior would have taken with
             every puzzle on a page of its own and its answer unpacked
             (:attr:`Interior.unpaired_page_count`).
+        paired_only_page_count: What the same interior would have taken with
+            two-up pairing applied but CARD-202's packing **not** — pairing's
+            own baseline, between :attr:`unpaired_page_count` and
+            :attr:`page_count`. This is what lets :attr:`pages_saved_by_pairing`
+            and :attr:`pages_saved_by_packing` attribute the saving between
+            :attr:`unpaired_page_count` and :attr:`page_count` to the
+            technique that actually made it (review F-2: the Finalise screen
+            used to show the *whole* delta as "pairing", which misattributed
+            whatever a small answer's packing saved).
         answer_page_count: How many of the pages are answer pages, the
             SOLUTIONS divider not counted (:attr:`Interior.answer_page_count`).
         pages: The interior's pages in print order, drawn **one at a time, on
@@ -1069,11 +1078,32 @@ class InteriorStream:
     unpaired_page_count: int
     answer_page_count: int
     pages: Iterator[Image.Image]
+    paired_only_page_count: int = 0
 
     @property
     def pages_saved(self) -> int:
-        """How many interior pages the two-up pages saved. Never negative."""
+        """How many interior pages pairing *and* packing together saved. Never negative."""
         return self.unpaired_page_count - self.page_count
+
+    @property
+    def pages_saved_by_pairing(self) -> int:
+        """How many interior pages two-up pairing alone saved (review F-2).
+
+        Measured against :attr:`paired_only_page_count`, not
+        :attr:`page_count`, so a book whose packing did the saving reports
+        zero here rather than claiming pairing's credit.
+        """
+        return self.unpaired_page_count - self.paired_only_page_count
+
+    @property
+    def pages_saved_by_packing(self) -> int:
+        """How many interior pages CARD-202's packing alone saved (review F-2).
+
+        Measured from :attr:`paired_only_page_count` (pairing already
+        applied) to :attr:`page_count`, so :attr:`pages_saved_by_pairing` +
+        this always equals :attr:`pages_saved`.
+        """
+        return self.paired_only_page_count - self.page_count
 
 
 def _as_planned(
@@ -3019,9 +3049,21 @@ class BookPDFGenerator:
             # pairing alone as CARD-198's own comment here used to say — see
             # this card's Worktree notes for why that comment, not this
             # number, is what changed (the KDP sheet-free estimate decision
-            # turns on the same point).
+            # turns on the same point). `paired_only_page_count` below is
+            # the number that lets a caller split the two apart again
+            # (review F-2).
             unpaired_page_count=interior_page_count(
                 count, answer_pages=count, level_dividers=dividers
+            ),
+            # Pairing's own baseline (review F-2): the puzzle section at its
+            # actual, paired length, but the answer section still at one full
+            # page per puzzle (no CARD-202 packing) — so
+            # `pages_saved_by_pairing`/`pages_saved_by_packing` can attribute
+            # the saving between `unpaired_page_count` and `page_count` to
+            # the technique that actually made it, instead of the Finalise
+            # screen crediting it all to pairing.
+            paired_only_page_count=interior_page_count(
+                count, len(plan), answer_pages=count, level_dividers=dividers
             ),
             answer_page_count=len(answer_plan),
             pages=_as_planned(produce(), planned),
