@@ -1110,3 +1110,50 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
 - [Review] forge:review cycle 2 started (background agent `@code-review`,
   confirmation pass over F-1..F-3 + the malformed-grid regression fix,
   plus the whole diff).
+- [Review 2/3] F-1..F-3 and the build-gate regression fix all independently
+  re-traced and confirmed holding end to end (including through `app.py`'s
+  `_is_an_unpackable_row` two-signal check). ~370 directly-relevant tests
+  re-run by the reviewer itself: all green, 1 skip, 0 failures. 8 NEW
+  findings surfaced by re-scanning the whole diff, **none gating** — the
+  reviewer's own language marks every one dormant/latent/not-currently-live:
+  - `_packed_tile_layout` sets `Layout.margin` to the tile's absolute
+    y-offset instead of the page's real top margin (unlike its sibling
+    `_slot_layout`) — a real copy-paste defect on a field documented as
+    "valid by construction," but "dormant today because no production
+    code reads `.margin` off a packed slot" (`layout.py:3031`).
+  - `interior_stream`'s own docstring still claims the measured extent is
+    "no longer used to pack anything" — the exact stale claim review F-3
+    fixed in `_answer_extent`'s docstring, missed in this second copy 60
+    lines later, now directly contradicting the code
+    (`book_pdf_generator.py:2815`).
+  - `compute_packed_solved_layout` is computed twice per surviving packed
+    page (once to check feasibility, discarded, again at draw time) —
+    wasted work, no behavioural effect (`book_pdf_generator.py:1574`).
+  - A new packed-page ink-position property assertion uses `<0.5mm`
+    tolerance, 5x looser than the `<0.1mm` the same file uses for the
+    equivalent single-page check — "a latent fragility, not a live bug
+    today" (`tests/property/test_book_export_interior.py:692`).
+  - The clue-agreement check the build-gate fix added now exists
+    independently in 3 places (`_pair_member`, `_answer_extent`,
+    `_grid_extent`) rather than once at `_payload`'s own construction —
+    "the same gap-at-depth pattern that caused the regression this card's
+    build-gate fix just closed" (`book_pdf_generator.py:1542`).
+  - `test_book_pairing.py`'s property oracle has no model of the F-1
+    degrade-fallback path; "nothing pins that invariant" against a future
+    corpus change silently starting to exercise it
+    (`tests/property/test_book_pairing.py:242`).
+  - The degrade ladder (4-up -> 2-up -> singles) lives in
+    `book_pdf_generator.py` rather than as part of
+    `plan_small_answer_pages`'s own contract, so a second future renderer
+    of the same plan would have to reimplement the feasibility check
+    (`book_pdf_generator.py:1590`).
+  - `_packed_column_left_mm`'s test helper splits a packed page at the raw
+    pixel midpoint with only ~0.8mm of the safety margin its own docstring
+    claims — "not a live bug today," fragile against a future constant
+    change (`tests/property/test_book_export_interior.py:185`).
+  - **Verdict: cycle 2 meets the bar.** No gating findings — all 8 are
+    explicitly dormant/non-live per the reviewer's own words. Logged to
+    `meta/kanban/backlog.md` as tech debt (same precedent as CARD-196's
+    own carried-forward minor findings) rather than spending this card's
+    remaining review cycle on non-blocking cleanup. Proceeding to the
+    AC/EC/G verification gate.
