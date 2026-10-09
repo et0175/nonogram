@@ -646,3 +646,161 @@ and the caption/folio coexistence on `11`/`12` were each opened and read.
 guardrails hold; both explicitly-flagged open design questions (multi-page TOC
 split, the four owner-visible defaults) are resolved with stated reasoning above,
 not silently guessed.
+
+## [Fix 1] Review cycle 1 findings fixed, 2026-10-09
+
+Both gating findings (F-1, F-2) fixed in this worktree. F-3/F-4 (non-gating)
+left alone, per the review's own explicit scope. No sub-agents spawned, no
+concurrent test runs — this pass worked serially throughout, per the
+instruction carried over from the earlier incident on this same worktree.
+
+**F-1 (Critical — folio could print on top of the grid): confirmed, then
+fixed.**
+
+Reproduced the reviewer's exact scenario first: a bare `compute_layout` call
+with a 30-wide/30-tall puzzle, row-clue depth 1, column-clue depth 10, on
+Book 1's default trim gives `usable_bottom - drawing_bottom == 0` (confirmed
+by a throwaway script before touching any code) while the folio digit is
+27px wide at this DPI — a real, reproducible collision, not a hypothetical.
+Went on to also find the *same* defect already present, unnoticed, in this
+card's own `_min_trim_book` test fixture (`tests/test_book_page_numbers.py`'s
+existing AC-1 test): its single blank puzzle page (page 5) is page-fit-bound
+on that 10 cm trim, so the pre-fix code had been drawing a folio directly
+over that page's own grid the whole time — the existing test's "presence
+within a tolerance of 2" check was loose enough to pass anyway.
+
+What was wrong: `_blank_page`, `_two_up_page` and `_packed_answer_page` all
+called `_draw_folio` either with no `content_bottom` at all, or (the
+two-up/packed cases) with reasoning that turned out to be incorrect on
+closer reading of the real geometry:
+
+- `_two_up_page`'s own comment claimed "nothing else is drawn in this
+  corner" — false: the lower slot's own grid *can* reach the usable area's
+  outer edge at the exact row the folio sits on (confirmed: a 25-column,
+  depth-1 pair on Book 1's trim lands the lower slot flush with both the
+  bottom *and* the side margin). The lower slot's *vertical* slack reads
+  zero on **every** two-up page by construction, though (algebraic identity
+  in `compute_pair_layout`), so a naive "reuse `solved_puzzle_page`'s
+  vertical-only check" fix would have suppressed the folio from the whole
+  book instead of fixing anything — confirmed by directly testing that
+  naive shape before discarding it.
+- `_packed_answer_page`'s own comment claimed tiles "never reach the page's
+  bottom-outer corner" — also false: `compute_packed_solved_layout`'s own
+  tile gap sits only *between* tiles; the outer tiles touch the page's own
+  margin on their outer edges by construction, with no extra inset.
+  Confirmed: a 20-row/15-column, depth-7 member at capacity 4 lands its
+  corner tile's drawing within 2px of both edges.
+
+The fix: `_draw_folio` (`src/nonogram/admin/book_pdf_generator.py`) gained
+two more optional parameters, `content_right`/`content_left`, read **only**
+when `content_bottom` already shows no vertical room — the folio is then
+omitted only if the relevant one (by `page_is_right_hand`) *also* shows no
+horizontal room for the folio's own measured text width, i.e. a real
+bounding-box collision, not a one-axis-only false positive. A caller with
+no horizontal figure to offer keeps the old, more conservative vertical-only
+rule (`solved_puzzle_page`/`_blank_page`'s own case, where nothing about the
+geometry makes that check degenerate). `_blank_page` now recomputes its own
+puzzle's real `Layout` (`compute_layout` on its own clues/page spec — pure
+and total, so a second call is the same answer, not a second
+implementation) and passes `content_bottom=placement.drawing_bottom`.
+`_two_up_page` passes `content_bottom`/`content_right`/`content_left` all
+off `pair.lower.page` (confirmed, still the right slot — CARD-200's own
+established finding). `_packed_answer_page` now identifies the one tile
+that can physically reach the folio's own corner (last tile row, crossed
+with the last tile column on a right-hand page or the first on a left-hand
+one) and passes that slot's own placement, or no content figures at all
+when that corner was left unfilled (nothing there to collide with).
+
+New test coverage: `tests/test_book_page_numbers.py`'s new
+`TestBookPageNumbers_FolioNeverCollidesWithTheGrid` (7 tests) — the
+reviewer's own geometry reproduced directly against `compute_layout`, a
+`_blank_page` tight-fit case and its slack control, a `_two_up_page`
+tight-fit case (both axes zero) and its control (the baseline book's own
+Duck/Owl pair — zero vertical slack but ample horizontal, proving the fix
+does not turn into a blanket omission), and a `_packed_answer_page`
+tight-fit case and its control. The pre-existing
+`test_a_page_whose_slack_is_too_small_prints_no_folio_rather_than_collide`
+was also updated: it now asserts the min-trim book's own blank puzzle page
+(page 5) correctly omits its folio too — the real, already-in-the-suite
+instance of this exact defect, previously masked by that test's own loose
+tolerance.
+
+Fresh evidence:
+`./.venv/bin/python -m pytest tests/test_book_page_numbers.py -q` →
+14 passed, 0 failed, exit code 0.
+
+**F-2 (Important — KDP gutter under-count risk): confirmed, then fixed.**
+
+`book_kdp.unpaired_interior_page_count` never passed `toc_pages` to
+`interior_page_count`, so it always fell back to that function's own
+Book-1-profile TOC estimate, regardless of what trim the book being
+measured actually stored — the one case this function exists for (a stored
+print spec that cannot be laid out at all) is also the one case with no
+real page count to cross-check the estimate against, so a book stored on a
+smaller-than-Book-1 trim could silently get a narrower-than-needed KDP
+gutter band.
+
+Investigated whether the book's own trim could be measured at all without a
+fully valid `PageSpec`: confirmed, by reading `_toc_entries_per_page`'s real
+body, that it reads only a frame's `top`/`bottom` edges — never
+`left`/`right` — so only the book's own `trim_height_cm` need be readable,
+not a fully valid stored print specification. Fixed by having
+`unpaired_interior_page_count` build a synthetic stand-in carrying the
+book's real `trim_height_cm` alongside `BOOK1_PROFILE`'s own safe
+width/margins, laid out through the existing `book_page_spec` (reusing its
+own validation rather than a second, independent reader of the same stored
+column) to get a trim-accurate TOC frame; falls back to the Book 1 profile
+default only when the book is `None`, carries no readable height at all, or
+stores one so far outside KDP's bounds that even the profile's own safe
+width/margins cannot make it a valid sheet — the genuinely-last-resort case
+now, not the general path. `_toc_page_count`/`_default_toc_frame`
+(`book_pdf_generator.py`) are now public (`measured_toc_page_count`/
+`default_toc_frame`, renamed rather than merely un-prefixed to avoid a real
+`UnboundLocalError` hazard against `section_plan`'s own same-named local
+variable and `SectionPlan.toc_page_count` field) so `book_kdp.py` can reuse
+them directly instead of re-deriving the same Pillow-font-based
+entries-per-page arithmetic a second time. `app.py`'s own call site
+(`_interior_counts`'s unreadable-spec branch) now passes `book=book`
+through.
+
+New test coverage:
+`tests/test_book_finalise_gutter.py`'s new
+`TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc` (5 tests) —
+confirms the corpus's own precondition (an explicit Book 1 height matches
+the no-book default exactly), that a 12 cm trim gets a strictly *larger*
+TOC estimate than Book 1's own (never smaller — the core "never
+under-count" contract), that a *taller* trim never gets an under-count
+either (the contract runs both ways), that an unreadable/missing/non-numeric
+height correctly falls back to the Book 1 default, and one end-to-end test
+through the real `_interior_counts` call path (AC-179's own illegal gutter,
+shrinking the book's own trim afterwards) proving the shown "About N"
+figure actually changes rather than staying pinned to the old default.
+
+Fresh evidence:
+`./.venv/bin/python -m pytest tests/test_book_finalise_gutter.py -q` →
+118 passed, 0 failed, exit code 0.
+
+**Combined fresh evidence, this session, this worktree:**
+
+- `./.venv/bin/python -m pytest tests/test_book_answer_key.py
+  tests/test_book_page_numbers.py tests/test_book_toc.py
+  tests/test_book_interior_type_floor.py tests/test_book_pdf_memory.py
+  tests/test_book_finalise_gutter.py tests/test_book_guide_page.py
+  tests/test_book_export_interior_cover.py tests/test_book_pdf_levels.py
+  tests/test_book_pdf_ink_mode.py tests/test_book_arrange_page_breaks.py
+  tests/test_book_solved_answer_key.py
+  tests/property/test_book_export_interior.py
+  tests/test_book_pdf_packed_degrade.py tests/test_book_pdf_two_up.py -q`
+  → 508 passed, 1 skipped (the same pre-existing, unrelated platform skip
+  CARD-200's own implementation evidence already named — `setrlimit
+  (RLIMIT_AS)` cannot be bounded on this machine's kernel), 0 failed, exit
+  code 0.
+- Full-repo `./.venv/bin/python -m pytest` (one run, this worktree, no
+  concurrent processes): **6833 passed, 9 skipped, 0 failed, exit code 0**
+  in 956.6s — exactly 12 more passed than the orchestrator's own prior full
+  gate (6821 passed), matching the 7 + 5 new tests this fix cycle added;
+  skip count and failure count both unchanged from that prior gate.
+
+**Not fixed, per the review's own explicit scope:** F-3 (`puzzle_pages`'s
+stale default `first_page`) and F-4 (`TOC_ENTRY_GAP_PT`'s double duty) —
+left untouched, as instructed; neither is gating.
