@@ -711,10 +711,11 @@ class TestBookArrangeScreen_ShowsTheLevels:
         twice and never "page 3". The numbers now come from the printed book's
         page plan (CARD-140) rather than from any arithmetic on this page, and
         they are still the **book's**: four easy 10x10s pair into interior
-        pages 4 and 5 (CARD-201: up from 3 and 4, the 2-page guide's own
-        ripple), the medium level's divider takes 6, its first two rows pair
-        on 7 and its last row has 8 to itself. Nothing restarts, and no number
-        appears twice.
+        pages 5 and 6 (CARD-200: up from 4 and 5, the table of contents' own
+        ripple — CARD-201: up from 3 and 4 before that, the 2-page guide's
+        own ripple), the medium level's divider takes 7, its first two rows
+        pair on 8 and its last row has 9 to itself. Nothing restarts, and no
+        number appears twice.
 
         What each of those numbers means is
         ``tests/test_book_arrange_page_breaks.py``'s subject; what this test
@@ -729,13 +730,13 @@ class TestBookArrangeScreen_ShowsTheLevels:
 
         assert re.findall(r'item-order">(\d+)<', markup) == list("1234567")
         numbers = re.findall(r'page-break-divider" data-page="(\d+)"', markup)
-        assert numbers == ["3", "4", "5", "6", "7", "8"], numbers
+        assert numbers == ["4", "5", "6", "7", "8", "9"], numbers
         # ... and the medium level's own pages are numbered on from the easy
         # level's, inside the medium level: the number is the book's, not the
         # level's.
         medium = markup.index("Medium level")
-        assert markup.index('data-page="7"') > medium, "page 7 sits inside the medium level"
-        assert markup.index('data-page="5"') < medium, "page 5 is still the easy level's"
+        assert markup.index('data-page="8"') > medium, "page 8 sits inside the medium level"
+        assert markup.index('data-page="6"') < medium, "page 6 is still the easy level's"
 
     def test_the_last_page_of_the_book_is_labelled_like_any_other(
         self, panel
@@ -744,9 +745,10 @@ class TestBookArrangeScreen_ShowsTheLevels:
 
         The screen used to rule off every third puzzle and therefore showed this
         book no break at all. Since CARD-140 a break opens every page of the
-        printed interior — the two easy 10x10s share page 4 (CARD-201: up
-        from 3, the 2-page guide's own ripple) behind the easy level's
-        divider page, and the medium row has page 6 to itself behind its
+        printed interior — the two easy 10x10s share page 5 (CARD-200: up
+        from 4, the table of contents' own ripple — CARD-201: up from 3
+        before that, the 2-page guide's own ripple) behind the easy level's
+        divider page, and the medium row has page 7 to itself behind its
         own — so the last row is labelled like the rest, and there is still no
         rule left dangling after it.
         """
@@ -755,10 +757,10 @@ class TestBookArrangeScreen_ShowsTheLevels:
         markup = panel.arrange(book_id).get_data(as_text=True)
 
         assert re.findall(r'page-break-divider" data-page="(\d+)"', markup) == [
-            "3",
             "4",
             "5",
             "6",
+            "7",
         ]
         last_row = markup.rindex('class="item-order"')
         assert "page-break-divider" not in markup[last_row:], markup[last_row:]

@@ -401,14 +401,14 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # parity. No two of the three ever share a page: no two of their
         # tiers are equal (FR-040, INV-010), and an ungraded row never pairs
         # at all.
-        rows = [
+        book_rows = [
             dict(puzzle, difficulty_tier="easy", id="p-easy"),
             dict(puzzle, difficulty_tier="medium", id="p-medium"),
             dict(puzzle, id="p-ungraded"),
         ]
         generator = BookPDFGenerator(sheet.book)
-        toc_page_count = generator.section_plan(rows).toc_page_count
-        pages = generator.interior_pages(rows)
+        toc_page_count = generator.section_plan(book_rows).toc_page_count
+        pages = generator.interior_pages(book_rows)
         assert len(pages) == 11 + toc_page_count, (
             "2-page guide, the TOC, two level dividers, three puzzles, "
             "SOLUTIONS, three answers"
