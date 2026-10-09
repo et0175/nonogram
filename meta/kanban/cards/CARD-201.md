@@ -1458,3 +1458,5 @@ evidence), and the Finalise screen's live preview
   **6742 passed, 9 skipped, 0 failed, 0 errors, exit 0** (1008.14s). Gate
   clear — proceeding to forge:review cycle 4 (confirmation pass over
   F-20/F-21/F-22).
+- [Review] forge:review cycle 4 started (background agent `@code-review`,
+  owner-approved extra confirmation cycle over F-20/F-21/F-22's fixes).

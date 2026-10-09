@@ -60,7 +60,7 @@ _Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (rev
 ## In Progress
 
 ## Review
-- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · cycle 3 found 3 new findings (overflow, orphaned heading, preview CSS bug) — owner approved one extra cycle, fix in progress · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
+- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · F-20/F-21/F-22 all fixed, F-21's content/space tradeoff resolved by owner decision (accept + document, scope corrected to 4/48 corpus cases), build gate 4 passed clean (6742 passed, 0 failed) · final confirmation review cycle running · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
 
 ## Blocked
 
