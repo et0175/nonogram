@@ -2350,13 +2350,23 @@ class BookPDFGenerator:
                 space()
 
                 paragraph(GUIDE_CELL_STATES_HEADING)
-                if bare_level >= 2:
-                    pass
-                else:
-                    for cell_state, cell_image in zip(GUIDE_CELL_STATES, cell_state_images):
-                        paragraph(cell_state.heading)
-                        if captions:
-                            paragraph(cell_state.caption)
+                # Review cycle 3, F-21 (gating): this used to be an
+                # all-or-nothing `if bare_level >= 2: pass else: <heading +
+                # picture>`, dropping the heading paragraph along with the
+                # picture — contradicting this method's own docstring
+                # ("the heading alone still names Unknown/Filled/Empty" at
+                # this level) and this card's own Fix-1 Worktree notes.
+                # `technique()` above gets this right for its own diagrams:
+                # the heading is unconditional, and only the diagram is
+                # gated (there, by `draw_diagram`). Same shape here: the
+                # heading (and, independently, the caption under the
+                # existing `captions` flag) always prints; only the picture
+                # drops at `bare_level 2`.
+                for cell_state, cell_image in zip(GUIDE_CELL_STATES, cell_state_images):
+                    paragraph(cell_state.heading)
+                    if captions:
+                        paragraph(cell_state.caption)
+                    if bare_level < 2:
                         picture(cell_image, gap=leading // 4)
                 space()
 

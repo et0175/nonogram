@@ -746,6 +746,94 @@ class TestGuidePage_PageOneCarriesTheBasicTechniques:
 
 
 # --------------------------------------------------------------------------
+# Review cycle 3, F-21 — a bare_level 2 fallback must keep the cell-state
+# headings even though it drops their pictures
+# --------------------------------------------------------------------------
+
+
+class TestGuidePage_CellStateHeadingsSurviveBareLevel2:
+    """Review cycle 3, F-21 (gating) — `create_guide_page`'s cell-state block
+    used an all-or-nothing `if bare_level >= 2: pass else: <heading AND
+    picture>`, dropping "Unknown"/"Filled"/"Empty" together with their
+    pictures. That contradicts the method's own docstring for `bare_level 2`
+    ("the heading alone still names Unknown/Filled/Empty") and this card's
+    own Fix-1 Worktree notes ("Owner decision 2"), and it is not
+    hypothetical: that same note says a 10 x 10 cm square needs exactly
+    this level on page 1, so this fires on a trim already in this project's
+    named stored-trim set. The sibling `technique()` closure one entry later
+    in the same method gets this right (heading unconditional, only the
+    diagram gated by its own `draw_diagram` flag) — the fix makes the
+    cell-state block follow the same shape.
+
+    Forced with :func:`ten_cm_wide_book` at the minimum 10 cm height (the
+    exact "10 x 10 cm square" the card's own notes name) and the largest
+    counts the book prints, so nothing here fits more loosely than what
+    this review found. Content is matched by rendering each word through
+    the same face the page itself letters in and finding it by correlation
+    (:func:`probe`/:func:`occurrences`, already used elsewhere in this file
+    for exactly this purpose) rather than trusted at a fixed band index:
+    at this trim one of the page's own diagrams (the basic-rule line) draws
+    small enough that its border's longest run falls under this module's
+    `RULE_RUN_PX`-equivalent heuristics in the sibling type-measuring
+    module and can be miscounted as a line of type — observed while
+    building this test — so a position-based assertion would have been
+    fragile exactly where this finding lives; content-matching sidesteps it
+    entirely.
+    """
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def generator() -> BookPDFGenerator:
+        return BookPDFGenerator(ten_cm_wide_book(MIN_TRIM_CM))
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def spec(generator):
+        return generator.page_spec(1)
+
+    @staticmethod
+    @pytest.fixture(scope="class")
+    def page_mask(generator) -> np.ndarray:
+        return dark(
+            generator.create_guide_page(999_999, 333_333, 333_333, 333_333, page_number=1)
+        )
+
+    def test_bare_level_2_really_drops_the_cell_state_pictures_here(self, spec, page_mask):
+        """Negative control, checked first: proves this trim genuinely
+        reaches `bare_level 2` (no cell-state icon is drawn at all), so the
+        heading checks below are evidence of F-21's fix, not of a form
+        roomy enough to draw everything anyway.
+        """
+        unknown_icon = diagram_mask(render_icon(spec, False, False))
+        filled_icon = diagram_mask(render_icon(spec, True, False))
+        empty_icon = diagram_mask(render_icon(spec, False, True))
+        bands = drawn_bands(page_mask)
+        hits = sum(
+            occurrences(page_mask[top : bottom + 1, :], icon)
+            for top, bottom in bands
+            for icon in (unknown_icon, filled_icon, empty_icon)
+        )
+        assert hits == 0, (
+            f"a cell-state icon was found {hits} time(s) on page 1 at the "
+            "10 cm square trim -- this trim must drop every cell-state "
+            "picture (bare_level 2) for the heading checks below to be "
+            "testing what F-21 found"
+        )
+
+    @pytest.mark.parametrize("heading", ["Unknown", "Filled", "Empty"])
+    def test_the_cell_state_heading_survives_with_its_picture_dropped(self, page_mask, heading):
+        template = probe(heading, face(BODY_PX))
+        bands = ink_bands(page_mask)
+        hits = sum(occurrences(page_mask[top : bottom + 1, :], template) for top, bottom in bands)
+        assert hits == 1, (
+            f"{heading!r} was found {hits} time(s) on page 1 at the 10 cm "
+            "square trim (bare_level 2) -- review cycle 3's F-21: the "
+            "heading alone must survive even with its picture dropped, the "
+            "same way create_guide_page's own docstring already promised"
+        )
+
+
+# --------------------------------------------------------------------------
 # AC-3 — page 2: region splitting, arrangement comparison, the assume
 # pipeline, the difficulty-label box
 # --------------------------------------------------------------------------
