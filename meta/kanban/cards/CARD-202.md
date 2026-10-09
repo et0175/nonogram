@@ -1107,3 +1107,6 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   pytest` in the CARD-202 worktree, under the `meta/kanban/.full-suite.lock`:
   **6750 passed, 9 skipped, 0 failed, 0 errors, exit 0** (1093.19s). Gate
   clear — proceeding to forge:review cycle 2 (confirmation cycle).
+- [Review] forge:review cycle 2 started (background agent `@code-review`,
+  confirmation pass over F-1..F-3 + the malformed-grid regression fix,
+  plus the whole diff).
