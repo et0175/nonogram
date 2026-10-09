@@ -60,7 +60,8 @@ _Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (rev
 ## In Progress
 
 ## Review
-- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · build gate confirmed (6725 passed, 0 failed) · forge:review cycle 1 running · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
+- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · review cycle 1 found 4 gating findings (content-correctness, crash-risk, visible defect, test blind spot) — all fixed, build gate 2 running · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
+- **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · P2 · architectural · build gate caught a missed stale page-count test, fixed and reconfirmed (6717 passed, 0 failed) · forge:review cycle 1 running · worktree `../PythonProject4-CARD-202` · branch `card/202-packed-small-answers`
 - **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · P2 · architectural · implementation complete, all 9 ACs passing (implementer's own per-file evidence) · orchestrator's own full-suite gate running (implementer's own final full-suite claim was self-flagged incomplete) · worktree `../PythonProject4-CARD-202` · branch `card/202-packed-small-answers`
 
 ## Blocked

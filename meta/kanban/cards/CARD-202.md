@@ -714,3 +714,4 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
   contention from Microsoft Defender's real-time scanner during this
   window, not a suite regression). The 9 skips match this project's known
   platform/DB-mode skip set. Gate clear — proceeding to forge:review.
+- [Review] forge:review cycle 1 started (background agent `@code-review`).
