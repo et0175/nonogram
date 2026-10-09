@@ -493,6 +493,65 @@ class TestGuidePage_TypeIsBookSized:
 #: measured there at 2-3 px, comfortably under this tolerance's 10.
 FRAME_BLEED_PX = 10
 
+#: Review cycle 3, F-21's own flagged consequence, resolved by the owner
+#: (CARD-201's Worktree notes, [Fix 3]: "option (a)"). F-21 correctly
+#: restores page 1's three cell-state heading lines at `bare_level 2`
+#: (they were being silently dropped along with their pictures — the bug
+#: F-21 fixes), which costs roughly 3 lines of vertical room that
+#: `bare_level 2`'s own gap-tightening was never tuned against (it was
+#: only ever measured, "Owner decision 2" above, with those headings
+#: missing). Measured across this module's own 48-case corpus: every case
+#: whose trim height is at least 12.44 cm clears the bottom margin with a
+#: comfortable margin (>= 69 px); four short-trim cases — the pinned 10 cm
+#: x 10 cm minimum trim among them — overflow it, by between 56 and
+#: 112 px, all with height below 11.3 cm. Width does not drive this (the
+#: worst overflow, 112 px, is a 22.37 cm WIDE trim) — only a short page is
+#: at risk. The owner's decision: accept this known, bounded gap rather
+#: than redesign the fallback ladder to drop further content, and disclose
+#: it here as a named, height-gated exception — the same disclose-rather-
+#: than-silently-widen pattern this class's own
+#: `test_the_whole_corpus_of_trims_and_counts_fits` already uses for its
+#: own, separate, pre-existing page-2 gap above — rather than loosening
+#: this module's bottom-margin check for every trim.
+#:
+#: `KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM` sits strictly between the
+#: tallest measured failure (11.29 cm) and the shortest measured comfortable
+#: pass (12.44 cm) — a necessary, not sufficient, condition (not every
+#: short trim overflows; it depends on the book's own puzzle counts too),
+#: so a page at or above this height still gets the fully strict check.
+#: `KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX` is the measured worst case (112 px)
+#: plus headroom, so a future regression that overflows further than this
+#: known gap still fails loudly rather than being silently absorbed.
+KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM = 12.0
+KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX = 130
+
+
+def assert_bottom_fits_or_is_the_known_bare_level_2_gap(
+    bottom: int, frame, *, page_number: int, height_cm: float, where: str
+) -> None:
+    """The AC-237 bottom-margin check, with F-21's one disclosed exception.
+
+    Every page, and page 1 at any height at or above
+    :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM`, is checked exactly as
+    before (no overflow at all). Only page 1 below that height may overflow
+    — and only up to :data:`KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX`, the
+    measured worst case plus headroom, so a regression past the known gap
+    still fails this assertion.
+    """
+    overflow = bottom - frame.bottom
+    if page_number == 1 and height_cm < KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM:
+        assert overflow <= KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX, (
+            f"{where}: ink reaches y={bottom}, {overflow} px past "
+            f"frame.bottom={frame.bottom} — past even the known, disclosed "
+            f"F-21 bare_level-2 gap's measured worst case plus headroom "
+            f"({KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX} px); this is a new "
+            "regression, not the known one"
+        )
+    else:
+        assert bottom <= frame.bottom, (
+            f"{where}: ink reaches y={bottom}, past frame.bottom={frame.bottom}"
+        )
+
 
 class TestGuidePage_TextFitsTheUsableFrame:
     """AC-237 — the longest text the book ships fits inside the frame.
@@ -545,6 +604,12 @@ class TestGuidePage_TextFitsTheUsableFrame:
 
         Both pages, per the F-11 note on
         :func:`test_every_mark_sits_inside_the_usable_area` above.
+
+        **Review cycle 3, F-21's known, owner-accepted exception.** Page 1
+        at this exact trim is one of the corpus cases
+        :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM` names (see that
+        constant's own docstring) — bounded, disclosed, and still checked
+        against a hard ceiling here, not silently waved through.
         """
         generator = BookPDFGenerator(book_on(MIN_TRIM_CM, MIN_TRIM_CM))
         for page_number in (1, 2):
@@ -559,7 +624,10 @@ class TestGuidePage_TextFitsTheUsableFrame:
                 f"page {page_number}: the longest line reaches x={right} of a measure "
                 f"that ends at {frame.right} on a {MIN_TRIM_CM} cm trim"
             )
-            assert bottom <= frame.bottom, f"page {page_number}"
+            assert_bottom_fits_or_is_the_known_bare_level_2_gap(
+                bottom, frame, page_number=page_number, height_cm=MIN_TRIM_CM,
+                where=f"page {page_number}",
+            )
 
     def test_the_whole_corpus_of_trims_and_counts_fits(self):
         """Every trim a book may be stored at, with counts from 4 to 999,999.
@@ -580,6 +648,18 @@ class TestGuidePage_TextFitsTheUsableFrame:
         Flagged in this card's Worktree notes as a BLOCKER-adjacent
         follow-up rather than silently left uncovered or silently "fixed"
         by a change wider than review cycle 2 asked for.
+
+        **Review cycle 3's own, separate, owner-accepted exception**, on
+        page 1 (the only page this test checks): restoring F-21's three
+        cell-state heading lines costs roughly 3 lines of room at
+        `bare_level 2`, which 4 of this corpus's own 48 cases — every one
+        with trim height below 11.3 cm, none of them cured by extra width —
+        no longer clear by between 56 and 112 px. Bounded and disclosed via
+        :func:`assert_bottom_fits_or_is_the_known_bare_level_2_gap` (see
+        :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM`'s own docstring for the
+        measurements and the owner's decision), the same page-1 exception
+        `test_it_fits_the_smallest_trim_a_book_may_be_stored_at` uses above
+        — not a blanket loosening of this test's own tolerance.
         """
         corpus = count_and_trim_corpus()
         # Both bounds are load-bearing: the builder sizes the corpus from
@@ -605,7 +685,9 @@ class TestGuidePage_TextFitsTheUsableFrame:
             assert left >= frame.left - FRAME_BLEED_PX, f"{where}: ink at x={left} < {frame.left}"
             assert right <= frame.right + FRAME_BLEED_PX, f"{where}: ink at x={right} > {frame.right}"
             assert top >= frame.top, f"{where}: ink at y={top} < {frame.top}"
-            assert bottom <= frame.bottom, f"{where}: ink at y={bottom} > {frame.bottom}"
+            assert_bottom_fits_or_is_the_known_bare_level_2_gap(
+                bottom, frame, page_number=1, height_cm=float(case["height_cm"]), where=where,
+            )
 
     # ----------------------------------------------------------------------
     # CARD-201 review cycle 2, F-11 — the pipeline diagram and the
