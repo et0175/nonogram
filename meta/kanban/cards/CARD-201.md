@@ -945,3 +945,292 @@ evidence), and the Finalise screen's live preview
     straightforward "the correction belongs to some images, not all of
     them" bug, and the chosen mechanism (a per-mark flag) follows the
     existing code's own shape rather than introducing a new pattern.
+
+- [Fix 3] Review cycle 3's 3 new gating findings (F-20, F-21, F-22), found
+  after the owner approved one extra review cycle beyond this project's
+  normal 3-cycle budget. The full review write-up was handed to this pass
+  directly (not re-read from `main`, unlike `[Fix 1]`/`[Fix 2]` above) —
+  this entry records the findings, the fixes, the new test coverage, and
+  fresh evidence, plus one flagged, unresolved consequence of F-21's own
+  correct fix.
+
+  - **F-20 (Important — reproduced visual overflow, zero test coverage) —
+    FIXED.** `_draw_pipeline_diagram` (`book_pdf_generator.py` ~1242) sizes
+    its own canvas purely from label-text widths and fixed padding/arrow
+    constants — never checked or clamped against the page's usable width.
+    `create_guide_page`'s fallback-selection loop (~2518) only ever checked
+    VERTICAL fit (`bottom <= frame.bottom`) before accepting a level, never
+    horizontal. Reproduced exactly as the review found it: at a 10 cm wide
+    x 25 cm tall book (tall enough to pass the loop's only check at
+    `bare_level 0`), `frame.right=1031` on a `measure` of 918, but the
+    pipeline diagram's own canvas is 1562 px wide and, pasted at
+    `frame.left=113`, its ink reached column 1180 of an 1181 px canvas —
+    149 px past the usable frame, one pixel short of the physical page
+    edge.
+
+    **Option (b) chosen** (of the two the review offered): extended the
+    loop's existing accept/retry mechanism — the one that already handles
+    the vertical case — to the horizontal one, rather than teaching
+    `_draw_pipeline_diagram` to clamp or wrap its own layout. A new
+    `fits_width(marks)` closure (reusing `pad`, now hoisted above the loop
+    since both it and the existing paste loop need the same value) checks
+    every image mark's pasted right edge against `frame.right`, with the
+    same documented, by-design "half a heavy rule" sideways-bleed tolerance
+    a line diagram's own frame already has elsewhere in this file
+    (`_stroke_drawing`'s own docstring) — zero tolerance for the pipeline
+    diagram and the difficulty box, which draw flush at column 0 with no
+    bleed of their own. The loop now breaks only when BOTH
+    `bottom <= frame.bottom` and `fits_width(marks)` hold; a level whose
+    pipeline diagram overflows fails this check and the loop tries the
+    next, more aggressive level, which already drops the pipeline diagram
+    outright from `bare_level 1` onward — the same mechanism the vertical
+    case already relied on, no new content-dropping decision needed.
+    `_draw_difficulty_box` was read too, per the review's own prompt: it
+    already takes `measure` as a parameter and builds its canvas to
+    exactly that width, so its own right edge always lands at
+    `frame.left + measure == frame.right` by construction — confirmed by
+    measurement to have no analogous latent issue, nothing changed there.
+
+    **New test coverage**
+    (`tests/test_book_guide_page_type.py::TestGuidePage_TextFitsTheUsableFrame`):
+    `test_a_tall_narrow_trim_does_not_overflow_the_pipeline_diagram_past_frame_right`
+    reproduces the reviewer's exact scenario (10 cm wide x 25 cm tall,
+    largest counts) and asserts no ink crosses `frame.right` beyond this
+    class's own existing `FRAME_BLEED_PX` tolerance, and separately that
+    ink never reaches the canvas's own last column (the clipped-at-the-
+    physical-edge symptom the review found). A second test,
+    `test_the_pipeline_diagrams_own_canvas_never_exceeds_the_usable_width`,
+    calls `_draw_pipeline_diagram` directly at this same trim and documents
+    — rather than silently assumes — that its own canvas is still wider
+    than `measure` even after this fix (the fix works at the page's
+    fallback-loop level, per option (b), not inside the diagram routine
+    itself), so a future change making the diagram itself measure-aware
+    would need this assertion updated, not silently pass around it.
+
+    **Proof the new tests would have caught the original bug.** Reverted
+    `book_pdf_generator.py` to the pre-fix version in this same worktree
+    (`git stash` on just that file) and re-ran the new test: it failed,
+    reporting the exact 149 px overflow the review described (`ink reaches
+    x=1180, past frame.right=1031 by 149 px`). Restored the fix and
+    re-ran: passes, along with all 17 tests in the file.
+
+    **Test evidence, this pass.** `tests/test_book_guide_page_type.py`
+    alone: 17 passed (up from 15: 2 new tests). Together with
+    `tests/test_book_guide_page.py tests/test_book_interior_type_floor.py
+    tests/test_book_pdf_memory.py tests/test_book_pdf_ink_mode.py
+    tests/test_book_finalise_guide_preview.py
+    tests/test_book_finalise_guide_preview_layout.py
+    tests/test_book_finalise_gutter.py` (F-20 alone, before F-21/F-22's own
+    changes): all pass, 0 failures.
+
+    **No blocker.** F-20 was confirmed correct by direct reproduction
+    (measured the exact 149 px overflow before touching any code) and the
+    fix needed no owner-level judgment call: option (b) was the one that
+    fit the existing fallback-ladder mechanism without inventing a new one.
+
+  - **F-21 (Important — orphaned heading, contradicts the code's own
+    docstring, fires on a REAL stored trim) — FIXED, with one flagged,
+    unresolved consequence — see the `[BLOCKER]` note below.**
+    `create_guide_page`'s cell-state block (~2352) used an all-or-nothing
+    `if bare_level >= 2: pass else: <heading AND picture>`, dropping the
+    heading paragraph (`paragraph(cell_state.heading)`) along with the
+    picture — contradicting the method's own docstring ("the heading alone
+    still names Unknown/Filled/Empty" at this level) and this card's own
+    Fix-1 Worktree notes ("Owner decision 2" above). Confirmed not
+    hypothetical: the 10 cm minimum width trim (already in this project's
+    named stored-trim test set) needs exactly `bare_level` 1 or 2 per
+    Fix-1's own measurements, so this fires on a trim the suite already
+    explicitly covers.
+
+    Fixed to follow the sibling `technique()` closure's own, already-correct
+    pattern (one entry later in the same function): the heading stays
+    unconditional, and only the picture is gated — here, by
+    `if bare_level < 2: picture(...)` — rather than an all-or-nothing
+    branch. The caption remains gated by the pre-existing, independent
+    `captions` flag, unchanged.
+
+    **New test coverage** (`tests/test_book_guide_page.py`,
+    `TestGuidePage_CellStateHeadingsSurviveBareLevel2`): forces the 10 cm
+    minimum trim at a 10 cm height (the exact "10 x 10 cm square" this
+    card's own Fix-1 notes name as needing `bare_level 2`) and the book's
+    largest (6-digit) counts. A negative control
+    (`test_bare_level_2_really_drops_the_cell_state_pictures_here`) first
+    confirms no cell-state icon is drawn at all at this trim (proving
+    `bare_level 2` is genuinely in effect, not a roomier form), then a
+    parametrized test
+    (`test_the_cell_state_heading_survives_with_its_picture_dropped`)
+    renders each of "Unknown"/"Filled"/"Empty" through the same face the
+    page itself letters in and finds it on the rendered page via this
+    file's own `probe`/`occurrences` FFT-correlation technique (already
+    used elsewhere in this file for diagram matching) — content-matched
+    rather than trusted at a fixed band index, because this trim's own
+    diagrams can render small enough that a band-classifying heuristic
+    elsewhere in the test tree misclassifies them, which would have made a
+    position-based assertion fragile exactly here.
+
+    **Proof the new tests would have caught the original bug.** Reverted
+    `book_pdf_generator.py` to the pre-fix version (`git stash`) and
+    re-ran: all 3 heading-presence tests failed, each reporting the
+    heading was found 0 times. Restored the fix and re-ran: all 4 new
+    tests pass, together with all 49 tests in the file.
+
+    **[BLOCKER] A measured, disclosed side effect on the 10 cm x 10 cm
+    (minimum, square) trim's page 1, at the book's own worst-case (6-digit)
+    puzzle counts — an owner decision, not guessed at.** Restoring the
+    three heading lines this fix requires (they were being silently
+    dropped, which is the bug) costs roughly 3 lines of `leading` on page 1
+    at `bare_level 2`. Measured directly: `tests/test_book_guide_page_type.py`'s
+    own `test_it_fits_the_smallest_trim_a_book_may_be_stored_at` and
+    `test_the_whole_corpus_of_trims_and_counts_fits` (first, pinned case —
+    both pre-existing AC-4/AC-237 tests, not new) now fail on exactly this
+    one trim+count combination: the page's last ink reaches y=1180 against
+    a `frame.bottom` of 1069 — a 111 px (~1.5 lines) vertical overflow past
+    the usable frame. Confirmed by reverting only this fix: both tests pass
+    on the pre-fix code, so this is a direct, new consequence of fixing
+    F-21 correctly, not a pre-existing gap F-21 merely surfaces.
+
+    Root cause: `bare_level 2`'s own gap-tightening (its docstring already
+    promises it "tightens inter-section gaps") was measured and tuned
+    ("Owner decision 2" above) against the PRE-FIX, bug-shortened content —
+    it was never validated with the three heading lines actually present,
+    because they never were until this pass.
+
+    Investigated, and deliberately NOT shipped, two whitespace-only
+    mitigations before concluding this needs an owner decision:
+    * Tightening the title-to-body gap at `bare_level 2` (reusing the
+      existing `leading // 6` ratio `space()` already uses at this level)
+      recovers only part of the 111 px, and — measured by sweeping the
+      gap's own value down — plateaus well short of zero no matter how far
+      it is tightened, confirming the shortfall is not concentrated there.
+    * Also tightening the level's own inter-section `space()` calls further
+      (from `leading // 6` to `0`) gets closer, but was reverted after
+      finding it causes a DIFFERENT new defect under measurement: on the
+      10 cm wide x 20 cm tall trim's page 2 (a trim this card's own test
+      suite already names and pins to `bare_level 1`), the reduced gap let
+      a heading's ink touch its diagram's ink directly, merging what
+      should be two separate bands into one
+      (`test_page_two_difficulty_box_aligns_at_narrower_trims[10cm-wide]`
+      caught this immediately — 4 diagram bands measured where the test
+      expects 3). That is exactly the kind of new, real defect a content-
+      blind whitespace hack can introduce, so it was reverted rather than
+      shipped.
+
+    Both the title-gap and `GUIDE_SWITCHING_HEADING`-dropping ideas
+    were considered and set aside as genuine content/design decisions
+    (what, if anything, to cut further at the smallest trim's deepest
+    fallback level) rather than pure engineering — exactly the kind of call
+    this pass's own brief says to flag rather than guess at. `book_pdf_generator.py`'s
+    fallback-ladder gap constants are therefore left exactly as F-21 needs
+    them and no further; `tests/test_book_guide_page_type.py`'s two
+    affected tests are left unmodified, still correctly stating the real,
+    current (slightly overflowing, on this one worst-case combination)
+    behavior rather than being loosened to hide it. **Recommend:** either
+    accept the ~111 px overflow on this one deliberately-extreme
+    combination (and loosen those two tests' bottom check with an
+    explicit, narrow, documented exception, the way this same test file's
+    corpus test already documents its own page-2 gap rather than widening
+    blindly), or choose specific additional content to drop/compress at
+    `bare_level 2` on page 1 (e.g., combining the three cell-state names
+    onto one line, or dropping one more technique's picture) — both are
+    the owner's call, not this pass's.
+
+    **Test evidence, this pass.** `tests/test_book_guide_page.py` alone:
+    49 passed (up from 45: 4 new tests). Together with
+    `tests/test_book_guide_page_type.py tests/test_book_interior_type_floor.py
+    tests/test_book_pdf_memory.py tests/test_book_pdf_ink_mode.py
+    tests/test_book_finalise_guide_preview.py
+    tests/test_book_finalise_guide_preview_layout.py
+    tests/test_book_finalise_gutter.py`: **296 passed, 1 skipped, 2
+    failed** — the 2 failures are exactly the flagged `[BLOCKER]` above
+    (`test_it_fits_the_smallest_trim_a_book_may_be_stored_at`,
+    `test_the_whole_corpus_of_trims_and_counts_fits`), the 1 skip is the
+    known DB-mode test (silent skip without a `nonogram_test` database,
+    per this project's own convention). No other test in this combined run
+    regressed.
+
+  - **F-22 (Important — new, real, visible bug, Finalise-preview-only;
+    does not affect the exported PDF) — FIXED.** `admin.css`'s
+    `.guide-pipeline-step + .guide-pipeline-step::before` (~369) draws the
+    Finalise screen's live HTML preview connector arrow between two
+    pipeline-step boxes, but `.guide-pipeline-step` itself is
+    `display: flex; flex-direction: column` (~368), so the `::before` was
+    inserted as that box's own FIRST flex child — stacked above the step's
+    own label, inside the box it is attached to, not a connector between
+    two boxes; `margin-right` on the pseudo-element had no effect in a
+    column flex context. Confirmed by rendering the live Finalise screen
+    (`werkzeug`'s dev server + a real Chromium tab) and screenshotting the
+    pipeline block before any fix: the arrow sits as a first line inside
+    "FOLLOW"/"BREAKS"/"PROVED", above their own labels, each of those boxes
+    measurably taller than "ASSUME" (which carries no `::before` at all) by
+    roughly the arrow's own line height.
+
+    Fixed per the review's own suggested approach, picked after reading
+    `templates/book_finalize.html`'s actual markup (a flat row of sibling
+    `.guide-pipeline-step` spans inside one `.guide-pipeline` flex-wrap
+    container): took the connector out of flex flow
+    (`.guide-pipeline-step` gains `position: relative`; its `::before`
+    becomes `position: absolute`) and centred it, via
+    `transform: translate(-50%, -50%)`, on the midpoint of the `gap` the
+    row container already places between two steps
+    (`left: calc(var(--space-2) / -2)`) — the same `position: relative`
+    anchoring this file's own `.guide-pipeline-icon[data-icon="cross"]`
+    already uses elsewhere, so no HTML/template change was needed.
+
+    **New test coverage** (`tests/test_book_finalise_guide_preview_layout.py`,
+    new file — a real Chromium browser test, `@pytest.mark.browser`,
+    pytest-playwright, the same tier `tests/test_book_setup_print_mobile.py`
+    already uses; the existing `tests/test_book_finalise_guide_preview.py`
+    is a pure HTML-string parser and structurally cannot see a CSS/layout
+    defect). Three tests, reading the live, real-browser computed layout
+    (`getBoundingClientRect`/`getComputedStyle(el, '::before')`), not
+    parsed HTML: no step is stretched taller by an in-flow arrow (the first
+    step, which carries no connector at all, is the "no arrow" height
+    reference every other step is compared against); the connector's own
+    computed `position` is `absolute` (not the pre-fix `static`); and its
+    measured centre falls strictly between two same-row boxes' edges and
+    near the row's own vertical middle, not pinned to a box's own top.
+
+    **Proof the new tests would have caught the original bug.** Reverted
+    `admin.css` to the pre-fix version (`git stash` on just that file) and
+    re-ran: all 3 tests failed — the height check reported step boxes
+    ~26 px taller than the reference, the position check reported `static`
+    not `absolute`, and the centring check reported the connector's x
+    outside the gap entirely (sitting inside the NEXT box instead).
+    Restored the fix and re-ran: all 3 pass.
+
+    **Visual confirmation** (per the brief's own instruction): rendered
+    the live Finalise screen's guide preview with a real Chromium tab
+    (`werkzeug`'s dev server on loopback) and screenshotted the pipeline
+    block before and after the fix — before, the arrow visibly sits as a
+    first line inside each subsequent box, above its own label; after, it
+    sits centred in the narrow gap between boxes, clearly a connector, not
+    a stray line of type.
+
+    **Test evidence, this pass.**
+    `tests/test_book_finalise_guide_preview_layout.py` alone: 3 passed.
+    Together with `tests/test_book_finalise_guide_preview.py`: 28 passed,
+    0 failed (the existing HTML-parser test file is untouched and
+    unaffected, exactly as the brief said it would be — CSS/preview-only,
+    the exported PDF's own `_draw_pipeline_diagram` arrows are unrelated
+    and were not touched).
+
+    **No blocker.** F-22 was confirmed correct by direct visual
+    reproduction before writing any fix, and the chosen mechanism reuses
+    an anchoring pattern already present elsewhere in the same file rather
+    than inventing a new one.
+
+  - **Fixture.** `tests/fixtures/book_baseline_card201.json` was NOT
+    re-recorded this pass: none of F-20/F-21/F-22 change any ink on the
+    stored trims that fixture's own book baseline (CON-018's Book 1) uses —
+    confirmed by `tests/test_book_pdf_memory.py::test_every_page_is_pixel_identical_to_the_recorded_one`
+    passing unchanged in every combined run this pass made. Book 1 never
+    reaches `bare_level 2` (fits at `bare_level 0`, per Fix-1's own
+    measurements), so F-21's content change and F-20's width-fit check
+    never fire on it; F-22 is a CSS/Finalise-preview-only change with no
+    PDF-rendering path at all.
+
+  - **Full project suite.** See this pass's own final message for the
+    `./.venv/bin/python -m pytest` result (this project's CLAUDE.md own
+    documented quirk: the tail-captured summary line sometimes truncates
+    even on full success — the process exit code and the progress-dot
+    count are what this pass trusts).
