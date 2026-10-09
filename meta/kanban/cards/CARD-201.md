@@ -1,6 +1,6 @@
 # CARD-201: The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/201-guide-page-how-to-solve
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-201
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 2: how-to-solve section + difficulty-label description, content from docs/guides/how_to_solve_nonograms_v2.pdf)
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/static/admin.css, docs/guides/how_to_solve_nonograms_v2.pdf, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/test_book_finalise_guide_preview.py, tests/test_book_finalise_gutter.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card201.json (new)
 **Review score:** 8.5 (cycle 4/3+1, owner-extended; cycles 1-3 found and fixed 8 gating issues total across content-correctness, crash-risk, visual, and test-coverage categories; cycle 4 confirmation found 0 gating findings)
 **Started:** 2026-10-08T14:32:38Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-09T13:19:29Z
+**Actual:** 2.8d
+**Merge commit:** ed578fa
 **Blocked by:** —
 
 ## What to implement
@@ -1530,3 +1530,82 @@ evidence), and the Finalise screen's live preview
   pipeline diagram's 4 boxes all have complete borders, and the overflow
   render clearly shows the accepted edge case. This personal visual check
   is what surfaced the precise margin-depth finding recorded above.
+- [Merge] This merge hit a real conflict, not just the usual card-file
+  bookkeeping one: CARD-202 (merged first) and this card both ripple
+  interior page-count/position arithmetic through the same functions and
+  test files — CARD-202 via answer-page packing (which can reduce the
+  answer section below one page per puzzle), this card via growing the
+  guide from 1 page to 2 (which shifts every later page by +1 and flips
+  its parity). Resolved in two passes:
+  1. **Production code** (`book_pdf_generator.py`, 2 conflict regions) —
+     resolved directly by the orchestrator: kept CARD-202's answer-count
+     tripwire (`answer_numbers`) and combined it with this card's updated
+     `first_answer_page = 1 + GUIDE_PAGE_COUNT + len(section) + 1`
+     formula; kept CARD-202's `answer_plan`/`PackedAnswerPage`-aware
+     `produce()` loop with this card's corrected divider-page expression
+     (`first_answer_page - 1`, which already reflects the guide's new
+     length). Verified by compiling and by the ground-truth check below.
+  2. **8 conflicted test files** (`tests/helpers/book_corpus.py`,
+     `tests/property/test_book_export_interior.py`,
+     `tests/test_book_pdf.py`, `tests/test_book_pdf_band.py`,
+     `tests/test_book_pdf_ink_mode.py`, `tests/test_book_pdf_memory.py`,
+     `tests/test_book_pdf_two_up.py`, `tests/test_book_puzzle_frame.py`) —
+     resolved by a dedicated fix agent, each conflict recomputed to
+     combine BOTH effects (not picked from one side), verified against the
+     actual merged production code's real output (a `baseline_puzzles()`
+     book genuinely produces 12 interior pages) rather than assumed.
+  3. **4 more failures surfaced AFTER the 8-file resolution** — content
+     that merged with NO conflict markers (because CARD-202 never touched
+     those exact lines) but was nonetheless stale: it was written on this
+     card's branch before CARD-202 existed, so it silently assumed no
+     packing. All 4 root-caused and fixed, not papered over:
+     - `tests/fixtures/book_baseline_card201.json` was recorded on this
+       branch alone (13 pages, no packing); regenerated against the truly
+       merged code (12 pages, packing applied), checking first that pages
+       1-9 (everything before the answer section) are still byte-identical
+       to the stale recording — confirming CARD-202's packing touches
+       nothing before the SOLUTIONS divider, exactly as its own docs claim.
+     - `TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`
+       (a class that exists only on this card's branch) assumed every
+       answer page is a full page; made packing-aware — it now builds each
+       page's reference through whichever of `solved_puzzle_page`/
+       `_packed_answer_page` actually applies to that specific page.
+     - `test_the_recorded_card198_baseline_pages_are_unmoved` was
+       investigated first, not assumed fixable: `book_baseline_card198.json`
+       predates this card entirely, and the guide's parity flip
+       permanently changes every later page's pixels, so a byte comparison
+       against it can never hold again — it was testing the wrong thing.
+       Rewritten to prove what it actually should (packing touches nothing
+       before the answer section) directly, by exporting the same book
+       twice (real packing vs. a monkeypatched CARD-198-shaped packing)
+       and diffing only the pre-answer-section pages.
+     - `test_the_search_finds_an_answer_caption_at_its_own_size` failed by
+       a hair (3.19-3.21% vs. a 3% limit) — investigated properly rather
+       than reflexively loosened: found a real, harmless, PARITY-DEPENDENT
+       sub-pixel asymmetry (splitting an odd usable width into two packed
+       tiles leaves one tile a pixel narrower, so each tile's independently
+       centred caption lands at a slightly different sub-pixel offset; this
+       card's own parity flip can move a caption from the "lucky" tile to
+       the "unlucky" one with zero change to any drawing code). Confirmed
+       the asymmetry is inherent to splitting an indivisible width, not an
+       off-by-one bug, and that a genuinely different caption still scores
+       8.8-10.6% (the test still discriminates, nowhere close to the new
+       limit). Tolerance widened 3%->4%, with the full reasoning above
+       recorded in the test file itself, the same measured-calibration
+       discipline this project already uses elsewhere.
+  Orchestrator's own independent full-suite run on the fully resolved,
+  staged merge (not any individual file's own claim) — `./.venv/bin/python
+  -m pytest` in the main repo, under the `meta/kanban/.full-suite.lock`:
+  **6801 passed, 9 skipped, 0 failed, 0 errors, exit 0** (1007.87s). Merge
+  finalized as commit `ed578fa`.
+- [Trace write-back, skipped deliberately] `meta/architecture/trace.yml`'s
+  FR-041 entry's own `description:` field already only captures the
+  book-order/divider half of FR-041's real statement (level grouping,
+  puzzle numbering) — it never included the guide-page clause
+  (requirements.yml's actual FR-041 statement: "the guide page ... carries
+  a worked example ... on that same single page; the guide page stays
+  exactly one page"), even before this card. This card makes that
+  specific clause literally false (the guide is now 2 pages) — same
+  "already-stale entry this card makes more stale" situation CARD-198 and
+  CARD-202 both hit and both deferred to the architect station rather
+  than partially patch. Not done at merge time.

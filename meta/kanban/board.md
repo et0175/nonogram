@@ -53,18 +53,18 @@ _(none)_
 
 ## Ready
 _Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (revision read 2026-10-08). Not yet queued into a wave — `/kanban start CARD-XXX` when ready to run one. CARD-202 and CARD-204 both touch `src/nonogram/export/layout.py`'s placement code (new tiling geometry vs. the centring reversal) — serialize them rather than running both in the same wave until their real diffs are known._
-- **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · depends on CARD-201 (in progress)
+- **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · its dependency CARD-201 is now merged, unblocked
 - **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard
 - **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver · P2 · architectural · **`Revision pending: true`** — two owner mechanism-level decisions (which edge is "right" across the mirrored gutter; real QR vs. a placeholder) must be confirmed via rendered side-by-side samples before implementation starts
 
 ## In Progress
 
 ## Review
-- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · P2 · architectural · F-20/F-21/F-22 all fixed, F-21's content/space tradeoff resolved by owner decision (accept + document, scope corrected to 4/48 corpus cases), build gate 4 passed clean (6742 passed, 0 failed) · final confirmation review cycle running · worktree `../PythonProject4-CARD-201` · branch `card/201-guide-page-how-to-solve`
 
 ## Blocked
 
 ## Done
+- **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · score 8.5 (cycle 4/3+1, owner-extended) · merged ed578fa
 - **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · score 9.0 (cycle 2/3) · merged 040f10d
 - **CARD-177** Finalise and the book PDF downloads flash a generic error, not the exception's text · score 9.0 (1 cycle) · merged d1995fd
 - **CARD-178** A book reopened in inches never shows a trim outside the stated limits · score 9.5 (cycle 3/3) · merged 862f673

@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-10-09
+- CARD-201 (feature): The book's guide page grows from one page to a full 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide — the basic rule, three cell states, and three starting techniques on page 1; three harder techniques, a difficulty-label key (Easy/Medium/Hard), and the original worked example on page 2. Every later interior page moves one position later to make room. Caught and fixed during review: a worked example whose stated conclusion didn't actually follow from the shown cases, a crash risk on non-Mac deployments, a clipped diagram border, a misaligned diagram paste, a diagram that could overflow a narrow page's margin, a dropped section heading, and a misplaced arrow in the Finalise screen's live preview. One owner-accepted limit remains: on a handful of very short/small trims, the guide's bottom margin is nearly fully consumed by this page's own worst case.
 - CARD-202 (feature): The book's answer key now packs small solutions (width ≤15, height ≤20) 2-or-4 to a page instead of giving each its own full page — always 4-up when four are next in sequence, falling back to 2-up for a leftover one or two, never mixing tiers on one page. Every packed slot still shows full clues and its own "Puzzle N · Tier" band, the same as a full page. A puzzle whose shared cell would otherwise overlap a neighbour's (found during review, on a valid KDP-minimum trim) now declines that density and falls back to a looser one, or to a full page, instead of silently corrupting the page.
 
 ## 2026-10-08
