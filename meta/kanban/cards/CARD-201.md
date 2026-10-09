@@ -917,3 +917,48 @@ evidence), and the Finalise screen's live preview
   proceeding to forge:review cycle 2 (confirmation cycle).
 - [Review] forge:review cycle 2 started (background agent `@code-review`,
   confirmation pass over F-1..F-4's fixes plus the whole diff).
+- [Review 2/3] F-1..F-4 (cycle 1) all re-verified independently and
+  confirmed correctly fixed (two separate finder angles re-derived each
+  one from source with no discrepancies). One NEW finding surfaced,
+  gating:
+  - **F-11 (Important — visible misalignment, zero test coverage)**
+    `book_pdf_generator.py:2439`, the guide page's image-paste loop
+    subtracts `pad = icon_layout.thick_rule` from every pasted mark's
+    x-offset uniformly — but that correction only belongs to images built
+    via `draw_example_line`/`example_line_layout` (which bake in a left
+    bleed-margin of exactly that width, the fix for cycle 1's F-3).
+    `_draw_pipeline_diagram` and `_draw_difficulty_box` draw their own
+    border flush at column 0 with no such margin, so page 2's pipeline
+    diagram and difficulty box ship shifted left by one heavy-rule width
+    relative to every other mark on the page — confirmed by reading the
+    source directly (`:2439-2444` vs. `:1242-1316`/`:1324-1370`),
+    independently found by two finder angles. On Book 1 this lands in the
+    inner gutter margin on a right-hand page; on the 10cm minimum trim it
+    eats further into an already-tight margin budget. **Zero test
+    coverage**: `TestGuidePage_TextFitsTheUsableFrame`'s margin-fit tests
+    (`tests/test_book_guide_page_type.py:500`) never pass `page_number=2`
+    to `create_guide_page` (default is 1), so page 2 — the only page with
+    these two diagrams — is never checked against `frame.left`/
+    `frame.right` at any trim; the FFT-based diagram-presence tests are
+    deliberately x-position-agnostic, so nothing in the suite catches
+    this. Gating — both the misalignment and its own missing coverage.
+  - **F-12..F-19 (Minor/moderate, not gating):** `create_guide_page`
+    unconditionally builds all diagram images for both pages on every
+    call, discarding half (:2223); technique diagrams and the difficulty
+    box are rebuilt from scratch on every one of up to 5 fallback-level
+    retries (:2376); the 5-tier `bare_level` ladder is scattered
+    conditionals, not a general priority-shedding mechanism (:2251); F-2's
+    fix (explicit size param) is a docstring convention, not a structural
+    guard — nothing stops a future caller reading `.size` directly again
+    (:1259); new `GuideRow` duplicates `ExampleStep`'s shape, wrapped into
+    throwaway `ExampleStep`s at every call site (:613); the X-cross icon
+    idiom is duplicated across `_draw_pipeline_diagram`,
+    `draw_example_line`, and twice in `admin.css` (:1301); duplicated
+    Jinja technique-list block in `book_finalize.html` (:76, same finding
+    as cycle 1's F-9, still not required); `_guide_rule_width` recomputes
+    a probe-clue layout `page_frame` already computed, called 3x per guide
+    render (:1230).
+  - **Verdict: cycle 2 does not meet the bar** (1 new gating finding) —
+    routing to forge:fix for F-11, cycle 3 (the max allowed — if cycle 3
+    finds a NEW gating issue, this escalates per protocol rather than
+    looping further).
