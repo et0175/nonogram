@@ -1157,3 +1157,37 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
     own carried-forward minor findings) rather than spending this card's
     remaining review cycle on non-blocking cleanup. Proceeding to the
     AC/EC/G verification gate.
+
+- [AC/EC/G check] All 9 ACs (AC-1, AC-2, AC-2b, AC-3..AC-8) have dedicated
+  test classes with fresh, named pass counts recorded above under
+  "AC evidence (fresh, this session, all green)" — re-confirmed still
+  accurate after both fix cycles (the full suite's 6750-passed count
+  includes all of them). No "## Engineering constraints" section exists on
+  this card (none applies). All 6 guardrails (G-1..G-6) have fresh evidence
+  recorded in the "[Implementation summary]"/"[Fix 1]" notes above: G-1/G-3
+  via `git diff` zero-deletion checks on the three untouched COMP-007
+  functions and `solved_puzzle_page`'s own body; G-2 via
+  `TestBookFloorTiles_UnmeasurableCellsFailClosed` (41 passed) and
+  `TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle` (6 passed); G-4 via a
+  grep confirming no new colour literal; G-5 via the independent
+  `_packed_column_left_mm` parity check in
+  `tests/property/test_book_export_interior.py` (review cycle 2 flagged
+  this same helper's own safety margin as a bit thin — logged to backlog,
+  not gating); G-6 via `TestBookSolvedAnswerKey_TierBoundaryClosesAPackedPageEarly`
+  plus the property test's 300-case per-page level-uniqueness check. Gate
+  passes.
+- [Owner render] No NEW render generated for the two fix cycles: neither
+  F-1 (the decline/degrade mechanism) nor F-2/F-3/the regression fix changed
+  the VISUAL appearance of the happy-path packed or full pages the original
+  `~/Documents/nonogram-reviews/CARD-202/card202-sample-interior.pdf`
+  render already shows on real pictures — F-1 only adds a safety net for a
+  synthetic KDP-minimum-trim edge case (deliberately deep-clued small
+  grids) that the original render's own sample book was never constructed
+  to hit. That edge case is instead proven by targeted test evidence: 9
+  dedicated tests across `tests/test_layout_packed_solved.py`,
+  `tests/test_book_pdf_packed_degrade.py` and a real
+  `BookPDFGenerator`/`_kdp_min_book` end-to-end class in
+  `tests/test_book_solved_answer_key.py`, including a real rendered-pixel
+  check that no two slots' drawing extents overlap. The existing render
+  remains the valid owner-facing evidence for this card's actual visual
+  behaviour.
