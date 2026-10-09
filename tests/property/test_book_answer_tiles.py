@@ -277,10 +277,170 @@ def test_PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea_mixed
         partial += len(extents) < capacity
         capped += any(tile.cell_mm == ANSWER_MAX_CELL_MM for tile in page.tiles)
         floored += any(tile.cell_mm < 3.3 for tile in page.tiles)
-
     assert pages == 2000
     assert checked >= 5_000, checked
     # Both ends of the range are really exercised, not just the comfortable middle.
     assert capped >= 200, capped
     assert floored >= 100, floored
     assert partial >= 400, partial
+
+
+# ==========================================================================
+# CARD-202 — the small-answer packing walk's own standing property
+# ==========================================================================
+#
+# ``plan_small_answer_pages`` (``nonogram.admin.book_answer_key``) is a
+# different walk over different inputs (Answer, not an extent), but it is a
+# page-count walk in the same family as the sweep above, and this is its own
+# seeded-corpus property test, per CLAUDE.md's house style (no ``hypothesis``,
+# a hand-built corpus asserting its own minimum case count).
+
+from nonogram.admin.book_answer_key import (
+    PACKED_FOUR_UP,
+    PACKED_MAX_HEIGHT,
+    PACKED_MAX_WIDTH,
+    PACKED_TWO_UP,
+    Answer,
+    PackedAnswerPage,
+    plan_small_answer_pages,
+    qualifies_for_packing,
+)
+from nonogram.difficulty import Tier
+
+_TIERS = (Tier.EASY, Tier.MEDIUM, Tier.HARD, None)
+
+
+def _random_levels(rng: random.Random, count: int) -> list:
+    """``count`` levels with real runs: each one repeats the previous level
+    with high probability, so a run of 4+ same-tier answers (long enough to
+    exercise the 4-up density rule) is common rather than a statistical
+    rarity a fully independent draw per position would make it.
+    """
+    levels = [rng.choice(_TIERS)]
+    for _ in range(count - 1):
+        levels.append(levels[-1] if rng.random() < 0.7 else rng.choice(_TIERS))
+    return levels
+
+
+def _random_answers(rng: random.Random, count: int) -> list:
+    """``count`` answers, numbered 1..count, with extents swept across and
+    beyond the packing threshold (:data:`PACKED_MAX_WIDTH`/``HEIGHT``) and
+    run lengths varied by drawing levels from a small alphabet, biased to
+    repeat (:func:`_random_levels`) so a level repeats long enough to form a
+    real run most of the time.
+    """
+    levels = _random_levels(rng, count)
+    answers = []
+    for index in range(count):
+        width = rng.randint(MIN_SIZE, PACKED_MAX_WIDTH + 5)
+        height = rng.randint(MIN_SIZE, PACKED_MAX_HEIGHT + 5)
+        answers.append(
+            Answer(number=index + 1, width=width, height=height, level=levels[index])
+        )
+    return answers
+
+
+def test_PropertyTest_SmallAnswerPacking_EveryAnswerOnceInOrderNoMixedTierPage() -> None:
+    """Over a seeded corpus: the walk is a lossless, order-preserving partition
+    of its input into pages that never mix tiers or exceed capacity, and a
+    bare (unpacked) entry is always one that genuinely does not qualify.
+    """
+    rng = random.Random(202)
+    cases = 0
+    packed_pages = 0
+    bare_entries = 0
+    saw_four_up = False
+    saw_two_up_leftover = False
+
+    for _ in range(300):
+        count = rng.randint(1, 20)
+        answers = _random_answers(rng, count)
+        plan = plan_small_answer_pages(answers)
+
+        # Lossless and in order: concatenating the plan's own numbers gives
+        # the input's numbers back exactly.
+        numbers = [
+            number
+            for entry in plan
+            for number in (
+                entry.numbers if isinstance(entry, PackedAnswerPage) else (entry.number,)
+            )
+        ]
+        assert numbers == [answer.number for answer in answers]
+
+        for entry in plan:
+            if isinstance(entry, PackedAnswerPage):
+                packed_pages += 1
+                # G-6: one level per packed page, never mixed.
+                assert len({a.level for a in entry.answers}) == 1
+                # Owner decision: never more than 4, and every member
+                # genuinely qualifies (width<=15, height<=20).
+                assert len(entry.answers) <= PACKED_FOUR_UP
+                assert all(qualifies_for_packing(a) for a in entry.answers)
+                assert entry.capacity in (PACKED_TWO_UP, PACKED_FOUR_UP)
+                if entry.capacity == PACKED_FOUR_UP:
+                    saw_four_up = True
+                if entry.capacity == PACKED_TWO_UP and len(entry.answers) < PACKED_TWO_UP:
+                    saw_two_up_leftover = True
+            else:
+                bare_entries += 1
+                # A bare (unpacked) entry is always one CARD-198 still gives
+                # a full page: it must genuinely fail the threshold, never a
+                # qualifying answer that merely failed to join a run.
+                assert not qualifies_for_packing(entry)
+        cases += 1
+
+    assert cases == 300
+    assert packed_pages >= 50, packed_pages
+    assert bare_entries >= 50, bare_entries
+    assert saw_four_up, "the corpus never produced a 4-up packed page"
+    assert saw_two_up_leftover, "the corpus never produced a leftover 2-up page"
+
+
+def _expected_group_sizes(run_length: int) -> list:
+    """CARD-202's own chunking of one same-level qualifying run, by length
+    alone: 4 at a time while at least 4 remain, then 2 at a time while at
+    least 2 remain, then a lone 1 if one is left over. Independent of
+    :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` (CLAUDE.md:
+    prefer an independent second implementation) — pure arithmetic over a
+    count, nothing else.
+    """
+    sizes = []
+    remaining = run_length
+    while remaining >= PACKED_FOUR_UP:
+        sizes.append(PACKED_FOUR_UP)
+        remaining -= PACKED_FOUR_UP
+    while remaining >= PACKED_TWO_UP:
+        sizes.append(PACKED_TWO_UP)
+        remaining -= PACKED_TWO_UP
+    if remaining == 1:
+        sizes.append(1)
+    return sizes
+
+
+def test_PropertyTest_SmallAnswerPacking_NeverPacksAFourUpWithFewerThanFourWhenMoreWereAvailable() -> None:
+    """The density rule's own edge, over every run length from 1 to 20: the
+    walk's own group sizes match :func:`_expected_group_sizes`'s independent
+    "4s, then 2s, then a lone 1" chunking exactly — never a page of 3, never
+    a 4-up page padded with fewer than 4, and never two pages of 2 where one
+    page of 4 was available (the owner's "always 4-up, 2-up only for
+    leftovers", no secondary size threshold).
+    """
+    rng = random.Random(203)
+    checked = 0
+    for run_length in range(1, 21):
+        for _ in range(15):
+            answers = [
+                Answer(
+                    number=index + 1,
+                    width=rng.randint(MIN_SIZE, PACKED_MAX_WIDTH),
+                    height=rng.randint(MIN_SIZE, PACKED_MAX_HEIGHT),
+                    level=Tier.EASY,
+                )
+                for index in range(run_length)
+            ]
+            plan = plan_small_answer_pages(answers)
+            sizes = [len(entry.answers) for entry in plan]
+            assert sizes == _expected_group_sizes(run_length), (run_length, sizes)
+            checked += 1
+    assert checked == 300

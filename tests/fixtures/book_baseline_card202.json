@@ -1,0 +1,124 @@
+{
+  "card": "CARD-202",
+  "supersedes": "tests/fixtures/book_baseline_card198.json",
+  "recorded_from_commit": "card/202-packed-small-answers (implementation commit)",
+  "recorded_from_commit_note": "CARD-202's implementation: small answers (width<=15, height<=20) pack 2-or-4 to an answer page, with clues and a title band, instead of CARD-198's one full solved page per answer. Pages 1-8 of this baseline book are unedited (CHECKED, not assumed -- see below); only the answer section (pages 9-12 under CARD-198) changed, to pages 9-11.",
+  "recorded_on": "2026-10-08",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages -- the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-202 packs small answers 2-or-4 to a page, with clues: of this book's four puzzles, Duck and Owl (10x10, Easy) and Tree (15x15, Medium) qualify (width<=15 and height<=20); Snowflake (30x30, Hard) does not. Duck and Owl -- the only two qualifying answers of the Easy level -- pack onto one 2-up page (interior page 9). Tree is alone in the Medium level, so it packs onto its own 2-up page with one slot filled (interior page 10). Snowflake still prints on CARD-198's own full solved page (interior page 11, where it was page 12 before). Interior pages 9-12 (CARD-198's four answer pages) become 9-11 (three) -- the book shrinks from twelve pages to eleven. Pages 1-8 (the guide page, the three level dividers, the two-up page, the two single-puzzle pages and the SOLUTIONS divider) are CARD-198's own digests byte for byte (G-1, G-2, checked below, not assumed) -- only the answer section moved, and it shrank by one page.",
+  "warning": "This is evidence of what the book PDF looks like as of CARD-198. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares, unaffected by CARD-198 (CARD-147's own fact). NOT the same thing as each page entry's \"mode\" below, which is \"RGB\" and always will be: that field is what pdf_pages hands back after its own convert(\"RGB\"), not what the file says.",
+  "changed_pages": [
+    9,
+    10,
+    11
+  ],
+  "changed_pages_note": "CHECKED, NOT ASSUMED: pages 1-8 were compared against book_baseline_card198.json's entries by this recording script itself before this file was written, and found byte-identical (CARD-202 G-1, G-2). Page 12 of the CARD-198 book no longer exists -- this book has only eleven pages -- so 'changed' here means 'the new page 9-11 triplet replaces the old page 9-12 quadruplet', not 'pages 9-11 moved and 12 is untouched'.",
+  "font_fingerprint": "cfa57e761f304bc3bf7a92f2f620119f16e13597372eba89c71b56e5df7ba30b",
+  "font_fingerprint_note": "Unchanged from CARD-149/184's value, reproduced on this machine before this file was written. The guide page still letters its title at 92 px and its body at 46 px, and the divider at type_px(DIVIDER_PT, 300) = 60 px. The answer pages' band and caption letter in the packaged DejaVu Sans (solved_puzzle_page, CARD-197), which does not depend on the machine.",
+  "font_dependent_pages": [
+    1,
+    2,
+    4,
+    6,
+    8
+  ],
+  "font_dependent_pages_note": "Unchanged from CARD-198: page 1 is the guide page (Arial, with the load_default fallback), pages 2, 4 and 6 the level dividers, page 8 the SOLUTIONS divider. None of the three packed/full answer pages (9-11) are machine-lettered -- a packed slot's band and caption letter in the packaged DejaVu Sans, exactly as a full answer page's already did.",
+  "interior_bytes": 2783458,
+  "interior_bytes_note": "The black-and-white interior of this book: 2,783,458 bytes where CARD-198 recorded 2,981,925 for a twelve-page book. The difference is pages 9-12's JPEG streams replaced by pages 9-11's own: pages 1-8 contribute the same bytes they always did (CARD-202 G-1, G-2).",
+  "colour_interior_bytes": 3205641,
+  "colour_interior_bytes_note": "The same book with a COLOUR interior: 3,205,641 bytes where CARD-198 recorded 3,443,143 for the twelve-page book. Read by tests/test_book_pdf_ink_mode.py only to show the length moved, not to pin a new one -- no CARD-202 colour-specific fixture is recorded (out of this card's scope).",
+  "page_count": 11,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "13d283759948858fc09e96d485cd093766b5e9f41a5d891481f3810760e883e1"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b87192eadd2143c1bf66eca310f8e1ada10b464617caf19aeae991cee4acf41d"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "be5e748146944022fb835107269d758aa6c86185d6c50a047ab878ed316e5d96"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "93d5540ccca73718d874b6c9cb9810cc0633903ce23563b2f34ca3fab9a8a35a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "67bf181bec2149ad19bd66a34b2a3edd203c8fe390fea4660ccb3de02d9f1079"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "af6fa258e4eabfecb6f22d339d030a7aa446aa0f2339bdac401714e5a4a2e111"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "947bc49b9f42d88524c4a61a273a3c9545079991a6bb5c60bbbbda1d08a299fe"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d309a9cb421d5c25c6838d0340a52a78c73545b6a04fe70bba9189e15bcf2010"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "94b84e8ba94f3f8cb0bd00c837c76016d604d4c8d112d822680a62b41503bceb"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "8281d01051a6fcf8427f879eabb66fe55b35e58f255b6c058bc8503b3c82ee22"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "6f08c175035933b1938d6669518bec9776d4deb21877bf2218fb3fbbad9a8130"
+    }
+  ]
+}

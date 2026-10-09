@@ -396,7 +396,7 @@ class TestBookInk_BlackAndWhiteInteriorIsGrayscale:
         monkeypatch.setattr(BookPDFGenerator, "_write_page", write_page_and_compare)
         export_of(generator, baseline_puzzles())
 
-        assert checked == BASELINE_PAGE_COUNT == 12, f"only {checked} pages compared"
+        assert checked == BASELINE_PAGE_COUNT == 11, f"only {checked} pages compared"
 
     def test_the_two_files_hold_the_same_marks_page_for_page(self, baseline_exports):
         """And the same after the encode: the two files decode to one ink.
@@ -483,11 +483,15 @@ class TestBookInk_ColourInteriorIsUnchanged:
     class's scope was narrowed here: CARD-198 replaced
     ``tests.helpers.book_corpus.baseline_puzzles``'s packed three-page answer
     key with one full solved page per puzzle (four pages), so the book this
-    class exports is no longer eleven pages but
-    :data:`~tests.helpers.book_corpus.BASELINE_PAGE_COUNT` (twelve), and pages
-    9-11 are no longer the three pages ``book_baseline_card184.json``
+    class exports was, at CARD-198, no longer eleven pages but twelve (CARD-202
+    later packs three of this book's four small-enough answers back onto two
+    pages instead of four, so :data:`~tests.helpers.book_corpus.BASELINE_PAGE_COUNT`
+    reads 11 again today — a different eleven from the pre-CARD-198 one this
+    paragraph is about, by coincidence of arithmetic alone, not of drawing: see
+    this class's own CARD-202 note below for the current shape). Pages 9-11 of
+    the *pre-CARD-198* book are no longer the three pages ``book_baseline_card184.json``
     recorded for the *packed* key — there is nothing in that fixture, or any
-    other recorded here, for what the new pages 9-12 should look like, because
+    other recorded here, for what CARD-198's new pages 9-12 looked like, because
     they are a deliberate, different drawing (CARD-198's own
     ``solved_puzzle_page``, not a lettering tweak to the old one). This class
     was written for CARD-147 and names no CARD-198 Touches file, but
@@ -556,7 +560,7 @@ class TestBookInk_ColourInteriorIsUnchanged:
         rather than avoiding a comparison with nothing to compare against.
         """
         _bw, colour = baseline_exports
-        assert len(page_digests(pdf_pages(colour))) == BASELINE_PAGE_COUNT == 12
+        assert len(page_digests(pdf_pages(colour))) == BASELINE_PAGE_COUNT == 11
         assert len(pre_card_baseline["pages"]) == 11
 
     def test_the_colour_interior_is_no_longer_card184s_recorded_length(

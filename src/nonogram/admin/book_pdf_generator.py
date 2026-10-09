@@ -322,7 +322,14 @@ from typing import Any, Dict, Iterable, Iterator, Optional, List, Sequence, Tupl
 from PIL import Image, ImageDraw, ImageFont, PdfParser
 from io import BytesIO
 
-from nonogram.admin.book_answer_key import answer_caption, answer_title
+from nonogram.admin.book_answer_key import (
+    PACKED_TWO_UP,
+    Answer,
+    PackedAnswerPage,
+    answer_caption,
+    answer_title,
+    plan_small_answer_pages,
+)
 from nonogram.admin.book_page_spec import InkMode, book_ink_mode, book_page_spec
 from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.difficulty import Tier, tier_of_record
@@ -335,6 +342,7 @@ from nonogram.export.layout import (
     PageSpec,
     PairLayout,
     compute_layout,
+    compute_packed_solved_layout,
     compute_pair_layout,
     header_band,
 )
@@ -989,24 +997,29 @@ class SectionPlan:
 
 @dataclass(frozen=True)
 class Interior:
-    """The interior's pages, and what two-up pairing saved (FR-040).
+    """The interior's pages, and what two-up pairing (and, since CARD-202,
+    small-answer packing) saved (FR-040, FR-042).
 
     Attributes:
         pages: Every interior page in print order; ``pages[n - 1]`` is interior
             page ``n``. No cover page (FR-043, INV-013).
         unpaired_page_count: What the same interior would have taken with every
-            puzzle on a page of its own — the "before pairing" count. Both are
-            **interior** counts: the cover is a separate file and is never
-            counted.
+            puzzle on a page of its own **and** its answer unpacked — the
+            baseline before any space-saving technique. Both are **interior**
+            counts: the cover is a separate file and is never counted.
 
-            It is the same interior before **pairing** and nothing else: the
-            answer section is one page per puzzle on both sides of the
-            subtraction (CARD-198 — there is no packing saving left to
-            bundle in), which is what keeps :attr:`pages_saved` a measurement
-            of two-up pairing alone.
+            It is deliberately left at one answer page per puzzle
+            (CARD-198's own shape) rather than recomputed with CARD-202's
+            packing walk, so :attr:`pages_saved` now measures two-up pairing
+            *and* small-answer packing together — not pairing alone, as this
+            attribute's own name once implied before CARD-202 (see that
+            card's Worktree notes for the reasoning:
+            ``book_kdp.unpaired_interior_page_count`` keeps the matching
+            baseline for the same reason, an EC-034 cross-check between the
+            two).
         answer_page_count: How many of :attr:`pages` are answer pages, the
             SOLUTIONS divider **not** counted (FR-042) — the Increment 15
-            checkpoint's own number.
+            checkpoint's own number, now CARD-202's packed-or-full count.
     """
 
     pages: List[Image.Image]
@@ -1030,16 +1043,27 @@ class InteriorStream:
 
     Everything :class:`Interior` states about a book, **before** a page of it
     exists: the three counts are the page plan's own arithmetic over the
-    pairing walk and the drawable puzzle count (CARD-198: one answer page per
-    puzzle, no packing), so an export can report what it is about to write
-    without building 25.2 MB of bitmap per page to count them.
+    pairing walk and CARD-202's own packing walk
+    (:func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`, pure and
+    sheet-free), so an export can report what it is about to write without
+    building 25.2 MB of bitmap per page to count them.
 
     Attributes:
-        page_count: The interior's page count after pairing — the same number
-            :attr:`Interior.page_count` reports, and the number of pages
-            :attr:`pages` is contracted to produce.
+        page_count: The interior's page count after pairing and packing — the
+            same number :attr:`Interior.page_count` reports, and the number
+            of pages :attr:`pages` is contracted to produce.
         unpaired_page_count: What the same interior would have taken with
-            every puzzle on a page of its own (:attr:`Interior.unpaired_page_count`).
+            every puzzle on a page of its own and its answer unpacked
+            (:attr:`Interior.unpaired_page_count`).
+        paired_only_page_count: What the same interior would have taken with
+            two-up pairing applied but CARD-202's packing **not** — pairing's
+            own baseline, between :attr:`unpaired_page_count` and
+            :attr:`page_count`. This is what lets :attr:`pages_saved_by_pairing`
+            and :attr:`pages_saved_by_packing` attribute the saving between
+            :attr:`unpaired_page_count` and :attr:`page_count` to the
+            technique that actually made it (review F-2: the Finalise screen
+            used to show the *whole* delta as "pairing", which misattributed
+            whatever a small answer's packing saved).
         answer_page_count: How many of the pages are answer pages, the
             SOLUTIONS divider not counted (:attr:`Interior.answer_page_count`).
         pages: The interior's pages in print order, drawn **one at a time, on
@@ -1054,11 +1078,32 @@ class InteriorStream:
     unpaired_page_count: int
     answer_page_count: int
     pages: Iterator[Image.Image]
+    paired_only_page_count: int = 0
 
     @property
     def pages_saved(self) -> int:
-        """How many interior pages the two-up pages saved. Never negative."""
+        """How many interior pages pairing *and* packing together saved. Never negative."""
         return self.unpaired_page_count - self.page_count
+
+    @property
+    def pages_saved_by_pairing(self) -> int:
+        """How many interior pages two-up pairing alone saved (review F-2).
+
+        Measured against :attr:`paired_only_page_count`, not
+        :attr:`page_count`, so a book whose packing did the saving reports
+        zero here rather than claiming pairing's credit.
+        """
+        return self.unpaired_page_count - self.paired_only_page_count
+
+    @property
+    def pages_saved_by_packing(self) -> int:
+        """How many interior pages CARD-202's packing alone saved (review F-2).
+
+        Measured from :attr:`paired_only_page_count` (pairing already
+        applied) to :attr:`page_count`, so :attr:`pages_saved_by_pairing` +
+        this always equals :attr:`pages_saved`.
+        """
+        return self.paired_only_page_count - self.page_count
 
 
 def _as_planned(
@@ -1298,25 +1343,31 @@ def interior_page_count(
     (FR-040).
 
     ``answer_pages`` is how many pages the answer section actually takes.
-    Since CARD-198 it is always ``puzzle_count`` — one full solved page per
-    puzzle, no packing — so the parameter now carries its own default value
-    rather than a shortened one; it exists at all only because
-    :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count` still passes
-    it explicitly, and so that a caller built against the FR-042/CARD-134
-    packed key (before CARD-198) is not silently misread. Before CARD-198
-    this term was the *packed* key's page count
+    From CARD-198 until CARD-202 it was always ``puzzle_count`` (one full
+    solved page per puzzle, no packing); since CARD-202
+    :meth:`BookPDFGenerator.interior_stream` passes
+    ``len(answer_plan)`` — CARD-202's own packing walk's page count, which
+    can be less than ``puzzle_count`` whenever a small answer qualifies to
+    pack. The parameter still carries ``puzzle_count`` as its own default
+    (an un-shortened upper bound, called with nothing else) rather than
+    computing a packing walk itself, which is also why
+    :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count` still
+    passes it explicitly, deliberately left at the unpacked baseline (see
+    that function's own docstring and CARD-202's Worktree notes for why).
+    Before CARD-198 this term was the *old* packed key's page count
     (:func:`~nonogram.admin.book_answer_key.pack_answer_pages`, AC-270), which
-    on the default 150-puzzle plan took 150 answer pages down to 30 — a
-    saving this function no longer has anything to apply.
+    on the default 150-puzzle plan took 150 answer pages down to 30 —
+    CARD-202's own packing is a narrower, differently-shaped saving (small
+    answers only, 2-or-4 to a page, never the old six-up).
 
-    So **called with the count alone this is the un-paired plan**: the number
-    the Finalise screen has always shown, an upper bound on every book, and
-    the "before pairing" half of the saving FR-040 asks the generator to
-    report. ``app.py``'s Finalise screen still calls it that way and still
-    labels the figure "~" (CARD-129 owns making that count exact, EC-034).
-    Since CARD-198 the "before pairing" figure differs from the paired one by
-    the two-up pairing term alone — there is no packing saving left to bundle
-    into it.
+    So **called with the count alone this is the un-paired, un-packed plan**:
+    the number the Finalise screen has always shown, an upper bound on every
+    book, and the "before pairing" half of the saving FR-040 asks the
+    generator to report. ``app.py``'s Finalise screen still calls it that way
+    and still labels the figure "~" (CARD-129 owns making that count exact,
+    EC-034). From CARD-198 until CARD-202 the "before pairing" figure
+    differed from the paired one by the two-up pairing term alone; since
+    CARD-202 it differs by pairing *and* packing together.
 
     ``level_dividers`` is how many level divider pages the book opens
     (CARD-128) — one per non-empty named level, measured by the pass that
@@ -1423,12 +1474,15 @@ def _level_runs(
 def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int]:
     """One answer's ``(width, height)`` in cells, read off its solved grid.
 
-    Used since CARD-198 for validation only — no packing reads this number any
-    longer — but taken from the **grid** rather than from the row's
-    ``width``/``height`` columns for the same reason it always was: the grid
-    is what is actually drawn, and a row whose columns disagreed with its
-    grid must be caught here rather than reaching a renderer that trusts the
-    grid alone.
+    Used since CARD-198 for validation (a row whose columns disagreed with
+    its grid must be caught here rather than reaching a renderer that trusts
+    the grid alone) **and**, since CARD-202, for packing: this return value
+    feeds the ``Answer(width=..., height=...)`` the generator builds for
+    :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`, which is
+    what :func:`~nonogram.admin.book_answer_key.qualifies_for_packing` reads.
+    Taken from the **grid** rather than from the row's ``width``/``height``
+    columns for the same reason it always was: the grid is what is actually
+    drawn.
 
     Reimplemented here rather than imported: ``png._answer_extent`` is private
     to that module and ``export/`` exposes no public call that measures a grid
@@ -1441,11 +1495,32 @@ def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int
     grid comes off a database row, and such a row must be named and refused
     here rather than reaching the renderer as a ``TypeError``.
 
+    **CARD-202 Fix 2** added the clue-agreement check below. The grid check
+    above only ever read ``payload.grid`` — a stored row's ``clues_rows``/
+    ``clues_cols`` are a *separate* pair of columns (``_payload`` builds
+    ``row_clues``/``column_clues`` straight from them, never re-deriving them
+    from the grid), so a row with a well-formed square grid but a corrupted
+    (e.g. emptied) ``clues_cols`` sailed straight through this function and
+    was only ever caught three layers deeper, inside
+    :func:`~nonogram.export.layout.compute_packed_solved_layout`'s
+    ``_pair_member`` (the build-gate regression this fix closes) — a check
+    this function now makes itself, at the same early point CARD-198's own
+    eager validation pass already runs, mirroring exactly the check
+    :func:`~nonogram.export.layout.compute_layout` and ``_pair_member`` make
+    of the same two clue sets (``bool(rows) != bool(columns)``: a grid has
+    either both or neither). It can never fire for a well-formed grid — every
+    row and every column of a non-empty rectangle encodes to a non-empty clue
+    set (a line with no filled cells is ``(0,)``, never ``()``, per the
+    project's own boundary-type rule) — so this is strictly a widening of what
+    was already validated here, not a behaviour change for any valid puzzle.
+
     Raises:
         ValueError: the grid is missing, empty, not a sequence of rows, or its
             rows are not all the same length — not a rectangle, so not a
-            nonogram's solution. The message names the puzzle by its print
-            number, which is the handle every other abort of
+            nonogram's solution; or the stored row and column clue sets
+            disagree about whether the grid has any cells at all (one is
+            empty while the other is not). The message names the puzzle by
+            its print number, which is the handle every other abort of
             :meth:`BookPDFGenerator.interior` is searched by.
     """
     grid = payload.grid
@@ -1464,7 +1539,131 @@ def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int
             f"grid, not {rows} row(s) of "
             f"{sorted({len(row) for row in grid})} cell(s)"
         )
+    row_clue_count = len(payload.row_clues)
+    column_clue_count = len(payload.column_clues)
+    if bool(row_clue_count) != bool(column_clue_count):
+        raise ValueError(
+            f"puzzle {puzzle_number}'s clue sets disagree about the grid: "
+            f"{row_clue_count} row clue(s) but {column_clue_count} column "
+            f"clue(s); a grid has either both or neither"
+        )
     return columns, rows
+
+
+def _packed_page_is_feasible(
+    plan: PackedAnswerPage,
+    payloads: Sequence[Tuple[Any, ExportPayload]],
+    page_spec: PageSpec,
+) -> bool:
+    """Whether COMP-007 can actually lay ``plan`` out at its own capacity (review F-1).
+
+    :func:`~nonogram.export.layout.compute_packed_solved_layout` returns
+    ``None`` exactly when ``plan``'s real clue depths cannot share
+    :attr:`~nonogram.admin.book_answer_key.PackedAnswerPage.capacity` slots
+    without the shared cell falling below
+    :data:`~nonogram.export.layout.MIN_CELL_MM` — the one case that function's
+    own docstring says to read as "print these some other way", never as an
+    error. ``page_spec``'s parity does not matter here (``book_page_spec``'s
+    own docstring: parity moves the margins sideways, never the usable size),
+    so one representative spec answers this for whichever interior page
+    position ``plan`` ends up printed at.
+    """
+    members = [payloads[number - 1] for number in plan.numbers]
+    clue_pairs = [(payload.row_clues, payload.column_clues) for _, payload in members]
+    try:
+        layout = compute_packed_solved_layout(clue_pairs, plan.capacity, page_spec)
+    except Exception as e:
+        # A malformed member (clue sets that disagree about the grid, say) is
+        # a different thing from "declines to pack": `compute_packed_solved_layout`
+        # answers "no" to a genuine question by returning `None`, never by
+        # raising — so an exception here means this page could never be laid
+        # out at all, at any capacity, and must abort named rather than be
+        # read as "try a lower density" (the same split `puzzle_pages` already
+        # keeps between `compute_pair_layout` returning `None` and raising).
+        ids = [puzzle_id for puzzle_id, _ in payloads]
+        raise RuntimeError(
+            f"puzzle {_named_puzzles(ids, plan.numbers)} could not be laid out: {e}"
+        ) from e
+    return layout is not None
+
+
+def _degrade_infeasible_packed_pages(
+    answer_plan: Sequence[Union[Answer, PackedAnswerPage]],
+    payloads: Sequence[Tuple[Any, ExportPayload]],
+    page_spec: PageSpec,
+) -> List[Union[Answer, PackedAnswerPage]]:
+    """Replace a packed page COMP-007 cannot lay out with one it can (review F-1).
+
+    :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` groups
+    answers from their extents alone — it is pure and measures no tile (its
+    own module docstring) — so it cannot see that a run's *real* clue depth
+    (only the actual grids carry that) will make
+    :func:`~nonogram.export.layout.compute_packed_solved_layout` decline a
+    packed page: the :data:`~nonogram.export.layout.MIN_CELL_MM` floor would
+    otherwise force a slot's drawing to spill into a *neighbouring* answer's
+    tile, which is never acceptable (unlike a single puzzle's own ink running
+    past its own margin — see that function's docstring, "review F-1").
+
+    This degrades such a page the same way :func:`~nonogram.export.layout.compute_pair_layout`'s
+    own "decline, then the caller falls back" contract already works for a
+    pair: first the next lower density in the same run (4-up -> two 2-ups),
+    and if even a 2-up pair cannot fit without overlap, all the way down to
+    CARD-198's original guarantee — each answer on a full page of its own,
+    which :func:`~nonogram.export.layout.compute_layout` always builds for
+    any puzzle in the supported size range (it has no "decline" verdict at
+    all; the single-page tolerance it does keep only ever lets *that*
+    puzzle's own ink run past *its own* margin, never another's). A page
+    that already fits at its planned capacity is returned unchanged.
+
+    Every answer in ``answer_plan`` reaches the result exactly once, in the
+    same order — this only ever splits a page into more, smaller ones; it
+    never drops, duplicates or reorders one (checked by the caller's own
+    tripwire, the same shape as the one that checks this module's puzzle-page
+    walk).
+
+    Args:
+        answer_plan: :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`'s
+            own, extent-only plan.
+        payloads: Every drawable puzzle's ``(id, ExportPayload)``, indexed by
+            1-based print number minus one, the real clue sets this check
+            needs and the pure planner never sees.
+        page_spec: Any placed book page spec for this book — parity does not
+            change the usable size (see :func:`_packed_page_is_feasible`), so
+            one spec checks every page position the plan could still use.
+
+    Returns:
+        A plan with the same answers, in the same order, where every
+        remaining :class:`~nonogram.admin.book_answer_key.PackedAnswerPage`
+        is one COMP-007 can actually draw without any two slots' ink
+        overlapping.
+    """
+    degraded: List[Union[Answer, PackedAnswerPage]] = []
+    for entry in answer_plan:
+        if not isinstance(entry, PackedAnswerPage):
+            degraded.append(entry)
+            continue
+        if _packed_page_is_feasible(entry, payloads, page_spec):
+            degraded.append(entry)
+            continue
+        if entry.capacity == PACKED_TWO_UP:
+            # No lower packed density exists: every answer on it prints alone.
+            degraded.extend(entry.answers)
+            continue
+        # A 4-up that cannot pack: try the next lower density, two 2-ups,
+        # each checked (and allowed to fail) independently — one half
+        # binding tighter than the other is exactly the case this exists for.
+        for half in (entry.answers[:2], entry.answers[2:]):
+            if not half:
+                continue
+            if len(half) == 1:
+                degraded.append(half[0])
+                continue
+            pair_page = PackedAnswerPage(half)
+            if _packed_page_is_feasible(pair_page, payloads, page_spec):
+                degraded.append(pair_page)
+            else:
+                degraded.extend(half)
+    return degraded
 
 
 class BookPDFGenerator:
@@ -1969,6 +2168,111 @@ class BookPDFGenerator:
             )
         return page
 
+    def _draw_solved_slot(
+        self,
+        draw: ImageDraw.ImageDraw,
+        slot: Layout,
+        grid: Any,
+        puzzle_number: int,
+        difficulty: Any,
+        title: Optional[str],
+    ) -> None:
+        """Draw one solved answer's whole content onto an already-placed slot.
+
+        CARD-197/198's full solved-page drawing (steps 3-8 of
+        :meth:`solved_puzzle_page`, before CARD-202), extracted so a packed
+        slot (:meth:`_packed_answer_page`) and a full answer page
+        (:meth:`solved_puzzle_page`) draw from the **one** implementation —
+        the same precedent :meth:`_two_up_page` set for
+        :func:`_stroke_drawing`/:func:`_write_clues`/:func:`_set_band`, now
+        extended to this card's own drawing steps. Nothing is reordered and
+        nothing added or removed: a full page calling this on its own
+        full-page ``Layout`` draws byte-for-byte what it always did (AC-7),
+        because every line below is the same line that used to sit directly
+        in :meth:`solved_puzzle_page`'s body.
+
+        ``slot`` is whatever COMP-007 measured for this answer's position — a
+        full page's :class:`~nonogram.export.layout.Layout`, or one tile of a
+        :class:`~nonogram.export.layout.PackedSolvedLayout` — and nothing
+        here fits a cell or places a line itself (ADR-0036/R2).
+
+        Raises:
+            ValueError: ``slot`` is not a placed page (:meth:`page_spec`
+                always carries a parity, so this cannot happen through the
+                public door — the same total-function guard
+                :meth:`_two_up_page` keeps for the same reason).
+        """
+        xs = [line.position for line in slot.vertical_lines]
+        ys = [line.position for line in slot.horizontal_lines]
+        for row_index, row in enumerate(grid[: slot.rows]):
+            for column_index, filled in enumerate(row[: slot.columns]):
+                if not filled:
+                    continue
+                draw.rectangle(
+                    (
+                        xs[column_index],
+                        ys[row_index],
+                        xs[column_index + 1],
+                        ys[row_index + 1],
+                    ),
+                    fill=INK,
+                )
+
+        _stroke_drawing(draw, slot)
+
+        for c in range(1, slot.columns):
+            width = slot.vertical_lines[c].width
+            x = xs[c]
+            for r in range(slot.rows):
+                if grid[r][c - 1] and grid[r][c]:
+                    draw.line(
+                        [(x, ys[r]), (x, ys[r + 1])],
+                        fill=_SOLVED_GRID_GRAY,
+                        width=width,
+                    )
+        for r in range(1, slot.rows):
+            width = slot.horizontal_lines[r].width
+            y = ys[r]
+            for c in range(slot.columns):
+                if grid[r - 1][c] and grid[r][c]:
+                    draw.line(
+                        [(xs[c], y), (xs[c + 1], y)],
+                        fill=_SOLVED_GRID_GRAY,
+                        width=width,
+                    )
+
+        _write_clues(draw, slot)
+
+        placement = slot.page
+        if placement is None:  # pragma: no cover - page_spec always carries a parity
+            raise ValueError("a solved slot must be a placed book page")
+
+        _set_band(
+            draw,
+            header_band(slot),
+            band_identity(puzzle_number, difficulty),
+            placement.usable_right - placement.usable_left,
+        )
+
+        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+        caption_font_size = type_px(caption_font_points, self.dpi)
+        caption_font = _band_font(caption_font_size)
+        ascent, descent = caption_font.getmetrics()
+        line_height = ascent + descent
+        slack = placement.usable_bottom - placement.drawing_bottom
+        if slack >= line_height:
+            caption = answer_caption(puzzle_number, title)
+            draw.text(
+                (
+                    (placement.drawing_left + placement.drawing_right) / 2,
+                    (placement.drawing_bottom + placement.usable_bottom) / 2,
+                ),
+                caption,
+                font=caption_font,
+                fill=INK,
+                anchor="mm",
+            )
+
     def solved_puzzle_page(
         self,
         payload: ExportPayload,
@@ -2032,120 +2336,71 @@ class BookPDFGenerator:
         )
         page = Image.new("RGB", (layout.width, layout.height), BACKGROUND)
         draw = ImageDraw.Draw(page)
-
-        # Step 3: fill every solved cell, the same xs/ys-between-grid-lines
-        # approach `pdf._reveal` uses — reimplemented rather than imported
-        # (CLAUDE.md: capability modules reimplement rather than import
-        # across; `_reveal` is private to `export.pdf` besides).
-        grid = payload.grid
-        xs = [line.position for line in layout.vertical_lines]
-        ys = [line.position for line in layout.horizontal_lines]
-        for row_index, row in enumerate(grid[: layout.rows]):
-            for column_index, filled in enumerate(row[: layout.columns]):
-                if not filled:
-                    continue
-                draw.rectangle(
-                    (
-                        xs[column_index],
-                        ys[row_index],
-                        xs[column_index + 1],
-                        ys[row_index + 1],
-                    ),
-                    fill=INK,
-                )
-
-        # Step 4: every thin/heavy rule and the frame, pure black, over the
-        # fills — reused verbatim (G-2). ADR-0037/R2 stays literally true:
-        # this call is not edited, so the book's own rules are still drawn
-        # pure black everywhere, including over a filled run.
-        _stroke_drawing(draw, layout)
-
-        # Step 5 (this card's actual addition): re-stroke, in gray, the one
-        # line segment between every pair of grid-adjacent cells that are
-        # both filled — at that boundary's own already-computed width, so the
-        # every-5th rhythm survives in gray across a filled run too. An outer
-        # border (c == 0 or c == columns, r == 0 or r == rows) is never
-        # reached by this loop, because it only ever indexes an *interior*
-        # boundary — never "between two filled cells" since one side would be
-        # outside the grid.
-        for c in range(1, layout.columns):
-            width = layout.vertical_lines[c].width
-            x = xs[c]
-            for r in range(layout.rows):
-                if grid[r][c - 1] and grid[r][c]:
-                    draw.line(
-                        [(x, ys[r]), (x, ys[r + 1])],
-                        fill=_SOLVED_GRID_GRAY,
-                        width=width,
-                    )
-        for r in range(1, layout.rows):
-            width = layout.horizontal_lines[r].width
-            y = ys[r]
-            for c in range(layout.columns):
-                if grid[r - 1][c] and grid[r][c]:
-                    draw.line(
-                        [(xs[c], y), (xs[c + 1], y)],
-                        fill=_SOLVED_GRID_GRAY,
-                        width=width,
-                    )
-
-        # Step 6: clue digits — reused verbatim. Exempt from CON-020's 10 pt
-        # floor (2026-10-06 amendment), exactly as on an unsolved page.
-        _write_clues(draw, layout)
-
-        placement = layout.page
-        if placement is None:  # pragma: no cover - page_spec always carries a parity
-            raise ValueError(f"page {page_number} is not a placed book page")
-
-        # Step 7: the title band — reused verbatim, the same call an unsolved
-        # page's own band is set from (:meth:`_puzzle_payload`'s band text,
-        # via `render_pages`) and the same call a two-up slot's band is set
-        # from, above.
-        _set_band(
-            draw,
-            header_band(layout),
-            band_identity(puzzle_number, payload.difficulty),
-            placement.usable_right - placement.usable_left,
+        self._draw_solved_slot(
+            draw, layout, payload.grid, puzzle_number, payload.difficulty, title
         )
+        return page
 
-        # Step 8: the caption, below the drawing, in the slack between
-        # `drawing_bottom` and `usable_bottom` — never inside the trim
-        # margin, never overlapping the grid. Font is the packaged DejaVu
-        # face at `layout.ANSWER_TEXT_FONT_MM` in device pixels (exactly
-        # 10 pt, the literal CON-020 floor, reused from `export.layout`,
-        # never shrunk further) via this module's own `_band_font`. The mm
-        # -> px conversion goes through this module's own `type_px` (its
-        # docstring: "the one place this module turns a type size into
-        # pixels") rather than reimplementing `round(mm / 25.4 * dpi)` inline
-        # a second time — `type_px` is a sibling function in THIS same file,
-        # not an import across a capability-module boundary, so CLAUDE.md's
-        # reimplement-rather-than-import-across rule does not justify
-        # duplicating it (forge:review F-002). `ANSWER_TEXT_FONT_MM` is
-        # exactly 10pt expressed in mm (`export.layout.ANSWER_TEXT_FONT_MM
-        # = 10 * 25.4 / 72`), converted back to points here so the single
-        # source of truth for the size stays `export.layout`'s constant.
-        #
-        # If the slack is smaller than the caption's own line height (the
-        # font's ascent + descent), the caption is omitted rather than
-        # overlapping the drawing or spilling into the margin — a real limit
-        # of a page-fit-bound puzzle (AC-6), not solved by this card.
-        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
-        caption_font_size = type_px(caption_font_points, self.dpi)
-        caption_font = _band_font(caption_font_size)
-        ascent, descent = caption_font.getmetrics()
-        line_height = ascent + descent
-        slack = placement.usable_bottom - placement.drawing_bottom
-        if slack >= line_height:
-            caption = answer_caption(puzzle_number, title)
-            draw.text(
-                (
-                    (placement.drawing_left + placement.drawing_right) / 2,
-                    (placement.drawing_bottom + placement.usable_bottom) / 2,
-                ),
-                caption,
-                font=caption_font,
-                fill=INK,
-                anchor="mm",
+    def _packed_answer_page(
+        self,
+        plan: PackedAnswerPage,
+        payloads: List[Tuple[Any, ExportPayload]],
+        page_number: int,
+        titles: Dict[str, str],
+    ) -> Image.Image:
+        """The page 2 or 4 small answers share, each with its own clues (CARD-202).
+
+        What :meth:`_two_up_page` is to :meth:`puzzle_pages`' pairing walk,
+        this is to :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages`:
+        a page composed from what COMP-007 measured
+        (:func:`~nonogram.export.layout.compute_packed_solved_layout`), one
+        shared cell for every slot. What this method chooses is each slot's
+        drawing — :meth:`_draw_solved_slot`, the **same** call
+        :meth:`solved_puzzle_page` draws a full answer page with — never a
+        cell, a line or a band position (ADR-0036/R2, G-1).
+
+        Args:
+            plan: Which small answers land on this page, in fill order
+                (:attr:`~nonogram.admin.book_answer_key.PackedAnswerPage.numbers`),
+                and at what capacity (2 or 4).
+            payloads: Every drawable puzzle's ``(id, ExportPayload)``, indexed
+                by 1-based print number minus one — the same list
+                :meth:`interior_stream` already holds.
+            page_number: The interior position this page is laid out for
+                (FR-043), whose parity :meth:`page_spec` reads.
+            titles: The book's custom puzzle titles (:meth:`custom_titles`),
+                read the same way :meth:`interior_stream`'s own answer loop
+                already reads them for a full answer page.
+
+        Returns:
+            The rendered page.
+        """
+        members = [payloads[number - 1] for number in plan.numbers]
+        layout = compute_packed_solved_layout(
+            [(payload.row_clues, payload.column_clues) for _, payload in members],
+            plan.capacity,
+            self.page_spec(page_number),
+        )
+        if layout is None:
+            # pragma: no cover - `interior_stream`'s
+            # `_degrade_infeasible_packed_pages` pass (review F-1) already
+            # proved this exact plan, at this capacity, lays out on a
+            # parity-equivalent spec before it ever reaches here; a `None`
+            # here means that guarantee broke, not that this page is a normal
+            # case to recover from.
+            raise ValueError(
+                f"packed answer page {page_number} ({plan.numbers}) cannot be "
+                f"laid out at capacity {plan.capacity} after the packing walk "
+                "already found it feasible"
+            )
+        page = Image.new("RGB", (layout.width, layout.height), BACKGROUND)
+        draw = ImageDraw.Draw(page)
+        for slot, number, (puzzle_id, payload) in zip(
+            layout.slots, plan.numbers, members, strict=True
+        ):
+            title = answer_title(titles.get(str(puzzle_id)), payload.name)
+            self._draw_solved_slot(
+                draw, slot, payload.grid, number, payload.difficulty, title
             )
         return page
 
@@ -2609,21 +2864,66 @@ class BookPDFGenerator:
         plan = [entry for entry in section if isinstance(entry, PuzzlePagePlan)]
         dividers = len(section) - len(plan)
 
-        # The validation half of the old packed key's walk, with nothing left
-        # to pack (CARD-198): each answer's grid must still be a non-empty
-        # rectangle, checked and named before any page is drawn, because
-        # `app.py`'s `_is_an_unpackable_row` matches exactly this abort shape
-        # (G-6) and a book with a malformed row must still fail here rather
-        # than partway through the answer loop below.
+        # The validation half of the old packed key's walk (CARD-198): each
+        # answer's grid must still be a non-empty rectangle, checked and named
+        # before any page is drawn, because `app.py`'s `_is_an_unpackable_row`
+        # matches exactly this abort shape (G-2) and a book with a malformed
+        # row must still fail here rather than partway through the answer
+        # loop below. CARD-202 also *uses* the measured extent, below, to
+        # decide which answers pack — the same reader, read once.
+        answers: List[Answer] = []
         for index, (_, payload) in enumerate(payloads):
             number = index + 1
             try:
-                _answer_extent(payload, number)
+                width, height = _answer_extent(payload, number)
             except ValueError as e:
                 raise RuntimeError(
                     f"puzzle {_named_puzzles(ids, (number,))} could not be "
                     f"laid out: {e}"
                 ) from e
+            answers.append(
+                Answer(
+                    number=number,
+                    width=width,
+                    height=height,
+                    level=_pairable_tier(payload),
+                )
+            )
+
+        # CARD-202's packing walk: pure, over extents and levels alone, no
+        # sheet involved (ADR-0036/R2 — the geometry it implies is only
+        # measured later, per page, by `compute_packed_solved_layout`). A
+        # large answer (anything over width<=15/height<=20) still plans as
+        # itself, one page, unconditionally (G-1); a run of small answers of
+        # one level packs 4-or-2 (G-6).
+        answer_plan = plan_small_answer_pages(answers)
+
+        # Every page of the section — dividers included — sits between the
+        # guide page and the SOLUTIONS divider, so both of those positions
+        # count the section's length and not its puzzle pages alone. Computed
+        # here (rather than after the degrade pass below) because it depends
+        # only on `section`, never on `answer_plan` — any page_spec built from
+        # it measures the *same* usable size any other interior page position
+        # would (`book_page_spec`'s own docstring: parity moves the margins,
+        # never the usable size), which is exactly what lets one representative
+        # spec answer the degrade pass's feasibility check for every page
+        # position the plan could still land on.
+        first_answer_page = 3 + len(section)
+
+        # Review F-1 (CARD-202, fix cycle 1): `plan_small_answer_pages` above
+        # is pure and extent-only (its own module docstring: no tile measured,
+        # no PageSpec) — it cannot know that a run's *real* clue depth will
+        # make COMP-007's `compute_packed_solved_layout` decline a packed page
+        # the MIN_CELL_MM floor would otherwise force to overlap a neighbour's
+        # tile. This degrades any such page — 4-up to two 2-ups, then down to
+        # one full page per answer — into a plan every page of which COMP-007
+        # can actually lay out, *before* `len(answer_plan)` is read for the
+        # page count below and baked into the PDF's pre-allocated object
+        # table (`_write_pdf`). `payloads` carries the real grids and clue
+        # sets this check needs; `plan_small_answer_pages` never sees them.
+        answer_plan = _degrade_infeasible_packed_pages(
+            answer_plan, payloads, self.page_spec(first_answer_page)
+        )
 
         # The walk's own half of the page-plan tripwire below, and the one the
         # tripwire cannot make: `interior_page_count(count, len(plan))` takes
@@ -2636,10 +2936,24 @@ class BookPDFGenerator:
             raise RuntimeError(
                 f"the page plan prints {printed}, not puzzles 1..{count}"
             )
-        # Every page of the section — dividers included — sits between the
-        # guide page and the SOLUTIONS divider, so both of those positions
-        # count the section's length and not its puzzle pages alone.
-        first_answer_page = 3 + len(section)
+        # The degrade pass above only ever splits a page into more, smaller
+        # ones in place — it must never drop, duplicate or reorder an answer.
+        # Checked directly, the same tripwire shape as `printed` above, rather
+        # than trusted because the implementation "only ever splits": a change
+        # to that function that broke the invariant must fail loudly here
+        # instead of shipping an answer section that silently prints twice or
+        # not at all.
+        answer_numbers = [
+            number
+            for entry in answer_plan
+            for number in (
+                entry.numbers if isinstance(entry, PackedAnswerPage) else (entry.number,)
+            )
+        ]
+        if answer_numbers != list(range(1, count + 1)):
+            raise RuntimeError(
+                f"the answer-section plan prints {answer_numbers}, not puzzles 1..{count}"
+            )
 
         # Calculate difficulty counts for guide — over every member of the
         # book, drawable or not, because that is what the book holds. Read
@@ -2658,9 +2972,10 @@ class BookPDFGenerator:
         # than shipping a book whose stated page count is not its page count.
         # Since CARD-145 the two sides meet in `_as_planned`, as the pages go
         # past, instead of in a `len()` over a list nobody can afford to
-        # build. `count` is the answer term since CARD-198: one page per
-        # puzzle, no packing to measure.
-        planned = interior_page_count(count, len(plan), count, dividers)
+        # build. The answer term is `len(answer_plan)` since CARD-202: the
+        # packing walk's own page count, <= `count` and strictly less
+        # whenever at least one small answer packs.
+        planned = interior_page_count(count, len(plan), len(answer_plan), dividers)
 
         def produce() -> Iterator[Image.Image]:
             """The interior's pages in print order, one per :func:`next`.
@@ -2719,23 +3034,37 @@ class BookPDFGenerator:
             # the pages it opens — the order the interior holds them in. Each
             # answer page is drawn from its own interior position and nothing
             # else, so building them in book order changes no page's ink
-            # (CARD-145's AC-3 pins that page for page).
+            # (CARD-145's AC-3 pins that page for page). Since CARD-202 an
+            # entry is either a lone `Answer` (unchanged: one full solved page,
+            # CARD-198) or a `PackedAnswerPage` (2 or 4 small answers sharing
+            # one page, CARD-202) — the walk above is what decided which.
             if not payloads:
                 return
             yield self.create_divider_page(2 + len(section))
-            for index, (puzzle_id, payload) in enumerate(payloads):
-                number = index + 1
+            for index, entry in enumerate(answer_plan):
+                page_number = first_answer_page + index
                 try:
-                    page = self.solved_puzzle_page(
-                        payload,
-                        number,
-                        first_answer_page + index,
-                        title=answer_title(
-                            titles.get(str(puzzle_id)), payload.name
-                        ),
-                    )
+                    if isinstance(entry, PackedAnswerPage):
+                        page = self._packed_answer_page(
+                            entry, payloads, page_number, titles
+                        )
+                    else:
+                        puzzle_id, payload = payloads[entry.number - 1]
+                        page = self.solved_puzzle_page(
+                            payload,
+                            entry.number,
+                            page_number,
+                            title=answer_title(
+                                titles.get(str(puzzle_id)), payload.name
+                            ),
+                        )
                 except Exception as e:
-                    named = _named_puzzles(ids, (number,))
+                    numbers = (
+                        entry.numbers
+                        if isinstance(entry, PackedAnswerPage)
+                        else (entry.number,)
+                    )
+                    named = _named_puzzles(ids, numbers)
                     raise RuntimeError(
                         f"puzzle {named} could not be drawn: {e}"
                     ) from e
@@ -2744,14 +3073,31 @@ class BookPDFGenerator:
 
         return InteriorStream(
             page_count=planned,
-            # Before **pairing**, and only that (CARD-198: there is no
-            # packing saving left to bundle in): the puzzle-page term alone is
-            # unshortened here, so `pages_saved` measures the two-up pages and
-            # nothing else.
+            # The baseline before *any* space-saving technique: one puzzle
+            # page each (no two-up pairing) and one answer page each (no
+            # CARD-202 packing) — deliberately left at `answer_pages=count`
+            # rather than `len(answer_plan)`. `pages_saved` therefore now
+            # measures two-up pairing *and* CARD-202 packing together, not
+            # pairing alone as CARD-198's own comment here used to say — see
+            # this card's Worktree notes for why that comment, not this
+            # number, is what changed (the KDP sheet-free estimate decision
+            # turns on the same point). `paired_only_page_count` below is
+            # the number that lets a caller split the two apart again
+            # (review F-2).
             unpaired_page_count=interior_page_count(
                 count, answer_pages=count, level_dividers=dividers
             ),
-            answer_page_count=count,
+            # Pairing's own baseline (review F-2): the puzzle section at its
+            # actual, paired length, but the answer section still at one full
+            # page per puzzle (no CARD-202 packing) — so
+            # `pages_saved_by_pairing`/`pages_saved_by_packing` can attribute
+            # the saving between `unpaired_page_count` and `page_count` to
+            # the technique that actually made it, instead of the Finalise
+            # screen crediting it all to pairing.
+            paired_only_page_count=interior_page_count(
+                count, len(plan), answer_pages=count, level_dividers=dividers
+            ),
+            answer_page_count=len(answer_plan),
             pages=_as_planned(produce(), planned),
         )
 

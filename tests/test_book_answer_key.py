@@ -371,3 +371,92 @@ class TestBookKdp_UnpairedCountStillRejectsAMalformedGrid:
         rows = [self._row(_grid(10, 10, mark=index), index) for index in range(1, 3)]
 
         assert unpaired_interior_page_count(rows) > 0
+
+
+# --------------------------------------------------------------------------
+# CARD-202 Fix 2 — the extent readers also catch mismatched clue sets
+# --------------------------------------------------------------------------
+
+
+class TestBookAnswerKey_ExtentReadersAlsoCatchMismatchedClueSets:
+    """The build-gate regression, pinned at the unit level it was fixed at.
+
+    A row can have a well-formed, perfectly rectangular grid and still be
+    malformed: ``clues_rows``/``clues_cols`` are a *separate* pair of stored
+    columns (``BookPDFGenerator._payload`` builds ``row_clues``/
+    ``column_clues`` straight off them, never re-deriving them from the
+    grid), so a corrupted ``clues_cols`` (emptied, say) sails straight past
+    the grid-rectangle check both ``_answer_extent`` and ``_grid_extent``
+    already made. Before this fix neither reader noticed; the only check
+    that did was ``export/layout.py``'s ``_pair_member`` (and
+    ``compute_layout`` itself), three call-layers deeper than either reader,
+    behind this card's new packing-feasibility check — too late for
+    ``app.py``'s ``_is_an_unpackable_row`` to recognise the row as malformed
+    independently (its second signal, ``unpaired_interior_page_count``,
+    read only the grid and so never raised for this specific shape). Both
+    readers now make the same ``bool(rows) != bool(columns)`` check
+    ``_pair_member``/``compute_layout`` already make of the clue sets
+    themselves, at the same early, cheap point they already validated the
+    grid at — which is what lets ``_is_an_unpackable_row``'s two-signal
+    cross-check hold again for this malformed shape.
+    """
+
+    @staticmethod
+    def _payload_with_clues(grid: object, row_clues: object, column_clues: object):
+        """A payload whose clue sets are independent of its grid, exactly as
+        a corrupted stored row would build one (``BookPDFGenerator._payload``
+        takes ``clues_rows``/``clues_cols`` verbatim, never re-deriving them)."""
+        return BookPDFGenerator._payload(
+            {"grid": grid, "clues_rows": row_clues, "clues_cols": column_clues}
+        )
+
+    def test_answer_extent_refuses_a_well_formed_grid_with_an_emptied_column_clue_set(
+        self,
+    ) -> None:
+        grid = _grid(10, 10, mark=1)
+        row_clues = [[1]] * 10  # non-empty, mirroring the real row_clues shape
+
+        with pytest.raises(ValueError, match="clue sets disagree"):
+            book_pdf_generator._answer_extent(
+                self._payload_with_clues(grid, row_clues, []), 7
+            )
+
+    def test_answer_extent_still_accepts_a_well_formed_grid_with_both_clue_sets_present(
+        self,
+    ) -> None:
+        """The control: a real (non-empty, agreeing) pair of clue sets is untouched."""
+        grid = _grid(10, 10, mark=1)
+        row_clues = [[1]] * 10
+        column_clues = [[1]] * 10
+
+        assert book_pdf_generator._answer_extent(
+            self._payload_with_clues(grid, row_clues, column_clues), 7
+        ) == (10, 10)
+
+    def test_grid_extent_via_unpaired_count_refuses_the_same_mismatch(self) -> None:
+        """``book_kdp``'s own reader — ``_is_an_unpackable_row``'s signal 2 —
+        now independently refuses the identical malformed shape, so the
+        two-signal cross-check holds again without teaching it a new one."""
+        row = {
+            "id": "p1",
+            "grid": _grid(10, 10, mark=1),
+            "clues_rows": [[1]] * 10,
+            "clues_cols": [],
+            "difficulty_tier": "easy",
+        }
+
+        with pytest.raises(ValueError, match="clue sets disagree"):
+            unpaired_interior_page_count([row])
+
+    def test_grid_extent_via_unpaired_count_is_unmoved_when_no_clue_columns_are_stored_at_all(
+        self,
+    ) -> None:
+        """A row with no ``clues_rows``/``clues_cols`` keys at all (the shape
+        every pre-existing test in this file's sibling class above uses) is
+        not a mismatch — both sides are equally absent — so this fix must not
+        start refusing rows nothing has ever supplied clues for."""
+        rows = [
+            {"id": "p1", "grid": _grid(10, 10, mark=1), "difficulty_tier": "easy"}
+        ]
+
+        assert unpaired_interior_page_count(rows) > 0

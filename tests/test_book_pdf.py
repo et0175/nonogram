@@ -683,10 +683,11 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
         )
 
         # Guide 1, the "Easy" divider 2, the two survivors 3 and 4, the
-        # SOLUTIONS divider 5, and two answer pages 6-7 — one full solved
-        # page per survivor (CARD-198, up from the packed key's one page
-        # before this card).
-        assert len(pages) == 7
+        # SOLUTIONS divider 5, and the answer section: both survivors are
+        # 15x15 (qualifying, width<=15 and height<=20) and the same tier,
+        # so CARD-202 packs them onto one shared answer page, 6 — not two
+        # full pages.
+        assert len(pages) == 6
         first_mm = _mm(drawing_of(pages[2]).left)
         second_mm = _mm(drawing_of(pages[3]).left)
 

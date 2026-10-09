@@ -849,6 +849,16 @@ class InteriorCounts:
         unpaired_page_count: What the same interior would take with every
             puzzle on a page of its own — the "before pairing" figure the
             Increment 15 checkpoint asks for (FR-040).
+        paired_only_page_count: What the same interior would take with
+            two-up pairing applied but CARD-202's small-answer packing not —
+            pairing's own baseline, between :attr:`unpaired_page_count` and
+            :attr:`page_count`. ``None`` exactly when there is no sheet to
+            measure pairing on (``exact=False``) or no pages at all, the
+            same two cases that leave :attr:`answer_page_count` ``None``.
+            This is what lets Finalise attribute the saving to pairing or to
+            packing rather than crediting it all to pairing (review F-2 on
+            CARD-202: the single "pages_saved_by_pairing" figure used to do
+            exactly that for any book with a packable small answer).
         answer_page_count: How many of the pages are answer pages, the
             SOLUTIONS divider not counted — the checkpoint's other figure.
             ``None`` when the book has no sheet to count them on.
@@ -864,6 +874,7 @@ class InteriorCounts:
     answer_page_count: Optional[int]
     exact: bool
     unreadable: Optional[str] = None
+    paired_only_page_count: Optional[int] = None
 
 
 def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
@@ -938,6 +949,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
             answer_page_count=None,
             exact=False,
             unreadable=str(unreadable),
+            paired_only_page_count=None,
         )
     try:
         stream = generator.interior_stream(list(puzzles))
@@ -974,6 +986,7 @@ def _interior_counts(book, puzzles) -> Optional[InteriorCounts]:
         unpaired_page_count=stream.unpaired_page_count,
         answer_page_count=stream.answer_page_count,
         exact=True,
+        paired_only_page_count=stream.paired_only_page_count,
     )
 
 
@@ -4649,8 +4662,23 @@ def create_app(debug=None):
             "page_count_unreadable": counts.unreadable if counts else None,
             "unpaired_page_count": counts.unpaired_page_count if counts else None,
             "answer_page_count": counts.answer_page_count if counts else None,
+            # Review F-2 (CARD-202): this used to be one figure,
+            # `unpaired_page_count - page_count`, labelled "pairing" on the
+            # screen below no matter which technique actually saved the
+            # pages. Split in two against `paired_only_page_count` (pairing
+            # applied, CARD-202 packing not) so each label names its own
+            # cause; `None` only when there is no sheet to measure pairing on
+            # at all (`counts.paired_only_page_count is None`), the same case
+            # that leaves `answer_page_count` `None` above.
             "pages_saved_by_pairing": (
-                counts.unpaired_page_count - counts.page_count if counts else None
+                counts.unpaired_page_count - counts.paired_only_page_count
+                if counts and counts.paired_only_page_count is not None
+                else None
+            ),
+            "pages_saved_by_packing": (
+                counts.paired_only_page_count - counts.page_count
+                if counts and counts.paired_only_page_count is not None
+                else None
             ),
             "cover_uploaded": _uploaded_cover_file(book_id) is not None,
             "trim_width_cm": trim_width_cm,

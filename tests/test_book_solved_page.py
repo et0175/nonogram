@@ -557,7 +557,12 @@ class TestBookSolvedPage_TextHoldsTheTenPointFloor:
         calls = self._record(monkeypatch, generator, payload, 4, 2, "Snowflake")
         callers = {c[0] for c in calls}
         assert "_set_band" in callers
-        assert "solved_puzzle_page" in callers  # the caption is drawn in-line
+        # CARD-202 (SCOPE+): the caption's own draw.text call moved from
+        # solved_puzzle_page's body into a new shared helper,
+        # BookPDFGenerator._draw_solved_slot, reused by a packed slot too
+        # (see that method's own docstring) — the caption is still drawn
+        # in-line, just one frame further down the call stack now.
+        assert "_draw_solved_slot" in callers
 
     def test_clue_digits_are_exempt_and_are_exercised(self, monkeypatch):
         grid = _checkerboard(*_CAP_BOUND_SHAPE)

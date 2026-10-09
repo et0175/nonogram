@@ -67,7 +67,7 @@ more than an unlevelled key would take on the default plan.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, Union
 
 from nonogram.difficulty import Tier
 
@@ -76,6 +76,9 @@ __all__ = [
     "AnswerPage",
     "CAPTION_SEPARATOR",
     "FOUR_UP",
+    "PACKED_MAX_HEIGHT",
+    "PACKED_MAX_WIDTH",
+    "PackedAnswerPage",
     "SIX_UP",
     "SIX_UP_LONGEST_SIDE",
     "answer_caption",
@@ -83,6 +86,8 @@ __all__ = [
     "level_heading",
     "pack_answer_pages",
     "page_capacity",
+    "qualifies_for_packing",
+    "plan_small_answer_pages",
 ]
 
 #: The longest side, in cells, an answer may have and still leave its page
@@ -353,3 +358,183 @@ def pack_answer_pages(answers: Sequence[Answer]) -> List[AnswerPage]:
     if current:
         close()
     return pages
+
+
+# ---------------------------------------------------------------------------
+# Small answers pack 2-or-4 to a page, with clues (CARD-202, owner decisions
+# resolved 2026-10-08 via AskUserQuestion)
+# ---------------------------------------------------------------------------
+#
+# CARD-198 took every answer, large or small, to one full solved page with
+# clues (``book_pdf_generator.solved_puzzle_page``). This narrows that rule:
+# an answer small enough to shrink and still read clearly — width<=15 **and**
+# height<=20 — packs 2 or 4 to a page instead, keeping its clues and its
+# title band (``export.layout.compute_packed_solved_layout``, CARD-202). A
+# large answer (anything over either bound) is unaffected and still prints
+# alone: CARD-198's rule narrows, it does not disappear.
+#
+# The walk below decides only which answers land on which page and in what
+# grouping — the same split from COMP-007 this module already keeps for the
+# old packed key (see the module docstring): no PIL, no PageSpec, nothing
+# drawn.
+
+#: The owner's threshold (Google Doc "Nonograms - Print layout1", item 4,
+#: 2026-10-08): an answer this size or smaller packs; anything wider than 15
+#: cells OR taller than 20 keeps CARD-198's one-full-page treatment, even if
+#: the other side is small. Both sides are checked separately — this is not
+#: :data:`SIX_UP_LONGEST_SIDE`'s single longest-side bound.
+PACKED_MAX_WIDTH = 15
+PACKED_MAX_HEIGHT = 20
+
+#: The only two packed-page capacities this rule uses (owner decision,
+#: resolved 2026-10-08): never :data:`SIX_UP` — a with-clues tile has no
+#: clue-gutter room to spare at six to a page (see
+#: ``export.layout.SOLVED_TILE_MAX_CELL_MM``'s own docstring).
+PACKED_FOUR_UP = FOUR_UP
+PACKED_TWO_UP = 2
+
+
+def qualifies_for_packing(answer: Answer) -> bool:
+    """Whether ``answer`` is small enough to pack (CARD-202): width<=15 and height<=20.
+
+    Both sides, checked separately — an answer 21 cells tall and 1 cell wide
+    does not qualify, however narrow it is, and neither does one 16 wide and
+    1 tall. This is the one check every page in the walk below is sorted by.
+    """
+    return answer.width <= PACKED_MAX_WIDTH and answer.height <= PACKED_MAX_HEIGHT
+
+
+@dataclass(frozen=True, slots=True)
+class PackedAnswerPage:
+    """One packed page of CARD-202's key: 2 or 4 small answers, one tier.
+
+    A value object, valid by construction: :meth:`__post_init__` refuses a
+    page holding two levels, more answers than its tiling allows, an answer
+    that does not qualify for packing, or none at all — so a caller holding
+    one never re-checks those.
+
+    Unlike the old six-up/four-up :class:`AnswerPage`, :attr:`capacity` here
+    is **not** derived from the answers' own extents (there is no analogue of
+    :data:`SIX_UP_LONGEST_SIDE` gating 2 vs 4): it is 4 whenever the page
+    holds more than :data:`PACKED_TWO_UP` answers, 2 otherwise — the owner's
+    "always 4-up, 2-up only for a leftover" rule, read off the page's own
+    answer count because that count *is* the rule's only input.
+
+    Attributes:
+        answers: The answers on the page, in fill order — puzzle-number
+            order, left to right then top to bottom (2 columns always).
+    """
+
+    answers: Tuple[Answer, ...]
+
+    def __post_init__(self) -> None:
+        if not self.answers:
+            raise ValueError("a packed answer page holds at least one answer")
+        if len(self.answers) > PACKED_FOUR_UP:
+            raise ValueError(
+                f"{len(self.answers)} answers on a packed page that holds "
+                f"at most {PACKED_FOUR_UP}"
+            )
+        if len(set(answer.level for answer in self.answers)) != 1:
+            raise ValueError(
+                "a packed answer page holds one level, not "
+                f"{sorted(str(answer.level) for answer in self.answers)}"
+            )
+        for answer in self.answers:
+            if not qualifies_for_packing(answer):
+                raise ValueError(
+                    f"answer {answer.number} is {answer.width}x{answer.height}, "
+                    f"too large to pack (width<={PACKED_MAX_WIDTH} and "
+                    f"height<={PACKED_MAX_HEIGHT} only)"
+                )
+
+    @property
+    def capacity(self) -> int:
+        """The tiling this page is laid out at: 2 or 4 (never 6, unlike :data:`SIX_UP`)."""
+        return PACKED_FOUR_UP if len(self.answers) > PACKED_TWO_UP else PACKED_TWO_UP
+
+    @property
+    def level(self) -> Optional[Tier]:
+        """The one level every answer on the page belongs to."""
+        return self.answers[0].level
+
+    @property
+    def numbers(self) -> Tuple[int, ...]:
+        """The puzzle numbers on the page, in fill order."""
+        return tuple(answer.number for answer in self.answers)
+
+
+#: One planned page of CARD-202's answer section: a packed page of 2 or 4
+#: small answers, or a single large answer still printing on a page of its
+#: own (CARD-198's unchanged rule). ``book_pdf_generator`` turns each of these
+#: into an actual page at whatever interior position the walk has reached.
+AnswerSectionPage = Union[Answer, PackedAnswerPage]
+
+
+def plan_small_answer_pages(answers: Sequence[Answer]) -> List[AnswerSectionPage]:
+    """Plan the book's answer section in book order (CARD-202, FR-042 narrowed).
+
+    ``answers`` is the book's answers in **puzzle-number order**, exactly as
+    :func:`pack_answer_pages` requires of its own input. The walk is
+    forward-only and never reorders: concatenating the plan's answers front to
+    back (reading a :class:`PackedAnswerPage`'s :attr:`~PackedAnswerPage.numbers`
+    in order) gives ``answers`` back exactly, so a large answer's own page and
+    a run of small ones' packed pages interleave in book order, never out of
+    it (AC-2).
+
+    **The rule, walked forward.** A large answer (:func:`qualifies_for_packing`
+    is ``False``) always closes whatever packed run came before it and prints
+    on a page of its own — CARD-198's unchanged treatment. A run of
+    consecutive small answers *of one level* is cut into pages of 4 while at
+    least 4 remain, then a page of 2 while at least 2 remain, then a page
+    holding the last 1 if one is left over — never a page of 3, never a 4-up
+    page with an empty slot (owner decision, resolved 2026-10-08: "always
+    4-up, 2-up only for leftovers", no secondary size threshold). A run ends,
+    the same way :func:`pack_answer_pages`'s own one-level-per-page rule ends
+    one, the moment either the level changes **or** the next answer does not
+    qualify for packing — both are a tier boundary in the sense that matters
+    here: neither ever lets two different levels, or a small and a large
+    answer, share one packed page (G-6).
+
+    Args:
+        answers: The book's answers in puzzle-number order.
+
+    Returns:
+        One :class:`Answer` (unpacked) or :class:`PackedAnswerPage` per
+        planned page, in print order. Empty for an empty book.
+
+    Raises:
+        ValueError: ``answers`` is not in strictly increasing puzzle-number
+            order (the same precondition :func:`pack_answer_pages` checks, for
+            the same reason).
+    """
+    numbers = [answer.number for answer in answers]
+    if any(later <= earlier for earlier, later in zip(numbers, numbers[1:])):
+        raise ValueError(
+            f"answers reach the key in puzzle-number order, not {numbers}"
+        )
+
+    plan: List[AnswerSectionPage] = []
+    run: List[Answer] = []
+
+    def flush() -> None:
+        index = 0
+        while index < len(run):
+            remaining = len(run) - index
+            take = PACKED_FOUR_UP if remaining >= PACKED_FOUR_UP else min(
+                remaining, PACKED_TWO_UP
+            )
+            plan.append(PackedAnswerPage(tuple(run[index : index + take])))
+            index += take
+        run.clear()
+
+    for answer in answers:
+        if not qualifies_for_packing(answer):
+            flush()
+            plan.append(answer)
+            continue
+        if run and answer.level != run[0].level:
+            flush()
+        run.append(answer)
+    flush()
+    return plan

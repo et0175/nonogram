@@ -12,12 +12,16 @@ Two corpora, for two different questions:
 :func:`baseline_puzzles` is the **small, complete** book — four puzzles that
 between them make the interior hold one of every page kind the generator can
 produce: the guide page, a level divider (TERM-031, CARD-128), a
-single-puzzle page, a two-up page (FR-040), the SOLUTIONS divider and one
-full solved answer page per puzzle (FR-042, CARD-198 — four pages, where the
-former packed key took three since all three of its levels held one page
-each either way). Twelve interior pages, every one of them a different kind
-of drawing. That is the book :data:`BASELINE_FIXTURE` records, and the one
-AC-3 compares page for page.
+single-puzzle page, a two-up page (FR-040), the SOLUTIONS divider and the
+answer section (FR-042). Since CARD-202 three of its puzzles (Duck, Owl,
+Tree) qualify for packing (width<=15, height<=20) and pack onto two pages
+(Duck+Owl 2-up, Tree alone 2-up), while the fourth (Snowflake, 30x30) still
+gets CARD-198's own full page — three answer pages, not the four pages
+CARD-198 alone would have drawn, and not the three pages the pre-CARD-198
+packed key drew either (one per *level*, a different three). Eleven interior
+pages in all, still every one of them a different kind of drawing. That is
+the book :data:`BASELINE_FIXTURE` records, and the one AC-3 compares page for
+page.
 
 :func:`corpus_puzzles` is the **large** book — a seeded corpus of 150 puzzles
 (no ``hypothesis``: stdlib ``random.Random``, per CLAUDE.md), grouped by tier
@@ -132,14 +136,27 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``font_dependent_pages`` is unchanged: the four machine-lettered pages
 #:   are still 1, 2, 4 and 6, none of them in the answer section.
 #:
-#: All nine files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card198.json"
+#: * ``book_baseline_card202.json`` — CARD-202 packs an answer small enough
+#:   (width<=15, height<=20) 2-or-4 to a page instead of giving it CARD-198's
+#:   full page: of this book's four puzzles, Duck and Owl (10x10, Easy) and
+#:   Tree (15x15, Medium) all qualify, Snowflake (30x30, Hard) does not. Duck
+#:   and Owl pack onto one 2-up page (their run ends at two, the book's own
+#:   count, not a leftover of four); Tree, alone in its level, packs onto its
+#:   own 2-up page with one slot filled; Snowflake still gets CARD-198's full
+#:   page. Interior pages 9-12 (four answer pages) become 9-11 (three) — the
+#:   interior shrinks from twelve pages to **eleven**. Pages 1-8 are
+#:   byte-identical to CARD-198's recording (G-1, G-2); `font_dependent_pages`
+#:   is unchanged (1, 2, 4, 6, 8 — the answer section is never machine-lettered).
+#:
+#: All ten files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card202.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
 #: CARD-198 took the packed answer key (three pages, one per level) to one
-#: full solved page per puzzle (four pages, one per puzzle).
-BASELINE_PAGE_COUNT = 12
+#: full solved page per puzzle (twelve); CARD-202 packs Duck+Owl and Tier
+#: back onto two pages instead of three, back down to eleven.
+BASELINE_PAGE_COUNT = 11
 
 #: How many puzzles the large corpus holds, and the interior that follows:
 #: 1 guide + 3 level dividers + 150 puzzle pages + SOLUTIONS + 150 answer
@@ -228,15 +245,21 @@ def baseline_puzzles() -> List[Dict[str, Any]]:
     prints grouped easy, then medium, then hard (INV-009), so this list — hard
     first — exercises the grouping as well as the page kinds: the interior
     runs guide, "Easy", the two-up page, "Medium", the 15x15, "Hard", the
-    30x30, SOLUTIONS, and (since CARD-198) one answer page per puzzle: Duck,
-    Owl, Tree, Snowflake. Twelve pages, three of them level dividers.
+    30x30, SOLUTIONS, and the answer section. Since CARD-202, Duck and Owl
+    (10x10) and Tree (15x15) all qualify for packing (width<=15, height<=20)
+    while Snowflake (30x30) does not: Duck+Owl share one 2-up packed page,
+    Tree packs onto its own 2-up page alone (its level has no other qualifying
+    answer to join it), and Snowflake still gets CARD-198's full page — three
+    answer pages, not four. Eleven pages in all, three of them level dividers.
 
-    Four puzzles behind the SOLUTIONS divider also gives the answer section
-    one more page than the puzzle section's seven puzzle-or-divider pages
-    minus the two-up pairing: puzzles 2 and 3 share one *puzzle* page but
-    still print two separate *answer* pages (FR-042, CARD-198) — the one
-    difference this book's answer section no longer mirrors its puzzle
-    section's page count.
+    Four puzzles behind the SOLUTIONS divider, now three answer pages,
+    is also no longer "the puzzle section's page count minus the two-up
+    pairing, plus one": puzzles 2 and 3 (Duck, Owl) share both their *puzzle*
+    page (FR-040) and, since CARD-202, their packed *answer* page — the one
+    link between the two sections this book happens to exercise, though the
+    two pairings are decided independently (INV-010's same-tier-neighbour
+    rule for puzzle pages, CARD-202's qualifies-and-same-level rule for
+    answer pages) and are not guaranteed to agree in general.
     """
     return [
         puzzle("card145-1", 30, 30, 9, "hard", "Snowflake"),

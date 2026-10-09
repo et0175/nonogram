@@ -232,9 +232,13 @@ PAGE_FACTORIES = (
     # CARD-198 deleted "_answer_page" (the packed key's own page factory,
     # FR-042) along with the packed key itself — nothing in BookPDFGenerator
     # answers to that name any longer. "solved_puzzle_page" (CARD-197) is
-    # its replacement in this list: since CARD-198 it is what draws every
-    # answer page, wired into interior_stream's own answer-section loop.
+    # its replacement in this list: since CARD-198 it draws a large,
+    # unpacked answer's full page; CARD-202 adds "_packed_answer_page"
+    # beside it for a page of 2 or 4 small answers — both are page factories
+    # interior_stream's own answer-section loop now calls, depending on
+    # which kind of page the packing walk planned.
     "solved_puzzle_page",
+    "_packed_answer_page",
 )
 
 #: The book title the cover file carries (AC-4).
@@ -1390,9 +1394,10 @@ class TestBookPdfMemory_PagesAreUnchanged:
           30x30 hard the baseline book declares are **read back off their
           ink** (``drawing_of``), not asked of the layout — in that order,
           because the levels print in that order;
-        * pages 9-12 are answer pages, one per puzzle since CARD-198 (book
-          order: Duck, Owl, Tree, Snowflake — puzzles 2 and 3 share puzzle
-          page 3 but still each print their own answer page): each carries
+        * pages 9-11 are answer pages (CARD-202: Duck and Owl, both small
+          enough to pack, share packed page 9; Tree, the only qualifying
+          answer in its level, packs alone onto page 10; Snowflake, too large
+          to qualify, still gets CARD-198's own full page 11) — each carries
           solid blocks of ink a filled cell wide, which no blank puzzle page or
           divider has anywhere on it (the guide page has, since CARD-167:
           its worked example).
@@ -1423,7 +1428,7 @@ class TestBookPdfMemory_PagesAreUnchanged:
                 "two 10x10 puzzles the two-up page pairs"
             )
 
-        for number in (9, 10, 11, 12):
+        for number in (9, 10, 11):
             assert solid_ink_blocks(exported[number - 1]), (
                 f"interior page {number} should be an answer page, whose "
                 "filled cells are solid blocks of ink"
@@ -1583,8 +1588,12 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         """The counts come off the page plan now — they must still be the file's."""
         assert export.interior_page_count == pdf_page_count(export.interior.getvalue())
         assert export.interior_page_count == BASELINE_PAGE_COUNT
-        assert export.answer_page_count == 4  # one per puzzle, CARD-198
-        assert export.pages_saved == 1  # the one two-up page (FR-040)
+        # CARD-202: Duck+Owl pack onto one page, Tree packs alone onto
+        # another, Snowflake keeps its own full page — 3, not CARD-198's 4.
+        assert export.answer_page_count == 3
+        # The two-up page (FR-040) and CARD-202's own packing saving (one
+        # fewer answer page than CARD-198's one-per-puzzle) together now.
+        assert export.pages_saved == 2
 
     def test_parity_still_counts_from_interior_page_1(self, export):
         """The guide page is right-hand, and the two single-puzzle pages are not.
@@ -1643,7 +1652,7 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
     measured.
     """
 
-    def test_a_page_that_fails_at_page_9_of_12_hands_the_caller_nothing(self):
+    def test_a_page_that_fails_at_page_9_of_11_hands_the_caller_nothing(self):
         """Eight pages were already in the buffer, and no file came out.
 
         The mechanism is that the buffer is a local of ``_write_pdf`` and is
@@ -1653,13 +1662,18 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
         passing on a failure that happened too early to matter) and that the
         caller got an exception rather than a truncated PDF.
 
-        ``solved_puzzle_page`` (CARD-197) is what draws every answer page
-        since CARD-198 replaced the packed key's own ``_answer_page`` with
-        it, so it is the method forced to fail here.
+        ``solved_puzzle_page`` (CARD-197) drew every answer page until
+        CARD-202: it still draws a large (unpacked) answer's full page, but
+        the baseline book's first answer page is now a packed one
+        (``_packed_answer_page``, CARD-202), so both are forced to fail here
+        — whichever one the walk reaches first still fails cleanly, and the
+        baseline book's own packing shape (``tests/helpers/book_corpus.py``)
+        still puts that first failure at the same ninth page either way.
         """
         written: List[int] = []
         write_page = BookPDFGenerator._write_page
         solved_puzzle_page = BookPDFGenerator.solved_puzzle_page
+        packed_answer_page = BookPDFGenerator._packed_answer_page
 
         def counting(self, *args, **kwargs):
             written.append(1)
@@ -1670,17 +1684,22 @@ class TestBookPdfMemory_NothingHalfWrittenEscapes:
 
         BookPDFGenerator._write_page = counting
         BookPDFGenerator.solved_puzzle_page = refuses
+        BookPDFGenerator._packed_answer_page = refuses
         try:
             with pytest.raises(RuntimeError) as raised:
                 export_of(BookPDFGenerator(corpus_book()), baseline_puzzles())
         finally:
             BookPDFGenerator._write_page = write_page
             BookPDFGenerator.solved_puzzle_page = solved_puzzle_page
+            BookPDFGenerator._packed_answer_page = packed_answer_page
 
         assert "could not be drawn" in str(raised.value)
         # Guide, three level dividers, the two-up page, two single-puzzle
-        # pages and the SOLUTIONS divider: eight pages of a planned twelve
-        # were bytes in the buffer already.
+        # pages and the SOLUTIONS divider: eight pages of a planned eleven
+        # were bytes in the buffer already (CARD-202: the baseline book's
+        # answer section is now 3 packed-or-full pages, not CARD-198's 4, but
+        # the first one — where this failure lands — is still the ninth page
+        # either way).
         assert written == [1] * 8, written
 
     def test_a_producer_that_yields_too_few_pages_never_reaches_the_trailer(self):

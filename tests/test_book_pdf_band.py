@@ -184,9 +184,23 @@ def _gutter_grid(columns: int, rows: int, depth: int) -> list[list[bool]]:
     ]
 
 
+#: CARD-202: a puzzle this size or smaller (width<=15, height<=20) packs with
+#: its same-tier neighbours in the answer section instead of taking a full
+#: answer page to itself. This module's default puzzle is deliberately above
+#: that threshold — 18x18, not CON-011's own ``MIN_SIZE`` (10) — because its
+#: whole subject is the one-full-page answer key's identity (band, caption,
+#: page count), which CARD-198 gave every puzzle unconditionally and CARD-202
+#: narrows to large ones only; this module keeps testing the large-puzzle
+#: case its hardcoded page arithmetic (``ONCE_PAGE_COUNT`` and friends) was
+#: built against. Small-answer packing has its own dedicated coverage in
+#: ``tests/test_book_solved_answer_key.py`` and
+#: ``tests/property/test_book_answer_tiles.py``.
+_NEVER_PACKS_SIZE = 18
+
+
 def _puzzle(
-    columns: int = MIN_SIZE,
-    rows: int = MIN_SIZE,
+    columns: int = _NEVER_PACKS_SIZE,
+    rows: int = _NEVER_PACKS_SIZE,
     depth: int = 3,
     name: str | None = "Snowflake",
     tier: object = "easy",
@@ -926,22 +940,28 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
 #: tier — prints alone through COMP-007's ``render_pages``.
 ONCE_TIERS = ("easy", "easy", "medium", "medium", "hard")
 
-#: This module's reading of that book's interior (FR-041, FR-040, FR-042,
-#: CARD-198): 1 guide; 2 Easy divider; 3 Puzzles 1-2 two-up; 4 Medium
-#: divider; 5 Puzzles 3-4 two-up; 6 Hard divider; 7 Puzzle 5 alone; 8
-#: SOLUTIONS divider; 9-13 one full answer page per puzzle (CARD-198, up
-#: from the packed key's one page per level, 9-11, before this card).
-#: ``print_plan`` above models only books that never pair, so the pages are
-#: written out here instead.
-ONCE_PAGE_COUNT = 13
+#: This module's reading of that book's interior (FR-041, FR-040, FR-042):
+#: 1 guide; 2 Easy divider; 3 Puzzles 1-2 two-up; 4 Medium divider; 5
+#: Puzzles 3-4 two-up; 6 Hard divider; 7 Puzzle 5 alone; 8 SOLUTIONS divider;
+#: 9-11 CARD-202's own packed answer section — puzzles 1-2 (both Easy, both
+#: qualify) share packed page 9, 3-4 (both Medium, both qualify) share packed
+#: page 10, and 5 (Hard, alone in its level, still qualifies) packs alone
+#: onto page 11. ``print_plan`` above models only books that never pair, so
+#: the pages are written out here instead.
+ONCE_PAGE_COUNT = 11
 ONCE_BAND_PAGES = {1: 3, 2: 3, 3: 5, 4: 5, 5: 7}
 HARD_ALONE_PAGE = 7
 TWO_UP_PAGE = 3
 
-#: Page 8 is the SOLUTIONS divider, so puzzle N's own full answer page is
-#: 8 + N (CARD-198: one per puzzle, in book order, right after it).
+#: Page 8 is the SOLUTIONS divider. Unlike the puzzle section's band pages,
+#: a puzzle's *answer* page is no longer simply "solutions + its number"
+#: (CARD-198's one-per-puzzle shape) — CARD-202 packs 1 and 2 onto one page,
+#: 3 and 4 onto the next, so this is this card's own recomputation, read off
+#: :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` for this
+#: exact book rather than re-derived by a second arithmetic rule here.
 ONCE_SOLUTIONS_PAGE = 8
-HARD_ANSWER_PAGE = ONCE_SOLUTIONS_PAGE + 5
+ANSWER_PAGE_OF = {1: 9, 2: 9, 3: 10, 4: 10, 5: 11}
+HARD_ANSWER_PAGE = ANSWER_PAGE_OF[5]
 
 #: The band's type size: 5 mm at 300 DPI (COMP-007's header size), in pixels.
 BAND_FONT_PX = round(5.0 * PX_PER_MM)
@@ -967,8 +987,16 @@ _FONT_RESOURCE = "fonts/DejaVuSans.ttf"
 
 
 def _once_book() -> list[dict]:
+    # Explicit 10x10 (not this module's own non-qualifying default, see
+    # ``_NEVER_PACKS_SIZE``): this section's whole premise is that same-tier
+    # neighbours pair on the puzzle page (FR-040), which only a small shape
+    # does, and CARD-202's own math makes "small enough to pair" and "small
+    # enough to qualify for packing" the same condition at this profile (a
+    # pair's combined-height budget is tighter than one packed tile's) — so
+    # this book's answer section packs too, and the ONCE_* constants below
+    # are this card's own recomputation of that, not CARD-198's any more.
     return [
-        _puzzle(tier=tier, puzzle_id=f"once-{index}")
+        _puzzle(columns=10, rows=10, tier=tier, puzzle_id=f"once-{index}")
         for index, tier in enumerate(ONCE_TIERS, start=1)
     ]
 
@@ -1146,13 +1174,16 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
     ) -> None:
         """Each band is found on exactly two pages, and nowhere else.
 
-        Since CARD-198 a puzzle's band prints twice, by design: once on its
-        own puzzle page (COMP-007's header / ``_set_band``) and once on its
-        own full answer page (``solved_puzzle_page`` reuses the same
-        ``_set_band`` call, CARD-197's step 7) — never on any *other*
-        puzzle's page of either kind. "Nowhere else" still means as a line
-        of its own: a copy beside the drawing or over other ink is not
-        found (see the section comment; the recorder covers it).
+        A puzzle's band prints twice, by design: once on its own puzzle page
+        (COMP-007's header / ``_set_band``) and once on its own answer
+        page — a full page (``solved_puzzle_page``) or, since CARD-202, its
+        own slot of a packed page (``_packed_answer_page``), both of which
+        draw the band through the same ``_set_band`` call
+        (``_draw_solved_slot``, shared by both) — never on any *other*
+        puzzle's page of either kind, packed page-mates included. "Nowhere
+        else" still means as a line of its own: a copy beside the drawing or
+        over other ink is not found (see the section comment; the recorder
+        covers it).
         """
         bands = _once_bands()
         found = sorted(
@@ -1161,7 +1192,7 @@ class TestBookPdf_BandPrintsOnceInTheExportedPdf:
         assert found == sorted(
             (page, text, BAND_FONT_PX)
             for number, text in bands.items()
-            for page in (ONCE_BAND_PAGES[number], ONCE_SOLUTIONS_PAGE + number)
+            for page in (ONCE_BAND_PAGES[number], ANSWER_PAGE_OF[number])
         )
 
     @pytest.mark.parametrize(
@@ -1301,14 +1332,15 @@ class TestBookPdf_ExtraBandDrawNeverReachesAWrittenPage:
         self, band_draws: _BandDraws
     ) -> None:
         """Each puzzle's band is drawn once on its puzzle page and once on
-        its own answer page (CARD-198: ``solved_puzzle_page`` reuses the
-        same ``_set_band`` call its puzzle page uses)."""
+        its own answer page — a full page or, since CARD-202, its own slot
+        of a packed page (both draw it through ``_draw_solved_slot``'s one
+        shared ``_set_band`` call)."""
         bands = _once_bands()
         expected: dict[int, Counter] = {}
         for number, page_number in ONCE_BAND_PAGES.items():
             expected.setdefault(page_number, Counter())[bands[number]] += 1
         for number, text in bands.items():
-            expected.setdefault(ONCE_SOLUTIONS_PAGE + number, Counter())[text] += 1
+            expected.setdefault(ANSWER_PAGE_OF[number], Counter())[text] += 1
         assert band_draws.written == expected
 
     def test_no_band_is_drawn_on_a_page_after_it_was_written(
