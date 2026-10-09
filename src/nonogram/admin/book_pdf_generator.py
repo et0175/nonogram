@@ -1495,11 +1495,32 @@ def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int
     grid comes off a database row, and such a row must be named and refused
     here rather than reaching the renderer as a ``TypeError``.
 
+    **CARD-202 Fix 2** added the clue-agreement check below. The grid check
+    above only ever read ``payload.grid`` — a stored row's ``clues_rows``/
+    ``clues_cols`` are a *separate* pair of columns (``_payload`` builds
+    ``row_clues``/``column_clues`` straight from them, never re-deriving them
+    from the grid), so a row with a well-formed square grid but a corrupted
+    (e.g. emptied) ``clues_cols`` sailed straight through this function and
+    was only ever caught three layers deeper, inside
+    :func:`~nonogram.export.layout.compute_packed_solved_layout`'s
+    ``_pair_member`` (the build-gate regression this fix closes) — a check
+    this function now makes itself, at the same early point CARD-198's own
+    eager validation pass already runs, mirroring exactly the check
+    :func:`~nonogram.export.layout.compute_layout` and ``_pair_member`` make
+    of the same two clue sets (``bool(rows) != bool(columns)``: a grid has
+    either both or neither). It can never fire for a well-formed grid — every
+    row and every column of a non-empty rectangle encodes to a non-empty clue
+    set (a line with no filled cells is ``(0,)``, never ``()``, per the
+    project's own boundary-type rule) — so this is strictly a widening of what
+    was already validated here, not a behaviour change for any valid puzzle.
+
     Raises:
         ValueError: the grid is missing, empty, not a sequence of rows, or its
             rows are not all the same length — not a rectangle, so not a
-            nonogram's solution. The message names the puzzle by its print
-            number, which is the handle every other abort of
+            nonogram's solution; or the stored row and column clue sets
+            disagree about whether the grid has any cells at all (one is
+            empty while the other is not). The message names the puzzle by
+            its print number, which is the handle every other abort of
             :meth:`BookPDFGenerator.interior` is searched by.
     """
     grid = payload.grid
@@ -1517,6 +1538,14 @@ def _answer_extent(payload: ExportPayload, puzzle_number: int) -> Tuple[int, int
             f"puzzle {puzzle_number}'s answer must be a non-empty rectangular "
             f"grid, not {rows} row(s) of "
             f"{sorted({len(row) for row in grid})} cell(s)"
+        )
+    row_clue_count = len(payload.row_clues)
+    column_clue_count = len(payload.column_clues)
+    if bool(row_clue_count) != bool(column_clue_count):
+        raise ValueError(
+            f"puzzle {puzzle_number}'s clue sets disagree about the grid: "
+            f"{row_clue_count} row clue(s) but {column_clue_count} column "
+            f"clue(s); a grid has either both or neither"
         )
     return columns, rows
 

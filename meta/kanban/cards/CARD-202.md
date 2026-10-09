@@ -903,3 +903,168 @@ _(Note: CON-019 appears here because `Touches` includes `src/nonogram/export/lay
     `Answer(width=..., height=...)` construction feeds
     `qualifies_for_packing` from exactly this return value. Doc-only, no
     test needed beyond the full suite not regressing.
+
+- [Build gate] FAILED (attempt 1/2, retest after F-1..F-3 fixes).
+  Orchestrator's own independent full-suite run — `./.venv/bin/python -m
+  pytest` in the CARD-202 worktree, under the `meta/kanban/.full-suite.lock`:
+  **6745 passed, 9 skipped, 1 failed** (1046.68s). The one failure is a
+  real regression, not flake:
+  `tests/test_book_select_floor_tiles.py::TestBookFloorTiles_UnmeasurableCellsFailClosed::test_the_finalise_count_holds_the_same_posture`
+  — this test deliberately corrupts a stored puzzle's `clues_cols` to `[]`
+  (an unmeasurable/malformed grid, "10 row clue(s) but 0 column clue(s)")
+  and expects `/book/<id>/finalize` to degrade gracefully (200, "page
+  count not shown"), the pre-existing posture `app.py`'s
+  `_is_an_unpackable_row`/`_interior_counts` establish for exactly this
+  shape of error. It now gets an uncaught 500 instead.
+
+  Traced (not just observed) via the full traceback in
+  `/tmp/full_suite_card202_postfix.log`: the malformed grid is NOT caught
+  by CARD-198's own eager validation pass (`_answer_extent`) — it only
+  surfaces later, inside THIS card's new `_packed_page_is_feasible`
+  (`book_pdf_generator.py:1545`), which calls
+  `compute_packed_solved_layout` → `_pair_member`
+  (`export/layout.py:1867`), whose stricter rectangle check is what
+  actually raises `ValueError: member 0: clue sets disagree about the
+  grid: 10 row clue(s) but 0 column clue(s)`. `_packed_page_is_feasible`
+  correctly re-wraps this as `RuntimeError(... could not be laid out
+  ...) from e` (the established shape), but `_is_an_unpackable_row`'s own
+  two-signal check (RuntimeError-caused-by-ValueError, AND
+  `book_kdp.unpaired_interior_page_count` independently raising
+  `ValueError` on the same rows) apparently does not confirm signal 2 for
+  this specific malformed shape, so the error is treated as "the
+  exporter's bug" and re-raised uncaught rather than recognized as "a
+  malformed row." Orchestrator's working hypothesis (for the fix agent to
+  confirm or correct): `_answer_extent`/`book_kdp`'s own `_grid_extent`
+  are both more lenient than `_pair_member`'s check for an
+  empty-one-side-only clue mismatch, so this malformed puzzle slips past
+  BOTH of CARD-198's and CARD-202's own earlier extent readers and is
+  only ever caught by the new, stricter validation three layers deep —
+  which `_is_an_unpackable_row` was never taught to recognize as "the
+  same kind of malformed row," since before this card, nothing in the
+  answer-page path called anything as strict as `_pair_member` for a
+  single-page (non-paired, non-packed) answer. Not yet fixed — routed to
+  a dedicated fix pass rather than guessed at blind. Full traceback
+  preserved at `/tmp/full_suite_card202_postfix.log` for the fix agent.
+
+- [Fix 2] Root cause confirmed exactly as hypothesized, nailed down line
+  by line rather than taken on faith.
+
+  **Confirmed by reading, then by reproducing.** `_answer_extent`
+  (`book_pdf_generator.py`) and `book_kdp._grid_extent` have, since they
+  were written (CARD-198), only ever validated that `payload.grid`/
+  `row["grid"]` is a non-empty rectangle — neither has ever read
+  `row_clues`/`column_clues` (or the stored `clues_rows`/`clues_cols`
+  columns) at all, let alone checked them against each other. The one
+  place that *does* check clue-set agreement is
+  `export/layout.py`'s `_pair_member` (shared by `compute_pair_layout` and,
+  since this card, `compute_packed_solved_layout`) and `compute_layout`
+  itself, both with the identical `bool(len(row_clues)) !=
+  bool(len(column_clues))` test. `BookPDFGenerator._payload`
+  (`book_pdf_generator.py`) builds `row_clues`/`column_clues` straight off
+  the stored `clues_rows`/`clues_cols` columns (`tuple(tuple(row) for row
+  in clues_rows) if clues_rows else ()`), never re-deriving them from the
+  grid — so a row with a well-formed square grid but a corrupted (emptied)
+  `clues_cols` sails straight through both extent readers unchanged, no
+  matter which card's code runs.
+
+  **Why this card exposed it when none of CARD-198/CARD-153/CARD-127 did.**
+  It isn't that CARD-202 made the extent readers more lenient — they were
+  always this lenient, confirmed by `tests/test_book_pdf.py`'s own
+  pre-existing `_unmeasurable_puzzle()` fixture (`clues_cols = []` on a
+  well-formed grid, exactly this shape), whose docstring already states
+  "`_payload` is happy (it turns an empty list into an empty clue set)" —
+  i.e. this was always a known, accepted gap at the extent-reader level,
+  papered over because every call path that *could* reach such a row
+  before this card went through either `compute_layout` (a lone row,
+  drawn lazily) or `compute_pair_layout` (a same-tier neighbour, in the
+  pairing walk) — both of which *do* check clue agreement, and both of
+  which ran either inside `interior_stream`'s own synchronous section-plan
+  step (pairing) or inside the lazily-walked `produce()` generator
+  (solo draw) — so a malformed row was always caught by *something*, just
+  never by the cheap extent readers themselves. `_is_an_unpackable_row`'s
+  signal 2 (`unpaired_interior_page_count`, via `_grid_extent`) was
+  therefore never actually exercised against this specific malformed
+  shape before: signal 1 (RuntimeError-caused-by-ValueError) held for the
+  pairing-walk failure too (review F-008's own history), and signal 2
+  happened to ALSO hold for every malformed shape anyone had fed it,
+  because every one of those shapes failed `_grid_extent`'s own
+  rectangle check, not because `_grid_extent` was checking the right
+  thing. This card's new `_packed_page_is_feasible` is the first call path
+  that (a) reaches `_pair_member`'s stricter check (b) from inside
+  `interior_stream`'s own synchronous, pre-draw step (c) for a row with no
+  pairing partner required at all — a *lone* small puzzle now reaches a
+  `_pair_member`-shaped check (via packing) that it never used to reach
+  before any page was drawn. The gap in the extent readers was latent the
+  whole time; this card is simply the first to route a previously-safe
+  case (a lone qualifying small puzzle) through a call that finally
+  notices it, eagerly, before `_is_an_unpackable_row` even gets a chance to
+  ask `_grid_extent`'s weaker question.
+
+  **Fix, at the level the orchestrator's option (a)/(b) called most
+  likely correct.** Tightened both `_answer_extent`
+  (`book_pdf_generator.py`) and `book_kdp._grid_extent` to add exactly the
+  check `_pair_member`/`compute_layout` already make —
+  `bool(row_clue_count) != bool(column_clue_count)` → `ValueError`, same
+  message shape as the other two ("clue sets disagree about the grid: N
+  row clue(s) but M column clue(s); a grid has either both or neither")
+  — at the same early point CARD-198's own eager validation pass already
+  runs, so the malformed row is named and aborted (`RuntimeError`, "...
+  could not be laid out: ...", `ValueError` cause) **before**
+  `plan_small_answer_pages`/`_degrade_infeasible_packed_pages` ever sees
+  it, and **before** `_is_an_unpackable_row` is asked at all for a book
+  whose plan building fails this way. `book_kdp._grid_extent` got the
+  identical check so `unpaired_interior_page_count` — signal 2 — now also
+  refuses this row independently, keeping `_is_an_unpackable_row`'s
+  two-signal discipline intact rather than teaching it a new signal (the
+  fallback shape (c) in the brief was not needed). Proven not to change
+  behaviour for any well-formed grid: both clue sets are non-empty
+  whenever the grid is a non-empty rectangle (a line with no filled cells
+  encodes to `(0,)`, never `()`), so the new `bool(...) != bool(...)`
+  branch is unreachable for a valid puzzle — and the full suite run below
+  confirms no well-formed-grid test anywhere regressed.
+
+  **Did not touch F-1's fix.** `compute_packed_solved_layout`'s
+  decline-below-`MIN_CELL_MM` contract, `_packed_page_is_feasible`'s
+  malformed-vs-declines split, and `_degrade_infeasible_packed_pages`'s
+  retry-then-fallback walk are all untouched — this fix closes the
+  malformed-row case at a point *before* any of that machinery is ever
+  reached for such a row, which is exactly the distinction
+  `_packed_page_is_feasible`'s own comment already draws ("a malformed
+  member ... is a different thing from 'declines to pack'"). A
+  genuinely-too-deep-clued *well-formed* small answer still reaches
+  `compute_packed_solved_layout` and still degrades exactly as F-1 built
+  it to.
+
+  **Evidence.**
+  - `tests/test_book_select_floor_tiles.py` in full: **41 passed**,
+    including the previously-failing
+    `TestBookFloorTiles_UnmeasurableCellsFailClosed::test_the_finalise_count_holds_the_same_posture`.
+  - A new unit-level test class,
+    `TestBookAnswerKey_ExtentReadersAlsoCatchMismatchedClueSets`
+    (`tests/test_book_answer_key.py`, 4 tests), pins the fix directly at
+    the level it was made: a well-formed 10x10 grid with a non-empty
+    `clues_rows` but an emptied `clues_cols` now raises `ValueError`
+    ("clue sets disagree ...") straight out of `_answer_extent` (and, via
+    `unpaired_interior_page_count`, out of `book_kdp._grid_extent` too);
+    two control tests confirm a real agreeing clue-set pair is unaffected
+    and a row with *no* clue columns stored at all (neither present, the
+    shape every pre-existing test in the sibling
+    `TestBookKdp_UnpairedCountStillRejectsAMalformedGrid` class already
+    uses) is correctly **not** treated as a mismatch.
+  - `tests/test_book_pdf.py::TestBookPdf_UndrawablePuzzleAbortsNamingThePuzzle`
+    (the pre-existing malformed-row class, including the
+    `_unmeasurable_puzzle()` pairing/solo/different-tier cases): still
+    green — these already asserted only the puzzle-id substring and a
+    kept `ValueError` cause, which the earlier catch point still satisfies.
+  - Directly-relevant files re-run together (`test_book_pdf.py`,
+    `test_book_answer_key.py`, `test_book_solved_answer_key.py`,
+    `test_layout_packed_solved.py`, `test_book_pdf_packed_degrade.py`,
+    `test_book_finalise_gutter.py`, `test_book_pdf_two_up.py`,
+    `test_book_puzzle_frame.py`, `test_book_pdf_memory.py`,
+    `test_book_pdf_ink_mode.py`, `test_book_pdf_band.py`,
+    `test_book_interior_type_floor.py`, `test_book_solved_page.py`, plus
+    the property suites `test_book_pairing.py`, `test_book_pdf_geometry.py`,
+    `test_book_export_interior.py`, `test_book_answer_tiles.py`,
+    `test_book_membership_floor.py`): all green, no regressions.
+  - Full, unfiltered `./.venv/bin/python -m pytest` from the worktree
+    root: see this section's own tail for the fresh count and exit code.

@@ -447,6 +447,18 @@ def _grid_extent(row: Any, number: int) -> Tuple[int, int]:
     ``book_pdf_generator`` takes them from there: the grid is what the key
     prints, and a row whose columns disagree with its grid would otherwise land
     a 25-cell answer on a six-up page.
+
+    **CARD-202 Fix 2** added the clue-agreement check below, mirroring the
+    identical widening of ``book_pdf_generator._answer_extent`` (read that
+    function's own docstring for the full reasoning). This function is what
+    lets ``app.py``'s ``_is_an_unpackable_row`` recognise a malformed row
+    independently of the generator's own abort (this module's own docstring
+    on :func:`unpaired_interior_page_count`, G-6) — before this fix, a row
+    with a well-formed grid but a corrupted (e.g. emptied) ``clues_cols`` did
+    not raise here, so that independent cross-check's second signal never
+    fired for exactly the shape of row the regression exposed. Like its
+    sibling, this can never fire for a well-formed row: both clue sets are
+    non-empty whenever the grid is a non-empty rectangle.
     """
     grid = row.get("grid") if hasattr(row, "get") else None
     if not isinstance(grid, (list, tuple)) or not all(
@@ -461,5 +473,15 @@ def _grid_extent(row: Any, number: int) -> Tuple[int, int]:
     if not rows or not columns or any(len(line) != columns for line in grid):
         raise ValueError(
             f"puzzle {number}'s answer must be a non-empty rectangular grid"
+        )
+    clues_rows = row.get("clues_rows") if hasattr(row, "get") else None
+    clues_cols = row.get("clues_cols") if hasattr(row, "get") else None
+    row_clue_count = len(clues_rows) if clues_rows else 0
+    column_clue_count = len(clues_cols) if clues_cols else 0
+    if bool(row_clue_count) != bool(column_clue_count):
+        raise ValueError(
+            f"puzzle {number}'s clue sets disagree about the grid: "
+            f"{row_clue_count} row clue(s) but {column_clue_count} column "
+            f"clue(s); a grid has either both or neither"
         )
     return columns, rows
