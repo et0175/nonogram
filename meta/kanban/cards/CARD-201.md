@@ -1086,3 +1086,10 @@ evidence), and the Finalise screen's live preview
     straightforward "the correction belongs to some images, not all of
     them" bug, and the chosen mechanism (a per-mark flag) follows the
     existing code's own shape rather than introducing a new pattern.
+
+- [Build gate] PASSED (attempt 2, after F-11's fix). Orchestrator's own
+  independent full-suite run — `./.venv/bin/python -m pytest` in the
+  CARD-201 worktree, under the `meta/kanban/.full-suite.lock`: **6733
+  passed, 9 skipped, 0 failed, 0 errors, exit 0** (1197.78s) — exactly the
+  implementer's own self-reported count, no discrepancy. Gate clear —
+  proceeding to forge:review cycle 3 (the final allowed cycle).
