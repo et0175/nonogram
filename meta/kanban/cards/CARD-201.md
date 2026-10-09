@@ -1093,3 +1093,6 @@ evidence), and the Finalise screen's live preview
   passed, 9 skipped, 0 failed, 0 errors, exit 0** (1197.78s) — exactly the
   implementer's own self-reported count, no discrepancy. Gate clear —
   proceeding to forge:review cycle 3 (the final allowed cycle).
+- [Review] forge:review cycle 3 started (background agent `@code-review`,
+  final allowed cycle — confirmation pass over F-11's fix plus the whole
+  diff).
