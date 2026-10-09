@@ -308,13 +308,17 @@ def assert_the_interior_really_prints_that(shelf, order, context) -> None:
     plan = BookPDFGenerator(None).puzzle_section(payloads)
     dividers = sum(1 for entry in plan if isinstance(entry, DividerPagePlan))
     puzzle_pages = sum(1 for entry in plan if isinstance(entry, PuzzlePagePlan))
+    # CARD-200 (SCOPE+): the table of contents' own length, read off the
+    # same seam `interior_stream` itself measures it from (`section_plan`),
+    # not re-derived by a second arithmetic rule here.
+    toc_pages = BookPDFGenerator(None).section_plan(_rows(shelf, order)).toc_page_count
 
     stream = BookPDFGenerator(None).interior_stream(_rows(shelf, order))
     pages = list(stream.pages)
 
-    # The 2-page guide (CARD-201), the section's pages, the SOLUTIONS
-    # divider, the packed key.
-    expected = 2 + dividers + puzzle_pages + 1 + stream.answer_page_count
+    # The 2-page guide (CARD-201), the table of contents (CARD-200), the
+    # section's pages, the SOLUTIONS divider, the packed key.
+    expected = 2 + toc_pages + dividers + puzzle_pages + 1 + stream.answer_page_count
     assert stream.page_count == expected, context
     assert len(pages) == expected, context
     assert {page.size for page in pages} == {pages[0].size}, context
