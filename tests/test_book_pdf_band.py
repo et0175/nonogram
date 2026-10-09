@@ -61,7 +61,13 @@ from PIL import Image, ImageDraw, ImageFont
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, band_identity
+from nonogram.admin.book_pdf_generator import (
+    DPI,
+    BookPDFGenerator,
+    band_identity,
+    _draw_folio,
+    page_frame,
+)
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -253,14 +259,17 @@ def print_plan(puzzles: Sequence[dict]) -> dict[int, tuple[int, int]]:
     This module's own reading of the printed book: the rows grouped easy, then
     medium, then hard — a **stable** sort on the level alone, so the order
     inside a level is the one the book was handed in — numbered 1..n over the
-    puzzles, and laid out from interior page 3 (CARD-201: the guide is now 2
-    pages, not 1) with one divider page opening each non-empty *named* level.
-    Every book here is one of 15..20-cell drawings that never pair (see the
-    class docstrings), so a puzzle takes a page.
+    puzzles, and laid out from interior page 4 (CARD-201: the guide is 2
+    pages, not 1; CARD-200: a 1-page table of contents follows it — this
+    module's own books never hold more than :data:`MIN_POSITION` + 1 puzzles,
+    far under Book 1's own TOC capacity, so the TOC is always exactly one
+    page) with one divider page opening each non-empty *named* level. Every
+    book here is one of 15..20-cell drawings that never pair (see the class
+    docstrings), so a puzzle takes a page.
     """
     order = sorted(range(len(puzzles)), key=lambda index: level_rank(puzzles[index]["difficulty_tier"]))
     plan: dict[int, tuple[int, int]] = {}
-    page = 3
+    page = 4
     opened: object = None
     for number, index in enumerate(order, start=1):
         rank = level_rank(puzzles[index]["difficulty_tier"])
@@ -309,6 +318,17 @@ def _pages_with_band(
     ``None`` for a page that carries none) and ``identity``, the band line.
     Rendered on the sheet of interior page ``page_number``, so the comparison
     is about the band and nothing else.
+
+    **CARD-200 (SCOPE+): the puzzle page the generator actually prints also
+    carries a bottom-outer-corner folio** (``BookPDFGenerator._blank_page``,
+    drawn unconditionally — no caption competes for that corner on a puzzle
+    page), which this helper's own ``render_pages`` call — the lower-level
+    primitive ``_blank_page`` wraps, used here directly so the comparison is
+    about the band and nothing else — does not draw. Added here, via the
+    same ``_draw_folio``/``page_frame`` call ``_blank_page`` itself makes, so
+    the two pages this function is compared against stay byte-identical
+    where the band comparison says they should be, rather than always
+    differing by the one legitimate new mark.
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -322,7 +342,18 @@ def _pages_with_band(
         difficulty=identity,
     )
     spec = book_page_spec(book if book is not None else _book(), page_number)
-    return render_pages(payload, page_spec=spec)
+    blank, solved = render_pages(payload, page_spec=spec)
+    frame = page_frame(spec)
+    _draw_folio(
+        ImageDraw.Draw(blank),
+        frame.left,
+        frame.top,
+        frame.right,
+        frame.bottom,
+        page_number,
+        DPI,
+    )
+    return blank, solved
 
 
 def _answer_page(
@@ -941,28 +972,31 @@ def test_PropertyTest_BookPdf_BandIsPuzzleNumberAndTierForEveryPuzzle() -> None:
 ONCE_TIERS = ("easy", "easy", "medium", "medium", "hard")
 
 #: This module's reading of that book's interior (FR-041, FR-040, FR-042,
-#: CARD-198, CARD-201): 1-2 the guide (CARD-201's 2-page tutorial, up from
-#: one page before this card); 3 Easy divider; 4 Puzzles 1-2 two-up; 5 Medium
-#: divider; 6 Puzzles 3-4 two-up; 7 Hard divider; 8 Puzzle 5 alone; 9
-#: SOLUTIONS divider; 10-12 CARD-202's own packed answer section — puzzles
-#: 1-2 (both Easy, both qualify) share packed page 10, 3-4 (both Medium,
-#: both qualify) share packed page 11, and 5 (Hard, alone in its level,
-#: still qualifies) packs alone onto page 12. ``print_plan`` above models
-#: only books that never pair, so the pages are written out here instead.
-ONCE_PAGE_COUNT = 12
-ONCE_BAND_PAGES = {1: 4, 2: 4, 3: 6, 4: 6, 5: 8}
-HARD_ALONE_PAGE = 8
-TWO_UP_PAGE = 4
+#: CARD-198, CARD-201, CARD-200): 1-2 the guide (CARD-201's 2-page tutorial,
+#: up from one page before that card); 3 the table of contents (CARD-200:
+#: this 5-puzzle book's TOC always fits one page on Book 1's own trim); 4
+#: Easy divider; 5 Puzzles 1-2 two-up; 6 Medium divider; 7 Puzzles 3-4
+#: two-up; 8 Hard divider; 9 Puzzle 5 alone; 10 SOLUTIONS divider; 11-13
+#: CARD-202's own packed answer section — puzzles 1-2 (both Easy, both
+#: qualify) share packed page 11, 3-4 (both Medium, both qualify) share
+#: packed page 12, and 5 (Hard, alone in its level, still qualifies) packs
+#: alone onto page 13. ``print_plan`` above models only books that never
+#: pair, so the pages are written out here instead.
+ONCE_PAGE_COUNT = 13
+ONCE_BAND_PAGES = {1: 5, 2: 5, 3: 7, 4: 7, 5: 9}
+HARD_ALONE_PAGE = 9
+TWO_UP_PAGE = 5
 
-#: Page 9 is the SOLUTIONS divider (CARD-201: up from 8 before the guide
-#: grew to two pages). Unlike the puzzle section's band pages, a puzzle's
-#: *answer* page is no longer simply "solutions + its number" (CARD-198's
-#: one-per-puzzle shape) — CARD-202 packs 1 and 2 onto one page, 3 and 4
-#: onto the next, so this is this card's own recomputation, read off
+#: Page 10 is the SOLUTIONS divider (CARD-200: up from 9 before the TOC was
+#: inserted; CARD-201: up from 8 before that, before the guide grew to two
+#: pages). Unlike the puzzle section's band pages, a puzzle's *answer* page
+#: is no longer simply "solutions + its number" (CARD-198's one-per-puzzle
+#: shape) — CARD-202 packs 1 and 2 onto one page, 3 and 4 onto the next, so
+#: this is this card's own recomputation, read off
 #: :func:`~nonogram.admin.book_answer_key.plan_small_answer_pages` for this
 #: exact book rather than re-derived by a second arithmetic rule here.
-ONCE_SOLUTIONS_PAGE = 9
-ANSWER_PAGE_OF = {1: 10, 2: 10, 3: 11, 4: 11, 5: 12}
+ONCE_SOLUTIONS_PAGE = 10
+ANSWER_PAGE_OF = {1: 11, 2: 11, 3: 12, 4: 12, 5: 13}
 HARD_ANSWER_PAGE = ANSWER_PAGE_OF[5]
 
 #: The band's type size: 5 mm at 300 DPI (COMP-007's header size), in pixels.

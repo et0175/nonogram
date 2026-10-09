@@ -226,7 +226,7 @@ def _mm(pixels: float) -> float:
     return pixels / PX_PER_MM
 
 
-def _interior_pages(*, puzzle_pages: int, answer_pages: int, levels: int = 1) -> int:
+def _interior_pages(*, puzzle_pages: int, answer_pages: int, levels: int = 1, toc_pages: int = 1) -> int:
     """The interior's page count: guide, levels, puzzle pages, divider, key.
 
     Written out as FR-043 defines the make-up, with every variable term named
@@ -245,9 +245,12 @@ def _interior_pages(*, puzzle_pages: int, answer_pages: int, levels: int = 1) ->
     is actually about.
 
     The guide's own term is **2** (CARD-201's 2-page "how to solve" tutorial,
-    up from 1 before this card).
+    up from 1 before this card). ``toc_pages`` (CARD-200) is **1** for every
+    book this module builds: all of them are 1-4 puzzles on Book 1's own
+    trim, far under the roughly 40-entry-per-page capacity a table of
+    contents has there.
     """
-    return 2 + levels + puzzle_pages + 1 + answer_pages
+    return 2 + toc_pages + levels + puzzle_pages + 1 + answer_pages
 
 
 # --------------------------------------------------------------------------
@@ -259,8 +262,9 @@ def _page_shapes(pages: Sequence[Image.Image], first: int, count: int) -> list[l
     """The ``(columns, rows)`` of every drawing on each of ``count`` puzzle pages.
 
     ``first`` is the 1-based interior position of the first of them — interior
-    page 4 for a single-level book (CARD-201: the 2-page guide is pages 1-2),
-    whose page 3 is that level's divider. One inner list per page, in print
+    page 5 for a single-level book (CARD-200: the 1-page table of contents,
+    up from page 4 before it; CARD-201: the 2-page guide is pages 1-2), whose
+    page 4 is that level's divider. One inner list per page, in print
     order, each holding its drawings top to bottom — so the concatenation of
     the whole thing is the book's print order as the paper shows it.
     """
@@ -396,14 +400,14 @@ class TestBookPdf_TwoSmallSameTierNeighboursShareAPage:
         assert len(pages) == _interior_pages(
             puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
         )
-        assert _page_shapes(pages, 4, 1) == [[(10, 10), (10, 10)]]
+        assert _page_shapes(pages, 5, 1) == [[(10, 10), (10, 10)]]
 
     def test_both_slots_print_at_the_standard_cell(self):
         pages = _interior(
             [_puzzle(**_SMALL_PAIR, puzzle_id="a"), _puzzle(**_SMALL_PAIR, puzzle_id="b")]
         )
 
-        upper, lower = drawings_of(pages[3])
+        upper, lower = drawings_of(pages[4])
 
         for slot in (upper, lower):
             assert abs(_mm(slot.cell) - STANDARD_CELL_MM) < CELL_TOLERANCE_MM, _mm(slot.cell)
@@ -420,10 +424,10 @@ class TestBookPdf_TwoSmallSameTierNeighboursShareAPage:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles), levels=2
         )
-        # Interior page 4 is the easy one, page 6 the medium one: each level
+        # Interior page 5 is the easy one, page 7 the medium one: each level
         # opens with a divider of its own (CARD-128).
-        assert _page_shapes(pages, 4, 1) == [[(10, 10)]]
-        assert _page_shapes(pages, 6, 1) == [[(10, 10)]]
+        assert _page_shapes(pages, 5, 1) == [[(10, 10)]]
+        assert _page_shapes(pages, 7, 1) == [[(10, 10)]]
 
 
 # --------------------------------------------------------------------------
@@ -447,8 +451,8 @@ class TestBookPdf_TwelvePairSharesPageBelowStandardCell:
         assert len(pages) == _interior_pages(
             puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
         )
-        assert _page_shapes(pages, 4, 1) == [[(12, 12), (12, 12)]]
-        for slot in drawings_of(pages[3]):
+        assert _page_shapes(pages, 5, 1) == [[(12, 12), (12, 12)]]
+        for slot in drawings_of(pages[4]):
             assert abs(_mm(slot.cell) - 7.39) < CELL_TOLERANCE_MM, _mm(slot.cell)
 
     def test_that_cell_is_the_236_35_mm_over_32_cells_the_ac_names(self):
@@ -491,12 +495,12 @@ class TestBookPdf_PairJustAboveTwoUpMinimumShares:
         assert len(pages) == _interior_pages(
             puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
         )
-        assert _page_shapes(pages, 4, 1) == [[(15, 15), (10, 10)]]
+        assert _page_shapes(pages, 5, 1) == [[(15, 15), (10, 10)]]
 
     def test_both_slots_print_at_the_shared_7_16_mm_cell(self):
         pages = _interior([_puzzle(**_FIFTEEN, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")])
 
-        for slot in drawings_of(pages[3]):
+        for slot in drawings_of(pages[4]):
             assert abs(_mm(slot.cell) - 7.16) < CELL_TOLERANCE_MM, _mm(slot.cell)
 
     def test_that_cell_is_33_cells_of_height_and_is_at_or_above_the_minimum(self):
@@ -519,7 +523,7 @@ class TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
         ), "guide, two puzzle pages, divider, the answer section"
-        assert _page_shapes(pages, 4, 2) == [[(15, 15)], [(10, 10)]]
+        assert _page_shapes(pages, 5, 2) == [[(15, 15)], [(10, 10)]]
 
     def test_the_cell_that_pair_would_need_is_under_the_minimum(self):
         first, second = _puzzle(**_FIFTEEN_DEEPER), _puzzle(**_TEN)
@@ -555,7 +559,7 @@ class TestBookPdf_FifteenPlusTwelveDoesNotPair:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
         )
-        assert _page_shapes(pages, 4, 2) == [[(15, 15)], [(12, 12)]]
+        assert _page_shapes(pages, 5, 2) == [[(15, 15)], [(12, 12)]]
 
     def test_the_cell_that_pair_would_need_is_6_57_mm(self):
         first, second = _puzzle(**_FIFTEEN), _puzzle(**self.TWELVE)
@@ -588,7 +592,7 @@ class TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
         )
-        assert _page_shapes(pages, 4, 2) == [[(22, 10)], [(10, 10)]]
+        assert _page_shapes(pages, 5, 2) == [[(22, 10)], [(10, 10)]]
 
     def test_the_height_would_have_fitted_and_the_width_is_what_refuses(self):
         wide, small = _puzzle(**self.WIDE), _puzzle(**_TEN)
@@ -624,8 +628,8 @@ class TestBookPdf_DifferentTiersNeverPair:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles), levels=2
         )
-        assert _page_shapes(pages, 4, 1) == [[(10, 10)]]
-        assert _page_shapes(pages, 6, 1) == [[(10, 10)]]
+        assert _page_shapes(pages, 5, 1) == [[(10, 10)]]
+        assert _page_shapes(pages, 7, 1) == [[(10, 10)]]
 
     def test_the_same_two_drawings_do_share_a_page_at_one_tier(self):
         """The control: only the tier changed between this and the AC's book."""
@@ -705,7 +709,7 @@ class TestBookPdf_PairingNeverReordersToFindAPartner:
         assert len(pages) == _interior_pages(
             puzzle_pages=3, answer_pages=_expected_answer_pages(puzzles)
         ), "guide, three puzzle pages, divider, the answer section"
-        assert _page_shapes(pages, 4, 3) == [[(10, 10)], [(20, 20)], [(10, 10)]]
+        assert _page_shapes(pages, 5, 3) == [[(10, 10)], [(20, 20)], [(10, 10)]]
 
     def test_a_and_c_would_have_fitted_together(self):
         """The saving the walk declines to take, stated as the AC states it."""
@@ -725,7 +729,7 @@ class TestBookPdf_PairingNeverReordersToFindAPartner:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
         ), "one page saved in the puzzle section; the answer section is its own count"
-        assert _page_shapes(pages, 4, 2) == [[(10, 10), (10, 10)], [(20, 20)]]
+        assert _page_shapes(pages, 5, 2) == [[(10, 10), (10, 10)], [(20, 20)]]
 
 
 class TestBookPdf_OddPuzzleOutPrintsAlone:
@@ -741,14 +745,14 @@ class TestBookPdf_OddPuzzleOutPrintsAlone:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
         ), "guide, two puzzle pages, divider, the answer section"
-        assert _page_shapes(pages, 4, 2) == [[(10, 10), (10, 10)], [(10, 10)]]
+        assert _page_shapes(pages, 5, 2) == [[(10, 10), (10, 10)], [(10, 10)]]
 
     def test_the_third_page_is_a_single_puzzle_page(self):
-        """Interior page 5 carries one drawing, at the cell a single page gives
+        """Interior page 6 carries one drawing, at the cell a single page gives
         a 10x10 with 4-deep gutters: the standard cell."""
         pages = _interior(self._three())
 
-        (alone,) = drawings_of(pages[4])
+        (alone,) = drawings_of(pages[5])
 
         assert (alone.columns, alone.rows) == (10, 10)
         assert abs(_mm(alone.cell) - STANDARD_CELL_MM) < CELL_TOLERANCE_MM
@@ -761,7 +765,7 @@ class TestBookPdf_OddPuzzleOutPrintsAlone:
         assert len(pages) == _interior_pages(
             puzzle_pages=2, answer_pages=_expected_answer_pages(puzzles)
         ), "guide, two shared puzzle pages, divider, the answer section"
-        assert _page_shapes(pages, 4, 2) == [
+        assert _page_shapes(pages, 5, 2) == [
             [(10, 10), (10, 10)],
             [(10, 10), (10, 10)],
         ]
@@ -798,7 +802,7 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         assert len(pages) == _interior_pages(
             puzzle_pages=1, answer_pages=_expected_answer_pages(puzzles)
         ), "the pair does share a page"
-        return pages[3]  # interior page 4
+        return pages[4]  # interior page 5
 
     def test_the_lower_band_sits_where_the_pair_leaves_it(self):
         """The millimetres the crops below are taken at, stated before use."""
@@ -813,8 +817,8 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 
         assert upper is not None, "the upper band is blank"
         assert lower is not None, "the lower band is blank"
-        assert _same_ink(upper, _reference_band(puzzle, 4, "Puzzle 1 · Easy"))
-        assert _same_ink(lower, _reference_band(puzzle, 4, "Puzzle 2 · Easy"))
+        assert _same_ink(upper, _reference_band(puzzle, 5, "Puzzle 1 · Easy"))
+        assert _same_ink(lower, _reference_band(puzzle, 5, "Puzzle 2 · Easy"))
 
     def test_the_two_bands_are_not_the_same_line(self):
         """The measurement has teeth: one band is not the other's ink."""
@@ -841,9 +845,9 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
             ]
         )
 
-        assert named[3].tobytes() == renamed[3].tobytes()
+        assert named[4].tobytes() == renamed[4].tobytes()
         # The control: the answer pages, which do carry the title, differ.
-        assert named[5].tobytes() != renamed[5].tobytes()
+        assert named[6].tobytes() != renamed[6].tobytes()
 
     def test_the_numbers_follow_the_pages_before_this_one(self):
         """Puzzle numbers are 1..n in print order, whatever the pages hold: a
@@ -852,10 +856,12 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         All three are easy, so they are one level and the single page really
         does come before the pair (INV-009): a puzzle of another tier would be
         printed behind its own divider, in its own level, wherever it was
-        submitted (CARD-128). The pair is therefore interior page 5 (CARD-201:
-        up from 4) — the 2-page guide (1-2), the "Easy" divider 3, the 15x15
-        alone on 4 — and an odd, right-hand page, which is what the reference
-        bands are laid out on.
+        submitted (CARD-128). The pair is therefore interior page 6 (CARD-200:
+        up from 5, the table of contents' own page; CARD-201: up from 4
+        before that) — the 2-page guide (1-2), the TOC (3), the "Easy"
+        divider 4, the 15x15 alone on 5 — and an even, left-hand page, which
+        is what the reference bands (``_reference_band(puzzle, 6, ...)``) are
+        laid out on.
         """
         pages = _interior(
             [
@@ -864,17 +870,17 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
                 _puzzle(**_SMALL_PAIR, puzzle_id="two"),
             ]
         )
-        assert _page_shapes(pages, 4, 2) == [[(15, 15)], [(10, 10), (10, 10)]]
+        assert _page_shapes(pages, 5, 2) == [[(15, 15)], [(10, 10), (10, 10)]]
         puzzle = _puzzle(**_SMALL_PAIR)
 
-        page = pages[4]  # interior page 5, the two-up page
+        page = pages[5]  # interior page 6, the two-up page
         assert _same_ink(
             _band_ink(page, self.UPPER_BAND_TOP_MM),
-            _reference_band(puzzle, 5, "Puzzle 2 · Easy"),
+            _reference_band(puzzle, 6, "Puzzle 2 · Easy"),
         )
         assert _same_ink(
             _band_ink(page, self.LOWER_BAND_TOP_MM),
-            _reference_band(puzzle, 5, "Puzzle 3 · Easy"),
+            _reference_band(puzzle, 6, "Puzzle 3 · Easy"),
         )
 
 
@@ -894,11 +900,11 @@ class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
     BIG = dict(columns=20, rows=20, depth=8, column_depth=8)
 
     def _pages(self):
-        """The two-up page (interior 4) and the single page after it (5).
+        """The two-up page (interior 5) and the single page after it (6).
 
         All three puzzles are easy, so the book is one level and the two pages
         this AC compares are consecutive. The 20x20 used to be medium, which
-        since CARD-128 would put a divider between them and move it to page 6
+        since CARD-128 would put a divider between them and move it to page 7
         — a difference of no interest to a criterion about a drawing's top
         edge, and the tier was never what kept it from pairing: it is 28 cells
         tall beside a 14-cell drawing, far under the 7.0 mm two-up minimum.
@@ -910,14 +916,14 @@ class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
                 _puzzle(**self.BIG, puzzle_id="big"),
             ]
         )
-        assert _page_shapes(pages, 4, 2) == [[(10, 10), (10, 10)], [(20, 20)]]
+        assert _page_shapes(pages, 5, 2) == [[(10, 10), (10, 10)], [(20, 20)]]
         return pages
 
     def test_the_upper_slot_and_the_single_page_share_a_top_pixel_row(self):
         pages = self._pages()
 
-        upper, lower = drawings_of(pages[3])
-        single = drawing_of(pages[4])
+        upper, lower = drawings_of(pages[4])
+        single = drawing_of(pages[5])
 
         assert upper.top == single.top
         assert lower.top > upper.top, "the lower slot is a second drawing below it"
@@ -925,7 +931,7 @@ class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
     def test_that_row_is_the_top_margin_plus_the_band(self):
         pages = self._pages()
 
-        upper, _ = drawings_of(pages[3])
+        upper, _ = drawings_of(pages[4])
 
         assert abs(_mm(upper.top) - (TOP_MM + BAND_MM)) <= _mm(0.5) + 1e-9
 
@@ -933,8 +939,8 @@ class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
         """The negative control: a shared top edge is not two identical pages."""
         pages = self._pages()
 
-        upper, _ = drawings_of(pages[3])
-        single = drawing_of(pages[4])
+        upper, _ = drawings_of(pages[4])
+        single = drawing_of(pages[5])
 
         assert abs(upper.cell - single.cell) > 1
 

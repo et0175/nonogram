@@ -420,6 +420,28 @@ def unpaired_interior_page_count(puzzles: Sequence[Any]) -> int:
     are :func:`~nonogram.difficulty.tier_of_record`'s — the same calls the
     generator makes.
 
+    **CARD-200 leaves the TOC term here at its callee's own sheet-free
+    default, a decision this card examined and did not make silently (the
+    same examine-don't-silently-reuse discipline CARD-202's own docstring
+    above already models for the answer term).** ``toc_pages`` is not passed
+    explicitly: :func:`~nonogram.admin.book_pdf_generator.interior_page_count`'s
+    own default, when it is omitted, is :func:`~nonogram.admin.book_pdf_generator._toc_page_count`
+    measured on CON-018's Book 1 profile — the same default this function
+    already stands in for a possibly-invalid stored trim with everywhere
+    else (``puzzle_pages``/``answer_pages`` are the unpaired, unpacked
+    upper bound; ``level_dividers`` is read off the rows directly, needing
+    no sheet). The TOC term differs from those in kind — it genuinely needs
+    a usable height to divide entries by, which this function has no sheet
+    to measure on a book whose own trim is exactly the thing this function
+    exists to work around — so "the default profile's own entries-per-page"
+    is the best available estimate here, not a derived exact figure: a book
+    stored on a *smaller* trim than Book 1 could in principle need one more
+    TOC page than this estimate states, the one place this function's
+    otherwise-upper-bound contract is approximate rather than provably safe.
+    Narrower than this still is not worth adding: this function fires only
+    when the book's own stored spec cannot be laid out at all, and real
+    curated books overwhelmingly use Book 1 or a larger trim.
+
     Raises:
         ValueError: a row's solution grid is not a non-empty rectangle, so its
             answer cannot be measured and the book has no page count at all.

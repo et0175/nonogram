@@ -677,10 +677,13 @@ LOWER_PUZZLE = dict(columns=12, rows=12, row_depth=3, column_depth=3)
 SINGLE_PUZZLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
 
 #: Which interior page is which, once the walk above has run. Asserted rather
-#: than trusted by :func:`_book_pages`.
-TWO_UP_PAGE = 4
-SINGLE_PAGE = 5
-INTERIOR_PAGES = 8
+#: than trusted by :func:`_book_pages`. CARD-200 (SCOPE+): a 1-page table of
+#: contents now sits between the guide and the puzzle section (this book's
+#: three puzzles fit Book 1's own TOC capacity on one page), so every page
+#: number here is one more than before.
+TWO_UP_PAGE = 5
+SINGLE_PAGE = 6
+INTERIOR_PAGES = 9
 
 
 def _book() -> Book:
@@ -765,7 +768,7 @@ def _shared_cell_mm(upper: dict, lower: dict) -> float:
 
 
 def _expected_pair_boxes(
-    upper: dict, lower: dict, parity: PageParity = PageParity.EVEN
+    upper: dict, lower: dict, parity: PageParity = PageParity.ODD
 ) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
     """Where the two drawings sit on a two-up page: ``(left, top, right, bottom)``.
 
@@ -805,7 +808,12 @@ def _expected_pair_boxes(
     )
 
 
-def _expected_single_box(puzzle: dict, parity: PageParity = PageParity.ODD):
+# CARD-200 (SCOPE+): the default `parity` of each box helper below used to
+# match `TWO_UP_PAGE`/`SINGLE_PAGE`'s own, un-shifted parity (4 = even,
+# 5 = odd); the 1-page table of contents moves both pages by one, flipping
+# each one's parity, so the defaults flip too — no caller in this file
+# passes `parity` explicitly, so this is the one place that needs it.
+def _expected_single_box(puzzle: dict, parity: PageParity = PageParity.EVEN):
     """The same rectangle for the puzzle that prints alone, on its own page."""
     return _expected_box(
         _spec(parity=parity),

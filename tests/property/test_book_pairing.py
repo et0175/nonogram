@@ -464,21 +464,29 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         dividers = _divider_count(printed)
 
         rows = [puzzle.as_row(f"p{index}") for index, puzzle in enumerate(order)]
-        interior = BookPDFGenerator(sheet.book).interior_pages(rows)
+        generator = BookPDFGenerator(sheet.book)
+        # CARD-200 inserts a table of contents between the guide and the
+        # puzzle section, whose own length (`toc_page_count`) depends on the
+        # book's trim and this book's own puzzle count — read off the real
+        # plan for this case rather than assumed.
+        toc_page_count = generator.section_plan(rows).toc_page_count
+        interior = generator.interior_pages(rows)
         label = (sheet, [str(p) for p in order])
 
-        # The 2-page guide (CARD-201), a divider per non-empty level, the
-        # puzzle pages, the SOLUTIONS divider, one answer page per puzzle
-        # (CARD-198).
+        # The 2-page guide (CARD-201), the table of contents (CARD-200), a
+        # divider per non-empty level, the puzzle pages, the SOLUTIONS
+        # divider, one answer page per puzzle (CARD-198).
         assert len(interior) == (
-            2 + dividers + len(expected) + 1 + _expected_answer_pages(printed)
+            2 + toc_page_count + dividers + len(expected) + 1
+            + _expected_answer_pages(printed)
         ), label
 
         # Which interior page each planned puzzle page landed on: pages 1-2
-        # are the guide (CARD-201), and each named level's run opens with a
+        # are the guide (CARD-201), pages 3..(2+toc_page_count) are the table
+        # of contents (CARD-200), and each named level's run opens with a
         # divider page.
         numbers_of: list[int] = []
-        page_number = 3
+        page_number = 3 + toc_page_count
         opened: object = object()
         for group in expected:
             level = printed[group[0] - 1].tier_of_record

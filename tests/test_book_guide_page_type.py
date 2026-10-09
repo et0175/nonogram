@@ -1079,6 +1079,10 @@ class TestGuidePage_LeadingClearsTheType:
           lines); technique 3 "Mark spaces around a completed block"
           (heading + 2-line caption, 3 lines, no row note); "Keep switching
           between rows and columns" heading + its text (2 lines);
+        * **plus 1 more since CARD-200**: the page's own bottom-outer-corner
+          folio ("1", page 1's own number) — a short, isolated line of type
+          to this same scanner, far below every body line above, so it adds
+          one more band rather than merging into any of them;
         * 9 drawings — the basic-rule line, the 3 cell-state icons, and one
           row per technique (1 + 3 + 1 = 5), all drawn at the same cell
           pitch so every one of the 9 bands is the same height.
@@ -1090,8 +1094,8 @@ class TestGuidePage_LeadingClearsTheType:
         """
         every_band = ink_bands(guide_page)
         drawings = [band for band in every_band if band not in guide_bands]
-        assert len(guide_bands) == 26, (
-            f"{len(guide_bands)} lines of type found where the page sets 26: "
+        assert len(guide_bands) == 27, (
+            f"{len(guide_bands)} lines of type found where the page sets 27: "
             "a line was lost, or two lines' ink ran together"
         )
         assert len(drawings) == 9, (

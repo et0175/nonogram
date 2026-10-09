@@ -437,3 +437,212 @@ fix the source artifact, never this list._
   sites + the arithmetic ripple + the new baseline fixture (~0.75d); (b) the TOC page
   itself + its own tests + the SCOPE+ fixture recomputation across the Touches list's
   test files (~0.75d).
+
+## Worktree notes — implementation complete, 2026-10-09
+
+**STRUCTURE decisions:**
+
+- `_draw_folio(draw, left, top, right, bottom, page_number, dpi, content_bottom=None)`
+  — deviates from the card's own suggested `(draw, frame_or_placement, page_number,
+  dpi)` signature, **and this is a correction to the card's own draft, not a free
+  choice**: the card's text claims `PageFrame` and a grid page's `PagePlacement`
+  "already expose the same four `usable_*` fields by name" — read in full,
+  `PageFrame` (`book_pdf_generator.py`) actually names its four edges
+  `left`/`top`/`right`/`bottom` (no `usable_` prefix at all), while `PagePlacement`
+  (`export/layout.py`) names them `usable_left`/`usable_top`/`usable_right`/
+  `usable_bottom`. Duck-typing on "the same field names" would have raised
+  `AttributeError` the first time a guide/divider/TOC page's frame was handed to a
+  helper written against `PagePlacement`'s names. Every call site therefore reads its
+  own object's fields and passes four plain ints across — G-1 still holds (no field
+  is added to either class to make the names agree; `_draw_folio` places nothing
+  itself, it only draws at coordinates its caller already has).
+- `content_bottom: Optional[int] = None` on `_draw_folio` — generalises CARD-197's
+  "omit rather than collide" rule for the answer caption to every page kind, but
+  **only where a real competing mark exists**: `solved_puzzle_page` and
+  `create_guide_page` pass their own measured content-bottom (the same
+  `usable_bottom - drawing_bottom` slack the caption already uses, and the guide's
+  own chosen-fallback-form `bottom`, respectively); `_blank_page`, `_two_up_page` and
+  `_packed_answer_page` pass none, because nothing else is drawn in that exact
+  corner on those page kinds (verified against `PairLayout`'s own construction: a
+  two-up page's *lower* slot has **zero** slack by design — "whatever height the
+  pair leaves spare falls between the two slots" — so treating that zero as a
+  collision, as a naive generalisation would, would silently omit the folio from
+  every two-up page in the book; `pair.lower.page`, not `pair.upper.page` as the
+  card's own draft suggested, is also what supplies the two-up page's true
+  bottom-outer corner, since `upper.page.usable_bottom` is the *midline* between the
+  two slots, not the page's own margin — another correction to the card's own text,
+  found by reading `compute_pair_layout`'s real arithmetic rather than trusting the
+  prose).
+- `interior_page_count` gains `toc_pages` as a **new, separate parameter**, not
+  folded into `level_dividers` or any existing term: the TOC is a distinct
+  front-matter page kind (like `GUIDE_PAGE_COUNT`), not a divider or an answer page,
+  and folding it into an unrelated term would make the formula's own terms stop
+  naming what they count. Its default (when omitted) is `_toc_page_count` measured
+  on `_default_toc_frame()` (CON-018's Book 1 profile) — **not** a count-only guess
+  like `level_dividers`'s `min(3, n)`, because the TOC's split genuinely needs a
+  usable height to divide entries by, which no pure function of `puzzle_count` alone
+  can stand in for safely in both directions. This default had to be exactly this
+  (not merely "a reasonable one") to keep `tests/test_book_export_interior_cover.py`'s
+  pre-existing **exact**-equality assertions (`interior_page_count(3) == written`,
+  at the "all defaults" call) holding at Book 1's own profile.
+- `SectionPlan` gains a `toc_page_count: int = 0` field, and `section_plan` computes
+  it once (off the book's own `page_frame(self.page_spec(1))`, parity-invariant per
+  `book_page_spec`'s own code — extended here from CARD-200's own established
+  width-invariance precedent to height too, verified against the real function body)
+  and threads the TOC-shifted `first_page` into `puzzle_section` itself. This means
+  `app.py`'s `_printed_places` (the Arrangement screen's own page-number display,
+  CARD-140) needed **zero changes** for CARD-200: it already calls `section_plan`
+  and reads `page.page_number` off the same plan `interior_stream` draws from, so it
+  picked up the TOC's shift automatically, the same "decided once, read twice"
+  discipline `section_plan`'s own docstring already promises for the pairing walk.
+- `create_toc_page`'s own per-page entries budget (`_toc_entries_per_page`) reserves
+  **one folio line's height up front**, not just a rounding remainder: unlike
+  `create_guide_page` (where AC-8 forbids reshaping the existing fallback-fitting
+  loop to leave footer room), the TOC is new content with no byte-identity
+  constraint, so it can and should guarantee every TOC page — including a
+  fully-packed one — has its own slack for the folio. Found and fixed during this
+  card's own test-writing (`tests/test_book_toc.py`'s
+  `test_the_toc_itself_carries_a_folio_on_every_one_of_its_pages`), not assumed safe.
+- `book_kdp.unpaired_interior_page_count` needed **no functional edit** — it already
+  omits `toc_pages`, picking up `interior_page_count`'s own Book-1-profile default —
+  only a docstring addition explaining that reliance explicitly (the card's own
+  warning about "the exact shape of gap CARD-202's review cycle had to fix once
+  already" is about a *silent* reuse; this one is examined and stated, with its one
+  known imprecision named: a book stored on a smaller-than-Book-1 trim could in
+  principle need one more TOC page than this sheet-free estimate states, the one
+  place this function's otherwise-upper-bound contract is approximate rather than
+  provably safe — acceptable because this function only fires when the book's own
+  stored spec cannot be laid out at all).
+
+**Multi-page TOC split (the card's own open question, resolved):** real,
+measured-geometry entries-per-page (`_toc_entries_per_page`), not a fixed
+entry-count guess — the same font/metric calls (`_guide_face`, `_band_font`,
+`type_px`) every other page's own fitting already reads, applied to **this book's
+own trim** (`page_frame(self.page_spec(1))`, parity-invariant) inside
+`section_plan`/`interior_stream`, and to CON-018's Book 1 profile
+(`_default_toc_frame`) only for the sheet-free default path (bare
+`interior_page_count` calls, `book_kdp`'s estimate). Every TOC page repeats
+`TOC_TITLE` ("Table of Contents"), so the per-page budget is uniform across the
+whole TOC regardless of how many pages it takes — no first-page-special-casing.
+Overflow (AC-6) is a plain `ceil(entry_count / entries_per_page)` page count,
+computed once and reused verbatim by `produce()`'s own slicing loop — one source of
+truth for the split, never two.
+
+**Owner-visible defaults (need confirmation before merge):**
+
+1. **TOC position: right after the guide page(s), before the first divider/puzzle
+   page.** Implemented as the card's own reading. See the TOC render,
+   `03-toc.png`, below.
+2. **Folio style: bottom-outer-corner, plain decimal (`"3"`, `"12"`), no "Page"
+   word, no rule or ornament.** Implemented as the card's own reading. Visible on
+   every render below.
+3. **Solved-answer page: folio and caption share the bottom slack, opposite
+   corners (caption centred, folio at the outer edge).** Implemented, and
+   **actually rendered and looked at**, not just reasoned about: see
+   `12-answer-or-solutions.png` (Puzzle 3 — Tree, a full/unpacked answer page) and
+   `11-answer-or-solutions.png` (Puzzle 1/2 — Duck/Owl, a packed 2-up answer page)
+   below — the caption sits centred above the slack's midline, the folio flush at
+   the opposite (outer) corner, no visual collision at either page's own trim. This
+   is the one item CARD-203 (independently moving the caption's own alignment) may
+   still interact with if both are in flight at once — coordinate before either
+   merges, per the card's own note.
+4. **The TOC and the guide pages themselves carry a visible folio (only the cover
+   is exempt).** Implemented as the card's own reading. See `01-guide.png`/
+   `02-guide.png` (both guide pages carry a folio) and `03-toc.png` (the TOC page
+   carries one too) below.
+
+**SCOPE+ files** (beyond the card's own Touches list, each a genuine downstream
+ripple from the TOC's page-count/page-number shift, not scope creep):
+
+- `tests/test_book_export_interior_cover.py` — `STANDARD_BOOK_PAGES`/`_interior_pages`
+  gained a `toc_pages` term; two hard-coded page-count assertions recomputed.
+- `tests/test_book_interior_type_floor.py` — `PAGE_COUNTS` picked up the new
+  `BASELINE_PAGE_COUNT` automatically (via `tests/helpers/book_corpus.py`); the
+  divider-face-count assertion doubled (word + folio, two `draw.text` calls now) and
+  the DPI-independence test's own expected-sizes list gained the folio's own entry
+  (with its own whole-pixel-rounding note — 10.0 pt rounds to 10.08 pt at 300 DPI,
+  not exactly 10.0, same as the divider's own exact 14.4 pt does *not* round).
+- `book_pdf_generator.py` (within Touches, but the ripple's exact shape wasn't
+  predicted by the card's own grep): `_packed_answer_page` (CARD-202's packed
+  small-answer page) needed its own folio call — not named in the card's "What to
+  implement" point 2's five-method list at all, since CARD-202 postdates the card's
+  original Touches grep.
+- `tests/property/test_book_export_interior.py` — the packed-answer-page column-ink
+  measurement (`test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`)
+  cropped the **full page height** to find each half's leftmost ink; the new folio
+  (flush with the usable area's outer edge, which on a left-hand page is the same
+  side a packed tile's own left edge is near) landed inside that crop and corrupted
+  the measurement on at least one generated case. Fixed by cropping above
+  `BOTTOM_MM + 6mm` (comfortably more than one folio line, comfortably less than
+  where any packed tile's own ink ever reaches) before the ink scan — a test-only
+  fix, not an implementation change.
+- `test.db` — an unrelated, pre-existing, mistakenly-tracked sqlite artifact (from
+  a much older book-scaffolding card) was removed from the tree as a side effect of
+  running the local test suite during this card's work; incidental, not a CARD-200
+  decision, noted here only so the diff's provenance is honest.
+
+**AC / guardrail evidence (fresh, this session, from this worktree):**
+
+- AC-1/AC-2/AC-3/AC-9: `tests/test_book_page_numbers.py` —
+  `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber`,
+  `TestBookPageNumbers_CoverIsNeverNumbered`,
+  `TestBookPageNumbers_FoliosMatchInteriorStreamsOwnArithmetic`,
+  `TestBookPageNumbers_ParityHoldsWithTheTocInserted` — 7 tests, all passing.
+- AC-4/AC-5/AC-6: `tests/test_book_toc.py` —
+  `TestBookToc_ListsEveryPuzzleAgainstItsRealPageNumber`,
+  `TestBookToc_TitleResolutionMatchesTheAnswerSections`,
+  `TestBookToc_OverflowsToASecondPageWithoutLosingAnEntryOrBreakingLaterNumbering`
+  — 7 tests, all passing.
+- AC-7: `tests/test_book_interior_type_floor.py::TestInteriorType_EveryFaceHoldsTheFloor`
+  — unedited in its own AC-1 class, passes with the folio as one more walked
+  `draw.text` call; 21 tests in the file, all passing (2 updated for the new call
+  shape, see SCOPE+ above).
+- AC-8: `tests/test_book_pdf_memory.py::TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged`
+  against the new `tests/fixtures/book_baseline_card200.json` — 6 tests (every
+  puzzle/divider page, both guide pages, the SOLUTIONS divider, every answer page,
+  a negative control that a genuinely different puzzle still fails the comparison,
+  and a control that the crop really does remove a folio) — all passing.
+- Command actually run (clean, this worktree):
+  `./.venv/bin/python -m pytest tests/test_book_page_numbers.py tests/test_book_toc.py
+  tests/test_book_interior_type_floor.py tests/test_book_pdf_memory.py -q` →
+  73 collected, 72 passed, 1 skipped (a pre-existing, unrelated platform skip —
+  `setrlimit(RLIMIT_AS)` cannot be bounded on this machine's kernel; not a CARD-200
+  test), exit code 0.
+- Full Touches-list + SCOPE+ file set also run clean together: `test_book_finalise_gutter.py`,
+  `test_book_guide_page.py`, `test_book_export_interior_cover.py`,
+  `test_book_pdf_levels.py`, `test_book_pdf_memory.py`, `test_book_pdf_ink_mode.py`,
+  `test_book_arrange_page_breaks.py`, `test_book_solved_answer_key.py`,
+  `test_book_interior_type_floor.py`, `property/test_book_export_interior.py`,
+  `test_book_page_numbers.py`, `test_book_toc.py`, `test_book_answer_key.py` — all
+  green. A whole-repo `pytest -q` was also attempted but the machine had 8-13
+  concurrent pytest processes running against this same worktree during this
+  session (other agent activity, not this card's own doing — visible via `ps aux`),
+  which is exactly the kind of "heavy, unrelated load" CLAUDE.md's own briefing
+  warns can slow or destabilise a run on this machine; the per-file runs above, each
+  clean in isolation, are the trustworthy evidence.
+- Guardrails: G-1 (no new `PageSpec`/`Layout`/`Placement` field — confirmed, zero
+  edits to `export/layout.py`), G-2 (`create_cover_page` untouched — confirmed, no
+  diff to that method), G-3 (confirmed structurally — `_stroke_drawing`,
+  `_write_clues`, `_set_band`, `_draw_solved_slot`'s caption logic and
+  `draw_example_line` all have zero diff against the pre-card commit — and
+  behaviourally, by AC-8's own content-comparison test above), G-4 (`FOLIO_PT`/
+  `TOC_ENTRY_PT` = 10.0, CON-020's floor exactly, held by AC-7's test), G-5 (no
+  edits to `export/layout.py`, so FR-032/FR-030 are read, not changed), G-6 (no
+  edits to `band_identity`, `puzzle_pages`'s pairing/numbering logic, or
+  `puzzle_section`'s level-grouping — only the `first_page` input each already took
+  as a parameter shifted).
+
+**Renders:** `~/Documents/nonogram-reviews/CARD-200/` — a 4-puzzle, 3-level sample
+book (`tests/helpers/book_corpus.baseline_puzzles`: Duck/Owl easy-paired two-up,
+Tree medium one-up, Snowflake hard one-up), every interior page exported as its own
+PNG (`00-cover.png` through `13-answer-or-solutions.png`) at 50% scale, plus the
+full `interior.pdf`/`cover.pdf`. Covers every page kind the card asked for: guide
+(`01`/`02`), TOC (`03`), divider (`04`/`06`/`08`), two-up (`05`), one-up (`07`/`09`),
+SOLUTIONS divider (`10`), packed answer (`11`), full answer (`12`/`13`). Personally
+reviewed in this session (not merely generated) — folio position/parity, TOC layout
+and the caption/folio coexistence on `11`/`12` were each opened and read.
+
+**Blockers:** none. All 9 acceptance criteria pass with fresh evidence; all 6
+guardrails hold; both explicitly-flagged open design questions (multi-page TOC
+split, the four owner-visible defaults) are resolved with stated reasoning above,
+not silently guessed.
