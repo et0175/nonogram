@@ -1,6 +1,6 @@
 # CARD-200: The book's interior PDF gets a visible page number on every page and a table-of-contents page
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/200-page-numbers-and-toc
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-200
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 1: "Please add page numbers and a table of content")
 **Idea:** —
 **Wave:** —
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_toc.py, tests/test_book_page_numbers.py, tests/test_book_finalise_gutter.py, tests/test_book_guide_page.py, tests/test_book_pdf_levels.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/test_book_arrange_page_breaks.py, tests/test_book_solved_answer_key.py, tests/property/test_book_export_interior.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card200.json
 **Review score:** 10.0/10 (cycle 3, final)
 **Started:** 2026-10-09T13:58:53Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-09T18:45:18Z
+**Actual:** 4.77h
+**Merge commit:** e899369
 **Blocked by:** —
 
 ## What to implement
@@ -833,3 +833,20 @@ fix the source artifact, never this list._
   20261009T193000Z-CARD-200-cycle3.yml` (no cycle-1 YAML was ever found to
   sync — that cycle's standalone invocation did not produce one before
   handing back; noted, not fixed retroactively).
+- [Merge gate] Merged to `main` (`--no-ff`, commit `e899369`). `CARD-200.md`
+  itself conflicted with the branch's own copy (the branch had the original
+  implementation notes plus `[Fix 1]`/`[Fix 2]` headers written directly to
+  its own worktree copy, already incorporated above in bullet form) —
+  resolved by keeping main's authoritative copy (`git checkout --ours`), no
+  information lost. Independent full-suite merge-gate run on `main`
+  post-merge: 6761 passed, 82 skipped, 0 failed, 0 errors, exit 0 (1028.91s)
+  — same total test count as every prior gate this card (6843), but 73 more
+  skips than the stable 9-skip baseline. Investigated rather than waved
+  through: traced the skip cluster to `tests/test_print_specs.py` and
+  neighbors via progress-line position, confirmed Postgres and
+  `nonogram_test` were both up, then reran the suspect files in isolation —
+  **264 passed, 0 skipped, 0 failed**, clean. Transient environmental
+  flakiness (same class as this session's earlier documented Postgres-
+  contention and memory-margin flakes), not a CARD-200 regression — the
+  actual correctness signal (0 failed, 0 errors) was already clean on the
+  first run. Gate clear.

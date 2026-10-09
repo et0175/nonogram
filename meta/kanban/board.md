@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-08 UTC_
+_Updated: 2026-10-09 UTC_
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -59,11 +59,11 @@ _Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (rev
 ## In Progress
 
 ## Review
-- **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · implementation complete, all 9 ACs passing, build gate passed clean (6821 passed, 0 failed) — note: a subagent-overspawn incident during implementation is documented on the card, no repo impact · forge:review cycle 1 running (started) · worktree `../PythonProject4-CARD-200` · branch `card/200-page-numbers-and-toc`
 
 ## Blocked
 
 ## Done
+- **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · score 10.0 (cycle 3/3, clean) — note: a subagent-overspawn incident during implementation is documented on the card, no repo impact · merged e899369
 - **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · score 8.5 (cycle 4/3+1, owner-extended) · merged ed578fa
 - **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · score 9.0 (cycle 2/3) · merged 040f10d
 - **CARD-177** Finalise and the book PDF downloads flash a generic error, not the exception's text · score 9.0 (1 cycle) · merged d1995fd
