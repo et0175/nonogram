@@ -773,3 +773,140 @@ evidence), and the Finalise screen's live preview
   - **Verdict: cycle 1 does not meet the bar** (4 gating findings: 1
     content-correctness, 1 crash-risk, 1 visible-defect, 1 test-blind-spot)
     — routing to forge:fix for F-1..F-4, cycle 2.
+
+- [Fix 1] Review cycle 1's 4 gating findings (F-1..F-4), all fixed in this
+  worktree. The full review write-up with line numbers lives in this card's
+  copy on `main` (this worktree's own copy predates review cycle 1, so it is
+  not duplicated here) — this entry records the fixes and their fresh test
+  evidence, not the findings themselves.
+
+  - **F-1 (content correctness) — FIXED.** `GUIDE_TECHNIQUES_2`'s "Keep what
+    every arrangement agrees on" worked example (`book_pdf_generator.py`
+    ~line 728) used clue=(3,), length=10, showing only 3 of its 8 legal
+    placements (starts 0, 1, 5) and claiming cell 4 was "certainly empty in
+    every arrangement" — false: starts 2, 3 and 4 (none of them shown) all
+    cover cell 4. In fact a clue (3,) on a 10-cell line has NO invariant cell
+    at all (every index 0-9 is reachable by some start; no index is covered
+    by all 8). Fixed by changing the line to clue=(3,), length=5, where a
+    run of 3 has exactly `length - clue + 1 = 3` legal placements — the
+    three rows shown are now literally ALL of them, not a chosen subset —
+    and cell 2 is the one index covered by every one of the 3. The full
+    verification against every legal placement is written into a code
+    comment directly on the constant (not just this note), so a future edit
+    can't silently reintroduce the same class of error. Test evidence:
+    `tests/test_book_guide_page.py::TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox::test_the_arrangement_comparison_shows_three_placements_then_what_they_agree_on`
+    (updated to the corrected content) and the new
+    `::test_the_arrangement_comparison_is_verified_against_every_legal_placement`
+    (an independent brute-force cross-check that recomputes every placement
+    from scratch rather than reading the constant under test) — both pass.
+
+  - **F-2 (crash risk) — FIXED.** `_draw_pipeline_diagram`/`_draw_difficulty_box`
+    (`book_pdf_generator.py` ~1253/1299) read `.size` directly off a
+    `_guide_face()` font, which can be an "unsized" face with no `.size`
+    attribute at all on a non-macOS host with Pillow < 10.1 — a combination
+    `pyproject.toml`'s unbounded `Pillow>=10.0` floor still permits. Fixed by
+    passing the font's own requested pixel size explicitly as a new
+    parameter (`label_size`/`text_size`) instead of reading it back off the
+    font object — the same approach every other `_guide_face` caller in this
+    file already uses (`create_guide_page`'s title/body fonts measure with
+    `getlength`/`getmetrics`; `create_divider_page`'s with `draw.textbbox`;
+    neither ever reads `.size`). Both call sites and both pre-existing tests
+    that called these functions directly were updated to pass the size.
+    Test evidence: new
+    `...::test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face` —
+    drives both routines with a stand-in face that genuinely lacks `.size`
+    (a `__getattr__` double delegating every other method to a real font),
+    with a negative-control assertion proving the double has teeth
+    (`sizeless.size` itself raises `AttributeError`), and confirms neither
+    routine crashes. Passes.
+
+  - **F-3 (visible rendering defect) — FIXED.** `_draw_pipeline_diagram`
+    drew each box's right border at `x + box_w`, one pixel past the box's
+    own right edge — for the last box, exactly the canvas's pixel width, so
+    Pillow clipped it and "PROVED" shipped with no visible right border;
+    every earlier box's border landed 1px into the arrow gutter instead of
+    on the box. Fixed to `x + box_w - 1`. Test evidence: new
+    `...::test_the_last_pipeline_box_has_a_complete_unclipped_border` —
+    renders the diagram directly (not through the full page), locates every
+    box's border columns structurally (full-image-height ink runs) rather
+    than assuming coordinates, and pixel-checks all 4 boxes for a complete,
+    un-clipped 4-sided rectangle — confirming the last box's right border
+    now lands on the canvas's own last column and that no border overlaps an
+    arrow. Passes.
+
+  - **F-4 (test-coverage blind spot) — FIXED.** `tests/test_book_guide_page.py`'s
+    `type_bands`/`is_ruled` helper (the AC-4 CON-020 10pt-floor sweep)
+    classified an ENTIRE bordered box — border, labels and sentences alike —
+    as "ruled"/diagram whenever any one row had a long horizontal run,
+    because a box's border touches every row of its own bounding area; this
+    silently excluded the box's own label/prose text from the floor check.
+    Fixed `type_bands` to look *inside* an otherwise-ruled band for a
+    genuinely bordered box's own structure: it finds the box's full-height
+    border columns (ink on literally every row of the band — something no
+    line of text, however dense, produces), groups them into left/right
+    pairs per box, and only rows that are *solidly* inked between one box's
+    own pair (the true top/bottom border rows) stay excluded; every other
+    row — including a genuinely blank row between two lines of the box's own
+    text, which still separates them into their own bands — is checked like
+    text anywhere else. (First attempt used a per-row run-length threshold
+    instead of this structural check and produced false splits/nonsense
+    measurements on real label text, e.g. "FOLLOW"/"PROVED" — caught by
+    running the real AC-4 test before trusting the fix, then corrected to
+    the structural approach above.) Negative-control test evidence (per the
+    brief's own requirement): new
+    `...::test_a_regression_shrinking_a_boxs_label_text_is_still_caught_by_the_floor_check`
+    — builds the difficulty box directly with a deliberately shrunk (6pt)
+    label font (never shipped in production — `GUIDE_DIFFICULTY_LABELS`/
+    `GUIDE_BODY_PT` are untouched) and confirms the fixed classifier now (a)
+    still finds type inside the box at all and (b) correctly measures it
+    below the floor — proving the old blind spot is closed, not just
+    plausible. Passes, together with the real AC-4 floor test across all 3
+    stored trims
+    (`test_every_line_of_type_holds_10pt_on_both_pages[book1|6x9|10cm-wide]`),
+    confirming the fix introduces no false positives on real, correctly-sized
+    content.
+
+  - **Fixture regenerated.** `tests/fixtures/book_baseline_card201.json`:
+    F-1's corrected worked example and F-3's border fix both change guide
+    page 2's own ink, so its digest and `interior_bytes`/
+    `colour_interior_bytes` moved. Diffed before writing: every other page's
+    digest, `page_count` (13) and `font_fingerprint` are unchanged. A new
+    `re_recorded_for_review_cycle_1_fix` field documents this re-recording —
+    the one case the fixture's own "never regenerate to make a test fail
+    less" warning allows: real news about a deliberate, reviewed content
+    change, not noise silenced away.
+
+  - **Opportunistic items.** Fixed: the stale singular "page 1 is the guide
+    page" docstrings in `app.py`'s `_printed_places` (~line 806) and
+    `book_pdf_generator.py`'s `export_book` (~line 2476) now say "pages
+    1-2". Fixed: `_stroke_drawing`'s docstring updated and its now-inaccurate
+    `# pragma: no cover` removed from the `frame is None` branch —
+    `guide_icon_layout` (this card) genuinely exercises that branch via
+    `draw_example_line` (a bare cell icon has no frame), so it is live code,
+    not dead. Not touched, as instructed: the fallback ladder's two
+    trimming mechanisms, `bare_level`'s positional truncation,
+    `book_finalize.html`'s duplicated Jinja block, `_draw_difficulty_box`
+    being rebuilt on every fallback attempt.
+
+  - **Test evidence, this pass.** `tests/test_book_guide_page.py` alone: 45
+    passed. The full touched-file subset —
+    `tests/test_book_guide_page.py tests/test_book_guide_page_type.py
+    tests/test_book_interior_type_floor.py tests/test_book_pdf_memory.py
+    tests/test_book_pdf_ink_mode.py tests/test_book_finalise_guide_preview.py
+    tests/test_book_finalise_gutter.py` — exit code 0, no failures (the
+    tail-captured summary line was truncated by this environment's own known
+    quirk, documented in this project's CLAUDE.md; the process exit code is
+    unambiguous). **The full project suite's own confirmation is the
+    orchestrator's responsibility, not this pass's**: an in-worktree full-
+    suite run was started during this pass but killed before completion at
+    the orchestrator's instruction, to avoid two full suites competing for
+    CPU while the orchestrator runs its own independent gate from its side —
+    that is this project's standing practice (the orchestrator always
+    re-confirms with a fresh run rather than trusting the implementer's
+    in-flight one). See the orchestrator's own record for that result.
+
+  - **No blocker.** None of F-1..F-4 turned out to be wrong, and none
+    required an owner-level judgment call beyond what the brief already
+    anticipated — F-1 used the brief's option (a)/(b) hybrid: same clue,
+    shrunk line so the shown placements are genuinely exhaustive, rather
+    than inventing an unrelated illustration.
