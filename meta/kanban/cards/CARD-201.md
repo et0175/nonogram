@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/static/admin.css, docs/guides/how_to_solve_nonograms_v2.pdf, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_ink_mode.py, tests/test_book_finalise_guide_preview.py, tests/test_book_finalise_gutter.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card201.json (new)
-**Review score:** —
+**Review score:** 8.5 (cycle 4/3+1, owner-extended; cycles 1-3 found and fixed 8 gating issues total across content-correctness, crash-risk, visual, and test-coverage categories; cycle 4 confirmation found 0 gating findings)
 **Started:** 2026-10-08T14:32:38Z
 **Closed:** —
 **Actual:** —
