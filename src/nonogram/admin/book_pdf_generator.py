@@ -1269,6 +1269,8 @@ def _draw_folio(
     page_number: int,
     dpi: int,
     content_bottom: Optional[int] = None,
+    content_right: Optional[int] = None,
+    content_left: Optional[int] = None,
 ) -> None:
     """Draw ``page_number``'s plain-decimal folio at the bottom-outer corner (CARD-200).
 
@@ -1292,18 +1294,38 @@ def _draw_folio(
     measurement the answer caption's own slack check already makes
     (``placement.usable_bottom - placement.drawing_bottom``). Left at
     ``top`` (the full usable height counts as available) when omitted, which
-    is correct for a page kind nothing else ever competes with this corner
-    for: a one-up or two-up puzzle page's own grid is centred well inside
-    its margins in practice, and a two-up page's *lower* slot in particular
-    reports zero slack **by construction** (:class:`PairLayout`'s own
-    docstring: "the lower slot['s]... drawing's bottom edge is the bottom
-    margin"), which would wrongly omit the folio on every two-up page if this
-    function treated that zero as a real collision the way it must for a
-    solved-answer page's caption. The folio is drawn only when the slack
-    between ``content_bottom`` and ``bottom`` holds at least one line of its
-    own text — CARD-197's "omit rather than collide" rule for the answer
-    caption, generalised to every page kind that actually needs it (AC-1's
-    own final clause) rather than reinvented per kind.
+    is correct only for a page kind nothing ever competes with this corner
+    for (CARD-197's "omit rather than collide" rule for the answer caption,
+    generalised to every page kind that actually needs it — AC-1's own final
+    clause — rather than reinvented per kind).
+
+    **Review cycle 2, F-1 (gating):** a vertical-only check is not enough for
+    every caller. A two-up page's *lower* slot reports zero vertical slack
+    **by construction** (:class:`PairLayout`'s own docstring: "the lower
+    slot['s]... drawing's bottom edge is the bottom margin") on *every*
+    two-up page, not just a tight one — so a caller that always fed the
+    lower slot's own ``drawing_bottom`` back as ``content_bottom`` would
+    silently omit the folio from every two-up page in the book, which is
+    worse than the collision it would be avoiding. What actually decides
+    whether the lower slot's own ink can reach the folio's exact corner is
+    *horizontal* room at that same row — the lower slot is centred across
+    the page's shared usable width (:class:`PairLayout`'s own docstring) and
+    only touches the left/right margin when that centring leaves no spare,
+    which is the common case's opposite, not its rule. ``content_right``/
+    ``content_left`` (the content's own rightmost/leftmost pixel — e.g.
+    ``placement.drawing_right``/``drawing_left``) are read **only** when
+    ``content_bottom`` already shows no vertical room: the folio is then
+    omitted only if the relevant one (``content_right`` on a right-hand
+    page, ``content_left`` on a left-hand one — :func:`page_is_right_hand`
+    picks which) *also* leaves no room for the folio's own measured text
+    width at that corner, i.e. only when the content's own bounding box
+    would actually overlap the folio's. A caller with no horizontal figure
+    to offer (``content_right``/``content_left`` left ``None``) keeps the
+    old, more conservative "no vertical room is already enough to omit"
+    rule — which is what :meth:`BookPDFGenerator.solved_puzzle_page` and
+    :meth:`BookPDFGenerator._blank_page` still want, since neither has a
+    structural reason its own vertical slack would ever read zero on every
+    call the way a two-up page's lower slot does.
 
     The anchor is chosen so the folio's own glyph box never crosses
     ``bottom``, ``left`` or ``right`` (G-5 is read, not changed: this is a
@@ -1317,13 +1339,23 @@ def _draw_folio(
     font = _band_font(size)
     ascent, descent = font.getmetrics()
     line_height = ascent + descent
-    available = bottom - (top if content_bottom is None else content_bottom)
-    if available < line_height:
-        return
+    text = str(page_number)
     right_hand = page_is_right_hand(page_number)
+    if content_bottom is not None and bottom - content_bottom < line_height:
+        text_width = font.getlength(text)
+        if right_hand:
+            clear_horizontally = (
+                content_right is not None and content_right <= right - text_width
+            )
+        else:
+            clear_horizontally = (
+                content_left is not None and content_left >= left + text_width
+            )
+        if not clear_horizontally:
+            return
     x = right if right_hand else left
     anchor = "rb" if right_hand else "lb"
-    draw.text((x, bottom), str(page_number), font=font, fill=INK, anchor=anchor)
+    draw.text((x, bottom), text, font=font, fill=INK, anchor=anchor)
 
 
 def _guide_rule_width(spec: PageSpec) -> int:
@@ -1965,7 +1997,7 @@ def page_is_right_hand(page_number: int) -> bool:
 
 
 @lru_cache(maxsize=1)
-def _default_toc_frame() -> "PageFrame":
+def default_toc_frame() -> "PageFrame":
     """The TOC's usable area on CON-018's Book 1 profile (CARD-200).
 
     Used only as the basis for :func:`interior_page_count`'s own
@@ -1987,9 +2019,15 @@ def _default_toc_frame() -> "PageFrame":
     A caller that knows the *book's own* trim (:meth:`BookPDFGenerator.section_plan`)
     builds its own frame off ``self.page_spec`` and passes the real
     ``toc_pages`` in instead of relying on this; this default is only ever
-    read when nothing else is known — a bare call, or
+    read when nothing else is known — a bare call, or (review cycle 2, F-2)
     :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count`'s own
-    estimate for a book whose stored trim may not even be valid.
+    genuinely-last-resort fallback, for a book whose trim cannot be read at
+    all — not its general path, which measures the book's own stored height
+    instead (see that function's own docstring). Public (no longer
+    underscore-prefixed) since review cycle 2, F-2, for exactly that cross-
+    module reuse: ``book_kdp`` needs this same Book 1 fallback frame, and
+    reimplementing it natively there would duplicate :func:`book_page_spec`'s
+    own profile-fallback logic rather than reuse it.
     """
     return page_frame(book_page_spec(None, 1))
 
@@ -2037,7 +2075,7 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     return max(1, available // entry_height)
 
 
-def _toc_page_count(entry_count: int, frame: "PageFrame", dpi: int) -> int:
+def measured_toc_page_count(entry_count: int, frame: "PageFrame", dpi: int) -> int:
     """How many TOC pages ``entry_count`` listing rows need on ``frame``.
 
     Zero when there is nothing to list (CARD-200) — the same "only when
@@ -2045,6 +2083,18 @@ def _toc_page_count(entry_count: int, frame: "PageFrame", dpi: int) -> int:
     already apply, extended to the table of contents that now precedes them:
     a book with no drawable puzzle gets no TOC page at all, rather than one
     page carrying a title and no rows.
+
+    Named ``measured_*`` rather than the bare ``toc_page_count`` every
+    caller's own local variable/field already uses (:class:`SectionPlan.toc_page_count`,
+    :meth:`BookPDFGenerator.section_plan`'s own local of the same name) —
+    a module-level function sharing that exact name would make
+    ``toc_page_count = toc_page_count(...)`` raise ``UnboundLocalError``
+    inside any method that also assigns a same-named local, Python's normal
+    scoping rule for a name a function body assigns anywhere. Public (no
+    longer underscore-prefixed) since review cycle 2, F-2:
+    :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count` now calls
+    this directly on the book's own stored trim, rather than only ever
+    through this module's own :func:`interior_page_count` default.
 
     Raises:
         ValueError: ``entry_count`` is negative.
@@ -2131,11 +2181,11 @@ def interior_page_count(
 
     ``toc_pages`` (CARD-200) is how many pages the table of contents takes —
     one row per drawable puzzle, however many of them fit a page
-    (:func:`_toc_page_count`/:func:`_toc_entries_per_page`). Unlike
+    (:func:`measured_toc_page_count`/:func:`_toc_entries_per_page`). Unlike
     ``level_dividers``'s own count-only default, the TOC's split genuinely
     needs a usable height to divide by — a page's own real geometry, which a
     caller holding only ``puzzle_count`` does not have either. Left out, it
-    is :func:`_toc_page_count` measured on :func:`_default_toc_frame` — CON-018's
+    is :func:`measured_toc_page_count` measured on :func:`default_toc_frame` — CON-018's
     Book 1 profile, the same default :class:`BookPDFGenerator` falls back to
     for ``book=None`` — rather than a count-only guess, because a guess could
     as easily under-state the real split as over it (an actual page holds
@@ -2161,7 +2211,7 @@ def interior_page_count(
     if dividers < 0:
         raise ValueError(f"divider page count cannot be negative, got {dividers}")
     toc = (
-        _toc_page_count(puzzle_count, _default_toc_frame(), DPI)
+        measured_toc_page_count(puzzle_count, default_toc_frame(), DPI)
         if toc_pages is None
         else toc_pages
     )
@@ -3020,7 +3070,7 @@ class BookPDFGenerator:
 
         ``entries`` is **this page's own slice** — ``(label, page_number)``
         pairs in book order — already split by :meth:`interior_stream`'s own
-        planning pass (:func:`_toc_page_count`/:func:`_toc_entries_per_page`,
+        planning pass (:func:`measured_toc_page_count`/:func:`_toc_entries_per_page`,
         read off the same frame this method itself builds), so this method
         draws whatever it is handed and never re-decides how many rows share
         a page: one source of truth for the split, not two. ``label`` is
@@ -3283,20 +3333,40 @@ class BookPDFGenerator:
         holds.
 
         **Since CARD-200, one more mark: the folio.** No caption or any
-        other text ever competes for this page's bottom-outer corner (unlike
-        a solved-answer page's), so it is drawn unconditionally
-        (:func:`_draw_folio`'s own ``content_bottom=None`` default) —
-        reached through :func:`page_frame` again rather than threading
-        ``render_pages``'s own :class:`~nonogram.export.layout.Layout` back
-        out of it, the same "any page already has a `PageFrame`-shaped
-        usable area" reuse :meth:`create_guide_page`/:meth:`create_divider_page`
-        already rely on (G-1).
+        other text is ever drawn on this page, but the grid itself can be —
+        review cycle 2, F-1 (gating): a blank puzzle page's own cell fitting
+        (:func:`~nonogram.export.layout.compute_layout`) can leave **zero**
+        vertical slack below the grid when the puzzle is page-fit-bound (a
+        30-wide/30-tall grid, row-clue depth 1, column-clue depth 10, on
+        Book 1's own trim reproduces it exactly — confirmed by direct
+        measurement before this fix, not assumed), in which case drawing the
+        folio unconditionally prints it directly over the grid's own bottom
+        row. The real ``content_bottom`` therefore has to come from the same
+        :class:`~nonogram.export.layout.Layout` ``render_pages`` itself
+        computed for this puzzle's clues on this page's spec — recomputed
+        here independently (:func:`~nonogram.export.layout.compute_layout`
+        is pure and total, so the second call is the same answer, not a
+        second implementation) rather than threaded out of ``render_pages``,
+        which returns only the two rendered images. :func:`page_frame` still
+        gives the usable-area corners to anchor at (unaffected by which
+        puzzle's clues are drawn, since the usable area is the spec's own
+        margins, not the grid), the same reuse :meth:`create_guide_page`/
+        :meth:`create_divider_page` already rely on (G-1); only the
+        vertical-room check is new. No horizontal check is needed here
+        (unlike :meth:`_two_up_page`'s lower slot): nothing about a single
+        puzzle page's own cell fitting makes its vertical slack read zero on
+        *every* call the way a two-up page's lower slot does, so the simple
+        vertical-only check :meth:`solved_puzzle_page` already uses is
+        enough — see :func:`_draw_folio`'s own docstring.
         """
+        page_spec = self.page_spec(puzzle_page)
         blank, _ = render_pages(
             self._puzzle_payload(payload, puzzle_number),
-            page_spec=self.page_spec(puzzle_page),
+            page_spec=page_spec,
         )
-        frame = page_frame(self.page_spec(puzzle_page))
+        frame = page_frame(page_spec)
+        layout = compute_layout(payload.row_clues, payload.column_clues, page_spec)
+        placement = layout.page
         _draw_folio(
             ImageDraw.Draw(blank),
             frame.left,
@@ -3305,6 +3375,7 @@ class BookPDFGenerator:
             frame.bottom,
             puzzle_page,
             self.dpi,
+            content_bottom=None if placement is None else placement.drawing_bottom,
         )
         return blank
 
@@ -3369,11 +3440,28 @@ class BookPDFGenerator:
         differ between the two slots either way (both centre on the page's
         one shared usable width), so reading all four off ``lower.page``
         alone is both correct and sufficient — one call, not a slot-by-slot
-        one as the loop above intentionally avoids already. Drawn
-        unconditionally (no ``content_bottom``): nothing else is drawn in
-        this corner, and the lower slot's own zero slack is a fact of this
-        layout's construction, not a collision to avoid (see
-        :func:`_draw_folio`'s own docstring).
+        one as the loop above intentionally avoids already.
+
+        **Review cycle 2, F-1 (gating), correcting this card's own first-pass
+        reasoning**: "nothing else is drawn in this corner" was wrong — the
+        lower slot's own grid *can* reach the usable area's outer (left or
+        right) edge at exactly the row the folio sits on, when the pair's
+        shared cell is fitted tight enough that the lower slot's drawing has
+        no horizontal spare either (confirmed by direct measurement: a
+        25-26-column, row-clue-depth-1 pair on Book 1's own trim lands the
+        lower slot's drawing flush with both margins, not just the bottom
+        one). But the lower slot's *vertical* slack reads zero on **every**
+        two-up page, not just a tight one (the algebraic identity above), so
+        feeding ``lower.page.drawing_bottom`` back as a plain
+        ``content_bottom`` the way :meth:`solved_puzzle_page` does would
+        omit the folio from every two-up page in the book — the exact
+        over-correction :func:`_draw_folio`'s own docstring warns against.
+        ``content_right``/``content_left`` (``lower.page.drawing_right``/
+        ``drawing_left``) are passed alongside ``content_bottom`` so
+        :func:`_draw_folio` can tell a real corner collision (the drawing
+        also has no horizontal room at that exact edge) from the lower
+        slot's always-zero vertical slack alone: see that function's own
+        docstring for the exact rule.
         """
         pair = plan.pair
         if pair is None:  # pragma: no cover - the walk only sends two-up plans here
@@ -3406,6 +3494,9 @@ class BookPDFGenerator:
             footer_area.usable_bottom,
             plan.page_number,
             self.dpi,
+            content_bottom=footer_area.drawing_bottom,
+            content_right=footer_area.drawing_right,
+            content_left=footer_area.drawing_left,
         )
         return page
 
@@ -3650,11 +3741,35 @@ class BookPDFGenerator:
         tile does) — exactly the gap :func:`page_frame` exists to fill for
         any ``PageSpec``, drawn content or not, the same reuse
         :meth:`create_guide_page`/:meth:`create_divider_page`/
-        :meth:`_blank_page` already rely on. Drawn unconditionally: a
-        packed page's tiles sit inset from the trim's own margins with
-        clearance between them (:data:`~nonogram.export.layout.PackedSolvedLayout`'s
-        own overlap guard), never reaching the page's bottom-outer corner the
-        way a single full answer page's grid sometimes does.
+        :meth:`_blank_page` already rely on.
+
+        **Review cycle 2, F-1 (gating), correcting this card's own first-pass
+        reasoning**: "tiles sit inset from the trim's own margins... never
+        reaching the page's bottom-outer corner" was wrong —
+        :func:`~nonogram.export.layout.compute_packed_solved_layout`'s own
+        tile gap (``SOLVED_TILE_GAP_MM``) sits only *between* adjacent
+        tiles; the outer tiles (the bottom row, the first/last column) are
+        bounded by the page's own usable area with no extra inset at all,
+        so the **tile** reaches the trim's own margin on every packed page,
+        by construction, on its outer edges. Whether that outer tile's own
+        *drawing* also reaches that edge (the real collision risk) depends
+        on the shared cell's own fit — confirmed by direct measurement: a
+        30-wide/23-tall, row-clue-depth-1/column-clue-depth-15 member at
+        capacity 4 lands its bottom-right tile's drawing flush with both the
+        tile's own bottom and right edges, i.e. the page's own usable
+        corner. Only the tile at the folio's own physical corner (the last
+        tile row, crossed with the last tile column on a right-hand page or
+        the first on a left-hand one) can ever compete with it — a tile
+        elsewhere on the page never reaches that corner regardless of its
+        own fit — and only when the plan actually filled that position
+        (:attr:`~nonogram.admin.book_answer_key.PackedAnswerPage.numbers`
+        may leave a page's last slot or two empty). When that corner slot
+        exists, its own :class:`~nonogram.export.layout.PagePlacement` is
+        passed to :func:`_draw_folio` as ``content_bottom``/
+        ``content_right``/``content_left`` exactly as :meth:`_two_up_page`
+        passes its own lower slot's; when the corner is unfilled there is
+        nothing there to collide with, so the folio is drawn with no
+        content figures at all, the same as before this fix.
 
         Returns:
             The rendered page.
@@ -3687,8 +3802,23 @@ class BookPDFGenerator:
                 draw, slot, payload.grid, number, payload.difficulty, title
             )
         frame = page_frame(self.page_spec(page_number))
+        right_hand = page_is_right_hand(page_number)
+        corner_column = layout.tile_columns - 1 if right_hand else 0
+        corner_index = (layout.tile_rows - 1) * layout.tile_columns + corner_column
+        corner_placement = (
+            layout.slots[corner_index].page if corner_index < len(layout.slots) else None
+        )
         _draw_folio(
-            draw, frame.left, frame.top, frame.right, frame.bottom, page_number, self.dpi
+            draw,
+            frame.left,
+            frame.top,
+            frame.right,
+            frame.bottom,
+            page_number,
+            self.dpi,
+            content_bottom=None if corner_placement is None else corner_placement.drawing_bottom,
+            content_right=None if corner_placement is None else corner_placement.drawing_right,
+            content_left=None if corner_placement is None else corner_placement.drawing_left,
         )
         return page
 
@@ -3982,7 +4112,7 @@ class BookPDFGenerator:
         # CARD-200: the table of contents sits between the guide and the
         # puzzle section, so every page this walk hands out moves by its own
         # length. Measured here, off this book's own trim
-        # (:func:`page_frame`/:func:`_toc_page_count`), rather than deferred
+        # (:func:`page_frame`/:func:`measured_toc_page_count`), rather than deferred
         # to :meth:`interior_stream` — this is the *only* place the puzzle
         # section's own ``first_page`` is decided, and the Arrangement
         # screen's own call (``app.py``'s ``_printed_places``) goes through
@@ -3990,7 +4120,7 @@ class BookPDFGenerator:
         # export that actually prints it cannot disagree about the TOC's
         # own length (G-4, the same "decided once, read twice" discipline
         # this method's own docstring already states for the pairing walk).
-        toc_page_count = _toc_page_count(
+        toc_page_count = measured_toc_page_count(
             len(payloads), page_frame(self.page_spec(1)), self.dpi
         )
         first_page = 1 + GUIDE_PAGE_COUNT + toc_page_count
