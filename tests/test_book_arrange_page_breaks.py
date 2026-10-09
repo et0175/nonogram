@@ -120,7 +120,7 @@ def first_section_page(book, puzzle_count: int) -> int:
     """Where the puzzle section starts: 1 + the guide + the TOC (CARD-200).
 
     An independent reimplementation of ``book_pdf_generator``'s own
-    ``_toc_entries_per_page``/``_toc_page_count`` — the same "authorities on
+    ``_toc_entries_per_page``/``measured_toc_page_count`` — the same "authorities on
     geometry" (:func:`~nonogram.admin.book_page_spec.book_page_spec`,
     :func:`~nonogram.export.layout.compute_layout`) this file's own
     :func:`planned_by_hand` already reads directly, plus Pillow's own font

@@ -597,3 +597,47 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         )
 
         assert _folios(calls) == {page_number: str(page_number)}
+
+    def test_packed_answer_page_with_one_leftover_answer_still_draws_the_folio(
+        self, monkeypatch
+    ) -> None:
+        """Review cycle 2, F-001: the two tests above only ever exercise a
+        fully-filled packed page (4-of-4, 2-of-2) — the one shape where a
+        mutated ``corner_index <= len(layout.slots)`` (instead of the real
+        ``<``) still agrees with the real operator, so neither test actually
+        pins it. ``plan_small_answer_pages`` also produces a genuinely
+        different page: a capacity-2 page holding exactly one leftover
+        answer. That one answer fills the page's *left* tile (slot index 0,
+        fill order is left-to-right then top-to-bottom); on a right-hand
+        page the folio's own corner is the *right* tile (index 1), which is
+        never filled here — ``corner_index`` (1) equals ``len(layout.slots)``
+        (1) exactly, the one value where ``<`` and ``<=`` disagree: the real
+        ``<`` correctly reads the corner as empty (``corner_placement is
+        None``), while a mutated ``<=`` indexes ``layout.slots[1]`` on a
+        1-slot tuple and raises ``IndexError``.
+
+        Since the corner is genuinely empty, there is nothing there to
+        collide with, so the folio must still be drawn (not omitted) —
+        mirroring the control above, but with a real unfilled corner rather
+        than a fully-filled page.
+        """
+        easy = puzzle("f1-packed-leftover", 10, 10, 3, "easy", "Leftover")
+        generator = BookPDFGenerator(corpus_book("f1-packed-leftover-book"))
+        payloads = [("id1", generator._payload(easy))]
+        answers = (Answer(number=1, width=10, height=10, level=Tier.EASY),)
+        plan = PackedAnswerPage(answers)
+        assert plan.capacity == 2, "this test only pins the single-leftover shape"
+        page_number = 9
+        assert page_is_right_hand(page_number), "the corner-collision check differs by parity"
+
+        calls = _folio_calls(
+            monkeypatch,
+            page_number,
+            lambda: generator._packed_answer_page(plan, payloads, page_number, {}),
+        )
+
+        assert _folios(calls) == {page_number: str(page_number)}, (
+            "a packed answer page with one leftover answer has an empty "
+            "folio-corner slot, so the folio must be drawn, not omitted "
+            "(and the corner lookup must not raise)"
+        )
