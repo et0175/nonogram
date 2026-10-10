@@ -1,0 +1,53 @@
+version: 1
+generated_at: "2026-10-10T11:03:21Z"
+target: "CARD-203 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-203, branch card/203-solved-caption-position, review cycle 3 (confirmation / final attempt) of fix commits c65a903 (F-101 right_hand gate + docstring correction) and a597072 (worktree notes) against review cycle 2's findings F-101 (Critical)/F-102 (Important)/F-103 (Minor)"
+overall_score: 9.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py (_draw_solved_slot, solved_puzzle_page, _packed_answer_page, _draw_folio, page_is_right_hand, page_frame, _two_up_page, puzzle_pages — full re-read of both call sites' collision-avoidance logic line by line, plus _draw_folio's own internal right_hand branch to confirm WHY the content_right/content_left asymmetry between the two callers is not itself a bug)
+    - src/nonogram/export/layout.py (PagePlacement, compute_layout's horizontal centring arithmetic lines 1573-1616, compute_packed_solved_layout / _packed_tile_layout lines 2900-3060 — read to independently derive whether the full-page grid and the packed corner tile's grid can structurally reach the page's outer margin, rather than trusting either fix's own narrative)
+    - tests/test_book_solved_answer_key.py (full diff: new class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio, all 3 tests, _members/_render/_corner_placement helpers)
+    - tests/test_book_solved_page.py (TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio, re-read to confirm the mirrored test shape/intent)
+    - meta/kanban/cards/CARD-203.md (full Worktree notes history: original implementation, Fix 1, Fix 2)
+    - meta/review/20261010T101131Z-CARD-203-cycle2.yml (cycle 2's own findings/root-causes/system-contract verdicts, used as the confirmation-mode baseline)
+    - meta/review/20261010T055328Z-CARD-203-cycle1.yml (cycle 1 findings, for full lineage)
+    - Independent empirical verification (own commands, not reused from any agent's narrative): recomputed the corner-tile geometry for page_number 8/9 directly against compute_packed_solved_layout (confirmed drawing_left==usable_left on page 8, drawing_right==usable_right on page 9, slack=84px on both, matching the test's own claimed danger-window numbers exactly)
+    - Independent mutation check (own edit/test/restore cycle, not reused from the fix's own stash-proof): reverted the `right_hand and` gate to unconditional, reran the new test class — test_the_folio_now_draws_on_the_left_hand_page failed exactly as F-101 predicted, the other two still passed; restored the gate and verified git diff --stat shows zero change to the production file
+  not_reached:
+    - Full repository-wide `pytest` run (~18-20 min) not independently re-executed this cycle — ran the narrower, directly-relevant subset instead (tests/test_book_solved_answer_key.py + tests/test_book_solved_page.py + tests/test_book_page_numbers.py + tests/test_book_pdf_memory.py: 147 passed, 1 skipped, matching the card's own claimed count exactly) and rely on the orchestrator's own independently-reported full-suite run (6850 passed, 9 skipped, 0 failed) for the remainder; a concurrent pytest process was observed running but it belongs to a sibling worktree (PythonProject4-CARD-204), a different filesystem path, so there was no shared-file contention risk with this review's own mutation check
+    - tests/test_book_pdf_band.py, tests/test_book_toc.py, tests/property/test_book_answer_tiles.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_packed_degrade.py (not re-read this cycle; cycle 1/2 read them and the fix delta since cycle 2 does not touch them)
+  confidence: high
+metrics:
+  diff: { files: 3, added: 229, removed: 4 }
+  production_diff: { file: "src/nonogram/admin/book_pdf_generator.py", added: 26, removed: 3 }
+  max_fan_in: { symbol: "BookPDFGenerator._packed_answer_page", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py (48 commits/12mo per git log --since=12.months, carried from cycle 2's 47/23-fix count — same hotspot)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — carried from cycle 2: the fix delta is a one-line gating condition plus a docstring and one new test class; none of book_pdf_generator.py's real co-change peers (app.py, templates/book_finalize.html, book_kdp.py) bear on folio/caption collision logic"
+
+system_contract:
+  rules_checked: 53
+  holds: 5
+  unchecked: 48
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle2, delta-clean): fix delta adds no import and no third-party dependency; it is one boolean AND, a docstring, and a test class"
+    - "ADR-0036/R2 ✓ holds — carried(cycle2, delta-clean): the gate reuses the already-computed right_hand/content_bottom/corner_caption values; no new fitting computation introduced"
+    - "ADR-0037/R1 ✓ holds — carried(cycle2, delta-clean): fix touches only the caption/folio collision wiring, not which page kinds print a title"
+    - "ADR-0037/R2 ✓ holds — carried(cycle2, delta-clean): _stroke_drawing/rule-width logic untouched by this delta"
+    - "CON-020 ✓ holds — carried(cycle2, delta-clean): caption font/size lines untouched by this delta; only the content_bottom fold-in's gating condition changed"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1..R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1..R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0038/R1..R4, ADR-0038/R6..R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005..INV-013 ⚠ unchecked — no_eligible_fact: carried(cycle2, delta-clean) — none of these rules' scope (solver, web server, admin door, book plan/membership/pairing, answer-key capacity, player JS, orchestrator retry/density/aspect) is touched by a fix delta scoped to one gating condition in book_pdf_generator.py, its docstring, and its own test file"
+
+root_causes:
+  - id: RC-101
+    title: "(resolved) _packed_answer_page's F-001 fold-in was unconditional while solved_puzzle_page's own equivalent was page_is_right_hand-gated. Fix c65a903 reuses the already-computed right_hand variable to gate the fold-in, mirroring solved_puzzle_page exactly. Independently re-derived (own geometry computation + own mutation check, not reused from the fix's narrative): the gate is both necessary (left-hand corner tile's caption sits at its own drawing_right, not the folio's left-outer anchor) and sufficient (right-hand corner tile's caption right edge coincides exactly with content_right, already fed unconditionally for the grid-vs-folio case since CARD-200 cycle 2). No further asymmetry found between the two call sites' collision-avoidance logic: content_right/content_left are passed unconditionally by _packed_answer_page (unlike solved_puzzle_page, which only sets content_right when right_hand) but this is NOT a residual asymmetry — _draw_folio's own internal right_hand branch (book_pdf_generator.py:1344-1356) reads content_right only on a right-hand page and content_left only on a left-hand one, so a value passed for the unused side is inert by construction; solved_puzzle_page never had an equivalent grid-collision figure to pass in the first place because compute_layout centres a full page's grid horizontally (export/layout.py:1577-1581), so its drawing_left/drawing_right essentially never reach usable_left/usable_right the way a packed layout's outer tile reliably does (export/layout.py's compute_packed_solved_layout places tiles with zero extra inset at the page's own outer edges, per CARD-200 cycle 2's own F-1 finding)."
+    finding_ids: []
+
+findings: []

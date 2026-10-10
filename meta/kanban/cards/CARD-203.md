@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card203.json
-**Review score:** 4.0/10 (cycle 2 — fixed, cycle 3 confirmation pending)
+**Review score:** 9.5/10 (cycle 3, final — ready to merge pending owner render sign-off)
 **Started:** 2026-10-10T04:04:25Z
 **Closed:** —
 **Actual:** —
@@ -466,3 +466,27 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
   confirmation: 6850 passed, 9 skipped, 0 failed, 0 errors** (1093.90s) — exactly
   3 more than the prior 6847 baseline, matching the 3 new tests.
   Owner sign-off on the 2.0mm gap/band asymmetry remains pending, unaffected.
+
+- [Review] forge:review cycle 3 started (confirmation/final pass, background agent).
+- [Review 3/3 — FINAL] Score **9.5/10**. 0 Critical, 0 Important, 0 Minor, 1
+  Out-of-scope (the pending owner sign-off, reaffirmed non-blocking). Per this
+  cycle's explicit adversarial mandate (given the asymmetry bug shipped twice):
+  re-read both call sites' collision-avoidance logic line by line, found one
+  more textual difference (`_packed_answer_page` passes `content_right`/
+  `content_left` unconditionally, `solved_puzzle_page` only when right-hand) —
+  investigated and confirmed **harmless, not a hidden third bug**: `_draw_folio`
+  itself only ever reads the side matching its own internal `right_hand` check,
+  and a full page's grid is horizontally centred (never reaching the margin the
+  way a packed page's outer tile does by construction) — a genuine structural
+  difference between the two page kinds, independently re-derived from
+  `compute_layout`/`compute_packed_solved_layout`, not assumed. Ran an
+  independent mutation check (own edit, not the fix's own stash-proof):
+  reverted the gate, confirmed the new regression test fails exactly as F-101
+  predicted, restored, confirmed `git diff --stat` clean. System contract: 53
+  rules checked, 5 ✓ holds (carried, delta-clean), 48 ⚠ unchecked (carried,
+  delta-clean), 0 ✗ violated.
+  - Review report synced: `meta/review/20261010T110321Z-CARD-203-cycle3.yml`.
+  - **Verdict: CARD-203 IS READY TO MERGE** (modulo the separately-tracked owner
+    visual sign-off on the 2.0mm gap/band asymmetry, non-blocking for review,
+    flagged in every cycle). This is the final confirmation — no further review
+    cycle needed.
