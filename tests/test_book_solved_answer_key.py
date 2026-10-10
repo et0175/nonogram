@@ -63,6 +63,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+import nonogram.admin.book_pdf_generator as book_pdf_generator
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
@@ -70,6 +71,7 @@ from nonogram.admin.book_pdf_generator import (
     _as_planned,
     _degrade_infeasible_packed_pages,
     band_identity,
+    page_frame,
     page_is_right_hand,
 )
 from nonogram.admin.book_answer_key import (
@@ -87,7 +89,7 @@ from nonogram.admin.book_pdf_generator import (
     type_px,
 )
 from nonogram.difficulty import Tier
-from nonogram.export.layout import compute_packed_solved_layout
+from nonogram.export.layout import ANSWER_TILE_GAP_MM, compute_packed_solved_layout
 
 from tests.helpers.page_ink import drawing_of
 
@@ -1267,6 +1269,163 @@ class TestBookSolvedAnswerKey_PackedCaptionRightAlignedWithItsOwnTile:
         short = rightmost_ink("A")
         long = rightmost_ink("A Very Different, Much Longer Picture Name")
         assert abs(short - long) <= 2
+
+
+class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio:
+    """CARD-203 review cycle 2, F-101/F-102 — the packed path's own
+    corner-tile caption/folio collision check, mirroring
+    ``TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio``
+    (``tests/test_book_solved_page.py``) but against ``_packed_answer_page``'s
+    corner tile instead of a full page.
+
+    Review cycle 1 (F-001) fixed the full-page case (``solved_puzzle_page``)
+    by gating the caption-box fold-in on ``page_is_right_hand(page_number)``,
+    but the packed-page fix (``_packed_answer_page``) shipped with no such
+    gate — it folded the corner tile's caption into ``content_bottom``
+    unconditionally. Review cycle 2 (F-101) found and reproduced the
+    resulting regression: on a LEFT-hand packed page, the corner tile is
+    column 0 (``corner_column`` in the production code), whose own
+    ``drawing_left`` reaches the folio's actual (left) corner — but whose
+    CAPTION is still right-aligned toward *that tile's own* ``drawing_right``
+    (nowhere near the left margin). Folding that caption's bottom edge into
+    ``content_bottom`` regardless of side made the folio disappear from a
+    left-hand packed page with genuine, ample slack.
+
+    ``_COLLISION_WIDTH``/``_COLLISION_HEIGHT``/``_COLLISION_DEPTH`` (14x6,
+    depth 1) at capacity 4 on :func:`_kdp_min_book` is a shape/trim pair
+    found by direct measurement (not swept): both the left-hand
+    (``_LEFT_HAND_PAGE_NUMBER``, 8) and right-hand (``_RIGHT_HAND_PAGE_NUMBER``,
+    9) corner tiles land with zero horizontal margin (``drawing_right ==
+    usable_right`` on the right-hand side, ``drawing_left == usable_left`` on
+    the left-hand one — :func:`_kdp_min_book`'s gutter and outside margins
+    are equal, so the two page sides are geometrically mirror-symmetric) and
+    84 px of vertical slack below the grid — comfortably above both the
+    caption's own omission guard (``gap_px + line_height`` = 73 px) and the
+    folio's plain "is there room" bar (``line_height`` alone, 49 px).
+
+    Each test renders the real page and an independently rendered reference
+    built by monkeypatching the module-level ``_draw_folio`` to a no-op for
+    one render only (ground-truth reuse, the same "diff against a reference
+    that cannot draw the mark under test" technique the full-page class
+    uses, adapted here since ``_packed_answer_page`` calls the module-level
+    function directly rather than through an overridable method) — any pixel
+    difference between the two is the folio's own ink, nothing else.
+    """
+
+    _COLLISION_WIDTH = 14
+    _COLLISION_HEIGHT = 6
+    _COLLISION_DEPTH = 1
+    _LEFT_HAND_PAGE_NUMBER = 8
+    _RIGHT_HAND_PAGE_NUMBER = 9
+
+    @classmethod
+    def _members(cls, gen: BookPDFGenerator):
+        puzzles = [
+            _puzzle(
+                cls._COLLISION_WIDTH,
+                cls._COLLISION_HEIGHT,
+                number=number,
+                depth=cls._COLLISION_DEPTH,
+                tier="easy",
+            )
+            for number in range(1, 5)
+        ]
+        payloads = [(p["id"], gen._payload(p)) for p in puzzles]
+        answers = tuple(
+            Answer(
+                number=number,
+                width=cls._COLLISION_WIDTH,
+                height=cls._COLLISION_HEIGHT,
+                level=Tier.EASY,
+            )
+            for number in range(1, 5)
+        )
+        return payloads, PackedAnswerPage(answers)
+
+    @classmethod
+    def _render(cls, page_number: int, *, suppress_folio: bool = False):
+        gen = BookPDFGenerator(_kdp_min_book())
+        payloads, packed_page = cls._members(gen)
+        original_draw_folio = book_pdf_generator._draw_folio
+        if suppress_folio:
+            book_pdf_generator._draw_folio = lambda *args, **kwargs: None
+        try:
+            page = gen._packed_answer_page(packed_page, payloads, page_number, {})
+        finally:
+            book_pdf_generator._draw_folio = original_draw_folio
+        layout = compute_packed_solved_layout(
+            [(payload.row_clues, payload.column_clues) for _, payload in payloads],
+            packed_page.capacity,
+            gen.page_spec(page_number),
+        )
+        return np.asarray(page.convert("RGB")), layout, gen
+
+    @classmethod
+    def _corner_placement(cls, layout, gen, page_number: int):
+        right_hand = page_is_right_hand(page_number)
+        corner_column = layout.tile_columns - 1 if right_hand else 0
+        corner_index = (layout.tile_rows - 1) * layout.tile_columns + corner_column
+        return layout.slots[corner_index].page, right_hand
+
+    def test_this_shape_really_sits_in_the_danger_window_on_both_page_sides(
+        self,
+    ) -> None:
+        for page_number in (self._LEFT_HAND_PAGE_NUMBER, self._RIGHT_HAND_PAGE_NUMBER):
+            _, layout, gen = self._render(page_number)
+            placement, right_hand = self._corner_placement(layout, gen, page_number)
+            assert placement is not None
+            slack = placement.usable_bottom - placement.drawing_bottom
+            caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+            caption_font_size = type_px(caption_font_points, gen.dpi)
+            font = _band_font(caption_font_size)
+            ascent, descent = font.getmetrics()
+            gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * gen.dpi)
+
+            if right_hand:
+                margin = placement.usable_right - placement.drawing_right
+            else:
+                margin = placement.drawing_left - placement.usable_left
+            assert margin == 0, (
+                "the corner tile must reach the page's own outer margin "
+                "with no horizontal room to spare"
+            )
+            assert slack >= gap_px + ascent + descent, (
+                "the caption must actually draw here, not be omitted for "
+                "lack of slack"
+            )
+
+    def test_the_folio_still_yields_on_the_right_hand_page(self) -> None:
+        """The genuine collision case (a): the corner tile's caption really
+        does reach the same corner as the folio on a right-hand page — the
+        folio must still correctly omit itself there, unaffected by the
+        F-101 fix (``right_hand`` is already true before and after it)."""
+        page_number = self._RIGHT_HAND_PAGE_NUMBER
+        with_folio, _, _ = self._render(page_number, suppress_folio=False)
+        without_folio, _, _ = self._render(page_number, suppress_folio=True)
+
+        assert np.array_equal(with_folio, without_folio), (
+            "expected the folio to be omitted (no pixel difference from a "
+            "render where _draw_folio is a no-op): the corner tile's "
+            "right-aligned caption occupies the exact corner the folio "
+            "would otherwise draw into"
+        )
+
+    def test_the_folio_now_draws_on_the_left_hand_page(self) -> None:
+        """F-101's own regression case (b): the same shape on a left-hand
+        page has genuine, ample slack (84 px, well above the folio's own
+        49 px bar) — the corner tile's caption sits at *that tile's own*
+        right edge, nowhere near the folio's actual (left) corner, so the
+        folio must draw, not be silently omitted."""
+        page_number = self._LEFT_HAND_PAGE_NUMBER
+        with_folio, _, _ = self._render(page_number, suppress_folio=False)
+        without_folio, _, _ = self._render(page_number, suppress_folio=True)
+
+        assert not np.array_equal(with_folio, without_folio), (
+            "expected the folio to draw (a pixel difference from a render "
+            "where _draw_folio is a no-op) — this page's slack is ample and "
+            "the corner tile's caption cannot actually reach this page's "
+            "own left-outer corner"
+        )
 
 
 # --------------------------------------------------------------------------

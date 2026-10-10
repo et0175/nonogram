@@ -3847,8 +3847,31 @@ class BookPDFGenerator:
         above already do — so when :meth:`_draw_solved_slot` reports that
         tile's caption as actually drawn, its own lower edge (not just the
         tile's ``drawing_bottom``) is folded into ``content_bottom`` before
-        calling :func:`_draw_folio`, the same "folio yields" fix
-        :meth:`solved_puzzle_page` makes for a full page.
+        calling :func:`_draw_folio`.
+
+        **CARD-203 review cycle 2, F-101 (gating, correcting the previous
+        paragraph's own overstated parity claim).** The fold-in above is
+        **only ever correct on a right-hand page**, exactly like
+        :meth:`solved_puzzle_page`'s own gate (``page_is_right_hand`` at line
+        ~3754) — and the first-pass fix above omitted that gate entirely,
+        applying it on both page sides. The caption is always right-aligned
+        at *that tile's own* ``drawing_right``, regardless of which column
+        the corner tile occupies: on a right-hand page the corner tile is
+        the last column, so its ``drawing_right`` coincides with the page's
+        own right-outer margin — the folio's actual corner — and the fold-in
+        is a real collision check. On a left-hand page the corner tile is
+        the *first* column instead (``corner_column`` above), whose
+        ``drawing_right`` sits at that tile's own right edge, nowhere near
+        the page's left-outer margin the folio actually anchors to there
+        (``content_left``, fed from that same tile's ``drawing_left``) —
+        folding the caption's bottom into ``content_bottom`` unconditionally
+        made the folio disappear from left-hand packed pages with genuine,
+        ample slack, reversing the very defect this fix was meant to close
+        (reproduced and fixed under F-101; regression-tested by
+        ``TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio``
+        in ``tests/test_book_solved_answer_key.py``). ``right_hand`` (already
+        computed above for ``corner_column``) is reused as the gate, so the
+        two methods' fixes are now actually parallel, not just claimed to be.
 
         Returns:
             The rendered page.
@@ -3903,7 +3926,7 @@ class BookPDFGenerator:
         corner_caption = (
             caption_boxes[corner_index] if corner_index < len(caption_boxes) else None
         )
-        if content_bottom is not None and corner_caption is not None:
+        if right_hand and content_bottom is not None and corner_caption is not None:
             content_bottom = max(content_bottom, corner_caption[0])
         _draw_folio(
             draw,
