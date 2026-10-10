@@ -1,6 +1,6 @@
 # CARD-203: The solved-page caption sits closer to the puzzle and right-aligns with its grid
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/203-solved-caption-position
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-203
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 5: move the lower caption closer to the puzzle and right-align it)
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card203.json
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-10T04:04:25Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

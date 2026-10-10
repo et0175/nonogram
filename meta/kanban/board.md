@@ -52,11 +52,11 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-_Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (revision read 2026-10-08). Not yet queued into a wave — `/kanban start CARD-XXX` when ready to run one. CARD-202 and CARD-204 both touch `src/nonogram/export/layout.py`'s placement code (new tiling geometry vs. the centring reversal) — serialize them rather than running both in the same wave until their real diffs are known._
-- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard
-- **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver · P2 · architectural · **`Revision pending: true`** — two owner mechanism-level decisions (which edge is "right" across the mirrored gutter; real QR vs. a placeholder) must be confirmed via rendered side-by-side samples before implementation starts
+_Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (revision read 2026-10-08). Not yet queued into a wave — `/kanban start CARD-XXX` when ready to run one._
+- **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver · P2 · architectural · **`Revision pending: true`** — two owner mechanism-level decisions (which edge is "right" across the mirrored gutter; real QR vs. a placeholder) must be confirmed via rendered side-by-side samples before implementation starts — samples being prepared
 
 ## In Progress
+- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · worktree `../PythonProject4-CARD-203` · branch `card/203-solved-caption-position`
 
 ## Review
 
