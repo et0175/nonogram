@@ -1,22 +1,23 @@
+
 # CARD-204: Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2.5d
 **Complexity:** architectural
-**Revision pending:** true
+**Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/204-puzzle-right-align-qr
-**Worktree:** —
+**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-204
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 3: "Puzzles - please make them right-aligned and add a small icon for qr code (2*2 cm) with the link for the solver. It can be on the left or on the bottom depending on how the Puzzles are placed"); owner clarification 2026-10-08 via AskUserQuestion — "right-aligned" means a full reversal of FR-032's centred placement (not a narrower QR-icon-only adjustment), and the QR code should be drafted now with a placeholder/TODO link, wired to a real public solver URL once one exists.
 **Idea:** —
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-10T05:08:27Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -24,14 +25,35 @@
 
 ## What to implement
 
-**This card cannot be implemented as drafted — two sub-decisions are still open and
-are named explicitly below, each with a recommendation.** `Revision pending: true` is
-set for exactly that reason: this is a complete, investigated draft, not a stalled one,
-but it carries two blocking questions the owner's two AskUserQuestion answers
-("full reversal" / "draft the QR now, wire the link later") settled at the *policy*
-level without settling the *mechanism* level. Both are flagged under "Owner decisions
-still needed before implementation starts" below. Do not start this card's
-implementation before they are resolved.
+**Both mechanism-level decisions are now resolved (2026-10-10), via rendered
+side-by-side samples (`~/Documents/nonogram-reviews/CARD-204/`, 8 PNGs: current-
+centered / reading-a / reading-b / reading-c, each an odd+even page pair of the
+same puzzle on Book 1's trim, produced by monkeypatching `compute_layout`'s
+centring formula per reading — no source file touched for the render pass) plus a
+direct AskUserQuestion for the QR policy:**
+
+1. **Alignment reading: (b), mirrored by parity — CONFIRMED.** Flush right on odd
+   (right-hand) pages, flush left on even (left-hand) pages — the geometric mirror
+   of today's centering. The renders showed reading (a) visibly jamming the grid
+   against the spine-side margin on every even page (confirmed numerically: anchor
+   lands exactly at `usable_right` for an even page, which is the gutter side) —
+   confirming the risk this card's own draft flagged. Reading (b) is the only one
+   where the anchor side itself changes between facing pages, and that is the
+   owner-accepted tradeoff.
+2. **QR code: placeholder now, real QR later — CONFIRMED.** Draw a visibly-fake
+   QR-shaped icon reserving the 2x2cm layout slot; no new runtime dependency, no
+   ADR-0006 revision this card. A follow-up card swaps in real QR pixels once a
+   dependency is chosen and the public solver exists to link to.
+
+Implement per these two confirmed decisions — see "What to implement" step 1 for
+reading (b)'s exact formula and step 2 for the placeholder QR icon's spec.
+
+**Coordination note:** CARD-203 (solved-page caption reposition) also touches
+`tests/test_book_solved_page.py` and has already implemented+committed in its own
+worktree (not yet merged as of this card's start) — expect that file to carry
+CARD-203's changes once it merges; this card's own edits to it should be additive/
+independent (different test classes), but check for rebase conflicts if CARD-203
+merges first.
 
 **Current behaviour (verified by reading the code).**
 
@@ -108,7 +130,7 @@ implementation before they are resolved.
   page to the public; CON-021/ADR-0038/R6 forbid this outright). The placeholder must
   be visibly inert (see AC-8).
 
-## Owner decisions still needed before implementation starts
+## Owner decisions (RESOLVED 2026-10-10 — see confirmation note at the top of "What to implement")
 
 1. **What "right" means across the mirrored gutter.** Three readings, each internally
    consistent but materially different on the page:
@@ -162,7 +184,7 @@ implementation before they are resolved.
    silently encodes a dead admin-only URL, which a curious reader might actually try
    to scan.
 
-## What to implement (once the above are confirmed)
+## What to implement (confirmed — reading (b) + placeholder QR)
 
 1. **`export/layout.py`'s two centring call sites.** Per the owner's confirmed reading
    (item 1 above), rewrite the `left = usable_left_px + max(spare, Fraction(0)) / 2`
