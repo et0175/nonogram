@@ -19,7 +19,7 @@
 **Started:** 2026-10-10T04:04:25Z
 **Closed:** 2026-10-10T17:11:12Z
 **Actual:** 13.11h
-**Merge commit:** (pending)
+**Merge commit:** 0e955d5
 **Blocked by:** —
 
 ## What to implement

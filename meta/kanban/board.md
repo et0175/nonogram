@@ -54,14 +54,14 @@ _(none)_
 ## Ready
 
 ## In Progress
-- **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity reading confirmed via owner-reviewed renders), and gain a placeholder 2x2cm QR-code slot (real QR deferred to a follow-up card) · P2 · architectural · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
 
 ## Review
-- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · implementation complete, all 6 ACs passing (36/36 test_book_solved_page.py, full book suite green) · worktree `../PythonProject4-CARD-203` · branch `card/203-solved-caption-position`
+- **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity, owner-confirmed), gain a placeholder 2x2cm QR-code slot, and reserve folio room on two-up pages' lower slot (owner-confirmed fix for a discovered folio-loss regression) · P2 · architectural · implementation + fix complete, full suite green (6853 passed, 0 failed) · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
 
 ## Blocked
 
 ## Done
+- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · score 9.5 (cycle 3/3, clean, after fixing a real caption/folio collision regression found across 2 cycles) · merged 0e955d5
 - **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · score 10.0 (cycle 3/3, clean) — note: a subagent-overspawn incident during implementation is documented on the card, no repo impact · merged e899369
 - **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · score 8.5 (cycle 4/3+1, owner-extended) · merged ed578fa
 - **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · score 9.0 (cycle 2/3) · merged 040f10d
