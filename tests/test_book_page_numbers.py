@@ -36,6 +36,7 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     PuzzlePagePlan,
+    _folio_reserve_px,
     page_is_right_hand,
 )
 from nonogram.difficulty import Tier
@@ -144,24 +145,24 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         this module can draw (``tests/helpers/book_corpus.py``'s own
         docstring).
 
-        **CARD-204 (SCOPE+):** the two-up page (baseline book interior page
-        5, the Duck+Owl pair) is now a deliberate, permanent exception —
+        **CARD-204 Fix 1:** the two-up page (baseline book interior page 5,
+        the Duck+Owl pair) used to be a deliberate, permanent exception —
         see ``TestBookPageNumbers_FolioNeverCollidesWithTheGrid``'s own
-        ``test_two_up_page_s_folio_is_now_always_omitted`` for the full
-        reasoning (right-alignment makes the lower slot's drawing reach the
+        ``test_two_up_page_s_folio_now_has_reserved_room`` for the full
+        reasoning (right-alignment made the lower slot's drawing reach the
         folio's own outer corner on *every* two-up page, not just a tight
-        one). Not a bug this test should paper over: flagged explicitly
-        instead of silently widening the "missing" tolerance.
+        one). The owner's "reserve folio room" decision closes that gap:
+        ``puzzle_pages`` now reserves this exact page's own folio width at
+        the lower slot's outer corner (``_folio_reserve_px``), so the
+        two-up page is numbered like every other page again — no carve-out.
         """
         generator = BookPDFGenerator(corpus_book())
         calls, drawn = _spy_interior(generator, baseline_puzzles(), monkeypatch)
         folios = _folios(calls)
-        two_up_page = 5
 
-        assert set(folios) == set(range(1, drawn + 1)) - {two_up_page}, (
-            "every interior page except the two-up one should carry exactly "
-            f"one folio; missing or extra pages: "
-            f"{(set(range(1, drawn + 1)) - {two_up_page}) ^ set(folios)}"
+        assert set(folios) == set(range(1, drawn + 1)), (
+            "every interior page should carry exactly one folio; missing or "
+            f"extra pages: {set(range(1, drawn + 1)) ^ set(folios)}"
         )
         for page, text in folios.items():
             assert text == str(page), (
@@ -528,52 +529,68 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             "a folio directly over its own grid instead of omitting it"
         )
 
-    def test_two_up_page_s_folio_is_now_always_omitted(self, monkeypatch) -> None:
-        """CARD-204 (SCOPE+): there is no "common case" with slack any more.
+    def test_two_up_page_s_folio_now_has_reserved_room(self, monkeypatch) -> None:
+        """CARD-204 Fix 1: the lower slot's outer corner is never flush any more.
 
-        Before CARD-204 this was the control for the tight-fit test above:
-        the baseline book's own Duck/Owl pair has ample *horizontal* room
-        overall, so under the old centred placement the lower slot's drawing
-        did not reach the outer margin and the folio printed normally.
-
-        Under right-alignment (reading (b)) the lower slot's drawing is
-        flush with the usable area's *outer* margin **by construction, on
-        every parity, whatever the puzzle's own extent** — ``drawing_right
-        == usable_right`` identically on an odd (right-hand) page,
-        ``drawing_left == usable_left`` identically on an even one (see
-        ``export/layout.py``'s placed-page branch: the flush formula has no
-        clamp, so it is exact whether or not there is slack to spare). The
-        lower slot's vertical slack is *also* always zero (``PairLayout``'s
-        own docstring). So ``_draw_folio``'s own collision check — vertical
-        room absent, and the content's own edge already at the exact corner
-        the folio would occupy — now fires on *every* two-up page, not just
-        a page-fit-bound one: this is a permanent consequence of reading
-        (b), not a bug, and not something this card's own scope repositions
-        the folio to avoid (see CARD-204's Worktree notes — flagged for the
-        owner, not silently patched around).
+        Before this fix, reading (b)'s flush formula pinned the lower
+        slot's drawing exactly to the usable area's outer margin — zero
+        slack, every parity, whatever the puzzle's own extent (see
+        ``export/layout.py``'s ``_slot_layout``: the flush formula had no
+        clamp). Combined with the lower slot's vertical slack already
+        always reading zero (``PairLayout``'s own docstring), that meant
+        ``_draw_folio``'s "omit rather than collide" check fired on *every*
+        two-up page, deterministically — the folio was permanently lost
+        from this page kind. This test is the control that used to prove
+        the loss; it now proves the owner's "reserve folio room" fix: once
+        ``puzzle_pages``'s own ``folio_reserve_px`` (this exact page's
+        folio text width, measured the way ``_draw_folio`` itself measures
+        it) is threaded through ``compute_pair_layout``, the lower slot's
+        drawing stops exactly at the reserve's edge instead of the usable
+        area's — a measured, non-zero gap, not just "something draws."
         """
         generator = BookPDFGenerator(corpus_book("f1-two-up-slack"))
         duck = generator._payload(puzzle("f1-two-up-slack-duck", 10, 10, 3, "easy", "Duck"))
         owl = generator._payload(puzzle("f1-two-up-slack-owl", 10, 10, 3, "easy", "Owl"))
         page_number = 5
         spec = generator.page_spec(page_number)
-        pair = compute_pair_layout(
+        reserve_px = _folio_reserve_px(page_number, generator.dpi)
+        assert reserve_px > 0, "a real page number measures a nonzero folio width"
+
+        # Control: with no reserve (the pre-fix call shape), the lower
+        # slot's drawing is still exactly flush — confirms the defect's
+        # precondition still holds on real production code.
+        unreserved = compute_pair_layout(
             (duck.row_clues, duck.column_clues), (owl.row_clues, owl.column_clues), spec
         )
+        assert unreserved is not None
+        assert unreserved.lower.page.usable_bottom - unreserved.lower.page.drawing_bottom == 0
+        assert unreserved.lower.page.usable_right - unreserved.lower.page.drawing_right == 0
+
+        pair = compute_pair_layout(
+            (duck.row_clues, duck.column_clues),
+            (owl.row_clues, owl.column_clues),
+            spec,
+            folio_reserve_px=reserve_px,
+        )
         assert pair is not None
+        # The reserve buys exactly reserve_px of horizontal gap at the
+        # outer corner — geometrically measured, not assumed — while the
+        # pair's shared cell and the upper slot's own flush edge are
+        # unaffected (the reserve is scoped to the lower slot alone).
+        assert pair.lower.page.usable_right - pair.lower.page.drawing_right == reserve_px
         assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == 0
-        assert pair.lower.page.usable_right - pair.lower.page.drawing_right == 0
+        assert pair.upper.page.usable_right - pair.upper.page.drawing_right == 0
+        assert pair.cell_mm == unreserved.cell_mm
+        assert pair.lower.page.fits and pair.upper.page.fits
 
         plan = PuzzlePagePlan(page_number, (1, 2), pair)
         calls = _folio_calls(
             monkeypatch, page_number, lambda: generator._two_up_page(plan, [duck, owl])
         )
 
-        assert not _folios(calls), (
-            "a two-up page with plenty of overall horizontal room still "
-            "omitted its folio — expected under CARD-204, since the slack "
-            "now collects on the gutter side and the outer corner is "
-            "always flush"
+        assert _folios(calls) == {page_number: str(page_number)}, (
+            "the reserved gap should be enough for _draw_folio's own "
+            "horizontal-clearance check to pass, every time"
         )
 
     def test_packed_answer_page_omits_the_folio_when_the_corner_tile_is_page_fit_bound(

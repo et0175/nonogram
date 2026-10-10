@@ -314,6 +314,7 @@ the producer yields against the count the plan declared and raises
 """
 
 import logging
+import math
 import time
 from collections import Counter
 from collections.abc import Mapping
@@ -1398,6 +1399,26 @@ def _draw_folio(
     x = right if right_hand else left
     anchor = "rb" if right_hand else "lb"
     draw.text((x, bottom), text, font=font, fill=INK, anchor=anchor)
+
+
+def _folio_reserve_px(page_number: int, dpi: int) -> int:
+    """How wide ``page_number``'s own folio prints, in device pixels (CARD-204 Fix 1).
+
+    Exactly the measurement :func:`_draw_folio` makes internally for its own
+    ``text_width`` check — same :data:`FOLIO_PT`, same :func:`_band_font`,
+    same ``font.getlength`` — so a caller that wants to *guarantee* this
+    page's folio has room (rather than merely hope it does) reserves exactly
+    this many pixels, never an invented constant. Rounded up
+    (:func:`math.ceil`): a reservation of a fractional pixel less than the
+    real text would be the one way this could still fail by a hair.
+
+    The only caller is :meth:`BookPDFGenerator.puzzle_pages`, which passes
+    this as ``compute_pair_layout``'s own ``folio_reserve_px`` — one call per
+    two-up page, for that exact page's own number, never a worst-case digit
+    count guessed in advance.
+    """
+    font = _band_font(type_px(FOLIO_PT, dpi))
+    return math.ceil(font.getlength(str(page_number)))
 
 
 def _guide_rule_width(spec: PageSpec) -> int:
@@ -3521,6 +3542,18 @@ class BookPDFGenerator:
         also has no horizontal room at that exact edge) from the lower
         slot's always-zero vertical slack alone: see that function's own
         docstring for the exact rule.
+
+        **CARD-204 Fix 1.** Under reading (b)'s flush alignment this
+        horizontal check used to fail on *every* two-up page, both
+        parities, every time (``drawing_right``/``drawing_left`` landed
+        exactly on ``usable_right``/``usable_left``, leaving zero
+        clearance) — the folio was permanently lost from this page kind.
+        :meth:`puzzle_pages` now passes ``compute_pair_layout`` this exact
+        page's own ``folio_reserve_px`` (:func:`_folio_reserve_px`), which
+        reserves that many pixels at the lower slot's own outer corner, so
+        ``lower.page.drawing_right``/``drawing_left`` read here are never
+        flush any more: the horizontal check above clears, and the folio
+        reappears.
         """
         pair = plan.pair
         if pair is None:  # pragma: no cover - the walk only sends two-up plans here
@@ -3986,6 +4019,11 @@ class BookPDFGenerator:
                         (first.row_clues, first.column_clues),
                         (second.row_clues, second.column_clues),
                         self.page_spec(page_number),
+                        # CARD-204 Fix 1: reserve this exact page's own folio
+                        # width at the lower slot's outer corner, so
+                        # _draw_folio's horizontal-clearance check always
+                        # passes on a two-up page (see _folio_reserve_px).
+                        folio_reserve_px=_folio_reserve_px(page_number, self.dpi),
                     )
                 except Exception as e:
                     raise RuntimeError(

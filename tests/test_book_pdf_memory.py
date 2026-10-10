@@ -154,6 +154,7 @@ from nonogram.admin.book_pdf_generator import (
     _answer_extent,
     _band_font,
     _degrade_infeasible_packed_pages,
+    _folio_reserve_px,
     _pairable_tier,
     page_frame,
     type_px,
@@ -1836,6 +1837,12 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
+            # CARD-204 Fix 1: puzzle_pages reserves the real exported
+            # page's own folio width on its lower slot; the reference
+            # must reserve the same at its own (pre-card) page number so
+            # the two sides' geometry agrees on everything but the
+            # content this test is actually about.
+            folio_reserve_px=_folio_reserve_px(old_number, generator.dpi),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -2020,6 +2027,12 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
+            # CARD-204 Fix 1: see the sibling class's own comment above —
+            # the real page reserves its own folio width on the lower
+            # slot, so the reference must reserve the same (at its own
+            # pre-TOC page number) to keep this comparison about content,
+            # not about the reserve itself.
+            folio_reserve_px=_folio_reserve_px(old_number, generator.dpi),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -2075,6 +2088,28 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     def test_every_puzzle_or_divider_page_matches_above_the_footer(
         self, generator, plan, exported, cutoff
     ):
+        """CARD-204 Fix 1: a two-up pair is compared slot by slot, not as one page.
+
+        ``_ink_bbox_crop`` normalises a *whole* image to its own single ink
+        bounding box, which is exactly the right cancellation for a page
+        whose content is one rigid block that merely slides sideways with
+        parity — true before Fix 1, when both slots of a pair sat flush
+        with zero relative offset between them. Fix 1 pulls the *lower*
+        slot back from the flush edge by this page's own folio width, and
+        that reserve's direction mirrors by parity exactly as the flush
+        edge itself does — so on an ODD page the lower slot sits
+        reserve_px *left* of the upper slot's own edge, and on the EVEN
+        page this is compared against (opposite parity, CARD-200's own
+        TOC-offset shift) the lower slot sits reserve_px *right* of it.
+        Cropping the *whole* pair to one bounding box before comparing
+        would therefore compare the upper slot of one page against the
+        lower slot's own offset of the other — a real, structural
+        mismatch this test must not paper over by loosening its tolerance.
+        Splitting at the pair's own (parity-independent) upper/lower
+        midline first, and cropping+comparing each slot's own ink bbox
+        separately, cancels exactly the translation each slot is actually
+        subject to.
+        """
         checked = 0
         for entry in plan.pages:
             old_number = entry.page_number - plan.toc_page_count
@@ -2086,13 +2121,31 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
                 self._reference(generator, plan, entry),
                 self._qr_boxes(generator, plan, entry, old_number),
             )
-            assert _matches_shifted_content(
-                _ink_bbox_crop(_above_footer(new_page, cutoff)),
-                _ink_bbox_crop(_above_footer(reference, cutoff)),
-            ), (
-                f"interior page {entry.page_number}'s content above the "
-                "footer band does not match its pre-CARD-200 content"
-            )
+            new_above = _above_footer(new_page, cutoff)
+            reference_above = _above_footer(reference, cutoff)
+            pair = getattr(entry, "pair", None)
+            if pair is None:
+                slots = ((new_above, reference_above),)
+            else:
+                # The midline is the pair's own usable_top/usable_bottom
+                # boundary between the two slots — fixed by the book's top
+                # and bottom margins alone (never mirrored by parity, see
+                # _above_footer's own docstring), so it is the same split
+                # point for the real page and the opposite-parity reference.
+                midline = pair.upper.page.usable_bottom
+                slots = (
+                    (new_above.crop((0, 0, new_above.width, midline)),
+                     reference_above.crop((0, 0, reference_above.width, midline))),
+                    (new_above.crop((0, midline, new_above.width, new_above.height)),
+                     reference_above.crop((0, midline, reference_above.width, reference_above.height))),
+                )
+            for slot_new, slot_reference in slots:
+                assert _matches_shifted_content(
+                    _ink_bbox_crop(slot_new), _ink_bbox_crop(slot_reference)
+                ), (
+                    f"interior page {entry.page_number}'s content above the "
+                    "footer band does not match its pre-CARD-200 content"
+                )
             checked += 1
         assert checked == len(plan.pages) >= 5, checked
 

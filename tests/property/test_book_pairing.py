@@ -41,7 +41,7 @@ from __future__ import annotations
 import random
 
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator
+from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
 from nonogram.clues import compute_clues
 from nonogram.export import ExportPayload
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -50,6 +50,12 @@ from tests.helpers.two_up_ink import drawings_of
 #: FR-040's two-up minimum and NFR-008's standard cell, in millimetres.
 TWO_UP_MINIMUM_MM = 7.0
 STANDARD_CELL_MM = 7.5
+
+#: The resolution every book page is drawn at (``export/layout.py``'s own
+#: ``DPI``, written out here rather than imported, matching this module's own
+#: "nothing imports compute_pair_layout or book_page_spec" independence —
+#: ``_folio_reserve_px`` is a text-measurement helper, not part of either).
+DPI = 300
 
 #: The title band above each puzzle (TERM-028). A two-up page reserves two.
 BAND_MM = 12.0
@@ -125,11 +131,40 @@ class Sheet:
         """The height left once a page reserves a band for each of two puzzles."""
         return self.height_mm - TOP_MM - BOTTOM_MM - 2 * BAND_MM
 
-    def shared_cell_mm(self, first: "Puzzle", second: "Puzzle") -> float:
-        """FR-040's shared cell for this pair on this sheet, in millimetres."""
-        return min(
+    def shared_cell_mm(
+        self, first: "Puzzle", second: "Puzzle", page_number: int | None = None
+    ) -> float:
+        """FR-040's shared cell for this pair on this sheet, in millimetres.
+
+        ``page_number`` (CARD-204 Fix 1), when given, re-derives
+        ``compute_pair_layout``'s own "only re-fit a smaller cell when the
+        lower puzzle's natural spare can't already hold the folio reserve"
+        rule independently: ``second`` is always the lower slot in this
+        module's own upper/lower convention, so its ``across`` is what the
+        natural-spare check reads. ``None`` (the default) is the plain,
+        pre-Fix-1 formula, for the one caller (:func:`_pairs`-adjacent
+        bookkeeping elsewhere) that only ever wants FR-040's own number, not
+        a page-specific one.
+        """
+        natural = min(
             STANDARD_CELL_MM,
             self.usable_width_mm / max(first.across, second.across),
+            self.pair_height_mm / (first.down + second.down),
+        )
+        if page_number is None:
+            return natural
+        reserve_px = _folio_reserve_px(page_number, DPI)
+        if not reserve_px:
+            return natural
+        natural_cell_px = natural * DPI / 25.4
+        usable_width_px = self.usable_width_mm * DPI / 25.4
+        natural_spare_px = usable_width_px - second.across * natural_cell_px
+        if natural_spare_px >= reserve_px:
+            return natural
+        reserve_mm = reserve_px * 25.4 / DPI
+        return min(
+            STANDARD_CELL_MM,
+            (self.usable_width_mm - reserve_mm) / max(first.across, second.across),
             self.pair_height_mm / (first.down + second.down),
         )
 
@@ -331,7 +366,11 @@ def _expected_pages(sheet: Sheet, order: list[Puzzle]) -> list[tuple[int, ...]] 
         second = order[index + 1] if index + 1 < len(order) else None
         if second is not None and first.tier_of_record is not None:
             if first.tier_of_record == second.tier_of_record:
-                cell = sheet.shared_cell_mm(first, second)
+                # CARD-204 Fix 1: the flat, divider-free page numbering this
+                # walk itself uses (``puzzle_pages``, not ``section_plan``) —
+                # ``3 + len(pages)``, exactly the invariant the main test
+                # below pins (``[entry.page_number ...] == range(3, ...)``).
+                cell = sheet.shared_cell_mm(first, second, 3 + len(pages))
                 if abs(cell - TWO_UP_MINIMUM_MM) < 1e-6:
                     return None
                 if cell >= TWO_UP_MINIMUM_MM:
@@ -392,7 +431,10 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
                 elif members[0].tier_of_record != follower.tier_of_record:
                     refused_on_tier += 1
                 else:
-                    assert sheet.shared_cell_mm(members[0], follower) < TWO_UP_MINIMUM_MM, label
+                    assert (
+                        sheet.shared_cell_mm(members[0], follower, entry.page_number)
+                        < TWO_UP_MINIMUM_MM
+                    ), label
                     refused_on_fit += 1
                 continue
 
@@ -402,7 +444,7 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
             assert upper.tier_of_record == lower.tier_of_record, label
 
             # One shared cell, FR-040's, inside [7.0, 7.5] mm.
-            wanted = sheet.shared_cell_mm(upper, lower)
+            wanted = sheet.shared_cell_mm(upper, lower, entry.page_number)
             assert abs(entry.pair.cell_mm - wanted) < 1e-6, (label, position)
             assert TWO_UP_MINIMUM_MM <= entry.pair.cell_mm <= STANDARD_CELL_MM, label
             at_cap += entry.pair.cell_mm == STANDARD_CELL_MM

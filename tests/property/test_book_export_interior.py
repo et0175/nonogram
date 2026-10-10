@@ -50,7 +50,12 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_is_right_hand
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    _folio_reserve_px,
+    page_is_right_hand,
+)
+from nonogram.export.layout import DPI
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
 from tests.helpers.two_up_ink import drawings_of
@@ -140,7 +145,7 @@ def _puzzle_page_plan(puzzles):
     return plan
 
 
-def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
+def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, reserve_px=0.0):
     """Where interior page ``page_number`` puts this puzzle's left edge
     (FR-032, CARD-204 reading (b)).
 
@@ -151,6 +156,13 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
     one. ``cell_mm`` overrides the cell with the pair's shared one when the
     puzzle is a slot of a two-up page (FR-040); its drawing is right-aligned
     across the same usable width either way.
+
+    ``reserve_px`` (CARD-204 Fix 1) is nonzero only for a two-up page's
+    *lower* slot: that many device pixels of CARD-200's folio room, pulled
+    back toward the gutter from the flush edge — the independent
+    re-derivation of ``book_pdf_generator._folio_reserve_px``'s own effect
+    on ``compute_pair_layout``, in this file's own millimetres rather than
+    imported from ``export/layout.py``.
     """
     across = _across(puzzle)
     cell = (
@@ -160,7 +172,10 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
     )
     spare = USABLE_WIDTH_MM - across * cell
     left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
-    return left_margin + spare if page_number % 2 else left_margin
+    reserve_mm = reserve_px / PX_PER_MM
+    if page_number % 2:
+        return left_margin + spare - reserve_mm
+    return left_margin + reserve_mm
 
 
 def _packed_cell_mm(group):
@@ -635,9 +650,9 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # Measured off the page: a right-hand (odd) page carries the gutter
         # margin on its left, so its drawing sits further right than the same
         # drawing on a left-hand page, by gutter - outside.
-        def _measured(page_number, puzzle, drawing, cell_mm=None):
+        def _measured(page_number, puzzle, drawing, cell_mm=None, reserve_px=0.0):
             drawn_left_mm = drawing.left / PX_PER_MM
-            expected_mm = _expected_drawing_left_mm(puzzle, page_number, cell_mm)
+            expected_mm = _expected_drawing_left_mm(puzzle, page_number, cell_mm, reserve_px)
             assert abs(drawn_left_mm - expected_mm) < 0.1, (
                 f"{label}: page {page_number} "
                 f"({'right' if page_number % 2 else 'left'}-hand) "
@@ -652,8 +667,14 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                 f"not {len(group)}"
             )
             shared = _shared_cell_mm(*group) if len(group) == 2 else None
-            for puzzle, drawing in zip(group, drawings):
-                _measured(page_number, puzzle, drawing, shared)
+            for slot_index, (puzzle, drawing) in enumerate(zip(group, drawings)):
+                # CARD-204 Fix 1: only the two-up page's lower slot (index 1
+                # of 2) reserves folio room; a single-puzzle page's one slot
+                # never does.
+                reserve_px = (
+                    _folio_reserve_px(page_number, DPI) if len(group) == 2 and slot_index == 1 else 0.0
+                )
+                _measured(page_number, puzzle, drawing, shared, reserve_px)
             make_up = "two-up page" if len(group) == 2 else "single page"
             seen[make_up] += 1
             # Both slots of a two-up page are centred across the usable width

@@ -533,6 +533,212 @@ implementation before they are resolved.
   *different* formula FR-032's page-wide clause was never about; untouched,
   and measured to be genuinely byte-identical.
 
+- [Fix 1, 2026-10-10] Owner decision received for the folio-loss exception the
+  implementation pass flagged: **"Reserve folio room."** Puzzles on two-up
+  pages stay flush to the outer edge, but the lower slot's drawing now leaves
+  a small, exact, guaranteed gap at its own bottom-outer corner — just enough
+  for CARD-200's folio, never more — instead of being 100% flush. The upper
+  slot and every single-puzzle/answer page keep the unmodified flush rule.
+
+  **The geometry change, precisely.** Two edits, both in
+  `src/nonogram/export/layout.py`, both scoped to the two-up path only
+  (`compute_layout`'s single-page branch is untouched — AC-3/G-6's
+  floor-overflow reasoning there stands exactly as recorded above):
+  1. `compute_pair_layout` gained a kw-only `folio_reserve_px: int = 0`.
+     **Revised once already, within this same fix** (see the "discovered
+     bug" note below): the shared cell is fit *normally* first (the plain,
+     pre-Fix-1 `_placed_cell_mm` call, no widening) — the common case,
+     verified against `tests/property/test_book_pairing.py`'s own
+     independent 900-case corpus, leaves `cell_mm` identical to FR-040's
+     unwidened formula in the overwhelming majority of pairs. Only when the
+     **lower** slot's own natural spare at that cell (`usable_width_px -
+     lower_drawing_columns * pitch`) already reads below
+     `folio_reserve_px` does it re-fit a smaller cell, this time as though
+     the usable width were `folio_reserve_px` narrower (a widened
+     `outside_mm` fed to the fit step only, never to either slot's own
+     placement) — which guarantees (algebraically, from `chosen_cell <= fit
+     <= width_fit`, not by luck) that the re-fit cell leaves the lower slot
+     at least `folio_reserve_px` of real headroom. Paying a smaller cell is
+     therefore the exception, not the rule, and only ever as much smaller
+     as the reserve actually needs.
+  2. `_slot_layout` gained a kw-only `outer_reserve_px: int = 0`, passed only
+     into the **lower** slot's own call. It shifts the flush anchor
+     `outer_reserve_px` toward the gutter — `usable_right - drawing_right`
+     (ODD) or `drawing_left - usable_left` (EVEN) becomes that many pixels
+     instead of exactly zero — clamped to `max(spare, 0)` so it can only
+     ever *reduce* how far the drawing reaches toward the gutter margin,
+     never push it past `usable_left`/`usable_right`: the pre-existing
+     MIN_CELL_MM floor-overflow corner (AC-3, G-6) cannot be made worse by
+     this reserve, because step 1's headroom guarantee already covers every
+     other case.
+
+  **A real bug, found by the property-test oracle, not by inspection.**
+  The first pass at step 1 widened the fit *unconditionally* on every
+  two-up page, which `tests/property/test_book_pairing.py`'s own
+  `cell_mm`-exactness assertion (an independent, 900-case re-derivation of
+  FR-040's formula, predating this fix) correctly rejected as too broad a
+  change. Narrowing step 1 to "only re-fit when the lower slot's own
+  natural spare is insufficient" fixed most of the corpus but still left
+  one real mismatch — which turned out to be a genuine bug, not a
+  tolerance problem: the natural-spare check computed
+  `lower_drawing_columns` as `_gutter_depth(lower_columns) +
+  len(lower_columns)` (the *column* clues' own gutter depth — the puzzle's
+  **top** gutter, used nowhere else for a width measurement) instead of
+  `_gutter_depth(lower_rows) + len(lower_columns)` (the *row* clues'
+  gutter depth — the **left** gutter, which is what actually makes up the
+  drawing's width alongside the grid, exactly as the pair's own `across`
+  calculation two lines above it already does). The two agree whenever a
+  puzzle's row- and column-clue depths happen to be equal — true of every
+  square, symmetric-depth puzzle this fix's own manual spot-checks used
+  (Duck/Owl, the tight-fit fixtures), which is exactly why the bug passed
+  every check run before the property test's own asymmetric-depth corpus
+  caught it. Fixed to read `lower_rows`.
+
+  **Sizing: re-derived, not an arbitrary constant.** The caller
+  (`book_pdf_generator.py`'s new `_folio_reserve_px(page_number, dpi)`)
+  measures *this exact page's own* folio text at `_draw_folio`'s own font
+  (`FOLIO_PT`, `_band_font`, `font.getlength`), `math.ceil`'d to the nearest
+  whole pixel — the same figure `_draw_folio`'s own horizontal-clearance
+  check already computes internally, not reinvented. `puzzle_pages` passes
+  it to `compute_pair_layout` per two-up page, so a 1-digit folio reserves
+  less than a 3-digit one, never a worst-case guess. Measured on the
+  baseline book: 27 px at 300 DPI for a 1-digit page number.
+
+  **Why purely horizontal, confirmed by re-deriving the geometry rather than
+  assuming it.** `_draw_folio`'s own check only reaches its horizontal
+  clearance test when vertical room already reads zero
+  (`bottom - content_bottom < line_height`) — which is unconditionally true
+  for a two-up page's lower slot (`PairLayout`'s own invariant). Once there,
+  the *only* thing that decides whether the folio collides is
+  `content_right <= right - text_width` (ODD) or the mirror for EVEN — a
+  purely horizontal test. No vertical change was needed or made; `top`/
+  `bottom`/`band_top`/`slot_bottom` in `_slot_layout` are untouched.
+
+  **Interaction with the QR placeholder slot: no blocker, confirmed by
+  reading `qr_slot()` in full before writing any code.** The QR icon's first
+  choice is the *gutter*-side margin strip, and its fallback is the slack
+  *below* the drawing, flush with the usable area's bottom **and** its
+  gutter side — `qr_slot()`'s own docstring states it never reaches for the
+  folio's own (outer) corner. The reserve this fix adds eats into the same
+  gutter-side slack the QR icon's first-choice strip draws from (on the
+  **lower** slot only), which can in principle make that lower slot's icon
+  fall back to its second strip (or omit) a little sooner than before — a
+  real, accepted, measured consequence (the trade-off is a few more pixels
+  of lower-slot gutter slack spent on the folio instead of the icon), never
+  a corner the two marks fight over, since they are always on opposite
+  sides of the page by construction.
+
+  **Confirmed empirically, both parities, on the baseline book's own
+  Duck+Owl pair (interior page 5, 10x10 puzzles, Book 1 trim):**
+  - ODD (ad-hoc page 5): `usable_right - drawing_right` moves from `0` to
+    `27` px for the lower slot only; the upper slot's own `0` is unchanged;
+    `_two_up_page` now draws the folio (`"5"`, anchor `"rb"`) where it was
+    previously omitted every time.
+  - EVEN (ad-hoc page 6, same puzzles): `drawing_left - usable_left` moves
+    from `0` to `27` px for the lower slot only; folio draws (`"6"`, anchor
+    `"lb"`).
+  - The pair's shared `cell_mm` was unchanged in this specific case (height,
+    not width, was the binding fit constraint for these two puzzles), and
+    both slots' `fits` held `True` throughout — the reserve bought the gap
+    without shrinking the printed cell at all here. The property-test
+    corpus below confirms the general case: `cell_mm` is unchanged for the
+    overwhelming majority of pairs, and the narrow set where it does shrink
+    (the lower puzzle is itself the pair's width-binding member, with no
+    natural spare at the unwidened cell) now does so by exactly as much as
+    the reserve needs — never more, confirmed to the fitting's own exact
+    fraction, not approximated.
+
+  **Tests updated, not papered over — six files in total.**
+  `tests/test_book_page_numbers.py`: the "every page... carries exactly one
+  folio" assertion drops its two-up-page carve-out, and
+  `test_two_up_page_s_folio_is_now_always_omitted` is replaced by
+  `test_two_up_page_s_folio_now_has_reserved_room`, which pins the exact
+  reserved gap (`usable_right - drawing_right == reserve_px`) geometrically,
+  not just "a folio call was made."
+  `tests/property/test_book_export_interior.py`'s `_expected_drawing_left_mm`
+  gained an independent `reserve_px` term (its own re-derivation of the same
+  effect, in millimetres, not imported from `export/layout.py`), applied
+  only to a two-up page's lower slot.
+  `tests/test_book_puzzle_frame.py`'s `_expected_pair_boxes` gained the same,
+  independently re-derived.
+  `tests/test_book_pdf_memory.py`'s two `_reference()` helpers
+  (`EveryPageAfterTheGuideIsByteIdenticalShiftedByOne` and
+  `ContentAboveTheFooterBandIsUnchanged`) now pass their own page number's
+  `_folio_reserve_px` into their own `compute_pair_layout` calls, so the
+  "reference" geometry they build for comparison matches what production
+  actually draws; **and** `ContentAboveTheFooterBandIsUnchanged`'s own
+  whole-page ink-bbox comparison had to be split into an upper-slot
+  comparison and a lower-slot comparison at the pair's own (parity-
+  independent) midline — a real, investigated finding, not a tolerance
+  fudge: cropping the *whole* pair to one bounding box silently compared one
+  page's upper slot against the other (opposite-parity) page's lower-slot
+  offset, because the reserve's "toward the gutter" direction mirrors by
+  parity exactly as the flush edge itself does, so the lower slot sits
+  27 px *left* of the upper slot's edge on an ODD page and 27 px *right* of
+  it on the EVEN page being compared against — a structural mismatch no
+  amount of tolerance should have hidden, not something Fix 1 introduced
+  into the content itself.
+  `tests/test_book_pdf_two_up.py`'s `_reference_band` gained an optional
+  signed `shift_px`, applied at its two lower-slot call sites (pages 5 and
+  6 of its own fixtures): `header_band`'s own `center_x` is centred *on the
+  drawing*, not the usable width, so the lower slot's band — like its
+  grid — now sits `folio_reserve_px` off a single page's own (unshifted)
+  band position, a direct and correct consequence of step 2 above, not a
+  defect.
+  `tests/property/test_book_pairing.py`'s `Sheet.shared_cell_mm` gained an
+  optional `page_number`, re-deriving (independently, not importing
+  `compute_pair_layout`, preserving this module's own stated independence)
+  the identical "only re-fit when the lower candidate's natural spare can't
+  hold the reserve" rule step 1 above now applies — **this is the oracle
+  that actually caught the `lower_drawing_columns` bug** described above:
+  its 900-case corpus disagreed with production's `cell_mm` in exactly one
+  case before the bug was found, and zero after.
+
+  **Baseline fixture regenerated, in place (same filename — a revision of
+  this card's own fixture, not a new card superseding it):**
+  `tests/fixtures/book_baseline_card204.json`. Measured directly (page-by-
+  page digest diff against this file's own pre-Fix-1 recording): **only
+  interior page 5 moves** (the two-up page) — `interior_bytes` moves from
+  3439483 to 3439779 (+296 bytes, the new folio glyph's own ink). No other
+  page moves: pages 7/9 (single-puzzle) are placed by `compute_layout`,
+  untouched by this fix; pages 11-13 (answer pages) never call
+  `compute_pair_layout`. `font_fingerprint`/`font_dependent_pages` unchanged.
+  `tests/helpers/book_corpus.py`'s own running history comment is updated
+  with the same reasoning. **`tests/fixtures/proof_baseline_card204.json`
+  needs no regeneration** — confirmed by reading `src/nonogram/admin/book_proof.py`
+  in full: the proof pages call `compute_layout` only, never
+  `compute_pair_layout`, so Fix 1 cannot reach them.
+
+  **Fresh test evidence (this fix, run against the venv at
+  `/Users/omelnikova/PycharmProjects/PythonProject4/.venv`), final pass
+  after the `lower_drawing_columns` bug fix above:**
+  - `tests/property/test_book_layout.py`, `tests/property/test_book_two_up.py`,
+    `tests/property/test_book_pdf_geometry.py`,
+    `tests/property/test_book_export_interior.py`,
+    `tests/property/test_book_pairing.py`, `tests/test_book_pdf.py`,
+    `tests/test_book_pdf_two_up.py`, `tests/test_book_puzzle_frame.py`,
+    `tests/test_layout_two_up.py`, `tests/test_layout_page_spec.py`,
+    `tests/test_book_solved_page.py`, `tests/test_book_qr_slot.py`,
+    `tests/test_book_page_numbers.py`, `tests/test_book_pdf_memory.py`,
+    `tests/test_book_proof_pages.py`, `tests/test_book_solved_answer_key.py`,
+    `tests/test_book_pdf_ink_mode.py` — all 17 files run together, 0
+    failed (one `test_book_pdf_memory.py` case skipped, pre-existing and
+    unrelated — the font-fingerprint carve-out `TestBookPdfMemory_PagesAreUnchanged`
+    already names).
+  - Full project suite (`.venv/bin/python -m pytest -q` from the worktree
+    root): **0 failed, 0 errors** — no `FAILED`/`ERROR` line anywhere in
+    the output and exit code 0, run to completion (not interrupted; a
+    first attempt was cut short by this session's own 30-minute command
+    cap while two full suites ran concurrently on the same machine — the
+    tool's own completion notification arrived, but the captured log's
+    very last summary line was lost to that cap, so this entry cites the
+    absence-of-FAILED/exit-0 evidence instead of quoting a final count
+    line verbatim). This full run is also what caught both
+    `test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly`
+    and `tests/test_book_pdf_two_up.py`'s two band-position tests — neither
+    was in this fix's own original touch-list guess, both genuinely broken
+    by Fix 1's geometry change, both fixed above (not skipped, not loosened).
+
 ## System contract
 
 _Not yet assembled — run `python3

@@ -83,7 +83,11 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, _stroke_drawing
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    _folio_reserve_px,
+    _stroke_drawing,
+)
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
@@ -778,7 +782,11 @@ def _shared_cell_mm(upper: dict, lower: dict) -> float:
 
 
 def _expected_pair_boxes(
-    upper: dict, lower: dict, parity: PageParity = PageParity.ODD
+    upper: dict,
+    lower: dict,
+    parity: PageParity = PageParity.ODD,
+    *,
+    page_number: int = TWO_UP_PAGE,
 ) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
     """Where the two drawings sit on a two-up page: ``(left, top, right, bottom)``.
 
@@ -801,23 +809,43 @@ def _expected_pair_boxes(
 
     That rectangle **is** the frame: its left and top are the outer edges of
     the two clue gutters and its right and bottom the grid's own outer border.
+
+    **CARD-204 Fix 1:** the lower box alone is pulled ``page_number``'s own
+    folio width (:func:`_folio_reserve_px`, the same measurement
+    ``book_pdf_generator.puzzle_pages`` feeds ``compute_pair_layout``) back
+    toward the gutter — this independent mm-arithmetic re-derivation must
+    agree with production's own reserve, not merely with its formula, or a
+    bug in the reserve's *size* (as opposed to its direction) would sail
+    through every test in this file unnoticed. Toward the gutter is *away*
+    from ``left_margin`` on an ``EVEN`` page (gutter on the right) and
+    *toward* ``left_margin`` on an ``ODD`` one (gutter on the left) — i.e.
+    the shift's sign is the mirror image of ``left_margin``'s own choice
+    four lines up.
     """
     cell = _shared_cell_mm(upper, lower)
     left_margin = OUTSIDE_MM if parity is PageParity.EVEN else GUTTER_MM
+    reserve_px = _folio_reserve_px(page_number, DPI)
+    lower_shift_px = reserve_px if parity is PageParity.EVEN else -reserve_px
 
-    def box(puzzle: dict, top_mm: float) -> tuple[float, float, float, float]:
+    def box(
+        puzzle: dict, top_mm: float, shift_px: float = 0.0
+    ) -> tuple[float, float, float, float]:
         spare_mm = USABLE_WIDTH_MM - _across(puzzle) * cell
         left_mm = left_margin if parity is PageParity.EVEN else left_margin + spare_mm
         return (
-            left_mm * PX_PER_MM,
+            left_mm * PX_PER_MM + shift_px,
             top_mm * PX_PER_MM,
-            (left_mm + _across(puzzle) * cell) * PX_PER_MM,
+            (left_mm + _across(puzzle) * cell) * PX_PER_MM + shift_px,
             (top_mm + _down(puzzle) * cell) * PX_PER_MM,
         )
 
     return (
         box(upper, TOP_MM + BAND_MM),
-        box(lower, BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell),
+        box(
+            lower,
+            BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell,
+            lower_shift_px,
+        ),
     )
 
 

@@ -216,7 +216,32 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``TestBookPdfMemory_NonDrawingPagesAreByteIdentical`` for the test
 #:   that verifies all of this directly.
 #:
-#: All twelve files carry the reasoning; this constant names the current one.
+#: * ``book_baseline_card204.json`` (**re-recorded in place for CARD-204
+#:   Fix 1**, same filename — a revision of this card's own fixture, not a
+#:   new card superseding it): the owner's "reserve folio room" decision.
+#:   Reading (b)'s flush formula pinned the two-up page's lower slot's
+#:   drawing exactly to the usable area's outer margin, with zero slack —
+#:   combined with that slot's own always-zero vertical slack, CARD-200's
+#:   page-number folio was permanently omitted from every two-up page, both
+#:   parities (see CARD-204's own Worktree notes, "Implementation,
+#:   2026-10-10", exception 2). Fix 1 has ``book_pdf_generator.puzzle_pages``
+#:   pass ``compute_pair_layout`` this exact page's own folio text width
+#:   (``_folio_reserve_px``), which pulls the lower slot's drawing back from
+#:   the flush edge by that many pixels (``export/layout.py``'s
+#:   ``_slot_layout``) — just enough, and no more, for the folio's own
+#:   horizontal-clearance check to pass. Measured directly (page-by-page
+#:   digest comparison against this same file's own pre-Fix-1 recording):
+#:   only interior page 5 (the two-up page) moves — its lower slot's
+#:   drawing/QR-icon geometry shifts by the reserve and its folio now prints
+#:   "5" instead of being omitted. No other page moves: pages 7 and 9
+#:   (single-puzzle pages) are placed by ``compute_layout``, which this fix
+#:   does not touch at all, and pages 11-13 (answer pages) never call
+#:   ``compute_pair_layout``. ``interior_bytes`` moves from 3439483 to
+#:   3439779 (+296 bytes — the new folio glyph's own ink). ``font_fingerprint``
+#:   and ``font_dependent_pages`` are unchanged (Fix 1 touches no
+#:   machine-lettered page).
+#:
+#: All thirteen files carry the reasoning; this constant names the current one.
 BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
