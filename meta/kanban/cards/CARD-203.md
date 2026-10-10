@@ -550,3 +550,46 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
   - **Owner sign-off still pending**, unchanged from the prior entry — this fix cycle only
     resolves the review's own findings; it does not re-open or settle the 2.0 mm gap/band
     question, which still needs a render and the owner's eyes before merge.
+
+- [Fix 2, 2026-10-10] Review cycle 2's new gating finding (F-101, Critical) and its
+  companion (F-102, Important) fixed. (Orchestrator ran the final full-suite
+  confirmation and performed this commit directly, after the fix agent's own
+  repeated attempts to block on the ~18-minute suite run kept hitting forced
+  mid-flight handbacks — the fix itself was already complete and verified before
+  that handoff.)
+
+  - **F-101 (Critical, fixed) — `_packed_answer_page`'s F-001 fix was not gated to
+    right-hand pages, unlike `solved_puzzle_page`'s.** Root cause: the caption
+    fold-in into `_draw_folio`'s `content_bottom` was applied unconditionally
+    (line ~3929), while `solved_puzzle_page`'s own equivalent fold-in correctly
+    gates on `page_is_right_hand` (line ~3754). On a left-hand page the corner
+    tile is the FIRST column, whose own `drawing_right` sits nowhere near the
+    page's actual left-outer margin the folio anchors to there — folding its
+    caption's bottom in unconditionally made the folio incorrectly disappear on
+    left-hand packed pages with genuine, ample slack (84px, well above the
+    folio's own 49px bar), reversing the very defect the original fix closed.
+    **Fix**: reused the already-computed `right_hand` variable (used for
+    `corner_column`) to gate the fold-in, mirroring `solved_puzzle_page`'s own
+    gate exactly — the two methods' fixes are now actually parallel, not just
+    claimed to be. Docstring corrected to stop overstating that parity.
+  - **F-102 (Important, fixed) — no regression test existed for
+    `_packed_answer_page`'s own caption/folio interaction in either direction.**
+    New class `TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio`
+    (3 tests) in `tests/test_book_solved_answer_key.py`: a danger-window sanity
+    check, a right-hand case (genuine collision — folio correctly yields), and a
+    left-hand case (ample slack — folio now correctly draws, the exact F-101
+    regression). **Verified as a genuine regression test**: stashed the
+    production fix, reran — the left-hand case failed exactly as F-101 predicted
+    (folio incorrectly omitted), the other two still passed; restored the fix,
+    all three passed.
+  - **Test evidence:** `tests/test_book_solved_answer_key.py` 58 passed (55 + 3
+    new); `tests/test_book_solved_page.py` 37 passed (unaffected, confirms no
+    regression on the full-page path); combined with
+    `test_book_page_numbers.py`/`test_book_pdf_memory.py`: 147 passed, 1 skipped
+    (pre-existing, unrelated) — byte-identity baseline unmoved by this fix.
+    **Full suite (orchestrator's own independent run, environment confirmed
+    quiet beforehand): 6850 passed, 9 skipped, 0 failed, 0 errors** (1093.90s,
+    0:18:13) — exactly 3 more passing than the prior 6847 baseline, matching the
+    3 new tests; skip count stable at 9.
+  - Owner sign-off on the 2.0mm gap/band asymmetry remains pending, unaffected by
+    this fix.
