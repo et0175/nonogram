@@ -138,11 +138,12 @@ import warnings
 import weakref
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
+from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import numpy as np
 import pytest
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from nonogram.admin.book_answer_key import Answer, PackedAnswerPage, answer_title, plan_small_answer_pages
 from nonogram.admin.book_pdf_generator import (
@@ -157,7 +158,7 @@ from nonogram.admin.book_pdf_generator import (
     page_frame,
     type_px,
 )
-from nonogram.export.layout import compute_pair_layout
+from nonogram.export.layout import compute_layout, compute_pair_layout, qr_slot
 from tests.helpers.book_corpus import (
     BASELINE_PAGE_COUNT,
     BASELINE_SHAPE,
@@ -1462,8 +1463,45 @@ class TestBookPdfMemory_PagesAreUnchanged:
         # the guide, so they cannot pass for an answer page here. Not page
         # 3 either (CARD-200's TOC): a listing of plain text rows, no filled
         # cell on it at all.
+        #
+        # CARD-204 (SCOPE+): pages 5, 7 and 9 now also carry a placeholder
+        # QR icon, whose checkerboard modules (~47 px square) are each
+        # themselves a solid block at least FILLED_CELL_PROBE (20 px) wide —
+        # masked out below before the check, the same "this is decoration,
+        # not a cell" exclusion the AC-7 class already applies elsewhere,
+        # so this still proves the *grid* carries no revealed cell rather
+        # than being defeated by the icon's own, unrelated solid ink.
+        plan = generator.section_plan(baseline_puzzles())
+
+        def _icon_boxes(page_number: int) -> list:
+            for entry in plan.pages:
+                if entry.page_number != page_number:
+                    continue
+                spec = generator.page_spec(page_number)
+                if entry.pair is None:
+                    payload = plan.payloads[entry.numbers[0] - 1]
+                    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
+                    icon = qr_slot(layout)
+                    return [icon] if icon is not None else []
+                return [
+                    icon
+                    for icon in (qr_slot(entry.pair.upper), qr_slot(entry.pair.lower))
+                    if icon is not None
+                ]
+            return []
+
         for number in (3, 4, 5, 6, 7, 8, 9, 10):
-            assert not solid_ink_blocks(exported[number - 1]), (
+            page = exported[number - 1]
+            boxes = _icon_boxes(number) if number in (5, 7, 9) else []
+            if boxes:
+                page = page.copy()
+                draw = ImageDraw.Draw(page)
+                for box in boxes:
+                    draw.rectangle(
+                        (box.left - 2, box.top - 2, box.right + 2, box.bottom + 2),
+                        fill=(255, 255, 255),
+                    )
+            assert not solid_ink_blocks(page), (
                 f"interior page {number} carries filled cells — it is an "
                 "answer page, and the baseline no longer covers its kind"
             )
@@ -1482,6 +1520,175 @@ class TestBookPdfMemory_PagesAreUnchanged:
         page.putpixel((7, 9), (0, 0, 0))
 
         assert page_digests([page]) != before
+
+
+# --------------------------------------------------------------------------
+# CARD-204 AC-7 — every page that carries no drawing is byte-identical
+# --------------------------------------------------------------------------
+
+
+class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
+    """AC-7 — the TOC and every divider are untouched by CARD-204; the guide
+    pages carry one discovered, narrow exception.
+
+    This card's right-alignment and QR-slot changes are meant to touch only
+    pages whose drawing is placed by ``compute_layout``'s page-wide
+    centring clause, and whose own puzzle has some horizontal spare to
+    actually move by: on the baseline book that is just the two
+    single-puzzle pages (7, 9) and the two-up page (5) — see
+    ``STRICTLY_UNCHANGED_PAGES``'s own comment for why none of the three
+    answer pages (11-13) is in that set, each for its own, investigated
+    reason. The TOC (3) and all four dividers (4, 6, 8, 10) confirm the
+    untouched claim too: 0 pixels differ from ``book_baseline_card200.json``
+    on any of them.
+
+    **The two guide pages (1, 2) do not quite hold the same promise, and
+    this is investigated, not assumed.** ``create_guide_page``'s worked
+    examples and cell-state icons are drawn through
+    ``example_line_layout``/``guide_icon_layout``, which call
+    ``compute_layout`` on the book's own placed ``PageSpec`` — not to place
+    themselves on the page (``draw_example_line`` crops tight to its own ink
+    and the guide page pastes the crop at ``frame.left``, a fixed margin
+    unrelated to this card), but to borrow the book's own cell pitch and
+    rule widths for internal consistency (ADR-0036/R2, G-3: "no new
+    placement arithmetic, only a narrower slice of what compute_layout
+    already returns"). ``compute_layout``'s placed-page branch rounds each
+    grid boundary independently (``_boundaries``'s own docstring: "within
+    half a pixel"), and that per-boundary rounding depends on the *absolute*
+    anchor's own fractional part — which this card's formula change moves,
+    even though the crop that actually reaches the page is relative. Measured
+    directly (git-stash diff against the pre-card renderer): pages 1 and 2
+    move by a scatter of 1px rule-edge shifts inside the worked-example
+    diagrams (roughly 15000 pixels of a 2550x3300 page, i.e. well under 1%,
+    all accounted for by rules/fills shifting at most one device pixel);
+    pages 3, 4, 6, 8 and 10 move by zero pixels. This is the same shape of
+    "page 1 moved for a reason unrelated to its own content" the baseline
+    chain has already absorbed twice (CARD-149's type-size fix, CARD-167's
+    retitling) — flagged here and in this card's own Worktree notes for the
+    architect/owner, not silently treated as in-scope for this card to
+    eliminate (doing so would mean giving ``example_line_layout`` its own
+    placement arithmetic, which G-3 forbids these helpers from having).
+    """
+
+    #: The baseline book's own page-kind split (CARD-200's recording;
+    #: ``tests/helpers/book_corpus.py``'s own docstring, and
+    #: ``TestBookPdfMemory_PagesAreUnchanged``'s positively-identified kinds
+    #: above): the pages right-alignment never touches, and the ones
+    #: CARD-204 deliberately repositions (and, on 5/7/9, adds a placeholder
+    #: QR icon to). Two exceptions below, both measured (git-stash diff
+    #: against the pre-card renderer), neither assumed:
+    #:
+    #: * **Pages 11 and 12** are CARD-202's own *packed* answer pages
+    #:   (Duck+Owl share 11, Tree packs alone onto 12) —
+    #:   ``_packed_tile_layout`` centres each tile across its **own** tile
+    #:   width, a local formula FR-032's page-wide centring/right-alignment
+    #:   clause was never about (this card's own investigation named
+    #:   exactly two call sites for that clause, ``compute_layout`` and
+    #:   ``_slot_layout`` — neither is this one): 0 pixels moved.
+    #: * **Page 13** (Snowflake's own full, unpacked answer page) *does*
+    #:   reuse ``compute_layout``, but this puzzle's own extent happens to
+    #:   be exactly page-fit-bound on both axes (AC-175's own case: the
+    #:   cell is fitted, not capped) — ``spare`` is exactly 0, where
+    #:   centring's ``left = usable_left + spare / 2`` and right-alignment's
+    #:   flush formula both collapse to the same ``usable_left``: 0 pixels
+    #:   moved too, but as a coincidence of *this puzzle's own geometry*,
+    #:   not a structural exemption the way the packed pages' is — a
+    #:   Snowflake-sized puzzle with any spare at all would move like
+    #:   pages 5/7/9 do.
+    STRICTLY_UNCHANGED_PAGES = (3, 4, 6, 8, 10, 11, 12, 13)
+    GUIDE_PAGES = (1, 2)
+    NON_DRAWING_PAGES = STRICTLY_UNCHANGED_PAGES + GUIDE_PAGES
+    DRAWING_PAGES = (5, 7, 9)
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def baseline(cls) -> Dict[str, Any]:
+        """The **pre-CARD-204** recording, loaded directly rather than
+        through ``load_baseline()`` — that helper now points at
+        ``book_baseline_card204.json``, this card's own forward baseline,
+        against which every page would trivially match itself. What this
+        class needs is the *previous* card's evidence, to prove this
+        card's own change reached only the pages it meant to.
+        """
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        with (fixtures_dir / "book_baseline_card200.json").open(encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def same_face(cls, baseline) -> bool:
+        return font_fingerprint() == baseline["font_fingerprint"]
+
+    @pytest.fixture(scope="class")
+    @classmethod
+    def exported(cls) -> List[Image.Image]:
+        return pdf_pages(export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()))
+
+    def test_the_toc_and_every_divider_still_match_the_card200_baseline(
+        self, baseline, exported, same_face
+    ) -> None:
+        assert set(self.NON_DRAWING_PAGES) | set(self.DRAWING_PAGES) == set(
+            range(1, BASELINE_PAGE_COUNT + 1)
+        ), "the split above must cover every baseline page exactly once"
+
+        now = page_digests(exported)
+        recorded = baseline["pages"]
+        machine_face = set(baseline["font_dependent_pages"])
+        compared = 0
+        for number in self.STRICTLY_UNCHANGED_PAGES:
+            if number in machine_face and not same_face:
+                continue  # see TestBookPdfMemory_PagesAreUnchanged's own note
+            assert now[number - 1] == recorded[number - 1], (
+                f"interior page {number} carries no drawing, so CARD-204 "
+                "must leave it byte-identical to the CARD-200 baseline"
+            )
+            compared += 1
+        expected = len(self.STRICTLY_UNCHANGED_PAGES) - (
+            0 if same_face else len(machine_face & set(self.STRICTLY_UNCHANGED_PAGES))
+        )
+        assert compared == expected, (compared, expected)
+
+    def test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one(
+        self, baseline, exported, same_face
+    ) -> None:
+        """The guide pages are not byte-identical to the CARD-200 baseline
+        (see this class's own docstring) — expected and documented. What is
+        pinned here is that they are still the *guide* pages: same size,
+        same page count, and still carrying the guide's own identifiable
+        marks (the title, the worked examples) rather than having silently
+        become blank or some other page's content. A real regression that
+        actually broke the guide page's drawing would fail one of these,
+        not hide behind the documented pixel-level exception above.
+        """
+        machine_face = set(baseline["font_dependent_pages"])
+        now = page_digests(exported)
+        recorded = baseline["pages"]
+        for number in self.GUIDE_PAGES:
+            if number in machine_face and not same_face:
+                continue
+            assert now[number - 1]["size"] == recorded[number - 1]["size"], (
+                f"interior page {number} changed size, not just a sub-pixel "
+                "rounding scatter"
+            )
+            assert now[number - 1] != recorded[number - 1], (
+                f"interior page {number} is expected to differ from the "
+                "CARD-200 baseline (see this class's docstring) — if it "
+                "now matches exactly, this exception is stale and the "
+                "class docstring/comment should be revisited"
+            )
+
+    def test_every_drawing_page_actually_moved(self, baseline, exported) -> None:
+        """The negative control: AC-7 claims an exception for these pages,
+        not a blanket "nothing changed" that this test file would hide."""
+        now = page_digests(exported)
+        recorded = baseline["pages"]
+        for number in self.DRAWING_PAGES:
+            assert now[number - 1] != recorded[number - 1], (
+                f"interior page {number} carries a drawing and should have "
+                "moved under CARD-204 (right-alignment, and on 5/7/9 a new "
+                "QR placeholder icon) — it is still the CARD-200 baseline's "
+                "own page, so this card's own change did not reach it"
+            )
 
 
 # --------------------------------------------------------------------------
@@ -1817,13 +2024,68 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
 
+    def _qr_boxes(self, generator, plan, entry, page_number):
+        """CARD-204: this entry's placeholder QR icon box(es) at ``page_number``.
+
+        ``toc_page_count`` (1 on the baseline book) is odd, so this class's
+        own comparison — unlike
+        :class:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`'s
+        even shift of ``1 + toc_page_count`` — compares two *opposite*
+        parities. The icon mirrors sides with parity by design (it lives in
+        the gutter-side slack, CARD-204), so it is the one mark on this page
+        that is **not** a plain translation between the two sides being
+        compared — masked out below before the content comparison, the same
+        way a folio digit (which also differs legitimately) is already kept
+        out by cropping above the footer band first.
+        """
+        if isinstance(entry, DividerPagePlan):
+            return []
+        payloads = [plan.payloads[number - 1] for number in entry.numbers]
+        spec = generator.page_spec(page_number)
+        if entry.pair is None:
+            (payload,) = payloads
+            layout = compute_layout(payload.row_clues, payload.column_clues, spec)
+            icon = qr_slot(layout)
+            return [icon] if icon is not None else []
+        pair = compute_pair_layout(
+            (payloads[0].row_clues, payloads[0].column_clues),
+            (payloads[1].row_clues, payloads[1].column_clues),
+            spec,
+        )
+        assert pair is not None
+        return [
+            icon
+            for icon in (qr_slot(pair.upper), qr_slot(pair.lower))
+            if icon is not None
+        ]
+
+    @staticmethod
+    def _masked(image: Image.Image, boxes) -> Image.Image:
+        if not boxes:
+            return image
+        masked = image.copy()
+        draw = ImageDraw.Draw(masked)
+        for box in boxes:
+            draw.rectangle(
+                (box.left - 2, box.top - 2, box.right + 2, box.bottom + 2),
+                fill=(255, 255, 255),
+            )
+        return masked
+
     def test_every_puzzle_or_divider_page_matches_above_the_footer(
         self, generator, plan, exported, cutoff
     ):
         checked = 0
         for entry in plan.pages:
-            new_page = exported[entry.page_number - 1]
-            reference = self._reference(generator, plan, entry)
+            old_number = entry.page_number - plan.toc_page_count
+            new_page = self._masked(
+                exported[entry.page_number - 1],
+                self._qr_boxes(generator, plan, entry, entry.page_number),
+            )
+            reference = self._masked(
+                self._reference(generator, plan, entry),
+                self._qr_boxes(generator, plan, entry, old_number),
+            )
             assert _matches_shifted_content(
                 _ink_bbox_crop(_above_footer(new_page, cutoff)),
                 _ink_bbox_crop(_above_footer(reference, cutoff)),
@@ -2063,9 +2325,15 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         which is right-hand — and the cover file is never numbered (FR-043,
         INV-013, G-2). On Book 1 the binding-side gutter is 0.5 in and the
         outside margin 0.375 in, so a right-hand page's usable area starts
-        150 px from the left and a left-hand page's 112.5 px, and a drawing
-        centred across that area sits 18.75 px right of the trim's middle on
-        a right-hand page and 18.75 px left of it on a left-hand one.
+        150 px from the left and a left-hand page's 112.5 px.
+
+        **CARD-204 (SCOPE+): the "centred, +-18.75 px off the middle" measure
+        is gone with centring itself.** Under right-alignment a right-hand
+        page's drawing is flush with the outer (right) margin — its grid's
+        right edge sits 112.5 px (0.375 in, the outside margin) in from the
+        trim's own right edge, whatever the puzzle's own width — so parity
+        is read off *that* fixed gap instead of a now-meaningless "near the
+        middle" window.
 
         **CARD-201 note (SCOPE+): this moved.** The baseline book's two
         single-puzzle pages are interior 6 and interior 8 now (up from 5 and
@@ -2090,14 +2358,15 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
         ``book_page_spec`` or ``compute_layout``.
         """
         interior = pdf_pages(export.interior.getvalue())
-        middle = interior[0].width / 2
 
         for number in (7, 9):
-            drawing = drawing_of(interior[number - 1])
-            offset = (drawing.left + drawing.grid_right) / 2 - middle
-            assert 12 < offset < 25, (
-                f"interior page {number} is centred {offset:.1f} px off the "
-                "middle; a right-hand page is about +18.75"
+            page = interior[number - 1]
+            drawing = drawing_of(page)
+            right_gap = page.width - drawing.grid_right
+            assert abs(right_gap - 112.5) < 3, (
+                f"interior page {number}'s drawing is not flush with the "
+                f"112.5 px outside margin (CARD-204, right-hand page); gap "
+                f"was {right_gap:.1f} px"
             )
 
         # And page 1 itself: the guide page's text starts at the gutter

@@ -19,7 +19,9 @@ Nothing here imports ``compute_layout``, ``PageSpec`` or ``book_page_spec``.
 A case is a stored print specification (centimetre strings, as the ``books``
 table holds them) and a real clue set; the expected cell, the expected drawing
 width and the expected left edge are worked out below in millimetres, from
-FR-030's own definition of page fit and FR-032's centring rule. What the page
+FR-030's own definition of page fit and FR-032's right-alignment rule
+(CARD-204, reading (b): flush with the outer margin, mirrored by parity).
+What the page
 *did* is read back from its ink by ``tests/helpers/page_ink.py``, which knows
 nothing about either. The two are compared with a stated tolerance, because
 one side rounds every edge to a device pixel and the other does not.
@@ -114,10 +116,24 @@ class Sheet:
         """The margin on the page's left: the gutter on an odd (right-hand) page."""
         return self.gutter_mm if page_number % 2 else self.outside_mm
 
+    def right_margin_mm(self, page_number: int) -> float:
+        """The margin on the page's right: the outside margin on an odd page."""
+        return self.outside_mm if page_number % 2 else self.gutter_mm
+
     def drawing_left_mm(self, page_number: int, across: int, down: int) -> float:
-        """FR-032: the drawing centred across the usable width of *that* page."""
+        """CARD-204 (FR-032 reading (b)): the drawing right-aligned, mirrored
+        by parity, across the usable width of *that* page — flush with the
+        *outer* margin (away from the gutter) on both parities. Unlike the
+        centred formula this replaces, the floor-overflow case needs no
+        clamp: pinning flush to the outer edge is correct whether ``spare``
+        is positive or negative (see ``layout.py``'s own comment, re-derived
+        the same way, for why the excess then spills toward the gutter
+        instead of past the trim's outer edge)."""
         spare = self.usable_width_mm - across * self.cell_mm(across, down)
-        return self.left_margin_mm(page_number) + max(spare, 0.0) / 2
+        left_margin = self.left_margin_mm(page_number)
+        if page_number % 2:  # odd (right-hand): gutter on the left, flush right
+            return left_margin + spare
+        return left_margin  # even (left-hand): gutter on the right, flush left
 
 
 #: CON-018's Book 1 profile as a sheet, stated in its own stored form.
@@ -446,29 +462,41 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
             drawing = by_number[number]
             assert (drawing.columns, drawing.rows) == (columns, rows)
 
-        # Centred across this page's usable width: the white left of the
-        # drawing equals the white right of it, both measured off the page.
-        # (The drawing runs ``across`` cells from its left edge — a cell
-        # being the rule-to-rule pitch the grid itself shows.) ``.cell`` is
-        # derived from ``.columns`` (page_ink.py's own caveat: unsafe on a
-        # revealed answer page), so this second, ink-based centring check
+        # Right-aligned, mirrored by parity (CARD-204): the white margin the
+        # drawing leaves collects entirely on the *gutter* side — none on the
+        # outer side — rather than splitting evenly across both the way
+        # centring used to. (The drawing runs ``across`` cells from its left
+        # edge — a cell being the rule-to-rule pitch the grid itself shows.)
+        # ``.cell`` is derived from ``.columns`` (page_ink.py's own caveat:
+        # unsafe on a revealed answer page), so this second, ink-based check
         # stays on the two blank puzzle pages only — the exact-left check
-        # just above already proves centring on the answer pages, since
-        # ``sheet.drawing_left_mm`` is itself derived from the centring rule.
+        # just above already proves the same thing on the answer pages, since
+        # ``sheet.drawing_left_mm`` is itself derived from this rule.
         if sheet.usable_width_mm - across * sheet.cell_mm(across, down) >= 0:
+            spare = sheet.usable_width_mm - across * sheet.cell_mm(across, down)
             for number in (medium_page, ungraded_page):
                 drawing = by_number[number]
                 left_spare = _mm(drawing.left) - sheet.left_margin_mm(number)
-                right_spare = sheet.usable_width_mm - left_spare - across * _mm(drawing.cell)
-                assert abs(left_spare - right_spare) <= 4 * HALF_PIXEL_MM + 1e-9, (
+                right_spare = spare - left_spare
+                # Odd (right-hand): gutter on the left, so the outer (right)
+                # side is the one that must be flush (zero spare). Even
+                # (left-hand): gutter on the right, outer (left) side flush.
+                outer_spare = right_spare if number % 2 else left_spare
+                assert abs(outer_spare) <= 4 * HALF_PIXEL_MM + 1e-9, (
                     sheet, number, left_spare, right_spare
                 )
 
-        # The odd page's copy sits gutter − outside further right than the even
-        # page's, on the puzzle pages and on the answer pages alike. The two
-        # kinds are compared within their own kind: a puzzle page's drawing and
-        # an answer page's tile are different measurements of different things,
-        # and only the *shift between two pages of one kind* is the margin.
+        # CARD-204: under centring, the odd page's copy sat gutter − outside
+        # further right than the even page's, full stop — the drawing's left
+        # edge shifted by a cell-independent constant. Under right-alignment
+        # that is no longer true of the drawing itself: flush-right (odd) and
+        # flush-left (even) anchor at *different* edges, so the left edges no
+        # longer differ by a constant whenever there is any spare at all. What
+        # *is* still invariant is the gutter-side slack — the same amount on
+        # both parities, just on opposite physical sides (the odd page's gap
+        # sits left of the drawing, the even page's sits right of it) — the
+        # PDF-rendered-pixels half of the same check
+        # ``test_book_layout.py``'s layout-level property makes.
         #
         # Which of each consecutive pair is actually odd/even depends on
         # ``toc_page_count``'s own parity (CARD-200 flips it when that count
@@ -476,9 +504,13 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pag
         # than assumed to be the page that would have been odd pre-CARD-200.
         for page_a, page_b in ((medium_page, ungraded_page), (easy_answer_page, medium_answer_page)):
             odd_page, even_page = (page_a, page_b) if page_a % 2 else (page_b, page_a)
-            shift_mm = _mm(by_number[odd_page].left - by_number[even_page].left)
-            assert abs(shift_mm - (sheet.gutter_mm - sheet.outside_mm)) < 2 * HALF_PIXEL_MM, (
-                sheet, shift_mm
+            odd_gutter_slack = _mm(by_number[odd_page].left) - sheet.left_margin_mm(odd_page)
+            even_drawing_right_mm = _mm(by_number[even_page].left) + across * sheet.cell_mm(across, down)
+            even_gutter_slack = (
+                (sheet.width_mm - sheet.right_margin_mm(even_page)) - even_drawing_right_mm
+            )
+            assert abs(odd_gutter_slack - even_gutter_slack) <= 4 * HALF_PIXEL_MM + 1e-9, (
+                sheet, odd_gutter_slack, even_gutter_slack
             )
 
         # Parity moves the drawing sideways only — on the two puzzle pages,

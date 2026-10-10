@@ -141,14 +141,16 @@ def _puzzle_page_plan(puzzles):
 
 
 def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
-    """Where interior page ``page_number`` puts this puzzle's left edge (FR-032).
+    """Where interior page ``page_number`` puts this puzzle's left edge
+    (FR-032, CARD-204 reading (b)).
 
     The drawing is ``clue depth + grid`` cells across at ``min(standard cell,
-    page fit)``, centred across the usable width, whose left margin is the
-    gutter on a right-hand (odd) page and the outside margin on a left-hand
+    page fit)``, right-aligned across the usable width — flush with the
+    *outer* margin, mirrored by parity: flush right (gutter on the left) on
+    a right-hand (odd) page, flush left (gutter on the right) on a left-hand
     one. ``cell_mm`` overrides the cell with the pair's shared one when the
-    puzzle is a slot of a two-up page (FR-040); its drawing is centred across
-    the same usable width either way.
+    puzzle is a slot of a two-up page (FR-040); its drawing is right-aligned
+    across the same usable width either way.
     """
     across = _across(puzzle)
     cell = (
@@ -158,7 +160,7 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
     )
     spare = USABLE_WIDTH_MM - across * cell
     left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
-    return left_margin + max(spare, 0.0) / 2
+    return left_margin + spare if page_number % 2 else left_margin
 
 
 def _packed_cell_mm(group):

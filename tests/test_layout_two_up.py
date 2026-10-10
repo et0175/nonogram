@@ -248,6 +248,9 @@ class TestPairLayout_SlotGeometry:
         assert _mm(lower.usable_top - upper.drawing_bottom) == pytest.approx(26.35, abs=2 * HALF_PIXEL_MM)
 
     def test_each_slot_is_centred_across_the_usable_width_on_either_parity(self) -> None:
+        """CARD-204: each slot is right-aligned (flush with the outer margin),
+        mirrored by parity, the same rule a single puzzle page uses — not
+        centred, despite this test's own (now stale, kept for history) name."""
         fifteen = _puzzle(15, 15, row_depth=3, column_depth=5)
         ten = _puzzle(10, 10, row_depth=3, column_depth=3)
         cell = BOOK1_TWO_UP_HEIGHT_MM / 33
@@ -255,7 +258,10 @@ class TestPairLayout_SlotGeometry:
             pair = _pair(fifteen, ten, spec)
             for slot, across in ((pair.upper, 18), (pair.lower, 13)):
                 assert slot.page is not None
-                expected_left = left_margin + (BOOK1_USABLE_WIDTH_MM - across * cell) / 2
+                spare = BOOK1_USABLE_WIDTH_MM - across * cell
+                expected_left = (
+                    left_margin if spec.parity is PageParity.EVEN else left_margin + spare
+                )
                 assert abs(_mm(slot.page.drawing_left) - expected_left) <= HALF_PIXEL_MM + 1e-9
 
     def test_both_slots_use_the_book_strokes(self) -> None:

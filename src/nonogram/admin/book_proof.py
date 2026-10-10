@@ -93,7 +93,7 @@ from nonogram.admin.book_pdf_generator import (
     page_frame,
 )
 from nonogram.export import ExportPayload
-from nonogram.export.layout import DPI, Layout, PageParity, compute_layout
+from nonogram.export.layout import DPI, Layout, PageParity, compute_layout, qr_slot
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 
@@ -479,7 +479,7 @@ class _Spot:
 
 
 def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
-    """The outer side strip and the blank clue corner, in that order.
+    """The side strip and the blank clue corner, in that order.
 
     Every edge is read off ``layout`` and ``frame`` — COMP-007's own answer for
     this page — and nothing is fitted or moved (ADR-0036/R2). The rules either
@@ -488,33 +488,54 @@ def _fallback_spots(layout: Layout, frame: PageFrame) -> tuple[_Spot, _Spot]:
     each rule's coordinate; on its margin side it runs to the usable area's
     edge, as the foot note does.
 
-    * **Outer side strip**: between the drawing and the outer margin — right of
-      the grid on an odd (right-hand) page, left of the drawing on an even one —
-      from the drawing's top, which is below the band, down to the bottom
-      margin.
+    * **Side strip**: between the drawing and a side margin, wherever the
+      drawing's own alignment actually leaves slack — **CARD-204**: the
+      drawing is right-aligned, flush with the *outer* margin on both
+      parities, so the slack this spot reads is now on the *gutter* side,
+      not literally "the outer side" despite this function's own name
+      (kept, not renamed, the same way ``export/layout.py``'s pre-CARD-204
+      comments were updated in place rather than torn out): left of the
+      drawing on an odd (right-hand) page (gutter on the left), right of it
+      on an even one (gutter on the right). From the drawing's top, which is
+      below the band, down to the bottom margin.
     * **Blank clue corner**: the empty box at the drawing's top-left where the
       row and column clue gutters meet, bounded by the frame's left and top
       sides and the grid's left and top borders. No clue digit and no grid rule
-      enters it.
+      enters it. Unaffected by CARD-204: this corner is inside the drawing's
+      own clue gutters, not a margin, so it does not move with the anchor.
     """
     placement = layout.page
     assert placement is not None  # annotation_lines has already refused None
     overhang = -(-layout.thick_rule // 2)
     clear = overhang + round(_FALLBACK_INSET_MM * layout.dpi / _MM_PER_INCH)
+    # CARD-204: the gutter-side strip is also where qr_slot() reserves the
+    # placeholder QR icon, when there is room for it there (the same side,
+    # by the same reasoning) — a real book page draws both, through the
+    # same render_pages() call this card's own proof page uses, so the
+    # note must start clear of the icon rather than print over it. Only
+    # when the icon actually anchors at the strip's own top edge (its
+    # margin-slot placement, not its bottom-slack fallback) does this move
+    # the strip at all.
+    side_top = placement.drawing_top
+    icon = qr_slot(layout)
+    if icon is not None and icon.top == placement.drawing_top:
+        side_top = icon.bottom + clear
     if placement.parity is PageParity.ODD:
-        side = _Spot(
-            "outer side strip",
-            placement.drawing_right + clear,
-            placement.drawing_top,
-            frame.right,
-            frame.bottom,
-        )
-    else:
+        # CARD-204: flush right, so the slack is on the left (gutter) side.
         side = _Spot(
             "outer side strip",
             frame.left,
-            placement.drawing_top,
+            side_top,
             placement.drawing_left - clear,
+            frame.bottom,
+        )
+    else:
+        # CARD-204: flush left, so the slack is on the right (gutter) side.
+        side = _Spot(
+            "outer side strip",
+            placement.drawing_right + clear,
+            side_top,
+            frame.right,
             frame.bottom,
         )
     corner = _Spot(

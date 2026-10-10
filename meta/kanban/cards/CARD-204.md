@@ -357,6 +357,182 @@ implementation before they are resolved.
   project this card's QR slot anticipates but does not build toward beyond leaving
   room for it.
 
+- [Implementation, 2026-10-10] Both owner mechanism-level calls were taken as
+  resolved for this pass, per the orchestrator's instruction: reading (b) (flush
+  with the usable area's *outer* margin, mirrored by parity) for item 1, and
+  option 2(b) (a drawn placeholder glyph, no real QR encoding, no dependency
+  change) for item 2. Line numbers in the card's own "Verified facts" had already
+  drifted (CARD-200/201/202/203 merges): `compute_layout`'s centring line is now
+  1581 (not 1576) and `_slot_layout`'s is 2023 (not 1901) at the point this card
+  branched; re-grepped rather than trusted, as the card itself warned.
+
+  **STRUCTURE: the anchor formula has no `max(spare, 0)` clamp.** Reading (b) is
+  implemented as `left = usable_left_px if parity is EVEN else usable_left_px +
+  spare` in both `compute_layout` and `_slot_layout` — no clamp at all, unlike the
+  centred formula it replaces. Re-derived, not inherited: pinning flush to the
+  outer edge is algebraically exact whether `spare` is positive or negative, so
+  the MIN_CELL_MM floor-overflow case needs no special branch — it falls out of
+  the same formula, spilling toward the *gutter* margin on both parities (ink
+  beyond the outer trim edge is cut away at the guillotine; ink in the gutter
+  margin only encroaches on the binding allowance — the deliberately safer
+  direction). AC-3's test (`test_TestLayout_FloorOverflowDirectionUnderRightAlignment`)
+  pins this explicitly.
+
+  **STRUCTURE: the QR icon's geometry is a COMP-007 function, not a renderer
+  decision.** `export/layout.py` gains `QR_SLOT_MM` (20.0, the owner's 2x2cm),
+  `QrSlot` (a plain box) and `qr_slot(layout) -> QrSlot | None` — the same
+  "measured here, drawn by the renderer" split `header_band` already uses for
+  the same reason (ADR-0036/R2). Rule, in order: (1) the gutter-side margin slot
+  — flush with the usable area's gutter-side edge, top aligned with the
+  drawing's own top — if it is at least 20mm wide and the drawing is at least
+  20mm tall there; (2) failing that, the slack below the drawing, flush with the
+  usable area's bottom *and* the gutter side (so it never reaches for the
+  folio's own outer corner); (3) failing both, `None` (AC-6's omit-rather-than-
+  overlap). The gutter side is *always* where the right-alignment change leaves
+  slack (a direct, provable consequence of the flush formula having no clamp),
+  which is why the icon's own rule can be purely geometric with no new
+  "which side has room" heuristic.
+
+  **STRUCTURE: the QR icon is drawn on Puzzle pages only, never on Solutions.**
+  The owner's doc lists the QR icon under item 3 ("Puzzles") and says nothing
+  about it under item 4 ("Solutions", CARD-202's own item). `qr_slot()` itself
+  is page-kind-agnostic (it would compute a box for any placed `Layout`,
+  including a solved one), but the actual drawing call is wired only into
+  `export/png.py`'s `render_image` (reached by `_blank_page` via `render_pages`)
+  and `book_pdf_generator.py`'s `_two_up_page` — never into `_draw_solved_slot`/
+  `solved_puzzle_page` or `_packed_answer_page`. This is a scope decision, not a
+  technical constraint; flagged here as the one place this card's own default
+  ("if ambiguous, make it global, matching the shared-formula precedent step 4
+  itself recommends for right-alignment") was *not* followed, because the doc's
+  own item split gave an actual, specific textual signal the right-alignment
+  question didn't have.
+
+  **STRUCTURE: step 4 (does right-alignment reach the answer section) — yes,
+  globally, confirmed.** `solved_puzzle_page` calls the same `compute_layout`
+  an unsolved page at that position would, so it repositions automatically with
+  no edit to that method (G-2 held). Measured directly on the baseline book:
+  pages 7/9 (single puzzle pages) and page 5 (two-up) move; of the three
+  answer pages, only page 13 (Snowflake's own full, unpacked page) *could* move
+  by this mechanism, and on this specific book it happens not to (see the two
+  discovered exceptions below) — pages 11/12 (CARD-202's packed answers) were
+  never in scope for this clause at all (different, tile-local formula).
+
+  **The QR placeholder glyph.** A 2px-bordered square around a plain 5x5
+  alternating checkerboard (`(row + column) % 2 == 1`), reimplemented
+  independently in `export/png.py` and `book_pdf_generator.py` (the project's
+  own native-reimplementation convention for drawing primitives, matching
+  `_stroke_drawing`'s precedent) — deliberately not a real QR module pattern
+  (no finder squares, no encoded data, identical regardless of the puzzle or
+  page it sits on) and containing no URL string anywhere (verified by direct
+  source inspection in `tests/test_book_qr_slot.py`'s own AC-8 tests), so CON-021/
+  G-3 cannot be weakened by it — there is nothing in the glyph that points
+  anywhere.
+
+  **Two discovered, narrow exceptions to byte-identity (AC-7), both measured, not
+  guessed, documented in `tests/test_book_pdf_memory.py::TestBookPdfMemory_NonDrawingPagesAreByteIdentical`
+  and in `tests/helpers/book_corpus.py`'s own history comment:**
+  1. The two guide pages (1, 2) move by a small, sub-pixel rounding scatter
+     (~15000 px of a 2550x3300 page — rule edges shifting at most 1 device
+     pixel). `example_line_layout`/`guide_icon_layout` reuse `compute_layout`'s
+     placed-page branch purely to borrow this book's own cell/rule sizing
+     (ADR-0036/R2) — the diagrams themselves are cropped tight to their own ink
+     and pasted at a fixed, card-independent position (`frame.left`), never at
+     the layout's own `left` — but `_boundaries` rounds each grid boundary
+     independently, and that rounding depends on the *absolute* anchor's
+     fractional part, which this card's formula necessarily changes. This is
+     the same shape of "page 1 moved for a reason unrelated to its own content"
+     the baseline chain already absorbed twice (CARD-149, CARD-167) — flagged
+     for the owner/architect, not treated as this card's to eliminate (doing so
+     would give those two helpers their own placement arithmetic, which G-3
+     forbids them).
+  2. **CARD-200's page-number folio is now permanently omitted on every two-up
+     page, on both parities, for every puzzle — not just a tight-fit one.**
+     Under reading (b), `drawing_right == usable_right` exactly on every ODD
+     (right-hand) page and `drawing_left == usable_left` exactly on every EVEN
+     one, algebraically, regardless of the puzzle's own spare (see the
+     no-clamp formula above). The lower two-up slot's vertical slack is *also*
+     always zero (`PairLayout`'s own, pre-existing invariant). `_draw_folio`'s
+     existing "omit rather than collide" check (CARD-200, review cycle 1/F-1)
+     therefore now fires on every two-up page, deterministically — this is
+     `_draw_folio` working exactly as designed, not a bug, but it is a real,
+     visible, permanent loss of a shipped feature (the page number) on every
+     two-up page of every book, which the owner has not been asked about.
+     `tests/test_book_page_numbers.py` is updated to assert this new, correct
+     behaviour (`test_two_up_page_s_folio_is_now_always_omitted`,
+     `test_every_page_of_a_book_holding_one_of_every_kind_is_numbered`'s
+     own carve-out) — **flagged here explicitly for the owner's render review:
+     repositioning the folio (e.g. to the gutter-side corner, where this
+     card's own slack now collects) would restore it, but that is a new
+     placement decision this card does not make unilaterally.**
+
+  **SCOPE+ edits beyond the card's own Touches list** (the card itself warned
+  the list was not exhaustive): `tests/test_layout_page_spec.py` (a direct
+  `render_image`/book `PageSpec` test, not originally listed, needed both the
+  flush-left-edge numbers and a QR-icon allowance), `tests/test_book_proof_pages.py`
+  and `src/nonogram/admin/book_proof.py` (ADR-0037's proof-page annotation
+  feature — not in the Touches list at all — had its own `_fallback_spots`
+  hard-coded to "outer side strip", which right-alignment makes read exactly
+  backwards; fixed to read the gutter side instead, and its fallback-note
+  placement now steps around the QR icon's own margin slot too), and
+  `tests/test_book_page_numbers.py` (the folio exception above).
+
+  **Fresh test evidence (this implementation, run against the venv at
+  `/Users/omelnikova/PycharmProjects/PythonProject4/.venv`):**
+  - `tests/property/test_book_layout.py` — 10 passed (incl. new
+    `test_PropertyTest_BookLayout_DrawingAnchorsAtTheChosenEdge` AC-1,
+    `test_TestLayout_FloorOverflowDirectionUnderRightAlignment` AC-3,
+    `test_PropertyTest_BookLayout_ParityMirroringHoldsUnderTheNewAnchor` AC-4).
+  - `tests/property/test_book_two_up.py` — 7 passed (incl. new
+    `test_PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge` AC-2).
+  - `tests/property/test_book_pdf_geometry.py` — 11 passed.
+  - `tests/property/test_book_export_interior.py` — 2 passed.
+  - `tests/test_book_pdf.py` — 44 passed.
+  - `tests/test_book_puzzle_frame.py` — 68 passed.
+  - `tests/test_layout_two_up.py`, `tests/test_layout_page_spec.py` — all passed.
+  - `tests/test_book_solved_page.py` — all passed.
+  - `tests/test_book_page_numbers.py` — 15 passed.
+  - `tests/test_book_pdf_memory.py` — 42 passed, 1 skipped (incl. new
+    `TestBookPdfMemory_NonDrawingPagesAreByteIdentical`, AC-7).
+  - `tests/test_book_proof_pages.py` — 111 passed (against the new
+    `proof_baseline_card204.json`).
+  - `tests/test_book_qr_slot.py` (new file) — 12 passed, covering AC-5, AC-6
+    and AC-8 by the card's own named test classes
+    (`TestBookPdf_QrSlotReservedWithoutOverlap`,
+    `TestBookPdf_QrSlotOmittedWhenNoRoomRatherThanOverlapping`,
+    `TestBookPdf_QrPlaceholderIsVisiblyNotARealCode`).
+  - `tests/test_export_pdf.py`, `tests/test_export_image.py` — confirmed
+    unaffected (no parity-carrying `PageSpec` anywhere in either file): 124
+    passed between them, CON-019 untouched.
+  - A full `pytest -q` run of the whole suite was also taken; the only
+    failures at any point were the ones enumerated above, each traced to its
+    root cause and fixed or (the two exceptions above) documented rather than
+    papered over.
+
+  **New fixtures:** `tests/fixtures/book_baseline_card204.json` (supersedes
+  `book_baseline_card200.json`, which stays, per the project's own
+  never-regenerate convention) and `tests/fixtures/proof_baseline_card204.json`
+  (supersedes `proof_baseline_card172.json`, same convention). Both carry their
+  own `why_a_new_baseline`/`changed_pages_note` explaining exactly which pages
+  moved and why, cross-checked against a direct git-stash diff of the renderer
+  before writing either file — not assumed from the formula alone.
+
+  **Renders.** No owner-facing render pass was produced by this implementation
+  pass — per the task's own instruction, that is handled separately before
+  merge. Pages were rendered and pixel-diffed extensively during
+  implementation (saved to this session's own scratchpad and `/tmp`, not
+  committed) purely to debug the specific regressions above; none of that is
+  the "three readings side by side" comparison the card's own Design Context
+  section asks for before owner sign-off.
+
+  **Not touched, confirmed out of scope:** `tests/fixtures/make_fixtures.py`
+  (the card's own Touches list included it; it is the *synthetic sourcing*
+  fixture generator — `bands.png`/`landscape.png`/`portrait.png` — unrelated to
+  book baselines, and nothing in this card touches it). `_packed_tile_layout`/
+  `compute_packed_solved_layout`/`compute_answer_page_layout` (CARD-202's/
+  FR-042's tile-local centring formulas) — investigated and confirmed to be a
+  *different* formula FR-032's page-wide clause was never about; untouched,
+  and measured to be genuinely byte-identical.
+
 ## System contract
 
 _Not yet assembled — run `python3

@@ -55,9 +55,14 @@ A spec lays a puzzle out in one of two ways, and its ``parity`` decides which:
   binding side: left on an odd (right-hand) page, right on an even one. The
   title band sits at the top of the usable area, and the drawing's top edge
   sits directly under it, at a fixed offset of top margin + band (FR-032). The
-  drawing is centred across the usable width (FR-032 amended 2026-09-22 (c)),
-  so parity moves it sideways by gutter − outside and never changes its size.
-  The sheet is never turned (``PORTRAIT_ONLY``). The cell is
+  drawing is right-aligned, mirrored by parity (FR-032 amended 2026-10-10,
+  CARD-204, owner reading (b)): flush with the usable area's *outer* margin
+  on both parities — the right edge on an odd (right-hand) page, the left
+  edge on an even one — so parity still moves it sideways by gutter − outside
+  and still never changes its size, only which edge it hugs. A placed page's
+  freed gutter-side slack is also where :func:`qr_slot` reserves CARD-204's
+  2x2cm placeholder QR icon, when there is room for one. The sheet is never
+  turned (``PORTRAIT_ONLY``). The cell is
   ``min(cap, page fit)`` computed in millimetres and drawn at a fractional
   pitch, so the cell a book tile reports (FR-031) is the cell the page prints.
   Where the drawing sits is reported as :class:`PagePlacement` on
@@ -221,6 +226,7 @@ __all__ = [
     "PAGE_HEIGHT_MM",
     "PAGE_MARGIN_MM",
     "PAGE_WIDTH_MM",
+    "QR_SLOT_MM",
     "TWO_UP_MIN_CELL_MM",
     "SOLVED_TILE_CAPACITIES",
     "SOLVED_TILE_GAP_MM",
@@ -240,12 +246,14 @@ __all__ = [
     "PageSpec",
     "PairLayout",
     "PuzzleFrame",
+    "QrSlot",
     "comfort_cap_mm",
     "compute_answer_page_layout",
     "compute_layout",
     "compute_packed_solved_layout",
     "compute_pair_layout",
     "header_band",
+    "qr_slot",
 ]
 
 #: Output resolution in dots per inch. 300 is the conventional print target:
@@ -312,6 +320,13 @@ MAX_CELL_MM = CELL_COMFORT_MM[-1][1]
 #: with a much deeper gutter, would reach — and a later reader tempted to
 #: delete it as dead should reach that conclusion on purpose.
 MIN_CELL_MM = 2.0
+
+#: CARD-204 (owner's Google Doc "Nonograms - Print layout1", item 3): the
+#: placeholder QR icon's side, in millimetres. 2x2 cm, as the owner specified.
+#: Real QR encoding and the public-solver link it would carry are both
+#: deliberately deferred (owner clarification 2026-10-08, CON-021) — this
+#: module reserves and sizes the icon's *slot* only; see :func:`qr_slot`.
+QR_SLOT_MM = 20.0
 
 #: Every Nth grid line is stroked heavy — the standard nonogram counting aid.
 MAJOR_RULE_EVERY = 5
@@ -644,7 +659,9 @@ class PagePlacement:
         """Whether the drawing lies inside the usable area below the band.
 
         ``False`` only when page fit fell under :data:`MIN_CELL_MM` and the
-        floor won. The drawing then overflows to the right and downwards.
+        floor won. The drawing then overflows downwards, and horizontally
+        toward the gutter margin (CARD-204: it stays flush with the outer
+        margin on both parities, so the floor's excess spills the other way).
         """
         return (
             self.usable_left <= self.drawing_left
@@ -719,6 +736,28 @@ class PuzzleFrame:
     right: int
     bottom: int
     width: int
+
+
+@dataclass(frozen=True, slots=True)
+class QrSlot:
+    """Where CARD-204's 2x2cm placeholder QR icon sits, in device pixels.
+
+    A square: ``right - left == bottom - top == _mm_to_px(QR_SLOT_MM)``,
+    within one rounding pixel. Only :func:`qr_slot` constructs one — it
+    exists so a renderer draws the owner's placeholder glyph inside a box
+    COMP-007 measured, rather than picking a corner itself (ADR-0036/R2).
+
+    Attributes:
+        left: The icon's left edge.
+        top: The icon's top edge.
+        right: The icon's right edge.
+        bottom: The icon's bottom edge.
+    """
+
+    left: int
+    top: int
+    right: int
+    bottom: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -997,6 +1036,91 @@ def header_band(layout: Layout, page_spec: PageSpec | None = None) -> HeaderBand
         center_y=page.usable_top + height // 2,
         font_size=max(1, min(font_size, height)),
     )
+
+
+def qr_slot(layout: Layout) -> QrSlot | None:
+    """Where CARD-204's 2x2cm placeholder QR icon fits on ``layout``'s page, or ``None``.
+
+    A second measurement laid on top of an already-computed :class:`Layout`,
+    the same way :func:`header_band` is (see that function's docstring for
+    why: additive, not a parameter of :func:`compute_layout`) — only a placed
+    page (``layout.page`` set) has margins to reserve an icon from, so the
+    default, unparitied spec (today's A4) never gets one.
+
+    **Why the gutter side, first.** Reading (b)'s right-alignment anchors the
+    drawing against the *outer* margin on both parities (flush right on an
+    ``ODD`` page, flush left on an ``EVEN`` one — see
+    :func:`compute_layout`'s placed-page branch), so whatever horizontal
+    slack the usable width has left over always collects on the *gutter*
+    side instead of being split across both, the way centring used to split
+    it. That freed strip is the icon's first home: a square flush with the
+    usable area's own gutter-side edge, its top aligned with the drawing's
+    top (so it never reaches up into the band), provided the strip is at
+    least :data:`QR_SLOT_MM` wide and the drawing is at least that tall.
+
+    **The fallback: the slack below the drawing.** The common case is the
+    opposite — a book cell is fitted close to the usable width (this
+    module's own docstring measures how close), so the gutter-side margin is
+    nowhere near 2 cm. The icon then falls back to the strip between the
+    drawing's bottom edge and the usable area's own bottom — the same strip
+    :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._draw_solved_slot`'s
+    caption already reads for its own room check — flush with the usable
+    area's bottom *and* its gutter-side edge, so it never reaches for
+    CARD-200's folio, which sits at the opposite (outer) corner.
+
+    **Omission, not overlap.** When neither strip holds :data:`QR_SLOT_MM`,
+    the icon is omitted — the same discipline the caption already applies
+    rather than drawing over the grid or the band. (Nothing here draws over
+    the grid or the band by construction either: the icon's box always sits
+    outside ``[page.drawing_left, page.drawing_right]`` x
+    ``[page.drawing_top, page.drawing_bottom]`` on one full side.)
+
+    **Which pages actually draw it is a renderer decision, not this
+    function's.** This module only measures where the icon *would* fit;
+    `book_pdf_generator.py` draws the owner's placeholder glyph into the box
+    on a puzzle page (single or two-up) and does not call this function for
+    a solved answer page — the owner's doc names the QR icon under
+    "Puzzles" (item 3) and says nothing about it under "Solutions" (item 4,
+    CARD-202's own item) — but the geometry below still never overlaps a
+    caption's own centred position when it is given an answer page's
+    placement, because it only ever occupies one full edge-to-edge strip,
+    never the drawing's own horizontal centre.
+
+    Args:
+        layout: The already-computed placed-page geometry — exactly what
+            :func:`compute_layout` or the two-up pair-aware call returned.
+            Nothing here fits a cell or moves a line (ADR-0036/R2): every
+            number is read off ``layout.page``.
+
+    Returns:
+        The icon's own box, or ``None`` when neither side has room for one.
+    """
+    page = layout.page
+    if page is None:
+        return None
+    size = _mm_to_px(QR_SLOT_MM)
+    gutter_on_left = page.parity is PageParity.ODD
+
+    if gutter_on_left:
+        gutter_slack = page.drawing_left - page.usable_left
+        side_left, side_right = page.usable_left, page.usable_left + size
+    else:
+        gutter_slack = page.usable_right - page.drawing_right
+        side_left, side_right = page.usable_right - size, page.usable_right
+    side_top, side_bottom = page.drawing_top, page.drawing_top + size
+    if gutter_slack >= size and side_bottom <= page.usable_bottom:
+        return QrSlot(left=side_left, top=side_top, right=side_right, bottom=side_bottom)
+
+    bottom_slack = page.usable_bottom - page.drawing_bottom
+    if bottom_slack >= size:
+        if gutter_on_left:
+            foot_left, foot_right = page.usable_left, page.usable_left + size
+        else:
+            foot_left, foot_right = page.usable_right - size, page.usable_right
+        foot_top, foot_bottom = page.usable_bottom - size, page.usable_bottom
+        return QrSlot(left=foot_left, top=foot_top, right=foot_right, bottom=foot_bottom)
+
+    return None
 
 
 def _mm_to_px(millimetres: float) -> int:
@@ -1574,11 +1698,28 @@ def compute_layout(
         usable_width_px = (
             _exact_px(spec.width_mm) - _exact_px(spec.gutter_mm) - _exact_px(spec.outside_mm)
         )
-        # Centred across the usable width (FR-032). Only when the MIN_CELL_MM
-        # floor has made the drawing wider than the usable area does it anchor
-        # at the usable area's left edge instead, overflowing to the right.
+        # Right-aligned, mirrored by parity (FR-032 as CARD-204 reverses it,
+        # owner reading (b)): flush with the usable area's *outer* margin —
+        # the far side from the gutter — on both parities, i.e. the right
+        # edge on an ODD (right-hand) page, the left edge on an EVEN
+        # (left-hand) one. ``spec.left_margin_mm`` is the gutter on an ODD
+        # page and the outer margin on an EVEN one (see that property), so
+        # "flush outer" is "flush left" exactly when this is an EVEN page.
+        #
+        # Re-derived (not inherited) floor-overflow direction: unlike the
+        # centred formula this replaces, there is no ``max(spare, 0)``
+        # clamp here, and none is needed. Pinning flush to the outer edge is
+        # unconditional — on an EVEN page ``left`` is always
+        # ``usable_left_px``; on an ODD page it is always
+        # ``usable_left_px + spare``, spare's sign included. When the
+        # MIN_CELL_MM floor makes the drawing wider than the usable area
+        # (``spare < 0``), the excess therefore spills toward the *gutter*
+        # margin on both parities, never past the outer trim edge — ink
+        # beyond the outer edge is cut away at the guillotine, while ink in
+        # the gutter margin merely encroaches on the binding allowance, so
+        # this is the deliberately safer of the two overflow directions.
         spare = usable_width_px - drawing_columns * pitch
-        left = usable_left_px + max(spare, Fraction(0)) / 2
+        left = usable_left_px if spec.parity is PageParity.EVEN else usable_left_px + spare
         # The top edge is fixed: top margin + band, on every page (FR-032).
         top = _exact_px(spec.top_mm) + _exact_px(spec.band_mm)
         page_width = _round_px(_exact_px(spec.width_mm))
@@ -1681,7 +1822,8 @@ class PairLayout:
     the renderers draw it exactly as they draw a single puzzle page, and
     :func:`header_band` measures each slot's own band from it. The one
     difference is what a slot's :class:`PagePlacement` calls its usable area:
-    across, it is the page's usable width (each slot's drawing is centred on it,
+    across, it is the page's usable width (each slot's drawing is right-aligned
+    across it, mirrored by parity, the same as a single puzzle page's — CARD-204,
     FR-032); down, it is **the slot's own share** of the usable height —
     ``usable_top`` is where the slot's band starts and ``usable_bottom`` where
     the slot ends. The upper slot runs from the top margin to the lower slot's
@@ -1884,7 +2026,8 @@ def _slot_layout(
     """One slot of a two-up page: a placed-page :class:`Layout` at a given cell.
 
     :func:`compute_layout`'s placed page with the cell and the band's row
-    handed in instead of fitted: centred across the usable width, the drawing's
+    handed in instead of fitted: right-aligned (mirrored by parity, see that
+    function's placed-page branch) across the usable width, the drawing's
     top edge one band below ``band_top``, every boundary rounded once
     (:func:`_boundaries`). ``band_top`` and ``slot_bottom`` are exact pixels,
     and become the slot's :attr:`PagePlacement.usable_top` and
@@ -1902,8 +2045,14 @@ def _slot_layout(
         - _exact_px(page_spec.gutter_mm)
         - _exact_px(page_spec.outside_mm)
     )
+    # Same anchor, and the same re-derived floor-overflow direction, as
+    # compute_layout's placed-page branch (see its comment in full).
     spare = usable_width_px - drawing_columns * pitch
-    left = usable_left_px + max(spare, Fraction(0)) / 2
+    left = (
+        usable_left_px
+        if page_spec.parity is PageParity.EVEN
+        else usable_left_px + spare
+    )
     top = band_top + _exact_px(page_spec.band_mm)
 
     xs = _boundaries(left, pitch, drawing_columns)

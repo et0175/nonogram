@@ -18,6 +18,10 @@
     Each slot is compute_layout's placed page at the shared cell (no second assembly)
         -> test_PropertyTest_BookTwoUp_UpperSlotIsTheSinglePageAtTheSharedCell
 
+    CARD-204 (reading (b), right-alignment replacing FR-032's centring):
+    AC-2  PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge
+        -> test_PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge
+
 How the expectations are independent
 ------------------------------------
 The expected shared cell is FR-040's definition written out again here in
@@ -295,14 +299,55 @@ def test_PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea() -> N
             xs, ys = _every_x(slot), _every_y(slot)
             assert slot.page.usable_left <= min(xs) and max(xs) <= slot.page.usable_right
             assert slot.page.drawing_top <= min(ys) and max(ys) <= slot.page.usable_bottom
-            # Centred across the usable width (FR-032), within a pixel.
+            # Right-aligned, mirrored by parity (CARD-204): flush with the
+            # outer margin, within a pixel — the spare collects entirely on
+            # the gutter side.
             spare_left = slot.page.drawing_left - slot.page.usable_left
             spare_right = slot.page.usable_right - slot.page.drawing_right
-            assert abs(spare_left - spare_right) <= 2
+            outer_spare = spare_right if spec.parity is PageParity.ODD else spare_left
+            assert outer_spare <= 2, (spec, spare_left, spare_right)
     assert paired >= 500, paired
     assert declined >= 500, declined
     assert at_cap >= 100, at_cap
     assert near_threshold <= 5, near_threshold
+
+
+def test_PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge() -> None:
+    """AC-2: each slot of a two-up page anchors the same way AC-1 pins for a
+    single page — flush with the usable area's outer margin, mirrored by
+    parity — and the pair's shared band/rule geometry (INV-010: same tier,
+    adjacent, both fit at a shared cell) is otherwise unaffected: the two
+    slots still share one cell, one set of rule weights, and the midline
+    between them still splits the usable height exactly as before.
+    """
+    rng = random.Random(2204002)
+    paired = 0
+    for _ in range(3000):
+        spec = _random_spec(rng)
+        first, second = _puzzle(rng), _puzzle(rng)
+        pair = compute_pair_layout(first, second, spec)
+        if pair is None:
+            continue
+        paired += 1
+
+        for slot in (pair.upper, pair.lower):
+            page = slot.page
+            assert page is not None
+            if page.parity is PageParity.ODD:
+                assert abs(page.drawing_right - page.usable_right) <= 1, (spec, page)
+            else:
+                assert abs(page.drawing_left - page.usable_left) <= 1, (spec, page)
+
+        # INV-010's own geometry (shared cell, shared rule weights, the
+        # midline between the slots) is untouched by this card: it was
+        # already asserted in full by
+        # ``test_PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea``
+        # above; restated here minimally as the "otherwise unaffected"
+        # half of this AC's own claim.
+        assert pair.upper.page.cell_mm == pair.lower.page.cell_mm == pair.cell_mm
+        assert pair.upper.thin_rule == pair.lower.thin_rule
+        assert pair.upper.page.usable_bottom == pair.lower.page.usable_top
+    assert paired >= 500, paired
 
 
 def test_PropertyTest_BookTwoUp_PairsExactlyWhenTheRuleSaysSo() -> None:

@@ -436,11 +436,15 @@ class TestBookSolvedPage_CaptionReadsThePictureName:
 
         # That ink sits horizontally inside the usable area — never in the
         # trim margin outside it (a pixel or two of antialiasing bleed past
-        # the drawing's own edges is not "inside the trim margin").
+        # the drawing's own edges is not "inside the trim margin" — CARD-204
+        # makes this bleed actually reachable on this shape: the drawing is
+        # now flush with this left-hand page's outer margin, with no slack
+        # of its own on that side, where centring always left some).
         dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
+        bleed = 2
         assert dark_columns.size > 0
-        assert dark_columns.min() >= placement.usable_left
-        assert dark_columns.max() <= placement.usable_right
+        assert dark_columns.min() >= placement.usable_left - bleed
+        assert dark_columns.max() <= placement.usable_right + bleed
 
 
 # --------------------------------------------------------------------------

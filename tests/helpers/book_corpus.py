@@ -190,8 +190,34 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   narrower "nothing but the footer band moved" claim, verified by
 #:   content rather than by this whole-page digest.
 #:
-#: All eleven files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card200.json"
+#: * ``book_baseline_card204.json`` — CARD-204 reverses FR-032's centred
+#:   horizontal placement to right-aligned, mirrored by parity (owner
+#:   reading (b)), and reserves/draws a 2x2cm placeholder QR icon on
+#:   puzzle pages wherever the new geometry leaves room for one. Measured
+#:   directly (git-stash diff of the renderer, and a page-by-page digest
+#:   comparison against CARD-200's recording): pages 5, 7 and 9 (the
+#:   two-up page and the book's two single-puzzle pages) move, for both
+#:   reasons. Pages 11 and 12 (CARD-202's packed answer pages) do not: a
+#:   tile-local centring formula FR-032's page-wide clause never covered.
+#:   Page 13 (Snowflake's full answer page) does not move either, but as a
+#:   coincidence of this one puzzle's own page-fit-bound geometry (its own
+#:   spare is exactly 0, where the old and new formulas agree) rather than
+#:   a structural exemption. Pages 1 and 2 (the guide) move too, by a
+#:   small, documented, incidental sub-pixel rounding scatter: their own
+#:   worked-example diagrams reuse ``compute_layout``'s placed-page branch
+#:   for cell/rule consistency (ADR-0036/R2), and that branch's
+#:   per-boundary rounding depends on the absolute anchor's own fractional
+#:   part, which this card's formula changes even though the diagrams
+#:   themselves are cropped and pasted at a fixed, card-independent
+#:   position — flagged for the owner/architect in CARD-204's own Worktree
+#:   notes, not treated as this card's to eliminate (G-3 forbids these
+#:   helpers their own placement arithmetic). See
+#:   ``tests/test_book_pdf_memory.py``'s
+#:   ``TestBookPdfMemory_NonDrawingPagesAreByteIdentical`` for the test
+#:   that verifies all of this directly.
+#:
+#: All twelve files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until

@@ -343,10 +343,12 @@ from nonogram.export.layout import (
     Layout,
     PageSpec,
     PairLayout,
+    QrSlot,
     compute_layout,
     compute_packed_solved_layout,
     compute_pair_layout,
     header_band,
+    qr_slot,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
 from nonogram.export.png import BACKGROUND, INK
@@ -1260,6 +1262,46 @@ def _set_band(draw: ImageDraw.ImageDraw, band: HeaderBand, text: str, room: int)
     )
 
 
+#: CARD-204's placeholder QR icon: a plain alternating checkerboard, never a
+#: real QR module pattern — see :func:`_draw_qr_placeholder`'s own docstring.
+#: Reimplemented from :mod:`nonogram.export.png`'s identical helper rather
+#: than imported (the native-reimplementation convention this module already
+#: follows for :func:`_stroke_drawing`/:func:`_write_clues`: ``export/``
+#: exposes no call that draws onto a page it is handed, CARD-146).
+_QR_PLACEHOLDER_MODULES = 5
+
+
+def _draw_qr_placeholder(draw: ImageDraw.ImageDraw, icon: QrSlot) -> None:
+    """Draw CARD-204's placeholder QR icon inside ``icon``'s box.
+
+    **Deliberately not a real QR code (owner's confirmed option 2(b)).** A
+    bordered square around a plain alternating checkerboard — no finder
+    squares, no real module data, "a generic grid-of-squares glyph, never
+    claiming to scan". No URL, admin or otherwise, appears anywhere in this
+    function (CON-021, G-3): there is nothing here to point anywhere, which
+    is what keeps it inert. See
+    :func:`nonogram.export.png._draw_qr_placeholder`'s own docstring for the
+    full reasoning — identical here, for a two-up slot rather than a single
+    page.
+    """
+    draw.rectangle((icon.left, icon.top, icon.right, icon.bottom), outline=INK, width=2)
+    side = icon.right - icon.left
+    step = side / _QR_PLACEHOLDER_MODULES
+    for row in range(_QR_PLACEHOLDER_MODULES):
+        for column in range(_QR_PLACEHOLDER_MODULES):
+            if (row + column) % 2 == 0:
+                continue
+            draw.rectangle(
+                (
+                    icon.left + round(column * step),
+                    icon.top + round(row * step),
+                    icon.left + round((column + 1) * step),
+                    icon.top + round((row + 1) * step),
+                ),
+                fill=INK,
+            )
+
+
 def _draw_folio(
     draw: ImageDraw.ImageDraw,
     left: int,
@@ -1885,6 +1927,23 @@ def example_line_layout(spec: PageSpec, clue: Tuple[int, ...], length: int) -> L
     four original worked-example steps pass :data:`WORKED_EXAMPLE_CLUE`/
     :data:`WORKED_EXAMPLE_LENGTH` explicitly now; the signature changed, not
     what that call draws (AC-8 pins the output pixel-identical).
+
+    **CARD-204 note.** This call's only use for ``compute_layout``'s
+    placed-page branch is borrowed cell/rule consistency (ADR-0036/R2) —
+    :func:`draw_example_line` crops the result tight to its own ink and the
+    guide page pastes that crop at a fixed, card-independent position
+    (``frame.left``), never at this layout's own ``left``. CARD-204's
+    right-alignment change nonetheless moves the guide page's own pixels by
+    a small, sub-pixel rounding scatter: ``_boundaries`` rounds each grid
+    boundary independently, and that rounding depends on the *absolute*
+    anchor's fractional part, which CARD-204's formula changed even though
+    nothing about where this diagram ends up on the page did. See
+    ``tests/test_book_pdf_memory.py``'s
+    ``TestBookPdfMemory_NonDrawingPagesAreByteIdentical`` for the measured
+    extent of it (pages 1-2 only, ~15000 px of a 2550x3300 page) and
+    CARD-204's own Worktree notes for why it is flagged rather than
+    eliminated here (doing so would give this function its own placement
+    arithmetic, which G-3 forbids).
     """
     columns = ((0,),) * length
     layout = compute_layout((clue,), columns, spec)
@@ -3485,6 +3544,13 @@ class BookPDFGenerator:
                 band_identity(number, payload.difficulty),
                 placement.usable_right - placement.usable_left,
             )
+            # CARD-204: each puzzle of the pair gets its own placeholder QR
+            # slot, exactly as a single puzzle page does (qr_slot() reads
+            # this slot's own Placement; the two slots never compete for the
+            # same pixels since each reserves from its own usable area).
+            icon = qr_slot(slot)
+            if icon is not None:
+                _draw_qr_placeholder(draw, icon)
         footer_area = pair.lower.page
         _draw_folio(
             draw,

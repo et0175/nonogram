@@ -94,6 +94,7 @@ from nonogram.export.layout import (
     PageSpec,
     compute_layout,
     compute_pair_layout,
+    qr_slot,
 )
 from nonogram.export.png import BACKGROUND, render_image
 from tests.helpers.page_ink import drawing_of
@@ -221,18 +222,20 @@ def _expected_box(
 ) -> tuple[float, float, float, float]:
     """``(left, top, right, bottom)`` of the drawing, in device pixels.
 
-    Worked out from the sheet in millimetres: the drawing is centred across the
-    usable width (FR-032) and its top edge is the top margin plus the band, on
-    every page and parity. That rectangle **is** the frame: its left and top
-    are the outer edges of the two clue gutters, its right and bottom the
-    grid's own outer border.
+    Worked out from the sheet in millimetres: the drawing is right-aligned,
+    mirrored by parity (CARD-204, FR-032 reading (b)) — flush with the
+    *outer* margin on both parities — and its top edge is the top margin
+    plus the band, on every page and parity. That rectangle **is** the
+    frame: its left and top are the outer edges of the two clue gutters, its
+    right and bottom the grid's own outer border.
     """
     drawing_columns = row_depth + columns
     drawing_rows = column_depth + rows
     cell = _expected_cell_mm(spec, drawing_columns, drawing_rows)
     usable_width = spec.width_mm - spec.gutter_mm - spec.outside_mm
     left_margin = spec.outside_mm if spec.parity is PageParity.EVEN else spec.gutter_mm
-    left = left_margin + (usable_width - drawing_columns * cell) / 2
+    spare = usable_width - drawing_columns * cell
+    left = left_margin if spec.parity is PageParity.EVEN else left_margin + spare
     top = spec.top_mm + spec.band_mm
     return (
         left * PX_PER_MM,
@@ -526,6 +529,13 @@ class TestPuzzleFrame_UsesTheHeavyRuleOnly:
         layout = compute_layout(*_clue_sets(**self.CASE), spec)
         frame = layout.frame
         dark = _dark(page)
+        # CARD-204: mask out the placeholder QR icon before probing — on
+        # this extent it falls back to the slack below the drawing, on the
+        # gutter side, which this test's own probe column (just inside the
+        # frame's left side) can sit directly above.
+        icon = qr_slot(layout)
+        if icon is not None:
+            dark[icon.top - 2 : icon.bottom + 2, icon.left - 2 : icon.right + 2] = False
 
         # A row inside the column-clue band, clear of the frame's own top side:
         # the ink groups there are the frame's left side, the grid's verticals
@@ -781,11 +791,13 @@ def _expected_pair_boxes(
     a boundary rounded to a whole pixel first is a boundary that has already
     moved up to half a pixel in the direction the answer is about.
 
-    Each drawing is centred across the usable width on the **shared** cell; the
-    upper one's top edge is the fixed row every single puzzle page uses (top
-    margin plus band, FR-032/EC-022) and the lower one's bottom edge is the
-    bottom margin, its own band in the 12 mm above it — which is the placement
-    ``tests/test_book_pdf_two_up.py`` states AC-251's lower band from.
+    Each drawing is right-aligned, mirrored by parity (CARD-204, FR-032
+    reading (b)) — flush with the outer margin — across the usable width on
+    the **shared** cell; the upper one's top edge is the fixed row every
+    single puzzle page uses (top margin plus band, FR-032/EC-022) and the
+    lower one's bottom edge is the bottom margin, its own band in the 12 mm
+    above it — which is the placement ``tests/test_book_pdf_two_up.py``
+    states AC-251's lower band from.
 
     That rectangle **is** the frame: its left and top are the outer edges of
     the two clue gutters and its right and bottom the grid's own outer border.
@@ -794,7 +806,8 @@ def _expected_pair_boxes(
     left_margin = OUTSIDE_MM if parity is PageParity.EVEN else GUTTER_MM
 
     def box(puzzle: dict, top_mm: float) -> tuple[float, float, float, float]:
-        left_mm = left_margin + (USABLE_WIDTH_MM - _across(puzzle) * cell) / 2
+        spare_mm = USABLE_WIDTH_MM - _across(puzzle) * cell
+        left_mm = left_margin if parity is PageParity.EVEN else left_margin + spare_mm
         return (
             left_mm * PX_PER_MM,
             top_mm * PX_PER_MM,

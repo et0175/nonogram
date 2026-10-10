@@ -58,8 +58,10 @@ from nonogram.export.layout import (
     Layout,
     PageSpec,
     PuzzleFrame,
+    QrSlot,
     compute_answer_page_layout,
     compute_layout,
+    qr_slot,
 )
 
 if TYPE_CHECKING:  # pragma: no cover - import cycle is type-time only
@@ -215,6 +217,48 @@ def _draw_frame(draw: ImageDraw.ImageDraw, frame: PuzzleFrame) -> None:
         draw.line(list(ends), fill=INK, width=frame.width)
 
 
+#: CARD-204's placeholder QR icon: a plain alternating checkerboard, never a
+#: real QR module pattern. A fixed grid size rather than one derived from the
+#: icon's own pixels, so the glyph looks the same (proportionally) at any
+#: trim — it is decoration reserving a slot, not data.
+_QR_PLACEHOLDER_MODULES = 5
+
+
+def _draw_qr_placeholder(draw: ImageDraw.ImageDraw, icon: QrSlot) -> None:
+    """Draw CARD-204's placeholder QR icon inside ``icon``'s box.
+
+    **Deliberately not a real QR code (owner's confirmed option 2(b)).** A
+    bordered square around a plain alternating checkerboard: unlike a real
+    QR code, it carries none of the three nested finder squares a scanner
+    looks for in three of a code's four corners, and no module pattern that
+    encodes anything — it is "a generic grid-of-squares glyph, never
+    claiming to scan" (CARD-204's own words). A reader who tries to scan it
+    gets nothing, which is the point: a real-looking QR code that silently
+    encoded a dead or admin-only URL would be worse (CON-021, G-3) than an
+    icon that is visibly just a placeholder. No URL, admin or otherwise,
+    appears anywhere in this function — there is nothing here to point
+    anywhere, which is what keeps it inert. A follow-up card swaps in a real
+    code once a public solver exists to link to and a QR-generation
+    dependency has been approved (ADR-0006).
+    """
+    draw.rectangle((icon.left, icon.top, icon.right, icon.bottom), outline=INK, width=2)
+    side = icon.right - icon.left
+    step = side / _QR_PLACEHOLDER_MODULES
+    for row in range(_QR_PLACEHOLDER_MODULES):
+        for column in range(_QR_PLACEHOLDER_MODULES):
+            if (row + column) % 2 == 0:
+                continue
+            draw.rectangle(
+                (
+                    icon.left + round(column * step),
+                    icon.top + round(row * step),
+                    icon.left + round((column + 1) * step),
+                    icon.top + round((row + 1) * step),
+                ),
+                fill=INK,
+            )
+
+
 def _draw_clues(draw: ImageDraw.ImageDraw, layout: Layout) -> None:
     """Write every clue number, centred on the point the layout placed it.
 
@@ -267,6 +311,13 @@ def render_image(payload: ExportPayload, page_spec: PageSpec | None = None) -> I
     if layout.frame is not None:
         _draw_frame(draw, layout.frame)
     _draw_clues(draw, layout)
+    # CARD-204: a placeholder QR icon's reserved slot, puzzle pages only — a
+    # book page (a spec with a parity) names one through qr_slot() when the
+    # geometry leaves room for it; the default A4 spec never gets one
+    # (qr_slot returns None whenever layout.page is None, CON-019).
+    icon = qr_slot(layout)
+    if icon is not None:
+        _draw_qr_placeholder(draw, icon)
     return image
 
 
