@@ -555,6 +555,40 @@ merges first.
   *different* formula FR-032's page-wide clause was never about; untouched,
   and measured to be genuinely byte-identical.
 
+- [Fix 1, 2026-10-10] Owner decision implemented: **"Reserve folio room"** for
+  the two-up folio-loss exception the implementation pass flagged. Puzzles on
+  two-up pages stay flush to the outer edge, but the lower slot's drawing now
+  leaves a small, exact, guaranteed gap at its own bottom-outer corner —
+  sized per-page from the real folio text width (`_folio_reserve_px`, 27px at
+  300 DPI for a 1-digit page), never an arbitrary constant — instead of being
+  100% flush. The upper slot and every single-puzzle/answer page keep the
+  unmodified flush rule. Two kw-only parameters added: `compute_pair_layout`'s
+  `folio_reserve_px` (re-fits the shared cell slightly smaller only when the
+  lower slot's own natural spare can't already hold the reserve — the common
+  case pays nothing) and `_slot_layout`'s `outer_reserve_px` (shifts the lower
+  slot's flush anchor toward the gutter by that many pixels, clamped so it
+  can never worsen the pre-existing MIN_CELL_MM floor-overflow case).
+  **A real bug found by the property-test oracle, not by inspection**: the
+  first pass's natural-spare check read the lower puzzle's column-clue gutter
+  depth instead of its row-clue depth, undetected by manual spot-checks
+  (which happened to use symmetric-depth puzzles) until
+  `tests/property/test_book_pairing.py`'s independent 900-case `cell_mm`
+  oracle caught the one case where they disagree — fixed to read the correct
+  depth. Confirmed empirically on both parities (Duck+Owl pair, page 5/6):
+  folio now reliably draws with a 27px gap on each side. Six test files
+  updated (not loosened): `test_book_page_numbers.py`,
+  `test_book_export_interior.py`, `test_book_puzzle_frame.py`,
+  `test_book_pdf_memory.py` (one whole-page comparison split into per-slot
+  comparisons — a real structural finding, not a tolerance fudge, since the
+  reserve's gutter-ward shift mirrors by parity), `test_book_pdf_two_up.py`,
+  `test_book_pairing.py` (the oracle itself, updated to the same rule — this
+  is what caught the bug). Baseline fixture regenerated in place (only
+  interior page 5 moves, +296 bytes); `proof_baseline_card204.json` confirmed
+  to need no change (proof pages never call `compute_pair_layout`).
+  **Test evidence**: 17 touched/related test files run together, 0 failed (1
+  pre-existing unrelated skip). **Orchestrator's own independent full-suite
+  confirmation: 6853 passed, 9 skipped, 0 failed, 0 errors** (1112.15s).
+
 ## System contract
 
 _Not yet assembled — run `python3
