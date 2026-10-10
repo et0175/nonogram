@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card203.json
-**Review score:** —
+**Review score:** 4.0/10 (cycle 1, gating — fix in progress)
 **Started:** 2026-10-10T04:04:25Z
 **Closed:** —
 **Actual:** —
@@ -359,3 +359,39 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
     staying centered while only the caption right-aligns are this card's own reading of
     "closer"/"align by the right side," not an owner-confirmed pixel value. No render was
     produced during implementation — needed before merge.
+
+- [Review] forge:review cycle 1 started (background agent `@code-review`).
+- [Review 1/3] Score **4.0/10**. 1 Critical, 3 Important, 2 Minor, 1 Out-of-scope.
+  - **F-001 (Critical, reproduced directly against this worktree's running code):**
+    `book_pdf_generator.py:3602` — the caption's new `anchor="rm"` at
+    `placement.drawing_right` and the pre-existing page folio (`_draw_folio`, CARD-200,
+    untouched by this card) now target the SAME page corner on a right-hand (odd)
+    page, once the puzzle's grid reaches near `usable_right` and slack falls in a
+    ~73-120px window (the folio's own room-check threshold, 49px, is lower than the
+    caption's new one, 73px = `gap_px+line_height`). Reproduced concretely: a 30x24
+    checkerboard on an odd page yields slack=74px, margin=0 — caption ink and folio
+    digit land in **overlapping columns, zero blank rows between them**. Confirmed
+    absent on `main`'s pre-CARD-203 code (well-separated blobs). 14 of a plain 10-30
+    checkerboard sweep land in the danger window — realistic and reachable, not
+    contrived. The regenerated baseline doesn't catch it only because that puzzle's
+    own slack (646px) is far outside the window — the baseline is silently blind to
+    this. Compounding: `solved_puzzle_page`'s own docstring still claims "opposite
+    corner," which is now false and masked the risk from review.
+  - **Important:** (1) the stale docstring itself (`:3669`, masks the Critical
+    finding); (2) all 4 new CARD-203 tests use only page_number=2 (left-hand) —
+    structurally cannot exercise the right-hand-page collision scenario that F-001
+    lives in; (3) the packed-tile path's caption right-alignment has no direct
+    geometric assertion, only the whole-page baseline digest (which pins whatever
+    came out, not the intended geometry).
+  - **Minor:** Worktree notes claimed "36 passed" vs. the actual 32 collected/passing
+    (6 new tests, not 7); a stale "control" comment in
+    `TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted` still describes
+    the pre-card slack threshold (the assertion itself still catches regressions).
+  - **Out-of-scope (not gating):** the owner's pending visual sign-off (gap size,
+    band/caption asymmetry) remains a separate pre-merge gate — ideally the
+    eventual render set includes a right-hand, moderate-slack, wide puzzle given F-001.
+  - System contract: 53 rules checked, 5 ✓ holds, 48 ⚠ unchecked (no_eligible_fact,
+    scope doesn't intersect this diff), 0 ✗ violated.
+  - Review report synced: `meta/review/20261010T055328Z-CARD-203-cycle1.yml`.
+  - **Verdict: cycle 1 does not meet the bar** — routing to forge:fix for F-001 plus
+    the 3 Important findings, cycle 2.
