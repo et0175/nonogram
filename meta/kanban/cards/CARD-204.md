@@ -16,7 +16,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
-**Review score:** —
+**Review score:** 4.5/10 (cycle 1, gating — fix in progress)
 **Started:** 2026-10-10T05:08:27Z
 **Closed:** —
 **Actual:** —
@@ -588,6 +588,52 @@ merges first.
   **Test evidence**: 17 touched/related test files run together, 0 failed (1
   pre-existing unrelated skip). **Orchestrator's own independent full-suite
   confirmation: 6853 passed, 9 skipped, 0 failed, 0 errors** (1112.15s).
+
+- [Review] forge:review cycle 1 started (background agent, first review —
+  no cycle happened before Fix 1, since the folio issue was caught and
+  resolved via direct owner decision before the normal review gate).
+- [Review 1/3] Score **4.5/10**. 1 Critical, 2 Minor/Info. Do not merge as-is.
+  - **F-1 (Critical, reproduced by direct execution):** Fix 1's
+    `folio_reserve_px` makes the two-up pairing accept/refuse decision
+    (`compute_pair_layout`) depend on the PAGE NUMBER's own digit count, not
+    on puzzle geometry alone — violating INV-010/G-5 and directly
+    contradicting Fix 1's own documented claim ("a tiny, consistent gap...
+    never more"). Concrete counterexample: two identical 25x6 puzzles (depth
+    2) pair successfully at `cell_mm=7.00mm` on page 99 (2-digit folio,
+    reserve=54px) but `compute_pair_layout` returns `None` (refuses to pair)
+    for the IDENTICAL pair on page 100 of the same book (3-digit folio,
+    reserve=81px) — same puzzles, same shapes, same tier, different only in
+    page-number length. Untested: `test_book_pairing.py`'s 900-case oracle
+    caps synthetic books at 8 puzzles (page numbers never reach 3 digits),
+    structurally unable to catch this — and this project's own market
+    research targets ~120-page books, where 3-digit folios are the norm, not
+    an edge case. Real-world consequence: adding/removing a puzzle anywhere
+    earlier in a book shifts every later page number, which could silently
+    flip later pairing decisions and change the book's total page count,
+    purely from page-number digit length.
+  - **Verified clean** (investigated in the depth the task asked for): the
+    MIN_CELL_MM floor-overflow case under the new no-clamp flush formula
+    (both parities, verified algebraically); the reserve math's cap-vs-fit
+    interaction (initially suspected a second bug, disproved by direct
+    execution + a general algebraic proof); reserve-boundary exactness
+    (no off-by-one); the QR slot's omit-vs-overlap geometry; the QR
+    placeholder's inertness (AC-8, confirmed by direct source read — no
+    URL/hostname/qrcode import anywhere); the guide-page sub-pixel rounding
+    scatter (bounded, <1% of pixels, ≤1px shifts, same shape as CARD-149/
+    167's already-absorbed precedent).
+  - **Minor/Info:** `_slot_layout`'s docstring overstates what its
+    floor-overflow clamp protects against (unreachable for two-up slots,
+    given `compute_pair_layout`'s own 7.0mm gate); FR-032's `requirements.yml`
+    text still says "centred" while code/tests implement right-alignment —
+    already an explicitly declared architect-station deferral, not a hidden
+    gap.
+  - Mutation check (8f) and baseline-acceptance (8g) deferred per the
+    cost-ladder rule (gating finding present) — run on the stable cycle once
+    F-1 is fixed.
+  - Review report synced: `meta/review/20261010T174853Z-CARD-204-cycle1.yml`.
+  - **Verdict: cycle 1 does not meet the bar** — routing to forge:fix for F-1
+    (decouple the pairing decision from `folio_reserve_px`, add a property
+    test reaching 3-digit page numbers), cycle 2.
 
 ## System contract
 
