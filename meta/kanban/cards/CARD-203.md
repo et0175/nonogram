@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card203.json
-**Review score:** 4.0/10 (cycle 2, new regression found in confirmation — fix in progress)
+**Review score:** 4.0/10 (cycle 2 — fixed, cycle 3 confirmation pending)
 **Started:** 2026-10-10T04:04:25Z
 **Closed:** —
 **Actual:** —
@@ -448,3 +448,21 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
   - **Verdict: NOT ready to merge** — a confirmation cycle that itself surfaced a
     new gating regression inside the delta it was confirming. Routing to
     forge:fix for F-101/F-102, cycle 3.
+
+- [Fix 2, 2026-10-10] F-101 (Critical) and F-102 (Important) fixed. Full writeup
+  in the branch's own `[Fix 2]` worktree-notes entry (commits `c65a903`/`a597072`).
+  **F-101**: `_packed_answer_page`'s F-001 fix was applied unconditionally,
+  unlike `solved_puzzle_page`'s `page_is_right_hand`-gated version — on a
+  left-hand page the corner tile's caption bottom was folded into
+  `content_bottom` regardless of side, incorrectly suppressing the folio on
+  left-hand packed pages with ample real slack. Fixed by reusing the
+  already-computed `right_hand` variable to gate the fold-in, mirroring
+  `solved_puzzle_page`'s gate exactly. **F-102**: new regression test class
+  `TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio` (3 tests),
+  stash-verified (fails pre-fix reproducing F-101, passes post-fix).
+  **Test evidence**: `test_book_solved_answer_key.py` 58 passed;
+  `test_book_solved_page.py` 37 passed; combined with page-numbers/memory tests:
+  147 passed, 1 skipped. **Orchestrator's own independent full-suite
+  confirmation: 6850 passed, 9 skipped, 0 failed, 0 errors** (1093.90s) — exactly
+  3 more than the prior 6847 baseline, matching the 3 new tests.
+  Owner sign-off on the 2.0mm gap/band asymmetry remains pending, unaffected.
