@@ -54,10 +54,10 @@ _(none)_
 ## Ready
 
 ## In Progress
-- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · worktree `../PythonProject4-CARD-203` · branch `card/203-solved-caption-position`
 - **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity reading confirmed via owner-reviewed renders), and gain a placeholder 2x2cm QR-code slot (real QR deferred to a follow-up card) · P2 · architectural · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
 
 ## Review
+- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · implementation complete, all 6 ACs passing (36/36 test_book_solved_page.py, full book suite green) · worktree `../PythonProject4-CARD-203` · branch `card/203-solved-caption-position`
 
 ## Blocked
 

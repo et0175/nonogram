@@ -1,6 +1,6 @@
 # CARD-203: The solved-page caption sits closer to the puzzle and right-aligns with its grid
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -320,3 +320,42 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
 - [Not in this card] Formalising a requirements delta for the solved-page caption's position
   (it has no FR today, per CARD-197/198's own "none yet, by design") — architect-station
   follow-up, same pattern CARD-198 used for FR-042.
+
+- [Implementation complete, 2026-10-10] Both target changes made, both guardrails confirmed.
+
+  - **Where the code actually was.** By the time this card was implemented the step-8 code the
+    card quotes (`solved_puzzle_page:2111-2150` in the card's own line numbers) had already moved:
+    CARD-202 extracted `solved_puzzle_page`'s steps 3-8 into a new shared method,
+    `BookPDFGenerator._draw_solved_slot`, called by **both** `solved_puzzle_page` (a full answer
+    page) and `_packed_answer_page` (CARD-202's packed 2-/4-up slots). The caption code this card
+    targets now lives at `_draw_solved_slot`'s own step 8. The two target edits were made there
+    instead of at the stale line numbers, with identical semantics to what the card specifies.
+  - **STRUCTURE: the CARD-202 coordination question resolves itself.** Investigated by reading
+    `_packed_answer_page`, `_draw_solved_slot` and `book_answer_key.py` in full: CARD-202 did
+    **not** duplicate caption-drawing logic for its packed slots — it extracted the single
+    `_draw_solved_slot` method precisely so a full page and a packed slot "draw from the **one**
+    implementation." So this card's one edit automatically reaches both page kinds — no second
+    edit was needed. Confirmed empirically: the regenerated baseline's three answer pages (11
+    Duck+Owl packed, 12 Tree packed alone, 13 Snowflake full page) **all three** moved.
+  - **SCOPE+ (small, docs-only):** `tests/test_book_page_numbers.py`'s module docstring stated
+    the caption anchor as `"mm"` (stale); corrected to `"rm"` with a CARD-203 pointer — no test
+    behavior changed, only a stale documented fact.
+  - **AC-4's boundary shape, found by sweep.** Swept every 10..30 checkerboard for a slack value
+    inside `[line_height, gap_px+line_height)` = `[49, 73)` px: exactly one shape qualifies,
+    29x23 (slack 58px) — `_NARROW_GAP_SHAPE`, proving the OLD guard would have drawn here while
+    the NEW guard correctly omits it.
+  - **Test evidence:** `tests/test_book_solved_page.py` 36 passed (26 pre-existing unedited + 6
+    new/added across AC-1/AC-2/AC-3/AC-4); `tests/test_book_pdf_memory.py` green against the
+    repointed baseline; `tests/test_book_solved_answer_key.py` (54), `tests/test_book_pdf_band.py`
+    (34), `tests/test_book_page_numbers.py`, `tests/test_book_pdf_packed_degrade.py`,
+    `tests/property/test_book_answer_tiles.py`, `tests/test_book_toc.py`,
+    `tests/test_book_interior_type_floor.py`: all green. Full `pytest tests/ -k "book"`: green,
+    exit 0, run twice to confirm.
+  - **Baseline regeneration:** new `tests/fixtures/book_baseline_card203.json`, `BASELINE_FIXTURE`
+    repointed. **Moved: pages 11, 12, 13** (the only pages where the caption actually draws ink).
+    **Unmoved: pages 1-10**, confirmed byte-identical by direct digest comparison. `page_count`
+    stays 13 (G-5 intact). `interior_bytes`: 3,420,073 → 3,421,901.
+  - **Owner sign-off still needed before merge** (per Design context): the 2.0mm gap and the band
+    staying centered while only the caption right-aligns are this card's own reading of
+    "closer"/"align by the right side," not an owner-confirmed pixel value. No render was
+    produced during implementation — needed before merge.
