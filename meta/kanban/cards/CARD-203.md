@@ -395,3 +395,32 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
   - Review report synced: `meta/review/20261010T055328Z-CARD-203-cycle1.yml`.
   - **Verdict: cycle 1 does not meet the bar** — routing to forge:fix for F-001 plus
     the 3 Important findings, cycle 2.
+
+- [Fix 1, 2026-10-10] Review cycle 1's gating finding (F-001, Critical) fixed, plus
+  F-003/F-004 (Important) and F-006/F-007 (Minor).
+  - **F-001 (Critical, fixed) — caption/folio collision.** Reproduced first against
+    this worktree's own code (30x24 checkerboard, right-hand page, zero margin, 74px
+    slack — inside the danger window) — confirmed real pixel overlap, matching the
+    review's numbers. **Root cause:** `_draw_folio` (CARD-200) already supports
+    `content_bottom`/`content_right`/`content_left` collision-avoidance, but
+    `solved_puzzle_page`/`_packed_answer_page` never told it about the caption's own
+    box, only the grid's. **Chosen resolution: the folio yields, never the
+    caption** — reusing CARD-200's own established precedent ("folio omits itself,
+    content wins") rather than inverting draw order (caption is drawn before the
+    folio ever runs) or just widening the folio's bar (would miss the general
+    horizontal case). `_draw_solved_slot` now returns the caption's occupied box;
+    both callers fold it into their `_draw_folio` call, gated to right-hand pages
+    only (left-hand pages untouched, confirmed byte-identical). Stale "opposite
+    corner" docstring rewritten.
+  - **Regression test verified genuine**: stashed the fix, reran the new collision
+    test — it failed against pre-fix code reproducing the exact collision; restored
+    the fix, all pass.
+  - **F-003 (odd-page coverage), F-004 (packed-tile right-alignment assertion):
+    fixed** with new tests. **F-006/F-007 (stale count/comment): fixed.**
+  - **Test evidence:** `test_book_solved_page.py` 37 passed; `test_book_solved_answer_key.py`
+    55 passed; combined book-suite `pytest tests/ -k "book"` 2179 passed, 1 skipped,
+    0 failed; full suite **6847 passed, 9 skipped, 0 failed, 0 errors** (20:35, run
+    concurrently with CARD-204's own agent). Orchestrator's own independent spot
+    check of the two touched test files: 92 passed, exit 0.
+  - Owner sign-off on the 2.0mm gap/band asymmetry remains pending — unresolved by
+    this fix cycle, still needs a render before merge.
