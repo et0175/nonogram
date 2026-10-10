@@ -26,6 +26,19 @@ table above (CARD-197's own ACs, unrenumbered):
           TestBookSolvedPage_GrayGridlinesBetweenFilledCells,
           TestBookSolvedPage_TitleBandMatchesBandIdentity (existing, unedited)
 
+CARD-203 review cycle 1 fixes:
+
+    F-001  TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio (new class) —
+           the caption/folio pixel collision on a right-hand page, and its
+           fix (the folio yields the corner to the caption, never the other
+           way round — see ``_draw_folio``'s and
+           ``BookPDFGenerator.solved_puzzle_page``'s own docstrings).
+    F-003  TestBookSolvedPage_CaptionRightAlignedWithTheGrid and
+           TestBookSolvedPage_CaptionMovedCloserToTheDrawing each gained a
+           right-hand (odd) page_number test alongside their original
+           left-hand (even) ones, so right-alignment and the closer gap are
+           both verified on a right-hand page too.
+
 ``BookPDFGenerator.solved_puzzle_page`` is a rendering primitive only — no
 caller exists yet (CARD-198's job). Every test below builds a
 ``BookPDFGenerator()`` with no stored book, which is CON-018's Book 1 profile
@@ -117,6 +130,26 @@ _CAP_BOUND_SHAPE = (10, 10)
 #: result as ``_NO_SLACK_SHAPE`` above, not re-swept on every run.
 _NARROW_GAP_SHAPE = (29, 23)
 
+#: CARD-203 review cycle 1, F-003: a right-hand (odd) page number, used
+#: alongside the right-alignment/closer-gap tests that previously only ever
+#: rendered ``page_number=2`` (even, left-hand) — see
+#: ``page_is_right_hand`` (``book_pdf_generator.py``).
+_RIGHT_HAND_PAGE_NUMBER = 3
+
+#: CARD-203 review cycle 1, F-001's own reproduction shape: a 30x24
+#: checkerboard on ``_RIGHT_HAND_PAGE_NUMBER`` yields zero horizontal margin
+#: (``drawing_right == usable_right``) and 74 px of vertical slack — inside
+#: the window where the caption's own omission guard
+#: (``slack >= gap_px + line_height``, 73 px) and the pre-fix folio's "is
+#: there room" bar (``line_height`` alone, 49 px) were BOTH satisfied, so
+#: before the fix both marks drew into the same bottom-outer corner on a
+#: right-hand page. Found by the same kind of hand-recorded sweep as
+#: ``_NO_SLACK_SHAPE``/``_NARROW_GAP_SHAPE`` above, not re-swept on every run
+#: (swept against every 10..30 row/column checkerboard for margin <= 5 px and
+#: slack in [60, 130] px; 30x24 is the shape with the greatest margin-0 slack
+#: inside that window and the one the review's own reproduction used).
+_RIGHT_HAND_COLLISION_SHAPE = (30, 24)
+
 
 def _checkerboard(rows: int, columns: int) -> list[list[bool]]:
     """A grid where no two grid-adjacent cells are ever both filled."""
@@ -154,6 +187,22 @@ def _payload(
 
 def _array(image: Image.Image) -> np.ndarray:
     return np.asarray(image.convert("RGB"))
+
+
+def _caption_geometry(generator: BookPDFGenerator) -> Tuple[int, int]:
+    """``(gap_px, line_height)`` for the caption, exactly as
+    ``_draw_solved_slot`` computes them — used by the CARD-203 review cycle 1
+    tests below to isolate the caption's own row band from the folio's
+    (which, on a right-hand page, sits in the same column range near
+    ``usable_right`` but always at the bottom-most rows, never near the
+    caption's own, closer-to-the-grid position)."""
+    caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+    caption_font_size = type_px(caption_font_points, generator.dpi)
+    caption_font = _band_font(caption_font_size)
+    ascent, descent = caption_font.getmetrics()
+    line_height = ascent + descent
+    gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * generator.dpi)
+    return gap_px, line_height
 
 
 # --------------------------------------------------------------------------
@@ -540,6 +589,42 @@ class TestBookSolvedPage_CaptionRightAlignedWithTheGrid:
         long = rightmost_ink("A Very Different, Much Longer Picture Name")
         assert abs(short - long) <= 2
 
+    def test_right_alignment_also_holds_on_a_right_hand_page(self):
+        """CARD-203 review cycle 1, F-003 — the three prior tests in this
+        class all rendered ``page_number=2`` (even, left-hand); this repeats
+        the first test's own assertion on an odd (right-hand) page, where
+        the folio shares the caption's own side of the page (CARD-200,
+        F-001) — the row band is narrowed to just below the drawing so the
+        folio's own ink, further down near ``usable_bottom``, is never
+        mistaken for the caption's."""
+        grid = _checkerboard(*_CAP_BOUND_SHAPE)
+        payload = _payload(grid, difficulty="Easy")
+        generator = BookPDFGenerator()
+        page_number = _RIGHT_HAND_PAGE_NUMBER
+        page = generator.solved_puzzle_page(payload, 3, page_number, title="Snowflake")
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        placement = layout.page
+        arr = _array(page)
+        gap_px, line_height = _caption_geometry(generator)
+        headroom = 10
+
+        midpoint = (placement.drawing_left + placement.drawing_right) // 2
+        caption_band = arr[
+            placement.drawing_bottom : placement.drawing_bottom
+            + gap_px
+            + line_height
+            + headroom,
+            midpoint : placement.usable_right,
+        ]
+        dark_columns = np.flatnonzero((caption_band < 128).any(axis=(0, 2)))
+        assert dark_columns.size > 0, "expected the caption's ink on this right-hand page too"
+        rightmost = int(dark_columns.max()) + midpoint
+
+        assert rightmost <= placement.drawing_right + 4
+        assert rightmost >= placement.drawing_right - 6
+
 
 # --------------------------------------------------------------------------
 # CARD-203 AC-2 / AC-3
@@ -634,6 +719,210 @@ class TestBookSolvedPage_CaptionMovedCloserToTheDrawing:
         assert dark_columns.size > 0
         assert dark_columns.min() >= placement.usable_left
         assert dark_columns.max() <= placement.usable_right
+
+    def test_the_closer_gap_also_holds_on_a_right_hand_page(self):
+        """CARD-203 review cycle 1, F-003 — the three prior tests in this
+        class all rendered ``page_number=2`` (even, left-hand); this repeats
+        ``test_the_captions_ink_sits_near_the_gap_not_centred_in_the_slack``'s
+        own assertion on an odd (right-hand) page. The row-wise topmost-ink
+        search is unaffected by which side the folio sits on (the folio's
+        own ink always starts near ``usable_bottom``, well below the
+        caption's, on either page parity), so this mirrors that test
+        directly rather than needing the right-alignment tests' own
+        column-narrowing trick."""
+        grid = _checkerboard(*_CAP_BOUND_SHAPE)
+        payload = _payload(grid, difficulty="Easy")
+        generator = BookPDFGenerator()
+        page_number = _RIGHT_HAND_PAGE_NUMBER
+        page = generator.solved_puzzle_page(payload, 3, page_number, title="Snowflake")
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        placement = layout.page
+        arr = _array(page)
+        gap_px, line_height = _caption_geometry(generator)
+
+        overhang = 5
+        start = placement.drawing_bottom + overhang
+        slack_band = arr[start : placement.usable_bottom, :, :]
+        dark_rows = np.flatnonzero((slack_band < 128).any(axis=(1, 2)))
+        assert dark_rows.size > 0, "expected the caption's ink somewhere in the slack"
+        ink_top = int(dark_rows.min()) + start
+
+        expected_top = placement.drawing_bottom + gap_px
+        assert expected_top <= ink_top <= expected_top + line_height // 2
+
+        slack_total = placement.usable_bottom - placement.drawing_bottom
+        old_centred_top = placement.drawing_bottom + (slack_total - line_height) // 2
+        assert ink_top < old_centred_top - line_height, (
+            "the caption should sit well above where the old centred-in-the-"
+            "slack formula would have put it on this much-slack shape, on "
+            "a right-hand page too"
+        )
+
+
+# --------------------------------------------------------------------------
+# CARD-203 review cycle 1, F-001
+# --------------------------------------------------------------------------
+
+
+class TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio:
+    """CARD-203 review cycle 1, F-001 (gating) — the right-aligned caption
+    and CARD-200's pre-existing folio (``_draw_folio``) can target the same
+    bottom-outer corner on a right-hand page. Before the fix, a shape whose
+    slack fell inside the window where the caption's own omission guard
+    (``slack >= gap_px + line_height``) and the folio's own "is there room"
+    bar (``line_height`` alone — narrower, since it did not yet know about
+    the caption) were BOTH satisfied drew the two marks overlapping.
+
+    ``_RIGHT_HAND_COLLISION_SHAPE`` (30x24) is the review's own reproduction
+    shape: margin 0 (``drawing_right == usable_right``) and 74 px of slack,
+    squarely inside that window at this page's DPI.
+    """
+
+    _PUZZLE_NUMBER = 7
+    _TITLE = "Snowflake"
+
+    @classmethod
+    def _render(cls, page_number: int):
+        grid = _checkerboard(*_RIGHT_HAND_COLLISION_SHAPE)
+        payload = _payload(grid, difficulty="Easy")
+        generator = BookPDFGenerator()
+        page = generator.solved_puzzle_page(
+            payload, cls._PUZZLE_NUMBER, page_number, title=cls._TITLE
+        )
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        return _array(page), layout, generator
+
+    @classmethod
+    def _caption_only_reference(cls, layout, generator) -> np.ndarray:
+        """An independently rendered reference: a blank page of the same
+        size with *only* the caption drawn, by the exact same formula
+        :meth:`BookPDFGenerator._draw_solved_slot` uses (ground-truth
+        reuse, the same technique AC-1's clue-gutter test already applies to
+        a whole page). Diffing the real page against this isolates any ink
+        the caption itself does not account for — i.e. the folio, if drawn
+        — without guessing at row/column windows that the caption's and
+        folio's own geometry can otherwise make nearly indistinguishable at
+        this shape's small slack."""
+        placement = layout.page
+        assert placement is not None
+        canvas = Image.new("RGB", (layout.width, layout.height), BACKGROUND)
+        draw = ImageDraw.Draw(canvas)
+        gap_px, line_height = _caption_geometry(generator)
+        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+        caption_font_size = type_px(caption_font_points, generator.dpi)
+        caption_font = _band_font(caption_font_size)
+        from nonogram.admin.book_answer_key import answer_caption
+
+        caption = answer_caption(cls._PUZZLE_NUMBER, cls._TITLE)
+        draw.text(
+            (
+                placement.drawing_right,
+                placement.drawing_bottom + gap_px + line_height / 2,
+            ),
+            caption,
+            font=caption_font,
+            fill=INK,
+            anchor="rm",
+        )
+        return _array(canvas)
+
+    def test_this_shape_really_sits_in_the_danger_window_on_a_right_hand_page(self):
+        _, layout, generator = self._render(_RIGHT_HAND_PAGE_NUMBER)
+        placement = layout.page
+        slack = placement.usable_bottom - placement.drawing_bottom
+        gap_px, line_height = _caption_geometry(generator)
+
+        assert placement.drawing_right == placement.usable_right, (
+            "the review's own repro shape has zero horizontal margin"
+        )
+        assert slack >= gap_px + line_height, "the caption must actually draw here"
+        # The pre-fix folio bar (line_height alone, 49 px at this DPI) is
+        # narrower than the caption's own (gap_px + line_height, 73 px): a
+        # slack value clearing the caption's bar by only a little still
+        # clears the folio's bar by a wide margin, which is exactly the
+        # danger window this shape was swept to land inside.
+        assert slack - (gap_px + line_height) < line_height, (
+            "this shape should sit close enough to the caption's own bar "
+            "that the pre-fix folio bar was already well cleared too"
+        )
+
+    def test_the_folio_yields_rather_than_overlap_the_caption(self):
+        """The actual regression check: diff the real right-hand page
+        against an independently rendered reference carrying *only* the
+        caption's own ink (ground-truth reuse — see
+        ``_caption_only_reference``'s own docstring). Any dark pixel the
+        real page has that the caption-only reference does not is ink this
+        card's own caption drawing cannot account for — i.e. the folio.
+
+        At this shape's geometry (margin 0: ``drawing_right ==
+        usable_right``) the folio's own horizontal-clearance check in
+        ``_draw_folio`` can never pass once it knows about the caption's
+        box (CARD-203 review cycle 1 fix), so the correct, deterministic
+        outcome here is the folio omitted outright — not "drawn elsewhere
+        with daylight between them" (that outcome is only geometrically
+        possible on a shape with horizontal margin to spare, not this
+        one). Whichever outcome a future shape produces, "no extra ink
+        touching/overlapping the caption's own" is what this asserts.
+        """
+        arr, layout, generator = self._render(_RIGHT_HAND_PAGE_NUMBER)
+        reference = self._caption_only_reference(layout, generator)
+        placement = layout.page
+
+        # Skip the grid's own outer-border overhang (a pre-existing couple
+        # of pixels past `drawing_bottom`, nothing to do with the caption or
+        # folio) before comparing, the same `overhang` skip every other test
+        # in this module uses.
+        overhang = 5
+        start = placement.drawing_bottom + overhang
+        real_slack = arr[start : placement.usable_bottom, :, :]
+        reference_slack = reference[start : placement.usable_bottom, :, :]
+
+        real_dark = (real_slack < 128).any(axis=2)
+        caption_dark = (reference_slack < 128).any(axis=2)
+        assert caption_dark.any(), "expected the caption to draw on this shape"
+
+        extra_ink = real_dark & ~caption_dark
+        assert not extra_ink.any(), (
+            "found ink below the drawing that the caption alone does not "
+            "account for — the folio drew into the caption's own corner, "
+            "the exact collision F-001 reported"
+        )
+
+    def test_a_left_hand_page_with_the_same_shape_still_draws_both_marks(self):
+        """The fix is scoped to the right-hand page's corner (where the
+        caption and folio can actually coincide) — the same shape on a
+        left-hand page, where the folio sits at the opposite (left) outer
+        corner, must still draw both marks, unaffected by this fix."""
+        arr, layout, generator = self._render(2)
+        reference = self._caption_only_reference(layout, generator)
+        placement = layout.page
+
+        overhang = 5
+        start = placement.drawing_bottom + overhang
+        real_slack = arr[start : placement.usable_bottom, :, :]
+        reference_slack = reference[start : placement.usable_bottom, :, :]
+
+        real_dark = (real_slack < 128).any(axis=2)
+        caption_dark = (reference_slack < 128).any(axis=2)
+        assert caption_dark.any(), "expected the caption to draw on this shape"
+
+        # On a left-hand page the caption's own fix never engages (the
+        # folio sits at the opposite corner) — the folio's own ink is still
+        # there, as "extra" ink the caption-only reference does not predict.
+        extra_ink = real_dark & ~caption_dark
+        assert extra_ink.any(), (
+            "expected the folio to still draw, unaffected, on a left-hand page"
+        )
+
+        # And it sits well clear of the caption: every "extra" (folio) dark
+        # column lies to the left of every caption dark column.
+        extra_cols = np.flatnonzero(extra_ink.any(axis=0))
+        caption_cols = np.flatnonzero(caption_dark.any(axis=0))
+        assert extra_cols.max() < caption_cols.min()
 
 
 # --------------------------------------------------------------------------

@@ -412,3 +412,141 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
     reading of "closer"/"align by the right side," not an owner-confirmed pixel value. No render
     was produced in this pass (out of scope for an implementation-only session); flagging again
     here so it is not missed at merge time.
+
+- [Fix 1, 2026-10-10] Review cycle 1's gating finding (F-001, Critical) and its three Important
+  gaps (F-003, F-004, F-005/docstring) fixed; the two Low findings (F-006, F-007) also corrected.
+  (This worktree's own copy of the card predates the review-cycle bookkeeping commits, which
+  landed on `main` rather than this branch — the review's own findings came from
+  `meta/review/20261010T055328Z-CARD-203-cycle1.yml`, present uncommitted in this worktree, read
+  in full before starting.)
+
+  - **F-001 (Critical, fixed) — caption/folio pixel collision on a right-hand page.** Reproduced
+    first, against this worktree's own code, exactly as the review described: a 30x24
+    checkerboard, `page_number=3` (right-hand), lands zero horizontal margin
+    (`drawing_right == usable_right`) and 74 px of vertical slack — inside the window where the
+    caption's own omission guard (`slack >= gap_px + line_height`, 73 px) and the pre-fix folio's
+    "is there room" bar (`line_height` alone, 49 px, with no knowledge of the caption) were BOTH
+    satisfied. Direct pixel inspection confirmed the caption's own ink (cols ~1983-2435, rows
+    ~3145-3176) and the folio's digit (cols ~2414-2433, rows ~3177-3187) shared columns with zero
+    blank rows between them — a real, reproduced collision, matching the review's own numbers
+    almost exactly.
+
+    **Root cause, confirmed by reading in full.** `_draw_folio` (CARD-200) already supports a
+    `content_bottom`/`content_right`/`content_left` collision-avoidance mechanism — but
+    `solved_puzzle_page` only ever fed it the GRID's own `drawing_bottom` as `content_bottom`,
+    never anything about the caption (CARD-203's own new mark). Once the caption started
+    right-aligning (this card), it could reach the folio's exact corner on a right-hand page
+    while the folio's placement call remained ignorant of it — the two checks disagreed about
+    how much of the corner was actually free.
+
+    **Chosen resolution: (a), not (b) or (c) — the folio yields, never the caption.** The card's
+    own prompt asked which of the two marks should give way. CARD-200 already established the
+    precedent for the *grid*-vs-folio case: `_draw_folio`'s own docstring and its
+    `content_bottom`/`content_right`/`content_left` parameters exist specifically so "the folio
+    omits itself, the content wins" — the grid (and, since CARD-202, a packed tile) never moves
+    or shrinks to avoid the folio; the folio moves out of the way. Applying the *same* philosophy
+    to the caption (also content, also drawn by `_draw_solved_slot` before the folio ever runs)
+    is the consistent choice — it reuses an existing, already-tested mechanism rather than adding
+    a second, competing one, and it does not touch the caption's own placement/omission guard at
+    all (G-1/G-3 spirit: this card's original caption logic stays untouched). Option (b) — making
+    the caption aware of the folio and shifting/omitting itself — would have required the caption
+    to reach across a module-internal boundary to ask about a mark it is drawn *before*
+    (`_draw_solved_slot` runs before either `solved_puzzle_page` or `_packed_answer_page` ever
+    calls `_draw_folio`), inverting the draw order for no benefit. Option (c) — just widening the
+    folio's own vertical bar to match the caption's wider one — would have fixed this one
+    coincidental window but left the folio and caption still blind to each other's *horizontal*
+    position, which is the one that actually matters when margin is small (the real,
+    general-case bug); it would also still omit the folio on left-hand pages in slack windows
+    where no collision is even possible, which (a) does not do.
+
+    **The actual fix.** `_draw_solved_slot` now returns the caption's own occupied box —
+    `(caption_bottom, caption_right)` in device pixels — when it draws one, or `None` when the
+    omission guard left it undrawn (its signature changes from `-> None` to
+    `-> Optional[Tuple[int, int]]`; both callers updated). `solved_puzzle_page` folds that box
+    into its `_draw_folio` call's `content_bottom`/`content_right` **only when the page is
+    right-hand** (`page_is_right_hand(page_number)`) — a left-hand page's caption sits at the
+    opposite corner and cannot compete with the folio there, so that path is left byte-for-byte
+    as it was before this fix (confirmed: the baseline fixture's unmoved pages stay unmoved).
+    `_packed_answer_page` gets the same fix for its own corner tile specifically (the only tile
+    that can ever physically reach the folio's corner, per CARD-202's own review-cycle-2 finding,
+    unchanged by this fix): its own `content_right`/`content_left` were already fed from that
+    tile's `drawing_right`/`drawing_left` (CARD-200), so only `content_bottom` needed widening to
+    the corner tile's own caption bottom, when one was drawn there.
+
+    Hand-verified against the repro shape after the fix: the folio is correctly **omitted** on
+    the danger-window page (only one ink band remains below the drawing — the caption's own, not
+    reaching `usable_right`), while the same shape on a left-hand page (`page_number=2`) still
+    draws both marks, far apart, exactly as before.
+
+    **`solved_puzzle_page`'s docstring** (the "opposite corner" claim, now false) rewritten to
+    describe the real pre-/post-CARD-203 relationship and the fix, rather than silently leaving a
+    stale claim in place — the drift the review's own F-005 named as part of how this shipped
+    unnoticed.
+
+  - **F-003 (Important, fixed) — every CARD-203 test used `page_number=2` only.** Added one test
+    each to `TestBookSolvedPage_CaptionRightAlignedWithTheGrid` (AC-1) and
+    `TestBookSolvedPage_CaptionMovedCloserToTheDrawing` (AC-2/AC-3) using a new
+    `_RIGHT_HAND_PAGE_NUMBER = 3` constant, re-asserting right-alignment and the closer gap on a
+    right-hand page specifically (the right-alignment test narrows its row search to just below
+    the drawing so CARD-200's folio — which now shares the caption's own side of the page on an
+    odd page number — is never mistaken for the caption's own ink; the closer-gap test needed no
+    such narrowing, since the folio's own ink always starts near `usable_bottom`, later than the
+    caption's, on either page parity).
+
+  - **F-001's own regression test** — new class `TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio`
+    in `tests/test_book_solved_page.py`, using a new `_RIGHT_HAND_COLLISION_SHAPE = (30, 24)`
+    constant (the review's own repro shape, re-confirmed by a fresh sweep of every 10..30
+    row/column checkerboard for margin <= 5 px and slack in [60, 130] px at `page_number=3`).
+    Diffs the real rendered page against an independently rendered reference carrying *only* the
+    caption's own ink (ground-truth reuse, the same technique AC-1's own clue-gutter test already
+    applies to a whole page) rather than guessing at row/column windows — which the caption's and
+    folio's own geometry make nearly indistinguishable at this shape's small slack, as a first,
+    discarded draft of this test (hardcoded row bands) discovered the hard way. Three tests:
+    the shape really sits in the danger window; the folio yields rather than overlapping the
+    caption on the right-hand page; the same shape on a left-hand page still draws both marks,
+    unaffected. **Verified as a real regression test**, not just "something changed": stashed the
+    production fix and reran this class — `test_the_folio_yields_rather_than_overlap_the_caption`
+    fails against the pre-fix code (reproducing the exact collision), the other two still pass;
+    restored the fix and reran — all three pass.
+
+  - **F-004 (Important, fixed) — packed-tile caption right-alignment had no direct assertion.**
+    Added `TestBookSolvedAnswerKey_PackedCaptionRightAlignedWithItsOwnTile` to
+    `tests/test_book_solved_answer_key.py`, mirroring
+    `TestBookSolvedPage_CaptionRightAlignedWithTheGrid`'s own two tests (rightmost ink at the
+    tile's own `drawing_right`; the right edge stays fixed regardless of title length) but
+    against a packed 2-up tile's own placement instead of a full page's.
+
+  - **F-006 (Low, fixed) — stale test-count claim.** The prior entry's "36 passed... 26
+    pre-existing... 6 new... 1 new" narration does not reconcile (26+6+1=33, not 36); the actual,
+    reconfirmed count for `tests/test_book_solved_page.py` as this card's own implementation left
+    it was 32 collected/passing (6 new `def test_`, matching the diff). Left the prior entry
+    unedited per the review's own suggestion ("leave as a known narration nit") and corrected it
+    here instead. (After this fix cycle's own additions, that file now collects 37 — the prior
+    32 plus 5 new: 2 right-hand-page tests for F-003 and 3 for the new F-001 regression class.)
+
+  - **F-007 (Low, fixed) — stale "control" comment.** Both control-assertion comments in
+    `TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted` (`tests/test_book_solved_answer_key.py`)
+    reworded to state plainly that they check the OLD, weaker `slack >= line_height` bound as a
+    fixture sanity floor, not the production `slack >= gap_px + line_height` guard — per the
+    card's own instruction, only the comments changed, not the assertions themselves (both
+    shapes' own slack already clears the wider production bound too, just not restated by the
+    control).
+
+  - **Test evidence (fresh run, this session, 2026-10-10):**
+    - `tests/test_book_solved_page.py`: 37 passed (the prior 32 plus 5 new — 2 right-hand-page
+      tests for F-003, 3 for the new `TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio`
+      class).
+    - `tests/test_book_solved_answer_key.py`: 55 passed (the prior 53 plus 2 new, for F-004).
+    - `tests/test_book_solved_page.py` + `tests/test_book_solved_answer_key.py` +
+      `tests/test_book_page_numbers.py` + `tests/test_book_pdf_memory.py` together: 144 passed,
+      1 skipped (pre-existing skip, unrelated to this fix).
+    - `pytest tests/ -k "book"` (the whole book-related suite): **2179 passed, 1 skipped, 0
+      failed** in 546.79s.
+    - Full suite, `pytest` from the worktree root with the main checkout's venv: **6847 passed,
+      9 skipped, 0 failed, 0 errors** in 1235.79s (20:35), run serially, CARD-204's own agent
+      running concurrently in its own separate worktree throughout (per the task's own note that
+      this is expected and fine).
+
+  - **Owner sign-off still pending**, unchanged from the prior entry — this fix cycle only
+    resolves the review's own findings; it does not re-open or settle the 2.0 mm gap/band
+    question, which still needs a render and the owner's eyes before merge.

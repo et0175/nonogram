@@ -1123,6 +1123,13 @@ class TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted:
         caption_font_size = type_px(caption_font_points, gen.dpi)
         font = _band_font(caption_font_size)
         ascent, descent = font.getmetrics()
+        # The control: this shape must have at least one line's worth of
+        # slack. This is deliberately the OLD, weaker bound (pre-CARD-203's
+        # `slack >= line_height`) — a sanity floor on the fixture, not a
+        # restatement of the production guard, which is the wider
+        # `slack >= gap_px + line_height` (CARD-203) that `_draw_solved_slot`
+        # actually evaluates; this shape's own slack clears that wider bound
+        # too (asserted indirectly below, by the caption actually drawing).
         assert slack >= ascent + descent, "the control: this shape must have slack"
 
         page = gen._packed_answer_page(packed_page, payloads, 9, {})
@@ -1162,6 +1169,12 @@ class TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted:
         caption_font_size = type_px(caption_font_points, gen.dpi)
         font = _band_font(caption_font_size)
         ascent, descent = font.getmetrics()
+        # The control: this shape must have no slack at all — below even the
+        # OLD, weaker `slack >= line_height` bound (pre-CARD-203), which is
+        # also necessarily below the production guard's wider
+        # `slack >= gap_px + line_height` (CARD-203), so the caption is
+        # omitted under either threshold; not a restatement of the
+        # production guard itself.
         assert slack < ascent + descent, "the control: this shape must have no slack"
 
         page = gen._packed_answer_page(packed_page, payloads, 9, {})
@@ -1180,6 +1193,80 @@ class TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted:
         assert band.size == 0 or not (band < 128).any(), (
             "no caption should have been drawn: there was no slack for one"
         )
+
+
+class TestBookSolvedAnswerKey_PackedCaptionRightAlignedWithItsOwnTile:
+    """CARD-203 review cycle 1, F-004 — a direct geometric assertion for the
+    packed path's own caption right-alignment, mirroring
+    ``TestBookSolvedPage_CaptionRightAlignedWithTheGrid`` (full page) rather
+    than resting on the whole-page byte-identity baseline alone.
+
+    ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted`` (AC-8,
+    above) only asserts ink is present somewhere in a tile's own slack band
+    — it cannot tell a correctly right-aligned packed caption from one drawn
+    anywhere else in that band. This class asserts the packed slot's own
+    caption ink sits at *that tile's* ``placement.drawing_right`` specifically.
+    """
+
+    @staticmethod
+    def _render(title: str = "Snowflake"):
+        book = _book()
+        puzzle = _puzzle(15, 20, number=1, depth=7, tier="easy")
+        gen = BookPDFGenerator(book)
+        payloads = [(puzzle["id"], gen._payload(puzzle))]
+        packed_page = PackedAnswerPage((Answer(number=1, width=15, height=20, level=Tier.EASY),))
+        page = gen._packed_answer_page(packed_page, payloads, 9, {"p1": title})
+        layout = compute_packed_solved_layout(
+            [(payloads[0][1].row_clues, payloads[0][1].column_clues)],
+            2,
+            gen.page_spec(9),
+        )
+        return np.asarray(page.convert("RGB")), layout
+
+    def test_the_tiles_own_caption_ink_sits_at_the_tiles_own_drawing_right(self) -> None:
+        arr, layout = self._render()
+        placement = layout.slots[0].page
+        assert placement is not None
+
+        # Isolated to the right half of this tile's own drawing span (not
+        # the whole page), the same technique
+        # TestBookSolvedPage_CaptionRightAlignedWithTheGrid uses for a full
+        # page — a packed page can carry more than one tile, so searching
+        # past this tile's own usable_right would risk picking up a
+        # neighbouring tile's own ink instead.
+        midpoint = (placement.drawing_left + placement.drawing_right) // 2
+        slack = arr[
+            placement.drawing_bottom : placement.usable_bottom,
+            midpoint : placement.usable_right,
+        ]
+        dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
+        assert dark_columns.size > 0, "expected this tile's caption ink in its own right half"
+        rightmost = int(dark_columns.max()) + midpoint
+
+        assert rightmost <= placement.drawing_right + 4
+        assert rightmost >= placement.drawing_right - 6
+
+    def test_the_tiles_own_right_edge_stays_fixed_regardless_of_title_length(self) -> None:
+        """Same discriminator as the full-page test: right-alignment keeps
+        the rightmost pixel fixed; centring would move it with the text's
+        own width."""
+
+        def rightmost_ink(title: str) -> int:
+            arr, layout = self._render(title)
+            placement = layout.slots[0].page
+            assert placement is not None
+            midpoint = (placement.drawing_left + placement.drawing_right) // 2
+            slack = arr[
+                placement.drawing_bottom : placement.usable_bottom,
+                midpoint : placement.usable_right,
+            ]
+            dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
+            assert dark_columns.size > 0
+            return int(dark_columns.max()) + midpoint
+
+        short = rightmost_ink("A")
+        long = rightmost_ink("A Very Different, Much Longer Picture Name")
+        assert abs(short - long) <= 2
 
 
 # --------------------------------------------------------------------------

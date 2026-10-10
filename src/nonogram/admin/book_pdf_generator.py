@@ -3509,7 +3509,7 @@ class BookPDFGenerator:
         puzzle_number: int,
         difficulty: Any,
         title: Optional[str],
-    ) -> None:
+    ) -> Optional[Tuple[int, int]]:
         """Draw one solved answer's whole content onto an already-placed slot.
 
         CARD-197/198's full solved-page drawing (steps 3-8 of
@@ -3528,6 +3528,21 @@ class BookPDFGenerator:
         full page's :class:`~nonogram.export.layout.Layout`, or one tile of a
         :class:`~nonogram.export.layout.PackedSolvedLayout` — and nothing
         here fits a cell or places a line itself (ADR-0036/R2).
+
+        **Review cycle 1, F-001 (gating).** Returns the caption's own occupied
+        box — ``(caption_bottom, caption_right)`` in device pixels, read off
+        the mark this method actually drew — or ``None`` when the omission
+        guard (``slack < gap_px + line_height``) left the caption undrawn.
+        Callers thread this into :func:`_draw_folio`'s own
+        ``content_bottom``/``content_right`` collision check (the same
+        mechanism CARD-200 built for a two-up/packed page's *grid* vs. the
+        folio, now reused for the *caption* vs. the folio): the caption's
+        right-aligned anchor (CARD-203) can share the folio's own bottom-outer
+        corner on a right-hand page, which a caller with no figure for the
+        caption's box cannot detect. The folio — never the caption — yields
+        when both would want the same corner, the same "folio omits, content
+        wins" precedent CARD-200 already set; this card does not touch the
+        caption's own placement or omission guard above.
 
         Raises:
             ValueError: ``slot`` is not a placed page (:meth:`page_spec`
@@ -3609,6 +3624,18 @@ class BookPDFGenerator:
                 fill=INK,
                 anchor="rm",
             )
+            # Review cycle 1, F-001: hand the caption's own occupied box back
+            # to the caller so it can fold it into _draw_folio's own
+            # collision check (right-aligned caption can now share a
+            # right-hand page's folio corner — see this method's own
+            # docstring). The caption's right edge sits at drawing_right
+            # exactly (anchor "rm"); its bottom edge is gap_px + line_height
+            # below drawing_bottom, the same arithmetic as the guard above.
+            return (
+                round(placement.drawing_bottom + gap_px + line_height),
+                placement.drawing_right,
+            )
+        return None
 
     def solved_puzzle_page(
         self,
@@ -3660,17 +3687,40 @@ class BookPDFGenerator:
                 already does.
 
         **Since CARD-200, one more mark after the caption: the folio.**
-        Drawn here, not inside :meth:`_draw_solved_slot` (G-3: the caption
-        logic there is unedited by this card), from the same ``layout.page``
-        placement the caption's own slack check already reads — recomputed
-        independently rather than threaded out of that method, so the two
-        checks cannot be made to disagree by a future edit to one alone. The
-        folio sits in the same bottom slack as the caption, opposite corner
-        (the caption centred, the folio at the usable area's outer edge) —
-        both only need that slack to hold one line of their own text, so
-        either one, both, or neither draws depending on how much room this
-        page's own trim leaves below the grid (owner render review, Worktree
-        notes).
+        Drawn here, not inside :meth:`_draw_solved_slot` (G-3: the caption's
+        own drawing/omission logic there is unedited by this fix), from the
+        same ``layout.page`` placement the caption's own slack check already
+        reads — recomputed independently rather than threaded out of that
+        method, so the two checks cannot be made to disagree by a future edit
+        to one alone.
+
+        **Review cycle 1, F-001 (gating), correcting this docstring's own
+        earlier claim.** Before CARD-203 the caption was horizontally
+        centred, so it always sat in the opposite corner from the folio
+        (caption centred, folio at the usable area's outer corner) and
+        neither mark's placement needed to know about the other. CARD-203's
+        right-aligned caption (anchor ``"rm"`` at ``placement.drawing_right``)
+        removed that separation: on a right-hand page the caption now targets
+        the **same** bottom-outer corner the folio does, and a puzzle whose
+        slack falls in the narrow window where both marks' own "is there
+        room" guards pass independently used to produce overlapping ink
+        (reported against this exact method; the two guards' thresholds
+        differ — the caption's own ``gap_px + line_height`` is wider than the
+        folio's plain ``line_height`` — so a slack value could clear the
+        caption's bar without the folio's placement ever learning the
+        caption was there).
+
+        The fix follows CARD-200's own precedent for the grid-vs-folio case
+        ("the folio yields, the content wins," never the other way round):
+        :meth:`_draw_solved_slot` now reports the caption's own occupied box
+        back to this method, which — only on a right-hand page, where the
+        caption's box can actually reach the folio's corner — folds it into
+        the ``content_bottom``/``content_right`` figures passed to
+        :func:`_draw_folio`, so the folio omits itself rather than drawing
+        into the caption's own ink. A left-hand page is unaffected (the
+        caption sits at the opposite corner there, exactly as before); on a
+        right-hand page the two marks either both draw with daylight between
+        them, or the folio alone yields — they never again draw overlapping.
 
         Returns:
             The rendered page.
@@ -3686,11 +3736,25 @@ class BookPDFGenerator:
         )
         page = Image.new("RGB", (layout.width, layout.height), BACKGROUND)
         draw = ImageDraw.Draw(page)
-        self._draw_solved_slot(
+        caption_box = self._draw_solved_slot(
             draw, layout, payload.grid, puzzle_number, payload.difficulty, title
         )
         placement = layout.page
         if placement is not None:  # pragma: no cover - page_spec always carries a parity
+            # Review cycle 1, F-001: on a right-hand page the right-aligned
+            # caption (CARD-203) can reach the same bottom-outer corner the
+            # folio does. Fold the caption's own box (if drawn) into the
+            # folio's collision check there — "the folio yields, the content
+            # wins," CARD-200's own precedent for the grid-vs-folio case. A
+            # left-hand page's caption sits at the opposite corner, so it
+            # cannot compete with the folio and this method's pre-CARD-203
+            # behaviour is left exactly as it was.
+            content_bottom = placement.drawing_bottom
+            content_right = None
+            if caption_box is not None and page_is_right_hand(page_number):
+                caption_bottom, caption_right = caption_box
+                content_bottom = max(content_bottom, caption_bottom)
+                content_right = caption_right
             _draw_folio(
                 draw,
                 placement.usable_left,
@@ -3699,7 +3763,8 @@ class BookPDFGenerator:
                 placement.usable_bottom,
                 page_number,
                 self.dpi,
-                content_bottom=placement.drawing_bottom,
+                content_bottom=content_bottom,
+                content_right=content_right,
             )
         return page
 
@@ -3776,6 +3841,15 @@ class BookPDFGenerator:
         nothing there to collide with, so the folio is drawn with no
         content figures at all, the same as before this fix.
 
+        **Review cycle 1, F-001 (gating).** The corner tile's own caption
+        (CARD-203, right-aligned at that tile's ``drawing_right``) can reach
+        the exact same corner as its ``content_right``/``content_left``
+        above already do — so when :meth:`_draw_solved_slot` reports that
+        tile's caption as actually drawn, its own lower edge (not just the
+        tile's ``drawing_bottom``) is folded into ``content_bottom`` before
+        calling :func:`_draw_folio`, the same "folio yields" fix
+        :meth:`solved_puzzle_page` makes for a full page.
+
         Returns:
             The rendered page.
         """
@@ -3799,12 +3873,15 @@ class BookPDFGenerator:
             )
         page = Image.new("RGB", (layout.width, layout.height), BACKGROUND)
         draw = ImageDraw.Draw(page)
+        caption_boxes: List[Optional[Tuple[int, int]]] = []
         for slot, number, (puzzle_id, payload) in zip(
             layout.slots, plan.numbers, members, strict=True
         ):
             title = answer_title(titles.get(str(puzzle_id)), payload.name)
-            self._draw_solved_slot(
-                draw, slot, payload.grid, number, payload.difficulty, title
+            caption_boxes.append(
+                self._draw_solved_slot(
+                    draw, slot, payload.grid, number, payload.difficulty, title
+                )
             )
         frame = page_frame(self.page_spec(page_number))
         right_hand = page_is_right_hand(page_number)
@@ -3813,6 +3890,21 @@ class BookPDFGenerator:
         corner_placement = (
             layout.slots[corner_index].page if corner_index < len(layout.slots) else None
         )
+        # Review cycle 1, F-001: the corner tile's own caption (CARD-203,
+        # right-aligned at that tile's drawing_right) can reach exactly the
+        # same physical corner this folio targets. content_right/content_left
+        # already carry that tile's own drawing_right/drawing_left (the
+        # caption's right edge coincides with it), so the only figure that
+        # needs widening is content_bottom, to the caption's own lower edge
+        # when one was actually drawn there — same "folio yields" precedent
+        # as solved_puzzle_page's own fix, applied to the corner tile instead
+        # of a full page's single placement.
+        content_bottom = None if corner_placement is None else corner_placement.drawing_bottom
+        corner_caption = (
+            caption_boxes[corner_index] if corner_index < len(caption_boxes) else None
+        )
+        if content_bottom is not None and corner_caption is not None:
+            content_bottom = max(content_bottom, corner_caption[0])
         _draw_folio(
             draw,
             frame.left,
@@ -3821,7 +3913,7 @@ class BookPDFGenerator:
             frame.bottom,
             page_number,
             self.dpi,
-            content_bottom=None if corner_placement is None else corner_placement.drawing_bottom,
+            content_bottom=content_bottom,
             content_right=None if corner_placement is None else corner_placement.drawing_right,
             content_left=None if corner_placement is None else corner_placement.drawing_left,
         )
