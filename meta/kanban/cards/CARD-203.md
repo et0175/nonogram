@@ -1,6 +1,6 @@
 # CARD-203: The solved-page caption sits closer to the puzzle and right-aligns with its grid
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card203.json
 **Review score:** 9.5/10 (cycle 3, final — ready to merge pending owner render sign-off)
 **Started:** 2026-10-10T04:04:25Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-10T17:11:12Z
+**Actual:** 13.11h
+**Merge commit:** (pending)
 **Blocked by:** —
 
 ## What to implement
@@ -490,3 +490,12 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
     visual sign-off on the 2.0mm gap/band asymmetry, non-blocking for review,
     flagged in every cycle). This is the final confirmation — no further review
     cycle needed.
+
+- [Owner sign-off, 2026-10-10] Renders produced at
+  `~/Documents/nonogram-reviews/CARD-203/` (4 PNGs: before/after on a typical
+  generous-slack puzzle, and before/after on the review's own collision-danger
+  shape, verified pixel-geometry by the rendering agent before presenting —
+  not just visually eyeballed). Owner reviewed and confirmed: **"Looks good,
+  ship it."** Both the 2.0mm gap/right-alignment and the band-centred/
+  caption-right-aligned asymmetry are accepted as-is. Gate clear — proceeding
+  to merge.
