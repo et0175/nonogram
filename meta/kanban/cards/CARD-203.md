@@ -15,7 +15,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card203.json
-**Review score:** 4.0/10 (cycle 1, gating — fix in progress)
+**Review score:** 4.0/10 (cycle 2, new regression found in confirmation — fix in progress)
 **Started:** 2026-10-10T04:04:25Z
 **Closed:** —
 **Actual:** —
@@ -424,3 +424,27 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
     check of the two touched test files: 92 passed, exit 0.
   - Owner sign-off on the 2.0mm gap/band asymmetry remains pending — unresolved by
     this fix cycle, still needs a render before merge.
+
+- [Review] forge:review cycle 2 started (confirmation pass, background agent).
+- [Review 2/3] Score **4.0/10**. 1 NEW Critical, 1 NEW Important, 1 Minor. Not a
+  clean confirmation — exit condition triggered, routing to cycle 3.
+  - **F-101 (Critical, reproduced):** `_packed_answer_page`'s F-001 fix is
+    asymmetric with `solved_puzzle_page`'s — the latter gates the caption fold-in
+    on `page_is_right_hand` (line 3754), the former (`:3902`) does not. Reproduced
+    directly: a left-hand packed page with 84px of real slack (well above the
+    folio's own 49px bar) incorrectly loses its folio anyway, because the corner
+    tile's caption (anchored to that tile's own right edge) is folded into
+    `content_bottom` unconditionally regardless of page side. Violates CARD-200's
+    own AC-1 ("every page prints its folio except when slack is too small") and
+    contradicts this fix's own stated rationale.
+  - **F-102 (Important):** no F-001 regression test exists for `_packed_answer_page`
+    at all, in either direction — exactly why F-101 shipped undetected inside the
+    very cycle meant to close F-001.
+  - **Minor:** `_packed_answer_page`'s new docstring overstates parity with
+    `solved_puzzle_page`'s fix.
+  - System contract: 53 rules checked, 5 ✓ holds (carried, delta-clean), 48 ⚠
+    unchecked (carried, delta-clean), 0 ✗ violated.
+  - Review report synced: `meta/review/20261010T101131Z-CARD-203-cycle2.yml`.
+  - **Verdict: NOT ready to merge** — a confirmation cycle that itself surfaced a
+    new gating regression inside the delta it was confirming. Routing to
+    forge:fix for F-101/F-102, cycle 3.
