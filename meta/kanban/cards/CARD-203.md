@@ -320,3 +320,95 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
 - [Not in this card] Formalising a requirements delta for the solved-page caption's position
   (it has no FR today, per CARD-197/198's own "none yet, by design") — architect-station
   follow-up, same pattern CARD-198 used for FR-042.
+
+- [Implementation complete, 2026-10-10] Both target changes made, both guardrails confirmed.
+
+  - **Where the code actually was.** By the time this card was implemented the step-8 code the
+    card quotes (`solved_puzzle_page:2111-2150` in the card's own line numbers) had already moved:
+    CARD-202 extracted `solved_puzzle_page`'s steps 3-8 into a new shared method,
+    `BookPDFGenerator._draw_solved_slot`, called by **both** `solved_puzzle_page` (a full answer
+    page) and `_packed_answer_page` (CARD-202's packed 2-/4-up slots). The caption code this card
+    targets now lives at `_draw_solved_slot`'s own step 8 (`book_pdf_generator.py`, inside that
+    method, not inside `solved_puzzle_page` itself). The two target edits were made there instead
+    of at the stale line numbers, with identical semantics to what the card specifies.
+  - **STRUCTURE: the CARD-202 coordination question resolves itself.** The card's own
+    "Coordination note for a sibling card" asked whichever of CARD-202/203 lands second to check
+    whether the other's caption-drawing code path needs the same treatment. Investigated by
+    reading `_packed_answer_page`, `_draw_solved_slot` and `book_answer_key.py` in full: CARD-202
+    did **not** duplicate the caption-drawing logic for its packed slots — it extracted the single
+    `_draw_solved_slot` method precisely so a full page and a packed slot "draw from the **one**
+    implementation" (that method's own docstring). So this card's one edit, to `_draw_solved_slot`'s
+    step 8, automatically reaches both `solved_puzzle_page` (full answer pages) and
+    `_packed_answer_page` (CARD-202's packed slots) — no second edit was needed, and there is no
+    separate centred-caption code path left anywhere in the book. Confirmed empirically, not just
+    by reading: the regenerated baseline's three answer pages (11 Duck+Owl packed, 12 Tree packed
+    alone, 13 Snowflake full page) **all three** moved under this one change.
+  - **SCOPE+ (small, docs-only):** `tests/test_book_page_numbers.py`'s own module docstring
+    (lines 11-14) states, as a fact used to identify the folio by elimination, "the caption is
+    `"mm"`" — now stale. Corrected to `"rm"` with a one-line CARD-203 pointer; the test logic
+    itself only ever checked membership in `_FOLIO_ANCHORS = {"rb", "lb"}`, which the caption's
+    new anchor is still not a member of, so no test behaviour changed, only the docstring's own
+    claim about what anchor the caption uses. Not in this card's Touches list, but leaving a
+    production-code change make an existing docstring's stated fact wrong, when the fix is one
+    word, failed the "no silent staleness" bar.
+  - **Other test files checked for the same risk, found clean.** Grepped the whole tree for
+    every other place that reads `_draw_solved_slot`/`_packed_answer_page`/caption geometry
+    directly: `tests/test_book_solved_answer_key.py`'s own
+    `TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted` (AC-8) recomputes the OLD
+    `slack >= line_height` guard itself as its own "control" assertion and then checks the caption
+    actually draws in the slack band — this could have broken if that fixture's 2-up slack fell
+    inside the newly-widened omission window, but it doesn't (ample slack on that shape); ran green
+    unedited. `tests/test_book_pdf_band.py`, `tests/test_book_toc.py`,
+    `tests/property/test_book_answer_tiles.py`, `tests/test_book_interior_type_floor.py` and
+    `tests/test_book_pdf_packed_degrade.py` were all read and ran green unedited — none hardcodes
+    the caption's x/y formula or the old guard threshold.
+  - **AC-4's boundary shape, found by sweep (per the card's own suggested technique).** Swept
+    every 10..30 row/column checkerboard against Book 1's own profile for a slack value inside
+    `[line_height, gap_px + line_height)` = `[49, 73)` px at this page's DPI (computed, not
+    guessed): exactly one shape qualifies, 29x23 (slack 58 px), recorded as `_NARROW_GAP_SHAPE`
+    beside the existing `_NO_SLACK_SHAPE`/`_CAP_BOUND_SHAPE` constants.
+  - **Test evidence (fresh run, this session, 2026-10-10):**
+    - `tests/test_book_solved_page.py`: 36 passed (26 pre-existing, unedited, still green; 6 new
+      tests across the two new classes `TestBookSolvedPage_CaptionRightAlignedWithTheGrid` (AC-1)
+      and `TestBookSolvedPage_CaptionMovedCloserToTheDrawing` (AC-2/AC-3); 1 new test method added
+      to the existing `TestBookSolvedPage_CaptionOmittedWhenNoSlack` class for AC-4; AC-5/AC-6 are
+      the existing, unedited test classes named in the card, confirmed still passing).
+    - `tests/test_book_pdf_memory.py`: all green against the repointed `BASELINE_FIXTURE`
+      (`TestBookPdfMemory_PagesAreUnchanged`'s two tests — page digests and interior byte length —
+      both pass against the new `book_baseline_card203.json`).
+    - `tests/test_book_solved_answer_key.py` (54), `tests/test_book_pdf_band.py` (34),
+      `tests/test_book_page_numbers.py`, `tests/test_book_pdf_packed_degrade.py`,
+      `tests/property/test_book_answer_tiles.py`, `tests/test_book_toc.py`,
+      `tests/test_book_interior_type_floor.py`: all green, unedited except the one docstring line
+      noted above.
+    - Full `pytest tests/ -k "book"` (the whole book-related suite, every book test file in the
+      tree): green, exit code 0, no failures — run twice in this session to confirm.
+  - **Baseline regeneration note.** New fixture `tests/fixtures/book_baseline_card203.json`,
+    `BASELINE_FIXTURE` repointed from `book_baseline_card200.json` (`tests/helpers/book_corpus.py`,
+    with a new history entry added to that constant's own docstring chain, same pattern as every
+    predecessor). Computed by exporting `tests/helpers/book_corpus.baseline_puzzles` on
+    `corpus_book()` through the production `export_of`/`page_digests`/`font_fingerprint` helpers
+    (this worktree's own `src/`, not the sibling main checkout's — confirmed by `nonogram.__file__`
+    before trusting any digest) and diffing page-by-page against the superseded fixture:
+    - **Moved: pages 11, 12, 13** — the book's three answer pages, and the only three pages on
+      which `_draw_solved_slot`'s caption guard actually draws ink on this fixture book (page 11
+      Duck+Owl, CARD-202's packed 2-up; page 12 Tree, packed alone; page 13 Snowflake, CARD-198's
+      full page) — all three have slack below their drawing.
+    - **Unmoved: pages 1-10** (both guide pages, the TOC, the three level dividers, the two-up
+      page, the two single puzzle pages, the SOLUTIONS divider) — confirmed byte-identical to
+      `book_baseline_card200.json`'s own recording by direct digest comparison, not assumed from
+      "no caption on these pages."
+    - `page_count` stays 13 (G-5: this card changes pixels on existing pages, never how many
+      pages exist). `font_dependent_pages` ([1,2,3,4,6,8,10]) is unchanged — the caption is drawn
+      in the packaged band face, never the machine Arial-or-fallback one. `interior_bytes` moves
+      from 3,420,073 to 3,421,901 (the caption's own glyphs land at different pixels against a
+      different slice of background on the three moved pages, which moves each one's own JPEG
+      stream length by a small amount). `colour_interior_bytes` recorded too (3,918,574, up from
+      3,916,734), for the same informational reason every predecessor's recording carries it —
+      not asserted byte-for-byte by any test (per `test_book_pdf_ink_mode.py`'s own retirement of
+      that positional check, read in full before relying on it).
+  - **Owner sign-off still needed before merge**, per the card's own Design context: the 2.0 mm
+    gap and the band staying centred while only the caption right-aligns are this card's own
+    reading of "closer"/"align by the right side," not an owner-confirmed pixel value. No render
+    was produced in this pass (out of scope for an implementation-only session); flagging again
+    here so it is not missed at merge time.

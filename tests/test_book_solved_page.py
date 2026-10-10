@@ -12,6 +12,20 @@ layout1", 2026-10-07).
     AC-8  TestBookSolvedPage_NoColour
     AC-9  TestBookSolvedPage_SameGeometryAsTheUnsolvedPage
 
+CARD-203 — the caption right-aligns with the grid and sits a fixed gap above
+its old centred-in-the-slack position (owner's Google Doc "Nonograms - Print
+layout1", 2026-10-08, item 5). Its own AC numbering is independent of the
+table above (CARD-197's own ACs, unrenumbered):
+
+    AC-1  TestBookSolvedPage_CaptionRightAlignedWithTheGrid
+    AC-2  TestBookSolvedPage_CaptionMovedCloserToTheDrawing
+    AC-3  TestBookSolvedPage_CaptionMovedCloserToTheDrawing (same class)
+    AC-4  TestBookSolvedPage_CaptionOmittedWhenNoSlack::test_the_narrow_gap_only_boundary_is_also_omitted
+    AC-5  TestBookSolvedPage_CaptionOmittedWhenNoSlack (existing, unedited)
+    AC-6  TestBookSolvedPage_SameGeometryAsTheUnsolvedPage,
+          TestBookSolvedPage_GrayGridlinesBetweenFilledCells,
+          TestBookSolvedPage_TitleBandMatchesBandIdentity (existing, unedited)
+
 ``BookPDFGenerator.solved_puzzle_page`` is a rendering primitive only — no
 caller exists yet (CARD-198's job). Every test below builds a
 ``BookPDFGenerator()`` with no stored book, which is CON-018's Book 1 profile
@@ -51,12 +65,16 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nonogram import clues
 from nonogram.admin.book_pdf_generator import (
+    ANSWER_TEXT_FONT_MM,
+    POINTS_PER_INCH,
     BookPDFGenerator,
+    _band_font,
     _SOLVED_GRID_GRAY,
     band_identity,
+    type_px,
 )
 from nonogram.export import ExportPayload
-from nonogram.export.layout import compute_layout
+from nonogram.export.layout import ANSWER_TILE_GAP_MM, compute_layout
 from nonogram.export.pdf import render_pages
 from nonogram.export.png import BACKGROUND, INK
 
@@ -88,6 +106,16 @@ _NO_SLACK_SHAPE = (23, 10)
 #: drawing on Book 1, and — being a checkerboard — no gray mark to confound
 #: either comparison).
 _CAP_BOUND_SHAPE = (10, 10)
+
+#: CARD-203 AC-4's boundary shape: the one 29x23 checkerboard found sweeping
+#: every 10..30 row/column combination of a checkerboard grid against the
+#: Book 1 profile whose slack (58 px) sits inside
+#: ``[line_height, gap_px + line_height)`` = ``[49, 73)`` at this page's own
+#: DPI — enough room for the caption's own line under the OLD guard
+#: (``slack >= line_height``), not enough once the new gap is added
+#: (``slack >= gap_px + line_height``). The same kind of hand-recorded sweep
+#: result as ``_NO_SLACK_SHAPE`` above, not re-swept on every run.
+_NARROW_GAP_SHAPE = (29, 23)
 
 
 def _checkerboard(rows: int, columns: int) -> list[list[bool]]:
@@ -444,6 +472,171 @@ class TestBookSolvedPage_CaptionReadsThePictureName:
 
 
 # --------------------------------------------------------------------------
+# CARD-203 AC-1
+# --------------------------------------------------------------------------
+
+
+class TestBookSolvedPage_CaptionRightAlignedWithTheGrid:
+    """CARD-203 AC-1 — the caption's right edge lines up with
+    ``placement.drawing_right`` (the grid's own right edge), not the page's
+    horizontal centre under the grid (owner's Google Doc "Nonograms - Print
+    layout1", 2026-10-08, item 5)."""
+
+    @staticmethod
+    def _render(title="Snowflake"):
+        grid = _checkerboard(*_CAP_BOUND_SHAPE)
+        payload = _payload(grid, difficulty="Easy")
+        generator = BookPDFGenerator()
+        page_number = 2
+        page = generator.solved_puzzle_page(payload, 3, page_number, title=title)
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        return _array(page), layout
+
+    def test_the_captions_rightmost_ink_sits_at_drawing_right(self):
+        arr, layout = self._render()
+        placement = layout.page
+
+        # Isolated to the right half of the drawing's own horizontal span,
+        # so CARD-200's folio (drawn at the bottom-OUTER corner — the LEFT
+        # side on this even page number, never under the right half of the
+        # grid) cannot be mistaken for the caption's own ink.
+        midpoint = (placement.drawing_left + placement.drawing_right) // 2
+        slack = arr[
+            placement.drawing_bottom : placement.usable_bottom,
+            midpoint : placement.usable_right,
+        ]
+        dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
+        assert dark_columns.size > 0, "expected the caption's ink in the drawing's right half"
+        rightmost = int(dark_columns.max()) + midpoint
+
+        # Within normal antialiasing tolerance (a handful of device px — a
+        # glyph's own rightmost ink can overshoot its advance width slightly
+        # under hinting/antialiasing) of the grid's own right edge, and
+        # never meaningfully past it.
+        assert rightmost <= placement.drawing_right + 4
+        assert rightmost >= placement.drawing_right - 6
+
+    def test_the_right_edge_stays_fixed_regardless_of_title_length(self):
+        """Right-alignment, not centring, is the thing being tested: a
+        centred caption's rightmost pixel moves with the text's own width
+        (half the width shift either way); a right-aligned one's rightmost
+        pixel does not move at all, whatever the title reads."""
+
+        def rightmost_ink(title):
+            arr, layout = self._render(title)
+            placement = layout.page
+            midpoint = (placement.drawing_left + placement.drawing_right) // 2
+            slack = arr[
+                placement.drawing_bottom : placement.usable_bottom,
+                midpoint : placement.usable_right,
+            ]
+            dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
+            assert dark_columns.size > 0
+            return int(dark_columns.max()) + midpoint
+
+        short = rightmost_ink("A")
+        long = rightmost_ink("A Very Different, Much Longer Picture Name")
+        assert abs(short - long) <= 2
+
+
+# --------------------------------------------------------------------------
+# CARD-203 AC-2 / AC-3
+# --------------------------------------------------------------------------
+
+
+class TestBookSolvedPage_CaptionMovedCloserToTheDrawing:
+    """CARD-203 AC-2 — the caption sits a small fixed gap
+    (``ANSWER_TILE_GAP_MM`` converted to this page's device pixels) below
+    ``placement.drawing_bottom``, not centred across the whole slack to
+    ``placement.usable_bottom``. AC-3 — at that new position, every caption
+    pixel still sits strictly inside the usable area."""
+
+    @staticmethod
+    def _render(title="Snowflake"):
+        grid = _checkerboard(*_CAP_BOUND_SHAPE)
+        payload = _payload(grid, difficulty="Easy")
+        generator = BookPDFGenerator()
+        page_number = 2
+        page = generator.solved_puzzle_page(payload, 3, page_number, title=title)
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        return _array(page), layout, generator
+
+    @staticmethod
+    def _gap_px(generator):
+        return round(ANSWER_TILE_GAP_MM / 25.4 * generator.dpi)
+
+    @staticmethod
+    def _line_height(generator):
+        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+        caption_font_size = type_px(caption_font_points, generator.dpi)
+        caption_font = _band_font(caption_font_size)
+        ascent, descent = caption_font.getmetrics()
+        return ascent + descent
+
+    def test_there_really_is_slack_much_bigger_than_the_gap_plus_one_line(self):
+        _, layout, generator = self._render()
+        placement = layout.page
+        slack = placement.usable_bottom - placement.drawing_bottom
+        assert slack > 3 * (self._gap_px(generator) + self._line_height(generator)), (
+            "this shape should have plenty of slack beyond one line plus the gap"
+        )
+
+    def test_the_captions_ink_sits_near_the_gap_not_centred_in_the_slack(self):
+        arr, layout, generator = self._render()
+        placement = layout.page
+        gap_px = self._gap_px(generator)
+        line_height = self._line_height(generator)
+
+        # The grid's own outer-border rule overhangs `drawing_bottom` by a
+        # pixel or two (pre-existing `_stroke_drawing` behaviour, nothing to
+        # do with the caption) — skip a handful of rows past it before
+        # looking for the caption's own ink.
+        overhang = 5
+        start = placement.drawing_bottom + overhang
+        slack_band = arr[start : placement.usable_bottom, :, :]
+        dark_rows = np.flatnonzero((slack_band < 128).any(axis=(1, 2)))
+        assert dark_rows.size > 0, "expected the caption's ink somewhere in the slack"
+        ink_top = int(dark_rows.min()) + start
+
+        # Near the fixed gap above the caption's own text band (a few
+        # pixels of headroom for a capital letter's cap-height sitting below
+        # the font's full ascent line) — not anywhere close to the slack's
+        # own middle, which is where the OLD centred-in-the-slack formula
+        # would have put it on a shape with this much slack.
+        expected_top = placement.drawing_bottom + gap_px
+        assert expected_top <= ink_top <= expected_top + line_height // 2
+
+        slack_total = placement.usable_bottom - placement.drawing_bottom
+        old_centred_top = placement.drawing_bottom + (slack_total - line_height) // 2
+        assert ink_top < old_centred_top - line_height, (
+            "the caption should sit well above where the old centred-in-the-"
+            "slack formula would have put it on this much-slack shape"
+        )
+
+    def test_the_caption_is_still_strictly_inside_the_usable_area(self):
+        """AC-3 — re-verifies the existing AC-5 invariant at the new
+        position (same check as
+        TestBookSolvedPage_CaptionReadsThePictureName.test_the_caption_is_drawn_inside_the_usable_area_only)."""
+        arr, layout, _ = self._render()
+        placement = layout.page
+
+        margin = arr[placement.usable_bottom :, :]
+        assert np.array_equal(margin, np.full_like(margin, BACKGROUND[0]))
+
+        slack = arr[placement.drawing_bottom : placement.usable_bottom, :]
+        assert not np.array_equal(slack, np.full_like(slack, BACKGROUND[0]))
+
+        dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
+        assert dark_columns.size > 0
+        assert dark_columns.min() >= placement.usable_left
+        assert dark_columns.max() <= placement.usable_right
+
+
+# --------------------------------------------------------------------------
 # AC-6
 # --------------------------------------------------------------------------
 
@@ -503,6 +696,53 @@ class TestBookSolvedPage_CaptionOmittedWhenNoSlack:
             payload, 7, page_number, title="A Very Different Picture Name"
         )
         np.testing.assert_array_equal(_array(page_a), _array(page_b))
+
+    def test_the_narrow_gap_only_boundary_is_also_omitted(self):
+        """CARD-203 AC-4 — a shape whose slack was enough for the line alone
+        (the OLD guard, ``slack >= line_height``) but not enough once the
+        new gap is added (``slack >= gap_px + line_height``) must also omit
+        the caption, not draw it overlapping the gap or past
+        ``usable_bottom``.
+
+        ``_NARROW_GAP_SHAPE`` (29x23) sits at slack 58 px, inside
+        ``[line_height, gap_px + line_height)`` = ``[49, 73)`` at this
+        page's own DPI (asserted below, not assumed) — too little room for
+        the new gap plus the line, though enough for the line alone under
+        the old guard.
+        """
+        grid = _checkerboard(*_NARROW_GAP_SHAPE)
+        payload = _payload(grid, difficulty="Medium")
+        generator = BookPDFGenerator()
+        page_number = 2
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        placement = layout.page
+        slack = placement.usable_bottom - placement.drawing_bottom
+
+        caption_font_points = ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4
+        caption_font_size = type_px(caption_font_points, generator.dpi)
+        caption_font = _band_font(caption_font_size)
+        ascent, descent = caption_font.getmetrics()
+        line_height = ascent + descent
+        gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * generator.dpi)
+
+        assert slack >= line_height, "the OLD guard would have drawn a caption here"
+        assert slack < gap_px + line_height, "the NEW guard must omit it here"
+
+        page = generator.solved_puzzle_page(payload, 7, page_number, title="Snowflake")
+        arr = _array(page)
+
+        # Isolated to the right half of the drawing's own span — where the
+        # caption would sit were it drawn — so CARD-200's folio (the
+        # bottom-OUTER corner mark, the LEFT side on this even page number,
+        # which this shape's own slack is big enough to still carry) is not
+        # mistaken for a caption that must not be there.
+        overhang = 5
+        midpoint = (placement.drawing_left + placement.drawing_right) // 2
+        region = arr[placement.drawing_bottom + overhang :, midpoint : placement.usable_right]
+        dark_columns = np.flatnonzero((region < 128).any(axis=(0, 2)))
+        assert dark_columns.size == 0, "no caption ink should be drawn at this boundary"
 
 
 # --------------------------------------------------------------------------

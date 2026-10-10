@@ -190,8 +190,25 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   narrower "nothing but the footer band moved" claim, verified by
 #:   content rather than by this whole-page digest.
 #:
-#: All eleven files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card200.json"
+#: * ``book_baseline_card203.json`` — CARD-203 right-aligns the solved-page
+#:   caption with ``placement.drawing_right`` (anchor ``"rm"`` instead of
+#:   ``"mm"``) and moves it to a fixed ``ANSWER_TILE_GAP_MM`` (2.0 mm) gap
+#:   above ``placement.drawing_bottom`` instead of centred across the whole
+#:   bottom slack, in ``_draw_solved_slot``'s step 8 — the one shared
+#:   implementation CARD-202 already extracted for both a full solved page
+#:   (``solved_puzzle_page``) and a packed small-answer slot
+#:   (``_packed_answer_page``), so this one change reaches both without a
+#:   second edit. Only the three pages that actually draw a caption on this
+#:   book move: 11 (Duck+Owl, packed), 12 (Tree, packed alone) and 13
+#:   (Snowflake, full page). Pages 1-10 — both guide pages, the TOC, the
+#:   three level dividers, the two-up page, the two single puzzle pages and
+#:   the SOLUTIONS divider, none of which ever draws a caption — are
+#:   byte-identical to CARD-200's own recording. The interior still holds
+#:   **thirteen** pages; only ink on the three answer pages moved, not the
+#:   page count.
+#:
+#: All twelve files carry the reasoning; this constant names the current one.
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card203.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until

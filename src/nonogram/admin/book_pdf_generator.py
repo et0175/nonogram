@@ -338,6 +338,7 @@ from nonogram.difficulty import Tier, tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
+    ANSWER_TILE_GAP_MM,
     DPI,
     HeaderBand,
     Layout,
@@ -3591,18 +3592,22 @@ class BookPDFGenerator:
         caption_font = _band_font(caption_font_size)
         ascent, descent = caption_font.getmetrics()
         line_height = ascent + descent
+        # A physical mm gap, not a type size, so this converts straight to
+        # device pixels rather than through `type_px` (CARD-203; that
+        # helper's own docstring takes points, not mm).
+        gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * self.dpi)
         slack = placement.usable_bottom - placement.drawing_bottom
-        if slack >= line_height:
+        if slack >= gap_px + line_height:
             caption = answer_caption(puzzle_number, title)
             draw.text(
                 (
-                    (placement.drawing_left + placement.drawing_right) / 2,
-                    (placement.drawing_bottom + placement.usable_bottom) / 2,
+                    placement.drawing_right,
+                    placement.drawing_bottom + gap_px + line_height / 2,
                 ),
                 caption,
                 font=caption_font,
                 fill=INK,
-                anchor="mm",
+                anchor="rm",
             )
 
     def solved_puzzle_page(
