@@ -635,6 +635,37 @@ merges first.
     (decouple the pairing decision from `folio_reserve_px`, add a property
     test reaching 3-digit page numbers), cycle 2.
 
+- [Fix 2, 2026-10-11] F-1 (Critical) and F-2 (Minor) fixed. Full writeup in
+  the branch's own `[Fix 2]` worktree-notes entry (commits `5891969`/
+  `0783434`). **F-1**: `_folio_reserve_px` changed from measuring one
+  specific page's own folio width to a book-level worst-case bound
+  (`max_page_number`'s own digit count times the widest digit this font
+  draws) — `puzzle_section` computes it once for the whole book and passes
+  the same value to every level's `puzzle_pages` call, so a pair's
+  verdict/cell-size can no longer depend on which page it lands on.
+  Reproduced the review's exact numbers (1-digit pairs at 7.0885mm, 2-digit
+  at 7.0038mm, 3-digit refuses) before fixing, then proved the invariant
+  end-to-end: the same pair gets an identical verdict whether placed early
+  or late in an otherwise-identical book. New permanent regression test
+  `test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber`
+  (hand-derived expected values, independent of the production formula)
+  sweeps 1/2/3-digit book-scale regimes, closing the review's own F-3 test-
+  coverage gap too. **F-2**: `_slot_layout`'s docstring overclaim corrected.
+  **Test evidence**: all touched test files green (test_book_pairing.py 3,
+  test_book_page_numbers.py 15, test_book_puzzle_frame.py 66, etc.);
+  `pytest tests/ -k "book"` exit 0. **Orchestrator's own independent
+  full-suite confirmation: 6854 passed, 9 skipped, 0 failed, 0 errors**
+  (1483.71s) — exactly 1 more than the prior 6853 (pre-Fix-2) count.
+  **Process note**: the full-suite run initially appeared to hang for 5+
+  hours on an unrelated pre-existing slow property test
+  (`test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages`,
+  220 full book-interior renders, normally ~2min, right at the 120s
+  hang-guard threshold) — diagnosed via the project's own hang-guard stack
+  dump plus an isolated clean rerun (1 passed in 119.54s) as severe
+  Microsoft Defender CPU contention on this machine (a known, previously-
+  documented issue this session), not a code defect. Confirmed harmless and
+  unrelated to this fix before proceeding.
+
 ## System contract
 
 _Not yet assembled — run `python3
