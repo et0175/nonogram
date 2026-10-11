@@ -132,28 +132,40 @@ class Sheet:
         return self.height_mm - TOP_MM - BOTTOM_MM - 2 * BAND_MM
 
     def shared_cell_mm(
-        self, first: "Puzzle", second: "Puzzle", page_number: int | None = None
+        self, first: "Puzzle", second: "Puzzle", max_page_number: int | None = None
     ) -> float:
         """FR-040's shared cell for this pair on this sheet, in millimetres.
 
-        ``page_number`` (CARD-204 Fix 1), when given, re-derives
-        ``compute_pair_layout``'s own "only re-fit a smaller cell when the
-        lower puzzle's natural spare can't already hold the folio reserve"
-        rule independently: ``second`` is always the lower slot in this
-        module's own upper/lower convention, so its ``across`` is what the
-        natural-spare check reads. ``None`` (the default) is the plain,
+        ``max_page_number`` (CARD-204 Fix 1, revised by Fix 2), when given,
+        re-derives ``compute_pair_layout``'s own "only re-fit a smaller cell
+        when the lower puzzle's natural spare can't already hold the folio
+        reserve" rule independently: ``second`` is always the lower slot in
+        this module's own upper/lower convention, so its ``across`` is what
+        the natural-spare check reads. ``None`` (the default) is the plain,
         pre-Fix-1 formula, for the one caller (:func:`_pairs`-adjacent
         bookkeeping elsewhere) that only ever wants FR-040's own number, not
-        a page-specific one.
+        a book-specific one.
+
+        **Fix 2: this is the book's own worst-case bound, never the specific
+        page this pair lands on.** Fix 1 passed the pair's own actual page
+        number here, which (correctly, at the time) mirrored
+        ``book_pdf_generator.puzzle_pages``'s own per-page measurement — and
+        reproduced the very bug the cycle-1 review's F-1 found. Since Fix 2,
+        ``puzzle_pages``/``puzzle_section`` compute one reserve for an
+        entire call (or an entire book) from counts alone and pass the
+        *same* value to every pair in it; this oracle's own caller now does
+        the same, passing the call's own ``first_page + len(order) - 1``
+        (or the book's own divider-aware bound) once, not a different value
+        per pair.
         """
         natural = min(
             STANDARD_CELL_MM,
             self.usable_width_mm / max(first.across, second.across),
             self.pair_height_mm / (first.down + second.down),
         )
-        if page_number is None:
+        if max_page_number is None:
             return natural
-        reserve_px = _folio_reserve_px(page_number, DPI)
+        reserve_px = _folio_reserve_px(max_page_number, DPI)
         if not reserve_px:
             return natural
         natural_cell_px = natural * DPI / 25.4
@@ -351,14 +363,28 @@ def _divider_count(order: list[Puzzle]) -> int:
     })
 
 
-def _expected_pages(sheet: Sheet, order: list[Puzzle]) -> list[tuple[int, ...]] | None:
+def _expected_pages(
+    sheet: Sheet, order: list[Puzzle], max_page_number: int | None = None
+) -> list[tuple[int, ...]] | None:
     """EC-027's walk, written out: the 1-based puzzle numbers of each page.
 
-    ``None`` when any offer this walk makes lands within a millionth of a
-    millimetre of the 7.0 mm threshold — a verdict this module's floats cannot
-    be trusted to share with the layout's exact fractions, and one disagreement
-    would desynchronise every later page of the book.
+    ``max_page_number`` (CARD-204 Fix 2) is the **one** book-level folio
+    reserve bound every pair in ``order`` is measured against — never a
+    per-pair value recomputed as the walk advances, which would silently
+    reintroduce Fix 1's own bug into this independent oracle. ``None`` (the
+    default) derives it the same way ``puzzle_pages``'s own standalone
+    default does: ``3 + len(order) - 1`` — page 3 (one past the guide) is
+    the flat, divider-free first page this walk itself uses (not
+    ``section_plan``'s), and the worst case is every puzzle printed alone.
+
+    ``None`` is also returned when any offer this walk makes lands within a
+    millionth of a millimetre of the 7.0 mm threshold — a verdict this
+    module's floats cannot be trusted to share with the layout's exact
+    fractions, and one disagreement would desynchronise every later page of
+    the book.
     """
+    if max_page_number is None:
+        max_page_number = 3 + len(order) - 1
     pages: list[tuple[int, ...]] = []
     index = 0
     while index < len(order):
@@ -366,11 +392,7 @@ def _expected_pages(sheet: Sheet, order: list[Puzzle]) -> list[tuple[int, ...]] 
         second = order[index + 1] if index + 1 < len(order) else None
         if second is not None and first.tier_of_record is not None:
             if first.tier_of_record == second.tier_of_record:
-                # CARD-204 Fix 1: the flat, divider-free page numbering this
-                # walk itself uses (``puzzle_pages``, not ``section_plan``) —
-                # ``3 + len(pages)``, exactly the invariant the main test
-                # below pins (``[entry.page_number ...] == range(3, ...)``).
-                cell = sheet.shared_cell_mm(first, second, 3 + len(pages))
+                cell = sheet.shared_cell_mm(first, second, max_page_number)
                 if abs(cell - TWO_UP_MINIMUM_MM) < 1e-6:
                     return None
                 if cell >= TWO_UP_MINIMUM_MM:
@@ -394,7 +416,13 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
     for case in range(900):
         sheet = Sheet(*(SIX_BY_NINE if case % 4 == 0 else BOOK1))
         order = [_puzzle(rng) for _ in range(rng.randint(1, 8))]
-        expected = _expected_pages(sheet, order)
+        # CARD-204 Fix 2: one reserve bound for the whole book, matching
+        # puzzle_pages's own standalone default exactly (first_page=3, the
+        # worst case being every puzzle printed alone) — never a value that
+        # tracks any one pair's own page number, which would silently
+        # reintroduce the bug this fix removes into this very oracle.
+        max_page_number = 3 + len(order) - 1
+        expected = _expected_pages(sheet, order, max_page_number)
         if expected is None:
             near_threshold += 1
             continue
@@ -432,7 +460,7 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
                     refused_on_tier += 1
                 else:
                     assert (
-                        sheet.shared_cell_mm(members[0], follower, entry.page_number)
+                        sheet.shared_cell_mm(members[0], follower, max_page_number)
                         < TWO_UP_MINIMUM_MM
                     ), label
                     refused_on_fit += 1
@@ -444,7 +472,7 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
             assert upper.tier_of_record == lower.tier_of_record, label
 
             # One shared cell, FR-040's, inside [7.0, 7.5] mm.
-            wanted = sheet.shared_cell_mm(upper, lower, entry.page_number)
+            wanted = sheet.shared_cell_mm(upper, lower, max_page_number)
             assert abs(entry.pair.cell_mm - wanted) < 1e-6, (label, position)
             assert TWO_UP_MINIMUM_MM <= entry.pair.cell_mm <= STANDARD_CELL_MM, label
             at_cap += entry.pair.cell_mm == STANDARD_CELL_MM
@@ -501,8 +529,6 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         # The book prints grouped by level (INV-009, CARD-128), so the walk's
         # order — and every page number below — is the grouped one.
         printed = _printed(order)
-        expected = _expected_pages(sheet, printed)
-        assert expected is not None, "no corpus book sits on the threshold"
         dividers = _divider_count(printed)
 
         rows = [puzzle.as_row(f"p{index}") for index, puzzle in enumerate(order)]
@@ -512,6 +538,18 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
         # book's trim and this book's own puzzle count — read off the real
         # plan for this case rather than assumed.
         toc_page_count = generator.section_plan(rows).toc_page_count
+        # CARD-204 Fix 2: this book goes through the real production path
+        # (interior_pages -> section_plan -> puzzle_section), which derives
+        # one folio reserve for the *whole* book from its own worst case —
+        # first_page (one past the guide and the TOC) + the most dividers
+        # it could ever open (one per tier, _LEVEL_RANK's own three) + every
+        # puzzle printed alone, exactly as puzzle_section's own docstring
+        # states it. Re-derived here independently rather than imported, so
+        # the oracle's own reserve can disagree with production and be
+        # caught, instead of trivially agreeing by sharing the formula.
+        max_page_number = 3 + toc_page_count + min(len(_LEVEL_RANK), len(printed)) + len(printed) - 1
+        expected = _expected_pages(sheet, printed, max_page_number)
+        assert expected is not None, "no corpus book sits on the threshold"
         interior = generator.interior_pages(rows)
         label = (sheet, [str(p) for p in order])
 
@@ -563,3 +601,132 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly_interior_
     assert pages >= 40, pages
     assert paired >= 8, paired
     assert single >= 25, single
+
+
+# ---------------------------------------------------------------------------
+# CARD-204 Fix 2 (cycle-1 review F-1/F-3) — the reserve is the book's own
+# scale, never a specific page number
+# ---------------------------------------------------------------------------
+
+
+def _filler(tier: str) -> Puzzle:
+    """A blank 10x10 puzzle of ``tier``, used only to push a pair's own page
+    number around without ever being offered to it itself: deliberately a
+    different tier from every pair built below, so INV-010's own
+    tier-equality gate keeps it from ever pairing with — or being mistaken
+    for a member of — the pair under test, however many fillers surround
+    it."""
+    blank = tuple((0,) for _ in range(10))
+    return Puzzle(10, 10, blank, blank, tier)
+
+
+#: The exact pair the cycle-1 review's F-1 reproduced directly against the
+#: real BOOK1 profile: 25 columns x 6 rows, row- and column-clue depth 2.
+#: Hand-verified here (``_folio_reserve_px``/``compute_pair_layout`` run
+#: directly against this exact geometry before this test was written, the
+#: same independent check the review itself made) rather than re-derived
+#: from this module's own ``Sheet.shared_cell_mm``, which already shares
+#: Fix 2's formula and so cannot catch a regression in it by agreeing with
+#: itself: unreserved cell 7.1731 mm (comfortably above the 7.0 mm floor),
+#: which the OLD per-page reserve (Fix 1) paired at a 2-digit page
+#: (reserve 54 px, cell 7.0038 mm) and refused outright at a 3-digit one
+#: (reserve 81 px) — the exact page-number-dependent flip Fix 2 removes.
+_BORDERLINE_ROW_CLUES = tuple((1, 1) for _ in range(6))
+_BORDERLINE_COLUMN_CLUES = tuple((1, 1) for _ in range(25))
+
+
+def _borderline_pair(tier: str = "easy") -> tuple[Puzzle, Puzzle]:
+    first = Puzzle(25, 6, _BORDERLINE_ROW_CLUES, _BORDERLINE_COLUMN_CLUES, tier)
+    second = Puzzle(25, 6, _BORDERLINE_ROW_CLUES, _BORDERLINE_COLUMN_CLUES, tier)
+    return first, second
+
+
+def test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber() -> None:
+    """INV-010 (CARD-204 Fix 2, cycle-1 review F-1): a pair's own geometry and
+    tier — and the book's own overall scale — decide whether it pairs and at
+    what cell; never the specific page number it happens to land on.
+
+    F-1 reproduced the bug directly: the identical pair of puzzles paired at
+    a 2-digit page and refused outright at a 3-digit page of the *same*
+    book. F-3 noted the 900-case corpus above cannot reach a 3-digit page at
+    all (every book it builds has at most 8 puzzles, so no page number
+    there ever exceeds roughly 11). This test closes both gaps at once: it
+    sweeps the exact pair F-1 reproduced across three books — one where the
+    book's own total puzzle count keeps every page number at 1 digit, one
+    that reaches 2, one that reaches 3 — and, independently of the sweep,
+    confirms the *same* pair in the *same*-sized book pairs identically
+    whether it is offered first or last (filler puzzles of a *different*
+    tier move it between page 3 and a page dozens on, without ever being
+    offered to it, since INV-010 forbids a mixed-tier pair outright).
+
+    No ``hypothesis`` (CLAUDE.md): a small, fully enumerated sweep over
+    three known boundaries rather than a random corpus, with the expected
+    cell_mm at each one an independent hand-derivation (CLAUDE.md's
+    "independent second implementation"), verified directly against
+    ``compute_pair_layout`` before this test was written rather than
+    re-derived from this module's own ``Sheet.shared_cell_mm`` helper, which
+    already shares Fix 2's own formula and so could not itself catch a
+    regression in it.
+    """
+    sheet = Sheet(*BOOK1)
+    generator = BookPDFGenerator(sheet.book)
+
+    # (filler_count, the book's own max_page_number digit count, whether the
+    #  pair is expected to pair, and its cell_mm when it does).
+    REGIMES = (
+        (1, 1, True, 7.088481481481481),
+        (6, 2, True, 7.003814814814815),
+        (98, 3, False, None),
+    )
+
+    cases = 0
+    for filler_count, digits, expect_paired, expect_cell_mm in REGIMES:
+        first, second = _borderline_pair()
+        fillers = [_filler("hard") for _ in range(filler_count)]
+
+        early_order = [first, second] + fillers
+        late_order = fillers + [first, second]
+        assert len(early_order) == len(late_order)
+
+        early_plan = generator.puzzle_pages([p.payload for p in early_order])
+        late_plan = generator.puzzle_pages([p.payload for p in late_order])
+
+        early_target = next(entry for entry in early_plan if entry.numbers[:1] == (1,))
+        late_target = next(
+            entry for entry in late_plan if filler_count + 1 in entry.numbers
+        )
+
+        # This regime really does carry the digit count it is named for —
+        # otherwise the case below proves nothing about the boundary it
+        # claims to exercise.
+        max_page_number = 3 + len(early_order) - 1
+        assert len(str(max_page_number)) == digits, (filler_count, max_page_number)
+
+        # The pair lands on a different *actual* page number in the two
+        # placements — otherwise this case would not test position
+        # independence at all, only repeat the same call twice.
+        assert early_target.page_number != late_target.page_number, (
+            filler_count,
+            early_target.page_number,
+            late_target.page_number,
+        )
+
+        for placement, target in (("early", early_target), ("late", late_target)):
+            paired = target.pair is not None
+            assert paired == expect_paired, (filler_count, placement, target.page_number)
+            if expect_paired:
+                assert abs(target.pair.cell_mm - expect_cell_mm) < 1e-9, (
+                    filler_count,
+                    placement,
+                    target.pair.cell_mm,
+                )
+
+        # The direct form of the invariant: the two placements agree with
+        # each other, not merely with the hand-derived expectation above.
+        assert (early_target.pair is None) == (late_target.pair is None)
+        if early_target.pair is not None:
+            assert abs(early_target.pair.cell_mm - late_target.pair.cell_mm) < 1e-9
+
+        cases += 1
+
+    assert cases == len(REGIMES)

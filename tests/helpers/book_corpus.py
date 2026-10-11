@@ -241,6 +241,28 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   and ``font_dependent_pages`` are unchanged (Fix 1 touches no
 #:   machine-lettered page).
 #:
+#: * ``book_baseline_card204.json`` (**re-recorded in place again for
+#:   CARD-204 Fix 2**, same filename): the cycle-1 review's F-1 finding —
+#:   Fix 1's ``folio_reserve_px`` was *this exact page's own* measured folio
+#:   width, which made ``compute_pair_layout``'s accept/refuse verdict and
+#:   shared cell depend on the page number's own digit count, not on the two
+#:   puzzles' geometry (INV-010). Fix 2 has ``puzzle_pages``/
+#:   ``puzzle_section`` derive **one** reserve for the whole book (or the
+#:   whole standalone call), sized for the worst-case digit count that book
+#:   could ever need, and pass the same value to every two-up page — so the
+#:   reserve can no longer tell two pages of the same book apart. On this
+#:   four-puzzle baseline book that worst case is a 2-digit page number
+#:   (``max_page_number`` bound 10), one digit wider than Fix 1's own
+#:   page-5-specific 1-digit measurement, so only interior page 5 moves
+#:   again: its lower slot's reserved gap widens from 27 px to 54 px, with
+#:   the pair's own 7.5 mm shared cell unchanged (height, not width, is this
+#:   pair's own binding constraint — confirmed unaffected, not merely
+#:   assumed). ``interior_bytes`` moves from 3439779 to 3440674 (+895 bytes
+#:   — the wider reserve shifts the lower slot's own drawing/QR-icon ink,
+#:   nothing added or removed). ``font_fingerprint`` and
+#:   ``font_dependent_pages`` are unchanged (Fix 2 touches no
+#:   machine-lettered page either).
+#:
 #: All thirteen files carry the reasoning; this constant names the current one.
 BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
 

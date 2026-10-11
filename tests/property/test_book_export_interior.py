@@ -157,11 +157,13 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, reserve_px=0.0)
     puzzle is a slot of a two-up page (FR-040); its drawing is right-aligned
     across the same usable width either way.
 
-    ``reserve_px`` (CARD-204 Fix 1) is nonzero only for a two-up page's
-    *lower* slot: that many device pixels of CARD-200's folio room, pulled
-    back toward the gutter from the flush edge — the independent
-    re-derivation of ``book_pdf_generator._folio_reserve_px``'s own effect
-    on ``compute_pair_layout``, in this file's own millimetres rather than
+    ``reserve_px`` (CARD-204 Fix 1, the value itself now sourced per Fix 2:
+    the book's own worst-case bound, never a specific page's own folio
+    text) is nonzero only for a two-up page's *lower* slot: that many
+    device pixels of CARD-200's folio room, pulled back toward the gutter
+    from the flush edge — the independent re-derivation of
+    ``book_pdf_generator._folio_reserve_px``'s own effect on
+    ``compute_pair_layout``, in this file's own millimetres rather than
     imported from ``export/layout.py``.
     """
     across = _across(puzzle)
@@ -596,6 +598,16 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         expected_toc = 1 if n else 0
         section = _section_plan(printed, toc_pages=expected_toc)
         dividers = _divider_pages(printed)
+        # CARD-204 Fix 2: book_pdf_generator.puzzle_section now derives one
+        # folio reserve for the *whole* book from its own worst case —
+        # first_page (one past the guide and the TOC) + the most dividers
+        # it could ever open (one per tier; ADR-0031's three) + every
+        # puzzle printed alone — never a per-page measurement (cycle-1
+        # review F-1). Re-derived here independently of that formula
+        # (three tiers written out, not imported) so this oracle can
+        # disagree with production and be caught, rather than trivially
+        # agreeing by sharing the computation.
+        max_page_number = 3 + expected_toc + min(3, n) + n - 1 if n else 0
         expected_answers = _expected_answer_pages(printed)
         expected_count = (
             2 + expected_toc + dividers + len(plan) + (expected_answers + 1 if n else 0)
@@ -670,9 +682,13 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
             for slot_index, (puzzle, drawing) in enumerate(zip(group, drawings)):
                 # CARD-204 Fix 1: only the two-up page's lower slot (index 1
                 # of 2) reserves folio room; a single-puzzle page's one slot
-                # never does.
+                # never does. CARD-204 Fix 2: the reserve is the book's own
+                # max_page_number bound above, never this specific page's
+                # own number.
                 reserve_px = (
-                    _folio_reserve_px(page_number, DPI) if len(group) == 2 and slot_index == 1 else 0.0
+                    _folio_reserve_px(max_page_number, DPI)
+                    if len(group) == 2 and slot_index == 1
+                    else 0.0
                 )
                 _measured(page_number, puzzle, drawing, shared, reserve_px)
             make_up = "two-up page" if len(group) == 2 else "single page"

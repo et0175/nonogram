@@ -1915,12 +1915,26 @@ def compute_pair_layout(
     every two-up page — and the lower slot's own vertical slack is already
     always zero (:class:`PairLayout`'s own invariant) — so the folio's
     "omit rather than collide" check (``_draw_folio``) fired on every two-up
-    page, every time, with no exception. ``folio_reserve_px`` is the caller's
-    (``book_pdf_generator.py``'s) own measured width of this exact page's
-    folio digits, in device pixels, at the font ``_draw_folio`` itself draws
-    with — not an invented constant. Passing it here does two things, both
-    scoped to the **lower slot only** (the upper slot never shares this
-    corner, so it is never passed a reserve):
+    page, every time, with no exception.
+
+    **CARD-204 Fix 2: ``folio_reserve_px`` is a book-level quantity, not this
+    one page's own folio width.** Fix 1 originally had the caller
+    (``book_pdf_generator.py``) measure *this exact page's own* folio digits'
+    width and pass that — which made this function's own accept/refuse
+    verdict (the ``TWO_UP_MIN_CELL_MM`` check below) depend on the page
+    number's own digit count, a quantity with no relationship to whether two
+    puzzles "fit" (INV-010; the cycle-1 review's F-1 reproduced the same pair
+    pairing on a 2-digit page and refusing on a 3-digit one). This function's
+    own arithmetic is unchanged by Fix 2 and does not care what
+    ``folio_reserve_px`` represents — it is the caller's job, not this one's,
+    to pass a value that cannot vary with where a pair happens to land. Since
+    Fix 2, every caller in this codebase (``book_pdf_generator.py``'s
+    ``puzzle_pages``/``puzzle_section``) passes the *book's own* worst-case
+    reserve — sized for the widest digit count the book could ever need, the
+    same pixel count on every two-up page of that book — never a per-page
+    measurement. Passing it here does two things, both scoped to the
+    **lower slot only** (the upper slot never shares this corner, so it is
+    never passed a reserve):
 
     1. The shared cell is fit as though the usable width were
        ``folio_reserve_px`` narrower (via a widened ``outside_mm`` fed to
@@ -1957,7 +1971,14 @@ def compute_pair_layout(
             lower slot's own outer corner must keep free for CARD-200's folio
             (0, the default, reserves nothing — the pre-CARD-204-Fix-1
             behaviour, and what a single puzzle page's own
-            :func:`compute_layout` call never needs to pass at all).
+            :func:`compute_layout` call never needs to pass at all). Since
+            Fix 2 this must be a quantity that cannot change with which page
+            a given pair of puzzles happens to land on (INV-010) — in
+            practice, the book's own worst-case bound, the same value for
+            every two-up page of one book — never one specific page's own
+            measured folio width (see this function's own "CARD-204 Fix 2"
+            paragraph above). This function does not itself enforce that;
+            it is a caller contract.
 
     Returns:
         The :class:`PairLayout`, or ``None`` when the largest fitting cell is
@@ -2125,9 +2146,24 @@ def _slot_layout(
     docstring for why the shift is always safe there). Clamped to
     ``max(spare, 0)`` so it can only ever *reduce* how far the drawing
     reaches toward the gutter margin, never push it past ``usable_left``/
-    ``usable_right`` — i.e. it cannot make the pre-existing MIN_CELL_MM
-    floor-overflow case (AC-3, G-6, unrelated to this reserve and untouched
-    by it) overflow any further than it already does.
+    ``usable_right``.
+
+    **What that clamp actually guards against, for a two-up slot
+    specifically (cycle-1 review F-2, correcting this docstring's own prior
+    claim).** It is *not* guarding against the pre-existing MIN_CELL_MM
+    floor-overflow case (AC-3, G-6): that case is unreachable here.
+    :func:`compute_pair_layout` already refuses (returns ``None``) any
+    shared cell below :data:`TWO_UP_MIN_CELL_MM` (7.0 mm) before this
+    function is ever called for a two-up pair, and 7.0 mm sits well above
+    MIN_CELL_MM (2.0 mm) — the only floor :func:`_placed_cell_mm` ever
+    applies internally — so by the time this runs, ``spare`` for either slot
+    is always ``>= 0`` and the clamp has nothing to clamp. (That is the
+    single-page path's own degenerate case — :func:`compute_layout`'s
+    placed-page branch, which has no such gate — and it does not reach
+    here.) The clamp is kept anyway, purely for defensive symmetry with that
+    single-page formula and as a guard against a future caller that lifts
+    this function's own ``TWO_UP_MIN_CELL_MM`` gate without reading this
+    note; it is harmless, just not load-bearing on this call path today.
     """
     rows, columns = len(row_clues), len(column_clues)
     row_gutter_cells = _gutter_depth(row_clues)

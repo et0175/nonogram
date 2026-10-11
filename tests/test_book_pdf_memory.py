@@ -148,6 +148,7 @@ from PIL import Image, ImageDraw
 from nonogram.admin.book_answer_key import Answer, PackedAnswerPage, answer_title, plan_small_answer_pages
 from nonogram.admin.book_pdf_generator import (
     FOLIO_PT,
+    GUIDE_PAGE_COUNT,
     BookPDFGenerator,
     DividerPagePlan,
     PuzzlePagePlan,
@@ -1761,6 +1762,36 @@ def _matches_shifted_content(a: Image.Image, b: Image.Image) -> bool:
     return float(diff.mean()) < 8.0 and float((diff > 50).mean()) < 0.03
 
 
+def _book_folio_reserve_px(generator: BookPDFGenerator, plan) -> int:
+    """This book's own folio reserve, exactly as ``puzzle_section`` derives it (CARD-204 Fix 2).
+
+    Both ``_reference`` methods below rebuild a two-up page at a shifted
+    page number (its pre-CARD-200/201 position) and must reserve the same
+    room production actually reserved on the real, exported page they are
+    compared against — but since Fix 2 (cycle-1 review F-1) that reserve is
+    the *book's* own worst-case bound, not a function of either page
+    number, so it must not be re-derived from ``old_number`` the way Fix 1
+    briefly was (that would silently reintroduce the page-number dependence
+    this fix removes: the shifted reference page could end up with a
+    different reserve than the real one it is being compared against,
+    purely because shifting by a card's worth of pages happened to change a
+    digit count). Re-derived here from ``plan``'s own counts — not
+    imported from ``puzzle_section`` itself — so a regression in that
+    method's own formula would still be caught by this comparison instead
+    of agreeing with it by construction.
+    """
+    payload_count = len(plan.payloads)
+    if not payload_count:
+        return 0
+    first_page = 1 + GUIDE_PAGE_COUNT + plan.toc_page_count
+    # The most level dividers a book this size could ever open — one per
+    # tier, ADR-0031's three — exactly interior_page_count's own
+    # min(len(TIERS), puzzle_count) upper-bound reasoning, written out
+    # rather than imported.
+    max_page_number = first_page + min(3, payload_count) + payload_count - 1
+    return _folio_reserve_px(max_page_number, generator.dpi)
+
+
 class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
     """AC-6 (G-2) — every page from the first puzzle/divider page onward
     keeps the same content it had before CARD-201; only its page number
@@ -1837,12 +1868,15 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
-            # CARD-204 Fix 1: puzzle_pages reserves the real exported
-            # page's own folio width on its lower slot; the reference
-            # must reserve the same at its own (pre-card) page number so
-            # the two sides' geometry agrees on everything but the
-            # content this test is actually about.
-            folio_reserve_px=_folio_reserve_px(old_number, generator.dpi),
+            # CARD-204 Fix 1 reserved the real exported page's own folio
+            # width on its lower slot; Fix 2 made that reserve the book's
+            # own bound instead (see _book_folio_reserve_px's own
+            # docstring for why old_number itself must not be re-measured
+            # here). Either way the reference must reserve what production
+            # actually reserved on the real page, so the two sides' own
+            # geometry agrees on everything but the content this test is
+            # actually about.
+            folio_reserve_px=_book_folio_reserve_px(generator, plan),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -2027,12 +2061,12 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
-            # CARD-204 Fix 1: see the sibling class's own comment above —
-            # the real page reserves its own folio width on the lower
-            # slot, so the reference must reserve the same (at its own
-            # pre-TOC page number) to keep this comparison about content,
-            # not about the reserve itself.
-            folio_reserve_px=_folio_reserve_px(old_number, generator.dpi),
+            # CARD-204 Fix 1/Fix 2: see the sibling class's own comment
+            # above and _book_folio_reserve_px's own docstring — the
+            # reference must reserve what production actually reserved on
+            # the real page (the book's own bound, since Fix 2), to keep
+            # this comparison about content, not about the reserve itself.
+            folio_reserve_px=_book_folio_reserve_px(generator, plan),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)

@@ -810,17 +810,23 @@ def _expected_pair_boxes(
     That rectangle **is** the frame: its left and top are the outer edges of
     the two clue gutters and its right and bottom the grid's own outer border.
 
-    **CARD-204 Fix 1:** the lower box alone is pulled ``page_number``'s own
-    folio width (:func:`_folio_reserve_px`, the same measurement
-    ``book_pdf_generator.puzzle_pages`` feeds ``compute_pair_layout``) back
-    toward the gutter — this independent mm-arithmetic re-derivation must
-    agree with production's own reserve, not merely with its formula, or a
-    bug in the reserve's *size* (as opposed to its direction) would sail
-    through every test in this file unnoticed. Toward the gutter is *away*
-    from ``left_margin`` on an ``EVEN`` page (gutter on the right) and
-    *toward* ``left_margin`` on an ``ODD`` one (gutter on the left) — i.e.
-    the shift's sign is the mirror image of ``left_margin``'s own choice
-    four lines up.
+    **CARD-204 Fix 1 (revised by Fix 2):** the lower box alone is pulled a
+    folio reserve (:func:`_folio_reserve_px`, the same figure
+    ``book_pdf_generator.puzzle_pages``/``puzzle_section`` feed
+    ``compute_pair_layout``) back toward the gutter — this independent
+    mm-arithmetic re-derivation must agree with production's own reserve,
+    not merely with its formula, or a bug in the reserve's *size* (as
+    opposed to its direction) would sail through every test in this file
+    unnoticed. Since Fix 2 that figure is the book's own worst-case bound,
+    not ``page_number``'s own folio text width (the cycle-1 review's F-1);
+    this book's own total puzzle count is small enough that both readings
+    give the same 1-digit reserve, which is why this call site still passes
+    ``page_number`` unchanged rather than the book's own bound — see
+    :func:`_folio_reserve_px`'s own docstring if that ever stops being true
+    here. Toward the gutter is *away* from ``left_margin`` on an ``EVEN``
+    page (gutter on the right) and *toward* ``left_margin`` on an ``ODD``
+    one (gutter on the left) — i.e. the shift's sign is the mirror image of
+    ``left_margin``'s own choice four lines up.
     """
     cell = _shared_cell_mm(upper, lower)
     left_margin = OUTSIDE_MM if parity is PageParity.EVEN else GUTTER_MM

@@ -152,9 +152,11 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         reasoning (right-alignment made the lower slot's drawing reach the
         folio's own outer corner on *every* two-up page, not just a tight
         one). The owner's "reserve folio room" decision closes that gap:
-        ``puzzle_pages`` now reserves this exact page's own folio width at
-        the lower slot's outer corner (``_folio_reserve_px``), so the
-        two-up page is numbered like every other page again — no carve-out.
+        ``puzzle_pages``/``puzzle_section`` now reserve room at the lower
+        slot's outer corner (``_folio_reserve_px`` — since CARD-204 Fix 2,
+        the book's own worst-case bound, not this one page's own folio
+        width), so the two-up page is numbered like every other page
+        again — no carve-out.
         """
         generator = BookPDFGenerator(corpus_book())
         calls, drawn = _spy_interior(generator, baseline_puzzles(), monkeypatch)
@@ -542,11 +544,22 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         two-up page, deterministically — the folio was permanently lost
         from this page kind. This test is the control that used to prove
         the loss; it now proves the owner's "reserve folio room" fix: once
-        ``puzzle_pages``'s own ``folio_reserve_px`` (this exact page's
-        folio text width, measured the way ``_draw_folio`` itself measures
-        it) is threaded through ``compute_pair_layout``, the lower slot's
-        drawing stops exactly at the reserve's edge instead of the usable
-        area's — a measured, non-zero gap, not just "something draws."
+        a ``folio_reserve_px`` is threaded through ``compute_pair_layout``,
+        the lower slot's drawing stops exactly at the reserve's edge
+        instead of the usable area's — a measured, non-zero gap, not just
+        "something draws."
+
+        This is a unit test of ``compute_pair_layout``/``_slot_layout``'s
+        own geometry, called directly, not of what a production caller
+        passes it: that is ``puzzle_pages``/``puzzle_section``'s own
+        concern (CARD-204 Fix 2, cycle-1 review F-1), tested separately
+        (``tests/property/test_book_pairing.py``'s
+        ``test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber``).
+        ``_folio_reserve_px(5, dpi)`` below reads as "a 1-digit reserve" —
+        the same figure whether the ``5`` means "page 5's own folio text"
+        (Fix 1's reading) or "a book whose own worst case is 1 digit" (Fix
+        2's), which is what lets this geometry-only test stay unchanged by
+        Fix 2 at all.
         """
         generator = BookPDFGenerator(corpus_book("f1-two-up-slack"))
         duck = generator._payload(puzzle("f1-two-up-slack-duck", 10, 10, 3, "easy", "Duck"))

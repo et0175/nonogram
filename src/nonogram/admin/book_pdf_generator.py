@@ -1401,24 +1401,60 @@ def _draw_folio(
     draw.text((x, bottom), text, font=font, fill=INK, anchor=anchor)
 
 
-def _folio_reserve_px(page_number: int, dpi: int) -> int:
-    """How wide ``page_number``'s own folio prints, in device pixels (CARD-204 Fix 1).
+def _folio_reserve_px(max_page_number: int, dpi: int) -> int:
+    """The widest folio this book could ever print, in device pixels (CARD-204 Fix 2).
 
-    Exactly the measurement :func:`_draw_folio` makes internally for its own
-    ``text_width`` check — same :data:`FOLIO_PT`, same :func:`_band_font`,
-    same ``font.getlength`` — so a caller that wants to *guarantee* this
-    page's folio has room (rather than merely hope it does) reserves exactly
-    this many pixels, never an invented constant. Rounded up
-    (:func:`math.ceil`): a reservation of a fractional pixel less than the
-    real text would be the one way this could still fail by a hair.
+    **Fix 1's bug, and why this is not "this exact page's own folio width"
+    any more.** Fix 1 called this with the *actual* page number being laid
+    out, so a two-up page's own ``folio_reserve_px`` — and therefore
+    ``compute_pair_layout``'s accept/refuse verdict and the shared cell it
+    commits to (INV-010, FR-040) — depended on how many digits *that one
+    page's own number* happened to have. The cycle-1 review (F-1) reproduced
+    it directly: the identical pair of puzzles paired at page 99 (a 2-digit
+    reserve) and was outright refused at page 100 (a 3-digit reserve) of the
+    same book. A pairing decision is supposed to depend only on the two
+    puzzles' own geometry and tier (and, as below, the book's own overall
+    scale) — never on which specific page number they happen to land on,
+    which is itself a side effect of every pairing decision *before* theirs.
 
-    The only caller is :meth:`BookPDFGenerator.puzzle_pages`, which passes
-    this as ``compute_pair_layout``'s own ``folio_reserve_px`` — one call per
-    two-up page, for that exact page's own number, never a worst-case digit
-    count guessed in advance.
+    Fix 2 reserves for the **worst-case digit count this book could ever
+    reach**, not the text of any one page's own folio. ``max_page_number``
+    is that upper bound — the highest page number the book's own total
+    puzzle/section count could ever produce if none of its same-tier
+    neighbours paired at all (pairing only ever *shortens* the book, never
+    lengthens it, so this is always a safe ceiling) — never the number of
+    the page currently being laid out. Callers derive it once, before any
+    page is numbered or any pair is offered, from counts alone
+    (:meth:`BookPDFGenerator.puzzle_section` derives the whole book's bound
+    this way and hands the *same* value to every level's
+    :meth:`BookPDFGenerator.puzzle_pages` walk), so the same two puzzles get
+    the same reserve wherever in the book they end up — the digit count
+    cannot change out from under a pairing decision that has already been
+    made, or change a later one just because an earlier page happened to
+    cross a power of ten.
+
+    The reserve itself is the widest single digit this font ever draws
+    (measured over all ten, not assumed to be ``"9"`` or monospaced), times
+    ``max_page_number``'s own digit count, rounded up
+    (:func:`math.ceil`). That is a safe *over*-estimate of any real
+    ``max_page_number``-digit folio's text width — never an under-estimate,
+    so the clearance it buys is always enough — at the cost of reserving a
+    few pixels more than one specific page's own folio strictly needs on a
+    book with fewer digits than its own worst case (an accepted trade, per
+    the owner's "a tiny, consistent gap" framing of Fix 1, now paid once for
+    the whole book rather than measured and re-paid per page).
+
+    The only callers are :meth:`BookPDFGenerator.puzzle_pages` (its own
+    standalone default, when no book-level reserve is handed to it) and
+    :meth:`BookPDFGenerator.puzzle_section` (the whole book's own bound,
+    computed once and passed to every level's walk).
     """
+    if max_page_number < 0:
+        raise ValueError(f"max_page_number must not be negative, not {max_page_number}")
+    digit_count = len(str(max_page_number))
     font = _band_font(type_px(FOLIO_PT, dpi))
-    return math.ceil(font.getlength(str(page_number)))
+    widest_digit_px = max(font.getlength(str(digit)) for digit in range(10))
+    return math.ceil(widest_digit_px * digit_count)
 
 
 def _guide_rule_width(spec: PageSpec) -> int:
@@ -3548,12 +3584,21 @@ class BookPDFGenerator:
         parities, every time (``drawing_right``/``drawing_left`` landed
         exactly on ``usable_right``/``usable_left``, leaving zero
         clearance) — the folio was permanently lost from this page kind.
-        :meth:`puzzle_pages` now passes ``compute_pair_layout`` this exact
-        page's own ``folio_reserve_px`` (:func:`_folio_reserve_px`), which
-        reserves that many pixels at the lower slot's own outer corner, so
+        :meth:`puzzle_pages` now passes ``compute_pair_layout`` a
+        ``folio_reserve_px`` (:func:`_folio_reserve_px`), which reserves
+        that many pixels at the lower slot's own outer corner, so
         ``lower.page.drawing_right``/``drawing_left`` read here are never
         flush any more: the horizontal check above clears, and the folio
         reappears.
+
+        **CARD-204 Fix 2.** That reserve is no longer this one page's own
+        measured folio width (Fix 1's bug, cycle-1 review F-1: the same pair
+        of puzzles could pair on one page and refuse to pair on another,
+        purely from the two pages' own digit counts) — it is the whole
+        book's own worst-case bound, the same pixel count on every two-up
+        page regardless of which one this is (:meth:`puzzle_section`). Only
+        the reserve's *source* changed; the geometry it buys here is
+        unchanged.
         """
         pair = plan.pair
         if pair is None:  # pragma: no cover - the walk only sends two-up plans here
@@ -3927,6 +3972,7 @@ class BookPDFGenerator:
         first_page: int = 1 + GUIDE_PAGE_COUNT,
         ids: Optional[List[Any]] = None,
         first_number: int = 1,
+        folio_reserve_px: Optional[int] = None,
     ) -> List[PuzzlePagePlan]:
         """The pairing walk over the book order (FR-040, INV-010, EC-027).
 
@@ -3984,6 +4030,19 @@ class BookPDFGenerator:
                 puzzle carries, so the bands and the answer key still run 1..n
                 unbroken across the levels (AC-255) and a divider consumes
                 none of them.
+            folio_reserve_px: CARD-204 Fix 2's book-level folio reserve, in
+                device pixels — the same value for every two-up page this
+                walk lays out, so the same two puzzles pair (or do not) the
+                same way wherever they land (INV-010; see
+                :func:`_folio_reserve_px`'s own docstring for the cycle-1
+                review finding this replaces). ``None``, the default,
+                derives this call's own bound from its own ``payloads`` and
+                ``first_page`` alone (the highest page number this call
+                could reach if nothing paired) — correct for a standalone
+                call, but :meth:`puzzle_section` always passes its *own*,
+                whole-book bound explicitly instead, so that splitting the
+                walk at a level boundary never gives two levels of the same
+                book two different reserves.
 
         Returns:
             One :class:`PuzzlePagePlan` per page, in print order.
@@ -3999,6 +4058,19 @@ class BookPDFGenerator:
             raise ValueError(
                 f"ids must be parallel to payloads: {len(ids)} id(s) for "
                 f"{len(payloads)} payload(s)"
+            )
+        # CARD-204 Fix 2: one reserve for this whole call, derived from its
+        # own worst case (every payload printed alone, no pairing at all) —
+        # never a per-page measurement, which is what let the same pair's
+        # verdict depend on which page number it happened to land on (F-1
+        # of the cycle-1 review). A caller that already knows the *book's*
+        # own bound (puzzle_section, splitting this walk across levels)
+        # passes it explicitly so every level shares it.
+        if folio_reserve_px is None:
+            folio_reserve_px = (
+                _folio_reserve_px(first_page + len(payloads) - 1, self.dpi)
+                if payloads
+                else 0
             )
         plan: List[PuzzlePagePlan] = []
         page_number = first_page
@@ -4019,11 +4091,11 @@ class BookPDFGenerator:
                         (first.row_clues, first.column_clues),
                         (second.row_clues, second.column_clues),
                         self.page_spec(page_number),
-                        # CARD-204 Fix 1: reserve this exact page's own folio
-                        # width at the lower slot's outer corner, so
-                        # _draw_folio's horizontal-clearance check always
-                        # passes on a two-up page (see _folio_reserve_px).
-                        folio_reserve_px=_folio_reserve_px(page_number, self.dpi),
+                        # CARD-204 Fix 2: the call's (or the book's) own
+                        # page-number-independent reserve, computed once
+                        # above/by the caller — never this one page's own
+                        # number (see _folio_reserve_px).
+                        folio_reserve_px=folio_reserve_px,
                     )
                 except Exception as e:
                     raise RuntimeError(
@@ -4075,6 +4147,27 @@ class BookPDFGenerator:
         numbers run on unbroken through ``first_number``, so a divider costs a
         page and no number (AC-255).
 
+        **CARD-204 Fix 2: one folio reserve for the whole book, derived here
+        and handed to every level's walk.** If each level's own
+        :meth:`puzzle_pages` call derived its *own* reserve from only its own
+        slice (as it does when called standalone), two levels of the *same*
+        book could end up with two different reserves purely because one
+        level's own puzzle count happens to push its own local bound across a
+        digit boundary the other level's does not — reintroducing, one level
+        at a time, exactly the page-number dependence Fix 2 removes at the
+        single-call level (see :func:`_folio_reserve_px`'s own docstring and
+        the cycle-1 review's F-1). So this method computes the bound **once**,
+        from the *whole* book's own total puzzle count and this section's own
+        ``first_page`` — the highest page number the book could ever reach if
+        not one pair in it shared a page and every named level opened its own
+        divider (both are upper bounds: pairing only shortens the book, and a
+        level with no puzzles in it is never named in the first place,
+        :func:`interior_page_count`'s own ``min(len(TIERS), puzzle_count)``
+        reasoning) — and passes that *same* value to every level's
+        :meth:`puzzle_pages` call below, so a pair's verdict depends on the
+        book's own scale and never on which level or page it happens to land
+        on.
+
         Args:
             payloads: The drawable puzzles in print order.
             first_page: The interior position of the section's first page,
@@ -4115,6 +4208,18 @@ class BookPDFGenerator:
             )
         section: List[SectionPage] = []
         page_number = first_page
+        # CARD-204 Fix 2: the whole book's own worst-case bound, computed
+        # once from counts alone — never from any specific pair's own page
+        # number — and shared by every level's walk below (see this
+        # method's own docstring and _folio_reserve_px's).
+        book_folio_reserve_px = (
+            _folio_reserve_px(
+                first_page + min(len(TIERS), len(payloads)) + len(payloads) - 1,
+                self.dpi,
+            )
+            if payloads
+            else 0
+        )
         for level, start, end in _level_runs(payloads):
             if level is not None:
                 section.append(DividerPagePlan(page_number, level))
@@ -4124,6 +4229,7 @@ class BookPDFGenerator:
                 first_page=page_number,
                 ids=None if ids is None else ids[start:end],
                 first_number=start + 1,
+                folio_reserve_px=book_folio_reserve_px,
             )
             section.extend(pages)
             page_number += len(pages)

@@ -834,6 +834,10 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         # CARD-204 Fix 1: page 5 is ODD (right-hand) — the lower slot's
         # drawing, and so its band, is pulled this many pixels *left* of
         # where a single page's own (unshifted) band would sit.
+        # CARD-204 Fix 2: this figure is the book's own worst-case reserve,
+        # not page 5's own folio text width — this book (two puzzles) is
+        # small enough that both readings give the same 1-digit number, so
+        # _folio_reserve_px(5, 300) still reads correctly here.
         assert _same_ink(
             lower,
             _reference_band(
@@ -903,6 +907,9 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         # band is pulled this many pixels *right* of where a single page's
         # own (unshifted) band would sit (the mirror of page 5's ODD case
         # above).
+        # CARD-204 Fix 2: again the book's own worst-case reserve, not page
+        # 6's own folio text width — this book (three puzzles) still gives
+        # the same 1-digit number either way.
         assert _same_ink(
             _band_ink(page, self.LOWER_BAND_TOP_MM),
             _reference_band(
