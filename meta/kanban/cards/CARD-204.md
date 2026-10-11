@@ -739,6 +739,85 @@ implementation before they are resolved.
     was in this fix's own original touch-list guess, both genuinely broken
     by Fix 1's geometry change, both fixed above (not skipped, not loosened).
 
+- [Fix 2, 2026-10-11] Review cycle 1's gating finding (F-1, Critical) and its
+  companion (F-2, Minor) fixed.
+
+  - **F-1 (Critical, fixed) — the pairing decision depended on the page
+    number's own digit count.** Root cause: `_folio_reserve_px(page_number,
+    dpi)` measured *that one page's own* folio text width and fed it
+    straight into `compute_pair_layout`'s pairing/cell-sizing decision —
+    the review reproduced directly that the identical pair of puzzles
+    paired at a 2-digit page and refused outright at a 3-digit page of the
+    same book, violating INV-010. **Fix**: `_folio_reserve_px` now takes
+    `max_page_number` — a book-level worst-case bound, never one specific
+    page's own number — and returns the widest single digit this font ever
+    draws (measured over all ten, not assumed) times that bound's own digit
+    count, a safe over-estimate. `puzzle_pages` derives this once per call
+    from its own worst case when not told a value; `puzzle_section`
+    computes it **once for the whole book** and passes the *same* value
+    into every level's `puzzle_pages` call, so splitting the walk at a
+    level boundary never gives two levels of one book two different
+    reserves. `compute_pair_layout`/`_slot_layout` themselves are
+    unchanged — only their docstrings now state the caller contract (the
+    value must be page-number-independent).
+  - **Invariant verified, not assumed.** Reproduced the review's exact F-1
+    numbers directly against `compute_pair_layout` (confirmed: 1-digit
+    reserve pairs at 7.0885mm, 2-digit at 7.0038mm, 3-digit refuses —
+    matching the review's own cited figures exactly), then proved the fix
+    end-to-end: the *same* borderline pair, placed early vs. late in an
+    otherwise-identical book (different actual page numbers/parities), now
+    gets an *identical* verdict and cell_mm every time — the verdict only
+    changes when the *book's own total scale* crosses a digit boundary, a
+    legitimate dependency, never from where the pair happens to land.
+  - **New permanent regression test**:
+    `tests/property/test_book_pairing.py::test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber`
+    — sweeps three enumerated regimes (1/2/3-digit book scales), each
+    checked both early- and late-placed, with hand-derived expected
+    `cell_mm` values (an independent second implementation per CLAUDE.md,
+    not re-derived from this module's own oracle, which already shares the
+    fix's own formula and so could not itself catch a regression in it).
+    This closes the review's own F-3 gap too (the existing 900-case oracle
+    caps books at 8 puzzles, never reaching a 3-digit page number).
+  - **F-2 (Minor, fixed)** — `_slot_layout`'s docstring overclaimed that its
+    reserve clamp guards the MIN_CELL_MM floor-overflow case; corrected to
+    state that case is unreachable for a two-up slot (`compute_pair_layout`'s
+    own 7.0mm gate already excludes it) and the clamp is kept only for
+    defensive symmetry.
+  - **Test files updated, re-verified against the new semantics (not left
+    green by luck)**: `test_book_pairing.py` (oracle + new test),
+    `test_book_export_interior.py` (oracle was failing before this fix:
+    expected 27px, production now correctly uses 54px for a 4-puzzle book —
+    fixed the oracle, not the assertion), `test_book_pdf_memory.py` (new
+    `_book_folio_reserve_px` helper independently reimplementing
+    `puzzle_section`'s formula, replacing a per-page re-derivation that
+    would have silently reintroduced page-number dependence into the test
+    itself), `test_book_page_numbers.py`/`test_book_puzzle_frame.py`/
+    `test_book_pdf_two_up.py` (docstrings corrected; no logic changes
+    needed — confirmed numerically that their small books' book-level and
+    per-page bounds coincide at 1 digit).
+  - **Baseline fixture regenerated in place**: `tests/fixtures/book_baseline_card204.json`
+    — only interior page 5's digest moves (`interior_bytes`: 3439779 →
+    3440674, +895 bytes), because the baseline book's own worst-case bound
+    is 2 digits vs. Fix 1's page-5-specific 1 digit; confirmed by diffing
+    all 13 page digests programmatically — pages 1-4/6-13 and
+    `font_fingerprint` byte-identical to Fix 1's own recording.
+  - **Test evidence:** `test_book_pairing.py` 3 passed; `test_book_page_numbers.py`
+    15 passed; `test_book_puzzle_frame.py` 66 passed; `test_book_pdf_two_up.py`
+    all passed; `test_book_export_interior.py` 2 passed; `test_book_pdf_memory.py`
+    40 passed, 1 skipped (pre-existing, unrelated); `test_book_qr_slot.py` 12
+    passed; `pytest tests/ -k "book"` exit 0, [100%], no F/E (confirmed twice).
+  - **Orchestrator's own investigation note**: the mandated full-suite run
+    initially appeared to hang for 5+ hours on
+    `test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_pdf_pages`.
+    Diagnosed via this project's own hang-guard stack dump and an isolated
+    reproduction: **not a bug** — this is a legitimately slow pre-existing
+    property test (220 full book-interior renders) that normally takes
+    ~2 minutes, right at the 120s hang-guard threshold, and stretched to
+    hours under this machine's documented severe Microsoft Defender CPU
+    contention (`wdavdaemon_unprivileged` spiking 100-500%+ CPU). Confirmed
+    by a clean isolated rerun: 1 passed in 119.54s, no contention. Unrelated
+    to this fix.
+
 ## System contract
 
 _Not yet assembled — run `python3
