@@ -16,7 +16,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
-**Review score:** 4.5/10 (cycle 1, gating — fix in progress)
+**Review score:** 4.0/10 (cycle 2, new gating finding — fix in progress)
 **Started:** 2026-10-10T05:08:27Z
 **Closed:** —
 **Actual:** —
@@ -665,6 +665,61 @@ merges first.
   Microsoft Defender CPU contention on this machine (a known, previously-
   documented issue this session), not a code defect. Confirmed harmless and
   unrelated to this fix before proceeding.
+
+- [Review] forge:review cycle 2 started (confirmation pass, background agent).
+- [Review 2/3] Score **4.0/10**. 1 NEW Critical, 1 carried informational
+  (F-4, non-gating). Do not merge. Confirmed good: F-1's literal cycle-1
+  reproduction (page 99 vs 100) is genuinely fixed; F-2 (docstring) and F-3
+  (test-coverage gap) are genuinely closed; `puzzle_section`'s book-level
+  bound is mathematically a safe upper bound (cross-checked against
+  `interior_page_count`'s own reasoning) — no new unsafe-value bug there.
+  - **F-5 (Critical, NEW — found via the adversarial re-derivation this
+    cycle's task explicitly demanded, not by trusting the fix's own
+    narrative):** Fix 2 did not remove the coupling between the pairing
+    accept/refuse decision and a non-geometric digit-count quantity — it
+    only moved it from PER-PAGE granularity to PER-BOOK-SCALE granularity.
+    INV-010's own canonical statement
+    (`meta/architecture/domain/aggregates.yml:83-91`) defines "fit" purely
+    by tier equality + adjacency + shared cell >= 7.0mm — nothing about the
+    book's own overall page count. Reproduced directly (the same pair
+    cycle-1 used, unreserved cell 7.1731mm): identical pair, pairs at
+    7.0038mm in a book whose own worst-case page number is 2 digits,
+    refused outright in a book whose own worst-case is 3 digits — and the
+    project's own market research cites a ~120-page median book, making the
+    3-digit regime the COMMON case, not an edge case. This isn't a hidden
+    regression — the fix's own new test bakes this exact behavior in as
+    *expected* (`test_book_pairing.py:676-680`, regime `(98, 3, False,
+    None)`), and the Fix 2 worktree notes assert "a legitimate dependency"
+    without amending INV-010's own text or routing the drift to
+    architect-station — unlike this same card's own F-4, which explicitly
+    deferred its own text gap the correct way. G-5 (this card's own
+    guardrail: "does not change which puzzles pair") is violated for the
+    same reason it was in cycle 1.
+  - **Suggested remedy** (the reviewer's own, both named, (a) preferred):
+    (a) decouple the accept/refuse decision AND the committed cell size
+    from `folio_reserve_px` entirely — decide pairing from the unreserved
+    cell first, and make the reserve a purely cosmetic, best-effort
+    adjustment applied only at drawing time: if the committed (unreserved)
+    cell size happens to leave enough slack at a specific page's own
+    corner, draw the folio; if not, omit it for that one page — the same
+    "omit rather than collide" precedent CARD-200's own `_draw_folio`
+    already established elsewhere, generalized here rather than invented;
+    or (b) get the owner/architect-station to explicitly amend INV-010 to
+    permit a book-scale term, recorded the same documented way F-4 was.
+    Orchestrator's own read: (a) is clearly the better engineering path —
+    it fully satisfies the existing invariant with no exception needed,
+    costs only an occasional single omitted folio (a strictly smaller,
+    already-precedented, page-local degradation) instead of changing
+    whether two puzzles share a page at all, and needs no owner escalation
+    since it's a technical fix, not a product tradeoff.
+  - System contract: 56 rules checked, 8 ✓ holds, 46 ⚠ unchecked (carried),
+    2 ✗ violated (INV-010, G-5).
+  - Mutation check / baseline-acceptance deferred again (new gating finding
+    this cycle).
+  - Review report synced: `meta/review/20261012T140501Z-CARD-204-cycle2.yml`.
+  - **Verdict: NOT ready to merge** — routing to forge:fix for F-5, cycle 3
+    (implementing remedy (a): reserve becomes cosmetic/best-effort, never
+    load-bearing for the pairing or cell-size decision).
 
 ## System contract
 

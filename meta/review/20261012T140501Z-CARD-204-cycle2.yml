@@ -1,0 +1,194 @@
+version: 1
+generated_at: "2026-10-12T14:05:01Z"
+target: "CARD-204 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-204, branch card/204-puzzle-right-align-qr, commits 5891969 (Fix 2) + 0783434 (worktree notes) — review cycle 2 (confirmation cycle, differential re-review of the F-1/F-2 fix delta)"
+overall_score: 4.0
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py (full diff: _folio_reserve_px, puzzle_pages, puzzle_section, plus interior_page_count/_level_runs for the upper-bound cross-check)
+    - src/nonogram/export/layout.py (full diff: compute_pair_layout/_slot_layout docstrings; confirmed their arithmetic is byte-for-byte unchanged from cycle 1)
+    - tests/property/test_book_pairing.py (full diff incl. new test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber)
+    - tests/property/test_book_export_interior.py, tests/test_book_pdf_memory.py, tests/test_book_page_numbers.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf_two_up.py (full diffs)
+    - tests/helpers/book_corpus.py (fixture-history diff)
+    - meta/kanban/cards/CARD-204.md Fix 2 worktree notes (full)
+    - meta/architecture/domain/aggregates.yml INV-010's canonical statement
+    - meta/review/20261010T174853Z-CARD-204-cycle1.yml (full, for prior context)
+    - Independently reproduced both the cycle-1 bug baseline and the Fix-2 behaviour with a standalone script run directly against this worktree's compute_pair_layout/_folio_reserve_px (not just read the source) — including a cross-book-scale sweep cycle 1 did not run
+    - Ran the touched test files directly (pytest tests/property/test_book_pairing.py tests/test_book_pdf_memory.py tests/test_book_page_numbers.py tests/test_book_puzzle_frame.py tests/test_book_pdf_two_up.py tests/property/test_book_export_interior.py): all green, 1 pre-existing unrelated skip
+  not_reached:
+    - Full ~6850-test suite (not re-run per the task's own instruction; orchestrator's independent run cited: 6854 passed, 9 skipped, 0 failed)
+    - Everything cycle 1 marked not_reached and that this delta provably does not touch (QR slot logic, MIN_CELL_MM floor-overflow single-page case, guide-page rounding)
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 504, removed: 97 }
+  max_fan_in: { symbol: "_folio_reserve_px", callers: 14 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — identical to cycle 1's own note: `git log --name-only --since=12.months -- <files>` on this checkout returns only the queried paths themselves, not each commit's full file list, so historical co-change frequency with sibling files could not be quantified by this method again this cycle."
+
+system_contract:
+  rules_checked: 56
+  holds: 8
+  unchecked: 46
+  violated: 2
+  verdicts:
+    - "INV-010 ✗ violated — carried-and-reconfirmed-worse-than-carried: cycle 1's exact page-level reproduction (page 99 vs page 100 of the same book) is now fixed (independently reproduced: both now refuse consistently with a shared book-level reserve), but the underlying coupling of the pairing accept/refuse decision to a non-geometric quantity is NOT removed, only moved up a level of granularity — the SAME pair/geometry now pairs in a book whose own worst-case page number is 2 digits and refuses in one whose worst-case is 3 digits, independently reproduced (src/nonogram/admin/book_pdf_generator.py _folio_reserve_px + src/nonogram/export/layout.py compute_pair_layout: max_page_number=99 -> reserve=54px -> cell_mm=7.0038; max_page_number=999 -> reserve=81px -> None, same two puzzles). This is also exactly what the fix's own new test bakes in as expected (tests/property/test_book_pairing.py:676-680 REGIMES, third tuple `(98, 3, False, None)`) and what the card's own Fix 2 worktree notes call 'a legitimate dependency' without amending INV-010's statement (meta/architecture/domain/aggregates.yml:83-91: tier equality + adjacency + shared cell >= 7.0mm only, no scale term) or routing the drift to architect-station the way this same card's F-4 routed the FR-032 text gap. See finding F-5."
+    - "G-5 ✗ violated — same root cause as INV-010 above (card's own text: 'this card repositions a pair's slots, it does not change which puzzles pair'); book-scale coupling still changes which puzzles pair, now via total book size rather than one page's own number."
+    - "G-1, G-2, G-6 ✓ holds — carried(cycle 1, delta-clean): this delta touches no code in scope for these guardrails (top-edge formula, solved_puzzle_page body, FR-031 floor/NFR-006 orientation all outside book_pdf_generator.py's _folio_reserve_px/puzzle_pages/puzzle_section and layout.py's two docstring hunks)."
+    - "ADR-0006/R1 ✓ holds — pyproject.toml has zero diff lines across 7c09b93..5891969 (git diff --stat confirms no changes); no new dependency introduced."
+    - "ADR-0036/R1, ADR-0036/R2, ADR-0038/R6, CON-019, CON-021 ✓ holds — carried(cycle 1, delta-clean): this delta is confined to the folio-reserve computation and its callers/docstrings plus tests; it does not touch the placed-page branch, the QR slot geometry, or any URL/hostname-shaped token."
+    - "ADR-0037/R2, CON-020 ⚠ unchecked — carried(cycle 1, delta-clean): no_eligible_fact, unchanged from cycle 1's own reasoning (stroke width/colour and the 10pt text floor are outside this delta)."
+    - "Every other rule in the 56-rule scoped set (as enumerated in cycle 1's own report) ⚠ unchecked — carried(cycle 1, delta-clean): none of them govern folio-reserve/pairing geometry and this delta touches nothing in their scope."
+
+root_causes:
+  - id: RC-1
+    title: "CARD-204's folio-reserve mechanism (introduced by Fix 1, narrowed but not removed by Fix 2) still lets a non-geometric quantity (a digit count derived from page/book scale) flip compute_pair_layout's TWO_UP_MIN_CELL_MM accept/refuse verdict, contradicting INV-010's own geometry-only statement"
+    finding_ids: [F-5]
+
+findings:
+  - id: F-5
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 4215
+    title: "Fix 2 narrows cycle-1's F-1 from per-page to per-book-scale, but the same pair of puzzles can still pair in a short book and refuse to pair in a long book — INV-010 remains violated, just at a coarser granularity"
+    description: |
+      Fix 2's own stated goal (and its new test's docstring) is "the same
+      pair of puzzles gets an identical pairing verdict and cell size
+      regardless of where in the book it lands." That specific claim is
+      true and independently reproduced: within one book, the reserve is
+      now a single constant (book_folio_reserve_px in puzzle_section,
+      lines 4215-4222; puzzle_pages's own standalone default at
+      lines 4069-4074) passed to every level's puzzle_pages call, so the
+      exact page-99-vs-page-100-of-the-same-book flip cycle 1 reported
+      (F-1) no longer occurs — verified directly against this worktree's
+      own compute_pair_layout/_folio_reserve_px.
+
+      But INV-010's canonical statement (meta/architecture/domain/
+      aggregates.yml:83-91) defines "fit" by tier equality, adjacency and a
+      shared cell >= 7.0mm (capped 7.5mm) alone — nothing about any digit
+      count, page number, or book scale. Fix 2 still lets
+      folio_reserve_px participate in compute_pair_layout's
+      TWO_UP_MIN_CELL_MM floor check (src/nonogram/export/layout.py, the
+      `if exact_cell_mm < _exact_mm(TWO_UP_MIN_CELL_MM): return None` after
+      the Fix-1 refit), and that reserve is now sized from
+      `max_page_number`'s own digit count — a property of the *whole
+      book's* total puzzle/divider count, still unrelated to whether these
+      two specific puzzles fit.
+
+      Reproduced directly (not merely argued), using the exact pair cycle
+      1 used (25 columns x 6 rows, row/column-clue depth 2; unreserved
+      shared cell 7.1731mm, comfortably above the 7.0mm floor):
+        - a book whose own worst-case page number is 2 digits (e.g.
+          max_page_number=99): reserve=54px, cell shrinks to 7.0038mm,
+          pairs
+        - a book whose own worst-case page number is 3 digits (e.g.
+          max_page_number=999): reserve=81px, compute_pair_layout returns
+          None - the identical pair REFUSES to pair
+      Same two puzzles, same geometry, same tier, same adjacency - whether
+      they share a page now depends on how large the *book* is, which is
+      exactly as unrelated to "do these two puzzles fit" as the page
+      number F-1 already condemned. Given the project's own market
+      research (median ~120-page books), most real books will sit on the
+      3-digit side of this boundary for their *entire* interior, so this
+      is the common case, not a corner case.
+
+      This is not a hidden regression: the fix's own new test encodes it
+      as expected (tests/property/test_book_pairing.py:676-680, the
+      REGIMES tuple `(98, 3, False, None)` - the 3-digit regime is
+      asserted to NOT pair), and the card's own Fix 2 worktree notes
+      state outright: "the verdict only changes when the book's own total
+      scale crosses a digit boundary, a legitimate dependency." That
+      characterization is not supported by INV-010's own text, and unlike
+      this same card's F-4 (the FR-032 centred-vs-right-aligned text gap,
+      explicitly routed to architect-station as a deferred model update),
+      this new dependency was not flagged to the model or routed anywhere
+      - it is simply asserted as fine in prose and then locked in by a
+      test that would fail if someone later tried to actually fix it.
+
+      G-5 (this card's own guardrail: "this card repositions a pair's
+      slots, it does not change which puzzles pair") is violated for the
+      same reason it was in cycle 1 - the pairing mechanism Fix 1
+      introduced, and Fix 2 narrows but does not remove, still changes
+      which puzzles pair, now as a function of total book size rather
+      than one page's own number.
+    suggestion: |
+      Either (a) implement cycle 1's original suggested remedy in full:
+      decide pair/no-pair from the *unreserved* cell against
+      TWO_UP_MIN_CELL_MM first, and use folio_reserve_px only as a
+      cosmetic adjustment within whatever cell that first decision already
+      settled on (never letting it flip the verdict) - falling back to
+      _draw_folio's own "omit rather than collide" rule for the rare page
+      where the already-accepted cell leaves no room for the folio; or
+      (b) if the owner/architect station decides a book-scale dependency
+      really is acceptable, amend INV-010's own statement in
+      domain/aggregates.yml to say so explicitly (the same way FR-032 is
+      being amended for F-4) rather than leaving the model's stated
+      invariant and the code's actual behaviour in disagreement. Either
+      way, this needs an explicit decision, not a prose assertion in a
+      worktree note.
+    confidence: high
+    source: static
+    violates: INV-010
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-6
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-204.md
+    line: 0
+    title: "F-3 (cycle-1, the 900-case corpus's structural inability to reach a 3-digit page number) is genuinely closed by the new dedicated test"
+    description: |
+      tests/property/test_book_pairing.py::test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber
+      sweeps exactly the 1/2/3-digit boundary with hand-derived expected
+      cell_mm values, independently verified against compute_pair_layout
+      before the test was written (not re-derived from the module's own
+      Sheet.shared_cell_mm oracle, which already shares Fix 2's formula).
+      Independently re-run here: all cases pass. This closes F-3 as
+      intended - noted for completeness, not a gating item.
+    suggestion: |
+      None needed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "5891969"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-4
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 2226
+    title: "Carried from cycle 1, unchanged by this delta: FR-032's statement/AC-274..276/EC-032 still describe centred placement; explicitly deferred to architect-station, not touched by this fix"
+    description: |
+      Unchanged since cycle 1 - this fix delta does not touch
+      requirements.yml. Carried forward per confirmation-mode rules
+      (delta-clean).
+    suggestion: |
+      Same as cycle 1: route an FR-032 requirements-text revision through
+      /forge:architect promptly.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
