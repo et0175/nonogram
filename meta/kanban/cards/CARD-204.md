@@ -1,7 +1,7 @@
 
 # CARD-204: Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver
 
-**Status:** review
+**Status:** blocked
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2.5d
@@ -16,12 +16,12 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
-**Review score:** 4.0/10 (cycle 2 — fixed, cycle 3 confirmation pending)
+**Review score:** 4.0/10 (cycle 3/3 — review-budget escalation, owner decision needed)
 **Started:** 2026-10-10T05:08:27Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — review cycle 3/3 (owner): two-up folio placement vs. INV-010 pairing-geometry purity, see [Review 3/3]
 
 ## What to implement
 
@@ -744,6 +744,57 @@ merges first.
   -k "book"` exit 0. **Full suite: 6854 passed, 9 skipped, 0 failed, 0
   errors** (986.13s) — identical count to Fix 2's own run, consistent with
   a pure simplification.
+
+- [Review] forge:review cycle 3 started (confirmation/final pass per
+  max_cycles:3, background agent).
+- [Review 3/3 — FINAL CYCLE, ESCALATION] Score **4.0/10**. 1 NEW Critical
+  (F-7), 1 Minor (F-8, pre-existing/orthogonal), F-4 carried unchanged.
+  **F-5/INV-010 confirmed cleanly and structurally resolved** — the
+  reviewer independently re-derived (not just re-ran the new test) that
+  `compute_pair_layout`/`_slot_layout` carry no parameter, default, or
+  closure variable through which any page-number/book-scale quantity could
+  reach the accept/refuse verdict or cell size; the baseline fixture's 13
+  page digests are byte-identical to the original pre-Fix-1 commit
+  (`0299bf1`), confirmed programmatically; a targeted mutation on the
+  rewritten `_slot_layout` formula was killed (9 tests failed), confirming
+  the tests actually pin this cycle's own change.
+  - **F-7 (Critical, NEW — this exact cycle's own delta, not carried):**
+    removing the reserve mechanism to fix F-5 silently **reintroduced the
+    original pre-Fix-1 regression**: the folio is lost on **every** two-up
+    page, not just tight-fit ones — verified with a deliberately asymmetric
+    pair (25 vs 10 columns), confirming the outer-corner gap is exactly 0
+    in both parities regardless of extent (algebraic: the flush formula's
+    "+spare" term only ever lands on the gutter side, never the outer
+    corner where the folio sits). **This is the identical finding this
+    card's own pre-Fix-1 Worktree notes already proved** (search "permanently
+    omitted on every two-up page... algebraically, regardless of the
+    puzzle's own spare") — the exact finding that led to the owner's own
+    "Reserve folio room" decision before Fix 1 was ever written. Fix 3
+    silently reverts that owner decision without re-consulting them, and
+    its own commit message/two docstrings (`layout.py:2072-2077`,
+    `book_pdf_generator.py:3538-3544`) mischaracterize this as an
+    occasional, pair-dependent "tight natural slack" case — contradicted by
+    this cycle's own new regression test's own docstring, which correctly
+    states the universal nature. The corpus-wide AC-1 test was narrowed to
+    carve out the one two-up page rather than fixing or escalating.
+  - **F-8 (Minor, non-gating):** a pre-existing, orthogonal exact-equality
+    boundary gap in `TWO_UP_MIN_CELL_MM`'s `<`/`<=` comparison
+    (`layout.py:1999`) — predates CARD-204 entirely, no covering test.
+  - System contract: 56 rules checked, 9 ✓ holds (incl. INV-010, G-5 — both
+    now genuinely resolved), 46 ⚠ unchecked (carried), 1 card-level AC
+    violated (CARD-200's AC-1, not in the 56-rule registry, reported for
+    visibility).
+  - Review report synced: `meta/review/20261012T151720Z-CARD-204-cycle3.yml`.
+  - **Verdict: NOT ready to merge. Review-budget escalation point reached**
+    — this is cycle 3 of `max_cycles: 3`, and the card is still not clean.
+    Per this project's own rule, continuing past this point requires
+    explicit owner sign-off, not an automatic cycle 4. F-5 itself is
+    cleanly and structurally fixed — the remaining problem is a genuine
+    product tradeoff the owner already decided once (and this fix silently
+    reversed without asking): whether every two-up page keeps its folio
+    (their original "Reserve folio room" answer) is in direct tension with
+    making the pairing decision purely geometry-based (INV-010). Routing to
+    the owner for an explicit decision before any further fix cycle.
 
 ## System contract
 
