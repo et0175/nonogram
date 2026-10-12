@@ -263,6 +263,28 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``font_dependent_pages`` are unchanged (Fix 2 touches no
 #:   machine-lettered page either).
 #:
+#: * ``book_baseline_card204.json`` (**re-recorded in place a third time for
+#:   CARD-204 Fix 3**, same filename): the cycle-2 review's F-5 finding —
+#:   Fix 2 narrowed Fix 1's bug from per-page to per-book-scale, but did not
+#:   remove it: the same pair of puzzles still paired or refused differently
+#:   depending on the book's own total page-number digit count, still a
+#:   non-geometric quantity flipping INV-010's verdict (``meta/architecture/
+#:   domain/aggregates.yml``'s own statement is geometry-only). Fix 3 removes
+#:   the ``folio_reserve_px``/``outer_reserve_px`` mechanism from
+#:   ``compute_pair_layout``/``_slot_layout`` entirely: the pairing/cell-size
+#:   decision is geometry-only again, and the folio is decided afterward,
+#:   cosmetically, from whatever natural slack the committed geometry leaves
+#:   (``_draw_folio``'s own pre-existing "omit rather than collide" check,
+#:   unchanged). Measured directly (page-by-page digest comparison against
+#:   Fix 2's own recording): only interior page 5 (the two-up page) moves,
+#:   back to its pre-Fix-1 ink — the lower slot's drawing/QR-icon geometry
+#:   returns to the plain flush position and its folio is omitted again
+#:   (this baseline pair's own natural spare at that corner is zero).
+#:   ``interior_bytes`` moves from 3440674 back to 3439483 (-1191 bytes, the
+#:   folio glyph's own ink removed). ``font_fingerprint`` and
+#:   ``font_dependent_pages`` are unchanged (Fix 3 touches no machine-lettered
+#:   page either).
+#:
 #: All thirteen files carry the reasoning; this constant names the current one.
 BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
 

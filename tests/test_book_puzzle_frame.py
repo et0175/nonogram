@@ -85,7 +85,6 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
-    _folio_reserve_px,
     _stroke_drawing,
 )
 from nonogram.export import ExportPayload
@@ -810,48 +809,32 @@ def _expected_pair_boxes(
     That rectangle **is** the frame: its left and top are the outer edges of
     the two clue gutters and its right and bottom the grid's own outer border.
 
-    **CARD-204 Fix 1 (revised by Fix 2):** the lower box alone is pulled a
-    folio reserve (:func:`_folio_reserve_px`, the same figure
-    ``book_pdf_generator.puzzle_pages``/``puzzle_section`` feed
-    ``compute_pair_layout``) back toward the gutter — this independent
-    mm-arithmetic re-derivation must agree with production's own reserve,
-    not merely with its formula, or a bug in the reserve's *size* (as
-    opposed to its direction) would sail through every test in this file
-    unnoticed. Since Fix 2 that figure is the book's own worst-case bound,
-    not ``page_number``'s own folio text width (the cycle-1 review's F-1);
-    this book's own total puzzle count is small enough that both readings
-    give the same 1-digit reserve, which is why this call site still passes
-    ``page_number`` unchanged rather than the book's own bound — see
-    :func:`_folio_reserve_px`'s own docstring if that ever stops being true
-    here. Toward the gutter is *away* from ``left_margin`` on an ``EVEN``
-    page (gutter on the right) and *toward* ``left_margin`` on an ``ODD``
-    one (gutter on the left) — i.e. the shift's sign is the mirror image of
-    ``left_margin``'s own choice four lines up.
+    **History (CARD-204 Fix 1/Fix 2, both reverted by Fix 3).** Fix 1/Fix 2
+    pulled the lower box alone back toward the gutter by a folio reserve,
+    so that figure had to be re-derived here too. Fix 3 removes the
+    reserve mechanism from ``compute_pair_layout``/``_slot_layout``
+    entirely — the lower box is laid out by the exact same, unshifted
+    flush formula as the upper one, so this helper no longer takes a
+    ``page_number`` or re-derives any reserve; the parameter is kept only
+    so every call site below (which still names a page number for its own
+    documentation value) does not need editing.
     """
     cell = _shared_cell_mm(upper, lower)
     left_margin = OUTSIDE_MM if parity is PageParity.EVEN else GUTTER_MM
-    reserve_px = _folio_reserve_px(page_number, DPI)
-    lower_shift_px = reserve_px if parity is PageParity.EVEN else -reserve_px
 
-    def box(
-        puzzle: dict, top_mm: float, shift_px: float = 0.0
-    ) -> tuple[float, float, float, float]:
+    def box(puzzle: dict, top_mm: float) -> tuple[float, float, float, float]:
         spare_mm = USABLE_WIDTH_MM - _across(puzzle) * cell
         left_mm = left_margin if parity is PageParity.EVEN else left_margin + spare_mm
         return (
-            left_mm * PX_PER_MM + shift_px,
+            left_mm * PX_PER_MM,
             top_mm * PX_PER_MM,
-            (left_mm + _across(puzzle) * cell) * PX_PER_MM + shift_px,
+            (left_mm + _across(puzzle) * cell) * PX_PER_MM,
             (top_mm + _down(puzzle) * cell) * PX_PER_MM,
         )
 
     return (
         box(upper, TOP_MM + BAND_MM),
-        box(
-            lower,
-            BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell,
-            lower_shift_px,
-        ),
+        box(lower, BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell),
     )
 
 

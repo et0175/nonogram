@@ -49,7 +49,7 @@ from nonogram import clues
 from nonogram.admin.book_answer_key import Answer, plan_small_answer_pages
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
+from nonogram.admin.book_pdf_generator import BookPDFGenerator
 from nonogram.difficulty import tier_of_record
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
@@ -325,9 +325,7 @@ def _band_ink(page: Image.Image, top_mm: float) -> Optional[_Ink]:
     return _ink(page.crop((0, top, page.width, bottom)))
 
 
-def _reference_band(
-    puzzle: dict, page_number: int, identity: str, *, shift_px: int = 0
-) -> Optional[_Ink]:
+def _reference_band(puzzle: dict, page_number: int, identity: str) -> Optional[_Ink]:
     """The ink COMP-007 sets for ``identity`` on this puzzle's own single page.
 
     The same payload the generator builds from the row, except that this test
@@ -335,15 +333,16 @@ def _reference_band(
     none, ADR-0037/R1) and the band line, written out by the caller. Its band
     is the 12 mm below the top margin, where a single page's always is.
 
-    ``shift_px`` (CARD-204 Fix 1): a two-up page's lower slot alone is pulled
-    ``folio_reserve_px`` toward the gutter from the flush edge, and the band
-    is centred *on the drawing* (``header_band``'s own ``center_x =
-    (drawing_left + drawing_right) // 2``), so the lower band's own title
-    moves with it — a single page's band (what this reference renders,
-    unshifted) no longer sits in the same column as the two-up lower slot's.
-    The caller passes the signed pixel offset (negative on an ODD/right-hand
-    page, where the reserve pulls left; positive on an EVEN one) for the one
-    comparison this affects; the upper slot never needs it.
+    **History (CARD-204 Fix 1/Fix 2, both reverted by Fix 3).** Fix 1/Fix 2
+    pulled a two-up page's lower slot alone back toward the gutter by a
+    folio reserve, which shifted its band (centred *on the drawing*,
+    ``header_band``'s own ``center_x``) away from where a single page's own
+    unshifted band sits — so this helper used to take a signed ``shift_px``
+    to compensate. Fix 3 removes the reserve mechanism entirely: a two-up
+    page's lower slot is laid out by the same, unshifted flush formula as
+    every other slot, so for an equal-extent pair (every caller below) its
+    band lines up with a single page's own band exactly, with no shift
+    needed at all.
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -357,8 +356,7 @@ def _reference_band(
         difficulty=identity,
     )
     blank, _ = render_pages(payload, page_spec=book_page_spec(_book(), page_number))
-    ink = _band_ink(blank, TOP_MM)
-    return ink if ink is None or not shift_px else ink._replace(left=ink.left + shift_px)
+    return _band_ink(blank, TOP_MM)
 
 
 def _same_ink(first: Optional[_Ink], second: Optional[_Ink]) -> bool:
@@ -831,19 +829,9 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
         assert upper is not None, "the upper band is blank"
         assert lower is not None, "the lower band is blank"
         assert _same_ink(upper, _reference_band(puzzle, 5, "Puzzle 1 · Easy"))
-        # CARD-204 Fix 1: page 5 is ODD (right-hand) — the lower slot's
-        # drawing, and so its band, is pulled this many pixels *left* of
-        # where a single page's own (unshifted) band would sit.
-        # CARD-204 Fix 2: this figure is the book's own worst-case reserve,
-        # not page 5's own folio text width — this book (two puzzles) is
-        # small enough that both readings give the same 1-digit number, so
-        # _folio_reserve_px(5, 300) still reads correctly here.
-        assert _same_ink(
-            lower,
-            _reference_band(
-                puzzle, 5, "Puzzle 2 · Easy", shift_px=-_folio_reserve_px(5, 300)
-            ),
-        )
+        # CARD-204 Fix 3: no reserve shifts the lower slot any more, so its
+        # band lines up exactly with a single page's own (unshifted) band.
+        assert _same_ink(lower, _reference_band(puzzle, 5, "Puzzle 2 · Easy"))
 
     def test_the_two_bands_are_not_the_same_line(self):
         """The measurement has teeth: one band is not the other's ink."""
@@ -903,18 +891,12 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
             _band_ink(page, self.UPPER_BAND_TOP_MM),
             _reference_band(puzzle, 6, "Puzzle 2 · Easy"),
         )
-        # CARD-204 Fix 1: page 6 is EVEN (left-hand) — the lower slot's
-        # band is pulled this many pixels *right* of where a single page's
-        # own (unshifted) band would sit (the mirror of page 5's ODD case
-        # above).
-        # CARD-204 Fix 2: again the book's own worst-case reserve, not page
-        # 6's own folio text width — this book (three puzzles) still gives
-        # the same 1-digit number either way.
+        # CARD-204 Fix 3: no reserve shifts the lower slot any more, so its
+        # band lines up exactly with a single page's own (unshifted) band
+        # (the mirror of page 5's ODD case above, under Fix 1/Fix 2).
         assert _same_ink(
             _band_ink(page, self.LOWER_BAND_TOP_MM),
-            _reference_band(
-                puzzle, 6, "Puzzle 3 · Easy", shift_px=_folio_reserve_px(6, 300)
-            ),
+            _reference_band(puzzle, 6, "Puzzle 3 · Easy"),
         )
 
 

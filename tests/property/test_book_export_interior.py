@@ -52,10 +52,8 @@ from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
-    _folio_reserve_px,
     page_is_right_hand,
 )
-from nonogram.export.layout import DPI
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
 from tests.helpers.two_up_ink import drawings_of
@@ -145,7 +143,7 @@ def _puzzle_page_plan(puzzles):
     return plan
 
 
-def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, reserve_px=0.0):
+def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
     """Where interior page ``page_number`` puts this puzzle's left edge
     (FR-032, CARD-204 reading (b)).
 
@@ -157,14 +155,14 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, reserve_px=0.0)
     puzzle is a slot of a two-up page (FR-040); its drawing is right-aligned
     across the same usable width either way.
 
-    ``reserve_px`` (CARD-204 Fix 1, the value itself now sourced per Fix 2:
-    the book's own worst-case bound, never a specific page's own folio
-    text) is nonzero only for a two-up page's *lower* slot: that many
-    device pixels of CARD-200's folio room, pulled back toward the gutter
-    from the flush edge — the independent re-derivation of
-    ``book_pdf_generator._folio_reserve_px``'s own effect on
-    ``compute_pair_layout``, in this file's own millimetres rather than
-    imported from ``export/layout.py``.
+    **History (CARD-204 Fix 1/Fix 2, both reverted by Fix 3).** This helper
+    used to take a ``reserve_px`` that pulled a two-up page's lower slot
+    back toward the gutter by that many device pixels, re-deriving
+    ``compute_pair_layout``'s own folio-reserve effect independently. Fix 3
+    removed the reserve mechanism from production entirely — a two-up
+    page's lower slot now sits at the plain flush position (or whatever
+    natural ``spare`` its own geometry leaves) exactly like every other
+    slot, so this helper no longer takes or computes any reserve.
     """
     across = _across(puzzle)
     cell = (
@@ -174,10 +172,9 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, reserve_px=0.0)
     )
     spare = USABLE_WIDTH_MM - across * cell
     left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
-    reserve_mm = reserve_px / PX_PER_MM
     if page_number % 2:
-        return left_margin + spare - reserve_mm
-    return left_margin + reserve_mm
+        return left_margin + spare
+    return left_margin
 
 
 def _packed_cell_mm(group):
@@ -598,16 +595,6 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         expected_toc = 1 if n else 0
         section = _section_plan(printed, toc_pages=expected_toc)
         dividers = _divider_pages(printed)
-        # CARD-204 Fix 2: book_pdf_generator.puzzle_section now derives one
-        # folio reserve for the *whole* book from its own worst case —
-        # first_page (one past the guide and the TOC) + the most dividers
-        # it could ever open (one per tier; ADR-0031's three) + every
-        # puzzle printed alone — never a per-page measurement (cycle-1
-        # review F-1). Re-derived here independently of that formula
-        # (three tiers written out, not imported) so this oracle can
-        # disagree with production and be caught, rather than trivially
-        # agreeing by sharing the computation.
-        max_page_number = 3 + expected_toc + min(3, n) + n - 1 if n else 0
         expected_answers = _expected_answer_pages(printed)
         expected_count = (
             2 + expected_toc + dividers + len(plan) + (expected_answers + 1 if n else 0)
@@ -662,9 +649,9 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # Measured off the page: a right-hand (odd) page carries the gutter
         # margin on its left, so its drawing sits further right than the same
         # drawing on a left-hand page, by gutter - outside.
-        def _measured(page_number, puzzle, drawing, cell_mm=None, reserve_px=0.0):
+        def _measured(page_number, puzzle, drawing, cell_mm=None):
             drawn_left_mm = drawing.left / PX_PER_MM
-            expected_mm = _expected_drawing_left_mm(puzzle, page_number, cell_mm, reserve_px)
+            expected_mm = _expected_drawing_left_mm(puzzle, page_number, cell_mm)
             assert abs(drawn_left_mm - expected_mm) < 0.1, (
                 f"{label}: page {page_number} "
                 f"({'right' if page_number % 2 else 'left'}-hand) "
@@ -679,18 +666,8 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                 f"not {len(group)}"
             )
             shared = _shared_cell_mm(*group) if len(group) == 2 else None
-            for slot_index, (puzzle, drawing) in enumerate(zip(group, drawings)):
-                # CARD-204 Fix 1: only the two-up page's lower slot (index 1
-                # of 2) reserves folio room; a single-puzzle page's one slot
-                # never does. CARD-204 Fix 2: the reserve is the book's own
-                # max_page_number bound above, never this specific page's
-                # own number.
-                reserve_px = (
-                    _folio_reserve_px(max_page_number, DPI)
-                    if len(group) == 2 and slot_index == 1
-                    else 0.0
-                )
-                _measured(page_number, puzzle, drawing, shared, reserve_px)
+            for puzzle, drawing in zip(group, drawings):
+                _measured(page_number, puzzle, drawing, shared)
             make_up = "two-up page" if len(group) == 2 else "single page"
             seen[make_up] += 1
             # Both slots of a two-up page are centred across the usable width

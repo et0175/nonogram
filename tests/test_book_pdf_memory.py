@@ -155,7 +155,6 @@ from nonogram.admin.book_pdf_generator import (
     _answer_extent,
     _band_font,
     _degrade_infeasible_packed_pages,
-    _folio_reserve_px,
     _pairable_tier,
     page_frame,
     type_px,
@@ -1762,36 +1761,6 @@ def _matches_shifted_content(a: Image.Image, b: Image.Image) -> bool:
     return float(diff.mean()) < 8.0 and float((diff > 50).mean()) < 0.03
 
 
-def _book_folio_reserve_px(generator: BookPDFGenerator, plan) -> int:
-    """This book's own folio reserve, exactly as ``puzzle_section`` derives it (CARD-204 Fix 2).
-
-    Both ``_reference`` methods below rebuild a two-up page at a shifted
-    page number (its pre-CARD-200/201 position) and must reserve the same
-    room production actually reserved on the real, exported page they are
-    compared against — but since Fix 2 (cycle-1 review F-1) that reserve is
-    the *book's* own worst-case bound, not a function of either page
-    number, so it must not be re-derived from ``old_number`` the way Fix 1
-    briefly was (that would silently reintroduce the page-number dependence
-    this fix removes: the shifted reference page could end up with a
-    different reserve than the real one it is being compared against,
-    purely because shifting by a card's worth of pages happened to change a
-    digit count). Re-derived here from ``plan``'s own counts — not
-    imported from ``puzzle_section`` itself — so a regression in that
-    method's own formula would still be caught by this comparison instead
-    of agreeing with it by construction.
-    """
-    payload_count = len(plan.payloads)
-    if not payload_count:
-        return 0
-    first_page = 1 + GUIDE_PAGE_COUNT + plan.toc_page_count
-    # The most level dividers a book this size could ever open — one per
-    # tier, ADR-0031's three — exactly interior_page_count's own
-    # min(len(TIERS), puzzle_count) upper-bound reasoning, written out
-    # rather than imported.
-    max_page_number = first_page + min(3, payload_count) + payload_count - 1
-    return _folio_reserve_px(max_page_number, generator.dpi)
-
-
 class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
     """AC-6 (G-2) — every page from the first puzzle/divider page onward
     keeps the same content it had before CARD-201; only its page number
@@ -1868,15 +1837,6 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
-            # CARD-204 Fix 1 reserved the real exported page's own folio
-            # width on its lower slot; Fix 2 made that reserve the book's
-            # own bound instead (see _book_folio_reserve_px's own
-            # docstring for why old_number itself must not be re-measured
-            # here). Either way the reference must reserve what production
-            # actually reserved on the real page, so the two sides' own
-            # geometry agrees on everything but the content this test is
-            # actually about.
-            folio_reserve_px=_book_folio_reserve_px(generator, plan),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -2061,12 +2021,6 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
-            # CARD-204 Fix 1/Fix 2: see the sibling class's own comment
-            # above and _book_folio_reserve_px's own docstring — the
-            # reference must reserve what production actually reserved on
-            # the real page (the book's own bound, since Fix 2), to keep
-            # this comparison about content, not about the reserve itself.
-            folio_reserve_px=_book_folio_reserve_px(generator, plan),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -2122,27 +2076,34 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     def test_every_puzzle_or_divider_page_matches_above_the_footer(
         self, generator, plan, exported, cutoff
     ):
-        """CARD-204 Fix 1: a two-up pair is compared slot by slot, not as one page.
+        """A two-up pair is compared slot by slot, not as one page.
 
         ``_ink_bbox_crop`` normalises a *whole* image to its own single ink
         bounding box, which is exactly the right cancellation for a page
         whose content is one rigid block that merely slides sideways with
-        parity — true before Fix 1, when both slots of a pair sat flush
-        with zero relative offset between them. Fix 1 pulls the *lower*
-        slot back from the flush edge by this page's own folio width, and
-        that reserve's direction mirrors by parity exactly as the flush
-        edge itself does — so on an ODD page the lower slot sits
-        reserve_px *left* of the upper slot's own edge, and on the EVEN
-        page this is compared against (opposite parity, CARD-200's own
-        TOC-offset shift) the lower slot sits reserve_px *right* of it.
-        Cropping the *whole* pair to one bounding box before comparing
-        would therefore compare the upper slot of one page against the
-        lower slot's own offset of the other — a real, structural
-        mismatch this test must not paper over by loosening its tolerance.
-        Splitting at the pair's own (parity-independent) upper/lower
-        midline first, and cropping+comparing each slot's own ink bbox
-        separately, cancels exactly the translation each slot is actually
-        subject to.
+        parity. That is true only when both slots share the same drawing
+        width: each slot's own flush formula anchors at the usable area's
+        outer edge on an ODD page (so *both* slots' ``drawing_right``
+        always equals ``usable_right``, independent of either one's own
+        width) but at the gutter-side edge on an EVEN page (so both
+        ``drawing_left`` always equal ``usable_left``) — a slot narrower
+        than its partner therefore sits at a *different* offset from the
+        page's own ink-bbox-crop origin depending on which edge is flush,
+        which flips between the two opposite parities this comparison
+        checks. Splitting at the pair's own (parity-independent)
+        upper/lower midline first, and cropping+comparing each slot's own
+        ink bbox separately, cancels exactly that per-slot translation,
+        regardless of whether the two puzzles share a width.
+
+        **History (CARD-204 Fix 1, reverted by Fix 3).** Fix 1 introduced
+        this split because it also pulled the *lower* slot back from the
+        flush edge by a folio reserve that the upper slot never got,
+        adding a second, reserve-driven source of the same kind of
+        per-slot asymmetry on top of the width-driven one above. Fix 3
+        removed that reserve entirely, but the split is kept: the
+        width-driven asymmetry it also cancels is a structural property of
+        mirrored-margin flush alignment (FR-030), not something Fix 1
+        introduced or Fix 3 touches.
         """
         checked = 0
         for entry in plan.pages:
