@@ -16,7 +16,7 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
-**Review score:** 4.0/10 (cycle 2, new gating finding — fix in progress)
+**Review score:** 4.0/10 (cycle 2 — fixed, cycle 3 confirmation pending)
 **Started:** 2026-10-10T05:08:27Z
 **Closed:** —
 **Actual:** —
@@ -720,6 +720,30 @@ merges first.
   - **Verdict: NOT ready to merge** — routing to forge:fix for F-5, cycle 3
     (implementing remedy (a): reserve becomes cosmetic/best-effort, never
     load-bearing for the pairing or cell-size decision).
+
+- [Fix 3, 2026-10-12] F-5 (Critical) fixed. Full writeup in the branch's own
+  `[Fix 3]` worktree-notes entry (commits `d68ca29`/`3831bb5`). **Root
+  cause**: both prior fixes let `folio_reserve_px` participate in
+  `compute_pair_layout`'s accept/refuse verdict and committed cell size —
+  Fix 2 only moved the dependency from per-page to per-book-scale, still
+  letting a non-geometric digit-count quantity decide whether two puzzles
+  share a page. **Fix**: removed `folio_reserve_px`/`outer_reserve_px`
+  entirely from `compute_pair_layout`/`_slot_layout` — both back to pure
+  geometry-only arithmetic. Folio placement on two-up pages is now decided
+  cosmetically, after pairing/cell-size are committed, via the pre-existing
+  `_draw_folio` "omit rather than collide" check (no new code needed
+  there). The gutter-ward shift was concluded unnecessary entirely and
+  removed, not just made cosmetic — net change is -315 lines, a
+  simplification. **Invariant re-proven**: the same pair now pairs at the
+  identical cell size (7.173148148148148mm) across 1/2/3-digit book-scale
+  regimes; the cycle-2-flagged test rewritten to assert this instead of the
+  wrong prior expectation. **Baseline**: regenerated, -1191 bytes, an exact
+  reversion to the pre-Fix-1 value (confirms this is a true behavioral
+  reversion, not a new behavior). **Test evidence**: 6 touched files 169
+  passed, 1 skipped (pre-existing); 4 more files all green; `pytest tests/
+  -k "book"` exit 0. **Full suite: 6854 passed, 9 skipped, 0 failed, 0
+  errors** (986.13s) — identical count to Fix 2's own run, consistent with
+  a pure simplification.
 
 ## System contract
 
