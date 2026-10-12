@@ -818,6 +818,69 @@ implementation before they are resolved.
     by a clean isolated rerun: 1 passed in 119.54s, no contention. Unrelated
     to this fix.
 
+- [Fix 3, 2026-10-12] Review cycle 2's gating finding (F-5, Critical) fixed.
+
+  - **F-5 root cause:** Fix 1 (per-page) and Fix 2 (book-level) both let
+    `folio_reserve_px` — a non-geometric quantity derived from a page
+    number's or a book's own digit count — participate in
+    `compute_pair_layout`'s accept/refuse verdict and its committed cell
+    size. The identical 25x6 pair paired at 7.0038mm in a 2-digit-page-
+    number book and was refused outright in a 3-digit one — INV-010 and
+    guardrail G-5 violated, just at a coarser granularity than cycle 1's
+    F-1.
+  - **The fix — new decision order.** `folio_reserve_px`/`outer_reserve_px`
+    removed ENTIRELY from `compute_pair_layout`/`_slot_layout`
+    (`export/layout.py`) — both are back to pure, geometry-only arithmetic,
+    structurally incapable of being influenced by any page-number or
+    book-scale quantity. `_folio_reserve_px()` (`book_pdf_generator.py`)
+    deleted outright, along with all its plumbing through
+    `puzzle_pages`/`puzzle_section`. Folio placement on two-up pages is now
+    decided purely cosmetically, AFTER pairing/cell-size are committed, by
+    the pre-existing `_draw_folio` `content_right`/`content_left`
+    "omit rather than collide" check — no new code needed there, since it
+    already reads each slot's natural (unshifted) geometry. Concluded the
+    Fix-1-style gutter-ward shift is no longer needed at all (not just
+    "made cosmetic") — once it can't affect pairing/cell-size, the folio
+    either fits in whatever natural slack the geometry-only cell leaves, or
+    it doesn't and is correctly omitted; removed rather than kept as dead
+    weight.
+  - **Invariant proof, tested not assumed:** the same pair (unreserved cell
+    7.173148148148148mm) now pairs at the IDENTICAL cell size across 1/2/3-
+    digit book-scale regimes, early- and late-placed alike — confirmed by
+    direct script execution against `compute_pair_layout`/`puzzle_pages`
+    before writing the test.
+    `test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber`
+    rewritten: `REGIMES` now asserts all three regimes pair identically
+    (previously it asserted the 3-digit regime refuses — exactly the wrong
+    expectation cycle 2 caught).
+  - **Test files re-derived from the new/correct behavior, not patched to
+    pass:** `test_book_pairing.py` (oracle simplified to pure geometry, test
+    rewritten), `test_book_export_interior.py` (reserve term dropped),
+    `test_book_pdf_memory.py` (reserve helper removed; baseline
+    regenerated), `test_book_page_numbers.py` (two-up folio-omission
+    carve-out correctly reinstated — the baseline Duck+Owl pair is
+    page-fit-bound on width, natural slack 0, folio omitted again, as it
+    was before Fix 1 ever existed), `test_book_puzzle_frame.py`/
+    `test_book_pdf_two_up.py` (shift logic dropped from expected-geometry
+    helpers).
+  - **Baseline fixture:** `tests/fixtures/book_baseline_card204.json`
+    regenerated in place — only interior page 5 moves, `interior_bytes`
+    3440674 → 3439483 (a -1191-byte reversion to the exact pre-Fix-1 value,
+    confirming the fix is a true behavioral reversion to "no reserve",
+    not a new, different behavior).
+  - **Test evidence:** six touched files together 169 passed, 1 skipped
+    (pre-existing, unrelated), 0 failed; `test_layout_two_up.py` +
+    `test_book_two_up.py` + `test_book_arrange_page_breaks.py` +
+    `test_book_qr_slot.py` all green; `pytest tests/ -k "book"` exit 0,
+    [100%], no FAILED. **Full suite: 6854 passed, 9 skipped, 0 failed, 0
+    errors** (986.13s) — identical pass count to Fix 2's own full-suite run,
+    consistent with this being a net code simplification (10 files,
+    +353/-668) rather than new functionality.
+  - Re-verified unaffected: MIN_CELL_MM floor-overflow (`compute_layout`'s
+    single-page branch untouched by any fix); the QR slot's own
+    gutter-first/below-fallback/omit rule (never coupled to the folio
+    reserve in the first place).
+
 ## System contract
 
 _Not yet assembled — run `python3
