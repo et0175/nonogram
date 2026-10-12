@@ -1,7 +1,7 @@
 
 # CARD-204: Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2.5d
@@ -21,7 +21,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — review cycle 3/3 (owner): two-up folio placement vs. INV-010 pairing-geometry purity, see [Review 3/3]
+**Blocked by:** —
 
 ## What to implement
 
@@ -795,6 +795,22 @@ merges first.
     (their original "Reserve folio room" answer) is in direct tension with
     making the pairing decision purely geometry-based (INV-010). Routing to
     the owner for an explicit decision before any further fix cycle.
+
+- [Owner decision, 2026-10-12] **"Fixed universal reserve."** Reserve a
+  small, constant amount of room for the folio on every two-up page — the
+  SAME fixed pixel amount for every book, never derived from any specific
+  book's page count or page number (sized for up to 4 digits, covering any
+  realistically-sized book this software could ever produce). This
+  satisfies both standing requirements at once: `compute_pair_layout`'s
+  accept/refuse verdict and cell size still depend only on the pair's own
+  geometry plus one fixed, compile-time constant — the same category as the
+  existing `TWO_UP_MIN_CELL_MM` constant already baked into this exact
+  invariant, not a page/book-specific measurement — while every two-up page
+  keeps its guaranteed folio room, restoring the owner's original "Reserve
+  folio room" intent (Fix 1) without reopening F-1/F-5/F-7's bug class.
+  Review-budget escalation cleared by this explicit sign-off — proceeding
+  with one more fix cycle (Fix 4), within the now owner-authorized
+  extension past `max_cycles: 3`.
 
 ## System contract
 
