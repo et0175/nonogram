@@ -673,7 +673,49 @@ If the conversion is not unique:
 - A conversion that is unique but **outside the requested tier** is not nudged; the run is
   abandoned immediately (`orchestrator._image_tier_reason`).
 
-### 8.5 What is never retried
+### 8.5 Reveal given cells (CARD-214) — opt-in, every mode, last
+
+The only recovery that does **not** change the picture. Off unless the request asks for it
+(`orchestrator.GenerationRequest.reveal_given_cells`); no adapter sets it yet, and
+`orchestrator.generate_batch` never does (single-puzzle only, the owner's call).
+
+It runs **after** the mode's own recovery has exhausted its own bound — after all 30 redraws and
+repairs, or after all 5 nudges — so a puzzle that can be had with nothing given away still is.
+Then:
+
+- the grid it offers is the run's **first** sourced candidate (the image-mode conversion, or the
+  first random/library draw), kept aside at the draw and never a repaired or nudged derivative;
+- `solver.choose_givens` returns the cells to reveal: solve, and while the count is `MANY`, reveal
+  the first cell by `(row, column)` on which the two **witnesses disagree** — the same region and
+  the same deterministic rule ADR-0024/R4 fixes for the repair pair, and for the same reason (a
+  seed must replay) — to the value the grid itself holds, then solve again;
+- each reveal strictly decreases the undecided count, and one of the two disagreeing witnesses
+  always survives whichever value is revealed, so the loop advances toward 1 and can never reach 0;
+- the cap is `orchestrator.given_cells_cap` = `orchestrator.MAX_GIVEN_CELL_SHARE_PERCENT` (**5**)
+  percent of the grid's cells, floored: 5 at 10x10, 20 at 20x20, 45 at 30x30. Past it,
+  `errors.GivenCellsCapExceeded` (a `GenerationAbandoned`, so the CLI's existing exit-code group
+  covers it with no new row) and the picture is still unaltered;
+- the accepted puzzle goes through the same `judge_candidate` as every other candidate, now with
+  the givens passed to `solver.solve` — a **fresh seeded solve**, so uniqueness is never inferred
+  from the fact that cells were revealed (ADR-0024/R1's rule, applied to a new remedy). The
+  assignment is recorded on `orchestrator.Puzzle.givens`;
+- the policy advances **no** counter: it sources no grid and judges no new candidate, so INV-003's
+  bounds are untouched and unraised. Its solves share the request's one ADR-0011 deadline, which
+  is why `SolverTimeout` can come out of it and is not retried (§8.6);
+- a run abandoned for a **missed tier** stays abandoned: such a picture is already unique, so there
+  is nothing to reveal, and revealing nothing must not turn a tier failure into a success.
+
+`solver.solve`'s `givens` is a grid-shaped `list[list[bool | None]]` seeded into the board with
+`solver.propagate.Board.assign` before the first propagation round — the same operation a branch
+uses — so every rung, the search and the CON-005 re-encode backstop read a given exactly as they
+read a deduction. With `givens=None` (every pre-CARD-214 call) the board is the blank one it always
+was. A given that contradicts the clues makes the count **0**, not an exception.
+
+Not yet done, and deliberately: rendering the givens in an export (CARD-215) and persisting them or
+showing them in the player (CARD-216). ADR-0024 does not yet name this policy — the ADR delta is
+recorded on CARD-214 rather than taken here.
+
+### 8.6 What is never retried
 
 `SolverTimeout`, `SizeOutOfRange`, `InvalidDensity`, `UnknownLibraryImage`, `UnreadableImage`,
 `ImageNeedsManualCrop`, `InvalidPuzzleName`, `UnsupportedDifficulty` all propagate out of the
@@ -845,3 +887,4 @@ ADR-0031, keyed on `branch_nodes`, and is now reported as a strategy instead). C
 | 2026-09-15 | CARD-093 | §9.1 batch hand-off and early-stop status; finding 9 closed | everything else |
 | 2026-09-15 | CARD-094 | finding 10 closed | everything else |
 | 2026-09-15 | CARD-095 | §9.2 image-batch clock | everything else |
+| 2026-10-13 | CARD-214 | §8.5 added (the reveal-given-cells policy and `solver.solve`'s seeded count); the old §8.5 renumbered §8.6, its content unchanged | everything else — §8's counter table is still complete, because the new policy advances no counter |

@@ -259,6 +259,33 @@ MAX_CONSECUTIVE_ABANDONMENTS = 3
 #: The bound lives here, next to the other one, because INV-003 has exactly one
 #: home — COMP-002. ``sourcing.image`` applies the nudge and counts nothing.
 MAX_NUDGE_ATTEMPTS = 5
+
+#: The reveal policy's cap, as a percentage of the grid's cells (CARD-214).
+#:
+#: The third number of this shape, and the same *kind* of judgement as
+#: :data:`MAX_NUDGE_ATTEMPTS` rather than of :data:`MAX_RETRY_ATTEMPTS`: it is
+#: not "how long may we keep trying" but "how much of the user's own puzzle may
+#: this tool give away behind their back". So it is written as its own number,
+#: not as a fraction or an alias of either bound — a retune of the retry budget
+#: must not silently license handing over more of the answer.
+#:
+#: A *share* and not a count, because the thing it limits scales with the grid:
+#: five revealed cells is a hint on a 10x10 and invisible on a 30x30. Over
+#: CON-011's range the cap is 5 cells at 10x10, 20 at 20x20 and 45 at 30x30
+#: (:func:`given_cells_cap`, floor division — no rounding question to get
+#: wrong).
+#:
+#: Five rather than something looser: CARD-214 names "a quarter of its cells
+#: revealed is not a puzzle" as the outer limit of the idea, and 5% is five
+#: times stricter than that, which leaves a 30x30 still 95% blank — still a
+#: puzzle to solve, with the ambiguity broken. It is also a *refusal* threshold
+#: and not a target: the chooser reveals the cells the ambiguity actually needs
+#: (measured on the scripted ambiguities in ``tests/test_given_cells.py``: one
+#: per independent switching pair), so a picture that reaches this cap is one
+#: whose clues are ambiguous in dozens of independent places, which is a
+#: picture to re-shoot rather than to pre-fill.
+MAX_GIVEN_CELL_SHARE_PERCENT = 5
+
 #: How long a whole *batch* may work before it stops starting candidates.
 #:
 #: The third bound of this shape, and the last request-bound loop to get one.
@@ -390,6 +417,23 @@ class GenerationRequest:
     seed: int | None = None
     export_formats: tuple[str, ...] = ()
     out: Path | None = None
+    #: CARD-214: may this run, as a last resort, make the picture uniquely
+    #: solvable by **revealing** cells of its solution instead of changing it?
+    #:
+    #: Off by default, and that default is load-bearing: with the flag absent
+    #: every run behaves exactly as it did before this card, down to the repair
+    #: lineage a seed replays (AC-5). The policy fires only *after* the mode's
+    #: own recovery — POL-001's redraw, POL-002's nudge, POL-006's repair — has
+    #: exhausted its own bound, so it never pre-empts a remedy that would have
+    #: left the puzzle with nothing given away.
+    #:
+    #: Unvalidated like the rest of this record, and single-puzzle only (the
+    #: owner's "I think we'll apply it to single puzzle generation, not batch"):
+    #: ``generate_batch`` builds its own requests and does not set it. No
+    #: adapter sets it yet either — the CLI flag and the admin control are a
+    #: later card's (CARD-214 guardrail G-6), which is why this is a plain
+    #: boolean on the boundary type rather than an option somewhere.
+    reveal_given_cells: bool = False
 
 
 @dataclass(slots=True)
@@ -795,6 +839,26 @@ def repair_candidate(
     return None
 
 
+def given_cells_cap(grid: Grid) -> int:
+    """How many cells of ``grid`` the reveal policy may give away (CARD-214).
+
+    :data:`MAX_GIVEN_CELL_SHARE_PERCENT` of the grid's own cells, floored —
+    5 at 10x10, 20 at 20x20, 45 at 30x30. Integer arithmetic throughout, so
+    there is no rounding mode to get wrong and the number is the same on every
+    machine.
+
+    Counted from the grid rather than from ``Puzzle.extent`` on purpose: the
+    cap limits how much of *this picture's* answer is handed over, and the grid
+    is the thing being revealed. A grid with no cells caps at 0, which is the
+    honest answer rather than a special case.
+
+    Lives here, in COMP-002, beside the other bounds, for INV-003's reason:
+    policy numbers have one home. The chooser in COMP-005 takes the number as
+    an argument and holds no default of its own.
+    """
+    return sum(len(row) for row in grid) * MAX_GIVEN_CELL_SHARE_PERCENT // 100
+
+
 @dataclass(slots=True)
 class RecoveryLog:
     """ADR-0024's per-run recovery tally — observability, and nothing else.
@@ -1016,6 +1080,26 @@ class Puzzle:
     #: ``None`` while the candidate is unjudged, which is a different statement
     #: from the empty tuple ("judged, and there was nothing to find").
     witnesses: tuple[Grid, ...] | None = None
+    #: CARD-214: the cells the reveal policy handed to the solver to make this
+    #: candidate uniquely solvable, grid-shaped — ``True`` filled, ``False``
+    #: empty, ``None`` not revealed — or ``None`` for a candidate whose
+    #: uniqueness needed no help, which is every candidate of every run that
+    #: did not ask for the policy.
+    #:
+    #: The plain boundary type (``solver.Givens``) and not a value object, so
+    #: that CARD-215's renderer and CARD-216's persistence can read it without
+    #: importing ``solver`` — ADR-0007 forbids a capability module importing
+    #: another, and a structure of builtins needs no import at all.
+    #:
+    #: Written only by :func:`generate`'s ``judge_candidate``, beside the rest
+    #: of what the verifying solve was asked and told, and cleared by
+    #: :meth:`record_candidate` with them: a givens list that outlived its
+    #: candidate would describe a different puzzle's answer. **Its presence is
+    #: what makes INV-002's "exactly one solution" read "exactly one solution
+    #: given these cells"** — the gate is still ``confirm_uniqueness`` and
+    #: still the solver's own number, but the question it answered was the
+    #: seeded one.
+    givens: list[list[bool | None]] | None = None
     #: The ADR-0029 ladder rung that settled each cell of the current candidate
     #: in the one verifying solve, grid-shaped, with ``None`` per cell for a
     #: cell no forced deduction settled; ``None`` as a whole while the
@@ -1114,6 +1198,12 @@ class Puzzle:
         self.undecided_mask = None
         self.witnesses = None
         self.rung_tags = None
+        # CARD-214: and the revealed cells with them. A candidate inherits no
+        # part of its predecessor's verdict, and that includes what the
+        # predecessor's solve was *asked*: givens left attached to a
+        # replacement grid would claim this puzzle gives away cells it does
+        # not, which is the one thing CARD-215's render must not get wrong.
+        self.givens = None
         # Cleared with the rest of the judged facts: a strategies list that
         # outlived its candidate would read as a statement about the puzzle
         # that shipped while describing one that was discarded.
@@ -1567,6 +1657,27 @@ def generate(
     :attr:`Puzzle.recovery` records how that budget divided — the data CARD-091
     recalibrated K from.
 
+    Revealing cells instead of changing them (CARD-214, opt-in)
+    -----------------------------------------------------------
+    All three recoveries above *change the picture*: POL-001 draws a different
+    one, POL-002 moves pixels of the user's own, POL-006 flips a pair. For a
+    real picture the common outcome is still a refusal, and the owner's
+    complaint is exactly that. So when ``request.reveal_given_cells`` is set —
+    off by default — one more remedy is tried after the mode's own recovery has
+    exhausted its own bound: the run's **first** sourced grid is accepted
+    unaltered, with as many cells of its solution *revealed* as it takes to
+    make the clues have exactly one solution (``solver.choose_givens``), up to
+    :func:`given_cells_cap`. Beyond the cap the run fails with
+    ``GivenCellsCapExceeded`` and the picture is still not altered.
+
+    Three things about it are deliberate. It is the **last** thing tried, so a
+    puzzle that could be had with nothing given away still is. It changes no
+    cell and no clue, so INV-001 holds untouched and AC-3's "cell-for-cell the
+    candidate's" is structural. And the accepted puzzle is accepted only on a
+    **fresh seeded solve** through the same ``judge_candidate`` as every other
+    candidate, which is ADR-0024/R1's rule applied to a new remedy: uniqueness
+    is never inferred from the fact that cells were revealed.
+
     *An exhausted inner loop ends the outer one.* ``GenerationAbandoned`` from
     the regenerate loop travels straight out through the resample attempt
     (``run_bounded`` re-raises whatever an attempt raises), so a run that
@@ -1608,6 +1719,12 @@ def generate(
             :data:`MAX_NUDGE_ATTEMPTS` nudges was uniquely solvable (AC-035).
             The message says which, and in image mode says that the picture was
             never re-drawn and is no longer being altered.
+        GivenCellsCapExceeded: ``request.reveal_given_cells`` was set, the
+            mode's own recovery was exhausted, and revealing cells could not
+            make the picture uniquely solvable within :func:`given_cells_cap`
+            (CARD-214). A ``GenerationAbandoned``, so a caller that does not
+            know about this policy handles it exactly as it handles the other
+            abandonments; the picture is left unaltered.
         UnreadableImage: ``--mode image`` was given no readable picture to
             convert (AC-008). Raised by the sourcing module on the one attempt
             and, like the other invalid-request errors, not retried.
@@ -1699,7 +1816,9 @@ def generate(
     if request.mode == sourcing.IMAGE and source is image_source.generate:
         puzzle.binarisation = image_source.binarisation_for(request.image, *extent)
 
-    def judge_candidate(grid: Grid) -> Puzzle | None:
+    def judge_candidate(
+        grid: Grid, *, givens: list[list[bool | None]] | None = None
+    ) -> Puzzle | None:
         """Judge one already-sourced grid: clues -> uniqueness -> score.
 
         The tail of the pipeline, shared by every loop in this function so that
@@ -1718,11 +1837,32 @@ def generate(
         Scoring a *rejected* candidate would be meaningless (COMP-006 scores
         the solve of a uniquely-solvable clue set) and is skipped, so POL-001's
         path costs exactly what it did before this card.
+
+        Args:
+            grid: The candidate to judge.
+            givens: CARD-214's revealed cells, or ``None`` — the default, and
+                what every caller but the reveal policy passes. Handed straight
+                to the solver, so a puzzle accepted with givens is accepted on
+                a **fresh seeded solve** through this one path, exactly as
+                ADR-0024/R1 makes a repaired grid prove itself: uniqueness is
+                never inferred from the fact that cells were revealed. Keeping
+                it a parameter *here* rather than solving separately is what
+                keeps "there is exactly one ``solver.solve`` call in this
+                module" true, which is the structural form of CON-005 in
+                COMP-002.
         """
         candidate_clues = puzzle.record_candidate(grid)
         verdict = solver.solve(
-            candidate_clues.rows, candidate_clues.columns, deadline=deadline
+            candidate_clues.rows,
+            candidate_clues.columns,
+            givens=givens,
+            deadline=deadline,
         )
+        # Recorded with the rest of what this solve was asked and told, and
+        # before the gate for the same reason the mask is: it describes the
+        # candidate, not the outcome. ``record_candidate`` above has just
+        # cleared it, so a run that stops revealing cannot leave one behind.
+        puzzle.givens = givens
         # Stored before the uniqueness gate, not after it: the mask and the
         # witness pair are precisely what a *rejected* candidate carries for
         # ADR-0024's repair and POL-002's nudge to work from (CARD-074,
@@ -1762,6 +1902,77 @@ def generate(
     # the pre-ADR-0024 loop but performs exactly its work.
     lineage_grids: set[tuple[tuple[bool, ...], ...]] = set()
 
+    # CARD-214's reveal policy state. ``pristine_candidate`` is the *first*
+    # grid this run sourced — the image-mode conversion, or the first random /
+    # library draw — kept because that is the picture the policy exists to
+    # preserve. Deliberately not the last grid judged: by the time the mode's
+    # own recovery has given up, the last grid judged is a repair of a repair
+    # or a five-pixel nudge, and AC-3 asks for the candidate's own cells.
+    reveal_enabled = bool(request.reveal_given_cells)
+    pristine_candidate: Grid | None = None
+
+    def accept_by_revealing() -> Puzzle | None:
+        """The reveal policy: accept the *unaltered* candidate, with givens.
+
+        CARD-214's third recovery option, and the only one that changes nothing
+        about the picture. It runs only once the mode's own recovery has already
+        exhausted its own bound — POL-001's redraws, POL-002's nudges,
+        POL-006's repairs are untouched and keep their mode-exclusivity
+        (ADR-0024/R5, guardrail G-4) — and it advances no retry counter,
+        because it sources no grid and judges no new candidate: its own bound is
+        :func:`given_cells_cap`, and the request's one ADR-0011 deadline still
+        covers every solve it makes (INV-003, ADR-0024/R2, guardrail G-4).
+
+        A new policy ADR-0024 does not yet cover; the card records the delta
+        the architect station owes (a fourth recovery route, and INV-002's
+        "given its given cells" clause). The id the card calls POL-007 is
+        already taken in ``domain/policies.yml`` by FR-034's plan matrix, so no
+        id is minted here.
+
+        Returns:
+            The accepted puzzle, or ``None`` when the policy does not apply and
+            the abandonment the caller caught must stand: the flag is off, no
+            candidate was ever sourced, the picture needed **no** reveal at all
+            (so the run failed for some other reason — a missed tier — and
+            revealing nothing would silently convert that failure into a
+            success), or the accepted puzzle still misses the requested tier,
+            which revealing cells cannot fix.
+
+        Raises:
+            GivenCellsCapExceeded: the picture could not be made uniquely
+                solvable within :func:`given_cells_cap` reveals. Travels out of
+                :func:`generate` unchanged; the CLI groups it with the other
+                "no usable puzzle" failures through its base class.
+            SolverTimeout: the request's deadline passed inside one of the
+                chooser's solves (ADR-0011). Not caught here, for the reason
+                the module docstring gives: a timeout is not a verdict, and
+                there is no budget left to spend on another idea.
+        """
+        if not reveal_enabled or pristine_candidate is None:
+            return None
+        # Derived here rather than read off the aggregate: ``puzzle.clues``
+        # belongs to the last grid judged, and this is a question about the
+        # first one. The derivation is INV-001's own function (FR-005), so the
+        # clues handed to the chooser are this grid's by construction.
+        pristine_clues = clue_derivation.compute_clues(pristine_candidate)
+        givens = solver.choose_givens(
+            pristine_candidate,
+            pristine_clues.rows,
+            pristine_clues.columns,
+            cap=given_cells_cap(pristine_candidate),
+            deadline=deadline,
+        )
+        if not solver.revealed_cells(givens):
+            return None
+        accepted = judge_candidate(pristine_candidate, givens=givens)
+        if accepted is None:  # pragma: no cover - the chooser just proved it
+            raise RuntimeError(
+                "the reveal policy's chooser reported exactly one solution for "
+                "these givens and the verifying solve disagreed; this is a "
+                "solver defect (CON-005), not a puzzle outcome"
+            )
+        return accepted if accepted.difficulty_in_requested_tier else None
+
     def attempt_candidate() -> Puzzle | None:
         """One pass of the pipeline: source -> clues -> uniqueness -> score.
 
@@ -1791,7 +2002,7 @@ def generate(
         twice — ``repairs_enabled`` is the single place that is decided
         (ADR-0024/R5, guardrail G-3).
         """
-        nonlocal pending_repair, consecutive_repairs
+        nonlocal pending_repair, consecutive_repairs, pristine_candidate
 
         if pending_repair is not None:
             # POL-006 / CMD-014 -> EVT-015: judge the repaired grid. Consumed
@@ -1824,6 +2035,12 @@ def generate(
             lineage_grids.clear()
             grid = source(*source_arguments, rng)
             puzzle.recovery.redraws += 1
+            if pristine_candidate is None:
+                # CARD-214: the run's first sourced grid, copied so that no
+                # later recovery can reach back into the picture the reveal
+                # policy would hand over unaltered. One copy per run, taken on
+                # the draw that cannot be a repair or a nudge.
+                pristine_candidate = [row[:] for row in grid]
 
         if repairs_enabled:
             lineage_grids.add(_lineage_key(grid))
@@ -1935,21 +2152,48 @@ def generate(
             # POL-003 lives in run_bounded's exhaustion branch: at the bound it
             # raises instead of nudging again, which is what "stops altering
             # the image" is in code (AC-035, guardrail G-3). There is no
-            # fallback attempt after it and nothing catches it here.
-            candidate = run_bounded(
-                puzzle.nudge,
-                attempt_nudged_candidate,
-                reason=_image_uniqueness_reason(puzzle.solution_count),
-            )
+            # fallback attempt after it.
+            #
+            # CARD-214 adds the one thing that may be tried *after* it, and
+            # only when the request asked for it: reveal cells of the original
+            # conversion instead of altering any more of it. The bound above is
+            # untouched — the nudges all ran, and all five were spent on the
+            # picture — so this is a different remedy for the same failure, not
+            # a sixth nudge (guardrail G-4). With the flag off,
+            # ``accept_by_revealing`` returns ``None`` and POL-003's refusal
+            # travels on exactly as it did before this card (AC-5).
+            try:
+                candidate = run_bounded(
+                    puzzle.nudge,
+                    attempt_nudged_candidate,
+                    reason=_image_uniqueness_reason(puzzle.solution_count),
+                )
+            except GenerationAbandoned:
+                revealed = accept_by_revealing()
+                if revealed is None:
+                    raise
+                candidate = revealed
         if not candidate.difficulty_in_requested_tier:
             raise GenerationAbandoned(_image_tier_reason(requested_tier))
         return candidate
 
-    return run_bounded(
-        puzzle.resample,
-        attempt_candidate_in_tier,
-        reason=_resample_reason(requested_tier),
-    )
+    try:
+        return run_bounded(
+            puzzle.resample,
+            attempt_candidate_in_tier,
+            reason=_resample_reason(requested_tier),
+        )
+    except GenerationAbandoned:
+        # CARD-214, the random/library counterpart of the image branch above:
+        # both bounded loops are spent — every redraw, every repair — so the
+        # last thing to try is the first grid this run drew, unchanged, with
+        # cells of its answer revealed. `None` means the policy does not apply
+        # and POL-005's abandonment stands (AC-5: with the flag off that is
+        # every run).
+        revealed = accept_by_revealing()
+        if revealed is None:
+            raise
+        return revealed
 
 
 class BatchResult(list):

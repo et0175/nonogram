@@ -49,6 +49,31 @@ compared with the input clues before it is counted, so a bug in the pruning
 could only ever make the oracle count too few — and the property test would
 see the disagreement rather than silently agreeing with a broken solver.
 
+Given cells (CARD-214)
+----------------------
+Both counters take an optional ``givens`` — the same grid-shaped partial
+assignment ``nonogram.solver.solve`` takes (``True`` filled, ``False`` empty,
+``None`` unknown) — and both answer the seeded question: how many grids match
+the clues **and** agree with every revealed cell.
+
+It is implemented here as what it is: a **filter over this module's own
+enumeration**, written from the definition and sharing nothing with the
+solver's seeding. ``count_solutions`` drops each row's candidate patterns that
+disagree with that row's revealed cells before the product is walked, and the
+completed grid is checked against the assignment cell by cell before it is
+counted — the same belt-and-braces shape the clue re-derivation already has, so
+a bug in the pruning could only ever make the oracle count too *few* and the
+property test would see a disagreement rather than agree with a broken solver.
+``count_solutions_by_cell`` adds one condition to its ``2 ** cells`` loop and
+prunes nothing at all, which is what makes it the check on the filter itself
+(``test_the_two_oracles_agree_under_givens``).
+
+**This module must not import ``nonogram.solver``** — it never has, and under
+givens that matters more rather than less: an oracle that borrowed the solver's
+seeding would turn the one mandatory cross-check in the model into the solver
+agreeing with itself. ``test_the_oracle_shares_no_code_with_the_solver`` reads
+this file with ``ast`` and fails on any such import.
+
 Practical size ceiling
 ----------------------
 ``count_solutions`` is comfortable to 7x7 and usable at 8x8 for grids whose
@@ -68,6 +93,10 @@ from nonogram.clues import compute_clues, encode_line
 
 Grid = list[list[bool]]
 ClueSet = tuple[tuple[int, ...], ...]
+#: CARD-214's partial assignment, in the same boundary type the solver takes.
+#: Spelled out here rather than imported from ``nonogram.solver``: this module's
+#: whole value is that it imports none of it (see the module docstring).
+Givens = list[list[bool | None]]
 
 #: Above this many cells, ``count_solutions_by_cell`` stops being a test and
 #: starts being a coffee break: 2**16 grids is instant, 2**25 is a minute.
@@ -89,10 +118,37 @@ def line_candidates(clue: tuple[int, ...], length: int) -> list[tuple[bool, ...]
     ]
 
 
+def line_agrees_with_givens(
+    pattern: tuple[bool, ...], given_row: list[bool | None]
+) -> bool:
+    """Does one line pattern agree with every revealed cell of that line?
+
+    The whole of this oracle's understanding of a given, written from the
+    definition: a revealed cell fixes that cell's value, an unrevealed one
+    (``None``) says nothing. No deduction, no propagation, nothing shared with
+    the solver's seeding (CARD-214).
+    """
+    return all(
+        value is None or pattern[index] == value
+        for index, value in enumerate(given_row)
+    )
+
+
+def grid_agrees_with_givens(grid: Grid, givens: Givens | None) -> bool:
+    """Does a whole grid agree with every revealed cell? (``None`` -> yes.)"""
+    if givens is None:
+        return True
+    return all(
+        line_agrees_with_givens(tuple(row), given_row)
+        for row, given_row in zip(grid, givens, strict=True)
+    )
+
+
 def iter_solutions(
     row_clues: ClueSet,
     column_clues: ClueSet,
     limit: int | None = None,
+    givens: Givens | None = None,
 ) -> Iterator[Grid]:
     """Yield every grid matching both clue sets, oldest-fashioned way possible.
 
@@ -101,6 +157,14 @@ def iter_solutions(
         column_clues: One clue tuple per column, left to right.
         limit: Stop after yielding this many solutions. ``None`` enumerates
             all of them.
+        givens: CARD-214's partial assignment, or ``None`` for the unseeded
+            question. Applied twice on purpose: as a filter on each row's
+            candidate patterns (which prunes, and is sound for the same reason
+            the column-prefix prune is — a solution's rows each agree with the
+            assignment, so no solution is discarded), and again on the
+            completed grid before it is counted. The second check is what makes
+            a bug in the first one visible as an undercount instead of as
+            agreement with a broken solver.
 
     Yields:
         Solution grids in ``list[list[bool]]``, in a deterministic order.
@@ -109,8 +173,24 @@ def iter_solutions(
     width = len(column_clues)
     if height == 0 or width == 0:
         return
+    if givens is not None and (
+        len(givens) != height or any(len(row) != width for row in givens)
+    ):
+        raise ValueError(
+            f"givens is not shaped like the {height}x{width} puzzle the clues "
+            f"describe"
+        )
 
     row_options = [line_candidates(clue, width) for clue in row_clues]
+    if givens is not None:
+        row_options = [
+            [
+                pattern
+                for pattern in options
+                if line_agrees_with_givens(pattern, givens[row])
+            ]
+            for row, options in enumerate(row_options)
+        ]
     if any(not options for options in row_options):
         return  # some row's clue cannot be laid out at all
 
@@ -133,8 +213,14 @@ def iter_solutions(
             grid = [list(line) for line in chosen]
             derived = compute_clues(grid)
             # Belt and braces: the count is only trustworthy if each counted
-            # grid genuinely encodes back to the clues asked about.
-            if (derived.rows, derived.columns) == (tuple(row_clues), tuple(column_clues)):
+            # grid genuinely encodes back to the clues asked about — and, since
+            # CARD-214, genuinely agrees with every revealed cell.
+            if (
+                derived.rows,
+                derived.columns,
+            ) == (tuple(row_clues), tuple(column_clues)) and grid_agrees_with_givens(
+                grid, givens
+            ):
                 found += 1
                 yield grid
             return
@@ -159,21 +245,34 @@ def count_solutions(
     row_clues: ClueSet,
     column_clues: ClueSet,
     limit: int | None = None,
+    givens: Givens | None = None,
 ) -> int:
     """How many grids match both clue sets, counting no further than ``limit``.
 
     With ``limit=2`` the answer is directly comparable to the solver's
-    ``solution_count``: ``0``, ``1``, or ``2`` meaning ">= 2".
+    ``solution_count``: ``0``, ``1``, or ``2`` meaning ">= 2". Pass ``givens``
+    to ask the seeded question the solver's ``givens`` keyword asks (CARD-214);
+    the two answers must agree on every input, which is what
+    ``PropertyTest_SolverUniqueness_HoldsUnderGivens`` checks.
     """
-    return sum(1 for _ in iter_solutions(row_clues, column_clues, limit=limit))
+    return sum(
+        1
+        for _ in iter_solutions(row_clues, column_clues, limit=limit, givens=givens)
+    )
 
 
-def count_solutions_by_cell(row_clues: ClueSet, column_clues: ClueSet) -> int:
+def count_solutions_by_cell(
+    row_clues: ClueSet,
+    column_clues: ClueSet,
+    givens: Givens | None = None,
+) -> int:
     """Count solutions by trying all ``2 ** (height * width)`` grids.
 
     The most literal reading of "exhaustive enumeration" there is, and the
-    check on :func:`count_solutions`. Refuses to run above
-    :data:`MAX_CELLS_BY_CELL` cells rather than appearing to hang.
+    check on :func:`count_solutions` — including on its ``givens`` filter,
+    which here is one extra condition on a loop that prunes nothing at all.
+    Refuses to run above :data:`MAX_CELLS_BY_CELL` cells rather than appearing
+    to hang.
 
     Raises:
         ValueError: the grid has more cells than this can enumerate.
@@ -195,6 +294,8 @@ def count_solutions_by_cell(row_clues: ClueSet, column_clues: ClueSet) -> int:
             for row in range(height)
         ]
         derived = compute_clues(grid)
-        if (derived.rows, derived.columns) == wanted:
+        if (derived.rows, derived.columns) == wanted and grid_agrees_with_givens(
+            grid, givens
+        ):
             total += 1
     return total

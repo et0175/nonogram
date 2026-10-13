@@ -140,6 +140,37 @@ than about the clue set — exactly what ADR-0029/R5 forbids. A puzzle whose
 search ran at all is ``Tier.GUESS`` under ADR-0025 and is not graded on this
 ladder anyway.
 
+Seeded counts, and the chooser on top of them (CARD-214)
+--------------------------------------------------------
+:func:`solve` answers a second question since CARD-214, through the same
+machinery: *how many solutions are there given that these cells are known?*
+The ``givens`` keyword is a grid-shaped partial assignment
+(:data:`Givens` — ``True`` filled, ``False`` empty, ``None`` unknown) seeded
+into the board with :meth:`~nonogram.solver.propagate.Board.assign` **before**
+the first propagation round, so every level of the ladder, the search and the
+CON-005 re-encode backstop treat a given exactly as they treat a cell line
+logic settled. Nothing about the verdicts moves: ``givens=None`` (the default)
+builds the same blank board the solver always built, which is what keeps every
+existing caller and every recorded verdict byte-identical (guardrail G-3).
+
+Seeding is sound for the same one-line reason probing is: propagation only ever
+writes cells every *remaining* solution agrees on, and a given removes from
+consideration exactly the solutions that disagree with it. So the seeded count
+is the number of solutions of the clue set that extend the givens — which is 0
+when a given contradicts the clues (the propagation refuses a line, and that is
+a count, not an exception: AC-8), and at most the unseeded count.
+
+:func:`choose_givens` is the consumer this was added for: the smallest thing
+that turns an ambiguous picture into a puzzle *without changing the picture*.
+It solves, and while the count is ``MANY`` it reveals the first cell (by row
+then column) on which the two witnesses disagree, to the value the real
+solution grid holds, and solves again. Pure — no rng, no clock of its own, no
+host state — so the same grid yields the same givens in the same order on every
+machine, which is the reproducibility ADR-0024/R4 fixes for the repair pair and
+this card needs for the same reason. The *policy* that calls it (when a reveal
+is allowed, how many cells may be revealed, and the fresh re-verify that
+accepts the result) is the orchestrator's, not this module's.
+
 The cooperative deadline (ADR-0011, CARD-006)
 ---------------------------------------------
 :func:`solve` takes an optional absolute ``deadline`` and threads it into the
@@ -164,6 +195,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from types import MappingProxyType
 
+from nonogram.errors import GivenCellsCapExceeded
 from nonogram.solver.propagate import (
     RUNG_LINE_DP,
     RUNG_ORDER,
@@ -180,10 +212,33 @@ from nonogram.solver.propagate import (
     propagate_overlap,
 )
 
-__all__ = ["MANY", "RUNG_ORDER", "SolveResult", "SolveSignals", "solve"]
+__all__ = [
+    "MANY",
+    "RUNG_ORDER",
+    "Givens",
+    "SolveResult",
+    "SolveSignals",
+    "choose_givens",
+    "revealed_cells",
+    "solve",
+]
 
 Grid = list[list[bool]]
 ClueSet = tuple[tuple[int, ...], ...]
+#: A grid-shaped partial assignment: ``True`` filled, ``False`` empty, ``None``
+#: unknown, one entry per cell (CARD-214).
+#:
+#: Deliberately a plain nested list of builtins rather than a value object or a
+#: list of ``(row, column, value)`` triples. It crosses module boundaries —
+#: ``solve`` takes one, :func:`choose_givens` returns one, the orchestrator
+#: carries one on the aggregate, and later cards render and persist it — and a
+#: *type* at that boundary would have to be imported from here, which ADR-0007
+#: forbids for a capability module reaching sideways into another (``export/``
+#: and the admin layer may not import ``solver/``). A structure made of
+#: builtins needs no import at all, which is the same reason a solution grid
+#: crosses as ``list[list[bool]]`` and not as the internal bitmask pair
+#: (ADR-0012, guardrail G-5).
+Givens = list[list[bool | None]]
 #: One ADR-0029 rung name per cell, ``None`` where no deduction phase of the
 #: solve settled the cell (see :attr:`SolveResult.rung_tags`).
 RungTags = list[list[str | None]]
@@ -423,6 +478,7 @@ def solve(
     row_clues: ClueSet,
     column_clues: ClueSet,
     *,
+    givens: Givens | None = None,
     deadline: float | None = None,
 ) -> SolveResult:
     """Count a clue set's solutions, stopping at two (FR-006).
@@ -431,6 +487,22 @@ def solve(
         row_clues: One clue tuple per row, top to bottom, in CARD-002's
             boundary type — ``(0,)`` for an empty line (AC-013).
         column_clues: One clue tuple per column, left to right.
+        givens: A grid-shaped partial assignment seeded into the board before
+            the first propagation round (:data:`Givens`), or ``None`` (the
+            default) for the blank board the solver always started from.
+            ``solution_count`` then means "solutions consistent with the clues
+            **and** the givens": the question is narrowed, nothing about how it
+            is answered changes. Keyword-only and defaulted for the same reason
+            ``deadline`` is — it is not part of the question most callers ask,
+            and with it absent every existing caller's verdict, signals and
+            witnesses are byte-identical to what they were (CARD-214 guardrail
+            G-3).
+
+            A given that contradicts the clues yields ``solution_count = 0``,
+            not an exception (AC-8): a partial assignment no solution extends
+            is a fact about the count, exactly as a contradictory clue set is
+            (AC-016). A *malformed* one — the wrong shape for the clues — is
+            a ``ValueError``, exactly as a malformed clue is.
         deadline: ADR-0011's cooperative deadline — an absolute
             :func:`time.monotonic` reading past which the search gives up, or
             ``None`` (the default) to run to completion however long it takes.
@@ -448,9 +520,19 @@ def solve(
         undecided mask for every count (FR-024), a second witness when the
         count is :data:`MANY`, and the ADR-0029 rung that settled each cell.
 
+        Under a ``givens`` the same fields describe the *seeded* question. Two
+        of them are worth naming because they are honestly different rather
+        than broken: ``line_logic_cells`` counts the given cells too (they are
+        known at the first fixed point, which is what that signal measures),
+        and a given cell carries no rung tag, because no rung of ADR-0029's
+        ladder deduced it — it was handed over. Neither is read on the seeded
+        path by anything that grades a *puzzle*: the grades on record all come
+        from unseeded solves.
+
     Raises:
         ValueError: the clue set is malformed — a run that is not a positive
-            int, or the empty-line marker used alongside other runs. Not a
+            int, or the empty-line marker used alongside other runs — or
+            ``givens`` is not shaped like the puzzle the clues describe. Not a
             domain outcome: an unsolvable puzzle is reported as
             ``solution_count = 0``, never as an exception.
         SolverTimeout: ``deadline`` passed before the count was settled
@@ -476,6 +558,11 @@ def solve(
     height = len(rows)
     width = len(columns)
     total_cells = height * width
+
+    # Shape-checked before anything else, so a malformed partial assignment is
+    # always the ``ValueError`` the contract promises rather than whatever the
+    # early exits below would have returned for the clues alone.
+    _check_givens_shape(givens, height, width)
 
     def finish(
         count: int,
@@ -507,6 +594,19 @@ def solve(
             for tag in tag_row:
                 if tag is not None:
                     rung_cells[tag] += 1
+        if givens is not None:
+            # The seeded path's share of the CON-005 self-check (see the module
+            # docstring): every witness is already re-encoded against the clues
+            # by ``_verified_grid``, and this adds the other half of the seeded
+            # question — that it also extends the assignment it was counted
+            # under. Monotone seeding makes it unreachable (nothing ever
+            # un-decides a cell), which is exactly why it is cheap to assert
+            # and why a failure here would be a solver defect rather than a
+            # puzzle outcome. Only on the seeded path, so the default path does
+            # not pay a cell walk it cannot fail.
+            for witness in (solution, second_witness):
+                if witness is not None:
+                    _check_respects_givens(witness, givens)
         return SolveResult(
             solution_count=count,
             solution=solution,
@@ -565,6 +665,14 @@ def solve(
     cache = LineCache.blank(height, width)
 
     board = Board.blank(rows, columns)
+    if givens is not None:
+        # CARD-214: the partial assignment goes in *before* level 1, through
+        # the same :meth:`Board.assign` the search uses for a branch, so there
+        # is no second way for a cell to become known and every phase below
+        # reads a given exactly as it reads a deduction. Level 1 starts with
+        # every line dirty anyway, so the seeded knowledge is used from the
+        # first sweep.
+        _seed_givens(board, givens)
     #: ADR-0029's per-cell rung map, written by the three phases below and by
     #: nobody else. One grid, shared across the phases, so a rung is claimed by
     #: the first level to settle the cell and no later level can overwrite it —
@@ -709,6 +817,253 @@ def solve(
         tags,
         second_witness,
     )
+
+
+def choose_givens(
+    grid: Grid,
+    row_clues: ClueSet,
+    column_clues: ClueSet,
+    *,
+    cap: int,
+    deadline: float | None = None,
+) -> Givens:
+    """Which cells of ``grid`` to reveal so that its clues have one solution.
+
+    CARD-214's chooser: the third recovery option, and the only one that leaves
+    the picture alone. POL-001 redraws it, POL-002 nudges its pixels and
+    POL-006 flips a pair inside the ambiguity (ADR-0024); this reveals cells of
+    the solution instead, which changes no cell of the grid and no clue of it
+    (INV-001 untouched) and buys uniqueness at the price of giving some of the
+    answer away.
+
+    A *value*, computed in nothing's place: the returned assignment is handed
+    back for the caller to verify and to carry, and this function mutates
+    neither ``grid`` nor anything else.
+
+    How it chooses, and why that way:
+
+    * solve; if the count is already 1 there is nothing to reveal and the
+      all-``None`` assignment comes back, so an already-unique picture is left
+      exactly as it is (AC-2);
+    * on :data:`MANY`, take the cells the two witnesses disagree on — the
+      ambiguity the solver has just *located*, which is where a reveal can
+      possibly help and where ADR-0024's repair reads from too — and reveal the
+      **first by (row, column)**, to the value ``grid`` itself holds. First by
+      (row, column) is ADR-0024/R4's rule, adopted here for ADR-0024/R4's
+      reason: a seed must replay, so the choice has to be a function of the
+      grid and the solver's report and of nothing else;
+    * solve again, with the reveal in place, and repeat.
+
+    Progress is structural rather than hoped for, in both directions.
+
+    *It always advances.* A disagreement cell is undecided in the solve that
+    reported it (EC-011: propagation only writes cells every solution agrees
+    on), so it is never a cell already revealed; each round therefore reveals
+    one *new* cell and the unknown count strictly falls. Revealing everything
+    would leave exactly one solution, so the loop terminates with or without
+    ``cap`` — ``cap`` is there because a puzzle needing a large share of its
+    own answer given away is not a puzzle, not because the loop might run away.
+
+    *It never advances into a contradiction.* The two witnesses differ at the
+    chosen cell, so one of them holds ``True`` there and the other ``False``;
+    whichever value ``grid`` has, one of the two still satisfies the new
+    assignment. A reveal can therefore never drop the count to 0 — which is why
+    a 0 here means the clues have no solution *at all* and so cannot be any
+    grid's encoding, rather than meaning "the reveals went wrong".
+
+    Args:
+        grid: The solution grid the clues came from. Every revealed cell takes
+            *this* grid's value, which is what makes the result a partial
+            picture of the real answer rather than a constraint invented to
+            force uniqueness.
+        row_clues: ``grid``'s row clues, in CARD-002's boundary type.
+        column_clues: ``grid``'s column clues.
+        cap: The most cells that may be revealed. **Required, with no default**:
+            how much of the answer it is acceptable to give away is a policy
+            judgement, it lives with the orchestrator's other bounds
+            (``MAX_GIVEN_CELL_SHARE_PERCENT``), and a default here would be a
+            second place to read it from. ``0`` is meaningful — "tell me
+            whether this needs any reveal at all".
+        deadline: ADR-0011's cooperative deadline, passed through to every
+            solve unchanged. This function reads no clock itself; the solver
+            raises :class:`~nonogram.errors.SolverTimeout` from its own
+            checkpoints and it travels out of here uncaught, because a
+            timed-out solve has no verdict to chose from.
+
+    Returns:
+        A :data:`Givens` the size of ``grid``, with ``None`` everywhere except
+        the revealed cells. Empty (all ``None``) exactly when the clues already
+        have one solution.
+
+    Raises:
+        GivenCellsCapExceeded: ``cap`` cells were revealed and the count was
+            still :data:`MANY`. The grid is not altered and no puzzle is
+            produced; the orchestrator lets this travel out, where the CLI maps
+            it with the other "no usable puzzle" failures.
+        ValueError: ``row_clues``/``column_clues`` are not ``grid``'s own
+            run-length encoding — the caller has broken INV-001. Seen in one of
+            two ways, neither of them possible for matching input: a solve that
+            reports **0** solutions (the clues have no solution whatsoever, so
+            they encode no grid — see the progress argument above for why a
+            *reveal* cannot produce this), or one that reports **1** whose
+            single solution is not ``grid`` (if the grid satisfies the clues
+            and only one thing does, the grid is what comes back). Raised
+            loudly rather than reported as "cannot be made unique": a chooser
+            that quietly returned reveals making some *other* grid unique would
+            hand back a puzzle whose answer is not the picture it came from,
+            which is the one outcome this policy exists to prevent.
+
+    Pure (ADR-0007): no filesystem, no rng, no host state, no module state, and
+    no clock of its own — so the same grid gives the same cells in the same
+    order in any process (EC(ADR-0024/R4)).
+    """
+    width = len(column_clues)
+    givens: Givens = [[None] * width for _ in grid]
+    revealed = 0
+    while True:
+        result = solve(row_clues, column_clues, givens=givens, deadline=deadline)
+        if result.solution_count == 1:
+            if result.solution != grid:
+                raise ValueError(_not_the_grids_own_clues(revealed, "its solution"))
+            return givens
+        if result.solution_count == 0:
+            raise ValueError(_not_the_grids_own_clues(revealed, "no solution"))
+        if revealed == cap:
+            raise GivenCellsCapExceeded(
+                f"revealing {revealed} cell{'s' if revealed != 1 else ''} did "
+                f"not make this picture uniquely solvable, and the cap is "
+                f"{cap}: the picture is left unchanged rather than altered to "
+                f"fit"
+            )
+        row, column = _first_disagreement_cell(result)
+        givens[row][column] = grid[row][column]
+        revealed += 1
+
+
+def revealed_cells(givens: Givens | None) -> tuple[tuple[int, int, bool], ...]:
+    """The revealed cells of ``givens`` as ``(row, column, value)``, row-major.
+
+    A reader for the boundary type, for the callers that want the cells rather
+    than the grid shape — the orchestrator's count, and the tests' "which cells
+    and to what value". Row-major order, which for a :data:`Givens` produced by
+    :func:`choose_givens` is *not* the order they were revealed in; nothing
+    reads the reveal order, and the cells chosen are a set, so ordering them
+    by position is the stable way to compare two runs.
+
+    ``()`` for ``None`` and for an all-``None`` assignment, which are the same
+    statement to every consumer: nothing was revealed.
+
+    Not importable by ``export/`` or the admin layer (ADR-0007 forbids a
+    capability module importing another). That is deliberate and is why the
+    boundary type is plain builtins: a consumer on the wrong side of that rule
+    reimplements these three lines natively, the way
+    :func:`~nonogram.solver.propagate.mask_runs` reimplements a clue check
+    rather than importing ``clues``.
+    """
+    if not givens:
+        return ()
+    return tuple(
+        (row_index, column_index, value)
+        for row_index, row in enumerate(givens)
+        for column_index, value in enumerate(row)
+        if value is not None
+    )
+
+
+def _not_the_grids_own_clues(revealed: int, observed: str) -> str:
+    """The INV-001 refusal message, one wording for both ways of seeing it."""
+    return (
+        f"the clues passed in are not the run-length encoding of the grid "
+        f"passed in (INV-001): after revealing {revealed} cell(s) of the grid, "
+        f"the clues have {observed} elsewhere. choose_givens reveals cells of "
+        f"the grid it is given, so it can only answer for that grid's own clues"
+    )
+
+
+def _first_disagreement_cell(result: SolveResult) -> tuple[int, int]:
+    """The first cell by (row, column) on which the two witnesses differ.
+
+    Raises:
+        RuntimeError: the result has no witness pair, or the pair agrees
+            everywhere. Both are unreachable for a :data:`MANY` verdict — the
+            second witness is returned with it and is distinct from the first
+            cell by cell (TERM-009, FR-024) — and both would make this function
+            silently reveal nothing, which is the one shape of bug that could
+            turn the reveal loop into a loop. A solver defect, not a puzzle
+            outcome (CON-005), so it is loud.
+    """
+    first, second = result.solution, result.second_witness
+    if first is not None and second is not None:
+        for row_index, (left, right) in enumerate(zip(first, second, strict=True)):
+            for column_index, (one, other) in enumerate(zip(left, right, strict=True)):
+                if one != other:
+                    return row_index, column_index
+    raise RuntimeError(  # pragma: no cover - MANY always carries two witnesses
+        f"a solution_count of {result.solution_count} came back without two "
+        f"witnesses that disagree anywhere; this is a solver defect (CON-005), "
+        f"not a puzzle outcome"
+    )
+
+
+def _check_givens_shape(givens: Givens | None, height: int, width: int) -> None:
+    """Refuse a partial assignment that is not shaped like the puzzle.
+
+    One entry per cell, no shorthand: a ragged or short ``givens`` would
+    otherwise seed *some* of the cells the caller meant and silently count a
+    different question than the one asked. Reported as a ``ValueError`` because
+    that is how :func:`solve` already reports a malformed clue set, and for the
+    same reason — it is not a fact about any puzzle.
+    """
+    if givens is None:
+        return
+    if len(givens) != height:
+        raise ValueError(
+            f"givens has {len(givens)} row(s) but the clues describe {height}"
+        )
+    for row_index, row in enumerate(givens):
+        if len(row) != width:
+            raise ValueError(
+                f"givens row {row_index} has {len(row)} cell(s) but the clues "
+                f"describe {width}"
+            )
+
+
+def _seed_givens(board: Board, givens: Givens) -> None:
+    """Write a partial assignment into a blank board, cell by cell.
+
+    Through :meth:`~nonogram.solver.propagate.Board.assign` rather than into
+    the masks directly: that method writes both orientations and maintains
+    ``decided``, and routing the seed through it is what makes a given
+    indistinguishable from a branch assignment to everything downstream. The
+    board is blank when this runs, so no cell can already be known — and
+    ``assign`` would refuse if one were, which is the right answer to a caller
+    that seeded twice.
+    """
+    for row_index, row in enumerate(givens):
+        for column_index, value in enumerate(row):
+            if value is not None:
+                board.assign(row_index, column_index, bool(value))
+
+
+def _check_respects_givens(grid: Grid, givens: Givens) -> None:
+    """The seeded half of the CON-005 self-check (see the module docstring).
+
+    Raises:
+        RuntimeError: a counted witness disagrees with the assignment it was
+            counted under. Unreachable — seeding is monotone and nothing in the
+            solver ever un-decides a cell — and a wrong answer that crashes is
+            recoverable where one that looks right is not.
+    """
+    for row_index, row in enumerate(givens):
+        for column_index, value in enumerate(row):
+            if value is not None and grid[row_index][column_index] != value:
+                raise RuntimeError(  # pragma: no cover - seeding is monotone
+                    f"solver counted a solution whose cell "
+                    f"({row_index}, {column_index}) is "
+                    f"{grid[row_index][column_index]} against a given of "
+                    f"{value}; this is a solver defect (CON-005), not a puzzle "
+                    f"outcome"
+                )
 
 
 @dataclass(slots=True)

@@ -634,6 +634,15 @@ ERROR_EXIT_CODES = [
     (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),
     (errors.SolverTimeout, cli.ExitCode.GENERATION_FAILED),
+    # CARD-214: the reveal policy's refusal — a picture that could not be made
+    # uniquely solvable within the share of its own answer we are willing to
+    # give away. Grouped here with the other two for the reason the enum's
+    # docstring gives: what the user does about it is "the run did not produce a
+    # usable puzzle". Deliberately **not** a row in ``cli._EXIT_CODES`` either —
+    # it subclasses ``GenerationAbandoned``, so ``exit_code_for``'s MRO walk
+    # finds the group through the base class, the same extension path
+    # ``SizeTooSmallForSource`` takes above for the input group.
+    (errors.GivenCellsCapExceeded, cli.ExitCode.GENERATION_FAILED),
     # CARD-080: the admin's storage boundary refusing a grid the solver would
     # not certify. No CLI path raises it — the row exists because
     # ``test_every_domain_error_has_an_exit_code`` below requires every
