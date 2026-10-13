@@ -525,9 +525,15 @@ def solve(
         than broken: ``line_logic_cells`` counts the given cells too (they are
         known at the first fixed point, which is what that signal measures),
         and a given cell carries no rung tag, because no rung of ADR-0029's
-        ladder deduced it — it was handed over. Neither is read on the seeded
-        path by anything that grades a *puzzle*: the grades on record all come
-        from unseeded solves.
+        ladder deduced it — it was handed over. Both *are* read by whatever
+        grades the puzzle, and deliberately: ADR-0029/R2 allows one derivation
+        from the one verifying solve, and for a puzzle accepted with givens the
+        seeded solve **is** the solve that verified it (COMP-002's
+        ``judge_candidate`` scores off this very verdict). So a revealed puzzle
+        grades easier than the same picture would without its givens — which is
+        what it is, since the solver meets it with those cells already filled.
+        What is true is the narrower statement: every grade recorded before
+        CARD-214 came from an unseeded solve, and none of them moved.
 
     Raises:
         ValueError: the clue set is malformed — a run that is not a positive

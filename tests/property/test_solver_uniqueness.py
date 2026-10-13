@@ -257,27 +257,30 @@ REQUIRED_GIVEN_CASES = 500
 #: the other's thousands of cases.
 GIVEN_SEED = 20261013
 
-#: Edge lengths for the seeded corpus. Shorter at the top than :data:`SIZES`
-#: because a *contradicted* given can make the oracle's row-candidate filter
-#: empty only after the product has been set up, and 2..6 already covers every
-#: shape of line-placement bug while keeping the whole corpus inside a couple
-#: of seconds. 1x1 is dropped for one reason only: there is no interesting
-#: partial assignment of a single cell that the "everything revealed" case does
-#: not already cover.
-GIVEN_SIZES = (2, 3, 4, 5, 6)
+#: Edge lengths for the seeded corpus — :data:`SIZES`'s own range, so the
+#: seeded direction of EC-001 is asserted over exactly the shapes the unseeded
+#: one is, and 8x8 is the ceiling for the same reason: it is the oracle's own
+#: (see its docstring — comfortable to 7x7, usable at 8x8), not a property of
+#: givens. The whole corpus still costs well under a second (measured when
+#: CARD-214's review widened it from 2..6: this test 0.41s -> 0.93s, the module
+#: 2.00s -> 2.53s), so the narrower range bought nothing worth the coverage it
+#: gave up. 1x1 is dropped for one reason only: there is no interesting partial
+#: assignment of a single cell that the "everything revealed" case does not
+#: already cover.
+GIVEN_SIZES = (2, 3, 4, 5, 6, 7, 8)
 
 #: What fraction of the cells a case reveals, drawn per case. ``0.0`` and
 #: ``1.0`` are the two degenerate ends and are deliberately in the list rather
 #: than special-cased: nothing revealed must answer exactly what the unseeded
 #: call answers, and everything revealed must answer 1 or 0 and never ``MANY``.
 #:
-#: Weighted toward the sparse end — ``0.0`` and ``0.1`` appear twice — and that
-#: weighting is the point rather than taste. A reveal is a very strong
-#: constraint at these sizes, so a uniform draw leaves hardly any case whose
-#: *truth* is ``MANY``, and "never report 1 where the truth is >= 2" is the
-#: half of EC-001 that needs those cases. Measured: 55 of 1500 under a uniform
-#: draw against 94 of 1500 here, with 450 cases at 0 and 956 at 1. The floors
-#: asserted in the test are what keeps the balance from drifting back.
+#: Weighted toward the sparse end — ``0.0`` and ``0.1`` appear twice — because
+#: a reveal is a very strong constraint at these sizes and "never report 1
+#: where the truth is >= 2" is the half of EC-001 that needs cases whose
+#: *truth* is ``MANY``. Measured over this corpus (sizes 2..8): 122 of 1500
+#: truly ambiguous here against 102 under a uniform draw, with 432 cases at 0
+#: and 946 at 1. The floors asserted in the test, not this weighting, are what
+#: keeps the balance from drifting back.
 GIVEN_SHARES = (0.0, 0.0, 0.1, 0.1, 0.2, 0.35, 0.5, 0.75, 1.0)
 
 

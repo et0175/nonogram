@@ -4,6 +4,9 @@
         -> test_given_cells_deterministic_for_a_grid        (CARD-214, AC-7)
         -> test_given_cells_deterministic_across_processes  (the "any process"
                                                              half)
+        -> test_the_choosers_source_builds_no_set_or_dict   (the structural
+                                                             guard the other
+                                                             two cannot make)
     PropertyTest_GivenCells_AlwaysMakeThePuzzleUnique
         -> test_given_cells_always_make_the_puzzle_unique   (AC-1, as a
                                                              property)
@@ -20,11 +23,27 @@ a second call. Checked by calling it repeatedly over a corpus, with the global
 than as a coincidence.
 
 *In any process* is a claim about host state, and the one that in-process
-repetition cannot make: ``PYTHONHASHSEED`` changes the iteration order of every
-set and dict in the interpreter, so a choice that depended on one — and
-"collect the disagreeing cells, take one" is exactly the shape that does — is
-stable within a run and unstable across runs. So the second test re-runs the
-chooser in a child interpreter under two different hash seeds and compares.
+repetition cannot make: a chooser whose answer depended on the environment, the
+working directory, the import order or a cache a previous test warmed would
+repeat itself perfectly inside this process and still differ on another
+machine. So the second test re-runs the chooser in a *fresh* interpreter — no
+inherited module state, no warmed cache, a clean environment — and compares its
+answers with this process's.
+
+Be precise about what that child process does **not** prove, so the next reader
+does not trust a guard that is not there. It is run under two different
+``PYTHONHASHSEED`` values, but hash randomisation is not what makes it
+worthwhile: CPython randomises the hashes of ``str``, ``bytes`` and
+``datetime`` only, and ``int`` hashes to itself, so a ``set`` of ``(row,
+column)`` tuples iterates identically under every seed (measured under this
+venv: byte-identical order at seeds 0, 1, 2 and 42, where a set of strings
+reorders at each). The two seeds are therefore two fresh interpreters rather
+than two orderings. What keeps "collect the disagreeing cells, take one" safe
+is that the chooser's path holds no set and no dict at all — and that is
+asserted structurally by
+``test_the_choosers_source_builds_no_set_or_dict`` below, the way the package's
+``ast`` import guard asserts the dependency direction, because a behavioural
+test could not see the difference.
 
 The third test is AC-1 widened from its one example to the whole corpus: it is
 not enough that the chooser be *deterministic*, it has to be deterministic and
@@ -46,6 +65,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import nonogram.solver.search
 from nonogram.clues import compute_clues
 from nonogram.solver import MANY, choose_givens, revealed_cells, solve
 
@@ -222,11 +242,18 @@ for grid in json.loads(sys.argv[1]):
 def _in_child(grids: list[list[list[bool]]], hash_seed: str) -> list[str]:
     """Run the chooser over ``grids`` in a child interpreter.
 
-    ``PYTHONHASHSEED`` is the whole point of the subprocess: it is the one
-    piece of host state that changes set and dict iteration order, it cannot
-    be changed inside a running interpreter, and a choice that depended on it
-    would be perfectly stable within a process and silently
-    machine-dependent across them.
+    A *fresh* interpreter is the point: nothing of this process's state
+    survives into it — no imported module holding a warmed cache, no attribute
+    some earlier test monkeypatched, no accumulated ``random`` state — so an
+    answer that matches the parent's matched it without any of that help.
+
+    ``PYTHONHASHSEED`` is varied between the two runs because it is host state
+    that cannot be changed inside a running interpreter, and varying it costs
+    nothing. It is **not** the guard it looks like: CPython randomises the
+    hashes of ``str``, ``bytes`` and ``datetime`` only, so a set of ``(row,
+    column)`` tuples iterates the same way under every seed. The chooser having
+    no set or dict on its path is what makes the ordering safe, and
+    :func:`test_the_choosers_source_builds_no_set_or_dict` is what asserts it.
     """
     import json
 
@@ -246,14 +273,18 @@ def _in_child(grids: list[list[list[bool]]], hash_seed: str) -> list[str]:
 
 
 def test_given_cells_deterministic_across_processes() -> None:
-    """AC-7's "in any process": two hash seeds, two child interpreters, one
-    answer — and the same answer this process gives.
+    """AC-7's "in any process": two child interpreters, one answer — and the
+    same answer this process gives.
 
     A sample of the corpus rather than all of it: the claim is about whether
     the choice can depend on host state at all, which one grid needing several
     reveals already answers, and a few hundred subprocess-borne grids would
     buy nothing but seconds. The sample is the first few cases that need more
     than one reveal, so each one is a *sequence* of choices.
+
+    What this proves and what it does not is spelled out in :func:`_in_child`
+    and in the module docstring: a fresh interpreter, not a reshuffled hash
+    order.
     """
     import json
 
@@ -263,3 +294,49 @@ def test_given_cells_deterministic_across_processes() -> None:
     here = [json.dumps(_chosen(grid)) for grid in sample]
     assert _in_child(sample, "0") == here
     assert _in_child(sample, "1") == here
+
+
+#: The functions that decide *which* cell gets revealed. Deliberately not the
+#: whole solver: ``solve`` keeps a per-call memo, and its determinism is the
+#: subject of its own tests and of ADR-0007's purity rule. These three are the
+#: choice itself.
+_CHOICE_PATH = ("choose_givens", "revealed_cells", "_first_disagreement_cell")
+
+
+def test_the_choosers_source_builds_no_set_or_dict() -> None:
+    """EC(ADR-0024/R4), structurally: the choice path holds no unordered
+    container, so there is no iteration order for it to depend on.
+
+    The guard the two behavioural tests above cannot be. A chooser that
+    collected the disagreeing cells into a ``set`` and took one would be
+    perfectly stable within a process *and* across the hash seeds
+    :func:`_in_child` varies (``int`` hashes to itself — see the module
+    docstring), so neither test would notice; and ordering of a ``set`` of
+    tuples is machine- and build-dependent in principle even when today's
+    CPython happens to be stable. So this asserts the property at the source
+    level, the way ``tests/test_cli.py`` asserts the dependency direction with
+    ``ast``: these three functions build no set and no dict, by literal, by
+    comprehension or by call.
+    """
+    import ast
+
+    source = Path(nonogram.solver.search.__file__).read_text(encoding="utf-8")
+    functions = {
+        node.name: node
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.FunctionDef)
+    }
+    assert set(_CHOICE_PATH) <= functions.keys(), (
+        "the choice path has been renamed; retarget this guard rather than "
+        f"deleting it (found {sorted(functions)})"
+    )
+
+    for name in _CHOICE_PATH:
+        for node in ast.walk(functions[name]):
+            assert not isinstance(
+                node, (ast.Set, ast.Dict, ast.SetComp, ast.DictComp)
+            ), f"{name} builds a {type(node).__name__} on the choice path"
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                assert node.func.id not in {"set", "frozenset", "dict"}, (
+                    f"{name} calls {node.func.id}() on the choice path"
+                )

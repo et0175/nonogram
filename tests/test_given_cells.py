@@ -48,6 +48,11 @@ cap a property of the fixture rather than of the heuristic's luck:
 ``_SIX_SWITCHES``   12x12, six pairs -> six reveals, under the cap of 7.
 ``_EIGHT_SWITCHES`` 12x12, eight pairs -> eight reveals, over the cap of 7.
 
+A third, ``_OTHER_SIX_SWITCHES``, is the same shape in different places, and
+exists for one reason: ``_ScriptedSource`` serves it on a run's later draws so
+that "the policy hands over the run's **first** candidate" is a claim a test
+can fail (fix cycle 1, review F-5).
+
 ``test_the_scripted_grids_are_what_the_ac_tests_assume`` pins both facts
 against the real solver, so a change that made them unique, or cheaper to fix,
 fails loudly there instead of quietly turning the AC tests vacuous.
@@ -113,6 +118,17 @@ _SIX_SWITCHES = _switching_pairs(
     12, ((1, 1), (1, 5), (1, 9), (5, 1), (5, 5), (5, 9))
 )
 
+#: Six more, in different places. Exists only so that a scripted source can
+#: serve a *different* ambiguous grid on its later draws: with one grid on
+#: repeat, "the run's first candidate" and "the latest candidate" are the same
+#: object and no test can tell the reveal policy's choice apart (review F-1 /
+#: F-5, fix cycle 1). Chosen the same shape as :data:`_SIX_SWITCHES` so it is
+#: just as repair-resistant — a grid POL-006 could rescue would end the run
+#: before the policy is reached.
+_OTHER_SIX_SWITCHES = _switching_pairs(
+    12, ((2, 2), (2, 6), (6, 2), (6, 6), (9, 2), (9, 6))
+)
+
 #: Eight of them: eight reveals needed, cap 7 — the refusal, by arithmetic.
 _EIGHT_SWITCHES = _switching_pairs(
     12, ((1, 1), (1, 5), (1, 9), (5, 1), (5, 5), (5, 9), (9, 1), (9, 5))
@@ -165,6 +181,12 @@ def test_the_scripted_grids_are_what_the_ac_tests_assume() -> None:
         _choose(_EIGHT_SWITCHES, cap=7)
 
     assert _solve(_PLUS).solution_count == 1
+
+    # The scripted source's second grid: a *different* picture that is just as
+    # ambiguous, so a run that serves it still exhausts its bound.
+    assert _OTHER_SIX_SWITCHES != _SIX_SWITCHES
+    assert _solve(_OTHER_SIX_SWITCHES).solution_count == solver.MANY
+    assert len(solver.revealed_cells(_choose(_OTHER_SIX_SWITCHES, cap=7))) == 6
 
 
 # --------------------------------------------------------------------------
@@ -513,8 +535,33 @@ class _CountingSource:
         return [row[:] for row in self.grid]
 
 
+class _ScriptedSource:
+    """A source that serves a *different* grid per draw, then repeats the last.
+
+    What ``_CountingSource`` cannot do, and the reason it is not enough
+    (review F-5): with one grid on repeat, the reveal policy's "the run's
+    **first** sourced candidate, never the latest" is behaviourally identical
+    to "the latest", so the declared structure CARD-215 and CARD-216 will read
+    as "the picture the user gave us" has no test behind it. Here the first
+    draw and the last are different pictures, so the choice is observable.
+
+    Draw *n* returns ``grids[n]`` while the script lasts and ``grids[-1]``
+    after that — deliberately not cycling, so "the last grid this run drew" is
+    a single known grid however many attempts the bound allows.
+    """
+
+    def __init__(self, grids: list[Grid]) -> None:
+        self.grids = grids
+        self.candidates_requested = 0
+
+    def __call__(self, *arguments: object) -> Grid:
+        grid = self.grids[min(self.candidates_requested, len(self.grids) - 1)]
+        self.candidates_requested += 1
+        return [row[:] for row in grid]
+
+
 def _install_source(
-    monkeypatch: pytest.MonkeyPatch, source: _CountingSource
+    monkeypatch: pytest.MonkeyPatch, source: _CountingSource | _ScriptedSource
 ) -> None:
     monkeypatch.setattr(orchestrator.sourcing, "for_mode", lambda mode: source)
 
@@ -660,8 +707,14 @@ def test_the_reveal_policy_keeps_the_random_mode_retry_bound(
     repairs ADR-0024 prescribes all happened, and the grid finally accepted is
     the **first** one drawn rather than the last one repaired — which is what
     makes this a picture-preserving remedy in a mode that has a repairing one.
+
+    The source serves a *different* ambiguous picture after the first draw
+    (review F-5, fix cycle 1), so "the first one drawn" is a claim this test can
+    actually fail: with one grid on repeat, the policy handing over the last
+    draw instead of the first was indistinguishable from the correct
+    behaviour.
     """
-    source = _CountingSource(_SIX_SWITCHES)
+    source = _ScriptedSource([_SIX_SWITCHES, _OTHER_SIX_SWITCHES])
     _install_source(monkeypatch, source)
 
     puzzle = generate(_random_request(reveal_given_cells=True))
@@ -669,28 +722,93 @@ def test_the_reveal_policy_keeps_the_random_mode_retry_bound(
     assert puzzle.regenerate.attempts == MAX_RETRY_ATTEMPTS
     assert puzzle.regenerate.attempts <= puzzle.regenerate.bound
     assert puzzle.recovery.repairs > 0, "POL-006 still ran its lineages"
+    assert source.candidates_requested > 1, (
+        "the run must have drawn more than once for 'the first draw' to mean "
+        "anything"
+    )
     assert puzzle.grid == _SIX_SWITCHES
+    assert puzzle.grid != _OTHER_SIX_SWITCHES, "the LAST draw was this one"
     assert len(solver.revealed_cells(puzzle.givens)) == 6
     assert puzzle.ready_for_export is True
 
 
-def test_the_reveal_policy_does_not_rescue_a_missed_difficulty_tier(
+def test_an_already_unique_tier_miss_never_reaches_the_reveal_policy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A run abandoned for a *tier* miss stays abandoned.
+    """The *other* route to a tier miss: the policy is never consulted at all.
 
-    Revealing cells is a uniqueness remedy, exactly as POL-002's nudge is
-    ("a conversion that is unique but misses the requested tier is not
-    nudged"). A conversion that is already unique needs no reveal, so the
-    chooser returns nothing and the original abandonment is re-raised rather
-    than a puzzle being accepted for a tier it does not have — which would be
-    the flag silently widening what ``--difficulty`` means.
+    A conversion that is already uniquely solvable but lands in the wrong tier
+    is refused by the image branch's own tier check, which sits outside the
+    ``try`` that calls the reveal policy — so ``accept_by_revealing`` is not
+    even entered, and the original abandonment travels on. Worth pinning
+    because it is a different mechanism from the gate the test below covers,
+    and because the pair of them is what "a missed tier is never rescued"
+    actually consists of.
+
+    Renamed in CARD-214's fix cycle 1 (review F-1): this test used to carry the
+    name ``test_the_reveal_policy_does_not_rescue_a_missed_difficulty_tier``,
+    which claimed a behaviour it never reached — proved by planting a ``raise``
+    at the top of ``accept_by_revealing``, which this test does not trip. That
+    name now belongs to the test below, which does.
     """
     source = _CountingSource(_PLUS)
     _install_source(monkeypatch, source)
+    puzzles = _capture_puzzles(monkeypatch)
 
     with pytest.raises(GenerationAbandoned) as abandoned:
         generate(_image_request(difficulty="hard", reveal_given_cells=True))
 
     assert type(abandoned.value) is GenerationAbandoned
     assert "tier" in str(abandoned.value) or "difficulty" in str(abandoned.value)
+    # The chooser was never asked, which is what "already unique" means here:
+    # the conversion was accepted by the uniqueness gate and no reveal happened.
+    assert puzzles[0].givens is None
+    assert puzzles[0].solution_count == 1
+    assert puzzles[0].nudge.attempts == 0
+
+
+def test_the_reveal_policy_does_not_rescue_a_missed_difficulty_tier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A *revealed* puzzle outside the requested tier is refused, not returned.
+
+    The gate at the end of ``accept_by_revealing``, on the branch where it is
+    load-bearing. Random mode's outer handler returns whatever the policy hands
+    it with no further tier check, so this line is the only thing standing
+    between ``--difficulty hard`` and an easy puzzle whose uniqueness was
+    bought by giving six cells away. Revealing cells is a *uniqueness* remedy —
+    exactly as POL-002's nudge is ("a conversion that is unique but misses the
+    requested tier is not nudged") — and it cannot make a picture harder; in
+    fact a revealed puzzle grades *easier*, since the seeded solve it is graded
+    off meets those cells already filled. So without this gate the flag would
+    silently widen what ``--difficulty`` means.
+
+    The request is the one the companion random-mode test uses, plus
+    ``difficulty="hard"``: the same 30 redraws and repairs are spent, the same
+    first draw is revealed, the same six cells make it unique — and then the
+    tier refuses it. The assertions below pin that the policy really ran (the
+    aggregate carries the six givens and a count of 1), so a future reader can
+    tell this apart from the test above, where it never ran.
+    """
+    source = _CountingSource(_SIX_SWITCHES)
+    _install_source(monkeypatch, source)
+    puzzles = _capture_puzzles(monkeypatch)
+
+    with pytest.raises(GenerationAbandoned) as abandoned:
+        generate(_random_request(difficulty="hard", reveal_given_cells=True))
+
+    # Not GivenCellsCapExceeded: the reveal itself succeeded, and the cap was
+    # nowhere near. The run fails for the reason it was always going to.
+    assert type(abandoned.value) is GenerationAbandoned
+    assert "Hard" in str(abandoned.value) or "hard" in str(abandoned.value)
+
+    # The reveal policy was entered and did its work — this is what the
+    # already-unique companion above cannot show.
+    aggregate = puzzles[0]
+    assert aggregate.regenerate.attempts == MAX_RETRY_ATTEMPTS
+    assert len(solver.revealed_cells(aggregate.givens)) == 6
+    assert aggregate.solution_count == 1
+    assert aggregate.grid == _SIX_SWITCHES
+    # ... and the thing that refused it was the tier, nothing else.
+    assert aggregate.difficulty_tier is not None
+    assert aggregate.difficulty_in_requested_tier is False
