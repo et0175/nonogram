@@ -174,6 +174,7 @@ from tests.helpers.book_corpus import (
     export_of,
     font_fingerprint,
     load_baseline,
+    page_digest,
     page_digests,
 )
 from tests.helpers.page_ink import INK_LEVEL, drawing_of
@@ -1529,6 +1530,96 @@ class TestBookPdfMemory_PagesAreUnchanged:
 # --------------------------------------------------------------------------
 
 
+#: AC-7b's own ceiling on **how many** of a guide page's pixels may differ
+#: from the CARD-200 baseline at all, as a share of the page. Measured on
+#: this card's own pages (see
+#: :meth:`TestBookPdfMemory_NonDrawingPagesAreByteIdentical.test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement`):
+#: 0.183% of page 1 and 0.192% of page 2, so this bound carries more than a
+#: factor of five of headroom over the scatter it exists to admit — while a
+#: whole-page shift of a single pixel moves 6.3% of page 1 and 6.7% of page
+#: 2 (measured), an order of magnitude past it.
+_GUIDE_SCATTER_SHARE_CEILING = 0.01
+
+#: How far, in grey levels (0..255), the ink found one pixel away in the
+#: other page may sit from the value this page holds, before
+#: :func:`_one_pixel_displacement_outliers` stops calling it "the same ink,
+#: moved" and calls it new ink.
+#:
+#: **This is not a colour tolerance standing in for the displacement bound**
+#: — the bound itself is geometric (a 3x3 neighbourhood search; see that
+#: function's own docstring). This slack exists only because a book page is
+#: read back out of the PDF through a **JPEG** decode
+#: (``tests.helpers.pdf_pages.pdf_pages``: every page is a ``DCTDecode``
+#: stream), so the grey level of a rule's own antialiased edge pixel is
+#: never reproduced exactly between two encodes of nearly-identical pages —
+#: it rings by a few levels, and an edge pixel whose value straddles
+#: :data:`~tests.helpers.page_ink.INK_LEVEL` flips the ink mask on one side
+#: of the threshold while the ink itself has not moved at all.
+#:
+#: Measured: over every differing pixel of both guide pages, the largest
+#: grey distance actually needed to find the same ink one pixel away is
+#: **30** (page 2; 28 on page 1, 99th percentile 16 on both), so 64 is a
+#: little over double the measured worst case. It is also far from
+#: toothless at that size: a pre-card page shifted by **two** pixels leaves
+#: 107,445 (page 1, horizontal) / 126,661 (page 2) differing pixels that
+#: this tolerance cannot explain, where the real scatter leaves zero.
+_GUIDE_SCATTER_GREY_TOLERANCE = 64
+
+
+def _one_pixel_displacement_outliers(
+    now_page: Image.Image, pre_page: Image.Image
+) -> Tuple[int, int, List[Tuple[int, int, int]]]:
+    """Measure AC-7b's displacement bound between two same-sized pages.
+
+    Returns ``(moved, worst, outliers)``: how many pixels the two pages'
+    ink masks disagree about, the largest grey distance any of them needed
+    to be explained as displaced ink, and every pixel that could **not** be
+    explained within one pixel and
+    :data:`_GUIDE_SCATTER_GREY_TOLERANCE`.
+
+    **Why this is a neighbourhood search and not a per-pixel colour delta.**
+    AC-7b bounds a *displacement*, which is a statement about geometry, not
+    about channel values: a black diagram rule that moves sideways by one
+    device pixel turns one black pixel white and one white pixel black, so
+    *any* per-pixel colour-delta check reads that one-pixel move as the
+    maximal possible difference (255 levels) and could only be made to pass
+    by loosening the tolerance until it admits anything at all. What the
+    claim actually means is that the ink moved rather than appeared: for
+    every pixel the two pages disagree about, the value this page holds
+    there must already be present in the **other** page's 3x3
+    neighbourhood of that same coordinate (Chebyshev distance <= 1), and
+    symmetrically. A rule displaced by one pixel satisfies that everywhere
+    along its length; a rule displaced by two, or a diagram element drawn
+    somewhere new, does not.
+
+    "Disagree about" is read on the ink mask
+    (:data:`~tests.helpers.page_ink.INK_LEVEL`, the same threshold the rest
+    of this suite's page comparisons use) rather than on raw channel
+    values, because the raw values of a mostly-white page carry the JPEG
+    round trip's own ringing in every 8x8 block near ink — pixels that are
+    not ink in either page and never were. The *count* of raw differing
+    pixels is bounded separately, by :data:`_GUIDE_SCATTER_SHARE_CEILING`,
+    which is the figure AC-7b's "under 1% of the page" names.
+    """
+    now_grey = np.asarray(now_page.convert("L"), dtype=np.int16)
+    pre_grey = np.asarray(pre_page.convert("L"), dtype=np.int16)
+    moved = (now_grey < INK_LEVEL) != (pre_grey < INK_LEVEL)
+    height, width = now_grey.shape
+    worst = 0
+    outliers: List[Tuple[int, int, int]] = []
+    for row, column in np.argwhere(moved):
+        top, bottom = max(0, row - 1), min(height, row + 2)
+        left, right = max(0, column - 1), min(width, column + 2)
+        needed = max(
+            int(np.abs(pre_grey[top:bottom, left:right] - now_grey[row, column]).min()),
+            int(np.abs(now_grey[top:bottom, left:right] - pre_grey[row, column]).min()),
+        )
+        worst = max(worst, needed)
+        if needed > _GUIDE_SCATTER_GREY_TOLERANCE:
+            outliers.append((int(row), int(column), needed))
+    return int(moved.sum()), worst, outliers
+
+
 class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     """AC-7 — the TOC and every divider are untouched by CARD-204; the guide
     pages carry one discovered, narrow exception.
@@ -1570,6 +1661,15 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     architect/owner, not silently treated as in-scope for this card to
     eliminate (doing so would mean giving ``example_line_layout`` its own
     placement arithmetic, which G-3 forbids these helpers from having).
+
+    **That exception is bounded, not merely described** (AC-7b, the
+    owner's 2026-10-13 decision to “bound it with a test, then merge”):
+    :meth:`test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement`
+    asserts both halves of the measurement above — under 1% of the page
+    differing at all, and every differing pixel explained by ink that
+    moved at most one pixel — against the pre-card pixels themselves, so
+    a later card that displaces these diagrams further fails here
+    instead of inheriting the prose.
     """
 
     #: The baseline book's own page-kind split (CARD-200's recording;
@@ -1677,6 +1777,98 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "CARD-200 baseline (see this class's docstring) — if it "
                 "now matches exactly, this exception is stale and the "
                 "class docstring/comment should be revisited"
+            )
+
+    def test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement(
+        self, baseline, exported, same_face
+    ) -> None:
+        """AC-7b — the guide pages' deviation from the CARD-200 baseline is
+        *bounded*, not merely admitted in prose.
+
+        The test above pins that pages 1-2 still differ and still have the
+        guide's own size; this one pins **by how much they may differ**,
+        which is what AC-7's original "byte-identical" claim lost when the
+        AC/EC gate found it false of these two pages. Without this, a later
+        card could displace the guide's worked-example diagrams anywhere on
+        the page and every assertion in this class would still pass.
+
+        Two bounds, both from AC-7b, measured here rather than described:
+
+        * **Count** — the pixels that differ at all are under
+          :data:`_GUIDE_SCATTER_SHARE_CEILING` of the page. Measured:
+          15,397 px of 8,415,000 on page 1 (0.183%) and 16,121 px
+          (0.192%) on page 2 — the "roughly 15 000 pixels, well under 1%"
+          this class's docstring and the card describe.
+        * **Displacement** — every one of those pixels is explained by ink
+          that moved at most one pixel, by the 3x3 neighbourhood search in
+          :func:`_one_pixel_displacement_outliers` (read that function's
+          docstring for why the bound is implemented geometrically and not
+          as a per-pixel colour delta — a 1 px displacement of a black rule
+          *is* a 255-level colour difference, so a colour-delta check
+          cannot express this claim at all). Measured: 0 outliers on either
+          page, out of 2,848 (page 1) and 3,314 (page 2) ink-mask
+          disagreements.
+
+        **Where the pre-card pixels come from.** ``book_baseline_card200.json``
+        keeps digests, not images (``book_corpus.page_digest``'s own
+        rationale: a page is 25.2 MB of bitmap), and a digest cannot answer
+        "by how much". So the two guide pages of that same recording are
+        kept beside it as the exact ``DCTDecode`` streams the CARD-200
+        interior PDF held — ``book_baseline_card200_guide_page{1,2}.jpg``,
+        828 KB for the pair, the smallest exact form of the only two pages
+        this bound needs. They are **not** a second, independent baseline
+        that could drift away from the first: the first thing this test
+        does is digest each of them and assert it is the very page
+        ``book_baseline_card200.json`` recorded, so a fixture swapped for a
+        convenient one fails here rather than silently widening the bound.
+        """
+        if not same_face and set(self.GUIDE_PAGES) & set(baseline["font_dependent_pages"]):
+            pytest.skip(
+                "both guide pages are lettered through _guide_face, and this "
+                "machine's face is not the baseline's — see "
+                "TestBookPdfMemory_PagesAreUnchanged's own note"
+            )
+
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        for number in self.GUIDE_PAGES:
+            recorded = baseline["pages"][number - 1]
+            with Image.open(fixtures_dir / f"book_baseline_card200_guide_page{number}.jpg") as raw:
+                pre = raw.convert("RGB")
+            assert page_digest(pre) == recorded, (
+                f"the stored pre-card guide page {number} is not the page "
+                "book_baseline_card200.json recorded — this fixture is only "
+                "trustworthy as the pixels behind that digest"
+            )
+            now = exported[number - 1]
+            assert now.size == pre.size, (now.size, pre.size)
+
+            differing = int((np.asarray(now) != np.asarray(pre)).any(axis=2).sum())
+            pixels = now.width * now.height
+            assert 0 < differing < _GUIDE_SCATTER_SHARE_CEILING * pixels, (
+                f"guide page {number} differs from the CARD-200 baseline in "
+                f"{differing} of {pixels} pixels "
+                f"({100 * differing / pixels:.3f}%), past AC-7b's "
+                f"{100 * _GUIDE_SCATTER_SHARE_CEILING:.0f}% ceiling — this page "
+                "borrows compute_layout only for its cell pitch and rule "
+                "widths, so a change of this size is not sub-pixel rounding"
+            )
+
+            moved, worst, outliers = _one_pixel_displacement_outliers(now, pre)
+            assert moved > 0, (
+                f"guide page {number}'s ink mask is identical to the "
+                "CARD-200 baseline's — the scatter this test bounds is gone, "
+                "so the bound is being measured against nothing (revisit "
+                "AC-7b and this class's docstring rather than keeping a "
+                "vacuous assertion)"
+            )
+            assert not outliers, (
+                f"guide page {number}: {len(outliers)} of {moved} differing "
+                f"pixels are not ink that moved by at most 1 px — e.g. "
+                f"{outliers[:5]} (row, column, grey distance to the nearest "
+                f"value in the other page's 3x3 neighbourhood; the tolerance "
+                f"is {_GUIDE_SCATTER_GREY_TOLERANCE}). AC-7b admits a "
+                "sub-pixel rounding scatter in the guide's worked examples, "
+                "not a relocation of them"
             )
 
     def test_every_drawing_page_actually_moved(self, baseline, exported) -> None:
