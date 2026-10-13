@@ -85,6 +85,7 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
+    _folio_reserve_px,
     _stroke_drawing,
 )
 from nonogram.export import ExportPayload
@@ -124,6 +125,13 @@ MIN_THIN_RULE_MM = 0.25
 
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = DPI / 25.4
+
+#: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres —
+#: ``_folio_reserve_px`` is a font-measurement helper (not FR-040's own
+#: geometry), so it is imported directly rather than reimplemented a third
+#: time; the pairing/placement arithmetic that uses it below is this
+#: module's own independent check.
+RESERVE_MM = _folio_reserve_px(DPI) / PX_PER_MM
 
 #: How far a measured edge may sit from the millimetres worked out here. Every
 #: boundary is rounded to a whole device pixel once, and the drawing's left
@@ -772,10 +780,24 @@ def _down(puzzle: dict) -> int:
 
 
 def _shared_cell_mm(upper: dict, lower: dict) -> float:
-    """FR-040's shared cell for one pair on one Book 1 page, in millimetres."""
-    return min(
+    """FR-040's shared cell for one pair on one Book 1 page, in millimetres.
+
+    **CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
+    reserve").** Re-derives ``compute_pair_layout``'s own "only widen the
+    fit when the lower slot's own natural spare can't already hold the
+    fixed reserve" rule independently, in millimetres.
+    """
+    natural = min(
         STANDARD_CELL_MM,
         USABLE_WIDTH_MM / max(_across(upper), _across(lower)),
+        PAIR_HEIGHT_MM / (_down(upper) + _down(lower)),
+    )
+    natural_spare_mm = USABLE_WIDTH_MM - _across(lower) * natural
+    if natural_spare_mm >= RESERVE_MM:
+        return natural
+    return min(
+        STANDARD_CELL_MM,
+        (USABLE_WIDTH_MM - RESERVE_MM) / max(_across(upper), _across(lower)),
         PAIR_HEIGHT_MM / (_down(upper) + _down(lower)),
     )
 
@@ -809,22 +831,30 @@ def _expected_pair_boxes(
     That rectangle **is** the frame: its left and top are the outer edges of
     the two clue gutters and its right and bottom the grid's own outer border.
 
-    **History (CARD-204 Fix 1/Fix 2, both reverted by Fix 3).** Fix 1/Fix 2
-    pulled the lower box alone back toward the gutter by a folio reserve,
-    so that figure had to be re-derived here too. Fix 3 removes the
-    reserve mechanism from ``compute_pair_layout``/``_slot_layout``
-    entirely — the lower box is laid out by the exact same, unshifted
-    flush formula as the upper one, so this helper no longer takes a
-    ``page_number`` or re-derives any reserve; the parameter is kept only
-    so every call site below (which still names a page number for its own
-    documentation value) does not need editing.
+    **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a fixed
+    constant by Fix 4 — owner decision, 2026-10-12, "fixed universal
+    reserve").** Fix 1/Fix 2 pulled the lower box alone back toward the
+    gutter by a page/book-specific folio reserve (INV-010, cycle-1 F-1,
+    cycle-2 F-5). Fix 3 removed the reserve mechanism entirely. Fix 4
+    restores it as a *fixed* amount (:data:`RESERVE_MM`, never derived from
+    ``page_number`` or any book content) — this helper still does not take
+    or need a ``page_number`` (the reserve does not vary with one), kept
+    only so every call site below (which still names a page number for its
+    own documentation value) does not need editing.
     """
     cell = _shared_cell_mm(upper, lower)
     left_margin = OUTSIDE_MM if parity is PageParity.EVEN else GUTTER_MM
 
-    def box(puzzle: dict, top_mm: float) -> tuple[float, float, float, float]:
+    def box(
+        puzzle: dict, top_mm: float, *, is_lower: bool = False
+    ) -> tuple[float, float, float, float]:
         spare_mm = USABLE_WIDTH_MM - _across(puzzle) * cell
-        left_mm = left_margin if parity is PageParity.EVEN else left_margin + spare_mm
+        reserved_mm = min(RESERVE_MM, max(spare_mm, 0)) if is_lower else 0.0
+        left_mm = (
+            left_margin + reserved_mm
+            if parity is PageParity.EVEN
+            else left_margin + spare_mm - reserved_mm
+        )
         return (
             left_mm * PX_PER_MM,
             top_mm * PX_PER_MM,
@@ -834,7 +864,7 @@ def _expected_pair_boxes(
 
     return (
         box(upper, TOP_MM + BAND_MM),
-        box(lower, BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell),
+        box(lower, BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell, is_lower=True),
     )
 
 

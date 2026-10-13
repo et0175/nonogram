@@ -155,6 +155,7 @@ from nonogram.admin.book_pdf_generator import (
     _answer_extent,
     _band_font,
     _degrade_infeasible_packed_pages,
+    _folio_reserve_px,
     _pairable_tier,
     page_frame,
     type_px,
@@ -1837,6 +1838,13 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
+            # CARD-204 Fix 4: production's own `puzzle_pages` always passes
+            # the fixed folio reserve, so this reference must too — a
+            # reference built without it would sit `_folio_reserve_px`
+            # pixels off production's own lower slot, and the comparison
+            # below would be tolerating a real displacement instead of
+            # checking the content.
+            folio_reserve_px=_folio_reserve_px(generator.dpi),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -2021,6 +2029,13 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             generator.page_spec(old_number),
+            # CARD-204 Fix 4: production's own `puzzle_pages` always passes
+            # the fixed folio reserve, so this reference must too — a
+            # reference built without it would sit `_folio_reserve_px`
+            # pixels off production's own lower slot, and the comparison
+            # below would be tolerating a real displacement instead of
+            # checking the content.
+            folio_reserve_px=_folio_reserve_px(generator.dpi),
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -2052,6 +2067,9 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             (payloads[0].row_clues, payloads[0].column_clues),
             (payloads[1].row_clues, payloads[1].column_clues),
             spec,
+            # The same fixed reserve production pairs with (CARD-204
+            # Fix 4) — the lower slot's icon box moves with its drawing.
+            folio_reserve_px=_folio_reserve_px(generator.dpi),
         )
         assert pair is not None
         return [

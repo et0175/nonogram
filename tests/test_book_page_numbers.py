@@ -36,6 +36,7 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     PuzzlePagePlan,
+    _folio_reserve_px,
     page_is_right_hand,
 )
 from nonogram.difficulty import Tier
@@ -144,35 +145,28 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
         this module can draw (``tests/helpers/book_corpus.py``'s own
         docstring).
 
-        **CARD-204 Fix 1/Fix 2 (both reverted by Fix 3):** the two-up page
-        (baseline book interior page 5, the Duck+Owl pair) is, once again,
-        a deliberate, permanent exception — see
-        ``TestBookPageNumbers_FolioNeverCollidesWithTheGrid``'s own
-        ``test_two_up_page_s_folio_is_once_again_always_omitted`` for the
-        full reasoning. Right-alignment's flush formula makes a two-up
-        page's lower slot reach the folio's own outer corner *exactly*,
-        with zero slack, on **every** two-up page, regardless of either
-        puzzle's own width (``drawing_right``/``drawing_left`` always
-        equals ``usable_right``/``usable_left`` by construction — see
-        ``_slot_layout``'s own docstring). Fix 1 and Fix 2 bought that
-        slack back by reserving room in ``compute_pair_layout``, but both
-        let a non-geometric quantity (a page number's or a book's own
-        digit count) flip whether two puzzles pair at all (INV-010,
-        cycle-1 F-1, cycle-2 F-5) — a worse defect than losing one page's
-        folio. Fix 3 removes the reserve mechanism entirely, so the folio
-        is lost on every two-up page again; this is the accepted,
-        page-local trade the task's own analysis calls for, not a bug this
-        test should paper over.
+        **CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
+        reserve"): the two-up page is no longer an exception.** Fix 1/Fix 2
+        bought the folio's room back by reserving space in
+        ``compute_pair_layout`` keyed to a page's or a book's own digit
+        count, which let a non-geometric quantity flip whether two puzzles
+        pair at all (INV-010, cycle-1 F-1, cycle-2 F-5). Fix 3 removed the
+        reserve entirely, restoring INV-010 purity but reintroducing the
+        folio loss on **every** two-up page, not just a tight-fit one
+        (cycle-3 F-7, confirmed in this exact test's own prior revision).
+        Fix 4 reserves the *same fixed number of pixels* — never derived
+        from any page number or book content — on every two-up page's
+        lower slot, so the two-up page (baseline book interior page 5, the
+        Duck+Owl pair) now carries its folio exactly like every other page:
+        no exception, no carve-out.
         """
         generator = BookPDFGenerator(corpus_book())
         calls, drawn = _spy_interior(generator, baseline_puzzles(), monkeypatch)
         folios = _folios(calls)
-        two_up_page = 5
 
-        assert set(folios) == set(range(1, drawn + 1)) - {two_up_page}, (
-            "every interior page except the two-up one should carry exactly "
-            f"one folio; missing or extra pages: "
-            f"{(set(range(1, drawn + 1)) - {two_up_page}) ^ set(folios)}"
+        assert set(folios) == set(range(1, drawn + 1)), (
+            "every interior page should carry exactly one folio; missing or "
+            f"extra pages: {set(range(1, drawn + 1)) ^ set(folios)}"
         )
         for page, text in folios.items():
             assert text == str(page), (
@@ -514,6 +508,15 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         the folio from the whole book (AC-1 would then fail) — this is the
         case where drawing unconditionally (review cycle 1's own code)
         really does print on top of the grid.
+
+        **CARD-204 Fix 4:** the pair here is laid out *without* the fixed
+        folio reserve production always passes (``folio_reserve_px``
+        defaults to ``0``), on purpose — Fix 4 means no page a real book
+        prints reaches ``_draw_folio`` with a zero-slack outer corner any
+        more, so this is now a deliberately synthetic layout kept to keep
+        that defensive check covered. The test that pins what production
+        itself now produces is
+        ``test_two_up_page_s_folio_now_has_reserved_room`` below.
         """
         generator = BookPDFGenerator(corpus_book("f1-two-up-tight"))
         upper = generator._payload(puzzle("f1-two-up-tight-u", 25, 10, 1, "easy", "Upper"))
@@ -539,9 +542,11 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             "a folio directly over its own grid instead of omitting it"
         )
 
-    def test_two_up_page_s_folio_is_once_again_always_omitted(self, monkeypatch) -> None:
-        """CARD-204 Fix 3: there is no reserve any more, so there is no
-        "common case" with slack any more either.
+    def test_two_up_page_s_folio_now_has_reserved_room(self, monkeypatch) -> None:
+        """CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
+        reserve"): the folio reliably reappears on two-up pages, in both
+        parities, because every pair is laid out with a fixed, book- and
+        page-independent amount of outer-corner headroom.
 
         **History.** Before CARD-204, the baseline book's own Duck/Owl pair
         had ample *horizontal* room overall, so under the old centred
@@ -549,51 +554,115 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         and the folio printed normally. Under right-alignment (reading
         (b)) the lower slot's drawing is flush with the usable area's
         *outer* margin by construction, on every parity, whatever the
-        puzzle's own extent (``export/layout.py``'s ``_slot_layout``: the
-        flush formula has no clamp, so it is exact whether or not there is
-        slack to spare) — so the lower slot's vertical slack already always
-        reads zero (``PairLayout``'s own docstring) and now its horizontal
-        slack does too, which made ``_draw_folio``'s "omit rather than
-        collide" check fire on *every* two-up page. Fix 1 and Fix 2 bought
-        that slack back by threading a ``folio_reserve_px`` into
-        ``compute_pair_layout``, but both let that reserve participate in
-        the pairing/cell-size decision itself — a non-geometric quantity
-        (a page's or a book's own digit count) flipping INV-010's verdict
-        (cycle-1 F-1, cycle-2 F-5). Fix 3 removes the reserve mechanism
-        entirely: ``compute_pair_layout`` no longer takes a
-        ``folio_reserve_px`` parameter at all, so there is nothing left to
-        buy the slack back with — this test, once again, is the control
-        that proves the loss, exactly as it did before Fix 1 ever existed.
-
-        This is a permanent, page-local consequence of reading (b), not a
-        bug, and not something this card's own scope repositions the folio
-        to avoid (see CARD-204's Worktree notes, [Fix 3] entry) — losing
-        one page's folio is the accepted, strictly smaller cost of keeping
-        the pairing/cell-size decision geometry-only.
+        puzzle's own extent, with **no reserve** — so the lower slot's
+        vertical slack already always reads zero (``PairLayout``'s own
+        docstring) and its horizontal slack now does too, which made
+        ``_draw_folio``'s "omit rather than collide" check fire on *every*
+        two-up page. Fix 1 and Fix 2 bought that slack back with a
+        ``folio_reserve_px`` derived from a page's or a book's own digit
+        count, which let that non-geometric quantity flip INV-010's verdict
+        (cycle-1 F-1, cycle-2 F-5). Fix 3 removed the reserve entirely,
+        restoring INV-010 purity but reintroducing the folio loss on every
+        two-up page (cycle-3 F-7) — this test's own prior revision was
+        exactly that control. Fix 4 resolves the tension with a **fixed**
+        reserve (``_folio_reserve_px``, a function of the font and the DPI
+        only, never of ``page_number`` or any book content), so this test
+        is now the control that proves the folio is back — reliably, not
+        just in the common case.
         """
-        generator = BookPDFGenerator(corpus_book("f1-two-up-slack"))
-        duck = generator._payload(puzzle("f1-two-up-slack-duck", 10, 10, 3, "easy", "Duck"))
-        owl = generator._payload(puzzle("f1-two-up-slack-owl", 10, 10, 3, "easy", "Owl"))
-        page_number = 5
-        spec = generator.page_spec(page_number)
-        pair = compute_pair_layout(
-            (duck.row_clues, duck.column_clues), (owl.row_clues, owl.column_clues), spec
-        )
-        assert pair is not None
-        assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == 0
-        assert pair.lower.page.usable_right - pair.lower.page.drawing_right == 0
+        generator = BookPDFGenerator(corpus_book("f4-two-up-slack"))
+        duck = generator._payload(puzzle("f4-two-up-slack-duck", 10, 10, 3, "easy", "Duck"))
+        owl = generator._payload(puzzle("f4-two-up-slack-owl", 10, 10, 3, "easy", "Owl"))
+        reserve_px = _folio_reserve_px(generator.dpi)
+        assert reserve_px > 0, "the fixed reserve must be a real, positive amount of room"
 
-        plan = PuzzlePagePlan(page_number, (1, 2), pair)
-        calls = _folio_calls(
-            monkeypatch, page_number, lambda: generator._two_up_page(plan, [duck, owl])
-        )
+        for page_number in (5, 6):  # ODD (right-hand) and EVEN (left-hand)
+            spec = generator.page_spec(page_number)
+            pair = compute_pair_layout(
+                (duck.row_clues, duck.column_clues),
+                (owl.row_clues, owl.column_clues),
+                spec,
+                folio_reserve_px=reserve_px,
+            )
+            assert pair is not None, page_number
+            # The lower slot's vertical slack is still always zero (CARD-200's
+            # folio sits in the one row this corner ever competes for), but
+            # its *horizontal* slack at the outer corner is now exactly the
+            # fixed reserve, not zero — the mechanism this test pins.
+            assert pair.lower.page.usable_bottom - pair.lower.page.drawing_bottom == 0, (
+                page_number
+            )
+            right_hand = page_is_right_hand(page_number)
+            gap = (
+                pair.lower.page.usable_right - pair.lower.page.drawing_right
+                if right_hand
+                else pair.lower.page.drawing_left - pair.lower.page.usable_left
+            )
+            assert gap == reserve_px, (page_number, gap, reserve_px)
 
-        assert not _folios(calls), (
-            "a two-up page with plenty of overall horizontal room still "
-            "omitted its folio — expected under CARD-204 Fix 3, since the "
-            "slack now collects on the gutter side and the outer corner is "
-            "always flush, with no reserve left to buy it back"
+            plan = PuzzlePagePlan(page_number, (1, 2), pair)
+            calls = _folio_calls(
+                monkeypatch, page_number, lambda: generator._two_up_page(plan, [duck, owl])
+            )
+            assert _folios(calls) == {page_number: str(page_number)}, (
+                "a two-up page with the fixed reserve in place should draw its "
+                f"folio normally (page {page_number}, {'ODD' if right_hand else 'EVEN'})"
+            )
+
+    def test_the_fixed_reserve_is_identical_across_book_scales(self) -> None:
+        """CARD-204 Fix 4's own "universal" half: the reserve a tiny book's
+        two-up page gets is byte-for-byte the same number of pixels as a
+        book thousands of pages larger gets — it is a function of the font
+        and the DPI alone, never of ``page_number``, ``payloads`` or any
+        other book-specific quantity (the owner's decision explicitly names
+        this as the distinguishing property from Fix 1/Fix 2's reserve,
+        which varied with exactly these things).
+        """
+        small_book = BookPDFGenerator(corpus_book("f4-scale-small"))
+        huge_book = BookPDFGenerator(corpus_book("f4-scale-huge"))
+        assert _folio_reserve_px(small_book.dpi) == _folio_reserve_px(huge_book.dpi)
+
+        # The same two puzzles, paired early in a short book and (via a run
+        # of differently-tiered filler puzzles, so none of them ever offers
+        # to pair with the two under test, INV-010) late in a book whose own
+        # page numbers run three digits deep, commit to the identical gap.
+        duck = small_book._payload(puzzle("f4-scale-duck", 10, 10, 3, "easy", "Duck"))
+        owl = small_book._payload(puzzle("f4-scale-owl", 10, 10, 3, "easy", "Owl"))
+        huge_duck = huge_book._payload(puzzle("f4-scale-duck", 10, 10, 3, "easy", "Duck"))
+        huge_owl = huge_book._payload(puzzle("f4-scale-owl", 10, 10, 3, "easy", "Owl"))
+        fillers = [
+            small_book._payload(
+                puzzle(f"f4-scale-filler-{i}", 10, 10, 3, "hard", f"Filler {i}")
+            )
+            for i in range(1200)
+        ]
+        huge_fillers = [
+            huge_book._payload(
+                puzzle(f"f4-scale-filler-{i}", 10, 10, 3, "hard", f"Filler {i}")
+            )
+            for i in range(1200)
+        ]
+
+        early_plan = small_book.puzzle_pages([duck, owl, *fillers])
+        late_plan = huge_book.puzzle_pages([*huge_fillers, huge_duck, huge_owl])
+        early_target = next(entry for entry in early_plan if entry.numbers[:1] == (1,))
+        late_target = next(
+            entry for entry in late_plan if len(fillers) + 1 in entry.numbers
         )
+        assert early_target.page_number != late_target.page_number
+        assert len(str(late_target.page_number)) >= 3, late_target.page_number
+        assert early_target.pair is not None and late_target.pair is not None
+
+        def gap(entry: PuzzlePagePlan) -> int:
+            right_hand = page_is_right_hand(entry.page_number)
+            lower = entry.pair.lower.page
+            return (
+                lower.usable_right - lower.drawing_right
+                if right_hand
+                else lower.drawing_left - lower.usable_left
+            )
+
+        assert gap(early_target) == gap(late_target) == _folio_reserve_px(small_book.dpi)
 
     def test_packed_answer_page_omits_the_folio_when_the_corner_tile_is_page_fit_bound(
         self, monkeypatch

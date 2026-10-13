@@ -350,6 +350,125 @@ def test_PropertyTest_BookTwoUp_SlotsAnchorAtTheChosenEdge() -> None:
     assert paired >= 500, paired
 
 
+#: Fixed folio reserves to sweep the ``folio_reserve_px`` contract with
+#: (CARD-204 Fix 4, owner decision 2026-10-12, "fixed universal reserve").
+#: Plain constants written out here, not read from
+#: ``book_pdf_generator._folio_reserve_px``: what this module checks is the
+#: *contract* ``compute_pair_layout`` offers for any fixed reserve — that the
+#: lower slot really keeps exactly that much room, on every pair and both
+#: parities, and that the verdict and the cell stay parity-independent.
+#: 108 is what production's own font measurement currently yields at 300 DPI
+#: (cross-checked against ``_folio_reserve_px`` itself in
+#: ``tests/property/test_book_pairing.py`` and
+#: ``tests/test_book_page_numbers.py``, which is where that value belongs);
+#: 27 is a deliberately different one, so a formula that only ever works for
+#: one magic number cannot pass.
+FIXED_RESERVES_PX = (27, 108)
+
+
+def test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve() -> None:
+    """CARD-204 Fix 4: the reserve is kept on **every** pair that pairs, not
+    on a lucky few — and it never leaks into the verdict or the cell.
+
+    The owner's decision ("fixed universal reserve", 2026-10-12) is exactly
+    this pair of claims, and cycle-3's review (F-7) gated this card for
+    asserting the first one loosely: with no reserve, the lower slot's
+    outer-corner gap is ``0`` on *every* two-up page, by construction, so
+    CARD-200's folio was lost everywhere rather than occasionally. Here the
+    whole corpus is checked, at two different fixed reserves:
+
+    * the lower slot's own gap at the outer corner is **exactly** the
+      reserve — not "at least zero", not "usually" — which is what makes
+      ``_draw_folio``'s horizontal clearance check pass on every two-up
+      page;
+    * the upper slot is still perfectly flush (the reserve is the lower
+      slot's alone, G-1/G-6: nothing else about the page moves);
+    * the same pair gets the same verdict and the same cell on ODD and EVEN
+      pages alike, and the cell is the independently re-derived
+      ``_expected_shared_cell_mm`` of either the plain spec (when the lower
+      slot's own natural spare already holds the reserve) or of a spec whose
+      usable width is the reserve narrower (when it does not) — never
+      anything that varies with a page number or a book's own scale, since
+      no such quantity is in scope here at all.
+    """
+    rng = random.Random(2204004)
+    checked = {reserve: 0 for reserve in FIXED_RESERVES_PX}
+    widened = 0
+    for _ in range(1500):
+        spec = _random_spec(rng)
+        first, second = _puzzle(rng), _puzzle(rng)
+        for reserve in FIXED_RESERVES_PX:
+            pairs = {
+                parity: compute_pair_layout(
+                    first,
+                    second,
+                    dataclasses.replace(spec, parity=parity),
+                    folio_reserve_px=reserve,
+                )
+                for parity in (PageParity.ODD, PageParity.EVEN)
+            }
+            # (a) The verdict and the cell are parity-independent: the only
+            # thing a parity changes is which side the margins sit on.
+            assert (pairs[PageParity.ODD] is None) == (pairs[PageParity.EVEN] is None), (
+                spec,
+                reserve,
+            )
+            if pairs[PageParity.ODD] is None:
+                continue
+            assert pairs[PageParity.ODD].cell_mm == pairs[PageParity.EVEN].cell_mm, (
+                spec,
+                reserve,
+            )
+            checked[reserve] += 1
+
+            reserve_mm = _mm(reserve)
+            plain = _expected_shared_cell_mm(spec, first, second)
+            lower_across = _depth(second[0]) + len(second[1])
+            usable_width_mm = spec.width_mm - spec.gutter_mm - spec.outside_mm
+            if usable_width_mm - lower_across * plain >= reserve_mm:
+                expected = plain
+            else:
+                widened += 1
+                expected = _expected_shared_cell_mm(
+                    dataclasses.replace(spec, outside_mm=spec.outside_mm + reserve_mm),
+                    first,
+                    second,
+                )
+            assert abs(float(pairs[PageParity.ODD].cell_mm) - expected) < 1e-6, (
+                spec,
+                reserve,
+                float(pairs[PageParity.ODD].cell_mm),
+                expected,
+            )
+
+            # (b) Every page really keeps its folio room — the lower slot's
+            # outer corner, in whichever direction this parity's outer
+            # margin lies, and the upper slot still dead flush.
+            for parity, pair in pairs.items():
+                upper, lower = pair.upper.page, pair.lower.page
+                if parity is PageParity.ODD:
+                    assert upper.drawing_right == upper.usable_right, (spec, reserve)
+                    assert lower.usable_right - lower.drawing_right == reserve, (
+                        spec,
+                        reserve,
+                        lower.usable_right - lower.drawing_right,
+                    )
+                else:
+                    assert upper.drawing_left == upper.usable_left, (spec, reserve)
+                    assert lower.drawing_left - lower.usable_left == reserve, (
+                        spec,
+                        reserve,
+                        lower.drawing_left - lower.usable_left,
+                    )
+    for reserve, count in checked.items():
+        assert count >= 200, (reserve, count)
+    # The re-fit branch is not dead code in this corpus: some pairs really do
+    # pay a smaller cell for the reserve, which is the case the "guarantees
+    # at least the reserve of headroom" claim in `compute_pair_layout`'s own
+    # docstring is about.
+    assert widened >= 20, widened
+
+
 def test_PropertyTest_BookTwoUp_PairsExactlyWhenTheRuleSaysSo() -> None:
     """The verdict is the rule, in either order: a pair is formed iff its cell >= 7.0
     mm, and swapping the two puzzles changes the slots, never the cell or the verdict."""

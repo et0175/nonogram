@@ -311,6 +311,30 @@ class TestPairLayout_RefusesSpecsThatNeverPair:
         spec = dataclasses.replace(BOOK1_ODD, height_mm=60.0, band_mm=21.0)
         assert compute_pair_layout(ten, ten, spec) is None
 
+    def test_a_folio_reserve_wider_than_the_page_is_none_not_an_error(self) -> None:
+        """CARD-204 Fix 4: ``folio_reserve_px`` declines, it never raises.
+
+        Production passes one fixed ~9 mm constant
+        (``book_pdf_generator._folio_reserve_px``, 108 px at 300 DPI), so no
+        real book reaches this; the point is that the parameter cannot turn a
+        geometry question into an exception for *any* fixed value a caller
+        passes. A reserve wider than Book 1's own usable width would, without
+        the guard, hand the re-fit step a ``PageSpec`` whose usable width is
+        negative — which ``PageSpec`` itself rejects with a ``ValueError``,
+        the one error shape this function's own "``None`` when the geometry
+        does not work out" contract rules out.
+        """
+        ten = _puzzle(10, 10, row_depth=4, column_depth=4)
+        # Book 1's usable width is 193.675 mm; 100 000 px at 300 DPI is ~8.5 m.
+        assert compute_pair_layout(ten, ten, BOOK1_ODD, folio_reserve_px=100_000) is None
+        # One pixel short of the whole usable width still declines cleanly,
+        # rather than raising on the boundary itself.
+        usable_px = round(BOOK1_USABLE_WIDTH_MM * 300 / 25.4)
+        assert compute_pair_layout(ten, ten, BOOK1_ODD, folio_reserve_px=usable_px) is None
+        assert (
+            compute_pair_layout(ten, ten, BOOK1_ODD, folio_reserve_px=usable_px - 1) is None
+        )
+
 
 class TestPairLayout_RefusesMalformedClues:
     """A malformed puzzle is a caller bug, raised like compute_layout raises it."""

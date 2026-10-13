@@ -285,6 +285,32 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``font_dependent_pages`` are unchanged (Fix 3 touches no machine-lettered
 #:   page either).
 #:
+#: * ``book_baseline_card204.json`` (**re-recorded in place a fourth time for
+#:   CARD-204 Fix 4**, same filename): the owner's decision, 2026-10-12,
+#:   "fixed universal reserve" — Fix 3's own INV-010-pure removal of the
+#:   reserve mechanism (correct in isolation) silently reintroduced the
+#:   folio loss on *every* two-up page, not just a tight-fit one (cycle-3
+#:   review F-7), which is the exact regression this card's owner-confirmed
+#:   "reserve folio room" decision existed to prevent. Fix 4 restores
+#:   ``folio_reserve_px``/``outer_reserve_px`` to ``compute_pair_layout``/
+#:   ``_slot_layout``, but every production call now feeds it a single
+#:   FIXED value (``book_pdf_generator._folio_reserve_px(dpi)`` — a function
+#:   of the font and the DPI alone, computed once from the widest digit
+#:   this font draws times a 4-digit ceiling, 108 px at 300 DPI — never a
+#:   page number or any book content), so the pairing/cell-size verdict
+#:   stays "this pair's own geometry plus one constant," structurally
+#:   incapable of the cycle-1/cycle-2 coupling. On this baseline book's own
+#:   Duck+Owl pair, the committed 7.5 mm shared cell is unchanged (height,
+#:   not width, is this pair's own binding constraint, confirmed not
+#:   assumed) — only the lower slot's drawing/QR-icon geometry shifts
+#:   108 px toward the gutter, buying back enough room for CARD-200's
+#:   folio to draw again. Measured directly (page-by-page digest
+#:   comparison against Fix 3's own recording): only interior page 5 (the
+#:   two-up page) moves. ``interior_bytes`` moves from 3439483 to 3440084
+#:   (+601 bytes — the folio glyph's own ink, drawn again). ``font_fingerprint``
+#:   and ``font_dependent_pages`` are unchanged (Fix 4 touches no
+#:   machine-lettered page either).
+#:
 #: All thirteen files carry the reasoning; this constant names the current one.
 BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
 

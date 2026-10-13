@@ -1883,6 +1883,8 @@ def compute_pair_layout(
     first: tuple[ClueSet, ClueSet],
     second: tuple[ClueSet, ClueSet],
     page_spec: PageSpec,
+    *,
+    folio_reserve_px: int = 0,
 ) -> PairLayout | None:
     """Lay two puzzles out on one book page at one shared cell, or decline (FR-040).
 
@@ -1893,49 +1895,71 @@ def compute_pair_layout(
     decision, and a single puzzle keeps using :func:`compute_layout`.
 
     **This decision is geometry-only (INV-010), by construction, not just by
-    intent.** The shared cell is the largest cell, capped at the spec's flat
-    cap, at which (a) both drawings' heights — grid rows plus column-clue rows
-    of each — plus one band per puzzle fit the usable height (trim − top −
-    bottom), and (b) each drawing's width — grid columns plus row-clue columns
-    — fits the usable width. Clue depths are the real ones
-    (:func:`_gutter_depth`, TERM-021). That is exactly :func:`_placed_cell_mm`
-    of one combined drawing — the wider of the two drawings across, the two
-    stacked down — on the same spec with a second band reserved, so the pair
-    is fitted by the same code, exactly, as a single page: there is no second
-    implementation of cell fitting. Nothing about either puzzle's page
-    number, the book's own total page count, or any other non-geometric
-    quantity ever reaches this function — it takes only the two puzzles' own
-    clue sets and the page spec, so there is nothing it *could* key the
-    accept/refuse verdict or the chosen cell on besides their geometry. Each
-    slot is then built from the same helpers as :func:`compute_layout`'s
-    placed page (:func:`_boundaries`, :func:`_rule_widths`, :func:`_axis_lines`,
-    the clue placers), so strokes, the every-5th rules and clue positions are
-    the single page's.
+    intent — even with ``folio_reserve_px`` in play.** The shared cell is the
+    largest cell, capped at the spec's flat cap, at which (a) both drawings'
+    heights — grid rows plus column-clue rows of each — plus one band per
+    puzzle fit the usable height (trim − top − bottom), and (b) each
+    drawing's width — grid columns plus row-clue columns — fits the usable
+    width, each slot's own natural spare at that cell included. Clue depths
+    are the real ones (:func:`_gutter_depth`, TERM-021). The unreserved fit is
+    exactly :func:`_placed_cell_mm` of one combined drawing — the wider of
+    the two drawings across, the two stacked down — on the same spec with a
+    second band reserved, so the pair is fitted by the same code, exactly, as
+    a single page: there is no second implementation of cell fitting.
+    ``folio_reserve_px`` (below) is the one, fixed exception: a single
+    compile-time constant, never a quantity read off either puzzle, this
+    page's own number or the book's own scale, so there is nothing
+    page/book-specific this function's accept/refuse verdict or chosen cell
+    could possibly key on. Each slot is then built from the same helpers as
+    :func:`compute_layout`'s placed page (:func:`_boundaries`,
+    :func:`_rule_widths`, :func:`_axis_lines`, the clue placers), so strokes,
+    the every-5th rules and clue positions are the single page's.
 
-    **History (CARD-204 Fix 1/Fix 2, both reverted by Fix 3).** CARD-200's
-    page-number folio needs room at the lower slot's own bottom-outer corner,
-    which reading (b)'s flush formula (see :func:`_slot_layout`) pins flat
-    against the usable area's outer edge on every two-up page whenever the
-    lower puzzle is itself the pair's width-binding member — the folio's own
-    "omit rather than collide" check (``_draw_folio``) then fires every time.
-    Fix 1 tried to buy that room back by taking a ``folio_reserve_px``
-    parameter here and narrowing the fitted cell to guarantee it; Fix 2
-    narrowed Fix 1's own per-page measurement to a book-level one. Both still
-    let a quantity with no relationship to these two puzzles' own geometry
-    flip this function's accept/refuse verdict or shrink its committed cell
-    (cycle-1 review F-1: the identical pair paired at one page number and
-    refused at another; cycle-2 review F-5: narrowed to book scale but not
-    removed — the identical pair paired in a short book and refused in a
-    long one). **Fix 3 removes the parameter and the mechanism entirely**:
-    this function no longer knows CARD-200's folio exists. The folio is now
-    purely the renderer's problem, decided *after* this function has already
-    committed to a pair, a cell, and each slot's placement — see
-    :func:`_slot_layout`'s own docstring and ``_draw_folio``'s "omit rather
-    than collide" check in ``book_pdf_generator.py``, which already reads
-    each slot's own *natural* ``drawing_right``/``drawing_left`` against
-    ``usable_right``/``usable_left`` and omits the folio exactly when that
-    natural geometry leaves no room — no reserve, no shift, no second
-    mechanism needed.
+    **``folio_reserve_px``: a fixed, universal reserve for CARD-200's folio
+    (owner decision, 2026-10-12, "fixed universal reserve" — CARD-204
+    Fix 4).** CARD-200's page-number folio needs room at the lower slot's own
+    bottom-outer corner, which reading (b)'s flush formula (see
+    :func:`_slot_layout`) pins flat against the usable area's outer edge on
+    every two-up page whenever the lower puzzle is itself the pair's
+    width-binding member — the folio's own "omit rather than collide" check
+    (``_draw_folio``) then fires every time, silently dropping a shipped
+    feature from every two-up page. Fix 1 and Fix 2 tried to buy that room
+    back by deriving this reserve from *this page's own* folio text
+    (Fix 1) and then from *this book's own* worst-case page-number width
+    (Fix 2) — both let a quantity tied to a specific page or a specific
+    book's scale flip this function's accept/refuse verdict or shrink its
+    committed cell (cycle-1 review F-1, cycle-2 review F-5: the identical
+    pair paired in one page/book and refused in another). Fix 3 removed the
+    mechanism entirely to restore INV-010 purity, but that silently
+    reintroduced the original bug for *every* two-up page, not just a
+    tight-fit one (cycle-3 review F-7). **Fix 4's resolution**: the caller
+    (``book_pdf_generator.py``'s ``_folio_reserve_px``) measures the widest
+    digit this font ever draws, times a fixed digit-count ceiling
+    (``FOLIO_RESERVE_DIGITS``, sized for any book this software could
+    realistically produce), from the font and the DPI alone — both fixed at
+    compile time, never from ``payloads``, a page number or a book's own
+    page count. The caller then passes that one value, identical for every
+    call this codebase will ever make, so this parameter cannot create the
+    coupling the cycle-1/2 reviews found: the pair's own geometry, plus one
+    constant indistinguishable in kind from :data:`TWO_UP_MIN_CELL_MM`, is
+    all that ever decides the verdict or the cell.
+
+    The shared cell is fit *unreserved* first (the plain formula above) —
+    the common case, verified against an independent 900-case corpus
+    (:mod:`tests.property.test_book_pairing`), leaves ``cell_mm`` identical
+    to the unreserved fit in the overwhelming majority of pairs. Only when
+    the **lower** slot's own natural spare at that cell (its usable width
+    minus its own drawing width, in pixels) already reads below
+    ``folio_reserve_px`` does this function re-fit a smaller cell, as though
+    the usable width were ``folio_reserve_px`` narrower (a widened
+    ``outside_mm`` fed to the fit step only, never to either slot's own
+    placement) — which guarantees, algebraically (``chosen_cell <= fit <=
+    widened_fit``, not by luck), that the re-fit cell leaves the lower slot
+    at least ``folio_reserve_px`` of real headroom. Paying a smaller cell is
+    therefore the exception, not the rule, and only ever as much smaller as
+    the reserve actually needs. If even the widened fit falls below
+    :data:`TWO_UP_MIN_CELL_MM`, the pair is refused (``None``) exactly as the
+    unreserved path already would be.
 
     Args:
         first: ``(row_clues, column_clues)`` of the earlier puzzle in the book
@@ -1944,6 +1968,12 @@ def compute_pair_layout(
         page_spec: The book page: a placed page (a parity, hence portrait
             only) with a flat cell cap. The spec's own ``band_mm`` is each
             slot's band.
+        folio_reserve_px: The fixed number of pixels of headroom CARD-200's
+            folio needs at the lower slot's own bottom-outer corner, or ``0``
+            (the default) to fit purely unreserved. Must be a constant,
+            page/book-independent value — never computed from ``first``,
+            ``second``, a page number or any book-scale quantity — so every
+            call this codebase makes passes the identical number.
 
     Returns:
         The :class:`PairLayout`, or ``None`` when the largest fitting cell is
@@ -1971,9 +2001,17 @@ def compute_pair_layout(
 
     upper_down = _gutter_depth(upper_columns) + len(upper_rows)
     lower_down = _gutter_depth(lower_columns) + len(lower_rows)
+    # The lower slot's own drawing width — row clues' own gutter depth (the
+    # *left* gutter, what actually makes up a drawing's width alongside the
+    # grid) plus its columns, the same term `across` below maxes against the
+    # upper slot's. Named separately because the folio-reserve check needs
+    # the lower slot's own figure, not the pair's wider one (CARD-204 Fix 1's
+    # own bug, fixed once already: using the column clues' gutter depth here
+    # instead reads the puzzle's *top* gutter, never a width).
+    lower_drawing_columns = _gutter_depth(lower_rows) + len(lower_columns)
     across = max(
         _gutter_depth(upper_rows) + len(upper_columns),
-        _gutter_depth(lower_rows) + len(lower_columns),
+        lower_drawing_columns,
     )
 
     # One band per puzzle. Checked exactly as PageSpec checks its own usable
@@ -1990,15 +2028,52 @@ def compute_pair_layout(
     larger_dimension = max(
         len(upper_rows), len(upper_columns), len(lower_rows), len(lower_columns)
     )
+    fit_spec = replace(page_spec, band_mm=two_bands_mm)
     exact_cell_mm = _placed_cell_mm(
         across,
         upper_down + lower_down,
         larger_dimension=larger_dimension,
-        page_spec=replace(page_spec, band_mm=two_bands_mm),
+        page_spec=fit_spec,
     )
     if exact_cell_mm < _exact_mm(TWO_UP_MIN_CELL_MM):
         return None
     pitch = _exact_px(exact_cell_mm)
+
+    if folio_reserve_px:
+        usable_width_px = (
+            _exact_px(page_spec.width_mm)
+            - _exact_px(page_spec.gutter_mm)
+            - _exact_px(page_spec.outside_mm)
+        )
+        natural_spare = usable_width_px - lower_drawing_columns * pitch
+        if natural_spare < folio_reserve_px:
+            if usable_width_px - folio_reserve_px <= 0:
+                # A reserve at least as wide as the whole usable area leaves
+                # nothing for either drawing: decline, the same way an
+                # un-fittable pair does, rather than hand `replace` below a
+                # spec whose own usable width is negative (which PageSpec
+                # rejects with a ValueError of its own). No production caller
+                # can reach this — the reserve is one fixed ~9 mm constant
+                # (`book_pdf_generator._folio_reserve_px`) and every book page
+                # is far wider — but declining keeps this function's "return
+                # None when the geometry does not work out, never raise"
+                # contract total for any fixed value a caller may pass.
+                return None
+            # Re-fit as though the usable width were `folio_reserve_px`
+            # narrower — a widened `outside_mm` fed to the fit step only,
+            # never to either slot's own placement — which guarantees the
+            # re-fit cell leaves the lower slot at least that much real
+            # headroom (see this function's own docstring).
+            reserve_mm = float(Fraction(folio_reserve_px) * _MM_PER_INCH / DPI)
+            exact_cell_mm = _placed_cell_mm(
+                across,
+                upper_down + lower_down,
+                larger_dimension=larger_dimension,
+                page_spec=replace(fit_spec, outside_mm=fit_spec.outside_mm + reserve_mm),
+            )
+            if exact_cell_mm < _exact_mm(TWO_UP_MIN_CELL_MM):
+                return None
+            pitch = _exact_px(exact_cell_mm)
 
     band = _exact_px(page_spec.band_mm)
     # The upper band starts at the top margin (the single page's fixed row);
@@ -2026,6 +2101,7 @@ def compute_pair_layout(
             pitch=pitch,
             band_top=lower_band_top,
             slot_bottom=page_bottom,
+            outer_reserve_px=folio_reserve_px,
         ),
         cell_mm=cell_mm,
     )
@@ -2054,6 +2130,7 @@ def _slot_layout(
     pitch: Fraction,
     band_top: Fraction,
     slot_bottom: Fraction,
+    outer_reserve_px: int = 0,
 ) -> Layout:
     """One slot of a two-up page: a placed-page :class:`Layout` at a given cell.
 
@@ -2065,32 +2142,46 @@ def _slot_layout(
     and become the slot's :attr:`PagePlacement.usable_top` and
     :attr:`PagePlacement.usable_bottom` (see :class:`PairLayout`).
 
-    The anchor is the plain flush formula, with no clamp at all (identical in
-    shape to :func:`compute_layout`'s placed-page branch, reading (b)):
-    ``usable_left_px`` on an EVEN page, ``usable_left_px + spare`` on an ODD
-    one, where ``spare = usable_width_px - drawing_columns * pitch``. ``spare``
-    is whatever the *committed* cell naturally leaves — it is deliberately
-    **not** forced to ``0``: when the lower slot is narrower than the pair's
-    own width-binding ("across") member, ``spare`` is positive and the
-    drawing sits short of the outer edge on its own; when the lower slot
-    *is* the binding member, ``spare`` is exactly ``0`` and the drawing sits
-    flush.
+    **The baseline anchor, with no reserve, is a true flush identity, not
+    merely "the common case."** ``spare = usable_width_px - drawing_columns *
+    pitch`` is whatever numeric slack this *specific* slot's own drawing
+    leaves against the page's shared usable width at the committed cell — it
+    can be a large positive number (this slot narrower than the pair's own
+    width-binding ("across") member, or the cell itself capped well below
+    what the geometry would allow) or exactly ``0`` (this slot *is* the
+    binding member at a geometry-bound cell). With ``outer_reserve_px == 0``,
+    the anchor is ``usable_left_px`` on an EVEN page, ``usable_left_px +
+    spare`` on an ODD one — and because ``spare`` is by definition exactly
+    "whatever is left after the drawing," adding it back always lands
+    ``drawing_right``/``drawing_left`` **exactly** on ``usable_right``/
+    ``usable_left``, for *every* slot, regardless of how large ``spare`` is
+    (an algebraic identity, confirmed directly against this function's own
+    numbers, not an approximation that merely happens to look flush in the
+    common case). A previous revision of this docstring claimed the
+    non-binding slot "sits short of the outer edge on its own" — that was
+    wrong, is corrected here, and is exactly the mistake cycle-3's review
+    (F-7) traced CARD-204 Fix 3's own docstrings into: the gap this card's
+    "Reserve folio room" owner decision needs is **zero** on every two-up
+    page under this anchor with no reserve, not just on a rare tight one.
 
-    **History (CARD-204 Fix 1, reverted by Fix 3).** Fix 1 added an
-    ``outer_reserve_px`` parameter here that shifted this formula's anchor
-    toward the gutter by a caller-chosen amount, borrowing room from
-    :func:`compute_pair_layout`'s own fit step so CARD-200's folio always had
-    somewhere to sit at the lower slot's outer corner. That coupled the
-    pairing/cell-size decision to a non-geometric quantity (see
-    :func:`compute_pair_layout`'s own "History" paragraph) — removed by
-    Fix 3, which also removed the parameter: this function no longer leaves
-    any room for the folio beyond whatever ``spare`` already is. The folio's
-    own ``_draw_folio`` "omit rather than collide" check, in
-    ``book_pdf_generator.py``, reads this slot's own natural
-    ``drawing_right``/``drawing_left`` against ``usable_right``/
-    ``usable_left`` and omits the folio exactly when ``spare`` is too small
-    to hold it — a page-local, geometry-driven degradation, never a reason
-    to reserve or shift anything here.
+    **``outer_reserve_px``: the fixed universal reserve (owner decision,
+    2026-10-12, "fixed universal reserve" — CARD-204 Fix 4).** Pass only to
+    the *lower* slot's call (the one whose outer-bottom corner CARD-200's
+    folio shares). Shifts the anchor so that ``usable_right - drawing_right``
+    (ODD) or ``drawing_left - usable_left`` (EVEN) becomes
+    ``min(outer_reserve_px, max(spare, 0))`` instead of exactly ``0`` —
+    clamped so it can only ever *reduce* how far the drawing reaches toward
+    the outer margin, never push it past ``usable_left``/``usable_right``
+    (the pre-existing MIN_CELL_MM floor-overflow corner, AC-3/G-6, cannot be
+    made worse by this: :func:`compute_pair_layout`'s own 7.0 mm gate already
+    keeps a two-up slot's ``spare`` at the committed cell non-negative, so
+    this clamp is kept only for defensive symmetry, as it was before Fix 3).
+    :func:`compute_pair_layout` is the only caller that ever passes a nonzero
+    value, and it always widens the fit first (its own docstring) so that
+    ``spare`` here is, by construction, already at least
+    ``outer_reserve_px`` — so the clamp binds in neither parity under normal
+    operation; it exists for the case nothing in this module's own tests
+    has ever exercised, not a case production relies on.
     """
     rows, columns = len(row_clues), len(column_clues)
     row_gutter_cells = _gutter_depth(row_clues)
@@ -2105,12 +2196,17 @@ def _slot_layout(
         - _exact_px(page_spec.outside_mm)
     )
     # Same anchor, and the same re-derived floor-overflow direction, as
-    # compute_layout's placed-page branch (see its comment in full).
+    # compute_layout's placed-page branch (see its comment in full) — except
+    # that `reserved` pixels of the slot's own natural spare are kept out of
+    # the shift, on purpose, leaving exactly that much of a gap at the outer
+    # corner instead of consuming 100% of spare as the no-reserve formula
+    # always does (see this function's own docstring).
     spare = usable_width_px - drawing_columns * pitch
+    reserved = min(outer_reserve_px, max(spare, 0))
     left = (
-        usable_left_px
+        usable_left_px + reserved
         if page_spec.parity is PageParity.EVEN
-        else usable_left_px + spare
+        else usable_left_px + spare - reserved
     )
     top = band_top + _exact_px(page_spec.band_mm)
 

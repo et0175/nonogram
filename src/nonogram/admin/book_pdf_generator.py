@@ -467,6 +467,20 @@ GUIDE_PAGE_COUNT = 2
 #: shares a corner with, and no setting below the floor is ever added.
 FOLIO_PT = 10.0
 
+#: How many digits of a page number :func:`_folio_reserve_px` plans room for
+#: on a two-up page's lower slot (CARD-204 Fix 4, owner decision 2026-10-12,
+#: "fixed universal reserve") — a fixed ceiling, never this book's own
+#: largest page number or this page's own number. Four digits is far beyond
+#: anything a physical print book this software produces reaches in
+#: practice (the project's own Amazon market snapshot puts the median
+#: competitor book at ~120 pages, and no trim CON-018 stocks is bound
+#: anywhere near 1000 pages) — a generous, constant ceiling, not a
+#: measurement of any specific book. A hypothetical book past 9999 pages
+#: would not break: its own five-digit folios simply would not clear
+#: :func:`_draw_folio`'s own width check at this corner and would be
+#: omitted, exactly as every page kind with too little room already is.
+FOLIO_RESERVE_DIGITS = 4
+
 #: The table of contents page's title (CARD-200) — plain and descriptive,
 #: the same register as the divider's own one-word pages rather than a
 #: styled heading; every TOC page repeats it (see :func:`create_toc_page`),
@@ -1301,6 +1315,37 @@ def _draw_qr_placeholder(draw: ImageDraw.ImageDraw, icon: QrSlot) -> None:
                 ),
                 fill=INK,
             )
+
+
+def _folio_reserve_px(dpi: int) -> int:
+    """The fixed pixel reserve CARD-200's folio gets on a two-up page's lower slot.
+
+    **Owner decision, 2026-10-12, "fixed universal reserve" (CARD-204
+    Fix 4).** Review cycles 1 and 2 (F-1, F-5) rejected Fix 1's and Fix 2's
+    own versions of this function for taking ``page_number``/
+    ``max_page_number`` and so letting a specific page's or a specific
+    book's own scale flip :func:`~nonogram.export.layout.compute_pair_layout`'s
+    accept/refuse verdict (INV-010). This version takes **only** ``dpi`` — a
+    value fixed at compile time (every :class:`BookPDFGenerator` is
+    constructed with :data:`~nonogram.export.layout.DPI`, never a
+    caller-chosen or book-specific resolution) — so it returns the exact
+    same number of pixels for every call this codebase will ever make,
+    structurally incapable of depending on ``payloads``, a page number or a
+    book's own page count.
+
+    Measures the widest single decimal digit this font actually draws (all
+    ten, not assumed — a narrow font could draw "1" tighter than "0") at
+    :data:`FOLIO_PT`, the same font/size :func:`_draw_folio` itself measures
+    its own clearance from, times :data:`FOLIO_RESERVE_DIGITS` — a fixed
+    ceiling sized for any book this software could realistically produce,
+    never this book's own largest page number. ``math.ceil``'d to a whole
+    pixel, the same rounding :func:`_draw_folio`'s own text-width check
+    already uses by comparing a float ``font.getlength`` against whole-pixel
+    geometry.
+    """
+    font = _band_font(type_px(FOLIO_PT, dpi))
+    widest_digit_px = max(font.getlength(str(digit)) for digit in range(10))
+    return math.ceil(widest_digit_px * FOLIO_RESERVE_DIGITS)
 
 
 def _draw_folio(
@@ -3523,25 +3568,34 @@ class BookPDFGenerator:
         slot's always-zero vertical slack alone: see that function's own
         docstring for the exact rule.
 
-        **History (CARD-204 Fix 1/Fix 2, both reverted by Fix 3).** Under
-        reading (b)'s flush alignment this horizontal check fails whenever
-        the lower slot is itself the pair's width-binding member
-        (``drawing_right``/``drawing_left`` then lands exactly on
-        ``usable_right``/``usable_left``, leaving zero clearance) — the
-        folio is correctly omitted for that one page by ``_draw_folio``'s
-        own "omit rather than collide" rule. Fix 1 and Fix 2 instead had
+        **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a
+        fixed constant by Fix 4 — owner decision, 2026-10-12, "fixed
+        universal reserve").** Under reading (b)'s flush alignment with no
+        reserve, ``lower.page.drawing_right``/``drawing_left`` lands
+        *exactly* on ``usable_right``/``usable_left`` on **every** two-up
+        page, not just when the lower slot happens to be the pair's
+        width-binding member — an algebraic identity of the anchor formula
+        itself (:func:`~nonogram.export.layout._slot_layout`'s own
+        docstring), confirmed directly, not merely observed in one case —
+        so this horizontal check would fail, and the folio be omitted, on
+        every two-up page in every book. Fix 1 and Fix 2 had
         ``compute_pair_layout`` reserve horizontal room at the lower slot's
         own outer corner (first per-page, then book-level) so the check
-        always cleared and the folio never disappeared — but that reserve
-        let a non-geometric quantity flip whether two puzzles paired at all
-        (INV-010, cycle-1 F-1, cycle-2 F-5). Fix 3 removes the reserve
-        entirely: ``lower.page.drawing_right``/``drawing_left`` read here
-        are now the plain, geometry-only flush position (or whatever
-        natural slack the pair's own geometry happens to leave when the
-        lower slot is narrower than the pair's binding member), and the
-        folio draws when that natural slack is enough and is correctly
-        omitted, page by page, when it is not — a page-local degradation,
-        never a pairing-time one.
+        always cleared — but that reserve let a *page/book-specific*
+        quantity flip whether two puzzles paired at all (INV-010, cycle-1
+        F-1, cycle-2 F-5). Fix 3 removed the reserve entirely, restoring
+        INV-010 purity but reintroducing the universal folio loss it was
+        meant to fix (cycle-3 F-7) — this method's own prior docstring
+        wrongly described the loss as occasional ("whatever natural slack
+        the pair's own geometry happens to leave"), the exact
+        mischaracterisation that review caught. **Fix 4 passes a fixed,
+        page/book-independent pixel reserve into every pairing decision**
+        (:meth:`puzzle_pages`'s own docstring), so
+        ``lower.page.drawing_right``/``drawing_left`` now carries that
+        reserve's worth of real clearance on every two-up page by
+        construction, and this method's own call below needs no edit at
+        all: it already read the slot's *actual* (not assumed) geometry,
+        which now simply has room in it.
         """
         pair = plan.pair
         if pair is None:  # pragma: no cover - the walk only sends two-up plans here
@@ -3954,6 +4008,21 @@ class BookPDFGenerator:
         name. The failure is named here, where it happened, so that every abort
         of :meth:`interior` names a puzzle whatever stage it came from.
 
+        **CARD-200's folio always gets its fixed, universal reserve (CARD-204
+        Fix 4, owner decision 2026-10-12).** Every call here passes
+        :func:`_folio_reserve_px`'s own value — a constant derived only from
+        the font and ``self.dpi``, never from ``page_number``, ``payloads``
+        or anything about this specific book — into
+        :func:`~nonogram.export.layout.compute_pair_layout`'s
+        ``folio_reserve_px``. The same number reaches every pair this walk
+        ever offers, so the walk's own accept/refuse verdicts and cell sizes
+        stay exactly as page/book-independent as they were when Fix 3
+        removed the reserve mechanism (INV-010) — the difference is that
+        every two-up page's lower slot now keeps room for its folio instead
+        of losing it (see :func:`~nonogram.export.layout.compute_pair_layout`'s
+        own docstring for why a fixed constant cannot reintroduce the
+        cycle-1/cycle-2 coupling).
+
         Args:
             payloads: The drawable puzzles in print order. A payload's
                 ``difficulty`` is the row's stored tier text, and its clue sets
@@ -4007,6 +4076,7 @@ class BookPDFGenerator:
                         (first.row_clues, first.column_clues),
                         (second.row_clues, second.column_clues),
                         self.page_spec(page_number),
+                        folio_reserve_px=_folio_reserve_px(self.dpi),
                     )
                 except Exception as e:
                     raise RuntimeError(
@@ -4058,20 +4128,26 @@ class BookPDFGenerator:
         numbers run on unbroken through ``first_number``, so a divider costs a
         page and no number (AC-255).
 
-        **History (CARD-204 Fix 1/Fix 2, both reverted by Fix 3).** Fix 1 and
-        Fix 2 reserved horizontal room at each two-up page's lower slot for
-        CARD-200's folio, first per-page (Fix 1) and then as one book-level
-        bound shared across every level's walk (Fix 2) — but both still let
-        a non-geometric quantity (a page number's or a book's own digit
-        count) flip whether two puzzles pair and at what cell, which cycle-1
-        and cycle-2 review each reproduced as an INV-010 violation. Fix 3
-        removes the reserve mechanism entirely: :func:`~nonogram.export.layout.compute_pair_layout`
-        decides purely from the two puzzles' own geometry, and the folio is
-        drawn — or correctly omitted — afterward, from whatever horizontal
-        slack that geometry-only cell naturally leaves (see
-        :meth:`_two_up_page` and ``_draw_folio``'s own "omit rather than
-        collide" check). This method no longer computes or passes any
-        reserve to :meth:`puzzle_pages`.
+        **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a
+        fixed constant by Fix 4 — owner decision, 2026-10-12, "fixed
+        universal reserve").** Fix 1 and Fix 2 reserved horizontal room at
+        each two-up page's lower slot for CARD-200's folio, first per-page
+        (Fix 1) and then as one book-level bound shared across every level's
+        walk (Fix 2) — but both let a *non-geometric, page/book-specific*
+        quantity (a page number's or a book's own digit count) flip whether
+        two puzzles pair and at what cell, which cycle-1 and cycle-2 review
+        each reproduced as an INV-010 violation. Fix 3 removed the reserve
+        mechanism entirely, which restored INV-010 purity but silently
+        reintroduced the folio-loss bug on *every* two-up page (cycle-3
+        review F-7). **This method needs no edit for Fix 4**: each level's
+        own :meth:`puzzle_pages` call now reserves
+        :func:`_folio_reserve_px`'s own fixed, dpi-only pixel amount
+        internally — identical for every level of every book, since neither
+        this method nor :meth:`puzzle_pages` ever passes it a page number or
+        a count of anything. Splitting the pairing walk at a level boundary
+        therefore still changes no verdict: the reserve a puzzle sees does
+        not depend on which level's slice it is offered in, any more than
+        :data:`~nonogram.export.layout.TWO_UP_MIN_CELL_MM` does.
 
         Args:
             payloads: The drawable puzzles in print order.
