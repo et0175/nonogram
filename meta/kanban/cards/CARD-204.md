@@ -16,7 +16,7 @@
 **Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
-**Review score:** 4.0/10 (cycle 3/3); cycle 4 in progress — Fix 4 committed f496bf5, suite 6857/0
+**Review score:** 8.5/10 (cycle 4, owner-authorized extension; cycle 3 was 4.0) — severity gate blocks on 1 Important (F-9, declarative only)
 **Started:** 2026-10-10T05:08:27Z
 **Closed:** —
 **Actual:** —
@@ -285,9 +285,20 @@ merges first.
   `pyproject.toml` edit ships with this card unless the owner/architect station has
   explicitly approved a specific QR-generation dependency (item 2 of "Owner decisions
   still needed").
-- G-5: INV-010 (two-up pairing eligibility: same tier, adjacent, both fit at a shared
-  cell) is untouched — this card repositions a pair's slots, it does not change which
-  puzzles pair.
+- G-5: **AMENDED at the decompose station, 2026-10-13 (owner decision).** Originally:
+  "INV-010 (two-up pairing eligibility: same tier, adjacent, both fit at a shared cell)
+  is untouched — this card repositions a pair's slots, it does not change which puzzles
+  pair." The owner's 2026-10-12 "fixed universal reserve" decision supersedes the second
+  clause: it accepts that the reserve participates in the pairing verdict, so this card
+  DOES change which puzzles pair (~5% of otherwise-pairing pairs are refused, measured
+  twice independently in cycle 4). The owner reaffirmed this on 2026-10-13 after being
+  shown that cost, choosing "it stands — 4 digits". The guardrail's surviving, binding
+  clause: INV-010's own structure is untouched — eligibility remains same tier, adjacent,
+  both fit at one shared cell of at least 7.0 mm capped at 7.5, and the verdict remains a
+  pure function of the pair's geometry plus ONE fixed compile-time constant (the same
+  category as `TWO_UP_MIN_CELL_MM`). Nothing page-, book- or payload-derived may reach it
+  — that half of the guardrail is what F-1/F-5/F-7 were about and it still holds.
+  Amended here, never in the worktree: a guardrail is weakened only at this station.
 - G-6: FR-031's 4.8mm floor check and NFR-006's orientation/cap logic are untouched —
   this card changes where a drawing sits, never its size.
 
@@ -1775,6 +1786,83 @@ merges first.
       **6857 passed, 9 skipped, 0 failed, 0 errors** in 1037.45s
       (0:17:17), exit 0 — three more than Fix 3's own 6854, which are
       exactly the three tests added above.
+
+- [Review] cycle 4/3+1 complete 2026-10-13 — **score 8.5** (cycle 3: 4.0, so
+  +4.5; clears `min_score: 8`). 0 Critical, **1 Important**, 4 Minor. Report
+  synced: `meta/review/20261013T111113Z-CARD-204-cycle4.yml`.
+  **The family question is answered: Fix 4 escapes F-1/F-5/F-7 on the coupling
+  half.** The reviewer's distinction, which is the one that matters for the
+  record: F-1/F-5 were never about the reserve's size but its *provenance* —
+  both measured it off the artefact being laid out (this page's number, this
+  book's worst-case page count), which made pairing circular (pairing decides
+  page count decides reserve decides pairing) and made the same pair get
+  different verdicts in different places. A compile-time constant has neither
+  property. Verified independently of the fix agent: one production call site,
+  no page/book/payload path into the reserve argument; 900 random pairs x both
+  parities with 0 verdict and 0 cell disagreements; 1800 adversarial pairs with
+  the lower-slot gap exactly 108 px and the upper slot exactly flush every
+  time; and the headroom guarantee proven algebraically tight (if
+  `natural_spare < R` the re-fit is necessarily width-bound, so `spare == R`
+  exactly).
+  Mutation check RAN (not deferred): 5 mutants, 4 killed, 1 survived (F-11).
+  All mutations reverted from byte-exact captures; `git diff f496bf5` empty.
+  System contract: 56 rules, 11 holds, 45 unchecked, 0 violated. Card
+  guardrails G-1/G-2/G-3/G-4/G-6 hold; **G-5 violated** (see below).
+- [Severity gate] 2026-10-13 — **BLOCKS merge**: one Important finding remains
+  (F-9), although the score clears the threshold. The remaining work is
+  declarative only — the reviewer's explicit recommendation is that a fix agent
+  **must not touch** `compute_pair_layout`, `_slot_layout` or
+  `_folio_reserve_px`: four cycles of churn on that mechanism ended correctly,
+  and F-9 asks for what was decided to be written down, not decided again.
+  **F-9, in full:** FR-040's clause is bidirectional ("when, *and only when*
+  ... both fit at one shared cell of at least 7.0 mm. The shared cell is *the
+  largest cell*...") and EC-027 states a puzzle that *could* pair is "never
+  left alone ... for every order, not only the measured examples". Fix 4
+  falsifies both: ~5% of pairs that fit at >= 7.0 mm are now refused, and ~9%
+  commit a smaller-than-largest cell. The suite itself pins a production
+  counterexample (`_tight_pair`: two 25x6 depth-2 puzzles, unreserved cell
+  7.1731 mm, asserted `pair is None` through `puzzle_pages`), and mutant M5
+  proves EC-027's own oracle was updated to match the code — i.e. the drift was
+  absorbed rather than declared. Four gaps, none of them code: (1) FR-040 /
+  AC-242..249 / EC-027 unamended with no architect-station deferral recorded,
+  unlike this card's own F-4 precedent for FR-032; (2) card guardrail G-5 still
+  reads "does not change which puzzles pair"; (3) `layout.py:1918-1965`'s
+  docstring omits the refusal cost and claims refusals happen "exactly as the
+  unreserved path already would be"; (4) the owner-visible consequence is
+  stated nowhere.
+- [Owner-visible cost, measured twice independently] 2026-10-13 — the reserve
+  refuses ~5% of pairs that would otherwise pair (reviewer: 10/193; fix agent:
+  9/176) and shrinks the cell on ~9% more. Fewer two-up pages means a LONGER
+  interior: more pages, and on KDP more pages means a higher print cost per
+  copy. That consequence is not recorded in any layer of the model, and the
+  owner made the 2026-10-12 "fixed universal reserve" decision without this
+  measurement in hand — it did not exist until this cycle. Routed to the owner
+  before merge.
+
+- [Decompose station] 2026-10-13 — guardrail **G-5 amended** (see the Guardrails
+  section) to record that the owner's 2026-10-12 reserve decision superseded its
+  "does not change which puzzles pair" clause, and that the owner reaffirmed it on
+  2026-10-13 with the measured ~5% refusal cost in hand ("it stands — 4 digits").
+  The binding half of G-5 — geometry + one compile-time constant, nothing page- or
+  book-derived — is unchanged and still holds. This closes F-9's gap (2).
+- [Architect-station deferral, recorded 2026-10-13] F-9 gaps (1): **FR-040's
+  "and only when" clause, AC-242..249 and EC-027 are now FALSE of this
+  implementation** and must be amended at the architect station, not here (kanban
+  cards only read `meta/architecture/`). The deltas needed: FR-040's bidirectional
+  clause must admit the fixed folio reserve as a second refusal reason and drop
+  "the largest cell" as an absolute; EC-027's "never left alone … for every order"
+  must carry the same exception; and EC-027's oracle change (mutant M5 proved it
+  load-bearing) must be declared rather than absorbed. Owner decision 2026-10-13:
+  close this card on the doc-only fix and carry the requirements delta as an
+  explicit deferral — the same precedent this card already set for F-4/FR-032.
+  **Route: `/forge:architect` (delta on requirements.yml), folding F-4 and F-9
+  into one pass.** Both are listed in the card's own notes; neither blocks merge
+  by owner decision.
+- [Fix 5] 2026-10-13 — doc-only cycle spawned (owner decision: "doc-only cycle 5,
+  then merge"). The fix agent is forbidden from touching `compute_pair_layout`,
+  `_slot_layout` or `_folio_reserve_px` — the reviewer's explicit recommendation
+  after four cycles of churn on that mechanism ended correctly. No code change, no
+  full-suite re-run.
 ## System contract
 
 _Not yet assembled — run `python3

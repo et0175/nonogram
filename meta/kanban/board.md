@@ -78,10 +78,10 @@ _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-- **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-214` · branch `card/214-given-cells` · ⚑ needs an ADR-0024 (POL-007) + INV-002 amendment at the architect station
+- **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · wave 37 · implementation resumed after a rate-limit kill (work survived, ~1240 insertions) · worktree `../PythonProject4-CARD-214` · branch `card/214-given-cells` · ⚑ needs an ADR-0024 (POL-007) + INV-002 amendment at the architect station
 
 ## Review
-- **CARD-204** _(wave 37 — Fix 4 committed `f496bf5`, suite 6857 passed / 0 failed; review cycle 4 running, owner-authorized extension past max_cycles)_
+- **CARD-204** _(wave 37 — cycle 4 scored **8.5** (from 4.0), 0 critical, 1 important; owner chose a doc-only cycle 5 then merge. Fix 4 `f496bf5`, suite 6857/0. G-5 amended at the decompose station; FR-040/EC-027 delta deferred to `/forge:architect`)_
 - **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity, owner-confirmed), gain a placeholder 2x2cm QR-code slot, and reserve folio room on two-up pages' lower slot (owner-confirmed fix for a discovered folio-loss regression) · P2 · architectural · implementation + fix complete, full suite green (6853 passed, 0 failed) · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
 
 ## Blocked

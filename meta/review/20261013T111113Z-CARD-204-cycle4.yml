@@ -1,0 +1,443 @@
+version: 1
+generated_at: "2026-10-13T11:11:13Z"
+target: "CARD-204 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-204, branch card/204-puzzle-right-align-qr, HEAD f496bf5 (Fix 4, 'fixed universal folio reserve') — review cycle 4/3+1, owner-authorized extension past max_cycles:3; full card diff main...HEAD, with the Fix-4 delta 3831bb5..f496bf5 reviewed at full depth"
+overall_score: 8.5
+risk_level: medium
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/export/layout.py (compute_pair_layout and _slot_layout read in full post-diff — signature, body, both docstrings; plus _placed_cell_mm, _exact_mm/_exact_px/_round_px/_boundaries, PairLayout, TWO_UP_MIN_CELL_MM, qr_slot)
+    - src/nonogram/admin/book_pdf_generator.py (FOLIO_RESERVE_DIGITS, FOLIO_PT, _folio_reserve_px, _band_font/_band_font_bytes, _draw_folio, type_px, BookPDFGenerator.__init__, _two_up_page, puzzle_pages, puzzle_section — all read in full, not grepped)
+    - tests/property/test_book_two_up.py (the new test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve in full), tests/property/test_book_pairing.py (Sheet.shared_cell_mm oracle, _expected_pages, the borderline/tight pairs, the regime sweep), tests/property/test_book_export_interior.py (_shared_cell_mm, _expected_drawing_left_mm), tests/test_book_page_numbers.py (the restored corpus-wide AC-1 test and the two new folio tests), tests/test_book_pdf_memory.py (both _reference helpers, _qr_boxes, the two comparison classes), tests/test_layout_two_up.py, tests/test_book_pdf_two_up.py (_reference_band + the FR-040 AC classes), tests/helpers/book_corpus.py (fixture history)
+    - tests/fixtures/book_baseline_card204.json at 3831bb5 and at f496bf5, compared field-by-field and page-digest-by-page-digest programmatically
+    - meta/kanban/cards/CARD-204.md (main-repo authoritative copy, full; plus the worktree copy's own [Fix 4] agent notes)
+    - meta/review/20261010T174853Z-CARD-204-cycle1.yml, 20261012T140501Z-CARD-204-cycle2.yml, 20261012T151720Z-CARD-204-cycle3.yml (all three in full)
+    - meta/architecture/requirements.yml FR-040 (statement, AC-242..AC-249, EC-027), meta/architecture/domain/aggregates.yml INV-010/INV-013
+    - System contract assembled with system_rules.py --card CARD-204 --root meta/architecture (56 rules, matching cycles 1-3)
+    - INDEPENDENT EXECUTION (not source reading): measured _folio_reserve_px/all ten digit widths/getlength over every 1-4 digit string; re-ran the fix agent's cost sweep with my own seed and generator (900 random pairs on Book 1, both parities); swept 1800 adversarial symmetric pairs (5-32 cols x 5-32 rows x depths 1-3) checking the exact lower-slot gap and the upper slot's flushness; ran the FR-040 AC test classes and all touched test files
+    - MUTATION CHECK (opt-in, enabled): 5 mutants, 4 killed, 1 survived — see findings F-11
+  not_reached:
+    - Full ~6860-test suite (not re-run per the task's instruction; the worktree's own run at f496bf5 is cited: 6857 passed, 9 skipped, 0 failed — not independently re-verified here, only the touched + coupled subset was)
+    - Rendered output (review.visual is off for this project; the owner validates print by eye). No PDF/PNG was eyeballed in this review — the folio's reappearance is established geometrically and by the fixture's single moved page digest, not visually
+    - Everything cycles 1-3 marked not_reached that the Fix-4 delta provably does not touch (compute_layout's single-page floor-overflow branch, the QR slot's own reservation math, the guide-page rounding scatter)
+  confidence: high
+
+metrics:
+  diff: { files: 23, added: 3401, removed: 235 }
+  fix4_delta: { files: 12, added: 898, removed: 297 }
+  max_fan_in: { symbol: "compute_pair_layout", production_call_sites: 1, note: "one production caller (book_pdf_generator.puzzle_pages:4075); ~30 test call sites. Counted by grepping call-shaped occurrences, not bare name matches" }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py", "src/nonogram/export/layout.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — identical to cycles 1-3's own note, reproduced again this cycle: `git log --since=12.months --name-only -- <path>` on this checkout returns only the queried path per matching commit, never the commit's full file list, so historical co-change frequency could not be quantified by this method. The co-change SET was confirmed by other means (the card range's own diff --stat), and no peer file of layout.py/book_pdf_generator.py is absent from this diff."
+    bus_factor: "no_eligible_fact — `git shortlog -sn` on the touched files returns no author lines in this worktree (every commit in range is authored by the same configured identity, Claude Code), so bus-factor carries no signal here."
+
+system_contract:
+  rules_checked: 56
+  holds: 11
+  unchecked: 45
+  violated: 0
+  verdicts:
+    - "INV-010 ✓ holds — the cycle-1 (F-1) and cycle-2 (F-5) defect was a non-geometric, page/book-specific quantity flipping the accept/refuse verdict. Re-derived structurally AND by execution: `_folio_reserve_px(dpi)` takes only `dpi`; `BookPDFGenerator.__init__` sets `self.dpi = DPI` unconditionally (book_pdf_generator.py:2610); there is exactly ONE production call site (`puzzle_pages`, book_pdf_generator.py:4075-4079) and it passes `_folio_reserve_px(self.dpi)`; no default, kwarg, closure or re-entry path carries `page_number`, `max_page_number`, `payloads` or a page count into `compute_pair_layout` or `_slot_layout` (grepped every occurrence of both names across src/ and tests/). Measured: `_folio_reserve_px(300) == 108` for every call; over 900 random pairs x both parities, 0 verdict disagreements and 0 cell disagreements; over 1800 adversarial symmetric pairs, the lower-slot gap is exactly 108 px every time. INV-010's own statement is one-directional ('holds two puzzles ONLY WHEN ...'), and Fix 4 never pairs a pair that fails it. Re-derivable: run `tests/property/test_book_two_up.py::test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve` and `tests/property/test_book_pairing.py::test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber` (both green at f496bf5; mutant M1 `reserved = 0` kills the first)."
+    - "INV-013 ✓ holds — the reserve mirrors with parity and nothing else: `_slot_layout` keeps `reserved` out of the shift as `usable_left_px + reserved` (EVEN) / `usable_left_px + spare - reserved` (ODD); interior parity, page count and the cover/interior split are untouched by this delta. Pinned by the restored corpus-wide `test_every_page_of_a_book_holding_one_of_every_kind_is_numbered` plus `TestBookPageNumbers_ParityHoldsWithTheTocInserted::test_every_folios_own_side_matches_page_is_right_hand` (mutant M3, flipping the ODD shift's sign, kills both)."
+    - "ADR-0006/R1 ✓ holds — `git diff --stat 3831bb5..f496bf5` and `main...HEAD` both show zero pyproject.toml lines; no new runtime dependency. The reserve is measured with the already-packaged DejaVu face through the existing `_band_font`."
+    - "ADR-0036/R1 ✓ holds — the Fix-4 delta's layout.py hunks are confined to `compute_pair_layout` and `_slot_layout` (confirmed with `git diff --function-context`: two enclosing functions only); `compute_layout`'s default/A4 branch has no hunk, and `compute_pair_layout` still raises on the default A4 spec (`page_spec.parity is None`), so no default-spec geometry can reach the reserve."
+    - "ADR-0036/R2 ✓ holds — COMP-007 still does all the fitting: `_folio_reserve_px` measures a FONT (ten digit advances at FOLIO_PT), not page geometry, and hands COMP-007 a scalar the same way the admin side already hands it `band_mm`/`gutter_mm` through `PageSpec`. The cell fit, the re-fit, the pitch, the anchor and every boundary are computed inside export/layout.py; book_pdf_generator.py places nothing itself. Stated explicitly because the scalar does now influence the committed cell — a reader could reasonably challenge this verdict, and the distinction being relied on is 'measures type' vs 'fits cells'."
+    - "ADR-0037/R1 ✓ holds — no band text change in the delta; `_reference_band`'s `shift_px` only moves where the test expects the band's centre, because `header_band`'s `center_x` is centred on the drawing, which the lower slot's reserve moves. Band content untouched."
+    - "ADR-0037/R2 ✓ holds — `_rule_widths(pitch, page_spec)` is unchanged and the delta adds no stroke-width literal; verified by `test_PropertyTest_BookLayout_StrokesAtLeastQuarterMillimetreHeavyTwiceThin_two_up` (green at f496bf5) over cells 7.00..7.50 mm on both parities."
+    - "CON-019 ✓ holds — the delta touches no code any CLI/web export reaches: `folio_reserve_px` defaults to 0, its one production caller is the book's own `puzzle_pages`, and `compute_pair_layout` refuses a spec with no parity outright. Carried from cycle 1's own direct check of the CLI/web export tests (124 passed), which this delta cannot have moved."
+    - "CON-020 ✓ holds — `FOLIO_PT = 10.0` (book_pdf_generator.py:468) is unedited; the reserve adds no new text to any page, only room for the folio already set at the floor. No new face, caption or label in the delta."
+    - "CON-021 ✓ holds — carried(cycle 1, delta-clean): the Fix-4 delta contains no URL, hostname-shaped token, player-page reference or QR-generation import; it touches only the pair's horizontal geometry and the folio's room."
+    - "ADR-0038/R6 ✓ holds — carried(cycle 1, delta-clean): same evidence as CON-021; no solution-shipping path and no public-facing link is in this delta."
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0023/R1, ADR-0024/R1..R5, ADR-0027/R1..R2, ADR-0029/R1..R5, ADR-0032/R1..R2, ADR-0033/R1, ADR-0035/R1, ADR-0038/R1..R5, ADR-0038/R7..R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-011, INV-012 ⚠ unchecked — no_eligible_fact: 45 rules governing image fitting, repair/retry, density validation, difficulty scoring, storage-boundary uniqueness, book status/membership gating, answer-key capacity, the web/admin HTTP surfaces and solver correctness. The Fix-4 delta is two functions of two-up page geometry plus one font measurement and their tests; nothing in it bears on any of them. (Enumerated rather than dismissed in a sentence, per this step's own rule.)"
+    - "OUTSIDE the 56-rule set, reported for visibility exactly as cycle 3 reported CARD-200's AC-1 — FR-040 / EC-027 ✗ contradicted: FR-040's statement is bidirectional ('Two puzzles share one book page when, AND ONLY WHEN, their tiers are equal, they are next to each other ... and both fit at one shared cell of at least 7.0 mm. The shared cell is THE LARGEST CELL, capped at the 7.5 mm standard cell, at which (a) ... and (b) ...'), and EC-027 states 'a puzzle that COULD pair with its successor under that rule is NEVER LEFT ALONE by the in-order walk'. Fix 4's reserve refuses ~5% of pairs that do fit at >= 7.0 mm and commits a smaller-than-largest cell for ~8.5% more. See finding F-9; the mechanism itself is owner-decided and correct, the requirement/EC text and the card's G-5 are what is now false."
+    - "OUTSIDE the 56-rule set — card guardrails: G-1 ✓ holds (the vertical rule is untouched; `top = band_top + _exact_px(page_spec.band_mm)` and `upper_band_top`/`lower_band_top`/`page_bottom` are byte-unchanged by the delta). G-2 ✓ holds (no hunk inside `solved_puzzle_page`; answer pages never call `compute_pair_layout`, re-confirmed by the fixture's pages 11-13 being byte-identical). G-3 ✓ holds (see CON-021). G-4 ✓ holds (see ADR-0006/R1). G-5 ✗ violated — 'INV-010 ... is untouched — this card repositions a pair's slots, it does not change which puzzles pair' is now literally false: production refuses pairs it previously accepted (reproduced through `puzzle_pages` itself by the suite's own `_tight_pair`, two 25x6 depth-2 puzzles whose unreserved cell is 7.1731 mm). Superseded in substance by the owner's 2026-10-12 decision, but never amended or declared — see F-9. G-6 ✓ holds (FR-031's 4.8 mm floor and NFR-006's orientation logic have no hunk; the 7.0 mm two-up gate is unchanged at layout.py:2038 and again after the re-fit at :2074)."
+
+root_causes:
+  - id: RC-1
+    title: "Fix 4's owner-approved behaviour change — a fixed reserve that is allowed to decide the pairing verdict — is nowhere declared in the standing record: FR-040/EC-027 still state the opposite, the card's own G-5 still states the opposite, compute_pair_layout's docstring omits the refusal cost, and EC-027's property-test oracle was updated to agree with the code instead of the drift being routed (the accompaniment cycle 2's F-5 explicitly named as remedy (b))"
+    finding_ids: [F-9]
+  - id: RC-2
+    title: "Documentation and test-coverage residue around the folio corner: one pre-existing docstring this card invalidated, one declared-but-untested digit ceiling, and two comparison classes that are translation-blind where a reader would read them as position checks"
+    finding_ids: [F-10, F-11, F-12]
+
+findings:
+  - id: F-9
+    severity: high
+    category: compliance
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 2983
+    title: "FR-040's iff clause and EC-027's 'never left alone' property are now false, and the EC's own oracle was updated to match the code rather than the drift declared"
+    description: |
+      VERIFIED, not inferred. FR-040's statement (requirements.yml:2983-3002) is
+      bidirectional — "Two puzzles share one book page when, AND ONLY WHEN, their
+      tiers are equal, they are next to each other in the book order, and both fit
+      at one shared cell of at least 7.0 mm. The shared cell is THE LARGEST CELL,
+      capped at the 7.5 mm standard cell, at which (a) ... (b) ..." — and EC-027
+      (requirements.yml:3087) states the walk property directly: "a puzzle that
+      could pair with its successor under that rule is NEVER LEFT ALONE by the
+      in-order walk ... for every order, not only the measured examples."
+
+      Fix 4 falsifies both clauses:
+
+      * REFUSAL. On my own 900-case seeded sweep of random pair geometries on
+        Book 1 (independent seed and generator from the fix agent's), of 193 pairs
+        that pair unreserved, 10 (5.2%) are refused with the fixed reserve — the
+        fix agent measured 9/176 (5%), so the figure reproduces. This is not a
+        unit-function artefact: the suite itself pins a production counterexample.
+        `tests/property/test_book_pairing.py`'s `_tight_pair` (two 25x6 puzzles,
+        row- and column-clue depth 2, Book 1 trim) fits at a shared cell of
+        7.1731 mm — adjacent, same tier, above the 7.0 mm floor, i.e. exactly the
+        pair EC-027 says must never be left alone — and
+        `test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber`
+        asserts `tight_early_target.pair is None` through `generator.puzzle_pages`
+        in all three regimes.
+      * SMALLER-THAN-LARGEST CELL. 18/193 (9%) of pairs commit a cell below
+        FR-040's "largest cell" formula. Demonstrated mechanically: reverting
+        EC-027's own oracle to the unreserved formula (mutant M5b, dropping
+        `reserve=True` from `Sheet.shared_cell_mm`'s three call sites) makes
+        `test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly` fail
+        on cell_mm 7.38124 vs FR-040's 7.3859 — i.e. the oracle was changed to
+        encode Fix 4's rule, and that change is load-bearing for the test's green.
+
+      None of this is a code defect: the owner's 2026-10-12 decision explicitly
+      authorises a verdict that depends on "the pair's own geometry plus one
+      fixed, compile-time constant," and that is exactly what ships. The defect is
+      that the change is recorded nowhere a future reader or the model itself
+      would find it:
+
+      1. FR-040's statement, AC-242..AC-249 and EC-027 are unamended, and no
+         architect-station deferral is recorded — unlike this same card's F-4,
+         which declared the FR-032 text gap the correct way, and unlike cycle 2's
+         F-5 remedy (b), which named exactly this amendment as the alternative to
+         decoupling. This is the same failure shape as cycle-3's F-7 (a covering
+         test adjusted so the suite agrees with the code), one layer up: an EC
+         instead of a card AC.
+      2. The card's own guardrail G-5 ("this card repositions a pair's slots, it
+         does not change which puzzles pair") is still written as true.
+      3. `compute_pair_layout`'s docstring (src/nonogram/export/layout.py:1918-1965)
+         describes the cost as "paying a smaller cell is therefore the exception
+         ... and only ever as much smaller as the reserve actually needs" and says
+         a refusal happens "exactly as the unreserved path already would be" — it
+         never states that the reserve can refuse a pair the unreserved path would
+         have accepted. A reader of the function cannot learn the 5% cost from it.
+      4. The owner-visible consequence of the 5% — fewer two-up pages means a
+         LONGER interior for the same puzzle set, i.e. more pages and a higher KDP
+         print cost, on a product whose own market snapshot tracks page counts —
+         is stated nowhere at all, in any layer.
+
+      Severity: Important, not Critical. The mechanism is correct and
+      owner-authorised and must not be touched. What is missing is declarative.
+    suggestion: |
+      Documentation and declaration only — NO code change, and no need to re-run
+      the full suite:
+      1. On CARD-204: amend G-5 to say what is now true (pairing eligibility gains
+         one fixed compile-time term by the owner's 2026-10-12 decision; ~5% of
+         otherwise-pairing pairs are refused and ~9% commit a slightly smaller
+         cell), and add a [Not in this card] architect-station deferral for the
+         FR-040 statement + EC-027 text in exactly the shape F-4 used for FR-032.
+      2. In `compute_pair_layout`'s docstring, replace "exactly as the unreserved
+         path already would be" with the measured truth: the reserve can refuse a
+         pair the unreserved fit would have accepted (measured ~5% on an
+         adversarial sweep, ~0% on real book puzzles, which mostly pair at the
+         7.5 mm cap), and name the consequence (a slightly longer interior).
+      3. Optionally surface the page-count/print-cost consequence to the owner
+         once, so the tradeoff they signed is the one they see.
+    confidence: high
+    source: model
+    violates: "EC-027"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-10
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 482
+    title: "FOLIO_RESERVE_DIGITS' 4-digit ceiling sits exactly on _draw_folio's `<=` boundary and is asserted only in prose — no test exercises a 4- or 5-digit folio on a two-up page"
+    description: |
+      Measured, and the agent's claim is exact: every decimal digit of the packaged
+      face advances 27.0 px at FOLIO_PT/300 DPI, `getlength("9999") == 108.0`, the
+      widest 4-digit string is 108.0, and `_folio_reserve_px(300) == 108`. So
+      `_draw_folio`'s clearance test `content_right <= right - text_width`
+      (book_pdf_generator.py:1437) is satisfied at four digits with exactly ZERO
+      slack, and at five digits (`getlength("10000") == 135.0`) it fails and the
+      folio is omitted — which is the pre-existing omit-rather-than-collide path,
+      so the agent's "degrades gracefully" claim is true and the cliff is declared
+      in FOLIO_RESERVE_DIGITS' own comment. Two gaps remain:
+      * No test exercises a 4-digit or 5-digit page number on a two-up page.
+        `test_the_fixed_reserve_is_identical_across_book_scales` only asserts
+        `len(str(page_number)) >= 3`, and the corpus-wide AC-1 test runs on the
+        13-page baseline book (1-digit folios). The exact-equality boundary the
+        whole ceiling rests on is therefore unverified: any change in the packaged
+        face's digit advance or in kerning silently moves the 4-digit case from
+        "draws" to "omitted" with no failing test (the fixture's
+        `font_fingerprint` guards rendered pages, not this boundary).
+      * The gap itself is exact by construction and I confirmed it: for integer
+        `reserved`, `drawing_right_exact == usable_right_exact - reserved`, and
+        `_round_px` of two values differing by an integer differs by that integer,
+        so the measured gap is 108 px with no rounding slack in either parity
+        (1800 adversarial cases, 0 deviations). So the boundary is sound today —
+        it is only untested.
+      Practically unreachable (no CON-018 trim is bound near 1000 pages), which is
+      why this is Minor rather than Important.
+    suggestion: |
+      One cheap test in tests/test_book_page_numbers.py: assert `_draw_folio` draws
+      for a synthetic page number 9999 on a two-up page with the fixed reserve, and
+      omits for 10000 — pinning both the declared ceiling and the declared
+      degradation in two lines, so a font change fails loudly instead of silently
+      dropping folios.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-11
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_memory.py
+    line: 2014
+    title: "Surviving mutant: both comparison classes stay green with the reserve removed from their reference geometry — they are translation-blind, so the Fix-4 helper change was hygiene, not coverage"
+    description: |
+      MUTATION RESULT (M4, the only survivor of five). Removing all three
+      `folio_reserve_px=_folio_reserve_px(generator.dpi)` arguments that Fix 4 added
+      to `TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne::_reference`
+      (:1838), `TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged::_reference`
+      (:2029) and `::_qr_boxes` (:2067) leaves both classes green (10 passed).
+
+      This confirms the fix agent's story that the suite was green with a wrong
+      reference — but the mechanism is not a "tolerance": it is the per-slot
+      `_ink_bbox_crop` normalisation, which cancels any pure translation of a slot
+      BY DESIGN (the class's own docstring explains at length why it must, since
+      the flush edge mirrors with parity). So these two classes never could see a
+      108 px lower-slot shift, and the stale `_qr_boxes` mask — a white rectangle
+      at a position 108 px from the real icon — does not break them either.
+      The absolute lower-slot position IS pinned, by three other modules
+      (`test_book_two_up.py`'s new property test, `test_book_export_interior.py`'s
+      `_expected_drawing_left_mm`, `test_book_puzzle_frame.py`'s
+      `_expected_pair_boxes`), so this is not a coverage hole in the behaviour —
+      it is a class whose comparison is weaker than its name suggests, and whose
+      docstrings do not say so.
+    suggestion: |
+      Add one sentence to both classes' docstrings: the comparison is deliberately
+      translation-invariant per slot and therefore does NOT pin either slot's
+      absolute x — that is <name the three modules that do>. Optionally assert the
+      reference's own lower-slot `drawing_right` equals production's once, so the
+      helper's correctness is checked rather than merely intended.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-12
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1399
+    title: "_draw_folio's docstring still states the two-up lower slot is 'centred ... and only touches the left/right margin when that centring leaves no spare' — the exact false belief that produced Fix 3"
+    description: |
+      `_draw_folio`'s docstring (book_pdf_generator.py:1398-1404) still reads: "the
+      lower slot is centred across the page's shared usable width (PairLayout's own
+      docstring) and only touches the left/right margin when that centring leaves no
+      spare, which is the common case's opposite, not its rule."
+
+      Both halves are false since this card. The lower slot is not centred — it is
+      flush with the outer margin less the fixed reserve — and it reaches within
+      exactly 108 px of that margin on EVERY two-up page regardless of either
+      puzzle's extent, which is the whole reason the reserve exists. This is
+      pre-existing text (introduced by b2a1aed for CARD-200) that CARD-204
+      invalidated and did not update, even while the same commit rewrote the
+      neighbouring `_two_up_page`, `puzzle_pages`, `puzzle_section`,
+      `compute_pair_layout` and `_slot_layout` docstrings for exactly this reason.
+      It matters because it is the canonical statement of the belief cycle-3's F-7
+      traced Fix 3 to ("occasional, pair-dependent tight slack"), left standing in
+      the folio function itself, where the next maintainer will read it first.
+      Filed Minor, and at low confidence, because it is text this card invalidated
+      rather than wrote and a reviewer may legitimately rule it out of the card's
+      scope (see learned_pattern).
+      A second, milder instance in the same file: `_two_up_page`'s docstring at
+      :3545 still says both slots "centre on the page's one shared usable width"
+      (the claim it supports — that usable_left/usable_right do not differ between
+      slots — is still true, so this is wording only).
+    suggestion: |
+      Two sentences in `_draw_folio`'s docstring: the lower slot is flush with the
+      usable area's outer margin less `compute_pair_layout`'s fixed folio reserve,
+      so the horizontal clearance test passes by exactly that reserve on every
+      two-up page — never "when centring leaves spare." Same edit at :3545's
+      "centre on" wording.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file/text the card did not author); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+  - id: F-4
+    severity: info
+    category: compliance
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 0
+    title: "CARRIED, non-gating: FR-032's statement still says the drawing is 'centred across the usable width' while code and tests implement right-alignment"
+    description: |
+      Unchanged from cycles 1-3. This is an explicitly declared architect-station
+      deferral on the card ([Not in this card]), not a hidden gap, and it is the
+      precedent F-9 asks Fix 4 to follow for FR-040/EC-027.
+    suggestion: "Architect-station delta: amend FR-032's statement, retire/rewrite AC-274..AC-276 and EC-032 — and fold F-9's FR-040/EC-027 amendment into the same pass."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-8
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 2038
+    title: "CARRIED, non-gating: the TWO_UP_MIN_CELL_MM exact-equality boundary still has no covering test"
+    description: |
+      Cycle 3's F-8, unchanged and pre-existing. `if exact_cell_mm <
+      _exact_mm(TWO_UP_MIN_CELL_MM): return None` (and the identical guard after
+      the re-fit at :2074) implements INV-010's "at least 7.0 mm" correctly, but
+      no test pins the cell == 7.0 mm case itself. Fix 4 adds a second instance of
+      the same guard without adding that coverage.
+    suggestion: "One boundary test: a pair whose exact shared cell is 7.0 mm pairs, and 7.0 mm minus one pixel's worth does not — covering both guards."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-13
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/fixtures/book_baseline_card204.json
+    line: 7
+    title: "Out-of-scope: the fixture's `recorded_on` says 2026-10-12 while the recording commit is dated 2026-10-13"
+    description: |
+      `recorded_on: "2026-10-12 (CARD-204 Fix 4)"`, but f496bf5 is dated
+      2026-10-13 (the owner decision is the 12th; the uncommitted work was found
+      and re-recorded on the 13th). The same one-day skew exists in the superseded
+      entry ("2026-10-10 (CARD-204 Fix 2)" against a Fix 2 committed on the 11th),
+      so this is a standing habit of the field rather than a Fix-4 regression.
+      Everything substantive in the fixture's provenance IS honest and was
+      verified: `interior_bytes` 3439483 -> 3440084 (+601), EXACTLY ONE page digest
+      moved (index 4, interior page 5), all other twelve digests plus
+      `font_fingerprint` and `font_dependent_pages` byte-identical to Fix 3's
+      recording, `interior_bytes_note` rewritten to Fix 4's own figures and
+      explicitly stating the reserve is no longer a per-book measurement, and
+      `proof_baseline_card204.json` correctly left alone.
+    suggestion: "Set `recorded_on` to the date the recording commit carries, or rename the field to what it actually holds (the decision date)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  ran: true
+  reason: "candidate-passing cycle on stable committed code (f496bf5); the task required it rather than deferring"
+  test_scope: "tests/property/test_book_two_up.py tests/test_book_page_numbers.py tests/test_layout_two_up.py (M1-M3); the two comparison classes of tests/test_book_pdf_memory.py (M4); tests/property/test_book_pairing.py (M5)"
+  mutants:
+    - id: M1
+      file: src/nonogram/export/layout.py
+      line: 2205
+      mutation: "`reserved = min(outer_reserve_px, max(spare, 0))` -> `reserved = 0`"
+      result: killed
+      detail: "4 failures: test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve; test_every_page_of_a_book_holding_one_of_every_kind_is_numbered (the RESTORED corpus-wide AC-1 folio test); test_two_up_page_s_folio_now_has_reserved_room; test_the_fixed_reserve_is_identical_across_book_scales. The fix agent's claim ('fails its new property test plus 3 tests in test_book_page_numbers.py') is exact."
+    - id: M2
+      file: src/nonogram/export/layout.py
+      line: 2048
+      mutation: "`natural_spare = usable_width_px - lower_drawing_columns * pitch` -> `... - across * pitch` (the historical Fix-1 bug class: reading the pair's width instead of the lower slot's own)"
+      result: killed
+      detail: "test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve fails on its independently re-derived cell (7.2103 vs expected). The new oracle genuinely re-derives the lower-slot-specific rule rather than agreeing with production."
+    - id: M3
+      file: src/nonogram/export/layout.py
+      line: 2209
+      mutation: "`usable_left_px + spare - reserved` -> `+ reserved` (reserve shifted the wrong way on ODD pages)"
+      result: killed
+      detail: "5 failures, including test_every_folios_own_side_matches_page_is_right_hand — the parity direction of the reserve is pinned, not assumed."
+    - id: M4
+      file: tests/test_book_pdf_memory.py
+      line: "1838, 2029, 2067"
+      mutation: "removed all three `folio_reserve_px=_folio_reserve_px(generator.dpi)` arguments Fix 4 added to the reference/_qr_boxes helpers"
+      result: survived
+      detail: "Both classes green (10 passed). See finding F-11 — the per-slot ink-bbox normalisation is translation-invariant by design, so these classes never pinned the lower slot's absolute x."
+    - id: M5
+      file: tests/property/test_book_pairing.py
+      line: "388, 450, 462"
+      mutation: "dropped `reserve=True` from Sheet.shared_cell_mm's three call sites (reverting EC-027's oracle to FR-040's own unreserved formula)"
+      result: killed
+      detail: "test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly fails on cell_mm 7.38124 vs FR-040's 7.3859. Run as evidence FOR F-9, not against the tests: it measures how load-bearing the oracle change is. Note M5 partial (only _expected_pages' call site) SURVIVED, i.e. no pair in that corpus flips paired->unpaired; the flip is demonstrated instead by the suite's own _tight_pair through puzzle_pages."
+  integrity: "All five mutations reverted from byte-exact captures and verified: `git diff f496bf5 -- src tests` is empty, and src/nonogram/export/layout.py's sha1 matches the pre-mutation capture (7622342b48207c11047ea93234c513c2171a413f). Touched files re-run green after restore."
+
+family_verdict:
+  question: "Does Fix 4 escape the F-1 / F-5 / F-7 family, or is it its fourth instance?"
+  answer: "It escapes the coupling half (F-1, F-5) decisively, and satisfies F-7's substantive complaint. It reproduces, in a milder form, F-7's secondary complaint about the record — see F-9."
+  why_the_constant_is_categorically_different: |
+    F-1 and F-5 were not about the reserve's SIZE; they were about its PROVENANCE.
+    In both, the reserve was a measurement taken off the artefact being laid out —
+    this page's own number (F-1), this book's own worst-case page number (F-5) — so
+    `compute_pair_layout` stopped being a function of the pair and became a function
+    of the pair AND its surroundings. Two consequences followed, and both are the
+    actual defect: the same pair got different verdicts in different places, and the
+    pairing decision became circular (pairing determines the page count, the page
+    count determined the reserve, the reserve determined pairing), so inserting one
+    puzzle early in a book could silently re-pair pages hundreds of pages later.
+    A compile-time constant has neither property. `_folio_reserve_px` takes only
+    `dpi`; `self.dpi = DPI` unconditionally; there is one production call site; and
+    no page-, book- or payload-derived quantity can reach `folio_reserve_px` or
+    `outer_reserve_px` through any parameter, default, kwarg or closure. The
+    function is a pure function of (two clue sets, PageSpec, constants) again —
+    which is exactly the status `TWO_UP_MIN_CELL_MM` already has inside the same
+    invariant. I verified this three ways beyond reading: 0 verdict and 0 cell
+    disagreements between parities over 900 random pairs; identical verdict, cell
+    and 108 px gap for the same pair at interior pages 3 and 303 of differently
+    sized books (the suite's own test, re-run); and the exact gap holding over 1800
+    adversarial symmetric pairs. The re-fit cannot reintroduce it either: it is
+    gated on `natural_spare < folio_reserve_px`, both operands derived from the
+    pair's geometry and the constant, and I proved the headroom guarantee is
+    algebraically tight (if `natural_spare < R` then the cap and the height fit both
+    exceed `(W-R)/across`, so the re-fit is width-bound and `spare == R` exactly;
+    confirmed with exact Fraction arithmetic, and the px->mm round trip is exact —
+    `9.525 + 9.144` reprs as `18.669`).
+    What a constant DOES share with a book-scale measurement is that it participates
+    in the verdict at all, and so can refuse a pair. The owner's decision accepts
+    that explicitly. The difference is that the refusal is now a property of the
+    pair alone — identical in every book, on every page, forever — which is a
+    knowable, testable rule, where F-1/F-5's was not.
