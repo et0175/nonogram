@@ -207,3 +207,21 @@ CARD-198/202/206 took).
 
 - [Env] forge 2026.8.17 (project declares no `forge.min_version`; no `.skills.yml` in this repo)
 - [Dispatch] wave 37, started 2026-10-13T10:16:42Z — concurrency 2 (owner decision 2026-10-13), paired with CARD-204's resumed Fix 4
+
+- [Touches drift] 2026-10-13T10:40Z — 8 files changed, 1 outside the declared
+  `Touches:`: src/nonogram/solver/__init__.py (the package's `__all__` export of
+  the new seeded-solve surface). Expected for a card that widens the solver's
+  public API; recorded for Touches calibration.
+- [Guard] 2026-10-13T10:40Z — runtime conflict guard: no file shared with
+  CARD-204, the other active card of wave 37. No runtime conflict edge added.
+
+- [Full-suite lock gap] 2026-10-13T10:50Z — two full suites are running
+  concurrently on this host: CARD-204's worktree (`pytest -p no:warnings -rf`,
+  its SECOND full run of this fix — scratchpad `full2.log`) and CARD-214's
+  (`pytest -q -p no:warnings`). cmd-start-review's FULL-SUITE LOCK
+  (`meta/kanban/.full-suite.lock`) is an orchestrator-side mechanism and the
+  implementation agents do not take it themselves, so nothing serialized them.
+  Not killed — both runs are 8+ minutes in and killing them wastes the time
+  already spent. Consequence to weigh when the results land: wall-clock per run
+  is inflated, and any UNEXPECTED failure in the admin/DB-touching tests should
+  be re-run serialized before it is believed.

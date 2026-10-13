@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-13 UTC_
+_Updated: 2026-10-13 UTC_  ·  <!-- forge:run wave=37 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -62,19 +62,26 @@ _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards
 - **CARD-208** Printed clue numbers sit in ruled boxes, like the player's clue cells · P2 · 1d · standard · depends CARD-204 · ⚑ rests on one reading of an unreadable doc image
 - **CARD-209** Wide-but-short solutions pack 3 to a page, one column × three rows · P2 · 1d · standard · depends CARD-204
 
+**Test curation (cut 2026-10-13 on owner request; run after the print cards land)**
+- **CARD-217** Profile the suite once, serialized, and commit the duration record the curation cards work from · P1 · 0.5d · tech-debt · measurement only, no test edits · must be the only suite running
+- **CARD-218** Each book renders once per module, not once per test · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209
+- **CARD-219** Positional assertions read the page plan instead of rendering pixels · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209
+- **CARD-220** Retire tests whose coverage another test already provides — only with a named survivor · P2 · 1d · tech-debt · depends CARD-217 · ⚑ footprint is `tests/**`; run on a quiet board
+
 **Solver (the admin panel's player)**
 - **CARD-211** Region leaves the brush menu and becomes its own control · P2 · 0.5d · standard
 - **CARD-212** Big boards repeat their clues on both sides — left and right, top and bottom · P2 · 1d · standard
 - **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard
 
 **Generator POC (given cells)**
-- **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · 1d · architectural · ⚑ needs an ADR-0024 (POL-007) + INV-002 amendment
 - **CARD-215** Given cells print — a black cell for a revealed filled cell, a dot for a revealed white one · P2 · 1d · standard · depends CARD-214
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
+- **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-214` · branch `card/214-given-cells` · ⚑ needs an ADR-0024 (POL-007) + INV-002 amendment at the architect station
 
 ## Review
+- **CARD-204** _(wave 37 — Fix 4 committed `f496bf5`, suite 6857 passed / 0 failed; review cycle 4 running, owner-authorized extension past max_cycles)_
 - **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity, owner-confirmed), gain a placeholder 2x2cm QR-code slot, and reserve folio room on two-up pages' lower slot (owner-confirmed fix for a discovered folio-loss regression) · P2 · architectural · implementation + fix complete, full suite green (6853 passed, 0 failed) · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
 
 ## Blocked
