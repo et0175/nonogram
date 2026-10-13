@@ -10,7 +10,8 @@
 module that passes Pillow's ``"rb"``/``"lb"`` anchor — every other mark this
 module draws (a title, a band, a caption, a TOC entry's own label or its
 right-aligned page number) uses a different anchor or none at all (see that
-module's own call sites: the caption is ``"mm"``, the band is ``"lm"``, a TOC
+module's own call sites: the caption is ``"rm"`` (CARD-203: right-aligned
+with the grid, was ``"mm"``), the band is ``"lm"``, a TOC
 entry's page number is ``"ra"``, a TOC entry's label and every guide/divider
 mark use the default). So a ``draw.text`` call recorded with anchor ``"rb"``
 or ``"lb"`` is unambiguously the folio, and its own ``text`` is checked

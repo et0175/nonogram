@@ -1,0 +1,184 @@
+version: 1
+generated_at: "2026-10-10T10:11:31Z"
+target: "CARD-203 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-203, branch card/203-solved-caption-position, review cycle 2 (confirmation / differential re-review of fix commit 7acc7ce against review cycle 1's findings F-001/F-003/F-004/F-006/F-007)"
+overall_score: 4.0
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py (_draw_solved_slot, solved_puzzle_page, _packed_answer_page, _draw_folio, page_is_right_hand, page_frame — all re-read in full against the fix delta)
+    - tests/test_book_solved_page.py (full F-001/F-003 diff, TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio in full)
+    - tests/test_book_solved_answer_key.py (full F-004/F-007 diff, TestBookSolvedAnswerKey_PackedCaptionRightAlignedWithItsOwnTile in full)
+    - src/nonogram/export/layout.py (PagePlacement, compute_packed_solved_layout, tile_rows/tile_columns geometry)
+    - meta/kanban/cards/CARD-203.md (task contract, AC-1..AC-6, G-1..G-5, 53-rule system contract, both Worktree-notes implementation entries incl. [Fix 1]'s own stated rationale)
+    - meta/kanban/cards/CARD-200.md (AC-1, the folio-presence contract this card's fix operates under)
+    - meta/review/20261010T055328Z-CARD-203-cycle1.yml (cycle 1's own findings/root-causes/system-contract verdicts)
+    - Live reproduction: rendered _packed_answer_page directly (capacity 4, KDP-min-trim book, left-hand page_number=8) to empirically confirm/refute the adversarial-scrutiny question the task posed
+  not_reached:
+    - tests/test_book_pdf_band.py, tests/test_book_toc.py, tests/property/test_book_answer_tiles.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_packed_degrade.py, tests/test_book_page_numbers.py (not re-read this cycle; cycle 1 read them and the fix delta does not touch them)
+    - Full-suite run (6847 passed per the card's own evidence) not independently re-executed this cycle (would have exceeded a reasonable session budget at ~20 min); the narrower `tests/ -k "book"` run was executed independently and exited 0, and the two touched test files were run to exact-count completion
+  confidence: high
+metrics:
+  diff: { files: 4, added: 623, removed: 17 }
+  production_diff: { file: "src/nonogram/admin/book_pdf_generator.py", added: 109, removed: 17 }
+  max_fan_in: { symbol: "BookPDFGenerator._draw_solved_slot", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py (47 commits/12mo, 23 of them fix/bug — 49% defect-density)"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the fix delta is a narrow, targeted bugfix (two methods' collision-check wiring); none of book_pdf_generator.py's real co-change peers (app.py, templates/book_finalize.html, book_kdp.py) bear on folio/caption collision logic"
+
+system_contract:
+  rules_checked: 53
+  holds: 5
+  unchecked: 48
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle1, delta-clean): fix adds no import outside the project's own nonogram.export.layout/book_answer_key; no third-party runtime dependency added"
+    - "ADR-0036/R2 ✓ holds — re-verified this cycle: the caption's returned box (round(placement.drawing_bottom + gap_px + line_height), placement.drawing_right) and both callers' content_bottom/content_right folding are Placement fields and already-established constants, not a new fitting computation"
+    - "ADR-0037/R1 ✓ holds — carried(cycle1, delta-clean): fix touches only the caption/folio collision wiring, not which page kinds print a title"
+    - "ADR-0037/R2 ✓ holds — carried(cycle1, delta-clean): _stroke_drawing/rule-width logic untouched by this delta"
+    - "CON-020 ✓ holds — carried(cycle1, delta-clean): caption font/size lines untouched by this delta; only draw coordinates and the folio's content_bottom/content_right arguments changed"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1..R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1..R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0038/R1..R4, ADR-0038/R6..R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005..INV-013 ⚠ unchecked — no_eligible_fact: carried(cycle1, delta-clean) — none of these rules' scope (solver, web server, admin door, book plan/membership/pairing, answer-key capacity, player JS, orchestrator retry/density/aspect) is touched by a fix delta scoped to book_pdf_generator.py's caption/folio collision wiring and its own tests"
+
+root_causes:
+  - id: RC-101
+    title: "The cycle-1 F-001 fix threads the caption's occupied box into _draw_folio's collision check asymmetrically: solved_puzzle_page explicitly gates the fold-in on page_is_right_hand(page_number) (book_pdf_generator.py:3754), matching the geometric fact that the caption (always right-aligned, CARD-203) only shares the folio's own physical corner on a right-hand page. _packed_answer_page's own fix (book_pdf_generator.py:3902-3907) has no equivalent gate: it folds the corner tile's caption into content_bottom on BOTH page sides. On a left-hand packed page the selected 'corner tile' is column 0, whose GRID reaches the page's left margin (by construction, CARD-200 cycle-2) but whose CAPTION is still right-aligned toward that tile's own drawing_right (the tile's own right side, nowhere near the left margin) — so content_bottom gets widened by a mark that cannot actually reach the folio's corner, while the horizontal clearance check (content_left) still answers only for the grid, not the caption. Net effect, confirmed by direct reproduction: the folio is silently omitted on some left-hand packed answer pages where no collision exists, reversing the direction of the very defect this fix cycle was meant to close and contradicting the Worktree notes' own explicit claim that resolution (a) 'would also still [draw the folio] on left-hand pages in slack windows where no collision is even possible, which (a) does not do' (CARD-203.md:456-460) — true for solved_puzzle_page, false for _packed_answer_page."
+    finding_ids: [F-101, F-102]
+
+findings:
+  - id: F-101
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 3902
+    title: "_packed_answer_page's F-001 fix omits the folio on left-hand packed pages with no actual caption/folio collision (fix-introduced regression, not gated by page_is_right_hand unlike solved_puzzle_page)"
+    description: |
+      Confirmed by direct reproduction against this worktree's own post-fix code (capacity-4
+      packed layout, KDP-minimum-trim book, a 14x6/depth-1 member, page_number=8 — a left-hand
+      page): the corner tile selected for the left-hand side is column 0 (book_pdf_generator.py:3888,
+      `corner_column = ... if right_hand else 0`), whose own `drawing_left == frame.left` (the
+      grid genuinely reaches the folio's x-position there, by CARD-200 cycle-2's own established
+      geometry). But the corner tile's CAPTION (CARD-203, always anchored "rm" at that tile's own
+      `drawing_right` — book_pdf_generator.py:3619/3636) sits toward the TILE's own right edge,
+      not its left edge, regardless of which column the tile occupies. `_packed_answer_page`'s
+      fix (lines 3902-3907) folds that caption's bottom edge into `content_bottom` unconditionally
+      — with no `page_is_right_hand` gate, unlike `solved_puzzle_page`'s own fix at line 3754 —
+      even though the caption's horizontal footprint is nowhere near the folio's left-corner
+      anchor on this page side.
+
+      Reproduction: with a short caption ("3 — Pic"), the corner tile's own grid leaves 84px of
+      vertical slack (`drawing_bottom`=985, `usable_bottom`=1069) — comfortably clearing the
+      folio's own 49px bar, so the pre-this-fix code (content_bottom = grid only) draws the folio.
+      The caption's own ink was independently confirmed to occupy none of the pixel region the
+      folio's digit would occupy (no dark pixels in a wide scan box around the folio's own
+      (left, bottom) anchor). Post-fix, `content_bottom` is widened to the caption's own bottom
+      edge (1058px, only 11px of the required 49px margin left), which trips `_draw_folio`'s
+      "not enough room" check; the horizontal clearance check then reads `content_left`
+      (still the GRID's own `drawing_left == frame.left`, unrelated to the caption's real
+      position) and — because that figure was always ~equal to the margin itself — always
+      reports "not clear," so the folio is omitted. A monkeypatched render simulating the
+      pre-fix caller behavior (`_draw_solved_slot` reporting no caption box) draws the folio's
+      digit at that exact anchor; the actual post-fix render does not.
+
+      This violates CARD-200's own formal AC-1 ("each [interior] page... carries its own
+      1-based interior page number... except a page whose bottom slack is too small to fit
+      one line, which prints none" — meta/kanban/cards/CARD-200.md:181-187): this page's own
+      slack (84px) is NOT too small; the folio is omitted anyway, purely because of the
+      asymmetric fix. It also directly contradicts this fix's own stated design rationale
+      (CARD-203.md:456-460, picking resolution (a) over (c) specifically because "(a)... would
+      also still [draw the folio] on left-hand pages in slack windows where no collision is
+      even possible, which (a) does not do") — true for `solved_puzzle_page`, demonstrably
+      false for `_packed_answer_page`.
+
+      Root cause: `_packed_answer_page`'s own docstring addition (lines 3844-3851) claims this
+      is "the same 'folio yields' fix :meth:`solved_puzzle_page` makes for a full page" — but
+      `solved_puzzle_page`'s fix is conditioned on `page_is_right_hand(page_number)`
+      (line 3754) and this one is not. The two methods' fixes are not actually parallel, despite
+      the docstring's claim of parity (an intent-vs-reality drift, Step 8c).
+    suggestion: |
+      Gate `_packed_answer_page`'s caption fold-in the same way `solved_puzzle_page` does:
+
+          right_hand = page_is_right_hand(page_number)
+          content_bottom = None if corner_placement is None else corner_placement.drawing_bottom
+          if right_hand and content_bottom is not None and corner_caption is not None:
+              content_bottom = max(content_bottom, corner_caption[0])
+
+      (the `right_hand` variable already exists at line 3887, computed for `corner_column` —
+      it only needs to be reused here). Add a regression test mirroring
+      `TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio` for `_packed_answer_page`
+      specifically, with cases for: (1) a right-hand packed page where the corner tile's
+      caption and the folio really do compete (collision still correctly resolved); (2) a
+      left-hand packed page in the same danger window, asserting the folio is NOT omitted
+      (the regression this finding reports). Neither case exists in the current test suite —
+      see F-102.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-101
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: important
+    category: tech-debt
+    type: gap
+    file: tests/test_book_solved_answer_key.py
+    line: 1195
+    title: "No F-001 regression test exists for _packed_answer_page at all (right-hand collision or left-hand non-collision), unlike solved_puzzle_page"
+    description: |
+      `TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio` (tests/test_book_solved_page.py:769)
+      is the only F-001 regression test this fix cycle added, and it exercises
+      `solved_puzzle_page` only. `TestBookSolvedAnswerKey_PackedCaptionRightAlignedWithItsOwnTile`
+      (tests/test_book_solved_answer_key.py:1200, the F-004 fix) asserts the packed caption's
+      own right-alignment geometry, but never renders a folio-colliding shape and never checks
+      `_draw_folio`'s output at all. Grepped the whole file: no "folio" collision assertion
+      exists anywhere in tests/test_book_solved_answer_key.py. This gap is exactly why F-101
+      shipped unnoticed in this very fix cycle — the packed path's own collision-avoidance
+      logic (book_pdf_generator.py:3902-3907) has zero test coverage of its actual
+      caption/folio interaction, in either direction.
+    suggestion: |
+      Add a test class for `_packed_answer_page` mirroring
+      `TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio`'s three cases (danger-window
+      shape really sits in the window; right-hand page: folio yields, no overlap; left-hand
+      page: both marks still draw, folio not unnecessarily omitted) against a packed layout's
+      own corner tile instead of a full page. This is a reasonable, concrete place to also
+      add the regression test F-101's fix needs.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-101
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: minor
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 3844
+    title: "_packed_answer_page's F-001 docstring overstates parity with solved_puzzle_page's fix"
+    description: |
+      The docstring added at lines 3844-3851 ("the same 'folio yields' fix
+      :meth:`solved_puzzle_page` makes for a full page") asserts behavioral parity between the
+      two fixes that does not hold (see F-101: one is right-hand-gated, the other is not). Minor
+      on its own (a documentation-accuracy issue), but it is the same "intent-reality drift"
+      class the cycle-1 review's own F-005 flagged, and it is the reason F-101 was plausible to
+      believe fixed without being empirically checked on the left-hand side.
+    suggestion: "Once F-101 is fixed (bringing the two methods into real parity), this docstring becomes accurate as written and needs no further change."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-101
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

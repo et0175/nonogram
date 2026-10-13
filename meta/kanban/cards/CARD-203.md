@@ -1,6 +1,6 @@
 # CARD-203: The solved-page caption sits closer to the puzzle and right-aligns with its grid
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -15,11 +15,11 @@
 **Wave:** —
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/helpers/book_corpus.py, tests/fixtures/book_baseline_card203.json
-**Review score:** —
+**Review score:** 9.5/10 (cycle 3, final — ready to merge pending owner render sign-off)
 **Started:** 2026-10-10T04:04:25Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-10T17:11:12Z
+**Actual:** 13.11h
+**Merge commit:** 0e955d5
 **Blocked by:** —
 
 ## What to implement
@@ -320,3 +320,182 @@ _Assembled 2026-10-08 by `system_rules.py --card CARD-203` (53 rules; identical 
 - [Not in this card] Formalising a requirements delta for the solved-page caption's position
   (it has no FR today, per CARD-197/198's own "none yet, by design") — architect-station
   follow-up, same pattern CARD-198 used for FR-042.
+
+- [Implementation complete, 2026-10-10] Both target changes made, both guardrails confirmed.
+
+  - **Where the code actually was.** By the time this card was implemented the step-8 code the
+    card quotes (`solved_puzzle_page:2111-2150` in the card's own line numbers) had already moved:
+    CARD-202 extracted `solved_puzzle_page`'s steps 3-8 into a new shared method,
+    `BookPDFGenerator._draw_solved_slot`, called by **both** `solved_puzzle_page` (a full answer
+    page) and `_packed_answer_page` (CARD-202's packed 2-/4-up slots). The caption code this card
+    targets now lives at `_draw_solved_slot`'s own step 8. The two target edits were made there
+    instead of at the stale line numbers, with identical semantics to what the card specifies.
+  - **STRUCTURE: the CARD-202 coordination question resolves itself.** Investigated by reading
+    `_packed_answer_page`, `_draw_solved_slot` and `book_answer_key.py` in full: CARD-202 did
+    **not** duplicate caption-drawing logic for its packed slots — it extracted the single
+    `_draw_solved_slot` method precisely so a full page and a packed slot "draw from the **one**
+    implementation." So this card's one edit automatically reaches both page kinds — no second
+    edit was needed. Confirmed empirically: the regenerated baseline's three answer pages (11
+    Duck+Owl packed, 12 Tree packed alone, 13 Snowflake full page) **all three** moved.
+  - **SCOPE+ (small, docs-only):** `tests/test_book_page_numbers.py`'s module docstring stated
+    the caption anchor as `"mm"` (stale); corrected to `"rm"` with a CARD-203 pointer — no test
+    behavior changed, only a stale documented fact.
+  - **AC-4's boundary shape, found by sweep.** Swept every 10..30 checkerboard for a slack value
+    inside `[line_height, gap_px+line_height)` = `[49, 73)` px: exactly one shape qualifies,
+    29x23 (slack 58px) — `_NARROW_GAP_SHAPE`, proving the OLD guard would have drawn here while
+    the NEW guard correctly omits it.
+  - **Test evidence:** `tests/test_book_solved_page.py` 36 passed (26 pre-existing unedited + 6
+    new/added across AC-1/AC-2/AC-3/AC-4); `tests/test_book_pdf_memory.py` green against the
+    repointed baseline; `tests/test_book_solved_answer_key.py` (54), `tests/test_book_pdf_band.py`
+    (34), `tests/test_book_page_numbers.py`, `tests/test_book_pdf_packed_degrade.py`,
+    `tests/property/test_book_answer_tiles.py`, `tests/test_book_toc.py`,
+    `tests/test_book_interior_type_floor.py`: all green. Full `pytest tests/ -k "book"`: green,
+    exit 0, run twice to confirm.
+  - **Baseline regeneration:** new `tests/fixtures/book_baseline_card203.json`, `BASELINE_FIXTURE`
+    repointed. **Moved: pages 11, 12, 13** (the only pages where the caption actually draws ink).
+    **Unmoved: pages 1-10**, confirmed byte-identical by direct digest comparison. `page_count`
+    stays 13 (G-5 intact). `interior_bytes`: 3,420,073 → 3,421,901.
+  - **Owner sign-off still needed before merge** (per Design context): the 2.0mm gap and the band
+    staying centered while only the caption right-aligns are this card's own reading of
+    "closer"/"align by the right side," not an owner-confirmed pixel value. No render was
+    produced during implementation — needed before merge.
+
+- [Review] forge:review cycle 1 started (background agent `@code-review`).
+- [Review 1/3] Score **4.0/10**. 1 Critical, 3 Important, 2 Minor, 1 Out-of-scope.
+  - **F-001 (Critical, reproduced directly against this worktree's running code):**
+    `book_pdf_generator.py:3602` — the caption's new `anchor="rm"` at
+    `placement.drawing_right` and the pre-existing page folio (`_draw_folio`, CARD-200,
+    untouched by this card) now target the SAME page corner on a right-hand (odd)
+    page, once the puzzle's grid reaches near `usable_right` and slack falls in a
+    ~73-120px window (the folio's own room-check threshold, 49px, is lower than the
+    caption's new one, 73px = `gap_px+line_height`). Reproduced concretely: a 30x24
+    checkerboard on an odd page yields slack=74px, margin=0 — caption ink and folio
+    digit land in **overlapping columns, zero blank rows between them**. Confirmed
+    absent on `main`'s pre-CARD-203 code (well-separated blobs). 14 of a plain 10-30
+    checkerboard sweep land in the danger window — realistic and reachable, not
+    contrived. The regenerated baseline doesn't catch it only because that puzzle's
+    own slack (646px) is far outside the window — the baseline is silently blind to
+    this. Compounding: `solved_puzzle_page`'s own docstring still claims "opposite
+    corner," which is now false and masked the risk from review.
+  - **Important:** (1) the stale docstring itself (`:3669`, masks the Critical
+    finding); (2) all 4 new CARD-203 tests use only page_number=2 (left-hand) —
+    structurally cannot exercise the right-hand-page collision scenario that F-001
+    lives in; (3) the packed-tile path's caption right-alignment has no direct
+    geometric assertion, only the whole-page baseline digest (which pins whatever
+    came out, not the intended geometry).
+  - **Minor:** Worktree notes claimed "36 passed" vs. the actual 32 collected/passing
+    (6 new tests, not 7); a stale "control" comment in
+    `TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted` still describes
+    the pre-card slack threshold (the assertion itself still catches regressions).
+  - **Out-of-scope (not gating):** the owner's pending visual sign-off (gap size,
+    band/caption asymmetry) remains a separate pre-merge gate — ideally the
+    eventual render set includes a right-hand, moderate-slack, wide puzzle given F-001.
+  - System contract: 53 rules checked, 5 ✓ holds, 48 ⚠ unchecked (no_eligible_fact,
+    scope doesn't intersect this diff), 0 ✗ violated.
+  - Review report synced: `meta/review/20261010T055328Z-CARD-203-cycle1.yml`.
+  - **Verdict: cycle 1 does not meet the bar** — routing to forge:fix for F-001 plus
+    the 3 Important findings, cycle 2.
+
+- [Fix 1, 2026-10-10] Review cycle 1's gating finding (F-001, Critical) fixed, plus
+  F-003/F-004 (Important) and F-006/F-007 (Minor).
+  - **F-001 (Critical, fixed) — caption/folio collision.** Reproduced first against
+    this worktree's own code (30x24 checkerboard, right-hand page, zero margin, 74px
+    slack — inside the danger window) — confirmed real pixel overlap, matching the
+    review's numbers. **Root cause:** `_draw_folio` (CARD-200) already supports
+    `content_bottom`/`content_right`/`content_left` collision-avoidance, but
+    `solved_puzzle_page`/`_packed_answer_page` never told it about the caption's own
+    box, only the grid's. **Chosen resolution: the folio yields, never the
+    caption** — reusing CARD-200's own established precedent ("folio omits itself,
+    content wins") rather than inverting draw order (caption is drawn before the
+    folio ever runs) or just widening the folio's bar (would miss the general
+    horizontal case). `_draw_solved_slot` now returns the caption's occupied box;
+    both callers fold it into their `_draw_folio` call, gated to right-hand pages
+    only (left-hand pages untouched, confirmed byte-identical). Stale "opposite
+    corner" docstring rewritten.
+  - **Regression test verified genuine**: stashed the fix, reran the new collision
+    test — it failed against pre-fix code reproducing the exact collision; restored
+    the fix, all pass.
+  - **F-003 (odd-page coverage), F-004 (packed-tile right-alignment assertion):
+    fixed** with new tests. **F-006/F-007 (stale count/comment): fixed.**
+  - **Test evidence:** `test_book_solved_page.py` 37 passed; `test_book_solved_answer_key.py`
+    55 passed; combined book-suite `pytest tests/ -k "book"` 2179 passed, 1 skipped,
+    0 failed; full suite **6847 passed, 9 skipped, 0 failed, 0 errors** (20:35, run
+    concurrently with CARD-204's own agent). Orchestrator's own independent spot
+    check of the two touched test files: 92 passed, exit 0.
+  - Owner sign-off on the 2.0mm gap/band asymmetry remains pending — unresolved by
+    this fix cycle, still needs a render before merge.
+
+- [Review] forge:review cycle 2 started (confirmation pass, background agent).
+- [Review 2/3] Score **4.0/10**. 1 NEW Critical, 1 NEW Important, 1 Minor. Not a
+  clean confirmation — exit condition triggered, routing to cycle 3.
+  - **F-101 (Critical, reproduced):** `_packed_answer_page`'s F-001 fix is
+    asymmetric with `solved_puzzle_page`'s — the latter gates the caption fold-in
+    on `page_is_right_hand` (line 3754), the former (`:3902`) does not. Reproduced
+    directly: a left-hand packed page with 84px of real slack (well above the
+    folio's own 49px bar) incorrectly loses its folio anyway, because the corner
+    tile's caption (anchored to that tile's own right edge) is folded into
+    `content_bottom` unconditionally regardless of page side. Violates CARD-200's
+    own AC-1 ("every page prints its folio except when slack is too small") and
+    contradicts this fix's own stated rationale.
+  - **F-102 (Important):** no F-001 regression test exists for `_packed_answer_page`
+    at all, in either direction — exactly why F-101 shipped undetected inside the
+    very cycle meant to close F-001.
+  - **Minor:** `_packed_answer_page`'s new docstring overstates parity with
+    `solved_puzzle_page`'s fix.
+  - System contract: 53 rules checked, 5 ✓ holds (carried, delta-clean), 48 ⚠
+    unchecked (carried, delta-clean), 0 ✗ violated.
+  - Review report synced: `meta/review/20261010T101131Z-CARD-203-cycle2.yml`.
+  - **Verdict: NOT ready to merge** — a confirmation cycle that itself surfaced a
+    new gating regression inside the delta it was confirming. Routing to
+    forge:fix for F-101/F-102, cycle 3.
+
+- [Fix 2, 2026-10-10] F-101 (Critical) and F-102 (Important) fixed. Full writeup
+  in the branch's own `[Fix 2]` worktree-notes entry (commits `c65a903`/`a597072`).
+  **F-101**: `_packed_answer_page`'s F-001 fix was applied unconditionally,
+  unlike `solved_puzzle_page`'s `page_is_right_hand`-gated version — on a
+  left-hand page the corner tile's caption bottom was folded into
+  `content_bottom` regardless of side, incorrectly suppressing the folio on
+  left-hand packed pages with ample real slack. Fixed by reusing the
+  already-computed `right_hand` variable to gate the fold-in, mirroring
+  `solved_puzzle_page`'s gate exactly. **F-102**: new regression test class
+  `TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio` (3 tests),
+  stash-verified (fails pre-fix reproducing F-101, passes post-fix).
+  **Test evidence**: `test_book_solved_answer_key.py` 58 passed;
+  `test_book_solved_page.py` 37 passed; combined with page-numbers/memory tests:
+  147 passed, 1 skipped. **Orchestrator's own independent full-suite
+  confirmation: 6850 passed, 9 skipped, 0 failed, 0 errors** (1093.90s) — exactly
+  3 more than the prior 6847 baseline, matching the 3 new tests.
+  Owner sign-off on the 2.0mm gap/band asymmetry remains pending, unaffected.
+
+- [Review] forge:review cycle 3 started (confirmation/final pass, background agent).
+- [Review 3/3 — FINAL] Score **9.5/10**. 0 Critical, 0 Important, 0 Minor, 1
+  Out-of-scope (the pending owner sign-off, reaffirmed non-blocking). Per this
+  cycle's explicit adversarial mandate (given the asymmetry bug shipped twice):
+  re-read both call sites' collision-avoidance logic line by line, found one
+  more textual difference (`_packed_answer_page` passes `content_right`/
+  `content_left` unconditionally, `solved_puzzle_page` only when right-hand) —
+  investigated and confirmed **harmless, not a hidden third bug**: `_draw_folio`
+  itself only ever reads the side matching its own internal `right_hand` check,
+  and a full page's grid is horizontally centred (never reaching the margin the
+  way a packed page's outer tile does by construction) — a genuine structural
+  difference between the two page kinds, independently re-derived from
+  `compute_layout`/`compute_packed_solved_layout`, not assumed. Ran an
+  independent mutation check (own edit, not the fix's own stash-proof):
+  reverted the gate, confirmed the new regression test fails exactly as F-101
+  predicted, restored, confirmed `git diff --stat` clean. System contract: 53
+  rules checked, 5 ✓ holds (carried, delta-clean), 48 ⚠ unchecked (carried,
+  delta-clean), 0 ✗ violated.
+  - Review report synced: `meta/review/20261010T110321Z-CARD-203-cycle3.yml`.
+  - **Verdict: CARD-203 IS READY TO MERGE** (modulo the separately-tracked owner
+    visual sign-off on the 2.0mm gap/band asymmetry, non-blocking for review,
+    flagged in every cycle). This is the final confirmation — no further review
+    cycle needed.
+
+- [Owner sign-off, 2026-10-10] Renders produced at
+  `~/Documents/nonogram-reviews/CARD-203/` (4 PNGs: before/after on a typical
+  generous-slack puzzle, and before/after on the review's own collision-danger
+  shape, verified pixel-geometry by the rendering agent before presenting —
+  not just visually eyeballed). Owner reviewed and confirmed: **"Looks good,
+  ship it."** Both the 2.0mm gap/right-alignment and the band-centred/
+  caption-right-aligned asymmetry are accepted as-is. Gate clear — proceeding
+  to merge.

@@ -1,0 +1,264 @@
+version: 1
+generated_at: "2026-10-10T05:53:28Z"
+target: "CARD-203 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-203, branch card/203-solved-caption-position vs main (commit eb5c535), review cycle 1 (standalone, full-diff review)"
+overall_score: 4.0
+risk_level: high
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py (_draw_solved_slot, solved_puzzle_page, _packed_answer_page, _draw_folio, page_is_right_hand, in full)
+    - src/nonogram/export/layout.py (Placement/PagePlacement, ANSWER_TILE_GAP_MM, SOLVED_TILE_GAP_MM, compute_packed_solved_layout)
+    - tests/test_book_solved_page.py (full diff + surrounding unedited classes)
+    - tests/test_book_solved_answer_key.py (packed caption test class)
+    - tests/helpers/book_corpus.py, tests/test_book_page_numbers.py (diffs)
+    - tests/fixtures/book_baseline_card203.json vs book_baseline_card200.json (programmatic byte/hash diff)
+    - meta/kanban/cards/CARD-203.md (card, ACs, guardrails, system contract, worktree notes)
+  not_reached:
+    - tests/test_book_pdf_band.py, tests/test_book_toc.py, tests/property/test_book_answer_tiles.py, tests/test_book_interior_type_floor.py, tests/test_book_pdf_packed_degrade.py (read only the cited sections; not read in full)
+    - admin web templates / browser-player code (grepped only, no caption coupling found)
+  confidence: high
+metrics:
+  diff: { files: 6, added: 505, removed: 8 }
+  max_fan_in: { symbol: "BookPDFGenerator._draw_solved_slot", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — every co-change peer with real churn against book_pdf_generator.py (test_book_pdf_memory.py, test_book_pdf_band.py, test_book_solved_answer_key.py, etc.) was individually investigated by the implementer per the card's own Worktree notes and confirmed either repointed (book_corpus.py) or unaffected (read + run green); none is a missing-change candidate"
+
+system_contract:
+  rules_checked: 53
+  holds: 5
+  unchecked: 48
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — diff's only new import (ANSWER_TILE_GAP_MM) is from the project's own nonogram.export.layout; no third-party runtime dependency added"
+    - "ADR-0036/R2 ✓ holds — new coordinates (placement.drawing_right, placement.drawing_bottom) are Placement fields compute_layout already produced; gap_px is a plain unit conversion of an existing layout constant (ANSWER_TILE_GAP_MM), not a new fitting computation, matching the precedent this same method already set for its font-size conversion"
+    - "ADR-0037/R1 ✓ holds — diff touches only solved_puzzle_page's/._draw_solved_slot's caption step; no unsolved puzzle page or its band is touched (confirmed by diff hunk scope)"
+    - "ADR-0037/R2 ✓ holds — _stroke_drawing and its rule-width logic are untouched by this diff"
+    - "CON-020 ✓ holds — caption_font_points/type_px/_band_font (the 10pt floor) lines are byte-identical before and after; only the x/y draw coordinates, anchor and guard condition changed"
+    - "ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1..R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1..R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0038/R1..R4, ADR-0038/R6..R8, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, CON-021, INV-001, INV-002, INV-003, INV-005..INV-013 ⚠ unchecked — no_eligible_fact: none of these rules' scope (solver, web server, admin door, book plan/membership/pairing, answer-key capacity, player JS, orchestrator retry/density/aspect logic) is touched by a diff scoped to two draw-coordinate lines and one guard condition inside one PDF-drawing method plus its tests/fixtures"
+
+root_causes:
+  - id: RC-1
+    title: "Caption's new anchor (placement.drawing_right, anchor \"rm\") shares the same page corner the pre-existing, independently-drawn folio (_draw_folio, CARD-200, unedited) targets on a right-hand page, and the folio's own 'enough room' bar (49px, FOLIO_PT) is lower than the caption's new, wider bar (73px = gap_px + line_height) -- creating a slack window where both draw into the same pixels, which the method's own docstring still denies can happen"
+    finding_ids: [F-001, F-005]
+  - id: RC-2
+    title: "Every new CARD-203 test (AC-1..AC-4) renders only even/left-hand page numbers, so the right-hand-page collision this card's own geometry change makes newly possible is never exercised by the new or existing test suite"
+    finding_ids: [F-003, F-004]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 3602
+    title: "Right-aligned caption can visually collide with the page folio on a right-hand page"
+    description: |
+      _draw_solved_slot's new caption anchor (anchor="rm" at placement.drawing_right,
+      line 3602-3610) and the independently-drawn folio (_draw_folio, called from
+      solved_puzzle_page at line 3689-3703 and from _packed_answer_page at
+      3806-3827, neither edited by this card per G-3/G-4) both target the SAME
+      horizontal extreme on a right-hand page (page_is_right_hand: odd page
+      numbers) whenever the grid's own drawing_right sits close to the page's
+      usable_right (common for wide/cell-capped puzzles, e.g. margin=0 on the
+      real baseline's own page-13 Snowflake puzzle). Before this card the caption
+      was horizontally centred, so it could never reach that corner; the right
+      alignment removes that separation.
+
+      The folio's own "is there room" bar (_draw_folio, line ~1345: `bottom -
+      content_bottom < line_height`, using FOLIO_PT's own 49px line height) is
+      LOWER than the caption's new, widened bar (73px = gap_px + line_height,
+      line 3600). In the slack window [73px, ~120px) -- reachable by ordinary
+      10..30-cell puzzle shapes (14 such shapes found sweeping checkerboards in
+      this range) -- the caption now draws (clearing its own 73px bar) AND the
+      folio draws unconditionally (its own 49px bar is already cleared, so
+      _draw_folio skips its horizontal collision check entirely and draws at
+      (usable_right, usable_bottom) regardless of the caption).
+
+      Reproduced directly against this worktree's own code (not against main):
+      a 30x24 checkerboard on page_number=3 (right-hand) yields slack=74px,
+      margin=0. The caption's own ink occupies columns ~1983-2435 at rows
+      3145-3176; the folio's digit occupies columns ~2414-2433 at rows
+      3177-3187 -- i.e. the two marks are horizontally overlapping (columns
+      2414-2435 shared) and vertically adjacent with zero blank rows between
+      them. Running the identical scenario against main's (pre-CARD-203)
+      code produces two well-separated ink blobs (caption near the grid's
+      horizontal midpoint ~col 1294, folio near the right edge ~col 2420) --
+      confirming this collision is newly introduced by this diff, not
+      pre-existing.
+
+      The real regenerated baseline (book_baseline_card203.json, page 13) does
+      NOT happen to exercise this window -- that puzzle's own slack is 646px,
+      far outside the danger zone -- so the baseline test suite is silently
+      blind to it, and the owner's own pending visual sign-off (flagged by the
+      card itself) has not yet rendered a shape that would show it either.
+    suggestion: |
+      Either (a) make the caption's omission/placement arithmetic aware of the
+      folio's own reserved corner on a right-hand page (mirror the
+      content_right/content_left clearance check _draw_folio already has for
+      two-up/packed pages), or (b) thread the caption's own occupied bounding
+      box into _draw_folio's content_bottom/content_right for solved_puzzle_page
+      too (currently passed as None there), or (c) at minimum raise the folio's
+      own vertical "room" bar to match the caption's new, wider one so both
+      marks appear/disappear together as they did before this card. Add a test
+      that renders an odd (right-hand) page with slack in [gap_px+line_height,
+      gap_px+line_height+FOLIO_PT-line-height) and asserts the caption's and
+      folio's ink regions do not overlap.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 3669
+    title: "solved_puzzle_page's own docstring now misstates the caption/folio relationship"
+    description: |
+      The method's docstring (lines 3662-3673, unedited by this card) still
+      reads: "The folio sits in the same bottom slack as the caption, opposite
+      corner (the caption centred, the folio at the usable area's outer edge)".
+      This was accurate before CARD-203 but is now false: the caption is no
+      longer centred, and on a right-hand page it shares the folio's own
+      corner rather than sitting opposite it (see F-001). This is exactly the
+      kind of intent-reality drift that let the collision ship unnoticed --
+      a reader checking "is this still safe" is told by the code itself that
+      it is.
+    suggestion: |
+      Update the docstring once the F-001 collision is actually resolved, so
+      it states the real (fixed) relationship rather than the pre-CARD-203 one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_solved_page.py
+    line: 479
+    title: "All new CARD-203 tests render only left-hand (even) page numbers"
+    description: |
+      TestBookSolvedPage_CaptionRightAlignedWithTheGrid,
+      TestBookSolvedPage_CaptionMovedCloserToTheDrawing and the new AC-4
+      case in TestBookSolvedPage_CaptionOmittedWhenNoSlack all call
+      solved_puzzle_page with page_number=2 (page_is_right_hand(2) is False).
+      Since the folio sits on the opposite side from the caption on every
+      left-hand page by construction, none of these tests is structurally
+      capable of exercising the right-hand-page scenario where F-001's
+      collision occurs -- the AC-1 "right alignment" and AC-4 "widened
+      omission" behaviours are verified, but never on the page parity where
+      they interact with the pre-existing folio mark.
+    suggestion: |
+      Add at least one AC-1/AC-2 test using an odd page_number, and a
+      dedicated regression test for the F-001 collision once fixed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_solved_answer_key.py
+    line: 1105
+    title: "Packed-slot caption right-alignment is verified only by whole-page baseline digest, never by a direct assertion"
+    description: |
+      _draw_solved_slot's step 8 is shared by _packed_answer_page (CARD-202)
+      and empirically confirmed to be reached there (baseline pages 11/12
+      moved). But no test asserts the packed-tile caption's rightmost ink
+      sits at that tile's own placement.drawing_right the way
+      TestBookSolvedPage_CaptionRightAlignedWithTheGrid does for a full page.
+      TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted (AC-8,
+      unedited by this card) only asserts "(band < 128).any()" -- ink
+      present somewhere in the slack band -- both before and after this
+      card, so it cannot distinguish a correctly right-aligned packed
+      caption from a caption drawn anywhere else in that band. Coverage for
+      the packed path currently rests entirely on the regenerated
+      byte-identity baseline, which pins whatever the implementation
+      happened to produce rather than asserting the intended geometry.
+    suggestion: |
+      Add a packed-tile-specific assertion (same technique as
+      TestBookSolvedPage_CaptionRightAlignedWithTheGrid, applied to a tile's
+      own placement) to TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted
+      or a new test class.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-203.md
+    line: 371
+    title: "Worktree notes' self-reported test count does not reconcile with the diff"
+    description: |
+      The card's Worktree notes state "tests/test_book_solved_page.py: 36
+      passed (26 pre-existing...; 6 new tests across the two new classes...;
+      1 new test method...)" -- arithmetically 26+6+1=33, and this review's
+      own pytest run (against this worktree's own code, confirmed via
+      nonogram.__file__) collects and passes exactly 32 tests in that file,
+      with 6 new `def test_` lines in the diff. The actual numbers are fine
+      (32 passing, 0 failing) -- only the narrated count in the card's own
+      evidence trail is internally inconsistent.
+    suggestion: "Correct the Worktree notes' count, or leave as a known narration nit."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_solved_answer_key.py
+    line: 1126
+    title: "Stale 'control' assertion comments still describe the pre-CARD-203 omission threshold"
+    description: |
+      `assert slack >= ascent + descent, "the control: this shape must have
+      slack"` (and its 4-up sibling) still frame the control condition in
+      terms of the OLD `slack >= line_height` guard, not the new
+      `slack >= gap_px + line_height` the production code now actually uses.
+      Not a functional bug (the test's real assertion, `(band < 128).any()`,
+      still catches a regression), but the comment/control no longer
+      documents the real boundary this test sits near.
+    suggestion: "Update the control assertions/comments to reference gap_px + line_height."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

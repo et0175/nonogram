@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-09 UTC_
+_Updated: 2026-10-13 UTC_  ·  <!-- forge:run wave=37 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -46,23 +46,49 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 - **Owner decisions:** CARD-147 F-007 baseline back-pointers · per-directory READMEs convention · Render Blueprint vs dashboard
 - **Architecture model (/forge:architect):** dead `check:` refs on mandatory rules (CON-005, ADR-0006/R1, INV-001/002/008..012, ADR-0029/R2) · `--verify-refs` matches text · ADR-0025↔ADR-0031 circular supersession ERROR · CON-020 partial · 512 MB memory NFR missing
 - **Tests:** `test_size_configuration_applied` red · `test_wave3_e2e.py:366` stale heading · two vacuous assertions · shared temp-dir globbing
+- **Deferred by the owner's V1 decision (doc 2026-10-13):** a public online solver (blocks CARD-210) · a stable per-puzzle URL namespace for printed QR codes (blocks CARD-210) · the "generate your own puzzle" QR · persisting user-generated puzzles
 - **Features:** square/landscape trim proof page (revisit at page-layout finalisation) · guide page worked example · batch target-tier column
 
 ## Architecture
 _(none)_
 
 ## Ready
-_Drafted 2026-10-08 from the owner's Google Doc "Nonograms - Print layout1" (revision read 2026-10-08). Not yet queued into a wave — `/kanban start CARD-XXX` when ready to run one._
-- **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver · P2 · architectural · **`Revision pending: true`** — two owner mechanism-level decisions (which edge is "right" across the mirrored gutter; real QR vs. a placeholder) must be confirmed via rendered side-by-side samples before implementation starts — samples being prepared
+_Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards: CARD-205..CARD-216, one of them blocked). Not yet scheduled into a wave — run `/forge:kanban run` to dispatch. Print-side cards share the `book_pdf_generator.py` / `layout.py` hotspots and will serialize; CARD-207/208/209/210 additionally depend on CARD-204, which is still in review._
+
+**Book / print (PDF)**
+- **CARD-205** The table of contents lists sections, not puzzles — How to Solve, each level with its puzzle range, Solutions · P1 · 1d · standard
+- **CARD-206** The interior opens with a blank title / copyright page, ahead of the guide · P2 · 0.5d · standard · ⚑ needs an INV-013/FR-043 amendment at the architect station
+- **CARD-207** A book puzzle page's header splits — "Puzzle 37" flush left, "MEDIUM" flush right, a rule beneath · P2 · 0.5d · standard · depends CARD-204
+- **CARD-208** Printed clue numbers sit in ruled boxes, like the player's clue cells · P2 · 1d · standard · depends CARD-204 · ⚑ rests on one reading of an unreadable doc image
+- **CARD-209** Wide-but-short solutions pack 3 to a page, one column × three rows · P2 · 1d · standard · depends CARD-204
+
+**Test curation (cut 2026-10-13 on owner request; run after the print cards land)**
+- **CARD-217** Profile the suite once, serialized, and commit the duration record the curation cards work from · P1 · 0.5d · tech-debt · measurement only, no test edits · must be the only suite running
+- **CARD-218** Each book renders once per module, not once per test · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209
+- **CARD-219** Positional assertions read the page plan instead of rendering pixels · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209
+- **CARD-220** Retire tests whose coverage another test already provides — only with a named survivor · P2 · 1d · tech-debt · depends CARD-217 · ⚑ footprint is `tests/**`; run on a quiet board
+
+**Solver (the admin panel's player)**
+- **CARD-211** Region leaves the brush menu and becomes its own control · P2 · 0.5d · standard
+- **CARD-212** Big boards repeat their clues on both sides — left and right, top and bottom · P2 · 1d · standard
+- **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard
+
+**Generator POC (given cells)**
+- **CARD-215** Given cells print — a black cell for a revealed filled cell, a dot for a revealed white one · P2 · 1d · standard · depends CARD-214
+- **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · worktree `../PythonProject4-CARD-203` · branch `card/203-solved-caption-position`
+- **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · wave 37 · implementation resumed after a rate-limit kill (work survived, ~1240 insertions) · worktree `../PythonProject4-CARD-214` · branch `card/214-given-cells` · ⚑ needs an ADR-0024 (POL-007) + INV-002 amendment at the architect station
 
 ## Review
+- **CARD-204** _(wave 37 — cycle 4 scored **8.5** (from 4.0), 0 critical, 1 important; owner chose a doc-only cycle 5 then merge. Fix 4 `f496bf5`, suite 6857/0. G-5 amended at the decompose station; FR-040/EC-027 delta deferred to `/forge:architect`)_
+- **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity, owner-confirmed), gain a placeholder 2x2cm QR-code slot, and reserve folio room on two-up pages' lower slot (owner-confirmed fix for a discovered folio-loss regression) · P2 · architectural · implementation + fix complete, full suite green (6853 passed, 0 failed) · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
 
 ## Blocked
+- **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
 
 ## Done
+- **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · score 9.5 (cycle 3/3, clean, after fixing a real caption/folio collision regression found across 2 cycles) · merged 0e955d5
 - **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · score 10.0 (cycle 3/3, clean) — note: a subagent-overspawn incident during implementation is documented on the card, no repo impact · merged e899369
 - **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · score 8.5 (cycle 4/3+1, owner-extended) · merged ed578fa
 - **CARD-202** Small solutions (width<=15, height<=20) pack 2-or-4 to a page instead of one full page each · score 9.0 (cycle 2/3) · merged 040f10d
