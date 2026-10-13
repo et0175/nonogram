@@ -34,10 +34,14 @@ from nonogram import clues
 from nonogram.admin.book_answer_key import Answer, PackedAnswerPage
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
+    FOLIO_PT,
+    FOLIO_RESERVE_DIGITS,
     BookPDFGenerator,
     PuzzlePagePlan,
+    _band_font,
     _folio_reserve_px,
     page_is_right_hand,
+    type_px,
 )
 from nonogram.difficulty import Tier
 from nonogram.export.layout import compute_pair_layout
@@ -663,6 +667,79 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
             )
 
         assert gap(early_target) == gap(late_target) == _folio_reserve_px(small_book.dpi)
+
+    def test_a_four_digit_folio_fits_the_reserve_exactly_and_a_fifth_digit_degrades(
+        self, monkeypatch
+    ) -> None:
+        """Cycle-4 review F-10: :data:`FOLIO_RESERVE_DIGITS`' declared ceiling
+        sits exactly on ``_draw_folio``'s own ``<=`` clearance boundary, with
+        **zero** slack — the reserve is the width of the widest four-digit
+        string this face draws, an exact equality rather than a margin — and
+        until this test nothing exercised it: the suite's other two-up folio
+        tests all run on one- to three-digit page numbers, and
+        ``test_the_fixed_reserve_is_identical_across_book_scales`` only
+        asserts ``>= 3`` digits. Any change to the packed face's digit
+        advance or its kerning would therefore have moved the four-digit case
+        silently from "draws" to "omitted" with no failing test (the
+        baseline fixture's own ``font_fingerprint`` guards rendered pages,
+        not this boundary).
+
+        Both sides of the cliff are pinned, on the same two puzzles and
+        within one parity at a time so that *only* the digit count differs:
+        four digits draws (the ceiling the reserve is sized for) and five
+        digits is omitted — the pre-existing "omit rather than collide"
+        path, i.e. a graceful loss of the folio on a book no trim CON-018
+        stocks could be bound at anyway, never ink over the grid. Both
+        parities are checked because the clearance test reads
+        ``content_left`` on a left-hand page and ``content_right`` on a
+        right-hand one.
+        """
+        generator = BookPDFGenerator(corpus_book("f10-folio-digit-ceiling"))
+        duck = generator._payload(puzzle("f10-digits-duck", 10, 10, 3, "easy", "Duck"))
+        owl = generator._payload(puzzle("f10-digits-owl", 10, 10, 3, "easy", "Owl"))
+        reserve_px = _folio_reserve_px(generator.dpi)
+
+        # The equality the whole ceiling rests on, asserted rather than
+        # described in prose: the reserve is exactly the widest
+        # FOLIO_RESERVE_DIGITS-digit string, so the clearance test below
+        # clears by 0 px at four digits and fails at five.
+        font = _band_font(type_px(FOLIO_PT, generator.dpi))
+        widest = max((str(digit) for digit in range(10)), key=font.getlength)
+        assert font.getlength(widest * FOLIO_RESERVE_DIGITS) == reserve_px
+        assert font.getlength(widest * (FOLIO_RESERVE_DIGITS + 1)) > reserve_px
+
+        # (9999, 10001) are both ODD/right-hand, (9998, 10000) both
+        # EVEN/left-hand: within each pair the parity, the geometry and the
+        # reserve are identical and the digit count is the only variable.
+        for four_digit, five_digit in ((9999, 10001), (9998, 10000)):
+            assert page_is_right_hand(four_digit) == page_is_right_hand(five_digit)
+            for page_number, should_draw in ((four_digit, True), (five_digit, False)):
+                spec = generator.page_spec(page_number)
+                pair = compute_pair_layout(
+                    (duck.row_clues, duck.column_clues),
+                    (owl.row_clues, owl.column_clues),
+                    spec,
+                    folio_reserve_px=reserve_px,
+                )
+                assert pair is not None, page_number
+                plan = PuzzlePagePlan(page_number, (1, 2), pair)
+                calls = _folio_calls(
+                    monkeypatch,
+                    page_number,
+                    lambda plan=plan: generator._two_up_page(plan, [duck, owl]),
+                )
+                folios = _folios(calls)
+                if should_draw:
+                    assert folios == {page_number: str(page_number)}, (
+                        f"a {len(str(page_number))}-digit folio is exactly what the "
+                        f"fixed reserve is sized for, but page {page_number} omitted it"
+                    )
+                else:
+                    assert not folios, (
+                        f"a {len(str(page_number))}-digit folio does not fit the fixed "
+                        f"reserve and must be omitted, not drawn over the grid "
+                        f"(page {page_number})"
+                    )
 
     def test_packed_answer_page_omits_the_folio_when_the_corner_tile_is_page_fit_bound(
         self, monkeypatch

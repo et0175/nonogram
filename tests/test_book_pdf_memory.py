@@ -1799,6 +1799,24 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
     fill, a missing frame or a relabelled band would all still fail this
     comparison; only the documented margin shift and its sub-pixel rounding
     are tolerated.
+
+    **What this class deliberately does NOT pin: either slot's absolute
+    position** (cycle-4 review F-11, the one surviving mutant M4 — dropping
+    CARD-204 Fix 4's three ``folio_reserve_px=_folio_reserve_px(...)``
+    arguments from the reference geometry leaves this class green). That is
+    not a tolerance that could be tightened: :func:`_ink_bbox_crop` crops
+    each side to its own ink, per slot, so it cancels **any pure translation
+    of a slot by construction** — which is exactly what this class needs,
+    since the flush edge mirrors with parity (above). A 108 px sideways shift
+    of the lower slot's whole drawing is therefore invisible here, by design;
+    passing the production reserve into the reference is correctness hygiene
+    for the helper, not coverage. The absolute lower-slot position IS pinned,
+    by three other modules: ``tests/property/test_book_two_up.py``
+    (``test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve``),
+    ``tests/property/test_book_export_interior.py``
+    (``_expected_drawing_left_mm``) and ``tests/test_book_puzzle_frame.py``
+    (``_expected_pair_boxes``). Read this class as "the same content", never
+    as "in the same place".
     """
 
     @pytest.fixture(scope="class")
@@ -1988,6 +2006,26 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     (``test_the_comparison_has_teeth``), the same control
     :class:`TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne`
     already keeps for the un-cropped version.
+
+    **What this class deliberately does NOT pin: either slot's absolute
+    position** (cycle-4 review F-11, the one surviving mutant M4 — dropping
+    CARD-204 Fix 4's three ``folio_reserve_px=_folio_reserve_px(...)``
+    arguments from the reference geometry (here: :meth:`_reference` and
+    :meth:`_qr_boxes`) leaves this class green). That is
+    not a tolerance that could be tightened: :func:`_ink_bbox_crop` crops
+    each side to its own ink, per slot, so it cancels **any pure translation
+    of a slot by construction** — which is exactly what this class needs,
+    since the flush edge mirrors with parity (see the class named above). A
+    108 px sideways shift
+    of the lower slot's whole drawing is therefore invisible here, by design;
+    passing the production reserve into the reference is correctness hygiene
+    for the helper, not coverage. The absolute lower-slot position IS pinned,
+    by three other modules: ``tests/property/test_book_two_up.py``
+    (``test_PropertyTest_BookTwoUp_LowerSlotKeepsTheWholeFixedReserve``),
+    ``tests/property/test_book_export_interior.py``
+    (``_expected_drawing_left_mm``) and ``tests/test_book_puzzle_frame.py``
+    (``_expected_pair_boxes``). Read this class as "the same content", never
+    as "in the same place".
     """
 
     @pytest.fixture(scope="class")

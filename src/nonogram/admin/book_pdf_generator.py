@@ -479,6 +479,16 @@ FOLIO_PT = 10.0
 #: would not break: its own five-digit folios simply would not clear
 #: :func:`_draw_folio`'s own width check at this corner and would be
 #: omitted, exactly as every page kind with too little room already is.
+#: **What this room costs the owner** (measured in CARD-204's cycle-4 review
+#: and reproduced twice from independent sweeps, see
+#: :func:`~nonogram.export.layout.compute_pair_layout`'s own docstring): the
+#: reserve takes part in the pairing verdict, so ~5% of adversarial pairs
+#: that would pair unreserved at >= 7.0 mm are refused and ~9% more commit a
+#: slightly smaller cell — and every refused pair is one more interior page,
+#: i.e. a longer interior and, on KDP, a higher print cost per copy.
+#: Accepted knowingly (owner decision 2026-10-12, reaffirmed 2026-10-13 with
+#: that measurement in hand), against the alternative of losing the folio
+#: from every two-up page.
 FOLIO_RESERVE_DIGITS = 4
 
 #: The table of contents page's title (CARD-200) — plain and descriptive,
@@ -1396,10 +1406,36 @@ def _draw_folio(
     silently omit the folio from every two-up page in the book, which is
     worse than the collision it would be avoiding. What actually decides
     whether the lower slot's own ink can reach the folio's exact corner is
-    *horizontal* room at that same row — the lower slot is centred across
-    the page's shared usable width (:class:`PairLayout`'s own docstring) and
-    only touches the left/right margin when that centring leaves no spare,
-    which is the common case's opposite, not its rule. ``content_right``/
+    *horizontal* room at that same row.
+
+    **Since CARD-204 that room is a fixed reserve, not a pair-dependent
+    leftover.** This paragraph previously read "the lower slot is centred
+    across the page's shared usable width and only touches the left/right
+    margin when that centring leaves no spare, which is the common case's
+    opposite, not its rule" — false on both counts since this card, and the
+    canonical statement of exactly the belief cycle-3's review (F-7) traced
+    Fix 3's folio-loss regression to; corrected here per cycle-4's F-12. No
+    slot is centred any more: CARD-204's reading (b) places each slot flush
+    with the usable area's *outer* margin, mirrored by parity (an ODD,
+    right-hand page lands ``drawing_right`` on ``usable_right``; an EVEN,
+    left-hand one lands ``drawing_left`` on ``usable_left``), and
+    :func:`~nonogram.export.layout._slot_layout`'s own docstring proves that
+    an algebraic identity for *every* slot, however large its own spare — so
+    "when centring leaves no spare" is not the rare case, it is not a case at
+    all. What the lower slot does instead, on **every** two-up page and
+    regardless of either puzzle's extent, is reach to within exactly
+    :func:`_folio_reserve_px` pixels of that outer margin, because
+    :func:`~nonogram.export.layout.compute_pair_layout` keeps that many
+    pixels of the slot's own spare out of the parity shift and, when the
+    natural spare is smaller, re-fits the shared cell until it is not (owner
+    decision 2026-10-12, "fixed universal reserve"; the reserve is sized for
+    :data:`FOLIO_RESERVE_DIGITS` digits of this same face at
+    :data:`FOLIO_PT`, which is why the check below clears by exactly that
+    reserve). The horizontal test is therefore a verification that the
+    reserved room really arrived — not a gamble on leftover slack, and not a
+    check that only tight pairs can fail.
+
+    ``content_right``/
     ``content_left`` (the content's own rightmost/leftmost pixel — e.g.
     ``placement.drawing_right``/``drawing_left``) are read **only** when
     ``content_bottom`` already shows no vertical room: the folio is then
@@ -3542,8 +3578,11 @@ class BookPDFGenerator:
         algebraically, ``lower.page.drawing_bottom`` always equals it too:
         "whatever height the pair leaves spare falls between the two slots",
         never below the lower one). ``usable_left``/``usable_right`` do not
-        differ between the two slots either way (both centre on the page's
-        one shared usable width), so reading all four off ``lower.page``
+        differ between the two slots either way (both are placed against
+        the page's one shared usable width — flush with its outer margin by
+        parity since CARD-204, each slot's own ``usable_*`` fields identical;
+        it is the *drawing* inside the lower slot that the folio reserve pulls
+        in, never the slot's usable box), so reading all four off ``lower.page``
         alone is both correct and sufficient — one call, not a slot-by-slot
         one as the loop above intentionally avoids already.
 

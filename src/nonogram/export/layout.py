@@ -1942,7 +1942,10 @@ def compute_pair_layout(
     call this codebase will ever make, so this parameter cannot create the
     coupling the cycle-1/2 reviews found: the pair's own geometry, plus one
     constant indistinguishable in kind from :data:`TWO_UP_MIN_CELL_MM`, is
-    all that ever decides the verdict or the cell.
+    all that ever decides the verdict or the cell. "Geometry-only" here
+    means nothing page- or book-specific decides — *not* that the constant
+    is free: it does take part in the accept/refuse verdict, at a cost
+    measured under "What the reserve costs" below.
 
     The shared cell is fit *unreserved* first (the plain formula above) —
     the common case, verified against an independent 900-case corpus
@@ -1955,11 +1958,54 @@ def compute_pair_layout(
     ``outside_mm`` fed to the fit step only, never to either slot's own
     placement) — which guarantees, algebraically (``chosen_cell <= fit <=
     widened_fit``, not by luck), that the re-fit cell leaves the lower slot
-    at least ``folio_reserve_px`` of real headroom. Paying a smaller cell is
-    therefore the exception, not the rule, and only ever as much smaller as
-    the reserve actually needs. If even the widened fit falls below
-    :data:`TWO_UP_MIN_CELL_MM`, the pair is refused (``None``) exactly as the
-    unreserved path already would be.
+    at least ``folio_reserve_px`` of real headroom. If even the widened fit
+    falls below :data:`TWO_UP_MIN_CELL_MM`, the pair is refused (``None``).
+
+    **What the reserve costs, measured — it is not free, and a reserved
+    refusal is NOT the refusal the unreserved path would have made**
+    (cycle-4 review F-9; a previous revision of this paragraph claimed the
+    pair is refused "exactly as the unreserved path already would be" and
+    that a smaller cell is paid "only ever as much smaller as the reserve
+    actually needs" — both were false and are corrected here). Because the
+    *widened* fit decides the verdict as well as the cell, a pair whose
+    unreserved cell clears :data:`TWO_UP_MIN_CELL_MM` can still be refused
+    when its widened cell does not: the reserve participates in the
+    accept/refuse verdict, it does not merely trim an accepted pair's cell.
+    Measured on adversarial random-pair sweeps and reproduced twice from
+    independent seeds and generators (cycle-4 reviewer: 10 of 193 pairs;
+    CARD-204's Fix-4 agent: 9 of 176): **~5% of pairs that do fit two-up at
+    >= 7.0 mm unreserved are REFUSED with the reserve in play**, and **~9%
+    more commit a cell smaller than the unreserved largest**. The suite pins
+    a production counterexample rather than leaving that to prose
+    (:mod:`tests.property.test_book_pairing`'s ``_tight_pair``: two 25x6
+    depth-2 puzzles, adjacent, same tier, unreserved cell 7.1731 mm,
+    asserted ``pair is None`` through ``puzzle_pages`` itself). The rate on
+    real book content is far lower than the adversarial rate — most book
+    puzzles pair at the spec's own flat cap, clear of both boundaries, and
+    the project's own baseline book (the ``book_baseline_card204`` fixture)
+    pairs the identical puzzles at the identical cell with and without the
+    reserve — but it is not zero.
+
+    **The owner-visible consequence, and why this cost is the accepted
+    one.** Every refused pair is one more interior page: fewer two-up pages
+    means a *longer interior* for the same puzzle set — more pages, and on
+    KDP more pages means a higher print cost per copy, on a product whose
+    own market snapshot tracks page counts. That consequence is inherent to
+    the owner's decision of 2026-10-12 ("fixed universal reserve"),
+    reaffirmed 2026-10-13 with the measurement above in hand; the
+    alternative Fix 3 shipped was losing CARD-200's folio from *every*
+    two-up page. What makes it acceptable where cycles 1 and 2 were not is
+    *which inputs decide*: this refusal is a property of the pair **alone**
+    — the same two puzzles are refused, or pair at the same cell, in every
+    book and on every page of it — so it is a flat, universal narrowing of
+    FR-040's fit rule, not the per-page folio-text coupling (Fix 1, cycle-1
+    F-1) or the per-book-scale coupling (Fix 2, cycle-2 F-5), each of which
+    made one identical pair pair here and refuse there. The corollary, which
+    this function cannot state in its own terms: FR-040's "and only when"
+    clause and EC-027's "never left alone" property are false of this
+    implementation as written. Amending them is a recorded architect-station
+    deferral on CARD-204 (with FR-032's own reversal), not an undeclared
+    drift.
 
     Args:
         first: ``(row_clues, column_clues)`` of the earlier puzzle in the book
