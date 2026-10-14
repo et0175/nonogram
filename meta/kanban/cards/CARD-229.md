@@ -131,3 +131,17 @@ callout at the foot of page 2 — CARD-230, so that this card's diff is the spre
   Two pages face only when the first is a verso, so the guide cannot face until something
   occupies page 1. Starting this card before CARD-206 would mean implementing the spread
   against a parity that is about to change.
+
+## Inherited from CARD-221, 2026-10-14 — a disagreement this card is expected to close
+
+CARD-221 dropped the difficulty box's three sentences from printed guide page 2 (the owner's
+decision), but **the Finalise screen's preview still shows them**
+(`src/nonogram/admin/templates/book_finalize.html`), so that screen and the page it previews now
+disagree. `DifficultyLabel.text` is deliberately kept alive for this reason and for this card's
+key strip.
+
+CARD-221 left it rather than fixing it, correctly — its G-6 put the admin screen out of scope,
+and this card rebuilds the block on **both** surfaces anyway. Recorded here so it cannot be lost
+between the two: reconciling them is a one-line template change plus
+`tests/test_book_finalise_guide_preview.py:622`. This card's G-2 already requires the preview to
+keep agreeing with the printed pages, so the disagreement must be gone by the time it merges.

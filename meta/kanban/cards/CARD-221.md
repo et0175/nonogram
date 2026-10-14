@@ -209,7 +209,7 @@ card records.
 
 ---
 
-### Implementation agent's own records (verbatim, synced from the worktree 2026-10-14)
+### Implementation agent's own records (verbatim, synced from the worktree 2026-10-14, both cycles)
 
 - [Why this is P1 rather than tidy-up] The owner confirmed on 2026-10-14 that books are
   finalised BOTH locally and through the deployed panel. Two machines, two faces, and a
@@ -365,95 +365,162 @@ and `host-arial-before` (what this Mac printed before). The two pairs that matte
 `book1-21.59x27.94cm__guide-page2__*` (the six lost lines) and
 `min-10.00x10.00cm__contents__*` (the "3" in the bottom corner, present before, gone now).
 
-- [Implementation complete, with two owner blocks] 2026-10-14 — `9862ecd` (the swap) and
-  `4c0dc26` (a fix-up a mutant exposed) on `card/221-packaged-interior-face`.
-  **The card's purpose is achieved:** `_guide_face` returns the packaged DejaVu Sans, there is
-  no escape hatch (the interior's repertoire is ASCII + U+00B7/U+2014/U+2013/U+2026 and the
-  packaged face carries all four, asserted glyph by glyph), and AC-1 proves determinism by
-  exporting the same books twice in one process — host Arial available, then
-  `ImageFont.truetype` refusing every host path — with all 13 page digests, the page count, the
-  byte length and the KDP gutter band identical. Exactly the seven pages lettered through
-  `_guide_face` moved (1, 2 guide; 3 TOC; 4, 6, 8, 10 dividers); the other six are byte-identical
-  to CARD-205's digests. `interior_bytes` 3,498,430 -> 3,369,113. Impact scope: **on-host 2515
-  passed / 1 skipped / 3 xfailed; off-host 2514 / 2 skipped / 3 xfailed** — the same tree, the
-  same result, on both faces, which is the whole point of the card.
-- [Gating machinery removed, with measurements] `font_fingerprint()`, `MACHINE_FACE_SIZES`, both
-  `same_face` fixtures and every skip they drove, `_lettered_as_recorded()`;
-  `font_dependent_pages` is now `[]`. `TestBookPdfMemory_PagesAreUnchanged` compares all 13 pages
-  unconditionally. One gate **added** where a condition genuinely remains
-  (`host_offers_a_second_face()`, above the one negative control that needs two distinguishable
-  host faces), and one place left host-dependent and flagged rather than silently swept in:
-  **`create_cover_page` still reads the host's Arial at 72 px** for a generated title cover —
-  separate file, no baseline digests it. That is the one spot where the card's candidate ADR
-  ("the interior's typography is deterministic") would not yet be true, and it wants its own card.
-- [Removed rather than re-anchored, and why] `test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement`
-  and its instrument are gone. It bounded a **sub-pixel** scatter (CARD-204's 0.183% / 0.192%,
-  0 displacement outliers); across a face change the deviation is 7.596% / 11.442% with 254,766 /
-  581,547 unexplained pixels, and the test's own `moved > 0` anti-vacuity assertion makes
-  re-anchoring impossible. Deleting a guardrail needs saying out loud, so: this one measured a
-  property that no longer exists, not a property that stopped being checked.
-- [Correction to this card's own text] The card says `main` shows "10 failures off-host, all in
-  `test_book_finalise_gutter.py`". That figure was taken **before CARD-205 merged**. On `main` as
-  merged, `test_book_finalise_gutter.py` is already 126/126 off-host — CARD-205's structural TOC
-  removed those page-count failures by construction — and the 3 remaining off-host failures are
-  all in `tests/test_book_toc.py` (the two folio tests, plus
-  `test_a_nearly_full_row_still_gets_the_dots_that_do_fit`, whose premise held only by Arial's
-  metrics). The card was accurate when written and is stale now; the branch fixes all three.
-- [Two type-floor probes were wrong, not the type] Two `TestGuidePage_*` classes went red on the
-  new metrics because their **measuring probes** under-measure: a cap-to-descender `"Hg"` probe
-  under-reads on any face whose ascender clears cap height (the body read 11.52 pt while set at
-  11), and the folio's digits under-read against an ascender probe (10.00 pt read as 9.79).
-  Fixed with `ASCENDER_TO_DESCENDER_PROBE` and a new `folio_reference()` / `folio_band()`, so
-  each band is now measured against the probe of the line that actually drew it. Worth keeping in
-  mind for CARD-227 and CARD-233: a type measurement is only as good as its probe, and these two
-  had been green for the wrong reason since CARD-184.
-- [BLOCKED 1 — G-1 breached at Book 1 by 4 px, and it costs the guide its teaching]
-  The packaged face is ~10% wider; one paragraph of guide page 2 wraps onto one more line; the
-  captions form's last mark lands at **3192 px against a frame bottom of 3188**, so the drawing
-  ladder drops to the labels form. Carried by `xfail(strict=True)` at
-  `tests/test_book_guide_page.py:1138`. **Checked by eye against the renders, and the summary
-  "six lines of text" understates it** — comparing
-  `book1-21.59x27.94cm__guide-page2__host-arial-before.png` with `…__packaged-dejavu.png`, what
-  is lost is: technique 1's explanation ("The one-cell region cannot hold 2 or 3."), technique 2's
-  note ("Compare"), **all three difficulty descriptions** (so the difficulty box becomes three
-  bare words, EASY / MEDIUM / HARD, in an otherwise empty ruled box), the worked example's intro
-  line, and **all four step explanations** — "1. The clue" where the Arial page reads "1. The clue
-  3 1 means a run of 3 filled squares, then at least one empty square, then a run of 1." The page
-  then ends a quarter of the way up the sheet. The guide stops teaching and looks unfinished.
-  **This collides with a card cut the same day:** CARD-230 specifies "the worked example runs as
-  four small steps, **each with one line saying what changed**" — exactly the four lines this
-  drops. Accepting the loss would ship a page that the next card in the queue has to undo.
-  Measured option: dropping the difficulty box's three sentences alone buys **234 px** against a
-  4 px deficit, and CARD-229 moves the difficulty legend into the guide's key strip anyway, which
-  makes those three sentences the most redundant text on the page.
-  While the test is red, `test_a_wrong_difficulty_sentence_does_not_match` has no teeth.
-- [BLOCKED 2 — AC-4 at the 10.00 cm trim, 2 px] On the packaged face the shortest storable trim's
-  eight rows and four 8.5 pt gaps leave **47 px** where the folio needs **49**, so that one page
-  prints unnumbered **on every host**. 380 of the 381 swept heights clear it (10.10 cm at 58 px).
-  The sweep is now **ungated** and asserts exactly that 10.00 cm is the only failing height and
-  the deficit is 2 px; the blocked claim is split into two `xfail(strict=True)` tests
-  (`tests/test_book_toc.py:1341` and `:1415`) with the measurement in the reason, and a new green
-  guard covers the tightest trim that does work (10.10 cm, 58 px). `TOC_GROUP_GAP_PT <= 8.2 pt`
-  closes it; **8.0 pt restores a 6 px margin — which is the owner's own rule from 2026-10-14
-  ("the value that leaves ~10 px over the folio's need") re-applied to the new metrics.** G-6 put
-  that constant out of scope, so it is the owner's to move.
-- [Both blocks, one root cause] The only packaged face is ~10% wider than Arial. Both are
-  escalated with strict, self-correcting markers: fix the cause and the markers `XPASS(strict)`
-  and fail, so neither can be forgotten.
-- [Mutants] 6 run (M1, M2, M3, M3b, M4, M4b), all reverted, `git status --porcelain -- src tests`
-  empty after each. Worth recording: **M4b first flipped only one of the two strict markers** —
-  the rendered one kept failing on a pinned 47 px figure, which made its "strict" promise false.
-  `4c0dc26` moved that figure into the 10.10 cm test so both flip together. A strict xfail that
-  cannot pass is a worse guard than no guard.
+### Fix cycle 1, 2026-10-14 (agent) — the owner ruled on both blocks
 
-- [Owner decisions] 2026-10-14, both blocks resolved, neither by accepting the loss:
-  - **Guide page 2:** *"Drop the 3 difficulty sentences."* Measured, that buys 234 px against a
-    4 px deficit, so the two technique notes, the worked example's intro and **all four step
-    lines stay** — which is what CARD-230 needs. The three EASY/MEDIUM/HARD descriptions go;
-    CARD-229 re-teaches difficulty in the guide's key strip, so they are the one block of text
-    on the page with a successor already carded.
-  - **`TOC_GROUP_GAP_PT`: 8.5 -> 8.0 pt.** The owner's rule when they chose 8.5 on Arial's
-    metrics was "leave ~10 px over what the folio needs"; 8.0 restores a 6 px margin on the
-    packaged face, which is that same rule re-measured rather than a new figure. G-6 put this
-    constant out of scope; the owner has now moved it, so the guardrail is satisfied by the
-    decision, not by the agent.
+Both blocks were decided by the owner, not by this card, and neither by accepting the
+loss. Recorded here as decisions carried out, not as guardrails overridden: G-6 put
+`TOC_GROUP_GAP_PT` out of scope and the owner has now moved it, and G-1's "the text the
+interior prints is unchanged" is satisfied by the owner choosing which text changes.
+
+#### Block 1 — the guide page keeps everything but the difficulty sentences
+
+`GUIDE_DIFFICULTY_LABELS`' three glosses stop being printed. 234 px bought against a 4 px
+deficit, so page 2's captions form fits again and the reader gets back both technique
+notes ("The one-cell region cannot hold 2 or 3.", "Compare"), the worked example's intro
+line and all four step explanations — the four CARD-230 specifies as "four small steps,
+each with one line saying what changed". Verified by re-rendering and reading the page's
+own draw calls: 16 lines on page 2 where the pre-ruling render had 11.
+
+**The rule goes with the sentences — my decision, stated as asked.** A `measure`-wide
+ruled rectangle holding three words (about a seventh of its own area), directly under a
+heading that promises an explanation, reads as a table whose contents failed to draw; that
+is the "unfinished" failure the ruling warned against, and it is worse than no rule.
+Nothing else on either guide page borders anything it does not enclose — the pipeline's
+four boxes each hold a word and an icon, every line diagram's frame holds a grid. Three
+names in a row under their own heading read as the legend they are, which is also the
+shape CARD-229 moves into the key strip. Rendered both ways before deciding
+(`~/Documents/nonogram-reviews/CARD-221/`).
+
+Two consequences of dropping the rule, both handled rather than left:
+
+- `_draw_difficulty_box` is renamed `_draw_difficulty_legend` — a function named for a box
+  it no longer draws is the kind of false claim this project does not keep — and loses the
+  `spec`, `leading` and `with_text` parameters it only needed for the rule and the
+  sentences.
+- **The labels are now flush with the measure.** With the border gone, the box's `pad` of
+  inner margin would have left EASY indented 46 px from a left edge nothing draws, out of
+  line with the heading directly above it and with every other line on the page. The
+  columns keep their pitch and start at the measure's own left edge; the `pad` of white
+  above and below stays, because that is the one piece of the box's geometry still doing a
+  job. Caught by eye on the render, not by a test.
+
+**Tests whose subject this moved, each handled by name rather than deleted:**
+
+| test | what happened |
+|------|----------------|
+| `test_the_difficulty_box_carries_its_three_sentences_verbatim` (the strict xfail) | converted to an ordinary passing `test_the_difficulty_legend_carries_its_three_labels_and_no_sentences` (`tests/test_book_guide_page.py:1189`), which asserts **both** directions: the three labels print, and the bordered sentence box prints nowhere on the page |
+| `test_a_wrong_difficulty_sentence_does_not_match` | re-aimed, not retired: `test_a_wrong_difficulty_label_does_not_match` (`:1245`) — the verbatim claim lives on the labels now, so its negative control follows it. It also asserts that changing a *sentence* changes nothing drawn, which is the new fact stated from the other side |
+| `test_a_regression_shrinking_a_boxs_label_text_is_still_caught_by_the_floor_check` (F-4's control) | re-aimed at `_draw_pipeline_diagram`, the guide's remaining bordered drawing with text inside it, and made two-sided (6 pt reads below the floor, the page's real 11 pt reads above it). Keeping it aimed at a drawing the module had stopped making would have been the quieter failure |
+| `test_page_two_pipeline_and_difficulty_box_align_at_book1`, `test_page_two_difficulty_box_aligns_at_narrower_trims`, `test_a_diagram_shifted_left_by_pad_is_not_at_frame_left` (F-11's three) | the legend is still an image pasted `needs_pad=False`, so F-11's claim still covers it; only the *measurement* had to move, because an unruled block is a band of type rather than a diagram. New `legend_ink_extent`/`assert_legend_is_flush` find it by its own ink and assert exactly one line of type has that extent. Diagram counts 12 → 11 (Book 1) and 3 → 2 (narrow trims) |
+| `drawn` fixture (`tests/test_book_guide_page.py`) | 12 → 11 bands, with the reason and the index shift recorded in its own message |
+
+**Flagged, not fixed (out of scope, G-6):** the Finalise screen's preview
+(`templates/book_finalize.html`) still shows the three sentences, so that screen and the
+page it previews now disagree. `DifficultyLabel.text` is deliberately kept for exactly that
+reason plus CARD-229's key strip. **CARD-229 must reconcile the two surfaces** — if the
+owner wants them in step sooner it is a one-line template change plus
+`test_the_difficulty_box_carries_the_three_sentences_verbatim` in
+`tests/test_book_finalise_guide_preview.py:622`.
+
+#### Block 2 — `TOC_GROUP_GAP_PT` 8.5 → 8.0 pt (owner decision)
+
+The owner's own rule — "the largest gap that fits, less a margin" — re-measured on the
+face the book is actually printed in. Re-run of the 381-height sweep on the packaged face:
+
+| constant | px | worst-case headroom (10.00 cm) | margin over the folio's 49 px | heights that fail |
+|---|---|---|---|---|
+| 8.5 pt (into this card) | 35 | 47 px | **-2** | 1 of 381 |
+| 8.2 pt (largest that fits) | 34 | 51 px | +2 | 0 |
+| **8.0 pt (shipped)** | **33** | **55 px** | **+6** | **0 of 381** |
+
+Rendered figures beside the arithmetic: the 10.00 cm page leaves 55 px under its last row
+and draws its folio; 10.10 cm leaves 66 px. Both pinned.
+
+**Markers converted (all three strict xfails are gone; none deleted silently):**
+
+| marker | now |
+|---|---|
+| `tests/test_book_toc.py` `test_the_shortest_storable_trim_leaves_its_folio_a_line_too` | ordinary passing test, kept as its own test rather than folded back into the sweep, with the cycle recorded in its docstring |
+| `tests/test_book_toc.py` `test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place` | ordinary passing test; its docstring records that it was an expected failure for one cycle |
+| `tests/test_book_guide_page.py` `test_the_difficulty_box_carries_its_three_sentences_verbatim` | converted and renamed, see Block 1 |
+| `test_the_shortest_trim_the_shipped_gap_numbers_prints_its_folio` (10.10 cm, added while the above was red) | kept green beside them; the pair now pins the two tightest storable heights, 66 px against 55 px |
+
+The sweep's own assertions move from "exactly one height fails, by 2 px" to "no height
+fails; the worst case is 55 px, 6 px clear" — ungated, on every host.
+
+#### Baselines
+
+`tests/fixtures/book_baseline_card221.json` **re-recorded in place** for this card's own
+fix cycle (the shape CARD-204 Fix 1 and CARD-205 Fix 2 both used; a new file is for a new
+card). Measured page by page against its own pre-fix recording before rewriting:
+**pages 2 and 3 move, nothing else does.** Against CARD-205 the changed set is still
+exactly the seven `_guide_face` pages. `interior_bytes` 3369113 → **3464123** (+95010;
+CARD-205's was 3498430). No earlier fixture in the chain is touched.
+
+#### Fix-cycle-1 mutants (all reverted; `git status --porcelain -- src tests` empty after each)
+
+| # | mutant | killed by | what it shows |
+|---|--------|-----------|---------------|
+| M5 | `TOC_GROUP_GAP_PT` 8.0 → **8.2** (the largest gap that merely *fits*) | the 381-height sweep, on the figure: "the worst-case headroom is 51 px, recorded as 55"; plus 4 baseline/TOC-page tests | **8.0's margin is pinned, not just sufficient.** The inequality (`short == []`) is still satisfied at 8.2 — 51 ≥ 49 — so only the recorded figure catches the loss of the owner's 6 px. This is the mutant the coordinator asked for, and it is the one that shows why the figure is asserted and not only the inequality |
+| M6 | `_draw_difficulty_legend` prints each gloss under its name again (unruled) | 8 tests across 3 files, incl. `test_a_wrong_difficulty_label_does_not_match`, the Book 1 type-floor check, the smallest-trim fit, two F-11 alignment checks and the baseline | the page-fit claim is pinned: restoring the sentences puts page 2 over again and the suite says so |
+| M6 (first run) | the same mutant, before the test was strengthened | **slipped past** `..._three_labels_and_no_sentences` | its "no sentences" half only knew the *bordered* box, so an unruled reprint matched nothing. Fixed in commit `0153281`: the three sentences' first three words are now probed in the page's own body face anywhere on page 2 (0 occurrences on the real page, 1 each under M6, measured both ways). **A mutant finding a hole in the test written in the same cycle — recorded because that is the point of mutating** |
+| M7 | the legend keeps the box's inner `pad`, so the labels indent 46 px again (the flush-left decision's **edge**) | the three F-11 alignment tests, on the premise assertion ("51 px of a 46 px em is not a side bearing"), plus the baseline | the flush-left half of the rule decision is held by a test, not only by my eye; and it is held by the *alignment* tests rather than by the content test, which is the right separation — M7 leaves "what the legend says" untouched and only moves it |
+
+Carried in from CARD-212's review (the same shape as this card's own M4b finding): a strict
+`xfail` that cannot pass makes its own promise false. All three of this card's markers are
+now ordinary passing tests, so there is none left to get wrong.
+
+#### Fix-cycle-1 runs
+
+Impact scope (`tests/test_book_*.py`, `tests/property`, `test_export_pdf`,
+`test_layout_page_spec`, `test_layout_two_up`, `test_admin_tier_surfaces`,
+`test_admin_error_text`, `test_cli`), run on both faces as before:
+
+- on host (Arial present): **2518 passed, 1 skipped, 0 failed, 0 xfailed**
+- off host (`ImageFont.truetype` refusing every host path): **2517 passed, 2 skipped**
+  — the extra skip is this card's own gated negative control, which needs two
+  distinguishable host faces to have anything to contrast.
+
+Renders refreshed into `~/Documents/nonogram-reviews/CARD-221/` as
+`*__fix1-packaged-dejavu.png`, beside the two earlier sets (`*__packaged-dejavu.png`, the
+pre-ruling state, and `*__host-arial-before.png`, what this Mac printed before the card) —
+24 PNGs, so the owner can see all three states of every page side by side.
+
+- [Fix cycle 1 complete] 2026-10-14 — `6393153` (the owner's two rulings) and `0153281` (a test
+  a fix-cycle mutant exposed). Impact scope on both faces: **on host 2518 passed, 1 skipped,
+  0 failed, 0 xfailed; off host 2517 passed, 2 skipped** (the extra skip is this card's gated
+  negative control, which needs two distinguishable host faces to contrast). **No strict xfail
+  remains anywhere on the branch.**
+  - **Block 1.** The three difficulty sentences are gone and **the rule went with them** — the
+    agent's call on the render, and the right one: a measure-wide ruled rectangle holding three
+    words under a heading that promises an explanation reads as a table whose contents failed to
+    draw, and nothing else on either guide page borders something it does not enclose. A second
+    consequence caught by eye and fixed: with the border gone, the box's inner `pad` would have
+    left EASY indented 46 px from an edge nothing draws, out of line with the heading above it,
+    so the labels are now flush with the measure. **Survived, counted off the page's own draw
+    calls — 16 lines where the pre-ruling render had 11:** both technique notes, the worked
+    example's intro and all four step explanations (CARD-230's four), the pipeline, the closing,
+    and EASY / MEDIUM / HARD themselves.
+  - **Block 2.** `TOC_GROUP_GAP_PT` 8.5 -> 8.0 pt. Sweep: 8.5 pt left the 10.00 cm trim at 47 px
+    against the folio's 49 (1 of 381 heights failing); 8.2 pt is the largest that merely fits at
+    51 px; **8.0 pt ships at 55 px, 0 of 381 failing**, with 10.10 cm at 66 px. Both tightest
+    storable heights are now pinned by rendered tests.
+  - **Three converted markers, none deleted silently**, and every test whose subject moved
+    re-aimed **by name**: the wrong-sentence negative control became a wrong-**label** control
+    rather than being retired; F-4's bordered-box floor control moved to `_draw_pipeline_diagram`
+    (the guide's remaining bordered drawing) and gained its positive half; F-11's three alignment
+    checks now find the legend by its own ink.
+  - **Baseline re-recorded in place** for this card's own cycle — the shape CARD-204 Fix 1 and
+    CARD-205 Fix 2 used; a new file is for a new card. Measured page by page before rewriting:
+    pages 2 and 3 move, nothing else does. `interior_bytes` 3369113 -> 3464123. No earlier
+    fixture touched.
+  - **Mutants, and one that earned its keep.** M5 (gap 8.0 -> 8.2) is killed by the sweep **on
+    the recorded figure**, not by the inequality — which still passes at 51 >= 49 — so 8.0's
+    margin is proved real rather than merely sufficient. M7 mutates the *edge* of the flush-left
+    decision (keep the box's inner pad, labels indent 46 px) and is killed by the **alignment**
+    tests rather than the content one, which is the right separation. **M6's first run slipped
+    past** the "no sentences" test, because that test only knew the old *bordered* drawing;
+    `0153281` strengthened it to probe the sentences' first three words in the page's own body
+    face anywhere on page 2 (0 on the real page, 1 each under M6, measured both ways). An agent
+    finding its own test too weak via a mutant, and saying so, is the behaviour this station
+    wants.
