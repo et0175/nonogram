@@ -118,7 +118,7 @@
   backfilled, and the puzzles table's other columns are untouched.
 - G-7: Interactive play stays behind the admin door (CON-015/CON-016, CON-021,
   ADR-0038/R6) — no public surface is added here.
-- G-8: Styling from tokens only (test: `TestAdminDesignTokens_NoRawValues`).
+- G-8: Styling from tokens only (test: `test_the_stylesheet_uses_tokens_not_literals` (and, for a rule added by a card, a per-rule check like `test_the_region_toggles_pressed_look_comes_from_tokens`)).
 
 ## System contract
 
@@ -150,7 +150,7 @@
 
 - **Design system:** `static/tokens.css` + `static/admin.css` (no
   `meta/design/` in this repo); every value is a token
-  (`TestAdminDesignTokens_NoRawValues`).
+  (`test_the_stylesheet_uses_tokens_not_literals` (and, for a rule added by a card, a per-rule check like `test_the_region_toggles_pressed_look_comes_from_tokens`)).
 - **UI components:** `.player-cell` gains a given treatment next to the
   existing `data-state` swatches (filled / empty / maybe / unknown); the white
   given's dot should read like the printed one (CARD-215).

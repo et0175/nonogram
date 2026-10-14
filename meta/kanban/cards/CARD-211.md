@@ -51,6 +51,11 @@
    a mode, and `aria-pressed` is what a screen reader announces as on/off),
    focusable in the same tab order, labelled `Region`.
 3. The semantics are **unchanged** from CARD-194: turning Region on makes the
+   **AMENDED 2026-10-14 (owner decision, decompose station):** one transition is now a
+   DELIBERATE divergence — picking a brush no longer turns Region off. Everything else
+   in this item still holds. The divergence is recorded in five places in the code,
+   the template and the tests; this sentence was the one place still contradicting it,
+   which the AC/EC gate caught.
    next drag mark with the current brush on any pointer type, and Region turns
    itself off once that drag is recorded (the toggle's `aria-pressed` flips back
    with it). Do not take the opportunity to make it sticky — that is a separate
@@ -81,6 +86,17 @@
   Region is pressed and released, *then* the selected brush is unchanged — the
   two controls do not overwrite each other. (test:
   `TestSolverRegion_DoesNotChangeTheBrush`)
+- **AC-7** (happy, the other direction — **ADDED at the decompose station 2026-10-14**,
+  owner decision): *Given* Region is pressed, *when* the player picks any brush from the
+  menu — including re-picking the one already selected — *then* Region stays pressed
+  (`aria-pressed="true"`), nothing is re-announced, and a drag afterwards marks with the
+  newly picked brush before disarming. Added because the owner's 2026-10-14 decision made
+  the two controls independent, and the AC/EC gate found that AC-5's closing clause ("the
+  two controls do not overwrite each other") had come to assert more than its own *when*
+  clause covered: AC-5 is the Region→brush direction, and this is the brush→Region one.
+  *test: TestSolverBrushMenu_Region::test_picking_a_brush_leaves_region_armed,
+  ::test_re_picking_the_same_brush_also_leaves_region_armed*
+
 - **AC-6** (edge, announcements): *Given* a screen reader, *when* Region is
   pressed, *then* the state change is announced through the existing
   `#puzzle-player-announce` live region, not by a label the user must re-read.
@@ -97,7 +113,7 @@
 - G-3: No request per mark — the board stays client-side (ADR-0038/R2; test:
   `TestSolverMarking_NoRequestPerMark`).
 - G-4: Styling from the design tokens only, no hard-coded colours or sizes
-  (test: `TestAdminDesignTokens_NoRawValues`).
+  (test: `test_the_stylesheet_uses_tokens_not_literals` (and, for a rule added by a card, a per-rule check like `test_the_region_toggles_pressed_look_comes_from_tokens`)).
 - G-5: Do not change the clue rendering or the phone fit/mirror behaviour —
   CARD-212 owns those this wave.
 
@@ -124,7 +140,7 @@
 
 - **Design system:** the admin panel's own `static/tokens.css` +
   `static/admin.css` (there is no `meta/design/` in this repo) — every value
-  comes from a token, as `TestAdminDesignTokens_NoRawValues` enforces.
+  comes from a token, as `test_the_stylesheet_uses_tokens_not_literals` (and, for a rule added by a card, a per-rule check like `test_the_region_toggles_pressed_look_comes_from_tokens`) enforces.
 - **UI components:** the player toolbar (`.player-toolbar`, `.player-slot`,
   `.player-tools`) — the Region toggle is a new control in the existing row;
   reuse the `.btn.btn-outline-secondary` pattern the history buttons use.
@@ -807,3 +823,34 @@
 
   Committed as `207831d` on `card/211-region-own-control` (explicit pathspecs;
   nothing under `meta/` staged).
+
+- [AC/EC check] 2026-10-14 — **All criteria/constraints ✓.** 6 ACs, 5 guardrails, both
+  owner decisions, CON-021 and ADR-0038/R1..R6 all evidenced. 412 targeted tests green
+  across five batches; mutation checks run in a throwaway clone of the branch, never the
+  worktree.
+  The gate re-proved the teeth itself rather than citing the fix cycle: deleting the
+  pointerup `setRegion` fails all three AC-3 tests plus two announcement tests; forcing
+  `gesturePaints` to `return true` fails AC-4 and the truth table; swapping `setRegion`
+  and `commit` fails **exactly** the solved-banner ordering test and nothing else;
+  restoring the `"brush"` call fails exactly the two converted tests and the truth table;
+  deleting `flex: 1 0 auto` fails **all 12** matrix cells and leaves the class's other
+  four tests green. It also verified R4 by grep (`solver_state.js` contains no
+  `document`/`window`/`querySelector`/`localStorage`/`navigator`), and CON-021 by
+  construction rather than by sampling — `TestAdminAuth_EveryRouteIsBehindTheCredential`
+  walks `app.url_map.iter_rules()`, so the solve route and every future route are
+  covered.
+  It settled the `1 failed` claim independently: `_uploaded_temp_files()` globs the
+  machine-wide `tempfile.gettempdir()` unscoped to its own run, so a second worktree's
+  suite is counted as this test's leak; isolated, the file is 9 passed; and the diff
+  contains **zero Python production files**, so nothing in it is reachable from the
+  upload path. Backlogged.
+- [Decompose station] 2026-10-14 — three card-text defects the gate found, all mine,
+  all fixed here: **AC-7 added** for the brush→Region direction (AC-5 was accurate but
+  had come to cover a direction its own *when* clause did not); the "semantics are
+  unchanged from CARD-194" sentence in `## What to implement` amended, since it was the
+  one place still contradicting the five places in code that record the divergence; and
+  **G-4's `TestAdminDesignTokens_NoRawValues` was a test I invented** — it exists
+  nowhere at HEAD or on main. Corrected to the real checks here AND in CARD-212 and
+  CARD-216, which carried the same fabricated name and would have handed it to their
+  agents. Same class as the dead `check:` refs already logged against the architecture
+  model in `backlog.md`: a plausible-looking test name that no gate can run.
