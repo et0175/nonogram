@@ -582,3 +582,17 @@ pre-ruling state, and `*__host-arial-before.png`, what this Mac printed before t
 - [Carried to CARD-234] F-009: that cover's fallback is a **sizeless** `load_default()` under a
   72 px request — not "a different face" but roughly a 10 px em off-host. CARD-234's wording
   updated.
+
+- [Owner decision on F-002] 2026-10-14 — **accepted and recorded, not recovered.** The owner was
+  given the measurement (folios `[2,3,4,6]` -> `[3,4,6]` at the 10.00 cm trim), the two renders,
+  and the mitigation: **that page is already unprintable at that trim on both faces, before and
+  after this card** — `fits_width` is false for every form of guide page 2 and guide page 1
+  overruns its frame by 212 px. So the folio this card drops is on a page no book can ship at
+  that trim. Book 1, the actual product at 8.5 x 11 in, is unaffected.
+  The two alternatives they turned down are worth recording, because the second may come back:
+  recovering the folio would mean finding 31 px on a page whose ladder is already at its barest
+  form (a sixth level, or a smaller guide face at tiny trims — real work for a trim nothing
+  ships at); and raising the profile's **minimum storable trim to 10.10 cm**, where everything
+  fits with 66 px of folio clearance, would make *both* folio problems at that trim stop
+  existing — including the one Block 2 moved `TOC_GROUP_GAP_PT` for. That is a one-constant
+  change to CON-018's floor and a candidate for the architect station rather than for this card.
