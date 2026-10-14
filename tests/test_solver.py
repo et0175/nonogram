@@ -7,6 +7,13 @@ pytest-idiomatic function names:
     AC-016  TestSolver_ReportsUnsolvable          -> test_reports_unsolvable*
     AC-017  TestSolver_FailsFastOnSecondSolution  -> test_fails_fast_on_second_solution*
 
+CARD-214's seeded count (``solve(..., givens=...)``) is covered from this file
+only where this file is the right home: the signature and result are unchanged
+for a caller that passes none (guardrail G-3), and the oracle is still an
+independent second opinion now that it has learned givens too (guardrail G-2).
+The behaviour itself lives in ``tests/test_given_cells.py`` and the two
+property corpora.
+
 EC-001/CON-005 — the property that the uniqueness verdict is never a false
 positive — lives in ``tests/property/test_solver_uniqueness.py``, where it is
 checked over thousands of generated clue sets against ADR-0014's brute-force
@@ -22,13 +29,17 @@ might be.
 
 from __future__ import annotations
 
+import ast
+import inspect
 import random
+from pathlib import Path
 
 import pytest
 
 from nonogram.clues import compute_clues, encode_line
 from nonogram.solver import MANY, SolveResult, solve
 from nonogram.solver.propagate import canonical_clue, line_intersection, mask_runs
+from tests.helpers import brute_force_oracle
 from tests.helpers.brute_force_oracle import (
     count_solutions,
     count_solutions_by_cell,
@@ -981,3 +992,133 @@ def test_the_oracle_enumerates_every_line_matching_a_clue() -> None:
     assert len(line_candidates((1, 1), 4)) == 3
     assert line_candidates((0,), 3) == [(False, False, False)]
     assert line_candidates((4,), 3) == []
+
+
+# --------------------------------------------------------------------------
+# CARD-214 — the seeded count, from the side the other files do not cover
+#
+# AC-8 and the chooser live in ``tests/test_given_cells.py``; the EC(CON-005)
+# corpus under givens in ``tests/property/test_solver_uniqueness.py``. What is
+# here is the two claims this file is the home of: that the *default* question
+# is untouched (guardrail G-3), and that the oracle is still an independent
+# second opinion now that it has learned the same new trick (guardrail G-2).
+# --------------------------------------------------------------------------
+
+
+def test_the_seeded_parameter_is_keyword_only_and_defaults_to_none() -> None:
+    """G-3 at the signature: no existing call site can be affected by it.
+
+    ``givens`` is keyword-only with a ``None`` default, exactly like
+    ``deadline``, and the two clue sets are still the only positional
+    parameters. A positional third parameter, or one without a default, would
+    change the published shape of the solver's one public function for every
+    caller — and the whole reason this card could extend ``solve`` rather than
+    add a second entry point is that it does not.
+    """
+    parameters = inspect.signature(solve).parameters
+
+    assert [
+        name
+        for name, parameter in parameters.items()
+        if parameter.kind is not inspect.Parameter.KEYWORD_ONLY
+    ] == ["row_clues", "column_clues"]
+    assert parameters["givens"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameters["givens"].default is None
+    assert parameters["deadline"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert parameters["deadline"].default is None
+
+
+def test_an_empty_givens_is_the_default_question_field_for_field() -> None:
+    """G-3 at the result: revealing nothing changes nothing about the answer.
+
+    The property version of this (over 1500 clue sets) compares the counts in
+    ``tests/property/test_solver_uniqueness.py``; what is checked here, on the
+    puzzles this file draws by hand, is the *whole* result — every field an
+    existing consumer reads, including the signals COMP-006 grades from and the
+    rung tags ADR-0029 attributes with. An all-``None`` assignment seeds no
+    cell, so the board the solve starts from is the blank one it always was.
+    """
+    for grid in (PLUS, SWITCHING_BLOCK_10):
+        rows, columns = compute_clues(grid)
+        blank: list[list[bool | None]] = [[None] * len(grid[0]) for _ in grid]
+
+        default = solve(rows, columns)
+        seeded = solve(rows, columns, givens=blank)
+
+        assert seeded.solution_count == default.solution_count
+        assert seeded.solution == default.solution
+        assert seeded.second_witness == default.second_witness
+        assert seeded.undecided_mask == default.undecided_mask
+        assert seeded.rung_tags == default.rung_tags
+        # Every signal but the wall-clock reading, which is the one field a
+        # second run on the same machine is allowed to change.
+        assert seeded.signals.line_logic_cells == default.signals.line_logic_cells
+        assert seeded.signals.total_cells == default.signals.total_cells
+        assert seeded.signals.branch_nodes == default.signals.branch_nodes
+        assert seeded.signals.backtracks == default.signals.backtracks
+        assert seeded.signals.rung_cells == default.signals.rung_cells
+        assert seeded.signals.rungs == default.signals.rungs
+
+
+def test_the_two_oracles_agree_under_givens() -> None:
+    """ADR-0014's "an unverified oracle is just a second guess", for givens.
+
+    The seeded cross-check in the property test is only worth its name if the
+    oracle's new filter is itself right, so the fast counter's row-candidate
+    pruning is compared against the counter that prunes nothing at all — all
+    ``2 ** cells`` grids, with one extra condition. Both consistent and
+    *contradicted* assignments are drawn, because an over-eager filter and an
+    ignored one fail on different ones.
+    """
+    rng = random.Random(31415)
+    checked = 0
+    for _ in range(40):
+        size = rng.choice((2, 3, 4))
+        grid = [
+            [rng.random() < rng.choice((0.2, 0.5, 0.8)) for _ in range(size)]
+            for _ in range(size)
+        ]
+        rows, columns = compute_clues(grid)
+        givens: list[list[bool | None]] = [[None] * size for _ in range(size)]
+        for row in range(size):
+            for column in range(size):
+                if rng.random() < 0.3:
+                    value = grid[row][column]
+                    givens[row][column] = (
+                        not value if rng.random() < 0.3 else value
+                    )
+
+        assert count_solutions(rows, columns, givens=givens) == (
+            count_solutions_by_cell(rows, columns, givens=givens)
+        )
+        checked += 1
+    assert checked == 40
+
+
+def test_the_oracle_shares_no_code_with_the_solver() -> None:
+    """G-2: the brute-force oracle must not import ``nonogram.solver``.
+
+    ADR-0014 names this oracle as the mitigation for ADR-0009's choice of a
+    hand-rolled solver, and the mitigation is worth exactly as much as its
+    independence: an oracle that borrowed the solver's seeding, its line DP or
+    its bitmasks would turn the model's one mandatory cross-check into the
+    solver agreeing with itself. Read off the file with ``ast`` rather than
+    trusted to a convention, in the same style as ``tests/test_cli.py``'s
+    import guard — and asserting the positive too, so a rewrite that stopped
+    deriving clues through COMP-004 would also be noticed.
+    """
+    source = Path(brute_force_oracle.__file__).read_text(encoding="utf-8")
+    imported: set[str] = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Import):
+            imported.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported.add(node.module)
+
+    assert not any(name.startswith("nonogram.solver") for name in imported), (
+        f"the oracle imports the solver: {sorted(imported)}"
+    )
+    assert "nonogram.clues" in imported, (
+        "the oracle derives its clues through COMP-004 (ADR-0014); it no "
+        f"longer does: {sorted(imported)}"
+    )
