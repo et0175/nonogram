@@ -14,13 +14,12 @@ active:
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221
     started: 2026-10-14T14:20:00Z
     note: "P1, unblocked by CARD-205's merge. Its proof of success is CARD-205's own two red-off-host folio tests going green on both faces. CARD-206..209 queued behind it on the book_pdf_generator.py hotspot."
-  - id: CARD-212
-    phase: merge_gate
-    branch: card/212-clues-both-sides
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-212
-    started: 2026-10-14T14:20:00Z
-    note: "implementation ee0d3a0 (15 of 16 mutants killed); review cycle 1 running. Needed no rebase - CARD-211's merge was already an ancestor of the base. ONE OWNER DECISION PENDING: DOUBLE_MIN_CELL = 24 leaves a 25x15 at 1440x900 0.47 px under the bar, so the owner's own laptop gets no second gutter."
 merged:
+  - id: CARD-212
+    review_cycle: 2
+    success_commit: 4638bf5
+    merge_commit: a2cd3f3
+    note: "cycle 1 = 7.0 (3 gating), cycle 2 = 8.5; 3 fix cycles; AC/EC/G gate passed with 14 fresh mutants, 14 killed; merge gate FAILED once on its own test racing a 600 ms bound under concurrent load, passed at 7053/0 on a quiet host. Actual 0.7d. Unblocks CARD-216 and CARD-213."
   - id: CARD-205
     review_cycle: 1
     success_commit: bf45a3d
