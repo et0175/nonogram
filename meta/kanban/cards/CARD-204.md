@@ -1,7 +1,7 @@
 
 # CARD-204: Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2.5d
@@ -10,7 +10,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/204-puzzle-right-align-qr
-**Worktree:** /Users/omelnikova/PycharmProjects/PythonProject4-CARD-204
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout1", 2026-10-08 (item 3: "Puzzles - please make them right-aligned and add a small icon for qr code (2*2 cm) with the link for the solver. It can be on the left or on the bottom depending on how the Puzzles are placed"); owner clarification 2026-10-08 via AskUserQuestion — "right-aligned" means a full reversal of FR-032's centred placement (not a narrower QR-icon-only adjustment), and the QR code should be drafted now with a placeholder/TODO link, wired to a real public solver URL once one exists.
 **Idea:** —
 **Wave:** 37
@@ -18,9 +18,9 @@
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
 **Review score:** 8.5/10 (cycle 4); cycle 5 on Fix 7 alone = **6.5/10, 1 CRITICAL** — not mergeable; family-regression escalation to the owner
 **Started:** 2026-10-10T05:08:27Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-14T06:32:56Z
+**Actual:** 12.2d
+**Merge commit:** cd641df
 **Blocked by:** —
 ## What to implement
 
@@ -2646,6 +2646,33 @@ merges first.
     F-4 (info, `_clipped_to`'s single-character floor) left alone as the reviewer
     filed it — pre-existing CARD-200 code, unreachable by ~56x margin, and changing
     its floor would move the TOC's bytes.
+
+- [Merge gate, second run] 2026-10-14 — **PASSED** on the merged tree (branch + main
+  including CARD-214): **6938 passed, 9 skipped, 0 failed, `PYTEST_EXIT=0`**, read in
+  its own command before any merge. The re-run was necessary because the first green
+  gate predated CARD-214's merge; the files are disjoint, but that assumption is exactly
+  what CARD-203 falsified at this card's first gate.
+- [Merge guard] main had advanced two commits since the branch took it in (`14cd7d9` ->
+  `66249ff`), both CARD-211 card notes under `meta/`. Verified explicitly that
+  `git diff 14cd7d9..HEAD -- src/ tests/ docs/ pyproject.toml` is EMPTY, so the tested
+  tree is still the tree being merged, and skipped a third 16-minute suite on the
+  strength of that check rather than on the assumption.
+- [Done] 2026-10-14 — merged as `cd641df` (`--no-ff`). Worktree removed, branch deleted,
+  five review reports in `meta/review/`. Actual 12.2d against a 2.5d estimate.
+  **What that number actually measures:** 8 fix cycles, 5 review cycles (one of them an
+  owner-authorized extension past `max_cycles: 3`), three owner decisions, two
+  decompose-station amendments (G-5, G-6, AC-7), one architect-station deferral, a
+  weekly rate-limit kill, an orchestrator merge-on-a-false-signal that had to be undone,
+  and a `git reset --hard` that destroyed the wave ledger and had to be rebuilt. The
+  estimate was not wrong about the work; it was wrong about the mechanism — four cycles
+  went into one folio reserve because each fix was judged against the finding in front
+  of it rather than the family it belonged to.
+  **Unblocked by this merge:** CARD-205, CARD-206 (the `book_pdf_generator.py` hotspot),
+  CARD-207, CARD-208, CARD-209 (declared dependents), and CARD-215 (`export/layout.py`).
+  **Owed elsewhere, recorded not done:** the FR-040/AC-242..249/EC-027 amendment plus
+  FR-032's stale "centred" statement, both at the architect station
+  (`/forge:architect`, one pass); and the retro's rule promotion for
+  `_draw_solved_slot`'s two consumers, in `backlog.md`.
 ## System contract
 
 _Not yet assembled — run `python3

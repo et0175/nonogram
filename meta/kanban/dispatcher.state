@@ -8,20 +8,23 @@ mode: interactive
 # from the session record and committed.
 max_concurrent_override: 2
 active:
-  - id: CARD-204
-    phase: fix
-    review_cycle: 7            # Fix 7 committed cb0c206 (merge-gate integration defect)
-    branch: card/204-puzzle-right-align-qr
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-204
-    started: 2026-10-10T05:08:27Z
-    note: "cycle 4 = 8.5; AC/EC gate passed after AC-7/G-6 amendments; first merge gate FAILED (4 failed) and found a real CARD-203 x CARD-204 caption/margin defect; Fix 7 fixes it, suite 6901/0; awaiting a focused review of Fix 7's new code, then merge"
-  - id: CARD-211
-    phase: implementation
-    branch: card/211-region-own-control
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-211
-    started: 2026-10-14T07:05:00Z
-    note: "started in the slot CARD-214's merge freed; CARD-212 and CARD-216 queued behind it on the same template/statics"
+  - id: CARD-205
+    phase: review
+    branch: card/205-structural-toc
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-205
+    started: 2026-10-14T06:33:20Z
+    note: "started in the slot CARD-204's merge freed; CARD-206 queued behind it on the same hotspot"
 merged:
+  - id: CARD-211
+    review_cycle: 1
+    success_commit: 207831d
+    merge_commit: 4790243
+    note: "cycle 1 = 9.0 (0 critical); 1 fix cycle; AC/EC gate all passed; merge gate 6971/0. Unblocks CARD-212 and CARD-216, which inherit its rebase surface in puzzle_solve.html / solver.js / admin.css."
+  - id: CARD-204
+    review_cycle: 5
+    success_commit: d78c7a9
+    merge_commit: cd641df
+    note: "8 fix cycles, 5 reviews, 3 owner decisions, 2 decompose amendments, 1 architect deferral; gate 6938/0. Unblocks CARD-205..209 and CARD-215."
   - id: CARD-214
     review_cycle: 1
     success_commit: fe2c945
@@ -30,16 +33,14 @@ merged:
 escalated: []
 queued:
   - id: CARD-215
-    reason: "dependency CARD-214 now satisfied, but touches src/nonogram/export/layout.py which CARD-204's unmerged Fix 7 changed (hotspot) — starts after CARD-204 merges"
+    reason: "dependency CARD-214 satisfied and CARD-204 merged; now eligible, waiting on a free slot (conflict edge with CARD-205/CARD-206 on export/layout.py and book_pdf_generator.py)"
   - id: CARD-216
-    reason: "dependency CARD-214 now satisfied; conflicts with CARD-211 (same template + statics) and carries review F-6 (two admin re-solve call sites)"
+    reason: "dependencies CARD-214 and CARD-211 both satisfied; now eligible, waiting on a free slot (conflict edge with CARD-212 on the same template + statics); carries review F-6 (two admin re-solve call sites)"
 
-  - id: CARD-205
-    reason: "conflict edge with CARD-204 and CARD-206 (hotspot src/nonogram/admin/book_pdf_generator.py); next to start after CARD-204 merges"
   - id: CARD-206
     reason: "conflict edge with CARD-204 and CARD-205 (same hotspot)"
   - id: CARD-212
-    reason: "conflict edges with CARD-211 and CARD-213 (solver.js, admin.css - overlap 0.5)"
+    reason: "CARD-211 merged, so its blocking edge is gone; now eligible, waiting on a free slot (conflict edges with CARD-213 and CARD-216 on solver.js / admin.css - overlap 0.5)"
   - id: CARD-213
     reason: "concurrency cap 2"
 conflict_edges:
@@ -55,4 +56,8 @@ conflict_edges:
     reason: "predicted: tests/test_puzzle_solver_clues.py (overlap 0.50 >= 0.3)"
   - pair: [CARD-204, CARD-203]
     reason: "observed at the merge gate: tests/helpers/book_corpus.py (baseline chain, resolved manually) AND a real geometric interaction - CARD-203's right-aligned caption against CARD-204's flush drawing (see conflict-history.yml)"
-last_updated: '2026-10-14T07:05:00Z'
+# NOTE 2026-10-14T09:20Z: CARD-211 moved active -> merged (4790243); CARD-205 phase
+# corrected to `review` (3 fix cycles behind it, AC/EC gate not yet run). One slot is
+# free; per the owner's "start the next pair after merging", the next pair starts once
+# CARD-205 merges too.
+last_updated: '2026-10-14T09:20:00Z'

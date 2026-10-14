@@ -11,10 +11,11 @@ numeral needs) when that is larger — capped at 28 px as before, and the
 the numeral floor can still force a sideways scroll ("where a board cannot
 fit at 12 px, it scrolls sideways") — that is a deliberate, accepted trade-off
 for legibility, not a defect, and several tests below measure it rather than
-assume it away. Since CARD-194, a cell's ``touch-action`` follows the brush
-dropdown's Region option (off by default): ``auto`` with Region off, so a
-touch drag pans instead of marking; ``none`` with Region on, as every touch
-drag below now picks first, so it marks as it always has. Every clue box
+assume it away. Since CARD-194, a cell's ``touch-action`` follows Region
+(off by default; the brush menu's fifth item then, its own toggle beside the
+brush since CARD-211): ``auto`` with Region off, so a
+touch drag pans instead of marking; ``none`` with Region on, which every
+touch drag below arms first, so it marks as it always has. Every clue box
 (column, row, corner) keeps the default ``auto`` regardless (AC-10).
 
 Browser tests only (pytest-playwright + Chromium, ADR-0038/R7), refusing loudly
@@ -29,7 +30,7 @@ import random
 import pytest
 
 from nonogram.solver import solve
-from tests.test_puzzle_solver_marking import _tool
+from tests.test_puzzle_solver_marking import _region, _tool
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     MAJOR_EVERY,
     _encode,
@@ -559,8 +560,9 @@ RIGHT_FIVE = [(ROW, c) for c in range(BIG_SIDE - 5, BIG_SIDE)]
 
 def _fitted_phone_page(browser, live, tool=None, region=False):
     """The 30 x 30 at 390 x 844 in a touch context, ``tool`` picked first
-    through the brush menu (CARD-194) and ``region`` picked after it when a
-    touch drag needs to mark (AC-9), and the page scrolled down to ROW.
+    through the brush menu (CARD-194) and ``region`` armed after it when a
+    touch drag needs to mark (AC-9) — through Region's own toggle since
+    CARD-211 — and the page scrolled down to ROW.
     CARD-193: below 820 px the cell floor is removed, so most boards no
     longer scroll inside .player-stage — but this grid's two-digit column
     numbers still bind CARD-196's column floor, so it does. Either way the
@@ -575,7 +577,7 @@ def _fitted_phone_page(browser, live, tool=None, region=False):
     if tool:
         _tool(page, tool)
     if region:
-        _tool(page, "Region")
+        _region(page)
     _scroll_cell_into_view(page, *RIGHT_FIVE[-1])
     left = _stage_scroll_left(page)
     _bring_row_to_middle(page, ROW)
@@ -633,7 +635,9 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
     check is what AC-10 actually asks for.)"""
 
     def test_cells_take_no_touch_action_and_clue_boxes_keep_the_default(self, browser_page, live) -> None:
-        """AC-13 / CARD-194: a cell's touch-action follows Region — ``pan-x
+        """AC-13 / CARD-194 — a cell's touch-action follows Region (CARD-211:
+        armed from Region's own toggle now, same .is-region class on the
+        board) — ``pan-x
         pan-y`` off (so a touch drag can pan) (CARD-195: changed from
         ``auto`` — a two-finger pinch starting on a cell with Region off,
         AC-6's own scenario, was found to commit a real native browser
@@ -665,7 +669,7 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
         for kind in ("colClues", "rowClues", "corner"):
             assert off[kind] == ["auto"], off
 
-        _tool(browser_page, "Region")
+        _region(browser_page)  # CARD-211: its own toggle, same .is-region class
         on = _actions()
         assert on["cells"] == ["none"]
         for kind in ("colClues", "rowClues", "corner"):

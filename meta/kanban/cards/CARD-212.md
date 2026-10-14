@@ -123,7 +123,7 @@ axis: row clues left *and* right, column clues above *and* below.
 - G-5: Tap targets stay at CARD-182's minimum on a 390 px phone (test:
   `test_puzzle_solver_phone.py`).
 - G-6: Do not change the brush/Region controls — CARD-211 owns those this wave.
-- G-7: Styling from tokens only (test: `TestAdminDesignTokens_NoRawValues`).
+- G-7: Styling from tokens only (test: `test_the_stylesheet_uses_tokens_not_literals` (and, for a rule added by a card, a per-rule check like `test_the_region_toggles_pressed_look_comes_from_tokens`)).
 
 ## System contract
 
