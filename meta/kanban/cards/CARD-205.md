@@ -15,7 +15,7 @@
 **Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py
-**Review score:** —
+**Review score:** 8.8/10 (cycle 1/3) — 0 critical, 1 important (F-001, a false docstring claim), 3 minor
 **Started:** 2026-10-14T06:33:20Z
 **Closed:** —
 **Actual:** —
@@ -884,3 +884,71 @@ mechanism are listed, mandatory first.)
     book's TOC is.
 
   ---
+
+- [Review] cycle 1/3 complete 2026-10-14 — **score 8.8**, risk LOW. **0 Critical, 1
+  Important, 3 Minor.** Report synced: `meta/review/20261014T095543Z-CARD-205-cycle1.yml`.
+  **Both judgements this card lives on were verified with the reviewer's own
+  instruments, not the card's tests.**
+  (1) *The three page-count callers agree.* It wrote its own script over 7 book shapes x
+  4 trims = 28 configurations (3-level, one level, two levels with the middle empty, two
+  levels + an untiered tail, untiered only, empty, and a book with an undrawable row) and
+  compared `section_plan.toc_page_count`, the TOC pages actually DRAWN by
+  `interior_stream`, the rows actually drawn, `structural_toc_entry_count` re-derived
+  from `_level_runs`, `book_kdp`'s term re-derived from `print_order` + `tier_of_record`,
+  `interior_page_count`'s sheet-free default, and `unpaired_interior_page_count` against
+  the generator's real figure: **0 disagreements of 28**. It also found the mechanism
+  sound, naming the premise (`book_kdp`'s divider count equals the generator's named-run
+  count *because* INV-009 groups the order) — and noted something better than
+  compliance: because the term is now bounded at 8 rows and 8 rows fit one page on every
+  trim KDP admits, the estimate and the export can no longer differ about the TOC on ANY
+  trim, so this card strictly SHRINKS the old under-count surface.
+  (2) *The folio blocker cannot silently reappear.* Proved off-host: it forced
+  `_lettered_as_recorded()` to `False` (simulating a machine without this host's Arial)
+  with the constant back at 10.0 pt, and BOTH guards still fail — the 381-height sweep's
+  ungated inequality (whose font ladder re-implements `_guide_face`'s fallback
+  byte-for-byte, so the two resolve to the same face anywhere) and the ungated
+  `folios == ["3"]` read off the real drawing. It also verified the threshold against
+  `_draw_folio`'s actual condition, and that the sweep pins the tightest trim as the
+  shortest so the worst case cannot drift to an unmeasured height.
+  Mutation check: **11 mutants, 11 killed.** `starts_group` is genuinely pinned from both
+  sides — mutating the builder kills exactly the three flag tests with the four geometry
+  tests green, and mutating the drawing kills exactly the four geometry tests with the
+  flag tests green, so neither class can cover for the other and the two-consumers
+  asymmetry is closed for this pair. The untiered-range case is a real test, not an
+  avoidance (it asserts `Puzzles 4-5` under Hard AND that the untiered puzzle still
+  prints, so it cannot pass by the row being dropped). The repaired tests are repairs:
+  the renamed parity test's precondition is STRICTER, the other renamed test's body is
+  byte-unchanged (its old name described something it never asserted), and the one
+  genuine softening is compensated by a more direct test of the mechanism. All eight
+  gutter constants are asserted against the live page plan, so a nudge fails immediately.
+  731 tests run green — including 248 over five baseline-fixture consumers that are
+  absent from the diff and which neither fix cycle had re-run.
+- [Severity gate] 2026-10-14 — one Important finding, so the gate blocks pending a fix
+  cycle; nothing is Critical and the card is otherwise merge-ready.
+  **F-001: `structural_toc_entries`' docstring claims a row-count guarantee the tripwire
+  does not give.** It says `interior_stream` asserts the builder's row count equals
+  `structural_toc_entry_count` "rather than trusting it"; what `interior_stream` actually
+  compares is two derived PAGE counts, both 1 for any row count under the frame's
+  capacity. Demonstrated: mutant M6 broke the count function to `1 + 2*level_count` and
+  **all 33 `test_book_toc.py` tests stayed green** with the tripwire silent — only a
+  gutter-sweep premise line caught it. The equality is pinned at `level_count == 3` only,
+  by two independent literal `8`s in two files; nothing pins it for one- or two-level
+  books, and no test calls `structural_toc_entries` or `toc_range_label` directly. **No
+  defect today** (every consumer uses the derived page count, and all three derive 1 —
+  verified across those 28 configurations); the defect is the false claim, in the exact
+  function CARD-206 is pointed at, in a file the reviewer measures at 48% defect density.
+- [Correction, mine] I told the owner Fix 2 "pins the figure AND the margin". Half right:
+  the reviewer found the owner's 10 px margin is enforced only on a host that letters as
+  recorded — mutant M10 (8.9 pt with the font gate forced off) survives, 33 passed. The
+  test's own docstring says exactly that; it was my summary that was unqualified. **The
+  half that matters is face-independent**: the blocker guard itself fails on any face.
+- [Minor] The attribution test `test_the_toc_page_moved_under_card205_not_card204` never
+  loads CARD-204's fixture — its name, its docstring and its class docstring all promise
+  a three-fixture attribution while it takes only two. The claim is TRUE (the reviewer
+  verified 200<->204 do not differ on page 3) but unasserted, in the one class whose
+  purpose is turning such claims into measurements. And `test_book_toc.py` contains no
+  `pytest.raises` at all against five new raise paths, including the divider/run
+  `RuntimeError` the card's own step-1 finding rests on and `interior_stream`'s tripwire
+  — against this project's own precedent, where CARD-200's tripwire has both a direct
+  test and a screen-level one. The reviewer checked for the latent crash that gap usually
+  hides and confirmed it is absent.

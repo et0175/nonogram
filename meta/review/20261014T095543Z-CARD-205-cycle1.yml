@@ -1,0 +1,385 @@
+version: 1
+generated_at: "2026-10-14T09:55:43Z"
+target: "CARD-205 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-205, branch card/205-structural-toc, HEAD 1a09a71 — review cycle 1, FULL scope `git diff main...HEAD` (8 files, +2436/-307): implementation d236115 + Fix 1 906583d + Fix 2 1a09a71. The card's first review; it covers the implementation and both owner-driven fix cycles together."
+overall_score: 8.8
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/book_pdf_generator.py — the whole diff read in full (the module docstring's new TOC section, TOC_GROUP_GAP_PT / TOC_SOLUTIONS_LABEL / TOC_RANGE_DASH, TocEntry, toc_range_label, structural_toc_entry_count, structural_toc_entries, create_toc_page, section_plan's entry-count call, interior_stream's TOC rows + tripwire, interior_page_count's sheet-free default, _toc_entries_per_page's new docstring), plus unchanged context read for the judgement: _guide_face, _draw_folio's omission predicate, page_frame, _level_runs, _pairable_tier, DividerPagePlan, _clipped_to's call sites"
+    - "src/nonogram/admin/book_kdp.py — the whole diff read in full, plus unpaired_interior_page_count's body (print_order, the `levels`/`dividers` derivation, _toc_frame_for) and its interior_page_count call"
+    - "tests/test_book_toc.py — read in full (all 10 classes, 33 tests) including the two hand-built-entry helpers, the AC-6 ImageDraw spy, the 381-height sweep and the 10.00 cm real-drawing render"
+    - "tests/test_book_finalise_gutter.py (the whole diff: the 8 re-measured scenario constants with their notes, the repaired F-2 class, the two new tests), tests/test_book_page_numbers.py (the repaired parity test), tests/test_book_pdf_memory.py (the repartitioned TestBookPdfMemory_NonDrawingPagesAreByteIdentical and both new tests), tests/helpers/book_corpus.py (BASELINE_FIXTURE chain comment, CORPUS_TOC_PAGE_COUNT)"
+    - "tests/fixtures/book_baseline_card205.json — every non-page field read, and the page digests compared programmatically against book_baseline_card204.json and book_baseline_card200.json"
+    - "meta/kanban/cards/CARD-205.md in BOTH copies — the worktree copy (agent notes, implementation report, Fix 1, Fix 2) and the main-repo authoritative copy (orchestrator entries: dispatch, the inherited two-consumers retro context, the correction to the card's own step-1 recipe, both owner decisions of 2026-10-14, the Fix 1 spawn)"
+    - "meta/kanban/backlog.md (the _draw_solved_slot two-consumers standing-rule item the card was briefed on), meta/kanban/config.yml (review block), meta/review/20261014T053042Z-CARD-204-cycle5.yml (schema)"
+    - "~/Documents/nonogram-reviews/CARD-205/fix2-toc-page3-top.png — looked at by eye and compared against the card's transcription and the owner's sample"
+    - "INDEPENDENT EXECUTION, not inherited from the agent's notes: (a) 240 passed / 1 skipped over the card's own targeted set; (b) a THREE-CALLER AGREEMENT SCRIPT of my own over 7 book shapes x 4 trims (28 configurations) comparing section_plan's toc_page_count, the TOC pages actually drawn, the rows actually drawn, book_kdp's own TOC term, interior_page_count's sheet-free default, and unpaired_interior_page_count vs the generator's real unpaired_page_count; (c) a programmatic page-digest comparison of the three baseline fixtures; (d) MUTATION CHECK, 11 mutants, all reverted and the tree verified byte-identical by sha256; (e) 248 further tests over the five co-change peers absent from the diff; (f) tests/test_cli.py's ast import-boundary guard + the CON-020 type-floor test (116 passed); (g) tests/property/test_book_order.py (INV-009)"
+  not_reached:
+    - "The full ~6960-test suite — deliberately not run (the task's instruction; the orchestrator owns the merge gate). I ran 731 tests across 13 files, all green. The card's claim of 6959 passed at the implementation commit is NOT independently verified, and Fix 1 / Fix 2 were never full-suite-run by the agent either."
+    - "The printed artefact judged on paper (review.visual is off for this project; the owner validates print by eye). I looked at fix2-toc-page3-top.png on screen only, and did not open the two blocker comparison renders or fix1-toc-page3-top.png."
+    - "src/nonogram/admin/app.py and the Finalise template — read only through test_book_finalise_gutter.py's screen assertions (which pass, including the re-measured data-unpaired-page-count=306)."
+    - "src/nonogram/admin/pdf_generator.py (the legacy reportlab per-puzzle TOC) — confirmed untouched and out of scope; not reviewed."
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 2436, removed: 307 }
+  max_fan_in:
+    symbol: "nonogram.admin.book_pdf_generator.measured_toc_page_count"
+    production_call_sites: 4
+    note: "4 production call sites after this card — section_plan, interior_page_count's sheet-free default, interior_stream's TOC tripwire, and book_kdp.unpaired_interior_page_count (the last across the existing admin->admin edge). 10 test references. The new structural_toc_entry_count has 3 production call sites (the first, second and fourth of those) and 2 test references, only one of which calls it. create_toc_page has 1 production caller (interior_stream's produce()) and 15 test references."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py — 60 commits in 12 months, 29 of them fix-prefixed (48% defect density); the highest-churn file in the repo and where every finding below lands"
+    - "src/nonogram/admin/book_kdp.py — 11 commits in 12 months"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the co-change set was computed properly (commits touching either changed file, then each commit's full file set): tests/test_book_pdf_memory.py (18), tests/helpers/book_corpus.py (18), tests/property/test_book_export_interior.py (17), src/nonogram/admin/app.py (17), tests/test_book_pdf_two_up.py (11), tests/test_book_page_numbers.py (11), tests/test_book_pdf.py (10), tests/property/test_book_pairing.py (10), src/nonogram/export/layout.py (10), src/nonogram/admin/templates/book_finalize.html (10). Three of them ARE in the diff; export/layout.py is forbidden by G-4; the rest I RAN rather than reasoned about — test_book_pdf_ink_mode.py, test_book_solved_answer_key.py, test_book_pdf.py, test_book_export_interior_cover.py, test_book_pdf_two_up.py: 248 passed; test_book_export_interior.py + test_book_pairing-adjacent property files: green in the 145-pass run; app.py's screen figure is asserted (and re-measured) inside test_book_finalise_gutter.py, which passes. So the set is genuinely empty, not uncounted."
+    bus_factor: "no_eligible_fact — git shortlog -sn on the touched files shows one configured identity (Claude Code); bus factor carries no signal in this repo."
+
+system_contract:
+  rules_checked: 5
+  holds: 5
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-020 ✓ holds — the rule's own named check TestInteriorType_EveryFaceHoldsTheFloor ran green on THIS head (tests/test_book_interior_type_floor.py, inside a 116-pass run with tests/test_cli.py). Re-derivable structurally too: `git diff main...HEAD -- src/nonogram/admin/book_pdf_generator.py | grep -E '^[-+].*(TOC_TITLE|TOC_ENTRY_PT|GUIDE_TITLE_PT|GUIDE_TITLE_GAP_PT) *='` is empty — no type size is reassigned. TOC_GROUP_GAP_PT is vertical white between rows, not a face size, and the TOC's three text kinds (title, rows, folio) letter at the same sizes CARD-200 gave them (the fixture's font_dependent_pages is unchanged)."
+    - "INV-013 ✓ holds — the rule's named check PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage ran green on this head (tests/property/test_book_export_interior.py, inside the 145-pass run). The diff derives no parity and moves no cover boundary; structural_toc_entries hardcodes the guide row's page as interior 1 WITH an explanatory comment naming INV-013, and interior_stream's own `1 + GUIDE_PAGE_COUNT + toc_page_count` offsets are unchanged in shape."
+    - "INV-009 ✓ holds — the rule's named check PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence ran green on this head (tests/property/test_book_order.py, 2 passed). This card DEPENDS on the rule rather than touching it: toc_range_label's docstring names INV-009 as the only reason a level's puzzle numbers are a contiguous range, and _level_runs/print_order carry no hunk in the diff."
+    - "ADR-0036/R2 ✓ holds — review-lens, checked rather than assumed because the dot-leader and group-gap arithmetic is exactly the kind of thing the rule forbids the admin panel from inventing. The TOC page's usable box still comes from COMP-007: create_toc_page calls page_frame(spec), which delegates to nonogram.export.layout.compute_layout and reads back usable_left/top/right/bottom. What the admin adds is text placement INSIDE that box — a font advance (entry_font.getlength) for the dot run and a point figure converted by type_px for the pen's y — which is the same class of work CARD-200's existing _clipped_to loop and every guide/divider page already does. No cell is fitted, no rule width is chosen, no page box is computed here. src/nonogram/export/layout.py carries no hunk at all (G-4)."
+    - "ADR-0033/R1 ✓ holds — review-lens. The diff's src/ hunks are confined to book_pdf_generator.py and book_kdp.py and are all reads: payload.difficulty via _pairable_tier, DividerPagePlan.level/page_number, len(payloads), and page-number arithmetic. No hunk assigns to a puzzle record's grid, clues, tier or strategies, and the baseline fixture confirms it at the pixel level — the twelve non-TOC pages of the baseline interior are byte-identical to CARD-204's recording (verified by me, digest by digest)."
+    - "OUTSIDE the card's 5-rule section, for visibility. The lens (system_rules.py --root meta/architecture --scope <both changed files> --verify-refs) assembles 50 rules over these files' wider scope, with diagnostics.dead_check_ref empty and check_refs_verified true. Two of those 50 bear on this diff and were checked: ADR-0006/R1 ✓ holds — pyproject.toml carries no hunk (`git diff main...HEAD --name-only` is 8 files, none of them a manifest) and the card adds no import outside the stdlib+Pillow set. ADR-0019/R1 ✓ holds — its named check test_every_import_in_the_package_points_inward ran green on this head; the one new cross-module import (book_kdp -> book_pdf_generator.structural_toc_entry_count) rides the edge that already existed in that same import block. The other 48 ⚠ unchecked — no_eligible_fact: they govern image fitting, retry/repair bounds, solver correctness, density/difficulty, the storage-boundary uniqueness proof, the web and player surfaces, and book pairing/answer-key capacity; a table of contents' row list, its leader dots and one vertical gap bear on none of them."
+    - "OUTSIDE the rule set — the card's own guardrails G-1..G-5, each re-derived against this diff. G-1 ✓ holds — _toc_entries_per_page's BODY carries no hunk (the diff there is docstring-only), and the folio's survival is asserted on the real drawing at the 10.00 cm worst case (test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place asserts folios == ['3']). I proved that guard is face-independent: with TOC_GROUP_GAP_PT forced back to Fix 1's 10.0 AND the font_fingerprint gate forced False, both the sweep and the real render still fail. G-2 ✓ holds — no new text-layout primitive: the dot run is sized by entry_font.getlength, the gaps by type_px, the box by page_frame, and _toc_entries_per_page is still a uniform division by one row height (deliberately NOT made group-aware; the honest cost of that choice is recorded in its own docstring and proved safe by a 381-height sweep). G-3 ✓ holds — src/nonogram/admin/book_answer_key.py carries no hunk, and the 31 TestBookSolvedPage_Caption* tests pass on this head. G-4 ✓ holds — src/nonogram/export/layout.py is absent from the diff's file list. G-5 ✓ holds, and the title clause holds BY OWNER DECISION rather than by accident: the owner's sample heads the block CONTENTS, the agent flagged it instead of changing it, and the main-repo card records the owner's answer 'KEEP Table of Contents'. TOC_TITLE, the type sizes and the TOC's position (first_page = 1 + GUIDE_PAGE_COUNT + toc_page_count) are all unchanged."
+
+root_causes:
+  - id: RC-1
+    title: "The TOC's plan/draw tripwire compares PAGE counts, not ROW counts — so the row-count contract structural_toc_entries documents is neither enforced nor directly tested"
+    finding_ids: [F-001, F-003]
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 2619
+    title: "structural_toc_entries' docstring claims interior_stream asserts len(entries) == structural_toc_entry_count(...); it asserts only that the two derived PAGE counts agree"
+    description: |
+      `structural_toc_entries`' docstring (book_pdf_generator.py:2619-2622) states:
+      "``len()`` of the result equals :func:`structural_toc_entry_count` of the
+      same book; :meth:`BookPDFGenerator.interior_stream` asserts that rather
+      than trusting it."
+
+      It does not. The tripwire at interior_stream (:5455-5462) computes
+      `drawn_toc_pages = measured_toc_page_count(len(toc_entries), frame, dpi)`
+      and compares it to `toc_page_count` — two PAGE counts, both of which are 1
+      for any row count between 1 and the frame's capacity (10 rows on the
+      shortest storable trim, ~42 on Book 1). A row-count divergence smaller
+      than a page is invisible to it.
+
+      DEMONSTRATED, not argued. Mutation M6 of this review: change
+      `structural_toc_entry_count`'s body from `2 + 2 * level_count` to
+      `1 + 2 * level_count` — the single function that feeds all three
+      page-count callers. Result: `tests/test_book_toc.py` is **33 passed, 0
+      failed**; the tripwire does not fire; the export runs clean. The only
+      test in the whole targeted set that kills it is
+      `tests/test_book_finalise_gutter.py::...::test_the_structural_toc_is_one_page_on_every_trim_kdp_admits`,
+      and it kills it on its own PREMISE line (`worst_case_rows == 8`), not on
+      anything about the TOC.
+
+      The consequence is that the equality between the count function and the
+      builder is pinned at exactly one point — `level_count == 3` — by two
+      independent literal `8`s in two different files
+      (`test_the_structural_toc_is_one_page_on_every_trim_kdp_admits`'s premise
+      and `test_a_hundred_and_fifty_puzzles_take_one_toc_page`'s
+      `len(pages[0]) == 8`). For a one-level or two-level book nothing pins it
+      at all; no test calls `structural_toc_entries` or `toc_range_label`
+      directly, and only one test calls `structural_toc_entry_count`.
+
+      THERE IS NO DEFECT TODAY, and that matters for the severity: every
+      consumer of `structural_toc_entry_count` uses it only to derive a page
+      count, all three derive 1 (I verified end to end over 28 book/trim
+      configurations), and the drawn page count is separately spied in AC-5's
+      test. What is wrong is the *claim*: the function CARD-206 is explicitly
+      pointed at (the card's own "For CARD-206" section, item 1) documents a
+      guarantee the code does not provide, in the repo's highest-defect-density
+      file (29 of 60 commits are fixes). The card's Worktree notes state the
+      true limitation correctly ("interior_stream's TOC tripwire re-measures
+      the page COUNT, not the numbers"); the docstring contradicts them.
+    suggestion: |
+      Either (a) make the code match the docstring — one line in
+      interior_stream, re-deriving the predicted row count beside the page
+      count and raising on a row-count mismatch too (the level runs are
+      already in scope via `decided.payloads`); or (b) correct the docstring to
+      say what the tripwire actually compares, and add one direct test that
+      `len(structural_toc_entries(...)) == structural_toc_entry_count(...)`
+      over the one-, two- and three-level books the file already builds. (a) is
+      the stronger fix and is what the card's own circularity argument assumes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 1902
+    title: "test_the_toc_page_moved_under_card205_not_card204 never loads CARD-204's fixture, so the half its name promises is unasserted"
+    description: |
+      The test's name, its own docstring ("while CARD-204's recording still
+      agrees with CARD-200 on it") and the class docstring ("...which is what
+      makes 'CARD-205 moved it, CARD-204 did not' a fact about three fixtures")
+      all claim a three-fixture attribution. The test takes two fixtures:
+      `baseline` (which loads `book_baseline_card200.json`, :1795-1804) and
+      `card205_baseline`. `book_baseline_card204.json` is never opened anywhere
+      in the class.
+
+      The claim is TRUE — I verified it independently by digesting the three
+      fixtures: CARD-200 vs CARD-204 differ on pages [1, 2, 5, 7, 9, 11, 12, 13]
+      and NOT on page 3; CARD-200 vs CARD-205 differ on exactly [3] plus that
+      set; CARD-204 vs CARD-205 differ on exactly [3]. So this is an unasserted
+      true statement, not a wrong one — but it is precisely the class of claim
+      this class exists to turn into a measurement, and the card's own notes
+      lean on it ("the attribution is itself asserted").
+    suggestion: |
+      Add a `card204_baseline` fixture alongside the other two and one line:
+      `assert card204_baseline["pages"][number - 1] == baseline["pages"][number - 1]`
+      inside the existing loop. Two lines, and the docstring becomes true.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_toc.py
+    line: 1
+    title: "Five new raise paths, no negative test: tests/test_book_toc.py contains no pytest.raises at all"
+    description: |
+      The card adds five error paths and exercises none of them:
+
+      * `TocEntry.__post_init__` — ValueError on a page below 1 (:2209-2212)
+      * `toc_range_label` — ValueError on a backwards or sub-1 range (:2697-2700)
+      * `structural_toc_entry_count` — ValueError on a negative count (:2751-2755)
+      * `structural_toc_entries` — RuntimeError when the plan's dividers and the
+        payloads' level runs disagree (:2673-2678). This is the guard the card's
+        own "Finding: the card's step-1 recipe is subtly wrong" section rests on.
+      * `interior_stream` — RuntimeError when the drawn TOC needs a different
+        page count than the plan was laid out on (:5458-5462). This is the
+        tripwire the card calls the thing that "closes the circle".
+
+      `grep -n "pytest.raises\|RuntimeError\|ValueError" tests/test_book_toc.py`
+      returns nothing. The project has the opposite precedent: CARD-200's own
+      page-plan tripwire has `TestFinaliseCounts_PlanTripwireIsNotAnEstimate`
+      and `TestFinaliseGet_NamesThePagePlanFailure` — the latter because
+      app.py's Finalise screen is written to catch and log exactly this
+      RuntimeError, which makes the message text a user-facing contract.
+
+      I checked the one latent crash this class of gap usually hides and it is
+      NOT present: `structural_toc_entries`' message does `divider.level.value`,
+      and `DividerPagePlan.__post_init__` enforces `isinstance(self.level, Tier)`,
+      so the message cannot AttributeError on a None level. So this is a
+      coverage gap, not a known bug.
+    suggestion: |
+      One small class in tests/test_book_toc.py: a `TocEntry(page=0)`, a
+      `toc_range_label(5, 4)`, a `structural_toc_entry_count(-1, 1)`, a
+      `structural_toc_entries` fed a section whose dividers were reordered, and
+      an `interior_stream` with `measured_toc_page_count` monkeypatched to
+      return a different figure — the last one also pinning that the message
+      names both counts, since app.py logs it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_toc.py
+    line: 1206
+    title: "The owner's 10 px folio margin (8.5 pt over the maximal 8.9) is enforced only on a host whose fonts match the recording"
+    description: |
+      Fix 2 states: "Both figures — the 59 px and the 10 px of margin — are
+      asserted, so that choice is enforced and not just recorded." Measured,
+      that is true only behind the `_lettered_as_recorded()` gate.
+
+      MUTATION M10 of this review: set `TOC_GROUP_GAP_PT = 8.9` (the largest
+      value that still clears the folio, by 2 px instead of 10) AND force
+      `_lettered_as_recorded()` to return False, simulating a host without this
+      machine's Arial. Result: **33 passed, 0 failed.** The owner's margin is
+      unenforced off this host.
+
+      This is correctly distinguished from the thing that actually matters, and
+      I verified that half too: the BLOCKER itself is face-independent.
+      MUTATION M9 — `TOC_GROUP_GAP_PT = 10.0` with the same gate forced False —
+      still kills two tests: the 381-height sweep's ungated `room >= folio_line`
+      inequality (whose own font ladder is a byte-for-byte re-implementation of
+      `_guide_face`'s try-Arial-then-load_default fallback, so the two resolve
+      to the same face on any host) and the ungated `folios == ["3"]` assertion
+      in the real 10.00 cm render. So the folio can NOT be silently dropped
+      again on any machine.
+
+      Flagged as a risk, not an error: the test's own docstring says exactly
+      this ("on a machine without it the guardrail inequality still runs, only
+      the px figure is skipped"). Only the card's unqualified prose overstates it.
+    suggestion: |
+      No code change needed. Either qualify the Fix 2 note ("enforced on a host
+      that letters as recorded; the folio guard itself is face-independent"), or
+      — if the owner wants the margin enforced everywhere — assert the
+      face-independent form of it: `worst_room - folio_line >= 2 * px(1.0)` or
+      similar, outside the gate.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  enabled: true
+  mutants: 11
+  killed: 11
+  survived: 0
+  tree_verified_clean: true
+  note: |
+    All 11 mutants reverted and the tree verified byte-identical by sha256
+    (src/nonogram/admin/book_pdf_generator.py
+    b4f2708e63e730e90f4e30d2a0fdf7ea0a6dbc2d49080b117540a3178277b871,
+    tests/test_book_toc.py
+    5e5953022a7b3e54fd515c4de301ae9934ace610c156942dd0b7e465abedc695).
+    `git status --porcelain` afterwards shows only ` M meta/kanban/cards/CARD-205.md`,
+    which was ALREADY modified before this review began (the uncommitted Fix 2
+    notes — the card's own commits carry nothing under meta/). No source or test
+    file is left mutated.
+  results:
+    - "M1 toc_range_label(start+1, end) -> (start+1, end+1) [range upper bound] — KILLED, 8 failed (including test_the_ranges_tile_the_book_with_no_gap_or_overlap, the independent parse-back reader)"
+    - "M2 toc_range_label(start+1, end) -> (max(1,start), end) [range lower bound] — KILLED, 6 failed"
+    - "M3 the Solutions row loses starts_group=True [the builder side of the Fix 2 pair] — KILLED, exactly 3 failed, ALL of them TestBookToc_RowsDeclareTheGroupsTheyOpen; the four geometry tests stay green, which is the proof the new class was needed"
+    - "M4 create_toc_page's gap condition back on entry.is_heading [the drawing side of the same pair] — KILLED, exactly 4 failed, ALL of them geometry tests; the three flag tests stay green. The pair is pinned from both sides and neither side can cover for the other."
+    - "M5 a level heading row carries divider.page_number instead of None [heading suppression] — KILLED, 3 failed"
+    - "M6 structural_toc_entry_count: 2 + 2*level_count -> 1 + 2*level_count [the three-caller count function] — KILLED, but only barely and only by a premise line: tests/test_book_toc.py is 33 PASSED, and the single failure is test_the_structural_toc_is_one_page_on_every_trim_kdp_admits' own `worst_case_rows == 8`. See F-001."
+    - "M7 leader-dot clipping: trim loop deleted and the grow loop's bound widened to run + dot_width — KILLED, 2 failed (both maximality tests)"
+    - "M8 TOC_GROUP_GAP_PT 8.5 -> 8.9 — KILLED, 2 failed (the owner's margin, on this host)"
+    - "M9 TOC_GROUP_GAP_PT 8.5 -> 10.0, the blocker itself — KILLED, 2 failed; and KILLED AGAIN with _lettered_as_recorded() forced False, same 2 tests. Face-independent."
+    - "M10 TOC_GROUP_GAP_PT 8.5 -> 8.9 with _lettered_as_recorded() forced False — SURVIVED, 33 passed. Filed as F-004 (a risk, not a defect: the margin is host-gated, the blocker is not)."
+    - "M11 dot_right = frame.right - number_width - gap -> - number_width [right-hand leader clearance] — KILLED, 2 failed"
+
+independent_verification:
+  three_caller_agreement:
+    verdict: "AGREE — verified end to end, not inferred from the mechanism"
+    method: |
+      A script of my own (not the card's tests) over 7 book shapes x 4 trims
+      (Book 1, 10.00, 10.10, 48.00 cm) = 28 configurations: 3-level 60/60/30,
+      one level, two levels with the middle one empty, two levels + an untiered
+      tail, untiered only, empty, and a book with an undrawable row. For each it
+      compared six figures: section_plan's toc_page_count, the number of
+      create_toc_page calls actually made by interior_stream, the number of rows
+      actually drawn, structural_toc_entry_count re-derived from _level_runs,
+      book_kdp's own TOC term re-derived from print_order + tier_of_record, and
+      interior_page_count's sheet-free default — plus
+      unpaired_interior_page_count(puzzles, book) against the generator's real
+      stream.unpaired_page_count.
+    result: "0 disagreements of 28. Rows drawn == structural_toc_entry_count in every case (8/4/6/6/2/0/4). All three page-count callers return 1 wherever the book has a puzzle and 0 where it does not. The KDP estimate equals the real unpaired count exactly in all 24 non-empty cases (307/29/18/18/6/13)."
+    mechanism: |
+      The agreement is structural, not coincidental. section_plan feeds
+      structural_toc_entry_count the named level-run count off
+      _level_runs(payloads); book_kdp feeds it `dividers`, the distinct named
+      tiers of the same grouped print_order (equal to the run count because
+      INV-009 groups the order — the premise is stated in the comment and holds
+      because print_order is called two lines above); interior_page_count's
+      sheet-free default feeds it min(len(TIERS), puzzle_count), a deliberate
+      UPPER bound that keeps the documented "never under-count" contract. The
+      card's claim that all three are fed from the same function is accurate. A
+      point worth recording for the gutter table: because the term is now
+      bounded at 8 rows and 8 rows fit one page on every trim KDP admits
+      (swept, 381 heights, both in the gutter file and again with independent
+      font metrics in the TOC file), the KDP estimate and the export can no
+      longer differ about the TOC on ANY trim — this card strictly reduces the
+      F-2 under-count surface rather than widening it.
+  baselines:
+    verdict: "HONEST — re-derived from the fixtures themselves"
+    result: |
+      Page-digest comparison, computed by me: book_baseline_card204.json vs
+      book_baseline_card205.json differ on exactly [3]. card200 vs card205
+      differ on [1,2,3,5,7,9,11,12,13]; card200 vs card204 differ on
+      [1,2,5,7,9,11,12,13] — NOT page 3. So "CARD-205 moved page 3, CARD-204
+      did not" is true as a fact about the three files (though only two of the
+      three are asserted — F-002). `git diff main...HEAD --name-only --
+      tests/fixtures/` is exactly one file, the new card205 recording: no
+      earlier fixture is touched. The downward byte count (3504840 -> 3498430
+      where Fix 1 went up) is recorded in interior_bytes_note with the
+      mechanical cause given (three gaps shrink 42->35 px while a fourth
+      appears, so the list ends 14 px lower and four rows sit at a new y) and
+      an explicit refusal to explain the JPEG stream's direction — "which way
+      the page's JPEG stream then moves is the encoder's business, and it is
+      recorded because it is what the file does". That is the right call: the
+      direction of a lossy stream's size under a pure y-shift is not derivable,
+      and inventing a cause would be worse than recording the measurement. No
+      explanation is needed and none should be demanded.
+  repaired_tests:
+    verdict: "REPAIRS, not relaxations — with one forced softening that is compensated"
+    result: |
+      (1) test_parity_holds_on_a_larger_book_whose_toc_spans_more_than_one_page
+      -> ..._across_the_toc_insertion: the old precondition (toc_page_count > 1)
+      is genuinely unsatisfiable now. The replacement is STRICTER, not looser —
+      `== 1` plus two new preconditions the old test never had (the TOC still
+      sits at 1 + GUIDE_PAGE_COUNT, and the book still prints > 120 pages). The
+      body it protects is unchanged.
+      (2) test_the_corpus_really_forces_more_than_one_toc_page_on_book_one ->
+      test_an_explicit_book_one_height_matches_the_no_book_default: the BODY is
+      byte-unchanged; only the name and docstring moved. The old name was
+      already describing something the body never asserted, so this is a
+      correction of a misleading name.
+      (3) The one real softening: `shrunk_counts.page_count > book1_counts.page_count`
+      -> `>=` in the end-to-end screen test. Forced (the strict form is now
+      unreachable) and compensated by a NEW, more direct test of the mechanism
+      the strict form was standing in for —
+      test_the_frame_still_follows_the_books_own_stored_trim asserts
+      `_toc_entries_per_page(_toc_frame_for(12cm)) < Book 1 < 48cm`, which is a
+      stronger statement about F-2's actual fix than any comparison of totals.
+      (4) The eight re-measured constants are measurements by construction, not
+      nudges: every one is asserted against the LIVE page plan
+      (`panel.counts(book_id).page_count == <CONST>`) somewhere in the file, so
+      a hand-nudged value fails immediately. Each also keeps its own band
+      assertion (kdp_page_band(...) == (301,500), gutter_refusal boundaries,
+      AC288's 150/151 pair), and the AC288/CK1 retune to 41+41 / 41+42
+      preserves CK-1's premise (an odd paired-tier count) — I re-derived the
+      arithmetic: 2 guide + 1 TOC + 2 dividers + 41 + 21 + 1 + 82 = 150.
+  folio_blocker:
+    verdict: "CANNOT SILENTLY REAPPEAR"
+    result: |
+      Two independent guards, both running on any font (proved by forcing the
+      font_fingerprint gate False and re-running): the 381-height sweep's
+      `room >= folio_line` inequality, whose font ladder duplicates
+      _guide_face's exactly so the two resolve to the same face on any host and
+      whose folio metric comes from the PACKAGED face (deterministic
+      everywhere); and `folios == ["3"]` read off the REAL create_toc_page
+      drawing on the 10.00 cm trim via an ImageDraw spy. The threshold is right:
+      _draw_folio omits when `bottom - content_bottom < ascent + descent` with
+      no content_right offered, and create_toc_page offers none — exactly what
+      the sweep computes. The sweep also pins (ungated) that the tightest trim
+      IS the shortest one, so the worst case cannot drift to an unmeasured
+      height. What is host-gated is only the 59 px figure and the owner's 10 px
+      margin (F-004).
