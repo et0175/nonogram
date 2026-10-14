@@ -1,6 +1,6 @@
 # CARD-205: The table of contents lists sections, not puzzles — How to Solve, each level with its puzzle range, Solutions
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/205-structural-toc
-**Worktree:** ../PythonProject4-CARD-205
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 1: "PDF book - Table of contents - let's don't not have individual puzzles in ToC - only How-to-Solve, Easy-medium-hard divisors and Solutions"; restated later in the same doc under "Add table of contents" with the same sample)
 **Idea:** —
 **Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py
-**Review score:** 8.8/10 (cycle 1/3) — 0 critical, 1 important (F-001, a false docstring claim), 3 minor
+**Review score:** 8.8/10 (cycle 1/3) — 0 critical, 1 important (F-001, a false docstring claim), 3 minor; 4 fix cycles; AC/EC/G gate passed after G-1 was amended
 **Started:** 2026-10-14T06:33:20Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-14T14:11:10Z
+**Actual:** 1d
+**Merge commit:** d30e0f0
 **Blocked by:** —
 
 ## What to implement
@@ -1147,6 +1147,34 @@ mechanism are listed, mandatory first.)
     45 + `test_book_toc.py` 45). Every mutant reverted; `git status --porcelain -- src tests`
     empty before the commit.
 
+
+- [Merge gate] 2026-10-14 — **PASSED.** `7019 passed, 9 skipped, 0 failed, PYTEST_EXIT=0`
+  in 1041 s (17:21) on the merged tree `4a24339`. Pytest's own exit code was written into
+  the log as its last line and **read in a command of its own, separate from the merge** —
+  the practice adopted after this wave's false-signal incident, where `tail` and
+  `git merge` in one command let the shell's exit code stand in for a suite that had
+  actually failed. Against main's 6971 at CARD-211's gate, +48 tests: this card's own net
+  test change.
+- [Merge guard] main had advanced two commits since the tested tree. Verified
+  `git diff 8756b1d..HEAD -- src tests docs pyproject.toml` is **empty** (both are
+  backlog notes under `meta/`), so the tree that passed the gate is the tree that merged.
+- [Done] 2026-10-14 — merged as `d30e0f0` (`--no-ff`). Worktree removed, branch deleted,
+  review report already in `meta/review/`. **Actual 1d against a 1d estimate** — the one
+  card of this wave that landed on its estimate, and the comparison worth keeping: the
+  work was bounded because the page-count consequence was found at implementation time
+  (the third caller) rather than at a merge gate, which is where CARD-204's equivalent
+  surfaced and cost 12.2d against 2.5d.
+  **Unblocks:** CARD-221 (interior letters in the packaged face — this card's two
+  red-off-host folio tests are its proof of success) and CARD-206, which was queued
+  directly behind this card on the `book_pdf_generator.py` hotspot. CARD-218/219 depend on
+  it as part of the CARD-205..209 print set.
+  **Rebase surface inherited by CARD-206..209:** `create_toc_page` now carries the group
+  gap and the leader-dot run; `TocEntry` replaced CARD-200's `(label, page)` tuple, so any
+  card touching the TOC's rows must construct the dataclass; `structural_toc_entry_count`
+  is the single source of the TOC's length and is read by all three page-count callers;
+  and `tests/fixtures/book_baseline_card205.json` is the fixture a later print card must
+  re-record if it moves an interior page (`interior_bytes` 3498430, page 3 the only page
+  this card moved).
 
 ## Implementation agents' own records (verbatim, synced from the worktree 2026-10-14)
 
