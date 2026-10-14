@@ -1489,16 +1489,11 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         ascent, descent = font.getmetrics()
         headroom = frame.bottom - (max(rows) + ascent + descent)
         assert headroom >= 0, "the last row's own ink must stay inside the frame"
-        # The same recorded worst case the sweep above asserts, read off the
-        # real drawing instead of off this file's own arithmetic — two
-        # independent routes to one figure (CLAUDE.md's preference for a
-        # second implementation over re-deriving a value). Ungated since
-        # CARD-221: the figure is the packaged face's on every host.
-        assert headroom == 47, (
-            f"the drawn page leaves {headroom} px under its last row, "
-            "recorded as 47 — the sweep's own worst case, measured here "
-            "through `create_toc_page` rather than computed"
-        )
+        # The recorded worst case, read off the real drawing instead of off
+        # this file's own arithmetic, is asserted in the test below rather
+        # than here (CARD-221): this test is expected to fail, and a pinned
+        # figure inside it would keep it failing after the gap that blocks
+        # it is fixed — which would make its own `strict` promise false.
 
     def test_the_shortest_trim_the_shipped_gap_numbers_prints_its_folio(
         self, monkeypatch
@@ -1564,6 +1559,35 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             f"the drawn page leaves {headroom} px under its last row, "
             "recorded as 58 — 11 px more than the 10.00 cm trim's 47, which "
             "is the 0.10 cm of extra height"
+        )
+
+        # And the worst case's own figure, off the drawing rather than off
+        # the sweep's arithmetic — two independent routes to one number
+        # (CLAUDE.md's preference for a second implementation over
+        # re-deriving a value). It lives here, in a test that is expected to
+        # pass, rather than inside the expected-failure above: this is a
+        # measurement of where the last row lands and says nothing about
+        # whether the folio was drawn, which is that test's own claim.
+        shortest_rows: List[float] = []
+
+        def shortest_spy(self, xy, text, fill=None, font=None, *args, **kwargs):
+            if getattr(font, "size", None) == entry_px and kwargs.get("anchor") not in ("rb", "lb"):
+                shortest_rows.append(xy[1])
+            return original(self, xy, text, fill, font, *args, **kwargs)
+
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", shortest_spy)
+        BookPDFGenerator(shortest).create_toc_page(entries, 3)
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
+
+        shortest_headroom = shortest_frame.bottom - (
+            max(shortest_rows) + ascent + descent
+        )
+        assert shortest_headroom == 47, (
+            f"the 10.00 cm trim's drawn page leaves {shortest_headroom} px "
+            "under its last row, recorded as 47 — the sweep's own worst "
+            "case, measured here through `create_toc_page` rather than "
+            f"computed, and 2 px short of the {sum(_guide_face(entry_px).getmetrics())} "
+            "px the folio's line needs"
         )
 
 
