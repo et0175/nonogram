@@ -8,13 +8,24 @@ mode: interactive
 # from the session record and committed.
 max_concurrent_override: 2
 active:
-  - id: CARD-205
-    phase: review
-    branch: card/205-structural-toc
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-205
-    started: 2026-10-14T06:33:20Z
-    note: "started in the slot CARD-204's merge freed; CARD-206 queued behind it on the same hotspot"
+  - id: CARD-221
+    phase: implementation
+    branch: card/221-interior-packaged-face
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221
+    started: 2026-10-14T14:20:00Z
+    note: "P1, unblocked by CARD-205's merge. Its proof of success is CARD-205's own two red-off-host folio tests going green on both faces. CARD-206..209 queued behind it on the book_pdf_generator.py hotspot."
+  - id: CARD-212
+    phase: implementation
+    branch: card/212-clues-both-sides
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-212
+    started: 2026-10-14T14:20:00Z
+    note: "unblocked by CARD-211's merge; inherits its rebase surface in puzzle_solve.html / solver.js / admin.css. No file overlap with CARD-221, which is why these two are the pair."
 merged:
+  - id: CARD-205
+    review_cycle: 1
+    success_commit: bf45a3d
+    merge_commit: d30e0f0
+    note: "cycle 1 = 8.8 (0 critical, 11/11 mutants killed); 4 fix cycles; AC/EC/G gate FAILED on G-1 (its named test had never existed and its mechanism clause described CARD-200's behaviour) - amended at the decompose station, gate re-passed; merge gate 7019/0 in 1042s. Actual 1d against 1d. Unblocks CARD-221 and CARD-206."
   - id: CARD-211
     review_cycle: 1
     success_commit: 207831d
@@ -38,12 +49,18 @@ queued:
     reason: "dependencies CARD-214 and CARD-211 both satisfied; now eligible, waiting on a free slot (conflict edge with CARD-212 on the same template + statics); carries review F-6 (two admin re-solve call sites)"
 
   - id: CARD-206
-    reason: "conflict edge with CARD-204 and CARD-205 (same hotspot)"
-  - id: CARD-212
-    reason: "CARD-211 merged, so its blocking edge is gone; now eligible, waiting on a free slot (conflict edges with CARD-213 and CARD-216 on solver.js / admin.css - overlap 0.5)"
+    reason: "CARD-204 and CARD-205 both merged, but now queued behind CARD-221 on the same book_pdf_generator.py hotspot AND architecturally blocked in substance: the card needs an INV-013 / FR-043 amendment (the interior currently starts at the guide page as right-hand page 1, and a blank title page moves that) which only the architect station can make. Do not start it before that pass."
+  - id: CARD-217
+    reason: "P1 and ready, but its whole method is to profile the suite with nothing else running - it CANNOT share the machine with another card's test run. Needs a solo slot, which is an owner scheduling call: the suite is now 1042s per gate (398s at wave 30), so every card after it pays for the delay."
+  - id: CARD-216
+    reason: "eligible, but conflicts with CARD-212 on the same template + statics; starts when CARD-212 frees its slot"
   - id: CARD-213
     reason: "concurrency cap 2"
 conflict_edges:
+  - pair: [CARD-221, CARD-206]
+    reason: "predicted: src/nonogram/admin/book_pdf_generator.py (hotspot); CARD-221 also re-records the interior baselines CARD-206 would have to re-record again"
+  - pair: [CARD-212, CARD-216]
+    reason: "predicted: puzzle_solve.html, solver.js, admin.css (CARD-211's rebase surface, inherited by both)"
   - pair: [CARD-204, CARD-205]
     reason: "predicted: src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/layout.py (hotspots)"
   - pair: [CARD-204, CARD-206]
@@ -56,8 +73,12 @@ conflict_edges:
     reason: "predicted: tests/test_puzzle_solver_clues.py (overlap 0.50 >= 0.3)"
   - pair: [CARD-204, CARD-203]
     reason: "observed at the merge gate: tests/helpers/book_corpus.py (baseline chain, resolved manually) AND a real geometric interaction - CARD-203's right-aligned caption against CARD-204's flush drawing (see conflict-history.yml)"
+# NOTE 2026-10-14T14:20Z: CARD-205 merged (d30e0f0) and the next pair started per the
+# owner's "start the next pair after merging": CARD-221 (P1, freed by this merge) and
+# CARD-212 (P2, freed by CARD-211's). They share no file. Flagged for the owner: CARD-217
+# is also P1 but must run SOLO, so it cannot be half of a pair - see its queued reason.
 # NOTE 2026-10-14T09:20Z: CARD-211 moved active -> merged (4790243); CARD-205 phase
 # corrected to `review` (3 fix cycles behind it, AC/EC gate not yet run). One slot is
 # free; per the owner's "start the next pair after merging", the next pair starts once
 # CARD-205 merges too.
-last_updated: '2026-10-14T09:20:00Z'
+last_updated: '2026-10-14T14:20:00Z'
