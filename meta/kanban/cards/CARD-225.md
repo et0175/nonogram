@@ -141,3 +141,29 @@ member decides for every puzzle of that size, so one deep 30x30 drags every 30x3
 to 4.60 mm and raises the flag for all of them. The two cards are individually reasonable and
 jointly push a whole grid size under the floor. **Surfaced to the owner as a decision before
 either card starts.**
+
+## Owner decision 2026-10-14 — the gutter stays at 0.5 in
+
+Presented with the measurement above, the owner chose **outer 0.5 in, top 0.55 in, bottom
+0.47 in as drawn, but the gutter unchanged at KDP's required 0.5 in** rather than the
+artifact's 0.75 in. Re-measured against `_placed_cell_mm` with the shipped spec:
+
+| | usable width | deep 30x30 cell | deep 25x25 | deep 20x20 |
+|---|---|---|---|---|
+| today | 193.68 mm | 4.84 mm | 5.87 | 7.45 |
+| **shipped by this card** | **190.50 mm** | **4.76 mm** | **5.77** | **7.33** |
+| artifact as drawn (0.75 in gutter) | 184.15 mm | 4.60 mm | 5.58 | 7.08 |
+
+The cost falls from 4.9% to **1.6%**, uniformly, on every cell not already at the 7.5 mm cap.
+Usable height goes 248.35 -> 241.49 mm.
+
+**Stated honestly, because it is still true:** a deeply-clued 30x30 or 30x12 still lands at
+4.76 mm, under NFR-008's 4.8 mm floor, so FR-031's below-floor flag still fires for that case —
+0.04 mm under instead of 0.20 mm under. The owner accepted that with the reasoning that the
+gutter is where the page curves anyway, so width spent there is the least useful width on the
+page. CARD-225 must therefore still handle a grid size whose shared size is under the floor
+(its AC-6), and that AC is not hypothetical: it has a real case in the corpus.
+
+**So CON-018's gutter clause is NOT amended** — only its outer, top and bottom values. That
+also keeps CON-018's own KDP reasoning intact (0.375 in up to 150 pages, 0.5 in for 151-300,
+and Book 1 straddles 150), which the 0.75 in gutter would have left stranded.
