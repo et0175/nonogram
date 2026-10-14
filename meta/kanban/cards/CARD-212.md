@@ -435,8 +435,7 @@ are the real ones.
 ## Implementation agents' own records (verbatim, synced from the worktree 2026-10-14)
 
 _The ledger above is the orchestrator's, one record per station. This is the implementation
-and fix agents' own, copied out of the worktree before it is discarded. Where the two
-disagree, the ledger is authoritative._
+and fix agents' own. Where the two disagree, the ledger is authoritative._
 
 - [Rebase] Nothing to rebase around: CARD-211's merge (`4790243`) is already an ancestor of
   this branch's base (`d9c2c1a`), verified with `git merge-base --is-ancestor`. The three
@@ -684,88 +683,78 @@ disagree, the ledger is authoritative._
   - **M11 stays equivalent** — the reviewer re-derived the 20 px threshold algebraically and
     measured ten board/viewport pairs identical. Left as documented, not killed.
 
-- [Fix cycle 1 complete] 2026-10-14 — committed `7c2ed8d` in the worktree. All three gating
-  findings closed with measurements, all five minors done, **8 mutants run and 8 killed**, each
-  reverted from a pristine snapshot with the file verified byte-identical.
-  - **F-001** — a trailing-debounced `resize` listener now runs the same `redraw()`, guarded by
-    the same "is this board big" test, and the resized board is asserted to be *the board a
-    reload would have drawn* rather than merely "not stale". Killed by M17 (listener returns
-    immediately) and M18 (guard ignores board size, so a 15x15 redraws).
-  - **F-002** — today's rendering is drawn **first** and nothing else is drawn at all when it is
-    already under the bar, on the monotonicity argument the reviewer supplied. Measured draw
-    counts: **30x30 @1280x720 goes 4 draws -> 1**, 30x25 @1440x900 4 -> 1. A board that *can*
-    afford a duplicate pays one extra draw for the plain probe (30x25 @1920x1500 goes 1 -> 2) —
-    that is the trade the early-out makes, and it is recorded rather than hidden. Pinned by a
-    `performance.mark` **draw count**, not a timing, exactly as the review asked.
-  - **F-003** — the false sentence is corrected everywhere with the three fixture x viewport
-    pairs named; `_assert_every_fifth_line_heavier` now groups by `data-line` and checks the
-    pattern **per gutter** instead of crashing on a doubled board; `(20, 12)` joins the seeded
-    corpus **with an assertion that at least one member doubles**, so the corpus cannot drift
-    back out of the band silently; and two new tests pin both sides of the boundary at
-    1280x720 (a 20x12 that doubles at 26.88 px, a 22x14 that does not).
-  - The ring-clearance pin now also runs on **CARD-193's phone mirror**, the board that carried
-    that defect longest — the reviewer's suggestion, taken.
-  - **Still open, with reasons given:** column doubling measures against the whole window height
-    (~5 px past the stage's visible box at 1200x1100, now pinned at `<= 6` instead of `<= 10`);
-    the mirrored + doubled-columns composition is unreachable under a 24 px bar and so stays
-    unclaimed and untested; M11 remains equivalent, which the reviewer independently re-derived.
+### Review cycle 2 — three minors (8.5/10, no gating findings; merge-eligible before this)
 
-- [Review cycle 2] 2026-10-14 — **8.5/10, clears the gate** (min_score 8; +1.5 against a
-  min_improvement of 0.5). **0 critical, 0 important, 5 minor.** Report:
-  `meta/review/20261014T171244Z-CARD-212-cycle2.yml`. All three gating findings closed **in the
-  strong form**, and the reviewer verified rather than accepted each one:
-  - **F-001** — the reviewer re-ran their own cycle-1 instrument and at each window compared the
-    resized board against a **reload of the same puzzle in the same session**: duplicate count,
-    tfoot rows, mirrored flag, cell width and stage overflow were identical at all four stops,
-    **both directions**. The stage's scroll offset survives a redraw (scrollTop 91 before and
-    after a 1 px resize), `hinted` is nulled rather than left dangling. The trailing debounce was
-    judged acceptable with a reason: a drag has no meaningful intermediate state.
-  - **F-002** — monotonicity verified three ways rather than taken from prose: algebraically,
-    **exhaustively over 210 board/viewport pairs with zero counterexamples**, and at the clamp's
-    floor. Draw counts reproduce exactly. The orchestrator's question — can the count be
-    satisfied by a draw that never happens? — answered **no**, with a mutant that moves the mark
-    into `redraw()` and dies.
-  - **F-003** — the helper fix is the **minimum** (on a single-gutter board it is arithmetically
-    the old assertion), and it **still catches**: two mutants (duplicate loses `.major-below`,
-    duplicate's `data-line` off by one) both die. The reviewer judged the corpus's
-    `assert doubled >= 1` better than their own suggestion, because it fails loudly instead of
-    happening to cover the case.
-  - **Mutation check ran this cycle** (deferred at cycle 1 on the cost ladder, correctly — the
-    fix rewrote the lines a mutant set would have targeted): the reviewer's own 9 mutants,
-    **6 killed, 3 survived, and all three survivors are cost-or-boundary rather than
-    behaviour** — two unpinned debounce parameters and an unreachable exact-equality case at the
-    bar. Their answer to "was the implementer's eight-for-eight set under-ambitious?": it aimed
-    at behaviour and killed it; it never probed the debounce's *parameters*, which is where this
-    set found the gap.
-- [Reviewer's own correction, recorded because it cuts the right way] Cycle 1 reported that a
-  reload at 900x800 had "no overflow at all"; it has **104 px**. They had measured the resized
-  state and inferred the reload. The true delta was **376 -> 104 px, not 376 -> 0** — the defect
-  and its severity stand, and the implementer caught the error and recorded it rather than
-  quietly adopting the reviewer's figure.
+- **G-003 (the reason for this cycle) — a hint's highlight no longer dies on a 1 px
+  resize.** My own redraw trigger made this ordinary: the highlight was held as the cell
+  ELEMENT, every redraw replaces every element, and a redraw is now any window resize —
+  a phone fires one when its URL bar collapses, mid-solve, which is where a hint matters
+  most. "Hints: N" kept counting the hint the reader could no longer see. solver.js now
+  keeps the hinted CELL (`hintedAt`, {row, col}) and `showHint` looks the element up
+  through the live `cellElements`, so a redraw puts the highlight back; `commit` goes
+  through the same function. The breakpoint crossing gains the same fix for free — it
+  dropped the highlight too, before this card and after it.
+  Pinned by `tests/test_puzzle_solver_hint.py`
+  `TestSolverHint_TheHighlightSurvivesARedraw::test_a_one_pixel_resize_keeps_the_highlight_on_the_same_cell`:
+  1280 -> 1279 px on a 20 x 12, waiting on the draw mark rather than on a sleep, then
+  asserting the highlight is on the cell **the live region names** — not merely that the
+  count is unchanged (the count survived all along and would have made it vacuous) and
+  not merely that it is the same element as before (a wrong lookup matches that too).
+  The test takes TWO hints on purpose: this board's first hint is (0, 0), where a
+  transposed row/col lookup is indistinguishable from a correct one; the second is off
+  the diagonal, and the test asserts that before using it.
 
-- [Fix cycle 2 dispatched] 2026-10-14 — the card is **merge-eligible at 8.5**, and one more
-  short cycle was dispatched anyway for three of the five minors, because one of them is a
-  user-visible regression this card introduced and the fix is about three lines.
-  - **G-003 is the reason.** A hint's highlight is erased by a **1 px resize** (measured 1 -> 0
-    hinted cells) while the "Hints: 1" count survives — so a reader pays for a hint and watches
-    the highlight vanish. Before this card it took crossing the 820 px breakpoint. The trigger
-    moved from rare to ordinary: **a phone fires a resize when its URL bar collapses**, which is
-    mid-solve on the device where a hint matters most. The fix keeps `{row, col}` across the
-    redraw and re-applies it, pinned by a test that resizes by one pixel and asserts the
-    highlight is still on the same cell — deliberately not the count, which already survives and
-    would make the test vacuous.
-  - **G-001** — the debounce is unpinned in both parameters, which is where two of the
-    reviewer's three surviving mutants live (dropping `clearTimeout`; `RESIZE_SETTLE` 150 ->
-    5000 ms, green only because the new tests wait through `wait_for_function`'s 30 s default).
-    Explicit `timeout=600` at both waits plus a burst-of-events test asserting the draw marks
-    rise by <= 2, not 8.
-  - **G-004** — the 22x14 pin fails for the wrong reason elsewhere: plain 24.5938 px (+0.59),
-    doubled 23.3125 px (-0.69), and 0.59 px on 22 columns is ~13 px of stage width, so a
-    platform with classic 15 px scrollbars flips the draw count and reds the test for a
-    non-regression. The self-diagnosing `doubled < 24 <= plain` goes in beside it.
-  - **Deliberately left:** G-002 (the bar's exact-equality case is unreachable — recorded beside
-    M11, not chased) and G-005 beyond its one-line comment correction.
-  - Rationale for spending the cycle rather than merging straight through: the gate does not
-    block G-003, but shipping a phone-visible regression whose fix is three lines, while the
-    agent is still warm, costs more later than it saves now — it would come back as its own
-    card, its own review and its own merge gate.
+- **G-001 — the debounce is pinned in both parameters now.** The two resize waits pass
+  `timeout=_SETTLE_BOUND` (600 ms = 4 x RESIZE_SETTLE, and 50x under Playwright's 30 s
+  default, which is what let a 5 s debounce pass unnoticed), and a new
+  `..._a_burst_of_resize_events_redraws_once` fires eight resize events a pixel apart and
+  asserts the draw marks rise by 1 or 2, never 8. Both of the reviewer's surviving
+  debounce mutants now die (M25 dropping `clearTimeout`, M26 stretching RESIZE_SETTLE to
+  5000 ms).
+
+- **G-004 — the 22 x 14 pin says why it failed.** It now measures both sides of the bar on
+  the live table and asserts `doubled < 24 <= plain` (24.59 / 23.31 here) before asserting
+  the gutter count, so on a platform whose stage is ~13 px narrower the failure reads
+  "this window is narrower here", not "the ladder broke".
+
+- **G-005 (comment only, as asked)** — the corpus comment now says what is true: the five
+  random SIZES are unchanged (the tail is drawn from the same rng state), but the GRIDS
+  after the insertion are not, since each case draws its own seed in the loop and there is
+  one more case to draw for.
+
+- **G-002 — deliberately not chased**, recorded here beside M11 as asked: the bar's
+  exact-equality case (a board measuring exactly DOUBLE_MIN_CELL) is unreachable to test
+  reliably — the cell is a fractional, layout-derived length, and no fixture lands on
+  24.0000 px — so `>=` versus `>` at that boundary is not distinguishable by any test I
+  could write honestly. Same class as M11: documented, not killed.
+
+- [Cycle-3 mutants] 4 run, 4 killed: M23 (redraw drops the highlight) and M24 (transposed
+  row/col in the lookup) by the new hint test, M25 and M26 by the zoom tests. Reverted from
+  a snapshot; `git status --porcelain -- src tests` verified.
+
+- [Incident, worth knowing] Mid-cycle, another agent in this session overwrote the shared
+  scratchpad's `mutate.py` with its own and its revert restored `solver.js` from ITS
+  pristine copy — silently wiping my uncommitted G-003 edits (the file went back to HEAD;
+  no mutant was left behind, verified). The scratchpad is shared across cards, not
+  per-agent. I re-applied the edits, re-ran the test, and moved my mutant harness to a
+  card-specific filename (`card212-mutate-cycle3.py`). If another card reports a mystery
+  revert, this is the mechanism.
+
+- [Fix cycle 2 complete] 2026-10-14 — committed `8be8b32`. All three taken, and **G-003's root
+  cause turned out to be older and wider than the finding**: the hint highlight was held as the
+  cell **element**, which every redraw replaces. So a 1 px resize took the highlight off while
+  "Hints: 1" went on counting it — and the **breakpoint crossing dropped it just as silently
+  before this card ever existed**. A hint is a cell, not an element; keeping it as `{row, col}`
+  and re-applying after the redraw fixes both with the same three lines. That is the second
+  defect this card has found in CARD-193's existing behaviour (the first was the ring drawn over
+  the board's frame on the phone mirror).
+  - The test's design is worth keeping: it asserts the highlight is on the cell **the live
+    region names**, after waiting on the draw mark rather than on a sleep. Asserting the counter
+    would be vacuous — that is the half that already survived — and asserting "the same element
+    as before" would pass for a lookup that is consistently wrong, so it takes two hints and
+    uses the second, off the diagonal where a transposed row/col cannot hide.
+  - **G-001** — both resize waits now carry an explicit 600 ms bound (Playwright's 30 s default
+    would wait out a debounce stretched to seconds), and a burst of eight resize events must
+    cost one or two board builds, never eight. **Both review survivors now die.**
+  - **G-004** — the 22x14 pin asserts `doubled < 24 <= plain` first, so a platform whose stage is
+    13 px narrower reports "this window is narrower here" rather than "the ladder broke".
