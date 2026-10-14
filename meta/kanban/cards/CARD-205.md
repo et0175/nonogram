@@ -1,6 +1,6 @@
 # CARD-205: The table of contents lists sections, not puzzles — How to Solve, each level with its puzzle range, Solutions
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/205-structural-toc
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-205
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 1: "PDF book - Table of contents - let's don't not have individual puzzles in ToC - only How-to-Solve, Easy-medium-hard divisors and Solutions"; restated later in the same doc under "Add table of contents" with the same sample)
 **Idea:** —
-**Wave:** —
+**Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-14T06:33:20Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -170,4 +170,15 @@ mechanism are listed, mandatory first.)
 
 ## Worktree notes
 
-—
+- [Env] forge 2026.8.17 (project declares no `forge.min_version`; no `.skills.yml` here)
+- [Dispatch] wave 37, started 2026-10-14T06:33:20Z. Unblocked by CARD-204's merge (`cd641df`), which
+  owned the `book_pdf_generator.py` / `export/layout.py` hotspots this card also needs.
+  **Branch from a main that already holds CARD-204**, so the right-aligned placement,
+  the QR slot, the folio reserve and `caption_slot` are all present — do not
+  reintroduce or work around any of them. CARD-206 is queued directly behind this card
+  on the same hotspot.
+- [Inherited context worth knowing] CARD-204 spent 8 fix cycles in these files and its
+  retro lesson is recorded in `backlog.md`: `_draw_solved_slot`'s return value has two
+  consumers (`solved_puzzle_page` and `_packed_answer_page`) that must be changed
+  together, and nothing in the code enforces it. If this card touches anything with
+  more than one consumer, say so explicitly in the notes.
