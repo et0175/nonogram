@@ -61,6 +61,9 @@ _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards
 - **CARD-208** Printed clue numbers sit in ruled boxes, like the player's clue cells · P2 · 1d · standard · depends CARD-204 · ⚑ rests on one reading of an unreadable doc image
 - **CARD-209** Wide-but-short solutions pack 3 to a page, one column × three rows · P2 · 1d · standard · depends CARD-204
 
+**Interior typography (cut 2026-10-14 from CARD-205's review)**
+- **CARD-221** The book interior letters in the packaged face, so its geometry stops depending on the host · P1 · 1d · architectural · depends CARD-205 · ⚑ a book finalised locally and the same book generated on Render can disagree about their page count and printed gutter
+
 **Test curation (cut 2026-10-13 on owner request; run after the print cards land)**
 - **CARD-217** Profile the suite once, serialized, and commit the duration record the curation cards work from · P1 · 0.5d · tech-debt · measurement only, no test edits · must be the only suite running
 - **CARD-218** Each book renders once per module, not once per test · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209

@@ -996,3 +996,43 @@ mechanism are listed, mandatory first.)
   The agent did the right thing with it: corrected the Fix 2 prose in place, put the
   measurement in the sweep's docstring and in `TOC_GROUP_GAP_PT`'s note, and raised it as
   an owner-facing item rather than lowering the owner's constant on its own judgement.
+
+- [Owner decisions 2026-10-14, F-004 resolved] **Keep 8.5 pt, keep both guardrails
+  ungated, and card the root cause** — which is what the measurement round argued for:
+  - The ladder on both faces (8 rows, 4 gaps, folio needs 49 px): 8.5 pt gives 59 px on
+    Arial and 27 on the fallback; **7.0 pt is the largest that clears on the fallback**
+    (+2 px); **6.5 pt restores the owner's own 10 px criterion there** (59 px) at a cost
+    of 8 px ≈ 0.68 mm of separation per gap. So the separation does not collapse at a
+    safe value — but it does not need to, because the exposure is 2 of 381 trim heights
+    on a face no printed book uses (KDP's smallest trim is 12.7 x 20.32 cm).
+  - **Gating the inequality would be wrong twice over.** It buys nothing (the render
+    test's ungated `folios == ["3"]` fails off-host anyway), and it contradicts this
+    project's own stated convention, which `test_book_toc.py`'s gate helper spells out:
+    *where the gate is false the surrounding test still asserts every claim that holds on
+    any face — only the pinned figure is skipped, never the guardrail.* Gating BOTH
+    guardrails would leave nothing at all checking that the contents page carries a
+    number off-host.
+  - **The two red-off-host tests are true positives and stay red.** They fail precisely
+    where a page would print unnumbered.
+- [Off-host comparison — this card is a net improvement, measured] Same four files with
+  the host's Arial refused: this branch **3 failed / 226 passed**, `main` **10 failed /
+  173 passed**. All ten of main's are page-count scenario constants off by exactly one
+  page plus the gutter wording that follows, because main's per-puzzle TOC length is
+  `ceil(rows / capacity)` and capacity is face-dependent (42 rows/page Arial vs 40
+  fallback on Book 1), so an 83-row TOC takes 2 pages on one face and 3 on the other —
+  and the interior page count chooses the gutter band, so **main's printed gutter
+  decision is face-dependent**. This card's 8-row, always-one-page list removes that
+  entire class for the TOC. Of this branch's three, two are the folio true positives and
+  the third is AC-6's leader-dot corpus premise from the implementation commit, which
+  predates the group gaps entirely.
+- [Root cause carded] **CARD-221** (P1, architectural, depends on this card): the
+  interior's reader-facing faces come from a host path lookup (`_guide_face` ->
+  Arial-by-path with a `load_default` fallback) while the folio's reservation comes from
+  the packaged face, so interior geometry is a function of the machine. The owner
+  confirmed books are finalised **both** locally and on the deployed panel, where this
+  repo's own notes record Arial as absent — so a book proofed here and the same book
+  generated in production can disagree about their page count and therefore their printed
+  KDP gutter. CARD-221 letters the interior in the packaged font, re-verifies CON-020's
+  floor against the new metrics, re-records the affected baselines, and shrinks the
+  `font_fingerprint`/`font_dependent_pages` gating this project has carried since
+  CARD-146 — with this card's own two red-off-host tests as the proof it worked.
