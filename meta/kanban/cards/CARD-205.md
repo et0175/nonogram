@@ -123,9 +123,30 @@ Solutions ............................ 86
 
 ## Guardrails
 
-- G-1: Every TOC page keeps its folio, including the one-page case — the
-  folio-sized reservation in `_toc_entries_per_page` is load-bearing, not a
-  margin (test: `TestBookPageNumbers_EveryInteriorPageCarriesAFolio`).
+- G-1: Every TOC page keeps its folio, including the one-page case, with all four
+  group gaps in place on the shortest storable trim (tests:
+  `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber` and
+  `TestBookToc_GroupsAreSetOffFromWhatPrecedesThem::test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place`).
+  **Amended 2026-10-14 at the decompose station**, on the AC/EC/G gate's two findings.
+  Original text, kept for the record:
+  > Every TOC page keeps its folio, including the one-page case — the folio-sized
+  > reservation in `_toc_entries_per_page` is load-bearing, not a margin
+  > (test: `TestBookPageNumbers_EveryInteriorPageCarriesAFolio`).
+
+  Both halves of that sentence were wrong. (a) The named test **has never existed** —
+  an orchestrator fabrication at the drafting station; the real folio test is
+  `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber`, named correctly on both
+  CARD-200 and CARD-204, which is where the name should have been copied from.
+  (b) The mechanism clause described CARD-200's behaviour, not this card's: a
+  structural TOC is 8 rows against a per-page capacity of ≥10 on the shortest trim
+  that lays out at all, so `_toc_entries_per_page`'s folio reservation no longer
+  binds. Measured at the gate: deleting the reservation
+  (`available = … - title_space - folio_space` → `… - title_space`) **survives 187
+  tests** (44 + 17 + 126 across `test_book_toc.py`, `test_book_page_numbers.py`,
+  `test_book_finalise_gutter.py`), while deleting `create_toc_page`'s `_draw_folio`
+  call reds 2 tests in `test_book_page_numbers.py` plus the one-page-TOC
+  shortest-trim test in `test_book_toc.py`. What is load-bearing after this card is
+  `_draw_folio`'s own `content_bottom` slack check, which the amended guardrail names.
 - G-2: No new text-layout primitive — rows are set with `_guide_face`/`type_px`
   and `page_frame` like every other page (ADR-0036/R2).
 - G-3: `answer_caption` / `answer_title` behaviour unchanged — the answer pages'
@@ -279,7 +300,12 @@ mechanism are listed, mandatory first.)
   `TestBookPageNumbers_EveryInteriorPageCarriesAFolio` and
   `TestBookPageNumbers_ParityHoldsWithTheTocInserted` both pass unchanged in
   substance; `_toc_entries_per_page`'s folio reservation was not touched at
-  all. **G-2**: no new text-layout primitive — the dot run is sized from
+  all.
+  > **[Correction, AC/EC/G gate 2026-10-14]** The first of those two names does not
+  > exist in the test tree, so "passes unchanged in substance" was a claim about a
+  > test that was never run — it restated the card's own fabricated guardrail name
+  > instead of resolving it. The second name is real and does pass. G-1 is amended
+  > above; the *behaviour* is genuinely covered, by different tests. **G-2**: no new text-layout primitive — the dot run is sized from
   `entry_font.getlength(".")`, the same font-metric measuring the clip loop
   already did, on the same `page_frame`. **G-3**: `answer_caption`/`answer_title`
   are untouched and are now read only by the answer-page loop;
@@ -658,7 +684,12 @@ mechanism are listed, mandatory first.)
   `TestBookPageNumbers_EveryInteriorPageCarriesAFolio` and
   `TestBookPageNumbers_ParityHoldsWithTheTocInserted` both pass unchanged in
   substance; `_toc_entries_per_page`'s folio reservation was not touched at
-  all. **G-2**: no new text-layout primitive — the dot run is sized from
+  all.
+  > **[Correction, AC/EC/G gate 2026-10-14]** The first of those two names does not
+  > exist in the test tree, so "passes unchanged in substance" was a claim about a
+  > test that was never run — it restated the card's own fabricated guardrail name
+  > instead of resolving it. The second name is real and does pass. G-1 is amended
+  > above; the *behaviour* is genuinely covered, by different tests. **G-2**: no new text-layout primitive — the dot run is sized from
   `entry_font.getlength(".")`, the same font-metric measuring the clip loop
   already did, on the same `page_frame`. **G-3**: `answer_caption`/`answer_title`
   are untouched and are now read only by the answer-page loop;
@@ -1036,3 +1067,51 @@ mechanism are listed, mandatory first.)
   floor against the new metrics, re-records the affected baselines, and shrinks the
   `font_fingerprint`/`font_dependent_pages` gating this project has carried since
   CARD-146 — with this card's own two red-off-host tests as the proof it worked.
+
+- [AC/EC/G gate] 2026-10-14 — **FAILED on G-1, everything else evidenced.** Verdict from a
+  verification station that resolved every named test to a `file:line`, ran it targeted
+  (no full suite), checked each sentence against the assertion that carries it, and ran a
+  fresh mutant per item — deliberately avoiding cycle 1's 11/11 set, which never mutated
+  the guardrails or the contract rules.
+
+  | id | named test | result | mutant | killed |
+  |----|-----------|--------|--------|--------|
+  | AC-1 | `TestBookToc_ListsSectionsNotPuzzles` (`tests/test_book_toc.py:204`) | 4 passed | inject a `Puzzle 1 — Ice skate` row | 4/4 in class, 24 of 44 in file |
+  | AC-2 | `TestBookToc_PageNumbersMatchTheWalk` (`:357`) | 3 passed | range row's page `+1` | 3/3 |
+  | AC-3 | `TestBookToc_RangeRowsFollowTheLevelRuns` (`:447`) | 3 passed | `TOC_RANGE_DASH` en dash → hyphen | 3/3 |
+  | AC-4 | `TestBookToc_SkipsEmptyLevels` (`:517`) | 3 passed | append an unconditional `Medium` heading | 3/3 |
+  | AC-5 | `TestBookToc_KdpAgreesWithTheExportedCount` (`:595`) | 4 passed | `book_kdp.py:534` back to `len(ordered)` | 1 |
+  | AC-6 | `TestBookToc_LeaderDotsStayInsideTheGap` (`:698`) | 4 passed | drop the dot run's left clearance | 3/4 |
+  | AC-7 | `TestBookToc_EmptyBookHasNoTocPage` (`:1337`) | 3 passed | remove the `puzzle_count == 0` guard | 3/3, **and** the INV-013 property test |
+  | G-1 | *(name did not exist)* | — | see the amendment above | — |
+  | G-2 | review-lens | — | read all 82 added statements of the 683-line `book_pdf_generator.py` diff: four new top-level definitions, all pure content builders; the only added drawing sits inside the existing `create_toc_page` and uses `page_frame` / `_guide_face` / `type_px` / `_clipped_to` / `_draw_folio` only; **the src diff adds no import line at all** | PASS |
+  | G-3 | `TestBookSolvedPage_Caption*` (6 classes) | 31 passed | `answer_caption` drops `Puzzle N` | 3 — **and `test_book_toc.py` stayed 44 passed under the same mutant**, which is the positive proof that the TOC path no longer reads `answer_caption` at all |
+  | G-4 | `git diff main...HEAD -- src/nonogram/export/layout.py` | **0 lines** | — | PASS |
+  | G-5 | owner decision (title out of scope) | — | no assignment to `TOC_TITLE`, `TOC_ENTRY_PT`, `TOC_ENTRY_GAP_PT`, `GUIDE_TITLE_PT`, `FOLIO_PT`; the one new constant is `TOC_GROUP_GAP_PT = 8.5` | PASS |
+  | CON-020 | `TestInteriorType_EveryFaceHoldsTheFloor` (`tests/test_book_interior_type_floor.py:303`) | 4 passed | `TOC_ENTRY_PT` 10.0 → 9.0 | 2 |
+  | INV-013 | `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` (`tests/property/test_book_export_interior.py:582`) | 2 passed | the TOC's empty-book guard | 1/2 |
+  | INV-009 | `PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence` (`tests/property/test_book_order.py:400`) | 2 passed (`memory` + `db`, neither skipped) | `place_in_level` appends instead of inserting | 2/2 |
+  | ADR-0033/R1 | review-lens | — | over the same 82 added statements: no assignment to a puzzle key or payload attribute, no `.update(`/`.pop(`/`del` on a puzzle; `structural_toc_entries` reads and returns a new list | PASS |
+
+- [AC/EC/G gate — host-gate audit] The project's rule is that only a pinned figure may sit
+  behind a host gate, never a guardrail. Audited: `_lettered_as_recorded()` is used at
+  exactly two places in `tests/test_book_toc.py` (`:1239`, `:1320`) and both gate only
+  figures — `worst[0] == 59`, `worst[0] - folio_line == 10`, `headroom == 59`. The
+  guardrails beside them (`measured_toc_page_count(rows, frame, DPI) == 1`,
+  `room >= folio_line`, `measured >= 350`, `worst[1] == "10.00"`, `folios == ["3"]`,
+  `headroom >= 0`) are **ungated and run on any face**. The owner's chosen 10 px margin is
+  the one figure behind the gate, which F-004's record already states and the owner
+  accepted. **No guardrail is hidden by a host gate.**
+
+- [AC/EC/G gate — the third caller's evidence gap] AC-5 evidences two of
+  `measured_toc_page_count`'s three callers. The third —
+  `interior_page_count`'s sheet-free `toc_pages` default
+  (`src/nonogram/admin/book_pdf_generator.py:2825-2836`) — **was changed by this card but
+  is not evidenced by anything**: reverting it to the pre-card rule survives
+  `test_book_toc.py` (44 passed) and `test_book_export_interior_cover.py` (55 passed).
+  The mutant is not a no-op — measured on `default_toc_frame()`, structural vs per-puzzle
+  gives 1 vs 1 at n=3 and n=7, but **1 vs 2 at n=43 and 1 vs 4 at n=150**, so
+  `interior_page_count(150)` would silently report 310 instead of 307. Nothing catches it
+  because every test touching that default passes `puzzle_count ∈ {0, 1, 3, 7}`, where
+  both rules agree. Same shape as CARD-204's AC-7 gap, and resolved the same way the owner
+  resolved that one ("bound it with a test, then merge") — see Fix 4.
