@@ -503,3 +503,36 @@ mechanism are listed, mandatory first.)
     builds a per-puzzle `_create_table_of_contents`. Out of this card's scope
     and untouched, but it is now a second, contradicting statement of what a
     book's TOC is.
+
+- [Fix 1 complete] 2026-10-14 — committed `906583d` (4 files, `meta/` clean, verified).
+  `TOC_GROUP_GAP_PT = 10.0` declared beside `TOC_ENTRY_PT`/`TOC_ENTRY_GAP_PT` in the same
+  point idiom (42 px at 300 dpi), added to the pen before a heading row and **suppressed
+  for a page's first row**. The entries list, `TocEntry`, both entry functions and the
+  row count are untouched, so every row is still one line of `TOC_ENTRY_PT` and
+  `_toc_entries_per_page` stays a uniform division (G-2 clean). `TOC_TITLE` unchanged per
+  the owner's second answer.
+  **The number was measured, not chosen.** A full blank line (65 px) would leave 4 px
+  under the last row on the shortest trim that lays out at all (10 cm), where the folio
+  needs 49 — so `_draw_folio` would have silently omitted the page number, which is
+  exactly guardrail G-1. Three 42 px gaps leave 73 px.
+  **Capacity kept exact rather than made heading-dependent**, with overflow proved
+  impossible instead of guarded against: the structural list is at most 8 rows and 3
+  gaps, and the shortest laid-out trim holds 10 rows — verified for all 381 trim heights
+  from 10.00 to 48.00 cm, each asserting both a folio line of headroom AND
+  `measured_toc_page_count(8, frame, DPI) == 1`. The rejected alternative is recorded in
+  `_toc_entries_per_page`'s own docstring: dividing by `entry_height + group_gap` would
+  charge every row a gap only headings get (Book 1: 42 rows becomes 25) and would move
+  the figure for all three callers to pay for a split that never happens.
+  Teeth: the constant at `0.0` fails exactly the two new inequality tests; a mutant that
+  also gaps the top of a page fails exactly the suppression test. Baseline re-recorded in
+  place, `interior_bytes` 3491813 -> 3504840, with a page-by-page comparison confirming
+  **exactly one page differs (page 3)** and the other twelve byte-identical.
+  Targeted evidence: 29 + 17 + 45/1skip + 120 + 25 passed, and a 166-passed post-commit
+  re-run. Full suite deliberately not run — the merge gate owns that now.
+- [Open owner question, flagged not guessed] The sample also puts a blank line before
+  **`Solutions`**, but the decision as given was "a gap before each group HEADING", and
+  `Solutions` is a numbered row rather than a heading — so it now sits one ordinary line
+  under the Hard range row and reads as part of the Hard group. Separating it needs
+  either a flag on `TocEntry` (which the decision said to leave exactly as it is) or
+  `create_toc_page` recognising the last row. Rendered evidence for the owner's eye:
+  `~/Documents/nonogram-reviews/CARD-205/fix1-toc-page3-top.png`.
