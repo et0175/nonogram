@@ -2249,6 +2249,403 @@ merges first.
   because the tree that passed at `cb0c206` predates CARD-214's solver changes. The
   files are disjoint, but "disjoint files, surely fine" is precisely the assumption
   CARD-203 falsified at this card's first merge gate.
+
+- [Fix 8 verified] 2026-10-14 — committed `d78c7a9` (4 files, +390/-22).
+  Orchestrator-verified: `meta/` clean, and **the baseline tripwire held — zero files
+  under `tests/fixtures/` changed**, so the fix did not re-bless a moved page (that
+  inversion is how a regression gets blessed, which is why the tripwire was set).
+  **F-1 (Critical) fixed and proven both ways.** `_packed_answer_page` now takes
+  `content_right` from the corner tile's own caption box, inside the same
+  `right_hand and corner_caption is not None` guard that already widens
+  `content_bottom` — mirroring `solved_puzzle_page` exactly. Teeth, by
+  render-minus-reference (module-level `_draw_folio` monkeypatched to a no-op for the
+  reference render, so caption ink and folio ink separate): on **21.59 x 22.86 cm
+  (8.5" x 9", a standard KDP trim)**, capacity 4, 11x11, page 9, a 64-character name —
+  BEFORE: `drawing_right` 2383, the caption's real right edge 2462 (clamped, +79 px),
+  folio glyph box from column 2447, folio drawn, **20 px of caption ink inside it and
+  5 pixels of literally shared ink**; AFTER: the folio yields (not drawn). Negative
+  control (title "Owl", same trim and shape): not clamped, 0 shared pixels, folio drawn
+  before and after — the fix does not cost a page its folio. Removing the one
+  production line makes the new test fail; restored, 6 pass.
+  **Honest discrepancy reported rather than smoothed:** the agent could not land the
+  reviewer's own 8.5 x 11 / 10x13 configuration (there the caption is omitted or the
+  folio has vertical room), so the defect is confirmed at a different point of the same
+  class — 2 predicate splits in its sweep against the reviewer's 4. Sweeps differing,
+  not the defect.
+  **The latent left-parity mirror was NOT taken, by the brief's own rule, and the
+  reason is the right one:** `_draw_solved_slot` returns `(caption_bottom,
+  caption_right)` and the caption's LEFT edge is not derivable from those (the width is
+  never reported), so closing it needs a third element on that return tuple plus both
+  consumers' unpacking — i.e. the return contract this cycle is scoped out of by owner
+  decision. It stays latent, not live (`_draw_folio` reads `content_left` only on a
+  left-hand page, where F-101's fold-in is `right_hand`-gated so the vertical half
+  never fires), and is recorded at the call site for the retro.
+  **F-2 (Important) was a TEST gap, not a code defect** — the `min(..., usable_right)`
+  and its comment were already right. The sweep grew 104 -> 130 cases with a second
+  assertion that 26 of them are the overflow regime, so it cannot silently drop out;
+  the reviewer's surviving M3 now fails 2 tests. The ODD-page no-op was asserted rather
+  than assumed. The denying docstring in `book_pdf_generator.py` now states the real
+  condition with the 32 px / 2.7 mm figure.
+  **F-3 (docs)** corrected in the `[Fix 7]` note AND in a second place carrying the
+  same stale figure — `test_the_caption_is_still_strictly_inside_the_usable_area`'s
+  docstring, written by Fix 7 from the same measurement.
+  Targeted evidence: 271 passed, 1 skipped (the pre-existing `setrlimit` carve-out)
+  across the four touched files; `interior_bytes` still 3441912.
+- [Decision, mine] No review cycle 6. Cycle 5 reviewed 835 lines including a new public
+  layout API; Fix 8 changes ONE argument at one call site, mirroring a call site cycle 5
+  itself verified, with a test that fails when the line is removed, a negative control,
+  and a fixture tripwire that held. The owner's 2026-10-14 decision was the narrow fix
+  and merge. Recording the reasoning because the card's own history argues the other
+  way, and if this judgement is wrong it should be legible later.
+
+- [Notes sync 2026-10-14, post-Fix-8] agent notes pulled one-way from the
+  worktree copy, verbatim:
+
+  - [Fix 7] 2026-10-14 — **merge-gate cycle on the merged tree (branch + main's
+    CARD-203). Code + test + baseline; not a doc cycle.** All four gate failures
+    fixed, and the first of them was misdiagnosed in the gate entry — the
+    correction is the first thing below, because it changes what the "real defect"
+    is. (That `[Merge gate]` entry lives in the main repo's working copy of this
+    card, which this worktree copy predates; I did not edit the main repo. The four
+    failures it lists are quoted where each one is answered below.)
+
+    **1a. What the failing AC-3 test was actually failing on — not the caption.**
+    `test_the_caption_is_still_strictly_inside_the_usable_area` scanned the WHOLE
+    slack band (`drawing_bottom` .. `usable_bottom`, full page width) for dark
+    columns and required every one of them to sit inside
+    `[usable_left, usable_right]`. The ink it found at column 111 against
+    `usable_left` 113 is **the drawing's own bottom border rule**, not the
+    caption: `_stroke_drawing` strokes the grid's heavy outer border centred on
+    the boundary, so it overhangs the drawing's edges by about half a rule — 2 px
+    — and the band's first rows are that overhang. Measured on the failing page:
+    the border's ink runs columns 111..1444, the caption's runs columns 986..1438,
+    i.e. 873 px clear of `usable_left` on the inside. The same 2 px bleed is
+    already documented and tolerated by this card's own twin test
+    (`TestBookSolvedPage_CaptionReadsThePictureName::test_the_caption_is_drawn_inside_the_usable_area_only`,
+    `bleed = 2`, with a comment saying CARD-204's flush edge makes it reachable);
+    CARD-203's AC-3 twin arrived from main without that tolerance and never met
+    the flush drawing until the merge. So failure 1 is a **test-partition defect**:
+    the test's band includes ink the test's own claim is not about. Fixed by
+    splitting the band — the drawing's border rows keep AC-5's documented 2 px
+    bleed, and the caption's own rows (everything below the overhang, where the
+    caption and the folio are) keep the strict claim with **no** tolerance at all,
+    which is stronger than copying AC-5's blanket tolerance would have been. The
+    narrowing trick is the one the sibling test in the same class already uses
+    (`overhang = 5`).
+
+    **1b. The real defect the gate entry described is nonetheless real — just not
+    what that test catches, and it is now fixed and pinned.** CARD-203 right-aligns
+    the caption at `placement.drawing_right`; a caption **wider than its own grid**
+    therefore extends left past `drawing_left`. A caption is as wide as the
+    picture's name — free text from the Arrangement step, nothing bounds it — while
+    a grid is as wide as the puzzle, so the two are not ordered. While the drawing
+    was centred the overhang spent the page's own horizontal spare; with this card's
+    flush alignment an EVEN page has `drawing_left == usable_left`, so it crosses
+    into the trim margin. Measured before the fix, on the same 10x10 cap-bound
+    shape the AC-3 test uses: a 65-character picture name (caption 1705 px against a
+    1328 px drawing) puts the caption's leftmost ink at column **0** against
+    `usable_left` 113 — 9.6 mm into the margin and running off the page edge — and a
+    133-character name (caption 3032 px, wider than the 2287 px usable area itself)
+    does the same on the ODD page too. The corpus never produced it: this book's four
+    captions measure 321-459 px.
+
+    **The fix, and what it is not.** `export/layout.py` gains `caption_slot(layout,
+    text_width) -> CaptionSlot | None`, a third additive measurement over an
+    already-computed `Layout` beside `header_band` and `qr_slot` (same shape, same
+    ADR-0036/R2 reason: the renderer measures its own text because only it knows the
+    face; where that width may sit is COMP-007's call). It reports the caption's box:
+    `right` is `drawing_right` whenever the text fits between that edge and
+    `usable_left` — every caption a real book prints, so CARD-203's right-alignment is
+    bit-for-bit untouched — and is pushed right by **exactly** the overhang and no
+    more when it does not, so an over-wide caption's left edge lands *on*
+    `usable_left`. `measure` is the usable width, and a caption wider than that (no x
+    keeps it inside) is clipped to it by the renderer with `_clipped_to`, the TOC's
+    own ellipsis loop, extracted unchanged from `create_toc_page` and now shared with
+    the caption (the TOC's bytes are unmoved — baseline page 3 is still byte-identical
+    to CARD-200's recording, which is the proof). `compute_pair_layout`, `_slot_layout`
+    and `_folio_reserve_px` are untouched, as required. `_draw_solved_slot` now reports
+    the clamped right edge back to `solved_puzzle_page`, so CARD-203's own
+    caption-vs-folio collision check sees where the caption really is.
+
+    **Rejected, with reasons.** (a) *Shrink the caption's type to fit its grid* —
+    **not available at all**, not a judgement call: `ANSWER_TEXT_FONT_MM` is literally
+    `10 * 25.4 / 72`, i.e. CON-020's 10 pt floor for reader-facing interior text, and
+    `TestBookSolvedPage_TextHoldsTheTenPointFloor` asserts it; any shrink violates
+    CON-020 on the first pixel, so there is no "floor that might bind" to check — the
+    caption is already standing on it. This is also why no owner decision is needed
+    here: the option that would have required one does not exist. (b) *Truncate every
+    over-wide caption* — rejected as the primary fix (a clipped picture name on the
+    answer page the reader turned to is worse than a shifted one), but kept as the last
+    resort for the one case geometry cannot answer, where the alternatives are clipping
+    or printing in the margin. (c) *Pull the drawing itself in by half a rule so no ink
+    ever leaves the usable area* — rejected: it re-opens this card's accepted flush
+    formula, moves every drawing page and every geometry expectation in the suite, and
+    the 2 px border bleed it would remove is a decision this card already took and
+    documented (AC-5's `bleed = 2`). (d) *Left-align the caption on EVEN pages* —
+    rejected: it discards CARD-203's shipped decision on every page instead of only
+    where the margin forces it.
+
+    **The new test, and its pre-fix failure.**
+    `tests/test_book_solved_page.py::TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin`
+    — both parities, both regimes (wider than its grid, wider than the whole usable
+    area), the premises asserted so they cannot go vacuous, the clamp's exactness
+    pinned (left edge on `usable_left`, not merely inside), the parity asymmetry pinned
+    (the same caption needs no clamp on an ODD page, whose flush edge is the other
+    one), the clip pinned on the drawn string itself ("Puzzle N" survives, the name
+    loses its tail), and a negative control that a book-length caption is neither
+    clamped nor clipped. **Pre-fix: 8 of its 13 tests fail** (`git stash` of the two
+    source files only, test file kept): both `no_caption_ink_leaves_the_usable_area`
+    parity x regime cases that can reach the margin, all three clamp-exactness cases,
+    and both clip cases; the premises and the negative control pass, as they must.
+    Plus `tests/test_layout_page_spec.py::TestCaptionSlot_NoWidthEverLeavesTheUsableArea`
+    — the geometry's own total claim, swept over 4 shapes x 2 parities x 13 widths
+    (104 cases, count asserted) from -10 px to 20000 px, including the page-fit-bound
+    30x30 where the flush edge and the margin coincide: no width on any shape or parity
+    yields a box outside the margins.
+    Plus the **packed** half of the same claim, which is not a duplicate of the
+    full-page one:
+    `tests/test_book_solved_answer_key.py::TestBookSolvedAnswerKey_PackedCaptionWiderThanItsTileStaysInside`.
+    A packed slot's `PagePlacement` carries its **tile's** box as the usable area
+    (`_packed_tile_layout`), and a tile is half a page wide, so an over-wide caption
+    is both likelier there and bounded by a different rectangle — and
+    `_draw_solved_slot` must ask `caption_slot` about the *slot* it was handed, not
+    the page. Measured pre-fix on both parities: the packed caption's ink starts at
+    column 0 against a tile whose `usable_left` is 113, i.e. 113 px outside its own
+    tile and across the gutter. **Pre-fix: 2 of its 6 tests fail** (both
+    `no_caption_ink_leaves_the_tile` parities); its premise and negative-control
+    tests pass, as they must. Post-fix: 6 passed. A future edit that handed
+    `caption_slot` the whole page instead of the slot fails here while every
+    full-page test stays green.
+
+    **2. Baseline re-recorded (`tests/fixtures/book_baseline_card204.json`, fifth
+    revision in place, same filename and convention).** `interior_bytes` 3440084 ->
+    3441912 (+1828), and **exactly three page digests move: 11, 12 and 13 — all three
+    under main's CARD-203, none under Fix 7.** They are this book's three
+    caption-drawing pages (Duck+Owl packed, Tree packed alone, Snowflake full), and
+    CARD-203 right-aligns their caption and lifts it to a fixed 2 mm gap. The
+    attribution is measured, not asserted in prose: the recorder script verified
+    before writing that those three pages now equal `book_baseline_card203.json`'s own
+    digests exactly and differed from the Fix 4 recording, and the +1828 bytes are the
+    identical delta CARD-203's own recording added over CARD-200's on this same book
+    (3420073 -> 3421901) on main, with none of this card's changes present. **Fix 7's
+    own change moves no page of this corpus**: the clamp fires only above a caption
+    width this book never reaches, and the export is byte-identical with and without it
+    (3441912 either way, measured both ways) — so this fixture is deliberately NOT the
+    clamp's evidence; the new test class above is. Pages 1-10 are byte-identical to the
+    Fix 4 recording; `font_fingerprint` (reproduced on this machine first) and
+    `font_dependent_pages` are unchanged. `interior_bytes_note` rewritten — it had
+    still described Fix 4's figures. No earlier fixture touched, none deleted;
+    `book_corpus.py`'s chain comment carries the new bullet, and its two contradictory
+    leftover count lines ("thirteen"/"twelve") are now one accurate line (fourteen
+    files, since CARD-203 joined the chain between this card's Fix 4 and Fix 7).
+
+    **3. The mis-attributed expectation, repartitioned.**
+    `TestBookPdfMemory_NonDrawingPagesAreByteIdentical` claimed all eight non-drawing
+    pages "carr[y] no drawing, so CARD-204 must leave [them] byte-identical to the
+    CARD-200 baseline". False of pages 11-13 and blaming the wrong card. Fixed by doing
+    **both** honest repairs, because each alone leaves a hole: `STRICTLY_UNCHANGED_PAGES`
+    is now the TOC and the four dividers (3, 4, 6, 8, 10), which still owe CARD-200
+    byte-identity and still deliver it (0 px differ); a new `CARD203_CAPTION_PAGES`
+    (11, 12, 13) owes the same strict digest identity to `book_baseline_card203.json`,
+    the last recording taken before this branch's changes and the first that holds the
+    caption move (new `test_the_three_answer_pages_still_match_the_card203_baseline`,
+    with an assertion that none of those pages is machine-lettered, so the comparison
+    needs no face gate); and the attribution itself is now measured by
+    `test_the_three_answer_pages_moved_under_card203_not_this_card` — those pages
+    differ from CARD-200 *and already differed in CARD-203's own recording*, which is
+    what makes "CARD-203 moved them" a fact about the fixtures. Dropping them from the
+    comparison was rejected (a page nobody compares is a page with no evidence). The
+    class's partition-completeness assertion is kept and strengthened (the union covers
+    every baseline page, and the group sizes sum to the page count, so no page can sit
+    in two groups), and both negative controls are kept
+    (`test_every_drawing_page_actually_moved` for 5/7/9, the guide-page scatter bound
+    for 1/2).
+
+    **AC-7's wording — needs amending, but not for the reason the gate entry gave.**
+    AC-7 already excludes answer pages by its own text ("every page that is not a
+    puzzle/two-up/answer page (the guide, dividers)"), so CARD-203's caption move does
+    **not** falsify its scope — the mis-attribution was entirely in the test, which had
+    silently widened the AC to pages 11-13. What AC-7 does still get wrong predates
+    Fix 7: it promises byte-identity for "the guide, dividers" when the two guide pages
+    are a known, measured exception (the sub-pixel scatter), and the test it names
+    asserts they *differ*. Proposed amendment, for the decompose station: *"**AC-7**
+    (negative, byte-identity elsewhere): Given any book, when the TOC and every divider
+    page — the pages that carry neither a drawing nor a caption — are compared against
+    `book_baseline_card200.json`, then each is byte-identical. The two guide pages are
+    the documented exception: they borrow `compute_layout` only for their worked
+    examples' cell pitch and rule widths, and differ by a bounded sub-pixel scatter
+    only (AC-7b). The three answer pages are outside this AC: this card moves nothing on
+    them, and main's CARD-203 moves all three, so their byte-identity is owed to
+    `book_baseline_card203.json`."* Separately, **"AC-7b" appears in the test file and in
+    this card's Fix 6 notes but was never written into the Acceptance criteria section** —
+    the owner's 2026-10-13 "bound it with a test, then merge" decision should become its
+    own AC bullet there.
+
+    **Test evidence.**
+    - `tests/test_book_solved_page.py` — 50 passed (13 of them the new class).
+    - `tests/test_book_solved_answer_key.py` — the new packed class: 6 passed.
+    - `tests/test_layout_page_spec.py` — 110 passed (5 of them the new class).
+    - `tests/test_book_pdf_memory.py::TestBookPdfMemory_NonDrawingPagesAreByteIdentical`
+      — 6 passed (two of them new).
+    - `tests/test_book_pdf_memory.py`, `tests/test_book_solved_answer_key.py`,
+      `tests/property/test_book_export_interior.py`, `tests/test_book_toc.py`,
+      `tests/test_book_solved_page.py`, `tests/test_layout_page_spec.py` together —
+      270 passed, 1 skipped (the pre-existing font-fingerprint carve-out), exit 0.
+    - **Full suite from the worktree (`pytest -p no:warnings -rf`): `6901 passed,
+      9 skipped in 1227.47s (0:20:27)`, exit 0** (pytest's own exit code written
+      into the run's log as its last line, `PYTEST_EXIT=0`, and read in a separate
+      command from any other action — the corrected practice this card's own
+      process-failure note records).
+      **The count reconciles exactly**: the merge gate ran 4 failed + 6871 passed
+      = 6875 tests; this run is 6875 + 26, and the 26 are precisely the tests this
+      fix adds — 13 (`TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin`)
+      + 6 (`TestBookSolvedAnswerKey_PackedCaptionWiderThanItsTileStaysInside`)
+      + 5 (`TestCaptionSlot_NoWidthEverLeavesTheUsableArea`) + 2 (the two new
+      attribution tests in `TestBookPdfMemory_NonDrawingPagesAreByteIdentical`).
+      0 failed, and the 9 skips are the gate's own 9, unchanged.
+
+  - [Fix 8] 2026-10-14 — **review cycle 5's two findings, closed narrowly.** Owner
+    decision for this cycle: fix these two, do **not** restructure the mechanism —
+    the structural root cause (one value, two consumers, only one taught) goes to
+    the retrospective as a candidate standing rule instead. `compute_pair_layout`,
+    `_slot_layout` and `_folio_reserve_px` untouched, as in every cycle since Fix 5.
+
+    **F-1 (CRITICAL) — a clamped packed caption overprinted the folio. Confirmed,
+    reproduced, fixed.** The reviewer was right on every count. Fix 7 moved the
+    caption's reported right edge from `placement.drawing_right` to `box.right` and
+    taught only the FULL-PAGE consumer; `_packed_answer_page` still passed
+    `content_right = corner_placement.drawing_right` into `_draw_folio`, and its own
+    comment still asserted the premise Fix 7 had falsified ("the caption's right
+    edge coincides with it"). Because a packed tile's drawing is *centred* in its
+    tile, the tile has right-hand spare for the clamp to spend, and on the corner
+    column of a right-hand page the tile's `usable_right` IS the folio's corner.
+    - *Changed*: `src/nonogram/admin/book_pdf_generator.py` — `content_right` is now
+      taken from the corner tile's own caption box (`corner_caption[1]`) inside the
+      same `right_hand and corner_caption is not None` guard that already widens
+      `content_bottom`, exactly mirroring `solved_puzzle_page`'s `content_right =
+      caption_right`. The false comment is deleted and replaced with the
+      reproduction and the reason; a Fix 8 paragraph in `_packed_answer_page`'s
+      docstring retires its "always right-aligned at that tile's own
+      `drawing_right`" claim.
+    - *Teeth (render-minus-reference, folio monkeypatched to a no-op for the
+      reference render, so caption ink and folio ink are separable)*. My own sweep
+      (6 trim widths x 5 trim heights x capacities 2 and 4 x grid sides 10..30,
+      page 9) found **2** configurations where the predicate splits — clamp active,
+      no vertical room, stale figure reads "clear", real figure reads "not clear":
+      trim 21.59 x 22.86 cm and 20.32 x 22.86 cm, both capacity 4, 11x11, at
+      KDP-minimum margins. (I could not land the reviewer's own 8.5 x 11 / 10x13
+      configuration — at that shape on this tree the caption is omitted or the
+      folio has vertical room — so the defect is confirmed at a different point of
+      the same class, not at their exact one. 4 hits vs. my 2 is the sweeps
+      differing, not the defect.) Measured at 21.59 x 22.86 cm, capacity 4, 11x11,
+      page 9, 64-character picture name, **before the fix**: corner tile
+      `drawing_right` 2383, the caption's real right edge 2462 (clamped, +79 px),
+      the folio's own glyph box starting at column 2447, **folio drawn: True**,
+      **20 px of caption ink inside the folio's glyph box** and **5 pixels of
+      literally shared ink** (the caption-only render's dark mask intersected with
+      a folio-only render's). **After the fix**: folio drawn: False — the folio
+      yields, the content wins, CARD-200's own precedent. Negative control on the
+      same trim and shape with the title "Owl": caption not clamped (right edge
+      2383 = `drawing_right`), 0 shared pixels, **folio still drawn both before and
+      after**, so the fix does not cost a page its folio.
+    - *Pinned*: 3 tests added to the EXISTING
+      `TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio` (its
+      monkeypatch-the-folio-away harness needed only a trim, a shape and a long
+      title): one asserting all four conditions of the predicate split hold for
+      this configuration (clamped past `drawing_right`; reaching the folio's glyph
+      box; no vertical room; the stale figure reading "clear") so the other two
+      cannot pass vacuously, one asserting the folio is omitted, and one negative
+      control asserting it still prints for an unclamped caption. **Teeth proven**:
+      with the one production line removed,
+      `test_the_folio_yields_to_a_clamped_corner_caption` fails (`1 failed, 5 passed`); restored, `6 passed`.
+    - *The latent left-parity mirror was NOT taken, deliberately.* The same root
+      cause applies to `content_left` <- `drawing_left`, and the reviewer could not
+      drive it to an overprint (CARD-203's F-101 fix gates the `content_bottom`
+      fold-in on `right_hand`, and `_draw_folio` reads `content_left` only on a
+      left-hand page, so the vertical half of the predicate does not fire there).
+      Closing it is **not** the same one-line shape: `_draw_solved_slot` returns
+      `(caption_bottom, caption_right)` and the caption's left edge is not
+      derivable from those two (the width is not reported), so it would need a
+      third element on that return tuple — its *shape* — plus both consumers'
+      unpacking and both `Optional[Tuple[int, int]]` annotations. That is the
+      return contract this cycle is scoped out of by owner decision, and the brief's
+      own rule ("if fixing it requires changing the return contract's shape, stop at
+      the live one and say why") applies. Recorded in the call-site comment as
+      latent, with the reason, so the retro's standing-rule discussion inherits it.
+
+    **F-2 (IMPORTANT) — the `min` stop survived mutation; the renderer's docstring
+    denied it. Confirmed, both halves fixed.** Reproduced the reviewer's exact
+    figures: a 30x30 on a 10.0 cm trim at KDP-minimum side margins, EVEN page,
+    gives `fits = False`, `drawing_right` 1138 against `usable_right` 1106 — so a
+    300 px caption, one that fits with room to spare, has its right edge at 1106
+    instead of 1138: CARD-203's alignment moves 32 px / 2.7 mm inward. On the ODD
+    page of the same spec the overflow spills the other way (`drawing_right ==
+    usable_right`), so the `min` is a no-op there — asserted, not assumed.
+    - *Changed (test)*: `tests/test_layout_page_spec.py` —
+      `TestCaptionSlot_NoWidthEverLeavesTheUsableArea` gains `OVERFLOW_SPEC`
+      (Book 1 at a 10.0 cm trim and 6.35 mm side margins) and an
+      `_overflow_layouts()` generator that asserts `fits` is False before yielding,
+      kept separate from `_layouts()` because the class's two `fits`-True claims
+      (CARD-203 right-alignment, and the clamp's `max`) are false by design on an
+      overflowing layout. The containment sweep now chains both generators: 104 ->
+      **130** cases (`(4 + 1) x 2 parities x 13 widths`), with a second count
+      assertion that **26** of them are the overflow regime so it cannot silently
+      drop out. New test
+      `test_an_overflowing_layout_stops_the_caption_at_the_margin` pins what the `min` promises (`box.right == page.usable_right` for
+      every width, plus the left edge) on both parities.
+    - *Teeth (mutation)*: dropping `min(..., usable_right)` from
+      `caption_slot` — the reviewer's surviving M3 — now **fails 2 tests**
+      (`test_every_width_on_every_shape_and_parity_stays_inside` and the new
+      `test_an_overflowing_layout_stops_the_caption_at_the_margin`): `2 failed,
+      4 passed`. Restored: `6 passed`. No production code in `layout.py` changed —
+      the `min` and its comment were already right; what was missing was a test.
+    - *Changed (doc)*: `_draw_solved_slot`'s docstring no longer claims "for every
+      caption that fits beside its own grid the two are the same pixel, so
+      CARD-203's right-alignment is untouched". It now states the real condition —
+      alignment is preserved exactly where the *drawing itself* fits
+      (`PagePlacement.fits`) and the caption fits beside it — and names both
+      deliberate departures, with the 32 px / 2.7 mm figure and a pointer to
+      COMP-007's own comment and to the new test.
+
+    **F-3 (MINOR, documentation) — the two figures that did not reproduce, fixed.**
+    Re-measured on the AC-3 shape, page 2, at this tree: `usable_left` 113,
+    `usable_right` 2400, `drawing_left` 113, `drawing_right` 1441; the drawing's
+    border rows carry ink from column 111 to 1444 (the 2 px bleed, as claimed), and
+    **the caption's own one-line band carries ink from column 986 to 1438**, i.e.
+    **873 px** clear of `usable_left`. The reviewer's re-measurement is right on
+    both figures and the `[Fix 7]` note's "986..1398 ... 127 px" is wrong on both.
+    Corrected in the `[Fix 7]` note above (this worktree copy; the main repo's copy
+    is not mine to edit), and in the one other place the same stale 1398 was
+    written down — `test_the_caption_is_still_strictly_inside_the_usable_area`'s own
+    docstring in `tests/test_book_solved_page.py`, which Fix 7 wrote at the same
+    time from the same measurement. Everything else in that block reproduced
+    exactly.
+
+    **Test evidence (targeted runs only — another card's agent is working on this
+    host; the full suite is the merge gate's).**
+    - `tests/test_book_solved_answer_key.py` — **67 passed** (64 before; the 3 new
+      F-1 regression tests). The collision class alone: 6 passed (3 before).
+    - `tests/test_layout_page_spec.py` — **111 passed** (110 before; the 1 new
+      overflow test). `TestCaptionSlot_NoWidthEverLeavesTheUsableArea` alone:
+      6 passed (5 before), now 130 swept cases instead of 104.
+    - `tests/test_book_solved_page.py` — **50 passed** (docstring-only change).
+    - `tests/test_book_pdf_memory.py` — **43 passed, 1 skipped** (the pre-existing
+      `setrlimit(RLIMIT_AS)` platform carve-out, unchanged).
+    - All four files together — **271 passed, 1 skipped**, exit 0.
+
+    **The baseline fixture did not move.** `tests/fixtures/book_baseline_card204.json`
+    is byte-unmodified (absent from `git status`), and
+    `TestBookPdfMemory_PagesAreUnchanged::test_the_interior_file_is_the_length_it_was_recorded_with`
+    passes against it: **`interior_bytes` is still 3441912**. As
+    expected — Fix 7's clamp is inactive for every caption the corpus book prints
+    (321-459 px against a 2287 px measure), so Fix 8, which only changes what a
+    *clamped* caption reports to the folio, cannot reach any page the corpus has.
+
+    **Not done, by scope**: `compute_pair_layout` / `_slot_layout` /
+    `_folio_reserve_px` untouched; `_draw_solved_slot`'s return contract unchanged;
+    F-4 (info, `_clipped_to`'s single-character floor) left alone as the reviewer
+    filed it — pre-existing CARD-200 code, unreachable by ~56x margin, and changing
+    its floor would move the TOC's bytes.
 ## System contract
 
 _Not yet assembled — run `python3
