@@ -348,3 +348,20 @@
 
   Committed as `814854d` on `card/211-region-own-control` (explicit
   pathspecs; nothing under `meta/` staged).
+
+- [Owner decision 2026-10-14] **Make the two controls independent: picking a brush
+  must NOT turn Region off.** This reverses CARD-194's behaviour #3, which made sense
+  only while Region was one of five items in a single dropdown (selecting another item
+  naturally replaced it); with Region a separate toggle, two independent-looking
+  controls that silently interact is the wrong behaviour. The change is to drop the
+  `"brush"` event from `nextRegion`'s transition table and the `setRegion` call in
+  `pick()`, and to pin the new behaviour with a test (the existing
+  `TestSolverRegion_DoesNotChangeTheBrush` covers the converse direction; this needs
+  its mirror — picking a brush leaves `aria-pressed="true"` and the next drag still
+  marks).
+  Note for whoever implements it: this is now a DELIBERATE divergence from CARD-194's
+  shipped semantics, so the brief's "semantics stay unchanged" rule no longer covers
+  this one transition — update the transition table's own docstring and the template's
+  comment block to say which card decided what, or the next reader will read it as
+  drift. Folded into the fix cycle that follows review cycle 1 rather than run as a
+  cycle of its own.
