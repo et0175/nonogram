@@ -1,4 +1,4 @@
-wave: 37
+wave: 38
 mode: interactive
 # Owner 2026-10-13: concurrency capped at 2 (config max_concurrent is 5); "merge both
 # when the fixes land"; "start the next pair after merging". Merges run SEQUENTIALLY and
@@ -51,7 +51,7 @@ queued:
   - id: CARD-206
     reason: "CARD-204 and CARD-205 both merged, but now queued behind CARD-221 on the same book_pdf_generator.py hotspot AND architecturally blocked in substance: the card needs an INV-013 / FR-043 amendment (the interior currently starts at the guide page as right-hand page 1, and a blank title page moves that) which only the architect station can make. Do not start it before that pass."
   - id: CARD-217
-    reason: "P1 and ready, but its whole method is to profile the suite with nothing else running - it CANNOT share the machine with another card's test run. Needs a solo slot, which is an owner scheduling call: the suite is now 1042s per gate (398s at wave 30), so every card after it pays for the delay."
+    reason: "OWNER-SCHEDULED NEXT, ALONE (2026-10-14): runs by itself as soon as CARD-221 and CARD-212 have merged, and nothing else starts until it is done. Its method is to profile the suite with nothing else on the machine, so a concurrent card would corrupt the measurement it exists to take."
   - id: CARD-216
     reason: "eligible, but conflicts with CARD-212 on the same template + statics; starts when CARD-212 frees its slot"
   - id: CARD-213
@@ -73,6 +73,13 @@ conflict_edges:
     reason: "predicted: tests/test_puzzle_solver_clues.py (overlap 0.50 >= 0.3)"
   - pair: [CARD-204, CARD-203]
     reason: "observed at the merge gate: tests/helpers/book_corpus.py (baseline chain, resolved manually) AND a real geometric interaction - CARD-203's right-aligned caption against CARD-204's flush drawing (see conflict-history.yml)"
+# NOTE 2026-10-14 (owner): this run is wave 38, not 37 - the board's wave table already
+# recorded wave 37 as complete with CARD-197/198/199, so the number was used twice. All six
+# cards of this batch (204, 214, 205, 211, 221, 212) were renumbered, the two closed ones
+# included, so one batch is not split across two wave numbers.
+# NOTE 2026-10-14 (owner): CARD-217 runs NEXT AND ALONE, once CARD-221 and CARD-212 merge.
+# Do not start another pair before it. The suite is 1042s per merge gate against 398s at
+# wave 30, and CARD-218/219/220 are blocked behind it.
 # NOTE 2026-10-14T14:20Z: CARD-205 merged (d30e0f0) and the next pair started per the
 # owner's "start the next pair after merging": CARD-221 (P1, freed by this merge) and
 # CARD-212 (P2, freed by CARD-211's). They share no file. Flagged for the owner: CARD-217

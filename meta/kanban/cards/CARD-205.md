@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 1: "PDF book - Table of contents - let's don't not have individual puzzles in ToC - only How-to-Solve, Easy-medium-hard divisors and Solutions"; restated later in the same doc under "Add table of contents" with the same sample)
 **Idea:** —
-**Wave:** 37
+**Wave:** 38
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py
 **Review score:** 8.8/10 (cycle 1/3) — 0 critical, 1 important (F-001, a false docstring claim), 3 minor; 4 fix cycles; AC/EC/G gate passed after G-1 was amended

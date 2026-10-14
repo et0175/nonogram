@@ -12,7 +12,7 @@
 **Worktree:** ../PythonProject4-CARD-212
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 3: "Solver - mobile mode - clues - show clues on both sides of the puzzle (on the right and on the left and on the top and on the bottom) for big puzzles, not just in the right or bottom")
 **Idea:** —
-**Wave:** 37
+**Wave:** 38
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_mirror.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_zoom.py
 **Review score:** —

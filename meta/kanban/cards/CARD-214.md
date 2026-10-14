@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("## Puzzle generator — This one has a flaw: for now it's more likely to get a «there's no unique solution» then the real picture. So I propose to include black\\white cells in the puzzle grid to make it uniquely solvable"; "## Infrastructure — add to generator an option: generate with some answer provided if it fails to generate unique solutions (I think we'll apply it to single puzzle generation, not batch) as POC"); owner decision 2026-10-13 via AskUserQuestion — "Cut them now as POC cards"
 **Idea:** —
-**Wave:** 37
+**Wave:** 38
 **Depends on:** —
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, src/nonogram/orchestrator.py, src/nonogram/errors.py, tests/property/test_solver_uniqueness.py, tests/helpers/brute_force_oracle.py, tests/test_solver.py, tests/test_given_cells.py, tests/property/test_given_cells.py
 **Review score:** 8.1/10 (cycle 1/3; fix cycle 1 closed F-1 and four minors) — AC/EC gate passed, awaiting merge gate

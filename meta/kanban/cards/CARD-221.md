@@ -12,7 +12,7 @@
 **Worktree:** ../PythonProject4-CARD-221
 **Source:** CARD-205 review cycle 1 finding F-004, then a dedicated measurement round (2026-10-14); owner decision 2026-10-14 — keep CARD-205's 8.5 pt and card the root cause instead, having confirmed that book PDFs are generated **both** locally and through the deployed panel
 **Idea:** —
-**Wave:** 37
+**Wave:** 38
 **Created wave:** 37
 **Deferred waves:** 0
 **Depends on:** CARD-205

@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 2: "Solver please place "Region" select option separately from "Black\\White\\Maybe\\Undecided" dropdown")
 **Idea:** —
-**Wave:** 37
+**Wave:** 38
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_page.py, tests/test_admin_design_tokens.py
 **Review score:** 9.0/10 (cycle 1/3) — 0 critical, 0 important, 3 minor; gate does not block
