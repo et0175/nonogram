@@ -15,7 +15,7 @@
 **Wave:** 38
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_mirror.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_zoom.py
-**Review score:** —
+**Review score:** 8.5/10 (cycle 2/3) — clears the gate; 0 critical, 0 important, 5 minor. Cycle 1 was 7.0 with 3 gating.
 **Started:** 2026-10-14T14:20:00Z
 **Closed:** —
 **Actual:** —
@@ -709,3 +709,36 @@ disagree, the ledger is authoritative._
     (~5 px past the stage's visible box at 1200x1100, now pinned at `<= 6` instead of `<= 10`);
     the mirrored + doubled-columns composition is unreachable under a 24 px bar and so stays
     unclaimed and untested; M11 remains equivalent, which the reviewer independently re-derived.
+
+- [Review cycle 2] 2026-10-14 — **8.5/10, clears the gate** (min_score 8; +1.5 against a
+  min_improvement of 0.5). **0 critical, 0 important, 5 minor.** Report:
+  `meta/review/20261014T171244Z-CARD-212-cycle2.yml`. All three gating findings closed **in the
+  strong form**, and the reviewer verified rather than accepted each one:
+  - **F-001** — the reviewer re-ran their own cycle-1 instrument and at each window compared the
+    resized board against a **reload of the same puzzle in the same session**: duplicate count,
+    tfoot rows, mirrored flag, cell width and stage overflow were identical at all four stops,
+    **both directions**. The stage's scroll offset survives a redraw (scrollTop 91 before and
+    after a 1 px resize), `hinted` is nulled rather than left dangling. The trailing debounce was
+    judged acceptable with a reason: a drag has no meaningful intermediate state.
+  - **F-002** — monotonicity verified three ways rather than taken from prose: algebraically,
+    **exhaustively over 210 board/viewport pairs with zero counterexamples**, and at the clamp's
+    floor. Draw counts reproduce exactly. The orchestrator's question — can the count be
+    satisfied by a draw that never happens? — answered **no**, with a mutant that moves the mark
+    into `redraw()` and dies.
+  - **F-003** — the helper fix is the **minimum** (on a single-gutter board it is arithmetically
+    the old assertion), and it **still catches**: two mutants (duplicate loses `.major-below`,
+    duplicate's `data-line` off by one) both die. The reviewer judged the corpus's
+    `assert doubled >= 1` better than their own suggestion, because it fails loudly instead of
+    happening to cover the case.
+  - **Mutation check ran this cycle** (deferred at cycle 1 on the cost ladder, correctly — the
+    fix rewrote the lines a mutant set would have targeted): the reviewer's own 9 mutants,
+    **6 killed, 3 survived, and all three survivors are cost-or-boundary rather than
+    behaviour** — two unpinned debounce parameters and an unreachable exact-equality case at the
+    bar. Their answer to "was the implementer's eight-for-eight set under-ambitious?": it aimed
+    at behaviour and killed it; it never probed the debounce's *parameters*, which is where this
+    set found the gap.
+- [Reviewer's own correction, recorded because it cuts the right way] Cycle 1 reported that a
+  reload at 900x800 had "no overflow at all"; it has **104 px**. They had measured the resized
+  state and inferred the reload. The true delta was **376 -> 104 px, not 376 -> 0** — the defect
+  and its severity stand, and the implementer caught the error and recorded it rather than
+  quietly adopting the reviewer's figure.
