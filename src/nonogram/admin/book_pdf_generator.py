@@ -3748,15 +3748,28 @@ class BookPDFGenerator:
         wins" precedent CARD-200 already set; this card does not touch the
         caption's own placement or omission guard above.
 
-        **CARD-204 Fix 7 (merge gate).** The caption's right edge is now the
-        one :func:`~nonogram.export.layout.caption_slot` reports for this
-        slot and this text's measured width, not ``placement.drawing_right``
-        unconditionally. For every caption that fits beside its own grid the
-        two are the same pixel, so CARD-203's right-alignment is untouched;
-        a caption wider than its grid — a long picture name — is held off
-        the usable area's left edge instead of printing into the trim
-        margin, which it did on an ``EVEN`` page from the moment this card
-        placed the drawing flush with that edge. The width is measured here
+        **CARD-204 Fix 7 (merge gate), as corrected by Fix 8 (review cycle
+        5, F-2).** The caption's right edge is now the one
+        :func:`~nonogram.export.layout.caption_slot` reports for this slot
+        and this text's measured width, not ``placement.drawing_right``
+        unconditionally. CARD-203's right-alignment is preserved exactly
+        where the *drawing itself* fits inside its own usable area
+        (:attr:`~nonogram.export.layout.PagePlacement.fits`) and the caption
+        fits beside it — the two are then the same pixel. Two cases depart
+        from it, both deliberately and both toward the margin the ink would
+        otherwise cross: a caption wider than its grid is held off the
+        usable area's left edge instead of printing into the trim margin
+        (which it did on an ``EVEN`` page from the moment this card placed
+        the drawing flush with that edge); and on a page too small for its
+        puzzle, where the ``MIN_CELL_MM`` floor puts ``drawing_right``
+        *past* ``usable_right`` (``fits`` False — AC-3's own regime), the
+        caption stops at ``usable_right`` rather than following the drawing
+        out into the gutter margin, so it sits up to that overflow further
+        left than CARD-203 alone would have put it (measured: 32 px / 2.7 mm
+        for a 30x30 on a 10.0 cm trim at KDP-minimum margins). COMP-007's
+        own comment on that stop, and
+        ``tests/test_layout_page_spec.py::TestCaptionSlot_NoWidthEverLeavesTheUsableArea::test_an_overflowing_layout_stops_the_caption_at_the_margin``,
+        are where that case is stated and pinned. The width is measured here
         because only this module knows the face; where that width is allowed
         to sit is COMP-007's (ADR-0036/R2). A caption too wide for the
         usable area at any x is clipped to
@@ -4114,6 +4127,18 @@ class BookPDFGenerator:
         computed above for ``corner_column``) is reused as the gate, so the
         two methods' fixes are now actually parallel, not just claimed to be.
 
+        **CARD-204 Fix 8 (review cycle 5, F-1, gating).** "Right-aligned at
+        that tile's own ``drawing_right``" above stopped being the whole
+        truth at Fix 7: a caption wider than its own grid is clamped out to
+        the tile's ``usable_right`` instead
+        (:func:`~nonogram.export.layout.caption_slot`). ``content_right`` is
+        therefore read off the caption's own reported box when the corner
+        tile drew one on a right-hand page — the same figure
+        :meth:`solved_puzzle_page` already passes — not off
+        ``drawing_right``, which under-reports a clamped caption and let the
+        folio draw into its glyphs. See the comment at the call site for the
+        reproduction and for why the left-parity mirror is left latent.
+
         Returns:
             The rendered page.
         """
@@ -4156,19 +4181,47 @@ class BookPDFGenerator:
         )
         # Review cycle 1, F-001: the corner tile's own caption (CARD-203,
         # right-aligned at that tile's drawing_right) can reach exactly the
-        # same physical corner this folio targets. content_right/content_left
-        # already carry that tile's own drawing_right/drawing_left (the
-        # caption's right edge coincides with it), so the only figure that
-        # needs widening is content_bottom, to the caption's own lower edge
-        # when one was actually drawn there — same "folio yields" precedent
-        # as solved_puzzle_page's own fix, applied to the corner tile instead
-        # of a full page's single placement.
+        # same physical corner this folio targets, so content_bottom has to
+        # widen to the caption's own lower edge when one was actually drawn
+        # there — same "folio yields" precedent as solved_puzzle_page's own
+        # fix, applied to the corner tile instead of a full page's single
+        # placement.
+        #
+        # CARD-204 Fix 8 (review cycle 5, F-1): content_right has to widen
+        # with it. This comment used to claim that "content_right /
+        # content_left already carry that tile's own drawing_right /
+        # drawing_left (the caption's right edge coincides with it)" — true
+        # until Fix 7, false since. A caption wider than its own grid is now
+        # clamped out to the tile's `usable_right` (`caption_slot`), and a
+        # packed tile's drawing is CENTRED inside its tile, so the tile has
+        # right-hand spare for the clamp to spend; on the corner column of a
+        # right-hand page that tile's usable_right IS the page's own folio
+        # corner. So `drawing_right` under-reported the caption's real edge,
+        # the clearance test below passed on a figure that no longer
+        # described the ink, and the folio drew into glyphs the caption had
+        # already set. Reproduced at trim 21.59x22.86 cm, KDP-minimum
+        # margins, capacity 4, 11x11, page 9, a 64-character picture name:
+        # drawing_right 2383 against the caption's real right edge 2462,
+        # the folio's own glyph box starting at 2447, 20 px of caption ink
+        # inside it. The caption's own reported right edge is what goes in
+        # now, exactly as solved_puzzle_page already passes `caption_right`.
+        #
+        # The left-parity mirror (`content_left` from the caption's own left
+        # edge) is deliberately NOT taken here: `_draw_solved_slot` reports
+        # `(bottom, right)` and nothing else, so the caption's left edge
+        # would need a third element on that return tuple — a contract
+        # change this fix cycle is scoped out of (owner decision, cycle 5).
+        # It is latent, not live: `content_left` is read only on a left-hand
+        # page, where F-101's own fix gates the `content_bottom` fold-in on
+        # `right_hand`, so the vertical half of the predicate does not fire.
         content_bottom = None if corner_placement is None else corner_placement.drawing_bottom
         corner_caption = (
             caption_boxes[corner_index] if corner_index < len(caption_boxes) else None
         )
+        content_right = None if corner_placement is None else corner_placement.drawing_right
         if right_hand and content_bottom is not None and corner_caption is not None:
             content_bottom = max(content_bottom, corner_caption[0])
+            content_right = corner_caption[1]
         _draw_folio(
             draw,
             frame.left,
@@ -4178,7 +4231,7 @@ class BookPDFGenerator:
             page_number,
             self.dpi,
             content_bottom=content_bottom,
-            content_right=None if corner_placement is None else corner_placement.drawing_right,
+            content_right=content_right,
             content_left=None if corner_placement is None else corner_placement.drawing_left,
         )
         return page

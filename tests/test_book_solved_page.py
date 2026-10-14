@@ -721,8 +721,11 @@ class TestBookSolvedPage_CaptionMovedCloserToTheDrawing:
         boundary and which therefore overhangs the drawing's own edges by
         about half a rule (measured: 2 px, and only on the band's first
         rows; the caption's own ink on this shape runs from column 986 to
-        1398, well inside). While CARD-203's caption sat under a *centred*
-        drawing that overhang had the page's own horizontal spare to spend;
+        1438, well inside — 873 px clear of ``usable_left``; re-measured
+        under CARD-204 Fix 8, review cycle 5's F-3, which found the figure
+        first written here was wrong). While CARD-203's caption sat under a
+        *centred* drawing that overhang had the page's own horizontal spare
+        to spend;
         under CARD-204 the drawing is flush with an even page's outer margin,
         so it reaches 2 px past it — which is exactly the bleed AC-5's own
         twin test above already documents and tolerates (``bleed = 2``), and

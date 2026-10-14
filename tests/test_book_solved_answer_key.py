@@ -84,6 +84,7 @@ from nonogram.admin.book_answer_key import (
 from nonogram.admin.book_pdf_generator import (
     ANSWER_TEXT_FONT_MM,
     BACKGROUND,
+    FOLIO_PT,
     POINTS_PER_INCH,
     _band_font,
     type_px,
@@ -1408,6 +1409,209 @@ class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio:
             "render where _draw_folio is a no-op): the corner tile's "
             "right-aligned caption occupies the exact corner the folio "
             "would otherwise draw into"
+        )
+
+    # ----------------------------------------------------------------
+    # CARD-204 Fix 8 (review cycle 5, F-1) — the CLAMPED corner caption.
+    # ----------------------------------------------------------------
+    #
+    # The two cases above use default short picture names, so their captions
+    # are never clamped and they could not see F-1: Fix 7 moved an over-wide
+    # caption's right edge out past its own ``drawing_right`` (to the tile's
+    # ``usable_right``, the only x that keeps it inside its tile), and
+    # ``_packed_answer_page`` went on feeding ``_draw_folio`` the *tile's*
+    # ``drawing_right``. On the corner column of a right-hand page that
+    # under-reports the caption's real edge by the whole clamp, so the
+    # clearance test passed on a figure that no longer described the ink and
+    # the folio drew into glyphs the caption had already set.
+    #
+    # The trim/shape pair below was found by sweeping 6 trim widths x 5 trim
+    # heights x capacities 2 and 4 x grid sides 10..30 for the configuration
+    # where the predicate actually *splits*: the clamp active, the caption's
+    # own lower edge leaving the folio no vertical room, the stale figure
+    # reading "clear" and the real one reading "not clear". Measured there
+    # before the fix: ``drawing_right`` 2383 against the caption's real right
+    # edge 2462, the folio's own glyph box starting at 2447, the folio drawn,
+    # 20 px of caption ink inside that box and 5 pixels of literally shared
+    # ink. Each of those four conditions is asserted below rather than
+    # assumed, so a future geometry change that moves this shape out of the
+    # danger window fails loudly instead of passing vacuously.
+
+    _CLAMPED_TRIM_WIDTH_MM = 8.5 * 25.4
+    _CLAMPED_TRIM_HEIGHT_MM = 9.0 * 25.4
+    _CLAMPED_SIDE = 11
+    _CLAMPED_CAPACITY = 4
+    _CLAMPED_TITLE = (
+        "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter"
+    )
+
+    @classmethod
+    def _clamped_book(cls, titles: dict) -> Book:
+        return Book(
+            book_id="book-204-fix8",
+            metadata=BookMetadata(
+                title="Clamped Caption",
+                description="A test book whose corner caption is clamped.",
+                theme="generic",
+                target_audience="adults",
+                size="",
+                page_count=0,
+            ),
+            trim_width_cm=_cm(cls._CLAMPED_TRIM_WIDTH_MM),
+            trim_height_cm=_cm(cls._CLAMPED_TRIM_HEIGHT_MM),
+            gutter_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+            outside_margin_cm=_cm(KDP_MIN_MARGIN_MM),
+            puzzle_titles=dict(titles),
+        )
+
+    @classmethod
+    def _render_clamped(cls, title: str, *, suppress_folio: bool = False):
+        """The reproduction page, rendered the same way the two cases above
+        are — the real ``_packed_answer_page``, with the module-level
+        ``_draw_folio`` monkeypatched to a no-op for the reference render
+        only, so folio ink and caption ink are separable."""
+        page_number = cls._RIGHT_HAND_PAGE_NUMBER
+        puzzles = [
+            _puzzle(
+                cls._CLAMPED_SIDE,
+                cls._CLAMPED_SIDE,
+                number=number,
+                depth=3,
+                tier="easy",
+                name=title,
+            )
+            for number in range(1, cls._CLAMPED_CAPACITY + 1)
+        ]
+        titles = {puzzle["id"]: title for puzzle in puzzles}
+        gen = BookPDFGenerator(cls._clamped_book(titles))
+        payloads = [(puzzle["id"], gen._payload(puzzle)) for puzzle in puzzles]
+        packed_page = PackedAnswerPage(
+            tuple(
+                Answer(
+                    number=number,
+                    width=cls._CLAMPED_SIDE,
+                    height=cls._CLAMPED_SIDE,
+                    level=Tier.EASY,
+                )
+                for number in range(1, cls._CLAMPED_CAPACITY + 1)
+            )
+        )
+        original_draw_folio = book_pdf_generator._draw_folio
+        if suppress_folio:
+            book_pdf_generator._draw_folio = lambda *args, **kwargs: None
+        try:
+            page = gen._packed_answer_page(packed_page, payloads, page_number, titles)
+        finally:
+            book_pdf_generator._draw_folio = original_draw_folio
+        layout = compute_packed_solved_layout(
+            [(payload.row_clues, payload.column_clues) for _, payload in payloads],
+            packed_page.capacity,
+            gen.page_spec(page_number),
+        )
+        placement, _ = cls._corner_placement(layout, gen, page_number)
+        return page, placement, gen
+
+    @classmethod
+    def _caption_band_ink(cls, page, placement, gen):
+        """The caption's own one-line band, read across the whole page width:
+        the columns that carry ink, and the band's own lower edge."""
+        font = _band_font(type_px(ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4, gen.dpi))
+        ascent, descent = font.getmetrics()
+        gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * gen.dpi)
+        top = placement.drawing_bottom + gap_px
+        bottom = top + ascent + descent
+        band = np.asarray(page.crop((0, top, page.width, bottom)).convert("L"))
+        return np.flatnonzero((band < 128).any(axis=0)), bottom
+
+    @classmethod
+    def _folio_glyph_left(cls, gen, page_number: int):
+        """Where the folio's own glyph box starts, and how tall it is — the
+        two figures ``_draw_folio``'s own clearance test is written in."""
+        font = _band_font(type_px(FOLIO_PT, gen.dpi))
+        ascent, descent = font.getmetrics()
+        frame = page_frame(gen.page_spec(page_number))
+        return frame.right - font.getlength(str(page_number)), ascent + descent, frame
+
+    def test_this_shape_really_clamps_the_corner_caption_into_the_folios_corner(
+        self,
+    ) -> None:
+        """All four conditions of the predicate split, measured — so the two
+        tests below cannot pass for the wrong reason."""
+        page_number = self._RIGHT_HAND_PAGE_NUMBER
+        page, placement, gen = self._render_clamped(
+            self._CLAMPED_TITLE, suppress_folio=True
+        )
+        assert placement is not None
+        columns, band_bottom = self._caption_band_ink(page, placement, gen)
+        folio_left, folio_line_height, frame = self._folio_glyph_left(gen, page_number)
+
+        assert columns.size > 0, "expected the caption's own ink in its own band"
+        assert columns.max() > placement.drawing_right, (
+            f"this caption must be CLAMPED past its own grid: rightmost ink "
+            f"{columns.max()} vs drawing_right {placement.drawing_right}"
+        )
+        assert columns.max() >= folio_left, (
+            f"the clamped caption must actually reach the folio's own glyph "
+            f"box: rightmost ink {columns.max()} vs folio box from {folio_left}"
+        )
+        assert frame.bottom - band_bottom < folio_line_height, (
+            "the caption's lower edge must leave the folio no vertical room, "
+            "or _draw_folio never reads a horizontal figure at all"
+        )
+        assert placement.drawing_right <= folio_left, (
+            "the tile's own drawing_right — the stale figure this fix "
+            "replaces — must read 'clear', or there is nothing to under-report"
+        )
+
+    def test_the_folio_yields_to_a_clamped_corner_caption(self) -> None:
+        """F-1 itself: with the caption clamped into the folio's own corner,
+        the folio must omit itself — "the folio yields, the content wins,"
+        the same rule the unclamped right-hand case above already keeps.
+
+        Before Fix 8 this failed: ``_packed_answer_page`` passed the tile's
+        ``drawing_right`` (2383), which cleared the folio's glyph box (from
+        2447), so the folio drew while the caption's real right edge was
+        2462 — 20 px of caption ink inside the folio's box, 5 pixels of
+        shared ink."""
+        with_folio, _, _ = self._render_clamped(self._CLAMPED_TITLE)
+        without_folio, _, _ = self._render_clamped(
+            self._CLAMPED_TITLE, suppress_folio=True
+        )
+
+        assert np.array_equal(
+            np.asarray(with_folio.convert("RGB")),
+            np.asarray(without_folio.convert("RGB")),
+        ), (
+            "expected the folio to be omitted (no pixel difference from a "
+            "render where _draw_folio is a no-op): the corner tile's caption "
+            "is clamped out to that tile's usable_right, which on this page "
+            "is the folio's own corner"
+        )
+
+    def test_the_same_page_still_prints_its_folio_for_an_unclamped_caption(
+        self,
+    ) -> None:
+        """The negative control on the same trim and the same shape: a
+        caption of the length a book actually prints is not clamped, cannot
+        reach the folio's corner, and must not cost the page its folio."""
+        page, placement, gen = self._render_clamped("Owl", suppress_folio=True)
+        columns, _ = self._caption_band_ink(page, placement, gen)
+        folio_left, _, _ = self._folio_glyph_left(gen, self._RIGHT_HAND_PAGE_NUMBER)
+        assert columns.size > 0
+        assert columns.max() <= placement.drawing_right + 4, (
+            "the control's caption must be right-aligned with its own grid, "
+            "not clamped"
+        )
+        assert columns.max() < folio_left
+
+        with_folio, _, _ = self._render_clamped("Owl")
+        without_folio, _, _ = self._render_clamped("Owl", suppress_folio=True)
+        assert not np.array_equal(
+            np.asarray(with_folio.convert("RGB")),
+            np.asarray(without_folio.convert("RGB")),
+        ), (
+            "expected the folio to draw: nothing on this page reaches its "
+            "corner, so Fix 8 must not have made the folio disappear"
         )
 
     def test_the_folio_now_draws_on_the_left_hand_page(self) -> None:

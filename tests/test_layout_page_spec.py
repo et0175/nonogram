@@ -24,6 +24,7 @@ asking ``layout`` for its page-fit helper.
 from __future__ import annotations
 
 import dataclasses
+import itertools
 import math
 
 import pytest
@@ -414,6 +415,19 @@ class TestCaptionSlot_NoWidthEverLeavesTheUsableArea:
 
     Expected values are derived from ``PagePlacement``'s own edges and the
     width handed in — never by calling ``caption_slot`` twice.
+
+    **CARD-204 Fix 8 (review cycle 5, F-2).** The sweep below originally ran
+    on Book 1 alone, where every layout has ``PagePlacement.fits`` True — and
+    a no-spare layout is not an overflowing one, so the second stop in
+    ``caption_slot`` (the ``min`` against ``usable_right``, which binds only
+    when ``drawing_right > usable_right``) was never reached: dropping it
+    left the whole suite green. A total claim verified over a proper subset
+    of the function's domain is not verified, so ``OVERFLOW_SPEC`` below adds
+    the ``fits`` False regime — the one
+    ``tests/property/test_book_layout.py::test_TestLayout_FloorOverflowDirectionUnderRightAlignment``
+    establishes exists — and
+    :meth:`test_an_overflowing_layout_stops_the_caption_at_the_margin` pins
+    what the ``min`` promises there.
     """
 
     #: The shapes swept: a small cap-bound puzzle (plenty of horizontal
@@ -422,6 +436,22 @@ class TestCaptionSlot_NoWidthEverLeavesTheUsableArea:
     #: silently stop covering the no-spare case — the one where the flush
     #: edge and the margin coincide.
     SHAPES = ((10, 10), (15, 15), (22, 22), (30, 30))
+
+    #: Amazon KDP's minimum trim (10.0 cm) at its minimum side margins
+    #: (6.35 mm): a 30x30 does not fit here at all, so ``MIN_CELL_MM`` wins
+    #: and the drawing is wider than the usable area it is anchored in
+    #: (``fits`` False — asserted below, not assumed). The shape is the same
+    #: 30x30 already in ``SHAPES``; what changes is the page under it, which
+    #: is the only way to reach the overflow regime.
+    OVERFLOW_SHAPE = (30, 30)
+    OVERFLOW_SPEC = dataclasses.replace(
+        BOOK1_ODD,
+        width_mm=100.0,
+        height_mm=254.0,
+        gutter_mm=6.35,
+        outside_mm=6.35,
+        parity=PageParity.EVEN,
+    )
 
     #: Widths in device pixels, from an empty caption to one eight times a
     #: Book 1 page: 0 and the negatives test the degenerate end, 1500-2500
@@ -437,9 +467,35 @@ class TestCaptionSlot_NoWidthEverLeavesTheUsableArea:
                 assert layout.page is not None
                 yield layout
 
+    def _overflow_layouts(self):
+        """The ``fits`` False layouts (CARD-204 Fix 8), both parities.
+
+        Kept out of :meth:`_layouts` deliberately: the two claims about
+        CARD-203's right-alignment and about the clamp's own ``max`` are
+        stated for a drawing that fits inside its own usable area, and are
+        *false* for one that does not (that is this fix's second half). Every
+        claim that is about the whole domain sweeps both generators.
+        """
+        columns, rows = self.OVERFLOW_SHAPE
+        clues = compute_clues(_checkerboard(columns, rows))
+        for spec in (
+            self.OVERFLOW_SPEC,
+            dataclasses.replace(self.OVERFLOW_SPEC, parity=PageParity.ODD),
+        ):
+            layout = compute_layout(clues.rows, clues.columns, spec)
+            assert layout.page is not None
+            assert not layout.page.fits, (
+                "this spec must put the cell floor over the usable width, or "
+                "the min stop is still unreached"
+            )
+            yield layout
+
     def test_every_width_on_every_shape_and_parity_stays_inside(self) -> None:
+        """The total claim, over the whole domain — including the ``fits``
+        False layouts, which is where the ``min`` stop binds (Fix 8)."""
         checked = 0
-        for layout in self._layouts():
+        overflowing = 0
+        for layout in itertools.chain(self._layouts(), self._overflow_layouts()):
             page = layout.page
             for width in self.WIDTHS:
                 box = caption_slot(layout, width)
@@ -449,13 +505,65 @@ class TestCaptionSlot_NoWidthEverLeavesTheUsableArea:
                 assert box.left <= box.right
                 assert box.measure == page.usable_right - page.usable_left
                 checked += 1
+                overflowing += 0 if page.fits else 1
         # The corpus cannot silently shrink (CLAUDE.md).
-        assert checked == len(self.SHAPES) * 2 * len(self.WIDTHS) == 104
+        assert checked == (len(self.SHAPES) + 1) * 2 * len(self.WIDTHS) == 130
+        assert overflowing == 2 * len(self.WIDTHS) == 26, (
+            "the overflow regime must stay in this sweep: it is the only one "
+            "where caption_slot's min against usable_right does anything"
+        )
+
+    def test_an_overflowing_layout_stops_the_caption_at_the_margin(self) -> None:
+        """CARD-204 Fix 8 (review cycle 5, F-2): what the ``min`` promises.
+
+        On a page too small for its puzzle the ``MIN_CELL_MM`` floor wins and
+        the drawing is wider than the usable area (AC-3). ``caption_slot``
+        does **not** follow it out: the caption's right edge stops at
+        ``usable_right``, for every width — so on such a page CARD-203's
+        right-alignment is deliberately *not* preserved, and this test is the
+        record of that. Measured on the EVEN page of ``OVERFLOW_SPEC``:
+        ``drawing_right`` 1138 against ``usable_right`` 1106, so a 300 px
+        caption — one that fits with room to spare — ends 32 px (2.7 mm)
+        left of where CARD-203 alone would have put it. The direction is the
+        point: the alternative is caption ink 32 px into the gutter margin,
+        behind the fold.
+
+        Dropping the ``min`` makes this fail (it was the one mutant that
+        survived review cycle 5), as does dropping it from the containment
+        sweep above.
+        """
+        pinned = 0
+        for layout in self._overflow_layouts():
+            page = layout.page
+            if page.parity is PageParity.EVEN:
+                # Flush left with the outer margin; the overflow spills right,
+                # past usable_right — the only geometry the min can bind on.
+                assert page.drawing_right > page.usable_right, (page,)
+            else:
+                # Flush right with the outer margin: the overflow spills
+                # left instead, so the min is a no-op on this parity and
+                # drawing_right is already the usable edge.
+                assert page.drawing_right == page.usable_right, (page,)
+            for width in self.WIDTHS:
+                box = caption_slot(layout, width)
+                assert box.right == page.usable_right, (page, width, box)
+                assert box.left == page.usable_right - min(
+                    max(width, 0), page.usable_right - page.usable_left
+                ), (page, width, box)
+                pinned += 1
+        assert pinned == 2 * len(self.WIDTHS) == 26
 
     def test_a_caption_that_fits_keeps_card203s_right_alignment(self) -> None:
         """The clamp is inactive wherever the text fits beside its own grid:
         ``right`` is ``drawing_right`` exactly, which is what CARD-203's AC-1
-        asks for."""
+        asks for.
+
+        **Exactly** wherever the *drawing* fits too (Fix 8): ``_layouts``
+        holds only ``fits`` True pages, and on an overflowing one the
+        statement above is false by design —
+        :meth:`test_an_overflowing_layout_stops_the_caption_at_the_margin`
+        holds that half.
+        """
         fitting = 0
         for layout in self._layouts():
             page = layout.page
