@@ -79,7 +79,7 @@ _Wave bookkeeping (2026-10-14): the cards dispatched on 2026-10-13/14 — CARD-2
 
 ## In Progress
 - **CARD-221** The book interior letters in the packaged face, so its geometry stops depending on the host · P1 · architectural · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-221` · branch `card/221-packaged-interior-face` · its proof of success is CARD-205's own two red-off-host folio tests going green on both faces
-- **CARD-212** Big boards repeat their clues on both sides · P2 · standard · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-212` · branch `card/212-clues-both-sides` · inherits CARD-211's rebase surface in the player's template and statics
+- **CARD-212** Big boards repeat their clues on both sides · P2 · standard · wave 37 · implementation `ee0d3a0` complete (15 of 16 mutants killed), **review cycle 1 running** · worktree `../PythonProject4-CARD-212` · branch `card/212-clues-both-sides` · ⚑ owner decision pending: the doubling bar (24 px/cell) leaves a 25×15 at 1440×900 0.47 px short, so a 1440-wide laptop gets no second gutter
 
 ## Review
 _(none)_
