@@ -44,18 +44,37 @@ rather than derived. Both shapes are the production calls — ``export_interior`
 and ``interior_pages`` — so the capped run exports the same book the
 in-process measurements do.
 
-**Determinism.** Nothing here reads a clock, a database or a dict whose order
-is not fixed: the grids are computed, the ids and names are literals, the tiers
-are positional, and the sizes come from a seeded ``Random`` drawn in a fixed
-order. The one thing that is *not* fixed is the system font the guide page and
-the divider are lettered in — ``book_pdf_generator`` asks Pillow for Arial and
-falls back to its built-in face — so :func:`font_fingerprint` pins that too,
-and the fixture carries it. A machine that letters those two pages differently
-cannot be compared against a baseline recorded on one that does not **on those
-two pages**; the other six are drawn in the bundled band face and Pillow's own
-built-in one, so they are comparable on any machine, and the fixture names
-which two are which (``font_dependent_pages``) rather than putting the whole
-book's evidence behind one skip.
+**Determinism, and the host gate that is gone (CARD-221).** Nothing here reads
+a clock, a database or a dict whose order is not fixed: the grids are computed,
+the ids and names are literals, the tiers are positional, and the sizes come
+from a seeded ``Random`` drawn in a fixed order. **Nor does anything read the
+host's fonts any more.** Until CARD-221 the guide pages, the dividers and the
+TOC were lettered in whatever Arial ``ImageFont.truetype`` found on the
+machine, with Pillow's built-in face as a fallback, so those pages' pixels —
+and, through the TOC's own row height, a book's page count and its printed KDP
+gutter — were a function of the host. This module therefore carried a
+``font_fingerprint()`` of that face over a hand-transcribed
+``MACHINE_FACE_SIZES`` tuple, and every fixture carried the digest and the
+list of pages a mismatched machine had to skip. All three are **removed**:
+``_guide_face`` now returns the packaged DejaVu Sans
+(``src/nonogram/export/fonts/``, ADR-0006/R1 package data) that the band and
+the folio were already set in, so every page of this book is comparable on
+every machine and ``book_baseline_card221.json``'s own
+``font_dependent_pages`` is empty.
+
+The measurement that justifies removing them, rather than an argument that it
+ought to be safe: ``tests/test_book_interior_face.py`` exports this same book
+twice in one process — once with the host's Arial available, once with
+``ImageFont.truetype`` made to refuse every host path — and finds every page's
+digest, the page count and the chosen gutter band identical; and the
+page-by-page comparison recorded in ``book_baseline_card221.json``'s
+``why_a_new_baseline`` shows that exactly the seven pages lettered through
+``_guide_face`` moved under that card and the other six are byte-identical to
+CARD-205's digests. What remains host-dependent, and is deliberately outside
+this helper's reach, is the **generated title cover** (``create_cover_page``
+still asks the host for Arial at 72 px): the cover is a separate file, no
+baseline digests it, and ``MACHINE_FACE_SIZES`` never covered its size for
+exactly that reason.
 """
 
 from __future__ import annotations
@@ -69,7 +88,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Sequence
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
@@ -413,11 +432,29 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   book's does — see :data:`CORPUS_PAGE_COUNT` below, which falls from
 #:   310 to 307.
 #:
-#: All fifteen files carry the reasoning; this constant names the current one
-#: (fifteen since CARD-205's own recording joined the fourteen that main's
-#: CARD-203 had brought the chain to; the stale counts this line used to
-#: carry, "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card205.json"
+#: * ``book_baseline_card221.json`` — CARD-221 letters every reader-facing
+#:   interior face in the **packaged** DejaVu Sans instead of the host's
+#:   Arial, so that a book's page count (and therefore its printed KDP
+#:   gutter band) is the same on the owner's Mac and on the deployed Linux
+#:   panel. Exactly the seven pages that were lettered through
+#:   ``_guide_face`` move — 1 and 2 (the guide), 3 (the TOC), 4, 6, 8 (the
+#:   level dividers) and 10 (SOLUTIONS) — and the other six are
+#:   byte-identical to CARD-205's digests, measured page by page before the
+#:   file was written. ``interior_bytes`` falls from 3498430 to 3369113.
+#:   ``font_dependent_pages`` becomes **empty**, and the
+#:   ``font_fingerprint``/``MACHINE_FACE_SIZES`` machinery that went with it
+#:   is removed from this module — see this module's own docstring for the
+#:   measurement that retires it. The file also records the two measured
+#:   consequences that card could not close (the Book 1 guide page 2 drops a
+#:   fallback level over 4 px; the 10.00 cm trim's TOC folio is 2 px short),
+#:   both escalated to the owner with strict ``xfail`` markers rather than
+#:   absorbed.
+#:
+#: All sixteen files carry the reasoning; this constant names the current one
+#: (sixteen since CARD-221's own recording joined the fifteen CARD-205 had
+#: brought the chain to; the stale counts this line used to carry,
+#: "thirteen" and "twelve", were both left behind by earlier cards).
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card221.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
@@ -608,94 +645,36 @@ def page_digests(pages: Sequence[Image.Image]) -> List[Dict[str, Any]]:
     return [page_digest(page) for page in pages]
 
 
-#: Every size the machine-face interior pages are lettered at: the guide
-#: page's title (48) and its body text (28), and the SOLUTIONS divider's word
-#: (60). The cover's 72 is deliberately absent: the cover is a separate file
-#: and the interior baseline holds no page of it. One size is not enough,
-#: because a face can differ at one size and agree at another (hinting, bitmap
-#: strikes), and a fingerprint that agreed at 48 while the divider's 60
-#: differed would let a page be compared that cannot be.
-#:
-#: **Hand-transcribed from three call sites, with nothing in the code tying
-#: them together.** They are the three
-#: ``ImageFont.truetype("/System/Library/Fonts/Arial.ttf", N)`` calls in
-#: ``src/nonogram/admin/book_pdf_generator.py``:
-#:
-#: * ``create_guide_page`` — ``title_font``, size **92**
-#: * ``create_guide_page`` — ``text_font``, size **46**
-#: * ``create_divider_page`` — ``divider_font``, size **60**
-#: * ``create_toc_page`` (CARD-200) — ``entry_font``, size **42**: its own
-#:   ``title_font`` is the same 92 the guide's title already covers
-#:   (``TOC_ENTRY_PT`` 10 pt converted the same way, ``type_px(10, 300)``);
-#:   the entries are the one new size the TOC adds.
-#:
-#: The divider's 60 is an integer literal at its call site. The guide page's
-#: two are no longer literals: CARD-149 states that page's type in points
-#: (``GUIDE_TITLE_PT`` 22, ``GUIDE_BODY_PT`` 11) and converts it against the
-#: page's own resolution, so 92 px and 46 px are what 22 pt and 11 pt come to
-#: on the 300 DPI page a book is printed at (``type_px(22, 300)`` and
-#: ``type_px(11, 300)``). They are still transcribed by hand and not imported,
-#: which is the point of this tuple: it is a second statement of the sizes,
-#: and a size that moves in the module without moving here is caught as a
-#: fingerprint that stops matching rather than hidden by a shared constant.
-#: If a book is ever printed at another resolution, the pixels below are that
-#: page's and have to be re-derived for it.
-#:
-#: **Editing this tuple is a baseline change, not a test tweak.** It is what
-#: :func:`font_fingerprint` digests, so a changed tuple makes ``same_face``
-#: false on every machine — which silently turns off the pixel comparison of
-#: interior pages 1 and 5 *and* the whole byte-length assertion in
-#: ``tests/test_book_pdf_memory.py``, with every test still green. That is
-#: G-1 evidence disappearing without anyone touching
-#: ``tests/fixtures/book_baseline_card145.json``, where the "NEVER regenerate"
-#: warning lives. Treat a change here as a re-recording of the fixture: the
-#: same justification, and the fixture's own ``font_fingerprint`` re-recorded
-#: alongside it. That is what CARD-149 did — the guide page's two sizes moved
-#: deliberately, so this tuple and ``book_baseline_card149.json``'s
-#: ``font_fingerprint`` moved together, in the same commit, with the machine
-#: first shown to reproduce CARD-144's recorded fingerprint at the old sizes.
-#: CARD-200 adds **42** (the TOC's own entry size) the same way.
-MACHINE_FACE_SIZES = (92, 46, 60, 42)
-
-
-def font_fingerprint() -> str:
-    """A digest of the face the guide page and the divider are lettered in.
-
-    ``book_pdf_generator`` asks Pillow for Arial by path and falls back to
-    ``ImageFont.load_default()`` when it is not there, so those two pages'
-    pixels depend on the machine. This draws the guide page's own title with
-    the same call, at **each** of :data:`MACHINE_FACE_SIZES`, into a small
-    image, and digests the three together (the image is the size it has always
-    been, so at CARD-149's 92 px the title's last nine pixels fall off its
-    right edge — deterministically, and the sample is a face's fingerprint
-    rather than a rendering of the page): two machines with the same
-    fingerprint letter those two pages identically, and two with different
-    fingerprints cannot compare *those two pages* at all. The other six pages
-    of the baseline book are lettered in the bundled face and in Pillow's own
-    built-in one, so they are comparable everywhere — which is why the fixture
-    records ``font_dependent_pages`` and the comparison skips only those.
-    """
-    digests: List[str] = []
-    for size in MACHINE_FACE_SIZES:
-        try:
-            font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
-        except OSError:
-            # The page's own fallback, transcribed like the sizes: Pillow's
-            # built-in face **at the same size** (CARD-149). A bare
-            # ``load_default()`` letters every size at a 10 px em, so this
-            # fingerprint would have read as one face on an Arial-less machine
-            # that draws the guide page at 46 px and on one that draws it at
-            # 10 px.
-            try:
-                font = ImageFont.load_default(size)
-            except TypeError:  # pragma: no cover - Pillow < 10.1
-                font = ImageFont.load_default()
-        sample = Image.new("RGB", (900, 120), "white")
-        ImageDraw.Draw(sample).text(
-            (0, 0), "How to Use This Book", fill="black", font=font
-        )
-        digests.append(hashlib.sha256(sample.tobytes()).hexdigest())
-    return hashlib.sha256(" ".join(digests).encode("ascii")).hexdigest()
+# CARD-221 removed ``MACHINE_FACE_SIZES`` and ``font_fingerprint()`` from this
+# module. They existed because the guide pages, the dividers and the TOC were
+# lettered in the **host's** Arial (CARD-146/CARD-147 built the mechanism;
+# CARD-149 and CARD-200 re-derived the tuple as the sizes it transcribed
+# moved), so a fixture's recorded pixels could only be compared on a machine
+# whose face matched: the fingerprint was that face's digest at each size the
+# pages asked for, and ``font_dependent_pages`` named the pages a mismatched
+# machine skipped.
+#
+# The condition is measurably gone, not argued away: ``_guide_face`` returns
+# the packaged DejaVu Sans, so every interior page is lettered from this
+# repository's own package data, and
+# ``tests/test_book_interior_face.py``'s
+# ``TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts`` exports this
+# book with the host's Arial available and again with ``ImageFont.truetype``
+# refusing every host path and finds every page's digest, the page count and
+# the chosen gutter band identical. ``book_baseline_card221.json``'s
+# ``font_dependent_pages`` is therefore empty, and nothing in the test tree
+# gates on a face any more (``tests/test_book_toc.py``'s own
+# ``_lettered_as_recorded`` went with it).
+#
+# Two things this removal deliberately does NOT claim. (1) The **generated
+# title cover** still reads the host's Arial at 72 px
+# (``create_cover_page``): the cover is a separate file, INV-013 keeps it out
+# of the interior, no baseline digests it, and this tuple never covered its
+# size — recorded in CARD-221's notes as work outside that card, not gated
+# here. (2) A puzzle page's clue digits come from Pillow's own embedded face
+# rather than from this repository; that was always on the
+# machine-independent side of this line (every predecessor fixture's own
+# note), and it is a dependency's package data, not the host's.
 
 
 def load_baseline() -> Dict[str, Any]:

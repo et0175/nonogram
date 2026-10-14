@@ -21,12 +21,18 @@ resolution — the reverse of the conversion the page did, done by a second
 implementation. The point sizes it expects (11 pt body, 22 pt title, 1.4x
 leading) are written out here as the acceptance criteria state them.
 
-Where the numbers come from, measured on this machine at 300 DPI:
+Where the numbers come from, measured at 300 DPI — in the **packaged** face
+since CARD-221, which is the face every host letters this page in; the figures
+this list carried before it were Arial's, and are kept beside the new ones
+because they are what the assertions were first calibrated against:
 
-* body 11 pt -> 46 px em; its tallest line's glyph box (cap to descender)
-  measures 43 px, and 43 / 0.9275 = 46.4 px = 11.1 pt;
-* title 22 pt -> 92 px em; "How to Use This Book" has no descender, so its box
-  measures 67 px of cap height, and 67 / 0.730 = 91.8 px = 22.0 pt;
+* body 11 pt -> 46 px em; its tallest line's glyph box (ascender to descender)
+  measures 45 px, and 45 / 0.9675 = 46.5 px = 11.2 pt (Arial: 43 px, and
+  43 / 0.9275 = 46.4 px = 11.1 pt, measuring cap-to-descender — see
+  :data:`ASCENDER_TO_DESCENDER_PROBE` for why the extent moved);
+* title 22 pt -> 92 px em; "How to Solve Nonograms" reaches an ascender and a
+  descender, so its box measures 89 px, and 89 / 0.9675 = 92.0 px = 22.1 pt
+  (Arial: 86 px of a 0.9275 extent, 22.1 pt the same);
 * the advance between body lines is 71 px = 17.0 pt, against the 50 px (12 pt)
   the method used to add — 46 px of type on a 50 px line.
 
@@ -36,6 +42,8 @@ AC-236, AC-237, AC-238 and AC-239 of CARD-149, one class each.
 from __future__ import annotations
 
 import random
+from importlib import resources
+from io import BytesIO
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -91,17 +99,34 @@ LEADING_PX_BEFORE = 50
 #: page no longer says this, rather than quietly measuring the wrong ratio.
 TITLE_AS_IT_STANDS = "How to Solve Nonograms"
 
-#: A probe that reaches from cap height to the bottom of a descender, which is
-#: the tallest ink an ordinary line of body text can make. The guide page's
-#: longest lines ("  1. Fill in the grid based on the clues") carry both.
-CAP_TO_DESCENDER_PROBE = "Hg"
+#: A probe that reaches from the top of a lowercase **ascender** to the bottom
+#: of a descender, which is the tallest ink an ordinary line of body text can
+#: make. The guide page's own lines carry both ("Keep switching between rows
+#: and columns": the "K" is a cap, the "p" a descender, the "t"/"h" ascenders).
+#:
+#: **It was ``"Hg"`` — cap to descender — until CARD-221**, which is the same
+#: extent on some faces and one pixel short on others. In the packaged DejaVu
+#: Sans an ascender rises above cap height (measured at a 400 px em: "Hg"
+#: inks 0.9375 of the em and "dg" 0.9675), so against an "Hg" probe the
+#: page's tallest body line measured 11.52 pt instead of 11 — the type had
+#: not changed size, the probe was measuring a shorter extent than the page
+#: draws. Cap height is not the ceiling of a line of mixed-case text on any
+#: face; it only happened to be within a pixel of it on Arial.
+ASCENDER_TO_DESCENDER_PROBE = "dg"
 
 #: The size the ink-to-em ratios are measured at: large enough that one pixel
 #: of rasterisation is a rounding error in the third decimal.
 RATIO_PROBE_PX = 400
 
-#: The face the guide page letters in, by the path the page asks for.
-ARIAL = "/System/Library/Fonts/Arial.ttf"
+#: The face the guide page letters in: the packaged DejaVu Sans this project
+#: ships as package data, named the way :mod:`nonogram.export.pdf` names it
+#: (CARD-221). Read here through :mod:`importlib.resources` rather than
+#: imported from the module under test, so this module's own measurement
+#: stays a second implementation of the page's own lookup — it was
+#: ``"/System/Library/Fonts/Arial.ttf"``, the host path the page asked for
+#: until CARD-221 made the interior's type deterministic.
+FONT_PACKAGE = "nonogram.export.fonts"
+FONT_RESOURCE = "DejaVuSans.ttf"
 
 #: Anything darker than this is ink. The page is pure black on pure white, so
 #: the threshold only has to fall between them and clear the anti-aliasing.
@@ -113,22 +138,24 @@ INK_THRESHOLD = 128
 # --------------------------------------------------------------------------
 
 
-def face(size_px: int) -> ImageFont.ImageFont:
+def packaged_font_bytes() -> bytes:
+    """The packaged face's bytes, read as package data (CARD-221)."""
+    return resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+
+
+def face(size_px: int) -> ImageFont.FreeTypeFont:
     """The face the guide page letters in, asked for at ``size_px``.
 
-    The same two calls the page makes, reimplemented rather than imported
-    (CLAUDE.md: prefer an independent second implementation). On a machine
-    with no Arial both the page and this fall back to Pillow's own face at the
-    same size, so the ratios measured here are the ratios of whatever face the
-    page was actually drawn in.
+    The same call the page makes, reimplemented rather than imported
+    (CLAUDE.md: prefer an independent second implementation) — and since
+    CARD-221 there is only **one** call to reimplement: the packaged face at
+    the asked-for size, on every host. The ladder that stood here (Arial by
+    path, then Pillow's built-in face at the same size) was this module's own
+    copy of the page's host lookup, and the reason the ratios it measures
+    used to be the ratios of "whatever face the page happened to be drawn
+    in". They are now the ratios of the face it is always drawn in.
     """
-    try:
-        return ImageFont.truetype(ARIAL, size_px)
-    except OSError:  # pragma: no cover - only on a machine without Arial
-        try:
-            return ImageFont.load_default(size_px)
-        except TypeError:  # pragma: no cover - Pillow < 10.1
-            return ImageFont.load_default()
+    return ImageFont.truetype(BytesIO(packaged_font_bytes()), size=size_px)
 
 
 def ink_rows(page: Image.Image) -> np.ndarray:
@@ -257,10 +284,14 @@ def ink_to_em(text: str) -> float:
     """How much of the em ``text``'s ink fills vertically, in this face.
 
     Measured, not tabulated: ``text`` is set at :data:`RATIO_PROBE_PX` and its
-    box divided by that em. Arial gives 0.9275 for cap-to-descender and 0.730
-    for the title's cap height; a different face gives its own, which is the
-    point — the ratio has to belong to the face the page was drawn in for
-    :func:`measured_points` to be a measurement of that page.
+    box divided by that em. The packaged face gives 0.9675 for
+    ascender-to-descender and 0.730 for a bare cap height, where Arial gave
+    0.9275 and 0.7175 — a face's own numbers, which is the point: the ratio
+    has to belong to the face the page was drawn in for
+    :func:`measured_points` to be a measurement of that page, and it has to
+    belong to the *glyphs* the measured line actually sets (CARD-221: on
+    Arial a cap and an ascender were level to within a pixel and on most
+    faces they are not, so one probe no longer serves for every line).
     """
     _, height = probe_box(text, RATIO_PROBE_PX)
     return height / RATIO_PROBE_PX
@@ -445,19 +476,19 @@ class TestGuidePage_TypeIsBookSized:
     def test_the_bodys_measured_point_size_is_11(self, guide_bands):
         """11 pt, recovered from the tallest body line's ink.
 
-        The tallest body line is the one that reaches from a cap (or a digit)
-        down to a descender, which is the same extent
-        :data:`CAP_TO_DESCENDER_PROBE` has — "  1. Fill in the grid based on
-        the clues" is such a line, and the page draws several.
+        The tallest body line is the one that reaches from an ascender (or a
+        cap, where the face sets them level) down to a descender, which is the
+        same extent :data:`ASCENDER_TO_DESCENDER_PROBE` has — "Keep switching
+        between rows and columns" is such a line, and the page draws several.
         """
         tallest = max(bottom - top + 1 for top, bottom in guide_bands[1:])
-        measured = measured_points(tallest, CAP_TO_DESCENDER_PROBE, BOOK_DPI)
+        measured = measured_points(tallest, ASCENDER_TO_DESCENDER_PROBE, BOOK_DPI)
         assert measured == pytest.approx(BODY_PT, abs=0.4), (
             f"the body measures {measured:.2f} pt on the page, not {BODY_PT} pt; "
             f"its tallest line's glyph box is {tallest} px"
         )
 
-        em_px = tallest / ink_to_em(CAP_TO_DESCENDER_PROBE)
+        em_px = tallest / ink_to_em(ASCENDER_TO_DESCENDER_PROBE)
         assert em_px == pytest.approx(points_to_px(BODY_PT, BOOK_DPI), abs=1.5), (
             f"the body's em measures {em_px:.1f} px, and {BODY_PT} pt at "
             f"{BOOK_DPI} DPI is {points_to_px(BODY_PT, BOOK_DPI)} px "
@@ -975,7 +1006,7 @@ class TestGuidePage_PointSizeIsIndependentOfDpi:
             "title_px": title_px,
             "body_px": body_px,
             "title_pt": measured_points(title_px, TITLE_AS_IT_STANDS, dpi),
-            "body_pt": measured_points(body_px, CAP_TO_DESCENDER_PROBE, dpi),
+            "body_pt": measured_points(body_px, ASCENDER_TO_DESCENDER_PROBE, dpi),
         }
 
     def test_300_and_600_dpi_print_the_same_point_size(self, monkeypatch):

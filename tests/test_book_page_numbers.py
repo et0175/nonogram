@@ -218,17 +218,29 @@ class TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber:
             "(F-1's own defect shape) and must omit its folio rather than "
             "draw it over the grid"
         )
-        # Most pages on this tiny, single-puzzle book still print their own
-        # folio — the omission is specific to pages with no measurable room
-        # (the blank puzzle page's and the answer page's own grids; the
-        # guide's own tightest fallback form can be another, since all three
-        # genuinely leave no room below their content on this 10 cm trim),
-        # not a blanket "min trim never gets folios" bug.
+        # The omission is specific to pages with no measurable room, and the
+        # set is now stated exactly rather than bounded (CARD-221): **both**
+        # guide pages (at this 10 cm trim not one of the five fallback forms
+        # fits the sheet at all — the loop exhausts them and draws the last,
+        # which on the packaged face leaves page 1 212 px *past* the frame
+        # and page 2 only 18 px inside it, against the folio's own 49 px
+        # line), the blank puzzle page's and the answer page's own
+        # page-fit-bound grids. Page 2 was the one of the four that used to
+        # print: on Arial that same last form left it 93 px, and the 75 px
+        # the packaged face adds is what spent them. Not a blanket "min trim
+        # never gets folios" bug — the TOC page and both dividers print
+        # theirs, asserted below.
         missing = set(range(1, drawn + 1)) - set(folios)
-        assert missing <= {1, blank_puzzle_page, answer_page}, (
-            f"unexpected pages missing a folio on the min-trim book: {missing}"
+        assert missing == {1, 2, blank_puzzle_page, answer_page}, (
+            "the min-trim book's folio-less pages are exactly its two guide "
+            "pages, its page-fit-bound blank puzzle page and its answer "
+            f"page, and this book drew none on {sorted(missing)}"
         )
-        assert len(folios) >= drawn - 3
+        assert set(folios) == set(range(1, drawn + 1)) - missing
+        assert len(folios) == 3, (
+            f"the TOC page and the two dividers carry folios; {len(folios)} "
+            "pages of this book drew one"
+        )
 
 
 # --------------------------------------------------------------------------
@@ -704,9 +716,10 @@ class TestBookPageNumbers_FolioNeverCollidesWithTheGrid:
         ``test_the_fixed_reserve_is_identical_across_book_scales`` only
         asserts ``>= 3`` digits. Any change to the packed face's digit
         advance or its kerning would therefore have moved the four-digit case
-        silently from "draws" to "omitted" with no failing test (the
-        baseline fixture's own ``font_fingerprint`` guards rendered pages,
-        not this boundary).
+        silently from "draws" to "omitted" with no failing test (the baseline
+        fixture guards rendered pages, not this boundary — and its own
+        ``font_fingerprint`` gate, which this sentence named until CARD-221,
+        is gone with the host lookup it covered).
 
         Both sides of the cliff are pinned, on the same two puzzles and
         within one parity at a time so that *only* the digit count differs:

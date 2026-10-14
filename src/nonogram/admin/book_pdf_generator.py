@@ -475,9 +475,11 @@ GUIDE_TITLE_GAP_PT = 36.0
 #: in the unit a reader can judge: ``type_px(14.4, 300) == 60``, so a book
 #: drawn at 300 DPI prints its dividers exactly as before, and a page at
 #: another resolution prints them at the same 14.4 pt instead of 60 px of
-#: whatever size that is. It letters through :func:`_guide_face`, whose
-#: fallback is sized, so a machine without Arial no longer prints the word at
-#: Pillow's 10 px default (2.4 pt).
+#: whatever size that is. It letters through :func:`_guide_face`, which since
+#: CARD-221 is the packaged face at that exact size on every host — before
+#: CARD-149 a machine without Arial printed the word at Pillow's 10 px default
+#: (2.4 pt), and before CARD-221 it printed it in Pillow's own face at the
+#: right size but another face's widths.
 DIVIDER_PT = 14.4
 
 #: The guide page's title (FR-041, AC-324, CARD-167). It was "How to Use This
@@ -576,41 +578,52 @@ TOC_ENTRY_GAP_PT = 4.0
 #: the entries list, the row count and :func:`structural_toc_entry_count`
 #: are all exactly what they were.
 #:
-#: **8.5 pt is the largest separation that leaves every storable trim its
-#: own page number** — the figure is measured, and it is the whole reason
-#: it is not a rounder number. On the **shortest** trim a book can store
-#: and :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out
-#: (10.00 cm, :data:`~nonogram.admin.book_page_spec.MIN_TRIM_CM`), a
-#: three-level book's eight rows leave 199 px under the last one, of which
-#: the folio's own line needs 49 (:func:`_draw_folio`, which omits the
-#: folio outright when its caller's ``content_bottom`` leaves it less).
-#: Four gaps at 300 dpi must therefore fit in 150 px:
+#: **8.5 pt was the largest separation that left every storable trim its
+#: own page number — on Arial, which the interior no longer letters in.**
+#: The figures below are the owner's own (CARD-205, 2026-10-14, read on the
+#: host's Arial), kept because they are what the constant was chosen
+#: against; the packaged face's are beside them, and they are 2 px short.
+#: On the **shortest** trim a book can store and
+#: :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out (10.00 cm,
+#: :data:`~nonogram.admin.book_page_spec.MIN_TRIM_CM`), a three-level book's
+#: eight rows leave 199 px under the last one on Arial and **187 px** on the
+#: packaged face (its rows are 49 px against Arial's 48 and its title's line
+#: 258 px against 254), of which the folio's own line needs 49
+#: (:func:`_draw_folio`, which omits the folio outright when its caller's
+#: ``content_bottom`` leaves it less). Four gaps at 300 dpi must therefore
+#: fit in 150 px on Arial and in **138 px** on the face the interior
+#: actually prints in:
 #:
-#: ===========  ======  ==================  =============================
-#: constant     px      headroom (4 gaps)   folio (needs 49 px)
-#: ===========  ======  ==================  =============================
-#: 10.0 pt      42      31                  **dropped**
-#: 9.5 pt       40      39                  **dropped**
-#: 9.0 pt       38      47                  **dropped**, by 2 px
-#: 8.9 pt       37      51                  ok — the largest that fits
-#: **8.5 pt**   **35**  **59**              **ok, with 10 px to spare**
-#: ===========  ======  ==================  =============================
+#: ===========  ======  ==============  ==================  =================
+#: constant     px      Arial headroom  packaged headroom   folio (needs 49)
+#: ===========  ======  ==============  ==================  =================
+#: 10.0 pt      42      31              19                  **dropped**
+#: 9.0 pt       38      47              35                  **dropped**
+#: **8.5 pt**   **35**  **59**          **47**              **dropped, by 2**
+#: 8.2 pt       34      63              51                  ok — the largest
+#: 8.0 pt       33      67              55                  ok, 6 px spare
+#: ===========  ======  ==============  ==================  =================
 #:
 #: 8.5 rather than the maximal 8.9 by the owner's own choice (2026-10-14):
 #: 10 px of margin over the folio's line is worth more than the 0.4 pt of
 #: extra white, because the next change that adds a row or a gap should
 #: fail on its own arithmetic rather than silently un-number a page.
 #:
-#: **Every px figure in the table above is read on Arial**, the face
-#: :func:`_guide_face` finds first. On a host where it falls back to
-#: Pillow's own face that row is taller, the same eight rows and four gaps
-#: leave 27 px, and the shortest storable trim's TOC page loses its folio
-#: even at 8.5 pt — measured in CARD-205 Fix 3 (review cycle 1, F-004), and
-#: the reason the owner's margin is asserted only behind the face gate in
-#: ``tests/test_book_toc.py``. Closing that would mean a smaller constant
-#: than the owner chose, so it is recorded for them rather than decided
-#: here; what is *not* face-dependent is that the folio cannot be dropped
-#: silently — the sweep's own inequality is red wherever it would be.
+#: **CARD-221 made the interior's type deterministic and this constant 2 px
+#: too wide for one trim.** Until that card :func:`_guide_face` resolved the
+#: host's Arial, with Pillow's own face as a fallback on which the same
+#: eight rows and four gaps left 27 px — so the 10.00 cm trim's TOC page
+#: lost its folio on any host without Arial and kept it here, which is the
+#: host-dependence that card removed. It is now 47 px on **every** host:
+#: deterministically 2 px short, at this one trim, where 10.10 cm clears it
+#: at 58. Applying the owner's own rule to the new metrics gives 8.2 pt as
+#: the largest that fits and 8.0 pt for a margin like the one they chose,
+#: but the constant is their decision (CARD-221's G-6 puts it out of that
+#: card's scope), so the figure is recorded for them here and carried by two
+#: strict ``xfail`` markers in ``tests/test_book_toc.py`` rather than
+#: quietly closed. What is *not* at anyone's discretion is that the folio
+#: cannot be dropped silently: the sweep's own inequality is red wherever it
+#: would be, and those markers fail the moment the gap moves.
 #:
 #: This constant was **10 pt through Fix 1**, when only the three headings
 #: were set off and three gaps of 42 px left 73 px — the fourth gap the
@@ -622,7 +635,8 @@ TOC_ENTRY_GAP_PT = 4.0
 #: rather than charged to every row, and
 #: ``tests/test_book_toc.py``'s
 #: ``TestBookToc_GroupsAreSetOffFromWhatPrecedesThem`` for the sweep that
-#: asserts the 59 px over all 381 heights KDP admits.
+#: asserts the 47 px, and the one failing height, over all 381 heights KDP
+#: admits.
 TOC_GROUP_GAP_PT = 8.5
 
 #: The label of the TOC's own last row (CARD-205): the SOLUTIONS divider that
@@ -647,8 +661,10 @@ TOC_SOLUTIONS_LABEL = "Solutions"
 #: :func:`toc_range_label` and the tests that pin its output must agree on
 #: the exact code point, which a literal in two places cannot guarantee by
 #: eye (U+2013; the module already letters the wider em dash through
-#: :func:`~nonogram.admin.book_answer_key.answer_caption`, so
-#: :func:`_guide_face`'s own faces are known to carry this range).
+#: :func:`~nonogram.admin.book_answer_key.answer_caption`, so the one face
+#: :func:`_guide_face` returns is known to carry this range — asserted glyph
+#: by glyph since CARD-221 by ``tests/test_book_interior_face.py``'s
+#: ``TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints``).
 TOC_RANGE_DASH = "–"
 
 #: The line the guide page's worked example solves (FR-041, AC-325): the clue
@@ -1090,23 +1106,46 @@ def type_px(points: float, dpi: int) -> int:
     return round(points * dpi / POINTS_PER_INCH)
 
 
-def _guide_face(size: int) -> Any:
-    """The face the guide page and the divider pages letter in, at ``size`` px.
+def _guide_face(size: int) -> ImageFont.FreeTypeFont:
+    """The face every reader-facing interior page letters in, at ``size`` px.
 
-    Arial by path; on a machine without it, Pillow's own face asked for at the
-    same size. A bare ``load_default()`` letters a page at a 10 px em whatever
-    the page is, which is the defect CARD-149 fixed wearing a fallback's
-    clothes. Pillow sizes its built-in face from 10.1 on; the declared floor
-    is 10.0, which raises ``TypeError`` instead, and there the page keeps the
-    unsized face it has always had.
+    The packaged DejaVu Sans — :func:`_band_font_bytes`, the one font this
+    project ships (ADR-0006/R1, package data rather than a dependency) and the
+    face the band and the folio were already set in. The guide pages, the
+    dividers and the table of contents letter through here, so **every
+    measurement the interior makes is a function of this repository alone and
+    of nothing the host happens to have installed** (CARD-221).
+
+    **It asked the host for Arial by path until CARD-221**, with Pillow's own
+    built-in face as a sized fallback. That made the interior's row geometry
+    host-dependent while the folio's own reservation (:func:`_band_font`) was
+    not, so the same book could be finalised here and generated on the
+    deployed Linux image and disagree about its page count — and therefore
+    about the printed KDP gutter band the count selects. Measured on
+    2026-10-14 at Book 1's trim: a TOC page held 42 rows on Arial and 40 on
+    the fallback, and ``main``'s own suite showed it as 10 off-host failures
+    in ``tests/test_book_finalise_gutter.py``, every one a page count off by
+    exactly one.
+
+    **No escapes, and none needed** (the card's step 1): the interior's whole
+    character repertoire is ASCII plus ``·`` (U+00B7, :data:`BAND_SEPARATOR`),
+    ``—`` (U+2014, the answer caption's dash), ``–`` (U+2013,
+    :data:`TOC_RANGE_DASH`) and ``…`` (U+2026, :func:`_clipped_to`'s
+    ellipsis), and DejaVu Sans covers every one of them — asserted glyph by
+    glyph, against this file's own strings, by
+    ``tests/test_book_interior_face.py``'s
+    ``TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints``. A silent
+    ``try`` here would be a second face waiting to be selected by accident,
+    which is the defect this function was changed to remove.
+
+    Uncached deliberately, unlike :func:`_band_font`: the guide page's title
+    is fitted by asking for one pixel less at a time, so a page probes many
+    sizes and a small LRU would thrash on exactly the call that needs it. The
+    font *bytes* are cached (:func:`_band_font_bytes`), which is where the
+    cost is; every call returns a fresh :class:`ImageFont.FreeTypeFont`, as
+    the Arial-by-path call it replaces also did.
     """
-    try:
-        return ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
-    except OSError:
-        try:
-            return ImageFont.load_default(size)
-        except TypeError:  # pragma: no cover - Pillow < 10.1
-            return ImageFont.load_default()
+    return ImageFont.truetype(BytesIO(_band_font_bytes()), size=size)
 
 
 def band_identity(puzzle_number: int, stored_tier: object) -> str:
@@ -1653,15 +1692,23 @@ def _draw_pipeline_diagram(
 
     ``label_size`` is the pixel size ``label_font`` was asked for from
     :func:`_guide_face`, passed explicitly rather than read back off
-    ``label_font.size`` (review cycle 1, F-2, gating): ``_guide_face`` can
-    return an "unsized" face with no ``.size`` attribute at all — its own
-    docstring says so — on any non-macOS host with a Pillow older than 10.1,
-    a combination ``pyproject.toml``'s unbounded ``Pillow>=10.0`` floor still
-    allows. Every other caller of a ``_guide_face`` font in this file already
-    avoids ``.size`` the same way (``create_guide_page``'s title/body fonts
-    measure with ``getlength``/``getmetrics``; ``create_divider_page``'s with
-    ``draw.textbbox``) — this reuses that approach by taking the size as a
-    parameter instead of reading it off the font.
+    ``label_font.size`` (review cycle 1, F-2, gating). The reason it was
+    introduced is **gone**: ``_guide_face`` could return an "unsized" face
+    with no ``.size`` attribute at all — a sizeless
+    ``ImageFont.load_default()``, on any non-macOS host with a Pillow older
+    than 10.1, a combination ``pyproject.toml``'s unbounded ``Pillow>=10.0``
+    floor still allows — and since CARD-221 it returns the packaged face at
+    the asked-for size and nothing else, on every host. The parameter stays
+    because the habit it encodes is sound on its own terms: every caller of a
+    ``_guide_face`` font in this file measures through the font's own API
+    (``create_guide_page``'s title/body fonts with
+    ``getlength``/``getmetrics``, ``create_divider_page``'s with
+    ``draw.textbbox``) rather than reading a number off the object, and
+    taking the size as a parameter is the same discipline. Its own
+    robustness test still stands, against a stand-in face rather than
+    against a face ``_guide_face`` can return
+    (``tests/test_book_guide_page.py``'s
+    ``test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face``).
     """
     rule = _guide_rule_width(spec)
     border = max(rule, 1)
@@ -2450,7 +2497,8 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     ``len(TIERS)`` levels, i.e. **eight rows with four gaps** (three
     headings and the solutions row — Fix 2), and the shortest trim
     :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out at all
-    holds ten rows — so the real list is one page on every trim KDP admits,
+    holds nine rows (ten until CARD-221 lettered the rows in the packaged
+    face, which sets them a pixel taller than Arial did) — so the real list is one page on every trim KDP admits,
     with its four gaps and the folio's own reserved line inside the one
     page's own frame (measured, over every tenth of a centimetre from 10 to
     48 cm, by ``tests/test_book_toc.py``'s
@@ -2467,7 +2515,7 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
 
     The alternative — folding the worst case in by dividing by
     ``entry_height + group_gap`` — would charge *every* row a gap only a
-    group's first row gets, cutting Book 1's own capacity from 42 rows to
+    group's first row gets, cutting Book 1's own capacity from 41 rows to
     27 and moving :func:`measured_toc_page_count` for all three of its callers
     (the export's own plan, ``book_kdp``'s gutter-band figure,
     :func:`interior_page_count`'s sheet-free bound) to pay for a split the
@@ -3849,9 +3897,11 @@ class BookPDFGenerator:
                 # is measured: trimmed while it overruns the gap, grown while
                 # another dot would still fit. Correcting only downwards (the
                 # obvious half) would silently drop a dot on any face whose
-                # kerning is negative, which is exactly the kind of thing that
-                # differs between Arial and `_guide_face`'s own fallback and
-                # so between one machine's render and another's.
+                # kerning is negative. That used to differ between Arial and
+                # `_guide_face`'s own fallback, and so between one machine's
+                # render and another's; since CARD-221 there is one face, and
+                # the correction stays because it is a property of a face's
+                # kerning rather than of which face was found.
                 dots = "." * max(0, int(run // dot_width)) if dot_width > 0 else ""
                 while dots and entry_font.getlength(dots) > run:
                     dots = dots[:-1]

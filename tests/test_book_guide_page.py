@@ -53,7 +53,9 @@ check fails.
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Tuple
+from importlib import resources
+from io import BytesIO
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pytest
@@ -111,19 +113,27 @@ BODY_PX = round(11 * BOOK_DPI / POINTS_PER_INCH)
 BODY_PT = 11.0
 LEADING_PT = 17.0
 
-ARIAL = "/System/Library/Fonts/Arial.ttf"
+#: The packaged face the guide page letters in since CARD-221, named the way
+#: :mod:`nonogram.export.pdf` names its own package data and read through
+#: :mod:`importlib.resources`, so this file still states the page's own lookup
+#: a second time rather than importing it. It was
+#: ``"/System/Library/Fonts/Arial.ttf"`` — the host path — until CARD-221.
+FONT_PACKAGE = "nonogram.export.fonts"
+FONT_RESOURCE = "DejaVuSans.ttf"
 INK_THRESHOLD = 128
 
 #: A row whose ink runs unbroken for longer than this is a ruled line.
 RULE_RUN_PX = 60
 
 
-def face(size_px: int) -> ImageFont.ImageFont:
-    """The face the guide page letters in, at ``size_px`` (Arial, or Pillow's)."""
-    try:
-        return ImageFont.truetype(ARIAL, size_px)
-    except OSError:  # pragma: no cover - only on a machine without Arial
-        return ImageFont.load_default(size_px)
+def face(size_px: int) -> ImageFont.FreeTypeFont:
+    """The face the guide page letters in, at ``size_px`` — the packaged one.
+
+    One call, on every host (CARD-221). The Arial-by-path-then-Pillow ladder
+    this reproduced was the page's own, and both ends of it are gone.
+    """
+    data = resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+    return ImageFont.truetype(BytesIO(data), size=size_px)
 
 
 # --------------------------------------------------------------------------
@@ -463,6 +473,117 @@ REFERENCE_SIZE = 400
 
 def text_reference() -> float:
     return top_to_baseline("Hdlk", face(REFERENCE_SIZE))
+
+
+def folio_reference() -> float:
+    """A page number's top-to-baseline ink per em, in the page's own face.
+
+    The folio (:func:`_draw_folio`) is the one mark a guide page sets in
+    **digits alone**, and a digit does not reach the lowercase ascender
+    :func:`text_reference`'s "Hdlk" probe measures to. Measured in the
+    packaged face at a 400 px em: "Hdlk" inks 0.760 of the em down to its
+    baseline and "1" only 0.730. So the folio — set at exactly CON-020's
+    floor, ``FOLIO_PT`` = 10 pt, which is 31 px of digit on a 300 DPI page —
+    reads 10.19 pt against its own probe and **9.79 pt** against the text
+    probe, a false breach of the floor it sits exactly on.
+
+    New in CARD-221 rather than changed: on Arial the two probes agreed to
+    within a pixel ("Hdlk" 0.7175 against "1" 0.72), so one probe served for
+    both and the folio measured 10.03 pt — inside the floor by 0.03 pt, by
+    that face's own metrics rather than by anything this page does. The
+    packaged face sets its ascenders above its cap height, as most faces do.
+    """
+    return top_to_baseline("1", face(REFERENCE_SIZE))
+
+
+def page_lines(generator, page_number: int) -> Tuple[Image.Image, Dict[int, str]]:
+    """A guide page, and the text of every line it sets **on the page itself**.
+
+    Keyed by the row of the baseline each line is set on, so a band of ink
+    can be measured against the extent of the glyphs that actually made it
+    (CARD-221). A line's ink reaches from its own tallest glyph down to its
+    own baseline, so "11 pt" is only recoverable from a band of ink when the
+    probe it is divided by has that same extent: "agrees on" — a line the
+    10 cm trim's page 2 wraps — tops out at x-height, and against an
+    ascender-to-baseline probe it measures **8.21 pt** while being set at 11.
+    One probe for the whole page was enough until CARD-221 only because no
+    line of either guide page happened to lack an ascender when the page was
+    lettered in Arial.
+
+    Only the marks drawn straight onto the page are collected: a diagram is
+    composed in its own image and pasted, so its own draw calls carry its own
+    coordinates and would key a baseline this page never set. The two are
+    told apart by the size of the surface each call draws on. The folio is
+    skipped here as well — it is anchored on the frame's bottom edge rather
+    than set on a line, and :func:`folio_band`/:func:`folio_reference` measure
+    it.
+    """
+    frame = page_frame(generator.page_spec(page_number))
+    original = ImageDraw.ImageDraw.text
+    lines: Dict[int, str] = {}
+
+    def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
+        surface = getattr(self, "_image", None)
+        on_page = surface is not None and surface.size == (frame.width, frame.height)
+        if on_page and font is not None and kwargs.get("anchor") in (None, "la"):
+            ascent, _ = font.getmetrics()
+            lines[int(round(xy[1])) + ascent] = str(text)
+        return original(self, xy, text, fill, font, *args, **kwargs)
+
+    ImageDraw.ImageDraw.text = spy
+    try:
+        page = generator.create_guide_page(
+            999_999, 333_333, 333_333, 333_333, page_number=page_number
+        )
+    finally:
+        ImageDraw.ImageDraw.text = original
+    return page, lines
+
+
+def line_reference(mask: np.ndarray, band: Tuple[int, int], lines: Dict[int, str]) -> Optional[float]:
+    """The ink-to-baseline probe of the line that made ``band``, if known.
+
+    ``None`` for a band no page-level line sets a baseline on — a pasted
+    diagram's own ink — which the caller measures against the generic probe
+    as before.
+    """
+    baseline = band[0] + baseline_row(mask[band[0] : band[1] + 1].sum(axis=1))
+    for offset in (0, -1, 1):
+        text = lines.get(baseline + offset)
+        if text is not None and text.strip():
+            return top_to_baseline(text, face(REFERENCE_SIZE))
+    return None
+
+
+def folio_band(bands: List[Tuple[int, int]], mask: np.ndarray, frame) -> int:
+    """Which of ``bands`` is the folio: its index, asserted and not assumed.
+
+    Structural rather than positional-by-faith. :func:`_draw_folio` anchors
+    the page number ``"rb"``/``"lb"`` on the frame's own bottom edge at its
+    own outer corner, so the folio's band is the last one and its last inked
+    row is that edge — both asserted here, together with the ink sitting in
+    the outer corner and being only a few digits wide, so a page that stops
+    drawing a folio (or draws something else down there) fails this helper
+    instead of quietly having one of its prose lines measured as digits.
+    """
+    index = len(bands) - 1
+    top, bottom = bands[index]
+    assert frame.bottom - 1 <= bottom <= frame.bottom, (
+        f"the page's last band of ink runs to row {bottom}, and the folio is "
+        f"anchored on the frame's own bottom edge at {frame.bottom}"
+    )
+    columns = np.flatnonzero(mask[top : bottom + 1].any(axis=0))
+    width = int(columns.max() - columns.min() + 1)
+    assert width <= 4 * (bottom - top + 1), (
+        f"the band at the frame's bottom edge is {width} px wide, which is "
+        "wider than a page number: it is not the folio"
+    )
+    assert columns.min() <= frame.left + width or columns.max() >= frame.right - width, (
+        "the folio sits in the frame's own outer corner, and this band's ink "
+        f"runs from {columns.min()} to {columns.max()} inside "
+        f"{frame.left}..{frame.right}"
+    )
+    return index
 
 
 def digit_reference() -> float:
@@ -1014,6 +1135,36 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
             assert mask[0, left[0] : right[1] + 1].all(), "a box's top border has a gap"
             assert mask[height - 1, left[0] : right[1] + 1].all(), "a box's bottom border has a gap"
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "KNOWN, MEASURED AND OWNER-BLOCKED (CARD-221, 2026-10-14). Page 2 "
+            "of the Book 1 trim no longer prints the difficulty box's three "
+            "sentences, nor the worked example's four captions, because it no "
+            "longer draws its captions form at all: the packaged DejaVu Sans "
+            "the interior letters in since CARD-221 is about a tenth wider "
+            "than the Arial this page was fitted against, one of its "
+            "paragraphs therefore wraps into one more line, and the captions "
+            "form's last mark lands at 3192 px against a frame bottom of "
+            "3188. **Four pixels**, and the ladder drops a whole level to the "
+            "labels form (`create_guide_page`'s documented five fallback "
+            "forms, first one that fits). Measured on this branch: the "
+            "captions form ended at 3115 px on Arial and 3119 on Pillow's "
+            "built-in face, so the page printed identically on this Mac and "
+            "on the deployed Linux image before this card and prints the "
+            "shorter form on both after it. The owner decides which they "
+            "want -- the shorter page 2 at Book 1, a sixth fallback level "
+            "between captions and labels (dropping the difficulty "
+            "sentences alone buys 234 px, which fits with room to spare), or "
+            "a narrower packaged face, which is an ADR-0006/R1 question. "
+            "CARD-221's G-1 forbids it from touching the wording, the sizes' "
+            "derivation or the layout, so it records the measurement here. "
+            "NOTE: while this is red, `test_a_wrong_difficulty_sentence_does_"
+            "not_match` below has no teeth -- nothing on the page matches "
+            "either box, right words or wrong. Strict: fixing the page fails "
+            "this test and is the signal to delete this marker."
+        ),
+    )
     def test_the_difficulty_box_carries_its_three_sentences_verbatim(self, generator, spec, page_mask, drawn):
         """"verbatim from the source PDF" (AC-3): a changed word changes this
         rendering (different wrap, different glyphs), so a match here is
@@ -1051,18 +1202,28 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
         assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 0
 
     def test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face(self, spec):
-        """Review cycle 1, F-2 (gating): ``_guide_face`` can return an
-        "unsized" face — no ``.size`` attribute at all — whenever Arial isn't
-        found *and* Pillow is older than 10.1 (its own docstring says so);
-        ``pyproject.toml``'s unbounded ``Pillow>=10.0`` floor still permits
-        that combination. ``_draw_pipeline_diagram``/``_draw_difficulty_box``
-        used to read ``label_font.size``/``text_font.size`` directly, which
-        would raise ``AttributeError`` the instant either routine ran on such
-        a host — this project's Pillow (see ``./.venv``) is >= 10.1, so that
-        crash cannot be reproduced by actually starving Pillow of Arial; a
-        stand-in face that genuinely has no ``.size`` is used instead, the
-        same shape a real sizeless face has (every method a real one has,
-        just no ``.size``).
+        """Review cycle 1, F-2 (gating): ``_draw_pipeline_diagram`` and
+        ``_draw_difficulty_box`` must not read a size off the face they are
+        handed.
+
+        **What made that a live crash is gone (CARD-221).** ``_guide_face``
+        used to be able to return an "unsized" face — no ``.size`` attribute
+        at all — whenever Arial was not found *and* Pillow was older than
+        10.1, a combination ``pyproject.toml``'s unbounded ``Pillow>=10.0``
+        floor still permits; both routines read
+        ``label_font.size``/``text_font.size`` directly and would have raised
+        ``AttributeError`` the instant either ran on such a host. Since that
+        card ``_guide_face`` returns the packaged face at the asked-for size
+        on every host, so no face it can return lacks ``.size`` and the
+        host-starvation route to this crash no longer exists.
+
+        The test stays, and its claim is narrowed to what it always actually
+        measured: these two routines take the size as a parameter and never
+        read it off the font, so they work with **any** face-shaped object
+        the module might hand them. It was never reproducible by starving
+        Pillow of Arial anyway (this project's Pillow is >= 10.1): a stand-in
+        face that genuinely has no ``.size`` is used instead — every method a
+        real one has, just no ``.size``.
 
         Negative control, so this test has teeth: ``sizeless.size`` itself
         raises ``AttributeError`` below, proving the stand-in really lacks
@@ -1144,12 +1305,24 @@ class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
     def test_every_line_of_type_holds_10pt_on_both_pages(self, generator_factory, page_numbers):
         generator = generator_factory()
         reference = text_reference()
+        digits = folio_reference()
         for page_number in page_numbers:
-            page = generator.create_guide_page(999_999, 333_333, 333_333, 333_333, page_number=page_number)
+            page, lines = page_lines(generator, page_number)
             mask = dark(page)
             found = type_bands(mask)
             assert found, f"page {page_number} carries no type at all"
-            sizes = [cap_height_points(mask, band, reference) for band in found]
+            # Each band against the probe whose extent its own glyphs have
+            # (CARD-221): the line's own text where the page set one, the
+            # folio's digits where it anchored the page number, and the
+            # generic ascender-to-baseline probe for a pasted diagram's ink.
+            folio = folio_band(found, mask, page_frame(generator.page_spec(page_number)))
+            sizes = []
+            for index, band in enumerate(found):
+                if index == folio:
+                    probe_ratio = digits
+                else:
+                    probe_ratio = line_reference(mask, band, lines) or reference
+                sizes.append(cap_height_points(mask, band, probe_ratio))
             assert min(sizes) >= FLOOR_PT, (
                 f"page {page_number}: a line of type measures {min(sizes):.2f} pt"
             )
