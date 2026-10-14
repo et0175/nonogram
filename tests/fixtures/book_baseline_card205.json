@@ -1,0 +1,138 @@
+{
+  "card": "CARD-205",
+  "supersedes": "tests/fixtures/book_baseline_card204.json",
+  "recorded_from_commit": "card/205-structural-toc (RE-RECORDED IN PLACE a second time, for this card's Fix 2 -- the owner's second 2026-10-14 decision, that the 'Solutions' row is set apart like a level heading; first recorded against the implementation commit, branched from main at CARD-204's merge)",
+  "recorded_from_commit_note": "Recorded against this card's own implementation on the merged tree. CARD-204's recording is superseded, not re-recorded in place: this is a different card's deliberate ink change, which the chain's own rule (see every baseline's 'warning' field) says gets a new file under its own card number. Re-recorded in place once, for Fix 1 of this same card (owner decision 2026-10-14: set the structural list's groups apart with TOC_GROUP_GAP_PT of extra white above each level heading). Same card, same page, same deliberate ink change carried one step further -- so this stays one file under CARD-205's number rather than becoming a fourteenth fixture, which is the same rule that gave it its own number in the first place. Interior page 3 is again the only page that moves (3491813 -> 3504840 bytes, measured by a page-by-page digest comparison against the pre-Fix-1 recording, not reasoned about), and the page count is still thirteen: the gaps are white inside a one-page TOC, so no book gets longer on any trim KDP admits.",
+  "recorded_on": "2026-10-14 (CARD-205 Fix 2)",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-205 replaces the table of contents' per-puzzle listing with a structural one: one 'How to Solve Nonograms' row, a heading plus a 'Puzzles N-M' range row for each non-empty level, and one 'Solutions' row, each (but the headings) carrying leader dots across to its page number. Interior page 3 is the only page whose ink moves -- measured, not assumed: a page-by-page digest comparison against book_baseline_card204.json finds exactly one difference, page 3. The PAGE COUNT is unchanged at thirteen, because this four-puzzle book's TOC was already one page under CARD-200's per-puzzle rule; a larger book's interior does get shorter (the 150-puzzle corpus falls from 310 pages to 307, four TOC pages down to one), which is what tests/helpers/book_corpus.py's CORPUS_PAGE_COUNT records. Fix 1 (owner decision 2026-10-14) then sets the groups apart: TOC_GROUP_GAP_PT (10 pt, 42 px at 300 dpi) of extra white above each level heading -- the blank line the owner's own sample shows -- drawn as a fixed addition to create_toc_page's own pen position and NOT as blank TocEntry rows, so the eight rows AC-1 counts, structural_toc_entry_count and _toc_entries_per_page's uniform division are all exactly what they were. This recording holds page 3 WITH those gaps. Fix 2 (owner decision 2026-10-14): the 'Solutions' row opens the last group and is set off like a heading, which makes four group gaps on a three-level book instead of three -- and four gaps at Fix 1's 10 pt left the shortest storable trim (10.00 cm) 31 px under its last row against the 49 the folio's own line needs, i.e. the page would have gone out unnumbered (G-1). TOC_GROUP_GAP_PT is therefore 8.5 pt, measured as the largest separation every storable trim can carry, with 59 px of headroom at the worst case. Page 3's ink moves once more for both.",
+  "warning": "This is evidence of what the book PDF looks like with CARD-205's structural table of contents in place. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_fingerprint": "9915f0697b1e44cc040f9fef86c232e101a10640067bd1a001f47459a1f2b24e",
+  "font_fingerprint_note": "This machine's Arial-or-fallback fingerprint, reproduced before this file was written (tests.helpers.book_corpus.font_fingerprint). A machine with a different fingerprint skips the font_dependent_pages below rather than failing on them.",
+  "font_dependent_pages": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    10
+  ],
+  "font_dependent_pages_note": "Both guide pages (1, 2), the new TOC page (3, CARD-200: its title and every entry are set through _guide_face, the same Arial-or-fallback path the guide and divider pages already use), the three level dividers (4, 6, 8) and the SOLUTIONS divider (10) are machine-lettered. None of the three packed/full answer pages (11-13) are machine-lettered -- a packed slot's band and caption letter in the packaged DejaVu Sans, and so does every page's own new folio (CARD-200: it reuses _band_font, the same packaged face, exactly as the answer caption does -- G-4's reuse, not a new font path), so the folio never makes an otherwise machine-safe page machine-dependent. CARD-205 changes what page 3 says, not the faces it says it in: the title keeps _guide_face at the same size and every row (label, leader dots and page number alike) is set in the same TOC entry face CARD-200 introduced, so page 3 is machine-lettered exactly as before and this list is unchanged.",
+  "interior_bytes": 3498430,
+  "interior_bytes_note": "The black-and-white interior of this book: 3498430 bytes, where this fixture's own Fix 1 recording held 3504840, its pre-Fix-1 recording held 3491813 and CARD-204's held 3441912. Every step is interior page 3 alone -- the structural TOC's own JPEG stream, whose leader-dot runs carry more high-frequency ink than CARD-200's four plain caption rows did. Fix 2 moves the one row the fourth group gap pushes down ('Solutions') and shortens the other three gaps from 42 px to 35 (TOC_GROUP_GAP_PT 10.0 -> 8.5, the largest separation that leaves the shortest storable trim its folio -- see that constant's own docstring), so all four of the list's lower rows sit at a new y. Measured, not predicted: the twelve other pages are byte-identical to Fix 1's recording.",
+  "page_count": 13,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "747a0db669534b9b012ab03268fc300577ff3c4d5de74742dea661f0cd2d3aea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d57d6c59779607780ec1d3129924580cc5453824ca6c901f707e9d017d23238a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "20d787a434690db356184dfd67b83f8c0a223aae49b860a6e1f01c7daf97dcb0"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "75dae5f3afd301aff3a0c52b2a7254e1f394c70ea35b762b3161b92c875597f5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d51108ef22e699363d7692c312dafde71dfe6333a36ed87fac534b178c16b8e6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e2e06816e4f541969c25a216fe4f7a064ec39b31458e9d142bec62e5600085ea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "ddbec59535f1566b3dff9a03595ad1c41047dd2c19e7eb539f62b50f88373a15"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "64574035fa6c4223579e3dd9381562db7075b3fd63c60dfeb5db73393668dcf7"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d15b54d5195903d471ebaf878a7fb7f0216ea6673fd472d66da119017391f95e"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e1ad9e4ee43ca6ca71c1550bdce983a1a272682a5adbc215b8c1dff75e681e46"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d68d6773772ef8e58a6155f17ac3079c251e23ebe5fd3720a2ae3ce52c6ed39f"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bb390982f5517bbd10fb3dd970f5cb504c4f5fe72f78e2276aa3099a2aa25188"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "db992a23160442038851051754f5831108c41269b30046872a019a4caedfd0f1"
+    }
+  ],
+  "changed_pages": [
+    3
+  ],
+  "changed_pages_note": "Interior page 3 (the table of contents) is the only page that moves against CARD-204's recording, the only page that moved when Fix 1's group gaps were added to this card's own earlier recording, and the only page that moved again for Fix 2 (the 'Solutions' row's own gap, and the 8.5 pt constant the four gaps together forced). Each is measured by a page-by-page digest comparison, not reasoned about: the other twelve pages' digests are carried across unchanged because they were read back out of the new export and compared, not because nothing was expected to touch them."
+}

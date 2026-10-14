@@ -352,14 +352,26 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
             checked += 1
         assert checked == len(folios) >= drawn - 1, "almost every page carried a checkable folio"
 
-    def test_parity_holds_on_a_larger_book_whose_toc_spans_more_than_one_page(
+    def test_parity_holds_on_a_larger_book_across_the_toc_insertion(
         self, monkeypatch
     ) -> None:
-        """A bigger book (enough puzzles to force a multi-page TOC) still
-        keeps every later page's parity equal to its own 1-based position —
-        AC-6's own "later numbering still consistent" clause, read for
-        parity rather than for the arithmetic AC-6's own test already
-        checks.
+        """A bigger book still keeps every later page's parity equal to its
+        own 1-based position — AC-6's own "later numbering still consistent"
+        clause, read for parity rather than for the arithmetic AC-6's own
+        test already checks.
+
+        **CARD-205 renamed this test and restated its precondition.** It
+        used to require ``toc_page_count > 1`` ("enough puzzles to force a
+        multi-page TOC"), which 60 puzzles did under CARD-200's per-puzzle
+        listing. The structural TOC lists *sections*, so no book of any size
+        reaches a second page on any trim KDP admits (swept end to end by
+        ``tests/test_book_finalise_gutter.py``'s
+        ``TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc``).
+        What this test is *about* — parity across the TOC's insertion, on a
+        book long enough for it to go wrong somewhere — is checked exactly
+        as before; only the precondition is restated against what the TOC
+        really is now: present, one page, and counted into every later
+        page's own number.
         """
         generator = BookPDFGenerator(corpus_book("card-200-ac9-big"))
         puzzles = [
@@ -370,9 +382,20 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         folios = _folios(calls)
         by_page = {call.page: call.anchor for call in calls if call.anchor in _FOLIO_ANCHORS}
 
+        from nonogram.admin.book_pdf_generator import GUIDE_PAGE_COUNT
+
         decided = generator.section_plan(list(puzzles))
-        assert decided.toc_page_count > 1, (
-            "this corpus should force a multi-page TOC, or this test checks nothing new"
+        assert decided.toc_page_count == 1, (
+            "the structural TOC is one page; if this book needed another, "
+            "the offset this test reads below is the wrong one"
+        )
+        assert decided.pages[0].page_number == 1 + GUIDE_PAGE_COUNT + 1, (
+            "the TOC must still sit between the guide and the puzzle "
+            "section, or there is no insertion left to check parity across"
+        )
+        assert drawn > 120, (
+            "a 60-puzzle book should still print well over a hundred pages, "
+            "or parity has nowhere to go wrong"
         )
         for page in folios:
             expected = "rb" if page_is_right_hand(page) else "lb"

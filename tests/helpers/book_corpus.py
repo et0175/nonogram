@@ -355,11 +355,69 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``font_fingerprint`` and ``font_dependent_pages`` are unchanged (no
 #:   answer page is machine-lettered).
 #:
-#: All fourteen files carry the reasoning; this constant names the current one
-#: (fourteen since main's CARD-203 joined the chain between this card's own
-#: Fix 4 and Fix 7 recordings; the two stale counts this line used to carry,
-#: "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
+#: * ``book_baseline_card205.json`` — CARD-205 replaces the table of
+#:   contents' per-puzzle listing with a structural one: one "How to Solve
+#:   Nonograms" row, a heading plus a ``Puzzles N–M`` range row per
+#:   non-empty level, and one "Solutions" row, each numbered row carrying
+#:   leader dots across to its page number. A **new file**, not a
+#:   re-recording of CARD-204's: this is a different card's deliberate ink
+#:   change, which the chain's own rule (every baseline's ``warning``
+#:   field) gives its own card number. Measured directly (a page-by-page
+#:   digest comparison against CARD-204's recording): interior page 3, the
+#:   TOC, is the **only** page that moves — the other twelve are
+#:   byte-identical, which is the evidence that a card touching
+#:   ``create_toc_page`` and the TOC's own entry count reached no other
+#:   page kind. ``interior_bytes`` moves from 3441912 to 3491813 (+49901 —
+#:   the leader-dot runs carry more high-frequency ink than CARD-200's four
+#:   plain caption rows did, so the page's own JPEG grows even though it
+#:   holds fewer words). ``font_fingerprint`` and ``font_dependent_pages``
+#:   are unchanged: page 3 is lettered in exactly the faces and sizes
+#:   CARD-200 gave it.
+#:
+#:   **Re-recorded in place once, for this same card's Fix 1** (owner
+#:   decision 2026-10-14): ``TOC_GROUP_GAP_PT`` sets extra white
+#:   above each level heading, the blank line the owner's own sample shows
+#:   between the groups — drawn as a fixed addition to the pen's ``y``,
+#:   not as blank ``TocEntry`` rows, so the row count AC-1 pins and
+#:   ``_toc_entries_per_page``'s uniform division are untouched. Same card,
+#:   same page, same deliberate ink change carried one step further, so it
+#:   stays this one file rather than becoming a sixteenth. Measured the same
+#:   way (a page-by-page digest comparison against the pre-Fix-1 recording):
+#:   page 3 is again the **only** page that moves, and ``interior_bytes``
+#:   moves from 3491813 to 3504840 (+13027 — three of the eight rows shift
+#:   down the page). The page count is still thirteen: the gaps are white
+#:   inside a TOC that is one page on every trim KDP admits.
+#:
+#:   **And re-recorded in place a second time, for the same card's Fix 2**
+#:   (the owner's second decision of 2026-10-14): ``Solutions`` opens the
+#:   last group and is set off like a heading, so a three-level book now
+#:   takes **four** group gaps rather than three — and four at Fix 1's
+#:   10 pt would have left the shortest storable trim (10.00 cm) 31 px under
+#:   its last row against the 49 the folio needs, un-numbering the one page
+#:   that must carry a number (G-1). ``TOC_GROUP_GAP_PT`` is therefore
+#:   **8.5 pt**, measured as the largest separation every storable trim can
+#:   carry (59 px of headroom at the worst case). Both changes land on the
+#:   same page: the three existing gaps shrink from 42 px to 35 while a
+#:   fourth appears above ``Solutions``, so the list ends 14 px *lower*
+#:   than it did (worst-case headroom 73 px -> 59) and all four of its
+#:   lower rows sit at a new y. ``interior_bytes`` moves from 3504840 to
+#:   **3498430** — down 6410, where Fix 1's own shift moved it up: the
+#:   direction is the JPEG encoder's, not a measure of how much ink the
+#:   page holds, and it is recorded because it is what the file does, not
+#:   because it was predicted. Measured the same way, against Fix 1's own
+#:   recording: page 3 is once more the **only** page that moves, and the
+#:   page count is still thirteen.
+#:
+#:   **This book's page count does not change** (still thirteen): its four
+#:   puzzles already fitted a one-page TOC under the old rule. A *large*
+#:   book's does — see :data:`CORPUS_PAGE_COUNT` below, which falls from
+#:   310 to 307.
+#:
+#: All fifteen files carry the reasoning; this constant names the current one
+#: (fifteen since CARD-205's own recording joined the fourteen that main's
+#: CARD-203 had brought the chain to; the stale counts this line used to
+#: carry, "thirteen" and "twelve", were both left behind by earlier cards).
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card205.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
@@ -373,13 +431,21 @@ BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_base
 BASELINE_PAGE_COUNT = 13
 
 #: How many puzzles the large corpus holds, and the interior that follows:
-#: 2 guide (CARD-201) + 4 TOC pages (CARD-200: 150 entries at Book 1's own
-#: ~43-entries-per-page capacity, measured off
-#: ``book_pdf_generator._toc_entries_per_page`` rather than guessed) + 3
-#: level dividers + 150 puzzle pages + SOLUTIONS + 150 answer pages
-#: (CARD-198: one per puzzle, where the packed key took 27).
+#: 2 guide (CARD-201) + **1** TOC page + 3 level dividers + 150 puzzle pages
+#: + SOLUTIONS + 150 answer pages (CARD-198: one per puzzle, where the
+#: packed key took 27).
+#:
+#: The TOC term was 4 until CARD-205 (CARD-200 listed one row per puzzle:
+#: 150 entries at Book 1's own ~43-entries-per-page capacity). CARD-205's
+#: structural list is eight rows for this three-level corpus — the guide,
+#: three headings with their ranges, the solutions — which is one page on
+#: any trim, so this interior is three pages shorter than it was. Still
+#: measured off ``book_pdf_generator``'s own
+#: ``structural_toc_entry_count``/``_toc_entries_per_page`` rather than
+#: guessed, and still asserted against the live page plan by the tests that
+#: use it.
 CORPUS_PUZZLE_COUNT = 150
-CORPUS_TOC_PAGE_COUNT = 4
+CORPUS_TOC_PAGE_COUNT = 1
 CORPUS_PAGE_COUNT = (
     2 + CORPUS_TOC_PAGE_COUNT + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
 )

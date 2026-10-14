@@ -127,6 +127,40 @@ solved page per puzzle, in print-number order — so a level's answer pages sit
 contiguously exactly as its puzzle pages do, with no further arranging here
 (CARD-198).
 
+What the table of contents lists (FR-043, CARD-200, CARD-205)
+--------------------------------------------------------------
+The TOC sits between the guide and the puzzle section, and since CARD-205 it
+lists **sections, never puzzles**: one "How to Solve Nonograms" row, then —
+for each non-empty level — a heading row carrying the level's name and a
+``Puzzles N–M`` row carrying that level's own divider page number, and finally
+one "Solutions" row against the SOLUTIONS divider. Leader dots carry the eye
+from each label across to its page number
+(:meth:`BookPDFGenerator.create_toc_page`).
+
+CARD-200 shipped it as one row per drawable puzzle, captioned "37. Ice skate"
+— on a 150-puzzle book, four pages of rows. The owner's decision (Google Doc
+"Nonograms - Print layout", 2026-10-13) replaced it: a puzzle is found by the
+number printed in its own band, so a reader needs the TOC to say where a
+*level* starts, not where each puzzle does. The amendment is to FR-043's TOC
+half, whose own acceptance criteria still describe the per-puzzle listing;
+flagged for the architect station in CARD-205's Worktree notes, since a kanban
+card does not edit ``meta/architecture/**``.
+
+**Its length is a term in every later page's number**, which is what makes
+this more than a cosmetic change: the structural list is about six rows where
+the per-puzzle one was up to several pages, so a book's puzzle pages, its
+SOLUTIONS divider and its answer pages all moved earlier by the difference.
+That length is decided once, from :func:`structural_toc_entry_count`, and read
+by three places that must never disagree — :meth:`BookPDFGenerator.section_plan`
+(the real export), :func:`interior_page_count`'s own sheet-free default, and
+:func:`~nonogram.admin.book_kdp.unpaired_interior_page_count` (whose page count
+chooses KDP's gutter margin). :meth:`BookPDFGenerator.interior_stream` closes
+the loop with a tripwire in two halves: the rows it actually hands the drawing
+must be as many as :func:`structural_toc_entry_count` says that book lists,
+*and* must re-measure to the page count the plan was laid out on. Both halves,
+because a page count is 1 for anything from one row up to a page's capacity
+and so cannot see a row-count divergence on its own.
+
 Two puzzles to a page (FR-040, INV-010, CARD-127)
 --------------------------------------------------
 :meth:`BookPDFGenerator.puzzle_pages` walks the book order from the first
@@ -509,7 +543,113 @@ TOC_ENTRY_PT = 10.0
 #: The gap below one TOC entry's own line, in points (CARD-200) — a fixed,
 #: small fraction of the entry's own size rather than a second invented
 #: leading constant, so rows read as a list and not as run-on body text.
+#:
+#: Since CARD-205 it is also the **horizontal** clearance a row's leader-dot
+#: run keeps from the label on its left and from the page number on its
+#: right (:meth:`BookPDFGenerator.create_toc_page`) — the same single gap
+#: constant on both axes rather than a second invented one, for exactly the
+#: reason this one exists at all.
 TOC_ENTRY_GAP_PT = 4.0
+
+#: The **extra** gap set above a row that opens a group, in points
+#: (CARD-205 Fix 1, owner decisions 2026-10-14) — what separates one group
+#: of the structural list from the group above it, so the list reads as
+#: sections rather than as eight evenly spaced rows.
+#:
+#: Set above every row whose :attr:`TocEntry.starts_group` is true: the
+#: three level headings **and** the :data:`TOC_SOLUTIONS_LABEL` row, which
+#: is a numbered row rather than a heading but opens the last group all the
+#: same (the owner's second decision, 2026-10-14 — before it, ``Solutions``
+#: sat one ordinary line under the Hard range and read as the tail of that
+#: group). Four gaps on a three-level book, not three.
+#:
+#: The owner's own sample (Google Doc "Nonograms - Print layout",
+#: 2026-10-13) sets a blank line between the groups. This is that
+#: separation, and deliberately **not** a blank :class:`TocEntry` row: a
+#: spacer row would be counted (AC-1 asserts the structural list's row
+#: count exactly — two rows plus two per level and nothing else), and
+#: giving one row a different height would make
+#: :func:`_toc_entries_per_page`'s uniform-row division a second
+#: text-layout primitive (G-2). A fixed point figure added to the pen's own
+#: ``y`` before such a row is drawn is neither: the rows are still set with
+#: :func:`_guide_face`/:func:`type_px` on the same :func:`page_frame`, and
+#: the entries list, the row count and :func:`structural_toc_entry_count`
+#: are all exactly what they were.
+#:
+#: **8.5 pt is the largest separation that leaves every storable trim its
+#: own page number** — the figure is measured, and it is the whole reason
+#: it is not a rounder number. On the **shortest** trim a book can store
+#: and :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out
+#: (10.00 cm, :data:`~nonogram.admin.book_page_spec.MIN_TRIM_CM`), a
+#: three-level book's eight rows leave 199 px under the last one, of which
+#: the folio's own line needs 49 (:func:`_draw_folio`, which omits the
+#: folio outright when its caller's ``content_bottom`` leaves it less).
+#: Four gaps at 300 dpi must therefore fit in 150 px:
+#:
+#: ===========  ======  ==================  =============================
+#: constant     px      headroom (4 gaps)   folio (needs 49 px)
+#: ===========  ======  ==================  =============================
+#: 10.0 pt      42      31                  **dropped**
+#: 9.5 pt       40      39                  **dropped**
+#: 9.0 pt       38      47                  **dropped**, by 2 px
+#: 8.9 pt       37      51                  ok — the largest that fits
+#: **8.5 pt**   **35**  **59**              **ok, with 10 px to spare**
+#: ===========  ======  ==================  =============================
+#:
+#: 8.5 rather than the maximal 8.9 by the owner's own choice (2026-10-14):
+#: 10 px of margin over the folio's line is worth more than the 0.4 pt of
+#: extra white, because the next change that adds a row or a gap should
+#: fail on its own arithmetic rather than silently un-number a page.
+#:
+#: **Every px figure in the table above is read on Arial**, the face
+#: :func:`_guide_face` finds first. On a host where it falls back to
+#: Pillow's own face that row is taller, the same eight rows and four gaps
+#: leave 27 px, and the shortest storable trim's TOC page loses its folio
+#: even at 8.5 pt — measured in CARD-205 Fix 3 (review cycle 1, F-004), and
+#: the reason the owner's margin is asserted only behind the face gate in
+#: ``tests/test_book_toc.py``. Closing that would mean a smaller constant
+#: than the owner chose, so it is recorded for them rather than decided
+#: here; what is *not* face-dependent is that the folio cannot be dropped
+#: silently — the sweep's own inequality is red wherever it would be.
+#:
+#: This constant was **10 pt through Fix 1**, when only the three headings
+#: were set off and three gaps of 42 px left 73 px — the fourth gap the
+#: ``Solutions`` decision adds is what spent the margin. The superseded
+#: rationale ("one :data:`TOC_ENTRY_PT`, a row's worth of white") is
+#: recorded here only so it is not re-derived: the separation is now set by
+#: the folio's reservation, not by an entry's set size. See
+#: :func:`_toc_entries_per_page` for why the gaps are *proved* to fit
+#: rather than charged to every row, and
+#: ``tests/test_book_toc.py``'s
+#: ``TestBookToc_GroupsAreSetOffFromWhatPrecedesThem`` for the sweep that
+#: asserts the 59 px over all 381 heights KDP admits.
+TOC_GROUP_GAP_PT = 8.5
+
+#: The label of the TOC's own last row (CARD-205): the SOLUTIONS divider that
+#: opens the answer section, as the **table of contents** names it.
+#:
+#: Sentence case, and therefore deliberately *not*
+#: :meth:`BookPDFGenerator.create_divider_page`'s own ``"SOLUTIONS"``
+#: default. That string is the all-caps word printed on the divider page
+#: itself — a display decision of that page, the same register its one-word
+#: level dividers are set in — whereas a TOC row sits in a list beside
+#: :data:`GUIDE_TITLE` ("How to Solve Nonograms") and the
+#: :class:`~nonogram.difficulty.Tier` labels ("Easy"), every one of which is
+#: sentence case. This is the owner's own sample wording (Google Doc
+#: "Nonograms - Print layout", 2026-10-13: ``Solutions ............ 86``),
+#: not a second name for that page: nothing reads this constant to draw the
+#: divider, and the divider's own text is untouched by this card (G-3/G-5).
+TOC_SOLUTIONS_LABEL = "Solutions"
+
+#: The en dash a ``Puzzles N–M`` row's range is set with (CARD-205) — the
+#: typographic dash for a span of numbers, and the same character the
+#: owner's own sample uses. Named rather than inlined because
+#: :func:`toc_range_label` and the tests that pin its output must agree on
+#: the exact code point, which a literal in two places cannot guarantee by
+#: eye (U+2013; the module already letters the wider em dash through
+#: :func:`~nonogram.admin.book_answer_key.answer_caption`, so
+#: :func:`_guide_face`'s own faces are known to carry this range).
+TOC_RANGE_DASH = "–"
 
 #: The line the guide page's worked example solves (FR-041, AC-325): the clue
 #: ``3 1`` on a row of six squares.
@@ -1634,6 +1774,75 @@ def _draw_difficulty_box(
 
 
 @dataclass(frozen=True)
+class TocEntry:
+    """One row of the table of contents: a label, and the page it sends a
+    reader to (CARD-205).
+
+    The boundary type between the two halves of the TOC — the pass that
+    decides *what* is listed (:func:`structural_toc_entries`, from the page
+    plan) and the one that draws it
+    (:meth:`BookPDFGenerator.create_toc_page`) — and a type of its own
+    rather than the ``(label, page_number)`` tuple CARD-200 passed, for the
+    reason this card introduces a row that has **no** page number: a bare
+    ``(str, Optional[int])`` tuple makes every reader of a row decide for
+    itself whether the second slot is a page or a sentinel, where this
+    makes the two kinds of row name themselves (:attr:`is_heading`).
+
+    Attributes:
+        label: The row's text, exactly as it prints. Already resolved —
+            :data:`GUIDE_TITLE`, a :class:`~nonogram.difficulty.Tier`'s own
+            label, :func:`toc_range_label`'s range or
+            :data:`TOC_SOLUTIONS_LABEL` — never a template the drawing
+            fills in.
+        page: The 1-based interior page the row names, or ``None`` for a
+            level **heading**, which groups the row under it and points at
+            no page of its own (the page number belongs to the
+            ``Puzzles N–M`` row beneath it, which is the page a reader
+            actually turns to). A heading therefore gets no leader dots
+            either: there is nothing on the right for them to lead to.
+        starts_group: Whether this row **opens a group** of the list, and is
+            therefore set :data:`TOC_GROUP_GAP_PT` of extra white below
+            whatever precedes it (CARD-205 Fix 2, owner decision
+            2026-10-14). True on each level heading and on the
+            :data:`TOC_SOLUTIONS_LABEL` row.
+
+            A flag of its own rather than anything
+            :meth:`BookPDFGenerator.create_toc_page` could infer, and the
+            one reason this type grew a third field. The two inferences
+            available are both wrong about what is meant:
+            :attr:`is_heading` separates the three headings but not
+            ``Solutions``, which is a *numbered* row that nonetheless opens
+            the last group — that is exactly the gap this field was added
+            to close; and "the last row" reads the same today only by
+            accident, and would silently mis-set the moment anything is
+            appended after the solutions (an appendix, an index, a second
+            answer section), separating the new tail instead of the row
+            that actually means it.
+
+            It is a flag and **not** a row: the row count AC-1 pins and
+            :func:`structural_toc_entry_count`'s ``2 + 2 * levels`` are
+            untouched by it, and every row is still one line of
+            :data:`TOC_ENTRY_PT` high, so
+            :func:`_toc_entries_per_page` stays a uniform division (G-2).
+    """
+
+    label: str
+    page: Optional[int] = None
+    starts_group: bool = False
+
+    def __post_init__(self) -> None:
+        if self.page is not None and self.page < 1:
+            raise ValueError(
+                f"a TOC row names interior page 1 or later, got {self.page}"
+            )
+
+    @property
+    def is_heading(self) -> bool:
+        """Whether this row is a level heading — a label with no page number."""
+        return self.page is None
+
+
+@dataclass(frozen=True)
 class PuzzlePagePlan:
     """One page of the interior's puzzle section: one puzzle, or two (FR-040).
 
@@ -2227,6 +2436,44 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     At least one entry always fits, by floor, the same shape
     :func:`interior_page_count`'s own ``level_dividers`` default already
     uses for its own worst case.
+
+    **The group gaps are deliberately not charged here** (CARD-205).
+    :meth:`BookPDFGenerator.create_toc_page` sets :data:`TOC_GROUP_GAP_PT`
+    of extra white above each row that opens a group, which is vertical
+    space this figure does not know about — so this function stays what its
+    name says, a uniform division by one row's height, and does **not**
+    become group-dependent (which would make one page's capacity a function
+    of its own content, i.e. the second layout primitive G-2 forbids). That
+    is sound rather than merely convenient, because the structural list
+    cannot reach the split this figure governs:
+    :func:`structural_toc_entry_count` is ``2 + 2 * levels`` with at most
+    ``len(TIERS)`` levels, i.e. **eight rows with four gaps** (three
+    headings and the solutions row — Fix 2), and the shortest trim
+    :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out at all
+    holds ten rows — so the real list is one page on every trim KDP admits,
+    with its four gaps and the folio's own reserved line inside the one
+    page's own frame (measured, over every tenth of a centimetre from 10 to
+    48 cm, by ``tests/test_book_toc.py``'s
+    ``TestBookToc_GroupsAreSetOffFromWhatPrecedesThem`` and
+    ``tests/test_book_finalise_gutter.py``'s
+    ``test_the_structural_toc_is_one_page_on_every_trim_kdp_admits``).
+
+    **The margin that proof leaves is thin and was once spent.** The
+    fourth gap put the worst case 18 px *inside* the folio's reserved line
+    at Fix 1's 10 pt constant, which is why :data:`TOC_GROUP_GAP_PT` is
+    8.5: a fifth gap, or a ninth row, has to be measured here again rather
+    than assumed. The sweep asserts the figure, not merely the inequality,
+    so it cannot be reintroduced quietly.
+
+    The alternative — folding the worst case in by dividing by
+    ``entry_height + group_gap`` — would charge *every* row a gap only a
+    group's first row gets, cutting Book 1's own capacity from 42 rows to
+    27 and moving :func:`measured_toc_page_count` for all three of its callers
+    (the export's own plan, ``book_kdp``'s gutter-band figure,
+    :func:`interior_page_count`'s sheet-free bound) to pay for a split the
+    structural list never takes. Should a future card list something long
+    enough to spill — a per-puzzle appendix, say — that is the decision to
+    revisit *then*, with the rows that actually spill in hand.
     """
     title_font = _guide_face(type_px(GUIDE_TITLE_PT, dpi))
     title_ascent, title_descent = title_font.getmetrics()
@@ -2271,6 +2518,202 @@ def measured_toc_page_count(entry_count: int, frame: "PageFrame", dpi: int) -> i
         return 0
     per_page = _toc_entries_per_page(frame, dpi)
     return -(-entry_count // per_page)
+
+
+def toc_range_label(first: int, last: int) -> str:
+    """A level's ``Puzzles N–M`` row label (CARD-205).
+
+    The row that carries the level's own divider page number, under the
+    heading that names the level. ``first``/``last`` are 1-based **puzzle
+    numbers** (not page numbers): INV-009 groups a book by tier, which is
+    the only reason a level's puzzle numbers are a contiguous range at all
+    — on an ungrouped order this label would name a span holding other
+    levels' puzzles, so this function is only ever fed the runs
+    :func:`_level_runs` cut out of :func:`print_order`'s own output.
+
+    A level holding exactly one puzzle reads ``Puzzle 7``, not
+    ``Puzzles 7–7``. The owner's sample (Google Doc "Nonograms - Print
+    layout", 2026-10-13) only shows the plural case, and nothing in the
+    card forces the singular — but a printed book is read, not parsed, and
+    ``Puzzles 7–7`` is the kind of thing an owner proof-reading a render
+    files as a defect. Handled here, once, rather than left to the caller:
+    this is the one place a range becomes words.
+
+    Raises:
+        ValueError: the range runs backwards or starts below 1 — a level with
+            no puzzle has no row at all (:func:`structural_toc_entries`), so
+            an empty range reaching here means the walk that built it is
+            wrong, not that the label should be blank.
+    """
+    if first < 1 or last < first:
+        raise ValueError(
+            f"a level's puzzle range runs 1 <= first <= last, got {first}..{last}"
+        )
+    if first == last:
+        return f"Puzzle {first}"
+    return f"Puzzles {first}{TOC_RANGE_DASH}{last}"
+
+
+def structural_toc_entry_count(level_count: int, puzzle_count: int) -> int:
+    """How many rows the structural table of contents holds (CARD-205).
+
+    The TOC lists **sections, never puzzles** (the owner's decision, Google
+    Doc "Nonograms - Print layout", 2026-10-13): one
+    :data:`GUIDE_TITLE` row, a heading row plus a ``Puzzles N–M`` row for
+    each named non-empty level, and one :data:`TOC_SOLUTIONS_LABEL` row —
+    ``2 + 2 * level_count`` rows, independent of how many puzzles the book
+    holds. Zero when the book has no drawable puzzle, which is what makes
+    :func:`measured_toc_page_count` return no TOC page for it at all
+    (CARD-200's own "only when there are puzzles" guard, unchanged).
+
+    **Why a count function and not just ``len(structural_toc_entries(...))``.**
+    The entries themselves need the page numbers of the pages they name, and
+    those page numbers are not known until the TOC's own length has been
+    decided — the TOC sits between the guide and the puzzle section, so its
+    page count is a term in every later page's number
+    (:meth:`BookPDFGenerator.section_plan`). The count, unlike the entries,
+    depends on nothing but the level runs, which are readable from the
+    payloads alone; so the split is what breaks that circle rather than a
+    convenience. :meth:`BookPDFGenerator.interior_stream` closes the loop
+    with a tripwire: the entries it finally builds must re-measure to the
+    same page count the plan was laid out on.
+
+    **Both callers of :func:`measured_toc_page_count` are fed by this
+    function**, and that is load-bearing rather than tidy:
+    :meth:`BookPDFGenerator.section_plan` (the real export, which decides
+    where every later page sits) and
+    :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count` (whose
+    page count feeds KDP's own gutter-margin band). A change to the entry
+    rule applied to one and not the other prints a gutter margin for a book
+    of a different length than the one actually written — a defect that
+    appears in no render, which is why CARD-205's AC-5 cross-checks the two
+    directly. :func:`interior_page_count`'s own sheet-free ``toc_pages``
+    default is the third reader, through ``level_dividers``' own
+    ``min(len(TIERS), puzzle_count)`` bound.
+
+    ``level_count`` is the number of **named** levels with at least one
+    printable puzzle — a run of rows stating no readable tier opens no
+    divider (:meth:`BookPDFGenerator.puzzle_section`) and so has no page to
+    point a row at, exactly as it gets no divider page.
+
+    Raises:
+        ValueError: either count is negative.
+    """
+    if level_count < 0 or puzzle_count < 0:
+        raise ValueError(
+            f"a book holds 0 or more levels and 0 or more puzzles, got "
+            f"{level_count} level(s) and {puzzle_count} puzzle(s)"
+        )
+    if puzzle_count == 0:
+        return 0
+    return 2 + 2 * level_count
+
+
+def structural_toc_entries(
+    section: Sequence["SectionPage"],
+    payloads: Sequence[ExportPayload],
+    solutions_page: int,
+) -> List["TocEntry"]:
+    """The structural TOC's own rows, read off the page plan (CARD-205).
+
+    Built from the **one** page plan the interior is drawn from
+    (:meth:`BookPDFGenerator.puzzle_section`'s own output, carried on
+    :attr:`SectionPlan.pages`) rather than from a second walk over the
+    puzzles: a level's heading comes from its :class:`DividerPagePlan`'s own
+    :attr:`~DividerPagePlan.level` and its row's page number from that same
+    divider's :attr:`~DividerPagePlan.page_number`. So a row cannot name a
+    page the book does not have, and a level with no divider — an empty one,
+    or a run with no readable tier — contributes no row by construction
+    rather than by a second "only when there are puzzles" guard written
+    here.
+
+    **The puzzle *range* cannot come from "the ``PuzzlePagePlan``\\ s that
+    follow the divider" alone, and this is a finding rather than a style
+    choice.** :func:`print_order` ranks rows with no readable tier *after*
+    all three levels, and such a run opens no divider
+    (:meth:`BookPDFGenerator.puzzle_section`) — so in a book that holds one,
+    its puzzle pages sit in ``section`` immediately behind the last named
+    level's own pages, structurally indistinguishable from them. Collecting
+    "every puzzle page until the next divider" would therefore print
+    ``Puzzles 121–150`` under *Hard* for a book whose hard run ends at 140
+    and whose last ten rows state no tier: a wrong range, in ink, on a page
+    no test of the dividers themselves would notice. The ranges are taken
+    from :func:`_level_runs` over ``payloads`` instead — the same cut
+    :meth:`BookPDFGenerator.puzzle_section` itself planned the dividers from
+    — and the two readings are cross-checked against each other below
+    (same number of named runs, same levels, same order) rather than
+    assumed to agree.
+
+    The rows, in order:
+
+    * :data:`GUIDE_TITLE` against interior page ``1``. The guide opens the
+      interior (INV-013: no cover page, the guide is right-hand page 1) and
+      runs :data:`GUIDE_PAGE_COUNT` pages, so its *first* page is the one a
+      reader is sent to.
+    * per named non-empty level, a heading row carrying the level's own
+      :attr:`~nonogram.difficulty.Tier.label` and **no page number** — the
+      same string :attr:`DividerPagePlan.text` prints on the divider itself
+      — followed by a :func:`toc_range_label` row carrying that divider's
+      own page number.
+    * :data:`TOC_SOLUTIONS_LABEL` against ``solutions_page``.
+
+    ``payloads`` is the book's drawable puzzles in print order, parallel to
+    the 1-based puzzle numbers (:attr:`SectionPlan.payloads`) — the same
+    list ``section`` was planned from.
+
+    ``solutions_page`` is the SOLUTIONS divider's own interior position
+    (``first_answer_page - 1`` in :meth:`BookPDFGenerator.interior_stream`):
+    the page that *opens* the answer section is what the reader turns to,
+    which is why it and not the first answer page is listed (CARD-205 AC-2).
+
+    Returns the empty list for a book with no printable puzzle — it gets no
+    TOC page at all (AC-7, CARD-200's behaviour unchanged). ``len()`` of the
+    result equals :func:`structural_toc_entry_count` of the same book;
+    :meth:`BookPDFGenerator.interior_stream` asserts **that equality itself**,
+    row count against row count, before it lays a page out — and separately
+    re-measures the pages those rows take. The row half is the one that
+    cannot be inferred from the other: a page count is 1 for anything from
+    one row up to the frame's capacity, so the two passes can differ by rows
+    and still agree on pages (review cycle 1, F-001: the page comparison
+    alone did not notice this function's own count function losing a row).
+
+    Raises:
+        RuntimeError: ``section``'s dividers and ``payloads``' own level runs
+            disagree on how many named levels the book has, which of them, or
+            in what order. Both are derived from the same grouped print order
+            by the same call, so this can only fire on a change that broke
+            one of the two — and it must fire loudly here rather than print a
+            heading against another level's page range.
+    """
+    if not payloads:
+        return []
+    dividers = [entry for entry in section if isinstance(entry, DividerPagePlan)]
+    runs = [run for run in _level_runs(payloads) if run[0] is not None]
+    if [divider.level for divider in dividers] != [level for level, _, _ in runs]:
+        raise RuntimeError(
+            "the page plan's level dividers "
+            f"{[divider.level.value for divider in dividers]} do not match the "
+            f"book's own level runs {[level.value for level, _, _ in runs]}"
+        )
+    # Interior page 1 is the guide's own first page (INV-013: the interior
+    # holds no cover page and opens on the guide). A literal, deliberately:
+    # the day something is printed *before* the guide, this is the one term
+    # here that has to move, and a constant folded into `GUIDE_PAGE_COUNT`
+    # would hide that — `interior_stream`'s own `GUIDE_PAGE_COUNT + 1 + index`
+    # for the TOC pages and `section_plan`'s `first_page` are its siblings.
+    entries: List[TocEntry] = [TocEntry(GUIDE_TITLE, 1)]
+    for divider, (level, start, end) in zip(dividers, runs):
+        # `_level_runs` cuts half-open slices of `payloads`, and puzzle
+        # numbers are 1-based positions in that same list (`interior_stream`'s
+        # own `enumerate(payloads, start=1)`), so the run `[start, end)` is
+        # puzzles `start + 1 .. end`. A run is never empty by construction.
+        entries.append(TocEntry(level.label, None, starts_group=True))
+        entries.append(TocEntry(toc_range_label(start + 1, end), divider.page_number))
+    # The solutions open the last group, so they are set off like a heading
+    # even though they are a numbered row (owner decision 2026-10-14) — see
+    # :attr:`TocEntry.starts_group`.
+    entries.append(TocEntry(TOC_SOLUTIONS_LABEL, solutions_page, starts_group=True))
+    return entries
 
 
 def interior_page_count(
@@ -2345,8 +2788,11 @@ def interior_page_count(
     will not draw aborts the export with a :class:`RuntimeError` naming it,
     rather than quietly making the file one page shorter than this number.
 
-    ``toc_pages`` (CARD-200) is how many pages the table of contents takes —
-    one row per drawable puzzle, however many of them fit a page
+    ``toc_pages`` (CARD-200, amended by CARD-205) is how many pages the table
+    of contents takes — **one row per section** since CARD-205 (the guide,
+    each non-empty level's heading and ``Puzzles N–M`` range, the solutions:
+    :func:`structural_toc_entry_count`), not one per drawable puzzle, however
+    many of them fit a page
     (:func:`measured_toc_page_count`/:func:`_toc_entries_per_page`). Unlike
     ``level_dividers``'s own count-only default, the TOC's split genuinely
     needs a usable height to divide by — a page's own real geometry, which a
@@ -2377,7 +2823,18 @@ def interior_page_count(
     if dividers < 0:
         raise ValueError(f"divider page count cannot be negative, got {dividers}")
     toc = (
-        measured_toc_page_count(puzzle_count, default_toc_frame(), DPI)
+        measured_toc_page_count(
+            # CARD-205: the structural list's row count, bounded by the same
+            # `min(len(TIERS), puzzle_count)` `dividers` is bounded by above —
+            # one heading + one range row per level that could have a divider.
+            # `dividers` itself is not reused: a caller may pass its own
+            # (correct, possibly smaller) divider count, and the TOC's own
+            # default must stay an upper bound over every book, not shrink to
+            # one caller's book.
+            structural_toc_entry_count(min(len(TIERS), puzzle_count), puzzle_count),
+            default_toc_frame(),
+            DPI,
+        )
         if toc_pages is None
         else toc_pages
     )
@@ -3230,28 +3687,71 @@ class BookPDFGenerator:
         return divider
 
     def create_toc_page(
-        self, entries: List[Tuple[str, int]], page_number: int
+        self, entries: List["TocEntry"], page_number: int
     ) -> Image.Image:
-        """One page of the table of contents: each entry against its own interior page (CARD-200).
+        """One page of the table of contents: each row against its own interior page (CARD-200, CARD-205).
 
-        ``entries`` is **this page's own slice** — ``(label, page_number)``
-        pairs in book order — already split by :meth:`interior_stream`'s own
-        planning pass (:func:`measured_toc_page_count`/:func:`_toc_entries_per_page`,
+        ``entries`` is **this page's own slice** — :class:`TocEntry` rows in
+        book order — already split by :meth:`interior_stream`'s own planning
+        pass (:func:`measured_toc_page_count`/:func:`_toc_entries_per_page`,
         read off the same frame this method itself builds), so this method
         draws whatever it is handed and never re-decides how many rows share
-        a page: one source of truth for the split, not two. ``label`` is
-        whatever :func:`~nonogram.admin.book_answer_key.answer_caption`
-        already produced for that puzzle's answer-page caption (AC-5) — this
-        method performs no title lookup of its own.
+        a page: one source of truth for the split, not two.
+
+        **Since CARD-205 the rows are sections, not puzzles**
+        (:func:`structural_toc_entries`): the guide, each non-empty level's
+        heading and ``Puzzles N–M`` range, and the solutions. This method
+        does not know that — it draws a label, optionally a page number, and
+        the leaders between them — but two consequences of it are visible
+        here: a row whose :attr:`TocEntry.page` is ``None``
+        (:attr:`TocEntry.is_heading`) prints its label alone, with no number
+        and no leaders, and no title lookup happens anywhere on this path
+        any more (CARD-200 captioned each row through
+        :func:`~nonogram.admin.book_answer_key.answer_caption`; the
+        structural list names no puzzle at all, which is why that function
+        and ``answer_title`` are now read only by the answer pages — G-3).
+
+        **A row that opens a group is set a group's gap below the row above
+        it** (:data:`TOC_GROUP_GAP_PT`, owner decisions 2026-10-14): the
+        extra white the owner's sample shows between its groups, drawn as a
+        fixed figure added to this method's own pen position rather than as
+        a blank row — the entries this method is handed are exactly the rows
+        :func:`structural_toc_entries` built, and every one of them is one
+        line of :data:`TOC_ENTRY_PT` high, so neither the row count nor
+        :func:`_toc_entries_per_page`'s uniform division changes (G-2).
+        The page's first row never gets it (there is no group above it to
+        separate from), so the list still starts exactly where CARD-200's
+        did, one :data:`GUIDE_TITLE_GAP_PT` under the title.
+
+        Which rows those are is read off :attr:`TocEntry.starts_group`, a
+        flag the entries arrive carrying, and deliberately **not** off
+        :attr:`TocEntry.is_heading`: the ``Solutions`` row is numbered and
+        still opens a group (Fix 2). This method therefore does not decide
+        what a group is — it draws the separation the list already declares,
+        which is also why a future section can open a group without this
+        method learning its name.
+
+        **Leader dots** fill the gap between a label and its page number, so
+        the eye carries across a short label to a number at the far margin —
+        which a six-row list on a 13 cm wide page needs far more than
+        CARD-200's dense per-puzzle listing did. The run is a repeated
+        ``.`` measured in :func:`~PIL.ImageFont.FreeTypeFont.getlength` and
+        **clipped to the measured gap**, keeping :data:`TOC_ENTRY_GAP_PT` of
+        clearance from the label on its left and from the number on its
+        right, so the dots touch neither side (AC-6); a row whose label
+        leaves no room for even one dot simply gets none. No new text-layout
+        primitive: this is the same font-metric measuring every other page's
+        own fitting already does (ADR-0036/R2, G-2).
 
         Drawn the same way :meth:`create_guide_page`/:meth:`create_divider_page`
         are: :func:`page_frame` for the usable area, :func:`_guide_face`/
-        :func:`type_px` for its type — no new text-layout primitive
-        (ADR-0036/R2, G-1). Every TOC page repeats :data:`TOC_TITLE`, so a
-        multi-page TOC reads as one list continuing rather than several
-        unlabelled pages, and so that :func:`_toc_entries_per_page`'s own
-        entries-per-page figure — measured once, off the title's own height,
-        for *every* TOC page — stays true of this one too.
+        :func:`type_px` for its type. Every TOC page repeats
+        :data:`TOC_TITLE` (unchanged by CARD-205 — G-5 keeps the title, the
+        type sizes and the TOC's position out of scope), so a multi-page TOC
+        reads as one list continuing rather than several unlabelled pages,
+        and so that :func:`_toc_entries_per_page`'s own entries-per-page
+        figure — measured once, off the title's own height, for *every* TOC
+        page — stays true of this one too.
 
         A label too wide to sit beside its own page number on one line is
         clipped, with a trailing ellipsis (:func:`_clipped_to` — this
@@ -3259,12 +3759,20 @@ class BookPDFGenerator:
         solved caption's own over-wide case, unchanged), rather than wrapped
         (:func:`wrap_words` is for a paragraph of several lines; a listing
         row is one line by definition) or left to overlap the number it
-        would otherwise share the row with.
+        would otherwise share the row with. It cannot fire for any row
+        :func:`structural_toc_entries` builds on any trim CON-018 stocks —
+        the longest is :data:`GUIDE_TITLE`, about a fifth of the usable
+        width — and is kept because this method draws what it is handed and
+        a future section's name is not this card's to bound.
 
         Ends with the same bottom-outer-corner folio every interior page
         carries (:func:`_draw_folio`) — the TOC is front matter inside the
         interior, not an exception to FR-043's "cover never numbered" rule
-        (only the cover itself is exempt, G-2).
+        (only the cover itself is exempt). It still prints on the now
+        single-page TOC for the reason it printed on CARD-200's packed
+        multi-page one: :func:`_toc_entries_per_page` reserves a folio-sized
+        line at the bottom of *every* TOC page, a reservation this card's
+        much shorter list makes no less load-bearing (G-1).
         """
         spec = self.page_spec(page_number)
         frame = page_frame(spec)
@@ -3279,18 +3787,78 @@ class BookPDFGenerator:
 
         entry_font = _guide_face(type_px(TOC_ENTRY_PT, self.dpi))
         entry_ascent, entry_descent = entry_font.getmetrics()
-        line_height = entry_ascent + entry_descent + type_px(TOC_ENTRY_GAP_PT, self.dpi)
+        # One gap constant, read once, used on both axes: under a row
+        # (`line_height`, exactly as CARD-200 set it — `_toc_entries_per_page`
+        # divides by this same figure, so the two must not drift) and beside
+        # a row's leader dots (see :data:`TOC_ENTRY_GAP_PT`).
+        gap = type_px(TOC_ENTRY_GAP_PT, self.dpi)
+        line_height = entry_ascent + entry_descent + gap
+        # The separation between two groups of the list (CARD-205): white
+        # above a row that opens one, never a row of its own and never a
+        # second row height — see :data:`TOC_GROUP_GAP_PT`.
+        group_gap = type_px(TOC_GROUP_GAP_PT, self.dpi)
+        dot_width = entry_font.getlength(".")
 
         bottom = y
-        for label, entry_page in entries:
-            number_text = str(entry_page)
-            number_width = entry_font.getlength(number_text)
-            label_measure = measure - number_width - type_px(TOC_ENTRY_GAP_PT, self.dpi)
-            clipped = _clipped_to(label, entry_font, label_measure)
-            draw.text((frame.left, y), clipped, fill="black", font=entry_font)
-            draw.text(
-                (frame.right, y), number_text, fill="black", font=entry_font, anchor="ra"
-            )
+        for index, entry in enumerate(entries):
+            if entry.starts_group and index > 0:
+                # This row opens a group, so it is set a group's gap below
+                # whatever the group above it ended with — `starts_group`,
+                # not `is_heading`: `Solutions` is a numbered row that opens
+                # the last group (Fix 2). Suppressed for the page's
+                # **first** row, where there is no group above to separate
+                # from: the gap would then only push the list away from the
+                # title this page already set its own `GUIDE_TITLE_GAP_PT`
+                # under — and would spend, on padding, room the folio's own
+                # reserved line is counting on (`_toc_entries_per_page`,
+                # G-1). The structural list never opens a page with such a
+                # row (its first row is the guide), but this method draws
+                # what it is handed.
+                y += group_gap
+            if entry.is_heading:
+                # A level heading: its own row, label only. No number to
+                # right-align and therefore nothing for leaders to lead to.
+                clipped = _clipped_to(entry.label, entry_font, measure)
+                draw.text((frame.left, y), clipped, fill="black", font=entry_font)
+            else:
+                number_text = str(entry.page)
+                number_width = entry_font.getlength(number_text)
+                # Two gaps, not CARD-200's one: the label must clear the
+                # number by the leaders' own clearance at both ends, so that
+                # a label long enough to be clipped is still clipped short of
+                # where a dot could sit rather than up against the number.
+                label_measure = measure - number_width - 2 * gap
+                clipped = _clipped_to(entry.label, entry_font, label_measure)
+                draw.text((frame.left, y), clipped, fill="black", font=entry_font)
+                draw.text(
+                    (frame.right, y), number_text, fill="black", font=entry_font, anchor="ra"
+                )
+                # The gap the dots may occupy, measured off what was actually
+                # drawn (the *clipped* label) rather than off the label as it
+                # arrived — an ellipsised label is narrower, and leaders that
+                # started where the full label would have ended would leave a
+                # hole in the row.
+                dot_left = frame.left + entry_font.getlength(clipped) + gap
+                dot_right = frame.right - number_width - gap
+                run = dot_right - dot_left
+                # The division is a **first estimate, corrected both ways**,
+                # never the verdict. A repeated glyph's measured run need not
+                # be its own advance times its count — a face with a kerning
+                # pair for ".." (or plain floating-point drift at this size)
+                # makes it slightly narrower or wider — so the string itself
+                # is measured: trimmed while it overruns the gap, grown while
+                # another dot would still fit. Correcting only downwards (the
+                # obvious half) would silently drop a dot on any face whose
+                # kerning is negative, which is exactly the kind of thing that
+                # differs between Arial and `_guide_face`'s own fallback and
+                # so between one machine's render and another's.
+                dots = "." * max(0, int(run // dot_width)) if dot_width > 0 else ""
+                while dots and entry_font.getlength(dots) > run:
+                    dots = dots[:-1]
+                while dot_width > 0 and entry_font.getlength(dots + ".") <= run:
+                    dots += "."
+                if dots:
+                    draw.text((dot_left, y), dots, fill="black", font=entry_font)
             bottom = y + entry_ascent + entry_descent
             y += line_height
 
@@ -4571,8 +5139,24 @@ class BookPDFGenerator:
         # export that actually prints it cannot disagree about the TOC's
         # own length (G-4, the same "decided once, read twice" discipline
         # this method's own docstring already states for the pairing walk).
+        #
+        # CARD-205: the entry count is the **structural** list's, not the
+        # puzzle count — the TOC lists sections (guide, each non-empty level's
+        # heading and range, solutions), so `structural_toc_entry_count` is
+        # what `measured_toc_page_count` is fed here. The level runs it needs
+        # are readable from the payloads alone, which is what lets this figure
+        # be settled before any page number exists; `_level_runs` is called
+        # again by `puzzle_section` below, over the same list, and the two
+        # readings are cross-checked in `interior_stream` (its own TOC
+        # tripwire) rather than assumed equal. The measured split is kept
+        # exactly as it was: this is the same arithmetic on a different count,
+        # never a hardcoded "the TOC is one page".
+        toc_entry_count = structural_toc_entry_count(
+            len([run for run in _level_runs(payloads) if run[0] is not None]),
+            len(payloads),
+        )
         toc_page_count = measured_toc_page_count(
-            len(payloads), page_frame(self.page_spec(1)), self.dpi
+            toc_entry_count, page_frame(self.page_spec(1)), self.dpi
         )
         first_page = 1 + GUIDE_PAGE_COUNT + toc_page_count
         return SectionPlan(
@@ -4832,43 +5416,6 @@ class BookPDFGenerator:
                 f"the page plan prints {printed}, not puzzles 1..{count}"
             )
 
-        # CARD-200: the TOC's own rows, decided here (not inside `produce()`
-        # below) for the same reason every other page-count-bearing pass in
-        # this method runs before a pixel is drawn — a malformed title must
-        # abort before the caller has a file open, not partway through the
-        # walk. **After** the tripwire just above, deliberately: this is the
-        # first place a 1-based puzzle number is looked up in `plan`'s own
-        # page-number mapping, and the tripwire is what guarantees every
-        # number 1..count is actually in it — building this dict any earlier
-        # let a broken page plan (a dropped or duplicated puzzle) raise an
-        # uncaught `KeyError` here instead of the tripwire's own named
-        # `RuntimeError`, which is what every caller of this method (notably
-        # `app.py`'s Finalise screen) is already written to catch and log
-        # (review finding, caught before merge by
-        # `TestFinaliseCounts_PlanTripwireIsNotAnEstimate`/
-        # `TestFinaliseGet_NamesThePagePlanFailure`). One row per drawable
-        # puzzle, in book order, captioned through the **same**
-        # `answer_title`/`answer_caption` pair the answer section already
-        # resolves a title with (AC-5: no second, independent title lookup),
-        # against the puzzle's own `PuzzlePagePlan.page_number` — a paired
-        # two-up page's two puzzles therefore point at the same page number
-        # by construction, since both share one `numbers` tuple mapped to
-        # one `page_number` (AC-4).
-        page_of_number: Dict[int, int] = {
-            number: page_plan.page_number
-            for page_plan in plan
-            for number in page_plan.numbers
-        }
-        toc_entries: List[Tuple[str, int]] = [
-            (
-                answer_caption(
-                    number, answer_title(titles.get(str(puzzle_id)), payload.name)
-                ),
-                page_of_number[number],
-            )
-            for number, (puzzle_id, payload) in enumerate(payloads, start=1)
-        ]
-
         # The degrade pass above only ever splits a page into more, smaller
         # ones in place — it must never drop, duplicate or reorder an answer.
         # Checked directly, the same tripwire shape as `printed` above, rather
@@ -4893,11 +5440,77 @@ class BookPDFGenerator:
         # length and not its puzzle pages alone.
         first_answer_page = 1 + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1
 
+        # CARD-200/CARD-205: the TOC's own rows, decided here (not inside
+        # `produce()` below) for the same reason every other page-count-bearing
+        # pass in this method runs before a pixel is drawn — anything that can
+        # fail must fail before the caller has a file open, not partway through
+        # the walk. **After** the two plan tripwires above, deliberately: this
+        # reads `section`'s own dividers and page numbers, and those tripwires
+        # are what guarantee the plan it reads prints puzzles 1..count exactly
+        # once (the same ordering CARD-200's own review finding established for
+        # the per-puzzle dict this replaces, kept for the same reason).
+        #
+        # CARD-205: one row per **section**, never per puzzle — the guide, each
+        # non-empty level's heading and `Puzzles N–M` range, and the solutions
+        # — built from this same page plan rather than from a second source of
+        # truth. The row that names the answer section points at the SOLUTIONS
+        # divider, `first_answer_page - 1`: the page that opens the section is
+        # what a reader turns to, and it is one page before the first answer
+        # by construction (the same arithmetic `produce()` below yields it on).
+        toc_entries = structural_toc_entries(
+            section, decided.payloads, first_answer_page - 1
+        )
+        # The plan/draw tripwire for the TOC, in two halves — the ROWS first,
+        # then the pages they take.
+        #
+        # `section_plan` measured `toc_page_count` from
+        # `structural_toc_entry_count` — the row count predicted from the level
+        # runs alone, before any page number existed (that function's own
+        # docstring explains why the split is necessary) — and every page
+        # number in `section`, `first_answer_page` and the folio of every page
+        # after the guide is laid out on that figure. The rows just built are
+        # the ones that will actually be drawn.
+        #
+        # The first half is the equality `structural_toc_entries`' own
+        # docstring states: the builder's row count is the count function's.
+        # It is checked here and NOT left to the page comparison below,
+        # because a page count hides a row count: both figures are 1 for
+        # anything from one row up to the frame's own capacity (ten rows on
+        # the shortest storable trim, several dozen on Book 1), so the two
+        # passes could disagree by rows — a heading without its range, a
+        # level listed twice — and still agree on pages. Review cycle 1,
+        # F-001, demonstrated exactly that: `structural_toc_entry_count`
+        # mutated to `1 + 2 * level_count` left the page comparison silent.
+        # `dividers` is the section walk's own count of level divider pages,
+        # which `structural_toc_entries` has just proved to be the same levels
+        # in the same order as `payloads`' own runs (its RuntimeError above).
+        predicted_toc_rows = structural_toc_entry_count(dividers, count)
+        if len(toc_entries) != predicted_toc_rows:
+            raise RuntimeError(
+                f"the table of contents built {len(toc_entries)} row(s), but "
+                f"a book of {dividers} level(s) and {count} puzzle(s) lists "
+                f"{predicted_toc_rows} — the page plan was laid out on the "
+                "second figure"
+            )
+        # The second half, on the pages. If the two ever disagree the book's
+        # whole back half is numbered for a TOC of the wrong length, which no
+        # render of the TOC page itself would reveal: so they are re-measured
+        # against each other here rather than trusted to have been derived the
+        # same way.
+        drawn_toc_pages = measured_toc_page_count(
+            len(toc_entries), page_frame(self.page_spec(1)), self.dpi
+        )
+        if drawn_toc_pages != toc_page_count:
+            raise RuntimeError(
+                f"the table of contents' {len(toc_entries)} row(s) need "
+                f"{drawn_toc_pages} page(s), but the page plan was laid out on "
+                f"{toc_page_count}"
+            )
+
         # Calculate difficulty counts for guide — over every member of the
         # book, drawable or not, because that is what the book holds. Read
         # here rather than inside the walk below: everything that can fail
-        # without drawing fails before the caller has a file open. The
-        # custom titles were already read above, for the TOC's own rows.
+        # without drawing fails before the caller has a file open.
         counts = tier_breakdown(puzzles)
 
         # The page plan is this function's own make-up; fail loudly rather

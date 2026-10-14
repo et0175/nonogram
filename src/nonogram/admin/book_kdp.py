@@ -106,6 +106,7 @@ from nonogram.admin.book_pdf_generator import (
     measured_toc_page_count,
     page_frame,
     print_order,
+    structural_toc_entry_count,
 )
 from nonogram.difficulty import tier_of_record
 
@@ -469,6 +470,34 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
     shorter one only ever *adds* pages the same formula would not have
     asked for.
 
+    **CARD-205: the TOC term's own entry count is now the structural
+    list's, and it has to change here and in the generator together.**
+    The table of contents lists sections rather than puzzles
+    (:func:`~nonogram.admin.book_pdf_generator.structural_toc_entry_count`:
+    one guide row, a heading plus a ``Puzzles N–M`` row per non-empty
+    level, one solutions row), so this function feeds that count to
+    :func:`~nonogram.admin.book_pdf_generator.measured_toc_page_count`
+    instead of ``len(ordered)``. Changing the rule in the generator and not
+    here would make this estimate — **and therefore the printed gutter
+    margin**, which is chosen from it by band — belong to a book of a
+    different length than the one actually written; and because this
+    function fires precisely when no real page count can be laid out, there
+    would be nothing to cross-check it against. The two are pinned equal by
+    ``tests/test_book_toc.py``'s
+    ``TestBookToc_KdpAgreesWithTheExportedCount``, alongside EC-034's
+    existing equality with the generator's own ``unpaired_page_count``.
+
+    One consequence worth recording for the F-2 note above: the structural
+    list is at most eight rows, which fits a single page on *every* trim
+    KDP's own bounds admit (swept, 10.00–48.00 cm, by
+    ``TestBookFinaliseGutter_UnpairedPageCountNeverUnderCountsTheToc``). The
+    "never under-count" contract is unchanged and still holds; what has
+    gone is the *possibility* of the under-count it was written against —
+    this term can no longer differ between two layable trims at all. The
+    frame is still measured off the book's own stored height rather than
+    pinned to Book 1, because nothing but that keeps the contract true if a
+    later card lengthens the list again.
+
     Raises:
         ValueError: a row's solution grid is not a non-empty rectangle, so its
             answer cannot be measured and the book has no page count at all.
@@ -481,7 +510,29 @@ def unpaired_interior_page_count(puzzles: Sequence[Any], book: Any = None) -> in
     for index, row in enumerate(ordered):
         _grid_extent(row, index + 1)
     dividers = len({level for level in levels if level is not None})
-    toc_pages = measured_toc_page_count(len(ordered), _toc_frame_for(book), DPI)
+    # CARD-205: the TOC lists **sections, not puzzles**, so the entry count
+    # fed to `measured_toc_page_count` is the structural list's
+    # (`structural_toc_entry_count`: one guide row, a heading + a
+    # `Puzzles N–M` row per non-empty level, one solutions row) and not
+    # `len(ordered)`. This is one of that function's three readers — the
+    # generator's own `section_plan` and `interior_page_count`'s sheet-free
+    # default are the others — and every one of them is fed by the same
+    # `structural_toc_entry_count` deliberately: this figure is what
+    # reaches KDP's gutter-margin band through `interior_page_count` below,
+    # so an entry rule changed in the generator and not here would print a
+    # gutter margin for a book of a different length than the one actually
+    # written, a defect that shows up in no render of any page (CARD-205
+    # AC-5 cross-checks the two directly).
+    #
+    # `dividers` above is the level term both this call and
+    # `interior_page_count`'s own `level_dividers` need, counted once — the
+    # distinct named tiers of a grouped print order, which is exactly the
+    # number of named level runs the generator's own `_level_runs` cuts out
+    # of the same order (`print_order` is called above, so the premise holds
+    # here as it does there).
+    toc_pages = measured_toc_page_count(
+        structural_toc_entry_count(dividers, len(ordered)), _toc_frame_for(book), DPI
+    )
     return interior_page_count(
         len(ordered),
         puzzle_pages=len(ordered),
