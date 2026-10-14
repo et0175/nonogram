@@ -116,6 +116,16 @@ BODY_PX = round(11 * BOOK_DPI / POINTS_PER_INCH)
 BODY_PT = 11.0
 LEADING_PT = 17.0
 
+#: The first three words of each difficulty sentence
+#: (``GUIDE_DIFFICULTY_LABELS``), written out rather than imported, as the
+#: page would set them if it printed them. The owner's 2026-10-14 ruling
+#: dropped those sentences from the printed page (CARD-221 fix 1) and
+#: ``test_the_difficulty_legend_carries_its_three_labels_and_no_sentences``
+#: looks for these to say so. Three words each, not one: a single word is a
+#: small enough template to risk matching ink that is not it, and
+#: ``wrap_words`` never breaks a word.
+SENTENCE_OPENINGS = ("Squeezing and direct", "Needs deeper line", "Contradiction reasoning")
+
 #: The size the guide page letters its body — and the pipeline diagram's own
 #: labels — in, written out rather than imported, so the floor control below
 #: separates the page's real size from the 6 pt stand-in regression.
@@ -1239,11 +1249,11 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend:
         # and recall on a page of 11 pt text.
         assert occurrences(page_mask, diagram_mask(legend)) == 1
 
-        # And the other half: the sentences are not on this page at all.
-        # Built here rather than imported — a bordered box, one wrapped
-        # sentence per column, exactly as `_draw_difficulty_box` drew it
-        # until this card — so a page that quietly went back to printing
-        # them fails here.
+        # And the other half, in two forms, because one of them is not
+        # enough. **The drawing**: the bordered box, built here rather than
+        # imported — one wrapped sentence per column, exactly as
+        # `_draw_difficulty_box` drew it until this card — so a page that
+        # went back to the old box fails here.
         boxed = _boxed_difficulty_sentences(
             spec, labels, measure, text_font, body_size, type_px(LEADING_PT, generator.dpi)
         )
@@ -1252,6 +1262,20 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend:
             "owner's 2026-10-14 ruling dropped it, and the 4 px the page "
             "was over by have come back"
         )
+        # **The words**: set in the page's own body face and looked for
+        # anywhere on it, so a sentence redrawn in any other arrangement —
+        # unruled, re-wrapped, one column or three — fails here too. Found
+        # while mutating: a mutant that printed the glosses under the names
+        # with no rule around them slipped past the template above, which
+        # only knows the old drawing. Three words each: a single word is a
+        # small enough template to risk matching ink that is not it, and
+        # `wrap_words` never breaks a word, so the first three of a
+        # sentence stay together on any measure wide enough to hold them.
+        for opening in SENTENCE_OPENINGS:
+            assert occurrences(page_mask, probe(opening, face(BODY_PX))) == 0, (
+                f"page 2 prints {opening!r}: the difficulty sentences are "
+                "back on the page the owner's ruling took them off"
+            )
 
     def test_a_wrong_difficulty_label_does_not_match(self, generator, spec, page_mask):
         """The comparison has teeth: change one word and the match is gone.
