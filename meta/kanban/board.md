@@ -63,8 +63,6 @@ _Wave bookkeeping (2026-10-14): the cards dispatched on 2026-10-13/14 — CARD-2
 - **CARD-208** Printed clue numbers sit in ruled boxes, like the player's clue cells · P2 · 1d · standard · depends CARD-204 · ⚑ rests on one reading of an unreadable doc image
 - **CARD-209** Wide-but-short solutions pack 3 to a page, one column × three rows · P2 · 1d · standard · depends CARD-204
 
-**Interior typography (cut 2026-10-14 from CARD-205's review)**
-- **CARD-221** The book interior letters in the packaged face, so its geometry stops depending on the host · P1 · 1d · architectural · depends CARD-205 · ⚑ a book finalised locally and the same book generated on Render can disagree about their page count and printed gutter
 
 **Test curation (cut 2026-10-13 on owner request; run after the print cards land)**
 - **CARD-217** Profile the suite once, serialized, and commit the duration record the curation cards work from · P1 · 0.5d · tech-debt · measurement only, no test edits · must be the only suite running
@@ -73,7 +71,6 @@ _Wave bookkeeping (2026-10-14): the cards dispatched on 2026-10-13/14 — CARD-2
 - **CARD-220** Retire tests whose coverage another test already provides — only with a named survivor · P2 · 1d · tech-debt · depends CARD-217 · ⚑ footprint is `tests/**`; run on a quiet board
 
 **Solver (the admin panel's player)**
-- **CARD-212** Big boards repeat their clues on both sides — left and right, top and bottom · P2 · 1d · standard
 - **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard
 
 **Generator POC (given cells)**
@@ -81,15 +78,18 @@ _Wave bookkeeping (2026-10-14): the cards dispatched on 2026-10-13/14 — CARD-2
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-_(none — one slot of two is free; per the owner's "start the next pair after merging", the next pair starts once CARD-205 merges)_
+- **CARD-221** The book interior letters in the packaged face, so its geometry stops depending on the host · P1 · architectural · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-221` · branch `card/221-packaged-interior-face` · its proof of success is CARD-205's own two red-off-host folio tests going green on both faces
+- **CARD-212** Big boards repeat their clues on both sides · P2 · standard · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-212` · branch `card/212-clues-both-sides` · inherits CARD-211's rebase surface in the player's template and statics
 
 ## Review
-- **CARD-205** The table of contents lists sections, not puzzles · P1 · standard · wave 37 · score **8.8** (cycle 1/3 — 0 critical, 1 important, 3 minor; 11/11 mutants killed) · 3 fix cycles landed (`906583d`, `1a09a71`, `2e546dd`) · **AC/EC/G gate not yet run, then the merge gate** · worktree `../PythonProject4-CARD-205` · branch `card/205-structural-toc` · corpus 310 → 307 pages, ToC 4 → 1 page, group gap 8.5 pt (owner-chosen) · ⚑ measured: `main` fails 10 tests on a fallback-font host against this branch's 3 — main's printed KDP gutter decision is face-dependent, which is what CARD-221 closes
+_(none)_
+
 
 ## Blocked
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
 
 ## Done
+- **CARD-205** The table of contents lists sections, not puzzles — guide, each level's range, Solutions · P1 · standard · score 8.8 (cycle 1/3 — 0 critical, 11/11 mutants killed) · 4 fix cycles · AC/EC/G gate FAILED on G-1 (its named test had never existed; its mechanism clause described CARD-200's behaviour) — amended at the decompose station, then passed · merge gate 7019/0 in 1042s · merged d30e0f0 · actual 1d against 1d, the one card of this batch to land on its estimate · corpus 310 → 307 pages · ⚑ FR-043's per-puzzle ToC criteria + the legacy admin/pdf_generator.py ToC owed at the architect station
 - **CARD-211** Region leaves the brush menu and becomes its own control · P2 · standard · score 9.0 (cycle 1/3 — 0 critical; 1 fix cycle for two owner decisions: brush and Region independent, trigger pinned to its widest brush) · AC/EC gate: all evidenced (AC-7 added at the gate) · merge gate 6971/0 · merged 4790243 · actual 0.5d · unblocks CARD-212 and CARD-216
 - **CARD-204** Puzzle pages right-align by parity, gain a 2x2cm QR slot, and keep every two-up folio · P2 · architectural · scores 8.5 (cycle 4) then 6.5 (cycle 5, on the merge-gate fix: 1 critical, fixed) · 8 fix cycles · gate 6938/0 · merged cd641df · ⚑ FR-040/EC-027 + FR-032 amendments owed at the architect station
 - **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · score 8.1 (cycle 1/3, fix cycle 1 closed the gating finding) · AC/EC gate: all 8 ACs, 2 ECs, 7 guardrails evidenced · merge gate 6883/0 · merged d49e73a · ⚑ ADR-0024 (POL-008) + INV-002 amendment owed at the architect station
