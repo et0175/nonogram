@@ -58,6 +58,16 @@
   The "?" mark (CARD-186): a fourth tool, Maybe, follows Undecided. With it a
   click marks a cell "?" and a second click clears it; a drag paints "?".
 
+  Clues on both sides (CARD-212, owner's doc 2026-10-13): a big board repeats
+  its clues on both sides of an axis — row clues left AND right, column clues
+  above AND below — so a player scrolled to the far edge still has clues in
+  view. Nothing of it is rendered here: the board is solver.js's, and which
+  gutters it draws is decided there, per axis (a side past 15 is big) and only
+  while the cells that leaves are at least 24 px on a side. A board that
+  cannot afford a duplicate keeps exactly the rendering it had before, the
+  phone mirror (CARD-193) included. The duplicate gutter is aria-hidden, so a
+  screen reader still reads each clue once, from the gutter with the label.
+
   A click follows the selected brush (CARD-189): a first click gives the cell
   the brush's mark, a repeat click on it goes on along the brush's sequence
   (solver_state.js clickedState). So the tool group is "Marking tool", not

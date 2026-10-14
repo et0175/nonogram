@@ -50,6 +50,7 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used 
     live,
 )
 from tests.test_puzzle_solver_phone import BIG
+from tests.test_puzzle_solver_progress import _set
 
 # --------------------------------------------------------------------------
 # Small helpers
@@ -580,3 +581,123 @@ class TestZoomArithmetic_PureFunctions:
         assert result["zoomingOut"] == pytest.approx(20)  # (140+100)*0.5 - 100
         assert result["noChange"] == pytest.approx(40)
         assert result["zeroAnchor"] == pytest.approx(80)  # (40+0)*2 - 0
+
+
+# ==========================================================================
+# CARD-212 AC-8 — a doubled board redrawn across the breakpoint, zoomed
+# ==========================================================================
+
+#: CARD-212's own fixtures: a board big on the row axis only (30 wide, 12
+#: tall) at a viewport measured to afford both row gutters (28 px cells), and
+#: a board big on both axes at a laptop window, where doubling would leave
+#: 19.75 px cells and so does not happen.
+_GRID_30x12 = _unique_grid(30, 12, seed=2121)
+_GRID_30x25 = _unique_grid(30, 25, seed=212)
+_WIDE = {"width": 1920, "height": 1080}
+_LAPTOP = {"width": 1440, "height": 900}
+_PHONE = {"width": 390, "height": 844}
+
+_GUTTER_SHAPE = """() => {
+  const table = document.querySelector('.player-board');
+  return {
+    rowBoxes: table.querySelectorAll('th.player-clue.is-row').length,
+    colBoxes: table.querySelectorAll('th.player-clue.is-col').length,
+    duplicates: table.querySelectorAll('th.player-clue[aria-hidden="true"]').length,
+    mirrored: table.classList.contains('is-mirrored'),
+    zoomProperty: table.style.getPropertyValue('--player-zoom'),
+    circled: [...table.querySelectorAll('.player-clue-num.is-circled')].length,
+    circledRow0: [...table.querySelectorAll('th.player-clue.is-row[data-line="0"]')].map(
+      (box) => [...box.querySelectorAll('.player-clue-num')].map((n) => n.classList.contains('is-circled'))),
+  };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverZoom_SurvivesADoubledRedraw:
+    """CARD-212 AC-8 — a board whose clues are repeated on both sides is
+    redrawn by the same ``redraw()`` CARD-193's mirror uses, so crossing the
+    820 px breakpoint re-chooses the gutter layout. The marks, the zoom and
+    the circles survive that, in both directions: nothing recorded and
+    nothing of the view is lost when the duplicate gutters go away at phone
+    width, or when they come back.
+
+    And the layout the redraw lands on does not depend on the zoom: zoom
+    multiplies the drawn cell, so solver.js divides it out again before
+    comparing against DOUBLE_MIN_CELL. Without that, a 30 x 25 at 1440 x 900
+    — 16 px cells doubled, which is why it is NOT doubled — would double on
+    the next redraw at 150%, where those same cells measure 24 px.
+    """
+
+    def test_marks_zoom_and_circles_survive_crossing_both_ways(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(_WIDE)
+        puzzle_id = live.store(_GRID_30x12)
+        _open(page, live, puzzle_id)
+        doubled = page.evaluate(_GUTTER_SHAPE)
+        assert (doubled["rowBoxes"], doubled["colBoxes"], doubled["duplicates"]) == (24, 30, 12)
+
+        # Row 0 fully marked: its clue numbers settle, so they circle — in
+        # both gutters (CARD-188 + CARD-212 AC-4).
+        width = len(_GRID_30x12[0])
+        cells = ["unknown"] * (width * len(_GRID_30x12))
+        for col, on in enumerate(_GRID_30x12[0]):
+            cells[col] = "filled" if on else "empty"
+        _set(page, cells)
+        _zoom_to(page, 150)
+
+        before = _board_snapshot(page, puzzle_id)
+        shaped = page.evaluate(_GUTTER_SHAPE)
+        numbers = len(shaped["circledRow0"][0])
+        assert numbers > 1  # a 30-wide tight row: several numbers to circle
+        assert shaped["circledRow0"] == [[True] * numbers] * 2  # both gutters
+        assert shaped["circled"] == 2 * numbers  # only row 0's, in both gutters
+        assert shaped["zoomProperty"] == "1.5"
+
+        # Crossing to phone width: the duplicates cannot be afforded there,
+        # so the board falls back to CARD-193's single mirrored gutter.
+        page.set_viewport_size(_PHONE)
+        page.wait_for_function("document.querySelector('.player-board').classList.contains('is-mirrored')")
+        phone = page.evaluate(_GUTTER_SHAPE)
+
+        assert (phone["rowBoxes"], phone["colBoxes"], phone["duplicates"]) == (12, 30, 0)
+        assert _board_snapshot(page, puzzle_id) == before
+        assert _zoom_readout(page) == "150%" and phone["zoomProperty"] == "1.5"
+        assert phone["circledRow0"] == [[True] * numbers]  # the one gutter, still circled
+        assert phone["circled"] == numbers
+
+        # And back: the duplicates return, with the marks, the zoom and the
+        # circles unchanged.
+        page.set_viewport_size(_WIDE)
+        page.wait_for_function(
+            "[...document.querySelectorAll('th.player-clue')]"
+            ".filter((box) => box.getAttribute('aria-hidden')).length === 12")
+        again = page.evaluate(_GUTTER_SHAPE)
+
+        assert _board_snapshot(page, puzzle_id) == before
+        assert _zoom_readout(page) == "150%" and again["zoomProperty"] == "1.5"
+        assert again == shaped
+
+    def test_zooming_in_does_not_make_a_redraw_double_the_gutters(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(_LAPTOP)
+        _open(page, live, live.store(_GRID_30x25))
+        plain = page.evaluate(_GUTTER_SHAPE)
+        assert (plain["rowBoxes"], plain["colBoxes"], plain["duplicates"]) == (25, 30, 0)
+        assert _cell_widths(page)[0] == pytest.approx(19.75, abs=0.05)
+
+        _zoom_to(page, 150)
+        # 150% of the doubled layout's 16 px cells is exactly the 24 px the
+        # duplicate is conditional on — the number this test exists to keep
+        # out of the decision.
+        assert _cell_widths(page)[0] == pytest.approx(19.75 * 1.5, abs=0.05)
+
+        # Force the redraw the breakpoint listener performs (out to phone
+        # width and back), where a zoom-blind decision would double.
+        page.set_viewport_size(_PHONE)
+        page.wait_for_function("document.querySelector('.player-board').classList.contains('is-mirrored')")
+        page.set_viewport_size(_LAPTOP)
+        page.wait_for_function("!document.querySelector('.player-board').classList.contains('is-mirrored')")
+
+        after = page.evaluate(_GUTTER_SHAPE)
+        assert (after["rowBoxes"], after["colBoxes"], after["duplicates"]) == (25, 30, 0)
+        assert _zoom_readout(page) == "150%" and after["zoomProperty"] == "1.5"

@@ -114,3 +114,46 @@ def test_the_panel_serves_both_stylesheets(admin_app) -> None:
     body = client.get("/").get_data(as_text=True)
     assert 'href="/static/tokens.css"' in body
     assert 'href="/static/admin.css"' in body
+
+
+def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
+    """CARD-212 G-7 — the rules this card adds to the board are the two that
+    draw a clue gutter on the far side of an axis: the right-hand row gutter
+    (.player-clue.is-row.is-right / .player-corner.is-right, which CARD-193's
+    mirror now shares) and the bottom column gutter (the tfoot rules). Every
+    length and colour they declare is a var(--token) or a calc() over one —
+    the only bare numbers allowed are the multipliers the left/top rules
+    already use for the same quantities (a 0.5ch text pad, 0.2 of the cell).
+
+    The file-wide sweep above catches a hex colour anywhere in admin.css;
+    this pins these rules, so a later edit cannot keep the file hex-free by
+    reaching for an rgb()/named colour or a hard-coded rule width in the one
+    place this card could have smuggled one in.
+
+    The one bare length that stays is the 1.45 ch gap the right-hand row
+    gutter mirrors onto the other side of its numbers: the SAME typographic
+    constant the left-hand rule already carries (.player-clue.is-row
+    .player-clue-num), read out of that rule here rather than repeated, so
+    the two cannot drift apart without this failing.
+    """
+    css = (_STATIC / "admin.css").read_text()
+    blocks = re.findall(r"(\.player-[^{}]*?(?:is-right|tfoot)[^{}]*?)\{([^}]*)\}", css)
+    selectors = [selector.strip() for selector, _body in blocks]
+    assert sorted(selectors) == [
+        ".player-board .player-clue.is-row.is-right",
+        ".player-board .player-clue.is-row.is-right .player-clue-num",
+        ".player-board .player-corner.is-right",
+        ".player-board tfoot .player-clue.is-col",
+        ".player-board tfoot .player-corner",
+    ], selectors
+    gap = re.search(r"\.player-board \.player-clue\.is-row \.player-clue-num \{[^}]*?\s(\d\.\d+ch)\s", css)
+    assert gap, "admin.css no longer sets the row numbers' own gap"
+    allowed = {"none", "left", "top", "0", "0.5ch", "calc(var(--player-cell) * 0.2)", gap.group(1)}
+    for selector, body in blocks:
+        values = [part.split(":", 1)[1].strip() for part in body.split(";") if ":" in part]
+        assert values, selector
+        for value in values:
+            if value in allowed:
+                continue
+            assert re.fullmatch(r"var\(--[a-z-]+\)(?: solid var\(--[a-z-]+\))?", value), (
+                f"{selector.strip()}: {value!r} is not a design token")

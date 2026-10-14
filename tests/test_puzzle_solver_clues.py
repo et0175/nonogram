@@ -36,6 +36,7 @@ from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used 
     _encode,
     _open,
     _tight_row,
+    _unique_grid,
     browser_page,
     browser_type,
     live,
@@ -991,3 +992,559 @@ class TestPlayerNumerals_ColumnNumbersDecideTheStageScroll:
         stage_scroll, stage_client = seen["stage"]
         assert stage_scroll > stage_client, seen
         assert seen["page"] <= 390, seen
+
+
+# ==========================================================================
+# CARD-212 — a big board repeats its clues on BOTH sides of an axis
+#
+# Owner's doc "Nonograms - Print layout", 2026-10-13 (item 3). Row clues left
+# AND right, column clues above AND below, so a player scrolled to the far
+# edge of a big board still has clues in view. Each axis is decided on its
+# own (W > 15 for the row clues, H > 15 for the column ones), and a duplicate
+# is drawn only while the cells it leaves are at least 24 px on a side
+# (solver.js DOUBLE_MIN_CELL — CARD-182's phone-fit minimum, read as a
+# condition rather than the floor CARD-193 removed); otherwise the board keeps
+# exactly today's rendering, CARD-193's mirror included (AC-6, over in
+# tests/test_puzzle_solver_phone.py).
+#
+# The viewports below are MEASURED choices, not guesses: at 1920 x 1500 a
+# 30 x 25 keeps 28 px cells with all four gutters drawn, at 1920 x 1080 a
+# 30 x 12 keeps 28 px with both row gutters, and at 1440 x 900 the same
+# 30 x 25 falls to 19.75 px doubled and so keeps its single gutters. Each
+# number below is asserted where it matters, so a future change to the fit
+# cannot quietly turn one of these cases into the other without a red test.
+# ==========================================================================
+
+#: AC-1 / AC-3 / AC-4 / AC-7: big on both axes (30 wide, 25 tall).
+GRID_30x25 = _unique_grid(30, 25, seed=212)
+#: AC-2: big on the row axis only (30 wide, 12 tall — 12 <= 15).
+GRID_30x12 = _unique_grid(30, 12, seed=2121)
+
+#: Room for all four gutters on a 30 x 25 (measured: 28 px cells), and room
+#: for both row gutters on a 30 x 12 (measured: 28 px cells) while a 30 x 25
+#: there can only afford the row pair (25.05 px).
+ROOMY = {"width": 1920, "height": 1500}
+WIDE = {"width": 1920, "height": 1080}
+#: A laptop window, where doubling a 30 x 25 would leave 19.75 px cells: the
+#: board keeps one gutter per axis (AC-1's "with room" clause, from the other
+#: side).
+LAPTOP = {"width": 1440, "height": 900}
+
+#: Every clue box, in document order, with what this card gives it: the axis,
+#: the line it belongs to (data-line), whether it is a duplicate (aria-hidden,
+#: unlabelled), which side/end it draws on, and its numbers.
+_GUTTERS = """() => {
+  const table = document.querySelector('.player-board');
+  const boxes = [...table.querySelectorAll('th.player-clue')].map((box) => ({
+    axis: box.classList.contains('is-row') ? 'rows' : 'columns',
+    line: Number(box.dataset.line),
+    hidden: box.getAttribute('aria-hidden'),
+    label: box.getAttribute('aria-label'),
+    right: box.classList.contains('is-right'),
+    below: box.closest('tfoot') !== null,
+    numbers: [...box.querySelectorAll('.player-clue-num')].map((n) => n.textContent),
+  }));
+  return {
+    boxes,
+    mirrored: table.classList.contains('is-mirrored'),
+    feet: table.querySelectorAll('tfoot tr').length,
+    corners: [...table.querySelectorAll('.player-corner')].map((c) => ({
+      right: c.classList.contains('is-right'), below: c.closest('tfoot') !== null })),
+    cell: document.querySelector('td.player-cell').getBoundingClientRect().width,
+  };
+}"""
+
+
+def _gutters(page):
+    return page.evaluate(_GUTTERS)
+
+
+def _lines(seen, axis, *, duplicate):
+    """The numbers of each line's box in one gutter, in line order."""
+    boxes = [b for b in seen["boxes"]
+             if b["axis"] == axis and (b["hidden"] == "true") == duplicate]
+    assert [b["line"] for b in boxes] == sorted(b["line"] for b in boxes), boxes
+    return [b["numbers"] for b in boxes]
+
+
+def _as_text(clues):
+    return [[str(n) for n in clue] for clue in clues]
+
+
+@pytest.mark.browser
+class TestSolverClues_BigBoardRepeatsBothAxes:
+    """AC-1 — a 30 x 25 on a viewport with room for both gutters: every row's
+    clue appears left of AND right of the grid, every column's above AND
+    below it, and the four corners that close the two bands are there."""
+
+    def test_a_30x25_draws_both_gutters_on_both_axes(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(ROOMY)
+        _open(page, live, live.store(GRID_30x25))
+
+        seen = _gutters(page)
+
+        rows, columns = _as_text([_encode(r) for r in GRID_30x25]), _as_text(
+            [_encode(c) for c in zip(*GRID_30x25)])
+        assert _lines(seen, "rows", duplicate=False) == rows
+        assert _lines(seen, "rows", duplicate=True) == rows
+        assert _lines(seen, "columns", duplicate=False) == columns
+        assert _lines(seen, "columns", duplicate=True) == columns
+        # Left and right, above and below — read off the boxes' own geometry
+        # markers rather than from their count alone.
+        assert [b["right"] for b in seen["boxes"] if b["axis"] == "rows"] == [False, True] * 25
+        assert {b["below"] for b in seen["boxes"] if b["axis"] == "columns" and b["hidden"]} == {True}
+        assert {b["below"] for b in seen["boxes"] if b["axis"] == "columns" and not b["hidden"]} == {False}
+        assert seen["feet"] == 1
+        assert sorted((c["right"], c["below"]) for c in seen["corners"]) == [
+            (False, False), (False, True), (True, False), (True, True)]
+        assert seen["mirrored"] is False
+        # The room it takes: 28 px cells, the cap, well over the 24 px the
+        # duplicate is conditional on — and all four gutters FIT: the fitted
+        # cell is charged for both bands of each doubled axis (admin.css
+        # --player-row-gutters / --player-col-gutters), so the stage does not
+        # scroll in either direction on a board that was asked to grow two
+        # extra bands.
+        assert seen["cell"] == pytest.approx(28, abs=0.01), seen["cell"]
+        fit = page.evaluate(
+            """() => {
+              const stage = document.querySelector('.player-stage');
+              return { overflowX: stage.scrollWidth - stage.clientWidth,
+                       overflowY: stage.scrollHeight - stage.clientHeight,
+                       page: document.scrollingElement.scrollWidth, viewport: innerWidth };
+            }"""
+        )
+        assert fit["overflowX"] <= 0 and fit["overflowY"] <= 0, fit
+        assert fit["page"] <= fit["viewport"], fit
+
+    def test_the_doubled_board_is_fitted_for_both_of_its_bands(self, browser_page, live) -> None:
+        """The cell is charged for the bands that are actually drawn. At
+        1700 x 1500 the same 30 x 25 doubles both axes and the FIT sets the
+        cell (24.53 px, under the 28 px cap), which is where fitting the
+        board as if it had one band of each would show: the two extra bands
+        are about 330 px apiece, so the board would hang a third of the way
+        out of the stage instead of ending within the pixel or two of
+        per-box rounding that a single-gutter board already carries on
+        main (measured there: 1 px at 1024 x 768 and at 1440 x 900).
+        """
+        page = browser_page
+        page.set_viewport_size({"width": 1700, "height": 1500})
+        _open(page, live, live.store(GRID_30x25))
+
+        seen = _gutters(page)
+        fit = page.evaluate(
+            """() => {
+              const stage = document.querySelector('.player-stage');
+              return { overflowX: stage.scrollWidth - stage.clientWidth,
+                       stage: stage.clientWidth,
+                       table: document.querySelector('.player-board').getBoundingClientRect().width };
+            }"""
+        )
+
+        assert len(_lines(seen, "rows", duplicate=True)) == 25
+        assert len(_lines(seen, "columns", duplicate=True)) == 30
+        assert 24 <= seen["cell"] < 28, seen["cell"]  # the fit, not the cap
+        # Measured: a 1402.34 px table in a 1400 px stage, which Chromium
+        # reports as 2 or 3 px of integer scroll overflow from run to run
+        # (scrollWidth is whole pixels; the table's own box is the stable
+        # number of the two). The bound is that rounding, not a budget:
+        # fitted for one band instead of two, this board measures some
+        # 190 px past the stage.
+        assert fit["table"] <= fit["stage"] + 3, fit
+        assert fit["overflowX"] <= 3, fit
+
+    def test_the_doubled_board_is_fitted_for_both_of_its_column_bands(self, browser_page, live) -> None:
+        """The same, down the other axis: a 25 x 20 at 1920 x 1080 doubles
+        both axes with the HEIGHT setting the cell (24.33 px), so the board
+        ends within a few pixels of the stage's own visible height instead of
+        a whole second column band (14 rows of numbers, some 340 px) past it.
+        Measured here: 5 px of stage overflow, which a single-gutter board at
+        this viewport already has.
+        """
+        page = browser_page
+        page.set_viewport_size(WIDE)
+        _open(page, live, live.store(_unique_grid(25, 20, seed=2123)))
+
+        seen = _gutters(page)
+        fit = page.evaluate(
+            """() => {
+              const stage = document.querySelector('.player-stage');
+              return { overflowY: stage.scrollHeight - stage.clientHeight,
+                       stage: stage.clientHeight };
+            }"""
+        )
+
+        assert len(_lines(seen, "rows", duplicate=True)) == 20
+        assert len(_lines(seen, "columns", duplicate=True)) == 25
+        assert 24 <= seen["cell"] < 28, seen["cell"]  # the fit, not the cap
+        assert fit["overflowY"] <= 10, fit
+
+    def test_the_same_board_keeps_one_gutter_per_axis_on_a_laptop(self, browser_page, live) -> None:
+        """AC-1's "with room" clause from the other side: at 1440 x 900 the
+        doubled layout would leave 19.75 px cells, so this board draws
+        exactly today's single gutters instead — and keeps the 19.75 px."""
+        page = browser_page
+        page.set_viewport_size(LAPTOP)
+        _open(page, live, live.store(GRID_30x25))
+
+        seen = _gutters(page)
+
+        assert len(_lines(seen, "rows", duplicate=False)) == 25
+        assert _lines(seen, "rows", duplicate=True) == []
+        assert _lines(seen, "columns", duplicate=True) == []
+        assert seen["feet"] == 0
+        assert seen["cell"] == pytest.approx(19.75, abs=0.05), seen["cell"]
+
+
+@pytest.mark.browser
+class TestSolverClues_AxesDoubleIndependently:
+    """AC-2 — a 30 x 12: the row clues are doubled and the column clues are
+    not, because 12 is not past the 15 the row axis is past. The same
+    viewport doubles BOTH axes of a 25 x 20 (also 20 rows deep, but tall
+    enough to be eligible), so the asymmetry is the board's, not the
+    viewport's."""
+
+    def test_a_30x12_doubles_its_rows_only(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(WIDE)
+        _open(page, live, live.store(GRID_30x12))
+
+        seen = _gutters(page)
+
+        rows = _as_text([_encode(r) for r in GRID_30x12])
+        assert _lines(seen, "rows", duplicate=False) == rows
+        assert _lines(seen, "rows", duplicate=True) == rows
+        assert len(_lines(seen, "columns", duplicate=False)) == 30
+        assert _lines(seen, "columns", duplicate=True) == []
+        assert seen["feet"] == 0
+        assert [(c["right"], c["below"]) for c in seen["corners"]] == [(False, False), (True, False)]
+        assert seen["cell"] == pytest.approx(28, abs=0.01), seen["cell"]
+
+    def test_a_25x20_at_the_same_viewport_doubles_both(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(WIDE)
+        _open(page, live, live.store(_unique_grid(25, 20, seed=2123)))
+
+        seen = _gutters(page)
+
+        assert len(_lines(seen, "rows", duplicate=True)) == 20
+        assert len(_lines(seen, "columns", duplicate=True)) == 25
+        assert seen["feet"] == 1
+
+
+@pytest.mark.browser
+class TestSolverClues_DuplicateReadsTheSameSequence:
+    """AC-3 — a duplicate gutter is a repetition, never a mirror of the
+    sequence: line by line, in line order, its numbers are its twin's, and a
+    bottom column box reads top to bottom like the top one. Checked against
+    the payload's own clues (the embedded compute_clues JSON, G-1), not only
+    against the other gutter, so a pair that is equal and both wrong fails."""
+
+    def test_both_gutters_read_the_payload_in_the_same_order(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(ROOMY)
+        _open(page, live, live.store(GRID_30x25))
+
+        seen = _gutters(page)
+        payload = page.evaluate("[window.puzzlePlayer.payload.rows, window.puzzlePlayer.payload.columns]")
+
+        for axis, clues in (("rows", payload[0]), ("columns", payload[1])):
+            first = _lines(seen, axis, duplicate=False)
+            second = _lines(seen, axis, duplicate=True)
+            assert first == _as_text(clues)
+            assert second == first
+            # Not reversed — a line whose clue is not a palindrome would read
+            # the same either way otherwise.
+            assert any(line != line[::-1] for line in first), axis
+
+
+@pytest.mark.browser
+class TestSolverClues_DuplicateIsAriaHidden:
+    """AC-7 — the duplicate is a visual repetition, so the accessibility tree
+    exposes each clue exactly once: every box of the second gutter is
+    aria-hidden and carries no aria-label, and the labelled boxes are exactly
+    one per line per axis, with the labels CARD-160 defined."""
+
+    def test_each_clue_is_exposed_once(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(ROOMY)
+        _open(page, live, live.store(GRID_30x25))
+
+        seen = _gutters(page)
+
+        labelled = [b for b in seen["boxes"] if b["hidden"] is None]
+        hidden = [b for b in seen["boxes"] if b["hidden"] == "true"]
+        assert len(labelled) == 30 + 25 and len(hidden) == 30 + 25
+        assert all(b["label"] is None for b in hidden), hidden[:3]
+        assert [b["label"] for b in labelled if b["axis"] == "rows"] == [
+            f"Row {line + 1}: {' '.join(str(n) for n in _encode(GRID_30x25[line]))}" for line in range(25)]
+        assert [b["label"] for b in labelled if b["axis"] == "columns"] == [
+            f"Column {line + 1}: {' '.join(str(n) for n in _encode(col))}"
+            for line, col in enumerate(zip(*GRID_30x25))]
+        # Read the same way a screen reader walks the table: nothing inside an
+        # aria-hidden subtree counts, so every clue is named once.
+        names = page.evaluate(
+            """() => [...document.querySelectorAll('th.player-clue')]
+                 .filter((box) => box.closest('[aria-hidden="true"]') === null)
+                 .map((box) => box.getAttribute('aria-label'))"""
+        )
+        assert len(names) == 55 and all(name for name in names)
+
+
+@pytest.mark.browser
+class TestSolverClues_CirclesPaintBothGutters:
+    """AC-4 — CARD-188's circle is a property of a clue NUMBER, so on a
+    doubled board both of that number's spans carry .is-circled, and both
+    lose it when the marks change. Checked on a 30 x 25 with all four
+    gutters drawn, so the row axis and the column axis are both covered, and
+    with the ring itself measured on the duplicate: a duplicate that does not
+    circle is worse than no duplicate, and so is one whose ring is painted
+    twice (the rules are keyed on the span's own class, so the duplicate's
+    ring is one ring, the same width as its twin's)."""
+
+    def test_both_spans_circle_and_uncircle_together(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(ROOMY)
+        problems = _watch_problems(page, live)
+        _open(page, live, live.store(GRID_30x25))
+        assert _gutters(page)["feet"] == 1
+
+        # Nothing is marked: no number in either gutter is circled.
+        assert _twins(page) != []
+        assert [t for t in _twins(page) if any(t["circled"])] == []
+
+        # The whole solution: every line settles, so every number circles —
+        # in both gutters, and never in only one of them.
+        _set(page, [F if on else E for line in GRID_30x25 for on in line])
+        twins = _twins(page)
+        assert len(twins) == sum(len(_encode(r)) for r in GRID_30x25) + sum(
+            len(_encode(c)) for c in zip(*GRID_30x25))
+        assert [t for t in twins if t["circled"] != [True, True]] == []
+        # The ring is drawn once per span, the same size in both gutters.
+        assert [t for t in twins if t["rings"][0] != t["rings"][1]] == []
+        ink = page.evaluate(_GRID_INK)
+        assert ink.startswith("rgb"), ink
+        assert [t for t in twins if t["rings"][0]["width"] <= 0
+                or t["rings"][0]["colour"] != ink] == [], twins[0]
+
+        # Rubbing the marks out again clears both spans, never one of them:
+        # the circles follow the board, in both gutters (a blank board settles
+        # nothing). setBoard, not undo — _set starts a fresh history, so
+        # there is nothing to undo after one.
+        _set(page, [U] * (30 * 25))
+        assert [t for t in _twins(page) if t["circled"] != [False, False]] == []
+        assert problems == []
+
+
+#: Every clue number of a doubled board as the pair of spans that show it:
+#: the two gutters' .is-circled flags and the ring their ::before draws.
+_TWINS = """() => {
+  const twins = [];
+  for (const kind of ['row', 'col']) {
+    const boxes = [...document.querySelectorAll(`th.player-clue.is-${kind}`)];
+    const byLine = new Map();
+    for (const box of boxes) {
+      const line = Number(box.dataset.line);
+      if (!byLine.has(line)) byLine.set(line, []);
+      byLine.get(line).push([...box.querySelectorAll('.player-clue-num')]);
+    }
+    for (const [line, gutters] of byLine) {
+      if (gutters.length !== 2) return [];  // not a doubled axis: refuse
+      gutters[0].forEach((span, k) => {
+        const ring = (s) => {
+          const look = getComputedStyle(s, '::before');
+          return { width: parseFloat(look.borderTopWidth), colour: look.borderTopColor,
+                   size: `${look.width}x${look.height}` };
+        };
+        twins.push({
+          kind, line, k,
+          circled: gutters.map((spans) => spans[k].classList.contains('is-circled')),
+          rings: gutters.map((spans) => ring(spans[k])),
+        });
+      });
+    }
+  }
+  return twins;
+}"""
+
+
+def _twins(page):
+    return page.evaluate(_TWINS)
+
+
+@pytest.mark.browser
+class TestSolverClues_SmallBoardUnchanged:
+    """AC-5 — a 15 x 15 is past neither side's 15, so it draws exactly what it
+    drew before this card: one top gutter, one left gutter, one corner, no
+    duplicate, no aria-hidden box, and no <tfoot> — at a viewport with room to
+    spare for duplicates, which is where a wrong threshold would show."""
+
+    @pytest.mark.parametrize("viewport", [ROOMY, LAPTOP, {"width": 390, "height": 844}],
+                             ids=["roomy", "laptop", "phone"])
+    def test_a_15x15_draws_one_gutter_per_axis(self, browser_page, live, viewport) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open_player(page, live)
+
+        seen = _gutters(page)
+
+        assert _lines(seen, "rows", duplicate=False) == _as_text(ROW_CLUES)
+        assert _lines(seen, "columns", duplicate=False) == _as_text(COLUMN_CLUES)
+        assert [b for b in seen["boxes"] if b["hidden"] is not None] == []
+        assert [b for b in seen["boxes"] if b["right"] or b["below"]] == []
+        assert seen["feet"] == 0
+        assert [(c["right"], c["below"]) for c in seen["corners"]] == [(False, False)]
+        assert seen["mirrored"] is False
+
+
+_FRAMES = """() => {
+  const px = (el, side) => parseFloat(getComputedStyle(el)[`border${side}Width`]);
+  const table = document.querySelector('.player-board');
+  const box = (sel, i = 0) => [...table.querySelectorAll(sel)][i];
+  const sides = (el) => ({ left: px(el, 'Left'), right: px(el, 'Right'),
+                           top: px(el, 'Top'), bottom: px(el, 'Bottom') });
+  const bodyRows = [...table.querySelectorAll('tbody tr')];
+  const lastRow = [...bodyRows.at(-1).querySelectorAll('td.player-cell')];
+  const firstRow = [...bodyRows[0].querySelectorAll('td.player-cell')];
+  const rowClues = (tr) => [...tr.querySelectorAll('th.player-clue.is-row')];
+  const numberBand = (sel) => {
+    const clue = box(sel);
+    const numbers = [...clue.querySelectorAll('.player-clue-num')];
+    const b = clue.getBoundingClientRect();
+    return { aboveFirst: numbers[0].getBoundingClientRect().top - b.top,
+             belowLast: b.bottom - numbers.at(-1).getBoundingClientRect().bottom };
+  };
+  return {
+    rowLeft: sides(rowClues(bodyRows[0])[0]),
+    rowRight: sides(rowClues(bodyRows[0])[1]),
+    colTop: sides(box('thead th.player-clue.is-col')),
+    colBottom: sides(box('tfoot th.player-clue.is-col')),
+    cornerTopLeft: sides(box('thead .player-corner', 0)),
+    cornerTopRight: sides(box('thead .player-corner', 1)),
+    cornerBottomLeft: sides(box('tfoot .player-corner', 0)),
+    cornerBottomRight: sides(box('tfoot .player-corner', 1)),
+    lastCellOfRow: sides(firstRow.at(-1)),
+    lastRowOfCells: [...new Set(lastRow.map((td) => px(td, 'Bottom')))],
+    colRight: firstRow.map((td) => px(td, 'Right')),
+    rowBottom: bodyRows.map((tr) => px(rowClues(tr)[0], 'Bottom')),
+    topBand: numberBand('thead th.player-clue.is-col'),
+    bottomBand: numberBand('tfoot th.player-clue.is-col'),
+  };
+}"""
+
+
+@pytest.mark.browser
+class TestSolverClues_DoubledFramesReadOnAllFourSides:
+    """"What to implement" item 6 — with a gutter on each side of each axis,
+    the heavy/thin rule pattern still reads correctly on all four sides.
+    Every heavy line of the single-gutter board has exactly one counterpart
+    here, drawn by the box that is now on that side; no line is doubled (two
+    adjacent heavy borders would read as one twice as thick) and none goes
+    missing.
+
+    The ":last-child" rules admin.css relies on for the grid's right frame and
+    the top band's right frame stop matching once a duplicate follows the
+    cells (CARD-193 met this first, for the mirror); here they are replaced by
+    the .is-right boxes' own left borders. Below the grid, the opposite: the
+    last cell row's heavy bottom border IS the boundary, so the <tfoot> boxes
+    draw no top border at all.
+    """
+
+    def test_the_rules_around_a_30x25_with_four_gutters(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(ROOMY)
+        _open(page, live, live.store(GRID_30x25))
+        assert _gutters(page)["feet"] == 1
+
+        seen = page.evaluate(_FRAMES)
+        thin = min(seen["colRight"])
+        heavy = max(seen["colRight"])
+        assert heavy > thin > 0
+
+        # Left/right row gutters: the heavy boundary faces the grid on each
+        # side, the thin edge faces out.
+        assert (seen["rowLeft"]["right"], seen["rowLeft"]["left"]) == (heavy, thin)
+        assert (seen["rowRight"]["left"], seen["rowRight"]["right"]) == (heavy, thin)
+        # Top/bottom column gutters: the same, turned ninety degrees — except
+        # that below the grid the boundary is the cells' own heavy bottom
+        # border, so the gutter adds none of its own.
+        assert (seen["colTop"]["bottom"], seen["colTop"]["top"]) == (heavy, thin)
+        assert (seen["colBottom"]["top"], seen["colBottom"]["bottom"]) == (0, thin)
+        assert seen["lastRowOfCells"] == [heavy]
+
+        # The grid's own right frame moved onto the right gutter's left
+        # border, so the last column's cells keep the thin rule (CARD-193's
+        # mirrored case, now on a board that has both gutters).
+        assert seen["lastCellOfRow"]["right"] == thin
+        assert [c for c in range(29) if seen["colRight"][c] > thin] == [4, 9, 14, 19, 24]
+        assert [r for r in range(24) if seen["rowBottom"][r] > min(seen["rowBottom"])] == [4, 9, 14, 19]
+
+        # The four corners: each closes its own band with one heavy line
+        # toward the grid, and draws nothing on the table's outer edges.
+        assert seen["cornerTopLeft"] == {"left": 0, "right": heavy, "top": 0, "bottom": heavy}
+        assert seen["cornerTopRight"] == {"left": heavy, "right": 0, "top": 0, "bottom": heavy}
+        assert seen["cornerBottomLeft"] == {"left": 0, "right": heavy, "top": 0, "bottom": 0}
+        assert seen["cornerBottomRight"] == {"left": heavy, "right": 0, "top": 0, "bottom": 0}
+
+        # The numbers of each column gutter sit against the grid, so a short
+        # clue leaves its empty room on the OUTER side: the top band's last
+        # number ends on its box's (heavy) bottom border, the bottom band's
+        # first number starts on its box's top edge, which draws no border at
+        # all. Both bands are deeper than the clue measured here, so the room
+        # left over is really on the far side and not merely absent.
+        assert seen["topBand"]["belowLast"] == pytest.approx(heavy, abs=0.5), seen["topBand"]
+        assert seen["topBand"]["aboveFirst"] > 1, seen["topBand"]
+        assert seen["bottomBand"]["aboveFirst"] == pytest.approx(0, abs=0.5), seen["bottomBand"]
+        assert seen["bottomBand"]["belowLast"] > 1, seen["bottomBand"]
+
+
+_BAND_RINGS = """() => {
+  const rings = [];
+  for (const box of document.querySelectorAll('th.player-clue.is-row')) {
+    const b = box.getBoundingClientRect();
+    const style = getComputedStyle(box);
+    const inside = { left: b.left + parseFloat(style.borderLeftWidth),
+                     right: b.right - parseFloat(style.borderRightWidth) };
+    [...box.querySelectorAll('.player-clue-num')].forEach((span, k) => {
+      const r = span.getBoundingClientRect(), ring = getComputedStyle(span, '::before');
+      const left = r.left + parseFloat(ring.left);
+      rings.push({
+        right: box.classList.contains('is-right'), line: Number(box.dataset.line), k,
+        clear: { left: left - inside.left,
+                 right: inside.right - (left + parseFloat(ring.width) + 2 * parseFloat(ring.borderTopWidth)) },
+      });
+    });
+  }
+  return rings;
+}"""
+
+
+@pytest.mark.browser
+class TestSolverClues_RowRingsStayInsideTheirOwnBand:
+    """A row number's ring is wider than its digits, and the 1.45 ch gap each
+    number keeps is where that width goes. In a gutter on the RIGHT of the
+    grid the gap has to be on the other side of the number, or the first
+    ring — the one against the grid — is drawn over the board's heavy frame
+    and the cells behind it (seen on the duplicate gutter before admin.css
+    mirrored the margin; CARD-193's phone mirror had it too).
+
+    So: in a left-hand gutter no ring crosses the box's inner (right) edge,
+    and in a right-hand gutter no ring crosses its inner (left) edge. The
+    outer edge of either is the board's own outside, where a ring may still
+    reach into the page's margin as it always has — that is not asserted
+    here, only the edge that faces the grid.
+    """
+
+    def test_no_ring_reaches_across_the_edge_that_faces_the_grid(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(ROOMY)
+        _open(page, live, live.store(GRID_30x25))
+        assert len(_lines(_gutters(page), "rows", duplicate=True)) == 25
+
+        rings = page.evaluate(_BAND_RINGS)
+
+        left = [r for r in rings if not r["right"]]
+        right = [r for r in rings if r["right"]]
+        assert len(left) == len(right) == sum(len(_encode(row)) for row in GRID_30x25)
+        assert [r for r in left if r["clear"]["right"] < 0] == []
+        assert [r for r in right if r["clear"]["left"] < 0] == []
