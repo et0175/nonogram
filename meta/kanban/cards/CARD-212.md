@@ -836,3 +836,30 @@ and fix agents' own. Where the two disagree, the ledger is authoritative._
     under load is a defect in its own right: the next card to run a merge gate would read it as
     a real failure, which is precisely the false-signal incident this wave already had once.
   - **Not merged.** The gate is the gate.
+
+- [Fix cycle 3 complete] 2026-10-14 — committed `4638bf5`, **test-only**, after merging main in
+  (`8add6ce`). The bound was doing two jobs and they are now separated:
+  - `_SETTLE_BOUND` 600 ms -> **10 s**, guarding what the test actually claims — that the board
+    settles into the layout a reload would give, not how fast. 10 s is ~5x the worst observed
+    whole-test run (2.2 s idle, **2.08 s under deliberate load**) and still well inside
+    Playwright's own default.
+  - **The debounce's length is pinned where a length belongs:** a test reads `RESIZE_SETTLE` out
+    of `solver.js` and asserts it is between 50 and 400 ms — below which it stops coalescing a
+    drag, above which the board visibly trails its window. So the kill for a stretched debounce
+    **moves** from the settle waits to that constant test, which is the test a later reader will
+    meet when they change the number. The burst-of-events test still kills a lost `clearTimeout`
+    by counting board builds, with no timing in it at all.
+  - **Re-run under deliberate load, as asked** — a second pytest (marking + maybe + brush_menu +
+    property, both browser and CPU) concurrent with this card's seven touched files. **Every
+    test of this card passed, including the one that failed the gate.** The run's single failure
+    was CARD-195's `TestSolverZoom_ButtonsStepAndClamp::test_zoom_in_at_300_percent_is_a_no_op`,
+    correctly attributed and **not** this card's: it failed in `page.goto` with a 30 s navigation
+    timeout, on a 15x15 board that `isBig` excludes from the resize listener entirely, with the
+    host saturated by three concurrent pytest processes before any of this card's code ran. It
+    passes alone, twice. Logged as a pre-existing load sensitivity.
+- [Merge gate 2 — deliberately held] The gate was **not** re-run immediately. Two pytest
+  processes were live on the host (this card's own load experiment and CARD-221's on-host /
+  off-host impact scope), and a third full suite is exactly the saturation that produced both
+  the first gate's false failure and the CARD-195 artefact above. The project's own retro item
+  says full suites must not overlap; the gate waits for a quiet machine rather than spending
+  25 minutes on a result nobody could read.
