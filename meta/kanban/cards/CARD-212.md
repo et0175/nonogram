@@ -160,6 +160,35 @@ axis: row clues left *and* right, column clues above *and* below.
 - **Standards:** the duplicate is decorative (`aria-hidden`); the labelled
   gutter stays the single accessible source of each clue.
 
+## Named tests resolved before the card started (decompose station, 2026-10-14)
+
+Every backticked test name in this card was resolved against the test tree before an
+agent saw it — the check CARD-205's gate showed was missing, where a fabricated guardrail
+name survived drafting, implementation, a review and three fix cycles.
+
+**Already exist** (run them, do not rewrite them):
+
+| name | resolves to |
+|------|-------------|
+| `TestSolverPage_ShowsTheClues` | `tests/test_puzzle_solver_page.py:206` |
+| `TestSolverMarking_NoRequestPerMark` | `tests/test_puzzle_solver_marking.py:1188` |
+| `test_the_stylesheet_uses_tokens_not_literals` | `tests/test_admin_design_tokens.py:80` |
+| `test_the_region_toggles_pressed_look_comes_from_tokens` | `tests/test_admin_design_tokens.py:86` |
+
+**To be written by this card** — none of these exists yet, and that is correct for new
+behaviour. Report them as written, never as passing before they exist:
+`TestSolverClues_BigBoardRepeatsBothAxes`, `TestSolverClues_SmallBoardUnchanged`,
+`TestSolverClues_AxesDoubleIndependently`, `TestSolverClues_DuplicateReadsTheSameSequence`,
+`TestSolverClues_DuplicateIsAriaHidden`, `TestSolverClues_CirclesPaintBothGutters`
+(all in the existing `tests/test_puzzle_solver_clues.py`, whose classes already use the
+`TestSolverClues_` prefix), `TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit`
+(`tests/test_puzzle_solver_phone.py`) and `TestSolverZoom_SurvivesADoubledRedraw`
+(`tests/test_puzzle_solver_zoom.py`).
+
+There is no `TestAdminDesignTokens_NoRawValues` in this project. It was invented by the
+orchestrator and briefed into four cards before being corrected; the two token tests above
+are the real ones.
+
 ## Worktree notes
 
 —

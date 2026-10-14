@@ -100,8 +100,11 @@ use — so that every measurement the interior makes is deterministic:
   `test_book_finalise_gutter.py`, run under the off-host plugin)
 - **AC-3** (guard, the type floor): *Given* every face the interior fits, *when* it is
   measured on the packaged font, *then* none is below CON-020's 10 pt floor except the
-  clue digits CON-020 exempts. (test: `TestInteriorType_EveryFaceHoldsTheFloor`,
-  `TestBookGuidePageType_*`)
+  clue digits CON-020 exempts. (test: `TestInteriorType_EveryFaceHoldsTheFloor`
+  — `tests/test_book_interior_type_floor.py:303` — and the four classes of
+  `tests/test_book_guide_page_type.py`: `TestGuidePage_TypeIsBookSized`,
+  `TestGuidePage_TextFitsTheUsableFrame`, `TestGuidePage_PointSizeIsIndependentOfDpi`,
+  `TestGuidePage_LeadingClearsTheType`)
 - **AC-4** (happy, CARD-205's sweeps): *Given* the 381-height folio-clearance sweep and
   the three-caller page-count agreement, *when* each runs on both faces, *then* both pass
   on both — including the 10.00 and 10.10 cm trims that drop the folio today. (test:
@@ -143,7 +146,13 @@ use — so that every measurement the interior makes is deterministic:
 - CON-018 — the Book 1 trim profile the figures are measured on (check: review-lens)
 - ADR-0006/R1 — runtime dependencies are exactly stdlib + Pillow + NumPy; non-executable
   static assets may ship as package data and that is not a dependency change (check:
-  `TestDependencyBaseline_IsExactlyPillowAndNumpy`)
+  `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed` and
+  `::test_the_font_ships_as_package_data_and_not_as_a_dependency`.
+  **`TestDependencyBaseline_IsExactlyPillowAndNumpy` is the architecture model's name for
+  this rule and resolves to no test** — it appears only inside a comment block in
+  `tests/test_export_pdf.py` that maps it to the two real tests above. Already logged in
+  `backlog.md` under the architecture model's dead `check:` refs; corrected here so this
+  card cannot inherit it.)
 - ADR-0036/R2 — page geometry is computed only by COMP-007's layout functions (check:
   review-lens)
 - INV-013 — the interior holds no cover page; parity is the 1-based interior position
@@ -163,6 +172,27 @@ use — so that every measurement the interior makes is deterministic:
 - **Components:** COMP-009 (`book_pdf_generator.py`), COMP-007 only insofar as the
   packaged font data lives under `export/` (no layout change — G-3).
 - **Trace:** `meta/architecture/trace.yml` — not updated by this card.
+
+## Named tests resolved before the card started (decompose station, 2026-10-14)
+
+Every backticked test name in this card was resolved against the test tree before an
+agent saw it — the check CARD-205's gate showed was missing, where a fabricated guardrail
+name survived drafting, implementation, a review and three fix cycles.
+
+| name | resolves to |
+|------|-------------|
+| `TestInteriorType_EveryFaceHoldsTheFloor` | `tests/test_book_interior_type_floor.py:303` |
+| `TestBookPdfMemory_PagesAreUnchanged` | `tests/test_book_pdf_memory.py:1230` |
+| `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` | `tests/property/test_book_export_interior.py:582`, as `test_PropertyTest_…` (this project's property-test naming) |
+| `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` | `tests/property/test_cli_exports_byte_identity.py`, same convention |
+| `test_the_gaps_leave_the_folio_its_line_on_every_trim_kdp_admits` | `tests/test_book_toc.py:1166` |
+| `test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place` | `tests/test_book_toc.py:1309` |
+| `TestBookGuidePageType_*` | **did not exist** — corrected above to the four real `TestGuidePage_*` classes in `tests/test_book_guide_page_type.py` |
+| `TestDependencyBaseline_IsExactlyPillowAndNumpy` | **resolves to nothing** — corrected above to the two real tests it maps to |
+| `TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts` (AC-1) | **to be written by this card.** It does not exist and is not expected to: it is the new determinism test. Say so when you report it; do not report it as passing before you have written it |
+
+AC-6 names no test on purpose — it is verified by review against the measurements this
+card records.
 
 ## Worktree notes
 
