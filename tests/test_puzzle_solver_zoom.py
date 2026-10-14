@@ -32,6 +32,7 @@ import pytest
 
 from tests.test_puzzle_solver_brush_menu import _touch_drag_row_1_cols_2_to_6
 from tests.test_puzzle_solver_marking import (
+    E,
     GRID,
     F,
     _cell,
@@ -594,8 +595,26 @@ class TestZoomArithmetic_PureFunctions:
 _GRID_30x12 = _unique_grid(30, 12, seed=2121)
 _GRID_30x25 = _unique_grid(30, 25, seed=212)
 _WIDE = {"width": 1920, "height": 1080}
+#: Room for all four gutters on a 30 x 25 (28 px cells), and a window with
+#: room for none of them that is still nowhere near the 820 px breakpoint.
+_ROOMY = {"width": 1920, "height": 1500}
+_NARROW = {"width": 1100, "height": 900}
 _LAPTOP = {"width": 1440, "height": 900}
 _PHONE = {"width": 390, "height": 844}
+
+#: What the board settled into at this window, independent of how it got
+#: here (CARD-212 F-001: a resize must land where a reload would).
+_FIT_SHAPE = """() => {
+  const stage = document.querySelector('.player-stage');
+  return {
+    duplicates: [...document.querySelectorAll('th.player-clue')]
+      .filter((box) => box.getAttribute('aria-hidden')).length,
+    feet: document.querySelectorAll('.player-board tfoot tr').length,
+    cell: document.querySelector('td.player-cell').getBoundingClientRect().width,
+    overflowX: stage.scrollWidth - stage.clientWidth,
+    overflowY: stage.scrollHeight - stage.clientHeight,
+  };
+}"""
 
 _GUTTER_SHAPE = """() => {
   const table = document.querySelector('.player-board');
@@ -701,3 +720,108 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         after = page.evaluate(_GUTTER_SHAPE)
         assert (after["rowBoxes"], after["colBoxes"], after["duplicates"]) == (25, 30, 0)
         assert _zoom_readout(page) == "150%" and after["zoomProperty"] == "1.5"
+
+    def test_a_resize_that_never_crosses_the_breakpoint_rechooses_the_layout(
+        self, browser_page, live
+    ) -> None:
+        """CARD-212 (review cycle 1, F-001) — the duplicate's condition is a
+        measurement of the drawn board, not a media query, so it has to
+        follow the WINDOW and not only the 820 px breakpoint. Before the
+        resize listener, a 30 x 25 loaded at 1920 x 1500 and resized to
+        1100 x 900 — never crossing 820 px — kept all 55 duplicates at
+        14.39 px cells, 9.6 px under the bar they are conditional on, with
+        sideways scroll inside the stage that the same board reloaded at
+        that size does not have.
+
+        Now the board settles into the layout a reload would have given it
+        (measured: 17.63 px cells, no duplicates, the same 1 px of rounding
+        overflow a reload shows), and crossing back brings them back — with
+        the marks, the zoom and the circles carried through both redraws,
+        exactly as the breakpoint crossing carries them.
+        """
+        page = browser_page
+        page.set_viewport_size(_ROOMY)
+        puzzle_id = live.store(_GRID_30x25)
+        _open(page, live, puzzle_id)
+        assert page.evaluate(_GUTTER_SHAPE)["duplicates"] == 55
+
+        width = len(_GRID_30x25[0])
+        cells = ["unknown"] * (width * len(_GRID_30x25))
+        for col, on in enumerate(_GRID_30x25[0]):
+            cells[col] = F if on else E
+        _set(page, cells)
+        _zoom_to(page, 150)
+        before = _board_snapshot(page, puzzle_id)
+        doubled = page.evaluate(_GUTTER_SHAPE)
+        numbers = len(doubled["circledRow0"][0])
+        assert doubled["circledRow0"] == [[True] * numbers] * 2 and numbers > 1
+
+        page.set_viewport_size(_NARROW)
+        page.wait_for_function(
+            "[...document.querySelectorAll('th.player-clue')]"
+            ".filter((box) => box.getAttribute('aria-hidden')).length === 0")
+        narrow = page.evaluate(_GUTTER_SHAPE)
+        cell = page.evaluate("document.querySelector('td.player-cell').getBoundingClientRect().width")
+
+        assert narrow["mirrored"] is False  # 1100 px: the 820 px query never fired
+        assert (narrow["rowBoxes"], narrow["colBoxes"]) == (25, 30)
+        # 17.63 px is what this board measures at this window (the next test
+        # takes that from a reload rather than from this number); the zoom
+        # multiplies it and does not survive as anything else.
+        assert cell == pytest.approx(17.63 * 1.5, abs=0.08), cell
+        assert _board_snapshot(page, puzzle_id) == before
+        assert _zoom_readout(page) == "150%" and narrow["zoomProperty"] == "1.5"
+        assert narrow["circledRow0"] == [[True] * numbers]
+
+        page.set_viewport_size(_ROOMY)
+        page.wait_for_function(
+            "[...document.querySelectorAll('th.player-clue')]"
+            ".filter((box) => box.getAttribute('aria-hidden')).length === 55")
+        again = page.evaluate(_GUTTER_SHAPE)
+
+        assert again == doubled
+        assert _board_snapshot(page, puzzle_id) == before
+        assert _zoom_readout(page) == "150%"
+
+    def test_a_resize_settles_on_the_layout_a_reload_would_have_given(self, browser_page, live) -> None:
+        """The same thing stated as the property rather than as numbers: after
+        the window changes, the board is the board that window would have
+        produced from scratch. Before the listener, the resized board had 55
+        duplicates and 14.39 px cells where the reloaded one has none and
+        17.63 px — and the duplicates were buying hundreds of pixels of
+        sideways scroll instead of saving them."""
+        page = browser_page
+        page.set_viewport_size(_ROOMY)
+        puzzle_id = live.store(_GRID_30x25)
+        _open(page, live, puzzle_id)
+        assert page.evaluate(_GUTTER_SHAPE)["duplicates"] == 55
+
+        page.set_viewport_size(_NARROW)
+        page.wait_for_function(
+            "[...document.querySelectorAll('th.player-clue')]"
+            ".filter((box) => box.getAttribute('aria-hidden')).length === 0")
+        resized = page.evaluate(_FIT_SHAPE)
+
+        _open(page, live, puzzle_id)  # the same window, from scratch
+        reloaded = page.evaluate(_FIT_SHAPE)
+
+        assert resized == reloaded, (resized, reloaded)
+        assert resized["duplicates"] == 0 and resized["cell"] == pytest.approx(17.63, abs=0.05)
+        assert resized["overflowX"] <= 1, resized
+
+    def test_a_board_too_small_to_double_is_not_redrawn_by_a_resize(self, browser_page, live) -> None:
+        """The listener's guard: a board past neither side's 15 can have no
+        mirror and no duplicate, so no window size changes what it draws and
+        it is never redrawn. Counted with the draw mark rather than inferred
+        from the DOM, which would look the same either way."""
+        page = browser_page
+        page.set_viewport_size({"width": 1440, "height": 900})
+        _open(page, live, live.store(_unique_grid(15, 15, seed=21215)))
+        draws = "() => performance.getEntriesByName('nonogram-player-board-draw').length"
+        assert page.evaluate(draws) == 1
+
+        page.set_viewport_size({"width": 1000, "height": 700})
+        page.wait_for_timeout(500)  # four times RESIZE_SETTLE
+
+        assert page.evaluate(draws) == 1
+        assert page.evaluate(_GUTTER_SHAPE)["duplicates"] == 0

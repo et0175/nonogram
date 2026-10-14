@@ -1158,8 +1158,12 @@ class TestSolverClues_BigBoardRepeatsBothAxes:
         both axes with the HEIGHT setting the cell (24.33 px), so the board
         ends within a few pixels of the stage's own visible height instead of
         a whole second column band (14 rows of numbers, some 340 px) past it.
-        Measured here: 5 px of stage overflow, which a single-gutter board at
-        this viewport already has.
+        Measured here: 5 px of stage overflow. That is the known residue of
+        the column band against the stage's own height (this card's open
+        item, and the same order as the 3-5 px a single-gutter board already
+        has at this viewport), NOT a budget — so the bound below sits just
+        above the measurement rather than at twice it, and doubling the
+        residue reds it.
         """
         page = browser_page
         page.set_viewport_size(WIDE)
@@ -1177,7 +1181,7 @@ class TestSolverClues_BigBoardRepeatsBothAxes:
         assert len(_lines(seen, "rows", duplicate=True)) == 20
         assert len(_lines(seen, "columns", duplicate=True)) == 25
         assert 24 <= seen["cell"] < 28, seen["cell"]  # the fit, not the cap
-        assert fit["overflowY"] <= 10, fit
+        assert fit["overflowY"] <= 6, fit
 
     def test_the_same_board_keeps_one_gutter_per_axis_on_a_laptop(self, browser_page, live) -> None:
         """AC-1's "with room" clause from the other side: at 1440 x 900 the
@@ -1548,3 +1552,146 @@ class TestSolverClues_RowRingsStayInsideTheirOwnBand:
         assert len(left) == len(right) == sum(len(_encode(row)) for row in GRID_30x25)
         assert [r for r in left if r["clear"]["right"] < 0] == []
         assert [r for r in right if r["clear"]["left"] < 0] == []
+
+    def test_the_phone_mirrors_single_right_hand_gutter_too(self, browser_page, live) -> None:
+        """CARD-193's mirror is the same geometry and had the same defect
+        for a week before this card shared the rule with it: on a 390 px
+        phone every row-clue box is a right-hand one, and before the margin
+        was mirrored the first ring of each crossed into the cells (measured
+        at review: -2.72 px worst case, +7.75 px at HEAD). Pinned here, on
+        the mirror itself, so the fix cannot be lost on the board that has
+        carried the bug the longest."""
+        page = browser_page
+        page.set_viewport_size({"width": 390, "height": 844})
+        _open(page, live, live.store(_unique_grid(30, 30, seed=19330)))
+        assert page.evaluate("document.querySelector('.player-board').classList.contains('is-mirrored')")
+
+        rings = page.evaluate(_BAND_RINGS)
+
+        assert rings and all(r["right"] for r in rings)  # mirrored: no left gutter
+        assert [r for r in rings if r["clear"]["left"] < 0] == []
+
+
+#: One entry per board solver.js built, and what it settled on (CARD-212:
+#: drawBoard leaves a performance mark per board, DRAW_MARK).
+_DRAWS = """() => ({
+  draws: performance.getEntriesByName('nonogram-player-board-draw').length,
+  duplicates: document.querySelectorAll('th.player-clue[aria-hidden="true"]').length,
+  cell: document.querySelector('td.player-cell').getBoundingClientRect().width,
+})"""
+
+#: The laptop viewport every browser test that never calls set_viewport_size
+#: runs at — Playwright's default, and the one most of this suite uses.
+DEFAULT_VIEWPORT = {"width": 1280, "height": 720}
+
+#: Mid-size boards: big on the row axis, small enough that the row clues DO
+#: double at DEFAULT_VIEWPORT (measured: 26.88 px and, for the 22-wide, a
+#: plain board at 24.59 px whose doubled rung misses the bar). This is the
+#: band the card's other tests leave out — see the class below.
+GRID_20x12 = _unique_grid(20, 12, seed=2124)
+GRID_22x14 = _unique_grid(22, 14, seed=2125)
+
+
+@pytest.mark.browser
+class TestSolverClues_TheLadderStopsAtTheFirstRungThatFits:
+    """The layout is chosen by drawing a candidate and measuring it, so the
+    question "how many boards did that cost?" is a real one: building a
+    30 x 30 is ~900 cells and a forced layout. solver.js draws TODAY'S
+    rendering first and stops there when it is already under the bar —
+    doubling only ever takes room away, so no rung above a plain board that
+    is too small can qualify — and when a doubled rung is tried and misses,
+    the plain board already drawn is put back rather than built again.
+
+    Measured before the early-out, a 30 x 30 at this viewport took four
+    draws and ~810 ms to an interactive board; it now takes one and ~125 ms.
+    The counts below are asserted exactly, because they are the property —
+    a timing would be flaky and would not say what is meant.
+    """
+
+    @pytest.mark.parametrize(
+        "name, grid, viewport, draws, duplicates",
+        [
+            # Nothing can be afforded: one draw, and it is the board that stays.
+            ("30x30 on a laptop", _unique_grid(30, 30, seed=19330), DEFAULT_VIEWPORT, 1, 0),
+            ("30x25 on a laptop", GRID_30x25, LAPTOP, 1, 0),
+            # Never eligible on either axis: a ladder of one rung.
+            ("15x15 on a laptop", _unique_grid(15, 15, seed=182), DEFAULT_VIEWPORT, 1, 0),
+            # The plain board clears the bar, the doubled rung does not: the
+            # plain one is re-inserted, not rebuilt, so this is 2 and not 3.
+            ("22x14 on a laptop", GRID_22x14, DEFAULT_VIEWPORT, 2, 0),
+            # Afforded on the first rung tried: the plain board plus it.
+            ("20x12 on a laptop", GRID_20x12, DEFAULT_VIEWPORT, 2, 12),
+            ("30x12 wide", GRID_30x12, WIDE, 2, 12),
+            ("30x25 roomy", GRID_30x25, ROOMY, 2, 55),
+        ],
+        ids=lambda value: value if isinstance(value, str) else "",
+    )
+    def test_the_board_is_built_as_few_times_as_the_answer_needs(
+        self, browser_page, live, name, grid, viewport, draws, duplicates
+    ) -> None:
+        page = browser_page
+        page.set_viewport_size(viewport)
+        _open(page, live, live.store(grid))
+
+        seen = page.evaluate(_DRAWS)
+
+        assert (seen["draws"], seen["duplicates"]) == (draws, duplicates), (name, seen)
+
+
+@pytest.mark.browser
+class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
+    """The band the 24 px bar actually switches on at the suite's default
+    1280 x 720 — boards from 16 to about 22 columns — which the card's other
+    cases (1920 x 1500, 1920 x 1080, 1700 x 1500, 1440 x 900, 390 x 844)
+    step over. A 20 x 12 there draws both row gutters at 26.88 px cells; a
+    22 x 14, whose doubled rung measures just under the bar, draws one. Both
+    are asserted, so the boundary is covered from each side rather than
+    assumed, and the duplicate's numbers and its fifth-line rules are checked
+    where most players will actually meet them.
+    """
+
+    def test_a_20x12_draws_both_row_gutters_and_reads_the_same(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(DEFAULT_VIEWPORT)
+        _open(page, live, live.store(GRID_20x12))
+
+        seen = _gutters(page)
+
+        rows = _as_text([_encode(row) for row in GRID_20x12])
+        assert _lines(seen, "rows", duplicate=False) == rows
+        assert _lines(seen, "rows", duplicate=True) == rows
+        assert _lines(seen, "columns", duplicate=True) == []  # 12 rows: not eligible
+        assert seen["feet"] == 0
+        assert seen["cell"] == pytest.approx(26.88, abs=0.05), seen["cell"]
+        # The heavy fifth-line rules read the same in both gutters (the
+        # duplicate carries .major-below exactly as its twin does).
+        heavy = page.evaluate(
+            """() => {
+              const px = (el) => parseFloat(getComputedStyle(el).borderBottomWidth);
+              const gutters = [[], []];
+              const seen = new Map();
+              for (const box of document.querySelectorAll('th.player-clue.is-row')) {
+                const line = Number(box.dataset.line);
+                const index = seen.get(line) ?? 0;
+                seen.set(line, index + 1);
+                gutters[index][line] = px(box);
+              }
+              return gutters;
+            }"""
+        )
+        thin = min(heavy[0])
+        assert heavy[0] == heavy[1], heavy
+        assert [r for r in range(11) if heavy[0][r] > thin] == [4, 9]
+
+    def test_a_22x14_whose_doubled_rung_misses_the_bar_draws_one(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size(DEFAULT_VIEWPORT)
+        _open(page, live, live.store(GRID_22x14))
+
+        seen = _gutters(page)
+
+        assert _lines(seen, "rows", duplicate=True) == []
+        assert seen["feet"] == 0
+        # Over the bar as drawn, under it doubled — which is why it is one
+        # gutter and not two.
+        assert seen["cell"] == pytest.approx(24.59, abs=0.05), seen["cell"]

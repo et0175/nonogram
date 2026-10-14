@@ -514,11 +514,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-board .major-right, .player-clue.is-col:last-child, .player-cell:last-child { border-right: var(--player-rule-major) solid var(--grid-ink); }
 .player-board .major-below, .player-board tbody tr:last-child > * { border-bottom: var(--player-rule-major) solid var(--grid-ink); }
 /* A row-clue gutter on the RIGHT of the grid — CARD-193's mirror (boards
-   wider than 15 columns draw their one gutter there, on phones only;
-   solver.js also marks the table .is-mirrored) and, since CARD-212, the
-   second gutter a big board repeats its row clues into. Both are the same
-   geometry, so both come from the same marker: solver.js puts .is-right on
-   the box (and on the corner above it) that sits on that side.
+   wider than 15 columns draw their one gutter there, on phones only) and,
+   since CARD-212, the second gutter a big board repeats its row clues into.
+   Both are the same geometry, so both come from one marker: solver.js puts
+   .is-right on the box (and on the corner above it) that sits on that side.
+   No rule in this stylesheet selects .is-mirrored any more — since CARD-212
+   that class is a state marker only ("this is CARD-193's mirrored board"),
+   set by solver.js and read by the tests, so do not key geometry on it.
    drawBoard puts such a box after its row's cells, and its corner after the
    last column clue, so the two ":last-child" rules above stop matching them
    (the DOM's last child is now the clue/corner, not a cell or a column-clue

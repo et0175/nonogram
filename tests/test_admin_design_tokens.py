@@ -137,7 +137,11 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
     the two cannot drift apart without this failing.
     """
     css = (_STATIC / "admin.css").read_text()
-    blocks = re.findall(r"(\.player-[^{}]*?(?:is-right|tfoot)[^{}]*?)\{([^}]*)\}", css)
+    # Comments first: [^{}] crosses newlines, so a /* ... */ mentioning a
+    # .player-… selector (the block above these rules discusses .is-right at
+    # length) would otherwise be captured as part of the next selector.
+    rules_only = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    blocks = re.findall(r"(\.player-[^{}]*?(?:is-right|tfoot)[^{}]*?)\{([^}]*)\}", rules_only)
     selectors = [selector.strip() for selector, _body in blocks]
     assert sorted(selectors) == [
         ".player-board .player-clue.is-row.is-right",
@@ -146,7 +150,8 @@ def test_the_boards_second_clue_gutters_come_from_tokens() -> None:
         ".player-board tfoot .player-clue.is-col",
         ".player-board tfoot .player-corner",
     ], selectors
-    gap = re.search(r"\.player-board \.player-clue\.is-row \.player-clue-num \{[^}]*?\s(\d\.\d+ch)\s", css)
+    gap = re.search(r"\.player-board \.player-clue\.is-row \.player-clue-num \{[^}]*?\s(\d\.\d+ch)\s",
+                    rules_only)
     assert gap, "admin.css no longer sets the row numbers' own gap"
     allowed = {"none", "left", "top", "0", "0.5ch", "calc(var(--player-cell) * 0.2)", gap.group(1)}
     for selector, body in blocks:

@@ -213,11 +213,16 @@
 // view. "Big" is BIG_SIDE per axis and each axis is decided on its own; the
 // repetition is drawn only while the cells it leaves are DOUBLE_MIN_CELL or
 // more, and otherwise the board keeps exactly today's rendering, CARD-193's
-// mirror included — see layoutLadder and redraw() in start(), which choose
-// the rung by measuring the board they drew. The duplicate gutter carries the
-// same numbers in the same order as its twin and is aria-hidden, so a screen
-// reader reads each clue once (clueBox); its numbers circle with their twins
-// (clueNumbersOf pairs them by data-line).
+// mirror included — see layoutLadder and drawSettledLayout in start(), which
+// choose the rung by measuring the board they drew (today's rendering first,
+// so a board that can afford no duplicate is built once and no more).
+// Because that condition is a measurement and not a media query, the board
+// is redrawn when the WINDOW changes too, not only when the 820 px
+// breakpoint flips. The duplicate gutter carries the same numbers in the
+// same order as its twin and is aria-hidden, so a screen reader reads each
+// clue once (clueBox); its numbers circle with their twins (clueNumbersOf
+// pairs them by data-line). Every board built leaves one
+// performance.mark(DRAW_MARK), so what a layout choice cost is countable.
 //
 // ZOOM (CARD-195, FR-044). A view setting that multiplies the fitted cell
 // side (admin.css --player-zoom on table.player-board); it changes no board
@@ -295,6 +300,15 @@ const BIG_SIDE = 15;
 // rendering (see layoutLadder in start()). It is compared against the cell as
 // actually drawn, never against a re-derivation of admin.css's clamp.
 const DOUBLE_MIN_CELL = 24;
+
+// The performance.mark drawBoard leaves behind, one per board built.
+const DRAW_MARK = "nonogram-player-board-draw";
+
+// How long after the last `resize` event the board is redrawn for the new
+// window (CARD-212; see the listener in start()). Long enough that dragging
+// a window edge redraws once at the end rather than on every event, short
+// enough that letting go feels like it settled immediately.
+const RESIZE_SETTLE = 150;
 
 function majorAfter(index, length) {
   return (index + 1) % MAJOR_EVERY === 0 && index + 1 < length;
@@ -394,6 +408,13 @@ function cornerBox(right) {
 // in start()) passes the current zoom through, so neither re-mirroring nor
 // re-doubling ever resets it.
 function drawBoard(stage, payload, layout, zoomPercent) {
+  // One performance mark per board built (CARD-212). Building a board is the
+  // player's one expensive act — a 30 x 30 is ~900 cells plus its gutters —
+  // and the layout ladder in start() can build more than one before it
+  // settles, so how many it built is worth being able to count: see
+  // DRAW_MARK's own test (tests/test_puzzle_solver_clues.py
+  // TestSolverClues_TheLadderStopsAtTheFirstRungThatFits).
+  performance.mark(DRAW_MARK);
   const { width, height, rows, columns } = payload;
   const { mirrored, rowGutters, colGutters } = layout;
   const table = document.createElement("table");
@@ -573,19 +594,42 @@ function start() {
   // `marking` (below) always exists by the time this runs (the first call
   // is textually after `const marking = wireMarking(...)`) — CARD-195's
   // zoom (marking.getZoom()) survives a redraw the same way.
-  // CARD-212: the gutter layout is chosen by measuring, not by predicting.
-  // Each rung of the ladder is drawn and its cell measured; the first one
-  // that keeps the cells at DOUBLE_MIN_CELL or above stays, and the last rung
-  // (today's rendering) is kept whether it fits or not. Only the rung that
-  // stays is ever painted or wired — the discarded ones are replaced before
-  // anything reads the board.
+  // CARD-212: the gutter layout is chosen by measuring, not by predicting —
+  // a rung is drawn and the cell it produced is measured. Only the rung that
+  // settles is wired to the marking code; the discarded ones are replaced
+  // within this same task, so no frame is ever produced from one.
+  //
+  // Today's rendering is drawn FIRST, and when it is already under the bar
+  // nothing else is drawn at all. Doubling only ever takes room from the
+  // cells — in admin.css's min() each extra gutter adds a subtrahend to both
+  // width terms and a band to the height term — so a plain board below
+  // DOUBLE_MIN_CELL cannot be rescued by a rung above it. That is the
+  // commonest case by far — at 1280 x 720 it is every board from about 24
+  // columns up — and it costs one draw where it used to cost four
+  // (measured at review cycle 1 on a 30 x 30 there: ~125 ms to an
+  // interactive board on one draw, ~810 ms on four). A board that CAN
+  // afford a duplicate pays for the rungs it tries, and if none of them
+  // fits, the plain board already drawn is put back rather than built
+  // again. The counts are pinned by draw marks, not by timings:
+  // tests/test_puzzle_solver_clues.py
+  // TestSolverClues_TheLadderStopsAtTheFirstRungThatFits.
+  function drawSettledLayout(zoom) {
+    const ladder = layoutLadder();
+    const plain = ladder[ladder.length - 1];
+    const plainCells = drawBoard(stage, payload, plain, zoom);
+    if (ladder.length === 1 || drawnCell(zoom) < DOUBLE_MIN_CELL) return plainCells;
+    const plainTable = stage.firstElementChild;
+    for (let rung = 0; rung < ladder.length - 1; rung += 1) {
+      const cells = drawBoard(stage, payload, ladder[rung], zoom);
+      if (drawnCell(zoom) >= DOUBLE_MIN_CELL) return cells;
+    }
+    stage.replaceChildren(plainTable);
+    return plainCells;
+  }
+
   function redraw() {
     const zoom = marking.getZoom();
-    const ladder = layoutLadder();
-    for (let rung = 0; rung < ladder.length; rung += 1) {
-      cellElements = drawBoard(stage, payload, ladder[rung], zoom);
-      if (rung === ladder.length - 1 || drawnCell(zoom) >= DOUBLE_MIN_CELL) break;
-    }
+    cellElements = drawSettledLayout(zoom);
     table = stage.querySelector(".player-board");
     clueNumbers = clueNumbersOf(table);
     paint(cellElements, board);
@@ -622,9 +666,33 @@ function start() {
   // accord. CARD-212: the gutter layout follows it too — the room for a
   // duplicate is a property of the viewport — so a board big on EITHER side
   // redraws here, not only a mirrorable one; a board big on neither, which
-  // can have no mirror and no duplicate, still never redraws.
+  // can have no mirror and no duplicate, never redraws at all.
+  const isBig = payload.width > BIG_SIDE || payload.height > BIG_SIDE;
   mirrorQuery.addEventListener("change", () => {
-    if (payload.width > BIG_SIDE || payload.height > BIG_SIDE) redraw();
+    if (isBig) redraw();
+  });
+  // CARD-212: and the window itself, not only the breakpoint. CARD-193's
+  // mirror could never go stale, because its condition IS the media query
+  // above — cross 820 px and it is re-evaluated, and it is false everywhere
+  // else. This card's condition is a continuous one (does the board still
+  // measure DOUBLE_MIN_CELL with the duplicate?), so behind that discrete
+  // trigger alone a board loaded wide stayed doubled while the window
+  // shrank: measured, a 30 x 25 loaded at 1920 x 1500 and dragged to
+  // 900 x 800 kept its duplicates at 14.39 px cells — 9.6 px under its own
+  // bar — with 376 px of sideways scroll inside the stage that the same
+  // board reloaded at that size does not have.
+  // Trailing debounce rather than a redraw per event: a drag fires `resize`
+  // continuously, and a redraw of a 30 x 30 is tens of milliseconds of
+  // layout even now that the ladder early-outs. RESIZE_SETTLE after the last
+  // event the board is redrawn once, from the recorded history, exactly as a
+  // breakpoint crossing redraws it (marks, zoom, undo/redo and the save all
+  // survive — the hinted cell's highlight does not, as it has not survived a
+  // redraw since CARD-193).
+  let resizeSettling = 0;
+  window.addEventListener("resize", () => {
+    if (!isBig) return;
+    clearTimeout(resizeSettling);
+    resizeSettling = setTimeout(redraw, RESIZE_SETTLE);
   });
 
   window.puzzlePlayer = Object.freeze({

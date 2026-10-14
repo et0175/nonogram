@@ -617,10 +617,25 @@ _RULES = """() => {
   const colRule = [], rowRule = [];
   for (let c = 0; c < width; c++) colRule.push([...new Set(grid.map((row) => px(row[c], 'Right')))]);
   for (let r = 0; r < height; r++) rowRule.push([...new Set(grid[r].map((cell) => px(cell, 'Bottom')))]);
+  // One entry per clue GUTTER (CARD-212: a big board can draw two per axis,
+  // left+right or top+bottom), each a list of that gutter's boxes in line
+  // order, read from the box's own data-line rather than from DOM order.
+  // Flattening them instead would compare 2 * height boxes against the
+  // height - 1 pattern below and fail on a doubled board.
+  const gutters = (selector, side) => {
+    const found = [], seen = new Map();
+    for (const box of document.querySelectorAll(selector)) {
+      const line = Number(box.dataset.line);
+      const gutter = seen.get(line) ?? 0;
+      seen.set(line, gutter + 1);
+      (found[gutter] ??= [])[line] = px(box, side);
+    }
+    return found;
+  };
   return {
     colRule, rowRule,
-    colClueRule: [...document.querySelectorAll('th.player-clue.is-col')].map((b) => px(b, 'Right')),
-    rowClueRule: [...document.querySelectorAll('th.player-clue.is-row')].map((b) => px(b, 'Bottom')),
+    colClueRule: gutters('th.player-clue.is-col', 'Right'),
+    rowClueRule: gutters('th.player-clue.is-row', 'Bottom'),
     lastCellMajor: grid[height - 1][width - 1].classList.contains('major-right')
                    || grid[height - 1][width - 1].classList.contains('major-below'),
   };
@@ -629,7 +644,13 @@ _RULES = """() => {
 
 def _assert_every_fifth_line_heavier(rules, width, height) -> None:
     """Interior line after column c (row r) is heavy iff c+1 (r+1) is a
-    multiple of five; heavy is strictly wider than thin; never on the last."""
+    multiple of five; heavy is strictly wider than thin; never on the last.
+
+    The clue rules are checked per gutter (CARD-212): a big board repeats its
+    clues on the far side of an axis, and the pattern must read the same in
+    every gutter it draws — one is the old behaviour, so this stays the same
+    check on boards that draw one.
+    """
     for lines, count in ((rules["colRule"], width), (rules["rowRule"], height)):
         assert all(len(widths) == 1 for widths in lines), "a line changes weight along its length"
         interior = [widths[0] for widths in lines[:-1]]
@@ -639,13 +660,15 @@ def _assert_every_fifth_line_heavier(rules, width, height) -> None:
         assert len({interior[i] for i in thin}) == 1
         if heavy:
             assert min(interior[i] for i in heavy) > max(interior[i] for i in thin)
-    # The clue boxes carry the same rules on, into the clue area.
-    assert [w > min(rules["colClueRule"]) for w in rules["colClueRule"][:-1]] == [
-        (i + 1) % MAJOR_EVERY == 0 for i in range(width - 1)
-    ]
-    assert [w > min(rules["rowClueRule"]) for w in rules["rowClueRule"][:-1]] == [
-        (i + 1) % MAJOR_EVERY == 0 for i in range(height - 1)
-    ]
+    # The clue boxes carry the same rules on, into the clue area — in every
+    # gutter the board draws (1, or 2 on a doubled axis).
+    for gutters, count in ((rules["colClueRule"], width), (rules["rowClueRule"], height)):
+        assert 1 <= len(gutters) <= 2, gutters
+        for gutter in gutters:
+            assert len(gutter) == count, gutter
+            assert [w > min(gutter) for w in gutter[:-1]] == [
+                (i + 1) % MAJOR_EVERY == 0 for i in range(count - 1)
+            ]
     assert rules["lastCellMajor"] is False
 
 
@@ -690,19 +713,29 @@ class TestSolverPage_EmphasisesEveryFifthLine:
         self, browser_page, live
     ) -> None:
         rng = random.Random(298)
+        # (20, 12) is CARD-212's: at this file's default 1280 x 720 viewport
+        # it is one of the sizes whose row clues are DOUBLED, so the corpus
+        # covers a board with two gutters per axis instead of missing that
+        # band — the twelve sizes it joins all draw a single gutter here
+        # (CARD-212's review cycle 1 replayed the whole corpus to check).
+        # The random tail is drawn after it, so those cases are unchanged,
+        # and the `doubled` count below keeps this honest if a size moves.
         sizes = [(MIN_SIZE, MIN_SIZE), (MAX_SIZE, MAX_SIZE), (MIN_SIZE, MAX_SIZE), (MAX_SIZE, MIN_SIZE),
-                 (11, 14), (16, 21), (19, 26)]
-        while len(sizes) < 12:
+                 (11, 14), (16, 21), (19, 26), (20, 12)]
+        while len(sizes) < 13:
             sizes.append((rng.randint(MIN_SIZE, MAX_SIZE), rng.randint(MIN_SIZE, MAX_SIZE)))
-        cases = 0
+        cases, doubled = 0, 0
         for width, height in sizes:
             grid = _unique_grid(width, height, seed=rng.randrange(10**9))
             _open(browser_page, live, live.store(grid))
 
             assert browser_page.evaluate(_DRAWN)["rowLengths"] == [width] * height
-            _assert_every_fifth_line_heavier(browser_page.evaluate(_RULES), width, height)
+            rules = browser_page.evaluate(_RULES)
+            _assert_every_fifth_line_heavier(rules, width, height)
+            doubled += len(rules["rowClueRule"]) == 2 or len(rules["colClueRule"]) == 2
             cases += 1
-        assert cases >= 12
+        assert cases >= 13
+        assert doubled >= 1, "no size in the corpus draws a second gutter, so that path is unchecked"
 
 
 _CELL_LOOK = """() => [...document.querySelectorAll('td.player-cell')].map((cell) => ({
