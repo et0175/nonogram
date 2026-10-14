@@ -1599,6 +1599,15 @@ class TestBookToc_APagePackedToCapacityStillCarriesItsFolio:
     **without** it, 185 do — from 10.30 cm (24 px against the 49 the folio
     needs) upward. So the claim is true, it is worth a test, and this is
     that test.
+
+    **Uniform rows, no group gaps** — which is the capacity figure's own
+    scope, not a simplification. ``_toc_entries_per_page`` divides by one
+    row height and is deliberately blind to :data:`TOC_GROUP_GAP_PT` (G-2:
+    a capacity that depended on its own page's content would be a second
+    text-layout primitive), and the gaps are the subject of
+    :class:`TestBookToc_GroupsAreSetOffFromWhatPrecedesThem` above, which
+    holds the complementary half: the only list that *has* gaps, the
+    structural one, never reaches this split at all.
     """
 
     @staticmethod
