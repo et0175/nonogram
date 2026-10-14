@@ -1,0 +1,138 @@
+{
+  "card": "CARD-205",
+  "supersedes": "tests/fixtures/book_baseline_card204.json",
+  "recorded_from_commit": "card/205-structural-toc (implementation commit, branched from main at CARD-204's merge)",
+  "recorded_from_commit_note": "Recorded against this card's own implementation on the merged tree. CARD-204's recording is superseded, not re-recorded in place: this is a different card's deliberate ink change, which the chain's own rule (see every baseline's 'warning' field) says gets a new file under its own card number.",
+  "recorded_on": "2026-10-14",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-205 replaces the table of contents' per-puzzle listing with a structural one: one 'How to Solve Nonograms' row, a heading plus a 'Puzzles N-M' range row for each non-empty level, and one 'Solutions' row, each (but the headings) carrying leader dots across to its page number. Interior page 3 is the only page whose ink moves -- measured, not assumed: a page-by-page digest comparison against book_baseline_card204.json finds exactly one difference, page 3. The PAGE COUNT is unchanged at thirteen, because this four-puzzle book's TOC was already one page under CARD-200's per-puzzle rule; a larger book's interior does get shorter (the 150-puzzle corpus falls from 310 pages to 307, four TOC pages down to one), which is what tests/helpers/book_corpus.py's CORPUS_PAGE_COUNT records.",
+  "warning": "This is evidence of what the book PDF looks like with CARD-205's structural table of contents in place. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_fingerprint": "9915f0697b1e44cc040f9fef86c232e101a10640067bd1a001f47459a1f2b24e",
+  "font_fingerprint_note": "This machine's Arial-or-fallback fingerprint, reproduced before this file was written (tests.helpers.book_corpus.font_fingerprint). A machine with a different fingerprint skips the font_dependent_pages below rather than failing on them.",
+  "font_dependent_pages": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    10
+  ],
+  "font_dependent_pages_note": "Both guide pages (1, 2), the new TOC page (3, CARD-200: its title and every entry are set through _guide_face, the same Arial-or-fallback path the guide and divider pages already use), the three level dividers (4, 6, 8) and the SOLUTIONS divider (10) are machine-lettered. None of the three packed/full answer pages (11-13) are machine-lettered -- a packed slot's band and caption letter in the packaged DejaVu Sans, and so does every page's own new folio (CARD-200: it reuses _band_font, the same packaged face, exactly as the answer caption does -- G-4's reuse, not a new font path), so the folio never makes an otherwise machine-safe page machine-dependent. CARD-205 changes what page 3 says, not the faces it says it in: the title keeps _guide_face at the same size and every row (label, leader dots and page number alike) is set in the same TOC entry face CARD-200 introduced, so page 3 is machine-lettered exactly as before and this list is unchanged.",
+  "interior_bytes": 3491813,
+  "interior_bytes_note": "The black-and-white interior of this book: 3491813 bytes, where CARD-204's own recording held 3441912. The difference is interior page 3 alone -- the structural TOC's own JPEG stream, whose leader-dot runs carry more high-frequency ink than CARD-200's four plain caption rows did, so the file grows even though the page holds fewer words.",
+  "page_count": 13,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "747a0db669534b9b012ab03268fc300577ff3c4d5de74742dea661f0cd2d3aea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d57d6c59779607780ec1d3129924580cc5453824ca6c901f707e9d017d23238a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "a67be127ad3250824302ca472b3693bb6bb3a2199c6e5bd3dcd2b0241ea021a5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "75dae5f3afd301aff3a0c52b2a7254e1f394c70ea35b762b3161b92c875597f5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d51108ef22e699363d7692c312dafde71dfe6333a36ed87fac534b178c16b8e6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e2e06816e4f541969c25a216fe4f7a064ec39b31458e9d142bec62e5600085ea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "ddbec59535f1566b3dff9a03595ad1c41047dd2c19e7eb539f62b50f88373a15"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "64574035fa6c4223579e3dd9381562db7075b3fd63c60dfeb5db73393668dcf7"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d15b54d5195903d471ebaf878a7fb7f0216ea6673fd472d66da119017391f95e"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e1ad9e4ee43ca6ca71c1550bdce983a1a272682a5adbc215b8c1dff75e681e46"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d68d6773772ef8e58a6155f17ac3079c251e23ebe5fd3720a2ae3ce52c6ed39f"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bb390982f5517bbd10fb3dd970f5cb504c4f5fe72f78e2276aa3099a2aa25188"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "db992a23160442038851051754f5831108c41269b30046872a019a4caedfd0f1"
+    }
+  ],
+  "changed_pages": [
+    3
+  ],
+  "changed_pages_note": "Interior page 3 (the table of contents) is the only page that moves against CARD-204's recording, and it moves for this card's own reason. Measured by a page-by-page digest comparison, not reasoned about: the other twelve pages are byte-identical, which is the evidence that a card touching create_toc_page and the TOC's own entry count reached no other page kind. tests/test_book_pdf_memory.py's TestBookPdfMemory_NonDrawingPagesAreByteIdentical asserts both halves."
+}

@@ -1631,9 +1631,26 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     single-puzzle pages (7, 9) and the two-up page (5) — see
     ``STRICTLY_UNCHANGED_PAGES``'s own comment for why none of the three
     answer pages (11-13) is moved by this card either, each for its own,
-    investigated reason. The TOC (3) and all four dividers (4, 6, 8, 10)
-    confirm the untouched claim too: 0 pixels differ from
-    ``book_baseline_card200.json`` on any of them.
+    investigated reason. All four dividers (4, 6, 8, 10) confirm the
+    untouched claim too: 0 pixels differ from ``book_baseline_card200.json``
+    on any of them.
+
+    **A third baseline, for the same reason the second one exists
+    (CARD-205).** The TOC (3) used to sit in that "0 pixels differ from
+    CARD-200" group, and legitimately did — until CARD-205, the card
+    immediately after this one, replaced its per-puzzle listing with a
+    structural one. That is a *later* card's deliberate ink change landing
+    on a page this class had claimed as CARD-204's evidence — the same
+    situation CARD-203's caption move created for pages 11-13 — and it gets
+    the same treatment rather than an exemption: page 3 moves to
+    ``CARD205_TOC_PAGE``, is compared just as strictly against
+    ``book_baseline_card205.json``, and the attribution is itself measured
+    (:meth:`test_the_toc_page_moved_under_card205_not_card204` asserts that
+    CARD-200's and CARD-205's recordings of that page differ while
+    CARD-204's still agrees with CARD-200's, which is what makes "CARD-205
+    moved it, CARD-204 did not" a fact about three fixtures). Dropping it
+    was rejected for the reason stated below: a page nobody compares is a
+    page with no evidence.
 
     **Two pre-card baselines, not one (CARD-204 Fix 7, merge gate).** Until
     the merge gate this class compared all eight of those pages against
@@ -1730,7 +1747,27 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     #: therefore false of them now, and was never CARD-204's to promise:
     #: they are compared against ``book_baseline_card203.json`` instead —
     #: see :attr:`CARD203_CAPTION_PAGES`.
-    STRICTLY_UNCHANGED_PAGES = (3, 4, 6, 8, 10)
+    #: **CARD-205 removed interior page 3 (the TOC) from this group.** The
+    #: group's claim is "byte-identical to CARD-200's recording", and it was
+    #: true of the TOC right up to this card, which deliberately rewrites
+    #: what that page says: the per-puzzle listing becomes a structural one
+    #: (the guide, each level's heading and ``Puzzles N–M`` range, the
+    #: solutions), with leader dots. That is not an exception to be excused
+    #: here — it is another card's own change, exactly as CARD-203's caption
+    #: move was for pages 11-13 — so page 3 moves to :attr:`CARD205_TOC_PAGE`
+    #: and is compared, just as strictly, against CARD-205's own recording.
+    #: The four level dividers stay: nothing in that card touches them, and
+    #: ``test_every_divider_still_matches_the_card200_baseline`` is what says
+    #: so. The *reason* that matters is that a divider and the TOC are the
+    #: only two "front matter" page kinds, so dropping both would leave the
+    #: group with nothing to prove.
+    STRICTLY_UNCHANGED_PAGES = (4, 6, 8, 10)
+
+    #: Interior page 3, the table of contents. CARD-205 rewrites its rows,
+    #: so it is byte-identical to **CARD-205's** recording and deliberately
+    #: not to CARD-200's — both halves asserted below, the second one so the
+    #: attribution stays a measurement rather than a sentence.
+    CARD205_TOC_PAGE = (3,)
 
     #: The three answer pages (CARD-202's two packed ones and Snowflake's
     #: full one). CARD-204 leaves them byte-identical — the reasons are the
@@ -1745,7 +1782,12 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     #: CARD-200.
     CARD203_CAPTION_PAGES = (11, 12, 13)
     GUIDE_PAGES = (1, 2)
-    NON_DRAWING_PAGES = STRICTLY_UNCHANGED_PAGES + CARD203_CAPTION_PAGES + GUIDE_PAGES
+    NON_DRAWING_PAGES = (
+        STRICTLY_UNCHANGED_PAGES
+        + CARD205_TOC_PAGE
+        + CARD203_CAPTION_PAGES
+        + GUIDE_PAGES
+    )
     DRAWING_PAGES = (5, 7, 9)
 
     @pytest.fixture(scope="class")
@@ -1780,6 +1822,23 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
 
     @pytest.fixture(scope="class")
     @classmethod
+    def card205_baseline(cls) -> Dict[str, Any]:
+        """CARD-205's own recording — the evidence for the one page CARD-205
+        itself moved, the table of contents.
+
+        Loaded directly by name rather than through ``load_baseline()``,
+        exactly as :meth:`baseline` and :meth:`card203_baseline` are, so
+        that this class keeps naming the fixture each claim rests on. It
+        happens to be what ``BASELINE_FIXTURE`` points at today; naming it
+        here means the next card to record a forward baseline does not
+        silently widen what "the TOC is unchanged" is measured against.
+        """
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        with (fixtures_dir / "book_baseline_card205.json").open(encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @pytest.fixture(scope="class")
+    @classmethod
     def same_face(cls, baseline) -> bool:
         return font_fingerprint() == baseline["font_fingerprint"]
 
@@ -1788,7 +1847,7 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     def exported(cls) -> List[Image.Image]:
         return pdf_pages(export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()))
 
-    def test_the_toc_and_every_divider_still_match_the_card200_baseline(
+    def test_every_divider_still_matches_the_card200_baseline(
         self, baseline, exported, same_face
     ) -> None:
         assert set(self.NON_DRAWING_PAGES) | set(self.DRAWING_PAGES) == set(
@@ -1806,15 +1865,66 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
             if number in machine_face and not same_face:
                 continue  # see TestBookPdfMemory_PagesAreUnchanged's own note
             assert now[number - 1] == recorded[number - 1], (
-                f"interior page {number} is the TOC or a divider — it carries "
-                "no drawing and no caption, so CARD-204 must leave it "
-                "byte-identical to the CARD-200 baseline"
+                f"interior page {number} is a level or SOLUTIONS divider — it "
+                "carries one word and nothing else, so neither CARD-204 nor "
+                "CARD-205 may move it off the CARD-200 baseline"
             )
             compared += 1
         expected = len(self.STRICTLY_UNCHANGED_PAGES) - (
             0 if same_face else len(machine_face & set(self.STRICTLY_UNCHANGED_PAGES))
         )
         assert compared == expected, (compared, expected)
+
+    def test_the_toc_page_matches_the_card205_baseline(
+        self, card205_baseline, exported, same_face
+    ) -> None:
+        """CARD-205 — the TOC's rows are this card's own deliberate change.
+
+        Compared exactly as strictly as the dividers above, against the
+        recording that holds the structural list, rather than dropped from
+        the comparison: a page nobody compares is a page with no evidence,
+        and this class exists to produce evidence per page. Face-gated like
+        every other machine-lettered page — the TOC letters through
+        ``_guide_face`` (Arial, or Pillow's fallback), so a machine with a
+        different fingerprint cannot be held to these pixels.
+        """
+        now = page_digests(exported)
+        recorded = card205_baseline["pages"]
+        machine_face = set(card205_baseline["font_dependent_pages"])
+        for number in self.CARD205_TOC_PAGE:
+            if number in machine_face and not same_face:
+                continue
+            assert now[number - 1] == recorded[number - 1], (
+                f"interior page {number} is the table of contents: CARD-205 "
+                "rewrote its rows and nothing since has, so it must be "
+                "byte-identical to the CARD-205 baseline"
+            )
+
+    def test_the_toc_page_moved_under_card205_not_card204(
+        self, baseline, card205_baseline, exported, same_face
+    ) -> None:
+        """The attribution, measured rather than written down — the same
+        shape :meth:`test_the_three_answer_pages_moved_under_card203_not_this_card`
+        uses for CARD-203's pages.
+
+        Page 3 differs from CARD-200's recording, and that difference is
+        already in CARD-205's own fixture, while CARD-204's recording still
+        agrees with CARD-200 on it. So "CARD-205 moved it, CARD-204 did not"
+        is a fact about the three fixtures, not a claim in a docstring.
+        """
+        if not same_face:
+            pytest.skip("the TOC is machine-lettered; see the class's own note")
+        now = page_digests(exported)
+        for number in self.CARD205_TOC_PAGE:
+            card200_page = baseline["pages"][number - 1]
+            card205_page = card205_baseline["pages"][number - 1]
+            assert card205_page != card200_page, (
+                f"interior page {number} is identical in the CARD-200 and "
+                "CARD-205 recordings — CARD-205 is then not what moved it, "
+                "and this class's own split is mis-attributed"
+            )
+            assert now[number - 1] == card205_page
+            assert now[number - 1] != card200_page
 
     def test_the_three_answer_pages_still_match_the_card203_baseline(
         self, card203_baseline, exported

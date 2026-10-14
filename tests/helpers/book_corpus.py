@@ -355,11 +355,35 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``font_fingerprint`` and ``font_dependent_pages`` are unchanged (no
 #:   answer page is machine-lettered).
 #:
-#: All fourteen files carry the reasoning; this constant names the current one
-#: (fourteen since main's CARD-203 joined the chain between this card's own
-#: Fix 4 and Fix 7 recordings; the two stale counts this line used to carry,
-#: "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
+#: * ``book_baseline_card205.json`` — CARD-205 replaces the table of
+#:   contents' per-puzzle listing with a structural one: one "How to Solve
+#:   Nonograms" row, a heading plus a ``Puzzles N–M`` range row per
+#:   non-empty level, and one "Solutions" row, each numbered row carrying
+#:   leader dots across to its page number. A **new file**, not a
+#:   re-recording of CARD-204's: this is a different card's deliberate ink
+#:   change, which the chain's own rule (every baseline's ``warning``
+#:   field) gives its own card number. Measured directly (a page-by-page
+#:   digest comparison against CARD-204's recording): interior page 3, the
+#:   TOC, is the **only** page that moves — the other twelve are
+#:   byte-identical, which is the evidence that a card touching
+#:   ``create_toc_page`` and the TOC's own entry count reached no other
+#:   page kind. ``interior_bytes`` moves from 3441912 to 3491813 (+49901 —
+#:   the leader-dot runs carry more high-frequency ink than CARD-200's four
+#:   plain caption rows did, so the page's own JPEG grows even though it
+#:   holds fewer words). ``font_fingerprint`` and ``font_dependent_pages``
+#:   are unchanged: page 3 is lettered in exactly the faces and sizes
+#:   CARD-200 gave it.
+#:
+#:   **This book's page count does not change** (still thirteen): its four
+#:   puzzles already fitted a one-page TOC under the old rule. A *large*
+#:   book's does — see :data:`CORPUS_PAGE_COUNT` below, which falls from
+#:   310 to 307.
+#:
+#: All fifteen files carry the reasoning; this constant names the current one
+#: (fifteen since CARD-205's own recording joined the fourteen that main's
+#: CARD-203 had brought the chain to; the stale counts this line used to
+#: carry, "thirteen" and "twelve", were both left behind by earlier cards).
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card205.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until
@@ -373,13 +397,21 @@ BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_base
 BASELINE_PAGE_COUNT = 13
 
 #: How many puzzles the large corpus holds, and the interior that follows:
-#: 2 guide (CARD-201) + 4 TOC pages (CARD-200: 150 entries at Book 1's own
-#: ~43-entries-per-page capacity, measured off
-#: ``book_pdf_generator._toc_entries_per_page`` rather than guessed) + 3
-#: level dividers + 150 puzzle pages + SOLUTIONS + 150 answer pages
-#: (CARD-198: one per puzzle, where the packed key took 27).
+#: 2 guide (CARD-201) + **1** TOC page + 3 level dividers + 150 puzzle pages
+#: + SOLUTIONS + 150 answer pages (CARD-198: one per puzzle, where the
+#: packed key took 27).
+#:
+#: The TOC term was 4 until CARD-205 (CARD-200 listed one row per puzzle:
+#: 150 entries at Book 1's own ~43-entries-per-page capacity). CARD-205's
+#: structural list is eight rows for this three-level corpus — the guide,
+#: three headings with their ranges, the solutions — which is one page on
+#: any trim, so this interior is three pages shorter than it was. Still
+#: measured off ``book_pdf_generator``'s own
+#: ``structural_toc_entry_count``/``_toc_entries_per_page`` rather than
+#: guessed, and still asserted against the live page plan by the tests that
+#: use it.
 CORPUS_PUZZLE_COUNT = 150
-CORPUS_TOC_PAGE_COUNT = 4
+CORPUS_TOC_PAGE_COUNT = 1
 CORPUS_PAGE_COUNT = (
     2 + CORPUS_TOC_PAGE_COUNT + 3 + CORPUS_PUZZLE_COUNT + 1 + CORPUS_PUZZLE_COUNT
 )
