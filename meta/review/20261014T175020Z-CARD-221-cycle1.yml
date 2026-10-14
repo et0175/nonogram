@@ -1,0 +1,854 @@
+version: 1
+generated_at: "2026-10-14T17:50:20Z"
+target: "CARD-221 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221, branch card/221-packaged-interior-face, HEAD 0153281, base d9c2c1a. Card diff main...HEAD is 9 files, +2021/-795 (1 src file, 1 new fixture, 7 test files, one of them new). Review cycle 1, FULL mode: the face swap (9862ecd), the xfail-placement fix (4c0dc26) and the owner's two rulings and their fallout (6393153, 0153281) are all in scope."
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "git diff main...HEAD -- src/nonogram/admin/book_pdf_generator.py in full, every hunk: _guide_face (:1131), _draw_difficulty_box -> _draw_difficulty_legend (:1790) including the dropped spec/leading/with_text parameters and the flush-left column arithmetic, TOC_GROUP_GAP_PT (:635) and its whole rewritten table, DIFFICULTY/GUIDE_DIFFICULTY_LABELS docstrings, create_guide_page's picture() call site, _draw_pipeline_diagram's label_size paragraph, _toc_entries_per_page's capacity figures, and the dot-leader kerning comment."
+    - "tests/test_book_interior_face.py at HEAD, all 542 lines (the new AC-1 file): ARIAL_PATH, packaged_face, host_face, host_offers_a_second_face (:115), refuse_host_fonts (:146), _both_faces (:178), the four tests of TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts (:219), TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints (:389, including the U+E000 .notdef instrument — verified the literal really is \\ue000) and TestInteriorFace_NoFaceIsReadFromAHostPath (:479)."
+    - "tests/test_book_pdf_memory.py diff in full (34.8 KB): the removal of _GUIDE_SCATTER_SHARE_CEILING / _GUIDE_SCATTER_GREY_TOLERANCE / _one_pixel_displacement_outliers and test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement, the replacement comment block, both same_face fixtures and every `if ... not same_face: continue`, the new card221_baseline fixture (:1767), test_every_page_is_pixel_identical_to_the_recorded_one at HEAD (:1320) and test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one at HEAD (:1974)."
+    - "tests/test_book_toc.py: the whole sweep test_the_gaps_leave_the_folio_its_line_on_every_trim_kdp_admits (:1183) — docstring AND body, line by line — plus test_the_shortest_storable_trim_leaves_its_folio_a_line_too (:1341), test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place (:1395), test_the_shortest_trim_the_shipped_gap_numbers_prints_its_folio (:1469), and the _lettered_as_recorded removal comment (:85)."
+    - "tests/test_book_guide_page.py: SENTENCE_OPENINGS (:127), the packaged-face helpers (:134-166), folio_reference (:497) and folio_band (:577), page_lines/line_reference (:518-570), test_the_difficulty_legend_carries_its_three_labels_and_no_sentences (:1205), test_a_wrong_difficulty_label_does_not_match (:1280), test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face (:1312) and the re-aimed F-4 control test_a_regression_shrinking_a_boxs_label_text_is_still_caught_by_the_floor_check (:1461)."
+    - "tests/test_book_guide_page_type.py: the module docstring's re-measured figures, ASCENDER_TO_DESCENDER_PROBE (:122), ink_to_em/measured_points (:317/:334), test_the_bodys_measured_point_size_is_11 (:510), band_ink_extent/legend_ink_extent (:262/:279) and the three F-11 tests plus assert_legend_is_flush (:771-915)."
+    - "tests/test_book_page_numbers.py diff in full — the min-trim folio test (:185) and its tightened `missing == {1, 2, blank, answer}` (:234)."
+    - "tests/helpers/book_corpus.py diff in full: the rewritten module docstring, the CARD-221 ledger entry (:432-451), BASELINE_FIXTURE's repoint, and the deleted MACHINE_FACE_SIZES/font_fingerprint block with its replacement comment (:657-676)."
+    - "tests/fixtures/book_baseline_card221.json in full, every field, read as parsed JSON rather than as a diff."
+    - "meta/kanban/cards/CARD-221.md in full, including 'Named tests resolved before the card started', both owner-ruling blocks, every measurement table and both mutant tables."
+    - "Not in the diff but read because the card's Touches names it or a claim depends on it: tests/test_book_interior_type_floor.py (unchanged by the card; its without_arial fixture at :261 and both floor classes at :303/:328), tests/test_book_finalise_guide_preview.py:622, src/nonogram/admin/templates/book_finalize.html:126-132, pyproject.toml's dependency block."
+    - "INDEPENDENT EXECUTION, targeted only, never the full suite. ON HOST: (a) test_book_interior_face.py + test_book_interior_type_floor.py = 31 passed; (b) test_book_toc.py + test_book_finalise_gutter.py + test_book_guide_page.py + test_book_guide_page_type.py + test_book_page_numbers.py = 256 passed; (c) test_book_pdf_memory.py = 44 passed, 1 skipped (the pre-existing setrlimit(RLIMIT_AS) platform skip, not a font gate); (d) property/test_cli_exports_byte_identity.py + property/test_book_export_interior.py + test_export_pdf.py + test_cli.py = 159 passed."
+    - "OFF HOST, my own simulation rather than the card's: a 20-line pytest plugin in the scratchpad that replaces ImageFont.truetype process-wide at plugin-import time (so it is in force during collection too, which the card's in-test helper is not) and raises OSError for any str/bytes argument. (a) the eight book test files = 330 passed, 2 skipped, 0 failed in 64 s — the only extra skip is this card's own host-gated negative control; (b) the property/export/cli set = 159 passed, identical to the on-host count."
+    - "DIRECT MEASUREMENT, all figures below taken by me: DejaVu ink extents at a 400 px em (Hg 0.9375, dg 0.9675, | 1.0, ( 0.89, { 0.9225, j 0.9675) to judge ASCENDER_TO_DESCENDER_PROBE; the test module's own top_to_baseline for Hdlk 0.760, '1' 0.730, 'agrees on' 0.5725 to judge folio_reference; page-by-page digest comparison of the fixture at 4c0dc26 against HEAD and against book_baseline_card205.json; the min-trim folio set with the packaged face and again with the pre-card host lookup; the guide pages' deviation from the two CARD-200 JPEG fixtures."
+    - "MUTATION CHECK, 3 of my own, aimed where the card's 10 had not been: see mutation_check below. PARTIAL by the cost ladder because gating findings are open."
+  not_reached:
+    - "The full test suite, and the rest of the card's declared impact scope (test_layout_page_spec, test_layout_two_up, test_admin_tier_surfaces, test_admin_error_text, the remaining tests/property files, tests/test_book_*.py beyond the eight I ran). Forbidden by the task; the orchestrator runs it at the merge gate. The card's reported totals (on host 2518 passed / 1 skipped, off host 2517 / 2) are therefore NOT reproduced by me — what I reproduced is the 490 on-host and 489 off-host tests listed above, with the same zero failures and the same single font-related skip."
+    - "A second machine. Everything I say about host-independence was established on this Mac (Arial present) with the host path refused in-process, plus a static reading of every ImageFont call in src/ — `grep -rn 'truetype(|load_default' src/nonogram/` returns exactly one host path left in the whole package, create_cover_page's line 3259. I did not run anything on Linux, and the card's claim that the deployed image has no Arial is taken from the card."
+    - "FreeType/Pillow variance. This venv is Pillow 12.3.0 / FreeType 2.14.3. The same packaged face rasterised by a different FreeType can give different ascent/descent, which would move the TOC row height and therefore the page count exactly as Arial did. Nothing in this card or in my runs bounds that; see M-03."
+    - "The renders, mostly by eye and only four of the 24. review.visual is off. I opened min-10.00x10.00cm__guide-page2__host-arial-before.png / __fix1-packaged-dejavu.png and min-10.00x10.00cm__contents__fix1-packaged-dejavu.png to confirm two specific facts I had already established geometrically (the min-trim guide page 2 loses its folio; the min-trim contents page gets its '3' back at 8.0 pt). I did NOT eyeball the Book 1 pages, so 'the reader gets back both technique notes and the four step explanations' is confirmed only through the card's own draw-call count and through the page-2 digest moving, not by reading the rendered page."
+    - "Everything geometric vs everything visual, stated plainly: the 55 px headroom, the 6 px margin, the 0.9675/0.730 probe ratios, the 11.05 pt pipeline label, the 7.596%/10.531% guide-page deviation, the folio sets and every page digest are MEASURED by commands I ran. The typographic judgement in the rule-removal decision (does an unruled three-name row read as a legend?) is the owner's and the agent's eye and I did not second-guess it — it is Settled."
+    - "The admin panel running. I read book_finalize.html and its preview test rather than loading the Finalise screen, so F-003 is established from the template and a passing test, not from a browser."
+  confidence: high
+
+metrics:
+  diff: { files: 9, added: 2021, removed: 795 }
+  max_fan_in:
+    symbol: "book_pdf_generator._guide_face"
+    callers: 5
+    note: "create_guide_page's title_font and text_font, create_divider_page's divider_font, create_toc_page's title_font and entry_font — every reader-facing interior face except the band/folio (_band_font) and the clue digits (ImageFont.load_default). That is the whole blast radius of the swap and it is why exactly seven of thirteen baseline pages move. Verified rather than assumed: `grep -n 'truetype(|load_default' src/nonogram/admin/book_pdf_generator.py` returns 1170 (_guide_face), 1344 (_band_font), 1432 (clue digits), 3259/3262 (create_cover_page — the one host path left in the package, deliberately out of scope, CARD-234)."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py — the chain's hottest file; sixteen baseline recordings now reference it (CARD-128/144/145/146/147/149/167/184/198/200/203/204/205/221 and their fix cycles). The baseline chain is the project's own defect-density record for it."
+    - "tests/fixtures/book_baseline_card*.json — a 16-file evidence chain whose value is entirely in its prose being true. F-001 is a defect in exactly that."
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the card's only cross-file contract is the face
+      lookup itself, and I enumerated its consumers by grep over the whole
+      package rather than by history (five call sites, all inside the one
+      module, plus the independent reimplementations in four test files,
+      all present in the diff).
+    bus_factor: >-
+      no_eligible_fact — single configured identity (Claude Code) on every
+      commit in range.
+
+system_contract:
+  rules_checked: 6
+  holds: 6
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-020 OK holds, and is now checked by better instruments than before. TestInteriorType_EveryFaceHoldsTheFloor (tests/test_book_interior_type_floor.py:303) and the four TestGuidePage_* classes are green on host and off host. Proved to have teeth rather than merely green: mutant MR-2 (FOLIO_PT 10.0 -> 9.5) reds 8 tests across two files, and the guide-page check reports the folio at 9.53 pt — i.e. the new folio_reference probe recovers the real size to 0.03 pt. The exemption (clue digits in Pillow's embedded face) is unchanged."
+    - "CON-019 OK holds. tests/property/test_cli_exports_byte_identity.py passes on host and under my off-host plugin with identical counts; no CLI/web export path touches _guide_face (grep over src/nonogram/export/ shows only BytesIO/importlib.resources lookups)."
+    - "CON-018 OK holds. Every figure the card quotes is on Book 1's trim profile (21.59x27.94 cm) or on the explicitly-named 10.00/10.10 cm minimum, and the sweep covers all 381 heights KDP admits with `measured >= 350` asserted inside the test."
+    - "ADR-0006/R1 OK holds. `git diff main...HEAD --stat -- pyproject.toml src/nonogram/export` is EMPTY: no dependency added, no font file added. The packaged face the card now letters from is the one that already shipped, addressed through importlib.resources as package data. test_export_pdf.py's two real dependency tests are green."
+    - "ADR-0036/R2 OK holds (G-3). src/nonogram/export/layout.py has no hunk in the card diff. The one place geometry changes is TOC_GROUP_GAP_PT, a COMP-009 constant the owner moved, not a layout function."
+    - "INV-013 OK holds. tests/property/test_book_export_interior.py passes both ways; the cover remains a separate file and is the one surface the card deliberately leaves host-dependent."
+
+root_causes:
+  - id: RC-1
+    title: "The fix cycle re-measured and re-asserted everything the owner's two rulings moved, but only updated the prose records where the figure is also an assertion — so four narrative records still describe the pre-ruling branch, one of them inside the test AC-4 names"
+    finding_ids: [F-001]
+  - id: RC-2
+    title: "Two reader-facing consequences of the face swap landed outside the two the card escalated, and neither reached the owner's decision list: a page number lost at the minimum trim, and a panel preview that now describes a page the book does not print"
+    finding_ids: [F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: medium
+    classification: Important
+    gating: true
+    category: documentation
+    type: defect
+    file: tests/test_book_toc.py
+    line: 1218
+    title: "Four provenance records still describe the pre-ruling branch — including the AC-4 sweep's own docstring, which states in prose that the test fails, while the test passes"
+    description: |
+      The fix cycle moved TOC_GROUP_GAP_PT to 8.0, dropped the difficulty
+      sentences, converted all three strict xfails and re-recorded the
+      baseline. Every place where a figure is ALSO an assertion was updated
+      and is correct. Every place where the same figure is only narrated was
+      not. Four instances, all verified against HEAD by running or parsing:
+
+      1. tests/test_book_toc.py:1196-1242 — the docstring of
+         `test_the_gaps_leave_the_folio_its_line_on_every_trim_kdp_admits`,
+         the test AC-4 names. It still says "which is why the constant is
+         8.5 pt" (:1198) and, as its own bolded paragraph, "**At the shipped
+         8.5 pt the 10.00 cm trim is 2 px short, and this test says so by
+         failing.**" (:1218), closing with "CARD-221 is forbidden that change
+         (its G-6) and records the measurement here instead." The constant at
+         src/nonogram/admin/book_pdf_generator.py:635 is 8.0, the test is an
+         ordinary passing test (I ran it), and its own body three paragraphs
+         below asserts `worst[0] == 55` and `worst[0] - folio_line == 6`.
+         A test whose docstring says it fails and whose body says it passes
+         is the exact false-claim shape this card's Block 1 argued against
+         when it renamed `_draw_difficulty_box`.
+
+      2. tests/fixtures/book_baseline_card221.json, `why_a_new_baseline`.
+         Its third paragraph, "TWO MEASURED CONSEQUENCES THE CARD COULD NOT
+         CLOSE ... see ... the two strict xfail markers that carry the
+         figures", asserts three things that are false of HEAD: that page 2
+         drops to the labels form and is therefore "a shorter page" (it
+         draws the captions form again; measured: page 2's digest moved in
+         the fix cycle and interior_bytes ROSE), that the 10.00 cm trim's
+         "four 8.5 pt group gaps leave 47 px ... so that page prints
+         unnumbered" (it is four 8.0 pt gaps, 55 px, and the page prints its
+         folio — I rendered it), and that two strict xfail markers carry the
+         figures (`grep -rn xfail tests/test_book_*.py` finds none). The same
+         file's `interior_bytes_note` and `changed_pages_note` WERE updated
+         and now contradict it inside one fixture. This is the field AC-5
+         points at.
+
+      3. tests/helpers/book_corpus.py:443 — the chain ledger's CARD-221
+         entry records "``interior_bytes`` 3498430 -> 3463959". The fixture
+         written in the same commit says 3464123, the card says 3464123, and
+         the exported interior really is 3464123 (asserted by
+         test_the_interior_file_is_the_length_it_was_recorded_with, which I
+         ran green). 3463959 is 164 bytes off and matches nothing on the
+         branch: at 9862ecd this same line correctly read "falls from
+         3498430 to 3369113", so the wrong figure was introduced by the fix
+         cycle, not inherited.
+
+      4. tests/test_book_pdf_memory.py:263-272 — the comment that justifies
+         deleting the scatter guardrail quotes "page 1 ... 7.596% ... page 2
+         in 11.442%, with 254,766 and 581,547 differing pixels". I
+         re-measured both pages against the two CARD-200 JPEG fixtures at
+         HEAD: page 1 is 639,187 of 8,415,000 = 7.596% (exact match, 287,496
+         ink-mask disagreements), page 2 is 886,216 = 10.531%. 11.442% is
+         the pre-fix-cycle page 2, which the fix cycle redrew.
+
+      None of this is a code defect and no test is wrong. It matters because
+      this chain's entire value is that a later card can trust what the
+      fixture and the docstring say about why a page looks as it does — and
+      the next reader of `why_a_new_baseline` will be told page 2 is short
+      because it lost its captions, which is the opposite of true.
+    suggestion: |
+      Four text edits, no code, no re-recording:
+      1. Rewrite the two stale paragraphs of the sweep's docstring in the
+         past tense the rest of the file already uses ("at the 8.5 pt this
+         constant carried into CARD-221 ... the owner moved the gap to 8.0"),
+         and delete "and this test says so by failing" / "CARD-221 is
+         forbidden that change".
+      2. Rewrite `why_a_new_baseline`'s third paragraph as the two
+         consequences the OWNER CLOSED, with the figures the other fields in
+         that file already carry (234 px against 4 px; 8.5 -> 8.0 pt, 47 ->
+         55 px). It is the one field a reader of the chain starts at.
+      3. book_corpus.py:443: 3463959 -> 3464123.
+      4. test_book_pdf_memory.py: re-measure or label page 2's 11.442% /
+         581,547 as the pre-fix figure. The argument is unaffected (10.531%
+         is still ten times the ceiling and ~96% of the moved pixels are
+         still outliers by the deleted instrument's own rule — I sampled
+         19,936 outliers in 20,636 sampled moved pixels), so this is a
+         figure fix, not a re-argument.
+    confidence: high
+    source: dynamic
+    violates: "AC-5"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    classification: Important
+    gating: true
+    category: correctness
+    type: regression
+    file: tests/test_book_page_numbers.py
+    line: 234
+    title: "At the 10.00 cm minimum trim the card takes the folio off guide page 2 as well — the same 'a page goes out unnumbered' outcome the owner spent a shipped constant to prevent on the TOC page, at the same trim, never put to them"
+    description: |
+      The card's own test change records it and nothing escalates it. At
+      tests/test_book_page_numbers.py:234 the min-trim assertion is
+      tightened from `missing <= {1, blank_puzzle_page, answer_page}` to
+      `missing == {1, 2, blank_puzzle_page, answer_page}` — page 2 is newly
+      in the set.
+
+      Measured by me, same book, same process, only the face swapped
+      (`monkeypatch.setattr(book_pdf_generator, "_guide_face", host_face)`
+      against HEAD):
+
+          packaged (HEAD):          7 pages, folios on [3, 4, 6], missing [1, 2, 5, 7]
+          host Arial (pre-card):    7 pages, folios on [2, 3, 4, 6], missing [1, 5, 7]
+
+      And confirmed by eye in the owner's own renders:
+      min-10.00x10.00cm__guide-page2__host-arial-before.png carries a "2" in
+      the bottom-left corner; __fix1-packaged-dejavu.png does not.
+
+      The card's measurement table has the number ("guide page 2 last form,
+      10.00 cm | 93 px under the frame (folio drawn) | — | **18 px (folio
+      omitted)**"), but it appears nowhere in "What this card could NOT
+      close", nowhere in the fix-cycle-1 ledger, and nowhere in the
+      orchestrator's summary — while its exact sibling, the TOC page losing
+      its folio at the same trim, became Block 2 and moved a shipped
+      constant. The owner's own stated principle, now written into
+      TOC_GROUP_GAP_PT's docstring, is "the next change ... should fail on
+      its own arithmetic rather than silently un-number a page"; this card
+      un-numbers one and the suite was edited to expect it.
+
+      Two things I checked before calling this Important rather than
+      Critical, and both belong in the escalation. First, the fix cycle's
+      234 px does NOT recover it: at the 10 cm trim the ladder was already
+      drawing its bare form, which never printed the sentences, so page 2
+      still ends 18 px inside the frame against the folio's 49 px line —
+      measured on HEAD, after the ruling. Second, that whole page is already
+      broken at that trim on both faces: `fits_width` is false for every
+      fallback form and page 1 overruns the sheet by 212 px, which the card
+      records as pre-existing. So the honest framing is "a 10 cm book's
+      guide pages were already unprintable, and this card also takes page
+      2's number" — but that is a sentence for the owner to read, not one
+      for a reviewer to supply on their behalf.
+    suggestion: |
+      No code change asked for. Put it where the other two consequences are:
+      a third entry in the card's "What this card could NOT close" with the
+      93 px -> 18 px measurement, the two renders that show it, and the
+      reason it is not closable inside this card (the gap constant does not
+      reach a guide page; the ladder has no form that fits that trim at
+      all). Then one of:
+        (a) the owner accepts it as part of the already-broken 10 cm guide
+            page and it is carded with the fits_width exhaustion as one
+            "guide pages do not fit the minimum trim" card; or
+        (b) if an unnumbered interior page is never acceptable, that is a
+            second constant/ladder decision of the same shape as Block 2.
+      Whichever it is, tests/test_book_page_numbers.py:220-240's comment
+      should say that page 2's folio was lost by CARD-221 and is accepted,
+      rather than describing the set as simply "stated exactly rather than
+      bounded".
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    classification: Important
+    gating: true
+    category: correctness
+    type: defect
+    file: src/nonogram/admin/templates/book_finalize.html
+    line: 127
+    title: "The Finalise screen still previews the three difficulty sentences the page no longer prints, and a passing test now certifies that divergence"
+    description: |
+      book_finalize.html:126-132 renders, under the heading
+      "What the difficulty labels mean", a `.guide-difficulty-box` with
+      `<strong>{{ label.name }}</strong><p>{{ label.text }}</p>` per column.
+      `label.text` is `DifficultyLabel.text`, which the card deliberately
+      keeps and the page deliberately stops printing. So the screen the
+      owner finalises a book on shows a bordered box with three sentences,
+      and the PDF it produces has an unruled row of three words.
+
+      tests/test_book_finalise_guide_preview.py:622,
+      `test_the_difficulty_box_carries_the_three_sentences_verbatim`, is
+      untouched by this card and still green — so the divergence is not
+      merely unnoticed, it is asserted. That file's whole purpose is that
+      the preview matches the page; the sibling test at :630,
+      `test_the_difficulty_sentences_appear_nowhere_else_in_contradictory_wording`,
+      exists specifically to stop the screen carrying a second, conflicting
+      description of the tiers. It now carries the only description, and the
+      page carries none.
+
+      The agent flagged this in the card's notes, priced it ("a one-line
+      template change plus [the preview test]") and routed it to CARD-229. I
+      disagree with the deferral on the card's own reasoning: Block 1's
+      argument for dropping the rule was that a drawing must not make a
+      claim it no longer honours, and a preview is a claim about a page.
+      CARD-229 is unscheduled; a book finalised before it lands is proofed
+      against a screen that is wrong about its own guide page.
+    suggestion: |
+      Either (a) do the one line now — drop the `<p data-guide-difficulty-text>`
+      from the template, re-aim
+      test_the_difficulty_box_carries_the_three_sentences_verbatim to
+      test_the_difficulty_legend_carries_the_three_labels (the same
+      re-aiming this card did twice in tests/test_book_guide_page.py), and
+      keep DifficultyLabel.text as data for CARD-229 exactly as the card
+      argues; or (b) get the owner's explicit "the preview may lie until
+      CARD-229" and record it in the card beside the other two rulings. What
+      should not ship is the current state, where the only record of the
+      divergence is a note in a card and the panel's own test says the
+      preview is right.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: gap
+    file: tests/test_book_interior_face.py
+    line: 495
+    title: "The structural 'no host path' watch — the cheapest and most general claim in the card — walks one book shape only"
+    description: |
+      `test_no_font_is_loaded_from_a_filesystem_path` asserts `paths == []`
+      over an export of the baseline Book 1 corpus. That is the claim I
+      would most want to hold over every shape, because it is the one that
+      cannot be fooled by two runs agreeing: it says there is nothing left
+      to disagree about.
+
+      A host lookup reachable only on a page shape the baseline book does
+      not draw — a TOC that splits across two pages, the min-trim fallback
+      ladder, a clipped label taking `_clipped_to`'s ellipsis path — would
+      pass this watch. AC-1's behavioural tests do cover the min-trim book,
+      so the gap is narrow, and my own static sweep of the whole package
+      (`grep -rn 'truetype(|load_default' src/nonogram/`) found only
+      create_cover_page's path, so nothing is actually hiding there today.
+      It is a cheap generalisation, not a live defect: the module already
+      builds `_min_trim_book` and a 150-puzzle book two tests above.
+    suggestion: >-
+      Parametrize the watch over the three book shapes the module already
+      constructs (corpus_book, _min_trim_book, and the 150-puzzle gutter
+      book), or simply assert it inside `_interior` so every export this
+      module makes is watched. Three lines.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    classification: Minor
+    gating: false
+    category: documentation
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 1137
+    title: "The determinism claim is stated one notch wider than the card establishes: the interior's metrics are a function of this repository AND of the installed FreeType"
+    description: |
+      `_guide_face`'s new docstring says "every measurement the interior
+      makes is a function of this repository alone and of nothing the host
+      happens to have installed". The face is now the repository's, but the
+      rasteriser is not: pyproject.toml pins `Pillow>=10.0` unbounded, this
+      venv is Pillow 12.3.0 / FreeType 2.14.3, and ascent/descent for the
+      same TTF can move between FreeType builds. The TOC row height is read
+      straight off `getmetrics()`, so that is the same lever Arial pulled —
+      one pixel per row is what separated 42 rows from 41 in this card's own
+      measurements.
+
+      I am not claiming this bites today and I did not measure a second
+      FreeType. The card itself already reasons about the unbounded Pillow
+      floor twice (in the `_draw_pipeline_diagram` paragraph and in the
+      "gates kept" note about Pillow's embedded clue face), so the project
+      knows the lever exists; the docstring just overstates what the swap
+      bought. It is worth a sentence because the next reader of that
+      docstring is exactly the person deciding whether a page-count
+      disagreement between the Mac and Render is possible.
+    suggestion: >-
+      Soften the sentence to name the remaining variable ("a function of
+      this repository's own font data and of the Pillow/FreeType build, and
+      of nothing the host's font configuration offers"), and — if the owner
+      wants the stronger property — card a Pillow upper bound or a recorded
+      metrics assertion, which is an ADR-0006/R1 question rather than a
+      code one.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: smell
+    file: tests/test_book_interior_face.py
+    line: 178
+    title: "_both_faces takes a monkeypatch it never uses"
+    description: |
+      `def _both_faces(measure, monkeypatch)` builds its own
+      `pytest.MonkeyPatch.context()` for the off-host half and never touches
+      the parameter. Every caller passes the test's own fixture, which reads
+      as though the on-host half were patched too. Harmless today; it is the
+      kind of parameter a later edit reaches for ("it's already here") and
+      then the two halves share a patch context, which would quietly make
+      the comparison self-fulfilling. One-line deletion.
+    suggestion: "Drop the parameter and the four arguments that feed it."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: smell
+    file: tests/test_book_interior_type_floor.py
+    line: 328
+    title: "TestInteriorType_FloorHoldsWithoutArial is now a duplicate of its sibling class, and the card's gate inventory does not mention the file it lives in"
+    description: |
+      The card's Touches names tests/test_book_interior_type_floor.py, and
+      AC-3 names its floor class, but the file has no hunk in the diff.
+      That is fine for AC-3 — I ran it on host and off host, 0 failures
+      either way, and MR-2 proves it still has teeth. But `without_arial`
+      (:261) can no longer change anything the interior does, so
+      `TestInteriorType_FloorHoldsWithoutArial` (:328) now runs the same two
+      parametrizations as `TestInteriorType_EveryFaceHoldsTheFloor` (:303)
+      against the same faces. It is not a GATE (it skips nothing), so AC-6
+      is not breached, but it is precisely the "dead weight that hides the
+      next real gap" AC-6's second half is about, and the card's otherwise
+      exhaustive gates-removed/gates-kept inventory does not mention this
+      file at all.
+    suggestion: >-
+      Either retire the class with a one-line note pointing at
+      tests/test_book_interior_face.py (which now holds the real off-host
+      claim), or keep it and say in its docstring that it is deliberately
+      redundant insurance against a host lookup coming back. Add the file to
+      the card's gates inventory either way.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: smell
+    file: tests/test_book_guide_page.py
+    line: 1502
+    title: "The re-aimed F-4 floor control measures against the generic 'Hdlk' probe — the exact under-measurement this card fixed for page lines"
+    description: |
+      `test_a_regression_shrinking_a_boxs_label_text_is_still_caught_by_the_floor_check`
+      measures the pipeline's labels with `cap_height_points(..., text_reference())`,
+      i.e. the ascender-to-baseline probe, while the card's own finding is
+      that a probe must have the extent of the glyphs the measured line
+      actually sets (hence `line_reference`/`folio_reference` three hundred
+      lines above). A pipeline label with no ascender is measured against an
+      ascender probe and reads small.
+
+      This is safe, not wrong: it under-measures, so the floor check errs
+      strict. Measured by me on the real diagram: 11.05 pt at the page's own
+      11 pt against a 10.0 pt floor, and 5.68 pt for the 6 pt stand-in — so
+      the two-sided control is doing its job with 1.05 pt of margin. Worth
+      recording only so the next card that tightens CON-020 does not find
+      1 pt of phantom slack here and wonder which probe to trust.
+    suggestion: >-
+      One sentence in the docstring: this control measures with the generic
+      probe deliberately, it understates, and the margin is 1.05 pt. Or pass
+      the labels' own `top_to_baseline` the way `line_reference` does.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    classification: Minor
+    gating: false
+    category: correctness
+    type: risk
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 3262
+    title: "The out-of-scope cover is worse than the card's note says: off host its title falls to a SIZELESS load_default, i.e. a 10 px em asked for at 72"
+    description: |
+      `create_cover_page` (:3259) is deliberately untouched and carded as
+      CARD-234 — not re-litigated here. But the card's note describes the
+      residue as "Two machines will still produce different generated
+      covers", and the fallback at :3262 is a bare `ImageFont.load_default()`
+      with no size, which is the CARD-149 defect verbatim: on the deployed
+      Linux image the generated cover's title is lettered at Pillow's 10 px
+      default where 72 px was asked for, not merely in another face. The two
+      remaining `_guide_face` siblings were given sized fallbacks years of
+      cards ago; this one never was.
+    suggestion: >-
+      Carry the measurement into CARD-234's description so it is scoped as
+      "the cover title prints at a 10 px em off host" rather than "the cover
+      differs between machines" — the first is a visible defect, the second
+      sounds like a nicety.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+confirmations:
+  - id: X-001
+    finding: "AC-1 and the faithfulness of its simulation (the coordinator's aim 1)"
+    verdict: "HOLDS, and the simulation is faithful for the property it claims. One residual, recorded as F-005."
+    evidence: |
+      The worry was that a path refusal in a process that has already loaded
+      a face is not a machine without the font. I checked the three ways
+      that could bite and then went around the test entirely:
+
+      1. Caching. `grep -n 'lru_cache|@cache|cached_property'` over
+         src/nonogram/admin/ and src/nonogram/export/ finds four caches in
+         book_pdf_generator: `_band_font_bytes` (packaged bytes),
+         `_band_font` (packaged face), `default_toc_frame` (pure geometry,
+         no font) and nothing else. `_guide_face` is deliberately uncached.
+         So no measurement taken in the on-host run can be reused by the
+         off-host run. There is no font-keyed memo anywhere in the interior
+         path.
+      2. Reach. The negative control
+         (test_the_comparison_can_tell_the_pre_card_face_from_this_one)
+         restores the pre-card lookup and asserts the moved set is exactly
+         [1,2,3,4,6,8,10]; it runs and passes on this Mac, so the simulation
+         demonstrably reaches the interior's faces here.
+      3. The stronger version. I wrote my own plugin that patches
+         ImageFont.truetype process-wide at plugin-import time — before
+         collection, not inside a test — and ran the eight book test files
+         under it: 330 passed, 2 skipped, 0 failed. The on-host counts for
+         the same files are the same tests passing. So the claim does not
+         depend on the in-test monkeypatching at all.
+
+      And a mutant the card's set did not have (MR-3): a PARTIAL
+      reintroduction of the defect — `_guide_face` returns the host's Arial
+      for size 42 only (the TOC entry size) and the packaged face otherwise.
+      This changes a page's pixels without changing the page count, which is
+      the sharpest edge of AC-1. KILLED by
+      test_every_page_of_the_baseline_book_is_the_same_page_on_both_faces,
+      test_the_minimum_trim_is_the_same_book_on_both_faces and
+      test_no_font_is_loaded_from_a_filesystem_path — and NOT by
+      test_the_page_count_and_its_gutter_band_agree_on_both_faces, which is
+      the correct separation and tells you which test holds which half.
+
+      What the test cannot see, and nothing here can: a different FreeType
+      build rasterising the same packaged face. F-005.
+  - id: X-002
+    finding: "The deleted scatter guardrail (the coordinator's aim 2)"
+    verdict: "The deletion is JUSTIFIED, and what replaced it is genuinely stronger. One figure in the justification is stale — folded into F-001."
+    evidence: |
+      I re-measured the deletion's premise myself rather than taking it.
+      Exporting the baseline book at HEAD and comparing interior pages 1 and
+      2 against the two stored CARD-200 JPEG fixtures:
+
+          page 1: 639,187 of 8,415,000 px differ = 7.596%; ink-mask
+                  disagreements 287,496; of 20,536 sampled, 18,232 (88.8%)
+                  are NOT explained by a 1 px displacement at the deleted
+                  instrument's own 64-grey tolerance.
+          page 2: 886,216 px = 10.531%; ink-mask 495,242; 19,936 of 20,636
+                  sampled (96.6%) unexplained.
+
+      Against a 1% ceiling and a zero-outlier assertion, both pages are off
+      by an order of magnitude on one bound and categorically on the other.
+      The claim the deleted test made — "the deviation from CARD-200 is a
+      sub-pixel scatter" — is not true of a deliberate face change and
+      cannot be restated. The re-anchoring argument is also right as far as
+      it goes: the test's own `moved > 0` makes a same-render reference
+      vacuous by construction.
+
+      What matters more is that the replacement is not weaker. The scatter
+      test was a BOUND on an admitted deviation; the guide pages are now
+      compared digest-for-digest against book_baseline_card221.json by
+      TestBookPdfMemory_PagesAreUnchanged, UNCONDITIONALLY (the same_face
+      skip is gone), with `compared == BASELINE_PAGE_COUNT` asserted so the
+      comparison cannot quietly stop covering a page, and with
+      `set(baseline["font_dependent_pages"]) == set()` asserted so a future
+      host lookup has to come back and declare itself
+      (tests/test_book_pdf_memory.py:1320-1348). A later card that displaces
+      a worked-example diagram — the scenario the deleted test named — now
+      fails an exact comparison instead of a 1% bound. The two JPEG
+      fixtures survive (G-5) and keep their integrity check inside
+      test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one
+      (:1974), which I verified is checked against the CARD-200 baseline
+      (the class's `baseline` fixture loads book_baseline_card200.json),
+      not against the new one.
+
+      The only loss is the 3x3 displacement INSTRUMENT, which a future card
+      wanting to admit a bounded scatter would have to rewrite. I do not
+      think that justifies keeping a test that cannot state a true claim.
+  - id: X-003
+    finding: "AC-6 — the gating shrinks honestly (the coordinator's aim 3)"
+    verdict: "HOLDS. No gate was removed whose condition still holds, measured rather than argued."
+    evidence: |
+      The direct test of 'red on somebody's machine' is to BE that machine.
+      Under my process-wide off-host plugin the eight book test files give
+      330 passed, 2 skipped, 0 failed, and the property/export/CLI set gives
+      159 passed — the same 159 as on host. The only font-related skip is the
+      one gate the card ADDED, with the reason it names.
+
+      Remaining gates, enumerated rather than sampled:
+      `grep -rn 'pytest.skip|skipif|warnings.warn' tests/test_book_*.py
+      tests/helpers/book_corpus.py` returns exactly four — the new
+      host_offers_a_second_face skip (test_book_interior_face.py:354) and
+      three pre-existing setrlimit/platform skips in
+      test_book_pdf_memory.py. No font gate survives anywhere.
+
+      Dangling references: `grep -rn 'font_fingerprint|MACHINE_FACE_SIZES|
+      _lettered_as_recorded|scatter_is_bounded'` over tests/, src/, docs/
+      and meta/architecture/ finds no live code and no architecture `check:`
+      ref — only historical prose and the superseded fixtures, which G-5
+      requires to keep their own values. So deleting these names leaves no
+      dead reference in the model.
+
+      The added gate is correctly placed: it is above every assertion in the
+      one test that is nothing but a contrast, and the rest of the module is
+      ungated. Its own condition is measured (two faces drawn and compared
+      as pixels), not assumed from `os.path.exists`.
+  - id: X-004
+    finding: "The two changed type-floor probes (the coordinator's aim 4)"
+    verdict: "Both are RIGHT, not merely different. Verified by independent measurement and by a mutant."
+    evidence: |
+      ASCENDER_TO_DESCENDER_PROBE "Hg" -> "dg". Measured at a 400 px em in
+      the packaged face: Hg inks 375 px (0.9375 of the em), dg 387 px
+      (0.9675). The finding is correct — DejaVu's ascender (top at y=68)
+      clears its cap height (y=80), so a cap-to-descender probe under-states
+      the extent of a mixed-case line by 12 px in 400. Under-stating the
+      probe's ratio OVER-states the recovered point size, which is the
+      lenient direction for a floor, so the old probe was wrong in the
+      dangerous direction (it read the page's 11 pt body as 11.52).
+
+      I also checked the new probe is not itself short, by sweeping every
+      printable ASCII glyph's top and bottom at 400 px: the ascender top
+      (68) and the descender bottom (455) that "dg" spans are the extremes
+      for every character the guide page can set — `( [ { @ / Q` all sit
+      inside it; the only ASCII glyph that exceeds it is "|" (1.0 of the
+      em), which the interior does not print. So 0.9675 is the true ceiling
+      of an ordinary line, not a second approximation.
+
+      folio_reference()/folio_band(). "Hdlk" inks 0.760 of the em to its
+      baseline, "1" 0.730 — I reproduced both through the test module's own
+      helpers. A 10 pt folio is 31 px of digit, so against the text probe it
+      reads 31/0.760 = 9.79 pt, a false breach of a floor it sits exactly
+      on, and against its own probe 31/0.730 = 10.19 pt. The split is
+      necessary. The same reasoning generalises correctly in
+      `line_reference`: "agrees on" (a wrapped line of the 10 cm page 2)
+      tops out at x-height, 0.5725 of the em, and against the ascender
+      probe would read 8.21 pt while being set at 11.
+
+      Teeth, not leniency — mutant MR-2, FOLIO_PT 10.0 -> 9.5: 8 tests red
+      across tests/test_book_interior_type_floor.py and
+      tests/test_book_guide_page.py, the guide-page check reporting
+      "a line of type measures 9.53 pt" — i.e. the new probe recovers a
+      deliberately-shrunk folio to within 0.03 pt. The probe change removed
+      a false positive without creating a false negative.
+
+      `folio_band` is also a real improvement on "assume the last band":
+      it asserts the band ends on the frame's own bottom edge, is no wider
+      than four digit-heights, and sits in the outer corner.
+  - id: X-005
+    finding: "The re-aimed tests (the coordinator's aim 5)"
+    verdict: "All four re-aimings still fail for their original reason. One cosmetic residue, F-008."
+    evidence: |
+      - Wrong-sentence -> wrong-LABEL control
+        (tests/test_book_guide_page.py:1280). Still a negative control of
+        the verbatim claim, and it asserts BOTH directions: changing a
+        sentence must not change what is drawn (the new fact) and changing
+        HARD to HARDER must make the template stop matching. Under MR-1
+        (below) it goes red, so it is not vacuous.
+      - F-4's bordered-box floor control -> _draw_pipeline_diagram (:1461).
+        Still about the CLASSIFIER, which was F-4's actual subject, and it
+        gained a positive half. I ran its two measurements by hand: 5.68 pt
+        at the 6 pt stand-in, 11.05 pt at the page's real 11, floor 10.0 —
+        so both sides are real and the margin is 1.05 pt (F-008).
+      - F-11's three alignment checks
+        (tests/test_book_guide_page_type.py:771-915). The claim is "a
+        no-bleed image lands at frame.left, not one heavy rule left of it",
+        and the legend is still such an image. The new `legend_ink_extent`
+        does build its expectation from the function under test, which
+        alone would be self-consistent rather than independent — but the
+        premise assertion in `assert_legend_is_flush` ("51 px of a 46 px em
+        is not a side bearing", :838) is what closes that, and the card's
+        own M7 is the proof it fires. The pre-existing negative control
+        (:898) still shows band_ink_extent is sensitive to a pad-sized
+        shift. Diagram counts 12 -> 11 and 3 -> 2 are asserted explicitly
+        with a "re-check before trusting the index" message, not silently
+        adjusted.
+      - The `drawn` fixture's 12 -> 11 bands carries its reason in its own
+        message.
+  - id: X-006
+    finding: "The baseline re-recorded in place (the coordinator's aim 6)"
+    verdict: "Both claims HOLD, verified by parsing the fixtures rather than reading the note."
+    evidence: |
+      Page-by-page, `git show 4c0dc26:tests/fixtures/book_baseline_card221.json`
+      against HEAD's: pages [2, 3] differ and the other eleven are
+      byte-identical — exactly the two the fix cycle claims (page 2 the
+      captions form restored less the sentences, page 3 the 8.0 pt gaps).
+      Against book_baseline_card205.json: [1, 2, 3, 4, 6, 8, 10], which is
+      exactly the `changed_pages` field and exactly the seven _guide_face
+      pages. interior_bytes at HEAD is 3464123 and
+      test_the_interior_file_is_the_length_it_was_recorded_with asserts it
+      green.
+
+      G-5: `git diff main...HEAD --stat` touches exactly one fixture file,
+      tests/fixtures/book_baseline_card221.json, as a pure addition. No
+      earlier recording in the chain is modified, regenerated or deleted,
+      and the two CARD-200 JPEGs are still present and still integrity-
+      checked. The one defect here is the ledger's wrong byte figure, which
+      is F-001 item 3.
+  - id: X-007
+    finding: "M6's slip and the strengthened test (the coordinator's aim 7)"
+    verdict: "CONFIRMED, exactly as the agent describes, including which half of the test does the killing."
+    evidence: |
+      I rebuilt M6 independently (MR-1): `_draw_difficulty_legend` prints
+      each label's gloss, wrapped to its column, under the name, with no
+      rule — the unruled reprint. Result:
+
+          2 failed, 11 passed
+          FAILED ...::test_the_difficulty_legend_carries_its_three_labels_and_no_sentences
+          FAILED ...::test_a_wrong_difficulty_label_does_not_match
+          E  AssertionError: page 2 prints 'Squeezing and direct': the
+             difficulty sentences are back on the page the owner's ruling
+             took them off
+
+      The assertion that fires is the SENTENCE_OPENINGS probe added in
+      0153281 (tests/test_book_guide_page.py:1274). The older half — the
+      `_boxed_difficulty_sentences` template at :1255 — does NOT fire, which
+      is precisely the hole the agent reported its first M6 run finding. So
+      the strengthening is load-bearing and the account of it is accurate.
+      (The second failure is a bonus: the wrong-label control also dies,
+      because the legend it builds no longer matches the page.)
+  - id: X-008
+    finding: "AC-2, AC-3, AC-4, AC-5 and G-1..G-6"
+    verdict: "All met on the evidence I ran myself."
+    evidence: |
+      AC-2: tests/test_book_finalise_gutter.py is green on host and under my
+      off-host plugin — the 10 off-host failures main shows are gone.
+      AC-3: TestInteriorType_EveryFaceHoldsTheFloor and the four
+      TestGuidePage_* classes green both ways; MR-2 proves teeth.
+      AC-4: both named tests
+      (tests/test_book_toc.py:1183 and :1395) pass, ungated, including the
+      10.00 and 10.10 cm trims, with `short == []`, `worst[0] == 55` and
+      `worst[0] - folio_line == 6` asserted as figures. Visually confirmed
+      on min-10.00x10.00cm__contents__fix1-packaged-dejavu.png: the "3" is
+      back in the corner. (The docstring above those assertions is F-001.)
+      AC-5: X-006.
+      G-1: the page's wording is unchanged except where the owner changed it;
+      the sizes' derivation rule and the ladder are untouched.
+      G-2: CON-019 property test identical on both faces.
+      G-3: no layout.py hunk.
+      G-4: no pyproject or export/fonts hunk.
+      G-5: X-006.
+      G-6: TOC_GROUP_GAP_PT moved by the owner's recorded decision, not by
+      the card; the admin panel's screen typography is untouched (F-003 is
+      about the preview's CONTENT, not its typography, and is a consequence
+      the card created rather than a scope it took).
+      No strict xfail remains anywhere: `grep -rn xfail tests/test_book_*.py`
+      returns one historical mention in a docstring.
+
+mutation_check:
+  enabled: true
+  status: partial
+  mutants: 3
+  killed: 3
+  survived: 0
+  restore_verified: true
+  rationale: >-
+    deferred(cost) for the full capped set — three Important findings are
+    open (F-001, F-002, F-003), and the cost ladder puts a full mutation
+    sweep on the candidate cycle, not on a cycle that is going to be
+    followed by a fix. The three run here are not a sweep: each answers a
+    specific question the task asked and that the card's own ten mutants do
+    not reach. M1 restored the WHOLE pre-card lookup, so nothing had probed
+    a partial reintroduction; nothing had probed the floor the new folio
+    probe measures; and the task asked me to verify M6 rather than take it.
+    A full set on the next cycle should aim at what I left alone: the
+    `_toc_entries_per_page` capacity arithmetic, `folio_band`'s three
+    structural assertions, and `host_offers_a_second_face`'s own
+    discrimination.
+  results:
+    - "MR-1 (independent rebuild of the card's M6) `_draw_difficulty_legend` prints each gloss under its name, unruled and wrapped to the column → KILLED, 2 failed / 11 passed. The killing assertion is the SENTENCE_OPENINGS word probe added in 0153281 (tests/test_book_guide_page.py:1274), NOT the bordered-box template at :1255 — which confirms both halves of the agent's account: the old half really is blind to an unruled reprint, and the new half really closes it."
+    - "MR-2 `FOLIO_PT` 10.0 → 9.5 (aimed at the new folio_reference probe: does the floor still have teeth after the probe was loosened from 0.760 to 0.730?) → KILLED, 8 failed / 79 passed across tests/test_book_interior_type_floor.py and tests/test_book_guide_page.py, reporting 'page 1: a line of type measures 9.53 pt'. The probe recovers a deliberately-shrunk folio to within 0.03 pt, so the change removed a false breach without opening a real one."
+    - "MR-3 `_guide_face` returns the host's Arial for size 42 only (the TOC entry size), packaged otherwise — a PARTIAL reintroduction of the defect that moves pixels without moving the page count → KILLED by test_every_page_of_the_baseline_book_is_the_same_page_on_both_faces, test_the_minimum_trim_is_the_same_book_on_both_faces and test_no_font_is_loaded_from_a_filesystem_path; NOT killed by test_the_page_count_and_its_gutter_band_agree_on_both_faces, which is the correct separation of the two halves of AC-1."
+  restore_evidence: "Each mutant was applied to src/nonogram/admin/book_pdf_generator.py with an in-process `assert s.count(old) == 1` guard, run, then reverted with `git checkout -- src/nonogram/admin/book_pdf_generator.py` before the next. After the last revert, `git status --porcelain -- src tests` is EMPTY (verified and re-verified at the end of the review), and `git status --porcelain` shows only ' M meta/kanban/cards/CARD-221.md' — the orchestrator's own card sync, which was already modified when I arrived and which I did not touch. No file was deleted or globbed; my off-host plugin and every scratch script live in the session scratchpad, outside the repository. This report is the only file I wrote inside the worktree."
+
+verdict:
+  summary: >-
+    The engineering is excellent and the determinism claim survives a
+    harder attack than the card made on itself. I ran the book suite under a
+    process-wide off-host simulation applied before collection — 330 passed,
+    2 skipped, 0 failed — audited every cache in the interior path to rule
+    out a primed face, and killed a partial reintroduction of the defect
+    that the card's own M1 would have missed. The two type-floor probes are
+    right rather than merely different: I re-derived 0.9375/0.9675 and
+    0.760/0.730 independently, swept every ASCII glyph to confirm "dg" is
+    the true ceiling of an ordinary line, and proved with a FOLIO_PT mutant
+    that the looser folio probe still catches a half-point breach to within
+    0.03 pt. The deleted scatter guardrail is justified — I re-measured its
+    premise at 7.596% and 10.531% of the page against a 1% ceiling — and
+    what replaced it (all thirteen pages, unconditional, with the compared
+    count and the empty font_dependent_pages both asserted) is stronger than
+    what went. M6's slip reproduces exactly as reported, and the test
+    0153281 added is what kills it.
+    What gates is not the code. The fix cycle updated every figure that is
+    also an assertion and left four that are only narrated, one of them the
+    docstring of the AC-4 sweep, which now states in prose that the test
+    fails while its body asserts it passes; the fixture field AC-5 points at
+    still describes the pre-ruling branch and contradicts two other fields
+    in the same file. And two reader-facing consequences landed outside the
+    two the owner ruled on: at the 10.00 cm trim this card takes the folio
+    off guide page 2 — the same un-numbered page the owner moved a shipped
+    constant to prevent on the TOC, at the same trim, recorded in a
+    measurement table and escalated nowhere — and the Finalise screen still
+    previews three sentences the book no longer prints, with a passing test
+    certifying it.
+  gating_findings: [F-001, F-002, F-003]
+  cycle1_findings_closed: []
+  min_score: 8
+  meets_min_score: false
+  score_delta: null
+  min_improvement: 0.5
+  meets_min_improvement: null
+  cycles_used: 1
+  max_cycles: 3
+  recommendation: >-
+    One fix cycle, and a short one — nothing here asks for a redesign. F-001
+    is four text edits and one number. F-003 is the one-line template change
+    the card itself prices, or an explicit owner "the preview may lie until
+    CARD-229". F-002 is the only one needing the owner: give them the
+    93 px -> 18 px measurement and the two renders beside the TOC case they
+    already ruled on, and let them say whether an unnumbered guide page at
+    the minimum trim is accepted or is a second decision of Block 2's shape.
+    The six Minor findings are all cheap and none needs a cycle of its own;
+    F-004 (three lines) and F-006 (a parameter) are worth folding in while
+    the file is open. Re-run the full mutation set on the candidate cycle,
+    aimed at _toc_entries_per_page, folio_band and host_offers_a_second_face,
+    which no station has probed.

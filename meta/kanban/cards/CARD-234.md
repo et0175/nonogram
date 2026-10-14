@@ -45,7 +45,11 @@ Two defects in five lines, and they compound:
 2. **`load_default()` is called with no size**, so the 72 px the line asks for is silently
    dropped and the title is drawn in Pillow's small bitmap face. The title is then centred by
    its own measured bbox, so it does not overflow — it just comes out tiny, on the one page a
-   buyer sees first. Nothing fails; nothing is logged.
+   buyer sees first. Nothing fails; nothing is logged. **Measured at CARD-221's review
+   (2026-10-14, F-009): the fallback is a *sizeless* `load_default()` under a 72 px request,
+   i.e. roughly a 10 px em.** So this is not "the cover letters in a different face off-host" —
+   it is a cover whose title is about a seventh of its intended size. Write the AC against that
+   figure, not against a vaguer one.
 
 **What changes.** Letter the title from the same packaged face CARD-221 established for the
 interior, at the size the code asks for. Keep a fallback only if a glyph is genuinely missing,

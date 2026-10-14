@@ -524,3 +524,61 @@ pre-ruling state, and `*__host-arial-before.png`, what this Mac printed before t
     face anywhere on page 2 (0 on the real page, 1 each under M6, measured both ways). An agent
     finding its own test too weak via a mutant, and saying so, is the behaviour this station
     wants.
+
+- [Review cycle 1] 2026-10-14 — **7.5/10, below the 8 gate. 0 critical, 3 Important (all
+  gating, all cheap), 6 minor.** Report: `meta/review/20261014T175020Z-CARD-221-cycle1.yml`.
+  The reviewer verified all seven things the brief aimed them at, and confirmed the card's
+  substance on every one:
+  - **AC-1's determinism simulation is faithful.** They checked for a font-keyed cache in the
+    interior path (none; `_guide_face` is uncached), then went around the test entirely with a
+    **process-wide off-host plugin applied before collection**: 330 passed / 2 skipped / 0 failed
+    across the eight book files, and 159 passed identical to on-host on the property/export/CLI
+    set. A *partial* reintroduction mutant (host Arial at size 42 only — moves pixels, not the
+    page count) is killed by both determinism tests and correctly **not** by the page-count test.
+  - **The deleted guardrail's deletion is justified**, premise re-measured independently: page 1
+    7.596%, page 2 **10.531%** against a 1% ceiling, with ~89%/97% of moved pixels unexplained
+    by a 1 px displacement. The replacement is genuinely stronger — all 13 pages compared
+    unconditionally, with `compared == BASELINE_PAGE_COUNT` and `font_dependent_pages == set()`
+    both asserted.
+  - **Both type probes are right, not merely different.** They swept every printable ASCII glyph
+    to confirm "dg" is the true descender ceiling (only "|" exceeds it, and it is never printed),
+    and reproduced the old probe reading a 10 pt folio as 9.79 — a false breach. A `FOLIO_PT`
+    10.0 -> 9.5 mutant reds 8 tests and reports 9.53 pt, so the looser probe still recovers a
+    breach to 0.03 pt.
+  - **All four re-aimed tests still fail for their original reason**; pages 2 and 3 only, verified
+    by parsing the previous fixture against HEAD's; G-5 holds; and M6's account is accurate in
+    both halves — the mutant is killed by the probe `0153281` added and **not** by the older
+    bordered-box template, exactly as the agent reported.
+- [Review cycle 1 — the three gating findings]
+  - **F-002 is the one that matters, and it is an escalation failure of mine.** At the 10.00 cm
+    trim **this card takes the folio off guide page 2**, and that was never put to the owner —
+    while its exact sibling, the TOC folio at the same trim, became Block 2 and moved a shipped
+    constant. Measured, same book, only the face swapped: packaged -> folios `[3,4,6]`;
+    pre-card host Arial -> `[2,3,4,6]`. Visible in the owner's own renders (the "2" in the corner
+    of `min-10.00x10.00cm__guide-page2__host-arial-before.png` is gone in
+    `__fix1-packaged-dejavu.png`). The number was in the card's measurement table but absent from
+    "What this card could NOT close", from the fix-cycle ledger **and from the summary the owner
+    read**. The 234 px ruling does not recover it: at 10 cm the ladder had already dropped to its
+    bare form, which never printed the sentences, so page 2 still ends 18 px inside a frame
+    needing 49. Mitigation to state plainly when asking: **that page is already unprintable at
+    that trim on both faces** — `fits_width` is false for every form and page 1 overruns by
+    212 px.
+  - **F-001 — the fix cycle updated every figure that is also an assertion and left four that are
+    only narrated.** The AC-4 sweep's docstring still says "which is why the constant is 8.5 pt"
+    and, in bold, "at the shipped 8.5 pt the 10.00 cm trim is 2 px short, and this test says so by
+    failing" — three paragraphs above its own body asserting `worst[0] == 55`. The baseline's
+    `why_a_new_baseline` (the field AC-5 points at) still carries the pre-ruling "two measured
+    consequences the card could not close", contradicting two sibling fields in the same file that
+    *were* updated. `book_corpus.py:443` records `interior_bytes ... -> 3463959`; the real value is
+    **3464123** (and that line was correct at `9862ecd` — the fix cycle introduced the error).
+    `test_book_pdf_memory.py` justifies the deletion with "page 2 in 11.442%", re-measured at
+    10.531%. A narrated figure is a claim like any other.
+  - **F-003 — the Finalise screen previews three sentences the book no longer prints, and a
+    passing test certifies it** (`book_finalize.html:126-132`;
+    `tests/test_book_finalise_guide_preview.py:622` asserts them verbatim). The agent priced this
+    at one line and routed it to CARD-229; **the reviewer disagrees with deferring and so do I** —
+    a green test asserting something false about the product is worse than an inconsistency, and
+    this card's own Block-1 reasoning is the argument against leaving it.
+- [Carried to CARD-234] F-009: that cover's fallback is a **sizeless** `load_default()` under a
+  72 px request — not "a different face" but roughly a 10 px em off-host. CARD-234's wording
+  updated.
