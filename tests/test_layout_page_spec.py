@@ -42,6 +42,7 @@ from nonogram.export.layout import (
     OrientationPolicy,
     PageParity,
     PageSpec,
+    caption_slot,
     compute_layout,
     qr_slot,
 )
@@ -392,3 +393,127 @@ class TestRenderers_ThreadTheBookSpec:
         assert layout.page is not None
         band = puzzle_page.convert("L").crop((0, 0, 2550, layout.page.drawing_top - layout.thick_rule))
         assert band.getextrema() == (255, 255)
+
+
+# --------------------------------------------------------------------------
+# CARD-204 Fix 7 — caption_slot's own geometry
+# --------------------------------------------------------------------------
+
+
+class TestCaptionSlot_NoWidthEverLeavesTheUsableArea:
+    """``caption_slot`` keeps a caption inside ``[usable_left, usable_right]``
+    for **every** text width, on both parities (CARD-204 Fix 7).
+
+    The renderer-level evidence — the actual ink of an actual over-wide
+    picture name — is
+    ``tests/test_book_solved_page.py::TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin``.
+    What this class adds is the geometry's own total claim, swept rather than
+    sampled: a caption's width is unbounded (a picture's name is free text),
+    so the function must have no width at which it hands back a box outside
+    the page's margins, including widths far past the page itself.
+
+    Expected values are derived from ``PagePlacement``'s own edges and the
+    width handed in — never by calling ``caption_slot`` twice.
+    """
+
+    #: The shapes swept: a small cap-bound puzzle (plenty of horizontal
+    #: spare), a mid one, and a page-fit-bound 30x30 (no spare at all), each
+    #: on both parities. Stated, not generated, so the sweep below cannot
+    #: silently stop covering the no-spare case — the one where the flush
+    #: edge and the margin coincide.
+    SHAPES = ((10, 10), (15, 15), (22, 22), (30, 30))
+
+    #: Widths in device pixels, from an empty caption to one eight times a
+    #: Book 1 page: 0 and the negatives test the degenerate end, 1500-2500
+    #: straddle Book 1's own 2287 px usable width, and 20000 is "no width is
+    #: too absurd for the clamp to hold".
+    WIDTHS = (-10, 0, 1, 50, 460, 1328, 1500, 2286, 2287, 2288, 2500, 5000, 20000)
+
+    def _layouts(self):
+        for columns, rows in self.SHAPES:
+            clues = compute_clues(_checkerboard(columns, rows))
+            for spec in (BOOK1_ODD, BOOK1_EVEN):
+                layout = compute_layout(clues.rows, clues.columns, spec)
+                assert layout.page is not None
+                yield layout
+
+    def test_every_width_on_every_shape_and_parity_stays_inside(self) -> None:
+        checked = 0
+        for layout in self._layouts():
+            page = layout.page
+            for width in self.WIDTHS:
+                box = caption_slot(layout, width)
+                assert box is not None
+                assert box.left >= page.usable_left, (page, width, box)
+                assert box.right <= page.usable_right, (page, width, box)
+                assert box.left <= box.right
+                assert box.measure == page.usable_right - page.usable_left
+                checked += 1
+        # The corpus cannot silently shrink (CLAUDE.md).
+        assert checked == len(self.SHAPES) * 2 * len(self.WIDTHS) == 104
+
+    def test_a_caption_that_fits_keeps_card203s_right_alignment(self) -> None:
+        """The clamp is inactive wherever the text fits beside its own grid:
+        ``right`` is ``drawing_right`` exactly, which is what CARD-203's AC-1
+        asks for."""
+        fitting = 0
+        for layout in self._layouts():
+            page = layout.page
+            room = page.drawing_right - page.usable_left
+            for width in self.WIDTHS:
+                if width > room:
+                    continue
+                box = caption_slot(layout, width)
+                assert box.right == page.drawing_right, (page, width, box)
+                assert box.right - box.left == max(width, 0)
+                fitting += 1
+        assert fitting >= 40, "the sweep must actually exercise the fitting case"
+
+    def test_a_caption_wider_than_its_grid_is_pushed_right_by_the_overhang(self) -> None:
+        """And by no more: the box's left edge lands exactly on
+        ``usable_left``, so the caption gives up only as much of its
+        right-alignment as the margin takes."""
+        clamped = 0
+        for layout in self._layouts():
+            page = layout.page
+            room = page.drawing_right - page.usable_left
+            for width in self.WIDTHS:
+                if not room < width <= box_measure(page):
+                    continue
+                box = caption_slot(layout, width)
+                assert box.left == page.usable_left, (page, width, box)
+                assert box.right == page.usable_left + width
+                assert box.right > page.drawing_right
+                clamped += 1
+        assert clamped > 0, "the sweep must actually exercise the clamped case"
+
+    def test_a_caption_wider_than_the_page_reports_the_whole_usable_width(self) -> None:
+        """The case geometry cannot answer: the box is the usable area
+        itself, and ``measure`` is what the renderer must clip the text to."""
+        clipped = 0
+        for layout in self._layouts():
+            page = layout.page
+            for width in self.WIDTHS:
+                if width <= box_measure(page):
+                    continue
+                box = caption_slot(layout, width)
+                assert box.left == page.usable_left
+                assert box.right == page.usable_right
+                assert box.measure < width
+                clipped += 1
+        assert clipped > 0, "the sweep must actually exercise the over-page case"
+
+    def test_an_unplaced_layout_has_no_caption_slot(self) -> None:
+        """Same contract as ``qr_slot``: the default, unparitied spec has no
+        margins to keep a caption inside of."""
+        clues = compute_clues(_checkerboard(10, 10))
+        layout = compute_layout(clues.rows, clues.columns)
+        assert layout.page is None
+        assert caption_slot(layout, 100) is None
+
+
+def box_measure(page) -> int:
+    """A placement's usable width, spelled out here rather than read off a
+    ``CaptionSlot`` — the expectation must not be derived from the value
+    under test."""
+    return page.usable_right - page.usable_left

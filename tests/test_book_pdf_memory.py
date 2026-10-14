@@ -1630,10 +1630,33 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     actually move by: on the baseline book that is just the two
     single-puzzle pages (7, 9) and the two-up page (5) — see
     ``STRICTLY_UNCHANGED_PAGES``'s own comment for why none of the three
-    answer pages (11-13) is in that set, each for its own, investigated
-    reason. The TOC (3) and all four dividers (4, 6, 8, 10) confirm the
-    untouched claim too: 0 pixels differ from ``book_baseline_card200.json``
-    on any of them.
+    answer pages (11-13) is moved by this card either, each for its own,
+    investigated reason. The TOC (3) and all four dividers (4, 6, 8, 10)
+    confirm the untouched claim too: 0 pixels differ from
+    ``book_baseline_card200.json`` on any of them.
+
+    **Two pre-card baselines, not one (CARD-204 Fix 7, merge gate).** Until
+    the merge gate this class compared all eight of those pages against
+    CARD-200's recording and said, of each, that it "carries no drawing, so
+    CARD-204 must leave it byte-identical to the CARD-200 baseline". For the
+    three answer pages that sentence is now false *and* mis-attributed:
+    CARD-203 — merged to main after this branch was cut — right-aligns their
+    caption and lifts it to a fixed gap above the drawing, so they differ
+    from CARD-200 for a reason that has nothing to do with this card. Of the
+    two honest repairs (compare them against a baseline that includes
+    CARD-203, or assert the CARD-203-attributed difference explicitly) this
+    class does **both**, because each alone leaves a hole: the strict digest
+    comparison moves to ``book_baseline_card203.json``, which is the last
+    recording taken before this branch's own changes and the first that
+    includes the caption move
+    (:meth:`test_the_three_answer_pages_still_match_the_card203_baseline`),
+    and the attribution is itself measured — those pages differ from
+    CARD-200, and already differed in CARD-203's own recording
+    (:meth:`test_the_three_answer_pages_moved_under_card203_not_this_card`),
+    which is what makes "CARD-203 moved them" a fact about the fixtures
+    rather than a sentence in a docstring. Dropping them from the comparison
+    was rejected: a page nobody compares is a page with no evidence, and
+    this class exists to produce evidence per page.
 
     **The two guide pages (1, 2) do not quite hold the same promise, and
     this is investigated, not assumed.** ``create_guide_page``'s worked
@@ -1697,9 +1720,32 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
     #:   not a structural exemption the way the packed pages' is — a
     #:   Snowflake-sized puzzle with any spare at all would move like
     #:   pages 5/7/9 do.
-    STRICTLY_UNCHANGED_PAGES = (3, 4, 6, 8, 10, 11, 12, 13)
+    #:
+    #: **CARD-204 Fix 7 (merge gate): pages 11-13 are still unmoved BY THIS
+    #: CARD, and are no longer compared against CARD-200.** Both statements
+    #: above remain true and measured — but CARD-203 merged to main between
+    #: this branch being cut and the merge gate running, and it moves all
+    #: three answer pages (it right-aligns their caption and lifts it to a
+    #: fixed gap above the drawing). "Byte-identical to CARD-200" is
+    #: therefore false of them now, and was never CARD-204's to promise:
+    #: they are compared against ``book_baseline_card203.json`` instead —
+    #: see :attr:`CARD203_CAPTION_PAGES`.
+    STRICTLY_UNCHANGED_PAGES = (3, 4, 6, 8, 10)
+
+    #: The three answer pages (CARD-202's two packed ones and Snowflake's
+    #: full one). CARD-204 leaves them byte-identical — the reasons are the
+    #: two bullets above, unchanged — but CARD-203 does not, so the baseline
+    #: they owe that identity to is CARD-203's own recording, the last one
+    #: taken before this branch's changes and the first one that includes
+    #: the caption move. Compared exactly as strictly as the group above,
+    #: against a different (later) fixture, rather than dropped from the
+    #: comparison: a page nobody compares is a page with no evidence, and
+    #: ``test_the_three_answer_pages_moved_under_card203_not_this_card``
+    #: below keeps the attribution honest by asserting they *do* differ from
+    #: CARD-200.
+    CARD203_CAPTION_PAGES = (11, 12, 13)
     GUIDE_PAGES = (1, 2)
-    NON_DRAWING_PAGES = STRICTLY_UNCHANGED_PAGES + GUIDE_PAGES
+    NON_DRAWING_PAGES = STRICTLY_UNCHANGED_PAGES + CARD203_CAPTION_PAGES + GUIDE_PAGES
     DRAWING_PAGES = (5, 7, 9)
 
     @pytest.fixture(scope="class")
@@ -1718,6 +1764,22 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
 
     @pytest.fixture(scope="class")
     @classmethod
+    def card203_baseline(cls) -> Dict[str, Any]:
+        """CARD-203's own recording — the pre-CARD-204 evidence for the three
+        pages CARD-203 itself moved (CARD-204 Fix 7).
+
+        Loaded directly for the same reason :meth:`baseline` is, and kept
+        beside it rather than replacing it: the TOC and the four dividers
+        have owed their byte-identity to CARD-200 since this card was cut and
+        still do, and re-pointing them at a later fixture would quietly widen
+        what "untouched" is measured against.
+        """
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        with (fixtures_dir / "book_baseline_card203.json").open(encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @pytest.fixture(scope="class")
+    @classmethod
     def same_face(cls, baseline) -> bool:
         return font_fingerprint() == baseline["font_fingerprint"]
 
@@ -1732,6 +1794,9 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         assert set(self.NON_DRAWING_PAGES) | set(self.DRAWING_PAGES) == set(
             range(1, BASELINE_PAGE_COUNT + 1)
         ), "the split above must cover every baseline page exactly once"
+        assert len(self.NON_DRAWING_PAGES) + len(self.DRAWING_PAGES) == BASELINE_PAGE_COUNT, (
+            "...and exactly once: no page may sit in two groups at the same time"
+        )
 
         now = page_digests(exported)
         recorded = baseline["pages"]
@@ -1741,14 +1806,60 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
             if number in machine_face and not same_face:
                 continue  # see TestBookPdfMemory_PagesAreUnchanged's own note
             assert now[number - 1] == recorded[number - 1], (
-                f"interior page {number} carries no drawing, so CARD-204 "
-                "must leave it byte-identical to the CARD-200 baseline"
+                f"interior page {number} is the TOC or a divider — it carries "
+                "no drawing and no caption, so CARD-204 must leave it "
+                "byte-identical to the CARD-200 baseline"
             )
             compared += 1
         expected = len(self.STRICTLY_UNCHANGED_PAGES) - (
             0 if same_face else len(machine_face & set(self.STRICTLY_UNCHANGED_PAGES))
         )
         assert compared == expected, (compared, expected)
+
+    def test_the_three_answer_pages_still_match_the_card203_baseline(
+        self, card203_baseline, exported
+    ) -> None:
+        """CARD-204 Fix 7 — the same strict claim as the test above, against
+        the fixture that legitimately holds the caption move.
+
+        None of these three is machine-lettered (the fixture's own
+        ``font_dependent_pages`` is 1, 2, 3, 4, 6, 8, 10 — a packed slot's
+        band and caption, and the folio, are all set in the packaged
+        DejaVu Sans), so this comparison needs no face gate and runs
+        everywhere.
+        """
+        now = page_digests(exported)
+        recorded = card203_baseline["pages"]
+        assert set(card203_baseline["font_dependent_pages"]).isdisjoint(
+            self.CARD203_CAPTION_PAGES
+        ), "an answer page became machine-lettered; this comparison now needs a face gate"
+        for number in self.CARD203_CAPTION_PAGES:
+            assert now[number - 1] == recorded[number - 1], (
+                f"interior page {number} is an answer page: CARD-203 moved its "
+                "caption and CARD-204 moves nothing on it, so it must be "
+                "byte-identical to the CARD-203 baseline"
+            )
+
+    def test_the_three_answer_pages_moved_under_card203_not_this_card(
+        self, baseline, card203_baseline, exported
+    ) -> None:
+        """The attribution itself, asserted rather than written down (CARD-204
+        Fix 7): these three pages *do* differ from the CARD-200 baseline, and
+        the difference is already present in CARD-203's own recording — which
+        is what makes "CARD-203 moved them" a measurement and not a claim. If
+        a later card moves them again, the test above fails; if CARD-203's
+        caption move were somehow reverted, this one does.
+        """
+        now = page_digests(exported)
+        for number in self.CARD203_CAPTION_PAGES:
+            card200_page = baseline["pages"][number - 1]
+            card203_page = card203_baseline["pages"][number - 1]
+            assert card203_page != card200_page, (
+                f"interior page {number} is identical in the CARD-200 and "
+                "CARD-203 recordings — CARD-203 is then not what moved it, and "
+                "this class's own split is mis-attributed"
+            )
+            assert now[number - 1] != card200_page
 
     def test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one(
         self, baseline, exported, same_face

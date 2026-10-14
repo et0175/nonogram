@@ -1665,3 +1665,104 @@ class TestBookSolvedAnswerKey_PagesSavedSplitsPairingFromPacking:
         assert pages_saved_by_pairing == 0
         assert pages_saved_by_packing > 0
         assert pages_saved_by_packing == counts.unpaired_page_count - counts.page_count
+
+
+# --------------------------------------------------------------------------
+# CARD-204 Fix 7 — a packed caption is held inside its own TILE
+# --------------------------------------------------------------------------
+
+
+class TestBookSolvedAnswerKey_PackedCaptionWiderThanItsTileStaysInside:
+    """CARD-204 Fix 7 — an over-wide caption on a *packed* slot stays inside
+    that slot's own tile, on both parities.
+
+    The full-page half of this claim lives in
+    ``tests/test_book_solved_page.py::TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin``;
+    this is the packed half, and it is not a duplicate of it. A packed slot's
+    :class:`~nonogram.export.layout.PagePlacement` carries its **tile's** box
+    as the usable area (``_packed_tile_layout``), not the page's, and a tile
+    is half a page wide — so an over-wide caption is both likelier here and
+    bounded by a different rectangle. ``_draw_solved_slot`` must therefore
+    ask ``caption_slot`` about the *slot* it was handed; a future edit that
+    passed it the whole page's layout instead would leave this test's ink
+    spilling across the gutter into the neighbouring tile while every
+    full-page test stayed green.
+    """
+
+    #: Long enough that "Puzzle 1 — ..." is wider than a 2-up tile on Book 1
+    #: (asserted below, not assumed).
+    _LONG_TITLE = "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter"
+
+    @staticmethod
+    def _render(page_number: int, title: str):
+        """One 15x20 answer packed alone onto a 2-up page, captioned ``title``.
+
+        The same shape and the same harness
+        ``TestBookSolvedAnswerKey_PackedCaptionHoldsTheFloorOrIsOmitted``
+        uses for its "there is slack" case, so the caption is actually drawn.
+        """
+        puzzle = _puzzle(15, 20, number=1, depth=7, tier="easy", name=title)
+        gen = BookPDFGenerator(_book({puzzle["id"]: title}))
+        payloads = [(puzzle["id"], gen._payload(puzzle))]
+        packed_page = PackedAnswerPage(
+            (Answer(number=1, width=15, height=20, level=Tier.EASY),)
+        )
+        layout = compute_packed_solved_layout(
+            [(payloads[0][1].row_clues, payloads[0][1].column_clues)],
+            2,
+            gen.page_spec(page_number),
+        )
+        page = gen._packed_answer_page(
+            packed_page, payloads, page_number, {puzzle["id"]: title}
+        )
+        return page, layout.slots[0].page, gen
+
+    @classmethod
+    def _caption_ink_columns(cls, page, placement, gen):
+        """The dark columns of the caption's own one-line band, read across
+        the **whole page width** — so ink that left the tile is seen, not
+        cropped away by the measurement itself."""
+        font = _band_font(type_px(ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4, gen.dpi))
+        ascent, descent = font.getmetrics()
+        gap_px = round(ANSWER_TILE_GAP_MM / 25.4 * gen.dpi)
+        top = placement.drawing_bottom + gap_px
+        band = np.asarray(
+            page.crop((0, top, page.width, top + ascent + descent)).convert("L")
+        )
+        return np.flatnonzero((band < 128).any(axis=0))
+
+    @pytest.mark.parametrize("page_number", [9, 10])
+    def test_this_caption_really_is_wider_than_its_own_tile(self, page_number) -> None:
+        _, placement, gen = self._render(page_number, self._LONG_TITLE)
+        font = _band_font(type_px(ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4, gen.dpi))
+        width = font.getlength(answer_caption(1, self._LONG_TITLE))
+        assert width > placement.drawing_right - placement.drawing_left
+        assert width > placement.usable_right - placement.usable_left, (
+            "on a tile this caption is wider than the whole tile, so it "
+            "exercises the clip as well as the clamp"
+        )
+
+    @pytest.mark.parametrize("page_number", [9, 10])
+    def test_no_caption_ink_leaves_the_tile(self, page_number) -> None:
+        page, placement, gen = self._render(page_number, self._LONG_TITLE)
+        columns = self._caption_ink_columns(page, placement, gen)
+        assert columns.size > 0, "expected the caption's own ink in its own band"
+        assert columns.min() >= placement.usable_left, (
+            f"the caption's leftmost ink is {placement.usable_left - columns.min()} px "
+            f"outside its own tile on a {placement.parity} page"
+        )
+        assert columns.max() <= placement.usable_right
+
+    @pytest.mark.parametrize("page_number", [9, 10])
+    def test_a_short_caption_is_still_right_aligned_with_its_own_grid(
+        self, page_number
+    ) -> None:
+        """The negative control: the clamp is inactive for a caption of the
+        length a book actually prints, so CARD-203's right-alignment still
+        describes a packed slot too."""
+        page, placement, gen = self._render(page_number, "Owl")
+        columns = self._caption_ink_columns(page, placement, gen)
+        assert columns.size > 0
+        assert columns.max() <= placement.drawing_right + 4
+        assert columns.max() >= placement.drawing_right - 6
+        assert columns.min() > placement.usable_left

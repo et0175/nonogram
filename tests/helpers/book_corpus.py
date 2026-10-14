@@ -328,9 +328,37 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   and ``font_dependent_pages`` are unchanged (Fix 4 touches no
 #:   machine-lettered page either).
 #:
-#: All thirteen files carry the reasoning; this constant names the current one.
+#: * ``book_baseline_card204.json`` (**re-recorded in place a fifth time for
+#:   CARD-204 Fix 7**, same filename): the merge gate, and the one recording
+#:   in this card's own chain whose cause is **not this card**. CARD-203 (the
+#:   bullet above this card's own first one) merged to main *after* this
+#:   branch was cut, so every earlier CARD-204 recording was taken on a tree
+#:   without it. On the merged tree its caption move lands on this book's
+#:   three caption-drawing pages: interior pages 11, 12 (CARD-202's packed
+#:   answer pages) and 13 (Snowflake's full one) move, and move to exactly
+#:   the pixels ``book_baseline_card203.json`` already recorded for them —
+#:   asserted, not assumed, by ``tests/test_book_pdf_memory.py``'s
+#:   ``TestBookPdfMemory_NonDrawingPagesAreByteIdentical``, which compares
+#:   those three against CARD-203's fixture and the other ten against
+#:   CARD-200's. Pages 1-10 are byte-identical to Fix 4's recording.
+#:   ``interior_bytes`` moves from 3440084 to 3441912 (+1828 bytes — the
+#:   identical delta CARD-203's own recording added over CARD-200's on this
+#:   same book, 3420073 -> 3421901, measured on main without any of this
+#:   card's changes). **Fix 7's own production change moves no page of this
+#:   book**: ``export/layout.py``'s new ``caption_slot`` clamps a caption's
+#:   right-aligned anchor off the trim margin, and fires only for a caption
+#:   wider than its own grid, which none of this book's four (321-459 px
+#:   against drawings of 1328 px and up) is — its evidence is
+#:   ``tests/test_book_solved_page.py``'s
+#:   ``TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin``,
+#:   which prints the over-wide caption this corpus does not contain.
+#:   ``font_fingerprint`` and ``font_dependent_pages`` are unchanged (no
+#:   answer page is machine-lettered).
 #:
-#: All twelve files carry the reasoning; this constant names the current one.
+#: All fourteen files carry the reasoning; this constant names the current one
+#: (fourteen since main's CARD-203 joined the chain between this card's own
+#: Fix 4 and Fix 7 recordings; the two stale counts this line used to carry,
+#: "thirteen" and "twelve", were both left behind by earlier cards).
 BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests

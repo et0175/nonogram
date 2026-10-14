@@ -61,7 +61,10 @@ A spec lays a puzzle out in one of two ways, and its ``parity`` decides which:
   edge on an even one — so parity still moves it sideways by gutter − outside
   and still never changes its size, only which edge it hugs. A placed page's
   freed gutter-side slack is also where :func:`qr_slot` reserves CARD-204's
-  2x2cm placeholder QR icon, when there is room for one. The sheet is never
+  2x2cm placeholder QR icon, when there is room for one; and because the
+  flush edge leaves an ``EVEN`` page's drawing no spare at all on its left,
+  it is why a solved page's right-aligned caption needs
+  :func:`caption_slot`'s clamp to stay inside the margin. The sheet is never
   turned (``PORTRAIT_ONLY``). The cell is
   ``min(cap, page fit)`` computed in millimetres and drawn at a fractional
   pitch, so the cell a book tile reports (FR-031) is the cell the page prints.
@@ -233,6 +236,7 @@ __all__ = [
     "SOLVED_TILE_MAX_CELL_MM",
     "AnswerPageLayout",
     "AnswerTile",
+    "CaptionSlot",
     "CellCapPolicy",
     "ClueEntry",
     "GridLine",
@@ -247,6 +251,7 @@ __all__ = [
     "PairLayout",
     "PuzzleFrame",
     "QrSlot",
+    "caption_slot",
     "comfort_cap_mm",
     "compute_answer_page_layout",
     "compute_layout",
@@ -761,6 +766,36 @@ class QrSlot:
 
 
 @dataclass(frozen=True, slots=True)
+class CaptionSlot:
+    """Where a solved slot's caption line may put its ink, in device pixels.
+
+    Only :func:`caption_slot` constructs one. It exists for the same reason
+    :class:`QrSlot` does: the renderer measures its own text (only it knows
+    the face it letters in) but does not get to pick the x it draws at
+    (ADR-0036/R2).
+
+    Attributes:
+        left: Where the caption's leftmost ink lands — never left of the
+            usable area's own left edge, for any text width.
+        right: The x a right-aligned caption (Pillow's ``anchor="rm"``) is
+            drawn at: the slot's own drawing's right edge whenever the text
+            fits between that edge and :attr:`left`, and further right —
+            by exactly the overhang, no more — when it does not.
+        measure: The widest a caption may be set on this slot, i.e. the
+            usable area's own width. A renderer whose measured text is wider
+            than this **must shorten it** before drawing: no x keeps a
+            caption wider than the usable area inside the usable area, and
+            a caption is already set at CON-020's 10 pt floor
+            (:data:`ANSWER_TEXT_FONT_MM`), so there is no type size left to
+            give back either.
+    """
+
+    left: int
+    right: int
+    measure: int
+
+
+@dataclass(frozen=True, slots=True)
 class GridLine:
     """One ruled line of the grid, positioned along its own axis.
 
@@ -1121,6 +1156,74 @@ def qr_slot(layout: Layout) -> QrSlot | None:
         return QrSlot(left=foot_left, top=foot_top, right=foot_right, bottom=foot_bottom)
 
     return None
+
+
+def caption_slot(layout: Layout, text_width: int) -> CaptionSlot | None:
+    """Where a caption ``text_width`` device pixels wide sits on ``layout``, or ``None``.
+
+    A third measurement laid on top of an already-computed :class:`Layout`,
+    exactly the way :func:`header_band` and :func:`qr_slot` are (see
+    :func:`header_band`'s docstring for why these are additive rather than
+    parameters of :func:`compute_layout`). ``None`` for an unplaced layout,
+    which has no margins to keep a caption inside of.
+
+    A solved slot's caption is right-aligned with its own drawing (CARD-203):
+    the reader's eye runs down the grid's right edge and meets the picture's
+    name there. That alignment is kept here whenever the text fits — and it
+    fits in every book this corpus has ever printed, where a caption measures
+    a third of its grid's width.
+
+    **Why the clamp (CARD-204 Fix 7).** A caption is as wide as the picture's
+    name, which nothing bounds, while a grid is as wide as the puzzle. A name
+    long enough makes the caption wider than its own grid, and a caption
+    right-aligned at ``drawing_right`` then overhangs ``drawing_left``. While
+    the drawing was centred, that overhang spent the page's own horizontal
+    spare and stayed inside the usable area; since this card placed the
+    drawing flush with the outer margin, an ``EVEN`` page has
+    ``drawing_left == usable_left``, so the overhang lands in the trim margin
+    — ink a printer trims through. Measured on Book 1's own trim before the
+    fix: a 65-character picture name (a 1705 px caption against a 1328 px
+    drawing) put the caption's leftmost ink at the page's own edge, 113 px
+    (9.6 mm) outside the margin, with the rest of the name clipped off the
+    sheet by Pillow. So the caption's right edge is pushed
+    right by exactly the overhang, and no more: right-alignment where it
+    fits, and the usable area's own left edge as the hard stop where it does
+    not.
+
+    **The one case geometry cannot answer.** A caption wider than the whole
+    usable area has no x at all that keeps it inside — :attr:`CaptionSlot.left`
+    then sits at ``usable_left`` and :attr:`CaptionSlot.right` at
+    ``usable_right``, and the text itself must be shortened by its renderer
+    (:attr:`CaptionSlot.measure`). Shrinking the type instead is not
+    available: a caption is set at :data:`ANSWER_TEXT_FONT_MM`, which *is*
+    CON-020's 10 pt floor for reader-facing interior text.
+
+    Args:
+        layout: The already-computed placed-page geometry — a full answer
+            page's own :class:`Layout`, or one slot of a packed answer page,
+            whose :class:`PagePlacement` carries its *tile's* box as the
+            usable area (see :func:`_packed_tile_layout`), so a packed
+            caption is held inside its own tile by the same arithmetic.
+        text_width: What the caption measures in the renderer's own face, in
+            device pixels. Negative or zero is treated as an empty caption.
+
+    Returns:
+        The caption's own box, or ``None`` when ``layout`` is not a placed page.
+    """
+    page = layout.page
+    if page is None:
+        return None
+    measure = page.usable_right - page.usable_left
+    width = min(max(text_width, 0), measure)
+    # Both stops in one line. The `max` is the clamp: it keeps the left edge
+    # (`right - width`) at or right of `usable_left`. The `min` is the other
+    # side of the same promise, and binds only on a drawing that already
+    # overflows its own usable area (`PagePlacement.fits` False — the cell
+    # floor winning on a page too small for the puzzle): that drawing's
+    # caption would otherwise follow it out of the margin, which it does not
+    # have to do, so it stops at the margin instead.
+    right = min(max(page.drawing_right, page.usable_left + width), page.usable_right)
+    return CaptionSlot(left=right - width, right=right, measure=measure)
 
 
 def _mm_to_px(millimetres: float) -> int:

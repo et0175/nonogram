@@ -346,6 +346,7 @@ from nonogram.export.layout import (
     PageSpec,
     PairLayout,
     QrSlot,
+    caption_slot,
     compute_layout,
     compute_packed_solved_layout,
     compute_pair_layout,
@@ -2127,6 +2128,29 @@ def wrap_words(text: str, font: Any, measure: int) -> List[str]:
     return lines
 
 
+def _clipped_to(text: str, font: Any, measure: int) -> str:
+    """``text`` shortened with a trailing ellipsis until it fits ``measure``.
+
+    One line, clipped rather than wrapped — :func:`wrap_words` is for a
+    paragraph of several lines, and the two places this is used (a TOC row
+    beside its page number, and a solved page's caption line) are each one
+    line by definition.
+
+    Extracted for CARD-204 Fix 7, which needs the same clip for a caption
+    too wide for its page's usable area at all: the loop below is the one
+    :meth:`BookPDFGenerator.create_toc_page` already ran inline since
+    CARD-200, moved here unchanged (two characters off, one ellipsis on,
+    stopping at a single character so no text can be clipped away entirely),
+    so the TOC draws the identical bytes it drew before. A caption cannot be
+    *shrunk* to fit instead: ``ANSWER_TEXT_FONT_MM`` already is CON-020's
+    10 pt floor for reader-facing interior text.
+    """
+    clipped = text
+    while len(clipped) > 1 and font.getlength(clipped) > measure:
+        clipped = clipped[:-2] + "…"
+    return clipped
+
+
 def page_is_right_hand(page_number: int) -> bool:
     """Whether interior page ``page_number`` (1-based) is a right-hand page.
 
@@ -3230,7 +3254,9 @@ class BookPDFGenerator:
         for *every* TOC page — stays true of this one too.
 
         A label too wide to sit beside its own page number on one line is
-        clipped, with a trailing ellipsis, rather than wrapped
+        clipped, with a trailing ellipsis (:func:`_clipped_to` — this
+        method's own inline loop until CARD-204 Fix 7 extracted it for the
+        solved caption's own over-wide case, unchanged), rather than wrapped
         (:func:`wrap_words` is for a paragraph of several lines; a listing
         row is one line by definition) or left to overlap the number it
         would otherwise share the row with.
@@ -3260,9 +3286,7 @@ class BookPDFGenerator:
             number_text = str(entry_page)
             number_width = entry_font.getlength(number_text)
             label_measure = measure - number_width - type_px(TOC_ENTRY_GAP_PT, self.dpi)
-            clipped = label
-            while len(clipped) > 1 and entry_font.getlength(clipped) > label_measure:
-                clipped = clipped[:-2] + "…"
+            clipped = _clipped_to(label, entry_font, label_measure)
             draw.text((frame.left, y), clipped, fill="black", font=entry_font)
             draw.text(
                 (frame.right, y), number_text, fill="black", font=entry_font, anchor="ra"
@@ -3724,6 +3748,24 @@ class BookPDFGenerator:
         wins" precedent CARD-200 already set; this card does not touch the
         caption's own placement or omission guard above.
 
+        **CARD-204 Fix 7 (merge gate).** The caption's right edge is now the
+        one :func:`~nonogram.export.layout.caption_slot` reports for this
+        slot and this text's measured width, not ``placement.drawing_right``
+        unconditionally. For every caption that fits beside its own grid the
+        two are the same pixel, so CARD-203's right-alignment is untouched;
+        a caption wider than its grid — a long picture name — is held off
+        the usable area's left edge instead of printing into the trim
+        margin, which it did on an ``EVEN`` page from the moment this card
+        placed the drawing flush with that edge. The width is measured here
+        because only this module knows the face; where that width is allowed
+        to sit is COMP-007's (ADR-0036/R2). A caption too wide for the
+        usable area at any x is clipped to
+        :attr:`~nonogram.export.layout.CaptionSlot.measure` first
+        (:func:`_clipped_to`), since its type is already at CON-020's floor
+        and cannot shrink. The box returned to the caller reports the clamped
+        right edge, so the folio's own collision check above sees where the
+        caption actually is.
+
         Raises:
             ValueError: ``slot`` is not a placed page (:meth:`page_spec`
                 always carries a parity, so this cannot happen through the
@@ -3794,9 +3836,26 @@ class BookPDFGenerator:
         slack = placement.usable_bottom - placement.drawing_bottom
         if slack >= gap_px + line_height:
             caption = answer_caption(puzzle_number, title)
+            # CARD-204 Fix 7: where the caption's right edge goes is COMP-007's
+            # to say, not this renderer's (ADR-0036/R2) — a caption wider than
+            # its own grid would otherwise overhang `drawing_left`, which is
+            # this page's own outer margin since this card placed the drawing
+            # flush with it. What stays here is what only this module knows:
+            # the face, and therefore the text's own width. A caption too wide
+            # for the usable area at all is clipped to the measure COMP-007
+            # reports, the same way `create_toc_page` clips a long label
+            # (`_clipped_to`) — the type cannot shrink instead, since
+            # ANSWER_TEXT_FONT_MM already *is* CON-020's 10 pt floor.
+            caption_width = math.ceil(caption_font.getlength(caption))
+            box = caption_slot(slot, caption_width)
+            if box is None:  # pragma: no cover - `placement` above is not None
+                raise ValueError("a solved slot must be a placed book page")
+            if caption_width > box.measure:
+                caption = _clipped_to(caption, caption_font, box.measure)
+                box = caption_slot(slot, math.ceil(caption_font.getlength(caption)))
             draw.text(
                 (
-                    placement.drawing_right,
+                    box.right,
                     placement.drawing_bottom + gap_px + line_height / 2,
                 ),
                 caption,
@@ -3808,12 +3867,14 @@ class BookPDFGenerator:
             # to the caller so it can fold it into _draw_folio's own
             # collision check (right-aligned caption can now share a
             # right-hand page's folio corner — see this method's own
-            # docstring). The caption's right edge sits at drawing_right
-            # exactly (anchor "rm"); its bottom edge is gap_px + line_height
-            # below drawing_bottom, the same arithmetic as the guard above.
+            # docstring). The caption's right edge sits at `box.right`
+            # (anchor "rm"), which is `drawing_right` for every caption that
+            # fits beside its own grid and further right only for one clamped
+            # off the margin; its bottom edge is gap_px + line_height below
+            # drawing_bottom, the same arithmetic as the guard above.
             return (
                 round(placement.drawing_bottom + gap_px + line_height),
-                placement.drawing_right,
+                box.right,
             )
         return None
 
