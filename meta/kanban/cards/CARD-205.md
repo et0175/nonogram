@@ -1115,3 +1115,34 @@ mechanism are listed, mandatory first.)
   because every test touching that default passes `puzzle_count ∈ {0, 1, 3, 7}`, where
   both rules agree. Same shape as CARD-204's AC-7 gap, and resolved the same way the owner
   resolved that one ("bound it with a test, then merge") — see Fix 4.
+
+- [Fix 4 complete] 2026-10-14 — committed `bf45a3d` (2 test files, +67/-3; `src/` untouched,
+  `meta/` clean). Closes both of the gate's evidence gaps. Tests only: the gate found no
+  defect in the implementation, and both findings were about what was *proven*, not what
+  the code does.
+  - **The third caller is now bound.** `TestBookToc_KdpAgreesWithTheExportedCount::`
+    `test_the_sheet_free_toc_default_follows_the_new_rule_too` cross-checks
+    `interior_page_count(len(puzzles))` against `stream.unpaired_page_count` — the right
+    side is built by `interior_stream` from exactly the terms the left side defaults to
+    (unpaired puzzle pages, one answer page per puzzle, `min(len(TIERS), count)` dividers)
+    and differs in one term only, the TOC length it measured off this book's own trim. So
+    the two agree iff the sheet-free default agrees about the TOC. The pre-card 4-page
+    figure on `default_toc_frame()` is asserted beside it, so the check cannot go vacuous
+    the way the existing `interior_page_count(3) == written` did.
+    **Teeth, measured both ways:** the gate's surviving mutant (the default back to
+    `measured_toc_page_count(puzzle_count, …)`) went from **99 passed / 0 failed** across
+    `test_book_toc.py` + `test_book_export_interior_cover.py` to **1 failed / 99 passed**,
+    the one failure being exactly this test. Clean tree: 5 passed in the class.
+  - **The attribution is no longer host-gated.** `test_the_toc_page_moved_under_card205_`
+    `not_card204`'s face gate moved below its two fixture-to-fixture assertions, which
+    compare three *stored* recordings and hold on any machine; only the two comparisons
+    reading this host's live export stay gated. Fix 3 added that attribution to close
+    review F-002 and then hid it behind a host gate — the project's "only the pinned
+    figure is skipped, never the guardrail" rule broken inside the fix for a
+    missing-evidence finding. **Proven both ways with `same_face` forced false:** intact,
+    the test reports `SKIPPED` *after* the attribution assertions have run; with the
+    attribution deliberately broken (`card204_page == card205_page`), it reports
+    **FAILED** rather than skipping. Before this change both cases skipped.
+  - Both touched files green together: **90 passed, 1 skipped** (`test_book_pdf_memory.py`
+    45 + `test_book_toc.py` 45). Every mutant reverted; `git status --porcelain -- src tests`
+    empty before the commit.
