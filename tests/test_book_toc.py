@@ -64,7 +64,21 @@ from nonogram.admin.book_pdf_generator import (
     page_frame,
     type_px,
 )
-from tests.helpers.book_corpus import corpus_book, puzzle
+from tests.helpers.book_corpus import corpus_book, font_fingerprint, load_baseline, puzzle
+
+
+def _lettered_as_recorded() -> bool:
+    """Whether this machine letters the TOC in the face the figures were taken on.
+
+    ``book_pdf_generator`` asks Pillow for Arial by path and falls back to
+    its built-in face, so any assertion in *pixels* about a row's own height
+    is a statement about this host's fonts. The same gate
+    ``tests/test_book_pdf_memory.py`` compares recorded pixels under: the
+    baseline fixture's ``font_fingerprint`` against this machine's. Where it
+    is false the surrounding test still asserts every claim that holds on
+    any face — only the pinned figure is skipped, never the guardrail.
+    """
+    return load_baseline()["font_fingerprint"] == font_fingerprint()
 
 #: Enough puzzles per level to make the three ranges unmistakable and to put
 #: the book well past the point where a TOC of one row per puzzle would have
@@ -90,6 +104,28 @@ def _book(book_id: str = "card-205-toc", titles: Optional[Dict[str, str]] = None
         outside_margin_cm=corpus_book().outside_margin_cm,
         puzzle_titles=titles or {},
     )
+
+
+def _structural_shape(
+    *levels: Tuple[str, str, int], solutions_page: int
+) -> List[TocEntry]:
+    """A structural TOC's rows, built by hand with the flags where they belong.
+
+    The geometry tests below need rows whose ``starts_group`` is set exactly
+    where ``structural_toc_entries`` sets it, but they must not *call* that
+    function: a drawing test that asked the production builder for its input
+    could only ever prove the drawing agrees with the builder, and would go
+    green on a day both had dropped the flag together. This states the shape
+    independently — a heading and a range row per level, then the solutions —
+    and ``TestBookToc_RowsDeclareTheGroupsTheyOpen`` is the separate test
+    that the real builder produces this same shape.
+    """
+    entries = [TocEntry(GUIDE_TITLE, 1)]
+    for heading, range_label, page in levels:
+        entries.append(TocEntry(heading, None, starts_group=True))
+        entries.append(TocEntry(range_label, page))
+    entries.append(TocEntry(TOC_SOLUTIONS_LABEL, solutions_page, starts_group=True))
+    return entries
 
 
 def _puzzles(**per_tier: int) -> List[dict]:
@@ -225,6 +261,80 @@ class TestBookToc_ListsSectionsNotPuzzles:
 
         assert [row.label for row in rows if row.is_heading] == ["Easy", "Medium"]
         assert all(row.page is not None for row in rows if not row.is_heading)
+
+
+class TestBookToc_RowsDeclareTheGroupsTheyOpen:
+    """Which rows carry ``starts_group``, read off the real builder (Fix 2).
+
+    The separation itself is a geometry claim, asserted on drawn rows by
+    ``TestBookToc_GroupsAreSetOffFromWhatPrecedesThem`` against entries that
+    file builds by hand. This is the other half, and the half that would
+    otherwise be missing: that ``structural_toc_entries`` really flags the
+    rows the drawing is waiting for. Without it both sides could drop the
+    flag together and every test here would stay green on a TOC that had
+    quietly gone back to eight evenly spaced rows.
+    """
+
+    def test_every_heading_and_the_solutions_row_open_a_group(
+        self, monkeypatch
+    ) -> None:
+        puzzles = _puzzles(easy=3, medium=3, hard=3)
+        generator = BookPDFGenerator(_book("card-205-fix2-flags"))
+
+        rows = _rows_of(generator, puzzles, monkeypatch)
+
+        assert [row.label for row in rows if row.starts_group] == [
+            "Easy",
+            "Medium",
+            "Hard",
+            TOC_SOLUTIONS_LABEL,
+        ], "a three-level book's list opens four groups, the solutions last"
+        assert [row.label for row in rows if not row.starts_group] == [
+            GUIDE_TITLE,
+            "Puzzles 1–3",
+            "Puzzles 4–6",
+            "Puzzles 7–9",
+        ], (
+            "and nothing else does — the guide opens the list rather than a "
+            "group within it, and a range row belongs to the heading above it"
+        )
+
+    def test_the_solutions_row_is_flagged_though_it_is_not_a_heading(
+        self, monkeypatch
+    ) -> None:
+        """The distinction the flag exists for, stated on the real rows.
+
+        ``is_heading`` and ``starts_group`` agree on every row of the list
+        but this one, which is precisely why the drawing cannot read the
+        former: the solutions row carries a page number *and* opens a group.
+        """
+        puzzles = _puzzles(easy=3, medium=3)
+        generator = BookPDFGenerator(_book("card-205-fix2-flags-solutions"))
+
+        rows = _rows_of(generator, puzzles, monkeypatch)
+        solutions = [row for row in rows if row.label == TOC_SOLUTIONS_LABEL]
+
+        assert len(solutions) == 1
+        assert solutions[0].starts_group is True
+        assert solutions[0].is_heading is False
+        assert solutions[0].page is not None
+        disagree = [row.label for row in rows if row.starts_group != row.is_heading]
+        assert disagree == [TOC_SOLUTIONS_LABEL], (
+            "the solutions row must be the only row where the two differ — "
+            f"{disagree} differ, so `is_heading` is no longer a near-miss for "
+            "the flag but a different rule altogether"
+        )
+
+    def test_a_one_level_book_still_opens_two_groups(self, monkeypatch) -> None:
+        puzzles = _puzzles(easy=4)
+        generator = BookPDFGenerator(_book("card-205-fix2-flags-one-level"))
+
+        rows = _rows_of(generator, puzzles, monkeypatch)
+
+        assert [row.label for row in rows if row.starts_group] == [
+            "Easy",
+            TOC_SOLUTIONS_LABEL,
+        ]
 
 
 # --------------------------------------------------------------------------
@@ -748,17 +858,26 @@ class TestBookToc_LeaderDotsStayInsideTheGap:
 
 
 class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
-    """A heading is set a group's gap below the row above it (CARD-205 Fix 1).
+    """A row that opens a group is set a group's gap below the row above it.
 
-    The owner's sample sets a blank line between the groups; the decision
-    (2026-10-14) is to print that separation as ``TOC_GROUP_GAP_PT`` of
-    extra white above each heading, **not** as a blank row. So this class
-    asserts a *geometry* claim about drawn rows — like AC-6's own class and
-    unlike the rest of this file, which reads the rows a page was handed —
-    and it asserts the two halves of the decision together: the gap is
-    really there (the step down to a heading is bigger than the step from
-    that heading to its own range row), and it costs neither the row count
-    (AC-1, unchanged above) nor the folio its page keeps reserving (G-1).
+    The owner's sample sets a blank line between the groups; the decisions
+    (2026-10-14) are to print that separation as ``TOC_GROUP_GAP_PT`` of
+    extra white above each row that opens a group, **not** as a blank row —
+    first the three level headings (Fix 1), then ``Solutions`` too (Fix 2),
+    which is a *numbered* row rather than a heading and until then read as
+    the tail of the Hard group. So this class asserts a *geometry* claim
+    about drawn rows — like AC-6's own class and unlike the rest of this
+    file, which reads the rows a page was handed — and it asserts the two
+    halves of the decision together: the gap is really there, and it costs
+    neither the row count (AC-1, unchanged above) nor the folio its page
+    keeps reserving (G-1).
+
+    **The rows are told apart by ``TocEntry.starts_group``, not by their
+    shape**, and these tests build their entries with the flag set exactly
+    where ``structural_toc_entries`` sets it. That is the claim under test:
+    an implementation that gapped ``is_heading`` rows would separate three
+    groups out of four, and one that gapped "the last row" would read the
+    same here and mis-set the day a row is appended after the solutions.
     """
 
     @staticmethod
@@ -796,35 +915,42 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
 
     @staticmethod
     def _steps() -> Tuple[int, int]:
-        """``(one row's step, a heading's own step)`` in pixels at ``DPI``."""
+        """``(one row's step, a group opener's own step)`` in px at ``DPI``."""
         font = _guide_face(type_px(TOC_ENTRY_PT, DPI))
         ascent, descent = font.getmetrics()
         line = ascent + descent + type_px(TOC_ENTRY_GAP_PT, DPI)
         return line, line + type_px(TOC_GROUP_GAP_PT, DPI)
 
-    def test_each_heading_sits_further_below_than_an_ordinary_row(
+    @classmethod
+    def _expected(cls, entries: List[TocEntry]) -> List[int]:
+        """The step each row should sit below its predecessor, in draw order.
+
+        Read off the rows' own ``starts_group`` flags — the one place these
+        tests state what the drawing is supposed to do, so a case added
+        below cannot disagree with the rule by hand-writing its steps.
+        """
+        line, group_step = cls._steps()
+        return [group_step if entry.starts_group else line for entry in entries[1:]]
+
+    def test_each_group_opener_sits_further_below_than_an_ordinary_row(
         self, monkeypatch
     ) -> None:
-        """The three-level book: eight rows, three of them headings.
+        """The three-level book: eight rows, **four** of which open a group.
 
-        The inequality is the assertion that matters — a heading's own step
-        down the page must be *strictly* larger than the step from that
-        heading to its own range row, which is what "the groups are set
-        apart" means and what a zero gap cannot satisfy. The exact figures
-        are pinned alongside it so the separation cannot drift either.
+        The inequality is the assertion that matters — a group opener's own
+        step down the page must be *strictly* larger than an ordinary row's,
+        which is what "the groups are set apart" means and what a zero gap
+        cannot satisfy. The exact figures are pinned alongside it so the
+        separation cannot drift either.
         """
-        generator = BookPDFGenerator(_book("card-205-fix1-three-levels"))
-        entries = [
-            TocEntry(GUIDE_TITLE, 1),
-            TocEntry("Easy"),
-            TocEntry("Puzzles 1–60", 5),
-            TocEntry("Medium"),
-            TocEntry("Puzzles 61–120", 37),
-            TocEntry("Hard"),
-            TocEntry("Puzzles 121–150", 69),
-            TocEntry(TOC_SOLUTIONS_LABEL, 86),
-        ]
-        line, heading_step = self._steps()
+        generator = BookPDFGenerator(_book("card-205-fix2-three-levels"))
+        entries = _structural_shape(
+            ("Easy", "Puzzles 1–60", 5),
+            ("Medium", "Puzzles 61–120", 37),
+            ("Hard", "Puzzles 121–150", 69),
+            solutions_page=86,
+        )
+        line, group_step = self._steps()
 
         tops = self._row_tops(generator, entries, monkeypatch)
 
@@ -832,41 +958,101 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             f"eight rows were handed to the page, {len(tops)} were drawn"
         )
         steps = [after - before for before, after in zip(tops, tops[1:])]
-        headings = 0
-        for entry, step_down, step_on in zip(entries[1:], steps, steps[1:]):
-            if not entry.is_heading:
+        openers = 0
+        for entry, step_down in zip(entries[1:], steps):
+            if not entry.starts_group:
+                assert step_down == line, (
+                    f"{entry.label!r} opens no group, so it must sit one "
+                    f"ordinary line ({line} px) below its predecessor, not "
+                    f"{step_down} px"
+                )
                 continue
-            headings += 1
-            assert step_down > step_on, (
+            openers += 1
+            assert step_down > line, (
                 f"{entry.label!r} opens a group, so the white above it "
-                f"({step_down} px) must exceed the white between it and its "
-                f"own range row ({step_on} px) — the owner's blank line"
+                f"({step_down} px) must exceed an ordinary row's own step "
+                f"({line} px) — the owner's blank line"
             )
-            assert step_down == heading_step
-            assert step_on == line
-        assert headings == 3, (
-            f"a three-level book sets off three groups, not {headings}"
+            assert step_down == group_step
+        assert openers == 4, (
+            "a three-level book sets off four groups — three headings and "
+            f"the solutions — not {openers}"
         )
-        assert [step for entry, step in zip(entries[1:], steps) if not entry.is_heading] == [
-            line
-        ] * 4, "no row but a heading moved: every other step is one line"
+        assert steps == self._expected(entries)
 
-    def test_a_one_level_books_only_heading_is_set_off_too(self, monkeypatch) -> None:
-        """The other end of AC-4's range: four rows, one group boundary.
+    def test_the_solutions_row_opens_its_own_group_though_it_is_numbered(
+        self, monkeypatch
+    ) -> None:
+        """``Solutions`` is set off exactly as a heading is (Fix 2).
 
-        A one-level book is the case where a per-level gap could most
+        The owner's second decision of 2026-10-14, and the one case the
+        obvious implementations get wrong: ``Solutions`` carries a page
+        number, so it is not ``is_heading``, and it is the list's last row,
+        so "set the last row off" would pass this test today and silently
+        move the separation onto an appendix the day one is appended. The
+        claim asserted is therefore the *flag's*: this row's own white above
+        equals a heading's, and equals it on a book where the row above it
+        is an ordinary range row rather than anything special.
+        """
+        generator = BookPDFGenerator(_book("card-205-fix2-solutions"))
+        entries = _structural_shape(
+            ("Easy", "Puzzles 1–60", 5),
+            ("Medium", "Puzzles 61–120", 37),
+            ("Hard", "Puzzles 121–150", 69),
+            solutions_page=86,
+        )
+        line, group_step = self._steps()
+        solutions = entries[-1]
+        assert solutions.label == TOC_SOLUTIONS_LABEL and solutions.page == 86, (
+            "this test's premise: the last row is the numbered solutions row"
+        )
+        assert not solutions.is_heading, (
+            "and it is *not* a heading — which is the whole reason the gap "
+            "cannot be driven off `is_heading`"
+        )
+
+        tops = self._row_tops(generator, entries, monkeypatch)
+
+        hard_range_step = tops[-2] - tops[-3]
+        solutions_step = tops[-1] - tops[-2]
+        assert hard_range_step == line, (
+            "this test's premise: the row above the solutions is an "
+            f"ordinary range row one line down, not {hard_range_step} px"
+        )
+        assert solutions_step > hard_range_step, (
+            f"the solutions must be set apart from the Hard group above "
+            f"them ({solutions_step} px of white against the {hard_range_step} "
+            "px between Hard's own two rows), not read as its tail"
+        )
+        assert solutions_step == group_step
+        headings = [tops[index] for index, e in enumerate(entries) if e.is_heading]
+        heading_steps = {
+            tops[index] - tops[index - 1]
+            for index, e in enumerate(entries)
+            if e.is_heading
+        }
+        assert heading_steps == {solutions_step}, (
+            f"the solutions' own separation ({solutions_step} px) must be "
+            f"the same one the three headings get ({sorted(heading_steps)}), "
+            "one group separation and not two"
+        )
+        assert len(headings) == 3
+
+    def test_a_one_level_books_group_openers_are_set_off_too(
+        self, monkeypatch
+    ) -> None:
+        """The other end of AC-4's range: four rows, two group boundaries.
+
+        A one-level book is the case where a per-group gap could most
         easily be skipped by an implementation that only separated the
         *second* and later groups, so it is asserted on its own book rather
-        than left to the three-level case.
+        than left to the three-level case — and with ``Solutions`` here too,
+        because a one-level book is also where "the last row" and "the row
+        after the only range row" coincide most tightly.
         """
-        generator = BookPDFGenerator(_book("card-205-fix1-one-level"))
-        entries = [
-            TocEntry(GUIDE_TITLE, 1),
-            TocEntry("Easy"),
-            TocEntry("Puzzles 1–60", 4),
-            TocEntry(TOC_SOLUTIONS_LABEL, 65),
-        ]
-        line, heading_step = self._steps()
+        generator = BookPDFGenerator(_book("card-205-fix2-one-level"))
+        entries = _structural_shape(("Easy", "Puzzles 1–60", 4), solutions_page=65)
+        line, group_step = self._steps()
 
         tops = self._row_tops(generator, entries, monkeypatch)
 
@@ -876,37 +1062,66 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             f"the single heading must still be set off from the guide row "
             f"above it ({steps[0]} px of white against {steps[1]} px below it)"
         )
-        assert steps == [heading_step, line, line]
+        assert steps[2] > steps[1], (
+            f"and so must the solutions row below the only range row "
+            f"({steps[2]} px against {steps[1]} px)"
+        )
+        assert steps == [group_step, line, group_step] == self._expected(entries)
 
     def test_the_gap_never_pads_the_top_of_a_page(self, monkeypatch) -> None:
-        """A page whose first row is a heading starts where any page does.
+        """A page whose first row opens a group starts where any page does.
 
         The gap separates two groups; above the first row of a page there is
         no group to separate from, and the room it would spend there is
         exactly the room ``_toc_entries_per_page`` reserves for the folio
-        (G-1). The structural list never opens a page with a heading — its
+        (G-1). The structural list never opens a page with such a row — its
         first row is the guide — but ``create_toc_page`` draws what it is
         handed, so the rule is pinned rather than assumed.
-        """
-        generator = BookPDFGenerator(_book("card-205-fix1-top-of-page"))
 
-        heading_first = self._row_tops(generator, [TocEntry("Easy")], monkeypatch)
+        Asserted for **both** kinds of opener since Fix 2: an unnumbered
+        heading and the numbered solutions row, so a suppression written
+        against ``is_heading`` rather than the flag is caught here too.
+        """
+        generator = BookPDFGenerator(_book("card-205-fix2-top-of-page"))
+
         numbered_first = self._row_tops(generator, [TocEntry(GUIDE_TITLE, 1)], monkeypatch)
+        heading_first = self._row_tops(
+            generator, [TocEntry("Easy", None, starts_group=True)], monkeypatch
+        )
+        solutions_first = self._row_tops(
+            generator,
+            [TocEntry(TOC_SOLUTIONS_LABEL, 86, starts_group=True)],
+            monkeypatch,
+        )
 
         assert heading_first == numbered_first, (
             "a heading opening a page must sit on the same first baseline "
             "any other first row does, not a group's gap lower"
         )
+        assert solutions_first == numbered_first, (
+            "and so must the solutions row when it is a page's first — the "
+            "suppression is about the row's position, not its kind"
+        )
 
     def test_the_gaps_leave_the_folio_its_line_on_every_trim_kdp_admits(self) -> None:
-        """Why the capacity figure is left exact rather than made heading-aware.
+        """Why the capacity figure is left exact rather than made group-aware.
 
         ``_toc_entries_per_page`` divides the frame by one *uniform* row
         height and knows nothing of the group gaps (G-2 forbids the
         variable-leading alternative), so the gaps are only safe if the
-        structural list cannot fill a page: eight rows and three gaps, with
-        the folio's own reserved line still clear beneath them, on every
-        height a book can store and lay out.
+        structural list cannot fill a page: eight rows and **four** gaps
+        (three headings and the solutions — Fix 2), with the folio's own
+        reserved line still clear beneath them, on every height a book can
+        store and lay out.
+
+        **This test has already caught the thing it exists for.** At Fix 1's
+        ``TOC_GROUP_GAP_PT`` of 10 pt the fourth gap put the worst case at
+        31 px against the folio's 49 — the page would have gone out
+        unnumbered on the two shortest storable trims — which is why the
+        constant is 8.5 pt and why the worst case is asserted as a *figure*
+        below and not only as an inequality: an inequality is satisfied by
+        1 px of margin just as well as by 10, and the next card to add a row
+        or a gap should be told how much room it is actually spending.
 
         Measured here with this file's **own** font metrics — Pillow asked
         directly for the same two faces/sizes the page sets its title and
@@ -949,12 +1164,14 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         ).getmetrics()
         folio_line = folio_ascent + folio_descent
 
-        # A three-level book's worst case: eight rows, three of them
-        # headings, each heading a group's gap below the row above it.
-        rows, headings = 8, 3
-        needed = title_space + (rows - 1) * line + row + headings * group_gap
+        # A three-level book's worst case: eight rows, four of which open a
+        # group (its three headings and the solutions row), each of those a
+        # group's gap below the row above it.
+        rows, openers = 8, 4
+        needed = title_space + (rows - 1) * line + row + openers * group_gap
 
         measured = 0
+        worst: Optional[Tuple[int, str]] = None
         for tenths in range(100, 801):
             height = f"{tenths / 10:.2f}"
             frame = _toc_frame_for(SimpleNamespace(trim_height_cm=height))
@@ -968,8 +1185,10 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
                 "— the gaps are only safe because it never fills one"
             )
             room = (frame.bottom - frame.top) - needed
+            if worst is None or room < worst[0]:
+                worst = (room, height)
             assert room >= folio_line, (
-                f"on a {height} cm trim the eight rows and their three gaps "
+                f"on a {height} cm trim the eight rows and their four gaps "
                 f"leave {room} px under the last row, and the folio's own "
                 f"line needs {folio_line} px: the group gaps have eaten the "
                 "reservation `_toc_entries_per_page` makes for it (G-1)"
@@ -978,6 +1197,34 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             f"the sweep measured only {measured} laid-out trims — it must "
             "cover the whole band of heights KDP admits"
         )
+        assert worst is not None
+        assert worst[1] == "10.00", (
+            "the tightest trim must be the shortest one a book can store "
+            f"(`MIN_TRIM_CM`), and the sweep found {worst[1]} cm — if that "
+            "is no longer true the frame's own height is not monotone in the "
+            "trim's and this test is measuring the wrong worst case"
+        )
+        if _lettered_as_recorded():
+            # The figure, not just the inequality — see this method's own
+            # docstring. Pinned only on a machine that letters the TOC in
+            # the face it was measured on (the same `font_fingerprint`
+            # gate `tests/test_book_pdf_memory.py` compares pixels under):
+            # `line`/`title_space` above are Arial's metrics, so the exact
+            # px would be a different number on a machine without it, while
+            # the inequality asserted above holds everywhere.
+            assert worst[0] == 59, (
+                f"the worst-case headroom is {worst[0]} px, recorded as 59 "
+                "(CARD-205 Fix 2, 10.00 cm trim: 199 px under eight rows "
+                "less four 35 px gaps). It must not drift towards the "
+                f"folio's {folio_line} px without the move being deliberate "
+                "— at Fix 1's 10 pt constant this figure was 31 and the "
+                "page lost its number"
+            )
+            assert worst[0] - folio_line == 10, (
+                "and the margin the owner chose 8.5 pt for (2026-10-14) "
+                "over the maximal 8.9 pt is 10 px: a fifth gap, or a ninth "
+                "row, has to be measured here rather than assumed"
+            )
 
     def test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place(
         self, monkeypatch
@@ -993,19 +1240,19 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         own line, so a folio-anchored mark either happened or the page went
         out unnumbered.
         """
-        book = _book("card-205-fix1-shortest-trim")
+        book = _book("card-205-fix2-shortest-trim")
         book.trim_height_cm = "10.00"
         generator = BookPDFGenerator(book)
-        entries = [
-            TocEntry(GUIDE_TITLE, 1),
-            TocEntry("Easy"),
-            TocEntry("Puzzles 1–60", 5),
-            TocEntry("Medium"),
-            TocEntry("Puzzles 61–120", 37),
-            TocEntry("Hard"),
-            TocEntry("Puzzles 121–150", 69),
-            TocEntry(TOC_SOLUTIONS_LABEL, 86),
-        ]
+        entries = _structural_shape(
+            ("Easy", "Puzzles 1–60", 5),
+            ("Medium", "Puzzles 61–120", 37),
+            ("Hard", "Puzzles 121–150", 69),
+            solutions_page=86,
+        )
+        assert sum(entry.starts_group for entry in entries) == 4, (
+            "this test's premise: all four gaps are in play, which is the "
+            "load the 10.00 cm trim is the only one that can fail under"
+        )
         frame = page_frame(generator.page_spec(3))
         book1_frame = page_frame(BookPDFGenerator(_book()).page_spec(3))
         assert (frame.bottom - frame.top) < (book1_frame.bottom - book1_frame.top), (
@@ -1036,9 +1283,18 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         )
         font = _guide_face(entry_px)
         ascent, descent = font.getmetrics()
-        assert max(rows) + ascent + descent <= frame.bottom, (
-            "the last row's own ink must stay inside the frame"
-        )
+        headroom = frame.bottom - (max(rows) + ascent + descent)
+        assert headroom >= 0, "the last row's own ink must stay inside the frame"
+        if _lettered_as_recorded():
+            # The same recorded worst case the sweep above asserts, read off
+            # the real drawing instead of off this file's own arithmetic —
+            # two independent routes to one figure (CLAUDE.md's preference
+            # for a second implementation over re-deriving a value).
+            assert headroom == 59, (
+                f"the drawn page leaves {headroom} px under its last row, "
+                "recorded as 59 — the sweep's own worst case, measured here "
+                "through `create_toc_page` rather than computed"
+            )
 
 
 # --------------------------------------------------------------------------

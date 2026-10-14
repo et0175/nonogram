@@ -375,7 +375,7 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   CARD-200 gave it.
 #:
 #:   **Re-recorded in place once, for this same card's Fix 1** (owner
-#:   decision 2026-10-14): ``TOC_GROUP_GAP_PT`` sets 10 pt of extra white
+#:   decision 2026-10-14): ``TOC_GROUP_GAP_PT`` sets extra white
 #:   above each level heading, the blank line the owner's own sample shows
 #:   between the groups — drawn as a fixed addition to the pen's ``y``,
 #:   not as blank ``TocEntry`` rows, so the row count AC-1 pins and
@@ -387,6 +387,26 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   moves from 3491813 to 3504840 (+13027 — three of the eight rows shift
 #:   down the page). The page count is still thirteen: the gaps are white
 #:   inside a TOC that is one page on every trim KDP admits.
+#:
+#:   **And re-recorded in place a second time, for the same card's Fix 2**
+#:   (the owner's second decision of 2026-10-14): ``Solutions`` opens the
+#:   last group and is set off like a heading, so a three-level book now
+#:   takes **four** group gaps rather than three — and four at Fix 1's
+#:   10 pt would have left the shortest storable trim (10.00 cm) 31 px under
+#:   its last row against the 49 the folio needs, un-numbering the one page
+#:   that must carry a number (G-1). ``TOC_GROUP_GAP_PT`` is therefore
+#:   **8.5 pt**, measured as the largest separation every storable trim can
+#:   carry (59 px of headroom at the worst case). Both changes land on the
+#:   same page: the three existing gaps shrink from 42 px to 35 while a
+#:   fourth appears above ``Solutions``, so the list ends 14 px *lower*
+#:   than it did (worst-case headroom 73 px -> 59) and all four of its
+#:   lower rows sit at a new y. ``interior_bytes`` moves from 3504840 to
+#:   **3498430** — down 6410, where Fix 1's own shift moved it up: the
+#:   direction is the JPEG encoder's, not a measure of how much ink the
+#:   page holds, and it is recorded because it is what the file does, not
+#:   because it was predicted. Measured the same way, against Fix 1's own
+#:   recording: page 3 is once more the **only** page that moves, and the
+#:   page count is still thirteen.
 #:
 #:   **This book's page count does not change** (still thirteen): its four
 #:   puzzles already fitted a one-page TOC under the old rule. A *large*
