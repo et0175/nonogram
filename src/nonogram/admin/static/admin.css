@@ -480,10 +480,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
      and the viewport's svh, neither of which zoom changes — so 100% is
      still exactly the fitted size CARD-193 computed. */
   --player-zoom: 1;
+  /* Both gutters (CARD-212): --player-row-gutters / --player-col-gutters are
+     how many clue gutters each axis draws (1, or 2 once a big board repeats
+     its clues on both sides — solver.js sets them per draw). Every width term
+     costs one row band and one thin+heavy rule pair PER row gutter, and the
+     height term one column band per column gutter, so the multipliers are all
+     that the doubled layout changes here. At 1 the three terms are
+     arithmetically what CARD-196 left. */
+  --player-row-gutters: 1;
+  --player-col-gutters: 1;
   --player-cell: calc(clamp(max(var(--player-cell-min), var(--player-col-floor)),
-    min(calc((100cqi - var(--player-rule) - var(--player-rule-major) - var(--player-row-ch) * 0.6 * var(--player-numeral-min)) / var(--player-cols)),
-        calc((100cqi - var(--player-rule) - var(--player-rule-major)) / (var(--player-cols) + var(--player-row-ch) * 0.36)),
-        (100svh - var(--player-chrome-h)) / (var(--player-rows) + var(--player-col-depth) + 1)),
+    min(calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major) + var(--player-row-ch) * 0.6 * var(--player-numeral-min))) / var(--player-cols)),
+        calc((100cqi - var(--player-row-gutters) * (var(--player-rule) + var(--player-rule-major))) / (var(--player-cols) + var(--player-row-gutters) * var(--player-row-ch) * 0.36)),
+        (100svh - var(--player-chrome-h)) / (var(--player-rows) + var(--player-col-gutters) * var(--player-col-depth) + 1)),
     var(--player-cell-max)) * var(--player-zoom));
   border-collapse: separate;
   border-spacing: 0;
@@ -504,27 +513,49 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-cell { width: var(--player-cell); min-width: var(--player-cell); height: var(--player-cell); background: var(--grid-paper); border-right: var(--player-rule) solid var(--player-thin); border-bottom: var(--player-rule) solid var(--player-thin); vertical-align: middle; }
 .player-board .major-right, .player-clue.is-col:last-child, .player-cell:last-child { border-right: var(--player-rule-major) solid var(--grid-ink); }
 .player-board .major-below, .player-board tbody tr:last-child > * { border-bottom: var(--player-rule-major) solid var(--grid-ink); }
-/* Mirrored row clues (CARD-193): boards wider than 15 columns draw their
-   row-clue gutter on the right, on phones only (solver.js sets .is-mirrored
-   on the table — see isMirrored in start()). drawBoard puts each body row's
-   clue box after its cells and the head row's corner after the last column
-   clue, so the two ":last-child" rules above stop matching them (the DOM's
-   last child is now the clue/corner, not a cell or a column-clue box) — the
-   lines they drew (the grid's right frame and the boundary before the
-   row-clue gutter) are redrawn here instead, on the box that is now on that
-   side, so the same lines stay exactly as heavy and nothing else changes
-   weight. .player-corner's and .player-clue.is-row's left/right borders,
-   padding and text alignment are the mirror image of the unmirrored rule
-   above; their top/bottom borders (unaffected by a left-right mirror) are
-   untouched. */
-.player-board.is-mirrored .player-corner { border-right: none; border-left: var(--player-rule-major) solid var(--grid-ink); }
-.player-board.is-mirrored .player-clue.is-row {
+/* A row-clue gutter on the RIGHT of the grid — CARD-193's mirror (boards
+   wider than 15 columns draw their one gutter there, on phones only) and,
+   since CARD-212, the second gutter a big board repeats its row clues into.
+   Both are the same geometry, so both come from one marker: solver.js puts
+   .is-right on the box (and on the corner above it) that sits on that side.
+   No rule in this stylesheet selects .is-mirrored any more — since CARD-212
+   that class is a state marker only ("this is CARD-193's mirrored board"),
+   set by solver.js and read by the tests, so do not key geometry on it.
+   drawBoard puts such a box after its row's cells, and its corner after the
+   last column clue, so the two ":last-child" rules above stop matching them
+   (the DOM's last child is now the clue/corner, not a cell or a column-clue
+   box) — the lines they drew (the grid's right frame and the boundary before
+   the row-clue gutter) are redrawn here instead, on the box that is now on
+   that side, so the same lines stay exactly as heavy and nothing else
+   changes weight. The left/right borders, padding and text alignment are the
+   mirror image of the left-hand rule above; top/bottom borders (unaffected by
+   a left-right mirror) are untouched. */
+.player-board .player-corner.is-right { border-right: none; border-left: var(--player-rule-major) solid var(--grid-ink); }
+.player-board .player-clue.is-row.is-right {
   text-align: left;
   border-left: var(--player-rule-major) solid var(--grid-ink);
   border-right: var(--player-rule) solid var(--player-thin);
   padding-left: 0;
   padding-right: 0.5ch;
 }
+/* A column-clue gutter BELOW the grid (CARD-212): solver.js draws the
+   duplicate as a <tfoot> row, so the grid's own heavy bottom frame (the
+   "tbody tr:last-child > *" rule above) is still the boundary between the
+   cells and this gutter — these boxes must not draw a second heavy line of
+   their own on top of it. What is left is the top gutter's rule reflected
+   top-to-bottom: the numbers sit against the grid (vertical-align: top, the
+   padding below them instead of above), the outer edge away from the grid is
+   the thin one, and the vertical rules between columns are unchanged. The
+   bottom corners carry no bottom border, as the top-left corner carries none
+   on its outer left edge. */
+.player-board tfoot .player-clue.is-col {
+  vertical-align: top;
+  border-top: none;
+  border-bottom: var(--player-rule) solid var(--player-thin);
+  padding-top: 0;
+  padding-bottom: calc(var(--player-cell) * 0.2);
+}
+.player-board tfoot .player-corner { border-bottom: none; }
 .player-cell[data-state="filled"] { background: var(--grid-ink); }
 .player-cell[data-state="empty"]::after { content: ""; display: block; width: 28%; height: 28%; margin: auto; border-radius: 50%; background: var(--color-text-secondary); }
 /* The "?" mark (CARD-186): a glyph 0.6 x the cell side, weight 600, in the
@@ -819,6 +850,15 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 }
 .player-board .player-clue-num { position: relative; }
 .player-board .player-clue.is-row .player-clue-num { height: var(--player-cell); line-height: normal; margin: calc(var(--player-rule-major) / -2) 1.45ch calc(var(--player-rule-major) / -2) 0; }
+/* In a row gutter on the RIGHT of the grid (CARD-193's mirror, CARD-212's
+   duplicate) that 1.45 ch gap is mirrored too: it goes on the number's LEFT.
+   The gap is what gives a ring its room beside the digits, and in a
+   right-hand gutter the number that needs it is the FIRST one — the one
+   against the grid, whose ring otherwise hangs over the board's heavy frame
+   and the cells behind it. Moving the gap rather than adding padding keeps
+   the band exactly as wide as --player-row-ch budgets for: the same numbers
+   and the same gaps, the other way round. */
+.player-board .player-clue.is-row.is-right .player-clue-num { margin-right: 0; margin-left: 1.45ch; }
 .player-board .player-clue-num::before {
   --player-ring: max(var(--player-circle),
     calc(var(--player-clue-digits, 1) * 1ch + 2 * (var(--player-circle-clear) + var(--player-circle-w))));
