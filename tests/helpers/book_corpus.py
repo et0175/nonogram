@@ -440,15 +440,24 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``_guide_face`` move — 1 and 2 (the guide), 3 (the TOC), 4, 6, 8 (the
 #:   level dividers) and 10 (SOLUTIONS) — and the other six are
 #:   byte-identical to CARD-205's digests, measured page by page before the
-#:   file was written. ``interior_bytes`` falls from 3498430 to 3369113.
+#:   file was written. ``interior_bytes`` 3498430 -> 3463959.
 #:   ``font_dependent_pages`` becomes **empty**, and the
 #:   ``font_fingerprint``/``MACHINE_FACE_SIZES`` machinery that went with it
 #:   is removed from this module — see this module's own docstring for the
-#:   measurement that retires it. The file also records the two measured
-#:   consequences that card could not close (the Book 1 guide page 2 drops a
-#:   fallback level over 4 px; the 10.00 cm trim's TOC folio is 2 px short),
-#:   both escalated to the owner with strict ``xfail`` markers rather than
-#:   absorbed.
+#:   measurement that retires it.
+#:
+#:   **Re-recorded in place once, for that card's own fix cycle 1**, after
+#:   the owner ruled (2026-10-14) on the two consequences the packaged
+#:   face's extra width had: the Book 1 guide page 2 had dropped a whole
+#:   fallback level over 4 px of overflow, and the 10.00 cm trim's TOC
+#:   folio was 2 px short. Neither was settled by accepting the loss — the
+#:   guide page drops the difficulty box's three sentences and its rule
+#:   (234 px, so every other line comes back; CARD-229 moves that legend
+#:   into the guide's key strip) and ``TOC_GROUP_GAP_PT`` moves 8.5 -> 8.0
+#:   pt (6 px clear of the folio on every height KDP admits, which is the
+#:   owner's own rule re-measured on this face). Pages 2 and 3 move again
+#:   and nothing else does; both strict ``xfail`` markers that carried the
+#:   blocks are converted back to ordinary passing tests.
 #:
 #: All sixteen files carry the reasoning; this constant names the current one
 #: (sixteen since CARD-221's own recording joined the fifteen CARD-205 had

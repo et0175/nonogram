@@ -20,7 +20,7 @@ rendering it afresh through the same project-wide painters
 :func:`~nonogram.admin.book_pdf_generator.draw_example_line`,
 :func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`,
 :func:`~nonogram.admin.book_pdf_generator._draw_pipeline_diagram`,
-:func:`~nonogram.admin.book_pdf_generator._draw_difficulty_box`) with this
+:func:`~nonogram.admin.book_pdf_generator._draw_difficulty_legend`) with this
 file's own literal, written-out clue/length/fill/caption data and then
 looking for that rendering on the page, and type sizes by measuring glyph
 boxes. Every expected clue, length, filled/crossed cell set and verbatim
@@ -66,17 +66,20 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DifficultyLabel,
     ExampleStep,
+    GUIDE_ASSUME_STEPS,
     GUIDE_TECHNIQUES_2,
     GuidePipelineStep,
-    _draw_difficulty_box,
+    _draw_difficulty_legend,
     _draw_pipeline_diagram,
     _guide_face,
+    _guide_rule_width,
     draw_example_line,
     example_line_layout,
     guide_icon_layout,
     interior_page_count,
     page_frame,
     type_px,
+    wrap_words,
 )
 
 from tests.helpers.book_corpus import corpus_book, export_of, page_digest, puzzle
@@ -112,6 +115,11 @@ BODY_PX = round(11 * BOOK_DPI / POINTS_PER_INCH)
 #: ``DIVIDER_PT``-sized body face); mechanical sizing, not content.
 BODY_PT = 11.0
 LEADING_PT = 17.0
+
+#: The size the guide page letters its body — and the pipeline diagram's own
+#: labels — in, written out rather than imported, so the floor control below
+#: separates the page's real size from the 6 pt stand-in regression.
+GUIDE_BODY_POINTS = 11.0
 
 #: The packaged face the guide page letters in since CARD-221, named the way
 #: :mod:`nonogram.export.pdf` names its own package data and read through
@@ -284,7 +292,8 @@ def type_bands(mask: np.ndarray) -> List[Tuple[int, int]]:
 
     Review cycle 1, F-4 (gating): a plain (unbordered) band with no ruled
     row at all is type, as before. A bordered box (``_draw_pipeline_diagram``'s
-    box borders, ``_draw_difficulty_box``'s box border) draws a border that
+    box borders — and ``_draw_difficulty_box``'s own, until CARD-221 fix 1
+    dropped that rule with the sentences it held) draws a border that
     touches every row of its own bounding area, which used to make
     ``is_ruled`` classify the WHOLE box — border, labels and sentences alike
     — as "ruled", silently dropping its interior text out of CON-020's floor
@@ -651,6 +660,45 @@ def render_icon(spec, filled: bool, crossed: bool) -> Image.Image:
     )
 
 
+def _boxed_difficulty_sentences(
+    spec, labels, measure: int, text_font, text_size: int, leading: int
+) -> Image.Image:
+    """The difficulty box **as it was printed before CARD-221 fix 1**.
+
+    ``_draw_difficulty_box``'s body, transcribed here rather than kept in
+    the module under test: a ``measure``-wide bordered box, one column per
+    label, each holding its name and then its one-sentence gloss wrapped to
+    the column. The module no longer draws this and nothing should bring it
+    back without a decision, so the only honest way to assert that the page
+    does not carry it is to build it here and look for it. A second
+    implementation of a drawing the source has deleted is exactly what
+    CLAUDE.md asks for in place of re-deriving a value with the code under
+    test — and it means the "no sentences on the page" claim fails loudly
+    if the box returns, instead of passing because nobody draws it.
+    """
+    rule = _guide_rule_width(spec)
+    pad = text_size
+    gutter = pad
+    column_w = (measure - 2 * pad - gutter * (len(labels) - 1)) // len(labels)
+    bbox = text_font.getbbox("Mg")
+    name_h = bbox[3] - bbox[1]
+    columns = [[label.name, *wrap_words(label.text, text_font, column_w)] for label in labels]
+    body_lines = max(len(lines) - 1 for lines in columns)
+    height = pad * 2 + name_h + (pad // 2 + body_lines * leading if body_lines else 0)
+    canvas = Image.new("RGB", (measure, height), "white")
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle((0, 0, measure - 1, height - 1), outline="black", width=rule)
+    x = pad
+    for lines in columns:
+        draw.text((x, pad), lines[0], font=text_font, fill="black")
+        y = pad + name_h + pad // 2
+        for line in lines[1:]:
+            draw.text((x, y), line, font=text_font, fill="black")
+            y += leading
+        x += column_w + gutter
+    return canvas
+
+
 def diagram_at(page_mask: np.ndarray, drawn: List[Tuple[int, int]], index: int, template: np.ndarray) -> int:
     """How many times ``template`` occurs inside ``drawn[index]``'s own band."""
     top, bottom = drawn[index]
@@ -964,9 +1012,14 @@ class TestGuidePage_CellStateHeadingsSurviveBareLevel2:
 # --------------------------------------------------------------------------
 
 
-class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
+class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend:
     """AC-3 — page 2 carries the region split, the comparison, the pipeline
-    and the difficulty-label box, its 3 sentences verbatim.
+    and the difficulty legend.
+
+    Named ``...AndDifficultyBox``, "its 3 sentences verbatim", until
+    CARD-221 fix 1: the owner's 2026-10-14 ruling drops those sentences and
+    the rule that boxed them, and the class is renamed rather than left
+    naming a drawing the page no longer makes.
     """
 
     @staticmethod
@@ -988,11 +1041,15 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
     @pytest.fixture(scope="class")
     def drawn(page_mask) -> List[Tuple[int, int]]:
         found = drawn_bands(page_mask)
-        assert len(found) == 12, (
-            f"page 2 draws {len(found)} diagrams, not the 12 this class "
+        assert len(found) == 11, (
+            f"page 2 draws {len(found)} diagrams, not the 11 this class "
             "expects: 2 region-split rows, 4 arrangement-comparison rows, "
-            "the pipeline, the difficulty box and the original 4-step "
-            "worked example (AC-8's own content, recapped here)"
+            "the pipeline and the original 4-step worked example (AC-8's "
+            "own content, recapped here). **12 until CARD-221 fix 1**, when "
+            "the difficulty box still had a rule around it and counted as a "
+            "drawing; its three labels are a line of type now, so they are "
+            "in `type_bands` instead and the four worked-example rows have "
+            "moved up one index"
         )
         return found
 
@@ -1135,46 +1192,36 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
             assert mask[0, left[0] : right[1] + 1].all(), "a box's top border has a gap"
             assert mask[height - 1, left[0] : right[1] + 1].all(), "a box's bottom border has a gap"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "KNOWN, MEASURED AND OWNER-BLOCKED (CARD-221, 2026-10-14). Page 2 "
-            "of the Book 1 trim no longer prints the difficulty box's three "
-            "sentences, nor the worked example's four captions, because it no "
-            "longer draws its captions form at all: the packaged DejaVu Sans "
-            "the interior letters in since CARD-221 is about a tenth wider "
-            "than the Arial this page was fitted against, one of its "
-            "paragraphs therefore wraps into one more line, and the captions "
-            "form's last mark lands at 3192 px against a frame bottom of "
-            "3188. **Four pixels**, and the ladder drops a whole level to the "
-            "labels form (`create_guide_page`'s documented five fallback "
-            "forms, first one that fits). Measured on this branch: the "
-            "captions form ended at 3115 px on Arial and 3119 on Pillow's "
-            "built-in face, so the page printed identically on this Mac and "
-            "on the deployed Linux image before this card and prints the "
-            "shorter form on both after it. The owner decides which they "
-            "want -- the shorter page 2 at Book 1, a sixth fallback level "
-            "between captions and labels (dropping the difficulty "
-            "sentences alone buys 234 px, which fits with room to spare), or "
-            "a narrower packaged face, which is an ADR-0006/R1 question. "
-            "CARD-221's G-1 forbids it from touching the wording, the sizes' "
-            "derivation or the layout, so it records the measurement here. "
-            "NOTE: while this is red, `test_a_wrong_difficulty_sentence_does_"
-            "not_match` below has no teeth -- nothing on the page matches "
-            "either box, right words or wrong. Strict: fixing the page fails "
-            "this test and is the signal to delete this marker."
-        ),
-    )
-    def test_the_difficulty_box_carries_its_three_sentences_verbatim(self, generator, spec, page_mask, drawn):
-        """"verbatim from the source PDF" (AC-3): a changed word changes this
-        rendering (different wrap, different glyphs), so a match here is
-        evidence of the exact wording, not just that a box is drawn.
+    def test_the_difficulty_legend_carries_its_three_labels_and_no_sentences(
+        self, generator, spec, page_mask
+    ):
+        """What page 2 says about the difficulty labels, after CARD-221 fix 1.
+
+        **This test was the xfail that carried that card's first open
+        block.** Until the owner ruled (2026-10-14) it asserted the box's
+        three sentences and was expected to fail: lettering the interior in
+        the packaged face made page 2's captions form 4 px too tall for the
+        Book 1 sheet (3192 px against a frame bottom of 3188), which dropped
+        the whole page a fallback level and cost the reader the worked
+        example's four step explanations and both technique notes as well.
+        The owner's ruling drops the three sentences instead — 234 px bought
+        against a 4 px deficit, so everything else on the page stays — and
+        CARD-229 moves the difficulty legend into the guide's key strip,
+        which is why this block and not another.
+
+        So the claim is now the new fact, in both directions: the three
+        **names** print, as a legend with no rule around it
+        (``_draw_difficulty_legend``, whose own docstring says why the rule
+        went with the sentences), and the bordered sentence box that used to
+        stand here prints **nowhere on the page**. The sentences themselves
+        are still carried by ``GUIDE_DIFFICULTY_LABELS`` for CARD-229 and
+        still shown by the Finalise screen's preview, so "the page does not
+        print them" is a claim that needs asserting rather than assuming.
         """
         frame = page_frame(spec)
         measure = frame.right - frame.left
         body_size = type_px(BODY_PT, generator.dpi)
         text_font = _guide_face(body_size)
-        leading = type_px(LEADING_PT, generator.dpi)
         labels = (
             DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
             DifficultyLabel(
@@ -1183,28 +1230,65 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
             ),
             DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
         )
-        image = _draw_difficulty_box(spec, labels, measure, text_font, body_size, leading, with_text=True)
-        assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 1
+        legend = _draw_difficulty_legend(labels, measure, text_font, body_size)
+        # Searched over the whole page rather than inside one of `drawn`'s
+        # bands: with its rule gone the legend is a line of **type**, so it
+        # is no longer one of the page's diagrams at all (see the `drawn`
+        # fixture's own count). Three words at their own column positions
+        # are a specific enough template for `occurrences`' 0.9 precision
+        # and recall on a page of 11 pt text.
+        assert occurrences(page_mask, diagram_mask(legend)) == 1
 
-    def test_a_wrong_difficulty_sentence_does_not_match(self, generator, spec, page_mask, drawn):
-        """The comparison has teeth: change one word and the match is gone."""
+        # And the other half: the sentences are not on this page at all.
+        # Built here rather than imported — a bordered box, one wrapped
+        # sentence per column, exactly as `_draw_difficulty_box` drew it
+        # until this card — so a page that quietly went back to printing
+        # them fails here.
+        boxed = _boxed_difficulty_sentences(
+            spec, labels, measure, text_font, body_size, type_px(LEADING_PT, generator.dpi)
+        )
+        assert occurrences(page_mask, diagram_mask(boxed)) == 0, (
+            "the bordered box of difficulty sentences is on the page: the "
+            "owner's 2026-10-14 ruling dropped it, and the 4 px the page "
+            "was over by have come back"
+        )
+
+    def test_a_wrong_difficulty_label_does_not_match(self, generator, spec, page_mask):
+        """The comparison has teeth: change one word and the match is gone.
+
+        CARD-221 fix 1 re-aimed this from the sentences to the labels, which
+        is where the verbatim claim lives now — a negative control that
+        outlived its subject would have been deleted in the same commit as
+        the thing it tested, and this one still has one.
+        """
         frame = page_frame(spec)
         measure = frame.right - frame.left
         body_size = type_px(BODY_PT, generator.dpi)
         text_font = _guide_face(body_size)
-        leading = type_px(LEADING_PT, generator.dpi)
         labels = (
             DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
             DifficultyLabel("MEDIUM", "This sentence was never on the page."),
             DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
         )
-        image = _draw_difficulty_box(spec, labels, measure, text_font, body_size, leading, with_text=True)
-        assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 0
+        same = _draw_difficulty_legend(labels, measure, text_font, body_size)
+        assert occurrences(page_mask, diagram_mask(same)) == 1, (
+            "the legend prints names only, so changing a *sentence* must "
+            "not change what is drawn — if this fails the sentences are "
+            "back on the page"
+        )
+
+        wrong = (
+            DifficultyLabel("EASY", labels[0].text),
+            DifficultyLabel("MEDIUM", labels[1].text),
+            DifficultyLabel("HARDER", labels[2].text),
+        )
+        image = _draw_difficulty_legend(wrong, measure, text_font, body_size)
+        assert occurrences(page_mask, diagram_mask(image)) == 0
 
     def test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face(self, spec):
         """Review cycle 1, F-2 (gating): ``_draw_pipeline_diagram`` and
-        ``_draw_difficulty_box`` must not read a size off the face they are
-        handed.
+        ``_draw_difficulty_legend`` must not read a size off the face they
+        are handed.
 
         **What made that a live crash is gone (CARD-221).** ``_guide_face``
         used to be able to return an "unsized" face — no ``.size`` attribute
@@ -1267,11 +1351,10 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
         )
         frame = page_frame(spec)
         measure = frame.right - frame.left
-        leading = type_px(LEADING_PT, BOOK_DPI)
-        box_image = _draw_difficulty_box(
-            spec, labels, measure, sizeless, type_px(BODY_PT, BOOK_DPI), leading, with_text=True
+        legend_image = _draw_difficulty_legend(
+            labels, measure, sizeless, type_px(BODY_PT, BOOK_DPI)
         )
-        assert box_image.size[0] > 0 and box_image.size[1] > 0
+        assert legend_image.size[0] > 0 and legend_image.size[1] > 0
 
 
 # --------------------------------------------------------------------------
@@ -1360,40 +1443,50 @@ class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
         NOT have been caught here, despite that being this test's one
         stated job (F-4's exact finding).
 
-        This builds the difficulty box directly with a deliberately tiny
-        (6pt) label font -- a stand-in for that hypothetical regression,
-        never shipped in production (``GUIDE_DIFFICULTY_LABELS`` and
-        ``GUIDE_BODY_PT`` are untouched) -- and confirms the fixed
-        classifier now (a) still finds type INSIDE the box at all, and (b)
-        correctly measures it below the floor, rather than silently
-        reporting no type to check (the old, gating behaviour).
+        **Re-aimed from the difficulty box to the pipeline diagram by
+        CARD-221 fix 1.** The box this was written against no longer exists:
+        the owner's 2026-10-14 ruling dropped the difficulty sentences and
+        the rule that held them, so the guide's remaining bordered drawing
+        with text inside it is ``_draw_pipeline_diagram``'s four boxes. The
+        control is pointed there rather than retired, because the
+        guarantee it holds is about the **classifier** and the page still
+        draws a thing that can hide type behind a border. Keeping it aimed
+        at a drawing the module had stopped making would have been the
+        quieter failure of the two: a green negative control over a shape
+        nothing prints.
+
+        Both sides, so the instrument is shown to discriminate rather than
+        only to report "below the floor": the same diagram lettered at the
+        6 pt stand-in regression (never shipped —
+        :data:`~nonogram.admin.book_pdf_generator.GUIDE_BODY_PT` is
+        untouched) measures below CON-020's floor, and lettered at the
+        page's own 11 pt it measures above it.
         """
         spec = BookPDFGenerator(six_by_nine_book()).page_spec(2)
-        tiny_size = type_px(6.0, BOOK_DPI)
-        tiny_font = _guide_face(tiny_size)
-        labels = (
-            DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
-            DifficultyLabel(
-                "MEDIUM",
-                "Needs deeper line logic and may need contradiction for part of the grid.",
-            ),
-            DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
-        )
-        frame = page_frame(spec)
-        measure = frame.right - frame.left
-        leading = type_px(LEADING_PT, BOOK_DPI)
-        image = _draw_difficulty_box(spec, labels, measure, tiny_font, tiny_size, leading, with_text=True)
-        mask = dark(image)
-        found = type_bands(mask)
-        assert found, (
-            "the fixed classifier must still find SOME type inside the box "
-            "-- excluding it wholesale is the exact defect F-4 fixed"
-        )
         reference = text_reference()
-        sizes = [cap_height_points(mask, band, reference) for band in found]
-        assert min(sizes) < FLOOR_PT, (
-            f"a box label shrunk to 6pt measured {min(sizes):.2f}pt by this classifier -- "
-            "if that is >= FLOOR_PT the classifier is still missing the box's own text"
+
+        def measured(points: float) -> List[float]:
+            size = type_px(points, BOOK_DPI)
+            image = _draw_pipeline_diagram(spec, GUIDE_ASSUME_STEPS, _guide_face(size), size)
+            mask = dark(image)
+            found = type_bands(mask)
+            assert found, (
+                "the fixed classifier must still find SOME type inside the "
+                "bordered boxes -- excluding them wholesale is the exact "
+                "defect F-4 fixed"
+            )
+            return [cap_height_points(mask, band, reference) for band in found]
+
+        assert min(measured(6.0)) < FLOOR_PT, (
+            f"a box label shrunk to 6pt measured {min(measured(6.0)):.2f}pt by "
+            "this classifier -- if that is >= FLOOR_PT the classifier is "
+            "still missing the box's own text"
+        )
+        assert min(measured(GUIDE_BODY_POINTS)) >= FLOOR_PT, (
+            "and at the size the page really letters these labels in, the "
+            f"same classifier measures {min(measured(GUIDE_BODY_POINTS)):.2f}pt "
+            "-- a control that called every size too small would prove "
+            "nothing about the one that is"
         )
 
 

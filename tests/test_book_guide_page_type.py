@@ -52,7 +52,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, guide_icon_layout, page_frame
+from nonogram.admin.book_pdf_generator import (
+    GUIDE_DIFFICULTY_LABELS,
+    BookPDFGenerator,
+    _draw_difficulty_legend,
+    _guide_face,
+    guide_icon_layout,
+    page_frame,
+)
 
 from tests.helpers.book_corpus import corpus_book
 
@@ -255,15 +262,42 @@ def ink_box(page: Image.Image) -> Tuple[int, int, int, int]:
 def band_ink_extent(page: Image.Image, top: int, bottom: int) -> Tuple[int, int]:
     """The leftmost and rightmost inked column inside rows ``top..bottom``.
 
-    CARD-201 review cycle 2, F-11: for a bordered diagram (the pipeline,
-    the difficulty box) the border is the widest ink in its own band, so
-    this is the diagram's own left/right edge -- no label, sentence or icon
-    inside either diagram is ever drawn past its own border.
+    CARD-201 review cycle 2, F-11: for a bordered diagram (the pipeline —
+    and the difficulty box, until CARD-221 fix 1 dropped its rule) the
+    border is the widest ink in its own band, so this is the diagram's own
+    left/right edge: no label, sentence or icon inside either diagram is
+    ever drawn past its own border. For the unruled difficulty legend that
+    replaced the box it is the first and last **glyph** of the row, which
+    is what :func:`legend_ink_extent` compares against.
     """
     dark = np.asarray(page.convert("L")) < INK_THRESHOLD
     columns = np.flatnonzero(dark[top : bottom + 1].any(axis=0))
     assert columns.size, f"rows {top}..{bottom} carry no ink"
     return int(columns[0]), int(columns[-1])
+
+
+def legend_ink_extent(generator: BookPDFGenerator, frame) -> Tuple[int, int]:
+    """Where the difficulty legend's own ink must start and end on the page.
+
+    The legend is still an *image*, pasted with ``needs_pad=False`` exactly
+    as the bordered box was (CARD-221 fix 1 dropped the rule, not the
+    paste), so F-11's claim — a no-bleed image lands at ``frame.left``, not
+    one heavy rule to the left of it — still has it as a subject. What
+    changed is how it is found: with no border its band is a line of
+    **type**, not one of ``diagram_bands``, and its own ink runs from the
+    first glyph of "EASY" to the last of "HARD" rather than from border to
+    border.
+
+    Returns the ``(left, right)`` the page must show, by building the same
+    legend the page builds and measuring its own canvas.
+    """
+    measure = frame.right - frame.left
+    size = book_pdf_generator.type_px(BODY_PT, generator.dpi)
+    legend = _draw_difficulty_legend(
+        GUIDE_DIFFICULTY_LABELS, measure, _guide_face(size), size
+    )
+    left, right = band_ink_extent(legend, 0, legend.height - 1)
+    return frame.left + left, frame.left + right
 
 
 def probe_box(text: str, size_px: int) -> Tuple[int, int]:
@@ -751,36 +785,78 @@ class TestGuidePage_TextFitsTheUsableFrame:
         type_set = set(type_bands(page))
         return [band for band in ink_bands(page) if band not in type_set]
 
-    def test_page_two_pipeline_and_difficulty_box_align_at_book1(self, book1_generator):
-        """Book 1, the full fallback form (small counts): page 2 draws all
-        12 diagrams (2 region-split rows, 4 arrangement-comparison rows,
-        the pipeline, the difficulty box, the 4-step worked-example recap,
-        in that order -- pinned the same way
-        ``tests/test_book_guide_page.py``'s own AC-3 ``drawn`` fixture
-        already does). The pipeline (index 6) and the difficulty box
-        (index 7) must each start exactly at ``frame.left`` -- review cycle
-        2's F-11 found both shifted one heavy-rule width left of it -- and
-        neither may cross ``frame.right``.
+    def test_page_two_pipeline_and_difficulty_legend_align_at_book1(self, book1_generator):
+        """Book 1, the full fallback form (small counts): page 2 draws 11
+        diagrams (2 region-split rows, 4 arrangement-comparison rows, the
+        pipeline, the 4-step worked-example recap, in that order -- pinned
+        the same way ``tests/test_book_guide_page.py``'s own AC-3 ``drawn``
+        fixture already does). The pipeline (index 6) must start exactly at
+        ``frame.left`` -- review cycle 2's F-11 found it shifted one
+        heavy-rule width left of it -- and may not cross ``frame.right``.
+
+        **12 diagrams, and the difficulty box at index 7, until CARD-221
+        fix 1.** The owner's ruling dropped that box's three sentences, and
+        this card dropped the rule with them, so the three labels are now a
+        line of type rather than a drawing: they are not in
+        ``diagram_bands`` at all, and the worked-example recap moved up one
+        index. The legend is still an image pasted with ``needs_pad=False``,
+        so F-11's claim still covers it — it is checked below through its
+        own ink (:func:`legend_ink_extent`) instead of through a band index.
         """
         frame = page_frame(book1_generator.page_spec(2))
         page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
         bands = self.diagram_bands(page)
-        assert len(bands) == 12, (
+        assert len(bands) == 11, (
             f"page 2 draws {len(bands)} diagrams at Book 1's full fallback form, "
-            "not the 12 this test expects -- re-check which index the pipeline "
-            "and the difficulty box fall at before trusting indices 6 and 7 below"
+            "not the 11 this test expects -- re-check which index the pipeline "
+            "falls at before trusting index 6 below"
         )
-        for name, index in (("pipeline", 6), ("difficulty box", 7)):
-            top, bottom = bands[index]
-            left, right = band_ink_extent(page, top, bottom)
-            assert left == frame.left, (
-                f"the {name} starts at x={left}, not frame.left={frame.left} "
-                "(review cycle 2, F-11: a diagram with no bleed margin of its "
-                "own must not be pasted `pad` to the left of it)"
-            )
-            assert right <= frame.right, (
-                f"the {name} reaches x={right}, past frame.right={frame.right}"
-            )
+        top, bottom = bands[6]
+        left, right = band_ink_extent(page, top, bottom)
+        assert left == frame.left, (
+            f"the pipeline starts at x={left}, not frame.left={frame.left} "
+            "(review cycle 2, F-11: a diagram with no bleed margin of its "
+            "own must not be pasted `pad` to the left of it)"
+        )
+        assert right <= frame.right, (
+            f"the pipeline reaches x={right}, past frame.right={frame.right}"
+        )
+        self.assert_legend_is_flush(book1_generator, page, frame)
+
+    @staticmethod
+    def assert_legend_is_flush(generator, page: Image.Image, frame) -> None:
+        """The difficulty legend's row sits exactly where its paste put it.
+
+        Exactly one line of type on the page has the legend's own ink
+        extent, and that extent starts at ``frame.left`` — the same F-11
+        claim the pipeline's band carries, measured on an unruled image
+        whose band is type. "Exactly one" is what keeps it honest: a legend
+        pasted a heavy rule to the left (F-11's defect) matches no band at
+        all, and the count says so instead of a lenient ``any``.
+        """
+        expected = legend_ink_extent(generator, frame)
+        bearing = expected[0] - frame.left
+        size = book_pdf_generator.type_px(BODY_PT, generator.dpi)
+        assert 0 <= bearing < size // 4, (
+            "this check's own premise: the legend's first column is drawn "
+            "flush at its canvas's left edge, so its ink may only begin one "
+            f"glyph's left side bearing inside it — {bearing} px of a "
+            f"{size} px em is not that (measured: 5 px for the \"E\" of "
+            "EASY at Book 1's 46 px body). A larger offset means the legend "
+            "is being drawn with a margin of its own again, which is the "
+            "indent CARD-221 fix 1 removed with the box's rule"
+        )
+        matches = [
+            band
+            for band in type_bands(page)
+            if band_ink_extent(page, *band) == expected
+        ]
+        assert len(matches) == 1, (
+            f"{len(matches)} lines of type on page 2 run from {expected[0]} "
+            f"to {expected[1]} — the difficulty legend must be exactly one "
+            "of them (F-11: an image with no bleed margin of its own must "
+            "not be pasted `pad` to the left of frame.left)"
+        )
 
     @pytest.mark.parametrize(
         ("width_cm", "height_cm", "book_id"),
@@ -790,45 +866,41 @@ class TestGuidePage_TextFitsTheUsableFrame:
         ],
         ids=["6x9", "10cm-wide"],
     )
-    def test_page_two_difficulty_box_aligns_at_narrower_trims(self, width_cm, height_cm, book_id):
+    def test_page_two_difficulty_legend_aligns_at_narrower_trims(self, width_cm, height_cm, book_id):
         """6x9 and the 10 cm minimum trim both fall back far enough (bare
         fallback level 1, measured) that page 2 drops the pipeline diagram
-        and the worked-example recap, but the difficulty box is drawn
-        unconditionally at every fallback level -- so it is always the
-        LAST of the 3 diagram bands left on the page at these trims (2
-        single-row techniques + the box; the pipeline's absence is itself
-        covered by ``test_page_two_pipeline_and_difficulty_box_align_at_book1``,
-        the one stored trim where it survives).
+        and the worked-example recap, but the difficulty legend is drawn
+        unconditionally at every fallback level -- so at these trims it is
+        the only mark left on the page that F-11's claim covers (the 2
+        single-row technique diagrams that survive beside it are line
+        diagrams, which have a bleed margin of their own and *are* pasted a
+        heavy rule to the left by design).
+
+        **It was the difficulty box, and the last of 3 diagram bands, until
+        CARD-221 fix 1**: with its rule gone it is a line of type, so it is
+        found by its own ink rather than by a band index, and its right
+        edge is the last glyph of "HARD" rather than a border at
+        ``frame.right - 1``.
         """
         generator = BookPDFGenerator(book_on(width_cm, height_cm, book_id))
         frame = page_frame(generator.page_spec(2))
         page = generator.create_guide_page(4, 2, 1, 1, page_number=2)
         bands = self.diagram_bands(page)
-        assert len(bands) == 3, (
+        assert len(bands) == 2, (
             f"page 2 draws {len(bands)} diagrams at this trim's fallback form, "
-            "not the 3 this test expects (2 single-row techniques + the "
-            "difficulty box) -- re-check the fallback level before trusting "
-            "'last band is the difficulty box' below"
+            "not the 2 this test expects (the single-row techniques; the "
+            "difficulty legend is type, not a diagram, since CARD-221 fix 1) "
+            "-- re-check the fallback level before trusting the measurement "
+            "below"
         )
-        top, bottom = bands[-1]
-        left, right = band_ink_extent(page, top, bottom)
-        measure = frame.right - frame.left
-        assert left == frame.left, (
-            f"the difficulty box starts at x={left}, not frame.left={frame.left} "
-            "(review cycle 2, F-11)"
-        )
-        assert right == frame.right - 1, (
-            f"the difficulty box's own canvas is exactly `measure` ({measure}) px "
-            f"wide, so pasted unshifted at frame.left its right edge must land "
-            f"at frame.right - 1 ({frame.right - 1}); it is at x={right}"
-        )
+        self.assert_legend_is_flush(generator, page, frame)
 
     def test_a_diagram_shifted_left_by_pad_is_not_at_frame_left(self, book1_generator):
         """Negative control for the two tests above: proves
         ``band_ink_extent`` -- the measurement they rely on -- really is
         sensitive to exactly the shift review cycle 2's F-11 found.
 
-        Takes the real difficulty box as this book actually draws it,
+        Takes the real pipeline diagram as this book actually draws it,
         crops it out of the rendered page by its own measured ink, and
         re-pastes that same crop ``pad`` pixels further left than the page
         actually put it (the old, uniform paste the bug applied to every
@@ -842,8 +914,10 @@ class TestGuidePage_TextFitsTheUsableFrame:
 
         page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
         bands = self.diagram_bands(page)
-        assert len(bands) == 12
-        top, bottom = bands[7]  # the difficulty box, pinned above
+        assert len(bands) == 11
+        top, bottom = bands[6]  # the pipeline, pinned above — the difficulty
+        # box was index 7 until CARD-221 fix 1 left the page with no second
+        # no-bleed *diagram* to shift (its legend is a line of type now).
         left, right = band_ink_extent(page, top, bottom)
         assert left == frame.left, "sanity check: the real page is correctly aligned before this control shifts it"
 
@@ -855,8 +929,8 @@ class TestGuidePage_TextFitsTheUsableFrame:
         assert bugged_left != frame.left, (
             "a diagram pasted `pad` pixels left of its correct position must NOT "
             "measure as still being at frame.left -- if it does, "
-            "test_page_two_pipeline_and_difficulty_box_align_at_book1 and "
-            "test_page_two_difficulty_box_aligns_at_narrower_trims have no teeth"
+            "test_page_two_pipeline_and_difficulty_legend_align_at_book1 and "
+            "test_page_two_difficulty_legend_aligns_at_narrower_trims have no teeth"
         )
 
     # ----------------------------------------------------------------------

@@ -69,6 +69,7 @@ from nonogram.admin.book_pdf_generator import (
     DividerPagePlan,
     PuzzlePagePlan,
     TocEntry,
+    _band_font,
     _guide_face,
     default_toc_frame,
     interior_page_count,
@@ -1310,69 +1311,48 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             "is no longer true the frame's own height is not monotone in the "
             "trim's and this test is measuring the wrong worst case"
         )
-        # Every trim but the shortest storable one clears the folio's line,
-        # and the one that does not is 2 px short — the figures, not merely
-        # the inequality, because an inequality is satisfied by 1 px of
-        # margin as well as by 10 and the next card to add a row or a gap
-        # should be told what it is spending. Ungated since CARD-221: these
-        # are the packaged face's metrics, which every host now letters in.
-        assert [height for height, _ in short] == ["10.00"], (
-            "the shortest storable trim is the one height whose folio the "
-            f"shipped gap does not leave room for, and the sweep found {short} "
-            "— a second height means the gaps have eaten the reservation "
-            "`_toc_entries_per_page` makes for the folio (G-1) somewhere new"
+        # Every trim clears the folio's line — the figures, not merely the
+        # inequality, because an inequality is satisfied by 1 px of margin
+        # as well as by 6 and the next card to add a row or a gap should be
+        # told what it is spending. Ungated since CARD-221: these are the
+        # packaged face's metrics, which every host now letters in.
+        assert short == [], (
+            f"these trims leave the folio less than its own {folio_line} px "
+            f"line: {short}. The group gaps have eaten the reservation "
+            "`_toc_entries_per_page` makes for it (G-1) — at the 8.5 pt this "
+            "constant carried into CARD-221, on this face, that list was "
+            "exactly [('10.00', 47)] and the owner moved the gap to 8.0 to "
+            "empty it"
         )
-        assert worst[0] == 47, (
-            f"the worst-case headroom is {worst[0]} px, recorded as 47 "
-            "(CARD-221, 10.00 cm trim on the packaged face: 187 px under "
-            "eight rows less four 35 px gaps; it was 59 px on Arial, the "
-            "host face the interior letterd in until that card). It must "
-            f"not drift further below the folio's {folio_line} px without "
-            "the move being deliberate"
+        assert worst[0] == 55, (
+            f"the worst-case headroom is {worst[0]} px, recorded as 55 "
+            "(CARD-221 fix 1, 10.00 cm trim on the packaged face: 187 px "
+            "under eight rows less four 33 px gaps; it was 47 px at 8.5 pt, "
+            "2 px inside the folio's own line, and 59 px on the Arial those "
+            "8.5 pt were chosen against). It must not drift towards the "
+            f"folio's {folio_line} px without the move being deliberate"
         )
-        assert folio_line - worst[0] == 2, (
-            "and the deficit is 2 px: what the owner's 8.5 pt costs the "
-            "10.00 cm trim's page number on the deterministic face. 8.2 pt "
-            "is the largest gap that fits it, 8.0 pt restores a 6 px margin "
-            "— CARD-221's G-6 forbids that change and records this figure "
-            "for the owner instead"
+        assert worst[0] - folio_line == 6, (
+            "and the margin the owner chose 8.0 pt for (2026-10-14) over "
+            "the maximal 8.2 pt is 6 px: a fifth gap, or a ninth row, has "
+            "to be measured here rather than assumed"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "KNOWN, MEASURED AND OWNER-BLOCKED (CARD-221, 2026-10-14). On the "
-            "packaged face every interior page is now lettered in — which is "
-            "what makes a book's page count, and therefore its printed KDP "
-            "gutter, the same on this Mac and on the deployed Linux image — a "
-            "TOC row is 49 px tall against Arial's 48 and the title's line 258 "
-            "px against 254. At the 10.00 cm minimum storable trim the "
-            "structural list's eight rows and four 8.5 pt gaps therefore leave "
-            "47 px where `_draw_folio` needs 49, and that page prints "
-            "unnumbered: 2 px short, on the one shortest height of the 381 "
-            "this sweep measures (10.10 cm clears it at 58 px). Before "
-            "CARD-221 the same claim was red on any host without Arial, at 27 "
-            "px, and green here only because this Mac has Arial -- so the "
-            "defect is not new, it is now the same everywhere, which is the "
-            "point of that card. What closes it is TOC_GROUP_GAP_PT: 8.2 pt "
-            "(34 px) is the largest gap this face fits, 8.0 pt (33 px) leaves "
-            "the 6 px margin the owner's own rule would ask for. That "
-            "constant is an owner decision (2026-10-14) and CARD-221's G-6 "
-            "puts it out of scope, so this marker records the one claim the "
-            "card cannot close rather than letting it disappear. Strict: the "
-            "moment the gap moves (or a narrower face ships) this test passes "
-            "and pytest fails it, which is the signal to delete this marker."
-        ),
-    )
     def test_the_shortest_storable_trim_leaves_its_folio_a_line_too(self) -> None:
-        """The claim the sweep above excludes 10.00 cm from, on its own.
+        """The sweep's worst case, on its own, as its own arithmetic.
 
-        Split out of that sweep by CARD-221 rather than gated inside it: the
-        sweep keeps every assertion that holds (one page on all 381 heights,
-        the worst case is the shortest trim, 380 of 381 clear the folio's
-        line, and the two exact figures), and this holds the one that does
-        not, so a regression anywhere else in the sweep still reds the suite
-        instead of being absorbed by this expected failure.
+        **This test was an expected failure for one cycle.** CARD-221 split
+        it out of the sweep above when lettering the interior in the
+        packaged face left the 10.00 cm trim 47 px where the folio needs 49
+        — 2 px short, at the shipped 8.5 pt — so that the sweep could keep
+        asserting everything that still held (one page on all 381 heights,
+        the worst case is the shortest trim, the exact figures) while this
+        one carried the single claim that did not, strictly, where it could
+        not be forgotten. The owner moved ``TOC_GROUP_GAP_PT`` to 8.0 pt
+        (2026-10-14) and it passes with 6 px to spare; it is kept, rather
+        than folded back into the sweep, because the worst case is worth
+        one test of its own and because the next face or row that costs 6 px
+        should fail *here*, by name.
         """
         from importlib import resources
         from io import BytesIO
@@ -1412,24 +1392,6 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             f"{folio_ascent + folio_descent} px"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "KNOWN, MEASURED AND OWNER-BLOCKED (CARD-221, 2026-10-14) — the "
-            "rendered half of the arithmetic this class's "
-            "`test_the_shortest_storable_trim_leaves_its_folio_a_line_too` "
-            "carries, whose own marker states the measurement in full. On the "
-            "packaged face the 10.00 cm trim's structural TOC leaves 47 px "
-            "under its last row where `_draw_folio` needs 49, so this page "
-            "really does go out unnumbered and `folios` below is drawn empty. "
-            "The 10.10 cm trim -- the next height a book can store, and the "
-            "tightest one the shipped gap still numbers -- is rendered and "
-            "asserted by the test that follows this one, so the drawing-level "
-            "guard is not lost while this claim is blocked. Strict: it fails "
-            "the moment TOC_GROUP_GAP_PT moves below 8.2 pt and the page is "
-            "numbered again."
-        ),
-    )
     def test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place(
         self, monkeypatch
     ) -> None:
@@ -1443,6 +1405,15 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         drawing when the content it is told about leaves no room for its
         own line, so a folio-anchored mark either happened or the page went
         out unnumbered.
+
+        **This test was an expected failure for one cycle** — the rendered
+        half of the 2 px CARD-221 measured at the shipped 8.5 pt, where this
+        page really did go out unnumbered and ``folios`` below was drawn
+        empty. The owner's move to 8.0 pt (2026-10-14) numbers it again,
+        with the 55 px the sweep records. The 10.10 cm test that follows
+        was added beside it while this one was red, so that the
+        drawing-level guard still had a trim it could hold; it is kept, and
+        the two now pin the two tightest storable heights.
         """
         book = _book("card-205-fix2-shortest-trim")
         book.trim_height_cm = "10.00"
@@ -1498,18 +1469,17 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
     def test_the_shortest_trim_the_shipped_gap_numbers_prints_its_folio(
         self, monkeypatch
     ) -> None:
-        """The rendered guard, on the tightest trim that can still pass it.
+        """The rendered guard, on the second-tightest storable trim.
 
-        10.10 cm: the next height a book can store above
-        ``MIN_TRIM_CM``, and — on the packaged face every interior page is
-        lettered in since CARD-221 — the tightest one whose structural TOC
-        still leaves the folio its own line (58 px against the 49 it needs,
-        where 10.00 cm leaves 47). Added by that card so that the omission
-        ``_toc_entries_per_page``'s reservation exists to prevent is still
-        caught *on a drawn page* while the 10.00 cm claim above is blocked
-        on the owner's own ``TOC_GROUP_GAP_PT``: without this, the
+        10.10 cm: the next height a book can store above ``MIN_TRIM_CM``.
+        Added by CARD-221 while the 10.00 cm test above was an expected
+        failure — at the then-shipped 8.5 pt that page lost its folio and
+        this one kept it (58 px against 47), so without this the
         drawing-level half of the guard would have gone from green to
-        expected-failure with nothing left asserting it.
+        expected-failure with nothing left asserting it. The owner's move to
+        8.0 pt numbers both, and both are kept: these are the two heights
+        where a face or a row that costs a few pixels shows up first, and
+        the pair pins 66 px here against 55 px there.
         """
         book = _book("card-221-tightest-numbered-trim")
         book.trim_height_cm = "10.10"
@@ -1555,9 +1525,9 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         )
         ascent, descent = _guide_face(entry_px).getmetrics()
         headroom = frame.bottom - (max(rows) + ascent + descent)
-        assert headroom == 58, (
+        assert headroom == 66, (
             f"the drawn page leaves {headroom} px under its last row, "
-            "recorded as 58 — 11 px more than the 10.00 cm trim's 47, which "
+            "recorded as 66 — 11 px more than the 10.00 cm trim's 55, which "
             "is the 0.10 cm of extra height"
         )
 
@@ -1582,11 +1552,11 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         shortest_headroom = shortest_frame.bottom - (
             max(shortest_rows) + ascent + descent
         )
-        assert shortest_headroom == 47, (
+        assert shortest_headroom == 55, (
             f"the 10.00 cm trim's drawn page leaves {shortest_headroom} px "
-            "under its last row, recorded as 47 — the sweep's own worst "
+            "under its last row, recorded as 55 — the sweep's own worst "
             "case, measured here through `create_toc_page` rather than "
-            f"computed, and 2 px short of the {sum(_guide_face(entry_px).getmetrics())} "
+            f"computed, and 6 px clear of the {sum(_band_font(entry_px).getmetrics())} "
             "px the folio's line needs"
         )
 
