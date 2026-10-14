@@ -673,7 +673,66 @@ If the conversion is not unique:
 - A conversion that is unique but **outside the requested tier** is not nudged; the run is
   abandoned immediately (`orchestrator._image_tier_reason`).
 
-### 8.5 What is never retried
+### 8.5 Reveal given cells (CARD-214) — opt-in, every mode, last
+
+The only recovery that does **not** change the picture. Off unless the request asks for it
+(`orchestrator.GenerationRequest.reveal_given_cells`); no adapter sets it yet, and
+`orchestrator.generate_batch` never does (single-puzzle only, the owner's call).
+
+It runs **after** the mode's own recovery has exhausted its own bound — after all 30 redraws and
+repairs, or after all 5 nudges — so a puzzle that can be had with nothing given away still is.
+Then:
+
+- the grid it offers is the run's **first** sourced candidate (the image-mode conversion, or the
+  first random/library draw), kept aside at the draw and never a repaired or nudged derivative;
+- `solver.choose_givens` returns the cells to reveal: solve, and while the count is `MANY`, reveal
+  the first cell by `(row, column)` on which the two **witnesses disagree** — the same region and
+  the same deterministic rule ADR-0024/R4 fixes for the repair pair, and for the same reason (a
+  seed must replay) — to the value the grid itself holds, then solve again;
+- each reveal strictly decreases the undecided count, and one of the two disagreeing witnesses
+  always survives whichever value is revealed, so the loop advances toward 1 and can never reach 0;
+- the cap is `orchestrator.given_cells_cap` = `orchestrator.MAX_GIVEN_CELL_SHARE_PERCENT` (**5**)
+  percent of the grid's cells, floored: 5 at 10x10, 20 at 20x20, 45 at 30x30. Past it,
+  `errors.GivenCellsCapExceeded` (a `GenerationAbandoned`, so the CLI's existing exit-code group
+  covers it with no new row) and the picture is still unaltered;
+- the accepted puzzle goes through the same `judge_candidate` as every other candidate, now with
+  the givens passed to `solver.solve` — a **fresh seeded solve**, so uniqueness is never inferred
+  from the fact that cells were revealed (ADR-0024/R1's rule, applied to a new remedy). The
+  assignment is recorded on `orchestrator.Puzzle.givens`;
+- the policy advances **no** counter: it sources no grid and judges no new candidate, so INV-003's
+  bounds are untouched and unraised. Its solves share the request's one ADR-0011 deadline, which
+  is why `SolverTimeout` can come out of it and is not retried (§8.6);
+- a **missed tier** is never rescued, by either of the two routes into it. A run abandoned because
+  its candidate was unique but out of tier has nothing to reveal (the chooser returns no cells, so
+  the abandonment stands); and a candidate that *was* revealed is handed back only if it lands in
+  the requested tier — the policy's last line — because revealing cells is a uniqueness remedy, and
+  accepting an out-of-tier puzzle through it would silently widen what `--difficulty` means. The
+  second route is the one that matters in random/library mode, where nothing downstream re-checks
+  the tier (tests: `test_the_reveal_policy_does_not_rescue_a_missed_difficulty_tier` for the gate,
+  `test_an_already_unique_tier_miss_never_reaches_the_reveal_policy` for the other);
+- the accepted puzzle is **graded off that seeded solve**, like every other candidate (ADR-0029/R2:
+  one derivation from the one verifying solve). Its given cells count as line logic and carry no
+  rung tag, so a revealed puzzle grades easier than the same picture without its givens — which is
+  what it is. No pre-CARD-214 grade moved, and nothing re-solves to re-grade (§7).
+
+`solver.solve`'s `givens` is a grid-shaped `list[list[bool | None]]` seeded into the board with
+`solver.propagate.Board.assign` before the first propagation round — the same operation a branch
+uses — so every rung, the search and the CON-005 re-encode backstop read a given exactly as they
+read a deduction. With `givens=None` (every pre-CARD-214 call) the board is the blank one it always
+was. A given that contradicts the clues makes the count **0**, not an exception.
+
+Not yet done, and deliberately: rendering the givens in an export (CARD-215) and persisting them or
+showing them in the player (CARD-216). ADR-0024 does not yet name this policy — the ADR delta is
+recorded on CARD-214 rather than taken here.
+
+One trap for whoever does persist them, named here with its exact addresses (review F-6). A revealed
+puzzle's `solution_count` is 1 **given its givens**; its clues alone are ambiguous. The two
+production re-solves of a *stored* grid — `admin.regrade.grade_stored_grid` and
+`admin.puzzle_review.PuzzleReviewService.audit_uniqueness` — pass no `givens` today, which is
+correct while nothing persists them, and would correctly report `MANY` for a revealed puzzle the
+moment something does. The same goes for the player's JS solver.
+
+### 8.6 What is never retried
 
 `SolverTimeout`, `SizeOutOfRange`, `InvalidDensity`, `UnknownLibraryImage`, `UnreadableImage`,
 `ImageNeedsManualCrop`, `InvalidPuzzleName`, `UnsupportedDifficulty` all propagate out of the
@@ -845,3 +904,5 @@ ADR-0031, keyed on `branch_nodes`, and is now reported as a strategy instead). C
 | 2026-09-15 | CARD-093 | §9.1 batch hand-off and early-stop status; finding 9 closed | everything else |
 | 2026-09-15 | CARD-094 | finding 10 closed | everything else |
 | 2026-09-15 | CARD-095 | §9.2 image-batch clock | everything else |
+| 2026-10-13 | CARD-214 | §8.5 added (the reveal-given-cells policy and `solver.solve`'s seeded count); the old §8.5 renumbered §8.6, its content unchanged | everything else — §8's counter table is still complete, because the new policy advances no counter |
+| 2026-10-13 | CARD-214 fix 1 (review F-1/F-3/F-6) | §8.5: the missed-tier bullet now states **both** routes (nothing to reveal vs. the revealed candidate failing the tier gate) and names their tests; a bullet added for the seeded grade (a revealed puzzle grades easier, ADR-0029/R2); the CARD-216 re-solve trap given its two exact call sites | everything else — no behaviour changed in this cycle, only tests and prose |

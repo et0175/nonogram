@@ -8,10 +8,20 @@ candidate grid it generates.
 
 Public surface (this is the whole API; everything else is internal)
 -------------------------------------------------------------------
-``solve(row_clues, column_clues, *, deadline=None)``  ->  :class:`SolveResult`
+``solve(row_clues, column_clues, *, givens=None, deadline=None)``
+                                    ->  :class:`SolveResult`
 ``SolveResult``                     the count, the witnesses, the first fixed
                                     point's undecided mask, the per-cell rung
                                     tags and the signals
+``choose_givens(grid, row_clues, column_clues, *, cap, deadline=None)``
+                                    ->  :data:`Givens`: which cells to reveal
+                                    so that the clues have exactly one
+                                    solution, or
+                                    :class:`~nonogram.errors.GivenCellsCapExceeded`
+``revealed_cells(givens)``          the revealed cells of a :data:`Givens` as
+                                    ``(row, column, value)`` triples
+``Givens``                          ``list[list[bool | None]]`` — a grid-shaped
+                                    partial assignment
 ``SolveSignals``                    FR-009's raw difficulty inputs, plus
                                     ADR-0029's per-rung cell counts and the
                                     ordered list of rungs the solve used
@@ -31,9 +41,21 @@ every branch node. Past it, :func:`solve` raises
 timed-out solve has no answer, and INV-002 keeps the puzzle unexportable.
 Omitting it (the default) runs to completion, however long that takes.
 
+``givens`` is CARD-214's *seeded* count: a grid-shaped partial assignment
+(``True`` filled, ``False`` empty, ``None`` unknown) seeded into the board
+before the first propagation round, so ``solution_count`` becomes "solutions
+consistent with the clues **and** these known cells". It is how a picture that
+is not uniquely solvable can be made into a puzzle without changing a single
+cell of it — the orchestrator's reveal policy asks :func:`choose_givens` which
+cells, then re-verifies the answer with a fresh seeded :func:`solve`, because
+uniqueness is never inferred from the fact that cells were revealed (the rule
+ADR-0024/R1 makes for repairs). Omitting it (the default) is the question this
+package has always answered, with byte-identical verdicts.
+
 Boundary types only, at the edge (ADR-0012, guardrail G-3). Clues arrive as
-CARD-002's ``tuple[tuple[int, ...], ...]`` and a solution leaves as
-``list[list[bool]]``. The int-bitmask-per-line representation the search
+CARD-002's ``tuple[tuple[int, ...], ...]``, a solution leaves as
+``list[list[bool]]`` and a partial assignment crosses in and out as
+``list[list[bool | None]]``. The int-bitmask-per-line representation the search
 actually runs on lives in :mod:`nonogram.solver.propagate` and never crosses
 this line, in either direction — ADR-0012's "Neutral" consequence asks that
 clue tuples and grid bitmasks stay separate representations, and keeping the
@@ -66,7 +88,16 @@ from nonogram.solver.propagate import (
     RUNG_SIMPLE_OVERLAP,
     STRATEGY_GUESS,
 )
-from nonogram.solver.search import MANY, RungTags, SolveResult, SolveSignals, solve
+from nonogram.solver.search import (
+    MANY,
+    Givens,
+    RungTags,
+    SolveResult,
+    SolveSignals,
+    choose_givens,
+    revealed_cells,
+    solve,
+)
 
 __all__ = [
     "MANY",
@@ -75,8 +106,11 @@ __all__ = [
     "RUNG_PROBE_CONTRADICTION",
     "RUNG_SIMPLE_OVERLAP",
     "STRATEGY_GUESS",
+    "Givens",
     "RungTags",
     "SolveResult",
     "SolveSignals",
+    "choose_givens",
+    "revealed_cells",
     "solve",
 ]

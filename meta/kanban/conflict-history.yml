@@ -1,0 +1,12 @@
+conflicts:
+- pair: [CARD-204, CARD-203]
+  files: [tests/helpers/book_corpus.py]
+  resolution: manual
+  at: 2026-10-13
+  note: >-
+    Baseline-chain conflict: main carried CARD-203's chain entry with
+    BASELINE_FIXTURE -> book_baseline_card203.json; the CARD-204 branch replaced
+    that block with its own entry and card204.json. Resolved by keeping BOTH
+    entries (the chain is append-only provenance) and advancing only the pointer.
+    The same pair then produced a real integration failure at the merge gate (the
+    caption/flush-alignment margin overhang) - see CARD-204's notes.

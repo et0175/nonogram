@@ -883,6 +883,14 @@ class Board:
         The caller is responsible for marking ``row`` and ``column`` dirty; a
         cell that is already known is a programming error, not a no-op, since
         every caller here picks an explicitly unknown cell.
+
+        Two kinds of caller since CARD-214, and the refusal above is why they
+        can share this one method. The search assigns a *tentative* value at a
+        branch or a probe; ``solve`` also assigns the *given* cells of a seeded
+        count, once, into a blank board, before line logic has run. A given and
+        a branch are the same operation on this board — write both masks, count
+        the cell as decided — which is what lets every phase downstream read a
+        given exactly as it reads a deduction, with no third state to carry.
         """
         if self.cell_is_known(row, column):
             raise ValueError(f"cell ({row}, {column}) is already decided")

@@ -102,6 +102,29 @@ class GenerationAbandoned(NonogramError):
     """
 
 
+class GivenCellsCapExceeded(GenerationAbandoned):
+    """Revealing cells could not make the picture uniquely solvable (CARD-214).
+
+    The reveal policy's refusal: the solver was asked how many solutions the
+    clues have *given* a growing set of revealed cells, and the count was still
+    ``MANY`` after the cap's worth of reveals. The picture is left exactly as it
+    was — this path never alters a cell — so the honest report is "this picture
+    is not a puzzle at the price we are willing to pay", not a repaired grid.
+
+    A subclass of :class:`GenerationAbandoned` for two reasons. It *is* what
+    that class describes — a bounded recovery loop that reached its cap without
+    a usable puzzle — and inheriting means the CLI's exit-code table needs no
+    new row: ``exit_code_for``'s MRO walk finds ``GENERATION_FAILED`` through
+    the base class, which groups it with the other "the run did not produce a
+    usable puzzle" failures the user does the same thing about. That is the
+    extension path ``SizeTooSmallForSource`` already took for the input group.
+
+    The cap is a share of the grid and lives in the orchestrator beside the
+    other bounds (``MAX_GIVEN_CELL_SHARE_PERCENT``); the message names the
+    number so the refusal reads as a judgement rather than an internal limit.
+    """
+
+
 class SolverTimeout(NonogramError):
     """The uniqueness check passed its deadline before concluding.
 
