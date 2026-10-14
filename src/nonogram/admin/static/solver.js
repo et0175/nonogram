@@ -526,7 +526,21 @@ function start() {
   // callbacks) sees the current board after a mirror redraw (CARD-193).
   let table, cellElements, clueNumbers;
   let solved = false;
-  let hinted = null; // the cell element carrying .is-hinted
+  // The cell the last hint revealed, as {row, col} and not as the element
+  // showing it (CARD-212 review cycle 2, G-003): a redraw replaces every
+  // element, and a hint is a CELL, not an element, so naming it this way is
+  // what lets showHint put the highlight back on the redrawn table.
+  let hintedAt = null;
+
+  // Move the .is-hinted highlight to `next` ({row, col}), or take it off
+  // (null). The element is looked up through the live cellElements each
+  // time, so this is also how the highlight is re-applied after a redraw.
+  function showHint(next) {
+    const element = (cell) => cellElements[cell.row * payload.width + cell.col];
+    if (hintedAt) element(hintedAt)?.classList.remove("is-hinted");
+    hintedAt = next;
+    if (hintedAt) element(hintedAt)?.classList.add("is-hinted");
+  }
 
   // CARD-193: boards wider than BIG_SIDE columns mirror their row clues to
   // the right, but only on phones (owner decision, 2026-10-06) — the ≤ 820 px
@@ -633,7 +647,13 @@ function start() {
     table = stage.querySelector(".player-board");
     clueNumbers = clueNumbersOf(table);
     paint(cellElements, board);
-    hinted = null; // the old highlighted element no longer exists
+    // The highlighted ELEMENT is gone with the old table; the hinted CELL is
+    // not, so it is put back on the new one (CARD-212 review cycle 2,
+    // G-003). Before this card a redraw meant crossing 820 px; it now also
+    // means any window resize — a phone fires one when its URL bar
+    // collapses, mid-solve — and "Hints: N" survives a redraw, so the
+    // highlight the reader paid for has to survive it too.
+    showHint(hintedAt);
     showProgress(null);
     marking.refresh();
   }
@@ -653,9 +673,7 @@ function start() {
       history = next;
       board = history.board;
       paint(cellElements, board);
-      hinted?.classList.remove("is-hinted");
-      hinted = hint ? cellElements[hint.row * payload.width + hint.col] : null;
-      hinted?.classList.add("is-hinted");
+      showHint(hint ? { row: hint.row, col: hint.col } : null);
       showProgress(hint);
       save.write(serializeState(history, payload));
     },
@@ -683,11 +701,12 @@ function start() {
   // board reloaded at that size does not have.
   // Trailing debounce rather than a redraw per event: a drag fires `resize`
   // continuously, and a redraw of a 30 x 30 is tens of milliseconds of
-  // layout even now that the ladder early-outs. RESIZE_SETTLE after the last
-  // event the board is redrawn once, from the recorded history, exactly as a
-  // breakpoint crossing redraws it (marks, zoom, undo/redo and the save all
-  // survive — the hinted cell's highlight does not, as it has not survived a
-  // redraw since CARD-193).
+  // layout even now that the ladder early-outs. RESIZE_SETTLE after the LAST
+  // event the board is redrawn once — a burst of eight events costs at most
+  // two draws, not eight (tests/test_puzzle_solver_zoom.py
+  // ..._a_burst_of_resize_events_redraws_once) — from the recorded history,
+  // exactly as a breakpoint crossing redraws it: marks, zoom, undo/redo, the
+  // save, and since G-003 the hinted cell's highlight all survive.
   let resizeSettling = 0;
   window.addEventListener("resize", () => {
     if (!isBig) return;

@@ -602,6 +602,19 @@ _NARROW = {"width": 1100, "height": 900}
 _LAPTOP = {"width": 1440, "height": 900}
 _PHONE = {"width": 390, "height": 844}
 
+#: How long a resize-driven redraw is allowed to take: four times solver.js's
+#: RESIZE_SETTLE (150 ms), and fifty times less than Playwright's 30 s
+#: default — which is so generous that a debounce stretched to seconds would
+#: wait it out unnoticed (CARD-212 review cycle 2, G-001).
+_SETTLE_BOUND = 600
+
+#: The duplicates are gone (or, with the count swapped, back).
+_NO_DUPLICATES = ("[...document.querySelectorAll('th.player-clue')]"
+                  ".filter((box) => box.getAttribute('aria-hidden')).length === 0")
+
+#: How many boards solver.js has built on this page (its draw mark).
+_DRAWN_BOARDS = "performance.getEntriesByName('nonogram-player-board-draw').length"
+
 #: What the board settled into at this window, independent of how it got
 #: here (CARD-212 F-001: a resize must land where a reload would).
 _FIT_SHAPE = """() => {
@@ -757,9 +770,7 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert doubled["circledRow0"] == [[True] * numbers] * 2 and numbers > 1
 
         page.set_viewport_size(_NARROW)
-        page.wait_for_function(
-            "[...document.querySelectorAll('th.player-clue')]"
-            ".filter((box) => box.getAttribute('aria-hidden')).length === 0")
+        page.wait_for_function(_NO_DUPLICATES, timeout=_SETTLE_BOUND)
         narrow = page.evaluate(_GUTTER_SHAPE)
         cell = page.evaluate("document.querySelector('td.player-cell').getBoundingClientRect().width")
 
@@ -774,9 +785,7 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert narrow["circledRow0"] == [[True] * numbers]
 
         page.set_viewport_size(_ROOMY)
-        page.wait_for_function(
-            "[...document.querySelectorAll('th.player-clue')]"
-            ".filter((box) => box.getAttribute('aria-hidden')).length === 55")
+        page.wait_for_function(_NO_DUPLICATES.replace("=== 0", "=== 55"), timeout=_SETTLE_BOUND)
         again = page.evaluate(_GUTTER_SHAPE)
 
         assert again == doubled
@@ -797,9 +806,7 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert page.evaluate(_GUTTER_SHAPE)["duplicates"] == 55
 
         page.set_viewport_size(_NARROW)
-        page.wait_for_function(
-            "[...document.querySelectorAll('th.player-clue')]"
-            ".filter((box) => box.getAttribute('aria-hidden')).length === 0")
+        page.wait_for_function(_NO_DUPLICATES, timeout=_SETTLE_BOUND)
         resized = page.evaluate(_FIT_SHAPE)
 
         _open(page, live, puzzle_id)  # the same window, from scratch
@@ -808,6 +815,28 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert resized == reloaded, (resized, reloaded)
         assert resized["duplicates"] == 0 and resized["cell"] == pytest.approx(17.63, abs=0.05)
         assert resized["overflowX"] <= 1, resized
+
+    def test_a_burst_of_resize_events_redraws_once(self, browser_page, live) -> None:
+        """The listener is debounced, not throttled and not per-event: a drag
+        across a window edge fires `resize` continuously, and each redraw is
+        a board build. Eight events inside the debounce must cost one redraw
+        — two if the timer happens to fire mid-burst — never eight, which is
+        what the draw marks are counted for here (CARD-212 review cycle 2,
+        G-001: without the clearTimeout this test is the one that notices).
+        """
+        page = browser_page
+        page.set_viewport_size(_NARROW)
+        _open(page, live, live.store(_GRID_30x25))
+        before = page.evaluate(_DRAWN_BOARDS)
+        assert before == 1  # one board at this window: nothing is afforded
+
+        for step in range(8):  # eight events, each a pixel apart
+            page.set_viewport_size({"width": _NARROW["width"] - step - 1, "height": _NARROW["height"]})
+        page.wait_for_function(f"{_DRAWN_BOARDS} > {before}", timeout=_SETTLE_BOUND)
+        page.wait_for_timeout(4 * _SETTLE_BOUND // 3)  # let any further timers fire
+
+        after = page.evaluate(_DRAWN_BOARDS)
+        assert 1 <= after - before <= 2, after - before
 
     def test_a_board_too_small_to_double_is_not_redrawn_by_a_resize(self, browser_page, live) -> None:
         """The listener's guard: a board past neither side's 15 can have no

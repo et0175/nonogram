@@ -1689,9 +1689,27 @@ class TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop:
         _open(page, live, live.store(GRID_22x14))
 
         seen = _gutters(page)
+        # Why this board draws one gutter, measured rather than assumed: the
+        # plain board clears the 24 px bar and the doubled rung does not.
+        # Measured here the margins are thin — 24.59 plain (+0.59) and 23.31
+        # doubled (-0.69) — and 0.59 px on 22 columns is about 13 px of
+        # stage, so a platform with classic 15 px scrollbars would land on
+        # the other side of the bar. This assertion is what says so: if it
+        # fails, this window is narrower here than it is on the machine the
+        # numbers were taken on, and the ladder is behaving correctly.
+        bar = page.evaluate(
+            """() => {
+              const table = document.querySelector('.player-board');
+              const cell = () => document.querySelector('td.player-cell').getBoundingClientRect().width;
+              const plain = cell();
+              table.style.setProperty('--player-row-gutters', 2);
+              const doubled = cell();
+              table.style.setProperty('--player-row-gutters', 1);
+              return { plain, doubled };
+            }"""
+        )
+        assert bar["doubled"] < 24 <= bar["plain"], bar
 
         assert _lines(seen, "rows", duplicate=True) == []
         assert seen["feet"] == 0
-        # Over the bar as drawn, under it doubled — which is why it is one
-        # gutter and not two.
         assert seen["cell"] == pytest.approx(24.59, abs=0.05), seen["cell"]

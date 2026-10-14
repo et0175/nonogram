@@ -718,8 +718,11 @@ class TestSolverPage_EmphasisesEveryFifthLine:
         # covers a board with two gutters per axis instead of missing that
         # band — the twelve sizes it joins all draw a single gutter here
         # (CARD-212's review cycle 1 replayed the whole corpus to check).
-        # The random tail is drawn after it, so those cases are unchanged,
-        # and the `doubled` count below keeps this honest if a size moves.
+        # The five random SIZES are the five they always were (the tail is
+        # drawn from the same rng state); the GRIDS after this insertion are
+        # not, since each case draws its own seed in the loop below and
+        # there is now one more case to draw for. The `doubled` count keeps
+        # the one property that matters honest if a size ever moves.
         sizes = [(MIN_SIZE, MIN_SIZE), (MAX_SIZE, MAX_SIZE), (MIN_SIZE, MAX_SIZE), (MAX_SIZE, MIN_SIZE),
                  (11, 14), (16, 21), (19, 26), (20, 12)]
         while len(sizes) < 13:

@@ -24,6 +24,7 @@ board before the hint. Fixtures are CARD-160's, page helpers CARD-161/162's.
 from __future__ import annotations
 
 import random
+import re
 
 import pytest
 
@@ -48,6 +49,7 @@ from tests.test_puzzle_solver_marking import (
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
     _encode,
     _open,
+    _unique_grid,
     browser_page,
     browser_type,
     live,
@@ -915,3 +917,64 @@ class TestSolverHint_ReducedMotion:
             assert first.get("outlineColor") in ("transparent", "rgba(0, 0, 0, 0)")
         finally:
             context.close()
+
+
+# ==========================================================================
+# CARD-212 (review cycle 2, G-003) — the highlight survives a redraw
+# ==========================================================================
+
+#: A board big enough for CARD-212's layout choice to apply, so a window
+#: resize redraws it (a 15 x 15 is past neither side's 15 and is never
+#: redrawn). At 1280 x 720 this one draws both row gutters.
+GRID_BIG = _unique_grid(20, 12, seed=2124)
+
+#: How many boards solver.js has built on this page (CARD-212's draw mark),
+#: as an expression rather than a function so it reads the same in
+#: page.evaluate and in a wait_for_function predicate.
+_DRAWN_BOARDS = "performance.getEntriesByName('nonogram-player-board-draw').length"
+
+
+@pytest.mark.browser
+class TestSolverHint_TheHighlightSurvivesARedraw:
+    """CARD-212 made the board redraw on a window resize, not only when the
+    820 px breakpoint flips (its layout choice is a measurement, so it has to
+    follow the window). A redraw replaces every cell element, and the hinted
+    cell's highlight used to be held as one of those elements — so a ONE
+    PIXEL resize took the highlight off while "Hints: 1" kept counting it.
+    That is a hint the reader paid for and cannot see, on a trigger that is
+    now ordinary: a phone fires a resize when its URL bar collapses, which is
+    mid-solve, on the device where a hint helps most.
+
+    The hint is a CELL, not an element, so it is kept as one and put back
+    after the redraw. Asserted on the highlight itself and not on the
+    counter, which survived a redraw all along and would make this vacuous.
+    """
+
+    def test_a_one_pixel_resize_keeps_the_highlight_on_the_same_cell(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size({"width": 1280, "height": 720})
+        _open(page, live, live.store(GRID_BIG))
+
+        _hint(page).click()
+        _hint(page).click()  # the first hint of this board is (0, 0); the
+        before = _hinted(page)  # second is off the diagonal, where a
+        assert len(before) == 1, before  # transposed lookup would show
+        assert before[0][0] != before[0][1], before
+        # The cell the live region NAMES, so "still highlighted" is checked
+        # against the hint itself and not only against the element that was
+        # highlighted a moment ago (which a wrong lookup would match too).
+        said = re.search(r"row (\d+), column (\d+)", _announced(page))
+        assert said, _announced(page)
+        named = [int(said.group(1)) - 1, int(said.group(2)) - 1]
+        assert before == [named], (before, named)
+        drawn = page.evaluate(_DRAWN_BOARDS)
+
+        page.set_viewport_size({"width": 1279, "height": 720})
+        page.wait_for_function(f"{_DRAWN_BOARDS} > {drawn}", timeout=600)
+
+        assert _hinted(page) == before == [named]  # the same cell, still highlighted
+        assert _hints_shown(page) == 2
+        # And it is still the highlight, not a leftover class: the next
+        # commit moves it on, exactly as it does without a resize.
+        _cell(page, 11, 19).click()
+        assert _hinted(page) == []
