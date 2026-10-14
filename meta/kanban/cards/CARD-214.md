@@ -1,6 +1,6 @@
 # CARD-214: Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/214-given-cells
-**Worktree:** ../PythonProject4-CARD-214
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("## Puzzle generator — This one has a flaw: for now it's more likely to get a «there's no unique solution» then the real picture. So I propose to include black\\white cells in the puzzle grid to make it uniquely solvable"; "## Infrastructure — add to generator an option: generate with some answer provided if it fails to generate unique solutions (I think we'll apply it to single puzzle generation, not batch) as POC"); owner decision 2026-10-13 via AskUserQuestion — "Cut them now as POC cards"
 **Idea:** —
 **Wave:** 37
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/solver/search.py, src/nonogram/solver/propagate.py, src/nonogram/orchestrator.py, src/nonogram/errors.py, tests/property/test_solver_uniqueness.py, tests/helpers/brute_force_oracle.py, tests/test_solver.py, tests/test_given_cells.py, tests/property/test_given_cells.py
 **Review score:** 8.1/10 (cycle 1/3; fix cycle 1 closed F-1 and four minors) — AC/EC gate passed, awaiting merge gate
 **Started:** 2026-10-13T10:16:42Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-14T05:31:05Z
+**Actual:** 2.4d
+**Merge commit:** d49e73a
 **Blocked by:** —
 
 ## What to implement
@@ -691,3 +691,15 @@ CARD-198/202/206 took).
   on the card was wrong.
 - [Merge authorized] owner 2026-10-13: "merge both when the fixes land", gate not waived.
 - [Merge gate] pending — runs after CARD-204's, never concurrently.
+
+- [Merge gate] 2026-10-14 — **PASSED** on the merged tree: 6883 passed, 9 skipped,
+  0 failed, `PYTEST_EXIT=0` (read in its own command, per the corrected practice).
+- [Done] 2026-10-14 — merged as `d49e73a` (`--no-ff`). Worktree removed, branch
+  `card/214-given-cells` deleted, review report synced to `meta/review/`.
+  Actual 2.4d against a 1d estimate — the span includes a weekly-rate-limit kill
+  mid-implementation and the resume that followed, so it measures calendar time, not
+  effort.
+  **Unblocked by this merge:** CARD-215 (render givens as a black cell / white dot)
+  and CARD-216 (persist them, lock them in the player). CARD-216 additionally carries
+  review F-6: `admin/puzzle_review.py` and `admin/regrade.py` re-solve stored grids
+  without givens, which becomes a real defect the moment givens are persisted.

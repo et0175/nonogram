@@ -1,0 +1,366 @@
+version: 1
+generated_at: "2026-10-13T15:43:23Z"
+target: "CARD-214 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-214, branch card/214-given-cells, HEAD 7402ecb — review cycle 1 (full review of `git diff main...HEAD -- src/ tests/ docs/`, 12 files, +2198/-29)"
+overall_score: 8.1
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/solver/search.py (full diff, plus the whole of `solve` 478-818 and the pre-existing `_round`/`_search`/`_probe_fixed_point` call structure, to judge the restart/probe interaction with seeding)
+    - src/nonogram/solver/propagate.py (full diff, plus `Board.blank`/`clone`/`cell_is_known`/`assign` 826-903, every mask write site 992-1201, and `line_intersection`'s contract + empty-clue + fully-decided branches 255-321 — the monotonicity argument the seeded count rests on)
+    - src/nonogram/solver/__init__.py (full diff), src/nonogram/errors.py (full diff)
+    - src/nonogram/orchestrator.py (full diff, plus `judge_candidate` 1819-1898, `attempt_candidate`'s sourcing branch, `attempt_candidate_in_tier` 2076-2089, the image branch's tail 2152-2178, the outer try 2180-2196, and `difficulty_in_requested_tier` 1250-1264)
+    - tests/helpers/brute_force_oracle.py (full diff — judged the givens filter as an independent derivation, not just as non-importing)
+    - tests/property/test_solver_uniqueness.py, tests/property/test_given_cells.py, tests/test_given_cells.py, tests/test_solver.py, tests/test_cli.py (full diffs)
+    - docs/GENERATION_ALGORITHM.md (full diff; checked every §8.5/§8.6 cross-reference in the repo after the renumbering)
+    - meta/kanban/cards/CARD-214.md in full, including `## Failure matrix` (F1-F10) and all of `## Worktree notes`
+    - meta/architecture/domain/policies.yml (POL id audit), and the assembled system-rules lens (`system_rules.py --root meta/architecture --scope "src/nonogram/**" --verify-refs`)
+    - Ran targeted suites myself - tests/test_given_cells.py + tests/property/test_given_cells.py + tests/property/test_solver_uniqueness.py + tests/test_solver.py + tests/test_cli.py = 166 passed in 20.6s; tests/test_orchestrator.py + tests/property/test_recovery_bound.py + tests/test_timeout.py (the AC-5 guards) = 101 passed in 7.8s; tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed + the two named CON-005/ADR-0024/R1 property tests = 3 passed
+    - Ran the opt-in mutation check: 7 mutants on the uniqueness-critical lines (6 killed, 2 survived - see F-1/F-5), every one restored and the tree verified byte-identical afterwards (shasum match + empty `git diff`)
+    - Ran my own independent probes, not just the committed corpus - 240 (clues, givens) cross-checks against the oracle at 7x7 and 8x8 (sizes GIVEN_SIZES does not reach): 0 mismatches over 189 truly-0 / 23 truly-1 / 28 truly-MANY; 60 three-way agreements between count_solutions, count_solutions_by_cell and solve at 4x4; a given on a `(0,)`-clue line; a fully-given wrong grid; three malformed-shape cases; 0x0 and 3x0 grids; and an empirical check that PYTHONHASHSEED does not perturb int-tuple set order (0/1/2/42)
+  not_reached:
+    - The full ~6890-test suite (not re-run per the task instruction; the card cites 6881 passed / 9 skipped / 0 failed at this commit, and the 9 skips are the known DB-mode ones)
+    - src/nonogram/admin/** beyond the two `solver.solve` call sites relevant to the CARD-216 trap (puzzle_review.py:419, regrade.py:337) — read those two, not the modules
+    - tests/e2e/**, the web layer's auto-parametrised GivenCellsCapExceeded cases (the card reports both green; I did not re-run tests/test_web_submission.py)
+  confidence: high
+
+metrics:
+  diff: { files: 12, added: 2198, removed: 29 }
+  max_fan_in: { symbol: "nonogram.solver.solve", callers: 3 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/orchestrator.py"]
+  cochange_missing: ["tests/test_orchestrator.py", "meta/architecture/trace.yml", "src/nonogram/admin/batch_generator.py"]
+  unmeasured:
+    bus_factor: "no_eligible_fact — `git shortlog -sn` on the touched files returns nothing on this checkout (the repo's commits carry a single configured author, so the signal cannot discriminate)."
+
+system_contract:
+  rules_checked: 8
+  holds: 8
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-005 ✓ holds — the named check `PropertyTest_Solver_NeverFalsePositiveUniqueness` (tests/property/test_solver_uniqueness.py::test_never_false_positive_uniqueness) is unmodified by this diff and green (ran it directly), and the new seeded property test_uniqueness_holds_under_givens is green. Re-derived mechanically rather than argued: with the solver's own `_check_respects_givens` backstop neutralised AND `_seed_givens` mutated to `if value:` (seed only the filled givens), the failure that comes back is `given-case 3 (5x5, contradicted=True): solver said 1, brute-force oracle said 0` — i.e. the INDEPENDENT oracle catches the CON-005 false positive, not the solver's self-check. My own 240-case cross-check at 7x7/8x8 (189 truly-0, 23 truly-1, 28 truly-MANY) found 0 mismatches."
+    - "INV-002 ✓ holds (with the card's recorded delta, not made) — the export gate is still `Puzzle.confirm_uniqueness` off the solver's own number (src/nonogram/orchestrator.py:1881), and for a revealed puzzle that number comes from a FRESH SEEDED solve through the same single `solver.solve` call site (orchestrator.py:1855-1860). Mutation-verified: replacing `givens=givens` with `givens=None` at orchestrator.py:1965 is killed by test_generate_reveal_policy_never_changes_the_grid and test_the_reveal_policy_keeps_the_random_mode_retry_bound via the policy's own CON-005 RuntimeError. The 'given its given cells' clause is recorded on the card and NOT minted: `git diff main...HEAD --stat -- meta/` is empty."
+    - "INV-001 ✓ holds — `choose_givens` reads `grid` and mutates nothing (src/nonogram/solver/search.py:900-937: it allocates its own `givens` and writes only into that); the policy derives its clues with `clue_derivation.compute_clues(pristine_candidate)` (orchestrator.py:1958) and `judge_candidate` re-derives again through `record_candidate`. Test: tests/test_given_cells.py::test_given_cells_make_the_puzzle_unique_without_touching_the_grid asserts both the grid and `compute_clues(grid)` are identical before and after (lines 215-216)."
+    - "INV-003 ✓ holds — `accept_by_revealing` calls no `run_bounded` and touches no counter (src/nonogram/orchestrator.py:1911-1975); MAX_RETRY_ATTEMPTS / MAX_CONSECUTIVE_REPAIRS / MAX_NUDGE_ATTEMPTS have zero diff lines; tests/test_given_cells.py::test_the_reveal_policy_keeps_the_random_mode_retry_bound asserts `regenerate.attempts == MAX_RETRY_ATTEMPTS` and `<= bound`; tests/property/test_recovery_bound.py is unmodified and green (ran it)."
+    - "ADR-0024/R1 ✓ holds — the named check `PropertyTest_Recovery_AcceptedGridsHaveRealVerdictsWithinOneBound` (tests/property/test_recovery_bound.py::test_accepted_grids_have_real_verdicts_within_one_bound) is unmodified and green (ran it), and the new remedy obeys the same rule: nothing is accepted on the strength of having revealed cells — see the INV-002 line's mutation evidence."
+    - "ADR-0024/R4 ✓ holds — the reveal choice is a pure function of the grid and the two witnesses: `_first_disagreement_cell` (src/nonogram/solver/search.py:962-983) walks the two witness grids in row-major order with `zip(..., strict=True)` and returns the first mismatch; `choose_givens` reads no clock, no rng and no module state. Re-derivable scan: `grep -n 'set(|\\.items\\(\\)|\\.keys\\(\\)|\\.values\\(\\)' src/nonogram/solver/search.py src/nonogram/solver/propagate.py` returns ZERO hits, so no hash-order-dependent iteration exists anywhere on the choice path. Mutation-verified: changing 'first' to 'last' disagreement is killed by tests/test_given_cells.py::test_given_cells_reveal_the_first_ambiguous_cell_by_row_then_column. Caveat recorded as F-2: the cross-process test's stated RATIONALE is factually wrong, but the property itself holds."
+    - "ADR-0024/R5 ✓ holds — mode-exclusivity is untouched: `repairs_enabled = request.mode == sourcing.RANDOM and MAX_CONSECUTIVE_REPAIRS > 0` has zero diff lines, the image branch's `run_bounded(puzzle.nudge, attempt_nudged_candidate, ...)` call is unchanged in its arguments and bound (only wrapped in a `try`), and tests/test_nudge.py / tests/test_resample.py are unmodified. The reveal policy is an additive fourth route whose ADR entry is the delta the card records for the architect station (POL-008)."
+    - "ADR-0006/R1 ✓ holds — `git diff main...HEAD --stat -- pyproject.toml` is empty (no runtime dependency moved), and the mechanical check tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed is green on this head (ran it). The new solver import is `from nonogram.errors import GivenCellsCapExceeded` — the shared, import-free layer — and the package-wide `ast` import guard tests/test_cli.py::test_every_import_in_the_package_points_inward is green on this head (ran it)."
+
+root_causes:
+  - id: RC-1
+    title: "The reveal policy's two guard branches (the tier gate, and 'the FIRST sourced candidate') are unreachable or indistinguishable in every committed test, because every test request leaves `difficulty` unset and the scripted source returns the same grid on every call"
+    finding_ids: [F-1, F-5]
+  - id: RC-2
+    title: "Three prose claims written alongside correct code overstate or contradict what the code and tests actually do (the PYTHONHASHSEED rationale, the 'grades come from unseeded solves' sentence, the seeded corpus's size-range reason)"
+    finding_ids: [F-2, F-3, F-4]
+
+findings:
+  - id: F-1
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/orchestrator.py
+    line: 1975
+    title: "The reveal policy's requested-tier gate is unverified: the mutant removing it survives the whole suite, and the card's named test for that behaviour never reaches the code"
+    description: |
+      Two mechanically established facts, both from runs on this head.
+
+      (1) Mutating `return accepted if accepted.difficulty_in_requested_tier
+      else None` (orchestrator.py:1975) to `return accepted` leaves
+      tests/test_given_cells.py at 20 passed. `grep -rl reveal_given_cells
+      tests/` returns exactly ONE file, so that mutant survives the entire
+      suite — nothing anywhere exercises the gate.
+
+      (2) The reason is that the card's declared behaviour ("a missed
+      difficulty tier is not rescued", Worktree notes; test:
+      test_the_reveal_policy_does_not_rescue_a_missed_difficulty_tier) is
+      verified by a test that never enters the reveal policy at all. I proved
+      this by planting `raise AssertionError("MUTANT-PROBE")` as the first
+      statement of `accept_by_revealing`: four tests in that file fail, and
+      test_the_reveal_policy_does_not_rescue_a_missed_difficulty_tier is NOT
+      one of them. It uses an already-unique image conversion, so
+      `attempt_candidate()` returns a candidate, the nudge loop never runs, and
+      the tier refusal is raised at orchestrator.py:2176-2177 — which sits at
+      indent 8 OUTSIDE the inner `try`, so `accept_by_revealing` is never
+      called. The test passes for a reason unrelated to the behaviour it names.
+
+      The code is correct; the gap is in the evidence, and it is on the one
+      branch where the gate is load-bearing. In image mode the gate is
+      redundant (the tier check at 2176 re-checks the revealed candidate). In
+      random/library mode it is not: the outer handler does `return revealed`
+      with no further tier check (orchestrator.py:2193-2196), so if the gate
+      ever regressed, a revealed puzzle outside the requested tier would be
+      returned — which is precisely the "the flag silently widens what
+      `--difficulty` means" outcome the card forbids. Every request helper in
+      tests/test_given_cells.py leaves `difficulty` unset, and
+      `difficulty_in_requested_tier` returns `True` unconditionally when
+      `requested_tier is None` (orchestrator.py:1262-1263), so the gate is a
+      no-op in every existing case.
+
+      Weighted up rather than down: orchestrator.py carries 22 commits in the
+      last 12 months with 7 of them fix/bug-shaped (~29% defect density), and
+      `solver.solve` has 3 production callers.
+    suggestion: |
+      Add one random-mode case with `difficulty=` set to a tier the revealed
+      puzzle does not land in, and assert the run still raises
+      GenerationAbandoned (not a returned puzzle) and that
+      `puzzle.ready_for_export` stays False. That one test kills the surviving
+      mutant and gives the declared behaviour real evidence on the branch where
+      it matters. Separately, either retarget
+      test_the_reveal_policy_does_not_rescue_a_missed_difficulty_tier so it
+      actually reaches `accept_by_revealing` (e.g. an ambiguous conversion whose
+      revealed form misses the tier), or keep it and rename it to say what it
+      checks — that an already-unique tier miss is refused before the policy is
+      consulted.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-2
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/property/test_given_cells.py
+    line: 24
+    title: "The 'in any process' determinism rationale is factually wrong: PYTHONHASHSEED does not perturb the iteration order of a set of (row, column) tuples"
+    description: |
+      The module docstring (lines 24-31) and `_in_child`'s docstring state that
+      "``PYTHONHASHSEED`` changes the iteration order of every set and dict in
+      the interpreter, so a choice that depended on one — and 'collect the
+      disagreeing cells, take one' is exactly the shape that does — is stable
+      within a run and unstable across runs." That is the named justification
+      for EC(ADR-0024/R4)'s "in any process" half, and it is not true for the
+      shape it names. CPython's hash randomisation covers `str`, `bytes` and
+      `datetime` only; `int` hashes to itself, so a `set[tuple[int, int]]`
+      iterates identically under every seed. Measured on this machine with the
+      project venv: the same 8-element set of `(row, column)` tuples prints in
+      byte-identical order under PYTHONHASHSEED 0, 1, 2 and 42, while a
+      5-element set of strings reorders under each.
+
+      The property itself holds, and I verified it directly rather than
+      trusting the test: `grep -n 'set(|\.items\(\)|\.keys\(\)|\.values\(\)'`
+      over src/nonogram/solver/search.py and src/nonogram/solver/propagate.py
+      returns zero hits, and `_first_disagreement_cell` walks lists in
+      row-major order. So this is a wrong rationale next to correct code, not a
+      defect — but it is the rationale a future card will read before adding a
+      set to the choice path, and it tells that reader a guard exists where
+      none does. (What the subprocess check does genuinely buy: independence
+      from env, cwd, import order and module-level caches — worth keeping, just
+      not for the reason given.)
+    suggestion: |
+      Correct the two docstrings to claim what the subprocess actually proves
+      (a fresh interpreter, no inherited module/env state) and drop the
+      "collect the disagreeing cells, take one" example, since that shape is
+      not hash-order-sensitive. If a real guard for it is wanted, the cheap one
+      is structural rather than behavioural: assert that the chooser's own
+      source builds no set or dict — the same posture the package's `ast`
+      import guard already takes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-3
+    severity: low
+    category: tech-debt
+    type: bug
+    file: src/nonogram/solver/search.py
+    line: 529
+    title: "`solve`'s docstring says 'the grades on record all come from unseeded solves', which this card's own policy makes false"
+    description: |
+      search.py's Returns section (the paragraph added for `givens`) says of
+      `line_logic_cells` and the missing rung tags: "Neither is read on the
+      seeded path by anything that grades a *puzzle*: the grades on record all
+      come from unseeded solves."
+
+      The orchestrator does exactly the opposite, deliberately:
+      `judge_candidate` calls
+      `puzzle.record_difficulty(difficulty.score_difficulty(verdict.signals),
+      verdict.signals.branch_nodes, verdict.signals.rungs)`
+      (orchestrator.py:1884-1888) off the SAME verdict it just obtained — which,
+      for a revealed puzzle, is the seeded one. The card's own Structural
+      decisions section states the true version ("a puzzle accepted with givens
+      is GRADED off that seeded solve's signals ... a revealed puzzle grades
+      easier"), so the design is intentional and consistent; only this one
+      sentence in the solver contradicts it.
+
+      It matters because the consequence is real and user-visible: a revealed
+      puzzle's `line_logic_cells` counts the given cells, its given cells carry
+      no rung tag, so its score and tier are computed on a strictly easier
+      reading of the same picture — and that grade is what the requested-tier
+      gate (F-1) then compares against. A reader who trusts this sentence will
+      conclude that cannot happen.
+    suggestion: |
+      Replace the sentence with the card's own version: a revealed puzzle IS
+      graded off its seeded solve (ADR-0029/R2's "one derivation from the one
+      verifying solve"), which grades it easier because the solver genuinely
+      meets it with those cells filled; every pre-CARD-214 grade on record came
+      from an unseeded solve.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-4
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/property/test_solver_uniqueness.py
+    line: 259
+    title: "The seeded EC-001 corpus covers a narrower size range than the unseeded one, for a reason that does not explain the narrowing"
+    description: |
+      `GIVEN_SIZES = (2, 3, 4, 5, 6)` against the pre-existing
+      `SIZES = (1, 2, 3, 4, 5, 6, 7, 8)` for the same property. The stated
+      reason — "a *contradicted* given can make the oracle's row-candidate
+      filter empty only after the product has been set up, and 2..6 already
+      covers every shape of line-placement bug" — explains neither why 7 and 8
+      are dropped nor why a contradicted given costs more at 7 than at 6; the
+      oracle's own docstring puts its comfort ceiling at 7x7 and its usable
+      ceiling at 8x8, so both sizes are affordable.
+
+      This is a coverage gap in the committed guard, not a latent defect: I ran
+      my own 240-case solver-vs-oracle cross-check at 7x7 and 8x8, with
+      consistent, contradicted and clue-mutated givens at six reveal shares,
+      and found 0 mismatches across 189 truly-0, 23 truly-1 and 28 truly-MANY
+      cases. The seeded property is sound at those sizes; it is simply not
+      asserted there.
+    suggestion: |
+      Extend GIVEN_SIZES to (2, 3, 4, 5, 6, 7) — or to 8 if the corpus time
+      stays inside its couple of seconds — or state the real cost reason. The
+      oracle's own ceiling, not the contradicted-given argument, is the honest
+      bound to cite.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-5
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/orchestrator.py
+    line: 2038
+    title: "The 'FIRST sourced candidate, never the latest' decision is indistinguishable from 'the latest draw' in every test, because the scripted source returns one grid"
+    description: |
+      Mutating `if pristine_candidate is None:` (orchestrator.py:2038) to
+      `if True:` — so the policy hands over the LATEST sourced grid rather than
+      the run's first — leaves tests/test_given_cells.py at 20 passed. The
+      cause is `_CountingSource.__call__` (tests/test_given_cells.py:512-514),
+      which returns a fresh copy of the same grid on every call, so no test can
+      see the difference between the first draw and the thirtieth.
+
+      The important half of the decision IS structurally guaranteed and is
+      asserted: the assignment sits inside `attempt_candidate`'s fresh-draw
+      branch, so `pristine_candidate` can never be a repaired or nudged
+      derivative, and test_the_reveal_policy_keeps_the_random_mode_retry_bound
+      asserts `puzzle.grid == _SIX_SWITCHES` after 30 redraws and several
+      repairs. In image mode the source is called exactly once, so first and
+      latest coincide by construction. What is unguarded is only the
+      random/library "first draw rather than the thirtieth" half, where the two
+      are behaviourally equivalent (both are fresh draws). Recorded because a
+      surviving mutant on a declared STRUCTURE decision is worth knowing about,
+      not because the behaviour is at risk.
+    suggestion: |
+      Give the random-mode test a source that returns a DIFFERENT grid per call
+      (e.g. a list of scripted grids, cycling) and assert the accepted grid is
+      the first element. That kills the mutant and pins the decision CARD-215
+      and CARD-216 will read as "the picture the user gave us".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-6
+    severity: info
+    category: tech-debt
+    type: question
+    file: src/nonogram/admin/puzzle_review.py
+    line: 419
+    title: "Out of scope — the CARD-216 trap has no marker at the two code sites that will hit it"
+    description: |
+      `solver.solve` has exactly three production call sites outside the solver
+      package: orchestrator.py:1855 (passes givens), admin/regrade.py:337 and
+      admin/puzzle_review.py:419 (`audit_uniqueness`) — both of which re-solve a
+      STORED grid with no `givens`. The card itself names `audit_uniqueness` as
+      "the single most likely way to get CARD-216 wrong", but that warning lives
+      only in meta/kanban/cards/CARD-214.md and in `Puzzle.givens`' docstring;
+      docs/GENERATION_ALGORITHM.md §8.5 does not carry it, and neither call site
+      carries a note.
+
+      Not a defect on this card: nothing persists givens yet (G-6), so neither
+      caller can meet a revealed puzzle today, and this card must not touch
+      admin/. Raised so the next card's author is pointed at the two exact
+      lines rather than at a prose warning.
+    suggestion: |
+      CARD-216 should pass the stored givens at both sites, or make the absence
+      loud. A one-line note at each call site (or one line in §8.5) would make
+      the trap visible to someone reading the code rather than the card.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-7
+    severity: info
+    category: enabler
+    type: question
+    file: meta/architecture/domain/policies.yml
+    line: 103
+    title: "Out of scope — the architecture delta is owed and is recorded accurately; POL-008 confirmed as the next free id"
+    description: |
+      Verified independently, since the card's claim is the architect station's
+      input. `meta/architecture/domain/policies.yml` defines POL-001..POL-007
+      with POL-007 = `RederivePlanMatrixOnSplitChange` (FR-034/BK-UI-2), so
+      POL-008 is indeed the next free id. Nothing is minted: `git diff
+      main...HEAD --stat -- meta/` is empty, no POL-008 string exists anywhere
+      in src/ or meta/architecture/, and the orchestrator's docstring
+      (orchestrator.py:1926-1930) names the clash rather than claiming an id.
+      `meta/architecture/trace.yml` is untouched, as the card states.
+
+      Two items are owed at the architect station and must land before CARD-215
+      renders givens or CARD-216 persists them: ADR-0024 needs the fourth
+      recovery-policy entry (R5 currently enumerates three routes by mode), and
+      INV-002 in domain/aggregates.yml needs its "given its given cells" clause.
+      The delta is recorded precisely enough to act on.
+    suggestion: |
+      Route to forge:architect — ADR-0024 amendment (POL-008, opt-in,
+      picture-preserving, runs after the mode's own bound, advances no counter)
+      plus the INV-002 clause, with INV-001 explicitly noted as unaffected.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
