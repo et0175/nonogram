@@ -431,3 +431,281 @@ are the real ones.
   stands — the suite is green, nothing in CARD-188/193/196 needs re-pinning, and that was the
   substance of the option — but the justification was stronger than the measurement. Fix the
   sentence wherever it appears, in the notes and in the code comments.
+
+## Implementation agents' own records (verbatim, synced from the worktree 2026-10-14)
+
+_The ledger above is the orchestrator's, one record per station. This is the implementation
+and fix agents' own, copied out of the worktree before it is discarded. Where the two
+disagree, the ledger is authoritative._
+
+- [Rebase] Nothing to rebase around: CARD-211's merge (`4790243`) is already an ancestor of
+  this branch's base (`d9c2c1a`), verified with `git merge-base --is-ancestor`. The three
+  files it reworked were read in their post-211 state. **No toolbar change at all in this
+  card**, so the ~4 px of slack CARD-211 left on the 1280 px counters row is untouched and
+  `test_shares_the_buttons_row_at_1280` never came near red. The duplicated `.player-tools`
+  declaration (lines 591 and 633) is still duplicated — not mine to fix, and nothing here
+  depends on it.
+
+- [The measured rule, as the card asked for] **An axis is doubled while the cells that
+  leaves are >= 24 px on a side** (`solver.js DOUBLE_MIN_CELL`), measured on the candidate
+  as drawn and divided by the zoom, never re-derived from admin.css's clamp.
+  - The card's wording ("at or above the phone-fit cell minimum CARD-193/CARD-182
+    established") does not name one number: CARD-182 set 24 px, CARD-193 *removed* it
+    (`--player-cell-min: 0` below 820 px). Read literally as the floor in force, the
+    condition is vacuous — the clamp's own lower bound means the cell is never below it,
+    so every board would double. I read it as CARD-182's number used as a CONDITION rather
+    than a floor: 24 px is also WCAG 2.2 (2.5.8)'s target size, so "cells still comfortably
+    playable" is what the duplicate costs. Flagging the ambiguity rather than hiding it.
+  - It is not a free choice: measured, 24 px is the threshold at which **no fixture x
+    viewport PAIR the suite actually exercises changes its layout** (see the table below).
+    **Corrected at review cycle 1 (F-003):** my first wording — "no existing fixture at
+    any viewport the suite uses" — is false, and I repeated it to the orchestrator. Three
+    fixtures DO change layout at viewports the suite uses elsewhere; re-measured by me at
+    HEAD: `AC_GRID` 25x15 (`tests/test_puzzle_solver_page.py:98`) draws 15 duplicates at
+    1440x900 (24.36 px), `AC301_GRID` 20x20 (`:100`) draws 20 (24.88 px), `GRID_16_WIDE`
+    16x15 (`tests/test_puzzle_solver_mirror.py:46`) draws 15 at 1440x900 (28 px) and at
+    820x900 (25.66 px). No test pairs those fixtures with those viewports, which is the
+    only reason the suite is green on them — luck, not a property of the bar.
+    A looser bar (e.g. "double while the board still fits without scrolling", ~14.4 px)
+    doubles a 25 x 15 at 1440 x 900 and a 30 x 30 at 1440 x 900, which would have rewritten
+    pinned measurements in CARD-188/193/196 tests and the 40-box count in
+    `TestSolverPage_ShowsTheClues`'s browser half. Mentioned because the owner may well
+    want that looser bar: it is one constant, `DOUBLE_MIN_CELL`, and the cost is a smaller
+    cell on big boards plus those test updates.
+  - The ladder (roomiest first, `layoutLadder`): both axes -> rows only -> columns only ->
+    today's rendering (mirror included), each rung drawn and measured, the last kept
+    whether it fits or not. Rows are preferred over columns when only one fits, because
+    the row gutter is the one the owner reported first and the only one CARD-193 mirrors.
+    All four rungs are reachable with real boards (rung 3 at 1200 x 1100, below).
+
+- [Measurements, Chromium, `_unique_grid` fixtures, 100 % zoom] cell px / what is drawn:
+
+  | board | 390x844 | 1280x720 | 1440x900 | 1920x1080 | 1920x1500 | 1200x1100 |
+  |---|---|---|---|---|---|---|
+  | 15x15 | 14.39 one | 23.42 one | 28 one | 28 one | 28 one | 28 one |
+  | 25x15 | 14.39 mirror | 22.36 one | 28 one | 28 **rows** | 28 **rows** | 24.47 one |
+  | 30x12 | 14.39 mirror | 22.5 one | 26.19 one | 28 **rows** | 28 **rows** | 20.66 one |
+  | 30x25 | 14.39 mirror | 14.47 one | 19.75 one | 25.05 **rows** | 28 **both** | 20.66 one |
+  | 20x20 | 14.39 mirror | 17.56 one | 24 **rows** | 24.33 **both** | 28 **both** | 24.91 **cols** |
+  | 25x20 | 14.39 mirror | 17.56 one | 24 **rows** | 24.33 **both** | 28 **both** | 24.91 **cols** |
+  | 30x30 | 14.39 mirror | 14.39 one | 16.8 one | 21.3 one | 25.95 **both** | 20.66 one |
+
+  "one" = exactly today's single gutters, "mirror" = CARD-193's rendering. Every doubled
+  cell here is >= 24; every "one" cell is < 24 doubled. The closest call is **25 x 15 at
+  1440 x 900: 23.47 px doubled, 0.53 px under the bar** (re-measured at review cycle 1,
+  F-005: my first figure, 23.53/0.47, does not reproduce) — and it is a property of the
+  GRID, not of the size. The clamp reads the deepest row clue, so the CARD-182/193 25x15
+  fixtures measure 23.47 px and stay single while `AC_GRID`, a 25x15 with a shallower
+  deepest clue, measures 24.36 px and DOES double. The owner should choose with that
+  spread in view, not with one number.
+  The feature reaches a real desktop: 1920 x 1080 doubles the row clues of every big board
+  except the 30 x 30, and a 2560 x 1440 monitor doubles both axes of most.
+
+- [Fit] The clamp now multiplies its row-band terms by `--player-row-gutters` and its
+  height term's column depth by `--player-col-gutters` (both 1 by default, so the formula
+  at 1 is arithmetically CARD-196's and no single-gutter measurement moved — confirmed:
+  every CARD-182/188/193/196 test is green unedited). A doubled board is therefore fitted
+  for the bands it actually draws: 30 x 25 at 1700 x 1500 ends 2.34 px past a 1400 px stage
+  (the per-box rounding a single-gutter board already carries: 1 px measured on main at
+  1024 x 768 and 1440 x 900), where fitting it for one band would leave it ~190 px out.
+
+- [Owner-visible defect found by eye, not by tests] On the first render of a doubled board
+  the FIRST number of the right-hand gutter — the one against the grid — had its circle
+  drawn over the board's heavy frame and the cells behind it. The 1.45 ch gap each row
+  number keeps is what gives a ring its room, and it sits on the number's right; in a
+  right-hand gutter it has to sit on its left. Fixed by mirroring the margin for
+  `.is-row.is-right` (same total band width, so the fit is unchanged) and pinned by
+  `TestSolverClues_RowRingsStayInsideTheirOwnBand`. **CARD-193's phone mirror has had this
+  since it shipped** — the same rule, the same clipped first ring — so this also fixes the
+  mirror. Screenshots 2/3/7 show the fixed version.
+
+- [Existing tests I had to touch — two, both minimal]
+  1. `tests/test_puzzle_solver_mirror.py` `_is_corner` compared the corner's class list for
+     EQUALITY with `["player-corner"]`; the corner on the right now also carries
+     `is-right` (that is where its heavy rule comes from, for the mirror and the duplicate
+     alike). Relaxed to membership. Nothing else in that file changed, and all five of its
+     tests pass unedited — including its border measurements, which is the guard that
+     caught mutant M13 when I dropped the side class.
+  2. `tests/test_admin_design_tokens.py` — added one G-7 per-rule test (the card asks for
+     one); the two real token tests named in the card are unedited and green.
+  No other existing test was edited. `TestSolverPage_ShowsTheClues` (both halves),
+  `TestSolverMarking_NoRequestPerMark`, `test_the_stylesheet_uses_tokens_not_literals` and
+  `test_the_region_toggles_pressed_look_comes_from_tokens` were run, not rewritten.
+
+- [Mutants] 16 run, 15 killed, 1 equivalent. Each reverted from a pristine snapshot (NOT
+  `git checkout --`: the implementation was uncommitted at the time) and the file verified
+  byte-identical afterwards.
+
+  | mutant | killed by |
+  |---|---|
+  | M1 trailing row duplicate never appended | `TestSolverClues_DuplicateReadsTheSameSequence`, `..._BigBoardRepeatsBothAxes`, `TestSolverZoom_SurvivesADoubledRedraw` |
+  | M2 duplicate keeps its label, no `aria-hidden` | `TestSolverClues_DuplicateIsAriaHidden` |
+  | M3 `clueNumbersOf` pairs only the first gutter | `TestSolverClues_CirclesPaintBothGutters` |
+  | M4 `DOUBLE_MIN_CELL` 24 -> 1 | `TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit`, `..._BigBoardRepeatsBothAxes::..._on_a_laptop` |
+  | M5 zoom not divided out of the choice | `TestSolverZoom_SurvivesADoubledRedraw::test_zooming_in_does_not_make_a_redraw_double_the_gutters` |
+  | M6 column axis reads `payload.width` | `TestSolverClues_AxesDoubleIndependently` |
+  | M7 duplicate's numbers reversed (claim's edge) | `TestSolverClues_DuplicateReadsTheSameSequence` |
+  | M8 tfoot draws its own top rule | `TestSolverClues_DoubledFramesReadOnAllFourSides` |
+  | M9 tfoot outer edge heavy (claim's edge) | same |
+  | M10 tfoot numbers not against the grid | same |
+  | M11 term 1 drops `--player-row-gutters` | **SURVIVED — equivalent.** Term 2 binds whenever the cell is above ~20 px (that is where the numerals leave the 12 px floor and the band starts growing with the cell), and an accepted doubled cell is >= 24 px, so term 1 can only bind below the bar, where the rung is rejected either way. Kept for arithmetic consistency: a lower `DOUBLE_MIN_CELL` would make it load-bearing. |
+  | M11b term 2 drops `--player-row-gutters` | `..._BigBoardRepeatsBothAxes::..._fitted_for_both_of_its_bands` |
+  | M14 term 3 drops `--player-col-gutters` | `..._BigBoardRepeatsBothAxes::..._fitted_for_both_of_its_column_bands` |
+  | M12 tfoot rule width hard-coded `1px` (no hex, so the file-wide sweep misses it) | `test_the_boards_second_clue_gutters_come_from_tokens` |
+  | M13 right-hand boxes lose `is-right` | CARD-193's own `TestSolverMirror_HeavyLinesMatchTheLeftLayout` |
+  | M15 right gutter's ring gap not mirrored / M16 gap halved (claim's edge) | `TestSolverClues_RowRingsStayInsideTheirOwnBand` |
+
+- [One of my own tests was flaky by a pixel, and is not any more] The fit test's first
+  form asserted Chromium's integer `scrollWidth - clientWidth` <= 2 for the 1402.34 px
+  table in its 1400 px stage; the same board reported 2 px on one run and 3 px on the
+  next (scrollWidth is whole pixels). It now asserts the table's own fractional box
+  against the stage and allows the integer reading 3 px. The mutant it exists for
+  (M11b) misses by ~190 px, so the bound is the rounding, not a budget.
+
+- [Screenshots] `~/Documents/nonogram-reviews/CARD-212/` — 1 small board unchanged,
+  2 both axes doubled, 3 rows only, 4 columns only, 5 the same big board at 1440 x 900
+  where there is no room, 6 the phone mirror fallback, 7 circles painted in both gutters.
+
+- [True, but outside this card]
+  - ~~**No resize listener.**~~ FIXED at review cycle 1 (F-001), and my reason for
+    deferring it — "the mirror has always behaved this way" — was **wrong**: the mirror's
+    condition IS the media query it listens to, so it can never be stale, while this
+    card's is a continuous measurement behind that discrete trigger. See the cycle-2
+    section below.
+  - **Column doubling uses the whole window height.** At 1200 x 1100 a 25 x 20 with both
+    column gutters ends a few pixels past the stage's visible box (5 px measured; a
+    single-gutter board at that viewport already overflows by 3-5 px). Nothing is
+    unreachable — the stage scrolls — but the board no longer has air under it. If the
+    owner dislikes that, the column axis wants a stricter bar than the row axis, which is
+    a second constant, not this card's one rule.
+  - A mirrored board (phone, W > 15) with doubled COLUMNS is handled by construction
+    (the `is-right` corner composes with the `tfoot` rules) but is unreachable under this
+    threshold — W > 15 at 24 px a cell needs more width than a phone has — so it is not
+    claimed anywhere and has no test.
+  - `.player-tools` is still declared twice in admin.css (CARD-211's review noted it).
+
+### Review cycle 1 — fixes (7.0/10, gate 8; 0 critical, 3 Important, 5 minor)
+
+- **F-001 (gating) — a doubled board now follows the window, not only the breakpoint.**
+  A trailing-debounced `resize` listener (RESIZE_SETTLE = 150 ms) calls the existing
+  `redraw()`, guarded by the same `width > BIG_SIDE || height > BIG_SIDE` test as the
+  media-query listener. Measured on the reviewer's own walk (30 x 25, one page load at
+  1920 x 1500, never crossing 820 px): before, `1100x900 dup=55 cell=14.39 ovX=176` and
+  `900x800 dup=55 cell=14.39 ovX=376`; after, `1100x900 dup=0 cell=17.63 ovX=1` and
+  `900x800 dup=0 cell=14.39 ovX=104`, **byte-for-byte what a reload at each of those
+  windows gives** (I measured the reload in the same session: `900x800 dup=0 cell=14.39
+  ovX=104`, `1100x900 dup=0 cell=17.63 ovX=1`). The review's reload baseline said "no
+  overflow at all" at 900 x 800; I could not reproduce that half — a 30-wide board at a
+  600 px stage is floor-bound and scrolls on a reload too — so the claim I make is the
+  one I can prove: **after a resize the board is exactly the board a reload would have
+  drawn.** Two tests in `tests/test_puzzle_solver_zoom.py`, inside the AC-8 class:
+  `test_a_resize_that_never_crosses_the_breakpoint_rechooses_the_layout` (marks, zoom and
+  circles survive both ways) and `test_a_resize_settles_on_the_layout_a_reload_would_have_given`
+  (resize == reload, asserted as equality of the whole measured shape).
+  Accepted cost, stated rather than hidden: a resize-redraw drops the hinted cell's
+  highlight, exactly as a breakpoint-crossing redraw has since CARD-193.
+
+- **F-002 (gating) — the ladder draws today's rendering first and early-outs.**
+  `drawSettledLayout` draws the plain board, and only if THAT clears the bar does it try
+  the doubled rungs (doubling is monotone: each gutter adds a subtrahend to both width
+  terms and a band to the height term, so a plain board under the bar can never be
+  rescued). If no rung fits, the plain table already built is re-inserted rather than
+  rebuilt. Draw counts, measured through a new `performance.mark` per board built
+  (DRAW_MARK), before -> after:
+
+  | board @ viewport | draws before | draws after | duplicates |
+  |---|---|---|---|
+  | 30x30 @1280x720 | 4 | **1** | 0 |
+  | 30x25 @1440x900 | 4 | **1** | 0 |
+  | 15x15 @1280x720 | 1 | 1 | 0 |
+  | 22x14 @1280x720 (plain clears the bar, the rung misses) | 2 | 2 | 0 |
+  | 20x12 @1280x720 | 2 | 2 | 12 |
+  | 30x12 @1920x1080 | 2 | 2 | 12 |
+  | 30x25 @1920x1500 | 1 | 2 | 55 |
+  | 30x25 @1920x1080 | 2 | 3 | 25 |
+
+  So the case the reviewer timed at ~810 ms (30 x 30 at 1280 x 720, four draws) is now one
+  draw; a board that CAN afford a duplicate pays one extra draw for the plain probe, which
+  is the trade the early-out makes. Pinned by draw count, not by timing
+  (`TestSolverClues_TheLadderStopsAtTheFirstRungThatFits`), because a timing assertion on
+  this suite would be flaky and would not say what is meant.
+
+- **F-003 (gating) — the false claim corrected, and the band it hid now covered.**
+  (a) The justification is rewritten above with the three fixture x viewport pairs named.
+  (b) `_assert_every_fifth_line_heavier` (`tests/test_puzzle_solver_page.py:630`) and the
+  `_RULES` probe now group the clue boxes by `data-line` and assert the fifth-line pattern
+  PER GUTTER, so a doubled board is checked instead of crashing the helper ("Left contains
+  12 more items"). (c) `(20, 12)` is added to the seeded corpus of
+  `test_PropertyTest_every_size_...` — at 1280 x 720 that size doubles — and the test now
+  also asserts `doubled >= 1`, so the corpus can never drift back out of the band silently.
+  (d) Two new tests in `tests/test_puzzle_solver_clues.py`
+  (`TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop`): a 20 x 12 at 1280 x 720 draws
+  both row gutters at 26.88 px with the same numbers and the same heavy fifth-line rules in
+  each, and a 22 x 14 there — plain 24.59 px, doubled rung just under the bar — draws one.
+  The bar itself is unchanged at 24 px (owner's decision).
+
+- **F-004 (minor, done)** — admin.css's comment now says plainly that no rule selects
+  `.is-mirrored` any more and that it is a state marker only.
+- **F-005 (minor, done)** — re-measured; 23.47 / 0.53 px, with the AC_GRID spread, in the
+  table's paragraph above.
+- **F-006 (minor, done)** — the column-band bound is `<= 6` on a measured 5 (was `<= 10`),
+  with the docstring saying it is the known residue and not a budget.
+- **F-007 (minor, done)** — the per-rule token test strips `/* ... */` before scanning, so
+  a comment mentioning `.is-right` can no longer be read as a selector.
+- **F-008 (minor, done)** — redraw()'s comment no longer claims the discarded rungs are
+  never "painted"; it says what is true and checkable: they are replaced within the same
+  task, so no frame is produced from one, and only the rung that stays is wired. The notes'
+  "all four of its tests" is corrected to five.
+- **C-2's suggestion (done, not a finding)** — the ring-clearance test is now also run on
+  CARD-193's phone mirror (390 x 844, `.is-mirrored`), the board that carried that defect
+  longest, not only on the 1920 x 1500 duplicate.
+
+- [Cycle-2 mutants] 8 run, 8 killed, each reverted from a pristine snapshot and the file
+  verified byte-identical:
+
+  | mutant | killed by |
+  |---|---|
+  | M17 resize listener returns immediately | `..._rechooses_the_layout` |
+  | M18 resize guard ignores the board size (a 15x15 redraws) | `..._a_board_too_small_to_double_is_not_redrawn_by_a_resize` |
+  | M19 early-out removed, every rung walked again | `TheLadderStopsAtTheFirstRungThatFits[30x30]` |
+  | M20 early-out accepts any plain board (`< 0`) | same |
+  | M21 the missed-rung path rebuilds instead of re-inserting | `TheLadderStops...[22x14]` (3 draws, not 2) |
+  | M22 the fifth-line helper flattens the gutters again | `TestSolverPage_EmphasisesEveryFifthLine` property test |
+  | M4 (re-run against the fixed tests) threshold 24 -> 1 | `TheLadderStops...`, `MidSizeBoards...` |
+  | M3 (re-run) `clueNumbersOf` pairs only the first gutter | `CirclesPaintBothGutters` |
+
+- [Still open, with reasons]
+  - **Column doubling uses the whole window height** (unchanged from cycle 1): a 25 x 20
+    with both column gutters ends ~5 px past the stage's visible box at 1200 x 1100. Now
+    pinned at `<= 6` rather than `<= 10` (F-006). A stricter bar for the column axis is a
+    second constant and an owner decision, not this card's one rule.
+  - **The mirrored + doubled-columns composition** stays unreachable under a 24 px bar and
+    therefore untested and unclaimed; the review confirmed it composes by construction.
+  - **M11 stays equivalent** — the reviewer re-derived the 20 px threshold algebraically and
+    measured ten board/viewport pairs identical. Left as documented, not killed.
+
+- [Fix cycle 1 complete] 2026-10-14 — committed `7c2ed8d` in the worktree. All three gating
+  findings closed with measurements, all five minors done, **8 mutants run and 8 killed**, each
+  reverted from a pristine snapshot with the file verified byte-identical.
+  - **F-001** — a trailing-debounced `resize` listener now runs the same `redraw()`, guarded by
+    the same "is this board big" test, and the resized board is asserted to be *the board a
+    reload would have drawn* rather than merely "not stale". Killed by M17 (listener returns
+    immediately) and M18 (guard ignores board size, so a 15x15 redraws).
+  - **F-002** — today's rendering is drawn **first** and nothing else is drawn at all when it is
+    already under the bar, on the monotonicity argument the reviewer supplied. Measured draw
+    counts: **30x30 @1280x720 goes 4 draws -> 1**, 30x25 @1440x900 4 -> 1. A board that *can*
+    afford a duplicate pays one extra draw for the plain probe (30x25 @1920x1500 goes 1 -> 2) —
+    that is the trade the early-out makes, and it is recorded rather than hidden. Pinned by a
+    `performance.mark` **draw count**, not a timing, exactly as the review asked.
+  - **F-003** — the false sentence is corrected everywhere with the three fixture x viewport
+    pairs named; `_assert_every_fifth_line_heavier` now groups by `data-line` and checks the
+    pattern **per gutter** instead of crashing on a doubled board; `(20, 12)` joins the seeded
+    corpus **with an assertion that at least one member doubles**, so the corpus cannot drift
+    back out of the band silently; and two new tests pin both sides of the boundary at
+    1280x720 (a 20x12 that doubles at 26.88 px, a 22x14 that does not).
+  - The ring-clearance pin now also runs on **CARD-193's phone mirror**, the board that carried
+    that defect longest — the reviewer's suggestion, taken.
+  - **Still open, with reasons given:** column doubling measures against the whole window height
+    (~5 px past the stage's visible box at 1200x1100, now pinned at `<= 6` instead of `<= 10`);
+    the mirrored + doubled-columns composition is unreachable under a 24 px bar and so stays
+    unclaimed and untested; M11 remains equivalent, which the reviewer independently re-derived.
