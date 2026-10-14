@@ -742,3 +742,30 @@ disagree, the ledger is authoritative._
   state and inferred the reload. The true delta was **376 -> 104 px, not 376 -> 0** — the defect
   and its severity stand, and the implementer caught the error and recorded it rather than
   quietly adopting the reviewer's figure.
+
+- [Fix cycle 2 dispatched] 2026-10-14 — the card is **merge-eligible at 8.5**, and one more
+  short cycle was dispatched anyway for three of the five minors, because one of them is a
+  user-visible regression this card introduced and the fix is about three lines.
+  - **G-003 is the reason.** A hint's highlight is erased by a **1 px resize** (measured 1 -> 0
+    hinted cells) while the "Hints: 1" count survives — so a reader pays for a hint and watches
+    the highlight vanish. Before this card it took crossing the 820 px breakpoint. The trigger
+    moved from rare to ordinary: **a phone fires a resize when its URL bar collapses**, which is
+    mid-solve on the device where a hint matters most. The fix keeps `{row, col}` across the
+    redraw and re-applies it, pinned by a test that resizes by one pixel and asserts the
+    highlight is still on the same cell — deliberately not the count, which already survives and
+    would make the test vacuous.
+  - **G-001** — the debounce is unpinned in both parameters, which is where two of the
+    reviewer's three surviving mutants live (dropping `clearTimeout`; `RESIZE_SETTLE` 150 ->
+    5000 ms, green only because the new tests wait through `wait_for_function`'s 30 s default).
+    Explicit `timeout=600` at both waits plus a burst-of-events test asserting the draw marks
+    rise by <= 2, not 8.
+  - **G-004** — the 22x14 pin fails for the wrong reason elsewhere: plain 24.5938 px (+0.59),
+    doubled 23.3125 px (-0.69), and 0.59 px on 22 columns is ~13 px of stage width, so a
+    platform with classic 15 px scrollbars flips the draw count and reds the test for a
+    non-regression. The self-diagnosing `doubled < 24 <= plain` goes in beside it.
+  - **Deliberately left:** G-002 (the bar's exact-equality case is unreachable — recorded beside
+    M11, not chased) and G-005 beyond its one-line comment correction.
+  - Rationale for spending the cycle rather than merging straight through: the gate does not
+    block G-003, but shipping a phone-visible regression whose fix is three lines, while the
+    agent is still warm, costs more later than it saves now — it would come back as its own
+    card, its own review and its own merge gate.
