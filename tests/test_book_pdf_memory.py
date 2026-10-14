@@ -1822,6 +1822,22 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
 
     @pytest.fixture(scope="class")
     @classmethod
+    def card204_baseline(cls) -> Dict[str, Any]:
+        """CARD-204's own recording — the *other* half of the TOC's
+        attribution (review cycle 1, F-002).
+
+        ``test_the_toc_page_moved_under_card205_not_card204`` promised a fact
+        about three fixtures and loaded two, which left "CARD-204 did not move
+        it" narrated rather than measured — in the one class whose whole
+        purpose is turning such claims into comparisons. Loaded directly by
+        name for the same reason the other two are.
+        """
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        with (fixtures_dir / "book_baseline_card204.json").open(encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @pytest.fixture(scope="class")
+    @classmethod
     def card205_baseline(cls) -> Dict[str, Any]:
         """CARD-205's own recording — the evidence for the one page CARD-205
         itself moved, the table of contents.
@@ -1901,7 +1917,7 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
             )
 
     def test_the_toc_page_moved_under_card205_not_card204(
-        self, baseline, card205_baseline, exported, same_face
+        self, baseline, card204_baseline, card205_baseline, exported, same_face
     ) -> None:
         """The attribution, measured rather than written down — the same
         shape :meth:`test_the_three_answer_pages_moved_under_card203_not_this_card`
@@ -1911,13 +1927,26 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         already in CARD-205's own fixture, while CARD-204's recording still
         agrees with CARD-200 on it. So "CARD-205 moved it, CARD-204 did not"
         is a fact about the three fixtures, not a claim in a docstring.
+
+        **All three fixtures are read** (review cycle 1, F-002): the
+        CARD-204 half used to be asserted nowhere, which made the "not
+        CARD-204" clause of this test's own name a sentence rather than a
+        measurement. It is now the first assertion below, and it is the one
+        that fails if a later card re-records CARD-204's fixture off a
+        rewritten TOC.
         """
         if not same_face:
             pytest.skip("the TOC is machine-lettered; see the class's own note")
         now = page_digests(exported)
         for number in self.CARD205_TOC_PAGE:
             card200_page = baseline["pages"][number - 1]
+            card204_page = card204_baseline["pages"][number - 1]
             card205_page = card205_baseline["pages"][number - 1]
+            assert card204_page == card200_page, (
+                f"interior page {number} differs between the CARD-200 and "
+                "CARD-204 recordings — CARD-204 then moved the table of "
+                "contents too, and this card's own attribution of it is wrong"
+            )
             assert card205_page != card200_page, (
                 f"interior page {number} is identical in the CARD-200 and "
                 "CARD-205 recordings — CARD-205 is then not what moved it, "

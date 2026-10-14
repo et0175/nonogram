@@ -155,8 +155,11 @@ by three places that must never disagree — :meth:`BookPDFGenerator.section_pla
 (the real export), :func:`interior_page_count`'s own sheet-free default, and
 :func:`~nonogram.admin.book_kdp.unpaired_interior_page_count` (whose page count
 chooses KDP's gutter margin). :meth:`BookPDFGenerator.interior_stream` closes
-the loop with a tripwire: the rows it actually hands the drawing must
-re-measure to the page count the plan was laid out on.
+the loop with a tripwire in two halves: the rows it actually hands the drawing
+must be as many as :func:`structural_toc_entry_count` says that book lists,
+*and* must re-measure to the page count the plan was laid out on. Both halves,
+because a page count is 1 for anything from one row up to a page's capacity
+and so cannot see a row-count divergence on its own.
 
 Two puzzles to a page (FR-040, INV-010, CARD-127)
 --------------------------------------------------
@@ -597,6 +600,17 @@ TOC_ENTRY_GAP_PT = 4.0
 #: 10 px of margin over the folio's line is worth more than the 0.4 pt of
 #: extra white, because the next change that adds a row or a gap should
 #: fail on its own arithmetic rather than silently un-number a page.
+#:
+#: **Every px figure in the table above is read on Arial**, the face
+#: :func:`_guide_face` finds first. On a host where it falls back to
+#: Pillow's own face that row is taller, the same eight rows and four gaps
+#: leave 27 px, and the shortest storable trim's TOC page loses its folio
+#: even at 8.5 pt — measured in CARD-205 Fix 3 (review cycle 1, F-004), and
+#: the reason the owner's margin is asserted only behind the face gate in
+#: ``tests/test_book_toc.py``. Closing that would mean a smaller constant
+#: than the owner chose, so it is recorded for them rather than decided
+#: here; what is *not* face-dependent is that the folio cannot be dropped
+#: silently — the sweep's own inequality is red wherever it would be.
 #:
 #: This constant was **10 pt through Fix 1**, when only the three headings
 #: were set off and three gaps of 42 px left 73 px — the fourth gap the
@@ -2655,8 +2669,13 @@ def structural_toc_entries(
     Returns the empty list for a book with no printable puzzle — it gets no
     TOC page at all (AC-7, CARD-200's behaviour unchanged). ``len()`` of the
     result equals :func:`structural_toc_entry_count` of the same book;
-    :meth:`BookPDFGenerator.interior_stream` asserts that rather than
-    trusting it.
+    :meth:`BookPDFGenerator.interior_stream` asserts **that equality itself**,
+    row count against row count, before it lays a page out — and separately
+    re-measures the pages those rows take. The row half is the one that
+    cannot be inferred from the other: a page count is 1 for anything from
+    one row up to the frame's capacity, so the two passes can differ by rows
+    and still agree on pages (review cycle 1, F-001: the page comparison
+    alone did not notice this function's own count function losing a row).
 
     Raises:
         RuntimeError: ``section``'s dividers and ``payloads``' own level runs
@@ -5441,17 +5460,43 @@ class BookPDFGenerator:
         toc_entries = structural_toc_entries(
             section, decided.payloads, first_answer_page - 1
         )
-        # The plan/draw tripwire for the TOC itself. `section_plan` measured
-        # `toc_page_count` from `structural_toc_entry_count` — the row count
-        # predicted from the level runs alone, before any page number existed
-        # (that function's own docstring explains why the split is necessary) —
-        # and every page number in `section`, `first_answer_page` and the folio
-        # of every page after the guide is laid out on that figure. The rows
-        # just built are the ones that will actually be drawn. If the two ever
-        # disagree the book's whole back half is numbered for a TOC of the
-        # wrong length, which no render of the TOC page itself would reveal:
-        # so they are re-measured against each other here rather than trusted
-        # to have been derived the same way.
+        # The plan/draw tripwire for the TOC, in two halves — the ROWS first,
+        # then the pages they take.
+        #
+        # `section_plan` measured `toc_page_count` from
+        # `structural_toc_entry_count` — the row count predicted from the level
+        # runs alone, before any page number existed (that function's own
+        # docstring explains why the split is necessary) — and every page
+        # number in `section`, `first_answer_page` and the folio of every page
+        # after the guide is laid out on that figure. The rows just built are
+        # the ones that will actually be drawn.
+        #
+        # The first half is the equality `structural_toc_entries`' own
+        # docstring states: the builder's row count is the count function's.
+        # It is checked here and NOT left to the page comparison below,
+        # because a page count hides a row count: both figures are 1 for
+        # anything from one row up to the frame's own capacity (ten rows on
+        # the shortest storable trim, several dozen on Book 1), so the two
+        # passes could disagree by rows — a heading without its range, a
+        # level listed twice — and still agree on pages. Review cycle 1,
+        # F-001, demonstrated exactly that: `structural_toc_entry_count`
+        # mutated to `1 + 2 * level_count` left the page comparison silent.
+        # `dividers` is the section walk's own count of level divider pages,
+        # which `structural_toc_entries` has just proved to be the same levels
+        # in the same order as `payloads`' own runs (its RuntimeError above).
+        predicted_toc_rows = structural_toc_entry_count(dividers, count)
+        if len(toc_entries) != predicted_toc_rows:
+            raise RuntimeError(
+                f"the table of contents built {len(toc_entries)} row(s), but "
+                f"a book of {dividers} level(s) and {count} puzzle(s) lists "
+                f"{predicted_toc_rows} — the page plan was laid out on the "
+                "second figure"
+            )
+        # The second half, on the pages. If the two ever disagree the book's
+        # whole back half is numbered for a TOC of the wrong length, which no
+        # render of the TOC page itself would reveal: so they are re-measured
+        # against each other here rather than trusted to have been derived the
+        # same way.
         drawn_toc_pages = measured_toc_page_count(
             len(toc_entries), page_frame(self.page_spec(1)), self.dpi
         )

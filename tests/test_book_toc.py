@@ -8,6 +8,15 @@
     AC-6  TestBookToc_LeaderDotsStayInsideTheGap
     AC-7  TestBookToc_EmptyBookHasNoTocPage
 
+Review cycle 1 added two classes that are no AC's own:
+
+    F-001 TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts — the
+          builder and the count function called *directly*, over one-, two-
+          and three-level books, so their equality is not pinned by a
+          coincidence of literals at a single level count.
+    F-003 TestBookToc_TheErrorPathsRaiseAndNameTheProblem — the card's five
+          raise paths, plus ``interior_stream``'s new row-count tripwire.
+
 This file replaces CARD-200's own, whose three classes
 (``…ListsEveryPuzzleAgainstItsRealPageNumber``,
 ``…TitleResolutionMatchesTheAnswerSections``,
@@ -62,6 +71,9 @@ from nonogram.admin.book_pdf_generator import (
     _guide_face,
     measured_toc_page_count,
     page_frame,
+    structural_toc_entries,
+    structural_toc_entry_count,
+    toc_range_label,
     type_px,
 )
 from tests.helpers.book_corpus import corpus_book, font_fingerprint, load_baseline, puzzle
@@ -1130,6 +1142,26 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         ``book_pdf_generator`` agreeing with itself. A minimum case count is
         asserted inside the test so the sweep cannot silently shrink
         (CLAUDE.md).
+
+        **Every px figure here is read on the face this host letters in, and
+        the owner's margin cannot be asserted face-independently** (review
+        cycle 1, F-004, measured during Fix 3 rather than reasoned about).
+        The ladder below is ``_guide_face``'s own — Arial by path, then
+        Pillow's built-in face — so the test and the page always resolve to
+        the same face; but Pillow's fallback (Aileron) sets a *taller* row,
+        and on that face the eight rows and four gaps leave **27 px** where
+        the folio needs 49. That is not a gap in this test: the shortest
+        storable trim really does lose its folio on a host without Arial,
+        at the shipped 8.5 pt — rendered and spied, not computed:
+        ``create_toc_page`` on a 10.00 cm book with ``ImageFont.truetype``
+        made to refuse the Arial path draws no folio at all. So the ungated
+        inequality below is red on such a host, which is the guard working
+        rather than a false alarm, and an ungated *margin* assertion
+        (F-004's own suggestion) would be unsatisfiable there for the same
+        reason. Making it satisfiable means moving ``TOC_GROUP_GAP_PT``
+        below the owner's 8.5 pt, which is the owner's call and not this
+        card's: recorded in CARD-205's Worktree notes for them, with the
+        measurement.
         """
         from importlib import resources
         from io import BytesIO
@@ -1342,3 +1374,271 @@ class TestBookToc_EmptyBookHasNoTocPage:
 
         assert stream.page_count == GUIDE_PAGE_COUNT
         assert len(list(stream.pages)) == GUIDE_PAGE_COUNT
+
+
+# --------------------------------------------------------------------------
+# Review cycle 1, F-001 — the builder and the count function, called directly
+# --------------------------------------------------------------------------
+
+
+class TestBookToc_TheRowCountIsWhatTheCountFunctionPredicts:
+    """``len(structural_toc_entries(...)) == structural_toc_entry_count(...)``
+    — the equality :func:`structural_toc_entries`' docstring states and
+    :meth:`BookPDFGenerator.interior_stream` now asserts.
+
+    Review cycle 1, F-001: before this class nothing called either function
+    directly, and the equality was pinned only at ``level_count == 3``, by
+    two independent literal ``8``\\ s in two files — which is why the
+    reviewer's mutant (``structural_toc_entry_count`` returning
+    ``1 + 2 * level_count``) left all 33 tests of this file green. The
+    equality is asserted here over **one-, two- and three-level** books, and
+    from both sides: against the count function (which kills a mutant in it)
+    and against a row count written out by hand (which kills a mutant in the
+    builder). Neither side can cover for the other.
+    """
+
+    @staticmethod
+    def _directly(book_id: str, puzzles: List[dict]) -> Tuple[List[TocEntry], int, int]:
+        """The builder's own rows, and the two figures the count function takes.
+
+        Both read off one :meth:`BookPDFGenerator.section_plan` — the same
+        plan :meth:`interior_stream` draws its TOC from — so this calls the
+        production builder rather than reimplementing it, and the level count
+        comes from the plan's own divider pages rather than from the tier
+        arguments this test passed in.
+        """
+        generator = BookPDFGenerator(_book(book_id))
+        decided = generator.section_plan(list(puzzles))
+        # `interior_stream`'s own arithmetic for the SOLUTIONS divider:
+        # `first_answer_page - 1`, where `first_answer_page` is
+        # `1 + GUIDE_PAGE_COUNT + toc_page_count + len(section) + 1`.
+        solutions_page = (
+            1 + GUIDE_PAGE_COUNT + decided.toc_page_count + len(decided.pages)
+        )
+        entries = structural_toc_entries(
+            decided.pages, decided.payloads, solutions_page
+        )
+        levels = len(
+            [page for page in decided.pages if isinstance(page, DividerPagePlan)]
+        )
+        return entries, levels, len(decided.payloads)
+
+    @pytest.mark.parametrize(
+        ("book_id", "per_tier", "levels"),
+        (
+            ("card-205-f001-one", {"easy": 12}, 1),
+            ("card-205-f001-two", {"easy": 3, "hard": 3}, 2),
+            (
+                "card-205-f001-three",
+                dict(zip(("easy", "medium", "hard"), AC3_SPLIT)),
+                3,
+            ),
+        ),
+        ids=("one-level", "two-levels", "three-levels"),
+    )
+    def test_the_builder_lists_exactly_as_many_rows_as_the_count_predicts(
+        self, book_id: str, per_tier: Dict[str, int], levels: int
+    ) -> None:
+        entries, named_levels, puzzle_count = self._directly(
+            book_id, _puzzles(**per_tier)
+        )
+
+        assert named_levels == levels, (
+            "this case's premise: the book really does open "
+            f"{levels} level divider(s), and the plan opened {named_levels}"
+        )
+        assert puzzle_count == sum(per_tier.values()), (
+            "this case's premise: every puzzle is drawable, so the count "
+            "function is fed the number this test asked for"
+        )
+        # The hand count: one guide row, a heading and a range row per level,
+        # one solutions row. Written out rather than taken from the function
+        # under test, so a builder that lost a row fails here.
+        assert len(entries) == 1 + 2 * levels + 1
+        assert len(entries) == structural_toc_entry_count(named_levels, puzzle_count), (
+            "the row count the builder produced and the one the three "
+            "page-count callers are fed must be the same figure — this is "
+            "the equality `structural_toc_entries`' docstring states and "
+            "`interior_stream` asserts"
+        )
+
+    def test_a_book_with_nothing_to_list_agrees_on_zero_too(self) -> None:
+        """The empty case is the one where the equality is 0 == 0 — asserted
+        because it is also the only case where the count function short-
+        circuits on the puzzle count instead of the level count."""
+        entries, named_levels, puzzle_count = self._directly("card-205-f001-none", [])
+
+        assert (named_levels, puzzle_count) == (0, 0)
+        assert entries == []
+        assert len(entries) == structural_toc_entry_count(named_levels, puzzle_count)
+
+    def test_the_two_functions_are_not_the_same_walk_twice(self) -> None:
+        """Why the equality above is evidence and not a tautology: the count
+        function is given a level **count** and never sees a page plan, while
+        the builder is given the plan and never counts levels. A single
+        shared helper would make the assertion meaningless; these two read
+        different inputs and agree.
+        """
+        assert structural_toc_entry_count(3, 150) == 8
+        assert structural_toc_entry_count(0, 150) == 2, (
+            "a book whose every run is untiered lists the guide and the "
+            "solutions and nothing between them"
+        )
+        assert structural_toc_entry_count(3, 0) == 0, (
+            "and a book with no drawable puzzle lists nothing at all, "
+            "however many tiers its members claim"
+        )
+
+
+# --------------------------------------------------------------------------
+# Review cycle 1, F-003 — the raise paths
+# --------------------------------------------------------------------------
+
+
+class TestBookToc_TheErrorPathsRaiseAndNameTheProblem:
+    """The card's five refusals, exercised rather than written down.
+
+    Review cycle 1, F-003: this file held no ``pytest.raises`` at all, while
+    the card added five raise paths — two of them tripwires whose message
+    ``app.py``'s Finalise screen catches and **logs**, which makes the text
+    itself a contract (the same reason CARD-200's page-plan tripwire has both
+    a direct test and a screen-level one). So every case below asserts what
+    the message says, not only that something raised. The screen-level half
+    for the two ``interior_stream`` tripwires is
+    ``tests/test_book_finalise_gutter.py``'s own
+    ``TestFinaliseCounts_PlanTripwireIsNotAnEstimate``, which this card's fix
+    extends with the TOC row-count case.
+    """
+
+    def test_a_row_cannot_name_a_page_before_the_interior_starts(self) -> None:
+        with pytest.raises(ValueError, match="interior page 1 or later"):
+            TocEntry(TOC_SOLUTIONS_LABEL, 0)
+        with pytest.raises(ValueError, match="interior page 1 or later, got -3"):
+            TocEntry(GUIDE_TITLE, -3)
+        # `None` is not a violation: it is how a heading says "no page".
+        assert TocEntry("Easy", None, starts_group=True).page is None
+
+    def test_a_range_that_runs_backwards_or_below_one_is_not_a_label(self) -> None:
+        with pytest.raises(ValueError, match=r"1 <= first <= last, got 5\.\.4"):
+            toc_range_label(5, 4)
+        with pytest.raises(ValueError, match=r"1 <= first <= last, got 0\.\.3"):
+            toc_range_label(0, 3)
+        # The boundary itself is legal, and reads in the singular.
+        assert toc_range_label(1, 1) == "Puzzle 1"
+
+    def test_a_negative_count_is_refused_rather_than_floored(self) -> None:
+        with pytest.raises(ValueError, match="got -1 level"):
+            structural_toc_entry_count(-1, 1)
+        with pytest.raises(ValueError, match="got 1 level"):
+            structural_toc_entry_count(1, -1)
+        with pytest.raises(ValueError, match="lists 0 or more entries, got -1"):
+            measured_toc_page_count(-1, page_frame(BookPDFGenerator(_book()).page_spec(1)), DPI)
+
+    def test_a_plan_whose_dividers_disagree_with_the_level_runs_builds_no_rows(
+        self,
+    ) -> None:
+        """The guard the card's own step-1 finding rests on: the ranges come
+        from the payloads' level runs and the headings from the plan's
+        dividers, so if those two readings ever disagree a heading would be
+        printed against another level's page range. It must fail loudly
+        instead, naming both readings.
+        """
+        generator = BookPDFGenerator(_book("card-205-f003-disagree"))
+        puzzles = _puzzles(easy=3, hard=3)  # medium empty: Easy, then Hard
+        decided = generator.section_plan(list(puzzles))
+        positions = [
+            index
+            for index, page in enumerate(decided.pages)
+            if isinstance(page, DividerPagePlan)
+        ]
+        assert len(positions) == 2, "this test's premise: two level dividers"
+        reordered = list(decided.pages)
+        first, second = positions
+        reordered[first], reordered[second] = reordered[second], reordered[first]
+
+        with pytest.raises(RuntimeError) as raised:
+            structural_toc_entries(reordered, decided.payloads, 99)
+        message = str(raised.value)
+
+        assert "do not match the book's own level runs" in message
+        assert "['hard', 'easy']" in message, (
+            "the plan's own reading must be named in the message, in the "
+            f"order it was read: {message}"
+        )
+        assert "['easy', 'hard']" in message, (
+            f"and so must the payloads' own level runs: {message}"
+        )
+
+        # A divider *missing* altogether is the same refusal, not a shorter
+        # list silently zipped against a longer one.
+        with pytest.raises(RuntimeError, match="do not match"):
+            structural_toc_entries(
+                [page for page in decided.pages if not isinstance(page, DividerPagePlan)],
+                decided.payloads,
+                99,
+            )
+
+    def test_a_row_count_the_plan_was_not_laid_out_on_aborts_the_export(
+        self, monkeypatch
+    ) -> None:
+        """Review cycle 1, F-001's own mutant, injected as a test.
+
+        ``structural_toc_entry_count`` is replaced with
+        ``1 + 2 * level_count`` — the mutant that left this whole file green
+        before the fix, because every page-count caller still measured one
+        page either way. ``interior_stream``'s row-count tripwire is what
+        must now catch it, and its message must name both figures: the
+        Finalise screen logs this text.
+        """
+        import nonogram.admin.book_pdf_generator as module
+
+        def one_row_short(level_count: int, puzzle_count: int) -> int:
+            return 0 if puzzle_count == 0 else 1 + 2 * level_count
+
+        monkeypatch.setattr(module, "structural_toc_entry_count", one_row_short)
+        generator = BookPDFGenerator(_book("card-205-f003-rows"))
+
+        with pytest.raises(RuntimeError) as raised:
+            generator.interior_stream(_puzzles(easy=3))
+        message = str(raised.value)
+
+        assert "built 4 row(s)" in message, (
+            f"the rows the builder really produced must be named: {message}"
+        )
+        assert "1 level(s) and 3 puzzle(s) lists 3" in message, (
+            f"and so must the figure the page plan was laid out on: {message}"
+        )
+
+    def test_a_toc_needing_a_page_the_plan_did_not_reserve_aborts_the_export(
+        self, monkeypatch
+    ) -> None:
+        """The page half of the same tripwire, kept and tested beside the new
+        row half: the second ``measured_toc_page_count`` call — the one
+        ``interior_stream`` makes over the rows it is about to draw — is made
+        to disagree with the one ``section_plan`` laid the book out on.
+        """
+        import nonogram.admin.book_pdf_generator as module
+
+        real = module.measured_toc_page_count
+        calls: List[int] = []
+
+        def wider(entry_count: int, frame, dpi: int) -> int:
+            calls.append(entry_count)
+            pages = real(entry_count, frame, dpi)
+            return pages + 1 if len(calls) > 1 else pages
+
+        monkeypatch.setattr(module, "measured_toc_page_count", wider)
+        generator = BookPDFGenerator(_book("card-205-f003-pages"))
+
+        with pytest.raises(RuntimeError) as raised:
+            generator.interior_stream(_puzzles(easy=3))
+        message = str(raised.value)
+
+        assert calls == [4, 4], (
+            "this test's premise: the plan and the draw each measure the "
+            f"same four rows, and only the second answer is widened: {calls}"
+        )
+        assert "4 row(s) need 2 page(s)" in message, message
+        assert "laid out on 1" in message, (
+            f"the figure the book's own page numbers rest on must be named: {message}"
+        )

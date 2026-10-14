@@ -1211,15 +1211,45 @@ def _drop_last_planned_page(monkeypatch):
     return "the page plan prints"
 
 
+def _lose_a_toc_row(monkeypatch):
+    """Break the TOC's row count so the page plan is laid out on one figure
+    and the rows handed to the drawing are another (CARD-205 Fix 3, F-001/F-003).
+
+    ``structural_toc_entry_count`` — the one function
+    :meth:`BookPDFGenerator.section_plan`, :func:`interior_page_count`'s
+    sheet-free default and ``book_kdp`` are all fed from — is replaced with
+    ``1 + 2 * level_count``, the mutant review cycle 1 found survived the
+    whole TOC test file. The real :meth:`interior_stream` then trips its own
+    *row-count* tripwire ("the table of contents built N row(s) ..."), the
+    tripwire that mutant proved was missing: this is the exporter bug the
+    guard exists for, not a stand-in exception raised here.
+
+    Why it belongs in this parametrize and not only in
+    ``tests/test_book_toc.py``: the message is user-visible — Finalise
+    catches it, logs it with its traceback and shows an error page instead
+    of a plausible "About N" — which is exactly the contract the three tests
+    below assert of a plan tripwire, whichever one it is.
+    """
+    from nonogram.admin import book_pdf_generator as module
+
+    def one_row_short(level_count, puzzle_count):
+        return 0 if puzzle_count == 0 else 1 + 2 * level_count
+
+    monkeypatch.setattr(module, "structural_toc_entry_count", one_row_short)
+    return "the table of contents built"
+
+
 #: CARD-198 removed the second tripwire this parametrize used to cover
 #: ("the answer key holds ..."): since the answer section is no longer
 #: packed, there is no second walk left for it to disagree with (see
-#: ``interior_stream``'s own docstring). ``_drop_last_planned_page`` is the
-#: one tripwire the plan can still fail on, and the only case left here.
+#: ``interior_stream``'s own docstring). CARD-205 added the TOC's own two
+#: halves, of which the row count is the one a book of this size can be made
+#: to fail on (its page count is 1 whether it lists three rows or four), so
+#: the cases here are the page plan's and the TOC's row count.
 TRIPWIRES = pytest.mark.parametrize(
     "break_the_plan",
-    (_drop_last_planned_page,),
-    ids=("page-plan",),
+    (_drop_last_planned_page, _lose_a_toc_row),
+    ids=("page-plan", "toc-rows"),
 )
 
 
