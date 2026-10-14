@@ -1,7 +1,7 @@
 
 # CARD-204: Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver
 
-**Status:** review
+**Status:** blocked
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2.5d
@@ -16,12 +16,12 @@
 **Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/property/test_book_layout.py, tests/property/test_book_pdf_geometry.py, tests/property/test_book_two_up.py, tests/property/test_book_workflow.py, tests/property/test_book_export_interior.py, tests/test_answer_page_layout.py, tests/test_book_pdf.py, tests/test_book_pdf_memory.py, tests/test_book_pdf_two_up.py, tests/test_book_puzzle_frame.py, tests/test_book_solved_page.py, tests/test_layout_answer_tiles.py, tests/test_layout_two_up.py, tests/test_export_pdf.py, tests/test_export_image.py, tests/fixtures/make_fixtures.py, pyproject.toml (only if the owner approves a new runtime dependency — see "What to implement" step 2)
-**Review score:** 8.5/10 (cycle 4, owner-authorized extension; cycle 3 was 4.0) — severity gate blocks on 1 Important (F-9, declarative only)
+**Review score:** 8.5/10 (cycle 4); cycle 5 on Fix 7 alone = **6.5/10, 1 CRITICAL** — not mergeable; family-regression escalation to the owner
 **Started:** 2026-10-10T05:08:27Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — implementation: cycle-5 CRITICAL (a clamped packed caption overprints the folio on a standard KDP trim) plus the fifth family regression in one mechanism; owner decision requested on narrow fix vs closing the family
 
 ## What to implement
 
@@ -2180,6 +2180,61 @@ merges first.
   the margin with the remainder clipped off the sheet, and a 133-character name does it on
   the odd page too. This corpus never produced it (its captions are 321-459 px), which is
   why nothing caught it before.
+
+- [Review] cycle 5 (narrow: `aa761f8..cb0c206`, Fix 7 only) — **score 6.5**, risk
+  MEDIUM. **1 CRITICAL, 1 Important, 1 Minor. NOT safe to merge.** Report synced:
+  `meta/review/20261014T053042Z-CARD-204-cycle5.yml`. This review existed because
+  Fix 7 was new production code written after cycle 4 and after the AC/EC gate; the
+  merge gate's full suite was GREEN and no test covers what it found.
+  **CRITICAL — `book_pdf_generator.py:4181`: a clamped packed caption overprints the
+  folio.** Fix 7 told the full-page consumer about the caption's new right edge
+  (`solved_puzzle_page` passes `content_right = caption_right`) but not the packed
+  one: `_packed_answer_page` still passes `content_right =
+  corner_placement.drawing_right`, and its own comment asserts the premise Fix 7 just
+  falsified ("the caption's right edge coincides with it"). Packed tiles are CENTRED
+  in their tile, so the clamp pushes the caption to the tile's `usable_right`, which
+  on the corner column of a right-hand page IS the folio's corner; `_draw_folio` reads
+  the stale figure, passes its clearance test, and draws. Reproduced by
+  render-minus-reference on **21.59 x 27.94 cm (8.5" x 11", a standard KDP trim)**,
+  KDP-min margins, page 9, a capacity-4 packed page of four 10x13 answers with a long
+  name: `drawing_right` 2418, `caption_slot.right` 2475 = `frame.right`, folio drawn,
+  **40 px of caption ink inside the folio's glyph box**. Short title: 0 px. 4 hits in
+  a 6x5x2x21x21 sweep. The fix is one line mirroring the full-page call site, deleting
+  the false comment, and a clamped case in the existing collision test.
+  **Important — `layout.py:1226`:** the `min(..., usable_right)` stop SURVIVED mutation
+  (M3, 224 passed) because the 104-case sweep is all `fits == True` layouts, and the
+  stop is production-reachable: a 30x30 on a 10.0/10.16 cm trim at min margins has
+  `fits = False`, `drawing_right` 1138 vs `usable_right` 1106, so a 300 px caption that
+  fits easily still moves 32 px / 2.7 mm. `layout.py`'s own comment discloses this
+  honestly; `book_pdf_generator.py:3751-3756` DENIES it ("the two are the same pixel,
+  so CARD-203's right-alignment is untouched"). One `SHAPES` entry + one assertion
+  closes it.
+  What verified exactly, re-derived rather than inherited: the test-partition
+  diagnosis; the real defect's figures (column 0 ink on both parities, 113 px out of a
+  packed tile); the clamp arithmetic as total on both parities and for a tile; the
+  `_clipped_to` extraction as behaviour-preserving (proved harder than claimed — a
+  full corpus export byte-identical pre/post, same sha256); **the baseline
+  re-recording's attribution, to the byte** (+1828 == CARD-203's own delta over
+  CARD-200; only pages 11-13 moved; Fix 7 moves no page at all, so no regression is
+  being blessed); and 10 of the 26 new tests failing pre-fix. CON-019, ADR-0036/R1,
+  G-1..G-6 all hold. CON-020's floor literally IS `ANSWER_TEXT_FONT_MM = 10 * 25.4 /
+  72`, confirming "shrink the type" was never available and no owner decision was owed.
+- [Family regression] 2026-10-14 — `review.family_regression: on`, and this is the
+  detector's shape, stated by the reviewer better than the config does: **"the same
+  two call sites, the same asymmetry, one card later."** CARD-203 cycle 1 (F-001)
+  fixed the caption/folio corner on the full page and missed the packed page; its
+  cycle 2 (F-101) fixed the packed page and got the parity gate wrong; Fix 7 fixed the
+  caption's right edge on the full page and missed the packed page. Root cause named:
+  `_draw_solved_slot`'s return tuple has **two consumers that must be changed
+  together, and nothing in the code or the tests says so.** This is the fifth time
+  this card's own loop has produced a finding seeded by its previous fix (F-1 -> F-5 ->
+  F-7 -> cycle-5 critical). Escalating to the owner rather than spending a sixth
+  cycle on reflex: the narrow fix is genuinely one line, but whether to also close the
+  family is a judgement about this product's print risk, not mine to take.
+- [Correction, mine] I told the owner the caption's ink sat "127 px inside
+  `usable_left`", quoting Fix 7's note. The reviewer re-measured: the caption band is
+  986..**1438** and 986 is **873 px** clear of `usable_left`, not 127. Immaterial to
+  the defect, but it was stated as a measurement and it was wrong.
 ## System contract
 
 _Not yet assembled — run `python3
