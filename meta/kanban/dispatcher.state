@@ -101,6 +101,11 @@ conflict_edges:
 # recorded wave 37 as complete with CARD-197/198/199, so the number was used twice. All six
 # cards of this batch (204, 214, 205, 211, 221, 212) were renumbered, the two closed ones
 # included, so one batch is not split across two wave numbers.
+# NOTE 2026-10-14 (owner): "Please merge changes, I'll verify later." Their visual check is
+# POST-merge. Do not hold a card whose own gates pass waiting for an eyeball, and do not ask
+# whether to merge it — merge, then report and point at the renders. This is not permission to
+# merge past a gate: a review under min_score, an unmet AC, a red merge gate, an open owner
+# decision or a strict xfail standing in for a defect all still block.
 # NOTE 2026-10-14 (owner): CARD-217 runs NEXT AND ALONE, once CARD-221 and CARD-212 merge.
 # Do not start another pair before it. The suite is 1042s per merge gate against 398s at
 # wave 30, and CARD-218/219/220 are blocked behind it.
