@@ -890,7 +890,7 @@ class TestSolverMaybe_ToolKeyboardAndLabel:
         _trigger(browser_page).click()
         names = [item.text_content().strip() for item in browser_page.locator('[role="menuitemradio"]').all()]
         browser_page.keyboard.press("Escape")
-        assert names == ["Black", "White", "Maybe", "Undecided", "Region"]
+        assert names == ["Black", "White", "Maybe", "Undecided"]  # CARD-211: Region left the menu
 
     @pytest.mark.parametrize("key", ["Enter", "Space"])
     def test_enter_and_space_select_it(self, browser_page, live, key) -> None:
@@ -1061,7 +1061,9 @@ _TOOLBAR_ROWS = """() => {
 @pytest.mark.browser
 class TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280:
     """At 1280 x 720 (the default viewport) the brush trigger (CARD-194: one
-    control standing in for the four brushes), Undo / Redo / Reset / Hint and
+    control standing in for the four brushes) and the Region toggle beside it
+    (CARD-211 — the second .player-tools button this selector now sees, which
+    must not push the row into a second line), Undo / Redo / Reset / Hint and
     both counters share one toolbar row, as the three (then four) tool
     buttons did before CARD-194 (and CARD-186). The assertion itself needs no
     change — the trigger's own row-sharing is CARD-194's own concern,
@@ -1076,9 +1078,11 @@ class TestSolverMaybe_FourToolsKeepOneToolbarRowAt1280:
 @pytest.mark.browser
 class TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved:
     """Solved, the tools keep their box but are hidden: no brush control is a
-    button or menu item by role, focus() does not take on the trigger or any
-    menu item, and Tab from the top of the page reaches Reset without
-    passing any of them (CARD-194: the trigger and the five-item menu)."""
+    button or menu item by role, focus() does not take on the trigger, any
+    menu item or the Region toggle, and Tab from the top of the page reaches
+    Reset without passing any of them (CARD-194: the trigger and its menu;
+    CARD-211: the Region toggle, which lives inside the same hidden
+    .player-tools box and so goes out of reach with them)."""
 
     def test_menu_left_open_closes_on_solve(self, browser_page, live) -> None:
         """CARD-194 target behaviour #12 — the menu closes on solve, even
@@ -1102,16 +1106,21 @@ class TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved:
         assert browser_page.get_by_role("menuitemradio").count() == 0
         focused = browser_page.evaluate(
             """() => [document.getElementById('puzzle-player-tool-trigger'),
-                       ...document.querySelectorAll('[data-player-tool]')]
+                       ...document.querySelectorAll('[data-player-tool]'),
+                       document.getElementById('puzzle-player-region')]
               .map((b) => { b.focus(); return document.activeElement === b; })"""
         )
-        assert focused == [False] * 6  # the trigger plus the five menu items
+        # the trigger, the four menu items and the Region toggle (CARD-211)
+        assert focused == [False] * 6
         browser_page.evaluate("document.activeElement && document.activeElement.blur()")
         seen = []
         for _ in range(60):
             browser_page.keyboard.press("Tab")
             here = browser_page.evaluate(
-                "(() => { const a = document.activeElement; return a.dataset.playerTool || a.dataset.playerAction || ''; })()")
+                """(() => { const a = document.activeElement;
+                     return a.dataset.playerTool
+                       || (a.dataset.playerRegion === undefined ? '' : 'region')
+                       || a.dataset.playerAction || ''; })()""")
             seen.append(here)
             if here == "reset":
                 break

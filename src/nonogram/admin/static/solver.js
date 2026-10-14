@@ -42,8 +42,8 @@
 // Boards are trusted in-page values (see solver_state.js).
 //
 // MARKING (CARD-161, FR-044 AC-303..AC-311; the "?" mark, CARD-186; a click
-// follows the brush, CARD-189; one brush dropdown with a Region option,
-// CARD-194). The
+// follows the brush, CARD-189; one brush dropdown, CARD-194, with Region
+// beside it as a toggle of its own, CARD-211). The
 // strokes and the undo/redo history are solver_state.js values (clickStroke,
 // dragStroke, resetStroke, record, undo, redo); this file only turns input into those calls and
 // paints the resulting board. The marking code (wireMarking) does not read
@@ -66,8 +66,8 @@
 //             key, the current brush too), pressing Reset when that opens the
 //             confirmation (so a reset opened and then cancelled ends the
 //             run too) and pointercancel; the click path sets it after its
-//             own commit. Picking Region does NOT clear it (Region is not a
-//             brush pick — see "menu" below).
+//             own commit. Pressing Region does NOT clear it (Region is not a
+//             brush pick — see "region" below).
 //             Having been over another cell = a drag: dragStroke with the
 //             tool selected at pointerdown, previewed on every move, recorded
 //             on pointerup; pointercancel drops it. A mouse drag (main
@@ -93,25 +93,52 @@
 //             marks nothing on release either way.
 //   menu      #puzzle-player-tool-trigger (a button, aria-haspopup="menu")
 //             opens #puzzle-player-tool-menu (role="menu", initially hidden):
-//             five role="menuitemradio" [data-player-tool] items in the
+//             FOUR role="menuitemradio" [data-player-tool] items in the
 //             owner's order — Black, White, Maybe, Undecided (the four
-//             brushes, filled/empty/maybe/unknown) then Region. Exactly one
-//             item is aria-checked="true": a brush when Region is off, or
-//             Region itself when it is on (picking a brush always turns
-//             Region off; picking Region keeps whichever brush was active —
-//             CARD-194 target behaviour #3/#4). The trigger's accessible
-//             name is always "Brush: <brush>"; its visible text is "<brush>",
-//             or "Region · <brush>" while Region is on. Enter, Space or
+//             brushes, filled/empty/maybe/unknown). Region was a fifth item
+//             until CARD-211 and is now a control of its own (see "region"
+//             below), so the menu holds brushes only and exactly one item is
+//             aria-checked="true": the chosen brush. The trigger's accessible
+//             name is always "Brush: <brush>" and its visible text is
+//             "<brush>" — CARD-194's "Region · <brush>" composite text is
+//             gone with the menu item. Enter, Space or
 //             ArrowDown on the trigger opens the menu with focus on the
 //             checked item; inside it ArrowDown/ArrowUp move with wraparound,
 //             Home/End jump to the first/last item, Escape closes with no
 //             change and returns focus to the trigger, and Tab closes the
-//             menu and lets focus continue to the next control (Undo) —
+//             menu and lets focus continue to the next control (Region, since
+//             CARD-211 put it between the trigger and Undo) —
 //             picking an item (click, or Enter/Space on a native <button>)
 //             closes the menu and returns focus to the trigger the same way.
-//             The trigger is the only direct <button> child of .player-tools
-//             (the menu is a sibling <div>), so a layout selector scoped to
-//             ".player-tools > button" still sees one control.
+//             The trigger and the Region toggle are the two direct <button>
+//             children of .player-tools (the menu is a sibling <div> between
+//             them), so a layout selector scoped to ".player-tools > button"
+//             sees both.
+//   region    [data-player-region] (#puzzle-player-region, CARD-211): the
+//             Region toggle, a plain <button> carrying its state in
+//             aria-pressed ("true"/"false") rather than aria-checked — it is
+//             a mode, not one option among several, which is what a screen
+//             reader should announce. Pressing it arms Region; it disarms
+//             again when pressed a second time and, one-shot, the instant a
+//             drag is recorded (#7) — the flag's whole transition table is
+//             solver_state.js nextRegion, so this file only says which event
+//             happened. Picking a brush leaves Region exactly as it was: a
+//             DELIBERATE divergence from CARD-194's target behaviour #3,
+//             decided by the owner on 2026-10-14 (CARD-211) once Region
+//             stopped being a fifth item in the brush menu — see
+//             nextRegion's own note in solver_state.js. So the two controls
+//             are independent in both directions; arming Region never
+//             changes the brush either, and never clears
+//             `lastClick` (#4). Every change — including the automatic
+//             disarm — is written to #puzzle-player-announce, so a screen
+//             reader hears "Region on"/"Region off" without re-reading a
+//             label; an unchanged value is never rewritten (the live region
+//             would announce it again). The flag is UI state like
+//             `lastClick` and `zoom`: never a cell state, never recorded,
+//             never saved, so every load starts with Region off. While it is
+//             armed the board carries .is-region, which is how admin.css
+//             drops .player-cell's touch-action to none; the toggle is the
+//             only thing that sets that class.
 //   history   [data-player-action] undo / redo / reset; aria-disabled="true"
 //             while there is nothing to do — pressing one then leaves the
 //             board as it is, because undo/redo with an empty stack and a
@@ -233,6 +260,10 @@ import { circledClues } from "./solver_state.js";
 import { deserializeState, saveKey, serializeState } from "./solver_state.js";
 // Zoom (CARD-195): see ZOOM below.
 import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, pinchZoom, stepZoom } from "./solver_state.js";
+// Region (CARD-194's modifier, its own toggle since CARD-211): see "region"
+// above. The flag's transitions and the "does this drag paint?" rule are
+// pure (ADR-0038/R4); the button that shows the flag is this file's.
+import { gesturePaints, nextRegion } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
@@ -600,9 +631,17 @@ function isAt(position, [row, col]) {
 // an input does; getZoom (CARD-195) is the current zoom percent, read by
 // redraw() in start() so a mirror redraw keeps it.
 //: The brush each menu item paints, keyed by its data-player-tool (see
-//: "menu" above) — "region" is deliberately absent: it is never a brush and
-//: never reaches solver_state.js.
+//: "menu" above). Region is deliberately absent — it is never a brush, has
+//: no cell state, and since CARD-211 is not a menu item at all.
 const BRUSH_LABEL = { [FILLED]: "Black", [EMPTY]: "White", [MAYBE]: "Maybe", [UNKNOWN]: "Undecided" };
+
+//: What #puzzle-player-announce says about the Region toggle (CARD-211
+//: AC-6). The "on" line names what Region will do, because that is the
+//: state a screen-reader user cannot see; "off" needs no explanation.
+const REGION_ANNOUNCEMENT = {
+  true: "Region on: the next drag marks with the brush.",
+  false: "Region off.",
+};
 
 function wireMarking(container, player) {
   const controls = document.getElementById("puzzle-player-controls");
@@ -611,13 +650,19 @@ function wireMarking(container, player) {
   const triggerText = trigger.querySelector("[data-player-trigger-text]");
   const menu = document.getElementById("puzzle-player-tool-menu");
   const items = [...menu.querySelectorAll("[data-player-tool]")];
+  // The Region toggle (CARD-211, see "region" above) and the live region its
+  // state is announced through (the same one the solved banner and a hint
+  // use — start()'s showProgress writes it too, and whichever wrote last
+  // wins, which is why only a genuine change is ever written).
+  const regionToggle = document.getElementById("puzzle-player-region");
+  const announce = document.getElementById("puzzle-player-announce");
   const actions = Object.fromEntries(
     [...controls.querySelectorAll("[data-player-action]")].map((b) => [b.dataset.playerAction, b]));
   // The reset confirmation (see PROGRESS "reset").
   const confirm = document.getElementById("puzzle-player-confirm");
   const keep = confirm.querySelector('[data-player-confirm="cancel"]');
   let tool = FILLED;
-  let region = false; // the Region option (see "menu" above) — never a cell state
+  let region = false; // armed? (see "region" above) — never a cell state, never saved
   let gesture = null; // { pointerId, start, path, dragging, tool, paints }
   let lastClick = null; // the last recorded click, { row, col, tool } (see MARKING)
 
@@ -706,17 +751,31 @@ function wireMarking(container, player) {
     applyZoom(pinchZoom(pinch.startZoom, pinch.startDistance, distanceBetween(p1, p2)), midX, midY);
   }
 
-  // The trigger's name/text and which menu item is checked, from `tool` and
-  // `region` (see "menu" above).
+  // The trigger's name/text and which menu item is checked, from `tool`
+  // alone (see "menu" above): since CARD-211 the menu holds brushes only, so
+  // Region no longer shows up in either the label or the checked item.
   function syncTrigger() {
     const label = BRUSH_LABEL[tool];
     trigger.setAttribute("aria-label", `Brush: ${label}`);
     triggerSwatch.dataset.state = tool;
-    triggerText.textContent = region ? `Region · ${label}` : label;
+    triggerText.textContent = label;
     for (const item of items) {
-      const checked = region ? item.dataset.playerTool === "region" : item.dataset.playerTool === tool;
-      item.setAttribute("aria-checked", String(checked));
+      item.setAttribute("aria-checked", String(item.dataset.playerTool === tool));
     }
+  }
+
+  // Move Region to `armed` (CARD-211, see "region" above): the toggle's
+  // aria-pressed, the board's .is-region class (through refresh(), which is
+  // also what re-applies it after a mirror redraw) and one live-region line.
+  // A no-op call writes nothing — rewriting the same announcement would make
+  // it read out again. Every caller goes through solver_state.js nextRegion,
+  // so this function never decides the transition itself.
+  function setRegion(armed) {
+    if (armed === region) return;
+    region = armed;
+    regionToggle.setAttribute("aria-pressed", String(region));
+    announce.textContent = REGION_ANNOUNCEMENT[String(region)];
+    refresh();
   }
 
   function closeMenu() {
@@ -732,18 +791,15 @@ function wireMarking(container, player) {
   }
 
   // A menu pick (mouse click, or Enter/Space on a focused item — items are
-  // native <button>s, so those keys already fire "click"). Picking a brush
-  // turns Region off and restarts the click sequence (CARD-194 target
-  // behaviour #3); picking Region keeps the current brush and leaves
-  // `lastClick` alone (#4).
+  // native <button>s, so those keys already fire "click"). Every item is a
+  // brush since CARD-211, and picking one restarts the click sequence but
+  // leaves Region alone: CARD-194's target behaviour #3 (a brush pick
+  // disarms Region) was reversed by the owner on 2026-10-14, so there is no
+  // setRegion call here and no "brush" event in nextRegion's table — see
+  // nextRegion's divergence note in solver_state.js.
   function pick(name) {
-    if (name === "region") {
-      region = true;
-    } else {
-      tool = name;
-      region = false;
-      lastClick = null;
-    }
+    tool = name;
+    lastClick = null;
     syncTrigger();
     closeMenu();
     trigger.focus();
@@ -800,11 +856,12 @@ function wireMarking(container, player) {
     const start = cellUnder(container, event.clientX, event.clientY);
     if (!start) return;
     // A mouse drag always marks (G-1); a touch or pen drag marks only while
-    // Region is on (CARD-194 target behaviour #8/#10) — captured here, at
-    // pointerdown, like the tool itself, so toggling Region mid-gesture (not
-    // reachable today — the menu and the board are different elements)
-    // would not retroactively change an in-progress gesture either.
-    const paints = event.pointerType === "mouse" || region;
+    // Region is on (CARD-194 target behaviour #8/#10, the rule itself in
+    // solver_state.js gesturePaints) — captured here, at pointerdown, like
+    // the tool itself, so toggling Region mid-gesture (not reachable today —
+    // the toggle and the board are different elements) would not
+    // retroactively change an in-progress gesture either.
+    const paints = gesturePaints(event.pointerType, region);
     if (paints) {
       event.preventDefault();
       container.setPointerCapture(event.pointerId);
@@ -870,11 +927,13 @@ function wireMarking(container, player) {
         return;
       }
       // Region turns off the instant a drag is recorded — "a drag ended",
-      // not "a cell changed" (CARD-194 target behaviour #7).
-      if (region) {
-        region = false;
-        syncTrigger();
-      }
+      // not "a cell changed" (CARD-194 target behaviour #7). The toggle's
+      // aria-pressed flips back with it, and the disarm is announced, so a
+      // screen-reader user is not left believing Region is still armed.
+      // Announced BEFORE the commit on purpose: a drag that solves the board
+      // lets showProgress overwrite this line with the solved banner, which
+      // is the more important of the two.
+      setRegion(nextRegion(region, "drag"));
       commit(record(history, dragStroke(done.start, done.path, done.tool)));
       return;
     }
@@ -946,7 +1005,9 @@ function wireMarking(container, player) {
       case "Tab":
         // Not prevented: the item closeMenu() hides is the current focus,
         // so the browser's own Tab handling lands on the next focusable
-        // control after it in the (now updated) DOM — Undo.
+        // control after it in the (now updated) DOM — Region (then Undo),
+        // since CARD-211 put the toggle between the trigger and the history
+        // buttons.
         closeMenu();
         break;
       default:
@@ -956,6 +1017,12 @@ function wireMarking(container, player) {
   for (const item of items) {
     item.addEventListener("click", () => pick(item.dataset.playerTool));
   }
+
+  // The Region toggle (CARD-211, see "region" above). A native <button>, so
+  // Enter and Space already arrive as "click" — no keydown handler of its
+  // own, and no focus move: pressing it leaves focus on it, the way a toggle
+  // should. It never touches `tool` or `lastClick`.
+  regionToggle.addEventListener("click", () => setRegion(nextRegion(region, "toggle")));
 
   // Undo and redo change nothing while the board is locked (solved).
   const step = {
