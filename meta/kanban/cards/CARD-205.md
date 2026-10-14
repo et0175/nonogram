@@ -952,3 +952,47 @@ mechanism are listed, mandatory first.)
   — against this project's own precedent, where CARD-200's tripwire has both a direct
   test and a screen-level one. The reviewer checked for the latent crash that gap usually
   hides and confirmed it is absent.
+
+- [Fix 3 complete] 2026-10-14 — committed `2e546dd` (4 files; `meta/` clean and the
+  baseline fixture carries NO hunk, both verified — `interior_bytes` still 3498430 with
+  all fourteen page digests unchanged, which was the tripwire I set for a wrong fix).
+  **F-001 fixed by making the claim true, both halves.** `interior_stream` now compares
+  ROW counts before the existing page tripwire, raising the same named-`RuntimeError`
+  shape its siblings use so `app.py`'s Finalise screen catches, logs and prints it; and
+  the two sides of the equality still come from the card's two independent readings
+  (`dividers` from the plan, the runs from `payloads`). Plus a direct equality test over
+  one-, two- and three-level books AND the empty book, each asserted from both sides.
+  **The teeth are dramatic.** The reviewer's own M6 mutant
+  (`2 + 2*level_count` -> `1 + 2*level_count`): at review HEAD it left
+  `test_book_toc.py` **33 passed, 0 failed**; after Fix 3 it fails **24** of 44, and the
+  gutter/page-number pair goes from 1 failure on a mere premise line to **39**. The
+  failures include the screen-level ones, so the message provably reaches the Finalise
+  error page.
+  **F-002** fixed by measurement, not narration: the CARD-204 fixture is now loaded by
+  name and page 3 asserted equal to CARD-200's (`142204d2…` in both, `20d787a4…` in
+  card205's), so the attribution the test's name promises is finally checked.
+  **F-003** fixed at both levels: a new 6-test class asserting what each message SAYS,
+  covering all five raise paths plus F-001's new tripwire; and the screen-level half via
+  the project's own precedent — `test_book_finalise_gutter.py`'s `TRIPWIRES` parametrize
+  gained the TOC row tripwire, so all six of its tests now exercise it (120 -> 126).
+  Evidence: 626 tests over 16 files green, including 369 over co-change peers and guards.
+- [Fix 3, F-004 — a measured finding that outgrew the card] The reviewer's suggested
+  ungated margin assertion **would have been wrong to add**, and the agent found out by
+  measuring the fallback face instead of reasoning about it. At the shipped 8.5 pt on a
+  10.00 cm trim: headroom is 59 px under Arial (this host) and **27 px under Pillow's
+  fallback face**, against the folio's 49 px line. So off-host the owner's 10 px margin
+  is not merely unasserted — it is **-22 px**, and rendered proof follows: with
+  `ImageFont.truetype` made to refuse the Arial path, `create_toc_page` on a 10.00 cm
+  book draws **no folio at all** (`folios == []`).
+  Three consequences worth separating:
+  (1) **Not a regression from this card** — the same was true of CARD-200's TOC.
+  (2) **The product impact is nil in practice**: KDP's smallest trim is 12.7 x 20.32 cm
+  and Book 1 is 15.24 x 22.86, so no book the owner prints comes near 10.00-10.10 cm.
+  (3) **But the owner's 8.5 pt was chosen from Arial measurements**, and the sweep's
+  ungated inequality is correctly RED on a fallback-face host — which means the suite is
+  host-dependent on exactly the two smallest storable trims. That is the part that needs
+  a decision, because this repo's own notes record that Arial is absent from the Linux
+  deployment image.
+  The agent did the right thing with it: corrected the Fix 2 prose in place, put the
+  measurement in the sweep's docstring and in `TOC_GROUP_GAP_PT`'s note, and raised it as
+  an owner-facing item rather than lowering the owner's constant on its own judgement.
