@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-13 UTC_  ·  <!-- forge:run wave=37 mode=interactive concurrency=2 -->
+_Updated: 2026-10-14 UTC_  ·  <!-- forge:run wave=37 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -53,7 +53,9 @@ _Source of truth: [backlog.md](backlog.md) (merged 2026-10-02 with the notes tha
 _(none)_
 
 ## Ready
-_Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards: CARD-205..CARD-216, one of them blocked). Not yet scheduled into a wave — run `/forge:kanban run` to dispatch. Print-side cards share the `book_pdf_generator.py` / `layout.py` hotspots and will serialize; CARD-207/208/209/210 additionally depend on CARD-204, which is still in review._
+_Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards: CARD-205..CARD-216, one of them blocked). Not yet scheduled into a wave — run `/forge:kanban run` to dispatch. Print-side cards share the `book_pdf_generator.py` / `layout.py` hotspots and will serialize; CARD-207/208/209/210 depended on CARD-204, which merged as `cd641df` on 2026-10-14, so 206/207/208/209 are now eligible and 210 is blocked only by the owner's infrastructure decision._
+
+_Wave bookkeeping (2026-10-14): the cards dispatched on 2026-10-13/14 — CARD-204, CARD-214, CARD-205, CARD-211 — all carry `Wave: 37`, but the wave table above already records wave 37 as complete with CARD-197/198/199. The number is used twice. Nothing reads it automatically today (`waves.yml` declares checkpoints only up to wave 27), but the retrospective will, and the 2026-09-22 note above numbered waves specifically so attribution could not collide. Recommend recording this run as **wave 38**; left alone pending the owner's call, because two of the four cards are already merged and closed under 37._
 
 **Book / print (PDF)**
 - **CARD-206** The interior opens with a blank title / copyright page, ahead of the guide · P2 · 0.5d · standard · ⚑ needs an INV-013/FR-043 amendment at the architect station
@@ -79,16 +81,16 @@ _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-- **CARD-205** The table of contents lists sections, not puzzles · P1 · standard · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-205` · branch `card/205-structural-toc`
-- **CARD-211** Region leaves the brush menu and becomes its own control · P2 · standard · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-211` · branch `card/211-region-own-control`
+_(none — one slot of two is free; per the owner's "start the next pair after merging", the next pair starts once CARD-205 merges)_
 
 ## Review
-- **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity, owner-confirmed), gain a placeholder 2x2cm QR-code slot, and reserve folio room on two-up pages' lower slot (owner-confirmed fix for a discovered folio-loss regression) · P2 · architectural · implementation + fix complete, full suite green (6853 passed, 0 failed) · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
+- **CARD-205** The table of contents lists sections, not puzzles · P1 · standard · wave 37 · score **8.8** (cycle 1/3 — 0 critical, 1 important, 3 minor; 11/11 mutants killed) · 3 fix cycles landed (`906583d`, `1a09a71`, `2e546dd`) · **AC/EC/G gate not yet run, then the merge gate** · worktree `../PythonProject4-CARD-205` · branch `card/205-structural-toc` · corpus 310 → 307 pages, ToC 4 → 1 page, group gap 8.5 pt (owner-chosen) · ⚑ measured: `main` fails 10 tests on a fallback-font host against this branch's 3 — main's printed KDP gutter decision is face-dependent, which is what CARD-221 closes
 
 ## Blocked
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
 
 ## Done
+- **CARD-211** Region leaves the brush menu and becomes its own control · P2 · standard · score 9.0 (cycle 1/3 — 0 critical; 1 fix cycle for two owner decisions: brush and Region independent, trigger pinned to its widest brush) · AC/EC gate: all evidenced (AC-7 added at the gate) · merge gate 6971/0 · merged 4790243 · actual 0.5d · unblocks CARD-212 and CARD-216
 - **CARD-204** Puzzle pages right-align by parity, gain a 2x2cm QR slot, and keep every two-up folio · P2 · architectural · scores 8.5 (cycle 4) then 6.5 (cycle 5, on the merge-gate fix: 1 critical, fixed) · 8 fix cycles · gate 6938/0 · merged cd641df · ⚑ FR-040/EC-027 + FR-032 amendments owed at the architect station
 - **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · score 8.1 (cycle 1/3, fix cycle 1 closed the gating finding) · AC/EC gate: all 8 ACs, 2 ECs, 7 guardrails evidenced · merge gate 6883/0 · merged d49e73a · ⚑ ADR-0024 (POL-008) + INV-002 amendment owed at the architect station
 - **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · score 9.5 (cycle 3/3, clean, after fixing a real caption/folio collision regression found across 2 cycles) · merged 0e955d5
