@@ -622,6 +622,57 @@ export function anchoredScroll(scroll, anchor, oldZoom, newZoom) {
 }
 
 // ---------------------------------------------------------------------------
+// Region (CARD-194's modifier; its own control since CARD-211, FR-044).
+//
+// Region is not a brush and never a cell state: it is a one-shot mode saying
+// "let the NEXT drag mark, whatever the pointer type". CARD-194 kept both the
+// flag and its rules in solver.js, where it was a fifth radio in the brush
+// menu; CARD-211 moves the control out of that menu into a toggle button of
+// its own, so "is Region armed" is a genuine piece of player state and the
+// two rules that read it belong in this pure module (ADR-0038/R4) — the
+// button that shows the flag is rendering and stays in solver.js, exactly as
+// `zoom` the percent lives there while the zoom arithmetic lives here.
+//
+// The flag itself is a plain boolean, not a board value: it is never
+// recorded, never in the undo history and never saved (serializeState does
+// not see it), so every load starts disarmed.
+
+//: The event names nextRegion understands — the three things that can change
+//: the flag, and nothing else can.
+export const REGION_EVENTS = Object.freeze(["toggle", "drag", "brush"]);
+
+// Whether Region is armed after `event`, given it was `armed` before. The
+// semantics are CARD-194's, unchanged by CARD-211:
+//   "toggle"  the Region control was pressed — it flips (the only way to arm
+//             it; a press while armed disarms it again).
+//   "drag"    a drag was just recorded — Region is one-shot and disarms
+//             itself, even for a drag that changed no cell (CARD-194 target
+//             behaviour #7). "A drag ended", not "a cell changed".
+//   "brush"   a brush was picked — Region disarms (CARD-194 target behaviour
+//             #3). Before CARD-211 this was forced by the menu's own radio
+//             exclusivity (exactly one aria-checked item, Region among the
+//             brushes); CARD-211 keeps the behaviour deliberately, because
+//             changing it is an owner decision and not this card's.
+// Any other `event` is refused with RangeError (like stepZoom's direction):
+// a typo must not silently read as "leave it as it was".
+export function nextRegion(armed, event) {
+  if (!REGION_EVENTS.includes(event)) {
+    throw new RangeError(`"${event}" is not a Region event (${REGION_EVENTS.join(", ")})`);
+  }
+  return event === "toggle" ? !armed : false;
+}
+
+// Whether a drag by `pointerType` marks the board at all (CARD-194 target
+// behaviour #8/#10): a mouse drag always does — the desktop default, and the
+// reason Region exists only for the other pointer types — while a touch or
+// pen drag marks only while Region is armed, so that with Region off the
+// browser is free to pan the page instead. solver.js asks this once, at
+// pointerdown, and keeps the answer for the whole gesture.
+export function gesturePaints(pointerType, armed) {
+  return pointerType === "mouse" || armed === true;
+}
+
+// ---------------------------------------------------------------------------
 // Saving a game in this browser (CARD-185; FR-044 AC-360..AC-365, EC-046/047)
 //
 // Pure: these functions build and read the TEXT of a save. Reading and

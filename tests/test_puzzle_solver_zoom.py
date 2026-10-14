@@ -38,6 +38,7 @@ from tests.test_puzzle_solver_marking import (
     _centre,
     _drag,
     _marked,
+    _region,
     _states,
     _tool,
 )
@@ -335,7 +336,7 @@ class TestSolverZoom_PinchCancelsTheStrokeInProgress:
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
-            _tool(page, "Region")
+            _region(page)  # CARD-211: Region is its own toggle now
             before = _states(page)
 
             cdp = context.new_cdp_session(page)
@@ -399,7 +400,7 @@ class TestSolverZoom_OneFingerDragIsUnchangedByZoom:
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
-            _tool(page, "Region")
+            _region(page)  # CARD-211: Region is its own toggle now
             _zoom_to(page, 200)
 
             _touch_drag_row_1_cols_2_to_6(context, page)

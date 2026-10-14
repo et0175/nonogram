@@ -83,6 +83,28 @@ def test_the_stylesheet_uses_tokens_not_literals() -> None:
     assert literals == [], f"admin.css must reference tokens, not hex values: {literals}"
 
 
+def test_the_region_toggles_pressed_look_comes_from_tokens() -> None:
+    """CARD-211 G-4 — the Region toggle is the player toolbar's only
+    accent-filled control, so its own rule is the one place this card could
+    have smuggled a literal in: every value it declares is a var(--token),
+    and its size comes from ``.player-toolbar .btn`` (--control-h), never a
+    length of its own.
+
+    The sweep above catches a hex colour anywhere in admin.css; this pins the
+    rule itself, so a later edit cannot keep the file hex-free by reaching
+    for an rgb()/named colour or a hard-coded height here instead.
+    """
+    css = (_STATIC / "admin.css").read_text()
+    rules = [line.strip() for line in css.splitlines() if line.strip().startswith(".player-region")]
+    assert rules, "admin.css no longer styles the Region toggle (.player-region)"
+    for rule in rules:
+        body = rule[rule.index("{") + 1:rule.rindex("}")]
+        values = [part.split(":", 1)[1].strip() for part in body.split(";") if ":" in part]
+        assert values, rule
+        for value in values:
+            assert value.startswith("var(--"), f"{rule}: {value!r} is not a design token"
+
+
 def test_the_panel_serves_both_stylesheets(admin_app) -> None:
     client = admin_app.test_client()
     for name in ("tokens.css", "admin.css"):

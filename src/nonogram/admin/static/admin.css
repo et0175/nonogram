@@ -534,9 +534,11 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    below 820 px the cell itself can now be smaller than 20 px, where 0.6 x
    cell alone would drop under that floor. */
 .player-cell[data-state="maybe"]::after { content: "?"; display: block; font-size: max(var(--player-numeral-min), calc(var(--player-cell) * 0.6)); line-height: 1; font-weight: 600; text-align: center; color: var(--color-accent); }
-/* Marking (CARD-161; the brush dropdown + Region, CARD-194): cells take
+/* Marking (CARD-161; the brush dropdown, CARD-194, + the Region toggle,
+   CARD-211): cells take
    pointer input. touch-action follows Region (solver.js toggles .is-region
-   on .player-board): off, a touch or pen drag pans the page (or the stage,
+   on .player-board; since CARD-211 the Region toggle — .player-region
+   below — is the single control that sets it): off, a touch or pen drag pans the page (or the stage,
    see below) instead of marking; on, touch-action: none keeps the drag from
    scrolling so it can mark. Mouse drags always mark (touch-action never
    affects mouse). user-select none keeps a mouse drag from selecting clue
@@ -571,12 +573,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* ToolPicker + history controls: one row above the board (wrapping on a
    phone); the usage hint sits below the board. Undo, redo and reset stay
    focusable when there is nothing to do (aria-disabled).
-   The brush dropdown (CARD-194): one trigger button (.player-tool-trigger,
-   the sole direct <button> child of .player-tools — so a layout selector
-   scoped to ".player-tools > button" still sees exactly one control) opens
-   a menu of five role=menuitemradio items (.player-tool-item) absolutely
+   The brush dropdown (CARD-194): one trigger button (.player-tool-trigger)
+   opens a menu of four role=menuitemradio items (.player-tool-item,
+   five until CARD-211 took Region out) absolutely
    positioned under it, over the board, so opening it never moves the
-   toolbar or the board (target behaviour #2). */
+   toolbar or the board (target behaviour #2).
+   The Region toggle (CARD-211): .player-region, the trigger's sibling after
+   the menu, so .player-tools has two direct <button> children where
+   CARD-194 left one — a layout selector scoped to ".player-tools > button"
+   now sees both, and both still sit on the toolbar's first row at 1280 px
+   (tests/test_puzzle_solver_maybe.py's one-row check and
+   tests/test_puzzle_solver_percent.py's counters row). It wears the
+   toolbar's own .btn.btn-outline-secondary, like the history buttons, and
+   .player-toolbar.is-solved hides it with the rest of the tools. */
 .player-toolbar { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--space-2) var(--space-4); margin-bottom: var(--space-4); }
 .player-toolbar[hidden] { display: none; }
 .player-tools { position: relative; display: flex; flex-wrap: wrap; gap: var(--space-2); }
@@ -595,12 +604,13 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-toolbar .btn { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h); }
 /* The trigger keeps the same side padding the four tool buttons took before
    CARD-194, which is what keeps the toolbar's row count unchanged at a
-   1280 x 720 viewport (tests/test_puzzle_solver_maybe.py). It also keeps a
-   minimum width: .player-tools and .player-solved-box share one grid cell
+   1280 x 720 viewport (tests/test_puzzle_solver_maybe.py).
+   The 13rem minimum width belongs to the GROUP, not the trigger (CARD-211
+   moved it there): .player-tools and .player-solved-box share one grid cell
    of .player-slot, and the banner's box takes its width FROM the slot
-   (contain: inline-size, below) rather than the other way around — collapse
-   four buttons to one narrow trigger without this, and a short picture name
-   ("Solved: <name>" plus the check icon, measured 193.5px for this card's
+   (contain: inline-size, below) rather than the other way around — let the
+   tools collapse to one narrow control without this, and a short picture name
+   ("Solved: <name>" plus the check icon, measured 193.5px for CARD-186's
    own fixture name) that fit on the old (much wider, four-button) tools'
    row wraps onto a second line instead, growing the toolbar and moving the
    board on solve (CARD-186's own invariant,
@@ -609,8 +619,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    with headroom; a name long enough to wrap anyway still does (CARD-186's
    120-character case, TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth
    — only reached because the box WRAPS instead of growing arbitrarily
-   wide). */
-.player-tool-trigger { padding-left: var(--space-2); padding-right: var(--space-2); min-width: 13rem; }
+   wide).
+   CARD-194 put the 13rem on .player-tool-trigger, where it was the same
+   thing: the trigger was then the group's only content. With the Region
+   toggle beside it (CARD-211) it is not, and leaving it on the trigger
+   would have made the group 13rem PLUS the toggle — ~88 px wider, which
+   measurably pushed "Progress: N%" off the counters' row at 1280 px
+   (tests/test_puzzle_solver_percent.py
+   TestSolverPercent_SitsNextToTheCounters::test_shares_the_buttons_row_at_1280,
+   observed red before this move). On the group it is the floor it always
+   meant to be, so the slot keeps its old 13rem width and both the banner
+   and the counters' row are unchanged. */
+.player-tools { min-width: 13rem; }
+.player-tool-trigger { padding-left: var(--space-2); padding-right: var(--space-2); }
 .player-toolbar .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; background: var(--color-surface); }
 .player-swatch { position: relative; flex: none; width: var(--space-4); height: var(--space-4); background: var(--grid-paper); border: var(--border-width) solid var(--color-border-strong); }
 .player-swatch[data-state="filled"] { background: var(--grid-ink); border-color: var(--grid-ink); }
@@ -633,6 +654,24 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .player-tool-item:hover { background: var(--color-surface-hover); }
 .player-tool-item[aria-checked="true"] { background: var(--color-accent-tint); color: var(--color-accent); font-weight: 600; }
 .player-tool-item:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 1px; }
+/* The Region toggle (CARD-211). Its side padding matches the brush
+   trigger's (and .player-zoom .btn's) rather than the wider default, which
+   is what keeps .player-tools' CONTENT inside the group's 13rem floor for
+   every brush: the widest trigger text ("Undecided", measured 124 px) plus
+   this toggle (72 px) plus the group's gap comes to 204 px, so the slot is
+   exactly the 13rem it was before this card no matter which brush is
+   chosen — picking a wider brush never nudges the board sideways, and the
+   counters' row at 1280 px is unaffected (measured; see the min-width note
+   above for what happens when the group does grow).
+   The pressed look is the filled accent the panel already uses for an "on"
+   control (.btn-check:checked + .btn, above) — stronger than
+   .player-tool-item[aria-checked="true"]'s tint, because this is a mode
+   that is either armed or not and must read as such at a glance, and it is
+   the toolbar's only accent-filled control. Tokens only (G-4); the height
+   comes from .player-toolbar .btn's --control-h, so the toggle is as tall
+   as every other toolbar button on a 390 px phone too. */
+.player-region { padding-left: var(--space-2); padding-right: var(--space-2); }
+.player-region[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-on-accent); }
 .player-mirror { display: inline-flex; transform: scaleX(-1); }
 .player-hint { margin: 0; font-size: var(--text-sm); color: var(--color-text-secondary); }
 /* Progress (CARD-162, FR-044): the counters close the toolbar row; the

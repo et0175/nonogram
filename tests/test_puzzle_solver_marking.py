@@ -182,9 +182,11 @@ def _button(page, name):
 
 
 #: The brush dropdown (CARD-194): one trigger (a stable id, since its own
-#: accessible name changes with the brush) opens a menu of five
-#: role="menuitemradio" items, in the owner's order.
-MENU_ORDER = ["Black", "White", "Maybe", "Undecided", "Region"]
+#: accessible name changes with the brush) opens a menu of
+#: role="menuitemradio" items, in the owner's order. CARD-211 took Region out
+#: of this menu and gave it a toggle of its own (``_region`` below), so the
+#: menu holds the four brushes and nothing else.
+MENU_ORDER = ["Black", "White", "Maybe", "Undecided"]
 
 
 def _trigger(page):
@@ -201,9 +203,29 @@ def _menu_item(page, name):
 
 def _tool(page, name):
     """Open the menu and pick `name` by mouse — every one of this helper's
-    ~35 callers across the player test files is unchanged (CARD-194 G-4)."""
+    ~35 callers across the player test files is unchanged (CARD-194 G-4).
+    Since CARD-211 `name` is always one of the four brushes; Region has its
+    own helper below."""
     _trigger(page).click()
     _menu_item(page, name).click()
+
+
+def _region_toggle(page):
+    """The Region toggle (CARD-211): its own control beside the brush
+    trigger, outside the menu, carrying its state in aria-pressed."""
+    return page.locator("[data-player-region]")
+
+
+def _region(page):
+    """Press Region once. Replaces ``_tool(page, "Region")`` everywhere
+    CARD-194 picked Region from the brush menu — the semantics are the same
+    (arm it, and it disarms itself after the next recorded drag), only the
+    control is different."""
+    _region_toggle(page).click()
+
+
+def _region_pressed(page):
+    return _region_toggle(page).get_attribute("aria-pressed")
 
 
 def _pick_by_keyboard(page, name, open_key="Enter", pick_key="Enter"):
@@ -590,15 +612,17 @@ class TestSolverClickFollowsTheBrush:
     def test_the_page_copy_describes_the_new_click(self, browser_page, live) -> None:
         """AC-11 — the tool group is "Marking tool"; the hint names each colour
         brush's sequence and keeps the drag and Maybe sentences. CARD-194: the
-        group now holds one trigger plus a menu of five items (its four
-        brushes and Region), and the hint names the menu and Region."""
+        group now holds one trigger plus a menu of its four brushes and,
+        beside it, Region's own toggle (CARD-211 — the menu's fifth item
+        until then), and the hint names the menu and the Region control."""
         from playwright.sync_api import expect
 
         _open(browser_page, live, live.store(GRID))
         group = browser_page.get_by_role("group", name="Marking tool", exact=True)
         assert group.count() == 1
         expect(group).to_have_accessible_name("Marking tool")
-        assert group.locator("[data-player-tool]").count() == 5
+        assert group.locator("[data-player-tool]").count() == 4  # CARD-211: Region left the menu
+        assert group.locator("[data-player-region]").count() == 1
         hint = browser_page.locator("p.player-hint#puzzle-player-hint")
         assert hint.is_visible()
         text = " ".join(hint.text_content().split())
@@ -606,8 +630,9 @@ class TestSolverClickFollowsTheBrush:
         assert text == (
             "Click a cell to give it the selected brush's mark; click it again to go on "
             "(Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). "
-            "Open the brush menu to choose Black, White, Maybe, Undecided or Region. "
-            "With Region on, a drag along a row or column marks with the brush; "
+            "Open the brush menu to choose Black, White, Maybe or Undecided. "
+            "Press Region, beside the brush, to make the next drag along a row or column "
+            "mark with the brush; "
             "with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. "
             "With Maybe, a click marks ? and a second click clears it."
         )
@@ -713,13 +738,14 @@ class TestSolverMarking_DragMarksOneLine:
     def test_a_touch_drag_marks_one_line(self, browser, live) -> None:
         """Real touch input through Chromium's input pipeline (CDP touch events).
         CARD-194: a touch drag only marks with Region on, so Region is
-        picked first (TestSolverBrushMenu_Touch covers the Region-off case,
+        armed first — through its own toggle since CARD-211
+        (TestSolverBrushMenu_Touch covers the Region-off case,
         where the same drag scrolls and marks nothing)."""
         context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:
             _open(page, live, live.store(GRID))
-            _tool(page, "Region")
+            _region(page)
             page.evaluate("window.__types = []; document.addEventListener('pointermove', (e) => window.__types.push(e.pointerType))")
             cdp = context.new_cdp_session(page)
             (x0, y0), (x1, y1) = _centre(page, 1, 2), _centre(page, 1, 6)
@@ -859,11 +885,14 @@ class TestSolverMarking_UndoRedoByStroke:
 # ==========================================================================
 
 #: CARD-194: the four brush buttons collapse into one trigger, named
-#: "Brush: Black" at load (its accessible name, via aria-label).
-CONTROLS = ["Brush: Black", "Undo", "Redo", "Reset"]
+#: "Brush: Black" at load (its accessible name, via aria-label). CARD-211
+#: adds the Region toggle right after it, so it is the second control the Tab
+#: order reaches, before Undo.
+CONTROLS = ["Brush: Black", "Region", "Undo", "Redo", "Reset"]
 
 #: CARD-194: the trigger's own accessible name (aria-label, "Brush: <brush>")
-#: differs from its visible text (the brush alone, or "Region · <brush>"), so
+#: differs from its visible text (the brush alone — CARD-211 dropped the
+#: "Region · <brush>" composite with the menu item), so
 #: this reads the aria-label when one is set and falls back to textContent —
 #: every other control here has no aria-label, so this is unchanged for them.
 _FOCUSED = """() => {

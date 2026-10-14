@@ -17,19 +17,37 @@
   (nor the usage hint below the board). Undo, redo and reset stay focusable
   and say aria-disabled="true" when they have nothing to do.
 
-  The brush dropdown (CARD-194): the four marking tools and the owner's new
-  Region option live behind one trigger button (named "Brush: <chosen>" by
-  its aria-label; its visible text is the chosen brush, or "Region · <brush>"
-  with Region on) and a role="menu" of five role="menuitemradio" items
-  (Black, White, Maybe, Undecided, Region) that solver.js shows and wires.
-  The trigger is the menu's only sibling that is a direct <button> child of
-  .player-tools, so layout selectors scoped to ".player-tools > button"
-  still see one control. With Region on, a drag (any pointer type) marks
-  with the chosen brush and Region turns itself off once that drag is
-  recorded; with Region off, a mouse drag still marks (the desktop default)
-  but a touch or pen drag scrolls the page instead — admin.css keys
-  .player-cell's touch-action to .player-board.is-region, which solver.js
-  toggles.
+  The brush dropdown (CARD-194, narrowed by CARD-211): the four marking
+  tools live behind one trigger button (named "Brush: <chosen>" by its
+  aria-label; its visible text is the chosen brush, nothing else) and a
+  role="menu" of FOUR role="menuitemradio" items (Black, White, Maybe,
+  Undecided) that solver.js shows and wires. Exactly one of them is
+  aria-checked="true".
+
+  Region is its own control (CARD-211, owner's doc 2026-10-13): the
+  [data-player-region] button right after the menu in .player-tools, a
+  toggle carrying aria-pressed="true|false" — not a fifth menuitemradio,
+  because Region is not a brush but a mode, and aria-pressed is what a
+  screen reader announces as on/off. It is the brush trigger's sibling in
+  the same .player-slot row and the next control after it in the Tab order
+  (trigger, Region, then Undo), so .player-tools now has TWO direct <button>
+  children where CARD-194 left one; layout selectors scoped to
+  ".player-tools > button" see both, and both sit on the toolbar's first row
+  at 1280 px (tests/test_puzzle_solver_percent.py,
+  tests/test_puzzle_solver_maybe.py). Being inside .player-tools, Region is
+  hidden with the brush control while the board is solved (admin.css
+  .player-toolbar.is-solved), where there is nothing left to mark.
+
+  The semantics are CARD-194's, unchanged: with Region on, a drag (any
+  pointer type) marks with the chosen brush and Region turns itself off once
+  that drag is recorded; with Region off, a mouse drag still marks (the
+  desktop default) but a touch or pen drag scrolls the page instead —
+  admin.css keys .player-cell's touch-action to .player-board.is-region,
+  which solver.js toggles, and the Region toggle is now the single thing
+  that sets it. Picking a brush also turns Region off (CARD-194 behaviour
+  #3, kept deliberately); pressing Region never changes the brush. Every
+  flip of the toggle is announced through #puzzle-player-announce below,
+  never by rewriting the brush trigger's label.
 
   The "?" mark (CARD-186): a fourth tool, Maybe, follows Undecided. With it a
   click marks a cell "?" and a second click clears it; a drag paints "?".
@@ -110,8 +128,8 @@
             <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="empty" aria-checked="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
             <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="maybe" aria-checked="false"><span class="player-swatch" data-state="maybe" aria-hidden="true"></span>Maybe</button>
             <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="unknown" aria-checked="false"><span class="player-swatch" data-state="unknown" aria-hidden="true"></span>Undecided</button>
-            <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="region" aria-checked="false">Region</button>
         </div>
+        <button type="button" class="btn btn-outline-secondary player-region" id="puzzle-player-region" data-player-region aria-pressed="false">Region</button>
     </div>
     <div class="player-solved-box"><p class="player-solved" id="puzzle-player-solved" hidden>{{ icons.icon('check') }}<span>Solved: <strong class="player-solved-name" data-player-solved-name>{{ title }}</strong></span></p></div>
     </div>
@@ -151,7 +169,7 @@
     </p>
 </div>
 
-<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). Open the brush menu to choose Black, White, Maybe, Undecided or Region. With Region on, a drag along a row or column marks with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it.</p>
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black; Undecided: blank, black, white). Open the brush menu to choose Black, White, Maybe or Undecided. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. With Maybe, a click marks ? and a second click clears it.</p>
 
 <script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
 {% endblock %}
