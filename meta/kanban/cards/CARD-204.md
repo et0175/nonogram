@@ -1,7 +1,7 @@
 
 # CARD-204: Puzzle and two-up pages drop FR-032's centred placement for right-alignment, and gain a 2x2cm QR-code slot linking to the (not-yet-public) solver
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 2.5d
@@ -21,8 +21,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — implementation: cycle-5 CRITICAL (a clamped packed caption overprints the folio on a standard KDP trim) plus the fifth family regression in one mechanism; owner decision requested on narrow fix vs closing the family
-
+**Blocked by:** —
 ## What to implement
 
 **Both mechanism-level decisions are now resolved (2026-10-10), via rendered
@@ -2235,6 +2234,21 @@ merges first.
   `usable_left`", quoting Fix 7's note. The reviewer re-measured: the caption band is
   986..**1438** and 986 is **873 px** clear of `usable_left`, not 127. Immaterial to
   the defect, but it was stated as a measurement and it was wrong.
+
+- [Owner decision 2026-10-14] Escalation answered: **narrow fix now, close the family
+  at the retrospective.** Fix 8 does the cycle-5 Critical (one line mirroring the
+  full-page call site, delete the falsified comment, a clamped case in the existing
+  collision test) and the Important (the unreached `min` stop: a `SHAPES` entry, a
+  spec, an assertion, and the `book_pdf_generator.py:3751-3756` comment that currently
+  denies the behaviour). The structural root cause is NOT fixed in this card by owner
+  choice — it goes to the retro as a standing rule so the next card is checked against
+  it rather than re-learning it. Recorded in `backlog.md` under the retro's
+  rule-promotion input.
+- [Fix 8] 2026-10-14 — spawned. After it lands: main must be merged in AGAIN (CARD-214
+  merged as `d49e73a` since this branch's last main merge) and the gate suite re-run,
+  because the tree that passed at `cb0c206` predates CARD-214's solver changes. The
+  files are disjoint, but "disjoint files, surely fine" is precisely the assumption
+  CARD-203 falsified at this card's first merge gate.
 ## System contract
 
 _Not yet assembled — run `python3
