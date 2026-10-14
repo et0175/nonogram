@@ -536,3 +536,37 @@ mechanism are listed, mandatory first.)
   either a flag on `TocEntry` (which the decision said to leave exactly as it is) or
   `create_toc_page` recognising the last row. Rendered evidence for the owner's eye:
   `~/Documents/nonogram-reviews/CARD-205/fix1-toc-page3-top.png`.
+
+- [Fix 2 BLOCKED] 2026-10-14 — **`[BLOCKER]` raised and nothing shipped.** The worktree is
+  still at `906583d` with `src/` and `tests/` clean. The owner's "set Solutions apart
+  too" decision is not shippable as specified: a FOURTH 10 pt gap drops the page folio
+  on the two shortest trims a book can store.
+  The implementation SHAPE is sound and was proven before being reverted — `TocEntry`
+  gains `starts_group: bool = False`, set on the three level headings and on the
+  `Solutions` row; `create_toc_page` tests that flag instead of `is_heading`; row count,
+  `structural_toc_entry_count` and `_toc_entries_per_page`'s uniform division all stay
+  untouched. **The vertical arithmetic is what fails, not the design.**
+  Measured over Fix 1's own 381-height sweep (10.00-48.00 cm, 300 dpi, 8 rows, 4 gaps):
+  worst-case headroom under the last row is **31 px at the 10.00 cm trim** where the
+  folio's line needs 49; 10.10 cm gives 42 px (also fails); 10.20 cm gives 54 px (first
+  to clear); Book 1 gives 500. The shipped 3-gap figures are 73/84/96/542 with 0 of 381
+  failing. So **2 of 381 heights fail**, and `measured_toc_page_count(8, frame, DPI) == 1`
+  still holds everywhere — the page split is not the problem.
+  **A real omission, verified on the drawing path rather than inferred:** spying
+  `ImageDraw.text` shows `folio=['3']` with 3 gaps and `folio=[]` with 4 at both
+  failing heights. And 10.00 cm is not hypothetical — `MIN_TRIM_CM = 10.0` is the
+  stored-trim floor the admin accepts.
+  Options measured for the owner: **(A)** a smaller constant for all four gaps — 9.0 pt
+  still drops it by 2 px, **8.9 pt is the largest that fits** (51 px), 8.5 pt gives 59,
+  8.0 pt gives 67; **(B)** suppress the gap where the folio would be dropped, keeping
+  10 pt everywhere a book is really printed, at the cost of the page's look becoming a
+  function of its trim (close to the second layout primitive G-2 refuses); **(C)** accept
+  the loss on those two trims — which the agent rejected without asking, correctly, since
+  an unnumbered TOC page is exactly what the reservation exists to prevent.
+  Renders for the owner's eye: `fix2-blocker-4gaps-10pt.png` (the decision as asked for,
+  the layout that drops the folio) and `fix2-blocker-4gaps-8p5pt.png` (option A) under
+  `~/Documents/nonogram-reviews/CARD-205/`. It deliberately did NOT write a
+  `fix2-toc-page3-top.png`, on the grounds that naming a blocked state as the fix's
+  render would mislead.
+  Nothing downstream was done (no baseline re-record, no test extension, no teeth run,
+  no commit) because all of it depends on which option is chosen.
