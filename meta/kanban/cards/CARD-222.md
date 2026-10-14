@@ -144,3 +144,31 @@ It changes the page's margins and gives the page a header rule and a footer rule
   places something *inside* this frame. Cutting the frame first means the margin change is
   measured once, with one baseline re-recording, instead of each later card discovering that
   the page it is drawing on moved under it.
+
+## Measured at the decompose station, 2026-10-14 — the margins cost 4.9% of every cell
+
+Run against the repo's own `_placed_cell_mm` with the shipped Book 1 spec and the artifact's
+four margins, so this is a measurement and not an estimate. Usable width goes 193.68 -> 184.15 mm
+(-4.9%); usable height 248.35 -> 237.19 mm. The fit is width-bound for every grid the book
+admits, so **every cell that is not already at the 7.5 mm cap loses exactly 4.9%**:
+
+| grid | clue depth | today | at the new margins |
+|------|-----------|-------|--------------------|
+| 15x15 | any | 7.50 (capped) | 7.50 (capped) |
+| 20x20 | shallow | 7.50 (capped) | 7.50 (capped) |
+| 20x20 | deep | 7.45 | 7.08 |
+| 25x25 | deep | 5.87 | 5.58 |
+| 30x30 | shallow | 5.53 | 5.26 |
+| **30x30** | **deep** | **4.84** | **4.60 — below NFR-008's 4.8 mm floor** |
+| **30x12** | **deep** | **4.84** | **4.60 — below the floor** |
+
+Small grids are unaffected because they are already at the cap. The cost falls entirely on the
+large, deeply-clued puzzles — which are the hard ones, printed for the readers most likely to
+mark cells by hand. A deeply-clued 30x30 sits 0.04 mm above the floor today and crosses it at
+the new margins, which raises FR-031's below-floor flag.
+
+**This compounds with CARD-225.** Under a book-wide size per grid size, the deepest-clued
+member decides for every puzzle of that size, so one deep 30x30 drags every 30x30 in the book
+to 4.60 mm and raises the flag for all of them. The two cards are individually reasonable and
+jointly push a whole grid size under the floor. **Surfaced to the owner as a decision before
+either card starts.**
