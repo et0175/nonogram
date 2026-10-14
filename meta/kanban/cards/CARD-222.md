@@ -70,8 +70,10 @@ It changes the page's margins and gives the page a header rule and a footer rule
 ## Acceptance criteria
 
 - **AC-1** (happy, margins): *Given* a book with no stored margins, *when* its page spec is
-  built, *then* the gutter is 0.75 in, the outer margin 0.5 in, top 0.55 in and bottom
-  0.47 in, and the gutter/outer pair swaps between a left-hand and a right-hand page.
+  built, *then* the gutter is **0.5 in (unchanged — owner's 2026-10-14 decision, not the
+  artifact's 0.75 in)**, the outer margin 0.5 in, top 0.55 in and bottom 0.47 in, and the
+  gutter/outer pair swaps between a left-hand and a right-hand page. The gutter and outer
+  margin being equal is now deliberate, so the test must assert both and not one twice.
   (test: `TestBookPageSpec_CarriesTheNewProfileMargins`)
 - **AC-2** (happy, the header rule): *Given* any puzzle page, *when* it is drawn, *then* a
   0.6 pt rule spans the full text width under the header, and its y is identical on every
