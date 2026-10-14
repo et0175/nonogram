@@ -82,6 +82,9 @@ _One coherent frame, so the order is forced rather than chosen: the frame lands 
 - **CARD-209** Wide-but-short solutions pack 3 to a page, one column × three rows · P2 · 1d · standard · depends CARD-204
 
 
+**Found in flight**
+- **CARD-234** The generated cover's title letters from packaged data, like the interior · P2 · 0.5d · bug · depends CARD-221 · ⚑ a hardcoded `/System/Library/Fonts/Arial.ttf` with a silent `load_default()` fallback: on the deployed Linux panel every generated cover takes that branch **and** loses the 72 px it asked for, so the title prints tiny on the one page a buyer sees first
+
 **Test curation (cut 2026-10-13 on owner request; run after the print cards land)**
 - **CARD-217** Profile the suite once, serialized, and commit the duration record the curation cards work from · P1 · 0.5d · tech-debt · measurement only, no test edits · must be the only suite running
 - **CARD-218** Each book renders once per module, not once per test · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209

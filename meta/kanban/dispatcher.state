@@ -9,13 +9,13 @@ mode: interactive
 max_concurrent_override: 2
 active:
   - id: CARD-221
-    phase: implementation
+    phase: fix
     branch: card/221-packaged-interior-face
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221
     started: 2026-10-14T14:20:00Z
     note: "P1, unblocked by CARD-205's merge. Its proof of success is CARD-205's own two red-off-host folio tests going green on both faces. CARD-206..209 queued behind it on the book_pdf_generator.py hotspot."
   - id: CARD-212
-    phase: review
+    phase: fix
     branch: card/212-clues-both-sides
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-212
     started: 2026-10-14T14:20:00Z
@@ -62,6 +62,7 @@ queued_after_card_217:
   # src/nonogram/admin/book_pdf_generator.py (a declared hotspot), so they serialize anyway,
   # and each later card draws INSIDE the frame CARD-222 establishes. Starting them out of
   # order means implementing against a page that is about to move.
+  - CARD-234   # the cover's host font lookup, found at CARD-221's station
   - CARD-228   # the dots glyph: no dependencies, 0.5d, and four later cards need it
   - CARD-222   # the frame: margins, header rule, footer rule, puzzle area
   - CARD-223   # the QR into the footer's outer corner
