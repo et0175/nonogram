@@ -548,6 +548,39 @@ TOC_ENTRY_PT = 10.0
 #: reason this one exists at all.
 TOC_ENTRY_GAP_PT = 4.0
 
+#: The **extra** gap set above a level heading row, in points (CARD-205
+#: Fix 1, owner decision 2026-10-14) — what separates one group of the
+#: structural list from the group above it, so the list reads as sections
+#: rather than as eight evenly spaced rows.
+#:
+#: The owner's own sample (Google Doc "Nonograms - Print layout",
+#: 2026-10-13) sets a blank line between the groups. This is that
+#: separation, and deliberately **not** a blank :class:`TocEntry` row: a
+#: spacer row would be counted (AC-1 asserts the structural list's row
+#: count exactly — two rows plus two per level and nothing else), and
+#: giving one row a different height would make
+#: :func:`_toc_entries_per_page`'s uniform-row division a second
+#: text-layout primitive (G-2). A fixed point figure added to the pen's own
+#: ``y`` before a heading is drawn is neither: the rows are still set with
+#: :func:`_guide_face`/:func:`type_px` on the same :func:`page_frame`, and
+#: the entries list, the row count and :func:`structural_toc_entry_count`
+#: are all exactly what they were.
+#:
+#: 10 pt — :data:`TOC_ENTRY_PT`, one entry's own set size, so the
+#: separation above a heading is a row's worth of white and reads as the
+#: sample's blank line, rather than a third invented leading figure. Not a
+#: full line's height (:data:`TOC_ENTRY_PT` *plus* :data:`TOC_ENTRY_GAP_PT`
+#: plus the face's own leading — 65 px at 300 dpi against this constant's
+#: 42) for a measured reason: on the **shortest** trim
+#: :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out at all
+#: (10 cm), a three-level book's eight rows leave 199 px under the last
+#: one, of which the folio's own line needs 49 (:func:`_draw_folio`);
+#: three gaps of 42 px leave 73 px, three of 65 px would leave 4 and the
+#: folio would be dropped from the one page that must carry it (G-1). See
+#: :func:`_toc_entries_per_page` for why the gaps are *proved* to fit
+#: rather than charged to every row.
+TOC_GROUP_GAP_PT = 10.0
+
 #: The label of the TOC's own last row (CARD-205): the SOLUTIONS divider that
 #: opens the answer section, as the **table of contents** names it.
 #:
@@ -2334,6 +2367,36 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     At least one entry always fits, by floor, the same shape
     :func:`interior_page_count`'s own ``level_dividers`` default already
     uses for its own worst case.
+
+    **The group gaps above the headings are deliberately not charged here**
+    (CARD-205 Fix 1). :meth:`BookPDFGenerator.create_toc_page` sets
+    :data:`TOC_GROUP_GAP_PT` of extra white above each heading row, which
+    is vertical space this figure does not know about — so this function
+    stays what its name says, a uniform division by one row's height, and
+    does **not** become heading-dependent (which would make one page's
+    capacity a function of its own content, i.e. the second layout
+    primitive G-2 forbids). That is sound rather than merely convenient,
+    because the structural list cannot reach the split this figure governs:
+    :func:`structural_toc_entry_count` is ``2 + 2 * levels`` with at most
+    ``len(TIERS)`` levels, i.e. **eight rows with three gaps**, and the
+    shortest trim :func:`~nonogram.admin.book_page_spec.book_page_spec`
+    lays out at all holds ten rows — so the real list is one page on every
+    trim KDP admits, with its three gaps and the folio's own reserved line
+    inside the one page's own frame (measured, over every tenth of a
+    centimetre from 10 to 48 cm, by
+    ``tests/test_book_toc.py``'s
+    ``TestBookToc_GroupsAreSetOffFromWhatPrecedesThem`` and
+    ``tests/test_book_finalise_gutter.py``'s
+    ``test_the_structural_toc_is_one_page_on_every_trim_kdp_admits``).
+    The alternative — folding the worst case in by dividing by
+    ``entry_height + group_gap`` — would charge *every* row a gap only a
+    heading gets, cutting Book 1's own capacity from 42 rows to 25 and
+    moving :func:`measured_toc_page_count` for all three of its callers
+    (the export's own plan, ``book_kdp``'s gutter-band figure,
+    :func:`interior_page_count`'s sheet-free bound) to pay for a split the
+    structural list never takes. Should a future card list something long
+    enough to spill — a per-puzzle appendix, say — that is the decision to
+    revisit *then*, with the rows that actually spill in hand.
     """
     title_font = _guide_face(type_px(GUIDE_TITLE_PT, dpi))
     title_ascent, title_descent = title_font.getmetrics()
@@ -3563,6 +3626,18 @@ class BookPDFGenerator:
         structural list names no puzzle at all, which is why that function
         and ``answer_title`` are now read only by the answer pages — G-3).
 
+        **A heading is set a group's gap below the row above it**
+        (:data:`TOC_GROUP_GAP_PT`, owner decision 2026-10-14): the extra
+        white the owner's sample shows between its groups, drawn as a fixed
+        figure added to this method's own pen position rather than as a
+        blank row — the entries this method is handed are exactly the rows
+        :func:`structural_toc_entries` built, and every one of them is one
+        line of :data:`TOC_ENTRY_PT` high, so neither the row count nor
+        :func:`_toc_entries_per_page`'s uniform division changes (G-2).
+        The page's first row never gets it (there is no group above it to
+        separate from), so the list still starts exactly where CARD-200's
+        did, one :data:`GUIDE_TITLE_GAP_PT` under the title.
+
         **Leader dots** fill the gap between a label and its page number, so
         the eye carries across a short label to a number at the far margin —
         which a six-row list on a 13 cm wide page needs far more than
@@ -3625,10 +3700,26 @@ class BookPDFGenerator:
         # a row's leader dots (see :data:`TOC_ENTRY_GAP_PT`).
         gap = type_px(TOC_ENTRY_GAP_PT, self.dpi)
         line_height = entry_ascent + entry_descent + gap
+        # The separation between two groups of the list (CARD-205 Fix 1):
+        # white above a heading, never a row of its own and never a second
+        # row height — see :data:`TOC_GROUP_GAP_PT`.
+        group_gap = type_px(TOC_GROUP_GAP_PT, self.dpi)
         dot_width = entry_font.getlength(".")
 
         bottom = y
-        for entry in entries:
+        for index, entry in enumerate(entries):
+            if entry.is_heading and index > 0:
+                # A heading opens a group, so it is set a group's gap below
+                # whatever the group above it ended with. Suppressed for the
+                # page's **first** row, where there is no group above to
+                # separate from: the gap would then only push the list away
+                # from the title this page already set its own
+                # `GUIDE_TITLE_GAP_PT` under — and would spend, on padding,
+                # room the folio's own reserved line is counting on
+                # (`_toc_entries_per_page`, G-1). The structural list never
+                # opens a page with a heading (its first row is the guide),
+                # but this method draws what it is handed.
+                y += group_gap
             if entry.is_heading:
                 # A level heading: its own row, label only. No number to
                 # right-align and therefore nothing for leaders to lead to.

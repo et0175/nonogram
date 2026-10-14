@@ -53,6 +53,7 @@ from nonogram.admin.book_pdf_generator import (
     GUIDE_TITLE,
     TOC_ENTRY_GAP_PT,
     TOC_ENTRY_PT,
+    TOC_GROUP_GAP_PT,
     TOC_SOLUTIONS_LABEL,
     BookPDFGenerator,
     DividerPagePlan,
@@ -738,6 +739,305 @@ class TestBookToc_LeaderDotsStayInsideTheGap:
         assert with_dots >= 20, f"only {with_dots} label lengths drew leaders"
         assert without_dots >= 1, (
             "the sweep must reach the no-room-at-all end of the range too"
+        )
+
+
+# --------------------------------------------------------------------------
+# AC-1/AC-6, the owner's 2026-10-14 decision: the groups are set apart
+# --------------------------------------------------------------------------
+
+
+class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
+    """A heading is set a group's gap below the row above it (CARD-205 Fix 1).
+
+    The owner's sample sets a blank line between the groups; the decision
+    (2026-10-14) is to print that separation as ``TOC_GROUP_GAP_PT`` of
+    extra white above each heading, **not** as a blank row. So this class
+    asserts a *geometry* claim about drawn rows — like AC-6's own class and
+    unlike the rest of this file, which reads the rows a page was handed —
+    and it asserts the two halves of the decision together: the gap is
+    really there (the step down to a heading is bigger than the step from
+    that heading to its own range row), and it costs neither the row count
+    (AC-1, unchanged above) nor the folio its page keeps reserving (G-1).
+    """
+
+    @staticmethod
+    def _row_tops(
+        generator: BookPDFGenerator,
+        entries: List[TocEntry],
+        monkeypatch: pytest.MonkeyPatch,
+        page_number: int = 3,
+    ) -> List[float]:
+        """Each drawn row's own ``y``, one per row, in draw order.
+
+        Spies ``ImageDraw.text`` the same way AC-6's own ``_drawn`` does and
+        for the same reason (a row's position is only visible in what was
+        drawn), separating the page's title and its folio out by the same
+        two marks: the title is set in a much larger face, the folio is
+        anchored ``"rb"``/``"lb"``. A row draws up to three marks (label,
+        leaders, number) at one ``y``, so consecutive repeats collapse —
+        rows run strictly down the page, which the tests below also assert.
+        """
+        original = ImageDraw.ImageDraw.text
+        entry_px = type_px(TOC_ENTRY_PT, generator.dpi)
+        tops: List[float] = []
+
+        def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
+            anchor = kwargs.get("anchor")
+            if getattr(font, "size", None) == entry_px and anchor not in ("rb", "lb"):
+                if not tops or xy[1] != tops[-1]:
+                    tops.append(xy[1])
+            return original(self, xy, text, fill, font, *args, **kwargs)
+
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+        generator.create_toc_page(entries, page_number)
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
+        return tops
+
+    @staticmethod
+    def _steps() -> Tuple[int, int]:
+        """``(one row's step, a heading's own step)`` in pixels at ``DPI``."""
+        font = _guide_face(type_px(TOC_ENTRY_PT, DPI))
+        ascent, descent = font.getmetrics()
+        line = ascent + descent + type_px(TOC_ENTRY_GAP_PT, DPI)
+        return line, line + type_px(TOC_GROUP_GAP_PT, DPI)
+
+    def test_each_heading_sits_further_below_than_an_ordinary_row(
+        self, monkeypatch
+    ) -> None:
+        """The three-level book: eight rows, three of them headings.
+
+        The inequality is the assertion that matters — a heading's own step
+        down the page must be *strictly* larger than the step from that
+        heading to its own range row, which is what "the groups are set
+        apart" means and what a zero gap cannot satisfy. The exact figures
+        are pinned alongside it so the separation cannot drift either.
+        """
+        generator = BookPDFGenerator(_book("card-205-fix1-three-levels"))
+        entries = [
+            TocEntry(GUIDE_TITLE, 1),
+            TocEntry("Easy"),
+            TocEntry("Puzzles 1–60", 5),
+            TocEntry("Medium"),
+            TocEntry("Puzzles 61–120", 37),
+            TocEntry("Hard"),
+            TocEntry("Puzzles 121–150", 69),
+            TocEntry(TOC_SOLUTIONS_LABEL, 86),
+        ]
+        line, heading_step = self._steps()
+
+        tops = self._row_tops(generator, entries, monkeypatch)
+
+        assert len(tops) == len(entries), (
+            f"eight rows were handed to the page, {len(tops)} were drawn"
+        )
+        steps = [after - before for before, after in zip(tops, tops[1:])]
+        headings = 0
+        for entry, step_down, step_on in zip(entries[1:], steps, steps[1:]):
+            if not entry.is_heading:
+                continue
+            headings += 1
+            assert step_down > step_on, (
+                f"{entry.label!r} opens a group, so the white above it "
+                f"({step_down} px) must exceed the white between it and its "
+                f"own range row ({step_on} px) — the owner's blank line"
+            )
+            assert step_down == heading_step
+            assert step_on == line
+        assert headings == 3, (
+            f"a three-level book sets off three groups, not {headings}"
+        )
+        assert [step for entry, step in zip(entries[1:], steps) if not entry.is_heading] == [
+            line
+        ] * 4, "no row but a heading moved: every other step is one line"
+
+    def test_a_one_level_books_only_heading_is_set_off_too(self, monkeypatch) -> None:
+        """The other end of AC-4's range: four rows, one group boundary.
+
+        A one-level book is the case where a per-level gap could most
+        easily be skipped by an implementation that only separated the
+        *second* and later groups, so it is asserted on its own book rather
+        than left to the three-level case.
+        """
+        generator = BookPDFGenerator(_book("card-205-fix1-one-level"))
+        entries = [
+            TocEntry(GUIDE_TITLE, 1),
+            TocEntry("Easy"),
+            TocEntry("Puzzles 1–60", 4),
+            TocEntry(TOC_SOLUTIONS_LABEL, 65),
+        ]
+        line, heading_step = self._steps()
+
+        tops = self._row_tops(generator, entries, monkeypatch)
+
+        assert len(tops) == 4
+        steps = [after - before for before, after in zip(tops, tops[1:])]
+        assert steps[0] > steps[1], (
+            f"the single heading must still be set off from the guide row "
+            f"above it ({steps[0]} px of white against {steps[1]} px below it)"
+        )
+        assert steps == [heading_step, line, line]
+
+    def test_the_gap_never_pads_the_top_of_a_page(self, monkeypatch) -> None:
+        """A page whose first row is a heading starts where any page does.
+
+        The gap separates two groups; above the first row of a page there is
+        no group to separate from, and the room it would spend there is
+        exactly the room ``_toc_entries_per_page`` reserves for the folio
+        (G-1). The structural list never opens a page with a heading — its
+        first row is the guide — but ``create_toc_page`` draws what it is
+        handed, so the rule is pinned rather than assumed.
+        """
+        generator = BookPDFGenerator(_book("card-205-fix1-top-of-page"))
+
+        heading_first = self._row_tops(generator, [TocEntry("Easy")], monkeypatch)
+        numbered_first = self._row_tops(generator, [TocEntry(GUIDE_TITLE, 1)], monkeypatch)
+
+        assert heading_first == numbered_first, (
+            "a heading opening a page must sit on the same first baseline "
+            "any other first row does, not a group's gap lower"
+        )
+
+    def test_the_gaps_leave_the_folio_its_line_on_every_trim_kdp_admits(self) -> None:
+        """Why the capacity figure is left exact rather than made heading-aware.
+
+        ``_toc_entries_per_page`` divides the frame by one *uniform* row
+        height and knows nothing of the group gaps (G-2 forbids the
+        variable-leading alternative), so the gaps are only safe if the
+        structural list cannot fill a page: eight rows and three gaps, with
+        the folio's own reserved line still clear beneath them, on every
+        height a book can store and lay out.
+
+        Measured here with this file's **own** font metrics — Pillow asked
+        directly for the same two faces/sizes the page sets its title and
+        rows in, and the packaged folio face read out of the package — so
+        this is a second reading of the page's geometry rather than
+        ``book_pdf_generator`` agreeing with itself. A minimum case count is
+        asserted inside the test so the sweep cannot silently shrink
+        (CLAUDE.md).
+        """
+        from importlib import resources
+        from io import BytesIO
+        from types import SimpleNamespace
+
+        from PIL import ImageFont
+
+        from nonogram.admin.book_kdp import _toc_frame_for
+        from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE
+
+        def px(points: float) -> int:
+            return round(points * DPI / 72.0)
+
+        def face(size: int):
+            try:
+                return ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
+            except OSError:  # pragma: no cover - a machine without Arial
+                try:
+                    return ImageFont.load_default(size)
+                except TypeError:  # pragma: no cover - Pillow < 10.1
+                    return ImageFont.load_default()
+
+        title_ascent, title_descent = face(px(22.0)).getmetrics()  # GUIDE_TITLE_PT
+        title_space = title_ascent + title_descent + px(36.0)  # GUIDE_TITLE_GAP_PT
+        entry_ascent, entry_descent = face(px(TOC_ENTRY_PT)).getmetrics()
+        row = entry_ascent + entry_descent
+        line = row + px(TOC_ENTRY_GAP_PT)
+        group_gap = px(TOC_GROUP_GAP_PT)
+        folio_bytes = resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+        folio_ascent, folio_descent = ImageFont.truetype(
+            BytesIO(folio_bytes), size=px(10.0)  # FOLIO_PT
+        ).getmetrics()
+        folio_line = folio_ascent + folio_descent
+
+        # A three-level book's worst case: eight rows, three of them
+        # headings, each heading a group's gap below the row above it.
+        rows, headings = 8, 3
+        needed = title_space + (rows - 1) * line + row + headings * group_gap
+
+        measured = 0
+        for tenths in range(100, 801):
+            height = f"{tenths / 10:.2f}"
+            frame = _toc_frame_for(SimpleNamespace(trim_height_cm=height))
+            if frame == _toc_frame_for(None) and height != "27.94":
+                # A height KDP's own bounds refuse: `_toc_frame_for` falls
+                # back to Book 1, which says nothing about this height.
+                continue
+            measured += 1
+            assert measured_toc_page_count(rows, frame, DPI) == 1, (
+                f"a {height} cm book's structural TOC must still be one page "
+                "— the gaps are only safe because it never fills one"
+            )
+            room = (frame.bottom - frame.top) - needed
+            assert room >= folio_line, (
+                f"on a {height} cm trim the eight rows and their three gaps "
+                f"leave {room} px under the last row, and the folio's own "
+                f"line needs {folio_line} px: the group gaps have eaten the "
+                "reservation `_toc_entries_per_page` makes for it (G-1)"
+            )
+        assert measured >= 350, (
+            f"the sweep measured only {measured} laid-out trims — it must "
+            "cover the whole band of heights KDP admits"
+        )
+
+    def test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place(
+        self, monkeypatch
+    ) -> None:
+        """The same claim on the real drawing, on the one trim that can fail it.
+
+        The sweep above is arithmetic; this renders the worst case — the
+        shortest trim ``book_page_spec`` lays out at all, where the eight
+        rows and three gaps leave the least room — and asserts
+        ``_draw_folio`` really drew. It is the direct test of the omission
+        the reservation exists to prevent: ``_draw_folio`` returns without
+        drawing when the content it is told about leaves no room for its
+        own line, so a folio-anchored mark either happened or the page went
+        out unnumbered.
+        """
+        book = _book("card-205-fix1-shortest-trim")
+        book.trim_height_cm = "10.00"
+        generator = BookPDFGenerator(book)
+        entries = [
+            TocEntry(GUIDE_TITLE, 1),
+            TocEntry("Easy"),
+            TocEntry("Puzzles 1–60", 5),
+            TocEntry("Medium"),
+            TocEntry("Puzzles 61–120", 37),
+            TocEntry("Hard"),
+            TocEntry("Puzzles 121–150", 69),
+            TocEntry(TOC_SOLUTIONS_LABEL, 86),
+        ]
+        frame = page_frame(generator.page_spec(3))
+        book1_frame = page_frame(BookPDFGenerator(_book()).page_spec(3))
+        assert (frame.bottom - frame.top) < (book1_frame.bottom - book1_frame.top), (
+            "this test's premise: a 10 cm trim's usable height is tighter "
+            "than the Book 1 profile every other test in this file uses"
+        )
+
+        original = ImageDraw.ImageDraw.text
+        folios: List[str] = []
+        rows: List[float] = []
+        entry_px = type_px(TOC_ENTRY_PT, generator.dpi)
+
+        def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
+            anchor = kwargs.get("anchor")
+            if anchor in ("rb", "lb"):
+                folios.append(text)
+            elif getattr(font, "size", None) == entry_px:
+                rows.append(xy[1])
+            return original(self, xy, text, fill, font, *args, **kwargs)
+
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+        generator.create_toc_page(entries, 3)
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
+
+        assert folios == ["3"], (
+            "the shortest trim's TOC page must still carry its folio with "
+            f"the group gaps in place, and drew {folios}"
+        )
+        font = _guide_face(entry_px)
+        ascent, descent = font.getmetrics()
+        assert max(rows) + ascent + descent <= frame.bottom, (
+            "the last row's own ink must stay inside the frame"
         )
 
 

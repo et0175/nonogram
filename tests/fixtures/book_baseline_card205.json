@@ -1,12 +1,12 @@
 {
   "card": "CARD-205",
   "supersedes": "tests/fixtures/book_baseline_card204.json",
-  "recorded_from_commit": "card/205-structural-toc (implementation commit, branched from main at CARD-204's merge)",
-  "recorded_from_commit_note": "Recorded against this card's own implementation on the merged tree. CARD-204's recording is superseded, not re-recorded in place: this is a different card's deliberate ink change, which the chain's own rule (see every baseline's 'warning' field) says gets a new file under its own card number.",
+  "recorded_from_commit": "card/205-structural-toc (RE-RECORDED IN PLACE for this card's Fix 1 -- the owner's 2026-10-14 group-gap decision; first recorded against the implementation commit, branched from main at CARD-204's merge)",
+  "recorded_from_commit_note": "Recorded against this card's own implementation on the merged tree. CARD-204's recording is superseded, not re-recorded in place: this is a different card's deliberate ink change, which the chain's own rule (see every baseline's 'warning' field) says gets a new file under its own card number. Re-recorded in place once, for Fix 1 of this same card (owner decision 2026-10-14: set the structural list's groups apart with TOC_GROUP_GAP_PT of extra white above each level heading). Same card, same page, same deliberate ink change carried one step further -- so this stays one file under CARD-205's number rather than becoming a fourteenth fixture, which is the same rule that gave it its own number in the first place. Interior page 3 is again the only page that moves (3491813 -> 3504840 bytes, measured by a page-by-page digest comparison against the pre-Fix-1 recording, not reasoned about), and the page count is still thirteen: the gaps are white inside a one-page TOC, so no book gets longer on any trim KDP admits.",
   "recorded_on": "2026-10-14",
   "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
   "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
-  "why_a_new_baseline": "CARD-205 replaces the table of contents' per-puzzle listing with a structural one: one 'How to Solve Nonograms' row, a heading plus a 'Puzzles N-M' range row for each non-empty level, and one 'Solutions' row, each (but the headings) carrying leader dots across to its page number. Interior page 3 is the only page whose ink moves -- measured, not assumed: a page-by-page digest comparison against book_baseline_card204.json finds exactly one difference, page 3. The PAGE COUNT is unchanged at thirteen, because this four-puzzle book's TOC was already one page under CARD-200's per-puzzle rule; a larger book's interior does get shorter (the 150-puzzle corpus falls from 310 pages to 307, four TOC pages down to one), which is what tests/helpers/book_corpus.py's CORPUS_PAGE_COUNT records.",
+  "why_a_new_baseline": "CARD-205 replaces the table of contents' per-puzzle listing with a structural one: one 'How to Solve Nonograms' row, a heading plus a 'Puzzles N-M' range row for each non-empty level, and one 'Solutions' row, each (but the headings) carrying leader dots across to its page number. Interior page 3 is the only page whose ink moves -- measured, not assumed: a page-by-page digest comparison against book_baseline_card204.json finds exactly one difference, page 3. The PAGE COUNT is unchanged at thirteen, because this four-puzzle book's TOC was already one page under CARD-200's per-puzzle rule; a larger book's interior does get shorter (the 150-puzzle corpus falls from 310 pages to 307, four TOC pages down to one), which is what tests/helpers/book_corpus.py's CORPUS_PAGE_COUNT records. Fix 1 (owner decision 2026-10-14) then sets the groups apart: TOC_GROUP_GAP_PT (10 pt, 42 px at 300 dpi) of extra white above each level heading -- the blank line the owner's own sample shows -- drawn as a fixed addition to create_toc_page's own pen position and NOT as blank TocEntry rows, so the eight rows AC-1 counts, structural_toc_entry_count and _toc_entries_per_page's uniform division are all exactly what they were. This recording holds page 3 WITH those gaps.",
   "warning": "This is evidence of what the book PDF looks like with CARD-205's structural table of contents in place. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
   "interior_colorspace": "DeviceGray",
   "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
@@ -22,8 +22,8 @@
     10
   ],
   "font_dependent_pages_note": "Both guide pages (1, 2), the new TOC page (3, CARD-200: its title and every entry are set through _guide_face, the same Arial-or-fallback path the guide and divider pages already use), the three level dividers (4, 6, 8) and the SOLUTIONS divider (10) are machine-lettered. None of the three packed/full answer pages (11-13) are machine-lettered -- a packed slot's band and caption letter in the packaged DejaVu Sans, and so does every page's own new folio (CARD-200: it reuses _band_font, the same packaged face, exactly as the answer caption does -- G-4's reuse, not a new font path), so the folio never makes an otherwise machine-safe page machine-dependent. CARD-205 changes what page 3 says, not the faces it says it in: the title keeps _guide_face at the same size and every row (label, leader dots and page number alike) is set in the same TOC entry face CARD-200 introduced, so page 3 is machine-lettered exactly as before and this list is unchanged.",
-  "interior_bytes": 3491813,
-  "interior_bytes_note": "The black-and-white interior of this book: 3491813 bytes, where CARD-204's own recording held 3441912. The difference is interior page 3 alone -- the structural TOC's own JPEG stream, whose leader-dot runs carry more high-frequency ink than CARD-200's four plain caption rows did, so the file grows even though the page holds fewer words.",
+  "interior_bytes": 3504840,
+  "interior_bytes_note": "The black-and-white interior of this book: 3504840 bytes, where this fixture's own pre-Fix-1 recording held 3491813 and CARD-204's held 3441912. Both steps are interior page 3 alone -- the structural TOC's own JPEG stream, whose leader-dot runs carry more high-frequency ink than CARD-200's four plain caption rows did (+49901 bytes), and then Fix 1's group gaps moving three of its eight rows down the page (+13027).",
   "page_count": 13,
   "pages": [
     {
@@ -48,7 +48,7 @@
         3300
       ],
       "mode": "RGB",
-      "sha256": "a67be127ad3250824302ca472b3693bb6bb3a2199c6e5bd3dcd2b0241ea021a5"
+      "sha256": "8de0bfe1dd1ed47d4c92f5d11048c1e8bad18b78560e85bb1ac224050ea22fa7"
     },
     {
       "size": [
@@ -134,5 +134,5 @@
   "changed_pages": [
     3
   ],
-  "changed_pages_note": "Interior page 3 (the table of contents) is the only page that moves against CARD-204's recording, and it moves for this card's own reason. Measured by a page-by-page digest comparison, not reasoned about: the other twelve pages are byte-identical, which is the evidence that a card touching create_toc_page and the TOC's own entry count reached no other page kind. tests/test_book_pdf_memory.py's TestBookPdfMemory_NonDrawingPagesAreByteIdentical asserts both halves."
+  "changed_pages_note": "Interior page 3 (the table of contents) is the only page that moves against CARD-204's recording, and the only page that moved again when Fix 1's group gaps were added to this card's own earlier recording. Both are measured by a page-by-page digest comparison, not reasoned about: the other twelve pages are byte-identical in both comparisons, which is the evidence that a card touching create_toc_page and the TOC's own entry count reached no other page kind. tests/test_book_pdf_memory.py's TestBookPdfMemory_NonDrawingPagesAreByteIdentical asserts both halves."
 }

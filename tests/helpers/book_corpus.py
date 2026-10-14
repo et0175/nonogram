@@ -374,6 +374,20 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   are unchanged: page 3 is lettered in exactly the faces and sizes
 #:   CARD-200 gave it.
 #:
+#:   **Re-recorded in place once, for this same card's Fix 1** (owner
+#:   decision 2026-10-14): ``TOC_GROUP_GAP_PT`` sets 10 pt of extra white
+#:   above each level heading, the blank line the owner's own sample shows
+#:   between the groups — drawn as a fixed addition to the pen's ``y``,
+#:   not as blank ``TocEntry`` rows, so the row count AC-1 pins and
+#:   ``_toc_entries_per_page``'s uniform division are untouched. Same card,
+#:   same page, same deliberate ink change carried one step further, so it
+#:   stays this one file rather than becoming a sixteenth. Measured the same
+#:   way (a page-by-page digest comparison against the pre-Fix-1 recording):
+#:   page 3 is again the **only** page that moves, and ``interior_bytes``
+#:   moves from 3491813 to 3504840 (+13027 — three of the eight rows shift
+#:   down the page). The page count is still thirteen: the gaps are white
+#:   inside a TOC that is one page on every trim KDP admits.
+#:
 #:   **This book's page count does not change** (still thirteen): its four
 #:   puzzles already fitted a one-page TOC under the old rule. A *large*
 #:   book's does — see :data:`CORPUS_PAGE_COUNT` below, which falls from
