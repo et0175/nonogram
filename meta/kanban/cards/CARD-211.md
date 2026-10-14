@@ -1,6 +1,6 @@
 # CARD-211: Region leaves the brush menu and becomes its own control
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/211-region-own-control
-**Worktree:** ../PythonProject4-CARD-211
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 2: "Solver please place "Region" select option separately from "Black\\White\\Maybe\\Undecided" dropdown")
 **Idea:** —
 **Wave:** 37
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_page.py, tests/test_admin_design_tokens.py
 **Review score:** 9.0/10 (cycle 1/3) — 0 critical, 0 important, 3 minor; gate does not block
 **Started:** 2026-10-14T05:31:26Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-14T09:16:08Z
+**Actual:** 0.5d
+**Merge commit:** 4790243
 **Blocked by:** —
 
 ## What to implement
@@ -854,3 +854,21 @@
   CARD-216, which carried the same fabricated name and would have handed it to their
   agents. Same class as the dead `check:` refs already logged against the architecture
   model in `backlog.md`: a plausible-looking test name that no gate can run.
+
+- [Merge gate] 2026-10-14 — **PASSED** on the rebased tree: **6971 passed, 9 skipped,
+  0 failed, `PYTEST_EXIT=0`**, read in its own command before the merge. The
+  `test_web_upload.py` temp-dir test passed here, consistent with the fix cycle's
+  diagnosis that its earlier failure was a concurrent worktree's suite and not this diff.
+- [Merge guard] main had advanced since the branch took it in; verified
+  `git diff 7ec9a77..HEAD -- src/ tests/ docs/ pyproject.toml` is EMPTY (the intervening
+  commits are card notes under `meta/`), so the tested tree is the tree merged.
+- [Done] 2026-10-14 — merged as `4790243` (`--no-ff`). Worktree removed, branch deleted,
+  review report in `meta/review/`. Actual 0.5d against a 0.5d estimate — the move
+  itself was small; the span is two owner decisions, a review cycle, a fix cycle and a
+  verification gate.
+  **Unblocked by this merge:** CARD-212 (clues on both sides) and CARD-216 (given cells
+  in the player), both of which were queued on this card's template and statics. They
+  inherit the rebase surface the review mapped: reflowed comment blocks in all three
+  shared files, `.player-tools` declared twice, and ~4 px of slack on the 1280 px
+  counters row — anything either card adds to that group reds
+  `test_shares_the_buttons_row_at_1280`.
