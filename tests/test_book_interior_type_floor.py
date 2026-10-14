@@ -326,7 +326,30 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
 
 
 class TestInteriorType_FloorHoldsWithoutArial:
-    """AC-2 — with Arial unavailable, no face is unsized and the floor holds."""
+    """AC-2 — with Arial unavailable, no face is unsized and the floor holds.
+
+    **Deliberately redundant since CARD-221** (its review cycle 1, F-007).
+    That card made ``_guide_face`` return the packaged face on every host,
+    so ``without_arial`` can no longer change anything the interior draws:
+    every assertion below now measures the same recording as
+    :class:`TestInteriorType_EveryFaceHoldsTheFloor` above, and this class
+    passes for a reason it no longer tests.
+
+    It is kept rather than retired, as insurance of the cheapest kind: it
+    costs one extra export per book and it is the test that fails first if
+    a host lookup ever comes back into the interior — including one that
+    CARD-221's own structural watch would miss, since that watch
+    (``tests/test_book_interior_face.py``'s
+    ``TestInteriorFace_NoFaceIsReadFromAHostPath``) looks at
+    ``ImageFont.truetype``'s argument while this one looks at what was
+    actually drawn. ``test_arial_really_is_unavailable`` below is still a
+    real test of the helper, not of the interior.
+
+    The claim this class can no longer make on its own is "the floor holds
+    on a machine without Arial **because this run had none**" — that one
+    moved to ``tests/test_book_interior_face.py``, which exports the same
+    books twice and compares them. Read the two together.
+    """
 
     def test_arial_really_is_unavailable(self):
         with pytest.MonkeyPatch.context() as monkeypatch:

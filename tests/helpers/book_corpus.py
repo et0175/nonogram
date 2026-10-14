@@ -440,7 +440,7 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   ``_guide_face`` move — 1 and 2 (the guide), 3 (the TOC), 4, 6, 8 (the
 #:   level dividers) and 10 (SOLUTIONS) — and the other six are
 #:   byte-identical to CARD-205's digests, measured page by page before the
-#:   file was written. ``interior_bytes`` 3498430 -> 3463959.
+#:   file was written. ``interior_bytes`` 3498430 -> 3464123.
 #:   ``font_dependent_pages`` becomes **empty**, and the
 #:   ``font_fingerprint``/``MACHINE_FACE_SIZES`` machinery that went with it
 #:   is removed from this module — see this module's own docstring for the

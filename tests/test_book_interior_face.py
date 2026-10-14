@@ -20,6 +20,21 @@ pixels, the page count and the gutter band. It also pins the two facts the fix
 rests on: the packaged face carries every character the interior prints, and no
 face the interior draws with is read from a filesystem path at all.
 
+**What AC-1 guarantees, stated exactly** (review cycle 1, F-005). These
+tests prove the interior is identical **on one Pillow/FreeType build with
+the host's font paths refused** — not "on any machine". The face is the
+repository's now, but the rasteriser is the environment's:
+``pyproject.toml`` floors Pillow at ``>=10.0`` with no ceiling, every
+measurement here comes off ``getmetrics()``, and one pixel of ascent per
+row is what separated 42 TOC rows from 41 when the face itself was the
+host's. A FreeType bump can therefore still move a page count. Nothing in
+this module detects that — what does is the baseline comparison in
+``tests/test_book_pdf_memory.py``, which digests all thirteen interior
+pages against ``book_baseline_card221.json`` with no face gate left to skip
+it, so a rasteriser that redraws a glyph reds the suite on the machine that
+bumped it. Bounding Pillow is an ADR-0006/R1 question, carded rather than
+decided here.
+
 **Each claim is backed by its own negative control**, because "two runs of
 deterministic code agree" is exactly the kind of assertion that passes when it
 has stopped testing anything. Every comparison below is run a second time
@@ -175,10 +190,17 @@ def _interior(book_factory: Callable[[], Book], puzzles: List[Dict[str, Any]]) -
     return page_digests(pages), len(pages), written
 
 
-def _both_faces(
-    measure: Callable[[], Any], monkeypatch: pytest.MonkeyPatch
-) -> Tuple[Any, Any]:
-    """``measure()`` with the host's fonts available, and again without them."""
+def _both_faces(measure: Callable[[], Any]) -> Tuple[Any, Any]:
+    """``measure()`` with the host's fonts available, and again without them.
+
+    It takes no ``monkeypatch`` on purpose (review cycle 1, F-006, which
+    found it taking one it never used). The on-host half must run with
+    **nothing** patched, so the only patch context here is the one this
+    function opens and closes around the off-host half; a fixture passed in
+    from the caller would be a patch that outlives it, and two halves
+    sharing one context is how this comparison would quietly become
+    self-fulfilling.
+    """
     on_host = measure()
     with pytest.MonkeyPatch.context() as context:
         refuse_host_fonts(context)
@@ -222,12 +244,10 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
     gutter band the count chooses.
     """
 
-    def test_every_page_of_the_baseline_book_is_the_same_page_on_both_faces(
-        self, monkeypatch
-    ) -> None:
+    def test_every_page_of_the_baseline_book_is_the_same_page_on_both_faces(self) -> None:
         """The whole interior, page for page, at the shipped Book 1 trim."""
         on_host, off_host = _both_faces(
-            lambda: _interior(corpus_book, baseline_puzzles()), monkeypatch
+            lambda: _interior(corpus_book, baseline_puzzles())
         )
         host_digests, host_pages, host_bytes = on_host
         bare_digests, bare_pages, bare_bytes = off_host
@@ -249,7 +269,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             f"{len(host_bytes)} bytes against {len(bare_bytes)}"
         )
 
-    def test_the_minimum_trim_is_the_same_book_on_both_faces(self, monkeypatch) -> None:
+    def test_the_minimum_trim_is_the_same_book_on_both_faces(self) -> None:
         """The same claim on the tightest sheet a book can be stored with.
 
         Measured separately from Book 1 because this is the trim where a
@@ -258,9 +278,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
         TOC page holds, and whether ``_draw_folio`` finds room at all.
         """
         single = [puzzle("card221-mintrim", 20, 20, 5, "easy", "Solo")]
-        on_host, off_host = _both_faces(
-            lambda: _interior(_min_trim_book, single), monkeypatch
-        )
+        on_host, off_host = _both_faces(lambda: _interior(_min_trim_book, single))
         host_digests, host_pages, _ = on_host
         bare_digests, bare_pages, _ = off_host
 
@@ -275,9 +293,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
         )
 
     @pytest.mark.parametrize("count", [4, 83, 150])
-    def test_the_page_count_and_its_gutter_band_agree_on_both_faces(
-        self, monkeypatch, count
-    ) -> None:
+    def test_the_page_count_and_its_gutter_band_agree_on_both_faces(self, count) -> None:
         """The defect as the owner would have met it: the printed gutter.
 
         The page count is what selects KDP's gutter band, and a book
@@ -310,9 +326,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
                 kdp_min_gutter_cm(unpaired),
             ), stream.unpaired_page_count
 
-        (on_host, on_host_stream), (off_host, off_host_stream) = _both_faces(
-            measure, monkeypatch
-        )
+        (on_host, on_host_stream), (off_host, off_host_stream) = _both_faces(measure)
 
         assert on_host == off_host, (
             "the page count, or the gutter band it chooses, depends on the "
@@ -359,7 +373,7 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             )
         monkeypatch.setattr(book_pdf_generator, "_guide_face", host_face)
         on_host, off_host = _both_faces(
-            lambda: _interior(corpus_book, baseline_puzzles()), monkeypatch
+            lambda: _interior(corpus_book, baseline_puzzles())
         )
         host_digests, _, _ = on_host
         bare_digests, _, _ = off_host
@@ -492,7 +506,34 @@ class TestInteriorFace_NoFaceIsReadFromAHostPath:
     digits are CON-020's one exemption).
     """
 
-    def test_no_font_is_loaded_from_a_filesystem_path(self, monkeypatch) -> None:
+    @pytest.mark.parametrize(
+        ("shape", "book_factory", "puzzles_for"),
+        [
+            ("book1", lambda: corpus_book("card-221-no-host-path"), baseline_puzzles),
+            ("min-trim", _min_trim_book, lambda: [
+                puzzle("card221-nohost-mintrim", 20, 20, 5, "easy", "Solo")
+            ]),
+            ("spilling-toc", lambda: corpus_book("card-221-no-host-path-150"), lambda: [
+                puzzle(f"card221-nohost-{index}", 10, 10, 3, "easy", f"P{index}")
+                for index in range(150)
+            ]),
+        ],
+        ids=["book1", "min-trim", "150-puzzles"],
+    )
+    def test_no_font_is_loaded_from_a_filesystem_path(
+        self, monkeypatch, shape, book_factory, puzzles_for
+    ) -> None:
+        """Swept over every book shape this module builds (review cycle 1,
+        F-004).
+
+        One shape was enough to state the claim and not enough to hold it: a
+        host lookup reachable only from a page the baseline book does not
+        draw — the min-trim guide page's own fallback ladder, a TOC long
+        enough to split, a label long enough for ``_clipped_to``'s ellipsis
+        — would have passed a watch over Book 1 alone. These are the three
+        shapes the module already constructs two tests above, so the sweep
+        costs three lines and one more export each.
+        """
         original = ImageFont.truetype
         paths: List[str] = []
 
@@ -502,19 +543,22 @@ class TestInteriorFace_NoFaceIsReadFromAHostPath:
             return original(font, *args, **kwargs)
 
         monkeypatch.setattr(ImageFont, "truetype", truetype)
-        generator = BookPDFGenerator(corpus_book("card-221-no-host-path"))
+        generator = BookPDFGenerator(book_factory())
         drawn = 0
-        for _page in generator.interior_stream(baseline_puzzles()).pages:
+        for _page in generator.interior_stream(puzzles_for()).pages:
             drawn += 1
         monkeypatch.setattr(ImageFont, "truetype", original)
 
-        assert drawn == BASELINE_PAGE_COUNT, (
-            f"the walk drew {drawn} pages, not the book's {BASELINE_PAGE_COUNT}"
-        )
+        if shape == "book1":
+            assert drawn == BASELINE_PAGE_COUNT, (
+                f"the walk drew {drawn} pages, not the book's {BASELINE_PAGE_COUNT}"
+            )
+        else:
+            assert drawn > 0, f"the {shape} walk drew no page at all"
         assert paths == [], (
-            f"the interior asked the host for a font at {paths} — every face "
-            "it letters in must come from src/nonogram/export/fonts/ or from "
-            "Pillow's own embedded face"
+            f"the {shape} interior asked the host for a font at {paths} — "
+            "every face it letters in must come from "
+            "src/nonogram/export/fonts/ or from Pillow's own embedded face"
         )
 
     def test_the_watch_would_have_caught_the_pre_card_lookup(

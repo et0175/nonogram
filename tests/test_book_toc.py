@@ -1191,14 +1191,16 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         reserved line still clear beneath them, on every height a book can
         store and lay out.
 
-        **This test has already caught the thing it exists for.** At Fix 1's
-        ``TOC_GROUP_GAP_PT`` of 10 pt the fourth gap put the worst case at
-        31 px against the folio's 49 — the page would have gone out
-        unnumbered on the two shortest storable trims — which is why the
-        constant is 8.5 pt and why the worst case is asserted as a *figure*
-        below and not only as an inequality: an inequality is satisfied by
-        1 px of margin just as well as by 10, and the next card to add a row
-        or a gap should be told how much room it is actually spending.
+        **This test has already caught the thing it exists for, twice.** At
+        CARD-205 Fix 1's ``TOC_GROUP_GAP_PT`` of 10 pt the fourth gap put
+        the worst case at 31 px against the folio's 49 — the page would
+        have gone out unnumbered on the two shortest storable trims — which
+        is why the owner moved the constant to 8.5 pt then, and to 8.0 pt
+        when CARD-221's packaged face cost it another 12 px (below). That
+        is why the worst case is asserted as a *figure* and not only as an
+        inequality: an inequality is satisfied by 1 px of margin just as
+        well as by 6, and the next card to add a row or a gap should be
+        told how much room it is actually spending.
 
         Measured here with this file's **own** font metrics — Pillow asked
         directly for the same two faces/sizes the page sets its title and
@@ -1215,28 +1217,30 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         baseline's ``font_fingerprint`` against this host's — is gone with
         the host lookup it was guarding.
 
-        **At the shipped 8.5 pt the 10.00 cm trim is 2 px short, and this
-        test says so by failing.** Measured on the packaged face (CARD-221,
-        2026-10-14): that trim's TOC frame is 956 px tall, the title's line
-        and gap take 258, eight rows at 66 px apiece and their four 35 px
-        gaps take the rest, and **47 px** are left where the folio's own
-        line needs **49** — so ``create_toc_page`` on a 10.00 cm book draws
-        no folio at all (rendered and spied, not computed: see the test
-        below this one). Every other height KDP admits clears it, 10.10 cm
-        included at 58 px; 10.00 cm is the one failing height of the 381
-        this sweep measures, where on Pillow's built-in face (the off-host
-        fallback until CARD-221) both 10.00 and 10.10 failed, at 27 and
-        38 px.
+        **At the shipped 8.0 pt the worst case is 55 px, 6 px clear of the
+        folio's line, and no height fails.** Measured on the packaged face
+        (CARD-221 fix 1, 2026-10-14): the 10.00 cm trim's TOC frame is
+        956 px tall, the title's line and gap take 258, eight rows at 66 px
+        apiece and their four 33 px gaps take the rest, and 55 px are left
+        where the folio's own line needs 49. 10.10 cm, the next storable
+        height, leaves 66. Both are read off a drawn page as well as
+        computed here — see the two tests below this one.
 
-        What closes it is the owner's own constant, exactly as CARD-205
-        recorded when the same inequality was red off-host: on this face
-        **8.2 pt (34 px) is the largest gap that fits**, and 8.0 pt (33 px)
-        restores a 6 px margin over the folio — the same "largest that fits,
-        less a margin" rule the owner applied to Arial's metrics when they
-        chose 8.5 over 8.9. CARD-221 is forbidden that change (its G-6) and
-        records the measurement here instead. The alternative the owner may
-        prefer — a narrower packaged face — is an ADR-0006/R1 question, not
-        a constant.
+        **8.0 pt is the owner's own rule re-measured, not a new figure.**
+        For one cycle this test was an expected failure: the constant came
+        into CARD-221 at 8.5 pt, chosen against Arial's metrics (199 px
+        under eight rows, 59 px of headroom, 10 px of margin), and the
+        packaged face costs 12 px of that — a row is 49 px to Arial's 48
+        and the title's line 258 to its 254 — which left the 10.00 cm trim
+        47 px against the folio's 49 and printed that page unnumbered. On
+        Pillow's own built-in face, what the deployed Linux image used,
+        the same page left 27 px and 10.10 cm left 38, so the defect was
+        not new; CARD-221 made it the same everywhere, which is what let
+        the owner see it. They then applied the rule they had applied to
+        Arial — the largest gap that fits, less a margin — to the face the
+        book is actually printed in: 8.2 pt (34 px) is the largest that
+        fits at all, and 8.0 pt leaves the margin. There is no gate and no
+        expected failure left under this sweep.
         """
         from importlib import resources
         from io import BytesIO
@@ -1344,8 +1348,8 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         **This test was an expected failure for one cycle.** CARD-221 split
         it out of the sweep above when lettering the interior in the
         packaged face left the 10.00 cm trim 47 px where the folio needs 49
-        — 2 px short, at the shipped 8.5 pt — so that the sweep could keep
-        asserting everything that still held (one page on all 381 heights,
+        — 2 px short, at the 8.5 pt it then carried — so that the sweep could
+        keep asserting everything that still held (one page on all 381 heights,
         the worst case is the shortest trim, the exact figures) while this
         one carried the single claim that did not, strictly, where it could
         not be forgotten. The owner moved ``TOC_GROUP_GAP_PT`` to 8.0 pt
@@ -1407,8 +1411,9 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         out unnumbered.
 
         **This test was an expected failure for one cycle** — the rendered
-        half of the 2 px CARD-221 measured at the shipped 8.5 pt, where this
-        page really did go out unnumbered and ``folios`` below was drawn
+        half of the 2 px CARD-221 measured at the 8.5 pt it then carried,
+        where this page really did go out unnumbered and ``folios`` below
+        was drawn
         empty. The owner's move to 8.0 pt (2026-10-14) numbers it again,
         with the 55 px the sweep records. The 10.10 cm test that follows
         was added beside it while this one was red, so that the

@@ -1485,6 +1485,19 @@ class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
         :data:`~nonogram.admin.book_pdf_generator.GUIDE_BODY_PT` is
         untouched) measures below CON-020's floor, and lettered at the
         page's own 11 pt it measures above it.
+
+        **It measures with the generic ``text_reference`` probe on purpose,
+        and that understates** (review cycle 1, F-008). A pipeline label is
+        caps with no ascender, so an ascender-to-baseline probe recovers it
+        small — the opposite direction from :func:`line_reference` and
+        :func:`folio_reference`, which exist because an under-stated probe
+        over-states a *size*. Here the error is the safe way round: it
+        makes the floor check stricter, never more lenient. Measured on the
+        real diagram at this trim: 11.05 pt at the page's own 11 pt against
+        a 10.0 pt floor, so the margin this control runs on is 1.05 pt. A
+        later card tightening CON-020 should read that 1.05 pt as probe
+        slack rather than as headroom, and pass the labels' own
+        ``top_to_baseline`` here if it needs the exact figure.
         """
         spec = BookPDFGenerator(six_by_nine_book()).page_spec(2)
         reference = text_reference()

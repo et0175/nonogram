@@ -1135,8 +1135,25 @@ def _guide_face(size: int) -> ImageFont.FreeTypeFont:
     project ships (ADR-0006/R1, package data rather than a dependency) and the
     face the band and the folio were already set in. The guide pages, the
     dividers and the table of contents letter through here, so **every
-    measurement the interior makes is a function of this repository alone and
-    of nothing the host happens to have installed** (CARD-221).
+    measurement the interior makes is a function of this repository's own
+    font data and of the installed Pillow/FreeType, and of nothing the host's
+    font configuration offers** (CARD-221).
+
+    That second clause is the honest limit of what the swap bought, and it
+    is deliberate wording (review cycle 1, F-005). The face is now the
+    repository's; the rasteriser is not. ``pyproject.toml`` floors Pillow at
+    ``>=10.0`` with no ceiling, the metrics this module reads come straight
+    off ``getmetrics()``, and one pixel of ascent is exactly the lever that
+    separated 42 TOC rows from 41 when the face was the host's. So a
+    FreeType bump can still move a page count where a missing Arial no
+    longer can. What would catch it is the baseline: every interior page is
+    compared digest-for-digest against ``book_baseline_card221.json`` with
+    no face gate left to skip it
+    (``tests/test_book_pdf_memory.py``'s ``TestBookPdfMemory_PagesAreUnchanged``),
+    so a rasteriser that redraws a glyph reds the suite on the machine that
+    bumped it rather than reaching a printed book. Bounding Pillow, or
+    recording the metrics themselves, is an ADR-0006/R1 question and not
+    this function's to answer.
 
     **It asked the host for Arial by path until CARD-221**, with Pillow's own
     built-in face as a sized fallback. That made the interior's row geometry

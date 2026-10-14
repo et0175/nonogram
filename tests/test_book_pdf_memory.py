@@ -1513,9 +1513,10 @@ class TestBookPdfMemory_PagesAreUnchanged:
 # (measured then: 0.183% and 0.192%), and every differing pixel explained by
 # ink that had moved at most one pixel (0 outliers on either page). That claim
 # cannot be restated after CARD-221, which deliberately re-letters both pages
-# in the packaged face: measured on that branch, page 1 differs from the
-# CARD-200 recording in 7.596% of its pixels and page 2 in 11.442%, with
-# 254,766 and 581,547 differing pixels that no 1 px displacement explains.
+# in the packaged face: re-measured at HEAD with the deleted instrument's
+# own rule, page 1 differs from the CARD-200 recording in 7.596% of its
+# pixels and page 2 in 10.531%, with 254,766 and 478,630 differing pixels
+# that no 1 px displacement at its own 64-grey tolerance explains.
 #
 # It is not re-anchored at CARD-221's own pages either, and that was tried
 # first: the deleted test's own ``moved > 0`` assertion exists precisely to
@@ -1990,8 +1991,8 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         measured exactly that: under 1% of the page, every differing pixel
         explained by ink that moved at most 1 px. Re-lettering both pages in
         the packaged face is not a scatter — measured on this branch, page 1
-        differs in 7.596% of its pixels and page 2 in 11.442%, with 254,766
-        and 581,547 pixels that are not ink-moved-by-one — so that test is
+        differs in 7.596% of its pixels and page 2 in 10.531%, with 254,766
+        and 478,630 pixels that are not ink-moved-by-one — so that test is
         gone and this one keeps the claims that survive. What replaces it is
         stronger than a bound and unconditional on every machine: both pages
         are compared pixel for pixel against CARD-221's own recording by
