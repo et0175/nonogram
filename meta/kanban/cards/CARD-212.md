@@ -99,8 +99,14 @@ axis: row clues left *and* right, column clues above *and* below.
   gutter, no duplicates. (test: `TestSolverClues_SmallBoardUnchanged`)
 - **AC-6** (edge, narrow viewport): *Given* a 390 px phone and a 30×30 puzzle,
   *when* it renders, *then* the board falls back to CARD-193's single mirrored
-  row-clue gutter rather than shrinking the cells below the phone-fit minimum.
-  (test: `TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit`)
+  row-clue gutter rather than spending the phone's width on a second one.
+  (test: `TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit`,
+  `tests/test_puzzle_solver_phone.py:686`)
+  **Wording amended 2026-10-14 with G-5, same false premise:** it read "rather than shrinking
+  the cells below the phone-fit minimum", and there is no such minimum in force below 820 px —
+  the cells are 14.39 px before any duplicate is considered. The AC did **not** fail its gate:
+  its operative *then*-clause is the mirror fallback, which the named test asserts and a mutant
+  kills. Only the premise clause was false.
 - **AC-7** (edge, a11y): *Given* a doubled axis, *when* the accessibility tree
   is read, *then* each clue is exposed once — the duplicate gutter is
   `aria-hidden`. (test: `TestSolverClues_DuplicateIsAriaHidden`)
@@ -120,8 +126,22 @@ axis: row clues left *and* right, column clues above *and* below.
   (ADR-0038/R4).
 - G-4: No request per mark (ADR-0038/R2; test:
   `TestSolverMarking_NoRequestPerMark`).
-- G-5: Tap targets stay at CARD-182's minimum on a 390 px phone (test:
-  `test_puzzle_solver_phone.py`).
+- G-5: The phone fit is exactly CARD-193/CARD-196's and this card costs it nothing — 14.39 px
+  cells on a 390 px phone, and no gutter charged to the fit that is not drawn (tests:
+  `tests/test_puzzle_solver_phone.py::TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit`
+  at `:686`, and the file's own cell-formula tests).
+  **Amended 2026-10-14 at the decompose station, on the AC/EC/G gate's finding.** Original:
+  > G-5: Tap targets stay at CARD-182's minimum on a 390 px phone (test:
+  > `test_puzzle_solver_phone.py`).
+
+  **Its own named check asserted the opposite of its sentence.** That file's header says
+  "CARD-193 (owner decision, 2026-10-06) removes that floor below 820 px", its constants read
+  `FLOOR, CAP, DESKTOP_FLOOR = 24, 28, 14` commented "the old (CARD-182) 24 px phone floor — now
+  gone below 820 px", and the assertion at `:360` is **`assert side < FLOOR`** — a 390 px phone's
+  cells are *required to be below* CARD-182's minimum. So the guardrail passed for a reason
+  contrary to what it said. The behaviour it was reaching for is genuinely evidenced: the gate's
+  mutant (charging the fit for a gutter that is not drawn) kills 4 tests in that file. Only the
+  sentence was wrong, and it is the orchestrator's sentence.
 - G-6: Do not change the brush/Region controls — CARD-211 owns those this wave.
 - G-7: Styling from tokens only (test: `test_the_stylesheet_uses_tokens_not_literals` (and, for a rule added by a card, a per-rule check like `test_the_region_toggles_pressed_look_comes_from_tokens`)).
 
@@ -352,7 +372,7 @@ are the real ones.
   board's heavy frame and the cells behind it: the 1.45 ch gap that gives a row ring its
   room sat on the number's right, and in a right-hand gutter it must sit on its left.
   Fixed by mirroring the margin (same band width, so the fit is unchanged) and pinned by
-  `TestSolverClues_RowRingsStayInsideTheirOwnBand` (`tests/test_puzzle_solver_clues.py:1523`,
+  `TestSolverClues_RowRingsStayInsideTheirOwnBand` (`tests/test_puzzle_solver_clues.py:1527`,
   mutants M15/M16). **CARD-193's phone mirror has carried this since it shipped**, so this
   fixes the mirror too — the second time this wave that an owner-facing render caught what
   a green suite did not.
@@ -410,7 +430,7 @@ are the real ones.
     green only because no test pairs those fixtures with those viewports. At the suite's default
     1280x720, row doubling is on for **11 of 28 shapes** swept (16x10 .. 22x14) — and the one
     existing guard covering that ground, `_assert_every_fifth_line_heavier`
-    (`tests/test_puzzle_solver_page.py:630`), **goes red when pointed at a 20x12 there**
+    (`tests/test_puzzle_solver_page.py:645`), **goes red when pointed at a 20x12 there**
     ("Left contains 12 more items" — it compares 2x-height clue boxes against `height-1`). Its
     caller's seeded 12-size corpus avoids the band by luck. The true sentence is "no fixture x
     viewport **pair** the suite exercises".
@@ -631,7 +651,7 @@ and fix agents' own. Where the two disagree, the ledger is authoritative._
 
 - **F-003 (gating) — the false claim corrected, and the band it hid now covered.**
   (a) The justification is rewritten above with the three fixture x viewport pairs named.
-  (b) `_assert_every_fifth_line_heavier` (`tests/test_puzzle_solver_page.py:630`) and the
+  (b) `_assert_every_fifth_line_heavier` (`tests/test_puzzle_solver_page.py:645`) and the
   `_RULES` probe now group the clue boxes by `data-line` and assert the fifth-line pattern
   PER GUTTER, so a doubled board is checked instead of crashing the helper ("Left contains
   12 more items"). (c) `(20, 12)` is added to the seeded corpus of
@@ -758,3 +778,41 @@ and fix agents' own. Where the two disagree, the ledger is authoritative._
     cost one or two board builds, never eight. **Both review survivors now die.**
   - **G-004** — the 22x14 pin asserts `doubled < 24 <= plain` first, so a platform whose stage is
     13 px narrower reports "this window is narrower here" rather than "the ladder broke".
+
+- [AC/EC/G gate] 2026-10-14 — **PASSED on behaviour**, subject to one mandatory card-text
+  correction (G-5, amended above) that needed no code or test change. Every named test resolves
+  to a real `file:line`; **no fabricated name**. **14 fresh mutants, 14 killed, 0 survived** —
+  none a repeat of the implementers' set or either review's, each reverted and the file
+  **sha256-compared** to its pre-mutation snapshot before the next.
+  - All 8 ACs pass with their quantifiers asserted, not just their verbs. The gate's mutants
+    went at the quantifiers specifically: AC-7's "exactly once" was mutated on **both** sides
+    (the implementer tested a duplicate keeping its label; the gate tested *both* gutters being
+    `aria-hidden`, so each clue is exposed **zero** times) and died.
+  - G-1..G-7 and all five contract rules pass. G-2, G-3, G-6 and two ADR-0038 rules are
+    review-lens with no runnable check; each was verified statically and the report says so
+    rather than claiming a test.
+  - **The two relaxed helpers still catch what they were written for**, checked in the other
+    direction: a mutant giving the *left* corner `.is-right` — the exact regression the old
+    `== ["player-corner"]` equality caught — kills 5 tests, the first in the mirror file itself;
+    a mutant dropping the 5th column's heavy rule from a **single**-gutter board kills 2. The
+    relaxations opened no hole. Both reviews had judged them "the minimum needed"; this is the
+    first station to test that claim rather than read it.
+  - **Both "we also fixed an old bug" claims hold up against `git show main`.** The ring defect:
+    main has CARD-193's mirrored row-clue rule and the 1.45 ch gap on the number's **right**,
+    and `grep -c "margin-left: 1.45ch"` on main is **0** — no mirrored override exists, so the
+    number against the grid had no room on the side the ring needs. (Nuance worth keeping: the
+    mirror is CARD-193's, the gap constant arrived with CARD-196 — the defect is their
+    composition.) The hint defect: main's `solver.js:433` reads
+    `let hinted = null; // the cell element carrying .is-hinted` and its own `redraw()` at `:475`
+    does `hinted = null; // the old highlighted element no longer exists`. **Main's code says in
+    its own comment that it drops the highlight**, and `git log -S` puts that line in CARD-193's
+    commit. Claim confirmed including its stronger half.
+- [AC/EC/G gate — stale citations corrected] Four in this card, now fixed above:
+  `_assert_every_fifth_line_heavier` was cited at `:630` (real `:645`) in two places — the
+  cycle-2 reviewer flagged it and it was still uncorrected; `TestSolverClues_RowRingsStayInsideTheirOwnBand`
+  at `:1523` (real `:1527`). The "Current behaviour" block's pre-card citations are all off by
+  ~31 lines in the same direction against the card's own base `d9c2c1a` (`clueBox` `:278`→`:309`,
+  `clueNumbersOf` `:548`→`:579`, `paintCircles` `:559`→`:590`, `drawBoard` `:293`→`:334`), i.e.
+  drafted against a stale copy of the file rather than against the base the card names. Left as
+  written with this note, because they describe code that no longer exists on the branch and
+  rewriting them now would invent a precision the drafting did not have.
