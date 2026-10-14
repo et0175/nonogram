@@ -153,3 +153,16 @@ them stack on one page.
 ## Worktree notes
 
 —
+
+## Amendment 2026-10-14 — the owner's "Puzzle page layout" artifact
+
+The artifact **keeps this card** and ties it into the new solutions layout:
+
+- *"Wide, short solutions keep the one-column, three-row page from CARD-209. They use the same
+  tile header and running head, so those pages look like part of the same set."*
+- So this card survives as the **single exception** to CARD-232's "every solution is a tile, four
+  to a page" rule, and it must adopt **CARD-233's tile header and running head**.
+- **Depends on:** CARD-232 (the tile rule it is the exception to) and CARD-233 (the header it
+  adopts). Sequencing matters: implementing this card first would build furniture that CARD-233
+  then replaces. Update the card's `Depends on:` field at dispatch.
+- Its clues now sit in CARD-208's grey boxes like every other solution.

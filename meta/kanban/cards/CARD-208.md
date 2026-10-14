@@ -141,3 +141,20 @@ worktree.
 ## Worktree notes
 
 —
+
+## Amendment 2026-10-14 — the owner's "Puzzle page layout" artifact
+
+The artifact names this card by number — *"Clue areas shaded 5% grey, with each number in its
+own box (CARD-208)"* — and adds the shading to its scope:
+
+- **The clue areas are shaded 5% grey**, in addition to each number sitting in its own box.
+  Both belong here because both are drawn by the same clue-area code; splitting them would put
+  two cards in one function.
+- The **line weights** (0.3 pt cells grey, 0.8 pt every fifth, 1.3 pt outer border) are
+  **CARD-227**, not this card.
+- The grey boxes are reused by three later cards — the guide's examples (CARD-229), the solution
+  tiles (CARD-232) and CARD-209's wide-short pages. So expose the shading through the same
+  function all of them call, not as a literal repeated per page kind.
+- **Depends on:** CARD-222 (the frame). Update the card's `Depends on:` field at dispatch.
+- The card's own body rests on a doc image the orchestrator could not read; the artifact's
+  mockups now show the intent, so re-read them before implementing rather than guessing.

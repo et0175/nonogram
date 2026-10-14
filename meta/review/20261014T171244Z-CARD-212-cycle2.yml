@@ -1,0 +1,644 @@
+version: 1
+generated_at: "2026-10-14T17:12:44Z"
+target: "CARD-212 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-212, branch card/212-clues-both-sides, HEAD 7c2ed8d (= ee0d3a0 + the cycle-1 fix commit), base d9c2c1a. Full card diff main...HEAD is 9 files, +1434/-86; the cycle-2 subject is the fix diff ee0d3a0..7c2ed8d, 6 files, +422/-43. Review cycle 2, CONFIRMATION mode: the three gating findings of cycle 1 and the blast radius of their fixes, not a re-review of what cycle 1 cleared."
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "git diff ee0d3a0..7c2ed8d in full — every hunk of all six files, nothing sampled. src/nonogram/admin/static/solver.js: the rewritten file-header paragraph, the two new constants (DRAW_MARK, RESIZE_SETTLE = 150), the performance.mark at the top of drawBoard, the whole of the new drawSettledLayout plus the thinned redraw(), the `const isBig` hoist, the rewritten mirrorQuery listener and the new window `resize` listener. src/nonogram/admin/static/admin.css: the comment-only change (F-004)."
+    - "The fix's test hunks in full: tests/test_puzzle_solver_page.py (the new `gutters(selector, side)` closure inside _RULES, the per-gutter rewrite of _assert_every_fifth_line_heavier at :644-671, and the corpus change at :713-738), tests/test_puzzle_solver_clues.py (the `<= 6` bound at :1184, the new mirror ring test, _DRAWS, DEFAULT_VIEWPORT, GRID_20x12/GRID_22x14, TestSolverClues_TheLadderStopsAtTheFirstRungThatFits and TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop), tests/test_puzzle_solver_zoom.py (_FIT_SHAPE and the three new tests in the AC-8 class), tests/test_admin_design_tokens.py (the comment-stripping fix)."
+    - "src/nonogram/admin/static/solver.js at HEAD around the fix rather than only the hunks: the `hinted` lifecycle (declared :529, nulled in redraw at :636, set in the hint path :656-658) to judge what a resize-redraw costs, and drawnCell/layoutLadder/isMirrored unchanged above it."
+    - "meta/kanban/cards/CARD-212.md — the whole new '### Review cycle 1 — fixes' section, the corrected [The measured rule] paragraph, the corrected closest-call figure in the measurement table, the struck-through 'No resize listener' bullet, the cycle-2 mutant table and the [Still open, with reasons] block. Read against my own cycle-1 report line by line to check every 'done' claim."
+    - "meta/review/20261014T153035Z-CARD-212-cycle1.yml (my own cycle-1 findings, to confirm each against the fix and to check my own numbers)."
+    - "NOT re-read, deliberately: clueBox, cornerBox, drawBoard's gutter construction, clueNumbersOf, paintCircles, the CSS clamp and the .is-right / tfoot rules. The fix does not touch them (the only solver.js change inside drawBoard is one performance.mark line, and the only admin.css change is prose), and cycle 1 cleared them."
+    - "INDEPENDENT EXECUTION. Targeted runs only, never the full suite. (1) All six files the fix touches plus the two that could feel it: tests/test_puzzle_solver_clues.py + _zoom.py + _page.py + _phone.py + _mirror.py + test_admin_design_tokens.py = 171 passed in 146s (cycle 1's comparable subset was 163). (2) A clues+zoom baseline of 75 tests used as the mutation oracle. (3) A throwaway Playwright probe, tests/test_card212_cycle2_probe.py, written/run/deleted — five probes: the resize-vs-reload walk at four windows with a reload taken in the same session at each, a 1 px no-op resize against the stage's scroll offset and the hint highlight, a 210-pair monotonicity counterexample hunt, and the 22x14 / 20x12 boundary margins measured by setting --player-row-gutters on the live table."
+    - "MUTATION CHECK, my own set of 9 aimed at the three fixes (not a re-run of the card's 8): see mutation_check below. 6 killed, 3 survived. Driven by a scripted harness that asserted the file was pristine before each mutant, reverted with `git checkout --` after each, and asserted byte-identity before continuing; M-F was re-run standalone because its first result was a Chromium ERR_NETWORK_IO_SUSPENDED and an infrastructure error is not a kill."
+  not_reached:
+    - "Rendered output. review.visual is off; I did not open the screenshots in ~/Documents/nonogram-reviews/CARD-212/ this cycle either. Everything below is geometric or a draw/entry count. In particular 'the resize settles on the layout a reload would have drawn' is established as equality of five measured fields (duplicate count, tfoot rows, mirrored flag, cell width, stage overflow x/y) at four windows — NOT as a visual comparison, and not as equality of the whole DOM."
+    - "The full ~7000-test suite (CARD-221 still running; forbidden by the task). NOT run by me this cycle: tests/test_puzzle_solver_marking.py, _maybe.py, _hint.py, _progress.py, _percent.py, _resume.py, _brush_menu.py. The fix adds a global `resize` listener, so _hint.py and _resume.py are the two I would most want at the merge gate; I probed the hint path by hand instead (see G-003) and the resume path only indirectly, through the zoom tests' _board_snapshot comparisons."
+    - "A real window drag. Playwright's set_viewport_size fires ONE resize event, so the debounce's coalescing behaviour under a continuous drag is not exercised by any test here or in the suite — which is exactly what mutant M-B demonstrates (G-001). I did not drive synthetic event storms in my probe either; the finding is the gap, not a measured misbehaviour."
+    - "A resize during an in-progress pointer drag, and the mobile-browser resize that fires when the URL bar collapses on scroll. Both are reachable in the wild (the second one on every phone), both would now trigger a redraw mid-interaction, and neither is tested. I established the two things that made me stop worrying — the stage's scroll offset survives a redraw (measured: scrollTop 91 before and after a 1 px resize) and `hinted` is explicitly nulled rather than left dangling (solver.js:636) — but a touch pan interrupted by a URL-bar resize is untested by me and by the suite."
+    - "Horizontal stage scroll across a redraw. I measured the vertical axis only (the probe board had no horizontal overflow at that viewport), so 'the stage keeps its scroll position' is confirmed for scrollTop and assumed for scrollLeft."
+    - "Non-Chromium browsers, devicePixelRatio != 1, and platform scrollbar widths — the last of which matters for G-004."
+  confidence: high
+
+metrics:
+  diff: { files: 6, added: 422, removed: 43 }
+  max_fan_in:
+    symbol: "solver.js redraw"
+    callers: 3
+    note: "redraw() went from 2 call sites to 3: the initial draw, the mirrorQuery change listener, and the new window resize listener. That is the whole shape of the cycle-2 blast radius — one more trigger for a function that already existed and was already exercised. drawSettledLayout is a 1-caller extraction out of redraw (not a new API; nothing else can reach it, it closes over `stage`/`payload`). drawBoard's call sites went from 1 to 3 but all three are inside drawSettledLayout. The one genuinely global addition is the `resize` listener on `window`, and the one genuinely cross-cutting addition is performance.mark inside drawBoard, which runs on every draw of every board, including the 15x15 boards most of the suite uses — I ran 171 tests across the six touched files plus _phone and _mirror and nothing reacted to it."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/solver.js (23 commits in 12 months; the fix is its 24th)"
+    - "tests/test_puzzle_solver_page.py — not a churn hotspot but the fix's highest-risk edit: a shared helper (_assert_every_fifth_line_heavier) and a shared probe (_RULES) used by TestSolverPage_EmphasisesEveryFifthLine and its seeded property test. Mutants M-I and M-J were aimed at it specifically."
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the same reasoning as cycle 1 and now narrower: the
+      fix's only cross-file contract is the DRAW_MARK string, and
+      `grep -rn nonogram-player-board-draw` over src/ and tests/ returns
+      exactly three places (its definition in solver.js, the _DRAWS probe in
+      tests/test_puzzle_solver_clues.py and the inline counter in
+      tests/test_puzzle_solver_zoom.py), all three present in the diff. The
+      shared-helper edit's consumers were enumerated by grep
+      (_assert_every_fifth_line_heavier: 2 call sites, both in
+      tests/test_puzzle_solver_page.py, both run green) rather than assumed.
+    bus_factor: >-
+      no_eligible_fact — single configured identity (Claude Code) on every
+      commit in range.
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 50
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 OK still holds — the fix adds hand-written JS only: two module-level consts, one function extraction, one addEventListener and one performance.mark. No framework, no build step, no dependency; pyproject.toml has no hunk in ee0d3a0..7c2ed8d."
+    - "ADR-0038/R4 OK still holds — solver_state.js has no hunk in the fix diff, and everything added is rendering-side: when to redraw and how many candidates to build. The pure module is not consulted and not changed."
+    - "ADR-0038/R2 OK still holds — the new listener does no I/O; `grep -n 'fetch(|XMLHttpRequest' src/nonogram/admin/static/solver.js` at HEAD is still empty, and a resize redraws from the recorded history (verified: _board_snapshot equality across both resize directions in the new zoom tests, plus my own walk)."
+    - "ADR-0038/R8 OK still holds — all five new tests are @pytest.mark.browser under the existing fixtures, and all five actually executed in my run (171 passed, 0 skipped across the six files)."
+    - "50 rules UNCHECKED, no_eligible_fact — the same enumerated set as cycle 1 (ADR-0006/R1, ADR-0019, ADR-0022, ADR-0024, ADR-0027, ADR-0029, ADR-0032, ADR-0033, ADR-0035, ADR-0036, ADR-0037, ADR-0038/R3/R5/R6/R7, CON-005/009/010/011/012/015/016/021, INV-001..INV-013). Nothing in a resize listener, a draw order and a test helper regrouping bears on any of them. ADR-0038/R3 and CON-021, which cycle 1 recorded as holds, are untouched by this diff: no clue is re-derived and no server surface is added."
+
+root_causes:
+  - id: RC-1
+    title: "The fix's behavioural core is pinned; its two COST properties — how long the debounce waits and that it coalesces at all — are asserted nowhere, which is the same gap as the thing the fix was fixing (a continuous property behind an untested trigger)"
+    finding_ids: [G-001]
+
+findings:
+  - id: G-001
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 693
+    title: "The debounce is unpinned in both of its parameters: RESIZE_SETTLE can be 5000 ms and the coalescing can be removed entirely, and every test stays green"
+    description: |
+      Two of my nine mutants survived here, and they are the two that define
+      the listener's cost:
+
+        M-D  `const RESIZE_SETTLE = 150;` -> `5000;`
+             tests/test_puzzle_solver_zoom.py -k SurvivesADoubledRedraw: ALL PASS.
+        M-B  `clearTimeout(resizeSettling);` deleted, so every resize event
+             schedules its own redraw instead of one at the end
+             tests/test_puzzle_solver_zoom.py -k SurvivesADoubledRedraw: ALL PASS.
+
+      Both survive for the same structural reason. The new tests reach their
+      assertions through `page.wait_for_function(...)`, whose default timeout
+      is 30 s, so any settle delay up to ~30 s reads as success; and
+      `test_a_board_too_small_to_double_is_not_redrawn_by_a_resize`
+      (tests/test_puzzle_solver_zoom.py:812) waits `page.wait_for_timeout(500)`
+      — described as "four times RESIZE_SETTLE" — which is a bound on the
+      *absence* of a redraw, not on the presence of one, and passes just as
+      happily when RESIZE_SETTLE is 5 s. M-B survives because
+      `page.set_viewport_size` fires exactly ONE resize event, so a listener
+      with no coalescing is indistinguishable from one with it; the suite has
+      no multi-event case.
+
+      Why this is worth writing down rather than shrugging at. The card's
+      comment states both properties as fact — "Long enough that dragging a
+      window edge redraws once at the end rather than on every event, short
+      enough that letting go feels like it settled immediately" — and this
+      project's standing rule is that a comment claims only what the code and
+      its tests demonstrate. More to the point, the coalescing is the reason
+      the listener is affordable at all: the card's own stated hesitation at
+      cycle 1 was the cost of a redraw, F-002's early-out was built to make
+      this listener cheap, and a new DRAW_MARK exists precisely so that cost
+      is countable — and then the one cost the listener introduces is the one
+      thing not counted. A later edit that drops the clearTimeout turns a
+      window drag into one full redraw per resize event (dozens) with nothing
+      going red.
+
+      Not gating: the behaviour is right today, both mutants are
+      cost-only (the final board is identical either way), and no AC or
+      standing rule is touched.
+    suggestion: |
+      Two cheap pins, both using machinery the fix already added:
+
+      1. Bound the settle. Pass a timeout to the waits in the two new resize
+         tests — `page.wait_for_function(..., timeout=600)` — so a settle
+         delay over ~0.6 s reds them. One argument, twice.
+      2. Count the coalescing. In one new test, dispatch a burst of synthetic
+         events and assert the draw marks rise by one settle's worth rather
+         than by the number of events:
+
+             before = page.evaluate(DRAWS)
+             page.evaluate("() => { for (let i = 0; i < 8; i++) "
+                           "window.dispatchEvent(new Event('resize')); }")
+             page.wait_for_timeout(500)
+             assert page.evaluate(DRAWS) - before <= 2   # not 8
+
+         That kills M-B and M-D together, needs no viewport changes, and is
+         the natural use of the mark the card introduced.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: G-002
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 624
+    title: "The accept test's boundary (a doubled rung measuring exactly DOUBLE_MIN_CELL) is unreachable with any fixture, so >= and > are indistinguishable to the suite"
+    description: |
+      Mutant M-F, `if (drawnCell(zoom) >= DOUBLE_MIN_CELL)` -> `>`, SURVIVED
+      the whole of tests/test_puzzle_solver_clues.py + _zoom.py (75 tests,
+      exit 0). The reason is benign: no board/viewport pair in the suite
+      measures exactly 24.00 px doubled. The nearest are 24.33 px (25x20 at
+      1920x1080) and 24.34 px (22x12 at 1280x720), and in my 210-pair sweep
+      nothing landed on the integer.
+
+      This is the same class as cycle 1's M11 — a mutant that is equivalent
+      only because its difference sits on an unreachable point — and I record
+      it the same way rather than treating it as a hole. It is worth one
+      sentence in the notes because the card's whole vocabulary is "at or
+      above the bar": the "at" half of that phrase is the half nothing
+      demonstrates.
+
+      I am explicitly NOT recommending a test that manufactures an exact
+      24.00 px cell by tuning a viewport to the pixel. That would be a pin on
+      Chromium's rounding, not on the rule, and this suite has already been
+      bitten once by a sub-pixel assertion (the card's own flaky fit test).
+    suggestion: |
+      Record it in the notes beside M11 as a second equivalent-by-
+      unreachability mutant ("`>=` vs `>` at the bar is unpinned: no fixture
+      measures exactly 24.00 px doubled"), so the next reader knows it was
+      probed and decided rather than missed. No code or test change.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: G-003
+    severity: low
+    classification: Minor
+    gating: false
+    category: ux
+    type: risk
+    file: src/nonogram/admin/static/solver.js
+    line: 636
+    title: "A hint's highlight is now erased by a 1 px window resize, where before it took crossing 820 px"
+    description: |
+      Measured on a 30x30 at 1280x720: click Hint -> 1 cell carries
+      `.is-hinted`; resize the window from 1280 to 1279 px (a no-op for the
+      layout: the board redraws to the same single-gutter rendering) and wait
+      out the settle -> **0 cells carry `.is-hinted`**, while the "Hints: 1"
+      readout survives. The mechanism is pre-existing and deliberate —
+      `redraw()` sets `hinted = null` with the comment "the old highlighted
+      element no longer exists" (solver.js:636) — and the card discloses the
+      cost honestly ("exactly as a breakpoint-crossing redraw has since
+      CARD-193"). What changed is the exposure: the trigger moved from a rare
+      event (crossing the phone breakpoint) to an ordinary one (any window
+      resize of any big board, including the resize that mobile browsers fire
+      when the URL bar collapses on scroll).
+
+      A hint is the one piece of this UI whose whole purpose is a transient
+      "look here". Losing it to a stray resize is small but it is squarely in
+      the card's own territory: the fix made the board follow the window, and
+      the one view-state that does not survive the journey is the one the
+      player was told to look at.
+
+      Not gating: nothing recorded is lost (the hint is counted in the
+      history and the count survives), the player can hint again, and the
+      card states the cost rather than hiding it.
+    suggestion: |
+      Keep the hint as coordinates rather than as an element and re-apply it
+      after a redraw — about three lines, and it uses the row-major
+      `cellElements` the redraw already rebuilds:
+
+          let hintedAt = null;            // { row, col } instead of the element
+          // in the hint path:   hintedAt = hint ? { row: hint.row, col: hint.col } : null;
+          // at the end of redraw():
+          if (hintedAt) cellElements[hintedAt.row * payload.width + hintedAt.col]
+            .classList.add("is-hinted");
+
+      Pin it with one assertion inside the existing resize test: hint, resize,
+      and the same cell still carries .is-hinted. If the owner would rather
+      keep today's behaviour, say so in the notes as a decision instead of as
+      an accepted side effect — it is now reachable by accident.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: G-004
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: risk
+    file: tests/test_puzzle_solver_clues.py
+    line: 1621
+    title: "The 22x14 draw-count case is pinned at 2 draws with 0.59 px of headroom, so a platform with classic scrollbars reds it for a non-regression"
+    description: |
+      The task asked me to be adversarial about this case specifically.
+      Measured at HEAD on GRID_22x14 at 1280x720:
+
+          plain board   24.5938 px   (+0.5938 over the bar -> the ladder tries a rung)
+          doubled rung  23.3125 px   (-0.6875 under the bar -> the rung is refused)
+          stage cqi     980 px,  --player-row-ch 27.45
+
+      So the case is a genuine two-sided boundary and the parametrised entry
+      `("22x14 on a laptop", GRID_22x14, DEFAULT_VIEWPORT, 2, 0)` in
+      TestSolverClues_TheLadderStopsAtTheFirstRungThatFits encodes BOTH
+      sides: 2 draws says "the plain board cleared the bar", 0 duplicates
+      says "the doubled rung did not". That is the right instrument, and it
+      does fail for the right reason in the direction that matters — if the
+      doubled rung ever cleared the bar, this entry, the companion
+      `test_a_22x14_whose_doubled_rung_misses_the_bar_draws_one`, and its
+      `cell == approx(24.59, abs=0.05)` would all red together.
+
+      The exposure is the other side. 0.5938 px of headroom on a 22-column
+      board is about 13 px of stage width (22 x 0.59). A platform or setting
+      with classic, space-taking scrollbars — Windows and most Linux defaults,
+      or macOS with "Show scroll bars: Always" — removes ~15 px from the
+      stage's inline size and drops the plain board under the bar, at which
+      point the early-out fires, `draws` is 1 instead of 2, and the test reds
+      while the behaviour is entirely correct (the board draws one gutter
+      either way, which is what the user sees and what the sibling test
+      asserts). The suite already carries this class of exposure in CARD-182's
+      pinned DESKTOP_CELL, so it is not new — but this is the first test whose
+      *pass* depends on a sub-pixel margin pointing one particular way.
+    suggestion: |
+      Make the test say why it expects 2, so that a scrollbar-shifted
+      environment fails with a diagnosis instead of a mystery. In the 22x14
+      test that already exists, measure the doubled candidate the way a
+      reviewer does and assert the sandwich explicitly:
+
+          plain, doubled = page.evaluate(...)   # set --player-row-gutters: 2, measure, restore
+          assert doubled < 24 <= plain, (plain, doubled)
+
+      Then the draw count is a consequence of a stated condition rather than
+      a bare 2, and whoever hits it on another machine can see in one line
+      which side moved.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: G-005
+    severity: low
+    classification: Minor
+    gating: false
+    category: documentation
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 721
+    title: "The corpus comment says the random tail's cases are unchanged; their sizes are, their grids are not"
+    description: |
+      The new comment above the seeded corpus says: "The random tail is drawn
+      after it, so those cases are unchanged". Half right, and the half that
+      is wrong is the half a reader would rely on.
+
+      `(20, 12)` is inserted as the eighth FIXED entry and the `while` loop
+      still draws five random sizes afterwards, so the five random SIZES are
+      byte-identical to before (the rng call order and count are unchanged —
+      I checked by reading, and the five sizes I replayed in cycle 1 are
+      still the ones in the corpus). But the per-grid seed is drawn inside the
+      loop, one `rng.randrange(10**9)` per size, and there are now thirteen
+      sizes instead of twelve: every size from index 7 onward gets the seed
+      that used to belong to its predecessor. So the five random boards are
+      different grids of the same sizes, and (20, 12) itself takes the seed
+      that used to produce the eighth board.
+
+      It changes nothing about what the test proves — the sizes drive the
+      layout, the grid only shifts --player-row-ch by tenths of a pixel, the
+      new `doubled >= 1` assertion is what keeps the corpus honest, and the
+      whole file ran green. It is a claims-vs-code nit of exactly the kind
+      this project asks reviewers to sweep for, in a comment written to
+      reassure the next reader that nothing moved.
+    suggestion: |
+      "The random tail's SIZES are drawn after it and so are unchanged; their
+      per-grid seeds shift by one, so those five boards are different grids of
+      the same sizes." One clause.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+confirmations:
+  - id: X-001
+    finding: F-001
+    verdict: "CLOSED, and the stronger claim holds. Also corrects a number of MINE."
+    evidence: |
+      The fix is a trailing-debounced `resize` listener (solver.js:692-696,
+      RESIZE_SETTLE = 150 ms) calling the same redraw(), behind the same
+      `isBig` guard as the media-query listener.
+
+      I re-ran my own cycle-1 instrument — one page load of the 30x25 at
+      1920x1500, then a walk that never crosses 820 px — and at each stop I
+      took the resized board AND a reload of the same puzzle at the same
+      window in the same session:
+
+          window       resized                              reloaded
+          1500x1000    dup=0  cell=22.70  ox=0   oy=1       identical
+          1100x900     dup=0  cell=17.63  ox=1   oy=0       identical
+          900x800      dup=0  cell=14.39  ox=104 oy=0       identical
+          back to 1920x1500  dup=55 feet=1 cell=28 ox=0 oy=0  identical
+
+      Fields compared: duplicate count, tfoot rows, mirrored flag, cell
+      width, stage overflow x and y. DIFF = none at all four stops, in both
+      directions. Cycle 1's failure state (dup=55, 14.39 px cells, 376 px of
+      in-stage horizontal overflow at 900x800) is gone.
+
+      Draw cost of following the window, counted with the new mark: each
+      resize-redraw of a board that can afford nothing is ONE draw (the walk
+      accumulated 2 -> 3 -> 4 marks over two resizes, and the return to
+      1920x1500 cost 2). So the listener is as cheap as F-002 made it.
+
+      The debounce's trailing shape: during a drag the board is the old
+      board until 150 ms after the last event, then correct. I judge that
+      ACCEPTABLE and say so deliberately. A drag is a continuous gesture with
+      no meaningful intermediate state, the stale board during it is the
+      board the user was just looking at (not a broken one), and the
+      alternative — redrawing per event — is the thing that made this
+      listener look unaffordable in the first place. What I would not accept
+      is the drag ending and the board staying wrong, and that is what the
+      two new tests assert. The parameters of the debounce are a separate,
+      Minor gap: G-001.
+
+      Mid-interaction cost, checked rather than assumed: the stage's scroll
+      offset SURVIVES a redraw (scrollTop 91 before and after a 1 px resize —
+      which matters, because a board scrolled to its far edge is the whole
+      point of this card), `hinted` is explicitly nulled rather than left
+      dangling (solver.js:636), and marks/zoom/circles survive both
+      directions (the new tests assert _board_snapshot equality and
+      "150%" either side; my walk agrees). The one thing lost is the hint
+      highlight: G-003.
+
+      MY OWN ERROR, which the implementer caught and I confirm: cycle 1's
+      F-001 said the reloaded board at 900x800 had "no overflow at all". It
+      has 104 px — a 30-wide board at a 600-ish px stage is floor-bound and
+      scrolls on a reload too. I had measured the resized state's overflow
+      and inferred the reload's. The real delta the stale duplicates were
+      costing was 376 -> 104 px, not 376 -> 0. The defect and its severity
+      stand; one of my numbers did not, and the card's notes now record the
+      correction rather than quietly adopting it.
+
+      Pinned by: tests/test_puzzle_solver_zoom.py:724
+      `test_a_resize_that_never_crosses_the_breakpoint_rechooses_the_layout`,
+      :786 `test_a_resize_settles_on_the_layout_a_reload_would_have_given`
+      (resize == reload as whole-shape equality — the right way to state it),
+      :812 `test_a_board_too_small_to_double_is_not_redrawn_by_a_resize`
+      (the guard, counted with the draw mark rather than inferred from the
+      DOM). Mutants M-A (listener never redraws) killed by the first.
+  - id: X-002
+    finding: F-002
+    verdict: "CLOSED. The monotonicity argument holds in the code as written, not only in prose, and the draw count cannot be satisfied by a draw that did not happen."
+    evidence: |
+      The restructure (solver.js:613-628) draws the LAST rung — today's
+      rendering — first, returns it immediately when it is already under the
+      bar, and when a doubled rung is tried and missed re-inserts the plain
+      table it kept a reference to instead of rebuilding it.
+
+      MONOTONICITY, checked three ways because the early-out's correctness is
+      the whole argument.
+      (1) Algebra over admin.css's min(): gutters enter the two width terms
+      only as `- G*(...)` in the numerator and `+ G*(...)` in the
+      denominator, and the column count enters the height term only as
+      `+ C*depth` in the denominator, so each term is non-increasing in G and
+      C. clamp(lo, min, hi) is monotone in min, and lo/hi do not depend on G
+      or C, so the drawn cell is non-increasing in the gutter counts.
+      (2) Exhaustively, by measurement: 210 board/viewport pairs (5 widths x
+      7 heights x 6 viewports incl. 390x844, 820x900, 1280x720, 1440x900,
+      1920x1080, 1100x700), each measuring the plain cell, then the cell with
+      --player-row-gutters: 2, then with both at 2. **Zero counterexamples** —
+      no pair where doubling an axis increased the cell by more than 1e-6.
+      (3) The weak point of a monotone early-out is equality at the clamp's
+      floor (both readings pinned at max(--player-cell-min, --player-col-floor)
+      = up to 14.4 px), and that is harmless here: the early-out only needs
+      "plain < 24 implies doubled < 24", and equal-and-both-14.4 satisfies it.
+      So the code as written cannot discard a rung that would have qualified.
+
+      DRAW COUNTS, re-measured independently (one page load each, counting
+      `performance.getEntriesByName('nonogram-player-board-draw')`): 30x30
+      @1280x720 = 1 (was 4), 30x25 @1440x900 = 1, 15x15 = 1, 22x14
+      @1280x720 = 2, 20x12 @1280x720 = 2, 30x12 @1920x1080 = 2, 30x25
+      @1920x1500 = 2 (was 1). Every number in the card's before/after table
+      reproduces.
+
+      Is the trade sound? Yes, and it is the right way round. The boards that
+      pay the extra plain probe are the ones that CAN double, i.e. the ones
+      on a roomy window where a draw is affordable and the user gets
+      something for it; the boards relieved of three draws are the big ones
+      on ordinary laptops, which are both the common case and the expensive
+      one (~810 ms -> ~125 ms to an interactive board, cycle 1's measurement).
+      Worst case is unchanged at 4 draws (plain + three rungs), and the
+      missed-rung path is 2 rather than 3 because the plain table is
+      re-inserted — which is itself pinned (mutant M-G, below).
+
+      "Can the count be satisfied by a draw that does not happen?" No, and I
+      tested exactly that: the mark is the first statement of drawBoard
+      (solver.js:417), it is the only `performance.mark` call in the file
+      (grepped), and mutant M-H — moving the mark out of drawBoard into
+      redraw, so that one mark is left per redraw regardless of how many
+      boards were built — is KILLED by the 20x12, 30x12 and 30x25-roomy
+      cases. A mark that undercounts dies; a mark that is left without a draw
+      has no call site to live in.
+
+      Pinned by: tests/test_puzzle_solver_clues.py:1596
+      `TestSolverClues_TheLadderStopsAtTheFirstRungThatFits::test_the_board_is_built_as_few_times_as_the_answer_needs`
+      (7 parametrised cases). Mutants M-E (early-out removed) and M-G (plain
+      rebuilt instead of re-inserted) killed by it; M-H killed by it.
+  - id: X-003
+    finding: F-003
+    verdict: "CLOSED on all three parts, and the relaxed helper still catches what it caught — verified with mutants aimed at exactly that, not by reading."
+    evidence: |
+      (a) The sentence. The card's [The measured rule] paragraph now reads
+      "no fixture x viewport PAIR the suite actually exercises changes its
+      layout", flags the old wording as false, names all three of my pairs
+      with their re-measured values (AC_GRID 25x15 @1440x900 = 15 duplicates
+      at 24.36 px, AC301_GRID 20x20 @1440x900 = 20 at 24.88 px, GRID_16_WIDE
+      16x15 @1440x900 = 15 at 28 px and @820x900 = 15 at 25.66 px), and says
+      plainly that the green suite is luck rather than a property of the bar.
+      Every figure matches my own measurement. It also records that it
+      repeated the false claim to the orchestrator, which is the part I would
+      have asked for.
+
+      (b) The helper. `_RULES` now groups clue boxes by `data-line` into one
+      list per gutter and `_assert_every_fifth_line_heavier`
+      (tests/test_puzzle_solver_page.py:645) asserts `1 <= len(gutters) <= 2`,
+      `len(gutter) == count` per gutter, and the old fifth-line comparison
+      inside each gutter. That is the minimum: on a single-gutter board it is
+      arithmetically the same assertion as before (one gutter, `min` over the
+      same values, the same expected pattern, and the length check that used
+      to be implicit in the flat comparison is now explicit), and the only
+      thing it newly tolerates is a second gutter — which is the behaviour it
+      was blind to.
+
+      The real question is whether it still catches things, and I did not
+      take that on trust. Two mutants aimed at it:
+        M-I  the duplicate row box loses `.major-below`, so the fifth-line
+             pattern reads correctly in the left gutter and wrongly in the
+             right one -> KILLED, and the kill names
+             `TestSolverPage_EmphasisesEveryFifthLine::test_PropertyTest_every_size_...`
+             — i.e. the regrouped helper in the regrouped corpus is what
+             catches it, which is precisely the regression I warned about.
+        M-J  the duplicate's `data-line` is off by one -> KILLED (the
+             per-gutter length check fails, and the clues tests' line-order
+             assertions fail with it).
+      The implementer's own M22 (flatten the gutters again) is the third
+      mutant in that family and they report it killed by the same test.
+
+      (c) The corpus and the band. `(20, 12)` is in the seeded corpus with
+      `assert doubled >= 1` beside it, so the corpus cannot drift back out of
+      the doubling band in silence — a better fix than the one I suggested,
+      because it fails loudly rather than just happening to cover the case.
+      And the band itself now has its own tests at the suite's default
+      viewport: `TestSolverClues_MidSizeBoardsDoubleOnAnOrdinaryLaptop`
+      (tests/test_puzzle_solver_clues.py:1642) asserts a 20x12 draws both row
+      gutters at 26.88 px with the same numbers and the same heavy rules in
+      each gutter, and `test_a_22x14_whose_doubled_rung_misses_the_bar_draws_one`
+      (:1686) takes the other side of the boundary. The 22x14 case's own
+      fragility is G-004.
+  - id: X-004
+    finding: "F-004 .. F-008 (cycle 1's five Minor findings)"
+    verdict: "All five closed; I checked each against the diff rather than against the card's 'done'."
+    evidence: |
+      F-004: admin.css:517-521 now states that no rule selects .is-mirrored
+      any more and that it is a state marker only — and `grep -n is-mirrored
+      src/` confirms that is still true at HEAD (one setter in solver.js, no
+      selector anywhere).
+      F-005: the measurement table's closest-call line now reads 23.47 px /
+      0.53 px under the bar, matches my measurement exactly, and adds the
+      spread I asked for (the same size doubles or not depending on the
+      grid's deepest row clue, with AC_GRID as the counter-example). The
+      owner-decision paragraph is now choosing between two measured numbers
+      rather than one wrong one.
+      F-006: `assert fit["overflowY"] <= 6` on a measured 5
+      (tests/test_puzzle_solver_clues.py:1184), with the docstring rewritten
+      to say it is the known column-band residue and not a budget. Exactly
+      the fix suggested.
+      F-007: the token test strips `/* ... */` before scanning and runs both
+      its regexes against the stripped text
+      (tests/test_admin_design_tokens.py:143-157) — so the comment this card
+      added, which discusses `.is-right` at length, can no longer be read as
+      a selector.
+      F-008: redraw()'s comment no longer claims the discarded rungs are
+      never painted; it says they are "replaced within this same task, so no
+      frame is ever produced from one", which is true and checkable. The
+      mirror file's test count is corrected from four to five.
+      C-2's non-finding suggestion was taken too: the ring-clearance test now
+      runs on CARD-193's phone mirror as well
+      (tests/test_puzzle_solver_clues.py:1556
+      `test_the_phone_mirrors_single_right_hand_gutter_too`), on the board
+      that carried that defect longest. It passed in my run.
+  - id: X-005
+    finding: "Blast radius of the fix"
+    verdict: "No regression found. One global listener and one mark per draw, both exercised."
+    evidence: |
+      171 tests passed across the six files the fix touches plus _phone.py
+      and _mirror.py — the two that own the measurements most likely to feel
+      a change in how many boards get built and when (CARD-182's pinned
+      DESKTOP_CELL, CARD-193's mirror DOM and borders). Cycle 1's comparable
+      subset was 163; nothing that was green went red, and the five new tests
+      all executed.
+      The two cross-cutting additions were considered specifically. (1)
+      `performance.mark` inside drawBoard runs for every board the player has
+      ever drawn, including every 15x15 in the suite: no test reacted, and the
+      only consumers of the mark name are the two new probes (grepped). (2)
+      The `window` resize listener is registered once, behind `isBig`, so a
+      15x15 never redraws — asserted by draw count, not inferred, in
+      tests/test_puzzle_solver_zoom.py:812, and mutant M-A's sibling in the
+      card's own set (M18, the guard ignoring board size) is reported killed
+      by that same test.
+      What I could not reach, and would send to the merge gate: the seven
+      player test files I did not run this cycle (listed in
+      coverage.not_reached), of which _hint.py and _resume.py are the two a
+      new global redraw trigger could plausibly disturb.
+
+mutation_check:
+  enabled: true
+  status: run
+  mutants: 9
+  killed: 6
+  survived: 3
+  restore_verified: true
+  rationale: >-
+    Deferred at cycle 1 on the cost ladder because gating findings were open
+    and F-002's fix was going to rewrite the lines a mutant set would target.
+    Those lines are now stable, so this is the cycle for it. My own set, not a
+    re-run of the card's eight: aimed at the three fixes — the resize path
+    (M-A, M-B, M-D), the early-out and its bookkeeping (M-E, M-F, M-G, M-H)
+    and the regrouped helper's ability to still catch a wrong duplicate
+    (M-I, M-J). Every mutant was applied to a verified-pristine solver.js,
+    run against a targeted selection, reverted with `git checkout --` and
+    the file re-compared byte-for-byte before the next one.
+  results:
+    - "M-A the resize listener returns before redrawing → KILLED. tests/test_puzzle_solver_zoom.py -k SurvivesADoubledRedraw fails with Page.wait_for_function timeout (30 s) in the two new resize tests, i.e. the duplicates never go away."
+    - "M-B `clearTimeout(resizeSettling)` deleted — a redraw scheduled per resize event instead of one at the end → SURVIVED (all of -k SurvivesADoubledRedraw green). page.set_viewport_size fires one resize, so no test can tell the difference. See G-001."
+    - "M-D RESIZE_SETTLE 150 → 5000 ms → SURVIVED (all green). The new tests reach their assertions through wait_for_function's 30 s default, and the 'not redrawn' test's wait_for_timeout(500) bounds an absence, not a presence. See G-001."
+    - "M-E the early-out dropped (`if (ladder.length === 1) return plainCells;`) so every rung is walked again → KILLED at TheLadderStopsAtTheFirstRungThatFits[30x30 on a laptop] and [30x25 on a laptop] (4 draws where 1 is asserted)."
+    - "M-F the accept test `>= DOUBLE_MIN_CELL` → `>` → SURVIVED the full clues+zoom baseline (75 tests, exit 0). Unreachable with any fixture: nothing measures exactly 24.00 px doubled. Re-run standalone because its first run died of a Chromium ERR_NETWORK_IO_SUSPENDED, and an infrastructure error is not a kill. See G-002."
+    - "M-G the missed-rung path rebuilds the plain board instead of re-inserting it (`return drawBoard(...)` for `stage.replaceChildren(plainTable); return plainCells;`) → KILLED at TheLadderStops...[22x14 on a laptop] (3 draws where 2 is asserted). The 're-inserted, not rebuilt' claim is genuinely pinned, and 22x14 is the only case that pins it."
+    - "M-H `performance.mark(DRAW_MARK)` moved out of drawBoard (one mark per redraw rather than per board built) → KILLED at TheLadderStops...[30x12 wide] and [30x25 roomy]. This is the direct answer to 'can the count be satisfied by a draw that does not happen': an undercounting mark dies, and the mark has no call site outside drawBoard."
+    - "M-I the duplicate row box loses `.major-below`, so the fifth-line pattern is right in one gutter and wrong in the other → KILLED, and the failing test is TestSolverPage_EmphasisesEveryFifthLine::test_PropertyTest_every_size_has_height_rows_of_width_cells_and_fifth_lines_heavier — the regrouped helper in the regrouped corpus. Exactly the regression a relaxed helper risks, and it is caught."
+    - "M-J the duplicate's `data-line` off by one (`String(duplicate ? line + 1 : line)`) → KILLED across the clues selection and the page property test (the per-gutter length check and the line-order assertions both fail)."
+  restore_evidence: "The harness asserted solver.js was byte-identical to its pre-run snapshot before each of the nine mutants, ran `git checkout -- src/nonogram/admin/static/solver.js` after each, and re-asserted byte-identity; a `finally` block repeated the checkout at exit. Harness output ends with `git status --porcelain -- src tests: ''`. M-F's standalone re-run restored from an in-process copy and printed `restored identical: True`. Final state now: `git status --porcelain -- src tests` EMPTY; `git status --porcelain` shows only ' M meta/kanban/cards/CARD-212.md' (the implementer's own notes update) and the two untracked review reports under meta/review/. The throwaway probe tests/test_card212_cycle2_probe.py was deleted by exact path, with its .pyc."
+
+verdict:
+  summary: >-
+    All three gating findings are genuinely closed, and closed in the strong
+    form rather than the convenient one. The resized board is measurably the
+    board a reload draws — identical on every field I compare, at four
+    windows, both directions — and the card corrected a number of mine in the
+    process rather than adopting it quietly. The early-out's monotonicity
+    premise holds in the code as written (algebraically, and with zero
+    counterexamples in 210 measured board/viewport pairs), the draw counts
+    reproduce exactly, and the mark that pins them cannot undercount — a
+    mutant that moves it out of drawBoard dies. The regrouped fifth-line
+    helper is the minimum relaxation and still catches a duplicate with the
+    wrong rule or the wrong data-line, verified with two mutants aimed at
+    that specific risk. My own mutation set found three survivors, all of
+    them cost-or-boundary rather than behaviour: the debounce's two
+    parameters are unpinned and the bar's exact-equality case is
+    unreachable. Those, a hint highlight that a 1 px resize now erases, a
+    sub-pixel draw-count pin on the 22x14 boundary, and one imprecise comment
+    are the whole remainder — five Minor findings, none gating.
+  gating_findings: []
+  cycle1_findings_closed: [F-001, F-002, F-003, F-004, F-005, F-006, F-007, F-008]
+  min_score: 8
+  meets_min_score: true
+  score_delta: 1.5
+  min_improvement: 0.5
+  meets_min_improvement: true
+  cycles_used: 2
+  max_cycles: 3
+  recommendation: >-
+    Proceed to the merge gate. The five Minor findings are all cheap and none
+    needs another review cycle; G-001's two pins (a timeout argument and one
+    burst-of-events test) and G-003's three-line hint re-apply are the two
+    worth doing before merge if the owner wants them, and the merge gate's
+    full-suite run should cover the seven player test files this cycle did not
+    reach — tests/test_puzzle_solver_hint.py and _resume.py above all, since
+    the fix adds a global redraw trigger.

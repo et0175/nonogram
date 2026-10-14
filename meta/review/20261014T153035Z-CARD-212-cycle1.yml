@@ -1,0 +1,723 @@
+version: 1
+generated_at: "2026-10-14T15:30:35Z"
+target: "CARD-212 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-212, branch card/212-clues-both-sides, HEAD ee0d3a0, base d9c2c1a; full card diff main...HEAD (8 files, +1040/-71). Review cycle 1, full mode (no prior cycle, no confirmation block)."
+overall_score: 7.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "src/nonogram/admin/static/solver.js — every hunk read post-diff in full, plus the surrounding originals: the file-header DOM/CSS + BOTH GUTTERS + ZOOM comment blocks, BIG_SIDE / DOUBLE_MIN_CELL / MAJOR_EVERY / majorAfter, clueBox, the new cornerBox, the whole of drawBoard (columnGutter closure, the rowClue closure, the cells loop), start()'s isMirrored / layoutLadder / drawnCell / redraw / the mirrorQuery listener / window.puzzlePlayer, and clueNumbersOf + paintCircles."
+    - "src/nonogram/admin/static/admin.css — every hunk plus the rules they sit between: .player-stage's token block (--player-cell-min 14px, --player-cell-max 28px, --player-rule, --player-rule-major, --player-numeral-min 12px, --player-chrome-h, --player-col-floor), the whole --player-cell clamp before and after, .player-corner / .player-clue.is-col / .is-row / .player-cell, the two :last-child rules, the new .is-right and tfoot rules, the @media (max-width: 820px) --player-cell-min: 0px line, and the ring block (--player-circle / --player-circle-w / --player-circle-clear / --player-ring / the 1.45ch margin rule and its new mirrored twin)."
+    - "src/nonogram/admin/static/tokens.css (--border-width: 1px — the value both --player-rule and --player-rule-major resolve through) and src/nonogram/admin/templates/puzzle_solve.html (the new CARD-212 comment paragraph in context)."
+    - "tests/test_puzzle_solver_clues.py — the whole CARD-212 block (lines 1010-1624): the fixtures and the ROOMY/WIDE/LAPTOP viewport constants, _GUTTERS/_lines/_as_text/_TWINS/_FRAMES/_BAND_RINGS helpers and all seven new classes (TestSolverClues_BigBoardRepeatsBothAxes, _AxesDoubleIndependently, _DuplicateReadsTheSameSequence, _DuplicateIsAriaHidden, _CirclesPaintBothGutters, _SmallBoardUnchanged, _DoubledFramesReadOnAllFourSides, _RowRingsStayInsideTheirOwnBand)."
+    - "tests/test_puzzle_solver_phone.py (the new TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit at :686 and the file's FLOOR/CAP/DESKTOP_FLOOR/GRIDS/DESKTOP_CELL header it leans on), tests/test_puzzle_solver_zoom.py (the new TestSolverZoom_SurvivesADoubledRedraw at :616, both of its tests), tests/test_admin_design_tokens.py (the new test_the_boards_second_clue_gutters_come_from_tokens at :119 and the two pre-existing token tests at :80 and :86), tests/test_puzzle_solver_mirror.py in full at HEAD and the one-line _is_corner change at :78 against its four call sites."
+    - "tests/test_puzzle_solver_page.py — the parts the new layout can reach: _unique_grid at :76, AC_GRID at :98, AC301_GRID at :100, TestSolverPage_ShowsTheClues at :206, the _DRAWN/_RULES probes, _assert_every_fifth_line_heavier at :630, TestSolverPage_ShowsTheCluesInTheBrowser at :653, TestSolverPage_EmphasisesEveryFifthLine and its seeded 12-size property test at :689, and the browser_page/live fixtures at :561/:580 (to establish that the suite's default viewport is 1280x720)."
+    - "meta/kanban/cards/CARD-212.md in full, including all of ## Worktree notes and ## Named tests resolved before the card started."
+    - "meta/architecture/decisions/adr/0038-puzzle-player-plain-js-and-playwright.md (the whole ## Rules block R1..R8 and the 2026-10-06 revision history), meta/architecture/requirements.yml (FR-044's two amendment blocks, CON-021, and an NFR sweep for any player render/responsiveness budget — none exists), meta/architecture/ listing. Nothing under meta/architecture/ was written."
+    - "meta/review/20261014T063601Z-CARD-211-cycle1.yml (schema reference only)."
+    - "INDEPENDENT EXECUTION (not reading): targeted pytest only, never the full suite. (1) tests/test_puzzle_solver_clues.py + _phone.py + _zoom.py + _mirror.py + test_admin_design_tokens.py = 91 passed in 88.7s, which reproduces the card's claimed 91/exit 0 exactly. (2) tests/test_puzzle_solver_page.py = 67 passed (the file the new layout could reach through AC_GRID/AC301_GRID and the seeded size corpus). (3) tests/test_puzzle_solver_mirror.py alone = 5 passed. Plus one throwaway Playwright probe, tests/test_card212_review_probe.py, written/run/deleted (8 probe tests, ~110 page loads in Chromium): the default-viewport size sweep, the seed-298 corpus replay, the existing-fixture x used-viewport matrix with the doubled-candidate cell measured by setting --player-row-gutters/--player-col-gutters on the live table, the pre-fix/post-fix ring clearance on CARD-193's phone mirror, the resize walk, the rung-3 columns-only case at 1200x1100, the real Chromium AX tree via CDP Accessibility.getFullAXTree, and the draw-cost timings. Every number in this report comes from one of those runs."
+    - "TWO REVERTED EDITS, both for measurement, both verified byte-identical afterwards against a pre-captured copy AND with git checkout -- <path>: (a) mutant M11 (term 1 of the clamp drops its --player-row-gutters multiplier) in admin.css, to adjudicate the implementer's equivalence claim; (b) a one-line single-rung probe in solver.js's layoutLadder (return only the last rung), to get an apples-to-apples draw-cost baseline for F-002. Final state: `git status --porcelain -- src tests` is EMPTY; the only entry in `git status --porcelain` is the pre-existing ' M meta/kanban/cards/CARD-212.md', which this review did not touch."
+  not_reached:
+    - "Rendered output / the owner's eye. review.visual is off for this project. I did NOT open the seven screenshots in ~/Documents/nonogram-reviews/CARD-212/. Everything in this report about the duplicate gutters, the four frames and the rings is GEOMETRIC — computed styles, getBoundingClientRect and the ::before box read through Playwright — not visual. In particular the ring fix (item 6) is established as a signed clearance in CSS px between the ring's left edge and the clue box's inner border edge (+7.75 px at HEAD vs -2.72 px with the pre-fix margin restored inline), NOT by looking at a picture; whether the fixed ring looks right next to the heavy frame is still an eyeball question."
+    - "The full ~7000-test suite. The task forbade it (CARD-221 is running concurrently); the orchestrator's merge gate owns it. I ran 163 targeted tests across 6 files. NOT run by me: tests/test_puzzle_solver_marking.py, _maybe.py, _hint.py, _progress.py, _percent.py, _resume.py, _brush_menu.py — the card claims all 13 player files were run and I did not re-verify that claim. All seven use 15x15 / 20-wide / 25x15 fixtures at the default or phone viewport, which my sweep shows draw single gutters, so the risk is low but it is unmeasured here."
+    - "15 of the card's 16 mutants. review.mutation_check is deferred this cycle (see mutation_check below) because the card has gating findings. I independently re-ran exactly one, M11, because the task asked me to adjudicate its survival; M1-M10, M11b, M12-M16 are taken on the card's word and are NOT verified here."
+    - "Real screen-reader behaviour. AC-7 is verified against Chromium's own accessibility tree (CDP Accessibility.getFullAXTree: 25 rowheaders, 30 columnheaders, zero duplicate names, 837 ignored nodes), not with VoiceOver or NVDA. Whether a screen reader's table-navigation mode behaves sensibly on a table whose rows contain an aria-hidden trailing header cell (DOM row width 32, a11y row width 31) is not established."
+    - "Non-Chromium browsers (ADR-0038/R7 pins Chromium), real touch hardware, and real devicePixelRatio != 1 displays. All viewports were set through Playwright at dpr 1."
+    - "The unreachable mirrored+doubled-columns composition the card lists as known-open (c). I confirmed by reading drawBoard that the cell counts compose (thead 1+W, body 1+W, tfoot 1+W), and my sweep found no (board, viewport) pair that reaches it, but I did not force it."
+  confidence: high
+
+metrics:
+  diff: { files: 8, added: 1040, removed: 71 }
+  max_fan_in:
+    symbol: "solver.js clueBox"
+    callers: 2
+    note: "Production call sites inside solver.js only: clueBox 2 (the column gutter's forEach at :419, the per-row rowClue closure at :432), cornerBox 3 (:417, :423, and the same :417/:423 pair reused by the tfoot call), drawBoard 1 (redraw's ladder loop at :586), clueNumbersOf 1 (:590), paintCircles 2 (:566 and the paint path), layoutLadder 1 (:584), drawnCell 1 (:587). Nothing in the diff is imported by another module: the only cross-module import is the pre-existing `gesturePaints, nextRegion` from solver_state.js, which this card does not touch. The real blast radius is not the JS call graph but the CSS clamp: --player-cell is read by .player-cell width/min-width/height, the clue-box paddings, the font-size floor, the '?' glyph and the whole ring block, so the two new multipliers reach every measured pixel of the board. That is why F-003's evidence is a fixture x viewport matrix and not a call-site list."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/admin.css (41 commits in 12 months — the highest-churn file in the diff, and the one the card shares with CARD-211's merged work and CARD-216's queued work)"
+    - "src/nonogram/admin/static/solver.js (23 commits in 12 months)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — not derived from git co-change this time but from
+      something stronger and cheaper for this diff: the complete set of
+      consumers of the DOM contract the card changed. `grep -rn player-clue
+      src/` outside solver.js/admin.css returns nothing, so no second
+      production consumer of the clue boxes exists and none can be missing
+      from the diff. On the test side the consumers are enumerated and
+      individually checked rather than assumed: the 13 tests/test_puzzle_solver_*
+      files were grepped for `player-clue`, `player-corner`, `is-mirrored` and
+      clue-box counts; the four that assert on them are exactly the four in
+      the diff plus tests/test_puzzle_solver_page.py, which is NOT in the diff
+      and which I therefore ran in full (67 passed) and then probed for
+      latent exposure — that probe is F-003.
+    bus_factor: >-
+      no_eligible_fact — git shortlog -sn over the touched files yields a
+      single configured identity (Claude Code) for every commit in range, so
+      bus factor carries no signal in this repository.
+
+system_contract:
+  rules_checked: 8
+  holds: 8
+  unchecked: 46
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 (hand-written JS/CSS, no framework, no build step, no vendored library) OK holds. Re-derivable: `git diff main...HEAD --stat` lists 8 files, all .js/.css/.html/.py; pyproject.toml has no hunk; no package.json, lockfile or bundler config appears; the new code is plain ES-module functions and plain CSS, and the duplicate gutters are built with document.createElement / table.createTFoot. (Card guardrail G-2, same evidence.)"
+    - "ADR-0038/R2 (no network request per mark) OK holds. The diff adds no fetch/XMLHttpRequest (grep over solver.js at HEAD: zero hits) and touches nothing in the marking path. Check ref is live: tests/test_puzzle_solver_marking.py:1188 class TestSolverMarking_NoRequestPerMark. NOT re-run by me (marking file not in my targeted set) — the card reports it green. (Card guardrail G-4.)"
+    - "ADR-0038/R3 (clues are the embedded compute_clues JSON, never re-derived in the client) OK holds, and this card strengthens the evidence rather than weakening it. The duplicate gutter is built from the same payload.rows/payload.columns arrays as its twin (drawBoard's single `columns.forEach` / `rows.forEach`), and the new TestSolverClues_DuplicateReadsTheSameSequence (tests/test_puzzle_solver_clues.py:1236) checks BOTH gutters against window.puzzlePlayer.payload rather than against each other, so an equal-and-wrong pair fails. Check ref live and run green by me: tests/test_puzzle_solver_page.py:206 TestSolverPage_ShowsTheClues (server half) and :653 TestSolverPage_ShowsTheCluesInTheBrowser (the 40-box browser half) — 67 passed. (Card guardrail G-1.)"
+    - "ADR-0038/R4 (state logic in a pure DOM-free module, separate from rendering) OK holds. src/nonogram/admin/static/solver_state.js has NO hunk in this diff (`git diff main...HEAD --stat` lists only solver.js, admin.css, puzzle_solve.html and five test files), and everything the card adds is rendering: which gutters to draw (layoutLadder), how to draw them (drawBoard/clueBox/cornerBox) and which spans pair up (clueNumbersOf). circledClues is still imported from the pure module and still called with (board, rows, columns); paintCircles only gained an inner loop over a number's twin spans. (Card guardrail G-3.)"
+    - "ADR-0038/R5 (package-data includes static/*.js) OK holds, not engaged: pyproject.toml has no hunk and no new static file is added — solver.js and admin.css already ship."
+    - "ADR-0038/R6 and CON-021 (interactive play only in the admin panel's player, behind the CON-015/CON-016 door) OK hold. The diff adds no route, no blueprint, no view function and no template outside the already-gated src/nonogram/admin/templates/puzzle_solve.html, whose only change is a comment paragraph. Nothing is sent to or stored on the server; the gutter choice is a client-side measurement with no persistence (the layout is NOT part of the serialized resume state, which is why a reload re-chooses it — see F-001)."
+    - "ADR-0038/R7 (browser tests use pytest-playwright with Chromium, dev-only extra) OK holds. All 11 new test methods are @pytest.mark.browser and use the repo's existing browser_page/live fixtures (tests/test_puzzle_solver_page.py:561/:580); pyproject.toml has no hunk, so nothing moved into project.dependencies or the admin extra."
+    - "ADR-0038/R8 (browser tests fail or skip loudly, never pass silently) OK holds. Every new test runs under the same fixtures as its neighbours, which pytest.fail with a named reason when Chromium is missing. Observed, not assumed: all 11 new tests actually executed in my run (91 passed across the five changed files, 0 skipped)."
+    - "46 rules UNCHECKED, no_eligible_fact: ADR-0006/R1, ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1..R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1..R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005..INV-013. These govern the dependency baseline, the inward-import boundary, grid extent and image fitting, repair/retry and density, difficulty scoring, storage-boundary uniqueness, PDF/book page geometry and typography, the admin door's HTTP surface and solver correctness. This diff is four DOM gutters and a CSS clamp multiplier; nothing in it bears on any of them. CON-011 (sides 10..30) is the one that is adjacent — it bounds how big 'big' gets — and it is respected by construction: BIG_SIDE = 15 with CON-011's 30 as the ceiling, and my sweep covered 10..30 on both axes. Enumerated rather than waved away."
+    - "OUTSIDE the rule set — card guardrails. G-1 OK (see R3). G-2 OK (see R1). G-3 OK (see R4). G-4 OK (see R2). G-5 (tap targets stay at CARD-182's minimum on a 390 px phone) OK holds: tests/test_puzzle_solver_phone.py ran green unedited apart from its new class, and the new AC-6 test pins the 390 px cell at 14.39 px with --player-row-gutters/--player-col-gutters both '1', i.e. the fit is not charged for a gutter that was never drawn. G-6 (do not touch the brush/Region controls — CARD-211 owns them) OK holds: `git diff main...HEAD` contains no .player-tools / .player-region / .player-tool-* hunk and no toolbar markup change. G-7 (styling from tokens only) OK holds, with one caveat recorded as F-007: the two named token tests are unedited and green, and the new per-rule test at tests/test_admin_design_tokens.py:119 pins all five new rules."
+
+root_causes:
+  - id: RC-1
+    title: "The gutter choice is made once, at draw time, from a measurement of the drawn board — a design that is right about correctness and wrong about time: it cannot react to a viewport that changes without a reload (F-001) and it pays for up to four full board builds to answer one question (F-002)"
+    finding_ids: [F-001, F-002]
+  - id: RC-2
+    title: "DOUBLE_MIN_CELL's justification was validated against the fixtures the suite happens to pair with viewports, not against the behaviour the constant actually switches on — so a large reachable band of the new feature is both unclaimed and unguarded"
+    finding_ids: [F-003, F-005]
+
+findings:
+  - id: F-001
+    severity: medium
+    classification: Important
+    gating: true
+    category: correctness
+    type: defect
+    file: src/nonogram/admin/static/solver.js
+    line: 621
+    title: "A doubled board stays doubled through a window resize and ends up with 14.39 px cells and 376 px of in-stage horizontal overflow, where the same board reloaded at that size has none — and the mirror never behaved this way"
+    description: |
+      The card lists this as known-open and out of scope. Measured, it is a
+      user-visible regression against pre-card behaviour at the same viewport,
+      not a missing nice-to-have.
+
+      Probe (Chromium, 30x25 `_unique_grid(30, 25, seed=212)`, one page load,
+      resized without ever crossing the 820 px media query):
+
+          at 1920x1500 (as loaded):  dup=55  cell=28.00  no overflow
+          resized to 1500x1000:      dup=55  cell=18.38  stage overflow x=0,  y=9
+          resized to 1100x900:       dup=55  cell=14.39  stage overflow x=176, y=0
+          resized to 900x800:        dup=55  cell=14.39  stage overflow x=376, y=44
+          RELOAD at 900x800:         dup=0   cell=14.39  no overflow at all
+
+      So after a plain window drag the player is left with a board whose cells
+      are 14.39 px — 9.6 px under the 24 px bar the duplicate is conditional
+      on, i.e. the rule the whole card is built around is violated by a factor
+      of 1.7 — and with 376 px of horizontal scroll inside the stage that the
+      reloaded board does not have. The cells are at the clamp's floor, so the
+      duplicate is no longer buying the player anything: it is costing a
+      sideways scroll on a board that would otherwise fit.
+
+      The card's stated reason for deferring is false, and that is the part
+      that matters for the record: "The mirror has always behaved this way."
+      It has not. The mirror's condition IS `mirrorQuery.matches`, the thing
+      the listener at solver.js:621 listens to, so a mirrored board can never
+      be stale with respect to its own rule — crossing 820 px in either
+      direction redraws it immediately (verified: the card's own AC-8 test at
+      tests/test_puzzle_solver_zoom.py:616 relies on exactly that, and my
+      probe sees the mirror appear and disappear on cue). CARD-212's condition
+      is a continuous pixel measurement that is re-evaluated ONLY when that
+      same 820 px query fires. This card is the first to put a continuous
+      condition behind a discrete trigger, so it is the first that can be
+      stale. The listener's guard was widened to
+      `payload.width > BIG_SIDE || payload.height > BIG_SIDE`, which shows the
+      trigger was thought about; the trigger itself was not.
+
+      Reachability is ordinary: open a puzzle maximised on a 1920-wide screen,
+      then put the window back to half-screen. Nothing is lost (history, zoom
+      and marks all survive, and a reload restores a sane board), which is why
+      this is Important and not Critical.
+    suggestion: |
+      Smallest change that closes it: re-run the existing `redraw()` when the
+      viewport changes, not only when the breakpoint flips. One listener next
+      to the mirrorQuery one at solver.js:621, debounced to an animation frame
+      and guarded so it only redraws when the chosen rung would actually
+      differ:
+
+          let pending = 0;
+          window.addEventListener("resize", () => {
+            if (payload.width <= BIG_SIDE && payload.height <= BIG_SIDE) return;
+            cancelAnimationFrame(pending);
+            pending = requestAnimationFrame(() => {
+              const drawn = { rows: Number(table.style.getPropertyValue("--player-row-gutters")),
+                              cols: Number(table.style.getPropertyValue("--player-col-gutters")) };
+              redraw();  // or: redraw() only if the settled rung != drawn
+            });
+          });
+
+      Pin it with one test in tests/test_puzzle_solver_zoom.py next to AC-8:
+      load the 30x25 at 1920x1500 (dup=55), resize to 1100x900 WITHOUT
+      crossing 820 px, and assert the duplicates are gone, the stage does not
+      scroll horizontally, and the marks + zoom survived. Note that F-002's
+      early-out makes this listener affordable; done naively a redraw is up to
+      four full draws, which is the card's own stated reason for hesitating.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    classification: Important
+    gating: true
+    category: performance
+    type: defect
+    file: src/nonogram/admin/static/solver.js
+    line: 584
+    title: "The ladder builds and lays out the board up to four times per draw: a 30x30 at 1280x720 — the suite's own default and a common laptop size — takes ~4x as long to reach an interactive board, and ends up drawn exactly as before this card"
+    description: |
+      `redraw()` draws each rung into the live stage and measures it
+      (solver.js:584-588). For a board big on both axes the ladder has four
+      rungs, and a board that can afford none of the duplicates walks all four
+      — building ~900 cells plus gutters and forcing a synchronous layout each
+      time — to arrive at the layout it had before this card.
+
+      Measured apples-to-apples, same board, same viewport, same final DOM.
+      The only difference is the number of rungs: HEAD, versus a one-line
+      probe that makes `layoutLadder()` return just its last rung (applied,
+      measured, reverted, admin.css/solver.js verified byte-identical):
+
+          30x30 @1280x720 (4 rungs, dup=0):  goto->interactive 807/907/951 ms,
+                                             domContentLoaded 732 ms, load 877 ms
+          30x30 @1280x720 (1 rung,  dup=0):  goto->interactive 125/218/228 ms,
+                                             domContentLoaded 129 ms, load 217 ms
+          30x30 @2560x1440 (2 rungs, dup=30): goto->interactive 474/490 ms
+          30x30 @2560x1440 (1 rung):          goto->interactive 133/229 ms
+          15x15 @1280x720  (1 rung, never big): 101/129 ms either way
+
+      ~600-700 ms of wasted work on the largest supported board (CON-011
+      caps sides at 30) at the most ordinary desktop width, every load. The
+      2560 column is the control: halve the rungs, halve the cost, so the
+      extra time is the discarded draws and not the final board.
+
+      Two aggravations. (1) It is paid by the boards that gain nothing: a
+      board that cannot afford a duplicate pays the most, and at 1280x720
+      that is every board 16x16 and up (my sweep: 30x30, 30x25, 25x20, 24x24,
+      19x26 all land on rung 4 there). (2) It is the stated reason F-001 was
+      deferred ("a redraw is up to four draws now"), so the cost is also
+      blocking the fix for the other Important finding.
+
+      No declared rule is violated — I swept requirements.yml and there is no
+      NFR for the player's render time — and nothing is incorrect. It is a
+      measured 4x regression in time-to-board, introduced with no mitigation
+      and no mention outside a parenthetical.
+    suggestion: |
+      Smallest change, and it keeps the card's "measure, never re-derive the
+      clamp" principle intact: draw the FALLBACK rung first and early-out.
+      Doubling an axis only ever increases a subtrahend (the width terms) or a
+      denominator (the height term) in admin.css's min(), so the doubled cell
+      is always <= the single-gutter cell — monotone. Therefore if the plain
+      board already measures under DOUBLE_MIN_CELL, no rung above it can
+      qualify and the ladder can stop at one draw:
+
+          cellElements = drawBoard(stage, payload, plain, zoom);   // today's rendering
+          if (drawnCell(zoom) >= DOUBLE_MIN_CELL) { ...walk the doubled rungs... }
+
+      That turns the common "cannot afford it" case into 1 draw (from 4) and
+      leaves the "can afford it" case at most one draw worse than today.
+      Pin it with an assertion on the draw count rather than on a timing: a
+      counter incremented in drawBoard and exposed for the test, or
+      `performance.mark` per draw, asserted as 1 for a 30x30 at 1280x720 and
+      <= 2 for a 30x12 at 1920x1080. A timing assertion would be flaky; a
+      draw count is exact, and it is also what would keep F-001's resize
+      listener honest.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    classification: Important
+    gating: true
+    category: testing
+    type: gap
+    file: meta/kanban/cards/CARD-212.md
+    line: 213
+    title: "The 24 px rule's stated justification is false — three existing fixtures change their layout at viewports the suite uses — and the band the constant really switches on (mid-size boards at the default 1280x720) has no test, while the one existing guard that covers that ground goes red when pointed at it"
+    description: |
+      The Worktree notes defend DOUBLE_MIN_CELL = 24 with: "measured, 24 px is
+      the bar at which **no existing fixture at any viewport the suite uses
+      changes its layout**". Measured again, independently, that is not true.
+      Each line below is a page load in Chromium; `dup` is the number of
+      aria-hidden duplicate clue boxes actually drawn:
+
+          AC_GRID        25x15  (tests/test_puzzle_solver_page.py:98)   @1440x900  dup=15  cell=24.36
+          AC301_GRID     20x20  (tests/test_puzzle_solver_page.py:100)  @1440x900  dup=20  cell=24.88
+          GRID_16_WIDE   16x15  (tests/test_puzzle_solver_mirror.py:46) @1440x900  dup=15  cell=28.00
+          GRID_16_WIDE   16x15  (same fixture)                         @820x900   dup=15  cell=25.66
+
+      1440x900 is `DESKTOP` in tests/test_puzzle_solver_mirror.py:37 and the
+      viewport CARD-182's pinned DESKTOP_CELL is measured at; 820x900 is used
+      by tests/test_puzzle_solver_phone.py's AC-3 test. So three existing
+      fixtures do change their layout at viewports the suite uses. The notes'
+      own measurement table even contains the counter-evidence (20x20 and
+      25x20 marked **rows** at 1440x900) — the sentence above it generalises
+      from fixture+viewport PAIRS that happen to be exercised together to
+      "no fixture at any viewport", which is a different and false claim.
+      The suite is green only because no test pairs those fixtures with those
+      viewports. That is luck, not a property of the bar.
+
+      The same measurement shows where the feature really lives, and it is not
+      where the tests look. At the suite's DEFAULT viewport — 1280x720, which
+      every browser test that never calls set_viewport_size uses — row-clue
+      doubling is on for 11 of the 28 shapes I swept:
+
+          16x10 28.00  16x12 28.00  16x14 25.89   18x10 28.00  18x12 28.00
+          18x14 25.89  20x10 26.88  20x12 25.62   20x14 25.89  22x12 24.34
+          22x14 24.34        (and single gutters for everything 25-wide and up)
+
+      Not one test in the card covers a board in that band: the new tests use
+      30x25 / 30x12 / 25x20 at 1920x1500, 1920x1080, 1700x1500 and 1440x900,
+      plus a 15x15 and a 30x30 phone. The most ordinary case — a mid-size
+      board on a laptop — is drawn by brand-new code paths and asserted
+      nowhere.
+
+      And the one existing guard that would have covered it is structurally
+      incompatible with the new layout. `_assert_every_fifth_line_heavier`
+      (tests/test_puzzle_solver_page.py:630) ends with
+
+          assert [w > min(rules["rowClueRule"]) for w in rules["rowClueRule"][:-1]] == [
+              (i + 1) % MAJOR_EVERY == 0 for i in range(height - 1)]
+
+      over EVERY `th.player-clue.is-row` box. On a doubled board there are
+      2*height of them. I ran that helper, unmodified, against a 20x12 at the
+      default viewport (dup=12) and it fails at index 4 with "Left contains 12
+      more items". Its caller,
+      `test_PropertyTest_every_size_has_height_rows_of_width_cells_and_fifth_lines_heavier`
+      (tests/test_puzzle_solver_page.py:689), walks 12 sizes from a
+      `random.Random(298)` corpus — I replayed all 12 and none of them lands
+      in the doubling band (all dup=0), so it passes today for the same
+      accidental reason. One different random draw in that corpus and this
+      card lands a red test in a file it never touched.
+
+      Nothing here is a wrong pixel: the doubled mid-size boards I looked at
+      draw their gutters and their fifth-line rules correctly. The defect is
+      that the card's central constant is defended with a measurement that
+      does not hold, and that the behaviour the constant switches on is
+      unverified exactly where it is most often reached, with the nearest
+      guardrail silently inapplicable instead of merely absent.
+    suggestion: |
+      Three small pieces, none of which changes DOUBLE_MIN_CELL:
+
+      1. Generalise the existing helper so it keeps covering the ground it was
+         written for. In `_assert_every_fifth_line_heavier`, group the clue
+         boxes by `data-line` (the attribute this card added for exactly this
+         purpose) and assert the fifth-line pattern per gutter instead of over
+         the flat list — e.g. take `rowClueRule` as `{line: [widths]}` and run
+         the existing comparison on one gutter's worth. That makes the seeded
+         12-size corpus genuinely cover doubled boards instead of avoiding
+         them, and it is ~5 lines.
+      2. Add one case to tests/test_puzzle_solver_clues.py for the band that
+         actually ships: a 20x12 at 1280x720 draws two row gutters, no tfoot,
+         with the duplicate reading the same sequence and the fifth-line rules
+         intact. (A 22x14 at 1280x720, cell 24.34, is the tightest one and
+         would double as the boundary case.)
+      3. Correct the claim in the notes: "no fixture x viewport pair the suite
+         actually exercises changes its layout", with AC_GRID @1440x900,
+         AC301_GRID @1440x900 and GRID_16_WIDE @1440x900 / @820x900 named as
+         the pairs that WOULD change if a test ever set them. That is the
+         honest version, and it is still a good argument for 24 px.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    classification: Minor
+    gating: false
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 516
+    title: ".is-mirrored now styles nothing — the comment that introduces the new rules still presents it as the marker they key on"
+    description: |
+      CARD-193's two mirrored rules were `.player-board.is-mirrored
+      .player-corner` and `.player-board.is-mirrored .player-clue.is-row`.
+      This card rightly re-keyed them on the element that is actually on the
+      right (`.player-corner.is-right`, `.player-clue.is-row.is-right`) so the
+      mirror and the duplicate share one geometry. The consequence is that
+      `is-mirrored` is now a dead selector: `grep -n is-mirrored` over
+      src/ returns exactly two lines, solver.js:400 (which sets it) and
+      admin.css:518 (prose inside the new comment block). No CSS rule in any
+      stylesheet matches it.
+
+      It still carries meaning — four test files use it as "is this CARD-193's
+      mirror", and solver.js's layout vocabulary needs the distinction — so I
+      am not arguing for its removal. The risk is the comment: it opens the
+      new rules with "solver.js also marks the table .is-mirrored", directly
+      above rules that do not use the class, which invites the next editor to
+      either key something on it or delete it as unused. Low cost either way,
+      but it is the kind of half-true pointer this project treats as part of
+      the contract.
+    suggestion: |
+      One clause in the comment: say that since CARD-212 `.is-mirrored` is a
+      state marker only (solver.js and the tests read it; no rule selects on
+      it) and that all right-hand geometry comes from `.is-right`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    classification: Minor
+    gating: false
+    category: documentation
+    type: gap
+    file: meta/kanban/cards/CARD-212.md
+    line: 240
+    title: "The headline 'closest call' number does not reproduce (23.47, not 23.53) and is reported as a property of 'a 25x15' when one of the suite's three 25x15 fixtures does double there"
+    description: |
+      The notes' most owner-facing number is: "The closest call is **25 x 15
+      at 1440 x 900: 23.53 px doubled, 0.47 px under the bar**", repeated in
+      the OWNER DECISION PENDING paragraph.
+
+      Measured at HEAD by setting --player-row-gutters: 2 on the live table at
+      1440x900 (exactly what drawBoard does for that rung):
+
+          tests/test_puzzle_solver_mirror.py:40 GRID_25x15 (seed 193)   23.47 px
+          tests/test_puzzle_solver_phone.py:73  GRIDS["25x15"] (1825)   23.47 px
+          tests/test_puzzle_solver_page.py:98   AC_GRID (seed 296)      24.36 px -> DOUBLES
+
+      So the figure is 23.47 / 0.53 px under the bar for two of the three
+      25x15 fixtures, and the third one is over the bar and gets its second
+      gutter. The shape of the argument survives — a 25x15 on a 1440 laptop is
+      genuinely a hair's breadth from doubling — but the number is wrong and
+      the generalisation to "a 25x15" hides that the answer depends on the
+      clue depth of the particular grid, which is the sort of thing the owner
+      decision should know. (The clamp uses --player-row-ch, the deepest row
+      clue, so two boards of the same size differ by several tenths of a px.)
+    suggestion: |
+      Re-measure and restate as "23.47 px, 0.53 px under the bar, for the
+      25x15 fixtures of CARD-182/193; a 25x15 with a shallower deepest row
+      clue (AC_GRID) measures 24.36 px and does double" — then the owner is
+      choosing with the real spread in view.
+    confidence: high
+    source: dynamic
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: risk
+    file: tests/test_puzzle_solver_clues.py
+    line: 1174
+    title: "The column-band fit test allows twice the overflow it measures, so the one known-open overflow it is next to is unpinned"
+    description: |
+      `test_the_doubled_board_is_fitted_for_both_of_its_column_bands`
+      (tests/test_puzzle_solver_clues.py:1156) documents "Measured here: 5 px
+      of stage overflow" and then asserts `fit["overflowY"] <= 10`. Its
+      sibling row test, by contrast, explains its rounding and asserts
+      `<= 3` on a measured 2.34 px — the right instinct.
+
+      The slack matters because this is exactly the axis the card lists as
+      known-open ("column doubling measures against the whole window height",
+      a few px past the stage's visible box). A bound of 10 on a measured 5
+      means the suite would not notice that overflow doubling. My own probe of
+      the columns-only rung at 1200x1100 saw 0 px (25x20) and 4 px (20x20), so
+      the real quantity moves by a few px with the board — which is an
+      argument for pinning it tightly and deliberately, not loosely.
+    suggestion: |
+      Assert `fit["overflowY"] <= 6` (or pin the measured value with
+      pytest.approx and an abs tolerance), and say in the docstring that the
+      residue is the known column-band/stage-height mismatch rather than a
+      budget — the same sentence the row test already gets right.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    classification: Minor
+    gating: false
+    category: testing
+    type: risk
+    file: tests/test_admin_design_tokens.py
+    line: 130
+    title: "The new per-rule G-7 test discovers its rules with a regex whose character class crosses comment text, so a future comment mentioning a .player-*is-right* selector reds it"
+    description: |
+      `test_the_boards_second_clue_gutters_come_from_tokens` finds the rules it
+      pins with
+
+          re.findall(r"(\.player-[^{}]*?(?:is-right|tfoot)[^{}]*?)\{([^}]*)\}", css)
+
+      and then asserts the captured selector list equals five exact strings.
+      `[^{}]` matches newlines, so a capture may begin at a `.player-...`
+      token inside a /* comment */ and run to the next `{`. It passes today
+      only because the comment blocks around these rules happen not to contain
+      a `.player-` token followed by "is-right" or "tfoot" before the next
+      brace — and this card's own CSS comments come close (admin.css:516-530
+      discusses `.is-right` at length). The exact-list assertion then turns any
+      such comment into a confusing failure about selectors.
+
+      The test is otherwise a good addition and it does pin what G-7 asks for
+      (I confirmed it passes, and the escape-hatch value set is honest about
+      the 1.45ch gap being read out of the left-hand rule rather than
+      repeated).
+    suggestion: |
+      Strip comments before the scan (`re.sub(r"/\*.*?\*/", "", css, flags=re.S)`)
+      or anchor the selector capture to a line start
+      (`^\s*(\.player-[^{}\n]*?...)`). One line either way.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    classification: Minor
+    gating: false
+    category: documentation
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 581
+    title: "'Only the rung that stays is ever painted' is a claim no test demonstrates, in a comment block that is otherwise exemplary"
+    description: |
+      redraw()'s comment ends: "Only the rung that stays is ever painted or
+      wired — the discarded ones are replaced before anything reads the
+      board." The "wired" half is demonstrable and demonstrated (marking is
+      wired after the loop, and the AC-8 redraw tests would fail otherwise).
+      The "painted" half is not: every rung IS inserted into the live stage
+      (`stage.replaceChildren(table)` inside drawBoard) and laid out — that is
+      how `drawnCell` can measure it. What is true is that no frame is
+      produced between the draws, because the loop never yields; "painted" is
+      an implementation detail of Chromium's rendering loop that nothing in
+      this repo asserts.
+
+      This project's standing rule is that a comment states only what the code
+      and its tests demonstrate, and this one sentence is the only place in a
+      large and unusually careful comment layer where I found that line
+      crossed. (I checked the other load-bearing claims and they hold: "at 1
+      the three terms are arithmetically what CARD-196 left" — verified, the
+      multipliers are identity at 1 and every CARD-182/188/193/196 measurement
+      I re-ran is unmoved; "paintCircles cannot reach one and miss the other"
+      — verified structurally and by the real AX tree; "the duplicate is
+      aria-hidden so a screen reader reads each clue once" — verified against
+      Chromium's accessibility tree.)
+    suggestion: |
+      Reword to what is true and checkable: "the discarded rungs are replaced
+      within the same task, so no frame is produced from them; only the rung
+      that stays is wired to the marking code". Related: the notes say the
+      mirror file's "all four of its tests pass" — it collects five.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+confirmations:
+  - id: C-1
+    about: "The survived mutant M11 (term 1 of the clamp's row multiplier) — the task asked for confirmation or refutation"
+    verdict: "CONFIRMED equivalent. The implementer's reasoning is correct and the threshold they quote (~20 px) is exact."
+    evidence: |
+      Two independent ways.
+
+      (1) Algebra. With W = 100cqi, R = rule + rule-major, C = cols,
+      S = row-ch, G = row gutters, and N = numeral-min (12px):
+          term1 = (W - G(R + 0.6*N*S)) / C
+          term2 = (W - G*R) / (C + 0.36*G*S)
+      term2 < term1  <=>  0.36(W - G*R) > 0.6*N*S/S... expanding and dividing
+      by G*S > 0 gives  (W - G*R) > (0.6*N/0.36)*C + 0.6*N*G*S, which is
+      exactly the condition term2 > 0.6*N/0.36 = 20. So term 2 is the smaller
+      of the two precisely when its value exceeds 20 px; term 1 can only be
+      the binding term BELOW 20 px. And if term1 is binding, term2 <= 20, so
+      the mutated min() is also <= 20 — still under DOUBLE_MIN_CELL = 24, so
+      the rung is rejected either way. The "20" is 0.6 * --player-numeral-min
+      / 0.36, which is why the note that "a lower DOUBLE_MIN_CELL would make
+      it load-bearing" is also right.
+
+      (2) Execution. I applied M11 to admin.css (the only change: term 1's
+      `var(--player-row-gutters) *` -> `1 *`) and re-measured ten
+      board/viewport pairs chosen to include every rung and both the suite's
+      and the owner's sizes. Every single one is IDENTICAL to HEAD in both the
+      layout chosen and the cell measured:
+          30x25@1920x1500 dup=55 28.00 | 30x12@1920x1080 dup=12 28.00
+          25x20@1920x1080 dup=45 24.33 | 20x12@1280x720  dup=12 25.62
+          16x10@1280x720  dup=10 28.00 | 22x14@1280x720  dup=0  24.59
+          20x20@1440x900  dup=20 25.84 | 16x15@820x900   dup=15 27.23
+          30x25@1700x1500 dup=55 26.16 | 30x30@2560x1440 dup=60 24.73
+      admin.css restored and verified byte-identical against a pre-captured
+      copy, and `git checkout --` run on top. Keeping the multiplier for
+      arithmetic consistency is the right call and is documented, not claimed
+      as killed.
+  - id: C-2
+    about: "Item 6 — the right-hand gutter's first ring drawing over the heavy frame, and the claim that CARD-193's phone mirror has carried it since it shipped"
+    verdict: "BOTH CONFIRMED, and the fix covers the mirror."
+    evidence: |
+      Measured on CARD-193's phone mirror itself — 390x844, the 30x30 BIG
+      fixture, `.is-mirrored` true — as the signed clearance between the first
+      row number's ring (getComputedStyle(span, '::before').left/width, plus
+      its border) and the clue box's inner (left) border edge, over all 30
+      boxes, worst case:
+
+          HEAD, with .is-row.is-right's mirrored margin:        +7.75 px
+          pre-fix geometry restored inline on the same page
+          (margin-left: 0; margin-right: 1.45ch, i.e. main's rule):  -2.72 px
+
+      A negative clearance is the ring crossing the heavy frame into the
+      cells, so the mirror did carry the defect and the new rule fixes it on
+      the mirror, not only on the duplicate. I restored the pre-fix geometry
+      with inline styles in the page rather than by editing admin.css, so this
+      measurement cost no file change. The new pin,
+      TestSolverClues_RowRingsStayInsideTheirOwnBand
+      (tests/test_puzzle_solver_clues.py:1523), checks the 1920x1500 duplicate
+      and not the 390 px mirror — worth one parametrised viewport, since the
+      mirror is where the bug has been living for a week.
+  - id: C-3
+    about: "Item 4 — the duplicate must not cost accessibility or correctness"
+    verdict: "CONFIRMED by the real accessibility tree, not by the attributes."
+    evidence: |
+      A 30x25 at 1920x1500 with all four gutters drawn (dup=55), read through
+      CDP Accessibility.getFullAXTree (Playwright's page.accessibility is gone
+      in this version):
+          rowheader 25 (unique names 25), columnheader 30 (unique names 30),
+          names appearing more than once: 0, ignored nodes 837 of 2961,
+          cell 754 (750 grid cells + 4 corners), row 27 (25 body + head + foot)
+      So each of the 55 clue sequences is exposed exactly once and the 55
+      duplicates are ignored, which is more than the card's own test
+      establishes (it reads the attributes and the closest('[aria-hidden]')
+      ancestry). Correctness of the circles is also sound by construction and
+      by measurement: clueNumbersOf groups boxes by data-line and then
+      transposes to one entry per clue NUMBER holding its twin spans, so
+      paintCircles structurally cannot set one and miss the other, and the
+      new AC-4 test additionally measures the ring's computed width/colour on
+      both. And nothing double-counts anywhere else: `grep -rn player-clue
+      src/` outside solver.js/admin.css returns nothing — there is no second
+      consumer of the clue boxes (no counter, no progress calculation, no
+      hint path reads them).
+  - id: C-4
+    about: "Item 5 — the two touched existing tests"
+    verdict: "Both relaxations are at or near the minimum, and nothing they used to catch is uncaught. No finding."
+    evidence: |
+      (a) tests/test_puzzle_solver_mirror.py:78 `_is_corner` went from
+      `cls.split() == ["player-corner"]` to `"player-corner" in cls.split()`.
+      It is used four times, always as "which KIND of element is at this end
+      of the row" (headFirst/headLast), never to assert the corner's side — so
+      the equality was incidental, and the side it would now let through is
+      covered by a different test in the same file:
+      TestSolverMirror_HeavyLinesMatchTheLeftLayout
+      (tests/test_puzzle_solver_mirror.py:171) measures the corner's left and
+      right border widths, which is exactly where `.is-right` has its effect
+      (the card reports it killing mutant M13). A strictly smaller relaxation
+      exists — assert the class set is a subset of {"player-corner",
+      "is-right"} — but the difference is cosmetic given the border test. All
+      5 tests in the file pass unedited (the notes say "all four"; it collects
+      five).
+      (b) tests/test_admin_design_tokens.py gained a test and changed no
+      existing assertion (`git diff` shows a pure append after line 114). The
+      two token tests the card names are byte-unchanged at :80 and :86 and ran
+      green. Its one weakness is the regex, recorded as F-007.
+  - id: C-5
+    about: "Item 3 — the third known-open item, and the card's four-rung reachability claim"
+    verdict: "Item (a) is a defect (F-001). Item (b) is acceptable with a recorded cost, but its pin is loose (F-006). Item (c) is acceptable as scope. The ladder's four rungs are genuinely reachable."
+    evidence: |
+      (b) The columns-only rung at 1200x1100, measured: a 25x20 draws 25
+      duplicate column boxes in a tfoot with 0 px of stage overflow (1 px
+      horizontal) and a 24.47 px cell; a 20x20 there overflows the stage by
+      4 px vertically with a 26.42 px cell. That is the same order as the
+      3-5 px a single-gutter board already has at that viewport, the stage
+      scrolls, and nothing is unreachable — acceptable, with the loose
+      assertion noted as F-006.
+      (c) A mirrored board with doubled columns: I confirmed by reading
+      drawBoard that it composes (thead/body/tfoot all 1+W cells, the
+      `mirrored || rowGutters === 2` corner condition covering the tfoot) and
+      found no (board, viewport) pair in my sweep that reaches it. Untested
+      and unclaimed is the right call; drawBoard would, however, silently draw
+      ONE row gutter while the clamp charges for two if a future ladder ever
+      produced `mirrored && rowGutters === 2`, and the comment at solver.js:386
+      is the only thing preventing that. Not worth a finding today.
+      Rungs: I observed all four in the wild — both axes (30x25@1920x1500,
+      dup=55), rows only (30x12@1920x1080, dup=12), columns only
+      (25x20@1200x1100, dup=25, tfoot=1), and today's rendering incl. the
+      mirror (30x30@390x844).
+
+mutation_check:
+  enabled: true
+  status: deferred(cost)
+  mutants: 1
+  killed: 0
+  survived: 1
+  restore_verified: true
+  deferral_reason: >-
+    review.mutation_check is on for this project, but the skill's cost ladder
+    runs the capped mutant set on the candidate/passing cycle, not on a cycle
+    that already has gating findings. This cycle has three Important findings
+    (F-001, F-002, F-003), two of which will change the code under test:
+    F-002's early-out rewrites redraw()'s ladder loop — the exact lines a
+    mutant set would target — and F-001 adds a redraw trigger. Mutating those
+    lines now would measure code that is about to move. The capped set belongs
+    on cycle 2 or 3, after the fixes land, and should include: the early-out's
+    comparison operator and its monotonicity assumption (draw the plain rung,
+    accept a doubled one anyway), the resize listener's guard, and a re-run of
+    the card's own M4 (DOUBLE_MIN_CELL 24 -> 1) and M3 (clueNumbersOf pairs
+    only the first gutter) against whatever the fixed tests look like.
+  mutants_run: 1
+  results:
+    - "M11 (re-run from the card's table, because the task asked me to adjudicate its survival) — admin.css term 1 of the --player-cell clamp drops its `var(--player-row-gutters) *` multiplier. SURVIVED, and EQUIVALENT: confirmed, see confirmations C-1. Ten board/viewport pairs measured identical in both chosen layout and cell size; and the algebra shows term 1 can only bind below 0.6 * --player-numeral-min / 0.36 = 20 px, which is under the 24 px bar, so it is unreachable for any accepted rung. The card's claim stands as written."
+  restore_evidence: "admin.css and solver.js each diffed against a copy taken before the edit (`diff <pristine> <file>` silent) and additionally `git checkout -- <path>` run on both. Final verification: `git status --porcelain -- src tests` is EMPTY. `git status --porcelain` shows only ' M meta/kanban/cards/CARD-212.md', the implementer's own pre-existing modification, which this review neither made nor touched. The throwaway probe tests/test_card212_review_probe.py was deleted (by exact path, no glob) along with its .pyc."
+
+verdict:
+  summary: >-
+    A strong, unusually well-documented implementation of the owner's request,
+    with three things to fix. The rendering, the circle pairing, the four-sided
+    frames, the accessibility surface and the ring fix all hold up under
+    independent measurement, and the one survived mutant really is equivalent.
+    What does not hold up is the layout decision's relationship to TIME — a
+    doubled board cannot survive a window resize (F-001) and the decision
+    costs up to four full board builds, ~4x the time-to-board on the commonest
+    desktop case (F-002) — and the justification for the 24 px bar, which is
+    defended by a measurement that three existing fixtures contradict while the
+    band the bar actually switches on (mid-size boards at 1280x720) has no test
+    and would red an existing guard (F-003). None of the three needs a redesign:
+    one listener, one early-out, one generalised helper plus one test and a
+    corrected sentence.
+  gating_findings: [F-001, F-002, F-003]
+  min_score: 8
+  meets_min_score: false
+  cycles_used: 1
+  max_cycles: 3

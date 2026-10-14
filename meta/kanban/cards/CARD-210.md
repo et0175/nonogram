@@ -133,3 +133,21 @@ presume the two blockers are resolved and the chosen URL scheme is recorded.)
 ## Worktree notes
 
 —
+
+## Amendment 2026-10-14 — the owner's "Puzzle page layout" artifact
+
+The QR's **place** changes before its content does:
+
+- **CARD-223** moves the QR out of the gutter-side strip into the footer's **outer** bottom
+  corner, and adds the caption `Solve it online` plus a **typed link** beside it. So when this
+  card unblocks, it changes the glyph *and* the link text in their new home — not CARD-204's
+  gutter slot, which will no longer exist.
+- The typed link is a placeholder from one named constant until this card
+  (`nonogram.example/p/052` in the artifact's mockups, which the artifact itself labels a
+  stand-in "until the online solver has a real address"). This card replaces that constant and
+  the placeholder glyph together, so a reader with a camera and a reader without one are never
+  pointed at different things.
+- **Depends on:** CARD-223, in addition to the two infrastructure blockers (a hosted public
+  solver and a stable per-puzzle URL namespace) the owner's 2026-10-13 decision set.
+- Still blocked. The owner's decision stands: keep the placeholder until the infrastructure
+  exists.
