@@ -15,21 +15,29 @@ active:
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-204
     started: 2026-10-10T05:08:27Z
     note: "cycle 4 = 8.5; AC/EC gate passed after AC-7/G-6 amendments; first merge gate FAILED (4 failed) and found a real CARD-203 x CARD-204 caption/margin defect; Fix 7 fixes it, suite 6901/0; awaiting a focused review of Fix 7's new code, then merge"
+  - id: CARD-211
+    phase: implementation
+    branch: card/211-region-own-control
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-211
+    started: 2026-10-14T07:05:00Z
+    note: "started in the slot CARD-214's merge freed; CARD-212 and CARD-216 queued behind it on the same template/statics"
+merged:
   - id: CARD-214
-    phase: review
     review_cycle: 1
-    branch: card/214-given-cells
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-214
-    started: 2026-10-13T10:16:42Z
-    note: "cycle 1 = 8.1; Fix 1 committed fe2c945, suite 6883/0; AC/EC gate ALL PASSED; merge gate pending behind CARD-204"
+    success_commit: fe2c945
+    merge_commit: d49e73a
+    note: "cycle 1 = 8.1; AC/EC gate all passed; merge gate 6883/0. Unblocks CARD-215 and CARD-216."
 escalated: []
 queued:
+  - id: CARD-215
+    reason: "dependency CARD-214 now satisfied, but touches src/nonogram/export/layout.py which CARD-204's unmerged Fix 7 changed (hotspot) — starts after CARD-204 merges"
+  - id: CARD-216
+    reason: "dependency CARD-214 now satisfied; conflicts with CARD-211 (same template + statics) and carries review F-6 (two admin re-solve call sites)"
+
   - id: CARD-205
     reason: "conflict edge with CARD-204 and CARD-206 (hotspot src/nonogram/admin/book_pdf_generator.py); next to start after CARD-204 merges"
   - id: CARD-206
     reason: "conflict edge with CARD-204 and CARD-205 (same hotspot)"
-  - id: CARD-211
-    reason: "concurrency cap 2; next to start alongside CARD-205"
   - id: CARD-212
     reason: "conflict edges with CARD-211 and CARD-213 (solver.js, admin.css - overlap 0.5)"
   - id: CARD-213
@@ -47,4 +55,4 @@ conflict_edges:
     reason: "predicted: tests/test_puzzle_solver_clues.py (overlap 0.50 >= 0.3)"
   - pair: [CARD-204, CARD-203]
     reason: "observed at the merge gate: tests/helpers/book_corpus.py (baseline chain, resolved manually) AND a real geometric interaction - CARD-203's right-aligned caption against CARD-204's flush drawing (see conflict-history.yml)"
-last_updated: '2026-10-14T06:30:00Z'
+last_updated: '2026-10-14T07:05:00Z'

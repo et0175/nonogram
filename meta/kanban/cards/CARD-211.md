@@ -1,6 +1,6 @@
 # CARD-211: Region leaves the brush menu and becomes its own control
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/211-region-own-control
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-211
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 2: "Solver please place "Region" select option separately from "Black\\White\\Maybe\\Undecided" dropdown")
 **Idea:** —
-**Wave:** —
+**Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_page.py, tests/test_admin_design_tokens.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-14T05:31:26Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -135,4 +135,8 @@
 
 ## Worktree notes
 
-—
+- [Env] forge 2026.8.17 (project declares no `forge.min_version`; no `.skills.yml` here)
+- [Dispatch] wave 37, started 2026-10-14T05:31:26Z. Slot freed by CARD-214's merge (`d49e73a`);
+  CARD-204 still holds the other slot (owner's concurrency cap of 2). Conflict edges
+  honoured: CARD-212 (solver.js, admin.css, puzzle_solve.html — overlap 0.50) and
+  CARD-216 (same template and statics) stay queued while this runs.
