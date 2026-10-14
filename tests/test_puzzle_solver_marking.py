@@ -739,8 +739,8 @@ class TestSolverMarking_DragMarksOneLine:
         """Real touch input through Chromium's input pipeline (CDP touch events).
         CARD-194: a touch drag only marks with Region on, so Region is
         armed first — through its own toggle since CARD-211
-        (TestSolverBrushMenu_Touch covers the Region-off case,
-        where the same drag scrolls and marks nothing)."""
+        (TestSolverRegion_UnarmedTouchDragStillScrolls covers the Region-off
+        case, where the same drag scrolls and marks nothing)."""
         context = browser.new_context(has_touch=True, viewport={"width": 1024, "height": 768})
         page = context.new_page()
         try:

@@ -631,7 +631,25 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
    meant to be, so the slot keeps its old 13rem width and both the banner
    and the counters' row are unchanged. */
 .player-tools { min-width: 13rem; }
-.player-tool-trigger { padding-left: var(--space-2); padding-right: var(--space-2); }
+/* The trigger takes the whole of the group that the 13rem floor above
+   reserves, less the Region toggle and the gap between them, so its width
+   does NOT depend on which brush label it is showing (owner decision
+   2026-10-14, CARD-211 fix 1). CARD-194's trigger was a fixed 208 px — it
+   carried the 13rem itself — and moving that floor to the group left the
+   trigger content-width: measured 83.7 px for "Black" and 123.8 px for
+   "Undecided", so the Region toggle's left edge slid 40 px whenever the
+   brush changed, right before the hand reaches for it. `flex: 1 0 auto`
+   states the fix as a relation instead of a measured number: grow into the
+   group's free space (the trigger is its only growable child, the menu being
+   absolutely positioned out of flow), never shrink below the label. The
+   result is one width for all four brushes (128.3 px measured, wider than
+   the widest label), the group still exactly 13rem, and the counters' row
+   untouched — pinned for every brush and viewport by
+   tests/test_puzzle_solver_brush_menu.py
+   TestSolverBrushMenu_RegionIsItsOwnToggle::test_adding_it_leaves_the_tools_slot_at_its_old_width,
+   which asserts the trigger's width and the toggle's offset inside the
+   group as well as the group's own width. */
+.player-tool-trigger { flex: 1 0 auto; padding-left: var(--space-2); padding-right: var(--space-2); }
 .player-toolbar .btn[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; background: var(--color-surface); }
 .player-swatch { position: relative; flex: none; width: var(--space-4); height: var(--space-4); background: var(--grid-paper); border: var(--border-width) solid var(--color-border-strong); }
 .player-swatch[data-state="filled"] { background: var(--grid-ink); border-color: var(--grid-ink); }

@@ -38,16 +38,22 @@
   hidden with the brush control while the board is solved (admin.css
   .player-toolbar.is-solved), where there is nothing left to mark.
 
-  The semantics are CARD-194's, unchanged: with Region on, a drag (any
-  pointer type) marks with the chosen brush and Region turns itself off once
-  that drag is recorded; with Region off, a mouse drag still marks (the
-  desktop default) but a touch or pen drag scrolls the page instead —
-  admin.css keys .player-cell's touch-action to .player-board.is-region,
-  which solver.js toggles, and the Region toggle is now the single thing
-  that sets it. Picking a brush also turns Region off (CARD-194 behaviour
-  #3, kept deliberately); pressing Region never changes the brush. Every
-  flip of the toggle is announced through #puzzle-player-announce below,
-  never by rewriting the brush trigger's label.
+  The semantics are CARD-194's with ONE deliberate divergence: with Region
+  on, a drag (any pointer type) marks with the chosen brush and Region turns
+  itself off once that drag is recorded; with Region off, a mouse drag still
+  marks (the desktop default) but a touch or pen drag scrolls the page
+  instead — admin.css keys .player-cell's touch-action to
+  .player-board.is-region, which solver.js toggles, and the Region toggle is
+  now the single thing that sets it. The divergence: picking a brush used to
+  turn Region off too (CARD-194 behaviour #3, which the brush menu's radio
+  exclusivity forced while Region was one of its items), and since the
+  owner's decision of 2026-10-14 it does not — the brush and Region are
+  independent controls in both directions, so pressing Region never changes
+  the brush and picking a brush never disarms Region. This is a decision,
+  not drift; solver_state.js nextRegion carries the same note beside the
+  transition table it removed the event from. Every flip of the toggle is
+  announced through #puzzle-player-announce below, never by rewriting the
+  brush trigger's label.
 
   The "?" mark (CARD-186): a fourth tool, Maybe, follows Undecided. With it a
   click marks a cell "?" and a second click clears it; a drag paints "?".

@@ -637,24 +637,31 @@ export function anchoredScroll(scroll, anchor, oldZoom, newZoom) {
 // recorded, never in the undo history and never saved (serializeState does
 // not see it), so every load starts disarmed.
 
-//: The event names nextRegion understands — the three things that can change
-//: the flag, and nothing else can.
-export const REGION_EVENTS = Object.freeze(["toggle", "drag", "brush"]);
+//: The event names nextRegion understands — the two things that can change
+//: the flag, and nothing else can. There were three until CARD-211's owner
+//: decision dropped "brush" (see the divergence note below).
+export const REGION_EVENTS = Object.freeze(["toggle", "drag"]);
 
-// Whether Region is armed after `event`, given it was `armed` before. The
-// semantics are CARD-194's, unchanged by CARD-211:
+// Whether Region is armed after `event`, given it was `armed` before:
 //   "toggle"  the Region control was pressed — it flips (the only way to arm
 //             it; a press while armed disarms it again).
 //   "drag"    a drag was just recorded — Region is one-shot and disarms
 //             itself, even for a drag that changed no cell (CARD-194 target
 //             behaviour #7). "A drag ended", not "a cell changed".
-//   "brush"   a brush was picked — Region disarms (CARD-194 target behaviour
-//             #3). Before CARD-211 this was forced by the menu's own radio
-//             exclusivity (exactly one aria-checked item, Region among the
-//             brushes); CARD-211 keeps the behaviour deliberately, because
-//             changing it is an owner decision and not this card's.
+// DELIBERATE DIVERGENCE from CARD-194, decided by the owner on 2026-10-14
+// (CARD-211): picking a brush does NOT disarm Region. CARD-194 shipped that
+// disarm as its target behaviour #3, and it had a reason then — Region was a
+// fifth role="menuitemradio" in the brush menu, so choosing any other item
+// replaced it by the menu's own radio exclusivity. CARD-211 made Region a
+// separate toggle, and two independent-looking controls that silently switch
+// each other off is the wrong behaviour; so there is no "brush" event any
+// more and picking a brush leaves Region exactly as the user left it. The
+// two controls are now independent in BOTH directions. This is a decision,
+// not drift: anything still saying a brush pick disarms Region is stale.
 // Any other `event` is refused with RangeError (like stepZoom's direction):
-// a typo must not silently read as "leave it as it was".
+// a typo must not silently read as "leave it as it was" — and "brush", the
+// name CARD-194's rule went by, is deliberately one of the refused names, so
+// a caller that still sends it fails loudly instead of disarming.
 export function nextRegion(armed, event) {
   if (!REGION_EVENTS.includes(event)) {
     throw new RangeError(`"${event}" is not a Region event (${REGION_EVENTS.join(", ")})`);

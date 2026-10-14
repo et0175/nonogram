@@ -119,11 +119,16 @@
 //             aria-pressed ("true"/"false") rather than aria-checked — it is
 //             a mode, not one option among several, which is what a screen
 //             reader should announce. Pressing it arms Region; it disarms
-//             again when pressed a second time, when a brush is picked
-//             (CARD-194 target behaviour #3) and, one-shot, the instant a
+//             again when pressed a second time and, one-shot, the instant a
 //             drag is recorded (#7) — the flag's whole transition table is
 //             solver_state.js nextRegion, so this file only says which event
-//             happened. Arming it never changes the brush and never clears
+//             happened. Picking a brush leaves Region exactly as it was: a
+//             DELIBERATE divergence from CARD-194's target behaviour #3,
+//             decided by the owner on 2026-10-14 (CARD-211) once Region
+//             stopped being a fifth item in the brush menu — see
+//             nextRegion's own note in solver_state.js. So the two controls
+//             are independent in both directions; arming Region never
+//             changes the brush either, and never clears
 //             `lastClick` (#4). Every change — including the automatic
 //             disarm — is written to #puzzle-player-announce, so a screen
 //             reader hears "Region on"/"Region off" without re-reading a
@@ -787,14 +792,14 @@ function wireMarking(container, player) {
 
   // A menu pick (mouse click, or Enter/Space on a focused item — items are
   // native <button>s, so those keys already fire "click"). Every item is a
-  // brush since CARD-211, and picking one turns Region off and restarts the
-  // click sequence (CARD-194 target behaviour #3, kept deliberately: it was
-  // forced by the menu's radio exclusivity before, and changing it now would
-  // be an owner decision, not this card's).
+  // brush since CARD-211, and picking one restarts the click sequence but
+  // leaves Region alone: CARD-194's target behaviour #3 (a brush pick
+  // disarms Region) was reversed by the owner on 2026-10-14, so there is no
+  // setRegion call here and no "brush" event in nextRegion's table — see
+  // nextRegion's divergence note in solver_state.js.
   function pick(name) {
     tool = name;
     lastClick = null;
-    setRegion(nextRegion(region, "brush"));
     syncTrigger();
     closeMenu();
     trigger.focus();
@@ -1000,7 +1005,9 @@ function wireMarking(container, player) {
       case "Tab":
         // Not prevented: the item closeMenu() hides is the current focus,
         // so the browser's own Tab handling lands on the next focusable
-        // control after it in the (now updated) DOM — Undo.
+        // control after it in the (now updated) DOM — Region (then Undo),
+        // since CARD-211 put the toggle between the trigger and the history
+        // buttons.
         closeMenu();
         break;
       default:

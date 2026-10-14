@@ -14,8 +14,14 @@ Black, White, Maybe, Undecided, Region — and added Region, a modifier (never
 a cell state) that a touch or pen drag now needs to mark at all; a mouse drag
 keeps marking without it (G-1, the desktop default).
 
-CARD-211 changes WHERE that modifier lives and HOW it is exposed, and nothing
-about what it does. The menu holds the four brushes only; Region is
+CARD-211 changes WHERE that modifier lives and HOW it is exposed, and one
+thing about what it does: picking a brush no longer disarms Region (CARD-194
+target behaviour #3, reversed by the owner on 2026-10-14 — the disarm was
+forced by the brush menu's radio exclusivity while Region was one of its
+items, and two separate controls that switch each other off is wrong; see
+``nextRegion``'s own note in solver_state.js and
+``TestSolverBrushMenu_Region`` below). The menu holds the four brushes only;
+Region is
 ``[data-player-region]`` (``#puzzle-player-region``), the brush trigger's
 sibling inside ``.player-tools``, a toggle carrying ``aria-pressed`` rather
 than a radio carrying ``aria-checked`` — it is a mode, not one option among
@@ -274,13 +280,12 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
         assert round(box["height"]) == round(undo["height"])
 
     @pytest.mark.parametrize("width,height", [(1280, 720), (1440, 900), (390, 844)])
-    @pytest.mark.parametrize("brush", ["Black", "Undecided"])
+    @pytest.mark.parametrize("brush", MENU_ORDER)
     def test_adding_it_leaves_the_tools_slot_at_its_old_width(self, browser, live, width, height, brush) -> None:
         """The toolbar's one measured constraint this card had to not break:
         ``.player-slot`` (the tools' box, which the solved banner takes over)
         is still exactly 13rem = 208 px wide — the width CARD-194 gave it —
-        at every pinned viewport and for the narrowest and widest brush
-        label alike.
+        at every pinned viewport and for every brush label.
 
         That is why admin.css moved the 13rem minimum off
         ``.player-tool-trigger`` onto ``.player-tools`` and gave the toggle
@@ -292,7 +297,26 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
         let the group grow past 13rem for the wider brush labels, nudging
         the board sideways when the brush changed. Mutant: restoring
         ``min-width: 13rem`` on .player-tool-trigger fails here at every
-        width."""
+        width.
+
+        The group's INTERIOR is pinned here too, which the first version of
+        this test left free (review cycle 1, F-003): the trigger was then
+        content-width, so it measured 83.7 px showing "Black" and 123.8 px
+        showing "Undecided", and because .player-tools packs from the left
+        the Region toggle's left edge slid ~40 px whenever the brush changed
+        — immediately before the interaction that arms it. The owner's
+        decision of 2026-10-14 was to hold the trigger at the width of its
+        widest label so the toggle never moves, which admin.css does with
+        ``flex: 1 0 auto`` on the trigger (it grows into the group's free
+        space rather than naming a number). So: one trigger width and one
+        toggle offset for all four brushes, at all three viewports. The
+        offset is measured FROM the group's own left edge, because the
+        group's position on the page is a viewport matter; what must not
+        move is the toggle's place inside the toolbar's tool group.
+
+        Mutants: dropping ``flex: 1 0 auto`` restores the four different
+        trigger widths and fails every cell; restoring the 13rem on the
+        trigger or the toggle's default padding fails as described above."""
         context = browser.new_context(viewport={"width": width, "height": height})
         page = context.new_page()
         try:
@@ -301,13 +325,21 @@ class TestSolverBrushMenu_RegionIsItsOwnToggle:
                 _tool(page, brush)
             boxes = page.evaluate(
                 """() => {
-                  const w = (s) => document.querySelector(s).getBoundingClientRect().width;
-                  return { slot: w('.player-slot'), tools: w('.player-tools') };
+                  const box = (s) => document.querySelector(s).getBoundingClientRect();
+                  const tools = box('.player-tools');
+                  return { slot: box('.player-slot').width, tools: tools.width,
+                           trigger: box('.player-tool-trigger').width,
+                           regionOffset: box('.player-region').left - tools.left };
                 }"""
             )
         finally:
             context.close()
         assert round(boxes["slot"]) == round(boxes["tools"]) == 208, (brush, width, boxes)
+        # 128 px = 208 less the toggle (71.7) and the group's --space-2 gap (8),
+        # i.e. the whole of the group the brush trigger can have; 136 = that
+        # plus the gap, where the toggle therefore always starts.
+        assert round(boxes["trigger"]) == 128, (brush, width, boxes)
+        assert round(boxes["regionOffset"]) == 136, (brush, width, boxes)
 
 
 # ==========================================================================
@@ -424,11 +456,11 @@ class TestSolverRegion_DoesNotChangeTheBrush:
     brush exactly as it was, for every brush — in the trigger's visible text,
     in its ``aria-label`` and in which menu item is checked.
 
-    The other direction is deliberately NOT independent: picking a brush
-    still turns Region off, which is CARD-194 target behaviour #3 and is kept
-    as shipped (TestSolverBrushMenu_Region::test_picking_a_brush_turns_region_off
-    below). Making the two fully independent would change what the control
-    does, which is an owner decision rather than this card's.
+    The other direction was NOT independent when this class was written —
+    picking a brush turned Region off, CARD-194 target behaviour #3 — and the
+    owner reversed that on 2026-10-14, so it is independent now too:
+    TestSolverBrushMenu_Region::test_picking_a_brush_leaves_region_armed
+    below is this class's mirror.
 
     Mutant: having the Region handler write ``tool`` — or having ``pick``
     still treat "region" as a name it may receive, as CARD-194's menu did —
@@ -624,45 +656,85 @@ class TestSolverBrushMenu_Keyboard:
 
 
 # ==========================================================================
-# CARD-194 AC-9 / AC-12 and target behaviour #3 — Region's other mechanics
+# CARD-194 AC-9 / AC-12, and the owner's 2026-10-14 reversal of CARD-194
+# target behaviour #3 — Region's other mechanics
 # ==========================================================================
 
 
 @pytest.mark.browser
 class TestSolverBrushMenu_Region:
-    """CARD-194 AC-9 / AC-12 and target behaviour #3, all still holding with
-    the toggle in place of the menu item: a tap while Region is on, what a
-    reload starts with, and a brush pick turning Region off."""
+    """CARD-194 AC-9 / AC-12 still holding with the toggle in place of the
+    menu item (a tap while Region is on, and what a reload starts with), plus
+    the one place CARD-211 deliberately DIVERGES from CARD-194: picking a
+    brush leaves Region armed.
 
-    def test_picking_a_brush_turns_region_off(self, browser_page, live) -> None:
-        """Target behaviour #3 — Region on, then a brush picked from the menu
-        with no drag involved: Region turns off immediately (distinct from
-        #7's turn-off-after-a-drag, exercised by
-        TestSolverRegion_ArmedDragMarksThenDisarms above). CARD-211 keeps
-        this deliberately: before it, the menu's radio exclusivity forced it;
-        now the "brush" transition of solver_state.js nextRegion does, and
-        changing it would be an owner decision rather than this card's."""
+    The two tests below were written the other way round in CARD-211's first
+    implementation, where they pinned CARD-194's target behaviour #3 (a brush
+    pick disarms Region) as shipped. The owner reversed that on 2026-10-14:
+    behaviour #3 made sense only while Region was a fifth
+    role="menuitemradio" in the brush menu, where the menu's own radio
+    exclusivity forced it, and two separate controls that silently switch
+    each other off is wrong. They are kept here, asserting the new behaviour,
+    rather than deleted — this is the mirror of
+    TestSolverRegion_DoesNotChangeTheBrush (AC-5), which covers the other
+    direction, and together the two classes are what "independent in both
+    directions" means in tests.
+
+    Mutant: restoring ``setRegion(nextRegion(region, "brush"))`` in
+    solver.js's ``pick`` (with the "brush" event back in nextRegion's table)
+    fails both tests below — the first on the pressed state, the
+    announcement AND the drag that follows it, the second on the pressed
+    state."""
+
+    def test_picking_a_brush_leaves_region_armed(self, browser_page, live) -> None:
+        """The owner's decision of 2026-10-14 — Region on, then a brush
+        picked from the menu with no drag involved: Region stays armed, and
+        the drag that follows marks with the brush just picked. Only a
+        recorded drag disarms it (target behaviour #7, exercised by
+        TestSolverRegion_ArmedDragMarksThenDisarms above), so the live region
+        says nothing new when the brush changes — the announcement of the
+        disarm comes later, with the drag.
+
+        Both halves matter: a stale ``aria-pressed="true"`` over a flag that
+        was really cleared would pass the attribute check alone, so the drag
+        is what proves Region is still ARMED and not merely still labelled
+        so."""
         _open(browser_page, live, live.store(GRID))
         _region(browser_page)
         assert _region_pressed(browser_page) == "true"
         assert _trigger_text(browser_page) == "Black"  # no composite label any more
+        assert _announced(browser_page) == "Region on: the next drag marks with the brush."
 
         _tool(browser_page, "White")
 
         assert _trigger_text(browser_page) == "White"
-        assert _region_pressed(browser_page) == "false"
+        assert _region_pressed(browser_page) == "true"
+        # Unchanged, so nothing is re-read: setRegion is never called at all.
+        assert _announced(browser_page) == "Region on: the next drag marks with the brush."
+
+        _drag(browser_page, [(3, 1), (3, 5)])
+
+        assert _marked(_states(browser_page)) == {(3, c): E for c in range(1, 6)}
+        assert _region_pressed(browser_page) == "false"  # the drag disarms it, not the pick
         assert _announced(browser_page) == "Region off."
 
-    def test_re_picking_the_same_brush_also_turns_region_off(self, browser_page, live) -> None:
+    def test_re_picking_the_same_brush_also_leaves_region_armed(self, browser_page, live) -> None:
         """"Picking a brush" means any pick, including the brush already
-        chosen — the same reading CARD-194's `lastClick` reset follows."""
+        chosen (the reading CARD-194's `lastClick` reset follows) — so
+        re-picking it does not disarm Region either, and the drag that
+        follows still marks."""
         _open(browser_page, live, live.store(GRID))
         _region(browser_page)
 
         _tool(browser_page, "Black")
 
-        assert _region_pressed(browser_page) == "false"
+        assert _region_pressed(browser_page) == "true"
         assert _trigger_text(browser_page) == "Black"
+
+        _drag(browser_page, [(3, 1), (3, 5)])
+
+        assert _marked(_states(browser_page)) == {(3, c): F for c in range(1, 6)}
+        assert _region_pressed(browser_page) == "false"
 
     def test_a_tap_with_region_clicks_and_region_stays_on(self, browser_page, live) -> None:
         """AC-9 — Black (the default brush), Region on, a blank cell
@@ -714,7 +786,10 @@ class TestRegionRules_PureFunctions:
     ``solver.js``, where CARD-194 had kept them inline; this is the same
     split the zoom arithmetic already follows
     (TestZoomArithmetic_PureFunctions in test_puzzle_solver_zoom.py). The
-    truth table is written out by hand, never derived from the module."""
+    truth table is written out by hand, never derived from the module, and it
+    is the WHOLE domain: two events from two states, plus every refusal —
+    including "brush", which was a third event until the owner's 2026-10-14
+    decision made the brush and Region independent."""
 
     def test_next_region_covers_every_event_from_both_states(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
@@ -728,23 +803,25 @@ class TestRegionRules_PureFunctions:
                 disarmFromOn: S.nextRegion(true, 'toggle'),
                 dragFromOn: S.nextRegion(true, 'drag'),
                 dragFromOff: S.nextRegion(false, 'drag'),
-                brushFromOn: S.nextRegion(true, 'brush'),
-                brushFromOff: S.nextRegion(false, 'brush'),
                 events: [...S.REGION_EVENTS],
                 frozen: Object.isFrozen(S.REGION_EVENTS),
                 badEvent: attempt(() => S.nextRegion(false, 'press')),
                 emptyEvent: attempt(() => S.nextRegion(true, '')),
+                brushEvent: attempt(() => S.nextRegion(true, 'brush')),
               };
             }"""
         )
 
         assert (result["armFromOff"], result["disarmFromOn"]) == (True, False)
         assert (result["dragFromOn"], result["dragFromOff"]) == (False, False)
-        assert (result["brushFromOn"], result["brushFromOff"]) == (False, False)
-        assert result["events"] == ["toggle", "drag", "brush"]
+        assert result["events"] == ["toggle", "drag"]
         assert result["frozen"] is True
         assert result["badEvent"] == {"error": "RangeError"}
         assert result["emptyEvent"] == {"error": "RangeError"}
+        # "brush" was the third event until the owner's 2026-10-14 decision
+        # (see nextRegion's divergence note); it is now refused like any other
+        # unknown name, so a caller left behind fails loudly.
+        assert result["brushEvent"] == {"error": "RangeError"}
 
     def test_gesture_paints_is_mouse_always_and_the_rest_only_when_armed(self, browser_page, live) -> None:
         _open(browser_page, live, live.store(GRID))
