@@ -15,7 +15,7 @@ active:
     started: 2026-10-14T14:20:00Z
     note: "P1, unblocked by CARD-205's merge. Its proof of success is CARD-205's own two red-off-host folio tests going green on both faces. CARD-206..209 queued behind it on the book_pdf_generator.py hotspot."
   - id: CARD-212
-    phase: fix
+    phase: review
     branch: card/212-clues-both-sides
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-212
     started: 2026-10-14T14:20:00Z
