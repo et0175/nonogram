@@ -89,7 +89,7 @@ from nonogram.admin.book_proof import (
     proof_pages,
     render_proof_pdf,
 )
-from nonogram.export.layout import compute_layout
+from nonogram.export.layout import compute_layout, qr_slot
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
@@ -337,13 +337,15 @@ class TestBookProof_TwoTrimSizedPagesAtExpectedCells:
 
         So the owner sees both mirrorings on the two sheets in hand. Page 1's
         30x30 fills the usable width, so its drawing starts at the gutter
-        margin; page 2's 15x15 is narrower and is centred in a usable area
-        that begins at the *outside* margin, which Increment 13's checkpoint
-        puts at 23.875 mm from the trim edge on an even page (CARD-116).
+        margin regardless of alignment; page 2's 15x15 is narrower and
+        (CARD-204, reading (b)) is flush with the *outside* margin on this
+        even page — exactly at it, 9.525 mm from the trim edge, not centred
+        in the usable area the way Increment 13's checkpoint (23.875 mm)
+        measured under the old rule.
         """
         odd, even = (drawing_of(page) for page in pdf_pages(book1_pdf))
         assert odd.left / PX_PER_MM == pytest.approx(GUTTER_MM, abs=0.1)
-        assert even.left / PX_PER_MM == pytest.approx(23.875, abs=0.05)
+        assert even.left / PX_PER_MM == pytest.approx(OUTSIDE_MM, abs=0.05)
 
 
 # --------------------------------------------------------------------------
@@ -581,15 +583,31 @@ class TestBookProof_BandAndAnnotation:
     def test_the_note_is_ink_a_plain_book_page_does_not_carry(
         self, index: int
     ) -> None:
-        """The control: COMP-007's own page of the same payload has a blank foot."""
+        """The control: COMP-007's own page of the same payload has a blank foot.
+
+        **Except CARD-204's placeholder QR icon**, when this extent's own
+        geometry falls back to the foot slack for it (no horizontal slack on
+        either margin, as the 30x30 proof puzzle's own full-width fit does —
+        index 0). Masked out below before the check, so the control still
+        proves the *note's* own ink is new, not that COMP-007 draws nothing
+        at all down there any more.
+        """
         book = _book()
         page = proof_pages(book)[index]
         puzzle = PROOF_PUZZLES[index]
+        spec = book_page_spec(book, index + 1)
         plain, _ = render_pages(
             puzzle.payload(EXPECTED_BANDS[index]),
-            page_spec=book_page_spec(book, index + 1),
+            page_spec=spec,
         )
-        assert not _has_ink(_foot_strip(plain))
+        layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
+        icon = qr_slot(layout)
+        masked = plain.copy()
+        if icon is not None:
+            ImageDraw.Draw(masked).rectangle(
+                (icon.left, icon.top, icon.right, icon.bottom), fill=(255, 255, 255)
+            )
+        assert not _has_ink(_foot_strip(masked))
         assert _has_ink(_foot_strip(page))
 
     def test_changing_the_trim_changes_what_the_note_says(self) -> None:
@@ -962,7 +980,16 @@ def test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet() -> None:
             )
             assert (page.width - drawing.grid_right) / PX_PER_MM >= outer_mm - 0.05
 
-            widths = _rule_widths(_scan(page, "vertical"))
+            # CARD-204: on a narrow-margin, narrow-cell trim, the scan's own
+            # one-cell overrun past the last real rule (``_scan``'s own
+            # docstring: proving there is no rule squeezed in just past it)
+            # can now also reach the placeholder QR icon, when the icon's
+            # margin-slot sits close enough beside the grid — a run that is
+            # not a grid rule at all. Bounded to the known real rule count
+            # (``columns + 1``) rather than widened further, so an actual
+            # extra-rule regression this scan exists to catch would still
+            # fail it.
+            widths = _rule_widths(_scan(page, "vertical"))[: drawing.columns + 1]
             thin, heavy = min(widths), max(widths)
             assert thin >= MIN_THIN_RULE_PX, (index, position, widths)
             assert heavy == 2 * thin, (index, position, widths)
@@ -1078,12 +1105,30 @@ def _margins_px(page: Image.Image, index: int) -> tuple[int, int, int, int]:
 
 
 def _drawing_ink_box(plain: Image.Image) -> tuple[int, int, int, int]:
-    """The drawing's ink box on the plain page: its ink from the drawing's top down."""
+    """The drawing's ink box on the plain page: its ink from the drawing's top down.
+
+    Cropped horizontally to the drawing's own span (``drawing.left`` to
+    ``drawing.grid_right``, plus a hair of slack for the heavy border's own
+    overhang) rather than the full page width — CARD-204: the placeholder QR
+    icon can now sit just outside that span, on the gutter side, and a full
+    -width crop would fold its ink into "the drawing's own box", which it
+    is not (``qr_slot()``'s own box never overlaps ``[drawing_left,
+    drawing_right]``).
+    """
     drawing = drawing_of(plain)
-    below_band = plain.crop((0, drawing.top - MIN_THIN_RULE_PX, plain.width, plain.height))
+    slack = round(drawing.cell / 2) + 2
+    below_band = plain.crop(
+        (
+            max(0, drawing.left - slack),
+            drawing.top - MIN_THIN_RULE_PX,
+            min(plain.width, drawing.grid_right + slack),
+            plain.height,
+        )
+    )
     left, top, right, bottom = _ink_box(below_band)
-    offset = drawing.top - MIN_THIN_RULE_PX
-    return left, top + offset, right, bottom + offset
+    x_offset = max(0, drawing.left - slack)
+    y_offset = drawing.top - MIN_THIN_RULE_PX
+    return left + x_offset, top + y_offset, right + x_offset, bottom + y_offset
 
 
 def _assert_note_inside_margins_and_clear(
@@ -1169,12 +1214,15 @@ class TestBookProof_SquareTrimsCarryTheNote:
 
 
 class TestBookProof_LandscapeTrimsCarryTheNote:
-    """AC-2 — 8.25 x 6 and 11 x 8.5 in: the note in the outer side strip.
+    """AC-2 — 8.25 x 6 and 11 x 8.5 in: the note in the side strip.
 
-    Right of the drawing on the odd (right-hand) page, left of it on the even
-    one: the outer margin's side, never the gutter's. On 11 x 8.5 in the
-    15 x 15 page leaves 19.9 mm of foot, so its note keeps the foot placement
-    that is unchanged wherever it fits.
+    **CARD-204:** left of the drawing on the odd (right-hand) page, right of
+    it on the even one — the *gutter* margin's side, never the outer one,
+    now that the drawing is right-aligned flush with the outer margin and
+    leaves its slack on the gutter side instead (see
+    ``book_proof._fallback_spots``'s own updated docstring). On 11 x 8.5 in
+    the 15 x 15 page leaves 19.9 mm of foot, so its note keeps the foot
+    placement that is unchanged wherever it fits.
     """
 
     SIDE_PAGES = (
@@ -1201,10 +1249,14 @@ class TestBookProof_LandscapeTrimsCarryTheNote:
         )
         d_left, d_top, d_right, d_bottom = _drawing_ink_box(plain)
 
-        if index % 2 == 0:  # odd page: the outer margin is on the right
-            assert left > d_right + FALLBACK_INSET_PX, (left, d_right)
-        else:  # even page: the outer margin is on the left
+        # CARD-204: the drawing is flush with the *outer* margin on both
+        # parities, so its slack — and the note's side strip — is now on
+        # the *gutter* side instead: left on an odd (right-hand) page
+        # (gutter on the left), right on an even one (gutter on the right).
+        if index % 2 == 0:  # odd page
             assert right < d_left - FALLBACK_INSET_PX, (right, d_left)
+        else:  # even page
+            assert left > d_right + FALLBACK_INSET_PX, (left, d_right)
         assert top >= d_top, "the note rises into the band"
 
     def test_the_eleven_by_eight_and_a_half_small_page_keeps_its_foot_note(self) -> None:
@@ -1249,10 +1301,22 @@ class TestBookProof_PortraitProofsAreByteIdentical:
 
     The digests were recorded from main (b05c443) before CARD-172 changed
     ``book_proof.py``; the fixture says how.
+
+    **CARD-204 (SCOPE+):** the fixture this class reads against is now
+    ``proof_baseline_card204.json``, not ``proof_baseline_card172.json``.
+    CARD-204 reverses FR-032's centred horizontal placement to
+    right-aligned (mirrored by parity) and reserves/draws a placeholder QR
+    icon on the proof page's own drawing wherever the new geometry leaves
+    room for one — every one of this corpus's nine portrait trims moves
+    for both reasons, which is exactly "what main prints" for a main that
+    now includes this card. The superseded ``card172`` fixture stays, per
+    this project's own baseline-chain convention (``tests/helpers/book_corpus.py``'s
+    own docstring): never regenerated to make a test fail less, kept
+    beside the new one as the evidence of what changed and why.
     """
 
     BASELINE = json.loads(
-        (Path(__file__).parent / "fixtures" / "proof_baseline_card172.json").read_text(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card204.json").read_text(
             encoding="utf-8"
         )
     )
@@ -1377,9 +1441,28 @@ class TestBookProof_WrappedNoteKeepsUnitsWithNumbers:
 
     @pytest.mark.parametrize("index", [0, 1])
     def test_the_over_wide_trim_group_breaks_only_after_the_times(self, index: int) -> None:
-        """8.25 x 6 in: "209.6 × 152.4 mm" is wider than the side strip."""
-        spot, lines, font, _ = _fallback_of("20.96", "15.24", index)
-        assert font.getlength("209.6 × 152.4 mm") > spot.right - spot.left
+        """A group wider than the available width breaks only after the ×.
+
+        **CARD-204 (SCOPE+):** the fallback spot this used to read off the
+        real 8.25 x 6 in trim is now the *gutter*-side strip, not the outer
+        one (``book_proof._fallback_spots``), and it measures wide enough on
+        every real trim this corpus holds that "209.6 × 152.4 mm" no longer
+        reliably overflows it — the geometric coincidence this test leaned
+        on is simply gone, not the rule it exists to check. CARD-179's own
+        rule (break only after ×) is exercised directly against
+        :func:`~nonogram.admin.book_proof._wrapped` at a width one pixel
+        narrower than the group's own measure instead — the same boundary
+        technique ``test_a_group_exactly_as_wide_as_the_width_stays_whole``
+        already uses, just one pixel to the other side of it.
+        """
+        layout, _ = _layout_and_frame(_book1_margins("20.96", "15.24"), index)
+        font = book_proof_module._note_font(FALLBACK_FACE_PX)
+        group = "209.6 × 152.4 mm"
+        width = int(font.getlength(group)) - 1
+        lines = book_proof_module._wrapped(
+            " · ".join(annotation_lines(layout)), font, width
+        )
+        assert lines is not None
         breaks = [
             (line, following)
             for line, following in zip(lines, lines[1:])
@@ -1387,7 +1470,6 @@ class TestBookProof_WrappedNoteKeepsUnitsWithNumbers:
         ]
         assert len(breaks) == 1, lines
         assert breaks[0][1].startswith("152.4 mm"), lines
-        assert "(8.25 × 6.00 in)" in lines[lines.index(breaks[0][0]) + 2], lines
 
     def test_a_group_exactly_as_wide_as_the_width_stays_whole(self) -> None:
         """A group that measures exactly ``width`` fits: it is not broken.

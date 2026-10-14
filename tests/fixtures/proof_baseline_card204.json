@@ -1,0 +1,46 @@
+{
+  "card": "CARD-204",
+  "supersedes": "tests/fixtures/proof_baseline_card172.json",
+  "source_commit": "card/204-puzzle-right-align-qr (implementation commit)",
+  "produced_by": "proof_pages(book) on this card's own src/, for each CORPUS_TRIMS_CM trim stored as-is with the Book 1 margins stored as gutter_margin_cm='1.27', outside_margin_cm='0.95' (tests' _book_cm); digest = SHA-256 of page.tobytes() for proof pages 1 and 2. CARD-204 reverses FR-032's centred horizontal placement to right-aligned (mirrored by parity) and adds a placeholder QR icon to the proof pages' own drawing wherever the new geometry leaves room for one -- every one of these nine portrait trims moves from CARD-172's own recording for that reason.",
+  "gutter_margin_cm": "1.27",
+  "outside_margin_cm": "0.95",
+  "digests": {
+    "12.70x20.32": [
+      "886a290887608c6d3ed15e6905e5f0714d7561466320a72d42589daebc3da914",
+      "983309bf1b70b93dca10f2b2a61781e1909d2d7226f377f9def271a5d9592a00"
+    ],
+    "13.34x20.32": [
+      "b92a151587c7de060aa86619c51898fed0be44e13aaf110c69c342e94d580f71",
+      "a871297137a8fd83f8238530b99e3c5372e9d854ae374e800ad9e97834d5c933"
+    ],
+    "13.97x21.59": [
+      "4d3e9b62b86c01bc67dfd0dc1583b163c5cabb4096fce4a0fb9f9b69423a140a",
+      "4affa154075e1bb250959258797c03d40ff673fa5e8b9c965cb205ad881b0342"
+    ],
+    "15.24x22.86": [
+      "1830bcba37092bc928ca67215523d35e5e6120827e571983c3bb151ce1cabec7",
+      "225a9cf5bcdaee6310465041175d67dedd56140f87fe524439f8e2eca30dbb13"
+    ],
+    "15.60x23.39": [
+      "f18a51c5d8c7916237ed14870f524f8677a90c9f183be4f7d3b8f342776c1d96",
+      "1a6dcb3bad52096faf6a3a3694695e683ed208043bc0af461d4bc6e5476ed0b6"
+    ],
+    "17.78x25.40": [
+      "3d097a3f90e0a4e53671e57c1c98879bd713d9512a6f3ae8a88136f4342def13",
+      "b44ec57e126d84e71aaf3b0254323264859fe801352aa78f53ca7083ecc39fe6"
+    ],
+    "19.05x23.50": [
+      "a1a5ee97933b8f80d1102ea1106118442f8e52e79a2fc55e28876aa19dd63a18",
+      "e4a4ab3c1e26dae33ef114febe19dc0f05bf782a62a10765dcbf3a088ea91a49"
+    ],
+    "20.32x25.40": [
+      "ce7293b9237338ff28359dea99cd0624bbf4a961cb29748f6b420928000bc110",
+      "d04989226dad2bfd631b414b094ae56ea6469ce4064be6509b04f1054ec1cf97"
+    ],
+    "21.59x27.94": [
+      "6e3ba688bb3d32068cde4c8b8d38a0f1a810190b4ea5239110a7ec68472a07af",
+      "477c235b590a61c2ad6b4b3194006ad7208f81cd433750b24e42a5b888dfb724"
+    ]
+  }
+}

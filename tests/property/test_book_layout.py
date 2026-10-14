@@ -12,6 +12,14 @@
         -> test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
     PageSpec's invariant  test_PropertyTest_PageSpec_ExistsExactlyWhenItsUsableAreaIsPositive
 
+    CARD-204 (reading (b), right-alignment replacing FR-032's centring):
+    AC-1  PropertyTest_BookLayout_DrawingAnchorsAtTheChosenEdge
+        -> test_PropertyTest_BookLayout_DrawingAnchorsAtTheChosenEdge
+    AC-3  TestLayout_FloorOverflowDirectionUnderRightAlignment
+        -> test_TestLayout_FloorOverflowDirectionUnderRightAlignment
+    AC-4  PropertyTest_BookLayout_ParityMirroringHoldsUnderTheNewAnchor
+        -> test_PropertyTest_BookLayout_ParityMirroringHoldsUnderTheNewAnchor
+
 The PDF-level halves of EC-019 ("the PDF page is the trim size"), EC-022 and
 EC-032 are CARD-116's.
 
@@ -215,7 +223,16 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell() -> Non
 
 
 def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_floor_cases() -> None:
-    """EC-019's boundary: page fit under MIN_CELL_MM overflows, is reported, and never raises."""
+    """EC-019's boundary: page fit under MIN_CELL_MM overflows, is reported, and never raises.
+
+    CARD-204 re-derivation: under right-alignment the drawing is always
+    flush with the usable area's *outer* margin, so when the floor forces an
+    overflow the excess spills toward the *gutter* instead — left on an ODD
+    (right-hand) page (gutter on the left), right on an EVEN (left-hand) one
+    (gutter on the right). This is the opposite of the pre-CARD-204,
+    parity-blind "always overflow right" degenerate case the centred formula
+    used, which is exactly why it had to be re-derived rather than inherited
+    (see ``export/layout.py``'s own comment on this)."""
     rng = random.Random(114)
     checked = 0
     for _ in range(300):
@@ -244,8 +261,16 @@ def test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_floor_ca
         assert page is not None
         assert page.cell_mm == MIN_CELL_MM
         assert not page.fits
-        assert page.drawing_left == page.usable_left, "anchored at the usable left edge"
-        assert page.drawing_right > page.usable_right, "overflows to the right"
+        if spec.parity is PageParity.EVEN:
+            # Flush with the outer (left) margin; the floor's excess spills
+            # right, toward the gutter.
+            assert page.drawing_left == page.usable_left, "anchored at the usable left edge"
+            assert page.drawing_right > page.usable_right, "overflows toward the gutter (right)"
+        else:
+            # Flush with the outer (right) margin; the floor's excess spills
+            # left, toward the gutter.
+            assert page.drawing_right == page.usable_right, "anchored at the usable right edge"
+            assert page.drawing_left < page.usable_left, "overflows toward the gutter (left)"
         assert abs(_mm(page.drawing_top) - (spec.top_mm + spec.band_mm)) <= HALF_PIXEL_MM + 1e-9
         checked += 1
     assert checked >= 300
@@ -372,8 +397,21 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent() -> None:
 
 
 def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity() -> None:
-    """EC-032 (layout half): gutter on the binding side, drawing centred across the
-    usable width, odd-minus-even left edge == gutter - outside, top edge identical."""
+    """EC-032 (layout half): gutter on the binding side, drawing right-aligned,
+    mirrored by parity, across the usable width, odd-minus-even left edge ==
+    gutter - outside, top edge identical.
+
+    **Function name kept for trace stability (CARD-204).** This is EC-032's
+    own designated test (``requirements.yml``, ``trace.yml``), referenced by
+    exact name — renaming it is architect-station work (formalising FR-032's
+    text amendment), explicitly out of this card's scope (see its own
+    Worktree notes). The name still says "Centre" because EC-032 predates
+    CARD-204; the body below asserts what FR-032 actually requires today —
+    right-alignment, mirrored by parity — which is what EC-032's own
+    property ("mirrored margins hold, consistently, for every parity") has
+    always been about. Nothing here was silently deleted: every assertion
+    the centred rule needed has an equivalent right-aligned one below.
+    """
     rng = random.Random(32)
     checked = 0
     for _ in range(800):
@@ -393,18 +431,27 @@ def test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity() -> No
         assert abs(_mm(e.usable_left) - base.outside_mm) <= HALF_PIXEL_MM + 1e-9
         assert abs(_mm(even.width - e.usable_right) - base.gutter_mm) <= HALF_PIXEL_MM * 2 + 1e-9
 
-        for layout, page, left_margin in ((odd, o, base.gutter_mm), (even, e, base.outside_mm)):
-            # Centred on this page's usable width (both computed here in mm).
-            usable_centre_mm = left_margin + (base.width_mm - base.gutter_mm - base.outside_mm) / 2
-            drawing_centre_mm = _mm((page.drawing_left + page.drawing_right) / 2)
-            assert abs(drawing_centre_mm - usable_centre_mm) <= HALF_PIXEL_MM + 1e-9
+        # Flush with the outer margin on both parities (CARD-204, reading
+        # (b)): an ODD page's right edge sits on its own usable_right, an
+        # EVEN page's left edge sits on its own usable_left.
+        assert abs(o.drawing_right - o.usable_right) <= 1, (base, o.drawing_right, o.usable_right)
+        assert abs(e.drawing_left - e.usable_left) <= 1, (base, e.drawing_left, e.usable_left)
 
-        # Parity moves the drawing sideways by gutter - outside, and nothing else.
-        # Each page's edge is rounded to the pixel on its own, so the shift
-        # between them is within one pixel (two half-pixel roundings) of the
-        # physical gutter - outside.
-        shift_mm = _mm(o.drawing_left - e.drawing_left)
-        assert abs(shift_mm - (base.gutter_mm - base.outside_mm)) < 2 * HALF_PIXEL_MM
+        # CARD-204: "parity moves the drawing sideways by gutter - outside"
+        # was centring's own invariant and is no longer true of the drawing
+        # itself under right-alignment — flush-right (ODD) and flush-left
+        # (EVEN) anchor at *different* edges, so the drawing's left edge no
+        # longer shifts by a cell-independent constant between the two (the
+        # usable *area* still does; that is asserted above). What right
+        # alignment does keep invariant is the *gutter-side slack*: the same
+        # amount (`spare`) on both parities, just on opposite physical sides
+        # — an ODD page's is the gap left of the drawing, an EVEN page's is
+        # the gap right of it.
+        odd_gutter_slack = o.drawing_left - o.usable_left
+        even_gutter_slack = e.usable_right - e.drawing_right
+        assert abs(odd_gutter_slack - even_gutter_slack) <= 2, (
+            base, odd_gutter_slack, even_gutter_slack
+        )
         assert o.drawing_top == e.drawing_top
         assert o.drawing_bottom == e.drawing_bottom
         assert o.cell_mm == e.cell_mm
@@ -472,3 +519,132 @@ def test_PropertyTest_PageSpec_ExistsExactlyWhenItsUsableAreaIsPositive() -> Non
         assert layout.page is not None and layout.page.cell_mm >= MIN_CELL_MM
         accepted += 1
     assert accepted >= 300 and refused >= 300, (accepted, refused)
+
+
+# --------------------------------------------------------------------------
+# CARD-204 — right-alignment (reading (b)) replaces FR-032's centring
+# --------------------------------------------------------------------------
+
+
+def test_PropertyTest_BookLayout_DrawingAnchorsAtTheChosenEdge() -> None:
+    """AC-1: for any stored trim/margins and any real puzzle, the drawing is
+    flush with the usable area's *outer* margin — the far side from the
+    gutter — never at the midpoint a centred rule would have used.
+
+    Reading (b): flush right (``drawing_right == usable_right``) on an odd
+    (right-hand) page, flush left (``drawing_left == usable_left``) on an
+    even (left-hand) one. Exact to within rounding (the exact, Fraction-typed
+    anchor rounds to the same pixel as the usable edge's own rounding) — not
+    a tolerance wide enough to also pass under the old centred formula.
+    """
+    rng = random.Random(2204001)
+    checked = 0
+    for _ in range(1200):
+        spec = _random_spec(rng, cap=rng.choice([STANDARD_CELL_MM, round(rng.uniform(3.0, 10.0), 2)]))
+        rows, columns = _puzzle(rng)
+        fit, _ = _expected_cell_mm(spec, rows, columns)
+        if fit < MIN_CELL_MM:
+            continue  # the floor-overflow case is AC-3's own, not this one's
+        layout = compute_layout(rows, columns, spec)
+        page = layout.page
+        assert page is not None
+
+        if page.parity is PageParity.ODD:
+            assert abs(page.drawing_right - page.usable_right) <= 1, (
+                spec, page.drawing_right, page.usable_right
+            )
+        else:
+            assert abs(page.drawing_left - page.usable_left) <= 1, (
+                spec, page.drawing_left, page.usable_left
+            )
+        checked += 1
+    assert checked >= 600, checked
+
+
+def test_TestLayout_FloorOverflowDirectionUnderRightAlignment() -> None:
+    """AC-3: when the MIN_CELL_MM floor makes the drawing wider than the
+    usable area, the floor-overflow direction is the one re-derived for
+    right-alignment — toward the *gutter* margin, on both parities — not an
+    accidental inheritance of the old centred formula's "always overflow
+    right" degenerate case.
+
+    A focused restatement of
+    ``test_PropertyTest_BookLayout_DrawingFitsUsableAreaUnderStandardCell_floor_cases``'s
+    own corpus, under this AC's own name so it is independently traceable.
+    """
+    rng = random.Random(2204003)
+    checked = 0
+    for _ in range(300):
+        rows, columns = _puzzle(rng)
+        across = _depth(rows) + len(columns)
+        usable_width = round(rng.uniform(0.2, 1.95) * across, 3)
+        spec = PageSpec(
+            width_mm=round(usable_width + 20.0, 3),
+            height_mm=600.0,
+            top_mm=10.0,
+            bottom_mm=10.0,
+            gutter_mm=12.0,
+            outside_mm=8.0,
+            band_mm=12.0,
+            orientation=OrientationPolicy.PORTRAIT_ONLY,
+            cell_cap=STANDARD_CELL_MM,
+            min_thin_rule_mm=BOOK_MIN_THIN_RULE_MM,
+            parity=rng.choice([PageParity.ODD, PageParity.EVEN]),
+        )
+        fit, _ = _expected_cell_mm(spec, rows, columns)
+        assert fit < MIN_CELL_MM
+
+        layout = compute_layout(rows, columns, spec)
+        page = layout.page
+        assert page is not None
+        assert not page.fits
+
+        if page.parity is PageParity.EVEN:
+            # Flush with the outer (left) margin; overflow spills right,
+            # toward the gutter.
+            assert page.drawing_left == page.usable_left
+            assert page.drawing_right > page.usable_right
+        else:
+            # Flush with the outer (right) margin; overflow spills left,
+            # toward the gutter.
+            assert page.drawing_right == page.usable_right
+            assert page.drawing_left < page.usable_left
+        checked += 1
+    assert checked >= 300
+
+
+def test_PropertyTest_BookLayout_ParityMirroringHoldsUnderTheNewAnchor() -> None:
+    """AC-4: for a puzzle laid out at both parities, the gutter margin is on
+    the binding side on each, and the drawing's position relative to the
+    gutter/outer margin follows the owner's confirmed reading (b)
+    consistently — not by accident of which margin happened to be wider.
+
+    A focused restatement of
+    ``test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity``'s
+    own flush-edge assertions, under this AC's own name.
+    """
+    rng = random.Random(2204004)
+    checked = 0
+    for _ in range(600):
+        base = _random_spec(rng, cap=rng.choice([STANDARD_CELL_MM, round(rng.uniform(3.0, 10.0), 2)]))
+        rows, columns = _puzzle(rng)
+        fit, _ = _expected_cell_mm(base, rows, columns)
+        if fit < MIN_CELL_MM:
+            continue
+        odd = compute_layout(rows, columns, dataclasses.replace(base, parity=PageParity.ODD))
+        even = compute_layout(rows, columns, dataclasses.replace(base, parity=PageParity.EVEN))
+        o, e = odd.page, even.page
+        assert o is not None and e is not None
+
+        # Gutter on the binding side, consistently.
+        assert abs(_mm(o.usable_left) - base.gutter_mm) <= HALF_PIXEL_MM + 1e-9
+        assert abs(_mm(e.usable_left) - base.outside_mm) <= HALF_PIXEL_MM + 1e-9
+
+        # Flush with the outer margin on both parities (reading (b)).
+        assert abs(o.drawing_right - o.usable_right) <= 1
+        assert abs(e.drawing_left - e.usable_left) <= 1
+
+        # Never by accident of which margin was wider: true whichever of
+        # gutter_mm/outside_mm this random spec made larger.
+        checked += 1
+    assert checked >= 400, checked

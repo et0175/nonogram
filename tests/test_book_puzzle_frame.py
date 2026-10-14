@@ -83,7 +83,11 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, _stroke_drawing
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    _folio_reserve_px,
+    _stroke_drawing,
+)
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     DEFAULT_PAGE_SPEC,
@@ -94,6 +98,7 @@ from nonogram.export.layout import (
     PageSpec,
     compute_layout,
     compute_pair_layout,
+    qr_slot,
 )
 from nonogram.export.png import BACKGROUND, render_image
 from tests.helpers.page_ink import drawing_of
@@ -120,6 +125,13 @@ MIN_THIN_RULE_MM = 0.25
 
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = DPI / 25.4
+
+#: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres —
+#: ``_folio_reserve_px`` is a font-measurement helper (not FR-040's own
+#: geometry), so it is imported directly rather than reimplemented a third
+#: time; the pairing/placement arithmetic that uses it below is this
+#: module's own independent check.
+RESERVE_MM = _folio_reserve_px(DPI) / PX_PER_MM
 
 #: How far a measured edge may sit from the millimetres worked out here. Every
 #: boundary is rounded to a whole device pixel once, and the drawing's left
@@ -221,18 +233,20 @@ def _expected_box(
 ) -> tuple[float, float, float, float]:
     """``(left, top, right, bottom)`` of the drawing, in device pixels.
 
-    Worked out from the sheet in millimetres: the drawing is centred across the
-    usable width (FR-032) and its top edge is the top margin plus the band, on
-    every page and parity. That rectangle **is** the frame: its left and top
-    are the outer edges of the two clue gutters, its right and bottom the
-    grid's own outer border.
+    Worked out from the sheet in millimetres: the drawing is right-aligned,
+    mirrored by parity (CARD-204, FR-032 reading (b)) — flush with the
+    *outer* margin on both parities — and its top edge is the top margin
+    plus the band, on every page and parity. That rectangle **is** the
+    frame: its left and top are the outer edges of the two clue gutters, its
+    right and bottom the grid's own outer border.
     """
     drawing_columns = row_depth + columns
     drawing_rows = column_depth + rows
     cell = _expected_cell_mm(spec, drawing_columns, drawing_rows)
     usable_width = spec.width_mm - spec.gutter_mm - spec.outside_mm
     left_margin = spec.outside_mm if spec.parity is PageParity.EVEN else spec.gutter_mm
-    left = left_margin + (usable_width - drawing_columns * cell) / 2
+    spare = usable_width - drawing_columns * cell
+    left = left_margin if spec.parity is PageParity.EVEN else left_margin + spare
     top = spec.top_mm + spec.band_mm
     return (
         left * PX_PER_MM,
@@ -526,6 +540,13 @@ class TestPuzzleFrame_UsesTheHeavyRuleOnly:
         layout = compute_layout(*_clue_sets(**self.CASE), spec)
         frame = layout.frame
         dark = _dark(page)
+        # CARD-204: mask out the placeholder QR icon before probing — on
+        # this extent it falls back to the slack below the drawing, on the
+        # gutter side, which this test's own probe column (just inside the
+        # frame's left side) can sit directly above.
+        icon = qr_slot(layout)
+        if icon is not None:
+            dark[icon.top - 2 : icon.bottom + 2, icon.left - 2 : icon.right + 2] = False
 
         # A row inside the column-clue band, clear of the frame's own top side:
         # the ink groups there are the frame's left side, the grid's verticals
@@ -759,16 +780,34 @@ def _down(puzzle: dict) -> int:
 
 
 def _shared_cell_mm(upper: dict, lower: dict) -> float:
-    """FR-040's shared cell for one pair on one Book 1 page, in millimetres."""
-    return min(
+    """FR-040's shared cell for one pair on one Book 1 page, in millimetres.
+
+    **CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
+    reserve").** Re-derives ``compute_pair_layout``'s own "only widen the
+    fit when the lower slot's own natural spare can't already hold the
+    fixed reserve" rule independently, in millimetres.
+    """
+    natural = min(
         STANDARD_CELL_MM,
         USABLE_WIDTH_MM / max(_across(upper), _across(lower)),
+        PAIR_HEIGHT_MM / (_down(upper) + _down(lower)),
+    )
+    natural_spare_mm = USABLE_WIDTH_MM - _across(lower) * natural
+    if natural_spare_mm >= RESERVE_MM:
+        return natural
+    return min(
+        STANDARD_CELL_MM,
+        (USABLE_WIDTH_MM - RESERVE_MM) / max(_across(upper), _across(lower)),
         PAIR_HEIGHT_MM / (_down(upper) + _down(lower)),
     )
 
 
 def _expected_pair_boxes(
-    upper: dict, lower: dict, parity: PageParity = PageParity.ODD
+    upper: dict,
+    lower: dict,
+    parity: PageParity = PageParity.ODD,
+    *,
+    page_number: int = TWO_UP_PAGE,
 ) -> tuple[tuple[float, float, float, float], tuple[float, float, float, float]]:
     """Where the two drawings sit on a two-up page: ``(left, top, right, bottom)``.
 
@@ -781,20 +820,41 @@ def _expected_pair_boxes(
     a boundary rounded to a whole pixel first is a boundary that has already
     moved up to half a pixel in the direction the answer is about.
 
-    Each drawing is centred across the usable width on the **shared** cell; the
-    upper one's top edge is the fixed row every single puzzle page uses (top
-    margin plus band, FR-032/EC-022) and the lower one's bottom edge is the
-    bottom margin, its own band in the 12 mm above it — which is the placement
-    ``tests/test_book_pdf_two_up.py`` states AC-251's lower band from.
+    Each drawing is right-aligned, mirrored by parity (CARD-204, FR-032
+    reading (b)) — flush with the outer margin — across the usable width on
+    the **shared** cell; the upper one's top edge is the fixed row every
+    single puzzle page uses (top margin plus band, FR-032/EC-022) and the
+    lower one's bottom edge is the bottom margin, its own band in the 12 mm
+    above it — which is the placement ``tests/test_book_pdf_two_up.py``
+    states AC-251's lower band from.
 
     That rectangle **is** the frame: its left and top are the outer edges of
     the two clue gutters and its right and bottom the grid's own outer border.
+
+    **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a fixed
+    constant by Fix 4 — owner decision, 2026-10-12, "fixed universal
+    reserve").** Fix 1/Fix 2 pulled the lower box alone back toward the
+    gutter by a page/book-specific folio reserve (INV-010, cycle-1 F-1,
+    cycle-2 F-5). Fix 3 removed the reserve mechanism entirely. Fix 4
+    restores it as a *fixed* amount (:data:`RESERVE_MM`, never derived from
+    ``page_number`` or any book content) — this helper still does not take
+    or need a ``page_number`` (the reserve does not vary with one), kept
+    only so every call site below (which still names a page number for its
+    own documentation value) does not need editing.
     """
     cell = _shared_cell_mm(upper, lower)
     left_margin = OUTSIDE_MM if parity is PageParity.EVEN else GUTTER_MM
 
-    def box(puzzle: dict, top_mm: float) -> tuple[float, float, float, float]:
-        left_mm = left_margin + (USABLE_WIDTH_MM - _across(puzzle) * cell) / 2
+    def box(
+        puzzle: dict, top_mm: float, *, is_lower: bool = False
+    ) -> tuple[float, float, float, float]:
+        spare_mm = USABLE_WIDTH_MM - _across(puzzle) * cell
+        reserved_mm = min(RESERVE_MM, max(spare_mm, 0)) if is_lower else 0.0
+        left_mm = (
+            left_margin + reserved_mm
+            if parity is PageParity.EVEN
+            else left_margin + spare_mm - reserved_mm
+        )
         return (
             left_mm * PX_PER_MM,
             top_mm * PX_PER_MM,
@@ -804,7 +864,7 @@ def _expected_pair_boxes(
 
     return (
         box(upper, TOP_MM + BAND_MM),
-        box(lower, BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell),
+        box(lower, BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell, is_lower=True),
     )
 
 

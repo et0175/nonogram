@@ -207,8 +207,159 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   **thirteen** pages; only ink on the three answer pages moved, not the
 #:   page count.
 #:
-#: All twelve files carry the reasoning; this constant names the current one.
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card203.json"
+#: * ``book_baseline_card204.json`` — CARD-204 reverses FR-032's centred
+#:   horizontal placement to right-aligned, mirrored by parity (owner
+#:   reading (b)), and reserves/draws a 2x2cm placeholder QR icon on
+#:   puzzle pages wherever the new geometry leaves room for one. Measured
+#:   directly (git-stash diff of the renderer, and a page-by-page digest
+#:   comparison against CARD-200's recording): pages 5, 7 and 9 (the
+#:   two-up page and the book's two single-puzzle pages) move, for both
+#:   reasons. Pages 11 and 12 (CARD-202's packed answer pages) do not: a
+#:   tile-local centring formula FR-032's page-wide clause never covered.
+#:   Page 13 (Snowflake's full answer page) does not move either, but as a
+#:   coincidence of this one puzzle's own page-fit-bound geometry (its own
+#:   spare is exactly 0, where the old and new formulas agree) rather than
+#:   a structural exemption. Pages 1 and 2 (the guide) move too, by a
+#:   small, documented, incidental sub-pixel rounding scatter: their own
+#:   worked-example diagrams reuse ``compute_layout``'s placed-page branch
+#:   for cell/rule consistency (ADR-0036/R2), and that branch's
+#:   per-boundary rounding depends on the absolute anchor's own fractional
+#:   part, which this card's formula changes even though the diagrams
+#:   themselves are cropped and pasted at a fixed, card-independent
+#:   position — flagged for the owner/architect in CARD-204's own Worktree
+#:   notes, not treated as this card's to eliminate (G-3 forbids these
+#:   helpers their own placement arithmetic). See
+#:   ``tests/test_book_pdf_memory.py``'s
+#:   ``TestBookPdfMemory_NonDrawingPagesAreByteIdentical`` for the test
+#:   that verifies all of this directly.
+#:
+#: * ``book_baseline_card204.json`` (**re-recorded in place for CARD-204
+#:   Fix 1**, same filename — a revision of this card's own fixture, not a
+#:   new card superseding it): the owner's "reserve folio room" decision.
+#:   Reading (b)'s flush formula pinned the two-up page's lower slot's
+#:   drawing exactly to the usable area's outer margin, with zero slack —
+#:   combined with that slot's own always-zero vertical slack, CARD-200's
+#:   page-number folio was permanently omitted from every two-up page, both
+#:   parities (see CARD-204's own Worktree notes, "Implementation,
+#:   2026-10-10", exception 2). Fix 1 has ``book_pdf_generator.puzzle_pages``
+#:   pass ``compute_pair_layout`` this exact page's own folio text width
+#:   (``_folio_reserve_px``), which pulls the lower slot's drawing back from
+#:   the flush edge by that many pixels (``export/layout.py``'s
+#:   ``_slot_layout``) — just enough, and no more, for the folio's own
+#:   horizontal-clearance check to pass. Measured directly (page-by-page
+#:   digest comparison against this same file's own pre-Fix-1 recording):
+#:   only interior page 5 (the two-up page) moves — its lower slot's
+#:   drawing/QR-icon geometry shifts by the reserve and its folio now prints
+#:   "5" instead of being omitted. No other page moves: pages 7 and 9
+#:   (single-puzzle pages) are placed by ``compute_layout``, which this fix
+#:   does not touch at all, and pages 11-13 (answer pages) never call
+#:   ``compute_pair_layout``. ``interior_bytes`` moves from 3439483 to
+#:   3439779 (+296 bytes — the new folio glyph's own ink). ``font_fingerprint``
+#:   and ``font_dependent_pages`` are unchanged (Fix 1 touches no
+#:   machine-lettered page).
+#:
+#: * ``book_baseline_card204.json`` (**re-recorded in place again for
+#:   CARD-204 Fix 2**, same filename): the cycle-1 review's F-1 finding —
+#:   Fix 1's ``folio_reserve_px`` was *this exact page's own* measured folio
+#:   width, which made ``compute_pair_layout``'s accept/refuse verdict and
+#:   shared cell depend on the page number's own digit count, not on the two
+#:   puzzles' geometry (INV-010). Fix 2 has ``puzzle_pages``/
+#:   ``puzzle_section`` derive **one** reserve for the whole book (or the
+#:   whole standalone call), sized for the worst-case digit count that book
+#:   could ever need, and pass the same value to every two-up page — so the
+#:   reserve can no longer tell two pages of the same book apart. On this
+#:   four-puzzle baseline book that worst case is a 2-digit page number
+#:   (``max_page_number`` bound 10), one digit wider than Fix 1's own
+#:   page-5-specific 1-digit measurement, so only interior page 5 moves
+#:   again: its lower slot's reserved gap widens from 27 px to 54 px, with
+#:   the pair's own 7.5 mm shared cell unchanged (height, not width, is this
+#:   pair's own binding constraint — confirmed unaffected, not merely
+#:   assumed). ``interior_bytes`` moves from 3439779 to 3440674 (+895 bytes
+#:   — the wider reserve shifts the lower slot's own drawing/QR-icon ink,
+#:   nothing added or removed). ``font_fingerprint`` and
+#:   ``font_dependent_pages`` are unchanged (Fix 2 touches no
+#:   machine-lettered page either).
+#:
+#: * ``book_baseline_card204.json`` (**re-recorded in place a third time for
+#:   CARD-204 Fix 3**, same filename): the cycle-2 review's F-5 finding —
+#:   Fix 2 narrowed Fix 1's bug from per-page to per-book-scale, but did not
+#:   remove it: the same pair of puzzles still paired or refused differently
+#:   depending on the book's own total page-number digit count, still a
+#:   non-geometric quantity flipping INV-010's verdict (``meta/architecture/
+#:   domain/aggregates.yml``'s own statement is geometry-only). Fix 3 removes
+#:   the ``folio_reserve_px``/``outer_reserve_px`` mechanism from
+#:   ``compute_pair_layout``/``_slot_layout`` entirely: the pairing/cell-size
+#:   decision is geometry-only again, and the folio is decided afterward,
+#:   cosmetically, from whatever natural slack the committed geometry leaves
+#:   (``_draw_folio``'s own pre-existing "omit rather than collide" check,
+#:   unchanged). Measured directly (page-by-page digest comparison against
+#:   Fix 2's own recording): only interior page 5 (the two-up page) moves,
+#:   back to its pre-Fix-1 ink — the lower slot's drawing/QR-icon geometry
+#:   returns to the plain flush position and its folio is omitted again
+#:   (this baseline pair's own natural spare at that corner is zero).
+#:   ``interior_bytes`` moves from 3440674 back to 3439483 (-1191 bytes, the
+#:   folio glyph's own ink removed). ``font_fingerprint`` and
+#:   ``font_dependent_pages`` are unchanged (Fix 3 touches no machine-lettered
+#:   page either).
+#:
+#: * ``book_baseline_card204.json`` (**re-recorded in place a fourth time for
+#:   CARD-204 Fix 4**, same filename): the owner's decision, 2026-10-12,
+#:   "fixed universal reserve" — Fix 3's own INV-010-pure removal of the
+#:   reserve mechanism (correct in isolation) silently reintroduced the
+#:   folio loss on *every* two-up page, not just a tight-fit one (cycle-3
+#:   review F-7), which is the exact regression this card's owner-confirmed
+#:   "reserve folio room" decision existed to prevent. Fix 4 restores
+#:   ``folio_reserve_px``/``outer_reserve_px`` to ``compute_pair_layout``/
+#:   ``_slot_layout``, but every production call now feeds it a single
+#:   FIXED value (``book_pdf_generator._folio_reserve_px(dpi)`` — a function
+#:   of the font and the DPI alone, computed once from the widest digit
+#:   this font draws times a 4-digit ceiling, 108 px at 300 DPI — never a
+#:   page number or any book content), so the pairing/cell-size verdict
+#:   stays "this pair's own geometry plus one constant," structurally
+#:   incapable of the cycle-1/cycle-2 coupling. On this baseline book's own
+#:   Duck+Owl pair, the committed 7.5 mm shared cell is unchanged (height,
+#:   not width, is this pair's own binding constraint, confirmed not
+#:   assumed) — only the lower slot's drawing/QR-icon geometry shifts
+#:   108 px toward the gutter, buying back enough room for CARD-200's
+#:   folio to draw again. Measured directly (page-by-page digest
+#:   comparison against Fix 3's own recording): only interior page 5 (the
+#:   two-up page) moves. ``interior_bytes`` moves from 3439483 to 3440084
+#:   (+601 bytes — the folio glyph's own ink, drawn again). ``font_fingerprint``
+#:   and ``font_dependent_pages`` are unchanged (Fix 4 touches no
+#:   machine-lettered page either).
+#:
+#: * ``book_baseline_card204.json`` (**re-recorded in place a fifth time for
+#:   CARD-204 Fix 7**, same filename): the merge gate, and the one recording
+#:   in this card's own chain whose cause is **not this card**. CARD-203 (the
+#:   bullet above this card's own first one) merged to main *after* this
+#:   branch was cut, so every earlier CARD-204 recording was taken on a tree
+#:   without it. On the merged tree its caption move lands on this book's
+#:   three caption-drawing pages: interior pages 11, 12 (CARD-202's packed
+#:   answer pages) and 13 (Snowflake's full one) move, and move to exactly
+#:   the pixels ``book_baseline_card203.json`` already recorded for them —
+#:   asserted, not assumed, by ``tests/test_book_pdf_memory.py``'s
+#:   ``TestBookPdfMemory_NonDrawingPagesAreByteIdentical``, which compares
+#:   those three against CARD-203's fixture and the other ten against
+#:   CARD-200's. Pages 1-10 are byte-identical to Fix 4's recording.
+#:   ``interior_bytes`` moves from 3440084 to 3441912 (+1828 bytes — the
+#:   identical delta CARD-203's own recording added over CARD-200's on this
+#:   same book, 3420073 -> 3421901, measured on main without any of this
+#:   card's changes). **Fix 7's own production change moves no page of this
+#:   book**: ``export/layout.py``'s new ``caption_slot`` clamps a caption's
+#:   right-aligned anchor off the trim margin, and fires only for a caption
+#:   wider than its own grid, which none of this book's four (321-459 px
+#:   against drawings of 1328 px and up) is — its evidence is
+#:   ``tests/test_book_solved_page.py``'s
+#:   ``TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin``,
+#:   which prints the over-wide caption this corpus does not contain.
+#:   ``font_fingerprint`` and ``font_dependent_pages`` are unchanged (no
+#:   answer page is machine-lettered).
+#:
+#: All fourteen files carry the reasoning; this constant names the current one
+#: (fourteen since main's CARD-203 joined the chain between this card's own
+#: Fix 4 and Fix 7 recordings; the two stale counts this line used to carry,
+#: "thirteen" and "twelve", were both left behind by earlier cards).
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card204.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until

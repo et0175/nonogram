@@ -77,6 +77,7 @@ import pytest
 from PIL import Image, ImageDraw, ImageFont
 
 from nonogram import clues
+from nonogram.admin.book_answer_key import answer_caption
 from nonogram.admin.book_pdf_generator import (
     ANSWER_TEXT_FONT_MM,
     POINTS_PER_INCH,
@@ -513,11 +514,15 @@ class TestBookSolvedPage_CaptionReadsThePictureName:
 
         # That ink sits horizontally inside the usable area — never in the
         # trim margin outside it (a pixel or two of antialiasing bleed past
-        # the drawing's own edges is not "inside the trim margin").
+        # the drawing's own edges is not "inside the trim margin" — CARD-204
+        # makes this bleed actually reachable on this shape: the drawing is
+        # now flush with this left-hand page's outer margin, with no slack
+        # of its own on that side, where centring always left some).
         dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
+        bleed = 2
         assert dark_columns.size > 0
-        assert dark_columns.min() >= placement.usable_left
-        assert dark_columns.max() <= placement.usable_right
+        assert dark_columns.min() >= placement.usable_left - bleed
+        assert dark_columns.max() <= placement.usable_right + bleed
 
 
 # --------------------------------------------------------------------------
@@ -705,7 +710,40 @@ class TestBookSolvedPage_CaptionMovedCloserToTheDrawing:
     def test_the_caption_is_still_strictly_inside_the_usable_area(self):
         """AC-3 — re-verifies the existing AC-5 invariant at the new
         position (same check as
-        TestBookSolvedPage_CaptionReadsThePictureName.test_the_caption_is_drawn_inside_the_usable_area_only)."""
+        TestBookSolvedPage_CaptionReadsThePictureName.test_the_caption_is_drawn_inside_the_usable_area_only).
+
+        **CARD-204 Fix 7 (merge gate) — two bands, not one.** This test used
+        to scan the whole slack band for ink and require every dark column of
+        it to be inside ``[usable_left, usable_right]``. On the merged tree it
+        failed at column 111 against ``usable_left`` 113 — and the ink at 111
+        is **not the caption's**: it is the *drawing's own* bottom border
+        rule, which ``_stroke_drawing`` strokes centred on the grid's
+        boundary and which therefore overhangs the drawing's own edges by
+        about half a rule (measured: 2 px, and only on the band's first
+        rows; the caption's own ink on this shape runs from column 986 to
+        1438, well inside — 873 px clear of ``usable_left``; re-measured
+        under CARD-204 Fix 8, review cycle 5's F-3, which found the figure
+        first written here was wrong). While CARD-203's caption sat under a
+        *centred* drawing that overhang had the page's own horizontal spare
+        to spend;
+        under CARD-204 the drawing is flush with an even page's outer margin,
+        so it reaches 2 px past it — which is exactly the bleed AC-5's own
+        twin test above already documents and tolerates (``bleed = 2``), and
+        a property of the drawing's border rather than of the caption this
+        class is about.
+
+        So the band is split rather than given a blanket tolerance: the rows
+        the drawing's own border reaches into keep AC-5's documented 2 px
+        bleed, and the caption's own rows — everything below that overhang,
+        which is where ``_draw_solved_slot`` puts the caption and
+        ``_draw_folio`` the folio — keep the strict claim with no tolerance
+        at all. Narrowing the row band is the same trick this class's own
+        ``test_the_captions_ink_sits_near_the_gap_not_centred_in_the_slack``
+        already uses (``overhang = 5``) for the same reason. What the caption
+        does when it is *itself* too wide for the margin is a separate
+        question, pinned on both parities by
+        ``TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin``.
+        """
         arr, layout, _ = self._render()
         placement = layout.page
 
@@ -715,8 +753,19 @@ class TestBookSolvedPage_CaptionMovedCloserToTheDrawing:
         slack = arr[placement.drawing_bottom : placement.usable_bottom, :]
         assert not np.array_equal(slack, np.full_like(slack, BACKGROUND[0]))
 
-        dark_columns = np.flatnonzero((slack < 128).any(axis=(0, 2)))
-        assert dark_columns.size > 0
+        # The drawing's own border rows: AC-5's documented bleed, no more.
+        overhang = 5
+        bleed = 2
+        border = arr[placement.drawing_bottom : placement.drawing_bottom + overhang, :]
+        border_columns = np.flatnonzero((border < 128).any(axis=(0, 2)))
+        assert border_columns.size > 0, "expected the drawing's own bottom rule here"
+        assert border_columns.min() >= placement.usable_left - bleed
+        assert border_columns.max() <= placement.usable_right + bleed
+
+        # The caption's own rows (and the folio's): strictly inside, no bleed.
+        below = arr[placement.drawing_bottom + overhang : placement.usable_bottom, :]
+        dark_columns = np.flatnonzero((below < 128).any(axis=(0, 2)))
+        assert dark_columns.size > 0, "expected the caption's ink below the border"
         assert dark_columns.min() >= placement.usable_left
         assert dark_columns.max() <= placement.usable_right
 
@@ -758,6 +807,234 @@ class TestBookSolvedPage_CaptionMovedCloserToTheDrawing:
             "the caption should sit well above where the old centred-in-the-"
             "slack formula would have put it on this much-slack shape, on "
             "a right-hand page too"
+        )
+
+
+# --------------------------------------------------------------------------
+# CARD-204 Fix 7 (merge gate) — CARD-203's right-aligned caption meets
+# CARD-204's flush drawing
+# --------------------------------------------------------------------------
+
+
+class TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin:
+    """CARD-204 Fix 7 — no caption ink leaves ``[usable_left, usable_right]``,
+    on either parity, for any caption the book can produce.
+
+    **The defect.** CARD-203 right-aligns the caption at
+    ``placement.drawing_right``; a caption *wider than its own grid* therefore
+    extends left past ``placement.drawing_left``. A caption is as wide as the
+    picture's name, which nothing bounds (``books.puzzle_titles`` is free
+    text from the Arrangement step), while a grid is as wide as the puzzle —
+    so the two are not ordered. While the drawing was centred, that overhang
+    spent the page's own horizontal spare and stayed inside the usable area;
+    under CARD-204 an EVEN page's drawing is flush with the outer margin
+    (``drawing_left == usable_left``), so the overhang crosses it. Measured
+    before the fix on this shape: the caption's leftmost ink at column **0**
+    against ``usable_left`` 113 — 9.6 mm of a reader-facing name printed into
+    the trim margin and running off the page, on both the left-hand page
+    (``_OVER_GRID_TITLE``) and, for a caption wider than the whole usable
+    area, the right-hand one too (``_OVER_PAGE_TITLE``).
+
+    **The fix** is :func:`~nonogram.export.layout.caption_slot`: the
+    caption's right edge is pushed right by exactly the overhang and no more,
+    so right-alignment holds wherever it fits (every caption this corpus
+    prints — a corpus caption measures 460 px against a 1328 px grid) and the
+    usable area's left edge is the hard stop where it does not. A caption too
+    wide for the usable area at *any* x is clipped to an ellipsis first
+    (``_clipped_to``, the TOC's own loop): its type cannot shrink to fit
+    instead, because ``ANSWER_TEXT_FONT_MM`` already *is* CON-020's 10 pt
+    floor.
+
+    Both regimes, both parities, and the premises are asserted rather than
+    assumed — a title that stopped being wider than its grid would make every
+    assertion below vacuous.
+    """
+
+    #: A picture name whose caption is wider than its own 10x10 grid
+    #: (measured: 1705 px against a 1328 px drawing) but still narrower than
+    #: Book 1's own usable width (2287 px) — the regime the clamp alone
+    #: answers, with the caption's text untouched.
+    _OVER_GRID_TITLE = "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter"
+
+    #: A name whose caption is wider than the whole usable area (measured:
+    #: 3032 px against 2287/2288 px) — the regime no x can answer, where the
+    #: text itself must be clipped.
+    _OVER_PAGE_TITLE = (
+        "A Snowflake Over The Frozen Pine Woods At Midnight In Deep Winter "
+        "While The Owls Keep Watch From The Tallest Branches Above"
+    )
+
+    _PUZZLE_NUMBER = 3
+
+    @classmethod
+    def _render(cls, page_number: int, title: str):
+        grid = _checkerboard(*_CAP_BOUND_SHAPE)
+        payload = _payload(grid, difficulty="Easy")
+        generator = BookPDFGenerator()
+        page = generator.solved_puzzle_page(
+            payload, cls._PUZZLE_NUMBER, page_number, title=title
+        )
+        layout = compute_layout(
+            payload.row_clues, payload.column_clues, generator.page_spec(page_number)
+        )
+        return _array(page), layout, generator
+
+    @classmethod
+    def _caption_ink_columns(cls, arr, placement, generator):
+        """The dark columns of the caption's **own** row band.
+
+        Narrowed to the one line the caption occupies — the fixed gap below
+        the drawing, one line tall — so neither the drawing's own border rule
+        (which overhangs ``drawing_bottom`` by ~2 px: see
+        ``TestBookSolvedPage_CaptionMovedCloserToTheDrawing``'s own AC-3 test)
+        nor the folio further down near ``usable_bottom`` can be mistaken for
+        the caption's ink.
+        """
+        gap_px, line_height = _caption_geometry(generator)
+        top = placement.drawing_bottom + gap_px
+        band = arr[top : top + line_height, :]
+        return np.flatnonzero((band < 128).any(axis=(0, 2)))
+
+    @classmethod
+    def _caption_width(cls, generator, title) -> float:
+        """What the caption measures in the face ``_draw_solved_slot`` letters
+        it in — derived here from the same three constants that method reads,
+        never asked of the production code."""
+        font = _band_font(type_px(ANSWER_TEXT_FONT_MM * POINTS_PER_INCH / 25.4, generator.dpi))
+        return font.getlength(answer_caption(cls._PUZZLE_NUMBER, title))
+
+    @pytest.mark.parametrize("page_number", [2, _RIGHT_HAND_PAGE_NUMBER])
+    def test_the_two_titles_really_are_too_wide_for_this_shape(self, page_number):
+        """The premise, on both parities: one caption wider than its own
+        grid, the other wider than the whole usable area."""
+        _, layout, generator = self._render(page_number, self._OVER_GRID_TITLE)
+        placement = layout.page
+        drawing_width = placement.drawing_right - placement.drawing_left
+        usable_width = placement.usable_right - placement.usable_left
+
+        over_grid = self._caption_width(generator, self._OVER_GRID_TITLE)
+        over_page = self._caption_width(generator, self._OVER_PAGE_TITLE)
+        assert drawing_width < over_grid < usable_width, (
+            "_OVER_GRID_TITLE must exercise the clamp and not the clip"
+        )
+        assert over_page > usable_width, "_OVER_PAGE_TITLE must exercise the clip"
+
+    @pytest.mark.parametrize("page_number", [2, _RIGHT_HAND_PAGE_NUMBER])
+    @pytest.mark.parametrize("title_name", ["_OVER_GRID_TITLE", "_OVER_PAGE_TITLE"])
+    def test_no_caption_ink_leaves_the_usable_area(self, page_number, title_name):
+        title = getattr(self, title_name)
+        arr, layout, generator = self._render(page_number, title)
+        placement = layout.page
+        columns = self._caption_ink_columns(arr, placement, generator)
+
+        assert columns.size > 0, "expected the caption's own ink in its own band"
+        assert columns.min() >= placement.usable_left, (
+            f"the caption's leftmost ink is {placement.usable_left - columns.min()} px "
+            f"outside the usable area on a {placement.parity} page"
+        )
+        assert columns.max() <= placement.usable_right
+
+    @pytest.mark.parametrize(
+        "page_number, title_name",
+        [
+            # An EVEN page's drawing is flush with the LEFT (outer) margin,
+            # so a caption merely wider than its grid already reaches it.
+            (2, "_OVER_GRID_TITLE"),
+            (2, "_OVER_PAGE_TITLE"),
+            # An ODD page's drawing is flush RIGHT and has the whole gutter
+            # side to overhang into, so only a caption as wide as the usable
+            # area itself reaches that page's left margin.
+            (_RIGHT_HAND_PAGE_NUMBER, "_OVER_PAGE_TITLE"),
+        ],
+    )
+    def test_the_clamp_moves_the_caption_by_the_overhang_and_no_more(
+        self, page_number, title_name
+    ):
+        """Not "shove it anywhere inside": the caption keeps as much of
+        CARD-203's right-alignment as the margin allows, so an over-wide
+        caption's left edge lands *on* ``usable_left``, not past it and not
+        well inside it either."""
+        arr, layout, generator = self._render(page_number, getattr(self, title_name))
+        placement = layout.page
+        columns = self._caption_ink_columns(arr, placement, generator)
+        # A glyph's own leftmost ink sits a few px inside its advance box
+        # (side bearing), so the left edge is "at usable_left" within the
+        # same handful of pixels the right-alignment tests above allow at
+        # the other end.
+        bearing = 8
+        assert placement.usable_left <= columns.min() <= placement.usable_left + bearing
+
+    def test_a_right_hand_page_absorbs_the_same_overhang_without_a_clamp(self):
+        """The parity asymmetry, stated rather than left implicit: the same
+        caption that has to be clamped on a left-hand page needs no clamp on
+        a right-hand one, because *that* page's drawing is flush with the
+        right margin and the whole gutter-side strip is spare. So the clamp
+        is not a blanket "captions are left-aligned now" — it fires exactly
+        where the flush edge takes the overhang's room away."""
+        arr, layout, generator = self._render(
+            _RIGHT_HAND_PAGE_NUMBER, self._OVER_GRID_TITLE
+        )
+        placement = layout.page
+        columns = self._caption_ink_columns(arr, placement, generator)
+        assert columns.max() <= placement.drawing_right + 4
+        assert columns.max() >= placement.drawing_right - 6
+        assert columns.min() > placement.usable_left + 100, (
+            "this page's own spare should absorb the overhang entirely"
+        )
+
+    @pytest.mark.parametrize("page_number", [2, _RIGHT_HAND_PAGE_NUMBER])
+    def test_a_caption_too_wide_for_the_page_is_clipped_and_still_names_the_puzzle(
+        self, monkeypatch, page_number
+    ):
+        """The clip is on the *text*, and it keeps the part that identifies
+        the answer: a reader finds an answer by its number (the caption's own
+        "Puzzle N", the same number the band shows), so the number survives
+        and the name is what loses its tail. Recorded off the ``draw.text``
+        call itself rather than read back off pixels, since what is asserted
+        here is the string."""
+        grid = _checkerboard(*_CAP_BOUND_SHAPE)
+        payload = _payload(grid, difficulty="Easy")
+        generator = BookPDFGenerator()
+        drawn: list[tuple[str, str]] = []
+        original = ImageDraw.ImageDraw.text
+
+        def spy(self_draw, xy, text, fill=None, font=None, *args, **kwargs):
+            import sys
+
+            frame = sys._getframe(1)
+            drawn.append((frame.f_code.co_name if frame is not None else "", str(text)))
+            return original(self_draw, xy, text, fill, font, *args, **kwargs)
+
+        monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+        try:
+            generator.solved_puzzle_page(
+                payload, self._PUZZLE_NUMBER, page_number, title=self._OVER_PAGE_TITLE
+            )
+        finally:
+            monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
+
+        captions = [text for caller, text in drawn if caller == "_draw_solved_slot"]
+        assert len(captions) == 1, captions
+        caption = captions[0]
+        assert caption.startswith(f"Puzzle {self._PUZZLE_NUMBER}")
+        assert caption.endswith("…"), caption
+        assert caption != answer_caption(self._PUZZLE_NUMBER, self._OVER_PAGE_TITLE)
+        assert len(caption) < len(answer_caption(self._PUZZLE_NUMBER, self._OVER_PAGE_TITLE))
+
+    def test_a_caption_that_fits_is_not_clipped_or_moved(self):
+        """The negative control: the clamp and the clip are both *inactive*
+        for a caption of the length a book actually prints, so CARD-203's
+        own right-alignment tests above still describe every real page."""
+        arr, layout, generator = self._render(2, "Snowflake")
+        placement = layout.page
+        assert self._caption_width(generator, "Snowflake") < (
+            placement.drawing_right - placement.drawing_left
+        )
+        columns = self._caption_ink_columns(arr, placement, generator)
+        assert columns.max() <= placement.drawing_right + 4
+        assert columns.max() >= placement.drawing_right - 6
+        assert columns.min() > placement.usable_left, (
+            "a caption this short should sit nowhere near the margin"
         )
 
 

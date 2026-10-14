@@ -50,7 +50,11 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin import image_manager as image_manager_module
 import nonogram.admin.book_manager as book_manager_module
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, page_is_right_hand
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    _folio_reserve_px,
+    page_is_right_hand,
+)
 from tests.helpers.page_ink import drawing_of
 from tests.helpers.pdf_pages import pdf_page_count, pdf_pages, same_page
 from tests.helpers.two_up_ink import drawings_of
@@ -92,6 +96,14 @@ PACKED_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM
 TWO_UP_MINIMUM_MM = 7.0
 PAIR_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 2 * 12.0
 
+#: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres — derived
+#: the same way :func:`_expected_drawing_left_mm` and ``Sheet.shared_cell_mm``
+#: (``tests/property/test_book_pairing.py``) do: ``_folio_reserve_px`` is a
+#: font-measurement helper (not FR-040's own formula), so it is imported
+#: directly rather than reimplemented a third time; the geometric arithmetic
+#: that *uses* it below is this module's own independent check.
+RESERVE_MM = _folio_reserve_px(300) * 25.4 / 300
+
 
 def _across(puzzle):
     """The drawing's width in cells: the row-clue gutter plus the grid."""
@@ -110,10 +122,27 @@ def _shared_cell_mm(first, second):
     two drawings fits the usable width and both drawings' heights fit the trim
     less its top and bottom margins and **two** bands. Written out here, like
     every other expected value in this file.
+
+    **CARD-204 Fix 4 (owner decision, 2026-10-12, "fixed universal
+    reserve").** ``second`` is always the lower slot in this module's own
+    upper/lower convention (``_puzzle_page_plan``'s own order). Production's
+    ``compute_pair_layout`` now always widens the fit when the lower slot's
+    own natural spare at the unreserved cell is below the fixed reserve, so
+    this oracle re-derives that same "only widen when needed" rule
+    independently, in millimetres, never importing
+    ``compute_pair_layout`` itself.
     """
-    return min(
+    natural = min(
         STANDARD_CELL_MM,
         USABLE_WIDTH_MM / max(_across(first), _across(second)),
+        PAIR_HEIGHT_MM / (_down(first) + _down(second)),
+    )
+    natural_spare_mm = USABLE_WIDTH_MM - _across(second) * natural
+    if natural_spare_mm >= RESERVE_MM:
+        return natural
+    return min(
+        STANDARD_CELL_MM,
+        (USABLE_WIDTH_MM - RESERVE_MM) / max(_across(first), _across(second)),
         PAIR_HEIGHT_MM / (_down(first) + _down(second)),
     )
 
@@ -140,15 +169,28 @@ def _puzzle_page_plan(puzzles):
     return plan
 
 
-def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
-    """Where interior page ``page_number`` puts this puzzle's left edge (FR-032).
+def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None, *, is_lower=False):
+    """Where interior page ``page_number`` puts this puzzle's left edge
+    (FR-032, CARD-204 reading (b)).
 
     The drawing is ``clue depth + grid`` cells across at ``min(standard cell,
-    page fit)``, centred across the usable width, whose left margin is the
-    gutter on a right-hand (odd) page and the outside margin on a left-hand
+    page fit)``, right-aligned across the usable width — flush with the
+    *outer* margin, mirrored by parity: flush right (gutter on the left) on
+    a right-hand (odd) page, flush left (gutter on the right) on a left-hand
     one. ``cell_mm`` overrides the cell with the pair's shared one when the
-    puzzle is a slot of a two-up page (FR-040); its drawing is centred across
-    the same usable width either way.
+    puzzle is a slot of a two-up page (FR-040); its drawing is right-aligned
+    across the same usable width either way.
+
+    **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a fixed
+    constant by Fix 4 — owner decision, 2026-10-12, "fixed universal
+    reserve").** ``is_lower`` (``True`` only for the lower slot of a two-up
+    page — this helper's one caller never sets it for a single page or the
+    upper slot) shifts the drawing :data:`RESERVE_MM` toward the gutter,
+    re-deriving :func:`~nonogram.export.layout._slot_layout`'s own
+    ``outer_reserve_px`` shift independently, in millimetres. Fix 3 had
+    removed this entirely (a two-up page's lower slot sat at the plain
+    flush position with no reserve); Fix 4 restores it as a *fixed* amount,
+    never a page/book-specific one.
     """
     across = _across(puzzle)
     cell = (
@@ -157,8 +199,11 @@ def _expected_drawing_left_mm(puzzle, page_number, cell_mm=None):
         else cell_mm
     )
     spare = USABLE_WIDTH_MM - across * cell
+    reserved = min(RESERVE_MM, max(spare, 0)) if is_lower else 0.0
     left_margin = GUTTER_MM if page_number % 2 else OUTSIDE_MM
-    return left_margin + max(spare, 0.0) / 2
+    if page_number % 2:
+        return left_margin + spare - reserved
+    return left_margin + reserved
 
 
 def _packed_cell_mm(group):
@@ -633,9 +678,11 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
         # Measured off the page: a right-hand (odd) page carries the gutter
         # margin on its left, so its drawing sits further right than the same
         # drawing on a left-hand page, by gutter - outside.
-        def _measured(page_number, puzzle, drawing, cell_mm=None):
+        def _measured(page_number, puzzle, drawing, cell_mm=None, *, is_lower=False):
             drawn_left_mm = drawing.left / PX_PER_MM
-            expected_mm = _expected_drawing_left_mm(puzzle, page_number, cell_mm)
+            expected_mm = _expected_drawing_left_mm(
+                puzzle, page_number, cell_mm, is_lower=is_lower
+            )
             assert abs(drawn_left_mm - expected_mm) < 0.1, (
                 f"{label}: page {page_number} "
                 f"({'right' if page_number % 2 else 'left'}-hand) "
@@ -650,8 +697,17 @@ def test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage(admi
                 f"not {len(group)}"
             )
             shared = _shared_cell_mm(*group) if len(group) == 2 else None
-            for puzzle, drawing in zip(group, drawings):
-                _measured(page_number, puzzle, drawing, shared)
+            # The *lower* slot of a two-up page — the later puzzle, second in
+            # the group — is the one CARD-204 Fix 4's fixed reserve shifts;
+            # the upper slot and every single page keep the plain flush rule.
+            for position, (puzzle, drawing) in enumerate(zip(group, drawings)):
+                _measured(
+                    page_number,
+                    puzzle,
+                    drawing,
+                    shared,
+                    is_lower=len(group) == 2 and position == 1,
+                )
             make_up = "two-up page" if len(group) == 2 else "single page"
             seen[make_up] += 1
             # Both slots of a two-up page are centred across the usable width

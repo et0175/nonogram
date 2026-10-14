@@ -56,7 +56,6 @@ _(none)_
 _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards: CARD-205..CARD-216, one of them blocked). Not yet scheduled into a wave — run `/forge:kanban run` to dispatch. Print-side cards share the `book_pdf_generator.py` / `layout.py` hotspots and will serialize; CARD-207/208/209/210 additionally depend on CARD-204, which is still in review._
 
 **Book / print (PDF)**
-- **CARD-205** The table of contents lists sections, not puzzles — How to Solve, each level with its puzzle range, Solutions · P1 · 1d · standard
 - **CARD-206** The interior opens with a blank title / copyright page, ahead of the guide · P2 · 0.5d · standard · ⚑ needs an INV-013/FR-043 amendment at the architect station
 - **CARD-207** A book puzzle page's header splits — "Puzzle 37" flush left, "MEDIUM" flush right, a rule beneath · P2 · 0.5d · standard · depends CARD-204
 - **CARD-208** Printed clue numbers sit in ruled boxes, like the player's clue cells · P2 · 1d · standard · depends CARD-204 · ⚑ rests on one reading of an unreadable doc image
@@ -69,7 +68,6 @@ _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards
 - **CARD-220** Retire tests whose coverage another test already provides — only with a named survivor · P2 · 1d · tech-debt · depends CARD-217 · ⚑ footprint is `tests/**`; run on a quiet board
 
 **Solver (the admin panel's player)**
-- **CARD-211** Region leaves the brush menu and becomes its own control · P2 · 0.5d · standard
 - **CARD-212** Big boards repeat their clues on both sides — left and right, top and bottom · P2 · 1d · standard
 - **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard
 
@@ -78,16 +76,18 @@ _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-- **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · wave 37 · implementation resumed after a rate-limit kill (work survived, ~1240 insertions) · worktree `../PythonProject4-CARD-214` · branch `card/214-given-cells` · ⚑ needs an ADR-0024 (POL-007) + INV-002 amendment at the architect station
+- **CARD-205** The table of contents lists sections, not puzzles · P1 · standard · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-205` · branch `card/205-structural-toc`
+- **CARD-211** Region leaves the brush menu and becomes its own control · P2 · standard · wave 37 · implementation agent running · worktree `../PythonProject4-CARD-211` · branch `card/211-region-own-control`
 
 ## Review
-- **CARD-204** _(wave 37 — cycle 4 scored **8.5** (from 4.0), 0 critical, 1 important; owner chose a doc-only cycle 5 then merge. Fix 4 `f496bf5`, suite 6857/0. G-5 amended at the decompose station; FR-040/EC-027 delta deferred to `/forge:architect`)_
 - **CARD-204** Puzzle and two-up pages drop FR-032's centred placement for right-alignment (mirrored-by-parity, owner-confirmed), gain a placeholder 2x2cm QR-code slot, and reserve folio room on two-up pages' lower slot (owner-confirmed fix for a discovered folio-loss regression) · P2 · architectural · implementation + fix complete, full suite green (6853 passed, 0 failed) · worktree `../PythonProject4-CARD-204` · branch `card/204-puzzle-right-align-qr`
 
 ## Blocked
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
 
 ## Done
+- **CARD-204** Puzzle pages right-align by parity, gain a 2x2cm QR slot, and keep every two-up folio · P2 · architectural · scores 8.5 (cycle 4) then 6.5 (cycle 5, on the merge-gate fix: 1 critical, fixed) · 8 fix cycles · gate 6938/0 · merged cd641df · ⚑ FR-040/EC-027 + FR-032 amendments owed at the architect station
+- **CARD-214** Single-puzzle generation can reveal given cells to make a non-unique picture uniquely solvable · P1 · architectural · score 8.1 (cycle 1/3, fix cycle 1 closed the gating finding) · AC/EC gate: all 8 ACs, 2 ECs, 7 guardrails evidenced · merge gate 6883/0 · merged d49e73a · ⚑ ADR-0024 (POL-008) + INV-002 amendment owed at the architect station
 - **CARD-203** The solved-page caption sits closer to the puzzle and right-aligns with its grid · P2 · standard · score 9.5 (cycle 3/3, clean, after fixing a real caption/folio collision regression found across 2 cycles) · merged 0e955d5
 - **CARD-200** The book's interior PDF gets a visible page number on every page and a table-of-contents page · P2 · architectural · score 10.0 (cycle 3/3, clean) — note: a subagent-overspawn incident during implementation is documented on the card, no repo impact · merged e899369
 - **CARD-201** The guide page becomes a 2-page "How to Solve a Nonogram" tutorial, sourced from the owner's reference guide · score 8.5 (cycle 4/3+1, owner-extended) · merged ed578fa

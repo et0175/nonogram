@@ -248,6 +248,9 @@ class TestPairLayout_SlotGeometry:
         assert _mm(lower.usable_top - upper.drawing_bottom) == pytest.approx(26.35, abs=2 * HALF_PIXEL_MM)
 
     def test_each_slot_is_centred_across_the_usable_width_on_either_parity(self) -> None:
+        """CARD-204: each slot is right-aligned (flush with the outer margin),
+        mirrored by parity, the same rule a single puzzle page uses — not
+        centred, despite this test's own (now stale, kept for history) name."""
         fifteen = _puzzle(15, 15, row_depth=3, column_depth=5)
         ten = _puzzle(10, 10, row_depth=3, column_depth=3)
         cell = BOOK1_TWO_UP_HEIGHT_MM / 33
@@ -255,7 +258,10 @@ class TestPairLayout_SlotGeometry:
             pair = _pair(fifteen, ten, spec)
             for slot, across in ((pair.upper, 18), (pair.lower, 13)):
                 assert slot.page is not None
-                expected_left = left_margin + (BOOK1_USABLE_WIDTH_MM - across * cell) / 2
+                spare = BOOK1_USABLE_WIDTH_MM - across * cell
+                expected_left = (
+                    left_margin if spec.parity is PageParity.EVEN else left_margin + spare
+                )
                 assert abs(_mm(slot.page.drawing_left) - expected_left) <= HALF_PIXEL_MM + 1e-9
 
     def test_both_slots_use_the_book_strokes(self) -> None:
@@ -304,6 +310,30 @@ class TestPairLayout_RefusesSpecsThatNeverPair:
         # 60 − 2 × 9.525 = 40.95 mm between the margins: one 21 mm band fits, two (42 mm) do not.
         spec = dataclasses.replace(BOOK1_ODD, height_mm=60.0, band_mm=21.0)
         assert compute_pair_layout(ten, ten, spec) is None
+
+    def test_a_folio_reserve_wider_than_the_page_is_none_not_an_error(self) -> None:
+        """CARD-204 Fix 4: ``folio_reserve_px`` declines, it never raises.
+
+        Production passes one fixed ~9 mm constant
+        (``book_pdf_generator._folio_reserve_px``, 108 px at 300 DPI), so no
+        real book reaches this; the point is that the parameter cannot turn a
+        geometry question into an exception for *any* fixed value a caller
+        passes. A reserve wider than Book 1's own usable width would, without
+        the guard, hand the re-fit step a ``PageSpec`` whose usable width is
+        negative — which ``PageSpec`` itself rejects with a ``ValueError``,
+        the one error shape this function's own "``None`` when the geometry
+        does not work out" contract rules out.
+        """
+        ten = _puzzle(10, 10, row_depth=4, column_depth=4)
+        # Book 1's usable width is 193.675 mm; 100 000 px at 300 DPI is ~8.5 m.
+        assert compute_pair_layout(ten, ten, BOOK1_ODD, folio_reserve_px=100_000) is None
+        # One pixel short of the whole usable width still declines cleanly,
+        # rather than raising on the boundary itself.
+        usable_px = round(BOOK1_USABLE_WIDTH_MM * 300 / 25.4)
+        assert compute_pair_layout(ten, ten, BOOK1_ODD, folio_reserve_px=usable_px) is None
+        assert (
+            compute_pair_layout(ten, ten, BOOK1_ODD, folio_reserve_px=usable_px - 1) is None
+        )
 
 
 class TestPairLayout_RefusesMalformedClues:
