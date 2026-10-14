@@ -445,3 +445,15 @@ and `host-arial-before` (what this Mac printed before). The two pairs that matte
   the rendered one kept failing on a pinned 47 px figure, which made its "strict" promise false.
   `4c0dc26` moved that figure into the 10.10 cm test so both flip together. A strict xfail that
   cannot pass is a worse guard than no guard.
+
+- [Owner decisions] 2026-10-14, both blocks resolved, neither by accepting the loss:
+  - **Guide page 2:** *"Drop the 3 difficulty sentences."* Measured, that buys 234 px against a
+    4 px deficit, so the two technique notes, the worked example's intro and **all four step
+    lines stay** — which is what CARD-230 needs. The three EASY/MEDIUM/HARD descriptions go;
+    CARD-229 re-teaches difficulty in the guide's key strip, so they are the one block of text
+    on the page with a successor already carded.
+  - **`TOC_GROUP_GAP_PT`: 8.5 -> 8.0 pt.** The owner's rule when they chose 8.5 on Arial's
+    metrics was "leave ~10 px over what the folio needs"; 8.0 restores a 6 px margin on the
+    packaged face, which is that same rule re-measured rather than a new figure. G-6 put this
+    constant out of scope; the owner has now moved it, so the guardrail is satisfied by the
+    decision, not by the agent.

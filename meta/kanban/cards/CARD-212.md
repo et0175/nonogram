@@ -380,3 +380,54 @@ are the real ones.
   board there already overflows by 3–5 px. Nothing is unreachable, but the board has no air
   under it. (c) A mirrored board with doubled *columns* composes by construction but is
   unreachable under this threshold, so it is claimed nowhere and has no test.
+
+- [Review cycle 1] 2026-10-14 — **7.0/10, below the 8 gate. 0 critical, 3 Important (all
+  gating), 5 minor.** Report: `meta/review/20261014T153035Z-CARD-212-cycle1.yml`. Reviewer's
+  confidence high; every figure in it came from a command they ran, including a real Chromium
+  AX-tree dump and a timing probe applied and reverted.
+  - **F-001 — a doubled board cannot survive a window resize.** One page load of a 30x25,
+    resized without ever crossing 820 px: `1920x1500 dup=55 cell=28.00, no overflow` ->
+    `1100x900 dup=55 cell=14.39, stage overflow x=176` -> `900x800 dup=55 cell=14.39, x=376
+    y=44`; **reloaded at 900x800 the same board is dup=0, 14.39 px, no overflow at all.** So the
+    card's own rule is violated by 1.7x, with 376 px of sideways scroll the pre-card board did
+    not have. **The implementation's reason for deferring it was wrong, and this is the finding
+    worth remembering:** "the mirror has always behaved this way" is false, because the mirror's
+    condition *is* the media query it listens to and so can never be stale. This card is the
+    first to put a **continuous** condition behind a **discrete** trigger.
+  - **F-002 — the ladder costs ~4x the time-to-board on the commonest desktop case.** Same
+    board, same viewport, identical final DOM; only the rung count differs. 30x30 at 1280x720,
+    **4 rungs: 807/907/951 ms, DCL 732 ms** against **1 rung: 125/218/228 ms, DCL 129 ms**;
+    control at 2560x1440 (2 rungs) 474/490 vs 133/229. ~600-700 ms of wasted work on the largest
+    supported board, paid by exactly the boards that gain nothing — and it is the stated reason
+    F-001 was deferred. Doubling is monotone (it only grows a subtrahend or a denominator), so
+    drawing the fallback rung first and early-outing is sound: 4 draws become 1 in the common
+    case. Pin it with a **draw count**, not a timing.
+  - **F-003 — the 24 px justification is false, and the band it switches on is untested.** The
+    claim "24 px is the bar at which no existing fixture at any viewport the suite uses changes
+    its layout" does not hold: `AC_GRID` 25x15 (`tests/test_puzzle_solver_page.py:98`) doubles
+    at 1440x900, `AC301_GRID` 20x20 (`:100`) doubles at 1440x900, `GRID_16_WIDE` 16x15
+    (`tests/test_puzzle_solver_mirror.py:46`) doubles at 1440x900 **and** 820x900. The suite is
+    green only because no test pairs those fixtures with those viewports. At the suite's default
+    1280x720, row doubling is on for **11 of 28 shapes** swept (16x10 .. 22x14) — and the one
+    existing guard covering that ground, `_assert_every_fifth_line_heavier`
+    (`tests/test_puzzle_solver_page.py:630`), **goes red when pointed at a 20x12 there**
+    ("Left contains 12 more items" — it compares 2x-height clue boxes against `height-1`). Its
+    caller's seeded 12-size corpus avoids the band by luck. The true sentence is "no fixture x
+    viewport **pair** the suite exercises".
+  - **Confirmed, no finding:** M11 really is equivalent (term 1 binds only below 20 px, under
+    the bar) — the implementation's equivalence argument stands as written. The ring fix is real
+    and so is its claim about CARD-193: on the phone mirror itself, worst-case clearance is
+    **+7.75 px at HEAD against -2.72 px with the pre-fix margin restored**. Accessibility is
+    clean on a real AX tree: 25 rowheaders, 30 columnheaders, **zero duplicate names**. Both
+    touched tests are fine. All 8 engaged ADR-0038 rules and all 7 guardrails hold.
+  - **Minor (non-gating):** F-004 `.is-mirrored` now styles nothing while a new comment presents
+    it as the marker; F-005 the "23.53 px / 0.47 under" headline reproduces as 23.47 and a third
+    25x15 fixture doubles there; F-006 a column-band fit asserts <=10 on a measured 5; F-007 the
+    new token test's regex can swallow comment text; F-008 "only the rung that stays is ever
+    painted" is not demonstrated.
+- [Orchestrator correction, owed] F-003 falsifies a sentence **the orchestrator put in front of
+  the owner**, not just one in the notes: the 24 px decision was presented with "no existing
+  fixture at any viewport the suite uses changes layout". The owner's choice to keep 24 px
+  stands — the suite is green, nothing in CARD-188/193/196 needs re-pinning, and that was the
+  substance of the option — but the justification was stronger than the measurement. Fix the
+  sentence wherever it appears, in the notes and in the code comments.
