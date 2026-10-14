@@ -1,0 +1,306 @@
+version: 1
+generated_at: "2026-10-12T15:17:20Z"
+target: "CARD-204 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-204, branch card/204-puzzle-right-align-qr, commits d68ca29 (Fix 3) + 3831bb5 (worktree notes) — review cycle 3 (confirmation cycle, differential re-review of the F-5 fix delta; final cycle per this project's max_cycles:3)"
+overall_score: 4.0
+risk_level: critical
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/export/layout.py (full diff: compute_pair_layout/_slot_layout, both signatures and full bodies re-read post-diff; confirmed no parameter, default, or closure variable survives through which a page-number or book-scale quantity could reach either function)
+    - src/nonogram/admin/book_pdf_generator.py (full diff: _folio_reserve_px deletion, puzzle_pages/puzzle_section plumbing removal, _two_up_page's _draw_folio call site)
+    - src/nonogram/admin/book_page_spec.py (book_page_spec, read in full: confirmed page_number only selects parity, never margin/width/height values, and parity does not change usable_width_px since gutter_mm+outside_mm is parity-invariant)
+    - tests/property/test_book_pairing.py, tests/test_book_page_numbers.py, tests/test_book_pdf_memory.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf_two_up.py, tests/property/test_book_export_interior.py (full diffs)
+    - tests/test_layout_two_up.py, tests/test_book_arrange_page_breaks.py, tests/test_book_qr_slot.py, tests/property/test_book_two_up.py, tests/test_book_finalise_gutter.py, tests/test_book_pdf.py, tests/test_layout_packed_solved.py, tests/test_book_solved_answer_key.py (grepped for stale folio_reserve_px/outer_reserve_px call sites — none found; all re-run, all green)
+    - tests/fixtures/book_baseline_card204.json (current + at commit 0299bf1, the pre-Fix-1 original CARD-204 commit): all 13 page sha256 digests and interior_bytes compared byte-for-byte, programmatically — identical
+    - meta/kanban/cards/CARD-204.md (Fix 1/Fix 2/Fix 3 worktree notes, guardrails G-1..G-6, AC-1 text) and meta/kanban/cards/CARD-200.md (AC-1's own original text, the folio feature's source requirement)
+    - meta/architecture/domain/aggregates.yml INV-010 (confirmed byte-unchanged by this delta; the fix conforms code to the existing statement rather than rewording the statement to fit the code)
+    - meta/review/20261010T174853Z-CARD-204-cycle1.yml and 20261012T140501Z-CARD-204-cycle2.yml (full, for prior context and carry-forward)
+    - Ran system_rules.py --card CARD-204 --format md directly against this worktree (56 rules, matching cycle 2's count)
+    - Independently reproduced the geometry with a standalone script run directly against this worktree's compute_pair_layout/book_page_spec (not just read the source): confirmed that for a deliberately asymmetric pair (upper 25 cols / lower 10 cols), the lower slot's outer-corner gap is still exactly 0 on both parities — the claimed "varies pair-to-pair based on real slack" is empirically false; the outer corner is unconditionally flush regardless of either puzzle's extent
+    - Ran the touched test files directly (pytest tests/property/test_book_pairing.py tests/test_book_pdf_memory.py tests/test_book_page_numbers.py tests/test_book_puzzle_frame.py tests/test_book_pdf_two_up.py tests/property/test_book_export_interior.py): 169 passed, 1 skipped (pre-existing, platform RLIMIT_AS, unrelated), confirmed independently
+    - Ran 8 more coupled-but-untouched test files (test_layout_two_up.py, test_book_arrange_page_breaks.py, test_book_qr_slot.py, test_book_two_up.py, test_book_finalise_gutter.py, test_book_pdf.py, test_layout_packed_solved.py, test_book_solved_answer_key.py): all green, no stale call sites
+    - Mutation check (opt-in, enabled in meta/kanban/config.yml): 2 mutants against export/layout.py, both captured/restored and verified clean afterward (git diff --quiet)
+  not_reached:
+    - Full ~6850-test suite (not re-run per the task's own instruction; orchestrator's independent run cited: 6854 passed, 9 skipped, 0 failed — not independently re-verified by this review, only the touched+coupled subset was)
+    - Everything cycle 1/cycle 2 marked not_reached and that this delta provably does not touch (QR slot logic's own reservation math, MIN_CELL_MM single-page floor-overflow case in compute_layout's placed-page branch, guide-page rounding scatter)
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 353, removed: 668 }
+  max_fan_in: { symbol: "compute_pair_layout", callers: 1 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py", "src/nonogram/export/layout.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "tooling_failure — identical to cycle 1/cycle 2's own note: git log --name-only on this checkout does not expose per-commit full file lists for this query shape, so historical co-change frequency could not be quantified by this method again this cycle."
+
+system_contract:
+  rules_checked: 56
+  holds: 9
+  unchecked: 46
+  violated: 1
+  verdicts:
+    - "INV-010 ✓ holds — cycle-1 F-1 and cycle-2 F-5 both reproduced a non-geometric quantity (a page number's or a book's own digit count) flipping the pairing accept/refuse verdict. Fix 3 removes folio_reserve_px/outer_reserve_px entirely from compute_pair_layout/_slot_layout (export/layout.py); re-read both functions' full current signatures and bodies: compute_pair_layout(first, second, page_spec) and _slot_layout(row_clues, column_clues, page_spec, *, cell_mm, pitch, band_top, slot_bottom) carry no parameter, default, or closure variable derived from a page number or book scale. book_page_spec(book, page_number)'s only use of page_number is to select parity (ODD/EVEN), and the module's own docstring plus a direct read of the function confirm parity swaps gutter_mm/outside_mm sides without changing their sum (usable_width_px), so parity cannot move compute_pair_layout's accept/refuse threshold either. Confirmed against the full 56-rule scope's own test list (PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly et al.) and by independently running the rewritten test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber (3/3 regimes pair identically). The structural claim — coupling is now impossible, not just untriggered — is confirmed by code reading, not just test cases."
+    - "G-5 ✓ holds — same evidence as INV-010: the card's own guardrail ('this card repositions a pair's slots, it does not change which puzzles pair') is now literally true — the baseline fixture's 13 page sha256 digests are byte-identical to the pre-Fix-1 original CARD-204 commit (0299bf1), proving the pairing verdict itself is unchanged by any of the three fixes' history."
+    - "G-5-adjacent / CARD-200 AC-1 ✗ violated — see Critical finding F-7. Not one of the 56 rules the system_rules.py lens enumerates (AC-1 is a card-level AC on CARD-200, not yet promoted to a tracked FR/INV/CON/ADR), but it is the formal acceptance criterion backing the folio feature this fix's own delta demonstrably breaks on every two-up page, so it is reported here for visibility even though it falls outside the 56-rule registry's count."
+    - "G-1, G-2, G-6 ✓ holds — carried(cycle 2, delta-clean): this delta touches no code in scope for these guardrails (top-edge formula, solved_puzzle_page body, FR-031 floor/NFR-006 orientation all outside the two functions and their direct callers this fix changed)."
+    - "ADR-0006/R1 ✓ holds — git diff --stat 0783434..d68ca29 shows zero pyproject.toml changes; no new dependency."
+    - "ADR-0036/R1, ADR-0036/R2, CON-019 ✓ holds — compute_layout (the single-page/default-A4 path CON-019 and ADR-0036/R1 govern) is untouched by this delta; only compute_pair_layout/_slot_layout (the pair-aware path) were edited. Re-confirmed by reading the diff: no hunk touches compute_layout."
+    - "ADR-0037/R2, CON-020 ✓ holds — FOLIO_PT (= 10.0, book_pdf_generator.py:468) and the thin/heavy rule-width logic are unedited by this delta; grep confirms no stroke-width or point-size literal changed."
+    - "ADR-0038/R6, CON-021 ✓ holds — carried(cycle 2, delta-clean): this delta does not touch the placed-page branch, the QR slot geometry, or any solution-shipping code path."
+    - "Every other rule in the 56-rule scoped set ⚠ unchecked — carried(cycle 1/2, delta-clean): none of them govern folio-reserve/pairing geometry and this delta touches nothing in their scope."
+
+root_causes:
+  - id: RC-1
+    title: "CARD-204's folio-reserve mechanism (Fix 1/Fix 2) is now correctly removed from the pairing/cell-size decision (INV-010 resolved) — but removing it also removes the only thing standing between the right-alignment geometry (reading (b)) and the 100%, pair-independent folio loss on every two-up page that this card's own implementation pass originally flagged for the owner, and that the owner's Fix-1 decision ('Reserve folio room') was created specifically to prevent"
+    finding_ids: [F-7]
+  - id: RC-2
+    title: "Fix 3's own prose (commit message, worktree notes, and two production docstrings) mischaracterizes RC-1's consequence as pair-dependent/occasional ('some two-up pages with tight natural slack', 'varies pair-to-pair based on real slack') when it is unconditional and was already proven unconditional by this same card's own pre-Fix-1 documentation and by this cycle's own new regression test's docstring"
+    finding_ids: [F-7]
+
+findings:
+  - id: F-7
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/export/layout.py
+    line: 2072
+    title: "Fix 3 reintroduces the exact 100%-of-two-up-pages folio loss the owner's Fix-1 decision ('Reserve folio room') was built to prevent — not a rare, pair-dependent degradation as the fix's own commit message and docstrings claim"
+    description: |
+      This card's own implementation-pass notes (meta/kanban/cards/CARD-204.md,
+      lines 448-466, written BEFORE Fix 1 ever existed) already proved, in
+      the project's own words: "CARD-200's page-number folio is now
+      permanently omitted on every two-up page, on both parities, for
+      every puzzle — not just a tight-fit one. Under reading (b),
+      drawing_right == usable_right exactly on every ODD (right-hand) page
+      and drawing_left == usable_left exactly on every EVEN one,
+      algebraically, regardless of the puzzle's own spare... this is a
+      real, visible, permanent loss of a shipped feature (the page
+      number) on every two-up page of every book." That exact finding is
+      why the owner was explicitly consulted and decided "Reserve folio
+      room" (Fix 1, CARD-204.md:536-541) — a decision this review's cycle
+      1/2 history treated as settled and out of scope.
+
+      Fix 3 (this cycle's subject) deletes the entire reserve mechanism
+      from compute_pair_layout/_slot_layout to resolve F-5's INV-010
+      violation. That resolution is correct and independently verified
+      (see the system_contract INV-010/G-5 lines above). But removing the
+      reserve also removes the only thing that was buying the folio its
+      horizontal room — and the underlying geometry fact the card's own
+      pre-Fix-1 notes already proved has not changed: the right-alignment
+      ("reading (b)") flush formula in _slot_layout pins the lower slot's
+      OUTER-corner edge exactly to usable_right (ODD/right-hand page) or
+      usable_left (EVEN/left-hand page), with the formula's entire natural
+      "spare" always landing on the GUTTER side instead, regardless of
+      either puzzle's own width. This is not a docstring assumption — I
+      verified it directly against the live code with a deliberately
+      asymmetric pair (upper 25 columns, lower 10 columns — clearly NOT
+      tied as the pair's width-binding member):
+
+        ODD page:  lower.drawing_left=1470, usable_left=150  (gutter-side gap=1320)
+                   lower.drawing_right=2438, usable_right=2438 (OUTER gap=0)
+        EVEN page: lower.drawing_left=113,  usable_left=113   (OUTER gap=0)
+                   lower.drawing_right=1080, usable_right=2400 (gutter-side gap=1320)
+
+      The outer-corner gap is exactly 0 in both parities, even though the
+      lower slot is far narrower than the pair's own binding ("across")
+      member. This directly contradicts _slot_layout's own docstring
+      (export/layout.py:2072-2077, NEW text written by this same Fix-3
+      commit): "spare is deliberately not forced to 0: when the lower
+      slot is narrower than the pair's own width-binding ('across')
+      member, spare is positive and the drawing sits short of the outer
+      edge on its own" — this sentence is false for the actual formula
+      (the "+spare" term only ever appears on the gutter side of the
+      anchor, never the outer side, in either parity arm of the ternary
+      at lines 2110-2114). The same mischaracterization is repeated in
+      book_pdf_generator.py's _two_up_page docstring (lines 3538-3544:
+      "the folio draws when that natural slack is enough and is correctly
+      omitted, page by page, when it is not — a page-local degradation")
+      and in the Fix-3 commit message itself ("Losing the folio on some
+      two-up pages with tight natural slack is an accepted, page-local
+      degradation, never a pairing-time one").
+
+      The project's OWN new regression test, written in this same commit,
+      correctly states the opposite of the mischaracterization above:
+      tests/test_book_page_numbers.py's
+      test_two_up_page_s_folio_is_once_again_always_omitted (lines
+      542-573) says in its own docstring: "the lower slot's drawing is
+      flush with the usable area's outer margin by construction, ON EVERY
+      PARITY, WHATEVER THE PUZZLE'S OWN EXTENT... which made
+      _draw_folio's 'omit rather than collide' check fire on every
+      two-up page." This is the correct statement, and it directly
+      contradicts the "pair-dependent"/"varies pair-to-pair" framing used
+      everywhere else in this same fix to justify the trade as minor and
+      accepted.
+
+      The corpus-wide AC-1 test was weakened to hide this: at
+      tests/test_book_page_numbers.py:170-172,
+      TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber's own
+      assertion changed from "every interior page carries a folio" to
+      "every interior page except the [hardcoded] two-up page carries a
+      folio" — which only works because this particular baseline book has
+      exactly one two-up page. CARD-200's own AC-1 (meta/kanban/cards/
+      CARD-200.md:181-186) states the ONLY exception is "a page whose
+      bottom slack is too small to fit one line" — a vertical-only
+      exception. It does not say "every two-up page, unconditionally,"
+      which is what the code now does. A real book with several same-tier
+      adjacent pairs (the common case this card's own INV-010 pairing
+      exists to produce) loses the page number from every one of those
+      pages — not an edge case, the default outcome for the entire page
+      kind.
+
+      Unlike F-4 (the FR-032 text gap), which this card explicitly routed
+      to architect-station for an owner/model decision, this regression
+      was not routed anywhere: it is asserted as "accepted" in prose by
+      the same commit that (demonstrably, in its own second docstring)
+      knows the claim is not pair-dependent. The owner who explicitly
+      decided "Reserve folio room" at Fix 1 has not been asked whether
+      removing that room again, permanently, is acceptable.
+    suggestion: |
+      This needs the owner's explicit re-decision, the same way Fix 1's
+      original owner decision was obtained — do not resolve it in prose
+      inside a worktree note a second time. Two honest paths, both
+      requiring sign-off before merge:
+        (a) Reposition the folio (not the pairing/cell-size decision) —
+            e.g. draw it at the gutter-side corner on two-up pages only,
+            where this fix's own geometry now guarantees real slack
+            collects, as CARD-204.md:463-466 already flagged as the
+            available fix back when this was first discovered, pre-Fix-1;
+            or
+        (b) Get the owner to explicitly accept the universal loss (update
+            CARD-200's AC-1 to carve out two-up pages by name, not by
+            page-number coincidence, and get a sign-off comparable to
+            Fix 1's own "Reserve folio room" decision record).
+      Either way, fix the two self-contradicting docstrings
+      (export/layout.py:2072-2077, book_pdf_generator.py:3538-3544) so
+      they stop claiming pair-dependent variability the code does not
+      have — a future reader trusting either docstring will reach the
+      same wrong conclusion this fix's own commit message did.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-8
+    severity: info
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 1999
+    title: "Mutation check: the TWO_UP_MIN_CELL_MM accept/refuse comparison's exact-equality boundary (< vs <=) has no covering test, but this is pre-existing and orthogonal to F-5/F-7"
+    description: |
+      Targeted mutation check (2 mutants, both captured/restored/verified
+      clean per Step 8f): mutating `if exact_cell_mm <
+      _exact_mm(TWO_UP_MIN_CELL_MM):` to `<=` at line 1999 survived against
+      every touched and coupled test file run (test_layout_two_up.py,
+      test_book_pairing.py, test_book_pdf_two_up.py's three dedicated
+      TwoUpMinimum boundary tests included) — none of them construct a
+      pair whose exact_cell_mm lands exactly on the 7.0mm threshold, only
+      "just above"/"just below." Current code (`<`) is the textually
+      correct reading of INV-010's "at least 7.0mm" (accepts at exactly
+      7.0mm); the mutant is wrong, so this is a test-coverage gap, not a
+      production bug. This line is NOT in Fix 3's diff — it predates Fix
+      1/2/3 entirely — and the module's own test design is already aware
+      exact-threshold floats are fragile here (test_book_pairing.py's own
+      oracle skips any case within 1e-6 of the threshold as untestable
+      against the layout's exact-fraction arithmetic). Orthogonal to this
+      cycle's F-5/F-7 findings; noted for completeness, not gating.
+
+      A second mutant (flipping _slot_layout's `PageParity.EVEN` check,
+      the exact line Fix 3 itself rewrote) was killed immediately — 9
+      tests failed — confirming the covering tests do verify Fix 3's own
+      rewritten anchor formula correctly, just not this older,
+      untouched boundary line.
+    suggestion: |
+      Add one test case constructing a pair whose exact_cell_mm lands
+      within float/Fraction tolerance of exactly 7.0mm and asserting the
+      accept (not refuse) verdict, to pin the "at least" reading against
+      future refactors. Low priority — no production impact found.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-5
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: src/nonogram/export/layout.py
+    line: 1999
+    title: "RESOLVED by Fix 3: pairing decision is now geometry-only, no book-scale coupling — independently re-verified this cycle"
+    description: |
+      Cycle 2's F-5 (the same pair pairing in a short book, refusing in a
+      long one) is genuinely fixed. Re-verified independently this cycle:
+      compute_pair_layout/_slot_layout's current signatures carry no
+      folio_reserve_px/outer_reserve_px or any other page-number/book-scale
+      parameter; book_page_spec's page_number argument only selects parity,
+      which does not change usable_width_px; the baseline fixture's 13 page
+      digests are byte-identical to the pre-Fix-1 original CARD-204 commit
+      (0299bf1); the rewritten property test
+      (test_PropertyTest_BookPairing_ReserveIsTheBookSOwnScaleNotAPageNumber)
+      passes all three 1/2/3-digit regimes at the identical cell_mm. See
+      system_contract's INV-010/G-5 lines for the full evidence trail.
+    suggestion: None needed — this fix is sound.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "d68ca29"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-6
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-204.md
+    line: 0
+    title: "Carried from cycle 2: F-3 (cycle-1, the 900-case corpus's structural inability to reach a 3-digit page number) remains closed"
+    description: |
+      Unchanged since cycle 2 — carried forward per confirmation-mode
+      rules (delta-clean; this cycle's delta does not touch the dedicated
+      boundary test).
+    suggestion: None needed.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "5891969"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-4
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 2226
+    title: "Carried from cycle 1/2, unchanged by this delta: FR-032's statement/AC-274..276/EC-032 still describe centred placement; explicitly deferred to architect-station"
+    description: |
+      Unchanged since cycle 1 — this fix delta does not touch
+      requirements.yml. Carried forward per confirmation-mode rules
+      (delta-clean).
+    suggestion: |
+      Same as cycle 1/2: route an FR-032 requirements-text revision through
+      /forge:architect promptly.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
