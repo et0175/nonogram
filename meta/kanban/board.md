@@ -58,7 +58,24 @@ _Cut 2026-10-13 from the owner's Google Doc "Nonograms - Print layout" (12 cards
 
 _Wave bookkeeping (2026-10-14, **owner decision**): this run is **wave 38**. All six of its cards — CARD-204, CARD-214, CARD-205, CARD-211, CARD-221, CARD-212 — had been drafted as wave 37, which the table above already recorded as complete with CARD-197/198/199; the number was used twice and the retrospective reads it. The owner chose to renumber the whole batch rather than only its open cards, so one batch is not split across two wave numbers: CARD-204 and CARD-214 were renumbered too, closed records and all. The 2026-09-22 note above is the precedent for why the numbers must not collide._
 
-**Book / print (PDF)**
+**Interior redesign (cut 2026-10-14 from the owner's artifact "Puzzle page layout", https://claude.ai/artifact/Wp4iGB27cyBAV62da5ACMP)**
+
+_One coherent frame, so the order is forced rather than chosen: the frame lands first and each later card places something inside it. Every one of them touches `book_pdf_generator.py`, so they serialize on that hotspot whatever the dispatcher does. **CARD-224 reverses CARD-204's flush-by-parity placement, which merged 2026-10-14 after 12.2 days** — the owner's own note explains why: the flush alignment existed to free the gutter strip for the QR, and once the QR has its own footer, centring is the calmer choice. CARD-204's QR slot, two-up folio reserve and `caption_slot` all stay._
+
+- **CARD-222** Every interior page gets one frame — new margins, a header rule and a footer rule · **P1** · 1d · architectural · depends CARD-221 · ⚑ CON-018 amendment (all four margins; the new gutter is above what KDP requires) · every margin grows, so every fitted cell can only shrink
+- **CARD-223** The QR moves into the footer's **outer** corner, with a caption and a typed link · **P1** · 1d · depends CARD-222 · ⚑ the owner's functional complaint: a code printed into the spine does not scan
+- **CARD-224** The grid goes back to centred, at 42% of the spare height · **P1** · 1d · architectural · depends CARD-222, CARD-223 · ⚑ FR-032: its "centred" statement becomes correct again (so CARD-204's pending amendment is **cancelled**), while its "fixed top edge" clause is what breaks
+- **CARD-225** One cell size per grid size across the book, capped at 7.5 mm · **P1** · 1d · architectural · depends CARD-222 · ⚑ NFR-008 amendment · a book-wide size is by construction ≤ today's per-puzzle size, so some puzzles print smaller
+- **CARD-228** Difficulty becomes three dots, filled by tier — one glyph four cards reuse · **P1** · 0.5d · cut first on purpose, so four cards do not invent four dots
+- **CARD-226** A two-up page becomes two equal slots split by a light rule, bottoms aligned · P2 · 1d · depends CARD-223, CARD-224, CARD-225
+- **CARD-227** The printed grid's rules get three weights — 0.3 / 0.8 / 1.3 pt · P2 · 0.5d · depends CARD-222 · ⚑ closes FR-033's stated open question ("threshold unstated")
+- **CARD-229** "How to Solve" becomes a facing spread on pages 2 and 3 · P2 · 1d · depends CARD-206, CARD-222, CARD-228 · ⚑ INV-013 amendment, owed jointly with CARD-206
+- **CARD-230** Its worked example runs as four steps; the rows/columns tip becomes a callout · P2 · 1d · depends CARD-229
+- **CARD-231** Section openers — large type, dots, range, one line, always on a recto · P2 · 1d · depends CARD-222, CARD-228 · ⚑ inserted blanks move the page count and therefore the printed gutter
+- **CARD-232** Solutions become fixed 2×2 tiles with their clues · P2 · 1d · depends CARD-222, CARD-225 · ⚑ narrows CARD-202's packing rule; CARD-209's page is the single exception
+- **CARD-233** One tile header — number, name, dots — plus a running head · P2 · 1d · depends CARD-228, CARD-232 · ⚑ moves the 65-character picture name into a narrower box than the one that cost CARD-204 two fix cycles
+
+**Book / print (PDF) — amended 2026-10-14 by the artifact above, not re-cut**
 - **CARD-206** The interior opens with a blank title / copyright page, ahead of the guide · P2 · 0.5d · standard · ⚑ needs an INV-013/FR-043 amendment at the architect station
 - **CARD-207** A book puzzle page's header splits — "Puzzle 37" flush left, "MEDIUM" flush right, a rule beneath · P2 · 0.5d · standard · depends CARD-204
 - **CARD-208** Printed clue numbers sit in ruled boxes, like the player's clue cells · P2 · 1d · standard · depends CARD-204 · ⚑ rests on one reading of an unreadable doc image

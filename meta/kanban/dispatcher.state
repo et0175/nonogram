@@ -56,6 +56,29 @@ queued:
     reason: "eligible, but conflicts with CARD-212 on the same template + statics; starts when CARD-212 frees its slot"
   - id: CARD-213
     reason: "concurrency cap 2"
+queued_after_card_217:
+  # The interior redesign, cut 2026-10-14 from the owner's "Puzzle page layout" artifact.
+  # Listed as one ordered run rather than as independent queue entries: every card touches
+  # src/nonogram/admin/book_pdf_generator.py (a declared hotspot), so they serialize anyway,
+  # and each later card draws INSIDE the frame CARD-222 establishes. Starting them out of
+  # order means implementing against a page that is about to move.
+  - CARD-228   # the dots glyph: no dependencies, 0.5d, and four later cards need it
+  - CARD-222   # the frame: margins, header rule, footer rule, puzzle area
+  - CARD-223   # the QR into the footer's outer corner
+  - CARD-224   # the grid back to centred (reverses CARD-204's placement)
+  - CARD-225   # one cell size per grid size
+  - CARD-207   # the header's content (now needs 222's rule and 228's dots)
+  - CARD-208   # clue boxes + the 5% shading the artifact names it for
+  - CARD-227   # the three grid rule weights
+  - CARD-226   # two-up equal slots
+  - CARD-206   # the title page - STILL BLOCKED on the INV-013/FR-043 amendment
+  - CARD-229   # the guide spread (needs 206 merged: two pages face only if the first is a verso)
+  - CARD-230   # the worked example's four steps
+  - CARD-231   # section openers
+  - CARD-232   # solution tiles
+  - CARD-233   # the tile header and running head
+  - CARD-209   # wide-short solutions, now CARD-232's single exception, adopting 233's header
+
 conflict_edges:
   - pair: [CARD-221, CARD-206]
     reason: "predicted: src/nonogram/admin/book_pdf_generator.py (hotspot); CARD-221 also re-records the interior baselines CARD-206 would have to re-record again"
