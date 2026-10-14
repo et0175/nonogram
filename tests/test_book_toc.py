@@ -73,6 +73,7 @@ from nonogram.admin.book_pdf_generator import (
     _guide_face,
     default_toc_frame,
     interior_page_count,
+    _toc_entries_per_page,
     measured_toc_page_count,
     page_frame,
     structural_toc_entries,
@@ -1563,6 +1564,174 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
             "case, measured here through `create_toc_page` rather than "
             f"computed, and 6 px clear of the {sum(_band_font(entry_px).getmetrics())} "
             "px the folio's line needs"
+        )
+
+
+# --------------------------------------------------------------------------
+# The folio-sized reservation `_toc_entries_per_page` makes (CARD-200's own
+# claim, first tested by CARD-221's review cycle 1)
+# --------------------------------------------------------------------------
+
+
+class TestBookToc_APagePackedToCapacityStillCarriesItsFolio:
+    """``_toc_entries_per_page`` reserves one folio-sized line, and that
+    reservation is what keeps a **full** TOC page numbered.
+
+    The function's own docstring has said since CARD-200 that the
+    reservation is "load-bearing, not a safety margin": every TOC page but
+    a short final one is packed to exactly its capacity, so without the
+    reservation the last row would sit at the bottom margin and
+    :func:`_draw_folio` would omit the page number — the case it calls
+    "slack too small to fit one line".
+
+    **Nothing tested it until now, and a mutant proved so** (CARD-221
+    review cycle 1, which asked for a mutation set aimed at this
+    arithmetic). Deleting ``- folio_space`` from the capacity SURVIVED the
+    whole of ``tests/test_book_toc.py``, ``tests/test_book_finalise_gutter.py``
+    and ``tests/test_book_pdf_memory.py``: 217 passed. It survived because
+    every other test of the split feeds it the structural list, which is
+    eight rows and never fills a page, so the capacity figure is free to be
+    wrong by a row without any of them noticing.
+
+    Measured over the 381 heights KDP admits, packing each page to that
+    height's own capacity and asking whether the folio's line still fits
+    under the last row: **with** the reservation, 0 heights lose it;
+    **without** it, 185 do — from 10.30 cm (24 px against the 49 the folio
+    needs) upward. So the claim is true, it is worth a test, and this is
+    that test.
+    """
+
+    @staticmethod
+    def _metrics():
+        """This file's own reading of the page's geometry, not the module's.
+
+        The capacity itself comes from ``_toc_entries_per_page`` — it is
+        the thing under test — but every px that decides whether the folio
+        fits under the row it places is measured here, the same way the
+        group-gap sweep above measures its own.
+        """
+        from importlib import resources
+        from io import BytesIO
+
+        from PIL import ImageFont
+
+        from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE
+
+        def px(points: float) -> int:
+            return round(points * DPI / 72.0)
+
+        data = resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+
+        def face(size: int):
+            return ImageFont.truetype(BytesIO(data), size=size)
+
+        title_ascent, title_descent = face(px(22.0)).getmetrics()
+        entry_ascent, entry_descent = face(px(TOC_ENTRY_PT)).getmetrics()
+        folio_ascent, folio_descent = face(px(10.0)).getmetrics()
+        row = entry_ascent + entry_descent
+        return {
+            "title_space": title_ascent + title_descent + px(36.0),
+            "row": row,
+            "line": row + px(TOC_ENTRY_GAP_PT),
+            "folio_line": folio_ascent + folio_descent,
+        }
+
+    def test_every_trim_kdp_admits_keeps_the_folio_under_a_full_page(self) -> None:
+        """The sweep: pack each height's page to its own capacity."""
+        from types import SimpleNamespace
+
+        from nonogram.admin.book_kdp import _toc_frame_for
+
+        metrics = self._metrics()
+        measured = 0
+        tight: List[Tuple[str, int, int]] = []
+        worst: Optional[Tuple[int, str, int]] = None
+        for tenths in range(100, 801):
+            height = f"{tenths / 10:.2f}"
+            frame = _toc_frame_for(SimpleNamespace(trim_height_cm=height))
+            if frame == _toc_frame_for(None) and height != "27.94":
+                continue
+            measured += 1
+            capacity = _toc_entries_per_page(frame, DPI)
+            assert capacity >= 1, f"a {height} cm page must hold at least one row"
+            # Where the last of a full page's rows puts its own ink.
+            bottom = (
+                metrics["title_space"]
+                + (capacity - 1) * metrics["line"]
+                + metrics["row"]
+            )
+            room = (frame.bottom - frame.top) - bottom
+            if room < metrics["folio_line"]:
+                tight.append((height, capacity, room))
+            if worst is None or room < worst[0]:
+                worst = (room, height, capacity)
+
+        assert measured >= 350, (
+            f"the sweep measured only {measured} laid-out trims — it must "
+            "cover the whole band of heights KDP admits"
+        )
+        assert tight == [], (
+            "a TOC page packed to its own capacity leaves less than the "
+            f"folio's {metrics['folio_line']} px line at {tight} — the "
+            "reservation `_toc_entries_per_page` subtracts for the folio is "
+            "not reaching these heights, and every page of a multi-page TOC "
+            "but the last is packed exactly this full"
+        )
+        assert worst is not None
+        assert worst[0] >= metrics["folio_line"], worst
+
+    def test_a_full_page_really_draws_its_folio(self) -> None:
+        """The same claim on the drawing, at a height the reservation saves.
+
+        10.30 cm: packed to its capacity, this page leaves 24 px without
+        the reservation and the folio would be omitted; with it the page
+        holds one row fewer and prints its number. Rendered and spied
+        rather than computed, the same way the group-gap sweep's own
+        worst case is.
+        """
+        from types import SimpleNamespace
+
+        from nonogram.admin.book_kdp import _toc_frame_for
+
+        book = _book("card-221-packed-toc-page")
+        book.trim_height_cm = "10.30"
+        generator = BookPDFGenerator(book)
+        frame = page_frame(generator.page_spec(3))
+        assert frame == _toc_frame_for(SimpleNamespace(trim_height_cm="10.30")), (
+            "this test's premise: the book's own page 3 frame is the one the "
+            "capacity is measured on"
+        )
+        capacity = _toc_entries_per_page(frame, generator.dpi)
+        entries = [TocEntry(f"Puzzle {number}", number) for number in range(1, capacity + 1)]
+
+        original = ImageDraw.ImageDraw.text
+        folios: List[str] = []
+        rows: List[float] = []
+        entry_px = type_px(TOC_ENTRY_PT, generator.dpi)
+
+        def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
+            if kwargs.get("anchor") in ("rb", "lb"):
+                folios.append(str(text))
+            elif getattr(font, "size", None) == entry_px:
+                rows.append(xy[1])
+            return original(self, xy, text, fill, font, *args, **kwargs)
+
+        ImageDraw.ImageDraw.text = spy
+        try:
+            generator.create_toc_page(entries, 3)
+        finally:
+            ImageDraw.ImageDraw.text = original
+
+        # Distinct baselines, not draw calls: a numbered row sets its
+        # label, its page number and its leader dots in the same face at
+        # the same y (the same shape the two tests above spy on).
+        assert len(set(rows)) == capacity, (
+            f"the page drew {len(set(rows))} rows of the {capacity} it was "
+            f"handed, from {len(rows)} draw calls"
+        )
+        assert folios == ["3"], (
+            "a TOC page packed to its own capacity must still carry its "
+            f"folio, and drew {folios}"
         )
 
 

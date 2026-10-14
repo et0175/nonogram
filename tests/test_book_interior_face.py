@@ -490,6 +490,73 @@ class TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints:
         )
 
 
+class TestInteriorFace_TheOneHostGateDiscriminates:
+    """The gate this card adds is itself tested, in both directions.
+
+    ``host_offers_a_second_face`` decides whether the negative control
+    above can run at all, and a gate that answers wrongly is the quietest
+    failure in a suite: answer ``False`` on a host that *could* run the
+    contrast and the control disappears with nothing red, which is the
+    "dead weight that hides the next real gap" AC-6 is about. Its verdict
+    on any particular machine is host-dependent by definition and cannot be
+    asserted here — what can, and what these two tests do, is pin the
+    **logic**: refuse every host path and it must say no; hand it two faces
+    that genuinely differ and it must say yes. Both hold on every host.
+
+    Added in review cycle 1's mutation round, which asked for a set aimed
+    at this function: before it, mutating the gate to ``return False``
+    survived the whole suite in silence.
+    """
+
+    def test_it_says_no_when_the_host_offers_no_face_at_all(self, monkeypatch) -> None:
+        """The deployed Linux image's own case."""
+        refuse_host_fonts(monkeypatch)
+        assert host_offers_a_second_face() is False, (
+            "with every host font path refused there is no second face to "
+            "contrast, and the gate must close"
+        )
+
+    def test_it_says_yes_when_the_host_offers_a_face_that_really_differs(
+        self, monkeypatch
+    ) -> None:
+        """The owner's Mac's case, without depending on the owner's Mac.
+
+        The host lookup is pointed at the packaged face instead of Arial —
+        a real, loadable face that is demonstrably not Pillow's built-in
+        one — so this holds on a machine with no Arial too.
+        """
+        original = ImageFont.truetype
+
+        def truetype(font=None, *args, **kwargs):
+            if isinstance(font, (str, bytes)):
+                return packaged_face(*args, **kwargs) if args or kwargs else packaged_face(12)
+            return original(font, *args, **kwargs)
+
+        monkeypatch.setattr(ImageFont, "truetype", truetype)
+        assert host_offers_a_second_face() is True, (
+            "the stand-in host face is the packaged DejaVu Sans, which draws "
+            "the sample differently from Pillow's own face — the gate must "
+            "open, or the negative control it guards can never run anywhere"
+        )
+
+    def test_the_two_faces_it_compares_really_do_draw_differently(self) -> None:
+        """Non-vacuity: the sample the gate digests discriminates at all.
+
+        If Pillow's built-in face and the packaged one rendered this sample
+        identically, the test above would pass for the wrong reason.
+        """
+        size = type_px(22.0, BOOK_DPI)
+        packaged = Image.new("L", (900, 120), 255)
+        ImageDraw.Draw(packaged).text(
+            (0, 0), "How to Solve Nonograms", fill=0, font=packaged_face(size)
+        )
+        builtin = Image.new("L", (900, 120), 255)
+        ImageDraw.Draw(builtin).text(
+            (0, 0), "How to Solve Nonograms", fill=0, font=ImageFont.load_default(size)
+        )
+        assert packaged.tobytes() != builtin.tobytes()
+
+
 class TestInteriorFace_NoFaceIsReadFromAHostPath:
     """Every face the interior draws with comes from packaged data.
 
