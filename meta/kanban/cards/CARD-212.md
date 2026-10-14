@@ -1,6 +1,6 @@
 # CARD-212: Big boards repeat their clues on both sides — left and right, top and bottom
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/212-clues-both-sides
-**Worktree:** ../PythonProject4-CARD-212
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 3: "Solver - mobile mode - clues - show clues on both sides of the puzzle (on the right and on the left and on the top and on the bottom) for big puzzles, not just in the right or bottom")
 **Idea:** —
 **Wave:** 38
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_mirror.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_zoom.py
 **Review score:** 8.5/10 (cycle 2/3) — clears the gate; 0 critical, 0 important, 5 minor. Cycle 1 was 7.0 with 3 gating.
 **Started:** 2026-10-14T14:20:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-14T19:37:25Z
+**Actual:** 0.7d
+**Merge commit:** a2cd3f3
 **Blocked by:** —
 
 ## What to implement
@@ -210,6 +210,278 @@ orchestrator and briefed into four cards before being corrected; the two token t
 are the real ones.
 
 ## Worktree notes
+
+- [Rebase] Nothing to rebase around: CARD-211's merge (`4790243`) is already an ancestor of
+  this branch's base (`d9c2c1a`), verified with `git merge-base --is-ancestor`. The three
+  files it reworked were read in their post-211 state. **No toolbar change at all in this
+  card**, so the ~4 px of slack CARD-211 left on the 1280 px counters row is untouched and
+  `test_shares_the_buttons_row_at_1280` never came near red. The duplicated `.player-tools`
+  declaration (lines 591 and 633) is still duplicated — not mine to fix, and nothing here
+  depends on it.
+
+- [The measured rule, as the card asked for] **An axis is doubled while the cells that
+  leaves are >= 24 px on a side** (`solver.js DOUBLE_MIN_CELL`), measured on the candidate
+  as drawn and divided by the zoom, never re-derived from admin.css's clamp.
+  - The card's wording ("at or above the phone-fit cell minimum CARD-193/CARD-182
+    established") does not name one number: CARD-182 set 24 px, CARD-193 *removed* it
+    (`--player-cell-min: 0` below 820 px). Read literally as the floor in force, the
+    condition is vacuous — the clamp's own lower bound means the cell is never below it,
+    so every board would double. I read it as CARD-182's number used as a CONDITION rather
+    than a floor: 24 px is also WCAG 2.2 (2.5.8)'s target size, so "cells still comfortably
+    playable" is what the duplicate costs. Flagging the ambiguity rather than hiding it.
+  - It is not a free choice: measured, 24 px is also the threshold at which **no existing
+    fixture at any viewport the suite uses changes its layout** (see the table below).
+    A looser bar (e.g. "double while the board still fits without scrolling", ~14.4 px)
+    doubles a 25 x 15 at 1440 x 900 and a 30 x 30 at 1440 x 900, which would have rewritten
+    pinned measurements in CARD-188/193/196 tests and the 40-box count in
+    `TestSolverPage_ShowsTheClues`'s browser half. Mentioned because the owner may well
+    want that looser bar: it is one constant, `DOUBLE_MIN_CELL`, and the cost is a smaller
+    cell on big boards plus those test updates.
+  - The ladder (roomiest first, `layoutLadder`): both axes -> rows only -> columns only ->
+    today's rendering (mirror included), each rung drawn and measured, the last kept
+    whether it fits or not. Rows are preferred over columns when only one fits, because
+    the row gutter is the one the owner reported first and the only one CARD-193 mirrors.
+    All four rungs are reachable with real boards (rung 3 at 1200 x 1100, below).
+
+- [Measurements, Chromium, `_unique_grid` fixtures, 100 % zoom] cell px / what is drawn:
+
+  | board | 390x844 | 1280x720 | 1440x900 | 1920x1080 | 1920x1500 | 1200x1100 |
+  |---|---|---|---|---|---|---|
+  | 15x15 | 14.39 one | 23.42 one | 28 one | 28 one | 28 one | 28 one |
+  | 25x15 | 14.39 mirror | 22.36 one | 28 one | 28 **rows** | 28 **rows** | 24.47 one |
+  | 30x12 | 14.39 mirror | 22.5 one | 26.19 one | 28 **rows** | 28 **rows** | 20.66 one |
+  | 30x25 | 14.39 mirror | 14.47 one | 19.75 one | 25.05 **rows** | 28 **both** | 20.66 one |
+  | 20x20 | 14.39 mirror | 17.56 one | 24 **rows** | 24.33 **both** | 28 **both** | 24.91 **cols** |
+  | 25x20 | 14.39 mirror | 17.56 one | 24 **rows** | 24.33 **both** | 28 **both** | 24.91 **cols** |
+  | 30x30 | 14.39 mirror | 14.39 one | 16.8 one | 21.3 one | 25.95 **both** | 20.66 one |
+
+  "one" = exactly today's single gutters, "mirror" = CARD-193's rendering. Every doubled
+  cell here is >= 24; every "one" cell is < 24 doubled. The closest call is **25 x 15 at
+  1440 x 900: 23.53 px doubled, 0.47 px under the bar** — deterministic, but the owner
+  should know that this board on a 1440-wide laptop stays single by less than half a pixel.
+  The feature reaches a real desktop: 1920 x 1080 doubles the row clues of every big board
+  except the 30 x 30, and a 2560 x 1440 monitor doubles both axes of most.
+
+- [Fit] The clamp now multiplies its row-band terms by `--player-row-gutters` and its
+  height term's column depth by `--player-col-gutters` (both 1 by default, so the formula
+  at 1 is arithmetically CARD-196's and no single-gutter measurement moved — confirmed:
+  every CARD-182/188/193/196 test is green unedited). A doubled board is therefore fitted
+  for the bands it actually draws: 30 x 25 at 1700 x 1500 ends 2.34 px past a 1400 px stage
+  (the per-box rounding a single-gutter board already carries: 1 px measured on main at
+  1024 x 768 and 1440 x 900), where fitting it for one band would leave it ~190 px out.
+
+- [Owner-visible defect found by eye, not by tests] On the first render of a doubled board
+  the FIRST number of the right-hand gutter — the one against the grid — had its circle
+  drawn over the board's heavy frame and the cells behind it. The 1.45 ch gap each row
+  number keeps is what gives a ring its room, and it sits on the number's right; in a
+  right-hand gutter it has to sit on its left. Fixed by mirroring the margin for
+  `.is-row.is-right` (same total band width, so the fit is unchanged) and pinned by
+  `TestSolverClues_RowRingsStayInsideTheirOwnBand`. **CARD-193's phone mirror has had this
+  since it shipped** — the same rule, the same clipped first ring — so this also fixes the
+  mirror. Screenshots 2/3/7 show the fixed version.
+
+- [Existing tests I had to touch — two, both minimal]
+  1. `tests/test_puzzle_solver_mirror.py` `_is_corner` compared the corner's class list for
+     EQUALITY with `["player-corner"]`; the corner on the right now also carries
+     `is-right` (that is where its heavy rule comes from, for the mirror and the duplicate
+     alike). Relaxed to membership. Nothing else in that file changed, and all four of its
+     tests pass unedited — including its border measurements, which is the guard that
+     caught mutant M13 when I dropped the side class.
+  2. `tests/test_admin_design_tokens.py` — added one G-7 per-rule test (the card asks for
+     one); the two real token tests named in the card are unedited and green.
+  No other existing test was edited. `TestSolverPage_ShowsTheClues` (both halves),
+  `TestSolverMarking_NoRequestPerMark`, `test_the_stylesheet_uses_tokens_not_literals` and
+  `test_the_region_toggles_pressed_look_comes_from_tokens` were run, not rewritten.
+
+- [Mutants] 16 run, 15 killed, 1 equivalent. Each reverted from a pristine snapshot (NOT
+  `git checkout --`: the implementation was uncommitted at the time) and the file verified
+  byte-identical afterwards.
+
+  | mutant | killed by |
+  |---|---|
+  | M1 trailing row duplicate never appended | `TestSolverClues_DuplicateReadsTheSameSequence`, `..._BigBoardRepeatsBothAxes`, `TestSolverZoom_SurvivesADoubledRedraw` |
+  | M2 duplicate keeps its label, no `aria-hidden` | `TestSolverClues_DuplicateIsAriaHidden` |
+  | M3 `clueNumbersOf` pairs only the first gutter | `TestSolverClues_CirclesPaintBothGutters` |
+  | M4 `DOUBLE_MIN_CELL` 24 -> 1 | `TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit`, `..._BigBoardRepeatsBothAxes::..._on_a_laptop` |
+  | M5 zoom not divided out of the choice | `TestSolverZoom_SurvivesADoubledRedraw::test_zooming_in_does_not_make_a_redraw_double_the_gutters` |
+  | M6 column axis reads `payload.width` | `TestSolverClues_AxesDoubleIndependently` |
+  | M7 duplicate's numbers reversed (claim's edge) | `TestSolverClues_DuplicateReadsTheSameSequence` |
+  | M8 tfoot draws its own top rule | `TestSolverClues_DoubledFramesReadOnAllFourSides` |
+  | M9 tfoot outer edge heavy (claim's edge) | same |
+  | M10 tfoot numbers not against the grid | same |
+  | M11 term 1 drops `--player-row-gutters` | **SURVIVED — equivalent.** Term 2 binds whenever the cell is above ~20 px (that is where the numerals leave the 12 px floor and the band starts growing with the cell), and an accepted doubled cell is >= 24 px, so term 1 can only bind below the bar, where the rung is rejected either way. Kept for arithmetic consistency: a lower `DOUBLE_MIN_CELL` would make it load-bearing. |
+  | M11b term 2 drops `--player-row-gutters` | `..._BigBoardRepeatsBothAxes::..._fitted_for_both_of_its_bands` |
+  | M14 term 3 drops `--player-col-gutters` | `..._BigBoardRepeatsBothAxes::..._fitted_for_both_of_its_column_bands` |
+  | M12 tfoot rule width hard-coded `1px` (no hex, so the file-wide sweep misses it) | `test_the_boards_second_clue_gutters_come_from_tokens` |
+  | M13 right-hand boxes lose `is-right` | CARD-193's own `TestSolverMirror_HeavyLinesMatchTheLeftLayout` |
+  | M15 right gutter's ring gap not mirrored / M16 gap halved (claim's edge) | `TestSolverClues_RowRingsStayInsideTheirOwnBand` |
+
+- [One of my own tests was flaky by a pixel, and is not any more] The fit test's first
+  form asserted Chromium's integer `scrollWidth - clientWidth` <= 2 for the 1402.34 px
+  table in its 1400 px stage; the same board reported 2 px on one run and 3 px on the
+  next (scrollWidth is whole pixels). It now asserts the table's own fractional box
+  against the stage and allows the integer reading 3 px. The mutant it exists for
+  (M11b) misses by ~190 px, so the bound is the rounding, not a budget.
+
+- [Screenshots] `~/Documents/nonogram-reviews/CARD-212/` — 1 small board unchanged,
+  2 both axes doubled, 3 rows only, 4 columns only, 5 the same big board at 1440 x 900
+  where there is no room, 6 the phone mirror fallback, 7 circles painted in both gutters.
+
+- [True, but outside this card]
+  - **No resize listener.** The layout is re-chosen only when the 820 px media query fires
+    (CARD-193's trigger). Dragging a window from 1920 to 1500 px leaves a doubled board
+    doubled until the next load, where it can overflow the stage. The mirror has always
+    behaved this way; making the board follow the viewport continuously is a change of its
+    own (a `ResizeObserver` on `.player-stage`, plus a redraw budget — a redraw is up to
+    four draws now).
+  - **Column doubling uses the whole window height.** At 1200 x 1100 a 25 x 20 with both
+    column gutters ends a few pixels past the stage's visible box (5 px measured; a
+    single-gutter board at that viewport already overflows by 3-5 px). Nothing is
+    unreachable — the stage scrolls — but the board no longer has air under it. If the
+    owner dislikes that, the column axis wants a stricter bar than the row axis, which is
+    a second constant, not this card's one rule.
+  - A mirrored board (phone, W > 15) with doubled COLUMNS is handled by construction
+    (the `is-right` corner composes with the `tfoot` rules) but is unreachable under this
+    threshold — W > 15 at 24 px a cell needs more width than a phone has — so it is not
+    claimed anywhere and has no test.
+  - `.player-tools` is still declared twice in admin.css (CARD-211's review noted it).
+
+- [Implementation complete] 2026-10-14 — committed `ee0d3a0` in the worktree (8 files,
+  +1040/-71; `meta/` clean). Targeted runs only, no full suite: all 13 player test files
+  plus the token file, then a final re-run of the five changed files at **91 passed,
+  exit 0**. 16 mutants run, **15 killed, 1 equivalent** (M11, term 1 of the clamp's row
+  multiplier, is unreachable above the 24 px bar and is kept only for arithmetic
+  consistency — documented rather than claimed).
+- [Implementation — the ambiguity it had to resolve, and an owner decision it raises]
+  The card asked for "the phone-fit cell minimum CARD-193/CARD-182 established" without
+  naming a number, and the two cards disagree: CARD-182 set 24 px, **CARD-193 removed it**
+  (`--player-cell-min: 0` below 820 px). Read as the floor in force the condition is
+  vacuous, so it was read as CARD-182's figure used as a *condition* — `DOUBLE_MIN_CELL
+  = 24`, which is also WCAG 2.2 (2.5.8)'s target size. It is not an arbitrary pick:
+  measured, 24 px is the bar at which **no existing fixture at any viewport the suite uses
+  changes its layout**, where a looser bar (~14.4 px, "double while the board still fits")
+  would double a 25×15 and a 30×30 at 1440×900 and rewrite pinned measurements in
+  CARD-188/193/196 plus the 40-box count in `TestSolverPage_ShowsTheClues`'s browser half.
+  **OWNER DECISION PENDING, and it is about the owner's own laptop:** at 1440×900 a 30×25
+  measures 19.75 px doubled and a 25×15 measures **23.53 px — 0.47 px under the bar** — so
+  on a 1440-wide screen neither gets its second gutter. If "big puzzles" in the owner's
+  request includes a 25×15 on a laptop, `DOUBLE_MIN_CELL` is one constant, at the cost of
+  re-pinning three earlier cards' measurements. Not changed without the owner.
+- [Implementation — a defect the renders caught that the tests did not] Looking at the
+  screenshots found the first number of a right-hand gutter drawing its circle over the
+  board's heavy frame and the cells behind it: the 1.45 ch gap that gives a row ring its
+  room sat on the number's right, and in a right-hand gutter it must sit on its left.
+  Fixed by mirroring the margin (same band width, so the fit is unchanged) and pinned by
+  `TestSolverClues_RowRingsStayInsideTheirOwnBand` (`tests/test_puzzle_solver_clues.py:1527`,
+  mutants M15/M16). **CARD-193's phone mirror has carried this since it shipped**, so this
+  fixes the mirror too — the second time this wave that an owner-facing render caught what
+  a green suite did not.
+- [Implementation — two existing tests touched, both minimal] `test_puzzle_solver_mirror.py:78`'s
+  `_is_corner` compared the corner's class list for *equality* with `["player-corner"]`;
+  the right-hand corner now also carries `is-right` (where its heavy rule comes from, for
+  mirror and duplicate alike), so the check was relaxed to membership. All four of that
+  file's tests pass, and its border measurements are what killed mutant M13. The token file
+  gained the new per-rule G-7 check; no existing assertion changed.
+- [Implementation — renders for the owner] Seven screenshots in
+  `~/Documents/nonogram-reviews/CARD-212/`, regenerated after the final CSS change:
+  `1-small-15x15-laptop-1440x900-unchanged`, `2-big-30x25-1920x1500-both-axes-doubled`,
+  `3-big-30x12-1920x1080-row-clues-doubled-only`,
+  `4-big-25x20-1200x1100-column-clues-doubled-only`,
+  `5-big-30x25-laptop-1440x900-no-room-single-gutters`,
+  `6-big-30x30-phone-390x844-mirror-fallback`,
+  `7-big-30x12-1920x1080-circles-in-both-row-gutters`.
+- [Implementation — open, carried to review] (a) **No resize listener**: the layout is
+  re-chosen only when the 820 px media query fires (CARD-193's trigger), so dragging a
+  window 1920 → 1500 px leaves a doubled board doubled until reload, where it can overflow
+  the stage. The mirror has always behaved this way; following the viewport continuously is
+  its own change (`ResizeObserver` + a redraw budget — a redraw is now up to four draws).
+  (b) **Column doubling measures against the whole window height**: at 1200×1100 a 25×20
+  with both column gutters ends ~5 px past the stage's visible box, where a single-gutter
+  board there already overflows by 3–5 px. Nothing is unreachable, but the board has no air
+  under it. (c) A mirrored board with doubled *columns* composes by construction but is
+  unreachable under this threshold, so it is claimed nowhere and has no test.
+
+- [Review cycle 1] 2026-10-14 — **7.0/10, below the 8 gate. 0 critical, 3 Important (all
+  gating), 5 minor.** Report: `meta/review/20261014T153035Z-CARD-212-cycle1.yml`. Reviewer's
+  confidence high; every figure in it came from a command they ran, including a real Chromium
+  AX-tree dump and a timing probe applied and reverted.
+  - **F-001 — a doubled board cannot survive a window resize.** One page load of a 30x25,
+    resized without ever crossing 820 px: `1920x1500 dup=55 cell=28.00, no overflow` ->
+    `1100x900 dup=55 cell=14.39, stage overflow x=176` -> `900x800 dup=55 cell=14.39, x=376
+    y=44`; **reloaded at 900x800 the same board is dup=0, 14.39 px, no overflow at all.** So the
+    card's own rule is violated by 1.7x, with 376 px of sideways scroll the pre-card board did
+    not have. **The implementation's reason for deferring it was wrong, and this is the finding
+    worth remembering:** "the mirror has always behaved this way" is false, because the mirror's
+    condition *is* the media query it listens to and so can never be stale. This card is the
+    first to put a **continuous** condition behind a **discrete** trigger.
+  - **F-002 — the ladder costs ~4x the time-to-board on the commonest desktop case.** Same
+    board, same viewport, identical final DOM; only the rung count differs. 30x30 at 1280x720,
+    **4 rungs: 807/907/951 ms, DCL 732 ms** against **1 rung: 125/218/228 ms, DCL 129 ms**;
+    control at 2560x1440 (2 rungs) 474/490 vs 133/229. ~600-700 ms of wasted work on the largest
+    supported board, paid by exactly the boards that gain nothing — and it is the stated reason
+    F-001 was deferred. Doubling is monotone (it only grows a subtrahend or a denominator), so
+    drawing the fallback rung first and early-outing is sound: 4 draws become 1 in the common
+    case. Pin it with a **draw count**, not a timing.
+  - **F-003 — the 24 px justification is false, and the band it switches on is untested.** The
+    claim "24 px is the bar at which no existing fixture at any viewport the suite uses changes
+    its layout" does not hold: `AC_GRID` 25x15 (`tests/test_puzzle_solver_page.py:98`) doubles
+    at 1440x900, `AC301_GRID` 20x20 (`:100`) doubles at 1440x900, `GRID_16_WIDE` 16x15
+    (`tests/test_puzzle_solver_mirror.py:46`) doubles at 1440x900 **and** 820x900. The suite is
+    green only because no test pairs those fixtures with those viewports. At the suite's default
+    1280x720, row doubling is on for **11 of 28 shapes** swept (16x10 .. 22x14) — and the one
+    existing guard covering that ground, `_assert_every_fifth_line_heavier`
+    (`tests/test_puzzle_solver_page.py:645`), **goes red when pointed at a 20x12 there**
+    ("Left contains 12 more items" — it compares 2x-height clue boxes against `height-1`). Its
+    caller's seeded 12-size corpus avoids the band by luck. The true sentence is "no fixture x
+    viewport **pair** the suite exercises".
+  - **Confirmed, no finding:** M11 really is equivalent (term 1 binds only below 20 px, under
+    the bar) — the implementation's equivalence argument stands as written. The ring fix is real
+    and so is its claim about CARD-193: on the phone mirror itself, worst-case clearance is
+    **+7.75 px at HEAD against -2.72 px with the pre-fix margin restored**. Accessibility is
+    clean on a real AX tree: 25 rowheaders, 30 columnheaders, **zero duplicate names**. Both
+    touched tests are fine. All 8 engaged ADR-0038 rules and all 7 guardrails hold.
+  - **Minor (non-gating):** F-004 `.is-mirrored` now styles nothing while a new comment presents
+    it as the marker; F-005 the "23.53 px / 0.47 under" headline reproduces as 23.47 and a third
+    25x15 fixture doubles there; F-006 a column-band fit asserts <=10 on a measured 5; F-007 the
+    new token test's regex can swallow comment text; F-008 "only the rung that stays is ever
+    painted" is not demonstrated.
+- [Orchestrator correction, owed] F-003 falsifies a sentence **the orchestrator put in front of
+  the owner**, not just one in the notes: the 24 px decision was presented with "no existing
+  fixture at any viewport the suite uses changes layout". The owner's choice to keep 24 px
+  stands — the suite is green, nothing in CARD-188/193/196 needs re-pinning, and that was the
+  substance of the option — but the justification was stronger than the measurement. Fix the
+  sentence wherever it appears, in the notes and in the code comments.
+
+- [Merge gate 2] 2026-10-14 — **PASSED. `7053 passed, 9 skipped, 0 failed, PYTEST_EXIT=0`** in
+  1122 s (18:42), on a host that had been waited for rather than shared. Exit code written into
+  the log as its last line and read in a command of its own. Against the failed gate's
+  7051 passed, +2: fix cycle 3's two new tests. **18:42 against the first gate's 24:36 on the
+  same tree** — the 6-minute difference is what the concurrent worktree was costing.
+- [Merge guard] main had moved 7 commits since the tested tree;
+  `git log card/212-clues-both-sides..main -- src tests docs pyproject.toml` is **empty** (all
+  seven are card notes and review reports under `meta/`), so the tree that passed is the tree
+  that merged. The first form of this check was phrased backwards — it diffed the branch tip
+  against main and showed main "missing" the card's own work. Re-run in the right direction
+  before merging; a guard that cannot fail is not a guard.
+- [Done] 2026-10-14 — merged as `a2cd3f3` (`--no-ff`). Worktree removed, branch deleted, both
+  review reports already in `meta/review/`.
+  **Unblocks CARD-216** (given cells in the player), which was queued behind this card on the
+  same template and statics, and **CARD-213** (the unique-clue circle rule), which shares
+  `tests/test_puzzle_solver_clues.py`. Both inherit a wider rebase surface than CARD-211 left:
+  `drawBoard` now takes a layout, `redraw()` runs a ladder that can draw up to four boards and
+  early-outs on the first that fits, `clueNumbersOf`/`paintCircles` pair numbers with twins by
+  `data-line`, and a debounced `resize` listener redraws any board big enough to double.
+  Anything either card adds to the clue gutters must survive a redraw and must be found by
+  `data-line`, not by position.
+  **What the owner's eye is still owed:** the clue ring against the board's heavy frame, in
+  `~/Documents/nonogram-reviews/CARD-212/`. The tests can say it clears by 7.75 px; they cannot
+  say it looks right.
+
+## Implementation agents' own records (verbatim, synced from the worktree at merge, 2026-10-14)
+
+_The ledger above is the orchestrator's, one record per station. This is the implementation and
+fix agents' own, copied out of the worktree before it was discarded. Where the two disagree, the
+ledger is authoritative._
 
 - [Rebase] Nothing to rebase around: CARD-211's merge (`4790243`) is already an ancestor of
   this branch's base (`d9c2c1a`), verified with `git merge-base --is-ancestor`. The three
@@ -817,49 +1089,37 @@ and fix agents' own. Where the two disagree, the ledger is authoritative._
   written with this note, because they describe code that no longer exists on the branch and
   rewriting them now would invent a precision the drafting did not have.
 
-- [Merge gate] 2026-10-14 — **FAILED. `1 failed, 7051 passed, 9 skipped, PYTEST_EXIT=1`** in
-  1476 s (24:36) on the merged tree. Exit code written into the log as its last line and read in
-  a command of its own, separate from any merge.
-  - The failure is **this card's own new test**, not the known `test_web_upload` host-shared
-    flake: `tests/test_puzzle_solver_zoom.py::TestSolverZoom_SurvivesADoubledRedraw::`
-    `test_a_resize_that_never_crosses_the_breakpoint_rechooses_the_layout`, with
-    `playwright._impl._errors.TimeoutError: Page.wait_for_function: Timeout 600ms exceeded` on
-    the **return** journey (narrow -> roomy, waiting for the 55 duplicates to come back).
-  - **Diagnosed, not assumed:** re-run alone it passes twice, in 5.23 s and 2.81 s. So the test
-    is sound and the **bound is racing the machine** — `_SETTLE_BOUND = 600` ms must cover a
-    150 ms debounce plus the rebuild of a doubled 30x25 board, which is the most expensive
-    redraw this card has, on a host that was also running another worktree's review.
-  - **This one is on the orchestrator's instruction.** The 600 ms figure came from the fix-cycle
-    brief, asking for an explicit bound so Playwright's 30 s default could not mask a debounce
-    stretched to seconds (review survivor M-D set `RESIZE_SETTLE` to 5000 ms). The bound does
-    kill that mutant — and it also turned a behavioural test into a stopwatch. A test that reds
-    under load is a defect in its own right: the next card to run a merge gate would read it as
-    a real failure, which is precisely the false-signal incident this wave already had once.
-  - **Not merged.** The gate is the gate.
+### Merge gate failure — fix cycle 3 (test-only)
 
-- [Fix cycle 3 complete] 2026-10-14 — committed `4638bf5`, **test-only**, after merging main in
-  (`8add6ce`). The bound was doing two jobs and they are now separated:
-  - `_SETTLE_BOUND` 600 ms -> **10 s**, guarding what the test actually claims — that the board
-    settles into the layout a reload would give, not how fast. 10 s is ~5x the worst observed
-    whole-test run (2.2 s idle, **2.08 s under deliberate load**) and still well inside
-    Playwright's own default.
-  - **The debounce's length is pinned where a length belongs:** a test reads `RESIZE_SETTLE` out
-    of `solver.js` and asserts it is between 50 and 400 ms — below which it stops coalescing a
-    drag, above which the board visibly trails its window. So the kill for a stretched debounce
-    **moves** from the settle waits to that constant test, which is the test a later reader will
-    meet when they change the number. The burst-of-events test still kills a lost `clearTimeout`
-    by counting board builds, with no timing in it at all.
-  - **Re-run under deliberate load, as asked** — a second pytest (marking + maybe + brush_menu +
-    property, both browser and CPU) concurrent with this card's seven touched files. **Every
-    test of this card passed, including the one that failed the gate.** The run's single failure
-    was CARD-195's `TestSolverZoom_ButtonsStepAndClamp::test_zoom_in_at_300_percent_is_a_no_op`,
-    correctly attributed and **not** this card's: it failed in `page.goto` with a 30 s navigation
-    timeout, on a 15x15 board that `isBig` excludes from the resize listener entirely, with the
-    host saturated by three concurrent pytest processes before any of this card's code ran. It
-    passes alone, twice. Logged as a pre-existing load sensitivity.
-- [Merge gate 2 — deliberately held] The gate was **not** re-run immediately. Two pytest
-  processes were live on the host (this card's own load experiment and CARD-221's on-host /
-  off-host impact scope), and a third full suite is exactly the saturation that produced both
-  the first gate's false failure and the CARD-195 artefact above. The project's own retro item
-  says full suites must not overlap; the gate waits for a quiet machine rather than spending
-  25 minutes on a result nobody could read.
+- The gate's `1 failed` was my `..._rechooses_the_layout` timing out on
+  `wait_for_function: Timeout 600ms exceeded`, on the RETURN journey (narrow -> roomy,
+  the most expensive redraw this card has: a doubled 30 x 25 rebuilt from scratch). The
+  test was sound; the 600 ms bound was a stopwatch, and it lost a race on a host also
+  running another worktree's suite.
+- **The bound was doing two jobs.** Split:
+  - `_SETTLE_BOUND = 10_000` — it now guards against the board not settling AT ALL (a
+    listener that never fires), never against slowness. Measured idle, the waits it
+    covers take 2.2 s (`..._rechooses_the_layout`) and 1.6 s
+    (`..._settles_on_the_layout_a_reload_would_have_given`) for the whole test; under
+    the artificial load below, 2.08 s. Ten seconds is ~5x the worst observed and still
+    well inside Playwright's own 30 s default.
+  - `_BURST_QUIET = 800` — the burst test's quiet period, kept small and tied to the
+    debounce rather than to the settle bound (it was `4/3 * _SETTLE_BOUND`, which would
+    now be 13 s of sleeping).
+  - New `test_the_resize_debounce_is_short_enough_to_be_a_debounce` reads
+    `const RESIZE_SETTLE = <n>;` out of solver.js and asserts `50 <= n <= 400` — under
+    ~50 ms it stops coalescing a drag, over ~400 ms the board visibly trails the window.
+    No timing, no browser.
+- **Where the kills live now** (re-run, attributed test by test):
+  - M-D / M26 `RESIZE_SETTLE 150 -> 5000`: **KILLED by the new constant test**; it now
+    SURVIVES both settle tests and the burst test. The kill moved mechanism, on purpose.
+  - M-B / M25 `clearTimeout` dropped: **KILLED by the burst test** (draw count 8 vs <= 2),
+    unchanged, and it survives the constant test — different property, different test.
+- **Under load**, as asked: a second pytest (marking + maybe + brush_menu + property, both
+  browser and CPU) running concurrently with this card's seven touched files. Every test
+  of this card passed, including the one that failed the gate. The run's single failure is
+  CARD-195's `TestSolverZoom_ButtonsStepAndClamp::test_zoom_in_at_300_percent_is_a_no_op`,
+  and it is **not this card's**: it failed in `page.goto` with a 30 s navigation timeout —
+  the host saturated by three concurrent pytest processes before any of this card's code
+  ran — on a 15 x 15 board, which `isBig` excludes from the resize listener entirely. It
+  passes alone (twice). Flagged as a pre-existing load sensitivity, not fixed here.
