@@ -28,6 +28,8 @@ test_puzzle_solver_phone.py's touch drags).
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from tests.test_puzzle_solver_brush_menu import _touch_drag_row_1_cols_2_to_6
@@ -44,6 +46,7 @@ from tests.test_puzzle_solver_marking import (
     _tool,
 )
 from tests.test_puzzle_solver_page import (  # noqa: F401 — fixtures are used by name
+    _STATIC,
     _open,
     _unique_grid,
     browser_page,
@@ -602,11 +605,30 @@ _NARROW = {"width": 1100, "height": 900}
 _LAPTOP = {"width": 1440, "height": 900}
 _PHONE = {"width": 390, "height": 844}
 
-#: How long a resize-driven redraw is allowed to take: four times solver.js's
-#: RESIZE_SETTLE (150 ms), and fifty times less than Playwright's 30 s
-#: default — which is so generous that a debounce stretched to seconds would
-#: wait it out unnoticed (CARD-212 review cycle 2, G-001).
-_SETTLE_BOUND = 600
+#: How long a resize-driven redraw is allowed to take before the test calls
+#: it broken. This bound guards against the board NOT settling at all — the
+#: listener never firing, the debounce never resolving — and deliberately
+#: not against slowness: what these tests assert is that the board settles
+#: into the layout a reload would give, never how fast it gets there. The
+#: redraw it has to cover is the most expensive one this card can ask for (a
+#: doubled 30 x 25 rebuilt from scratch) on a machine that may be running
+#: another worktree's browser suite at the same time; at 600 ms it lost
+#: exactly that race at a merge gate, with the whole test taking 2.8-5.2 s
+#: when run alone. Ten seconds is far above any redraw observed and still
+#: finishes long before Playwright's own 30 s default.
+#:
+#: The DEBOUNCE's value is pinned where it belongs, by reading the constant
+#: (test_the_resize_debounce_is_short_enough_to_be_a_debounce below), not by
+#: racing it here — a bound doing both jobs is a stopwatch pretending to be
+#: an assertion (CARD-212 review cycles 2-3, G-001).
+_SETTLE_BOUND = 10_000
+
+#: How long the burst test waits after the board has settled, to catch a
+#: SECOND redraw that a lost clearTimeout would schedule. A few times
+#: solver.js's RESIZE_SETTLE: the stray timers a per-event listener leaves
+#: are all due within one debounce of the last event, so this is slack, not
+#: a race — the draw count is what decides that test.
+_BURST_QUIET = 800
 
 #: The duplicates are gone (or, with the count swapped, back).
 _NO_DUPLICATES = ("[...document.querySelectorAll('th.player-clue')]"
@@ -816,6 +838,33 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         assert resized["duplicates"] == 0 and resized["cell"] == pytest.approx(17.63, abs=0.05)
         assert resized["overflowX"] <= 1, resized
 
+    def test_the_resize_debounce_is_short_enough_to_be_a_debounce(self) -> None:
+        """What a debounce is worth is its length, so that is asserted as a
+        length and not as a race (CARD-212 review cycle 3). solver.js's
+        RESIZE_SETTLE is read from the file: a listener that waits about a
+        seventh of a second (150 ms) after the last event coalesces a window
+        drag into one redraw, which is the point; one that waits seconds
+        stops being a debounce and becomes a board that visibly trails its
+        window, and one that waits a few milliseconds stops coalescing at
+        all.
+
+        This is the test that kills a stretched debounce. The settle waits
+        above no longer do — their bound is deliberately generous now, for
+        the reason given at _SETTLE_BOUND — and the burst test below is
+        about the clearTimeout, not the delay. A later reader changing
+        RESIZE_SETTLE should expect to meet this test and no other.
+        """
+        source = (_STATIC / "solver.js").read_text()
+        declared = re.search(r"^const RESIZE_SETTLE = (\d+);$", source, re.M)
+        assert declared, "solver.js no longer declares RESIZE_SETTLE"
+        settle = int(declared.group(1))
+        assert 50 <= settle <= 400, (
+            f"RESIZE_SETTLE is {settle} ms: under ~50 ms it stops coalescing a drag, "
+            f"over ~400 ms the board visibly trails the window")
+        # And the tests above are written against that length: the quiet
+        # period the burst test waits out has to clear it comfortably.
+        assert _BURST_QUIET >= 4 * settle, (settle, _BURST_QUIET)
+
     def test_a_burst_of_resize_events_redraws_once(self, browser_page, live) -> None:
         """The listener is debounced, not throttled and not per-event: a drag
         across a window edge fires `resize` continuously, and each redraw is
@@ -833,7 +882,7 @@ class TestSolverZoom_SurvivesADoubledRedraw:
         for step in range(8):  # eight events, each a pixel apart
             page.set_viewport_size({"width": _NARROW["width"] - step - 1, "height": _NARROW["height"]})
         page.wait_for_function(f"{_DRAWN_BOARDS} > {before}", timeout=_SETTLE_BOUND)
-        page.wait_for_timeout(4 * _SETTLE_BOUND // 3)  # let any further timers fire
+        page.wait_for_timeout(_BURST_QUIET)  # let any further timers fire
 
         after = page.evaluate(_DRAWN_BOARDS)
         assert 1 <= after - before <= 2, after - before
