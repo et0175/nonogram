@@ -1934,10 +1934,16 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         measurement. It is now the first assertion below, and it is the one
         that fails if a later card re-records CARD-204's fixture off a
         rewritten TOC.
+
+        **The face gate sits in the middle of this test, not at the top**
+        (AC/EC/G gate, 2026-10-14). The attribution itself is a statement
+        about three *stored* recordings and holds on any machine — gating it
+        with the rest left the clause this test is named for unverified
+        wherever Arial is absent, which is the project's own "only the pinned
+        figure is skipped, never the guardrail" rule broken in the test that
+        was added to close F-002. Only the two comparisons that read *this*
+        machine's export are machine-lettered, and only those are gated.
         """
-        if not same_face:
-            pytest.skip("the TOC is machine-lettered; see the class's own note")
-        now = page_digests(exported)
         for number in self.CARD205_TOC_PAGE:
             card200_page = baseline["pages"][number - 1]
             card204_page = card204_baseline["pages"][number - 1]
@@ -1952,6 +1958,16 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "CARD-205 recordings — CARD-205 is then not what moved it, "
                 "and this class's own split is mis-attributed"
             )
+
+        if not same_face:
+            pytest.skip(
+                "the live export's own TOC pixels are machine-lettered; see "
+                "the class's own note. The attribution above has already run."
+            )
+        now = page_digests(exported)
+        for number in self.CARD205_TOC_PAGE:
+            card200_page = baseline["pages"][number - 1]
+            card205_page = card205_baseline["pages"][number - 1]
             assert now[number - 1] == card205_page
             assert now[number - 1] != card200_page
 

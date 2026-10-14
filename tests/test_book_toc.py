@@ -56,6 +56,7 @@ from PIL import ImageDraw
 
 from nonogram.admin.book_kdp import unpaired_interior_page_count
 from nonogram.admin.book_manager import Book, BookMetadata
+from nonogram.admin.book_plan import TIERS
 from nonogram.admin.book_pdf_generator import (
     DPI,
     GUIDE_PAGE_COUNT,
@@ -69,6 +70,8 @@ from nonogram.admin.book_pdf_generator import (
     PuzzlePagePlan,
     TocEntry,
     _guide_face,
+    default_toc_frame,
+    interior_page_count,
     measured_toc_page_count,
     page_frame,
     structural_toc_entries,
@@ -666,6 +669,51 @@ class TestBookToc_KdpAgreesWithTheExportedCount:
             "of the new rule, not an identity that holds either way"
         )
         assert toc_pages_written == 1
+
+    def test_the_sheet_free_toc_default_follows_the_new_rule_too(self) -> None:
+        """The third caller of ``measured_toc_page_count`` (AC/EC/G gate).
+
+        It has three callers, not two: ``interior_stream``'s own walk and
+        ``book_kdp.unpaired_interior_page_count`` — both asserted above — and
+        ``interior_page_count``'s sheet-free ``toc_pages`` default
+        (:func:`default_toc_frame`), which every caller asking for a page
+        count *without* a sheet to measure falls back to. The first two
+        agreeing says nothing about the third, and before this test nothing
+        in the suite could tell the old rule from the new one there: every
+        test that reaches the default passes 0, 1, 3 or 7 puzzles, where the
+        per-puzzle rule and the structural one both measure one TOC page. On
+        ``default_toc_frame()`` they first disagree at 43 puzzles, and at 150
+        it is 1 page against 4 — so leaving this unasserted let
+        ``interior_page_count(150)`` report 310 for a book that is 307 pages
+        long, and that figure chooses the printed KDP gutter.
+
+        ``unpaired_page_count`` is the right-hand side because
+        ``interior_stream`` builds it from exactly the terms this function
+        defaults to — puzzle pages unpaired (one per puzzle), one answer page
+        per puzzle, ``min(len(TIERS), count)`` dividers — and differs in one
+        term only: it passes the TOC length measured off this book's own
+        trim, where the left-hand side must derive it. The two sides
+        therefore agree if and only if the default agrees about the TOC.
+        """
+        puzzles = self._corpus()
+        book = _book("card-205-ac5-sheet-free")
+        generator = BookPDFGenerator(book)
+
+        stream = generator.interior_stream(list(puzzles))
+
+        assert interior_page_count(len(puzzles)) == stream.unpaired_page_count, (
+            "`interior_page_count`'s sheet-free TOC default and the TOC this "
+            "book actually wrote must agree — every other term of the two "
+            "counts is identical by construction"
+        )
+
+        assert measured_toc_page_count(len(puzzles), default_toc_frame(), DPI) == 4, (
+            "non-vacuity: on the very frame the default measures on, the "
+            "pre-CARD-205 rule (one row per puzzle) makes this book's TOC "
+            "four pages, so the agreement above is a real check of the new "
+            "rule and not an identity that holds either way"
+        )
+        assert structural_toc_entry_count(len(TIERS), len(puzzles)) == 8
 
     def test_the_gutter_band_itself_follows_the_new_count(self) -> None:
         """One step further out: the figure KDP's band lookup is given.
