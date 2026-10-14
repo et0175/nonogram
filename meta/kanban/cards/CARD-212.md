@@ -816,3 +816,23 @@ and fix agents' own. Where the two disagree, the ledger is authoritative._
   drafted against a stale copy of the file rather than against the base the card names. Left as
   written with this note, because they describe code that no longer exists on the branch and
   rewriting them now would invent a precision the drafting did not have.
+
+- [Merge gate] 2026-10-14 — **FAILED. `1 failed, 7051 passed, 9 skipped, PYTEST_EXIT=1`** in
+  1476 s (24:36) on the merged tree. Exit code written into the log as its last line and read in
+  a command of its own, separate from any merge.
+  - The failure is **this card's own new test**, not the known `test_web_upload` host-shared
+    flake: `tests/test_puzzle_solver_zoom.py::TestSolverZoom_SurvivesADoubledRedraw::`
+    `test_a_resize_that_never_crosses_the_breakpoint_rechooses_the_layout`, with
+    `playwright._impl._errors.TimeoutError: Page.wait_for_function: Timeout 600ms exceeded` on
+    the **return** journey (narrow -> roomy, waiting for the 55 duplicates to come back).
+  - **Diagnosed, not assumed:** re-run alone it passes twice, in 5.23 s and 2.81 s. So the test
+    is sound and the **bound is racing the machine** — `_SETTLE_BOUND = 600` ms must cover a
+    150 ms debounce plus the rebuild of a doubled 30x25 board, which is the most expensive
+    redraw this card has, on a host that was also running another worktree's review.
+  - **This one is on the orchestrator's instruction.** The 600 ms figure came from the fix-cycle
+    brief, asking for an explicit bound so Playwright's 30 s default could not mask a debounce
+    stretched to seconds (review survivor M-D set `RESIZE_SETTLE` to 5000 ms). The bound does
+    kill that mutant — and it also turned a behavioural test into a stopwatch. A test that reds
+    under load is a defect in its own right: the next card to run a merge gate would read it as
+    a real failure, which is precisely the false-signal incident this wave already had once.
+  - **Not merged.** The gate is the gate.
