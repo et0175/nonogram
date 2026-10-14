@@ -314,6 +314,7 @@ the producer yields against the count the plan declared and raises
 """
 
 import logging
+import math
 import time
 from collections import Counter
 from collections.abc import Mapping
@@ -344,10 +345,13 @@ from nonogram.export.layout import (
     Layout,
     PageSpec,
     PairLayout,
+    QrSlot,
+    caption_slot,
     compute_layout,
     compute_packed_solved_layout,
     compute_pair_layout,
     header_band,
+    qr_slot,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
 from nonogram.export.png import BACKGROUND, INK
@@ -464,6 +468,30 @@ GUIDE_PAGE_COUNT = 2
 #: equivalent) — a page number needs no more emphasis than the caption it
 #: shares a corner with, and no setting below the floor is ever added.
 FOLIO_PT = 10.0
+
+#: How many digits of a page number :func:`_folio_reserve_px` plans room for
+#: on a two-up page's lower slot (CARD-204 Fix 4, owner decision 2026-10-12,
+#: "fixed universal reserve") — a fixed ceiling, never this book's own
+#: largest page number or this page's own number. Four digits is far beyond
+#: anything a physical print book this software produces reaches in
+#: practice (the project's own Amazon market snapshot puts the median
+#: competitor book at ~120 pages, and no trim CON-018 stocks is bound
+#: anywhere near 1000 pages) — a generous, constant ceiling, not a
+#: measurement of any specific book. A hypothetical book past 9999 pages
+#: would not break: its own five-digit folios simply would not clear
+#: :func:`_draw_folio`'s own width check at this corner and would be
+#: omitted, exactly as every page kind with too little room already is.
+#: **What this room costs the owner** (measured in CARD-204's cycle-4 review
+#: and reproduced twice from independent sweeps, see
+#: :func:`~nonogram.export.layout.compute_pair_layout`'s own docstring): the
+#: reserve takes part in the pairing verdict, so ~5% of adversarial pairs
+#: that would pair unreserved at >= 7.0 mm are refused and ~9% more commit a
+#: slightly smaller cell — and every refused pair is one more interior page,
+#: i.e. a longer interior and, on KDP, a higher print cost per copy.
+#: Accepted knowingly (owner decision 2026-10-12, reaffirmed 2026-10-13 with
+#: that measurement in hand), against the alternative of losing the folio
+#: from every two-up page.
+FOLIO_RESERVE_DIGITS = 4
 
 #: The table of contents page's title (CARD-200) — plain and descriptive,
 #: the same register as the divider's own one-word pages rather than a
@@ -1261,6 +1289,77 @@ def _set_band(draw: ImageDraw.ImageDraw, band: HeaderBand, text: str, room: int)
     )
 
 
+#: CARD-204's placeholder QR icon: a plain alternating checkerboard, never a
+#: real QR module pattern — see :func:`_draw_qr_placeholder`'s own docstring.
+#: Reimplemented from :mod:`nonogram.export.png`'s identical helper rather
+#: than imported (the native-reimplementation convention this module already
+#: follows for :func:`_stroke_drawing`/:func:`_write_clues`: ``export/``
+#: exposes no call that draws onto a page it is handed, CARD-146).
+_QR_PLACEHOLDER_MODULES = 5
+
+
+def _draw_qr_placeholder(draw: ImageDraw.ImageDraw, icon: QrSlot) -> None:
+    """Draw CARD-204's placeholder QR icon inside ``icon``'s box.
+
+    **Deliberately not a real QR code (owner's confirmed option 2(b)).** A
+    bordered square around a plain alternating checkerboard — no finder
+    squares, no real module data, "a generic grid-of-squares glyph, never
+    claiming to scan". No URL, admin or otherwise, appears anywhere in this
+    function (CON-021, G-3): there is nothing here to point anywhere, which
+    is what keeps it inert. See
+    :func:`nonogram.export.png._draw_qr_placeholder`'s own docstring for the
+    full reasoning — identical here, for a two-up slot rather than a single
+    page.
+    """
+    draw.rectangle((icon.left, icon.top, icon.right, icon.bottom), outline=INK, width=2)
+    side = icon.right - icon.left
+    step = side / _QR_PLACEHOLDER_MODULES
+    for row in range(_QR_PLACEHOLDER_MODULES):
+        for column in range(_QR_PLACEHOLDER_MODULES):
+            if (row + column) % 2 == 0:
+                continue
+            draw.rectangle(
+                (
+                    icon.left + round(column * step),
+                    icon.top + round(row * step),
+                    icon.left + round((column + 1) * step),
+                    icon.top + round((row + 1) * step),
+                ),
+                fill=INK,
+            )
+
+
+def _folio_reserve_px(dpi: int) -> int:
+    """The fixed pixel reserve CARD-200's folio gets on a two-up page's lower slot.
+
+    **Owner decision, 2026-10-12, "fixed universal reserve" (CARD-204
+    Fix 4).** Review cycles 1 and 2 (F-1, F-5) rejected Fix 1's and Fix 2's
+    own versions of this function for taking ``page_number``/
+    ``max_page_number`` and so letting a specific page's or a specific
+    book's own scale flip :func:`~nonogram.export.layout.compute_pair_layout`'s
+    accept/refuse verdict (INV-010). This version takes **only** ``dpi`` — a
+    value fixed at compile time (every :class:`BookPDFGenerator` is
+    constructed with :data:`~nonogram.export.layout.DPI`, never a
+    caller-chosen or book-specific resolution) — so it returns the exact
+    same number of pixels for every call this codebase will ever make,
+    structurally incapable of depending on ``payloads``, a page number or a
+    book's own page count.
+
+    Measures the widest single decimal digit this font actually draws (all
+    ten, not assumed — a narrow font could draw "1" tighter than "0") at
+    :data:`FOLIO_PT`, the same font/size :func:`_draw_folio` itself measures
+    its own clearance from, times :data:`FOLIO_RESERVE_DIGITS` — a fixed
+    ceiling sized for any book this software could realistically produce,
+    never this book's own largest page number. ``math.ceil``'d to a whole
+    pixel, the same rounding :func:`_draw_folio`'s own text-width check
+    already uses by comparing a float ``font.getlength`` against whole-pixel
+    geometry.
+    """
+    font = _band_font(type_px(FOLIO_PT, dpi))
+    widest_digit_px = max(font.getlength(str(digit)) for digit in range(10))
+    return math.ceil(widest_digit_px * FOLIO_RESERVE_DIGITS)
+
+
 def _draw_folio(
     draw: ImageDraw.ImageDraw,
     left: int,
@@ -1309,10 +1408,36 @@ def _draw_folio(
     silently omit the folio from every two-up page in the book, which is
     worse than the collision it would be avoiding. What actually decides
     whether the lower slot's own ink can reach the folio's exact corner is
-    *horizontal* room at that same row — the lower slot is centred across
-    the page's shared usable width (:class:`PairLayout`'s own docstring) and
-    only touches the left/right margin when that centring leaves no spare,
-    which is the common case's opposite, not its rule. ``content_right``/
+    *horizontal* room at that same row.
+
+    **Since CARD-204 that room is a fixed reserve, not a pair-dependent
+    leftover.** This paragraph previously read "the lower slot is centred
+    across the page's shared usable width and only touches the left/right
+    margin when that centring leaves no spare, which is the common case's
+    opposite, not its rule" — false on both counts since this card, and the
+    canonical statement of exactly the belief cycle-3's review (F-7) traced
+    Fix 3's folio-loss regression to; corrected here per cycle-4's F-12. No
+    slot is centred any more: CARD-204's reading (b) places each slot flush
+    with the usable area's *outer* margin, mirrored by parity (an ODD,
+    right-hand page lands ``drawing_right`` on ``usable_right``; an EVEN,
+    left-hand one lands ``drawing_left`` on ``usable_left``), and
+    :func:`~nonogram.export.layout._slot_layout`'s own docstring proves that
+    an algebraic identity for *every* slot, however large its own spare — so
+    "when centring leaves no spare" is not the rare case, it is not a case at
+    all. What the lower slot does instead, on **every** two-up page and
+    regardless of either puzzle's extent, is reach to within exactly
+    :func:`_folio_reserve_px` pixels of that outer margin, because
+    :func:`~nonogram.export.layout.compute_pair_layout` keeps that many
+    pixels of the slot's own spare out of the parity shift and, when the
+    natural spare is smaller, re-fits the shared cell until it is not (owner
+    decision 2026-10-12, "fixed universal reserve"; the reserve is sized for
+    :data:`FOLIO_RESERVE_DIGITS` digits of this same face at
+    :data:`FOLIO_PT`, which is why the check below clears by exactly that
+    reserve). The horizontal test is therefore a verification that the
+    reserved room really arrived — not a gamble on leftover slack, and not a
+    check that only tight pairs can fail.
+
+    ``content_right``/
     ``content_left`` (the content's own rightmost/leftmost pixel — e.g.
     ``placement.drawing_right``/``drawing_left``) are read **only** when
     ``content_bottom`` already shows no vertical room: the folio is then
@@ -1886,6 +2011,23 @@ def example_line_layout(spec: PageSpec, clue: Tuple[int, ...], length: int) -> L
     four original worked-example steps pass :data:`WORKED_EXAMPLE_CLUE`/
     :data:`WORKED_EXAMPLE_LENGTH` explicitly now; the signature changed, not
     what that call draws (AC-8 pins the output pixel-identical).
+
+    **CARD-204 note.** This call's only use for ``compute_layout``'s
+    placed-page branch is borrowed cell/rule consistency (ADR-0036/R2) —
+    :func:`draw_example_line` crops the result tight to its own ink and the
+    guide page pastes that crop at a fixed, card-independent position
+    (``frame.left``), never at this layout's own ``left``. CARD-204's
+    right-alignment change nonetheless moves the guide page's own pixels by
+    a small, sub-pixel rounding scatter: ``_boundaries`` rounds each grid
+    boundary independently, and that rounding depends on the *absolute*
+    anchor's fractional part, which CARD-204's formula changed even though
+    nothing about where this diagram ends up on the page did. See
+    ``tests/test_book_pdf_memory.py``'s
+    ``TestBookPdfMemory_NonDrawingPagesAreByteIdentical`` for the measured
+    extent of it (pages 1-2 only, ~15000 px of a 2550x3300 page) and
+    CARD-204's own Worktree notes for why it is flagged rather than
+    eliminated here (doing so would give this function its own placement
+    arithmetic, which G-3 forbids).
     """
     columns = ((0,),) * length
     layout = compute_layout((clue,), columns, spec)
@@ -1984,6 +2126,29 @@ def wrap_words(text: str, font: Any, measure: int) -> List[str]:
     if current:
         lines.append(current)
     return lines
+
+
+def _clipped_to(text: str, font: Any, measure: int) -> str:
+    """``text`` shortened with a trailing ellipsis until it fits ``measure``.
+
+    One line, clipped rather than wrapped — :func:`wrap_words` is for a
+    paragraph of several lines, and the two places this is used (a TOC row
+    beside its page number, and a solved page's caption line) are each one
+    line by definition.
+
+    Extracted for CARD-204 Fix 7, which needs the same clip for a caption
+    too wide for its page's usable area at all: the loop below is the one
+    :meth:`BookPDFGenerator.create_toc_page` already ran inline since
+    CARD-200, moved here unchanged (two characters off, one ellipsis on,
+    stopping at a single character so no text can be clipped away entirely),
+    so the TOC draws the identical bytes it drew before. A caption cannot be
+    *shrunk* to fit instead: ``ANSWER_TEXT_FONT_MM`` already is CON-020's
+    10 pt floor for reader-facing interior text.
+    """
+    clipped = text
+    while len(clipped) > 1 and font.getlength(clipped) > measure:
+        clipped = clipped[:-2] + "…"
+    return clipped
 
 
 def page_is_right_hand(page_number: int) -> bool:
@@ -3089,7 +3254,9 @@ class BookPDFGenerator:
         for *every* TOC page — stays true of this one too.
 
         A label too wide to sit beside its own page number on one line is
-        clipped, with a trailing ellipsis, rather than wrapped
+        clipped, with a trailing ellipsis (:func:`_clipped_to` — this
+        method's own inline loop until CARD-204 Fix 7 extracted it for the
+        solved caption's own over-wide case, unchanged), rather than wrapped
         (:func:`wrap_words` is for a paragraph of several lines; a listing
         row is one line by definition) or left to overlap the number it
         would otherwise share the row with.
@@ -3119,9 +3286,7 @@ class BookPDFGenerator:
             number_text = str(entry_page)
             number_width = entry_font.getlength(number_text)
             label_measure = measure - number_width - type_px(TOC_ENTRY_GAP_PT, self.dpi)
-            clipped = label
-            while len(clipped) > 1 and entry_font.getlength(clipped) > label_measure:
-                clipped = clipped[:-2] + "…"
+            clipped = _clipped_to(label, entry_font, label_measure)
             draw.text((frame.left, y), clipped, fill="black", font=entry_font)
             draw.text(
                 (frame.right, y), number_text, fill="black", font=entry_font, anchor="ra"
@@ -3438,8 +3603,11 @@ class BookPDFGenerator:
         algebraically, ``lower.page.drawing_bottom`` always equals it too:
         "whatever height the pair leaves spare falls between the two slots",
         never below the lower one). ``usable_left``/``usable_right`` do not
-        differ between the two slots either way (both centre on the page's
-        one shared usable width), so reading all four off ``lower.page``
+        differ between the two slots either way (both are placed against
+        the page's one shared usable width — flush with its outer margin by
+        parity since CARD-204, each slot's own ``usable_*`` fields identical;
+        it is the *drawing* inside the lower slot that the folio reserve pulls
+        in, never the slot's usable box), so reading all four off ``lower.page``
         alone is both correct and sufficient — one call, not a slot-by-slot
         one as the loop above intentionally avoids already.
 
@@ -3463,6 +3631,35 @@ class BookPDFGenerator:
         also has no horizontal room at that exact edge) from the lower
         slot's always-zero vertical slack alone: see that function's own
         docstring for the exact rule.
+
+        **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a
+        fixed constant by Fix 4 — owner decision, 2026-10-12, "fixed
+        universal reserve").** Under reading (b)'s flush alignment with no
+        reserve, ``lower.page.drawing_right``/``drawing_left`` lands
+        *exactly* on ``usable_right``/``usable_left`` on **every** two-up
+        page, not just when the lower slot happens to be the pair's
+        width-binding member — an algebraic identity of the anchor formula
+        itself (:func:`~nonogram.export.layout._slot_layout`'s own
+        docstring), confirmed directly, not merely observed in one case —
+        so this horizontal check would fail, and the folio be omitted, on
+        every two-up page in every book. Fix 1 and Fix 2 had
+        ``compute_pair_layout`` reserve horizontal room at the lower slot's
+        own outer corner (first per-page, then book-level) so the check
+        always cleared — but that reserve let a *page/book-specific*
+        quantity flip whether two puzzles paired at all (INV-010, cycle-1
+        F-1, cycle-2 F-5). Fix 3 removed the reserve entirely, restoring
+        INV-010 purity but reintroducing the universal folio loss it was
+        meant to fix (cycle-3 F-7) — this method's own prior docstring
+        wrongly described the loss as occasional ("whatever natural slack
+        the pair's own geometry happens to leave"), the exact
+        mischaracterisation that review caught. **Fix 4 passes a fixed,
+        page/book-independent pixel reserve into every pairing decision**
+        (:meth:`puzzle_pages`'s own docstring), so
+        ``lower.page.drawing_right``/``drawing_left`` now carries that
+        reserve's worth of real clearance on every two-up page by
+        construction, and this method's own call below needs no edit at
+        all: it already read the slot's *actual* (not assumed) geometry,
+        which now simply has room in it.
         """
         pair = plan.pair
         if pair is None:  # pragma: no cover - the walk only sends two-up plans here
@@ -3486,6 +3683,13 @@ class BookPDFGenerator:
                 band_identity(number, payload.difficulty),
                 placement.usable_right - placement.usable_left,
             )
+            # CARD-204: each puzzle of the pair gets its own placeholder QR
+            # slot, exactly as a single puzzle page does (qr_slot() reads
+            # this slot's own Placement; the two slots never compete for the
+            # same pixels since each reserves from its own usable area).
+            icon = qr_slot(slot)
+            if icon is not None:
+                _draw_qr_placeholder(draw, icon)
         footer_area = pair.lower.page
         _draw_folio(
             draw,
@@ -3543,6 +3747,37 @@ class BookPDFGenerator:
         when both would want the same corner, the same "folio omits, content
         wins" precedent CARD-200 already set; this card does not touch the
         caption's own placement or omission guard above.
+
+        **CARD-204 Fix 7 (merge gate), as corrected by Fix 8 (review cycle
+        5, F-2).** The caption's right edge is now the one
+        :func:`~nonogram.export.layout.caption_slot` reports for this slot
+        and this text's measured width, not ``placement.drawing_right``
+        unconditionally. CARD-203's right-alignment is preserved exactly
+        where the *drawing itself* fits inside its own usable area
+        (:attr:`~nonogram.export.layout.PagePlacement.fits`) and the caption
+        fits beside it — the two are then the same pixel. Two cases depart
+        from it, both deliberately and both toward the margin the ink would
+        otherwise cross: a caption wider than its grid is held off the
+        usable area's left edge instead of printing into the trim margin
+        (which it did on an ``EVEN`` page from the moment this card placed
+        the drawing flush with that edge); and on a page too small for its
+        puzzle, where the ``MIN_CELL_MM`` floor puts ``drawing_right``
+        *past* ``usable_right`` (``fits`` False — AC-3's own regime), the
+        caption stops at ``usable_right`` rather than following the drawing
+        out into the gutter margin, so it sits up to that overflow further
+        left than CARD-203 alone would have put it (measured: 32 px / 2.7 mm
+        for a 30x30 on a 10.0 cm trim at KDP-minimum margins). COMP-007's
+        own comment on that stop, and
+        ``tests/test_layout_page_spec.py::TestCaptionSlot_NoWidthEverLeavesTheUsableArea::test_an_overflowing_layout_stops_the_caption_at_the_margin``,
+        are where that case is stated and pinned. The width is measured here
+        because only this module knows the face; where that width is allowed
+        to sit is COMP-007's (ADR-0036/R2). A caption too wide for the
+        usable area at any x is clipped to
+        :attr:`~nonogram.export.layout.CaptionSlot.measure` first
+        (:func:`_clipped_to`), since its type is already at CON-020's floor
+        and cannot shrink. The box returned to the caller reports the clamped
+        right edge, so the folio's own collision check above sees where the
+        caption actually is.
 
         Raises:
             ValueError: ``slot`` is not a placed page (:meth:`page_spec`
@@ -3614,9 +3849,26 @@ class BookPDFGenerator:
         slack = placement.usable_bottom - placement.drawing_bottom
         if slack >= gap_px + line_height:
             caption = answer_caption(puzzle_number, title)
+            # CARD-204 Fix 7: where the caption's right edge goes is COMP-007's
+            # to say, not this renderer's (ADR-0036/R2) — a caption wider than
+            # its own grid would otherwise overhang `drawing_left`, which is
+            # this page's own outer margin since this card placed the drawing
+            # flush with it. What stays here is what only this module knows:
+            # the face, and therefore the text's own width. A caption too wide
+            # for the usable area at all is clipped to the measure COMP-007
+            # reports, the same way `create_toc_page` clips a long label
+            # (`_clipped_to`) — the type cannot shrink instead, since
+            # ANSWER_TEXT_FONT_MM already *is* CON-020's 10 pt floor.
+            caption_width = math.ceil(caption_font.getlength(caption))
+            box = caption_slot(slot, caption_width)
+            if box is None:  # pragma: no cover - `placement` above is not None
+                raise ValueError("a solved slot must be a placed book page")
+            if caption_width > box.measure:
+                caption = _clipped_to(caption, caption_font, box.measure)
+                box = caption_slot(slot, math.ceil(caption_font.getlength(caption)))
             draw.text(
                 (
-                    placement.drawing_right,
+                    box.right,
                     placement.drawing_bottom + gap_px + line_height / 2,
                 ),
                 caption,
@@ -3628,12 +3880,14 @@ class BookPDFGenerator:
             # to the caller so it can fold it into _draw_folio's own
             # collision check (right-aligned caption can now share a
             # right-hand page's folio corner — see this method's own
-            # docstring). The caption's right edge sits at drawing_right
-            # exactly (anchor "rm"); its bottom edge is gap_px + line_height
-            # below drawing_bottom, the same arithmetic as the guard above.
+            # docstring). The caption's right edge sits at `box.right`
+            # (anchor "rm"), which is `drawing_right` for every caption that
+            # fits beside its own grid and further right only for one clamped
+            # off the margin; its bottom edge is gap_px + line_height below
+            # drawing_bottom, the same arithmetic as the guard above.
             return (
                 round(placement.drawing_bottom + gap_px + line_height),
-                placement.drawing_right,
+                box.right,
             )
         return None
 
@@ -3873,6 +4127,18 @@ class BookPDFGenerator:
         computed above for ``corner_column``) is reused as the gate, so the
         two methods' fixes are now actually parallel, not just claimed to be.
 
+        **CARD-204 Fix 8 (review cycle 5, F-1, gating).** "Right-aligned at
+        that tile's own ``drawing_right``" above stopped being the whole
+        truth at Fix 7: a caption wider than its own grid is clamped out to
+        the tile's ``usable_right`` instead
+        (:func:`~nonogram.export.layout.caption_slot`). ``content_right`` is
+        therefore read off the caption's own reported box when the corner
+        tile drew one on a right-hand page — the same figure
+        :meth:`solved_puzzle_page` already passes — not off
+        ``drawing_right``, which under-reports a clamped caption and let the
+        folio draw into its glyphs. See the comment at the call site for the
+        reproduction and for why the left-parity mirror is left latent.
+
         Returns:
             The rendered page.
         """
@@ -3915,19 +4181,47 @@ class BookPDFGenerator:
         )
         # Review cycle 1, F-001: the corner tile's own caption (CARD-203,
         # right-aligned at that tile's drawing_right) can reach exactly the
-        # same physical corner this folio targets. content_right/content_left
-        # already carry that tile's own drawing_right/drawing_left (the
-        # caption's right edge coincides with it), so the only figure that
-        # needs widening is content_bottom, to the caption's own lower edge
-        # when one was actually drawn there — same "folio yields" precedent
-        # as solved_puzzle_page's own fix, applied to the corner tile instead
-        # of a full page's single placement.
+        # same physical corner this folio targets, so content_bottom has to
+        # widen to the caption's own lower edge when one was actually drawn
+        # there — same "folio yields" precedent as solved_puzzle_page's own
+        # fix, applied to the corner tile instead of a full page's single
+        # placement.
+        #
+        # CARD-204 Fix 8 (review cycle 5, F-1): content_right has to widen
+        # with it. This comment used to claim that "content_right /
+        # content_left already carry that tile's own drawing_right /
+        # drawing_left (the caption's right edge coincides with it)" — true
+        # until Fix 7, false since. A caption wider than its own grid is now
+        # clamped out to the tile's `usable_right` (`caption_slot`), and a
+        # packed tile's drawing is CENTRED inside its tile, so the tile has
+        # right-hand spare for the clamp to spend; on the corner column of a
+        # right-hand page that tile's usable_right IS the page's own folio
+        # corner. So `drawing_right` under-reported the caption's real edge,
+        # the clearance test below passed on a figure that no longer
+        # described the ink, and the folio drew into glyphs the caption had
+        # already set. Reproduced at trim 21.59x22.86 cm, KDP-minimum
+        # margins, capacity 4, 11x11, page 9, a 64-character picture name:
+        # drawing_right 2383 against the caption's real right edge 2462,
+        # the folio's own glyph box starting at 2447, 20 px of caption ink
+        # inside it. The caption's own reported right edge is what goes in
+        # now, exactly as solved_puzzle_page already passes `caption_right`.
+        #
+        # The left-parity mirror (`content_left` from the caption's own left
+        # edge) is deliberately NOT taken here: `_draw_solved_slot` reports
+        # `(bottom, right)` and nothing else, so the caption's left edge
+        # would need a third element on that return tuple — a contract
+        # change this fix cycle is scoped out of (owner decision, cycle 5).
+        # It is latent, not live: `content_left` is read only on a left-hand
+        # page, where F-101's own fix gates the `content_bottom` fold-in on
+        # `right_hand`, so the vertical half of the predicate does not fire.
         content_bottom = None if corner_placement is None else corner_placement.drawing_bottom
         corner_caption = (
             caption_boxes[corner_index] if corner_index < len(caption_boxes) else None
         )
+        content_right = None if corner_placement is None else corner_placement.drawing_right
         if right_hand and content_bottom is not None and corner_caption is not None:
             content_bottom = max(content_bottom, corner_caption[0])
+            content_right = corner_caption[1]
         _draw_folio(
             draw,
             frame.left,
@@ -3937,7 +4231,7 @@ class BookPDFGenerator:
             page_number,
             self.dpi,
             content_bottom=content_bottom,
-            content_right=None if corner_placement is None else corner_placement.drawing_right,
+            content_right=content_right,
             content_left=None if corner_placement is None else corner_placement.drawing_left,
         )
         return page
@@ -3986,6 +4280,21 @@ class BookPDFGenerator:
         leave the export to fail — or not — somewhere else, under a different
         name. The failure is named here, where it happened, so that every abort
         of :meth:`interior` names a puzzle whatever stage it came from.
+
+        **CARD-200's folio always gets its fixed, universal reserve (CARD-204
+        Fix 4, owner decision 2026-10-12).** Every call here passes
+        :func:`_folio_reserve_px`'s own value — a constant derived only from
+        the font and ``self.dpi``, never from ``page_number``, ``payloads``
+        or anything about this specific book — into
+        :func:`~nonogram.export.layout.compute_pair_layout`'s
+        ``folio_reserve_px``. The same number reaches every pair this walk
+        ever offers, so the walk's own accept/refuse verdicts and cell sizes
+        stay exactly as page/book-independent as they were when Fix 3
+        removed the reserve mechanism (INV-010) — the difference is that
+        every two-up page's lower slot now keeps room for its folio instead
+        of losing it (see :func:`~nonogram.export.layout.compute_pair_layout`'s
+        own docstring for why a fixed constant cannot reintroduce the
+        cycle-1/cycle-2 coupling).
 
         Args:
             payloads: The drawable puzzles in print order. A payload's
@@ -4040,6 +4349,7 @@ class BookPDFGenerator:
                         (first.row_clues, first.column_clues),
                         (second.row_clues, second.column_clues),
                         self.page_spec(page_number),
+                        folio_reserve_px=_folio_reserve_px(self.dpi),
                     )
                 except Exception as e:
                     raise RuntimeError(
@@ -4090,6 +4400,27 @@ class BookPDFGenerator:
         starts on the page after its own divider — while the **puzzle**
         numbers run on unbroken through ``first_number``, so a divider costs a
         page and no number (AC-255).
+
+        **History (CARD-204 Fix 1/Fix 2, reverted by Fix 3, restored as a
+        fixed constant by Fix 4 — owner decision, 2026-10-12, "fixed
+        universal reserve").** Fix 1 and Fix 2 reserved horizontal room at
+        each two-up page's lower slot for CARD-200's folio, first per-page
+        (Fix 1) and then as one book-level bound shared across every level's
+        walk (Fix 2) — but both let a *non-geometric, page/book-specific*
+        quantity (a page number's or a book's own digit count) flip whether
+        two puzzles pair and at what cell, which cycle-1 and cycle-2 review
+        each reproduced as an INV-010 violation. Fix 3 removed the reserve
+        mechanism entirely, which restored INV-010 purity but silently
+        reintroduced the folio-loss bug on *every* two-up page (cycle-3
+        review F-7). **This method needs no edit for Fix 4**: each level's
+        own :meth:`puzzle_pages` call now reserves
+        :func:`_folio_reserve_px`'s own fixed, dpi-only pixel amount
+        internally — identical for every level of every book, since neither
+        this method nor :meth:`puzzle_pages` ever passes it a page number or
+        a count of anything. Splitting the pairing walk at a level boundary
+        therefore still changes no verdict: the reserve a puzzle sees does
+        not depend on which level's slice it is offered in, any more than
+        :data:`~nonogram.export.layout.TWO_UP_MIN_CELL_MM` does.
 
         Args:
             payloads: The drawable puzzles in print order.

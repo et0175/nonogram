@@ -1,0 +1,140 @@
+{
+  "card": "CARD-204",
+  "supersedes": "tests/fixtures/book_baseline_card200.json",
+  "recorded_from_commit": "card/204-puzzle-right-align-qr (Fix 7 implementation commit, on the merge of main into the branch)",
+  "recorded_from_commit_note": "Re-recorded for CARD-204 Fix 7 (merge gate, 2026-10-14). The Fix 4 recording above is superseded in place (same filename, same convention as every prior re-recording in this chain), and for a cause that is NOT this card's own change: CARD-203 (the solved-page caption right-aligned with the drawing and lifted to a fixed 2 mm gap above it) merged to main AFTER this branch was cut, so the Fix 4 recording was taken on a tree that did not have it. This recording is taken on the merged tree. See changed_pages_note for the two distinct causes and which pages each one moves.",
+  "recorded_on": "2026-10-14 (CARD-204 Fix 7, on the merged tree)",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages — the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-204 reverses FR-032's centred horizontal placement to right-aligned (mirrored by parity) and adds a placeholder QR icon to puzzle pages. Measured directly against the CARD-200 recording (git-stash diff of the renderer, and a page-by-page digest comparison): pages 5, 7 and 9 move (the two-up page and the book's two single-puzzle pages, all of which have real horizontal spare to move by, and all of which gain the QR icon). Pages 11 and 12 (CARD-202's packed answer pages) do not move: they are centred by a tile-local formula FR-032's page-wide clause never covered. Page 13 (Snowflake's own full answer page) does not move either, but as a coincidence of this puzzle's own geometry (it is exactly page-fit-bound on both axes, so its spare is exactly 0 and the old centred formula and the new flush one land on the same pixel) rather than a structural exemption — a Snowflake-sized puzzle with any spare at all would move like pages 5/7/9 do. Pages 1 and 2 (the guide) move too, by a small, documented, incidental rounding scatter: their own worked-example diagrams reuse compute_layout's placed-page branch for cell/rule consistency (ADR-0036/R2), and that branch's per-boundary independent rounding depends on the absolute anchor's own fractional part, which this card's formula changes even though the diagrams themselves are cropped and pasted at a fixed, card-independent position. See tests/test_book_pdf_memory.py's TestBookPdfMemory_NonDrawingPagesAreByteIdentical for the test that verifies all of this directly, and this card's own Worktree notes (meta/kanban/cards/CARD-204.md) for the full reasoning flagged to the owner/architect. CARD-204 FIX 1 (owner decision, 2026-10-10, \"reserve folio room\"): page 5 (the two-up page) moves again, on top of the above -- its lower slot's drawing is now pulled folio_reserve_px toward the gutter from the flush outer edge (export/layout.py's compute_pair_layout/_slot_layout), and the page's own folio now prints '5' where it was previously omitted every time. No other page moves: pages 7 and 9 (single-puzzle pages) are placed by compute_layout, which this fix does not touch; pages 11-13 (answer pages) never call compute_pair_layout at all.\n\n[Fix 4 addendum, 2026-10-12] Per the owner's \"fixed universal reserve\" decision, compute_pair_layout/_slot_layout regained a fixed, page/book-independent folio_reserve_px/outer_reserve_px (Fix 3 had removed this mechanism entirely; Fix 1/Fix 2's earlier versions were page/book-scale-coupled and were rejected by cycle-1/cycle-2 review). Only page 5 (the two-up page) moves again as a result; see changed_pages_note for the exact figures.\n\n[Fix 7 addendum, 2026-10-14 — a deliberate recording with TWO causes, only one of them this card's] (a) MAIN'S CARD-203, which is what actually moves ink here: interior pages 11, 12 and 13 (the two packed answer pages and Snowflake's full one) are the three pages of this book that draw a caption, and CARD-203 right-aligns that caption with the drawing's own right edge (anchor \"rm\" at placement.drawing_right instead of \"mm\" at the drawing's centre) and moves it to a fixed ANSWER_TILE_GAP_MM gap below drawing_bottom instead of centred across the whole bottom slack. Those three pages are now byte-identical to book_baseline_card203.json, which is asserted directly by tests/test_book_pdf_memory.py's TestBookPdfMemory_NonDrawingPagesAreByteIdentical::test_the_three_answer_pages_still_match_the_card203_baseline -- so this recording's own claim about who moved them is checked by the suite, not just written here. Pages 1-10 are byte-identical to the Fix 4 recording above (CARD-203 draws no caption on any of them). (b) FIX 7'S OWN CHANGE, which moves NO page of this book: export/layout.py's new caption_slot clamps a caption's right-aligned anchor so its leftmost ink can never pass usable_left, which is reachable only because this card placed the drawing flush with that margin. It fires only for a caption wider than its own grid; this book's four captions measure 321-459 px against drawings 1328 px and wider, so the clamp is inactive on every page of it and the export is byte-for-byte what the same tree produces without the clamp (measured both ways: 3441912 bytes either way). The clamp's own evidence is therefore NOT this fixture but tests/test_book_solved_page.py's TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin, which prints the over-wide caption this corpus does not contain.",
+  "warning": "This is evidence of what the book PDF looks like with CARD-204's right-alignment and placeholder QR icon in place. It must NEVER be regenerated to make a test fail less: a digest that no longer matches means a page's ink changed, and an interior_bytes that no longer matches means the written file changed. If a later card deliberately changes either, it records a NEW baseline in a commit of its own, with its own card number, and says so here.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_fingerprint": "9915f0697b1e44cc040f9fef86c232e101a10640067bd1a001f47459a1f2b24e",
+  "font_fingerprint_note": "This machine's Arial-or-fallback fingerprint, reproduced before this file was written (tests.helpers.book_corpus.font_fingerprint). A machine with a different fingerprint skips the font_dependent_pages below rather than failing on them.",
+  "font_dependent_pages": [
+    1,
+    2,
+    3,
+    4,
+    6,
+    8,
+    10
+  ],
+  "font_dependent_pages_note": "Both guide pages (1, 2), the new TOC page (3, CARD-200: its title and every entry are set through _guide_face, the same Arial-or-fallback path the guide and divider pages already use), the three level dividers (4, 6, 8) and the SOLUTIONS divider (10) are machine-lettered. None of the three packed/full answer pages (11-13) are machine-lettered -- a packed slot's band and caption letter in the packaged DejaVu Sans, and so does every page's own new folio (CARD-200: it reuses _band_font, the same packaged face, exactly as the answer caption does -- G-4's reuse, not a new font path), so the folio never makes an otherwise machine-safe page machine-dependent.",
+  "interior_bytes": 3441912,
+  "interior_bytes_note": "The black-and-white interior of this book: 3441912 bytes (CARD-204 Fix 7, on the merged tree), where the Fix 4 recording held 3440084. The +1828 bytes are main's CARD-203, not this card: the caption's own ink on interior pages 11, 12 and 13 is drawn right-aligned against the drawing instead of centred under it, and a 2 mm gap below the drawing instead of centred in the slack, which re-encodes those three pages' JPEG streams. The same +1828 is exactly what CARD-203's own recording added over CARD-200's on this book (3420073 -> 3421901), measured on main's tree without any of this card's changes -- which is the arithmetic behind this file's claim that the delta is CARD-203's. Fix 7's own clamp (export/layout.py's caption_slot) adds and removes nothing here: it is inactive for every caption this book prints, and the figure is identical with and without it. For the record of the earlier figures in this card's own chain: Fix 3 held 3439483, Fix 2 3440674, and Fix 4's own +601 over Fix 3 was page 5's folio glyph drawn again.",
+  "page_count": 13,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "747a0db669534b9b012ab03268fc300577ff3c4d5de74742dea661f0cd2d3aea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d57d6c59779607780ec1d3129924580cc5453824ca6c901f707e9d017d23238a"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "142204d2acc84d4788d028a127859c2b7e688f214ab9a8ff06ca4779ca5c3fd6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "75dae5f3afd301aff3a0c52b2a7254e1f394c70ea35b762b3161b92c875597f5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d51108ef22e699363d7692c312dafde71dfe6333a36ed87fac534b178c16b8e6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e2e06816e4f541969c25a216fe4f7a064ec39b31458e9d142bec62e5600085ea"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "ddbec59535f1566b3dff9a03595ad1c41047dd2c19e7eb539f62b50f88373a15"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "64574035fa6c4223579e3dd9381562db7075b3fd63c60dfeb5db73393668dcf7"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d15b54d5195903d471ebaf878a7fb7f0216ea6673fd472d66da119017391f95e"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e1ad9e4ee43ca6ca71c1550bdce983a1a272682a5adbc215b8c1dff75e681e46"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "d68d6773772ef8e58a6155f17ac3079c251e23ebe5fd3720a2ae3ce52c6ed39f"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "bb390982f5517bbd10fb3dd970f5cb504c4f5fe72f78e2276aa3099a2aa25188"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "db992a23160442038851051754f5831108c41269b30046872a019a4caedfd0f1"
+    }
+  ],
+  "changed_pages": [
+    11,
+    12,
+    13
+  ],
+  "changed_pages_note": "Interior pages 11, 12 and 13 move on top of CARD-204 Fix 4's own recording -- and they move under MAIN'S CARD-203, not under anything this card does. They are the three pages of this book that draw an answer caption (Duck+Owl packed, Tree packed alone, Snowflake full), and CARD-203 right-aligns that caption with placement.drawing_right and lifts it to a fixed 2 mm gap above placement.drawing_bottom. This branch was cut before CARD-203 merged, so Fix 4's recording could not see it; this one is taken on the merged tree, and all three pages are byte-identical to book_baseline_card203.json (asserted by test_book_pdf_memory.py's TestBookPdfMemory_NonDrawingPagesAreByteIdentical). Pages 1-10 are byte-identical to the Fix 4 recording: CARD-203 touches no page without a caption, and Fix 7's own change -- the caption_slot clamp that keeps an over-wide caption out of the trim margin -- is inactive for every caption this book prints (its captions measure 321-459 px against drawings of 1328 px and up), so it moves no page of this corpus at all. font_fingerprint and font_dependent_pages are unchanged: none of pages 11-13 is machine-lettered."
+}
