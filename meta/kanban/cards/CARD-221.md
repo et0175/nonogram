@@ -692,3 +692,10 @@ still that same gate closing.)
   `str.replace` with no guard on a fixture field. Its own corrective — edit one claim at a time
   and grep for the old text afterwards — is what found that the first docstring rewrite had never
   landed at all.
+
+- [Review cycle 2 — held until the machine is free] 2026-10-14 — the card is ready for it, and
+  it is deliberately not started yet. CARD-212's merge gate began at 19:01:33 UTC on a quiet
+  host, having waited for one; a reviewer's targeted runs and mutants on top of it are the same
+  load that produced the first gate's false failure and the CARD-195 `page.goto` artefact. The
+  gate's signal is the thing standing between CARD-212 and merging, so it gets the machine.
+  CARD-221's review starts when the gate reports.
