@@ -1,0 +1,246 @@
+version: 1
+generated_at: "2026-10-14T06:36:01Z"
+target: "CARD-211 worktree /Users/omelnikova/PycharmProjects/PythonProject4-CARD-211, branch card/211-region-own-control, HEAD 814854d; full card diff main...HEAD (10 files, +939/-236). Review cycle 1, full mode (no prior cycle, no confirmation block)."
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - src/nonogram/admin/static/solver_state.js (the whole new Region section — REGION_EVENTS, nextRegion, gesturePaints and their doc comments; plus a purity sweep of the entire file for document/window/getElementById/querySelector/localStorage/navigator — zero hits)
+    - src/nonogram/admin/static/solver.js (every Region-bearing region read in full post-diff, not grepped: the file header's "menu"/"region" comment blocks, the new import, REGION_ANNOUNCEMENT, wireMarking's handles and `let region`, syncTrigger, setRegion, pick, refresh, commit, showProgress, the pointerdown paints decision, the pointerup drag-recorded branch, pointercancel, the menu keydown switch incl. the Tab case, and the toggle's click wiring)
+    - src/nonogram/admin/static/admin.css (every hunk, plus the surrounding .player-toolbar/.player-tools/.player-slot/.player-solved-box/.player-tool-* /.player-region/.player-toolbar.is-solved rules and the .btn / .btn-check:checked + .btn / :focus-visible base rules the toggle inherits)
+    - src/nonogram/admin/static/tokens.css (--color-accent / --color-on-accent / --color-accent-tint / --color-focus / --control-h — the tokens the pressed look and the tap-target claim rest on)
+    - src/nonogram/admin/templates/puzzle_solve.html (the rewritten three-paragraph comment block, the four-item menu markup, the new toggle element, the #puzzle-player-announce element, the reworded usage hint)
+    - tests/test_puzzle_solver_brush_menu.py in full at HEAD (840 lines) AND at main, with the test-name inventories diffed set-wise so a silently dropped test could not hide behind a rename
+    - tests/test_puzzle_solver_marking.py (the shared helper block MENU_ORDER/_tool/_region*/CONTROLS/_FOCUSED, the page-copy test, the touch-drag test, TestSolverMarking_NoRequestPerMark), tests/test_puzzle_solver_maybe.py (the menu-name assertion, _TOOLBAR_ROWS, TestSolverMaybe_HiddenToolsAreOutOfReachWhenSolved in full, TestSolverMaybe_LongNameBannerWrapsInsideTheToolsWidth's banner assertions), tests/test_puzzle_solver_zoom.py + _phone.py (every changed call site and its docstring), tests/test_admin_design_tokens.py (the new .player-region token test)
+    - meta/kanban/cards/CARD-211.md in full, including all of ## Worktree notes
+    - meta/architecture/decisions/adr/0038-puzzle-player-plain-js-and-playwright.md (the whole ## Rules block, R1..R8), meta/architecture/requirements.yml (CON-021's amendment history; swept FR-044's ACs for any Region/five-item clause — none), trace.yml
+    - meta/review/20261013T111113Z-CARD-204-cycle4.yml (schema reference only)
+    - "INDEPENDENT EXECUTION (not source reading): 4 targeted pytest batches, 457 tests, all green — brush_menu+design_tokens (45), percent+marking+maybe+zoom+phone (162), progress+hint+resume+mirror+clues+page (183), and a post-restore re-run of brush_menu+design_tokens+percent (67). Plus a throwaway Playwright probe (written, run, deleted) measuring .player-tool-trigger / .player-tools / .player-slot / .player-region widths at 1280 px for Black and Undecided, which is what grounds F-003."
+    - "MUTATION CHECK (review.mutation_check): 9 mutants, 9 killed, 0 survived. Tree restored and verified byte-for-byte (git diff HEAD sha identical to the pre-mutation baseline 6eb0f20d…; git diff HEAD -- src/ tests/ empty)."
+  not_reached:
+    - "Rendered output. review.visual is off for this project and the owner validates the player by hand: no screenshot, runtime.log, a11y.log or baseline diff was produced or consumed in this review. The pressed look, the trigger's new width and the toolbar's appearance at 390 px are established geometrically (computed styles and getBoundingClientRect, via Playwright) and by token identity with the panel's existing .btn-check:checked + .btn, NOT by eye. F-003 is specifically routed to that eyeball."
+    - "The full ~6919-test suite (another card's suite was running on this host; the task instructed targeted runs). The worktree's own run at 814854d is cited by the card — 6910 passed, 9 skipped, 0 failed, PYTEST_EXIT=0 — and is not independently re-verified here; the 457-test player + token subset is."
+    - "Real screen-reader behaviour. AC-6 is verified as DOM state (#puzzle-player-announce's role/aria-atomic/textContent and the write ordering against commit), not with VoiceOver/NVDA."
+    - "Non-Chromium browsers (ADR-0038/R7 pins Chromium) and real hardware pen/touch; pen and touch are driven through CDP."
+  confidence: high
+
+metrics:
+  diff: { files: 10, added: 939, removed: 236 }
+  max_fan_in:
+    symbol: "solver_state.js nextRegion"
+    callers: 3
+    note: "3 call sites, all in solver.js (the toggle's click handler, pick(), and the pointerup drag-recorded branch) + 1 direct test call site in TestRegionRules_PureFunctions. gesturePaints: 1 production call site (pointerdown) + 1 test. setRegion: 3 call sites. The widest-reach symbol in the diff is actually the test helper _tool in tests/test_puzzle_solver_marking.py (~35 call sites across 6 player test files), whose signature and semantics are unchanged — which is the single biggest reason this diff's test-side blast radius stayed small."
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/static/solver.js (21 commits in 12 months, 5 of them fix/bug-shaped — the highest-churn file in the diff)"
+    - "src/nonogram/admin/static/admin.css (17 commits in 12 months, and the file both CARD-212 and CARD-216 are queued on)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the co-change set WAS measured (commit-by-commit over
+      the 21 commits touching solver.js in 12 months, expanding each commit's
+      full file list rather than the pathspec-restricted name-only output that
+      defeated earlier reports on this repo): admin.css 17, solver_state.js 13,
+      puzzle_solve.html 12, test_puzzle_solver_marking.py 10, _maybe.py 7,
+      _clues.py 5, _phone.py 4, _page.py 4, _hint.py 4, _resume.py 3,
+      _progress.py 3, _zoom.py 2, _mirror.py 2, _brush_menu.py 2,
+      _percent.py 1, test_admin_design_tokens.py 1. Seven peers are absent
+      from the diff (_page, _clues, _hint, _resume, _progress, _mirror,
+      _percent) and each was checked rather than assumed: all seven were run
+      green (183 + 162 tests), none asserts the five-item menu or picks
+      Region (grepped the whole test tree for "Region" and for
+      [data-player-tool] counts — the only remaining references are the ones
+      this diff updated), and test_puzzle_solver_percent.py is the file whose
+      existing TestSolverPercent_SitsNextToTheCounters caught the layout
+      regression and needed no edit to keep doing so. So the empty list is a
+      real zero, not an unmeasured one.
+    bus_factor: >-
+      no_eligible_fact — git shortlog -sn on the touched files yields a single
+      configured identity (Claude Code) for every commit in range, so
+      bus-factor carries no signal in this repository.
+
+system_contract:
+  rules_checked: 53
+  holds: 7
+  unchecked: 46
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — the player's client stays hand-written JS/CSS served as static files. Re-derivable: `git diff main...HEAD --stat` lists 10 files, all .js / .css / .html / .py; pyproject.toml has no hunk; no package.json, lockfile, bundler config or vendored library is added, and the two new exports are plain ES-module functions in the existing solver_state.js. The toggle is a native <button> wearing the panel's own .btn.btn-outline-secondary, not a widget library's. (Card guardrail G-1, same evidence.)"
+    - "ADR-0038/R2 ✓ holds — no network request per mark. The check ref is live (NOT a dead ref: tests/test_puzzle_solver_marking.py:1188 `class TestSolverMarking_NoRequestPerMark`, plus the sibling TestSolverMaybe_NoRequestPerMark and TestSolverPercent_NoRequestPerMark), and all three ran green in this review. Structurally: `grep -n 'fetch(|XMLHttpRequest' src/nonogram/admin/static/solver.js` returns nothing at HEAD, and nothing in the Region path (setRegion / nextRegion / gesturePaints) performs or schedules I/O. (Card guardrail G-3.)"
+    - "ADR-0038/R4 ✓ holds — the state logic lives in a pure module with no DOM access, separate from rendering, and this card moved logic INTO that module rather than out of it. Re-derivable two ways. (1) Purity: a sweep of the whole of solver_state.js for document / window / getElementById / querySelector / localStorage / navigator returns zero hits, and nextRegion / gesturePaints take and return plain values only. (2) The division is the house pattern, verified against the cited precedent rather than taken on the card's word: solver.js holds `let zoom` while solver_state.js holds stepZoom / pinchZoom / anchoredScroll / ZOOM_MIN / ZOOM_MAX — identically, solver.js holds `let region` and the button while solver_state.js holds the transition table and the pointer rule. solver.js's residual decisions are (a) naming which event happened ('toggle'/'drag'/'brush' — the exact analogue of stepZoom's 'in'/'out' direction argument) and (b) setRegion's `if (armed === region) return` guard, which is a RENDERING decision (do not rewrite a live region with an unchanged string), not a state decision. Pinned by TestRegionRules_PureFunctions, which imports /static/solver_state.js directly and asserts a hand-written truth table; mutants M1/M2/M3/M3b (below) each killed it."
+    - "CON-021 ✓ holds — interactive play still exists only as the admin panel's player behind the admin door. The diff adds no route, no blueprint, no view function and no template outside src/nonogram/admin/templates/puzzle_solve.html; the new control is markup inside that one already-gated page, and the Region flag is explicitly never serialized (serializeState does not see it — confirmed by reading serializeState's field list and by TestSolverBrushMenu_Region::test_reload_starts_with_black_and_region_off, which reloads after a recorded region drag and finds the toggle unpressed). Nothing is added to the server at all. Also covers ADR-0038/R6 by the same evidence: no public-facing player and no new solution-shipping path."
+    - "ADR-0038/R3 ✓ holds — clues still come from the embedded compute_clues JSON and are never re-derived in the client. The diff contains no clue-rendering hunk in any of the four production files (the only clue-adjacent lines in admin.css are inside the two reflowed comment blocks); its check ref TestSolverPage_ShowsTheClues (tests/test_puzzle_solver_page.py) ran green here, as did the whole of tests/test_puzzle_solver_clues.py (unchanged by the diff). (Card guardrail G-5, clue half.)"
+    - "ADR-0038/R7 ✓ holds — the new browser tests use pytest-playwright with Chromium through the repo's existing `browser` / `browser_page` fixtures and @pytest.mark.browser; pyproject.toml has no hunk, so nothing moved into project.dependencies or the admin extra."
+    - "ADR-0038/R8 ✓ holds — every new test is a browser test under the same fixtures as its neighbours, so it fails or skips loudly with the existing named reason when Chromium is absent; no new test can pass silently without a browser. Observed: all 27 new tests actually executed (45 collected and passed in tests/test_puzzle_solver_brush_menu.py + tests/test_admin_design_tokens.py), none skipped."
+    - "ADR-0006/R1, ADR-0019/R1, ADR-0022/R1, ADR-0022/R3, ADR-0022/R4, ADR-0024/R1, ADR-0024/R2, ADR-0024/R3, ADR-0024/R4, ADR-0024/R5, ADR-0027/R1, ADR-0027/R2, ADR-0029/R1, ADR-0029/R2, ADR-0029/R3, ADR-0029/R4, ADR-0029/R5, ADR-0032/R1, ADR-0032/R2, ADR-0033/R1, ADR-0035/R1, ADR-0036/R1, ADR-0036/R2, ADR-0037/R1, ADR-0037/R2, ADR-0038/R5, CON-005, CON-009, CON-010, CON-011, CON-012, CON-015, CON-016, INV-001, INV-002, INV-003, INV-005, INV-006, INV-007, INV-008, INV-009, INV-010, INV-011, INV-012, INV-013 ⚠ unchecked — no_eligible_fact: 46 rules governing the dependency baseline, the inward-import boundary, grid extent and image fitting, repair/retry and density, difficulty scoring, storage-boundary uniqueness, PDF/book page geometry and typography, the admin door's own HTTP surface, package-data, and solver correctness. This diff is one DOM control moving out of a menu plus two pure boolean functions and their CSS; nothing in it bears on any of them. Enumerated rather than dismissed in a sentence, per Step 8h's own rule. (ADR-0038/R5 is listed here and not as a holds: pyproject.toml has no hunk, so the rule is simply not engaged — the package-data clause was already true and this card neither tests nor touches it.)"
+    - "OUTSIDE the 53-rule set — card guardrails G-1..G-5, each checked against the diff. G-1 ✓ holds (see ADR-0038/R1). G-2 ✓ holds — marking, undo/redo, error count, percent, hints and resume are demonstrably unchanged: the four named covering files ran green unmodified (test_puzzle_solver_progress.py, _resume.py, _hint.py all untouched by the diff; test_puzzle_solver_marking.py touched ONLY in its shared-helper block and three docstrings, with no assertion removed or relaxed — verified set-wise, see F-cluster note), and the only semantic edits to solver.js's marking path are the two one-line substitutions of a pure call for an inline expression (`gesturePaints(event.pointerType, region)` for `event.pointerType === 'mouse' || region`, and `setRegion(nextRegion(region,'drag'))` for `if (region) { region = false; syncTrigger(); }`), both of which I mutated and saw killed. G-3 ✓ holds (see ADR-0038/R2). G-4 ✓ holds — the two new .player-region rules declare five values, all var(--token) (--space-2 ×2, --color-accent ×2, --color-on-accent), the height comes from .player-toolbar .btn's --control-h with no length of its own, and both tokens exist in tokens.css (--color-accent #1f5f5b at 7.0:1 on surface, --color-on-accent #fbf8f1 at 7.0:1); the pressed look is byte-identical to the panel's existing .btn-check:checked + .btn, so it introduces no new colour pair. Pinned by the new tests/test_admin_design_tokens.py::test_the_region_toggles_pressed_look_comes_from_tokens on top of the file's existing hex sweep. G-5 ✓ holds — no clue-rendering and no phone fit/mirror change: test_puzzle_solver_clues.py and test_puzzle_solver_mirror.py are untouched by the diff and ran green, test_puzzle_solver_phone.py's only edits are two `_tool(page,'Region')` → `_region(page)` call sites plus docstrings (AC-13's touch-action assertions `on['cells'] == ['none']` / `off['cells'] == ['pan-x pan-y']` are byte-unchanged), and admin.css's clue/mirror/cell-floor rules have no hunk."
+
+root_causes:
+  - id: RC-1
+    title: "Three cross-references in the player's comment/docstring layer were not carried with the control they describe (the layer this project maintains as part of the contract)"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/solver.js
+    line: 1003
+    title: "The menu's Tab-case comment still says focus lands on Undo; it now lands on Region"
+    description: |
+      In the menu's keydown switch, `case "Tab"` carries:
+
+          // Not prevented: the item closeMenu() hides is the current focus,
+          // so the browser's own Tab handling lands on the next focusable
+          // control after it in the (now updated) DOM — Undo.
+
+      That trailing "— Undo." is false at HEAD. The Region toggle is now the
+      menu <div>'s next sibling, so the next focusable control after the
+      hidden menu is Region, and the card's own test asserts exactly that:
+      tests/test_puzzle_solver_brush_menu.py:602
+      test_escape_closes_and_tab_leaves presses Tab out of the open menu and
+      asserts `_FOCUSED == "Region"`, then one more Tab for "Undo".
+
+      This is not a behaviour defect — the code is correct and verified. It is
+      a stale claim in the layer this project treats as contract, and it is
+      the ONE place in solver.js that was missed: the same file's header
+      comment WAS updated for this exact transition ("Tab closes the menu and
+      lets focus continue to the next control (Region, since CARD-211 put it
+      between the trigger and Undo)"), so the file now states both the old and
+      the new answer ~900 lines apart. A later reader resolving a Tab-order
+      question from the nearer comment gets the wrong answer.
+    suggestion: |
+      Replace "— Undo." with "— Region (then Undo), since CARD-211 put the
+      toggle between the trigger and the history buttons", matching the header
+      block's wording.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_marking.py
+    line: 742
+    title: "Docstring points at TestSolverBrushMenu_Touch, a class this diff renamed away"
+    description: |
+      test_a_touch_drag_marks_one_line's docstring says "(TestSolverBrushMenu_Touch
+      covers the Region-off case, where the same drag scrolls and marks
+      nothing)". This diff renamed that class: `git diff main...HEAD` shows
+      `-class TestSolverBrushMenu_Touch:` /
+      `+class TestSolverRegion_UnarmedTouchDragStillScrolls:`, and
+      `grep -rn TestSolverBrushMenu_Touch` over the whole tree now returns
+      only this one line — a dangling pointer.
+
+      Same family as F-001 and worth the same small fix, for a concrete
+      reason rather than tidiness: these cross-references are how this
+      project's test tree is navigated (the card's own Per-AC evidence table
+      is built from them), and this diff deliberately added nine such
+      pointers of its own. One that resolves to nothing teaches a reader to
+      stop trusting the rest. Nothing executable depends on it — no AC, no
+      trace.yml entry and no ADR check ref names the old class (grepped
+      meta/architecture/ for it: zero hits), so the model is clean.
+    suggestion: |
+      Point it at TestSolverRegion_UnarmedTouchDragStillScrolls.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/admin/static/admin.css
+    line: 633
+    title: "The layout fix shrinks the brush trigger by ~124 px and makes the Region toggle slide ~40 px when the brush changes — correct, but unasserted and unseen"
+    description: |
+      Measured at HEAD, 1280 px, with a throwaway Playwright probe (written,
+      run, deleted — the tree is clean):
+
+          brush  trigger   .player-tools   .player-slot   .player-region
+          Black     83.7 px      208.0 px       208.0 px        71.7 px
+          Undecided 123.8 px     208.0 px       208.0 px        71.7 px
+
+      Two consequences of moving `min-width: 13rem` from
+      `.player-tool-trigger` to `.player-tools`, neither of which any test in
+      the repo observes:
+
+      1. The brush trigger was a fixed 208 px before this card (it carried the
+         13rem itself and was the group's only content). It is now content-
+         width — 83.7 px for "Black", a ~60% reduction in the primary
+         marking control's clickable width.
+      2. Because `.player-tools` is a left-packing flex row, the trigger's
+         width now varies with the chosen brush, so the Region toggle's left
+         edge moves ~40 px to the right when the user picks "Undecided" and
+         back when they pick "Black". A control that relocates right after the
+         interaction that precedes it is a Fitts's-law cost: the common
+         sequence is "pick a brush, then arm Region".
+
+      Why this is a finding and not a defect: it breaks no AC, no guardrail
+      and no standing rule, the slot and the counters' row are genuinely
+      preserved (that part of the card's claim is exactly right), and a
+      208 px button for a five-letter label was arguably oversized — the
+      shrink may well be an improvement. The gap is in the EVIDENCE. The new
+      regression test asserts `.player-slot == .player-tools == 208` and
+      nothing about the group's interior, so both effects are invisible to
+      it; the card's Worktree notes report the outcome as "the slot keeps
+      exactly its old 208 px" and "picking a wider brush never nudges the
+      board sideways either", which is true of the board and the slot and
+      reads as if nothing moved. And `review.visual` is off for this
+      project, so no eye has been on it.
+
+      This is the one item in this card that the owner's hand-validation
+      should actually be pointed at.
+    suggestion: |
+      No code change required. Either (a) accept both effects explicitly in
+      the card's notes so the next reader is not surprised, or (b) if the
+      trigger's old width or the toggle's position should be stable, pin it —
+      the cheapest version is one extra assertion in the existing
+      test_adding_it_leaves_the_tools_slot_at_its_old_width (it already
+      parametrises Black/Undecided and already evaluates a width probe):
+      assert the Region toggle's left edge, or the trigger's width, is the
+      same for both brushes. Either way, show the 1280 px toolbar and the
+      390 px toolbar to the owner before merge.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+mutation_check:
+  enabled: true
+  mutants: 9
+  killed: 9
+  survived: 0
+  restore_verified: true
+  restore_evidence: "git diff HEAD | shasum == 6eb0f20dbc733448276d5cf8fd873fce61ee6041 (identical to the pre-mutation baseline); git diff HEAD -- src/ tests/ is empty; git status --porcelain shows only the pre-existing ' M meta/kanban/cards/CARD-211.md'. Restores were done by copying back pre-captured file copies, never with git checkout/restore. Post-restore re-run: 67 passed."
+  results:
+    - "M1 nextRegion: 'drag' keeps it armed (`event === 'drag' ? armed : false`) → KILLED, 7 failures incl. TestSolverRegion_ArmedDragMarksThenDisarms (all 3), TestSolverRegion_AnnouncesItsState::test_the_automatic_disarm_is_announced, ::test_a_drag_that_solves_the_board_announces_the_banner_instead, TestRegionRules_PureFunctions::test_next_region_covers_every_event_from_both_states. The named AC-3 and AC-6 tests die, not just the pure one."
+    - "M2 nextRegion: 'toggle' made idempotent (`event === 'toggle' ? true : false`) → KILLED, 7 failures incl. TestSolverRegion_DoesNotChangeTheBrush (all 4 brushes), TestSolverRegion_AnnouncesItsState::test_pressing_and_unpressing_are_announced, TestRegionRules_PureFunctions."
+    - "M3 gesturePaints: touch always paints (`|| pointerType === 'touch'`) → KILLED by the named AC-4 test TestSolverRegion_UnarmedTouchDragStillScrolls::test_touch_drag_without_region_scrolls_and_marks_nothing AND the pure truth table."
+    - "M3b gesturePaints: mouse no longer always paints (`return armed === true`) → KILLED by TestRegionRules_PureFunctions::test_gesture_paints_is_mouse_always_and_the_rest_only_when_armed and TestSolverBrushMenu_Keyboard::test_arrow_and_enter_pick_a_brush. (Only 2 failures inside this file, because most of its Region tests arm first; the broader mouse-drag coverage lives in test_puzzle_solver_marking.py. The pure test is what makes this mutant cheap to catch.)"
+    - "M4 setRegion: aria-pressed never written → KILLED, 8 failures across AC-2/AC-3/AC-5 and TestSolverBrushMenu_Region."
+    - "M4b THE PREDICTED DEFECT — the drag disarm bypasses setRegion (`region = nextRegion(region,'drag'); refresh();`), i.e. exactly CARD-194's old code, leaving aria-pressed and the announcement stale on the implicit transition → KILLED, 6 failures: TestSolverRegion_ArmedDragMarksThenDisarms::test_mouse_drag_with_black_marks_the_row_then_disarms, ::test_a_drag_that_changes_no_cell_still_disarms, TestSolverRegion_AnnouncesItsState::test_the_automatic_disarm_is_announced, ::test_a_drag_that_solves_the_board_announces_the_banner_instead, TestSolverBrushMenu_Pen::test_pen_drag_with_region_marks_like_touch."
+    - "M5 setRegion: the announce.textContent write removed → KILLED by 3 of the 5 AC-6 tests."
+    - "M6 ORDERING — commit() moved BEFORE setRegion() in the pointerup drag branch, so the 'Region off.' line overwrites the solved banner → KILLED by exactly one test, TestSolverRegion_AnnouncesItsState::test_a_drag_that_solves_the_board_announces_the_banner_instead. The AC-6 ordering claim is genuinely verified, not merely asserted in a docstring."
+    - "M7 admin.css: min-width 13rem restored on .player-tool-trigger → KILLED at all 6 cells of test_adding_it_leaves_the_tools_slot_at_its_old_width AND by the pre-existing TestSolverPercent_SitsNextToTheCounters::test_shares_the_buttons_row_at_1280 (the regression the card reports as observed red)."
+    - "M8 admin.css: .player-region's narrow side padding removed (default button padding) → KILLED at exactly the three Undecided cells and survived all three Black cells. This is the proof that the matrix's brush axis earns its place: Black alone would have let the mutant through, and the card's stated reason for the narrow padding is therefore the real one."

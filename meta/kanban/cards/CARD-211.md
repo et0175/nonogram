@@ -15,7 +15,7 @@
 **Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_brush_menu.py, tests/test_puzzle_solver_page.py, tests/test_admin_design_tokens.py
-**Review score:** —
+**Review score:** 9.0/10 (cycle 1/3) — 0 critical, 0 important, 3 minor; gate does not block
 **Started:** 2026-10-14T05:31:26Z
 **Closed:** —
 **Actual:** —
@@ -365,3 +365,65 @@
   comment block to say which card decided what, or the next reader will read it as
   drift. Folded into the fix cycle that follows review cycle 1 rather than run as a
   cycle of its own.
+
+- [Review] cycle 1/3 complete 2026-10-14 — **score 9.0**, risk LOW. **0 Critical, 0
+  Important, 3 Minor.** Report synced: `meta/review/20261014T063601Z-CARD-211-cycle1.yml`.
+  **The behaviour survived the move, and it was proven rather than asserted: 9 mutants,
+  9 killed.** The two that matter most: (1) reinstating CARD-194's own drag-path code
+  (`region = nextRegion(...); refresh()` instead of `setRegion(...)`) — the exact
+  stale-`aria-pressed` regression a control-move invites — killed six tests including
+  both AC-3 tests and the automatic-disarm announcement, so the IMPLICIT transition is
+  covered, not just the explicit one; (2) swapping `setRegion` and `commit` in the
+  pointerup branch killed exactly one test, which is the whole proof that the shared
+  live region's third writer cannot clobber the solved banner. `solver_state.js` has
+  zero DOM references (swept for `document`/`window`/`querySelector`/`localStorage`/
+  `navigator`), so ADR-0038/R4 holds and the `stepZoom`/`zoom` analogy is exact.
+  The four SCOPE+ files were verified **set-wise, not by reading the diff narrative**:
+  exactly two tests disappeared and both have 1:1 stronger successors; nothing was
+  weakened or retargeted. The one place this project's historical failure mode could
+  have hidden — `maybe.py`'s reachability sweep, where `[False] * 6` stays 6 by
+  coincidence (trigger + 5 items becomes trigger + 4 items + toggle) — is clean.
+  The layout fix's reading of CARD-186 was confirmed by `git log -S`: CARD-194 added the
+  `min-width`, and its own comment already attributed it to CARD-186's banner invariant.
+  The new matrix has teeth in both axes — putting the min-width back on the trigger kills
+  all 6 cells plus the pre-existing percent-row test, and restoring default padding on
+  the toggle kills exactly the three Undecided cells and survives all three Black ones,
+  so the brush axis is load-bearing rather than decoration.
+  Guardrails G-1..G-5 all hold (and `TestSolverMarking_NoRequestPerMark` was confirmed
+  LIVE at `marking.py:1188`, not a dead ref — this project has several of those).
+  457 tests green in 4 targeted batches. System contract: 53 rules, 7 hold, 46 unchecked,
+  0 violated. **Coverage gap stated plainly by the reviewer:** the visual dimension was
+  not exercised (`review.visual: off`), so the pressed look, the trigger's new width and
+  the 390 px toolbar are established geometrically and by token identity — never by eye.
+- [Severity gate] 2026-10-14 — no Critical and no Important, so the gate does not block.
+  The reviewer's approve condition is a human one: **F-003's measurements shown to the
+  owner before merge** (done 2026-10-14). F-001/F-002 are one-line comment fixes and
+  explicitly need not gate.
+- [F-003, the one finding worth the owner's eye] The layout fix left the brush trigger
+  **variable-width**: measured at 1280 px, 83.7 px with "Black" and 123.8 px with
+  "Undecided", where it was a fixed 208 px before this card. `.player-tools` and
+  `.player-slot` stay exactly 208 px — so the card's slot claim is right — but the
+  group's INTERIOR is invisible to the new test, and because `.player-tools` left-packs,
+  **the Region toggle's left edge slides ~40 px when the brush changes** — immediately
+  after the interaction that precedes arming it. Breaks no AC, guardrail or rule, and
+  the narrower trigger may be an improvement; the gap is in the evidence, and the card's
+  own notes read as if nothing moved. Routed to the owner with both measurements.
+- [Minor, RC-1 pair] Two stale comments, both one-liners: `solver.js:1003`'s Tab-case
+  comment still says focus lands on "Undo" when it now lands on Region (the file's own
+  header block WAS updated, so solver.js currently states both answers ~900 lines
+  apart), and `tests/test_puzzle_solver_marking.py:742`'s docstring points at
+  `TestSolverBrushMenu_Touch`, which this diff renamed.
+- [For CARD-212 / CARD-216, from the review] The diff reflows large comment blocks in
+  all three shared files, which is exactly where a clue-rendering or phone-mirror card
+  will collide; one `admin.css` reflow left an over-long line that invites a second
+  cosmetic re-wrap and a second conflict; `.player-tools` is now declared twice (lines
+  591 and 633, harmless but one more place to look); and ~4 px of slack remains on the
+  1280 px counters row, so anything either card adds to `.player-tools` lands red in
+  `test_shares_the_buttons_row_at_1280`.
+- [Out of scope, logged for later] Arming Region and then solving by a click leaves
+  `.is-region` (and `touch-action: none`) on a locked board, so a touch user cannot pan
+  the solved board until they undo. **Identical under CARD-194** via the menu item —
+  pre-existing, not introduced here. Also: `--color-focus` is byte-identical to
+  `--color-accent`, so the pressed toggle's focus ring reads as a thin page-coloured gap
+  between two accent bands; a pre-existing token decision that already applies to every
+  checked button in the panel.
