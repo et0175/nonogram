@@ -10,7 +10,7 @@ max_concurrent_override: 2
 active:
   - id: CARD-221
     phase: implementation
-    branch: card/221-interior-packaged-face
+    branch: card/221-packaged-interior-face
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221
     started: 2026-10-14T14:20:00Z
     note: "P1, unblocked by CARD-205's merge. Its proof of success is CARD-205's own two red-off-host folio tests going green on both faces. CARD-206..209 queued behind it on the book_pdf_generator.py hotspot."

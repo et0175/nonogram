@@ -1,6 +1,6 @@
 # CARD-221: The book interior letters in the packaged face, so its geometry stops depending on the host
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,16 +9,16 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/221-packaged-interior-face
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-221
 **Source:** CARD-205 review cycle 1 finding F-004, then a dedicated measurement round (2026-10-14); owner decision 2026-10-14 — keep CARD-205's 8.5 pt and card the root cause instead, having confirmed that book PDFs are generated **both** locally and through the deployed panel
 **Idea:** —
-**Wave:** —
+**Wave:** 37
 **Created wave:** 37
 **Deferred waves:** 0
 **Depends on:** CARD-205
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/fonts/, tests/test_book_toc.py, tests/test_book_pdf_memory.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_interior_type_floor.py, tests/test_book_finalise_gutter.py, tests/helpers/book_corpus.py, tests/fixtures/
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-14T14:20:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

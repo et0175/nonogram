@@ -1,6 +1,6 @@
 # CARD-212: Big boards repeat their clues on both sides — left and right, top and bottom
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/212-clues-both-sides
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-212
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 3: "Solver - mobile mode - clues - show clues on both sides of the puzzle (on the right and on the left and on the top and on the bottom) for big puzzles, not just in the right or bottom")
 **Idea:** —
-**Wave:** —
+**Wave:** 37
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/templates/puzzle_solve.html, tests/test_puzzle_solver_mirror.py, tests/test_puzzle_solver_phone.py, tests/test_puzzle_solver_clues.py, tests/test_puzzle_solver_zoom.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-14T14:20:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
