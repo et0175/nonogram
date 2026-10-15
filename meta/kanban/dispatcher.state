@@ -1,4 +1,4 @@
-wave: 38
+wave: 39
 mode: interactive
 # Owner 2026-10-13: concurrency capped at 2 (config max_concurrent is 5); "merge both
 # when the fixes land"; "start the next pair after merging". Merges run SEQUENTIALLY and
@@ -7,7 +7,13 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active: []
+active:
+  - id: CARD-217
+    phase: implementation
+    branch: card/217-profile-the-suite
+    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-217
+    started: 2026-10-15T06:45:00Z
+    note: "SOLO. Wave 39 holds this card alone, by the owner's 2026-10-14 decision: its whole method is to profile the suite with nothing else on the host, so a concurrent card would corrupt the measurement it exists to take. Nothing else starts until it merges." 
 merged:
   - id: CARD-221
     review_cycle: 2
@@ -48,8 +54,8 @@ queued:
 
   - id: CARD-206
     reason: "CARD-204 and CARD-205 both merged, but now queued behind CARD-221 on the same book_pdf_generator.py hotspot AND architecturally blocked in substance: the card needs an INV-013 / FR-043 amendment (the interior currently starts at the guide page as right-hand page 1, and a blank title page moves that) which only the architect station can make. Do not start it before that pass."
-  - id: CARD-217
-    reason: "OWNER-SCHEDULED NEXT, ALONE (2026-10-14): runs by itself as soon as CARD-221 and CARD-212 have merged, and nothing else starts until it is done. Its method is to profile the suite with nothing else on the machine, so a concurrent card would corrupt the measurement it exists to take."
+  - id: CARD-217-moved
+    reason: "STARTED 2026-10-15 as wave 39's only card. Original queue reason: OWNER-SCHEDULED NEXT, ALONE (2026-10-14): runs by itself as soon as CARD-221 and CARD-212 have merged, and nothing else starts until it is done. Its method is to profile the suite with nothing else on the machine, so a concurrent card would corrupt the measurement it exists to take."
   - id: CARD-216
     reason: "eligible, but conflicts with CARD-212 on the same template + statics; starts when CARD-212 frees its slot"
   - id: CARD-213

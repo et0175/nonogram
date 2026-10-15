@@ -1,6 +1,6 @@
 # CARD-217: Profile the suite once, serialized, and commit the duration record the curation cards work from
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,16 +9,16 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/217-suite-duration-profile
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-217
 **Source:** owner request 2026-10-13 ("make cards for tests curation"), after the dispatcher's own cost analysis of `meta/kanban/suite-timing.log`
 **Idea:** —
-**Wave:** —
+**Wave:** 39
 **Created wave:** 37
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/profiling/, meta/kanban/suite-timing.log, tests/README.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-15T06:45:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
