@@ -1,6 +1,6 @@
 # CARD-234: The generated cover's title letters from packaged data, like the interior
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** bug
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/234-cover-packaged-face
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-234
 **Source:** found at CARD-221's implementation station, 2026-10-14 — the one place the interior's new "typography is deterministic" rule is still untrue
 **Idea:** —
-**Wave:** —
+**Wave:** 40
 **Depends on:** CARD-221 (which establishes the packaged face as the rule and the helper that returns it)
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_cover.py, tests/test_book_export_interior_cover.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-15T08:44:16Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -124,3 +124,9 @@ typography is deterministic") would not yet be true.
   host-dependence gates it removed and which it kept, and why. The honest answer surfaced a
   host lookup nothing in the suite covers. Worth remembering as a method: asking what is *still*
   true after a change found a defect that asking what broke would not have.
+
+- [Env] forge unknown — no executing plugin manifest resolvable and the project
+  declares no `forge.min_version` (there is no `meta/.skills.yml`), so the skew
+  comparison is a no-op rather than a pass. Recorded so a later diagnosis is possible.
+- [Wave] 40, dispatched 2026-10-15. Paired with CARD-235: no shared path and no shared
+  hotspot, so the two run concurrently under the owner's concurrency cap of 2.

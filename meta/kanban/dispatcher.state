@@ -1,4 +1,4 @@
-wave: 39
+wave: 40
 mode: interactive
 # Owner 2026-10-13: concurrency capped at 2 (config max_concurrent is 5); "merge both
 # when the fixes land"; "start the next pair after merging". Merges run SEQUENTIALLY and
@@ -7,7 +7,17 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active: []
+active:
+  - id: CARD-234
+    phase: implementation
+    branch: card/234-cover-packaged-face
+    worktree: ../PythonProject4-card-234
+    started: 2026-10-15T08:44:16Z
+  - id: CARD-235
+    phase: implementation
+    branch: card/235-browser-fixture-scope
+    worktree: ../PythonProject4-card-235
+    started: 2026-10-15T08:44:16Z
 merged:
   - id: CARD-217
     review_cycle: 1
@@ -53,8 +63,6 @@ queued:
 
   - id: CARD-206
     reason: "CARD-204 and CARD-205 both merged, but now queued behind CARD-221 on the same book_pdf_generator.py hotspot AND architecturally blocked in substance: the card needs an INV-013 / FR-043 amendment (the interior currently starts at the guide page as right-hand page 1, and a blank title page moves that) which only the architect station can make. Do not start it before that pass."
-  - id: CARD-217-moved
-    reason: "STARTED 2026-10-15 as wave 39's only card. Original queue reason: OWNER-SCHEDULED NEXT, ALONE (2026-10-14): runs by itself as soon as CARD-221 and CARD-212 have merged, and nothing else starts until it is done. Its method is to profile the suite with nothing else on the machine, so a concurrent card would corrupt the measurement it exists to take."
   - id: CARD-216
     reason: "eligible, but conflicts with CARD-212 on the same template + statics; starts when CARD-212 frees its slot"
   - id: CARD-213
@@ -84,6 +92,14 @@ queued_after_card_217:
   - CARD-209   # wide-short solutions, now CARD-232's single exception, adopting 233's header
 
 conflict_edges:
+  - pair: [CARD-234, CARD-228]
+    reason: "predicted: src/nonogram/admin/book_pdf_generator.py (hotspot)"
+  - pair: [CARD-228, CARD-215]
+    reason: "predicted: src/nonogram/export/layout.py (hotspot)"
+  - pair: [CARD-235, CARD-213]
+    reason: "predicted: tests/test_puzzle_solver_*.py (overlap 0.50 >= 0.3)"
+  - pair: [CARD-235, CARD-220]
+    reason: "predicted: tests/** vs tests/conftest.py + 12 solver test files"
   - pair: [CARD-221, CARD-206]
     reason: "predicted: src/nonogram/admin/book_pdf_generator.py (hotspot); CARD-221 also re-records the interior baselines CARD-206 would have to re-record again"
   - pair: [CARD-212, CARD-216]
@@ -127,4 +143,15 @@ conflict_edges:
 # corrected to `review` (3 fix cycles behind it, AC/EC gate not yet run). One slot is
 # free; per the owner's "start the next pair after merging", the next pair starts once
 # CARD-205 merges too.
-last_updated: '2026-10-14T14:20:00Z'
+# NOTE 2026-10-15T08:44Z: WAVE 40 DISPATCHED - CARD-234 + CARD-235, concurrently.
+# Why this pair and not the strict P1 head (CARD-222): the whole interior redesign
+# serializes on src/nonogram/admin/book_pdf_generator.py and src/nonogram/export/layout.py,
+# both declared hotspots, so lane A can only ever run ONE card at a time. CARD-234 is
+# that lane's recorded head (queued_after_card_217). The second slot therefore goes to the
+# only P1 card with no hotspot and no overlap against it: CARD-235, whose Touches are
+# tests/conftest.py + tests/test_puzzle_solver_*.py + meta/profiling/. CARD-235 also pays
+# for itself across the rest of the redesign - review.test_scope is `full`, every merge gate
+# runs 7156 tests in ~1040s, and CARD-217 measured the browser family at 39.78% of that.
+# Conflict edges that shaped the choice: 234-228 and 228-215 (hotspots), 213-216 and
+# 213-235 (tests/test_puzzle_solver_*), 220-235 (tests/**).
+last_updated: '2026-10-15T08:44:16Z'

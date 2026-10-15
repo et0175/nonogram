@@ -1,6 +1,6 @@
 # CARD-235: The browser tests stop paying for a page they throw away, 40% of the suite
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/235-browser-fixture-scope
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-235
 **Source:** CARD-217's profile, 2026-10-15 — `meta/profiling/suite-hotspots-20261015.md`
 **Idea:** —
-**Wave:** —
+**Wave:** 40
 **Depends on:** CARD-217 (the measurement; do not start before it merges)
 **Touches:** tests/conftest.py, tests/test_puzzle_solver_*.py (12 files), meta/profiling/
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-15T08:44:16Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -109,3 +109,9 @@ be green once.
   family's 21.23%, and the gate runs once per card and once per wave. CARD-218/219/220 were cut
   on the render hypothesis before anyone had measured; CARD-217 measured, and this is where the
   time actually is.
+
+- [Env] forge unknown — no executing plugin manifest resolvable and the project
+  declares no `forge.min_version` (there is no `meta/.skills.yml`), so the skew
+  comparison is a no-op rather than a pass. Recorded so a later diagnosis is possible.
+- [Wave] 40, dispatched 2026-10-15. Paired with CARD-234: no shared path and no shared
+  hotspot, so the two run concurrently under the owner's concurrency cap of 2.

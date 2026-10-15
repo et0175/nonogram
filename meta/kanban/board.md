@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-14 UTC_  ·  <!-- forge:run wave=37 mode=interactive concurrency=2 -->
+_Updated: 2026-10-15 UTC_  ·  <!-- forge:run wave=40 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -33,7 +33,9 @@ _Updated: 2026-10-14 UTC_  ·  <!-- forge:run wave=37 mode=interactive concurren
 | 35 | CARD-185 P2, CARD-187 P3, CARD-189 P2, CARD-190 P2, CARD-191 P2, CARD-192 P2 | ✓ all 6 merged (185 ae25661, 189 0b637a9, 187 b291141, 190 22ce971, 191 cccfecb, 192 da93164) — board bookkeeping was stale, swept 2026-10-08 |
 | 36 | CARD-193 P2, CARD-196 P2 | CARD-196 ✓ merged d7ba2ac (score 8.5, cycle 3/3) · CARD-193 ✓ merged c51982a (score 9.5, cycle 3/3) · CARD-194 ✓ merged e0214c9 (score 9.0, cycle 1/3) · CARD-195 ✓ merged 1b4bc97 (score 9.3, cycle 2/3; owner caught a real native pinch-zoom bug by eye in cycle 1's renders, fixed in cycle 2) · wave 36 complete |
 | 37 | CARD-197 P2, CARD-198 P2, CARD-199 P2 | CARD-199 ✓ merged 7d4bcf8 (score 9.5, cycle 1/3) · CARD-197 ✓ merged 81156b1 (score 9.0, cycle 2/3) · CARD-198 ✓ merged da0f8bb (score 8.5, cycle 1/3; owner confirmed the three flagged consequences — level heading dropped, Finalise label narrower, page-growth ceiling risk — before merge) · wave 37 complete — owner solution-layout doc |
-| 38 | CARD-204 P2, CARD-214 P1, CARD-205 P1, CARD-211 P2, CARD-221 P1, CARD-212 P2 | CARD-214 ✓ merged d49e73a (8.1, cycle 1/3) · CARD-204 ✓ merged cd641df (8.5 cycle 4, then 6.5 cycle 5 on a merge-gate fix; 8 fix cycles) · CARD-211 ✓ merged 4790243 (9.0, cycle 1/3) · CARD-205 ✓ merged d30e0f0 (8.8, cycle 1/3; AC/EC/G gate failed on G-1 and the guardrail was amended) · CARD-221 implementation running · CARD-212 review cycle 1 running · then CARD-217 ALONE (owner, 2026-10-14) — owner print-layout doc |
+| 38 | CARD-204 P2, CARD-214 P1, CARD-205 P1, CARD-211 P2, CARD-221 P1, CARD-212 P2 | CARD-214 ✓ merged d49e73a (8.1, cycle 1/3) · CARD-204 ✓ merged cd641df (8.5 cycle 4, then 6.5 cycle 5 on a merge-gate fix; 8 fix cycles) · CARD-211 ✓ merged 4790243 (9.0, cycle 1/3) · CARD-205 ✓ merged d30e0f0 (8.8, cycle 1/3; AC/EC/G gate failed on G-1 and the guardrail was amended) · CARD-221 ✓ merged 806dbe1 (7.5 then 8.5, cycle 2/3; 5 fix cycles) · CARD-212 ✓ merged a2cd3f3 (7.0 then 8.5, cycle 2/3; 3 fix cycles) ✓ wave 38 complete, 6/6 merged — owner print-layout doc |
+| 39 | CARD-217 P1 | CARD-217 ✓ merged 967a7fa (9.0, cycle 1/3; 2 fix cycles, both spent making the measurement's own claims checkable; 63 mutants) ✓ wave 39 complete — ran SOLO by owner decision, which is what made the number trustworthy. Answer: the browser family is 39.78% of the suite, neither card hypothesis; re-points CARD-218/219/220 and cuts CARD-235/236 |
+| 40 | CARD-234 P2, CARD-235 P1 | ▶ active — dispatched 2026-10-15, both implementation running. Paired because they share no path and no hotspot; the rest of the interior redesign serializes behind CARD-234 on `book_pdf_generator.py` |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -83,13 +85,17 @@ _One coherent frame, so the order is forced rather than chosen: the frame lands 
 
 
 **Found in flight**
-- **CARD-234** The generated cover's title letters from packaged data, like the interior · P2 · 0.5d · bug · depends CARD-221 · ⚑ a hardcoded `/System/Library/Fonts/Arial.ttf` with a silent `load_default()` fallback: on the deployed Linux panel every generated cover takes that branch **and** loses the 72 px it asked for, so the title prints tiny on the one page a buyer sees first
+- ~~**CARD-234**~~ → In Progress (wave 40). The generated cover's title letters from packaged data, like the interior · P2 · 0.5d · bug · depends CARD-221 · ⚑ a hardcoded `/System/Library/Fonts/Arial.ttf` with a silent `load_default()` fallback: on the deployed Linux panel every generated cover takes that branch **and** loses the 72 px it asked for, so the title prints tiny on the one page a buyer sees first
 
-**Test curation (cut 2026-10-13 on owner request; run after the print cards land)**
-- **CARD-217** Profile the suite once, serialized, and commit the duration record the curation cards work from · P1 · 0.5d · tech-debt · measurement only, no test edits · must be the only suite running
-- **CARD-218** Each book renders once per module, not once per test · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209
-- **CARD-219** Positional assertions read the page plan instead of rendering pixels · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209
-- **CARD-220** Retire tests whose coverage another test already provides — only with a named survivor · P2 · 1d · tech-debt · depends CARD-217 · ⚑ footprint is `tests/**`; run on a quiet board
+**Test curation (cut 2026-10-13 on owner request; RE-POINTED 2026-10-15 by CARD-217's measurement)**
+
+_CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were cut on is where the time is. `meta/profiling/suite-hotspots-20261015.md` is now this group's source of truth, ahead of the counts in the cards' own bodies. The two cards below came out of that profile and outrank the three that preceded it._
+
+- ~~**CARD-235**~~ → In Progress (wave 40). The browser tests stop paying for a page they throw away, 40% of the suite · **P1** · 1d · tech-debt · ⚑ the measured hotspot: 366.19 s / 39.78%, 868 ms per browser test against 83 ms for everything else, and 96% of all teardown time
+- **CARD-236** The admin-local script tests stop spawning a subprocess per assertion · P2 · 0.5d · tech-debt · depends CARD-217
+- **CARD-218** Each book renders once per module, not once per test · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209 · re-pointed: the render family is 21.23%, not the top cost
+- **CARD-219** Positional assertions read the page plan instead of rendering pixels · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209 · re-pointed
+- **CARD-220** Retire tests whose coverage another test already provides — only with a named survivor · P2 · 1d · tech-debt · depends CARD-217 · ⚑ footprint is `tests/**`; run on a quiet board · **CARD-217 recommends parking it** until 235/218/219/236 have run: the top 50 tests hold 32.1% and "no single test is worth retiring"
 
 **Solver (the admin panel's player)**
 - **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard
@@ -99,7 +105,17 @@ _One coherent frame, so the order is forced rather than chosen: the frame lands 
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-_(none — wave 38 is complete. **CARD-217 runs next and alone**, per the owner's 2026-10-14 decision; nothing else starts until it is done.)_
+- **CARD-234** The generated cover's title letters from packaged data · P2 · 0.5d · bug _(wave 40)_
+  `worktree: ../PythonProject4-card-234` · `branch: card/234-cover-packaged-face`
+  `started: 2026-10-15T08:44Z`
+- **CARD-235** The browser tests stop paying for a page they throw away · P1 · 1d · tech-debt _(wave 40)_
+  `worktree: ../PythonProject4-card-235` · `branch: card/235-browser-fixture-scope`
+  `started: 2026-10-15T08:44Z` · ⚑ its authoritative before/after profile must run under the
+  repo full-suite lock, or CARD-234's own suite runs contaminate it (G-3: solo measurement)
+
+_Next, once these merge: CARD-228 (the dots glyph) then CARD-222 (the frame), in the order under
+`dispatcher.state → queued_after_card_217`. The whole interior redesign serializes on
+`book_pdf_generator.py`, so lane A runs one card at a time whatever the concurrency cap says._
 
 ## Review
 _(none)_
@@ -109,6 +125,7 @@ _(none)_
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
 
 ## Done
+- **CARD-217** Profile the suite once, serialized, and commit the duration record the curation cards work from · P1 · tech-debt · score 9.0 (cycle 1/3 — 0 critical, 0 important, 8 minor; the reviewer re-derived every headline number independently) · 2 fix cycles, both spent making the measurement's own claims checkable · AC/EC/G gate passed, 63 mutants across the card · merge gate 7156/0 · merged 967a7fa · actual ~0.25d against 0.5d · **ran solo by owner decision, which is what makes the number usable** · ⚑ answer: the browser family is 39.78% of the suite — neither CARD-218's nor CARD-219's hypothesis; produced CARD-235/236 and re-pointed CARD-218/219/220
 - **CARD-221** The book interior letters from packaged data, so a book's printed gutter stops depending on the machine that made it · P1 · architectural · score 7.5 then 8.5 · **5 fix cycles** · AC/EC/G gate failed once on AC-2 being true-but-unevidenced (CARD-205 had already delivered its outcome), passed on re-verification with 34 mutants across both passes · merge gate 7073/0 · merged 806dbe1 · actual 2.0d against 1d · ⚑ `Pillow>=10.0` unbounded is the one lever left, carded to the architect station
 - **CARD-212** Big boards repeat their clues on both sides — left and right, top and bottom · P2 · standard · score 7.0 then 8.5 · 3 fix cycles · AC/EC/G gate passed with 14 fresh mutants, 14 killed · merge gate failed once on its own test racing a 600 ms bound under concurrent load, then 7053/0 · merged a2cd3f3 · actual 0.7d · found and fixed two defects CARD-193 had shipped
 - **CARD-205** The table of contents lists sections, not puzzles — guide, each level's range, Solutions · P1 · standard · score 8.8 (cycle 1/3 — 0 critical, 11/11 mutants killed) · 4 fix cycles · AC/EC/G gate FAILED on G-1 (its named test had never existed; its mechanism clause described CARD-200's behaviour) — amended at the decompose station, then passed · merge gate 7019/0 in 1042s · merged d30e0f0 · actual 1d against 1d, the one card of this batch to land on its estimate · corpus 310 → 307 pages · ⚑ FR-043's per-puzzle ToC criteria + the legacy admin/pdf_generator.py ToC owed at the architect station
