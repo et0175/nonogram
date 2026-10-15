@@ -150,7 +150,7 @@ so the next person does not re-derive it.
   `test_book_pdf_memory.py:1225-1290`). The real duplication is duplicated
   *rendering*, not duplicated fixtures — which is what this card measures.
 
-### Implementation agent's own records (verbatim, synced from the worktree 2026-10-15)
+### Implementation agent's own records (verbatim, synced from the worktree 2026-10-15, all cycles)
 
 - [Finding, 2026-10-13, before the card ran] The "retire the superseded golden
   baselines" idea was checked and **rejected as a cost measure**: all 13
@@ -243,14 +243,7 @@ teardown, invisible in any "slowest tests" list.
 G-1 holds: no test edited, deleted, skipped or reordered. The suite's
 7073/9 is identical to the CARD-221 gate on this same tree. This card *adds*
 one new file, `tests/test_suite_profile.py` (74 tests, 0.47 s), so the next
-gate should read ~7147 passed.
-> **[Correction, AC/EC/G gate 2026-10-15]** Superseded by fix cycle 1: the file is
-> **79 tests in 0.76 s**, so the gate should read **~7152**, and the card's own
-> closing note already says so. Left in place because this block is the agent's
-> verbatim record of what was true when it was written — but corrected here,
-> because a merge gate reads top-down and would meet the stale figure first.
-> Fix cycles must amend a superseded figure where it stands, not only append
-> the new one further down. G-2: no new dependency. G-3: `tests/fixtures/**`
+gate should read ~7147 passed. G-2: no new dependency. G-3: `tests/fixtures/**`
 untouched. G-4: `tests/README.md` gained one section, nothing rewritten.
 
 ### Mutants (13 applied, 13 killed, 0 survivors)
@@ -334,7 +327,8 @@ around the two things that actually settle it:
   family would have to shed to fall behind the render set (366.19 → 195.42);
 - per-test teardown across all 422 browser tests — mean 0.327 s, median
   0.370 s, stdev 0.144 s, max 0.520 s, per-file means 0.198–0.413 s,
-  histogram unimodal and massed at 0.3–0.5 s with no tail. A four-minute
+  histogram bimodal (41-test cluster near zero, main mass 0.3–0.5 s with
+  no tail and a hard 0.520 s maximum). A four-minute
   stall would have left a cluster of outliers. There is none, so the cost is
   structural.
 
@@ -383,119 +377,127 @@ floor and the margin is wider than stated, so no figure needed restating.
   than trusting the header.
 - N-008 is a labelling point already handled by the existing labels.
 
-- [Fix cycle 1 complete] 2026-10-15 — `492ac40`. 182 targeted tests pass; **15 mutants, 15
-  killed**; **zero deleted lines across the whole card** against main (523/0, 21305/0, 253/0,
-  112/0, 534/0), so G-1 is a fact about the diff rather than a claim.
-  - **N-003 became four tests, and the replacement is better than the instruction.** The single
-    `test_exactly_one_artefact_is_committed` is gone; in its place: at least one artefact
-    exists, **every** committed artefact is well-formed (parametrised over all of them), every
-    artefact has a dated hotspots document, and — the one that matters — **the latest artefact
-    is the one the hotspots document cites, by sha256**. The agent's reasoning for that last
-    one is the right reframing: in a multi-profile future the risk is not duplication, it is a
-    hotspots document quietly describing a superseded run.
-    **Verified by scenario rather than by assertion:** it created a consistent second profile,
-    saw the file go to **81 passed** as the parametrised tests expanded to cover both, then
-    deleted that profile's hotspots document and pointed its citation at a wrong sha — each
-    reds the citation test. Scenario files removed and the tree verified clean afterwards.
-  - **N-002: the render snapshot is pinned by the function that already existed.**
-    `test_the_frozen_render_set_still_matches_the_grep_that_defines_it` calls `regrep_render_set`
-    — written, working, and called by nothing — and requires exact agreement with
-    `RENDER_HEAVY_SNAPSHOT`. Dropping `tests/test_book_toc.py` from the snapshot is now killed
-    by it; unsorting the set is killed by both new tests.
-  - **N-001: the caveat is rewritten in both the hotspots document and the artefact header**,
-    around the two measurements that settle it — the ~161 s magnitude bound against the
-    **170.77 s** the family would have to shed to fall behind (366.19 -> 195.42), and the
-    per-test teardown distribution across all 422 browser tests (mean 0.327 s, median 0.370,
-    stdev 0.144, max 0.520, per-file means 0.198–0.413, unimodal, no tail). As the agent puts
-    it: a four-minute stall would have left a cluster of outliers, and there is none. All
-    re-derived from the artefact rather than transcribed from the review.
-  - **N-007: both figures corrected, and the agent found the cause of its own slip** — it had
-    sorted `+03:00` timestamps **lexically**, so `zoom` (10:28+03:00 = 07:28Z) lost to
-    `brush_menu` (07:19+03:00 = 04:19Z). The README's worked line now reads 931 s / 131 ms.
-  - **Two knock-ons handled rather than left:** editing the artefact header changed its sha256,
-    so the hotspots citation was updated and **all 70 embedded ranking rows re-diffed against
-    the script's stdout — identical**, with determinism re-verified across two runs.
-  - **The reviewer's bonus finding was taken as a caveat, not a restatement.** The three extra
-    browser-driven files (`test_books_list_mobile.py` 4.71 s,
-    `test_book_finalise_guide_preview_layout.py` 2.78 s, `test_book_setup_print_mobile.py`
-    1.62 s) take the family to 375.30 s / **40.77%**, so **39.78% is now documented as a
-    floor** — the margin over the render set is wider than stated, not narrower. No published
-    figure needed changing, which is the right call.
-  - **N-006 recorded as a known limit of the method**, and it is the one worth remembering: the
-    solo-run guarantee is "no competing **suite**", not "a quiet host". Neither
-    `is_admissible_profile` (which reads only what the header claims) nor
-    `other_pytest_processes` (which sees only pytest) would have noticed the macOS sweep that
-    actually contended with this run. Anyone automating the next profile should sample load
-    **during** the run rather than trust the header.
-  - N-004 and N-005 left with reasons in the notes; N-008 is a labelling point the existing
-    labels already handle.
-- [Note for the merge gate] This card adds 79 tests, so the gate should read **~7152 passed**,
-  not 7073.
+## Fix cycle 2 (AC/EC/G gate — four small things)
 
-- [AC/EC/G gate] 2026-10-15 — **PASSED, no gating failure.** 22 further mutants (63 across the
-  card now), 17 killed, 5 survivors — and the survivors cluster somewhere worth knowing about.
-  `git status --porcelain -- src tests` empty; every scenario file removed by exact path and
-  the directories re-listed.
-  - **AC-3 verified the way a gate must.** The gate re-derived **every** figure in the
-    conclusion from the artefact with its own parser — all 14 rows of the deciding table, the
-    phase totals, the 10.4x gap, the top-50 share, the conservative-definition caveat, and the
-    corrected commit-date range via `git log --diff-filter=A` — and every one matched. The
-    claim four cards are now pointed by is the artefact's own arithmetic.
-  - **The landmine is genuinely defused, and the gate extended the scenario rather than
-    rebuilding it.** Reproducing the agent's scenario gave **exactly 81 passed**, with the two
-    parametrised tests expanding by one each; deleting the second profile's document reds two
-    tests, a wrong sha reds the citation test. The gate then added its own: **S4**, a newer
-    profile whose document still cites the superseded run — the precise failure the test was
-    reframed around — **killed**.
-  - **The render snapshot is pinned in both directions.** Dropping a path reds with a message
-    naming it (`added since freeze` / `gone since freeze`), and the gate's own probe — a new
-    file containing `export_book` dropped into `tests/` — **also** reds. Symmetry is structural,
-    not accidental.
-  - **The rewritten contention caveat is correct, not merely different.** Both legs re-derived:
-    render 176.82 s call / **0.03 s** teardown against the browser family's 137.97 s of 144.37
-    (95.6%), so the wait-bound family is the browser one and CPU starvation inflates the
-    winner; and the bound, 240 s at 25% = 60 CPU-s = 78.95 s wall, excess **161.05 s** against
-    a **170.77 s** margin — charging every second of the sweep to the family still leaves
-    205.19 s against 195.42 s.
-  - **G-1 is a fact about the diff**: `--numstat` is 523/0, 21305/0, 253/0, 112/0, 534/0 —
-    **zero deleted lines across the whole card**, and no pre-existing test file appears in the
-    diff at all. The gate notes this is strictly stronger evidence than the card's own
-    parenthetical "test", which resolves to nothing runnable and would need the full suite to
-    check literally.
-- [AC/EC/G gate — the findings, none gating, and the one that matters]
-  - **F-1: nothing pins the hotspots document's body to the script's output.** Rewriting the
-    headline in the prose (366.19 -> 166.19 s, 39.78% -> 19.78%) ships **79 passed**. So does
-    falsifying a ranking row, and so does perturbing `_pct`'s denominator by 1%. The sha256
-    citation pins **which artefact** the document derives from; it does not pin **what the
-    document says about it**. Today's figures are right — checked twice, independently — so
-    this is a regression risk rather than a defect, and it is six lines to close.
-  - **The gate judged the orchestrator's deferral of N-004 "half honest", correctly.** The
-    recorded reason addressed the denominator question, which genuinely is a design decision
-    not to be rushed into a measurement card. But N-004's second half — "nothing checks the
-    committed hotspots document against the script's output" — carries no design question at
-    all, and the gate closed it by hand in one command. The reason as written let the design
-    question carry a check that did not need it.
-  - **F-2: the sha-citation test only checks `found[-1]`**, so a non-latest artefact's document
-    can cite the wrong run unnoticed (scenario S5 survived). Harmless with one artefact; live
-    the moment CARD-218 commits the second — which is the exact future N-003 was reframed
-    around.
-  - **F-3: `rank_files`'s tie-break is unpinned** while the identical one in `rank_tests` is.
-    Not a live determinism hole (`sorted` is stable over an insertion order that is a pure
-    function of the artefact), an untested asymmetry.
-  - **F-4: "unimodal" is loose** — the histogram is `{0.0:41, 0.1:22, 0.2:37, 0.3:81, 0.4:141,
-    0.5:100}`, strictly bimodal with a spike at ~0.0. The **load-bearing** half, "massed at
-    0.3–0.5 with no tail", is exactly true, which is what the argument needs.
-- [AC/EC/G gate — retro input, and the first one generalises past this card]
-  - **63 mutants in, the five survivors cluster in exactly one place: derived numbers published
-    in prose.** The code is well pinned; the committed document is pinned only by the hash of
-    its input. **"Cite the source's hash" proves provenance, not arithmetic — they are different
-    guarantees**, and every future measurement card needs both.
-  - **"Verified by scenario, not by assertion" worked and should be reusable.** The agent's
-    claim reproduced to the exact test count and the exact two reds, which made this gate cheap
-    and let the gate *extend* the scenario instead of rebuilding it. A card that replaces one
-    test with four should be expected to state its scenario and its numbers.
-  - **A guardrail whose `(test: …)` is prose costs a gate cycle.** Cards whose guardrail is
-    "change nothing" should cite the diff shape, which is better evidence and free.
-  - **Self-contradicting cards are a merge-gate hazard**: this card carried both "74 tests /
-    ~7147" and "79 / ~7152". Fix cycles must amend the earlier figure **in place**, not only
-    append the corrected one. Done above.
+**F-1 — nothing pinned the document's *body*.** The sha256 citation pins
+*which* artefact a document derives from; it says nothing about *what the
+document claims*. The gate proved it: rewriting the headline in the prose
+(366.19 → 166.19 s, 39.78 → 19.78 %) shipped 79 passed. Closed at the source,
+because the real gap was that the deciding table had never come from the
+committed script at all — only the three rankings had. The table was
+hand-computed in a throwaway analysis script, which is precisely what this
+card exists to stop.
+
+`rank_durations.py` now defines the cost families
+(`BROWSER_FAMILY_PREFIX`, `PROPERTY_PREFIX`, `ADMIN_LOCAL_TRIO`) and a
+`group_totals()` that emits the deciding table as a report section. Every
+figure in the conclusion is now derived, and the document quotes the block
+verbatim. Three tests pin it:
+
+- `test_hotspots_ranking_rows_are_the_scripts_own_output` — the gate's
+  suggested row diff, taken as offered
+- `test_hotspots_embeds_the_deciding_table_verbatim`
+- `test_hotspots_headline_figures_are_the_scripts_own_output`
+
+The third went through two wrong shapes before landing. "Figure appears
+somewhere in the document" let the gate's own mutant survive, because
+falsifying one of two copies leaves the other standing. "Every line stating
+the figure carries its share" was too strict and red on honest prose — a
+sentence may legitimately quote `366.19 s` beside a *different* statistic
+("69 % of the entire +533 s"), and demanding the share there would be wrong.
+What landed is an invariant instead of a lookup: **every seconds/share pair
+stated in a markdown table row must be internally consistent with the
+attributed denominator**, plus a presence check so a row cannot be deleted to
+dodge it. Both columns would have to be forged in agreement to survive, and
+forging them in agreement means stating the truth.
+
+Mutants, all against the committed document unless noted: F1-a falsified
+prose headline **killed**; F1-a2 falsified deciding-table (bolded) copy
+**killed**; F1-a3 falsified figure inside the verbatim block **killed**;
+F1-b falsified ranking row **killed**; F1-c `_pct` denominator perturbed 1 %
+(script) **killed by two tests**. F1-a4 — deleting the split-table row while
+the deciding table still states the figure truthfully — **survives, and
+should**: that is removing a redundant restatement, not falsifying anything.
+Deleting *both* markdown statements is caught (verified). Script mutants
+re-run: **15/15 killed, 0 survivors**; `git status --porcelain -- src tests`
+clean after every run.
+
+Boundary stated plainly: free prose is not pinned to the numbers, only table
+rows and the quoted block are. Pinning narrative text would forbid the
+legitimate case above, and the numbers a follow-on card acts on live in the
+tables and the block.
+
+**F-2 — the citation test only checked `found[-1]`.** Parametrised over
+`_artefacts()` like its sibling and renamed
+`test_every_hotspots_document_cites_its_own_artefact`. Harmless with one
+artefact; live the moment CARD-218 commits the second, which is the future
+N-003 was reframed around — a stale citation on the *older* pair would
+otherwise never be looked at again.
+
+**F-3 — `rank_files`'s tie-break was unpinned** while the identical one in
+`rank_tests` was pinned by M1. Added
+`test_equal_file_totals_break_ties_on_path_not_on_dict_order`. Not a live
+determinism hole (`sorted` is stable over an insertion order that is itself a
+pure function of the artefact), but an untested asymmetry between two
+functions that must behave identically is how determinism quietly stops being
+true.
+
+**F-4 — "unimodal" was wrong.** The histogram is
+`{0.0: 41, 0.1: 22, 0.2: 37, 0.3: 81, 0.4: 141, 0.5: 100}` — strictly
+bimodal, with a 41-test cluster near zero. The word is corrected in the
+hotspots document and here; the argument is unchanged, because the
+load-bearing half was always the main mass at 0.3–0.5 s with no tail and a
+hard 0.520 s maximum, and a bounded maximum is exactly what rules out a
+four-minute stall. The document now also notes that the near-zero cluster is
+the opposite of a contention signal: those are tests that tear nothing down.
+
+Writing the F-1 test also found a real documentation gap it was not aimed at:
+the split table's "everything else" row carried `554.44 s` and `6660` but no
+share, so `60.22 %` appeared nowhere. Added.
+
+The artefact was not touched this cycle, so its sha256 is unchanged
+(`7d204cf9…`) and the citation still holds. Zero-deletions against main is
+preserved.
+
+- [Fix cycle 2 complete] 2026-10-15 — `f9b20c8`. 83 tests in the file, 186 targeted, 15/15
+  script mutants and 5/6 document mutants killed (the sixth survives **by design**, argued
+  below). Zero deletions against main preserved: **591/0, 21305/0, 274/0, 112/0, 640/0**.
+  Merge gate should now read **~7156 passed** (7073 + 83).
+  - **F-1 was closed at the source, because the gap was bigger than the finding.** The agent
+    found that **the deciding table had never come from the committed script at all** — only
+    the three rankings had; the table was hand-computed in a throwaway analysis script, which
+    is precisely the practice this card exists to end. So `rank_durations.py` now defines the
+    cost families (`BROWSER_FAMILY_PREFIX`, `PROPERTY_PREFIX`, `ADMIN_LOCAL_TRIO`) and a
+    `group_totals()` that emits the deciding table as a report section, and the document quotes
+    that block verbatim. Every figure in the conclusion is now derived.
+  - **The third test took two wrong shapes first, and both failures are worth keeping.**
+    "The figure appears somewhere in the document" **let the mutant survive** — falsifying one
+    of two copies leaves the other standing. "Every line stating the figure carries its share"
+    **went red on honest prose** — a sentence may legitimately quote `366.19 s` beside a
+    different statistic ("69% of the entire +533 s"), and demanding the share there would be
+    wrong. What landed is an **invariant rather than a lookup**: every seconds/share pair in a
+    markdown table row must be internally consistent with the attributed denominator, plus a
+    presence check so a row cannot be deleted to dodge it. Both columns would have to be forged
+    **in agreement** to survive — and forging them in agreement means stating the truth.
+  - **Six document mutants.** Falsified prose headline, falsified ranking row, `_pct`
+    denominator perturbed 1%, falsified bolded deciding-table copy, falsified figure inside the
+    verbatim block — **all killed**. Deleting a redundant restatement while the deciding table
+    still states the figure truthfully **survives by design**, and the agent argued the boundary
+    rather than asserting it: what is pinned is table rows and the quoted block, not free
+    narrative, because pinning narrative would forbid the legitimate case above, and because the
+    numbers a follow-on card acts on live in the tables. Deleting **every** markdown statement
+    of a family *is* caught — verified explicitly rather than assumed.
+  - **F-2** `test_every_hotspots_document_cites_its_own_artefact`, parametrised over every
+    artefact. Harmless today; live the moment CARD-218 commits the second profile — a stale
+    citation on the *older* pair would otherwise never be looked at again.
+  - **F-3** the `rank_files` tie-break is pinned, with the right reasoning: not a live hole, but
+    "an untested asymmetry between two functions that must behave identically is how determinism
+    quietly stops being true".
+  - **F-4** "unimodal" -> **bimodal**, histogram quoted inline, argument unchanged — its
+    load-bearing half was always the main mass at 0.3–0.5 s with **a hard 0.520 s maximum**, and
+    a bounded maximum is exactly what rules out a four-minute stall. The document now also notes
+    the near-zero cluster is the **opposite** of a contention signal: those are tests that tear
+    nothing down.
+  - **And the new test found something nobody was looking for:** the split table's "everything
+    else" row carried `554.44 s` and `6660` but **no share**, so **60.22% appeared nowhere in
+    the document**. The presence check caught it on its first run.
