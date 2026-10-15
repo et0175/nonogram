@@ -219,6 +219,118 @@ time pytest tests/test_wave1_e2e.py::TestCompleteWorkflowWave1::test_complete_wa
 pytest --durations=10 tests/test_wave1_e2e.py
 ```
 
+## Re-measuring the whole suite (profiling runs)
+
+> The rest of this file predates wave 20 and describes the admin-panel tests
+> only. This section is current and covers the **whole** suite.
+
+The suite's cost per test roughly doubled over waves 30–38 (68 ms/test →
+133–159 ms/test). CARD-217 profiled it once and committed the result so that
+nobody re-derives it by hand. Re-measure when you want to check that trend, or
+after any card that claims to have made the suite faster.
+
+### The command
+
+```bash
+./.venv/bin/python -m pytest --durations=0 --durations-min=0 -q
+```
+
+`--durations=0` asks for every test instead of the slowest N. `--durations-min=0`
+is the part people forget: without it pytest still hides everything faster
+than 5 ms, and with ~7 000 tests the hidden tail is large enough to distort
+every per-file share. Both are stock pytest — **do not** add `pytest-xdist`,
+`pytest-testmon` or a profiling plugin for this (ADR-0006/R1 keeps the
+dependency baseline closed; a dev-extra addition is its own decision).
+
+pytest reports `setup`, `call` and `teardown` as separate lines per test. Keep
+all three: a test whose *setup* dominates is a fixture problem, and a test
+whose *call* dominates is a test problem. They are not fixed the same way.
+
+### It must be the only suite on the host
+
+This is the part that invalidates the measurement when skipped. Concurrent
+runs inflate every number — wave 37 has two cards whose suites overlapped and
+whose timings are therefore unusable, and wave 38 saw a shared host add six
+minutes to a gate and fail a test on a timing bound it would otherwise have
+met. Even two quiet-host runs of near-identical suites a few hours apart
+differ by ~19 %, so a contended run tells you nothing at all.
+
+Before starting, and again when it finishes:
+
+```bash
+ps -Ao pid,command | grep -E "[p]ytest"     # must print nothing
+ls meta/kanban/.full-suite.lock             # must not exist
+```
+
+Take the lock for the duration so a concurrent `cmd-start-review` backs off,
+and remove it when done:
+
+```bash
+echo "profiling run, started $(date -u +%Y-%m-%dT%H:%M:%SZ)" > meta/kanban/.full-suite.lock
+# ... run the suite ...
+rm meta/kanban/.full-suite.lock
+```
+
+If anything else was running, **wait and re-run**. Do not record the number.
+An artefact that cannot honestly say `solo run: yes` is not a profile.
+
+### Where the artefacts live
+
+```
+meta/profiling/suite-durations-<YYYYMMDD>.txt   raw --durations output + header
+meta/profiling/rank_durations.py                the derivation (committed)
+meta/profiling/suite-hotspots-<YYYYMMDD>.md     the rankings and the conclusion
+```
+
+Naming convention: `<YYYYMMDD>`, the UTC date of the run, on both the durations
+file and the hotspots file, so a profile and its analysis always pair by name.
+
+The `.txt` carries a `#`-comment header before the table stating the commit
+sha, the host, the Python version, the exact command, the wall clock, the
+pass/skip counts and `solo run: yes`. `tests/test_suite_profile.py` enforces
+those fields, so an artefact missing one fails the suite rather than quietly
+becoming the record.
+
+### Deriving the rankings
+
+Never hand-count them:
+
+```bash
+./.venv/bin/python meta/profiling/rank_durations.py \
+    meta/profiling/suite-durations-<YYYYMMDD>.txt > /tmp/rankings.txt
+```
+
+It prints the 50 slowest tests (split by phase), the 20 slowest files with
+their share of attributed time, and the render-heavy files' total share. Its
+stdout is a pure function of the artefact's bytes, so re-running it reproduces
+the committed document exactly; paste the output into the hotspots file rather
+than retyping any figure.
+
+The render-heavy file set is frozen as a constant in that script, with the
+`grep` that produced it recorded alongside. To check it against the current
+tree:
+
+```bash
+./.venv/bin/python meta/profiling/rank_durations.py \
+    meta/profiling/suite-durations-<YYYYMMDD>.txt --verify-render-set tests >/dev/null
+```
+
+Drift is reported on stderr; stdout is unaffected, so this cannot change a
+committed ranking.
+
+### Logging the run
+
+Append one line to `meta/kanban/suite-timing.log` in the existing format:
+
+```
+2026-10-15T05:34:34Z wave-39 card-217-profiling-run 931s PASS (7073 passed, 9 skipped, 0 failed) [131ms/test]
+```
+
+That log is gitignored (`.gitignore`'s blanket `*.log`), so it is **not**
+committed and a fresh checkout will not have one — append to it anyway; it is
+the only place the cost trend is kept across waves. Its line format is pinned
+by `TIMING_LOG_LINE` in `rank_durations.py` and tested, so keep to it.
+
 ## Troubleshooting
 
 **"ModuleNotFoundError: No module named 'nonogram'"**
