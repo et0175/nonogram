@@ -92,7 +92,11 @@ class GuideCard(HTMLParser):
         pipeline_steps: one ``{"label": text, "icon": the ``data-icon``
             value}`` per ``data-guide-pipeline-step`` (CARD-201).
         difficulty: one ``{"name": text, "text": text}`` per
-            ``data-guide-difficulty`` (CARD-201).
+            ``data-guide-difficulty`` (CARD-201). ``text`` has been ``None``
+            since CARD-221 fix 1 — the screen stopped previewing the three
+            sentences when the printed page stopped setting them — and the
+            key is kept so that a template reaching for ``label.text``
+            again is caught by an assertion rather than by nobody.
         text: every text node inside the guide preview, joined.
 
     **How a strip/cell/note is routed to the right container.** Unlike the
@@ -619,35 +623,70 @@ class TestFinaliseGuidePreview_ShowsBothPages:
             assert shown["label"] == step.label
             assert shown["icon"] == step.icon
 
-    def test_the_difficulty_box_carries_the_three_sentences_verbatim(self, card):
+    def test_the_difficulty_legend_carries_the_three_labels_the_page_prints(self, card):
+        """The preview shows what the page shows: three names, no sentences.
+
+        **It asserted the three sentences verbatim until CARD-221 fix 1.**
+        The owner ruled on 2026-10-14 that the printed guide page stops
+        setting them (234 px bought back for the worked example's own
+        explanations, which the page had been dropping whole), and this
+        screen is a preview of that page — so a green test asserting the
+        sentences were here was certifying that the panel described a book
+        the export does not produce. The sentences are still carried by
+        ``GUIDE_DIFFICULTY_LABELS`` as data for CARD-229's key strip, which
+        is exactly why "the preview does not show them" has to be asserted
+        rather than assumed: nothing stops a template from reaching for
+        ``label.text`` again.
+        """
         assert card.difficulty_heading == generator.GUIDE_DIFFICULTY_HEADING
         assert len(card.difficulty) == len(generator.GUIDE_DIFFICULTY_LABELS) == 3
         for shown, label in zip(card.difficulty, generator.GUIDE_DIFFICULTY_LABELS):
             assert shown["name"] == label.name
-            assert shown["text"] == label.text
+            assert shown["text"] is None, (
+                f"the preview prints {shown['text']!r} under {label.name}: the "
+                "printed page carries no such sentence since CARD-221 fix 1"
+            )
 
-    def test_the_difficulty_sentences_appear_nowhere_else_in_contradictory_wording(
-        self, card
-    ):
-        """The stats block elsewhere on this screen shows Easy/Medium/Hard
-        puzzle *counts* (a number), never a sentence describing what the
-        tier means — so there is no second, independently-worded
-        description of the difficulty labels for this one to disagree with.
-        Each of the three sentences this box carries appears in the page
-        exactly once.
+    def test_the_difficulty_sentences_appear_nowhere_on_the_screen(self, card):
+        """No description of the tiers that the printed page does not carry.
+
+        This test's claim is unchanged in intent and stronger in fact. It
+        existed because the stats block elsewhere on this screen shows
+        Easy/Medium/Hard puzzle *counts* (a number) and never a sentence,
+        so there was no second, independently-worded description for the
+        box's own to disagree with: each sentence appeared exactly once.
+        Since CARD-221 fix 1 the page prints none of them, so the preview
+        must show none of them — the count it asserts is 0, anywhere in the
+        rendered screen, not only inside the legend's own block. That also
+        covers the one route the test above cannot see: a sentence rendered
+        somewhere this file's parser does not tag.
         """
         for label in generator.GUIDE_DIFFICULTY_LABELS:
-            assert card.text.count(label.text) == 1, label.text
+            assert card.text.count(label.text) == 0, (
+                f"the Finalise screen still carries {label.text!r}, which the "
+                "printed guide page has not set since CARD-221 fix 1"
+            )
 
     def test_sentinels_on_the_new_constants_render_live(self, panel, monkeypatch):
+        """Each constant is read at render time, not baked into the template.
+
+        **The difficulty sentinel moved from ``text`` to ``name`` in
+        CARD-221 fix 1.** It used to patch ``GUIDE_DIFFICULTY_LABELS[0].text``
+        and look for it on the screen; the printed page stopped setting
+        those sentences on the owner's ruling and so did this preview, so
+        the sentinel now rides on the field the block still renders. The
+        test's own claim — these strings are not hard-coded in
+        ``book_finalize.html`` — is unchanged, and it is checked on the same
+        three constants.
+        """
         book_id = panel.book("easy", "easy", "medium", "hard")
         guide2_title = "SENTINEL-GUIDE2-TITLE-201"
-        difficulty_text = "SENTINEL-DIFFICULTY-TEXT-201"
+        difficulty_name = "SENTINEL-DIFFICULTY-NAME-221"
         assume_closing = "SENTINEL-ASSUME-CLOSING-201"
         original_labels = generator.GUIDE_DIFFICULTY_LABELS
         shipped = (
             generator.GUIDE2_TITLE,
-            generator.GUIDE_DIFFICULTY_LABELS[0].text,
+            generator.GUIDE_DIFFICULTY_LABELS[0].name,
             generator.GUIDE_ASSUME_CLOSING,
         )
 
@@ -655,7 +694,7 @@ class TestFinaliseGuidePreview_ShowsBothPages:
         monkeypatch.setattr(
             generator,
             "GUIDE_DIFFICULTY_LABELS",
-            (dataclasses.replace(original_labels[0], text=difficulty_text),)
+            (dataclasses.replace(original_labels[0], name=difficulty_name),)
             + tuple(original_labels[1:]),
         )
         monkeypatch.setattr(generator, "GUIDE_ASSUME_CLOSING", assume_closing)
@@ -663,7 +702,7 @@ class TestFinaliseGuidePreview_ShowsBothPages:
         card = GuideCard(panel.shown(book_id))
 
         assert card.guide2_title == guide2_title
-        assert card.difficulty[0]["text"] == difficulty_text
+        assert card.difficulty[0]["name"] == difficulty_name
         assert card.assume_closing == assume_closing
         for text in shipped:
             assert text not in card.text

@@ -475,9 +475,11 @@ GUIDE_TITLE_GAP_PT = 36.0
 #: in the unit a reader can judge: ``type_px(14.4, 300) == 60``, so a book
 #: drawn at 300 DPI prints its dividers exactly as before, and a page at
 #: another resolution prints them at the same 14.4 pt instead of 60 px of
-#: whatever size that is. It letters through :func:`_guide_face`, whose
-#: fallback is sized, so a machine without Arial no longer prints the word at
-#: Pillow's 10 px default (2.4 pt).
+#: whatever size that is. It letters through :func:`_guide_face`, which since
+#: CARD-221 is the packaged face at that exact size on every host — before
+#: CARD-149 a machine without Arial printed the word at Pillow's 10 px default
+#: (2.4 pt), and before CARD-221 it printed it in Pillow's own face at the
+#: right size but another face's widths.
 DIVIDER_PT = 14.4
 
 #: The guide page's title (FR-041, AC-324, CARD-167). It was "How to Use This
@@ -576,41 +578,47 @@ TOC_ENTRY_GAP_PT = 4.0
 #: the entries list, the row count and :func:`structural_toc_entry_count`
 #: are all exactly what they were.
 #:
-#: **8.5 pt is the largest separation that leaves every storable trim its
-#: own page number** — the figure is measured, and it is the whole reason
-#: it is not a rounder number. On the **shortest** trim a book can store
-#: and :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out
-#: (10.00 cm, :data:`~nonogram.admin.book_page_spec.MIN_TRIM_CM`), a
-#: three-level book's eight rows leave 199 px under the last one, of which
-#: the folio's own line needs 49 (:func:`_draw_folio`, which omits the
-#: folio outright when its caller's ``content_bottom`` leaves it less).
-#: Four gaps at 300 dpi must therefore fit in 150 px:
+#: **8.0 pt is the largest separation that leaves every storable trim its
+#: own page number with the owner's own margin over the folio** — the figure
+#: is measured, and that is the whole reason it is not a rounder number. On
+#: the **shortest** trim a book can store and
+#: :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out (10.00 cm,
+#: :data:`~nonogram.admin.book_page_spec.MIN_TRIM_CM`), a three-level book's
+#: eight rows leave 187 px under the last one, of which the folio's own line
+#: needs 49 (:func:`_draw_folio`, which omits the folio outright when its
+#: caller's ``content_bottom`` leaves it less). Four gaps at 300 dpi must
+#: therefore fit in 138 px:
 #:
 #: ===========  ======  ==================  =============================
 #: constant     px      headroom (4 gaps)   folio (needs 49 px)
 #: ===========  ======  ==================  =============================
-#: 10.0 pt      42      31                  **dropped**
-#: 9.5 pt       40      39                  **dropped**
-#: 9.0 pt       38      47                  **dropped**, by 2 px
-#: 8.9 pt       37      51                  ok — the largest that fits
-#: **8.5 pt**   **35**  **59**              **ok, with 10 px to spare**
+#: 10.0 pt      42      19                  **dropped**
+#: 9.0 pt       38      35                  **dropped**
+#: 8.5 pt       35      47                  **dropped**, by 2 px
+#: 8.2 pt       34      51                  ok — the largest that fits
+#: **8.0 pt**   **33**  **55**              **ok, with 6 px to spare**
 #: ===========  ======  ==================  =============================
 #:
-#: 8.5 rather than the maximal 8.9 by the owner's own choice (2026-10-14):
-#: 10 px of margin over the folio's line is worth more than the 0.4 pt of
-#: extra white, because the next change that adds a row or a gap should
-#: fail on its own arithmetic rather than silently un-number a page.
+#: 8.0 rather than the maximal 8.2 by the owner's own choice: a margin over
+#: the folio's line is worth more than the 0.2 pt of extra white, because
+#: the next change that adds a row or a gap should fail on its own
+#: arithmetic rather than silently un-number a page.
 #:
-#: **Every px figure in the table above is read on Arial**, the face
-#: :func:`_guide_face` finds first. On a host where it falls back to
-#: Pillow's own face that row is taller, the same eight rows and four gaps
-#: leave 27 px, and the shortest storable trim's TOC page loses its folio
-#: even at 8.5 pt — measured in CARD-205 Fix 3 (review cycle 1, F-004), and
-#: the reason the owner's margin is asserted only behind the face gate in
-#: ``tests/test_book_toc.py``. Closing that would mean a smaller constant
-#: than the owner chose, so it is recorded for them rather than decided
-#: here; what is *not* face-dependent is that the folio cannot be dropped
-#: silently — the sweep's own inequality is red wherever it would be.
+#: **Both the table and the constant were read on Arial until CARD-221**,
+#: which letters the interior in the packaged face on every host. On Arial
+#: these same eight rows left 199 px and the owner chose **8.5 pt** (35 px,
+#: 59 px of headroom, 10 px over the folio) against a maximum of 8.9; on
+#: Pillow's own fallback face, which is what the deployed Linux image
+#: printed, they left 27 px and the page went out unnumbered. The packaged
+#: face sets a row 49 px tall against Arial's 48 and the title's line 258 px
+#: against 254, which costs 12 px and left 8.5 pt exactly 2 px short at this
+#: one trim — measured in CARD-221, where it was the one height of 381 that
+#: failed. **8.0 pt is the owner's own rule re-measured on the face the book
+#: is actually printed in** (owner decision, 2026-10-14, CARD-221 fix cycle
+#: 1), not a new figure: the largest gap that fits, less a margin, which
+#: comes to 6 px here where it came to 10 px there. The figure is
+#: face-independent now, so the sweep asserts it unconditionally and there
+#: is no gate and no expected failure left under it.
 #:
 #: This constant was **10 pt through Fix 1**, when only the three headings
 #: were set off and three gaps of 42 px left 73 px — the fourth gap the
@@ -622,8 +630,9 @@ TOC_ENTRY_GAP_PT = 4.0
 #: rather than charged to every row, and
 #: ``tests/test_book_toc.py``'s
 #: ``TestBookToc_GroupsAreSetOffFromWhatPrecedesThem`` for the sweep that
-#: asserts the 59 px over all 381 heights KDP admits.
-TOC_GROUP_GAP_PT = 8.5
+#: asserts the 55 px, and that no height fails, over all 381 heights KDP
+#: admits.
+TOC_GROUP_GAP_PT = 8.0
 
 #: The label of the TOC's own last row (CARD-205): the SOLUTIONS divider that
 #: opens the answer section, as the **table of contents** names it.
@@ -647,8 +656,10 @@ TOC_SOLUTIONS_LABEL = "Solutions"
 #: :func:`toc_range_label` and the tests that pin its output must agree on
 #: the exact code point, which a literal in two places cannot guarantee by
 #: eye (U+2013; the module already letters the wider em dash through
-#: :func:`~nonogram.admin.book_answer_key.answer_caption`, so
-#: :func:`_guide_face`'s own faces are known to carry this range).
+#: :func:`~nonogram.admin.book_answer_key.answer_caption`, so the one face
+#: :func:`_guide_face` returns is known to carry this range — asserted glyph
+#: by glyph since CARD-221 by ``tests/test_book_interior_face.py``'s
+#: ``TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints``).
 TOC_RANGE_DASH = "–"
 
 #: The line the guide page's worked example solves (FR-041, AC-325): the clue
@@ -763,7 +774,7 @@ WORKED_EXAMPLE_STEPS: Tuple[ExampleStep, ...] = (
 # 4-step assume/follow/breaks/proved pipeline and the difficulty box are the
 # genuinely new drawing shapes the card's own analysis named — see
 # :func:`guide_icon_layout`, :func:`_draw_pipeline_diagram` and
-# :func:`_draw_difficulty_box`.
+# :func:`_draw_difficulty_legend` (a bordered box until CARD-221 fix 1).
 
 
 @dataclass(frozen=True)
@@ -1032,21 +1043,48 @@ GUIDE_ASSUME_CLOSING = (
 
 @dataclass(frozen=True)
 class DifficultyLabel:
-    """One column of the "what the difficulty labels mean" box (CARD-201).
+    """One column of the difficulty legend (CARD-201).
 
     Attributes:
-        name: "EASY" / "MEDIUM" / "HARD" — ADR-0031's three tiers.
+        name: "EASY" / "MEDIUM" / "HARD" — ADR-0031's three tiers. The whole
+            of what the **printed** guide page says about the labels since
+            CARD-221 fix 1.
         text: Its one-sentence gloss, carried verbatim from the source PDF
-            (this card's "Target" point 3: "this box alone is the doc's
+            (CARD-201's "Target" point 3: "this box alone is the doc's
             entire description of what our difficulty levels are about").
+            **No longer printed on the guide page** — see
+            :data:`GUIDE_DIFFICULTY_LABELS`. Still shown by the Finalise
+            screen's own preview of the page
+            (``templates/book_finalize.html``), and still carried here as
+            the text CARD-229 places in the guide's key strip, which is the
+            owner's reason for choosing this block over any other on the
+            page.
     """
 
     name: str
     text: str
 
 
-#: Page 2, item 3: the difficulty-label box, drawn by
-#: :func:`_draw_difficulty_box` (CARD-201).
+#: Page 2, item 3: the difficulty legend, drawn by
+#: :func:`_draw_difficulty_legend` (CARD-201).
+#:
+#: **Its three sentences stopped being printed in CARD-221 fix 1** (owner
+#: decision, 2026-10-14). Lettering the interior in the packaged face made
+#: page 2's captions form 4 px too tall for the Book 1 sheet, which dropped
+#: the page a whole fallback level and cost the reader the worked example's
+#: four step explanations and both technique notes as well. Dropping these
+#: three sentences buys 234 px against that 4 px deficit, so everything else
+#: on the page stays — and they are the one block with a successor already
+#: carded: CARD-229 moves the difficulty legend into the guide's key strip.
+#: The :attr:`DifficultyLabel.name`\ s still print, and the ruled box that
+#: held the sentences went with them (see :func:`_draw_difficulty_legend`).
+#:
+#: ``text`` is therefore data this module keeps and no longer prints. The
+#: Finalise screen's preview still shows it, which is a divergence between
+#: that screen and the page it previews: flagged for the owner and for
+#: CARD-229 in CARD-221's Worktree notes rather than fixed here, because
+#: that screen is out of this card's scope (G-6) and CARD-229 rebuilds the
+#: block on both surfaces.
 GUIDE_DIFFICULTY_HEADING = "What the difficulty labels mean"
 GUIDE_DIFFICULTY_LABELS: Tuple[DifficultyLabel, ...] = (
     DifficultyLabel(
@@ -1090,23 +1128,63 @@ def type_px(points: float, dpi: int) -> int:
     return round(points * dpi / POINTS_PER_INCH)
 
 
-def _guide_face(size: int) -> Any:
-    """The face the guide page and the divider pages letter in, at ``size`` px.
+def _guide_face(size: int) -> ImageFont.FreeTypeFont:
+    """The face every reader-facing interior page letters in, at ``size`` px.
 
-    Arial by path; on a machine without it, Pillow's own face asked for at the
-    same size. A bare ``load_default()`` letters a page at a 10 px em whatever
-    the page is, which is the defect CARD-149 fixed wearing a fallback's
-    clothes. Pillow sizes its built-in face from 10.1 on; the declared floor
-    is 10.0, which raises ``TypeError`` instead, and there the page keeps the
-    unsized face it has always had.
+    The packaged DejaVu Sans — :func:`_band_font_bytes`, the one font this
+    project ships (ADR-0006/R1, package data rather than a dependency) and the
+    face the band and the folio were already set in. The guide pages, the
+    dividers and the table of contents letter through here, so **every
+    measurement the interior makes is a function of this repository's own
+    font data and of the installed Pillow/FreeType, and of nothing the host's
+    font configuration offers** (CARD-221).
+
+    That second clause is the honest limit of what the swap bought, and it
+    is deliberate wording (review cycle 1, F-005). The face is now the
+    repository's; the rasteriser is not. ``pyproject.toml`` floors Pillow at
+    ``>=10.0`` with no ceiling, the metrics this module reads come straight
+    off ``getmetrics()``, and one pixel of ascent is exactly the lever that
+    separated 42 TOC rows from 41 when the face was the host's. So a
+    FreeType bump can still move a page count where a missing Arial no
+    longer can. What would catch it is the baseline: every interior page is
+    compared digest-for-digest against ``book_baseline_card221.json`` with
+    no face gate left to skip it
+    (``tests/test_book_pdf_memory.py``'s ``TestBookPdfMemory_PagesAreUnchanged``),
+    so a rasteriser that redraws a glyph reds the suite on the machine that
+    bumped it rather than reaching a printed book. Bounding Pillow, or
+    recording the metrics themselves, is an ADR-0006/R1 question and not
+    this function's to answer.
+
+    **It asked the host for Arial by path until CARD-221**, with Pillow's own
+    built-in face as a sized fallback. That made the interior's row geometry
+    host-dependent while the folio's own reservation (:func:`_band_font`) was
+    not, so the same book could be finalised here and generated on the
+    deployed Linux image and disagree about its page count — and therefore
+    about the printed KDP gutter band the count selects. Measured on
+    2026-10-14 at Book 1's trim: a TOC page held 42 rows on Arial and 40 on
+    the fallback, and ``main``'s own suite showed it as 10 off-host failures
+    in ``tests/test_book_finalise_gutter.py``, every one a page count off by
+    exactly one.
+
+    **No escapes, and none needed** (the card's step 1): the interior's whole
+    character repertoire is ASCII plus ``·`` (U+00B7, :data:`BAND_SEPARATOR`),
+    ``—`` (U+2014, the answer caption's dash), ``–`` (U+2013,
+    :data:`TOC_RANGE_DASH`) and ``…`` (U+2026, :func:`_clipped_to`'s
+    ellipsis), and DejaVu Sans covers every one of them — asserted glyph by
+    glyph, against this file's own strings, by
+    ``tests/test_book_interior_face.py``'s
+    ``TestInteriorFace_ThePackagedFaceCoversWhatTheInteriorPrints``. A silent
+    ``try`` here would be a second face waiting to be selected by accident,
+    which is the defect this function was changed to remove.
+
+    Uncached deliberately, unlike :func:`_band_font`: the guide page's title
+    is fitted by asking for one pixel less at a time, so a page probes many
+    sizes and a small LRU would thrash on exactly the call that needs it. The
+    font *bytes* are cached (:func:`_band_font_bytes`), which is where the
+    cost is; every call returns a fresh :class:`ImageFont.FreeTypeFont`, as
+    the Arial-by-path call it replaces also did.
     """
-    try:
-        return ImageFont.truetype("/System/Library/Fonts/Arial.ttf", size)
-    except OSError:
-        try:
-            return ImageFont.load_default(size)
-        except TypeError:  # pragma: no cover - Pillow < 10.1
-            return ImageFont.load_default()
+    return ImageFont.truetype(BytesIO(_band_font_bytes()), size=size)
 
 
 def band_identity(puzzle_number: int, stored_tier: object) -> str:
@@ -1653,15 +1731,23 @@ def _draw_pipeline_diagram(
 
     ``label_size`` is the pixel size ``label_font`` was asked for from
     :func:`_guide_face`, passed explicitly rather than read back off
-    ``label_font.size`` (review cycle 1, F-2, gating): ``_guide_face`` can
-    return an "unsized" face with no ``.size`` attribute at all — its own
-    docstring says so — on any non-macOS host with a Pillow older than 10.1,
-    a combination ``pyproject.toml``'s unbounded ``Pillow>=10.0`` floor still
-    allows. Every other caller of a ``_guide_face`` font in this file already
-    avoids ``.size`` the same way (``create_guide_page``'s title/body fonts
-    measure with ``getlength``/``getmetrics``; ``create_divider_page``'s with
-    ``draw.textbbox``) — this reuses that approach by taking the size as a
-    parameter instead of reading it off the font.
+    ``label_font.size`` (review cycle 1, F-2, gating). The reason it was
+    introduced is **gone**: ``_guide_face`` could return an "unsized" face
+    with no ``.size`` attribute at all — a sizeless
+    ``ImageFont.load_default()``, on any non-macOS host with a Pillow older
+    than 10.1, a combination ``pyproject.toml``'s unbounded ``Pillow>=10.0``
+    floor still allows — and since CARD-221 it returns the packaged face at
+    the asked-for size and nothing else, on every host. The parameter stays
+    because the habit it encodes is sound on its own terms: every caller of a
+    ``_guide_face`` font in this file measures through the font's own API
+    (``create_guide_page``'s title/body fonts with
+    ``getlength``/``getmetrics``, ``create_divider_page``'s with
+    ``draw.textbbox``) rather than reading a number off the object, and
+    taking the size as a parameter is the same discipline. Its own
+    robustness test still stands, against a stand-in face rather than
+    against a face ``_guide_face`` can return
+    (``tests/test_book_guide_page.py``'s
+    ``test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face``).
     """
     rule = _guide_rule_width(spec)
     border = max(rule, 1)
@@ -1718,57 +1804,65 @@ def _draw_pipeline_diagram(
     return canvas
 
 
-def _draw_difficulty_box(
-    spec: PageSpec,
+def _draw_difficulty_legend(
     labels: Tuple[DifficultyLabel, ...],
     measure: int,
     text_font: Any,
     text_size: int,
-    leading: int,
-    *,
-    with_text: bool,
 ) -> Image.Image:
-    """"What the difficulty labels mean": a bordered column box (CARD-201).
+    """"What the difficulty labels mean": the three tier names, in a row.
 
-    A ``measure``-wide box, one column per entry of ``labels``, bordered at
-    this page's own thin rule (:func:`_guide_rule_width`) — the source PDF's
-    grey-filled highlight box becomes a plain bordered box in the book's own
-    ink and paper, never a new grey ink (G-5). Each column holds its tier's
-    name; when ``with_text`` is set (the full and captions-only fallback
-    forms) its one-sentence gloss follows, wrapped to the column's own
-    measure (:func:`wrap_words`). ``with_text=False`` (the labels-only form)
-    draws the three names alone, so even the page's narrowest fallback still
-    says what EASY/MEDIUM/HARD are called.
+    A ``measure``-wide strip, one column per entry of ``labels``, each
+    holding its tier's :attr:`~DifficultyLabel.name` and nothing else.
+
+    **It was a bordered box holding a sentence per column until CARD-221 fix
+    1** (``_draw_difficulty_box``, CARD-201; the source PDF's grey-filled
+    highlight became a plain bordered box in the book's own ink and paper).
+    The owner's decision to stop printing the three sentences
+    (:data:`GUIDE_DIFFICULTY_LABELS`) took the rule with them, and that was
+    this card's call to make on the render rather than the owner's: a
+    ``measure``-wide rectangle holding three words — about a seventh of its
+    own area, under a heading that promises an explanation — reads as a
+    table whose contents failed to draw, which is worse than no rule at all.
+    Nothing else on either guide page borders anything it does not enclose:
+    the pipeline's four boxes each hold a word and an icon, and every line
+    diagram's frame holds a grid. Three names in a row, set under their own
+    heading with the page's own leading above and below them, read as the
+    legend they are — which is also the shape CARD-229 moves into the
+    guide's key strip.
+
+    With the rule gone this draws no ruled line at all, so it no longer
+    needs the page's own :class:`PageSpec` (it took one only for
+    :func:`_guide_rule_width`), nor the ``leading`` that set a column's
+    wrapped sentences, nor the ``with_text`` flag that chose between the two
+    forms: the labels-only form is the only form.
 
     ``text_size`` is ``text_font``'s own pixel size, passed explicitly rather
     than read off ``text_font.size`` — see :func:`_draw_pipeline_diagram`'s
-    docstring (review cycle 1, F-2, gating) for why ``.size`` is never safe
-    to read off a ``_guide_face`` font.
+    docstring (review cycle 1, F-2, gating) for why ``.size`` is never read
+    off a ``_guide_face`` font.
     """
-    rule = _guide_rule_width(spec)
     pad = text_size
     gutter = pad
-    column_w = (measure - 2 * pad - gutter * (len(labels) - 1)) // len(labels)
+    # Flush at both ends of the measure, where the box's own border used to
+    # be: with the rule gone its ``pad`` of inner margin would have left the
+    # first label indented from a left edge nothing draws any more, out of
+    # line with every other line of type on the page — the heading directly
+    # above it included. The columns keep their pitch (one ``gutter``
+    # between them) and simply start at the measure's own left edge.
+    column_w = (measure - gutter * (len(labels) - 1)) // len(labels)
     bbox = text_font.getbbox("Mg")
     name_h = bbox[3] - bbox[1]
-    columns: List[List[str]] = []
-    for label in labels:
-        lines = [label.name]
-        if with_text:
-            lines.extend(wrap_words(label.text, text_font, column_w))
-        columns.append(lines)
-    body_lines = max(len(lines) - 1 for lines in columns)
-    height = pad * 2 + name_h + (pad // 2 + body_lines * leading if body_lines else 0)
+    # ``pad`` of white above and below the row: the one piece of the box's
+    # geometry that still does a job now that there is no rule to do it —
+    # it is what sets the legend apart from the heading above and the
+    # paragraph below, exactly as it separated them from the border before.
+    height = pad * 2 + name_h
     canvas = Image.new("RGB", (measure, height), BACKGROUND)
     draw = ImageDraw.Draw(canvas)
-    draw.rectangle((0, 0, measure - 1, height - 1), outline=INK, width=rule)
-    x = pad
-    for lines in columns:
-        draw.text((x, pad), lines[0], font=text_font, fill=INK)
-        y = pad + name_h + pad // 2
-        for line in lines[1:]:
-            draw.text((x, y), line, font=text_font, fill=INK)
-            y += leading
+    x = 0
+    for label in labels:
+        draw.text((x, pad), label.name, font=text_font, fill=INK)
         x += column_w + gutter
     return canvas
 
@@ -2450,7 +2544,8 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
     ``len(TIERS)`` levels, i.e. **eight rows with four gaps** (three
     headings and the solutions row — Fix 2), and the shortest trim
     :func:`~nonogram.admin.book_page_spec.book_page_spec` lays out at all
-    holds ten rows — so the real list is one page on every trim KDP admits,
+    holds nine rows (ten until CARD-221 lettered the rows in the packaged
+    face, which sets them a pixel taller than Arial did) — so the real list is one page on every trim KDP admits,
     with its four gaps and the folio's own reserved line inside the one
     page's own frame (measured, over every tenth of a centimetre from 10 to
     48 cm, by ``tests/test_book_toc.py``'s
@@ -2467,7 +2562,7 @@ def _toc_entries_per_page(frame: "PageFrame", dpi: int) -> int:
 
     The alternative — folding the worst case in by dividing by
     ``entry_height + group_gap`` — would charge *every* row a gap only a
-    group's first row gets, cutting Book 1's own capacity from 42 rows to
+    group's first row gets, cutting Book 1's own capacity from 41 rows to
     27 and moving :func:`measured_toc_page_count` for all three of its callers
     (the export's own plan, ``book_kdp``'s gutter-band figure,
     :func:`interior_page_count`'s sheet-free bound) to pay for a split the
@@ -3238,9 +3333,9 @@ class BookPDFGenerator:
         :func:`example_line_layout` built for that diagram's own clue and
         length (CARD-201 generalised both to take them as arguments, AC-8);
         a bare cell icon (:data:`GUIDE_CELL_STATES`) the same way over
-        :func:`guide_icon_layout`. The pipeline and the difficulty box are
-        not puzzle-line diagrams and are drawn by
-        :func:`_draw_pipeline_diagram`/:func:`_draw_difficulty_box`.
+        :func:`guide_icon_layout`. The pipeline and the difficulty legend
+        are not puzzle-line diagrams and are drawn by
+        :func:`_draw_pipeline_diagram`/:func:`_draw_difficulty_legend`.
 
         **Five fallback forms, per page — the original three, plus two more
         CARD-201 adds for the 10 cm minimum trim alone:** the full one
@@ -3381,7 +3476,7 @@ class BookPDFGenerator:
             # bleed-margin of one heavy rule (see that function's own
             # docstring), so only those images may be pasted ``pad`` to the
             # left of their logical position. ``_draw_pipeline_diagram`` and
-            # ``_draw_difficulty_box`` draw their own border flush at column
+            # ``_draw_difficulty_legend`` set their own ink flush at column
             # 0 with no such margin — pasting them with the same correction
             # shifted both one heavy-rule-width too far left. A text mark's
             # flag is unused (text is always drawn straight at ``frame.left``)
@@ -3494,14 +3589,15 @@ class BookPDFGenerator:
                 space()
 
                 paragraph(GUIDE_DIFFICULTY_HEADING)
-                box_image = _draw_difficulty_box(
-                    spec, GUIDE_DIFFICULTY_LABELS, measure, text_font, body_size, leading,
-                    with_text=captions,
+                legend_image = _draw_difficulty_legend(
+                    GUIDE_DIFFICULTY_LABELS, measure, text_font, body_size
                 )
-                # No left bleed margin (``_draw_difficulty_box`` draws its own
-                # border flush at column 0, spanning the full ``measure``) —
-                # paste unadjusted.
-                picture(box_image, gap=leading // 2, needs_pad=False)
+                # No left bleed margin (``_draw_difficulty_legend`` sets its
+                # first column flush at column 0, spanning the full
+                # ``measure``) — paste unadjusted. It no longer varies with
+                # ``captions``: since CARD-221 fix 1 there is one form of it,
+                # the three names, on every fallback level.
+                picture(legend_image, gap=leading // 2, needs_pad=False)
 
                 if full:
                     paragraph(f"This book contains {puzzle_count} puzzles:")
@@ -3574,9 +3670,9 @@ class BookPDFGenerator:
             the grid's own outer border already does" (that function's own
             docstring) — the same by-design sideways bleed every puzzle
             page's own grid already has, not a defect this finding is about.
-            ``_draw_pipeline_diagram``/``_draw_difficulty_box`` (``needs_pad``
-            ``False``) draw flush at column 0 with no such bleed and get none
-            of this tolerance.
+            ``_draw_pipeline_diagram``/``_draw_difficulty_legend``
+            (``needs_pad`` ``False``) draw flush at column 0 with no such
+            bleed and get none of this tolerance.
             """
             for _y, mark, needs_pad in marks:
                 if isinstance(mark, str):
@@ -3614,7 +3710,7 @@ class BookPDFGenerator:
         #
         # Review cycle 2, F-11 (gating): that correction belongs ONLY to
         # images with this bleed margin. ``_draw_pipeline_diagram`` and
-        # ``_draw_difficulty_box`` draw their own border flush at column 0
+        # ``_draw_difficulty_legend`` draw their own ink flush at column 0
         # (no bleed at all) and set their own mark's ``needs_pad=False`` at
         # the ``picture()`` call site above — applying the same ``pad``
         # shift to them landed both one heavy-rule-width too far left,
@@ -3849,9 +3945,11 @@ class BookPDFGenerator:
                 # is measured: trimmed while it overruns the gap, grown while
                 # another dot would still fit. Correcting only downwards (the
                 # obvious half) would silently drop a dot on any face whose
-                # kerning is negative, which is exactly the kind of thing that
-                # differs between Arial and `_guide_face`'s own fallback and
-                # so between one machine's render and another's.
+                # kerning is negative. That used to differ between Arial and
+                # `_guide_face`'s own fallback, and so between one machine's
+                # render and another's; since CARD-221 there is one face, and
+                # the correction stays because it is a property of a face's
+                # kerning rather than of which face was found.
                 dots = "." * max(0, int(run // dot_width)) if dot_width > 0 else ""
                 while dots and entry_font.getlength(dots) > run:
                     dots = dots[:-1]

@@ -395,10 +395,19 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 /* "What the difficulty labels mean": a plain bordered box, three columns —
    the source PDF's grey highlight box rendered in this book's own ink/paper
    tones (G-5: no new grey), the same border weight `.guide-preview` already
-   uses for its own outer card. */
+   uses for its own outer card.
+
+   CARD-221 fix 2 dropped `.guide-difficulty-column p`: the preview stopped
+   emitting the `<p>` when the printed page stopped setting those sentences,
+   and a rule for an element the template cannot produce is dead weight that
+   reads as though the element were still expected. The other two selectors
+   are live — book_finalize.html still emits both divs — and the box's own
+   border stays on this screen deliberately: it is a flex row that hugs its
+   three labels, where the print side's rule spanned the full measure around
+   three words, so the reason the page dropped its rule does not transfer
+   here. CARD-229 rebuilds this block for the guide's key strip. */
 .guide-difficulty-box { display: flex; flex-wrap: wrap; gap: var(--space-4); border: var(--border-width) solid var(--grid-ink); border-radius: var(--radius-control); padding: var(--space-3) var(--space-4); margin: var(--space-2) 0; }
 .guide-difficulty-column { flex: 1 1 10rem; }
-.guide-difficulty-column p { margin: var(--space-1) 0 0; }
 
 /* ---------- Puzzle detail modal ---------- */
 .puzzle-detail-modal { display: none; position: fixed; inset: 0; z-index: 1050; background: rgb(28 35 51 / 0.45); }

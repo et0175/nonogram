@@ -21,12 +21,18 @@ resolution — the reverse of the conversion the page did, done by a second
 implementation. The point sizes it expects (11 pt body, 22 pt title, 1.4x
 leading) are written out here as the acceptance criteria state them.
 
-Where the numbers come from, measured on this machine at 300 DPI:
+Where the numbers come from, measured at 300 DPI — in the **packaged** face
+since CARD-221, which is the face every host letters this page in; the figures
+this list carried before it were Arial's, and are kept beside the new ones
+because they are what the assertions were first calibrated against:
 
-* body 11 pt -> 46 px em; its tallest line's glyph box (cap to descender)
-  measures 43 px, and 43 / 0.9275 = 46.4 px = 11.1 pt;
-* title 22 pt -> 92 px em; "How to Use This Book" has no descender, so its box
-  measures 67 px of cap height, and 67 / 0.730 = 91.8 px = 22.0 pt;
+* body 11 pt -> 46 px em; its tallest line's glyph box (ascender to descender)
+  measures 45 px, and 45 / 0.9675 = 46.5 px = 11.2 pt (Arial: 43 px, and
+  43 / 0.9275 = 46.4 px = 11.1 pt, measuring cap-to-descender — see
+  :data:`ASCENDER_TO_DESCENDER_PROBE` for why the extent moved);
+* title 22 pt -> 92 px em; "How to Solve Nonograms" reaches an ascender and a
+  descender, so its box measures 89 px, and 89 / 0.9675 = 92.0 px = 22.1 pt
+  (Arial: 86 px of a 0.9275 extent, 22.1 pt the same);
 * the advance between body lines is 71 px = 17.0 pt, against the 50 px (12 pt)
   the method used to add — 46 px of type on a 50 px line.
 
@@ -36,6 +42,8 @@ AC-236, AC-237, AC-238 and AC-239 of CARD-149, one class each.
 from __future__ import annotations
 
 import random
+from importlib import resources
+from io import BytesIO
 from typing import Dict, List, Sequence, Tuple
 
 import numpy as np
@@ -44,7 +52,14 @@ from PIL import Image, ImageDraw, ImageFont
 
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, guide_icon_layout, page_frame
+from nonogram.admin.book_pdf_generator import (
+    GUIDE_DIFFICULTY_LABELS,
+    BookPDFGenerator,
+    _draw_difficulty_legend,
+    _guide_face,
+    guide_icon_layout,
+    page_frame,
+)
 
 from tests.helpers.book_corpus import corpus_book
 
@@ -91,17 +106,34 @@ LEADING_PX_BEFORE = 50
 #: page no longer says this, rather than quietly measuring the wrong ratio.
 TITLE_AS_IT_STANDS = "How to Solve Nonograms"
 
-#: A probe that reaches from cap height to the bottom of a descender, which is
-#: the tallest ink an ordinary line of body text can make. The guide page's
-#: longest lines ("  1. Fill in the grid based on the clues") carry both.
-CAP_TO_DESCENDER_PROBE = "Hg"
+#: A probe that reaches from the top of a lowercase **ascender** to the bottom
+#: of a descender, which is the tallest ink an ordinary line of body text can
+#: make. The guide page's own lines carry both ("Keep switching between rows
+#: and columns": the "K" is a cap, the "p" a descender, the "t"/"h" ascenders).
+#:
+#: **It was ``"Hg"`` — cap to descender — until CARD-221**, which is the same
+#: extent on some faces and one pixel short on others. In the packaged DejaVu
+#: Sans an ascender rises above cap height (measured at a 400 px em: "Hg"
+#: inks 0.9375 of the em and "dg" 0.9675), so against an "Hg" probe the
+#: page's tallest body line measured 11.52 pt instead of 11 — the type had
+#: not changed size, the probe was measuring a shorter extent than the page
+#: draws. Cap height is not the ceiling of a line of mixed-case text on any
+#: face; it only happened to be within a pixel of it on Arial.
+ASCENDER_TO_DESCENDER_PROBE = "dg"
 
 #: The size the ink-to-em ratios are measured at: large enough that one pixel
 #: of rasterisation is a rounding error in the third decimal.
 RATIO_PROBE_PX = 400
 
-#: The face the guide page letters in, by the path the page asks for.
-ARIAL = "/System/Library/Fonts/Arial.ttf"
+#: The face the guide page letters in: the packaged DejaVu Sans this project
+#: ships as package data, named the way :mod:`nonogram.export.pdf` names it
+#: (CARD-221). Read here through :mod:`importlib.resources` rather than
+#: imported from the module under test, so this module's own measurement
+#: stays a second implementation of the page's own lookup — it was
+#: ``"/System/Library/Fonts/Arial.ttf"``, the host path the page asked for
+#: until CARD-221 made the interior's type deterministic.
+FONT_PACKAGE = "nonogram.export.fonts"
+FONT_RESOURCE = "DejaVuSans.ttf"
 
 #: Anything darker than this is ink. The page is pure black on pure white, so
 #: the threshold only has to fall between them and clear the anti-aliasing.
@@ -113,22 +145,24 @@ INK_THRESHOLD = 128
 # --------------------------------------------------------------------------
 
 
-def face(size_px: int) -> ImageFont.ImageFont:
+def packaged_font_bytes() -> bytes:
+    """The packaged face's bytes, read as package data (CARD-221)."""
+    return resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+
+
+def face(size_px: int) -> ImageFont.FreeTypeFont:
     """The face the guide page letters in, asked for at ``size_px``.
 
-    The same two calls the page makes, reimplemented rather than imported
-    (CLAUDE.md: prefer an independent second implementation). On a machine
-    with no Arial both the page and this fall back to Pillow's own face at the
-    same size, so the ratios measured here are the ratios of whatever face the
-    page was actually drawn in.
+    The same call the page makes, reimplemented rather than imported
+    (CLAUDE.md: prefer an independent second implementation) — and since
+    CARD-221 there is only **one** call to reimplement: the packaged face at
+    the asked-for size, on every host. The ladder that stood here (Arial by
+    path, then Pillow's built-in face at the same size) was this module's own
+    copy of the page's host lookup, and the reason the ratios it measures
+    used to be the ratios of "whatever face the page happened to be drawn
+    in". They are now the ratios of the face it is always drawn in.
     """
-    try:
-        return ImageFont.truetype(ARIAL, size_px)
-    except OSError:  # pragma: no cover - only on a machine without Arial
-        try:
-            return ImageFont.load_default(size_px)
-        except TypeError:  # pragma: no cover - Pillow < 10.1
-            return ImageFont.load_default()
+    return ImageFont.truetype(BytesIO(packaged_font_bytes()), size=size_px)
 
 
 def ink_rows(page: Image.Image) -> np.ndarray:
@@ -228,15 +262,42 @@ def ink_box(page: Image.Image) -> Tuple[int, int, int, int]:
 def band_ink_extent(page: Image.Image, top: int, bottom: int) -> Tuple[int, int]:
     """The leftmost and rightmost inked column inside rows ``top..bottom``.
 
-    CARD-201 review cycle 2, F-11: for a bordered diagram (the pipeline,
-    the difficulty box) the border is the widest ink in its own band, so
-    this is the diagram's own left/right edge -- no label, sentence or icon
-    inside either diagram is ever drawn past its own border.
+    CARD-201 review cycle 2, F-11: for a bordered diagram (the pipeline —
+    and the difficulty box, until CARD-221 fix 1 dropped its rule) the
+    border is the widest ink in its own band, so this is the diagram's own
+    left/right edge: no label, sentence or icon inside either diagram is
+    ever drawn past its own border. For the unruled difficulty legend that
+    replaced the box it is the first and last **glyph** of the row, which
+    is what :func:`legend_ink_extent` compares against.
     """
     dark = np.asarray(page.convert("L")) < INK_THRESHOLD
     columns = np.flatnonzero(dark[top : bottom + 1].any(axis=0))
     assert columns.size, f"rows {top}..{bottom} carry no ink"
     return int(columns[0]), int(columns[-1])
+
+
+def legend_ink_extent(generator: BookPDFGenerator, frame) -> Tuple[int, int]:
+    """Where the difficulty legend's own ink must start and end on the page.
+
+    The legend is still an *image*, pasted with ``needs_pad=False`` exactly
+    as the bordered box was (CARD-221 fix 1 dropped the rule, not the
+    paste), so F-11's claim — a no-bleed image lands at ``frame.left``, not
+    one heavy rule to the left of it — still has it as a subject. What
+    changed is how it is found: with no border its band is a line of
+    **type**, not one of ``diagram_bands``, and its own ink runs from the
+    first glyph of "EASY" to the last of "HARD" rather than from border to
+    border.
+
+    Returns the ``(left, right)`` the page must show, by building the same
+    legend the page builds and measuring its own canvas.
+    """
+    measure = frame.right - frame.left
+    size = book_pdf_generator.type_px(BODY_PT, generator.dpi)
+    legend = _draw_difficulty_legend(
+        GUIDE_DIFFICULTY_LABELS, measure, _guide_face(size), size
+    )
+    left, right = band_ink_extent(legend, 0, legend.height - 1)
+    return frame.left + left, frame.left + right
 
 
 def probe_box(text: str, size_px: int) -> Tuple[int, int]:
@@ -257,10 +318,14 @@ def ink_to_em(text: str) -> float:
     """How much of the em ``text``'s ink fills vertically, in this face.
 
     Measured, not tabulated: ``text`` is set at :data:`RATIO_PROBE_PX` and its
-    box divided by that em. Arial gives 0.9275 for cap-to-descender and 0.730
-    for the title's cap height; a different face gives its own, which is the
-    point — the ratio has to belong to the face the page was drawn in for
-    :func:`measured_points` to be a measurement of that page.
+    box divided by that em. The packaged face gives 0.9675 for
+    ascender-to-descender and 0.730 for a bare cap height, where Arial gave
+    0.9275 and 0.7175 — a face's own numbers, which is the point: the ratio
+    has to belong to the face the page was drawn in for
+    :func:`measured_points` to be a measurement of that page, and it has to
+    belong to the *glyphs* the measured line actually sets (CARD-221: on
+    Arial a cap and an ascender were level to within a pixel and on most
+    faces they are not, so one probe no longer serves for every line).
     """
     _, height = probe_box(text, RATIO_PROBE_PX)
     return height / RATIO_PROBE_PX
@@ -445,19 +510,19 @@ class TestGuidePage_TypeIsBookSized:
     def test_the_bodys_measured_point_size_is_11(self, guide_bands):
         """11 pt, recovered from the tallest body line's ink.
 
-        The tallest body line is the one that reaches from a cap (or a digit)
-        down to a descender, which is the same extent
-        :data:`CAP_TO_DESCENDER_PROBE` has — "  1. Fill in the grid based on
-        the clues" is such a line, and the page draws several.
+        The tallest body line is the one that reaches from an ascender (or a
+        cap, where the face sets them level) down to a descender, which is the
+        same extent :data:`ASCENDER_TO_DESCENDER_PROBE` has — "Keep switching
+        between rows and columns" is such a line, and the page draws several.
         """
         tallest = max(bottom - top + 1 for top, bottom in guide_bands[1:])
-        measured = measured_points(tallest, CAP_TO_DESCENDER_PROBE, BOOK_DPI)
+        measured = measured_points(tallest, ASCENDER_TO_DESCENDER_PROBE, BOOK_DPI)
         assert measured == pytest.approx(BODY_PT, abs=0.4), (
             f"the body measures {measured:.2f} pt on the page, not {BODY_PT} pt; "
             f"its tallest line's glyph box is {tallest} px"
         )
 
-        em_px = tallest / ink_to_em(CAP_TO_DESCENDER_PROBE)
+        em_px = tallest / ink_to_em(ASCENDER_TO_DESCENDER_PROBE)
         assert em_px == pytest.approx(points_to_px(BODY_PT, BOOK_DPI), abs=1.5), (
             f"the body's em measures {em_px:.1f} px, and {BODY_PT} pt at "
             f"{BOOK_DPI} DPI is {points_to_px(BODY_PT, BOOK_DPI)} px "
@@ -720,36 +785,78 @@ class TestGuidePage_TextFitsTheUsableFrame:
         type_set = set(type_bands(page))
         return [band for band in ink_bands(page) if band not in type_set]
 
-    def test_page_two_pipeline_and_difficulty_box_align_at_book1(self, book1_generator):
-        """Book 1, the full fallback form (small counts): page 2 draws all
-        12 diagrams (2 region-split rows, 4 arrangement-comparison rows,
-        the pipeline, the difficulty box, the 4-step worked-example recap,
-        in that order -- pinned the same way
-        ``tests/test_book_guide_page.py``'s own AC-3 ``drawn`` fixture
-        already does). The pipeline (index 6) and the difficulty box
-        (index 7) must each start exactly at ``frame.left`` -- review cycle
-        2's F-11 found both shifted one heavy-rule width left of it -- and
-        neither may cross ``frame.right``.
+    def test_page_two_pipeline_and_difficulty_legend_align_at_book1(self, book1_generator):
+        """Book 1, the full fallback form (small counts): page 2 draws 11
+        diagrams (2 region-split rows, 4 arrangement-comparison rows, the
+        pipeline, the 4-step worked-example recap, in that order -- pinned
+        the same way ``tests/test_book_guide_page.py``'s own AC-3 ``drawn``
+        fixture already does). The pipeline (index 6) must start exactly at
+        ``frame.left`` -- review cycle 2's F-11 found it shifted one
+        heavy-rule width left of it -- and may not cross ``frame.right``.
+
+        **12 diagrams, and the difficulty box at index 7, until CARD-221
+        fix 1.** The owner's ruling dropped that box's three sentences, and
+        this card dropped the rule with them, so the three labels are now a
+        line of type rather than a drawing: they are not in
+        ``diagram_bands`` at all, and the worked-example recap moved up one
+        index. The legend is still an image pasted with ``needs_pad=False``,
+        so F-11's claim still covers it — it is checked below through its
+        own ink (:func:`legend_ink_extent`) instead of through a band index.
         """
         frame = page_frame(book1_generator.page_spec(2))
         page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
         bands = self.diagram_bands(page)
-        assert len(bands) == 12, (
+        assert len(bands) == 11, (
             f"page 2 draws {len(bands)} diagrams at Book 1's full fallback form, "
-            "not the 12 this test expects -- re-check which index the pipeline "
-            "and the difficulty box fall at before trusting indices 6 and 7 below"
+            "not the 11 this test expects -- re-check which index the pipeline "
+            "falls at before trusting index 6 below"
         )
-        for name, index in (("pipeline", 6), ("difficulty box", 7)):
-            top, bottom = bands[index]
-            left, right = band_ink_extent(page, top, bottom)
-            assert left == frame.left, (
-                f"the {name} starts at x={left}, not frame.left={frame.left} "
-                "(review cycle 2, F-11: a diagram with no bleed margin of its "
-                "own must not be pasted `pad` to the left of it)"
-            )
-            assert right <= frame.right, (
-                f"the {name} reaches x={right}, past frame.right={frame.right}"
-            )
+        top, bottom = bands[6]
+        left, right = band_ink_extent(page, top, bottom)
+        assert left == frame.left, (
+            f"the pipeline starts at x={left}, not frame.left={frame.left} "
+            "(review cycle 2, F-11: a diagram with no bleed margin of its "
+            "own must not be pasted `pad` to the left of it)"
+        )
+        assert right <= frame.right, (
+            f"the pipeline reaches x={right}, past frame.right={frame.right}"
+        )
+        self.assert_legend_is_flush(book1_generator, page, frame)
+
+    @staticmethod
+    def assert_legend_is_flush(generator, page: Image.Image, frame) -> None:
+        """The difficulty legend's row sits exactly where its paste put it.
+
+        Exactly one line of type on the page has the legend's own ink
+        extent, and that extent starts at ``frame.left`` — the same F-11
+        claim the pipeline's band carries, measured on an unruled image
+        whose band is type. "Exactly one" is what keeps it honest: a legend
+        pasted a heavy rule to the left (F-11's defect) matches no band at
+        all, and the count says so instead of a lenient ``any``.
+        """
+        expected = legend_ink_extent(generator, frame)
+        bearing = expected[0] - frame.left
+        size = book_pdf_generator.type_px(BODY_PT, generator.dpi)
+        assert 0 <= bearing < size // 4, (
+            "this check's own premise: the legend's first column is drawn "
+            "flush at its canvas's left edge, so its ink may only begin one "
+            f"glyph's left side bearing inside it — {bearing} px of a "
+            f"{size} px em is not that (measured: 5 px for the \"E\" of "
+            "EASY at Book 1's 46 px body). A larger offset means the legend "
+            "is being drawn with a margin of its own again, which is the "
+            "indent CARD-221 fix 1 removed with the box's rule"
+        )
+        matches = [
+            band
+            for band in type_bands(page)
+            if band_ink_extent(page, *band) == expected
+        ]
+        assert len(matches) == 1, (
+            f"{len(matches)} lines of type on page 2 run from {expected[0]} "
+            f"to {expected[1]} — the difficulty legend must be exactly one "
+            "of them (F-11: an image with no bleed margin of its own must "
+            "not be pasted `pad` to the left of frame.left)"
+        )
 
     @pytest.mark.parametrize(
         ("width_cm", "height_cm", "book_id"),
@@ -759,45 +866,41 @@ class TestGuidePage_TextFitsTheUsableFrame:
         ],
         ids=["6x9", "10cm-wide"],
     )
-    def test_page_two_difficulty_box_aligns_at_narrower_trims(self, width_cm, height_cm, book_id):
+    def test_page_two_difficulty_legend_aligns_at_narrower_trims(self, width_cm, height_cm, book_id):
         """6x9 and the 10 cm minimum trim both fall back far enough (bare
         fallback level 1, measured) that page 2 drops the pipeline diagram
-        and the worked-example recap, but the difficulty box is drawn
-        unconditionally at every fallback level -- so it is always the
-        LAST of the 3 diagram bands left on the page at these trims (2
-        single-row techniques + the box; the pipeline's absence is itself
-        covered by ``test_page_two_pipeline_and_difficulty_box_align_at_book1``,
-        the one stored trim where it survives).
+        and the worked-example recap, but the difficulty legend is drawn
+        unconditionally at every fallback level -- so at these trims it is
+        the only mark left on the page that F-11's claim covers (the 2
+        single-row technique diagrams that survive beside it are line
+        diagrams, which have a bleed margin of their own and *are* pasted a
+        heavy rule to the left by design).
+
+        **It was the difficulty box, and the last of 3 diagram bands, until
+        CARD-221 fix 1**: with its rule gone it is a line of type, so it is
+        found by its own ink rather than by a band index, and its right
+        edge is the last glyph of "HARD" rather than a border at
+        ``frame.right - 1``.
         """
         generator = BookPDFGenerator(book_on(width_cm, height_cm, book_id))
         frame = page_frame(generator.page_spec(2))
         page = generator.create_guide_page(4, 2, 1, 1, page_number=2)
         bands = self.diagram_bands(page)
-        assert len(bands) == 3, (
+        assert len(bands) == 2, (
             f"page 2 draws {len(bands)} diagrams at this trim's fallback form, "
-            "not the 3 this test expects (2 single-row techniques + the "
-            "difficulty box) -- re-check the fallback level before trusting "
-            "'last band is the difficulty box' below"
+            "not the 2 this test expects (the single-row techniques; the "
+            "difficulty legend is type, not a diagram, since CARD-221 fix 1) "
+            "-- re-check the fallback level before trusting the measurement "
+            "below"
         )
-        top, bottom = bands[-1]
-        left, right = band_ink_extent(page, top, bottom)
-        measure = frame.right - frame.left
-        assert left == frame.left, (
-            f"the difficulty box starts at x={left}, not frame.left={frame.left} "
-            "(review cycle 2, F-11)"
-        )
-        assert right == frame.right - 1, (
-            f"the difficulty box's own canvas is exactly `measure` ({measure}) px "
-            f"wide, so pasted unshifted at frame.left its right edge must land "
-            f"at frame.right - 1 ({frame.right - 1}); it is at x={right}"
-        )
+        self.assert_legend_is_flush(generator, page, frame)
 
     def test_a_diagram_shifted_left_by_pad_is_not_at_frame_left(self, book1_generator):
         """Negative control for the two tests above: proves
         ``band_ink_extent`` -- the measurement they rely on -- really is
         sensitive to exactly the shift review cycle 2's F-11 found.
 
-        Takes the real difficulty box as this book actually draws it,
+        Takes the real pipeline diagram as this book actually draws it,
         crops it out of the rendered page by its own measured ink, and
         re-pastes that same crop ``pad`` pixels further left than the page
         actually put it (the old, uniform paste the bug applied to every
@@ -811,8 +914,10 @@ class TestGuidePage_TextFitsTheUsableFrame:
 
         page = book1_generator.create_guide_page(4, 2, 1, 1, page_number=2)
         bands = self.diagram_bands(page)
-        assert len(bands) == 12
-        top, bottom = bands[7]  # the difficulty box, pinned above
+        assert len(bands) == 11
+        top, bottom = bands[6]  # the pipeline, pinned above — the difficulty
+        # box was index 7 until CARD-221 fix 1 left the page with no second
+        # no-bleed *diagram* to shift (its legend is a line of type now).
         left, right = band_ink_extent(page, top, bottom)
         assert left == frame.left, "sanity check: the real page is correctly aligned before this control shifts it"
 
@@ -824,8 +929,8 @@ class TestGuidePage_TextFitsTheUsableFrame:
         assert bugged_left != frame.left, (
             "a diagram pasted `pad` pixels left of its correct position must NOT "
             "measure as still being at frame.left -- if it does, "
-            "test_page_two_pipeline_and_difficulty_box_align_at_book1 and "
-            "test_page_two_difficulty_box_aligns_at_narrower_trims have no teeth"
+            "test_page_two_pipeline_and_difficulty_legend_align_at_book1 and "
+            "test_page_two_difficulty_legend_aligns_at_narrower_trims have no teeth"
         )
 
     # ----------------------------------------------------------------------
@@ -975,7 +1080,7 @@ class TestGuidePage_PointSizeIsIndependentOfDpi:
             "title_px": title_px,
             "body_px": body_px,
             "title_pt": measured_points(title_px, TITLE_AS_IT_STANDS, dpi),
-            "body_pt": measured_points(body_px, CAP_TO_DESCENDER_PROBE, dpi),
+            "body_pt": measured_points(body_px, ASCENDER_TO_DESCENDER_PROBE, dpi),
         }
 
     def test_300_and_600_dpi_print_the_same_point_size(self, monkeypatch):

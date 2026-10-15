@@ -20,7 +20,7 @@ rendering it afresh through the same project-wide painters
 :func:`~nonogram.admin.book_pdf_generator.draw_example_line`,
 :func:`~nonogram.admin.book_pdf_generator.guide_icon_layout`,
 :func:`~nonogram.admin.book_pdf_generator._draw_pipeline_diagram`,
-:func:`~nonogram.admin.book_pdf_generator._draw_difficulty_box`) with this
+:func:`~nonogram.admin.book_pdf_generator._draw_difficulty_legend`) with this
 file's own literal, written-out clue/length/fill/caption data and then
 looking for that rendering on the page, and type sizes by measuring glyph
 boxes. Every expected clue, length, filled/crossed cell set and verbatim
@@ -53,7 +53,9 @@ check fails.
 from __future__ import annotations
 
 import itertools
-from typing import Dict, List, Tuple
+from importlib import resources
+from io import BytesIO
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pytest
@@ -64,17 +66,20 @@ from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     DifficultyLabel,
     ExampleStep,
+    GUIDE_ASSUME_STEPS,
     GUIDE_TECHNIQUES_2,
     GuidePipelineStep,
-    _draw_difficulty_box,
+    _draw_difficulty_legend,
     _draw_pipeline_diagram,
     _guide_face,
+    _guide_rule_width,
     draw_example_line,
     example_line_layout,
     guide_icon_layout,
     interior_page_count,
     page_frame,
     type_px,
+    wrap_words,
 )
 
 from tests.helpers.book_corpus import corpus_book, export_of, page_digest, puzzle
@@ -111,19 +116,42 @@ BODY_PX = round(11 * BOOK_DPI / POINTS_PER_INCH)
 BODY_PT = 11.0
 LEADING_PT = 17.0
 
-ARIAL = "/System/Library/Fonts/Arial.ttf"
+#: The first three words of each difficulty sentence
+#: (``GUIDE_DIFFICULTY_LABELS``), written out rather than imported, as the
+#: page would set them if it printed them. The owner's 2026-10-14 ruling
+#: dropped those sentences from the printed page (CARD-221 fix 1) and
+#: ``test_the_difficulty_legend_carries_its_three_labels_and_no_sentences``
+#: looks for these to say so. Three words each, not one: a single word is a
+#: small enough template to risk matching ink that is not it, and
+#: ``wrap_words`` never breaks a word.
+SENTENCE_OPENINGS = ("Squeezing and direct", "Needs deeper line", "Contradiction reasoning")
+
+#: The size the guide page letters its body — and the pipeline diagram's own
+#: labels — in, written out rather than imported, so the floor control below
+#: separates the page's real size from the 6 pt stand-in regression.
+GUIDE_BODY_POINTS = 11.0
+
+#: The packaged face the guide page letters in since CARD-221, named the way
+#: :mod:`nonogram.export.pdf` names its own package data and read through
+#: :mod:`importlib.resources`, so this file still states the page's own lookup
+#: a second time rather than importing it. It was
+#: ``"/System/Library/Fonts/Arial.ttf"`` — the host path — until CARD-221.
+FONT_PACKAGE = "nonogram.export.fonts"
+FONT_RESOURCE = "DejaVuSans.ttf"
 INK_THRESHOLD = 128
 
 #: A row whose ink runs unbroken for longer than this is a ruled line.
 RULE_RUN_PX = 60
 
 
-def face(size_px: int) -> ImageFont.ImageFont:
-    """The face the guide page letters in, at ``size_px`` (Arial, or Pillow's)."""
-    try:
-        return ImageFont.truetype(ARIAL, size_px)
-    except OSError:  # pragma: no cover - only on a machine without Arial
-        return ImageFont.load_default(size_px)
+def face(size_px: int) -> ImageFont.FreeTypeFont:
+    """The face the guide page letters in, at ``size_px`` — the packaged one.
+
+    One call, on every host (CARD-221). The Arial-by-path-then-Pillow ladder
+    this reproduced was the page's own, and both ends of it are gone.
+    """
+    data = resources.files(FONT_PACKAGE).joinpath(FONT_RESOURCE).read_bytes()
+    return ImageFont.truetype(BytesIO(data), size=size_px)
 
 
 # --------------------------------------------------------------------------
@@ -274,7 +302,8 @@ def type_bands(mask: np.ndarray) -> List[Tuple[int, int]]:
 
     Review cycle 1, F-4 (gating): a plain (unbordered) band with no ruled
     row at all is type, as before. A bordered box (``_draw_pipeline_diagram``'s
-    box borders, ``_draw_difficulty_box``'s box border) draws a border that
+    box borders — and ``_draw_difficulty_box``'s own, until CARD-221 fix 1
+    dropped that rule with the sentences it held) draws a border that
     touches every row of its own bounding area, which used to make
     ``is_ruled`` classify the WHOLE box — border, labels and sentences alike
     — as "ruled", silently dropping its interior text out of CON-020's floor
@@ -465,6 +494,117 @@ def text_reference() -> float:
     return top_to_baseline("Hdlk", face(REFERENCE_SIZE))
 
 
+def folio_reference() -> float:
+    """A page number's top-to-baseline ink per em, in the page's own face.
+
+    The folio (:func:`_draw_folio`) is the one mark a guide page sets in
+    **digits alone**, and a digit does not reach the lowercase ascender
+    :func:`text_reference`'s "Hdlk" probe measures to. Measured in the
+    packaged face at a 400 px em: "Hdlk" inks 0.760 of the em down to its
+    baseline and "1" only 0.730. So the folio — set at exactly CON-020's
+    floor, ``FOLIO_PT`` = 10 pt, which is 31 px of digit on a 300 DPI page —
+    reads 10.19 pt against its own probe and **9.79 pt** against the text
+    probe, a false breach of the floor it sits exactly on.
+
+    New in CARD-221 rather than changed: on Arial the two probes agreed to
+    within a pixel ("Hdlk" 0.7175 against "1" 0.72), so one probe served for
+    both and the folio measured 10.03 pt — inside the floor by 0.03 pt, by
+    that face's own metrics rather than by anything this page does. The
+    packaged face sets its ascenders above its cap height, as most faces do.
+    """
+    return top_to_baseline("1", face(REFERENCE_SIZE))
+
+
+def page_lines(generator, page_number: int) -> Tuple[Image.Image, Dict[int, str]]:
+    """A guide page, and the text of every line it sets **on the page itself**.
+
+    Keyed by the row of the baseline each line is set on, so a band of ink
+    can be measured against the extent of the glyphs that actually made it
+    (CARD-221). A line's ink reaches from its own tallest glyph down to its
+    own baseline, so "11 pt" is only recoverable from a band of ink when the
+    probe it is divided by has that same extent: "agrees on" — a line the
+    10 cm trim's page 2 wraps — tops out at x-height, and against an
+    ascender-to-baseline probe it measures **8.21 pt** while being set at 11.
+    One probe for the whole page was enough until CARD-221 only because no
+    line of either guide page happened to lack an ascender when the page was
+    lettered in Arial.
+
+    Only the marks drawn straight onto the page are collected: a diagram is
+    composed in its own image and pasted, so its own draw calls carry its own
+    coordinates and would key a baseline this page never set. The two are
+    told apart by the size of the surface each call draws on. The folio is
+    skipped here as well — it is anchored on the frame's bottom edge rather
+    than set on a line, and :func:`folio_band`/:func:`folio_reference` measure
+    it.
+    """
+    frame = page_frame(generator.page_spec(page_number))
+    original = ImageDraw.ImageDraw.text
+    lines: Dict[int, str] = {}
+
+    def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
+        surface = getattr(self, "_image", None)
+        on_page = surface is not None and surface.size == (frame.width, frame.height)
+        if on_page and font is not None and kwargs.get("anchor") in (None, "la"):
+            ascent, _ = font.getmetrics()
+            lines[int(round(xy[1])) + ascent] = str(text)
+        return original(self, xy, text, fill, font, *args, **kwargs)
+
+    ImageDraw.ImageDraw.text = spy
+    try:
+        page = generator.create_guide_page(
+            999_999, 333_333, 333_333, 333_333, page_number=page_number
+        )
+    finally:
+        ImageDraw.ImageDraw.text = original
+    return page, lines
+
+
+def line_reference(mask: np.ndarray, band: Tuple[int, int], lines: Dict[int, str]) -> Optional[float]:
+    """The ink-to-baseline probe of the line that made ``band``, if known.
+
+    ``None`` for a band no page-level line sets a baseline on — a pasted
+    diagram's own ink — which the caller measures against the generic probe
+    as before.
+    """
+    baseline = band[0] + baseline_row(mask[band[0] : band[1] + 1].sum(axis=1))
+    for offset in (0, -1, 1):
+        text = lines.get(baseline + offset)
+        if text is not None and text.strip():
+            return top_to_baseline(text, face(REFERENCE_SIZE))
+    return None
+
+
+def folio_band(bands: List[Tuple[int, int]], mask: np.ndarray, frame) -> int:
+    """Which of ``bands`` is the folio: its index, asserted and not assumed.
+
+    Structural rather than positional-by-faith. :func:`_draw_folio` anchors
+    the page number ``"rb"``/``"lb"`` on the frame's own bottom edge at its
+    own outer corner, so the folio's band is the last one and its last inked
+    row is that edge — both asserted here, together with the ink sitting in
+    the outer corner and being only a few digits wide, so a page that stops
+    drawing a folio (or draws something else down there) fails this helper
+    instead of quietly having one of its prose lines measured as digits.
+    """
+    index = len(bands) - 1
+    top, bottom = bands[index]
+    assert frame.bottom - 1 <= bottom <= frame.bottom, (
+        f"the page's last band of ink runs to row {bottom}, and the folio is "
+        f"anchored on the frame's own bottom edge at {frame.bottom}"
+    )
+    columns = np.flatnonzero(mask[top : bottom + 1].any(axis=0))
+    width = int(columns.max() - columns.min() + 1)
+    assert width <= 4 * (bottom - top + 1), (
+        f"the band at the frame's bottom edge is {width} px wide, which is "
+        "wider than a page number: it is not the folio"
+    )
+    assert columns.min() <= frame.left + width or columns.max() >= frame.right - width, (
+        "the folio sits in the frame's own outer corner, and this band's ink "
+        f"runs from {columns.min()} to {columns.max()} inside "
+        f"{frame.left}..{frame.right}"
+    )
+    return index
+
+
 def digit_reference() -> float:
     return top_to_baseline("31", ImageFont.load_default(size=REFERENCE_SIZE))
 
@@ -528,6 +668,45 @@ def render_icon(spec, filled: bool, crossed: bool) -> Image.Image:
         layout,
         ExampleStep("", "", frozenset({0}) if filled else frozenset(), frozenset({0}) if crossed else frozenset()),
     )
+
+
+def _boxed_difficulty_sentences(
+    spec, labels, measure: int, text_font, text_size: int, leading: int
+) -> Image.Image:
+    """The difficulty box **as it was printed before CARD-221 fix 1**.
+
+    ``_draw_difficulty_box``'s body, transcribed here rather than kept in
+    the module under test: a ``measure``-wide bordered box, one column per
+    label, each holding its name and then its one-sentence gloss wrapped to
+    the column. The module no longer draws this and nothing should bring it
+    back without a decision, so the only honest way to assert that the page
+    does not carry it is to build it here and look for it. A second
+    implementation of a drawing the source has deleted is exactly what
+    CLAUDE.md asks for in place of re-deriving a value with the code under
+    test — and it means the "no sentences on the page" claim fails loudly
+    if the box returns, instead of passing because nobody draws it.
+    """
+    rule = _guide_rule_width(spec)
+    pad = text_size
+    gutter = pad
+    column_w = (measure - 2 * pad - gutter * (len(labels) - 1)) // len(labels)
+    bbox = text_font.getbbox("Mg")
+    name_h = bbox[3] - bbox[1]
+    columns = [[label.name, *wrap_words(label.text, text_font, column_w)] for label in labels]
+    body_lines = max(len(lines) - 1 for lines in columns)
+    height = pad * 2 + name_h + (pad // 2 + body_lines * leading if body_lines else 0)
+    canvas = Image.new("RGB", (measure, height), "white")
+    draw = ImageDraw.Draw(canvas)
+    draw.rectangle((0, 0, measure - 1, height - 1), outline="black", width=rule)
+    x = pad
+    for lines in columns:
+        draw.text((x, pad), lines[0], font=text_font, fill="black")
+        y = pad + name_h + pad // 2
+        for line in lines[1:]:
+            draw.text((x, y), line, font=text_font, fill="black")
+            y += leading
+        x += column_w + gutter
+    return canvas
 
 
 def diagram_at(page_mask: np.ndarray, drawn: List[Tuple[int, int]], index: int, template: np.ndarray) -> int:
@@ -843,9 +1022,14 @@ class TestGuidePage_CellStateHeadingsSurviveBareLevel2:
 # --------------------------------------------------------------------------
 
 
-class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
+class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyLegend:
     """AC-3 — page 2 carries the region split, the comparison, the pipeline
-    and the difficulty-label box, its 3 sentences verbatim.
+    and the difficulty legend.
+
+    Named ``...AndDifficultyBox``, "its 3 sentences verbatim", until
+    CARD-221 fix 1: the owner's 2026-10-14 ruling drops those sentences and
+    the rule that boxed them, and the class is renamed rather than left
+    naming a drawing the page no longer makes.
     """
 
     @staticmethod
@@ -867,11 +1051,15 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
     @pytest.fixture(scope="class")
     def drawn(page_mask) -> List[Tuple[int, int]]:
         found = drawn_bands(page_mask)
-        assert len(found) == 12, (
-            f"page 2 draws {len(found)} diagrams, not the 12 this class "
+        assert len(found) == 11, (
+            f"page 2 draws {len(found)} diagrams, not the 11 this class "
             "expects: 2 region-split rows, 4 arrangement-comparison rows, "
-            "the pipeline, the difficulty box and the original 4-step "
-            "worked example (AC-8's own content, recapped here)"
+            "the pipeline and the original 4-step worked example (AC-8's "
+            "own content, recapped here). **12 until CARD-221 fix 1**, when "
+            "the difficulty box still had a rule around it and counted as a "
+            "drawing; its three labels are a line of type now, so they are "
+            "in `type_bands` instead and the four worked-example rows have "
+            "moved up one index"
         )
         return found
 
@@ -1014,16 +1202,36 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
             assert mask[0, left[0] : right[1] + 1].all(), "a box's top border has a gap"
             assert mask[height - 1, left[0] : right[1] + 1].all(), "a box's bottom border has a gap"
 
-    def test_the_difficulty_box_carries_its_three_sentences_verbatim(self, generator, spec, page_mask, drawn):
-        """"verbatim from the source PDF" (AC-3): a changed word changes this
-        rendering (different wrap, different glyphs), so a match here is
-        evidence of the exact wording, not just that a box is drawn.
+    def test_the_difficulty_legend_carries_its_three_labels_and_no_sentences(
+        self, generator, spec, page_mask
+    ):
+        """What page 2 says about the difficulty labels, after CARD-221 fix 1.
+
+        **This test was the xfail that carried that card's first open
+        block.** Until the owner ruled (2026-10-14) it asserted the box's
+        three sentences and was expected to fail: lettering the interior in
+        the packaged face made page 2's captions form 4 px too tall for the
+        Book 1 sheet (3192 px against a frame bottom of 3188), which dropped
+        the whole page a fallback level and cost the reader the worked
+        example's four step explanations and both technique notes as well.
+        The owner's ruling drops the three sentences instead — 234 px bought
+        against a 4 px deficit, so everything else on the page stays — and
+        CARD-229 moves the difficulty legend into the guide's key strip,
+        which is why this block and not another.
+
+        So the claim is now the new fact, in both directions: the three
+        **names** print, as a legend with no rule around it
+        (``_draw_difficulty_legend``, whose own docstring says why the rule
+        went with the sentences), and the bordered sentence box that used to
+        stand here prints **nowhere on the page**. The sentences themselves
+        are still carried by ``GUIDE_DIFFICULTY_LABELS`` for CARD-229 and
+        still shown by the Finalise screen's preview, so "the page does not
+        print them" is a claim that needs asserting rather than assuming.
         """
         frame = page_frame(spec)
         measure = frame.right - frame.left
         body_size = type_px(BODY_PT, generator.dpi)
         text_font = _guide_face(body_size)
-        leading = type_px(LEADING_PT, generator.dpi)
         labels = (
             DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
             DifficultyLabel(
@@ -1032,37 +1240,98 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
             ),
             DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
         )
-        image = _draw_difficulty_box(spec, labels, measure, text_font, body_size, leading, with_text=True)
-        assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 1
+        legend = _draw_difficulty_legend(labels, measure, text_font, body_size)
+        # Searched over the whole page rather than inside one of `drawn`'s
+        # bands: with its rule gone the legend is a line of **type**, so it
+        # is no longer one of the page's diagrams at all (see the `drawn`
+        # fixture's own count). Three words at their own column positions
+        # are a specific enough template for `occurrences`' 0.9 precision
+        # and recall on a page of 11 pt text.
+        assert occurrences(page_mask, diagram_mask(legend)) == 1
 
-    def test_a_wrong_difficulty_sentence_does_not_match(self, generator, spec, page_mask, drawn):
-        """The comparison has teeth: change one word and the match is gone."""
+        # And the other half, in two forms, because one of them is not
+        # enough. **The drawing**: the bordered box, built here rather than
+        # imported — one wrapped sentence per column, exactly as
+        # `_draw_difficulty_box` drew it until this card — so a page that
+        # went back to the old box fails here.
+        boxed = _boxed_difficulty_sentences(
+            spec, labels, measure, text_font, body_size, type_px(LEADING_PT, generator.dpi)
+        )
+        assert occurrences(page_mask, diagram_mask(boxed)) == 0, (
+            "the bordered box of difficulty sentences is on the page: the "
+            "owner's 2026-10-14 ruling dropped it, and the 4 px the page "
+            "was over by have come back"
+        )
+        # **The words**: set in the page's own body face and looked for
+        # anywhere on it, so a sentence redrawn in any other arrangement —
+        # unruled, re-wrapped, one column or three — fails here too. Found
+        # while mutating: a mutant that printed the glosses under the names
+        # with no rule around them slipped past the template above, which
+        # only knows the old drawing. Three words each: a single word is a
+        # small enough template to risk matching ink that is not it, and
+        # `wrap_words` never breaks a word, so the first three of a
+        # sentence stay together on any measure wide enough to hold them.
+        for opening in SENTENCE_OPENINGS:
+            assert occurrences(page_mask, probe(opening, face(BODY_PX))) == 0, (
+                f"page 2 prints {opening!r}: the difficulty sentences are "
+                "back on the page the owner's ruling took them off"
+            )
+
+    def test_a_wrong_difficulty_label_does_not_match(self, generator, spec, page_mask):
+        """The comparison has teeth: change one word and the match is gone.
+
+        CARD-221 fix 1 re-aimed this from the sentences to the labels, which
+        is where the verbatim claim lives now — a negative control that
+        outlived its subject would have been deleted in the same commit as
+        the thing it tested, and this one still has one.
+        """
         frame = page_frame(spec)
         measure = frame.right - frame.left
         body_size = type_px(BODY_PT, generator.dpi)
         text_font = _guide_face(body_size)
-        leading = type_px(LEADING_PT, generator.dpi)
         labels = (
             DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
             DifficultyLabel("MEDIUM", "This sentence was never on the page."),
             DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
         )
-        image = _draw_difficulty_box(spec, labels, measure, text_font, body_size, leading, with_text=True)
-        assert diagram_at(page_mask, drawn, 7, diagram_mask(image)) == 0
+        same = _draw_difficulty_legend(labels, measure, text_font, body_size)
+        assert occurrences(page_mask, diagram_mask(same)) == 1, (
+            "the legend prints names only, so changing a *sentence* must "
+            "not change what is drawn — if this fails the sentences are "
+            "back on the page"
+        )
+
+        wrong = (
+            DifficultyLabel("EASY", labels[0].text),
+            DifficultyLabel("MEDIUM", labels[1].text),
+            DifficultyLabel("HARDER", labels[2].text),
+        )
+        image = _draw_difficulty_legend(wrong, measure, text_font, body_size)
+        assert occurrences(page_mask, diagram_mask(image)) == 0
 
     def test_the_new_drawing_routines_tolerate_a_sizeless_fallback_face(self, spec):
-        """Review cycle 1, F-2 (gating): ``_guide_face`` can return an
-        "unsized" face — no ``.size`` attribute at all — whenever Arial isn't
-        found *and* Pillow is older than 10.1 (its own docstring says so);
-        ``pyproject.toml``'s unbounded ``Pillow>=10.0`` floor still permits
-        that combination. ``_draw_pipeline_diagram``/``_draw_difficulty_box``
-        used to read ``label_font.size``/``text_font.size`` directly, which
-        would raise ``AttributeError`` the instant either routine ran on such
-        a host — this project's Pillow (see ``./.venv``) is >= 10.1, so that
-        crash cannot be reproduced by actually starving Pillow of Arial; a
-        stand-in face that genuinely has no ``.size`` is used instead, the
-        same shape a real sizeless face has (every method a real one has,
-        just no ``.size``).
+        """Review cycle 1, F-2 (gating): ``_draw_pipeline_diagram`` and
+        ``_draw_difficulty_legend`` must not read a size off the face they
+        are handed.
+
+        **What made that a live crash is gone (CARD-221).** ``_guide_face``
+        used to be able to return an "unsized" face — no ``.size`` attribute
+        at all — whenever Arial was not found *and* Pillow was older than
+        10.1, a combination ``pyproject.toml``'s unbounded ``Pillow>=10.0``
+        floor still permits; both routines read
+        ``label_font.size``/``text_font.size`` directly and would have raised
+        ``AttributeError`` the instant either ran on such a host. Since that
+        card ``_guide_face`` returns the packaged face at the asked-for size
+        on every host, so no face it can return lacks ``.size`` and the
+        host-starvation route to this crash no longer exists.
+
+        The test stays, and its claim is narrowed to what it always actually
+        measured: these two routines take the size as a parameter and never
+        read it off the font, so they work with **any** face-shaped object
+        the module might hand them. It was never reproducible by starving
+        Pillow of Arial anyway (this project's Pillow is >= 10.1): a stand-in
+        face that genuinely has no ``.size`` is used instead — every method a
+        real one has, just no ``.size``.
 
         Negative control, so this test has teeth: ``sizeless.size`` itself
         raises ``AttributeError`` below, proving the stand-in really lacks
@@ -1106,11 +1375,10 @@ class TestGuidePage_PageTwoCarriesTheHarderTechniquesAndDifficultyBox:
         )
         frame = page_frame(spec)
         measure = frame.right - frame.left
-        leading = type_px(LEADING_PT, BOOK_DPI)
-        box_image = _draw_difficulty_box(
-            spec, labels, measure, sizeless, type_px(BODY_PT, BOOK_DPI), leading, with_text=True
+        legend_image = _draw_difficulty_legend(
+            labels, measure, sizeless, type_px(BODY_PT, BOOK_DPI)
         )
-        assert box_image.size[0] > 0 and box_image.size[1] > 0
+        assert legend_image.size[0] > 0 and legend_image.size[1] > 0
 
 
 # --------------------------------------------------------------------------
@@ -1144,12 +1412,24 @@ class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
     def test_every_line_of_type_holds_10pt_on_both_pages(self, generator_factory, page_numbers):
         generator = generator_factory()
         reference = text_reference()
+        digits = folio_reference()
         for page_number in page_numbers:
-            page = generator.create_guide_page(999_999, 333_333, 333_333, 333_333, page_number=page_number)
+            page, lines = page_lines(generator, page_number)
             mask = dark(page)
             found = type_bands(mask)
             assert found, f"page {page_number} carries no type at all"
-            sizes = [cap_height_points(mask, band, reference) for band in found]
+            # Each band against the probe whose extent its own glyphs have
+            # (CARD-221): the line's own text where the page set one, the
+            # folio's digits where it anchored the page number, and the
+            # generic ascender-to-baseline probe for a pasted diagram's ink.
+            folio = folio_band(found, mask, page_frame(generator.page_spec(page_number)))
+            sizes = []
+            for index, band in enumerate(found):
+                if index == folio:
+                    probe_ratio = digits
+                else:
+                    probe_ratio = line_reference(mask, band, lines) or reference
+                sizes.append(cap_height_points(mask, band, probe_ratio))
             assert min(sizes) >= FLOOR_PT, (
                 f"page {page_number}: a line of type measures {min(sizes):.2f} pt"
             )
@@ -1187,40 +1467,63 @@ class TestGuidePage_BothPagesHoldTheTypeFloorAtEveryStoredTrim:
         NOT have been caught here, despite that being this test's one
         stated job (F-4's exact finding).
 
-        This builds the difficulty box directly with a deliberately tiny
-        (6pt) label font -- a stand-in for that hypothetical regression,
-        never shipped in production (``GUIDE_DIFFICULTY_LABELS`` and
-        ``GUIDE_BODY_PT`` are untouched) -- and confirms the fixed
-        classifier now (a) still finds type INSIDE the box at all, and (b)
-        correctly measures it below the floor, rather than silently
-        reporting no type to check (the old, gating behaviour).
+        **Re-aimed from the difficulty box to the pipeline diagram by
+        CARD-221 fix 1.** The box this was written against no longer exists:
+        the owner's 2026-10-14 ruling dropped the difficulty sentences and
+        the rule that held them, so the guide's remaining bordered drawing
+        with text inside it is ``_draw_pipeline_diagram``'s four boxes. The
+        control is pointed there rather than retired, because the
+        guarantee it holds is about the **classifier** and the page still
+        draws a thing that can hide type behind a border. Keeping it aimed
+        at a drawing the module had stopped making would have been the
+        quieter failure of the two: a green negative control over a shape
+        nothing prints.
+
+        Both sides, so the instrument is shown to discriminate rather than
+        only to report "below the floor": the same diagram lettered at the
+        6 pt stand-in regression (never shipped —
+        :data:`~nonogram.admin.book_pdf_generator.GUIDE_BODY_PT` is
+        untouched) measures below CON-020's floor, and lettered at the
+        page's own 11 pt it measures above it.
+
+        **It measures with the generic ``text_reference`` probe on purpose,
+        and that understates** (review cycle 1, F-008). A pipeline label is
+        caps with no ascender, so an ascender-to-baseline probe recovers it
+        small — the opposite direction from :func:`line_reference` and
+        :func:`folio_reference`, which exist because an under-stated probe
+        over-states a *size*. Here the error is the safe way round: it
+        makes the floor check stricter, never more lenient. Measured on the
+        real diagram at this trim: 11.05 pt at the page's own 11 pt against
+        a 10.0 pt floor, so the margin this control runs on is 1.05 pt. A
+        later card tightening CON-020 should read that 1.05 pt as probe
+        slack rather than as headroom, and pass the labels' own
+        ``top_to_baseline`` here if it needs the exact figure.
         """
         spec = BookPDFGenerator(six_by_nine_book()).page_spec(2)
-        tiny_size = type_px(6.0, BOOK_DPI)
-        tiny_font = _guide_face(tiny_size)
-        labels = (
-            DifficultyLabel("EASY", "Squeezing and direct deductions are enough from start to finish."),
-            DifficultyLabel(
-                "MEDIUM",
-                "Needs deeper line logic and may need contradiction for part of the grid.",
-            ),
-            DifficultyLabel("HARD", "Contradiction reasoning is needed through much of the grid."),
-        )
-        frame = page_frame(spec)
-        measure = frame.right - frame.left
-        leading = type_px(LEADING_PT, BOOK_DPI)
-        image = _draw_difficulty_box(spec, labels, measure, tiny_font, tiny_size, leading, with_text=True)
-        mask = dark(image)
-        found = type_bands(mask)
-        assert found, (
-            "the fixed classifier must still find SOME type inside the box "
-            "-- excluding it wholesale is the exact defect F-4 fixed"
-        )
         reference = text_reference()
-        sizes = [cap_height_points(mask, band, reference) for band in found]
-        assert min(sizes) < FLOOR_PT, (
-            f"a box label shrunk to 6pt measured {min(sizes):.2f}pt by this classifier -- "
-            "if that is >= FLOOR_PT the classifier is still missing the box's own text"
+
+        def measured(points: float) -> List[float]:
+            size = type_px(points, BOOK_DPI)
+            image = _draw_pipeline_diagram(spec, GUIDE_ASSUME_STEPS, _guide_face(size), size)
+            mask = dark(image)
+            found = type_bands(mask)
+            assert found, (
+                "the fixed classifier must still find SOME type inside the "
+                "bordered boxes -- excluding them wholesale is the exact "
+                "defect F-4 fixed"
+            )
+            return [cap_height_points(mask, band, reference) for band in found]
+
+        assert min(measured(6.0)) < FLOOR_PT, (
+            f"a box label shrunk to 6pt measured {min(measured(6.0)):.2f}pt by "
+            "this classifier -- if that is >= FLOOR_PT the classifier is "
+            "still missing the box's own text"
+        )
+        assert min(measured(GUIDE_BODY_POINTS)) >= FLOOR_PT, (
+            "and at the size the page really letters these labels in, the "
+            f"same classifier measures {min(measured(GUIDE_BODY_POINTS)):.2f}pt "
+            "-- a control that called every size too small would prove "
+            "nothing about the one that is"
         )
 
 

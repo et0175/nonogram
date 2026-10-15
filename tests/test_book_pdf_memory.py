@@ -134,7 +134,6 @@ import subprocess
 import sys
 import time
 import tracemalloc
-import warnings
 import weakref
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
@@ -172,7 +171,6 @@ from tests.helpers.book_corpus import (
     corpus_book,
     corpus_puzzles,
     export_of,
-    font_fingerprint,
     load_baseline,
     page_digest,
     page_digests,
@@ -1281,30 +1279,31 @@ class TestBookPdfMemory_PagesAreUnchanged:
     warning admits — a deliberate change to what a page prints — and every
     file in the chain says so.
 
-    **The machine's own face costs five pages of evidence, not twelve
-    (CARD-198: up from eleven).** Only interior page 1 (the guide) and the
-    four divider pages — 2, 4 and 6 for the levels (CARD-128) and 8 for
-    SOLUTIONS — are lettered in ``ImageFont.truetype("…/Arial.ttf")`` with a
-    ``load_default`` fallback; the other seven (CARD-198: up from six — the
-    new fourth answer page) are drawn in the bundled band face and Pillow's
-    built-in clue face and are comparable on any machine. So a fingerprint
-    mismatch skips
-    **those five pages** and compares the rest, rather than taking the whole
-    book's pixel evidence down with it — which on the project's own Linux
-    deployment image, where Arial is not at that path, is the difference
-    between seven pages of G-1 evidence and none (CARD-198: up from six).
+    **The machine's own face costs nothing any more (CARD-221).** It used to
+    cost seven of the thirteen pages: the guide pages, the TOC and the four
+    dividers were lettered in ``ImageFont.truetype("…/Arial.ttf")`` with a
+    ``load_default`` fallback, so a machine whose ``font_fingerprint``
+    differed from the fixture's skipped those seven and compared the six that
+    were drawn in the bundled band face and Pillow's built-in clue face —
+    which on the project's own Linux deployment image, where Arial is not at
+    that path, was the difference between six pages of G-1 evidence and none.
+    Since CARD-221 every interior face is the packaged one, the fixture's
+    ``font_dependent_pages`` is empty, and all thirteen pages are compared
+    with no gate at all — on any **host font configuration**, which is the
+    axis that gate was about. Not "on any machine": the figures are still a
+    function of the installed Pillow/FreeType, which ``pyproject.toml``
+    leaves unbounded at ``>=10.0``, and catching a move in *that* is this
+    comparison's own job rather than something it is immune to (F-005). The ``same_face`` fixture, the skip,
+    the warning and the import of ``font_fingerprint`` are gone with it; the
+    measurement that justifies removing them is
+    ``tests/test_book_interior_face.py``'s own export-twice comparison and
+    the page-by-page record in ``book_baseline_card221.json``.
     """
 
     @pytest.fixture(scope="class")
     @classmethod
     def baseline(cls) -> Dict[str, Any]:
         return load_baseline()
-
-    @pytest.fixture(scope="class")
-    @classmethod
-    def same_face(cls, baseline) -> bool:
-        """Whether this machine letters the guide and the divider as recorded."""
-        return font_fingerprint() == baseline["font_fingerprint"]
 
     @pytest.fixture(scope="class")
     @classmethod
@@ -1322,57 +1321,38 @@ class TestBookPdfMemory_PagesAreUnchanged:
         assert baseline["page_count"] == BASELINE_PAGE_COUNT
         assert len(exported) == baseline["page_count"]
 
-    def test_every_page_is_pixel_identical_to_the_recorded_one(
-        self, baseline, exported, same_face
-    ):
+    def test_every_page_is_pixel_identical_to_the_recorded_one(self, baseline, exported):
         now = page_digests(exported)
         recorded = baseline["pages"]
-        machine_face = set(baseline["font_dependent_pages"])
 
         assert len(now) >= BASELINE_PAGE_COUNT, "the corpus cannot silently shrink"
-        assert machine_face == {1, 2, 3, 4, 6, 8, 10}, (
-            "the fixture names both guide pages, the TOC page (CARD-200), "
-            "the three level dividers and the SOLUTIONS divider as the "
-            "machine-lettered pages; if that changed, the baseline's "
-            "font_dependent_pages must be re-derived"
+        # CARD-221: the fixture names NO machine-lettered page, because there
+        # is none left to name — every interior face is the packaged one. The
+        # list is asserted empty rather than ignored, so a future card that
+        # reintroduces a host lookup has to come back here and say so (and
+        # bring back a gate of its own with the pages it covers).
+        assert set(baseline["font_dependent_pages"]) == set(), (
+            "the baseline names machine-lettered interior pages "
+            f"{sorted(baseline['font_dependent_pages'])}, and this card's own "
+            "claim is that the interior has none: if a host lookup is back, "
+            "the gate this test used to carry has to come back with it"
         )
 
         compared = 0
-        skipped: List[int] = []
         for number, (drawn, was) in enumerate(zip(now, recorded, strict=True), start=1):
-            if number in machine_face and not same_face:
-                skipped.append(number)  # see the fixture's font_fingerprint_note
-                continue
             assert drawn == was, f"interior page {number} is not the page it was"
             compared += 1
 
-        # Exact for the case that actually ran, not a floor both cases satisfy.
-        # `>= 6` is the honest count only on a machine whose face differs; on
-        # the recording machine the truth is `== 11`, and a floor of six there
-        # would stay green while two pages of G-1 evidence quietly stopped
-        # being compared.
-        expected = BASELINE_PAGE_COUNT - (0 if same_face else len(machine_face))
-        assert compared == expected, (
-            f"compared {compared} of {BASELINE_PAGE_COUNT} pages, expected "
-            f"{expected} on a machine whose face "
-            f"{'matches' if same_face else 'differs from'} the baseline's"
+        # Exact, not a floor: every page of the book is compared on every
+        # machine now, so a comparison that quietly stopped covering one
+        # would show up here instead of passing.
+        assert compared == BASELINE_PAGE_COUNT, (
+            f"compared {compared} of {BASELINE_PAGE_COUNT} pages — the whole "
+            "book's pixel evidence is unconditional since CARD-221"
         )
 
-        # A green run on a machine with another Arial must say on its face
-        # that it is two pages short of the evidence, rather than reporting
-        # PASS as if it had compared the book.
-        if skipped:
-            warnings.warn(
-                f"G-1 evidence incomplete: interior pages {skipped} were not "
-                f"compared ({compared} of {BASELINE_PAGE_COUNT} pages checked). "
-                "This machine letters the guide page and the SOLUTIONS divider "
-                "in a different face from the baseline's; see the fixture's "
-                "font_fingerprint_note.",
-                stacklevel=2,
-            )
-
     def test_the_interior_file_is_the_length_it_was_recorded_with(
-        self, baseline, exported_bytes, same_face
+        self, baseline, exported_bytes
     ):
         """F-7's other half: the same bytes, not only the same pixels.
 
@@ -1383,16 +1363,22 @@ class TestBookPdfMemory_PagesAreUnchanged:
         another filter or emitted one object more would move this number long
         before it moved a pixel.
 
-        Gated on the face, because the two machine-lettered pages are inside
-        this file: a different Arial gives their JPEG streams a different
-        length.
+        Gated on the host's face until CARD-221, because the seven
+        machine-lettered pages were inside this file and a different Arial
+        gave their JPEG streams a different length. Ungated now: every page
+        in the file is lettered from packaged data, so the length does not
+        depend on what fonts the host has installed.
+
+        **Not "the same number on every machine"** (AC/EC/G gate, F-G2 —
+        and this docstring is the one place that overstatement mattered
+        most, since this card names this test as what would catch a
+        rasteriser change). The bytes are a JPEG encode of pages whose type
+        is rasterised by the installed FreeType, and ``pyproject.toml``
+        floors Pillow at ``>=10.0`` with no ceiling. A different build can
+        move a glyph and with it this number — which is exactly what this
+        assertion is for: it reds on the machine that moved, instead of the
+        move reaching a printed book.
         """
-        if not same_face:
-            pytest.skip(
-                "the guide page and the SOLUTIONS divider are lettered in a "
-                "different face here, so the file's length is not the recorded "
-                "one; see the fixture's font_fingerprint_note"
-            )
         assert len(exported_bytes) == baseline["interior_bytes"]
 
     def test_the_corpus_covers_every_page_kind_the_interior_has(self, exported):
@@ -1530,94 +1516,33 @@ class TestBookPdfMemory_PagesAreUnchanged:
 # --------------------------------------------------------------------------
 
 
-#: AC-7b's own ceiling on **how many** of a guide page's pixels may differ
-#: from the CARD-200 baseline at all, as a share of the page. Measured on
-#: this card's own pages (see
-#: :meth:`TestBookPdfMemory_NonDrawingPagesAreByteIdentical.test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement`):
-#: 0.183% of page 1 and 0.192% of page 2, so this bound carries more than a
-#: factor of five of headroom over the scatter it exists to admit — while a
-#: whole-page shift of a single pixel moves 6.3% of page 1 and 6.7% of page
-#: 2 (measured), an order of magnitude past it.
-_GUIDE_SCATTER_SHARE_CEILING = 0.01
-
-#: How far, in grey levels (0..255), the ink found one pixel away in the
-#: other page may sit from the value this page holds, before
-#: :func:`_one_pixel_displacement_outliers` stops calling it "the same ink,
-#: moved" and calls it new ink.
-#:
-#: **This is not a colour tolerance standing in for the displacement bound**
-#: — the bound itself is geometric (a 3x3 neighbourhood search; see that
-#: function's own docstring). This slack exists only because a book page is
-#: read back out of the PDF through a **JPEG** decode
-#: (``tests.helpers.pdf_pages.pdf_pages``: every page is a ``DCTDecode``
-#: stream), so the grey level of a rule's own antialiased edge pixel is
-#: never reproduced exactly between two encodes of nearly-identical pages —
-#: it rings by a few levels, and an edge pixel whose value straddles
-#: :data:`~tests.helpers.page_ink.INK_LEVEL` flips the ink mask on one side
-#: of the threshold while the ink itself has not moved at all.
-#:
-#: Measured: over every differing pixel of both guide pages, the largest
-#: grey distance actually needed to find the same ink one pixel away is
-#: **30** (page 2; 28 on page 1, 99th percentile 16 on both), so 64 is a
-#: little over double the measured worst case. It is also far from
-#: toothless at that size: a pre-card page shifted by **two** pixels leaves
-#: 107,445 (page 1, horizontal) / 126,661 (page 2) differing pixels that
-#: this tolerance cannot explain, where the real scatter leaves zero.
-_GUIDE_SCATTER_GREY_TOLERANCE = 64
-
-
-def _one_pixel_displacement_outliers(
-    now_page: Image.Image, pre_page: Image.Image
-) -> Tuple[int, int, List[Tuple[int, int, int]]]:
-    """Measure AC-7b's displacement bound between two same-sized pages.
-
-    Returns ``(moved, worst, outliers)``: how many pixels the two pages'
-    ink masks disagree about, the largest grey distance any of them needed
-    to be explained as displaced ink, and every pixel that could **not** be
-    explained within one pixel and
-    :data:`_GUIDE_SCATTER_GREY_TOLERANCE`.
-
-    **Why this is a neighbourhood search and not a per-pixel colour delta.**
-    AC-7b bounds a *displacement*, which is a statement about geometry, not
-    about channel values: a black diagram rule that moves sideways by one
-    device pixel turns one black pixel white and one white pixel black, so
-    *any* per-pixel colour-delta check reads that one-pixel move as the
-    maximal possible difference (255 levels) and could only be made to pass
-    by loosening the tolerance until it admits anything at all. What the
-    claim actually means is that the ink moved rather than appeared: for
-    every pixel the two pages disagree about, the value this page holds
-    there must already be present in the **other** page's 3x3
-    neighbourhood of that same coordinate (Chebyshev distance <= 1), and
-    symmetrically. A rule displaced by one pixel satisfies that everywhere
-    along its length; a rule displaced by two, or a diagram element drawn
-    somewhere new, does not.
-
-    "Disagree about" is read on the ink mask
-    (:data:`~tests.helpers.page_ink.INK_LEVEL`, the same threshold the rest
-    of this suite's page comparisons use) rather than on raw channel
-    values, because the raw values of a mostly-white page carry the JPEG
-    round trip's own ringing in every 8x8 block near ink — pixels that are
-    not ink in either page and never were. The *count* of raw differing
-    pixels is bounded separately, by :data:`_GUIDE_SCATTER_SHARE_CEILING`,
-    which is the figure AC-7b's "under 1% of the page" names.
-    """
-    now_grey = np.asarray(now_page.convert("L"), dtype=np.int16)
-    pre_grey = np.asarray(pre_page.convert("L"), dtype=np.int16)
-    moved = (now_grey < INK_LEVEL) != (pre_grey < INK_LEVEL)
-    height, width = now_grey.shape
-    worst = 0
-    outliers: List[Tuple[int, int, int]] = []
-    for row, column in np.argwhere(moved):
-        top, bottom = max(0, row - 1), min(height, row + 2)
-        left, right = max(0, column - 1), min(width, column + 2)
-        needed = max(
-            int(np.abs(pre_grey[top:bottom, left:right] - now_grey[row, column]).min()),
-            int(np.abs(now_grey[top:bottom, left:right] - pre_grey[row, column]).min()),
-        )
-        worst = max(worst, needed)
-        if needed > _GUIDE_SCATTER_GREY_TOLERANCE:
-            outliers.append((int(row), int(column), needed))
-    return int(moved.sum()), worst, outliers
+# CARD-221 removed CARD-204's AC-7b instrument from this file:
+# ``_GUIDE_SCATTER_SHARE_CEILING`` (1% of a page), ``_GUIDE_SCATTER_GREY_TOLERANCE``
+# (64 grey levels) and ``_one_pixel_displacement_outliers`` (a 3x3
+# neighbourhood search), together with the test that used them,
+# ``test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement``.
+#
+# What they measured was that CARD-204's *incidental, sub-pixel* scatter on
+# the two guide pages stayed inside a bound: under 1% of the page differing
+# (measured then: 0.183% and 0.192%), and every differing pixel explained by
+# ink that had moved at most one pixel (0 outliers on either page). That claim
+# cannot be restated after CARD-221, which deliberately re-letters both pages
+# in the packaged face: re-measured at HEAD with the deleted instrument's
+# own rule, page 1 differs from the CARD-200 recording in 7.596% of its
+# pixels and page 2 in 10.531%, with 254,766 and 478,630 differing pixels
+# that no 1 px displacement at its own 64-grey tolerance explains.
+#
+# It is not re-anchored at CARD-221's own pages either, and that was tried
+# first: the deleted test's own ``moved > 0`` assertion exists precisely to
+# stop the bound being measured against nothing, so a reference taken from
+# the same render it is compared with would have made it vacuous (0 pixels
+# differing) by that test's own definition. What replaces it is stronger and
+# unconditional on any host font configuration: both guide pages are pixel for
+# pixel against ``book_baseline_card221.json`` by
+# ``TestBookPdfMemory_PagesAreUnchanged``, and
+# ``test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one``
+# below keeps the "still the guide pages, still the same size, still not the
+# CARD-200 pixels" claims and the stored images' own integrity check.
 
 
 class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
@@ -1855,17 +1780,52 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
 
     @pytest.fixture(scope="class")
     @classmethod
-    def same_face(cls, baseline) -> bool:
-        return font_fingerprint() == baseline["font_fingerprint"]
+    def card221_baseline(cls) -> Dict[str, Any]:
+        """CARD-221's own recording — the evidence for the seven pages that
+        card moved, which is every page the interior used to letter in the
+        **host's** Arial (the two guide pages, the TOC and the four
+        dividers).
+
+        Loaded directly by name, like every other fixture this class names,
+        so that each claim below still says which recording it rests on. It
+        is what ``BASELINE_FIXTURE`` points at today; naming it here means
+        the next card to record a forward baseline does not silently widen
+        what "unchanged since CARD-221" is measured against.
+
+        **The ``same_face`` fixture this replaces is gone.** It compared
+        ``font_fingerprint()`` against the baseline's, and every comparison
+        below skipped the machine-lettered pages where they differed; its
+        condition — interior pixels that depend on the host's fonts — is
+        what CARD-221 removed, and the comparisons below are unconditional
+        on any host font configuration now. (Not on any Pillow/FreeType
+        build — that lever is unbounded and these comparisons are what
+        would catch it moving; F-005.)
+        """
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        with (fixtures_dir / "book_baseline_card221.json").open(encoding="utf-8") as handle:
+            return json.load(handle)
 
     @pytest.fixture(scope="class")
     @classmethod
     def exported(cls) -> List[Image.Image]:
         return pdf_pages(export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()))
 
-    def test_every_divider_still_matches_the_card200_baseline(
-        self, baseline, exported, same_face
+    def test_every_divider_still_matches_the_card221_baseline(
+        self, baseline, card221_baseline, exported
     ) -> None:
+        """A divider carries one word and nothing else, so only a card that
+        changes that word or the face it is set in may move it.
+
+        **CARD-221 is such a card, and it is the reference now** — it letters
+        the divider in the packaged face instead of the host's Arial. So the
+        live comparison is against CARD-221's recording, and the attribution
+        is asserted beside it rather than written down: each divider differs
+        from the CARD-200 recording (the face moved it) and is identical to
+        CARD-221's (nothing has moved it since). Before that card these pages
+        owed their byte-identity to CARD-200 and the comparison skipped them
+        wherever the host's face differed from the fixture's; it is
+        unconditional now.
+        """
         assert set(self.NON_DRAWING_PAGES) | set(self.DRAWING_PAGES) == set(
             range(1, BASELINE_PAGE_COUNT + 1)
         ), "the split above must cover every baseline page exactly once"
@@ -1874,50 +1834,57 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         )
 
         now = page_digests(exported)
-        recorded = baseline["pages"]
-        machine_face = set(baseline["font_dependent_pages"])
         compared = 0
         for number in self.STRICTLY_UNCHANGED_PAGES:
-            if number in machine_face and not same_face:
-                continue  # see TestBookPdfMemory_PagesAreUnchanged's own note
-            assert now[number - 1] == recorded[number - 1], (
+            assert number in card221_baseline["changed_pages"], (
+                f"interior page {number} is a divider lettered through "
+                "_guide_face, so CARD-221's own recording must name it among "
+                "the pages that card moved"
+            )
+            assert now[number - 1] != baseline["pages"][number - 1], (
+                f"interior page {number} still matches the CARD-200 "
+                "recording, so the packaged face never reached this divider "
+                "— CARD-221's own change did not happen here"
+            )
+            assert now[number - 1] == card221_baseline["pages"][number - 1], (
                 f"interior page {number} is a level or SOLUTIONS divider — it "
-                "carries one word and nothing else, so neither CARD-204 nor "
-                "CARD-205 may move it off the CARD-200 baseline"
+                "carries one word and nothing else, so nothing after CARD-221 "
+                "may move it off that card's baseline"
             )
             compared += 1
-        expected = len(self.STRICTLY_UNCHANGED_PAGES) - (
-            0 if same_face else len(machine_face & set(self.STRICTLY_UNCHANGED_PAGES))
-        )
-        assert compared == expected, (compared, expected)
+        assert compared == len(self.STRICTLY_UNCHANGED_PAGES), compared
 
-    def test_the_toc_page_matches_the_card205_baseline(
-        self, card205_baseline, exported, same_face
+    def test_the_toc_page_matches_the_card221_baseline(
+        self, card205_baseline, card221_baseline, exported
     ) -> None:
-        """CARD-205 — the TOC's rows are this card's own deliberate change.
+        """The TOC's rows are CARD-205's wording and CARD-221's face.
 
         Compared exactly as strictly as the dividers above, against the
-        recording that holds the structural list, rather than dropped from
-        the comparison: a page nobody compares is a page with no evidence,
-        and this class exists to produce evidence per page. Face-gated like
-        every other machine-lettered page — the TOC letters through
-        ``_guide_face`` (Arial, or Pillow's fallback), so a machine with a
-        different fingerprint cannot be held to these pixels.
+        recording that holds both, rather than dropped from the comparison:
+        a page nobody compares is a page with no evidence, and this class
+        exists to produce evidence per page. The reference moved forward
+        from CARD-205's recording to CARD-221's because that card re-set
+        every row in the packaged face (the rows are 49 px tall on it
+        against Arial's 48), and the two-fixture attribution below says so
+        rather than leaving the move unexplained. Face-gated until that
+        card; unconditional now.
         """
         now = page_digests(exported)
-        recorded = card205_baseline["pages"]
-        machine_face = set(card205_baseline["font_dependent_pages"])
         for number in self.CARD205_TOC_PAGE:
-            if number in machine_face and not same_face:
-                continue
-            assert now[number - 1] == recorded[number - 1], (
+            assert now[number - 1] != card205_baseline["pages"][number - 1], (
+                f"interior page {number} still matches the CARD-205 "
+                "recording — the packaged face never reached the table of "
+                "contents, and CARD-221's own change did not happen here"
+            )
+            assert now[number - 1] == card221_baseline["pages"][number - 1], (
                 f"interior page {number} is the table of contents: CARD-205 "
-                "rewrote its rows and nothing since has, so it must be "
-                "byte-identical to the CARD-205 baseline"
+                "rewrote its rows, CARD-221 re-set them in the packaged face "
+                "and nothing since has, so it must be byte-identical to the "
+                "CARD-221 baseline"
             )
 
     def test_the_toc_page_moved_under_card205_not_card204(
-        self, baseline, card204_baseline, card205_baseline, exported, same_face
+        self, baseline, card204_baseline, card205_baseline, card221_baseline, exported
     ) -> None:
         """The attribution, measured rather than written down — the same
         shape :meth:`test_the_three_answer_pages_moved_under_card203_not_this_card`
@@ -1935,14 +1902,20 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         that fails if a later card re-records CARD-204's fixture off a
         rewritten TOC.
 
-        **The face gate sits in the middle of this test, not at the top**
-        (AC/EC/G gate, 2026-10-14). The attribution itself is a statement
-        about three *stored* recordings and holds on any machine — gating it
-        with the rest left the clause this test is named for unverified
-        wherever Arial is absent, which is the project's own "only the pinned
-        figure is skipped, never the guardrail" rule broken in the test that
-        was added to close F-002. Only the two comparisons that read *this*
-        machine's export are machine-lettered, and only those are gated.
+        **The face gate that used to sit in the middle of this test is gone**
+        (CARD-221). It was placed there rather than at the top because the
+        attribution is a statement about *stored* recordings and holds on any
+        machine, while the two comparisons that read this machine's own
+        export were machine-lettered — the project's own "only the pinned
+        figure is skipped, never the guardrail" rule, applied to the one test
+        added to close F-002. Since the interior letters from packaged data
+        those two comparisons hold on any host font configuration too — the
+        clause above says "any machine" of a comparison between two *stored*
+        fixtures, which really is machine-independent; this one reads this
+        machine's own export and is only as portable as its Pillow/FreeType
+        (F-005). The live page is
+        compared against CARD-221's recording (which re-set every row in that
+        face) with the move attributed to it, rather than against CARD-205's.
         """
         for number in self.CARD205_TOC_PAGE:
             card200_page = baseline["pages"][number - 1]
@@ -1959,16 +1932,19 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "and this class's own split is mis-attributed"
             )
 
-        if not same_face:
-            pytest.skip(
-                "the live export's own TOC pixels are machine-lettered; see "
-                "the class's own note. The attribution above has already run."
-            )
         now = page_digests(exported)
         for number in self.CARD205_TOC_PAGE:
             card200_page = baseline["pages"][number - 1]
             card205_page = card205_baseline["pages"][number - 1]
-            assert now[number - 1] == card205_page
+            card221_page = card221_baseline["pages"][number - 1]
+            assert card221_page != card205_page, (
+                f"interior page {number} is identical in the CARD-205 and "
+                "CARD-221 recordings — CARD-221's packaged face is then not "
+                "what re-set the table of contents, and the live comparison "
+                "below is measured against the wrong fixture"
+            )
+            assert now[number - 1] == card221_page
+            assert now[number - 1] != card205_page
             assert now[number - 1] != card200_page
 
     def test_the_three_answer_pages_still_match_the_card203_baseline(
@@ -2017,7 +1993,7 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
             assert now[number - 1] != card200_page
 
     def test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one(
-        self, baseline, exported, same_face
+        self, baseline, exported
     ) -> None:
         """The guide pages are not byte-identical to the CARD-200 baseline
         (see this class's own docstring) — expected and documented. What is
@@ -2027,114 +2003,49 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         become blank or some other page's content. A real regression that
         actually broke the guide page's drawing would fail one of these,
         not hide behind the documented pixel-level exception above.
+
+        **CARD-221 widened the exception and removed its bound.** Until that
+        card the two pages differed from the CARD-200 recording only by a
+        sub-pixel rounding scatter, and
+        ``test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement``
+        measured exactly that: under 1% of the page, every differing pixel
+        explained by ink that moved at most 1 px. Re-lettering both pages in
+        the packaged face is not a scatter — measured on this branch, page 1
+        differs in 7.596% of its pixels and page 2 in 10.531%, with 254,766
+        and 478,630 pixels that are not ink-moved-by-one — so that test is
+        gone and this one keeps the claims that survive. What replaces it is
+        stronger than a bound and unconditional on any host font
+        configuration: both pages are compared pixel for pixel against
+        CARD-221's own recording by
+        ``TestBookPdfMemory_PagesAreUnchanged``.
+
+        The two stored pre-card page images stay where they are (G-5 of that
+        card: no earlier fixture is deleted), and the integrity check the
+        deleted test opened with is kept below — they are only trustworthy as
+        the exact pixels behind ``book_baseline_card200.json``'s own digests,
+        and nothing else reads them now.
         """
-        machine_face = set(baseline["font_dependent_pages"])
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
         now = page_digests(exported)
         recorded = baseline["pages"]
         for number in self.GUIDE_PAGES:
-            if number in machine_face and not same_face:
-                continue
+            with Image.open(
+                fixtures_dir / f"book_baseline_card200_guide_page{number}.jpg"
+            ) as raw:
+                pre = raw.convert("RGB")
+            assert page_digest(pre) == recorded[number - 1], (
+                f"the stored pre-card guide page {number} is not the page "
+                "book_baseline_card200.json recorded — this fixture is only "
+                "trustworthy as the pixels behind that digest"
+            )
             assert now[number - 1]["size"] == recorded[number - 1]["size"], (
-                f"interior page {number} changed size, not just a sub-pixel "
-                "rounding scatter"
+                f"interior page {number} changed size, not just its face"
             )
             assert now[number - 1] != recorded[number - 1], (
                 f"interior page {number} is expected to differ from the "
                 "CARD-200 baseline (see this class's docstring) — if it "
                 "now matches exactly, this exception is stale and the "
                 "class docstring/comment should be revisited"
-            )
-
-    def test_the_guide_pages_scatter_is_bounded_to_one_pixel_of_displacement(
-        self, baseline, exported, same_face
-    ) -> None:
-        """AC-7b — the guide pages' deviation from the CARD-200 baseline is
-        *bounded*, not merely admitted in prose.
-
-        The test above pins that pages 1-2 still differ and still have the
-        guide's own size; this one pins **by how much they may differ**,
-        which is what AC-7's original "byte-identical" claim lost when the
-        AC/EC gate found it false of these two pages. Without this, a later
-        card could displace the guide's worked-example diagrams anywhere on
-        the page and every assertion in this class would still pass.
-
-        Two bounds, both from AC-7b, measured here rather than described:
-
-        * **Count** — the pixels that differ at all are under
-          :data:`_GUIDE_SCATTER_SHARE_CEILING` of the page. Measured:
-          15,397 px of 8,415,000 on page 1 (0.183%) and 16,121 px
-          (0.192%) on page 2 — the "roughly 15 000 pixels, well under 1%"
-          this class's docstring and the card describe.
-        * **Displacement** — every one of those pixels is explained by ink
-          that moved at most one pixel, by the 3x3 neighbourhood search in
-          :func:`_one_pixel_displacement_outliers` (read that function's
-          docstring for why the bound is implemented geometrically and not
-          as a per-pixel colour delta — a 1 px displacement of a black rule
-          *is* a 255-level colour difference, so a colour-delta check
-          cannot express this claim at all). Measured: 0 outliers on either
-          page, out of 2,848 (page 1) and 3,314 (page 2) ink-mask
-          disagreements.
-
-        **Where the pre-card pixels come from.** ``book_baseline_card200.json``
-        keeps digests, not images (``book_corpus.page_digest``'s own
-        rationale: a page is 25.2 MB of bitmap), and a digest cannot answer
-        "by how much". So the two guide pages of that same recording are
-        kept beside it as the exact ``DCTDecode`` streams the CARD-200
-        interior PDF held — ``book_baseline_card200_guide_page{1,2}.jpg``,
-        828 KB for the pair, the smallest exact form of the only two pages
-        this bound needs. They are **not** a second, independent baseline
-        that could drift away from the first: the first thing this test
-        does is digest each of them and assert it is the very page
-        ``book_baseline_card200.json`` recorded, so a fixture swapped for a
-        convenient one fails here rather than silently widening the bound.
-        """
-        if not same_face and set(self.GUIDE_PAGES) & set(baseline["font_dependent_pages"]):
-            pytest.skip(
-                "both guide pages are lettered through _guide_face, and this "
-                "machine's face is not the baseline's — see "
-                "TestBookPdfMemory_PagesAreUnchanged's own note"
-            )
-
-        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
-        for number in self.GUIDE_PAGES:
-            recorded = baseline["pages"][number - 1]
-            with Image.open(fixtures_dir / f"book_baseline_card200_guide_page{number}.jpg") as raw:
-                pre = raw.convert("RGB")
-            assert page_digest(pre) == recorded, (
-                f"the stored pre-card guide page {number} is not the page "
-                "book_baseline_card200.json recorded — this fixture is only "
-                "trustworthy as the pixels behind that digest"
-            )
-            now = exported[number - 1]
-            assert now.size == pre.size, (now.size, pre.size)
-
-            differing = int((np.asarray(now) != np.asarray(pre)).any(axis=2).sum())
-            pixels = now.width * now.height
-            assert 0 < differing < _GUIDE_SCATTER_SHARE_CEILING * pixels, (
-                f"guide page {number} differs from the CARD-200 baseline in "
-                f"{differing} of {pixels} pixels "
-                f"({100 * differing / pixels:.3f}%), past AC-7b's "
-                f"{100 * _GUIDE_SCATTER_SHARE_CEILING:.0f}% ceiling — this page "
-                "borrows compute_layout only for its cell pitch and rule "
-                "widths, so a change of this size is not sub-pixel rounding"
-            )
-
-            moved, worst, outliers = _one_pixel_displacement_outliers(now, pre)
-            assert moved > 0, (
-                f"guide page {number}'s ink mask is identical to the "
-                "CARD-200 baseline's — the scatter this test bounds is gone, "
-                "so the bound is being measured against nothing (revisit "
-                "AC-7b and this class's docstring rather than keeping a "
-                "vacuous assertion)"
-            )
-            assert not outliers, (
-                f"guide page {number}: {len(outliers)} of {moved} differing "
-                f"pixels are not ink that moved by at most 1 px — e.g. "
-                f"{outliers[:5]} (row, column, grey distance to the nearest "
-                f"value in the other page's 3x3 neighbourhood; the tolerance "
-                f"is {_GUIDE_SCATTER_GREY_TOLERANCE}). AC-7b admits a "
-                "sub-pixel rounding scatter in the guide's worked examples, "
-                "not a relocation of them"
             )
 
     def test_every_drawing_page_actually_moved(self, baseline, exported) -> None:

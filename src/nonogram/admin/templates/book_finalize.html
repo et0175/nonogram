@@ -126,9 +126,16 @@
                     <h4 data-guide-difficulty-heading>{{ guide_difficulty_heading }}</h4>
                     <div class="guide-difficulty-box" data-guide-difficulty-box>
                         {% for label in guide_difficulty_labels %}
+                        {# CARD-221 fix 1: the names alone. The printed guide page stopped
+                           setting DifficultyLabel.text when the owner ruled on 2026-10-14
+                           (234 px bought back for the worked example's own explanations), and
+                           this block is a preview of that page -- a preview that still showed
+                           the three sentences would be describing a book the export does not
+                           produce. `text` is still carried by the constant, for CARD-229's key
+                           strip. The box's own rule is the screen's styling (.guide-difficulty-box
+                           in admin.css) and is left to CARD-229 with the rest of that block. #}
                         <div class="guide-difficulty-column" data-guide-difficulty="{{ loop.index0 }}">
                             <strong data-guide-difficulty-name>{{ label.name }}</strong>
-                            <p data-guide-difficulty-text>{{ label.text }}</p>
                         </div>
                         {% endfor %}
                     </div>

@@ -212,7 +212,13 @@ def _call_chain(frame: Any) -> Tuple[Tuple[str, str], ...]:
 def record_interior(
     generator: BookPDFGenerator, monkeypatch: pytest.MonkeyPatch, page_count: int
 ) -> List[TextCall]:
-    """Every ``draw.text`` call one interior export makes, tagged by page."""
+    """Every ``draw.text`` call one interior export makes, tagged by page.
+
+    Starts by emptying the module's font caches (:func:`clear_font_caches`),
+    so that each recording loads the faces its own configuration resolves
+    to rather than inheriting the previous recording's.
+    """
+    clear_font_caches()
     original = ImageDraw.ImageDraw.text
     original_default = ImageFont.load_default
     calls: List[TextCall] = []
@@ -258,8 +264,36 @@ def record_interior(
     return calls
 
 
+def clear_font_caches() -> None:
+    """Empty ``book_pdf_generator``'s two font caches.
+
+    ``_band_font`` is an ``lru_cache(maxsize=8)`` over ``(size,)`` and
+    ``_band_font_bytes`` an ``lru_cache(maxsize=1)``, so a face loaded under
+    one font configuration is handed straight back under the next one in the
+    same process — and this file records two configurations per book, in one
+    process, with ``arial=True`` always first (:func:`recording`).
+
+    **Added by CARD-221 fix 5, because the blindness was demonstrated rather
+    than suspected.** The AC/EC/G gate put a host Arial lookup with a
+    *sizeless* ``load_default()`` fallback — the CARD-149 defect verbatim —
+    inside ``_band_font`` and this whole file stayed green, 21 passed, while
+    killing 3 tests when ``TestInteriorType_FloorHoldsWithoutArial`` ran
+    alone in a cold process. The warmed cache was the difference. Until it
+    was cleared, that class's own claim to be "what fails first if a host
+    lookup returns to the drawing" was false of the suite as it actually
+    runs.
+    """
+    book_pdf_generator._band_font.cache_clear()
+    book_pdf_generator._band_font_bytes.cache_clear()
+
+
 def without_arial(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make ``ImageFont.truetype`` fail for the Arial path, and only that path."""
+    """Make ``ImageFont.truetype`` fail for the Arial path, and only that path.
+
+    Clears the font caches on the way in (:func:`clear_font_caches`): a face
+    cached while Arial was available is not a measurement of a machine
+    without it.
+    """
     original = ImageFont.truetype
 
     def truetype(font=None, *args, **kwargs):
@@ -268,6 +302,7 @@ def without_arial(monkeypatch: pytest.MonkeyPatch) -> None:
         return original(font, *args, **kwargs)
 
     monkeypatch.setattr(ImageFont, "truetype", truetype)
+    clear_font_caches()
 
 
 _RECORDINGS: Dict[Tuple[str, bool], List[TextCall]] = {}
@@ -326,7 +361,30 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
 
 
 class TestInteriorType_FloorHoldsWithoutArial:
-    """AC-2 — with Arial unavailable, no face is unsized and the floor holds."""
+    """AC-2 — with Arial unavailable, no face is unsized and the floor holds.
+
+    **Deliberately redundant since CARD-221** (its review cycle 1, F-007).
+    That card made ``_guide_face`` return the packaged face on every host,
+    so ``without_arial`` can no longer change anything the interior draws:
+    every assertion below now measures the same recording as
+    :class:`TestInteriorType_EveryFaceHoldsTheFloor` above, and this class
+    passes for a reason it no longer tests.
+
+    It is kept rather than retired, as insurance of the cheapest kind: it
+    costs one extra export per book and it is the test that fails first if
+    a host lookup ever comes back into the interior — including one that
+    CARD-221's own structural watch would miss, since that watch
+    (``tests/test_book_interior_face.py``'s
+    ``TestInteriorFace_NoFaceIsReadFromAHostPath``) looks at
+    ``ImageFont.truetype``'s argument while this one looks at what was
+    actually drawn. ``test_arial_really_is_unavailable`` below is still a
+    real test of the helper, not of the interior.
+
+    The claim this class can no longer make on its own is "the floor holds
+    on a machine without Arial **because this run had none**" — that one
+    moved to ``tests/test_book_interior_face.py``, which exports the same
+    books twice and compares them. Read the two together.
+    """
 
     def test_arial_really_is_unavailable(self):
         with pytest.MonkeyPatch.context() as monkeypatch:
