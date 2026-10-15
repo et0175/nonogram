@@ -48,6 +48,7 @@ from __future__ import annotations
 
 from importlib import resources
 from io import BytesIO
+from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, Tuple
 
 import pytest
@@ -158,6 +159,22 @@ def host_offers_a_second_face() -> bool:
     return sample(arial) != sample(fallback)
 
 
+def clear_font_caches() -> None:
+    """Empty the module's two font caches (AC/EC/G gate, F-G1).
+
+    ``book_pdf_generator._band_font`` is an ``lru_cache(maxsize=8)`` over
+    ``(size,)`` and ``_band_font_bytes`` an ``lru_cache(maxsize=1)``, so a
+    face or its bytes loaded under one font configuration is reused under
+    the next one in the same process. Every comparison in this module runs
+    both configurations in one process, which is exactly the case those
+    caches cannot tell apart — so they are emptied at each boundary rather
+    than trusted. ``_guide_face`` is deliberately uncached and needs none of
+    this.
+    """
+    book_pdf_generator._band_font.cache_clear()
+    book_pdf_generator._band_font_bytes.cache_clear()
+
+
 def refuse_host_fonts(monkeypatch: pytest.MonkeyPatch) -> None:
     """Make every ``ImageFont.truetype`` call that names a *path* fail.
 
@@ -172,6 +189,18 @@ def refuse_host_fonts(monkeypatch: pytest.MonkeyPatch) -> None:
     is addressed (``BytesIO`` over ``importlib.resources`` bytes), so this
     simulation leaves the fix itself alone, which is the only reason the
     comparison below can mean anything.
+
+    **It clears the module's font caches, and that is load-bearing**
+    (AC/EC/G gate, F-G1). ``_band_font`` is ``lru_cache(maxsize=8)`` and
+    ``_band_font_bytes`` ``maxsize=1``, so a face loaded during the on-host
+    half is still in the cache when the off-host half runs in the same
+    process. With a host lookup mutated back in, that cache carried Arial
+    across the boundary and **all four AC-1 comparisons stayed green against
+    the restored defect** — the tests were comparing one run with itself.
+    Clearing both caches on the way in is what makes the second half a
+    second measurement. :func:`_both_faces` clears them on both sides of
+    its own pair for the same reason — a face cached while the host was
+    refused must not leak into whatever runs next.
     """
     original = ImageFont.truetype
 
@@ -181,6 +210,7 @@ def refuse_host_fonts(monkeypatch: pytest.MonkeyPatch) -> None:
         return original(font, *args, **kwargs)
 
     monkeypatch.setattr(ImageFont, "truetype", truetype)
+    clear_font_caches()
 
 
 def _interior(book_factory: Callable[[], Book], puzzles: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], int, bytes]:
@@ -201,10 +231,12 @@ def _both_faces(measure: Callable[[], Any]) -> Tuple[Any, Any]:
     sharing one context is how this comparison would quietly become
     self-fulfilling.
     """
+    clear_font_caches()
     on_host = measure()
     with pytest.MonkeyPatch.context() as context:
-        refuse_host_fonts(context)
+        refuse_host_fonts(context)  # clears the caches itself, see F-G1 there
         off_host = measure()
+    clear_font_caches()
     return on_host, off_host
 
 
@@ -308,6 +340,19 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
         took 2 TOC pages on Arial and 3 on the fallback before CARD-205
         made the list structural); 150 is the corpus the gutter tests use,
         where the pre-CARD-205 rule put the count 3 pages apart.
+
+        **None of those three counts witnesses anything, and the AC/EC/G
+        gate was right to say so.** All three are Book 1 books whose
+        structural list is eight rows against a capacity of 41 packaged, 42
+        on Arial and 40 on Pillow's built-in face — one TOC page on every
+        face, so this test passed with the pre-card host lookup fully
+        restored. Face sensitivity at Book 1's trim begins at 42 rows, and
+        no book in this suite has a TOC that spills. The witness is
+        :meth:`test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees`
+        below, which AC-2 was amended to name; these three stay because a
+        page count that agrees across faces on the shapes the product
+        actually ships is still worth asserting — they are the control, not
+        the evidence.
         """
         puzzles = [
             puzzle(f"card221-count-{index}", 10, 10, 3, "easy", f"P{index}")
@@ -336,6 +381,117 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             "the generator's own unpaired page count must agree with KDP's "
             f"on both faces: {on_host_stream} / {off_host_stream} against "
             f"{on_host[0]}"
+        )
+
+    #: The smallest structural list that spills a TOC page at the smallest
+    #: trim a book can be stored at — the one shape in reach whose PAGE
+    #: COUNT, and therefore whose printed KDP gutter band, is face-dependent
+    #: (AC-2, amended at the decompose station on the gate's finding).
+    #: Measured on the 10.00 cm frame: capacity is **9 rows on the packaged
+    #: face and 10 on Arial**, so ten rows are 2 TOC pages on one and 1 on
+    #: the other. Ten rows is ``structural_toc_entry_count(4, …)`` — a
+    #: four-level book, which ADR-0031's three stocked tiers do not produce
+    #: today; that is the hypothesis this case makes and the only one, and
+    #: it is made because every page-count caller reaches
+    #: ``measured_toc_page_count`` with whatever row count its book has, so
+    #: the arithmetic under test is the shipped arithmetic.
+    SPILLING_LEVELS = 4
+
+    #: 72 puzzles on 71 puzzle pages (one two-up pair) and 72 answer pages,
+    #: chosen so the interior lands **exactly on KDP's 150/151 band edge**:
+    #: with one TOC page it is 150 pages and the gutter minimum is 0.9525 cm,
+    #: with two it is 151 and the minimum is 1.27 cm. So the extra page the
+    #: face decides does not merely move a number — it moves the margin the
+    #: cover is printed against, which is the defect this card exists to
+    #: close, and the assertion below is on the band and the centimetres as
+    #: well as the count.
+    SPILLING_PUZZLES = 72
+    SPILLING_PUZZLE_PAGES = 71
+
+    def test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees(self) -> None:
+        """AC-2's witness: the one shape whose gutter band the face decides.
+
+        Composed of the real functions, on the real 10.00 cm frame
+        (``MIN_TRIM_CM``): ``_toc_entries_per_page`` for the capacity,
+        ``measured_toc_page_count`` for the split, ``interior_page_count``
+        for the total — the sheet-free caller, fed this book's own page
+        terms — and ``kdp_page_band``/``kdp_min_gutter_cm`` for what the
+        total prints. Only the row count is hypothetical
+        (:data:`SPILLING_LEVELS`), and it is derived through
+        ``structural_toc_entry_count`` rather than written as a literal.
+
+        The non-vacuity assertions are the point of the case: on the
+        packaged face this frame really must hold 9 rows and really must
+        split ten of them onto two pages. If a later change moves that
+        capacity, this stops being a witness, and the test says so rather
+        than passing because nothing spills any more. They are checked
+        after the agreement, not before it, so that the two failures read
+        as what they are — see the comment at each.
+        """
+        from nonogram.admin.book_pdf_generator import (
+            _toc_entries_per_page,
+            measured_toc_page_count,
+            structural_toc_entry_count,
+        )
+        from nonogram.admin.book_kdp import _toc_frame_for
+
+        frame = _toc_frame_for(SimpleNamespace(trim_height_cm="10.00"))
+        rows = structural_toc_entry_count(self.SPILLING_LEVELS, self.SPILLING_PUZZLES)
+        assert rows == 10, rows
+
+        def measure():
+            capacity = _toc_entries_per_page(frame, BOOK_DPI)
+            toc_pages = measured_toc_page_count(rows, frame, BOOK_DPI)
+            total = interior_page_count(
+                self.SPILLING_PUZZLES,
+                puzzle_pages=self.SPILLING_PUZZLE_PAGES,
+                answer_pages=self.SPILLING_PUZZLES,
+                level_dividers=3,
+                toc_pages=toc_pages,
+            )
+            return capacity, toc_pages, total, kdp_page_band(total), kdp_min_gutter_cm(total)
+
+        on_host, off_host = _both_faces(measure)
+
+        # The claim first, so that a restored host lookup fails on what it
+        # actually broke rather than on this case's own premise: under the
+        # pre-card `_guide_face` the on-host half reads Arial's capacity of
+        # 10 and the off-host half the fallback's 9, and it is the
+        # disagreement that should be reported, not "ten rows no longer
+        # spill".
+        assert on_host == off_host, (
+            "the TOC's page count — and with it the interior's total and the "
+            "KDP gutter band the cover is printed against — depends on the "
+            f"host's fonts: {on_host} with them, {off_host} without. On "
+            "Arial this frame holds 10 rows and this list is one page; on "
+            "the packaged face it holds 9 and the list is two"
+        )
+
+        # And this case is a witness only while these hold. They run after
+        # the comparison because an agreement that is true for the wrong
+        # reason — nothing spilling at all — is the one way the assertion
+        # above could pass vacuously, and these are what say so.
+        assert on_host[0] == 9, (
+            f"the 10.00 cm frame holds {on_host[0]} TOC rows, not the 9 this "
+            "case needs to be a witness: ten rows no longer spill here, and "
+            "the comparison above has nothing face-dependent left to catch"
+        )
+        assert on_host[1] == 2, (
+            f"{rows} rows are {on_host[1]} TOC page(s) on this frame, not the "
+            "2 that make the page count face-dependent"
+        )
+        assert on_host[2] == 151 and on_host[3] == (151, 300), on_host
+        assert interior_page_count(
+            self.SPILLING_PUZZLES,
+            puzzle_pages=self.SPILLING_PUZZLE_PAGES,
+            answer_pages=self.SPILLING_PUZZLES,
+            level_dividers=3,
+            toc_pages=1,
+        ) == 150, (
+            "this case's own premise: one TOC page fewer puts this book at "
+            "150 pages, the last page of KDP's first gutter band, so the "
+            "split the face decides is the difference between a 0.9525 cm "
+            "minimum gutter and a 1.27 cm one"
         )
 
     def test_the_comparison_can_tell_the_pre_card_face_from_this_one(
@@ -657,7 +813,17 @@ class TestInteriorFace_NoFaceIsReadFromAHostPath:
         — would have passed a watch over Book 1 alone. These are the three
         shapes the module already constructs two tests above, so the sweep
         costs three lines and one more export each.
+
+        **The caches are cleared first, and that is what makes the sweep
+        real** (AC/EC/G gate, F-G1). ``_band_font``/``_band_font_bytes`` are
+        ``lru_cache``\ d, so by the time the second parametrization runs the
+        faces this export needs are already loaded and the watch sees no
+        ``truetype`` call at all: against a host lookup mutated back in, a
+        cold process killed only the first case and running the file
+        together let the mutant survive it entirely. A watch that cannot see
+        the call it is watching for is worse than no watch.
         """
+        clear_font_caches()
         original = ImageFont.truetype
         paths: List[str] = []
 
@@ -689,6 +855,7 @@ class TestInteriorFace_NoFaceIsReadFromAHostPath:
         self, monkeypatch
     ) -> None:
         """The negative control: the same watch, on the code this card replaced."""
+        clear_font_caches()
         monkeypatch.setattr(book_pdf_generator, "_guide_face", host_face)
         original = ImageFont.truetype
         paths: List[str] = []

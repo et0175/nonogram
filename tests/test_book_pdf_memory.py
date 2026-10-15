@@ -1288,8 +1288,12 @@ class TestBookPdfMemory_PagesAreUnchanged:
     which on the project's own Linux deployment image, where Arial is not at
     that path, was the difference between six pages of G-1 evidence and none.
     Since CARD-221 every interior face is the packaged one, the fixture's
-    ``font_dependent_pages`` is empty, and all thirteen pages are compared on
-    every machine with no gate at all. The ``same_face`` fixture, the skip,
+    ``font_dependent_pages`` is empty, and all thirteen pages are compared
+    with no gate at all — on any **host font configuration**, which is the
+    axis that gate was about. Not "on any machine": the figures are still a
+    function of the installed Pillow/FreeType, which ``pyproject.toml``
+    leaves unbounded at ``>=10.0``, and catching a move in *that* is this
+    comparison's own job rather than something it is immune to (F-005). The ``same_face`` fixture, the skip,
     the warning and the import of ``font_fingerprint`` are gone with it; the
     measurement that justifies removing them is
     ``tests/test_book_interior_face.py``'s own export-twice comparison and
@@ -1362,8 +1366,18 @@ class TestBookPdfMemory_PagesAreUnchanged:
         Gated on the host's face until CARD-221, because the seven
         machine-lettered pages were inside this file and a different Arial
         gave their JPEG streams a different length. Ungated now: every page
-        in the file is lettered from packaged data, so the length is the
-        same number on every machine.
+        in the file is lettered from packaged data, so the length does not
+        depend on what fonts the host has installed.
+
+        **Not "the same number on every machine"** (AC/EC/G gate, F-G2 —
+        and this docstring is the one place that overstatement mattered
+        most, since this card names this test as what would catch a
+        rasteriser change). The bytes are a JPEG encode of pages whose type
+        is rasterised by the installed FreeType, and ``pyproject.toml``
+        floors Pillow at ``>=10.0`` with no ceiling. A different build can
+        move a glyph and with it this number — which is exactly what this
+        assertion is for: it reds on the machine that moved, instead of the
+        move reaching a printed book.
         """
         assert len(exported_bytes) == baseline["interior_bytes"]
 
@@ -1523,7 +1537,7 @@ class TestBookPdfMemory_PagesAreUnchanged:
 # stop the bound being measured against nothing, so a reference taken from
 # the same render it is compared with would have made it vacuous (0 pixels
 # differing) by that test's own definition. What replaces it is stronger and
-# unconditional on every machine: both guide pages are compared pixel for
+# unconditional on any host font configuration: both guide pages are pixel for
 # pixel against ``book_baseline_card221.json`` by
 # ``TestBookPdfMemory_PagesAreUnchanged``, and
 # ``test_the_guide_pages_are_the_documented_exception_not_an_unbounded_one``
@@ -1783,7 +1797,9 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         below skipped the machine-lettered pages where they differed; its
         condition — interior pixels that depend on the host's fonts — is
         what CARD-221 removed, and the comparisons below are unconditional
-        on every machine now.
+        on any host font configuration now. (Not on any Pillow/FreeType
+        build — that lever is unbounded and these comparisons are what
+        would catch it moving; F-005.)
         """
         fixtures_dir = Path(__file__).resolve().parent / "fixtures"
         with (fixtures_dir / "book_baseline_card221.json").open(encoding="utf-8") as handle:
@@ -1994,8 +2010,9 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         differs in 7.596% of its pixels and page 2 in 10.531%, with 254,766
         and 478,630 pixels that are not ink-moved-by-one — so that test is
         gone and this one keeps the claims that survive. What replaces it is
-        stronger than a bound and unconditional on every machine: both pages
-        are compared pixel for pixel against CARD-221's own recording by
+        stronger than a bound and unconditional on any host font
+        configuration: both pages are compared pixel for pixel against
+        CARD-221's own recording by
         ``TestBookPdfMemory_PagesAreUnchanged``.
 
         The two stored pre-card page images stay where they are (G-5 of that
