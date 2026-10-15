@@ -35,7 +35,31 @@ verbatim — by calling the same script.
 | browser family, share of attributed time | 39.78 % | 29.78 % | **−10.00 points** |
 | browser family, teardown | 137.97 s | 11.62 s | **−126.35 s** |
 | browser family, tests | 422 | 422 | +0 |
-| suite wall clock | 930.81 s | 871.02 s | -59.79 s |
+| suite wall clock | 930.81 s | 871.02 s | -59.79 s (SUPERSEDED — see below) |
+
+**The wall-clock row is stale and the realised net is about half of it.**
+Corrected at review (CARD-235 cycle 2, F-008) rather than left standing. The
+after-profile above is pinned by digest to `77428ce`, and at that commit this
+card's own guard file `tests/test_browser_fixture_scope.py` cost **23.99 s**,
+with its two order-independence runs at 6.99 s and 4.82 s. The review cycle
+then moved the order probe from a 5-test file to a 15-test one (F-003), and
+those two runs are now 21.51 s and 20.29 s, taking the guard file to a
+self-reported **54.05 s** — roughly +30 s that the pinned artefact cannot see,
+because every bar in `_failed_bars` reads the frozen artefact and the digest
+pins the artefact to itself rather than to the tree.
+
+What did NOT move: the **−126.35 s family teardown saving**, which is what this
+card is actually about. The guard file sits outside the
+`tests/test_puzzle_solver` prefix, so it is not in the family being measured,
+and none of the rows above it are affected. What moved is the net — the card
+returns ~126 s to the family and spends ~54 s of it on the guards that keep the
+saving from silently disappearing (cycle 1 proved it could: mutant M2 restored
+the whole 126 s and 20 tests still passed).
+
+Treat the two drift-immune figures as the card's claim — the family-to-rest
+ratio (0.660 → 0.424) and per-test teardown (0.327 → 0.028 s). No wall-clock
+saving is claimed: two consecutive runs of an identical tree differed by 60 s
+(6.9 %) on this host, which is the same variance CARD-217 warned about.
 
 **Read the share with one caveat, and the ratio instead.** The rest of the
 suite — everything outside the family — ran at 83 ms/test in the before
