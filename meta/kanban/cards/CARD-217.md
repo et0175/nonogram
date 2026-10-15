@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/profiling/, meta/kanban/suite-timing.log, tests/README.md
-**Review score:** —
+**Review score:** 9.0/10 (cycle 1/3) — clears the gate; 0 critical, 0 important, 8 minor. The reviewer re-derived every headline number independently and confirmed the conclusion.
 **Started:** 2026-10-15T06:45:00Z
 **Closed:** —
 **Actual:** —
@@ -339,3 +339,58 @@ setup, which carry only setup+teardown; and the module loader tripped
   the gate should read **~7147 passed**, not 7073. G-1 holds: no existing test edited, deleted,
   skipped or reordered, and the profiling run's 7073/9 is identical to CARD-221's gate on the
   same tree.
+
+- [Review cycle 1] 2026-10-15 — **9.0/10, clears the gate on cycle 1.** 0 critical, 0 important,
+  8 minor. Report: `meta/review/20261015T060200Z-CARD-217-cycle1.yml`. 26 mutants.
+  **The reviewer believes the conclusion, having re-derived it rather than read it:** they wrote
+  their own parser against the committed artefact, importing nothing from `rank_durations.py`,
+  and **every headline number reproduces exactly** — browser 366.19 s / 39.78% / 422 tests /
+  868 ms; render-heavy 195.42 s / 21.23% / 1079; property 140.19 s / 15.23% / 184; overlap
+  70.75 s; admin trio 117.16 s / 12.73%; non-browser 554.44 s / 6660 tests / 83 ms; browser
+  teardown 137.97 of 144.37.
+  - **No double counting**: the four families are pairwise disjoint, the one overlap is declared
+    on its own line, `195.42 + 140.19 - 70.75 = 264.86` exactly, and every share uses the same
+    denominator — the reviewer specifically checked that none silently switches between the
+    920.63 s attributed and the 930.81 s wall clock.
+  - **The committed rankings are byte-identical to the script's stdout** across all 82 rows, and
+    the artefact is internally consistent (`21238 = 7074x3 + 8x2`, the 8 being tests skipped at
+    setup, which carry no call phase) — i.e. not truncated.
+  - **The render set's re-definition is honest and the browser family is conservative.**
+    Re-running the card's own grep gives exactly the 29 frozen paths; and **three other
+    `browser_page`-driven files sit outside the family** (9.11 s / 12 tests) — including them
+    would raise it to 40.77%. The agent left 9 s on the table against its own conclusion.
+  - **Both self-reported items are honest.** The two "equivalent" mutants really are equivalent:
+    the reviewer fuzzed four implementations over **200,922 inputs** — structured
+    prefix/suffix cross-products, every single-character substitution and insertion in a good
+    line, and 200k random strings — with **0 differences on full groupdict**, not merely on
+    None-ness. And M10's tautology was real and is really fixed. All 13 of the agent's own
+    mutants were re-run and all 13 killed: its mutation report is accurate, not inflated.
+- [Review cycle 1 — N-001: the contention argument is backwards, and the conclusion survives
+  anyway] The card argues the sweep biased I/O-bound tests upward, favouring the render
+  hypothesis, which still lost. **The exposure is the other way round:** the render set is
+  in-process CPU work (176.82 s of `call`, 0.03 s of teardown) while the **browser family is the
+  wait-bound one** (137.97 s of teardown blocked on another process), so a CPU-starving sweep
+  inflates the *winner*. The reviewer supplied the two arguments that do hold and the document
+  should carry instead: **(a)** a magnitude bound — about four minutes at 25% instead of 76% CPU
+  is at most ~161 s of excess across the whole suite, where the browser family would have to
+  shed **170.8 s** to lose; and **(b)** per-test teardown measured across all 422 browser tests
+  is mean 0.327 s, median 0.370, stdev 0.144, per-file means 0.198–0.413, histogram unimodal —
+  **no contention spike anywhere in the family**. The cost is structural, not an artefact.
+- [Review cycle 1 — three real survivors, none gating, one of them aimed at the next four cards]
+  - **N-003: `test_exactly_one_artefact_is_committed` will red the first time CARD-218, 219,
+    220, 235 or 236 re-profiles** — which is exactly what every one of them is instructed to do
+    to measure its saving. It also contradicts the dated naming convention and the `found[-1]`
+    fixture in its own file. A landmine pointed at this card's own successors; fix before merge.
+  - **N-002: `RENDER_HEAVY_SNAPSHOT` is pinned by nothing.** Dropping a path from it survives
+    all 74 tests — and that constant is what decides the 21.23% the re-pointed CARD-218/219 are
+    now sized against. `--verify-render-set` exists and works, and no test calls it.
+  - **N-004:** swapping the file-share denominator `attributed` -> `wall_clock` survives; no
+    share value is pinned anywhere, and nothing checks the committed hotspots document against
+    `report(...)`.
+  - Minor beyond those: **N-007** two prose slips — the browser files' date range ends
+    2026-10-08T07:28Z, not 04:19Z (the load-bearing "all after wave 30" claim holds), and the
+    README's worked log line shows 1071 s / 151 ms per test where the real run was 931 s /
+    131 ms; **N-005** AC-5's two real-log tests skip silently off this host because the log is
+    gitignored (disclosed and worked around); **N-006** the admissibility check is blind to the
+    kind of contention that actually happened and nothing calls it at profile time; **N-008**
+    shares are of attributed time where AC-2 says wall clock (labelled, 1.09% apart).
