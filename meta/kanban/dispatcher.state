@@ -11,6 +11,19 @@ active:
   - id: CARD-234
     phase: review
     review_cycle: 1
+    note: "9.0 cycle 1, 0 gating; AC/EC/G 11/11; MERGE GATE RED on the pre-existing flaky memory guard. Held unmerged by owner decision 2026-10-15: fix the guard (CARD-237) first, then re-gate and merge."
+  - id: CARD-235
+    phase: review
+    review_cycle: 1
+    branch: card/235-browser-fixture-scope
+    worktree: ../PythonProject4-card-235
+    note: "implementation complete 4302684; own merge gate GREEN 7174/0 solo+locked. Premise was wrong: lever was socketserver's 0.5s poll, not fixture scope; no page scope changed."
+  - id: CARD-237
+    phase: implementation
+    branch: card/237-memory-guard-floor-relative
+    worktree: ../PythonProject4-card-237
+    started: 2026-10-15T11:21:04Z
+    note: "OWNER-SCHEDULED 2026-10-15: cut in flight to fix the flaky memory headroom guard blocking every merge gate (~3 false reds in 4). P1, ahead of the rest of the wave." 
     branch: card/234-cover-packaged-face
     worktree: ../PythonProject4-card-234
     started: 2026-10-15T08:44:16Z
@@ -155,4 +168,4 @@ conflict_edges:
 # runs 7156 tests in ~1040s, and CARD-217 measured the browser family at 39.78% of that.
 # Conflict edges that shaped the choice: 234-228 and 228-215 (hotspots), 213-216 and
 # 213-235 (tests/test_puzzle_solver_*), 220-235 (tests/**).
-last_updated: '2026-10-15T08:44:16Z'
+last_updated: '2026-10-15T11:21:04Z'
