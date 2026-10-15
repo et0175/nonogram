@@ -5,6 +5,12 @@
     AC (new)  TestBookPdfMemory_PagesAreUnchanged
     AC (new)  TestBookPdfMemory_InteriorAndCoverStillSeparate
 
+CARD-237 adds the tests of this module's own memory tripwires — the four
+``TestMemoryGuard_*`` classes beside the capped pair — after the headroom
+assertion was found to be measuring the capped child's total resident set
+(dominated by CPython's own footprint, and drifting with it) where it meant to
+measure the export's marginal cost.
+
 The defect: a book page is 2550 x 3300 px RGB — **25,245,000 bytes** — and the
 export used to build every page into a list before writing any of them, so
 peak memory was that figure times the page count. The deployed panel has
@@ -695,17 +701,79 @@ CHILD_OVER_CAP_EXIT = 91
 #: before. Neither verdict can turn on an interpreter's footprint: the
 #: platform's own floor is 4.06 page bitmaps, 12.7 % of the cap. Both
 #: margins are re-measured on every run and asserted
-#: (:data:`CHILD_HEADROOM`, :data:`CHILD_FLOOR_SHARE`) rather than trusted
-#: from this table.
+#: (:data:`CHILD_EXPORT_COST_IN_PAGES`, :data:`CHILD_FLOOR_SHARE`) rather than
+#: trusted from this table. CARD-237 re-aimed the first of those two at the
+#: export's marginal cost — ``streaming.resident - floor.resident``, the row of
+#: this table that is about this code — rather than at the streaming child's
+#: total, which is dominated by the interpreter's own footprint; that constant
+#: carries the numbers.
 CHILD_CAP_IN_PAGES = 32
 CHILD_CAP_BYTES = CHILD_CAP_IN_PAGES * PAGE_BITMAP_BYTES
 
-#: How much of the cap the streaming child must leave unused, as a divisor: its
-#: measured peak times this must still fit. Measured 4.06x on this machine
-#: (CARD-198: down from 4.7x, since the file term grew with the larger
-#: corpus — see the table above), so a required 3x still has room in it and
-#: still fails long before the shape does.
-CHILD_HEADROOM = 3
+#: What the **export itself** may cost the capped child, in page bitmaps: the
+#: streaming child's resident set *minus the floor child's*, measured in the
+#: same run under the same cap.
+#:
+#: **Why the marginal cost and not the child's total (CARD-237).** The total is
+#: ``floor + export``, and the floor — interpreter, imports, the corpus book,
+#: one page — is the larger half and grows with CPython, not with this code. A
+#: bound on the total therefore drifts onto its own threshold as the
+#: interpreter grows: the predecessor of this constant required the total to
+#: clear the cap by 3x, recorded 4.06x measured at CARD-198, and by CARD-237
+#: measured 2.9x (276-280 MB under a full suite) — a false red on roughly three
+#: full-suite runs in four, on trees with no export change in them. The
+#: marginal cost does not drift, because when the floor grows it is subtracted
+#: from both terms.
+#:
+#: **The bound, against the measurement (CARD-237, this machine):**
+#:
+#: ========================================= ================= ==============
+#: measured, floor and streaming in one run   bytes             page bitmaps
+#: ========================================= ================= ==============
+#: the floor child (the subtrahend)           110.0-110.6 MB    4.36-4.38
+#: the streaming child's total RSS            178.7-258.5 MB    7.08-10.24
+#: **the export's marginal cost**             **68.3-148.1 MB** **2.70-5.87**
+#: the same, on the worst red run on record   ~165.5 MB         ~6.56
+#: **the bound below**                        **403.9 MB**      **16**
+#: the list shape's own peak                 ~7.75 GB          ~307
+#: ========================================= ================= ==============
+#:
+#: The six runs of the pair taken while this constant was chosen — solo,
+#: whole-file, and three times inside the whole suite — measured the marginal
+#: cost at 2.70, 3.22, 3.41, 3.44, 5.04 and 5.87 page bitmaps, against a floor
+#: that moved by 0.6 MB across all six. **That spread is the instrument's own,
+#: not the export's**, and it is the reason the bound is not placed just above
+#: the smallest figure: ``ru_maxrss`` is a *peak*, and how much of 307 pages'
+#: worth of freed bitmap the allocator hands back to the OS depends on what
+#: else is resident at the time — which is exactly why the old bound failed
+#: inside a busy suite and passed solo, and why the quiet-run figure is the
+#: wrong one to size against. The figure the bound is sized against is instead
+#: the largest on record: the worst red total the card recorded, 276.1 MB, is
+#: ~6.56 bitmaps of export against the floor measured here, and that is the
+#: number halved below.
+#:
+#: **Why 16.** It is the largest bound that keeps the two guards' arithmetic
+#: closed: 16 page bitmaps, plus the 8 that :data:`CHILD_FLOOR_SHARE` permits
+#: the floor to be, is 24 of the cap's 32 — so whenever both guards pass, the
+#: streaming child is *proved* to fit the cap with a quarter of it unused. That
+#: is the whole-child margin the old constant asserted directly, reconstructed
+#: from two halves, neither of which drifts with CPython. Against the
+#: measurements it sits **2.4x above the largest export cost on record** (the
+#: ~6.56 bitmaps derived above, itself 1.1x the largest measured here) and 19x
+#: below the shape this test exists to separate the export from. Like every RSS
+#: figure in this module (see the module docstring on why RSS may not be
+#: asserted on as a *shape*) it is a bound on an order of
+#: magnitude: the export is 3-6 bitmaps and constant in the page count, the
+#: regression it must catch is ~307 and linear in it, and the bound sits in the
+#: empty two orders of magnitude between them — close enough to the export that
+#: retaining as few as 10-13 of the book's 307 pages is already red. Measured
+#: on the real pair with the streaming child's reported figure inflated by hand
+#: (CARD-237's own mutants): 12 pages retained passed at 15.9 bitmaps, 14
+#: failed at 17.88, and the whole book retained failed at 309.92.
+#: :class:`TestMemoryGuard_StillFailsWhenTheExportItselfRegresses` keeps that
+#: evidence live, and pins both sides of the bound itself.
+CHILD_EXPORT_COST_IN_PAGES = 16
+CHILD_EXPORT_COST_BYTES = CHILD_EXPORT_COST_IN_PAGES * PAGE_BITMAP_BYTES
 
 #: The share of the cap the platform's own floor — interpreter, imports, one
 #: page — may take before the cap stops being able to tell a *shape* apart from
@@ -926,16 +994,68 @@ def _habitable(mechanism: str) -> CappedChild:
     return floor
 
 
-def _the_pair_under_one_cap(mechanism: str) -> Tuple[CappedChild, CappedChild]:
-    """The streaming child and the list child, under the same cap, in order."""
-    _habitable(mechanism)
+def _the_pair_under_one_cap(
+    mechanism: str,
+) -> Tuple[CappedChild, CappedChild, CappedChild]:
+    """The floor child, the streaming child and the list child, one cap, in order.
+
+    The floor is the first element because it is a *measurement*, not only a
+    precondition: :func:`_habitable` spawns it on every run anyway, and
+    subtracting it from the streaming child's resident set is what turns
+    "the child fitted" into "the export fitted" (CARD-237). Before CARD-237
+    this function threw it away.
+    """
+    floor = _habitable(mechanism)
     return (
+        floor,
         _capped_child(STREAMING_SHAPE, mechanism),
         _capped_child(MATERIALISED_SHAPE, mechanism),
     )
 
 
-def _assert_the_streaming_child_fitted(child: CappedChild) -> None:
+def _export_marginal_cost(streaming: CappedChild, floor: CappedChild) -> int:
+    """What the **export** cost the capped child: its resident set, less the floor's.
+
+    Both children ran in a fresh interpreter under the same cap, and the floor
+    one did everything the streaming one does except the export — imports, the
+    corpus book, one drawn page. So the difference is the export's own term,
+    and it is the only part of either figure this code is responsible for.
+    """
+    assert streaming.report is not None and floor.report is not None
+    return int(streaming.report["resident"]) - int(floor.report["resident"])
+
+
+def _assert_the_export_fitted_with_room(
+    streaming: CappedChild, floor: CappedChild
+) -> int:
+    """The self-invalidation tripwire, aimed at the export (CARD-237). Returns it.
+
+    If the export's own marginal cost ever approaches the cap, then the two
+    verdicts this test reports stop being about the export's *shape*, and the
+    test says so by failing. Its counterpart in the other direction — the
+    floor swallowing the cap — is :func:`_habitable`'s skip, which is
+    untouched: the quantity moved, the mechanism did not.
+
+    The margin is returned so a caller can report it (and so a test can check
+    *which* quantity was asserted on, rather than trusting the source).
+    """
+    marginal = _export_marginal_cost(streaming, floor)
+    assert marginal < CHILD_EXPORT_COST_BYTES, (
+        f"the export itself cost {marginal / 1e6:.1f} MB "
+        f"({marginal / PAGE_BITMAP_BYTES:.2f} page bitmaps) in the capped "
+        f"child — the streaming child's {streaming.report['resident'] / 1e6:.1f} MB "
+        f"less the floor child's {floor.report['resident'] / 1e6:.1f} MB — "
+        f"against a bound of {CHILD_EXPORT_COST_IN_PAGES} page bitmaps "
+        f"({CHILD_EXPORT_COST_BYTES / 1e6:.0f} MB). The export, not the "
+        "interpreter, has grown into the cap, so this test's verdict is no "
+        "longer about the export's shape"
+    )
+    return marginal
+
+
+def _assert_the_streaming_child_fitted(
+    child: CappedChild, floor: CappedChild
+) -> None:
     """Half one: the 150-puzzle book really exported, under the cap, with room."""
     assert child.returncode == 0, (
         f"the streaming export died under the {child.mechanism} cap of "
@@ -948,12 +1068,18 @@ def _assert_the_streaming_child_fitted(child: CappedChild) -> None:
         f"{child.report['page_count']} pages, not {CORPUS_PAGE_COUNT} — the "
         "page count is read back out of the file it wrote, never from the plan"
     )
-    resident = child.report["resident"]
-    assert resident * CHILD_HEADROOM < CHILD_CAP_BYTES, (
-        f"the streaming child peaked at {resident / 1e6:.1f} MB against a "
-        f"{CHILD_CAP_BYTES / 1e6:.0f} MB cap — under {CHILD_HEADROOM}x of "
-        "headroom, so this test's verdict has started to depend on the "
-        "interpreter's footprint rather than on the export's shape"
+    marginal = _assert_the_export_fitted_with_room(child, floor)
+    # Printed, not only asserted: AC-5 records this margin from full-suite runs
+    # (``-rP`` shows it for a passing test), which is how a drift like the one
+    # CARD-237 fixed is seen coming next time instead of arriving as a red gate.
+    print(
+        f"CARD-237 margin [{child.mechanism}]: export "
+        f"{marginal / PAGE_BITMAP_BYTES:.2f} page bitmaps "
+        f"({marginal / 1e6:.1f} MB) of a {CHILD_EXPORT_COST_IN_PAGES}-bitmap "
+        f"bound; floor {floor.report['resident'] / PAGE_BITMAP_BYTES:.2f} "
+        f"({floor.report['resident'] / CHILD_CAP_BYTES:.1%} of the cap, "
+        f"{CHILD_FLOOR_SHARE:.0%} permitted); streaming total "
+        f"{child.report['resident'] / 1e6:.1f} MB"
     )
 
 
@@ -1046,18 +1172,22 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
         under the kernel's bound instead.
 
         **Why this is not a flake.** The cap is 32 page bitmaps; the streaming
-        child measures ~7.88 of them (CARD-198: up from 5.97-6.73 on the
-        smaller corpus) and the list shape needs ~305.8. Both margins are
-        re-measured on every run, not trusted: the streaming
-        child's headroom is asserted (:data:`CHILD_HEADROOM`), the platform's
-        own floor is measured first and skips the test if it has grown into
-        the cap (:func:`_habitable`), and the list child is required to die
-        *by the cap* — the sentry's exit status and its marker on stderr —
-        rather than merely to fail.
+        child measures ~7.80 of them (CARD-198: up from 5.97-6.73 on the
+        smaller corpus) and the list shape needs ~307. Both margins are
+        re-measured on every run, not trusted: the **export's own** cost —
+        the streaming child's resident set less the floor child's, which is
+        the half of that figure this code owns — is asserted
+        (:data:`CHILD_EXPORT_COST_IN_PAGES`, CARD-237: the assertion used to
+        be on the child's total, which drifts with CPython rather than with
+        the export and so returned a false red on most full-suite runs), the
+        platform's own floor is measured first and skips the test if it has
+        grown into the cap (:func:`_habitable`), and the list child is
+        required to die *by the cap* — the sentry's exit status and its marker
+        on stderr — rather than merely to fail.
         """
-        streaming, materialised = _the_pair_under_one_cap(SENTRY_MECHANISM)
+        floor, streaming, materialised = _the_pair_under_one_cap(SENTRY_MECHANISM)
 
-        _assert_the_streaming_child_fitted(streaming)
+        _assert_the_streaming_child_fitted(streaming, floor)
 
         assert materialised.returncode == CHILD_OVER_CAP_EXIT, (
             "the list shape did not die of the cap: it ended with "
@@ -1103,9 +1233,9 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
                 "version of it is NOT run on this machine."
             )
 
-        streaming, materialised = _the_pair_under_one_cap(RLIMIT_MECHANISM)
+        floor, streaming, materialised = _the_pair_under_one_cap(RLIMIT_MECHANISM)
 
-        _assert_the_streaming_child_fitted(streaming)
+        _assert_the_streaming_child_fitted(streaming, floor)
 
         died = materialised.returncode != 0
         refused = (
@@ -1218,6 +1348,274 @@ class TestBookPdfMemory_RealBookExportsUnderTheCap:
             f"{corpus_export.seconds:.1f}s — progress reporting (CARD-145 item 4) "
             "was deferred on the measurement that this is a seconds-long request"
         )
+
+
+# --------------------------------------------------------------------------
+# CARD-237 — the guard above measures the export, and still has teeth
+# --------------------------------------------------------------------------
+#
+# The two tripwires that decide whether the capped pair's verdict means
+# anything — :func:`_assert_the_export_fitted_with_room` and
+# :func:`_habitable`'s skip — are themselves tested here, because CARD-237 is
+# a card about one of them having measured the wrong quantity for two releases
+# without anyone noticing until it went red.
+#
+# The real children are expensive, so only the test that *must* see the real
+# numbers (AC-1) spawns them, through the same ``lru_cache`` the capped tests
+# use, and without the 7.8 GB list child. Everything that needs a resident set
+# this host does not happen to have — an inflated floor, an inflated export —
+# constructs a :class:`CappedChild` with that figure in it and hands it to the
+# guard directly. The guard is a pure function of two reports, so the
+# construction is the honest seam: no monkeypatching of the measurement path,
+# and nothing injected anywhere the real test can reach it.
+
+
+def _a_child_reporting(shape: str, resident: int, **extra: Any) -> CappedChild:
+    """A :class:`CappedChild` carrying a stated resident set, for the guard tests.
+
+    Not a stub of the measurement — a *constructed figure* the pure guard is
+    asked to judge, so a resident set this machine does not produce (a floor
+    that has swallowed the cap, an export that has regressed to the list
+    shape's order) can still be judged. Nothing here reaches
+    :func:`_capped_child`.
+    """
+    report: Dict[str, Any] = {
+        "shape": shape,
+        "outcome": "drawn" if shape == BASELINE_SHAPE else "written",
+        "imported": 62_500_000,
+        "resident": resident,
+        "cap": CHILD_CAP_BYTES,
+        "mechanism": SENTRY_MECHANISM,
+    }
+    if shape == BASELINE_SHAPE:
+        report["page_bytes"] = PAGE_BITMAP_BYTES
+    else:
+        report["page_count"] = CORPUS_PAGE_COUNT
+        report["file_bytes"] = 117_589_739
+    report.update(extra)
+    return CappedChild(
+        shape=shape,
+        mechanism=SENTRY_MECHANISM,
+        returncode=0,
+        report=report,
+        stderr="",
+        seconds=0.0,
+    )
+
+
+class TestMemoryGuard_HeadroomIsMeasuredAgainstTheFloor:
+    """AC-1: the tripwire's quantity is the export's cost, not the child's total.
+
+    Checked two ways, because either alone is weak. First on the **real** pair
+    from this run — the same floor child :func:`_habitable` already spawns and
+    the same streaming child the capped test judges — asserting that the figure
+    the guard returns is the difference between the two residents and that the
+    difference is materially smaller than the total. Then behaviourally, on two
+    constructed pairs with **identical streaming totals** and different floors:
+    a bound on the total could not tell them apart, and this one gives them
+    opposite verdicts.
+    """
+
+    def test_the_guard_reports_the_difference_between_the_two_children(self):
+        floor = _habitable(SENTRY_MECHANISM)
+        streaming = _capped_child(STREAMING_SHAPE, SENTRY_MECHANISM)
+        assert streaming.report is not None, (
+            f"the streaming child did not report: {streaming.outcome}, "
+            f"{streaming.stderr.strip()[-300:]!r}"
+        )
+
+        marginal = _assert_the_export_fitted_with_room(streaming, floor)
+
+        assert marginal == streaming.report["resident"] - floor.report["resident"], (
+            "the guard asserted on something other than the export's marginal "
+            f"cost: it reported {marginal} B where the two children measured "
+            f"{streaming.report['resident']} B and {floor.report['resident']} B"
+        )
+        assert marginal > 0, (
+            "the export's marginal cost came out non-positive "
+            f"({marginal} B) — the floor child is not a floor under this "
+            "streaming child, so the subtraction means nothing"
+        )
+        assert floor.report["resident"] > PAGE_BITMAP_BYTES, (
+            f"this host's floor is {floor.report['resident'] / 1e6:.1f} MB, "
+            "under one page bitmap — if the floor were really that small the "
+            "total and the marginal cost would be the same number and AC-1 "
+            "would be vacuous here"
+        )
+        assert marginal < streaming.report["resident"] - PAGE_BITMAP_BYTES
+
+    def test_two_children_with_the_same_total_get_opposite_verdicts(self):
+        """The same streaming total, two floors — so only the marginal can decide."""
+        total = 30 * PAGE_BITMAP_BYTES  # just inside the cap, in both pairs
+        small_floor = _a_child_reporting(BASELINE_SHAPE, 10 * PAGE_BITMAP_BYTES)
+        large_floor = _a_child_reporting(BASELINE_SHAPE, 20 * PAGE_BITMAP_BYTES)
+        streaming = _a_child_reporting(STREAMING_SHAPE, total)
+
+        # 20 page bitmaps of export, over the bound: the export is the problem.
+        with pytest.raises(AssertionError, match="the export itself cost"):
+            _assert_the_export_fitted_with_room(streaming, small_floor)
+
+        # 10 page bitmaps of export under the very same total: fine.
+        assert (
+            _assert_the_export_fitted_with_room(streaming, large_floor)
+            == 10 * PAGE_BITMAP_BYTES
+        )
+
+
+class TestMemoryGuard_InterpreterGrowthDoesNotTripTheGuard:
+    """AC-2: the drift that produced CARD-237's false red no longer produces one.
+
+    The floor is inflated to just under the most :data:`CHILD_FLOOR_SHARE`
+    permits — 201.96 MB, i.e. the largest footprint under which this test will
+    still render a verdict at all — while the export's cost is the one this
+    host actually measured. The old tripwire asserted
+    ``resident * 3 < CHILD_CAP_BYTES``, so it is computed here too and shown to
+    fail on exactly this pair: that is the false red, reproduced, and then not
+    reproduced by the guard that replaced it.
+    """
+
+    def test_a_floor_at_the_edge_of_the_share_still_passes(self):
+        real_floor = _habitable(SENTRY_MECHANISM)
+        real_streaming = _capped_child(STREAMING_SHAPE, SENTRY_MECHANISM)
+        measured_export = _export_marginal_cost(real_streaming, real_floor)
+
+        grown_floor_bytes = int(CHILD_CAP_BYTES * CHILD_FLOOR_SHARE) - 1
+        grown_floor = _a_child_reporting(BASELINE_SHAPE, grown_floor_bytes)
+        same_export = _a_child_reporting(
+            STREAMING_SHAPE, grown_floor_bytes + measured_export
+        )
+
+        old_tripwire_quantity = same_export.report["resident"] * 3
+        assert old_tripwire_quantity > CHILD_CAP_BYTES, (
+            "this pair no longer reproduces CARD-237's false red: a floor of "
+            f"{grown_floor_bytes / 1e6:.1f} MB carrying a measured export of "
+            f"{measured_export / 1e6:.1f} MB totals "
+            f"{same_export.report['resident'] / 1e6:.1f} MB, which the old 3x "
+            "bound on the total would have accepted — so AC-2 proves nothing"
+        )
+
+        assert (
+            _assert_the_export_fitted_with_room(same_export, grown_floor)
+            == measured_export
+        )
+
+
+class TestMemoryGuard_StillFailsWhenTheExportItselfRegresses:
+    """AC-3: the new bound catches a real regression — it does not tolerate all.
+
+    Three regressions, at three sizes, so the bound is shown to have teeth and
+    to have them where they matter rather than only against the absurd case:
+    the list shape's own order of magnitude, a shape that retains a *fraction*
+    of the book's pages, and one byte over the bound. All three are measured
+    against a floor at the *largest* footprint the floor-share guard permits,
+    so none of them can be caught merely by the total having grown — each one
+    is caught by the export's own term, which is the only thing that changed.
+    """
+
+    @staticmethod
+    def _floor_and_export(marginal: int) -> Tuple[CappedChild, CappedChild]:
+        floor_bytes = int(CHILD_CAP_BYTES * CHILD_FLOOR_SHARE) - 1
+        return (
+            _a_child_reporting(BASELINE_SHAPE, floor_bytes),
+            _a_child_reporting(STREAMING_SHAPE, floor_bytes + marginal),
+        )
+
+    def test_an_export_at_the_list_shapes_order_of_magnitude_fails(self):
+        """The regression this whole file exists to catch: every page retained."""
+        floor, regressed = self._floor_and_export(
+            CORPUS_PAGE_COUNT * PAGE_BITMAP_BYTES
+        )
+
+        with pytest.raises(AssertionError) as refused:
+            _assert_the_export_fitted_with_room(regressed, floor)
+
+        assert "the export itself cost" in str(refused.value)
+        assert f"{CORPUS_PAGE_COUNT}.00 page bitmaps" in str(refused.value)
+
+    def test_an_export_that_retains_a_fraction_of_the_book_fails(self):
+        """Not only the absurd case: 20 of 307 pages retained is already red.
+
+        Measured against the export this host really costs, so the regression
+        is the retention and nothing else. 20 pages is 6.5 % of the book — two
+        orders of magnitude short of the list shape, and the bound still bites.
+        The smallest retention it bites on, from the same measurement, is
+        reported by the assertion below if it ever stops being far smaller
+        than the book.
+        """
+        retained = 20
+        real = _export_marginal_cost(
+            _capped_child(STREAMING_SHAPE, SENTRY_MECHANISM),
+            _habitable(SENTRY_MECHANISM),
+        )
+        smallest_caught = (CHILD_EXPORT_COST_BYTES - real) / PAGE_BITMAP_BYTES
+        assert smallest_caught < retained < CORPUS_PAGE_COUNT / 10, (
+            f"on this host the bound first bites at {smallest_caught:.1f} "
+            f"retained pages of {CORPUS_PAGE_COUNT}; this test's {retained} is "
+            "no longer the modest regression it is written to be"
+        )
+        floor, regressed = self._floor_and_export(
+            real + retained * PAGE_BITMAP_BYTES
+        )
+
+        with pytest.raises(AssertionError, match="the export itself cost"):
+            _assert_the_export_fitted_with_room(regressed, floor)
+
+    def test_the_bound_is_where_the_constant_says_it_is(self):
+        """One byte either side of :data:`CHILD_EXPORT_COST_BYTES`."""
+        under_floor, under = self._floor_and_export(CHILD_EXPORT_COST_BYTES - 1)
+        over_floor, over = self._floor_and_export(CHILD_EXPORT_COST_BYTES)
+
+        assert (
+            _assert_the_export_fitted_with_room(under, under_floor)
+            == CHILD_EXPORT_COST_BYTES - 1
+        )
+        with pytest.raises(AssertionError, match="the export itself cost"):
+            _assert_the_export_fitted_with_room(over, over_floor)
+
+
+class TestMemoryGuard_StillSkipsWhenTheFloorSwallowsTheCap:
+    """AC-4 / G-3: the self-invalidation mechanism is retained, not replaced.
+
+    CARD-237 moved the tripwire's quantity, and the obvious way to get that
+    wrong is to leave the test able to render a verdict on a platform whose own
+    footprint has eaten the cap — because a marginal cost stays small however
+    large the floor grows. It must not: over :data:`CHILD_FLOOR_SHARE`,
+    :func:`_habitable` skips, with the message it already had.
+
+    The floor child is replaced here rather than constructed around, because
+    the skip lives inside :func:`_habitable` and that is the one place the
+    measurement is reached from.
+    """
+
+    def test_a_floor_over_the_share_skips_with_its_existing_message(
+        self, monkeypatch
+    ):
+        swollen = int(CHILD_CAP_BYTES * CHILD_FLOOR_SHARE) + 1
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "_capped_child",
+            lambda shape, mechanism: _a_child_reporting(BASELINE_SHAPE, swollen),
+        )
+
+        with pytest.raises(pytest.skip.Exception) as skipped:
+            _habitable(SENTRY_MECHANISM)
+
+        message = str(skipped.value)
+        assert "this platform's floor (interpreter, imports and one page) is" in message
+        assert f"over {CHILD_FLOOR_SHARE:.0%} of the" in message
+        assert "AC-2's executed half is NOT run here" in message
+        assert f"{swollen / 1e6:.1f} MB" in message
+
+    def test_a_floor_just_under_the_share_does_not_skip(self, monkeypatch):
+        """The skip is a bound, not a blanket: one byte under it, the test runs."""
+        permitted = int(CHILD_CAP_BYTES * CHILD_FLOOR_SHARE) - 1
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "_capped_child",
+            lambda shape, mechanism: _a_child_reporting(BASELINE_SHAPE, permitted),
+        )
+
+        assert _habitable(SENTRY_MECHANISM).report["resident"] == permitted
 
 
 # --------------------------------------------------------------------------
