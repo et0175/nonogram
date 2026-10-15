@@ -269,3 +269,34 @@ CARD-221, that "the generated title cover still reads the host's Arial at
    cover AC-5 asks for. Both branches are documented and tested; if the owner
    would rather have tabs folded to spaces, that is a title-normalisation
    decision for the Finalise screen, not for the drawing code.
+
+- [Build gate] PASSED (full, 1026s) — 7123 passed, 84 skipped, 0 failed, under the repo
+  full-suite lock (acquired 09:35:45Z after a 735 s wait behind CARD-235's solo profile,
+  released 09:52:55Z). Not vacuous: 7123 tests executed.
+  ⚠ Honest discrepancy with the implementation agent's report, which said "4 pre-existing
+  skips": this run skipped 84. `DATABASE_URL` is unset on this host, so the DB-mode tests
+  skip green — the known project condition. Pre-existing and not caused by this card, and
+  none of CARD-234's own six ACs rests on a DB-mode test (they are all cover rendering), so
+  no AC is silently unverified by it. Recorded because a skip count that moves by 80 between
+  two reports of the "same" green suite is exactly the kind of thing that should not pass
+  without a sentence.
+- [System contract] section stale — refreshed from the model, but NARROWED deliberately, and
+  the narrowing is the point rather than a shortcut:
+  * The lens (`system_rules.py --card CARD-234`) returned **52 rules**. That is scope-glob
+    breadth, not applicability: this card's `Touches:` now includes `src/nonogram/cli.py` and
+    `src/nonogram/errors.py`, which match wide globs like `src/nonogram/**`, so rules about the
+    solver's uniqueness property (CON-005), interactive play (CON-021) and the interior's type
+    floor (CON-020) all matched a card that changes a cover font. Injecting 52 would buy 52
+    shallow verdict lines.
+  * **+ADR-0019/R1 (added, and a real catch the card's section missed):** the import-direction
+    rule — no capability module may import `cli.py` — is directly applicable precisely because
+    this card was forced to add a row to `cli.py` and a class to `errors.py`. Guard:
+    `test_every_import_in_the_package_points_inward`.
+  * **+ADR-0036/R1 (added):** `compute_layout` without a PageSpec yields today's A4 geometry and
+    CLI/web output stays byte-identical — the sibling of CON-019 the card already names.
+  * **CON-019 KEPT against the lens, which omitted it.** The procedure says a removed rule must
+    stop being enforced, and that is right for a supersession — but this is a scope-glob miss,
+    not a supersession: CON-019's own text says it exists "so forge:review checks it on every
+    diff touching export/ or the book PDF", and this is a book-PDF diff. Enforcing it is
+    following the rule, not overriding the tool.
+  Injected floor for review: ADR-0006/R1, CON-019, INV-013, ADR-0036/R2, ADR-0019/R1, ADR-0036/R1.
