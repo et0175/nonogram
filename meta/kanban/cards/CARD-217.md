@@ -1,6 +1,6 @@
 # CARD-217: Profile the suite once, serialized, and commit the duration record the curation cards work from
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,16 +9,16 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/217-suite-duration-profile
-**Worktree:** —
+**Worktree:** ../PythonProject4-CARD-217
 **Source:** owner request 2026-10-13 ("make cards for tests curation"), after the dispatcher's own cost analysis of `meta/kanban/suite-timing.log`
 **Idea:** —
-**Wave:** —
+**Wave:** 39
 **Created wave:** 37
 **Deferred waves:** 0
 **Depends on:** —
 **Touches:** meta/profiling/, meta/kanban/suite-timing.log, tests/README.md
-**Review score:** —
-**Started:** —
+**Review score:** 9.0/10 (cycle 1/3) — clears the gate; 0 critical, 0 important, 8 minor. The reviewer re-derived every headline number independently and confirmed the conclusion.
+**Started:** 2026-10-15T06:45:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -150,3 +150,354 @@ so the next person does not re-derive it.
   `test_book_pdf_memory.py:1225-1290`). The real duplication is duplicated
   *rendering*, not duplicated fixtures — which is what this card measures.
 
+### Implementation agent's own records (verbatim, synced from the worktree 2026-10-15, all cycles)
+
+- [Finding, 2026-10-13, before the card ran] The "retire the superseded golden
+  baselines" idea was checked and **rejected as a cost measure**: all 13
+  predecessor fixtures (`book_baseline_card128` … `card203`) are referenced
+  only from docstrings and comments. The single file actually loaded is
+  `tests/helpers/book_corpus.BASELINE_FIXTURE` (`load_baseline()`,
+  `book_corpus.py:484`), currently `book_baseline_card203.json`. Deleting the
+  predecessors would save zero seconds and would destroy deliberately-kept
+  provenance (each fixture carries its own `warning` field forbidding
+  regeneration, and the chain is documented in
+  `test_book_pdf_memory.py:1225-1290`). The real duplication is duplicated
+  *rendering*, not duplicated fixtures — which is what this card measures.
+
+### The run (2026-10-15)
+
+930.81 s wall (`/usr/bin/time -p`: real 930.81, user 524.45, sys 71.86),
+7073 passed / 9 skipped / 0 failed, 7082 tests timed, exit 0. **Solo: yes.**
+Checked `ps` before (05:18:57Z) and after (05:34:45Z) — no other suite either
+time; `meta/kanban/.full-suite.lock` was absent beforehand, held by this run
+throughout, and released afterwards. Ran in the worktree, whose tree is
+byte-identical to main at `56c716e` (`git diff --stat 56c716e HEAD` empty).
+931 s sits between the two cleanest prior gates (CARD-212 1123 s, CARD-221
+939 s), so the number is a normal one for this host.
+
+A macOS management sweep + Spotlight re-index overlapped ~05:24–05:28Z (1-min
+load peaked ~140, pytest's CPU share fell 76 %→25 %). No competing *suite*.
+Recorded in the artefact header because it biases I/O-bound tests upward —
+which favours the render hypothesis, and the render hypothesis still lost, so
+the conclusion is safe in the direction that matters.
+
+### The answer (AC-3)
+
+**Neither hypothesis.** Between the two the render hypothesis is the stronger
+(21.23 % vs 15.23 %), but both are dwarfed by a family the card did not name:
+
+| group | time | share |
+|---|---|---|
+| `tests/test_puzzle_solver_*.py` (12 files, Chromium via a shared `browser_page` fixture) | **366.19 s** | **39.78 %** |
+| render-heavy frozen set (29 paths) | 195.42 s | 21.23 % |
+| `tests/property/*` | 140.19 s | 15.23 % |
+| …counted in both of the above | 70.75 s | 7.68 % |
+| render ∪ property (the card's two hypotheses together) | 264.86 s | 28.77 % |
+| admin-local script trio | 117.16 s | 12.73 % |
+
+Browser tests cost **868 ms** each; everything else costs **83 ms** — a
+**10.4×** gap. Wave 30 was 68 ms/test overall; the non-browser suite today is
+83 ms/test, i.e. barely slower. All twelve browser files were first committed
+2026-10-03T08:32Z … 2026-10-08T07:28Z, *after* the wave-30 run, and they hold
+69 % of the +533 s growth while being 34 % of the +1224 new tests. The
+"marginal test costs 5× the average" effect is one family, not a trend.
+
+Also: **96 % of the suite's teardown (137.97 s of 144.37 s) is that family**,
+~0.33 s per test with no single test above 0.52 s — per-test browser-page
+teardown, invisible in any "slowest tests" list.
+
+### Notes for CARD-218/219/220
+
+1. Biggest prize by far is the browser family (39.8 %, and 96 % of teardown).
+   The lever is fixture scope / fewer page tear-downs, not rewriting tests.
+2. Second: `tests/property/test_book_pdf_geometry.py` — 48.66 s in **four**
+   tests, the densest spot in the suite.
+3. The corpus hypothesis is largely a restatement of the render one; over half
+   its time is render-heavy too. Not a separate line of work.
+4. Fourth target: the admin-local script trio, 117.16 s / 83 tests of pure
+   subprocess spawning.
+5. No single test is worth deleting: slowest is 30.94 s (3.4 %); 6057 tests
+   finish under 0.1 s and hold 7.4 % between them.
+
+### Things found along the way
+
+- **The card's own command is subtly wrong.** `pyproject.toml` already sets
+  `addopts = "-q"`, so `-q` on the command line makes it `-qq`, at which
+  pytest prints **no** `N passed … in Xs` summary line at all. The counts and
+  wall clock had to come from `/usr/bin/time` and from counting node ids. The
+  artefact header carries them, and `rank_durations.py` falls back to the
+  header when the body has no summary. Documented in `tests/README.md`.
+- **`--durations=0` is not enough.** pytest still hides anything under its
+  0.005 s floor; across ~7000 tests that tail is big enough to distort every
+  per-file share. `--durations-min=0` was added. Still stock pytest (G-2).
+- **The card's "19 render-heavy files" is 29** (27 test modules + 2 helpers)
+  by the grep the card itself describes. The larger set is what was measured,
+  so 21.23 % is if anything generous to the render hypothesis.
+- `meta/kanban/suite-timing.log` is gitignored by `.gitignore`'s blanket
+  `*.log`, so it is **appended but not committed**, and a fresh worktree has
+  none. The main checkout's copy was copied into the worktree so the two
+  AC-5 tests that read it would actually run instead of skipping green.
+
+### Guardrails
+
+G-1 holds: no test edited, deleted, skipped or reordered. The suite's
+7073/9 is identical to the CARD-221 gate on this same tree. This card *adds*
+one new file, `tests/test_suite_profile.py` (74 tests, 0.47 s), so the next
+gate should read ~7147 passed. G-2: no new dependency. G-3: `tests/fixtures/**`
+untouched. G-4: `tests/README.md` gained one section, nothing rewritten.
+
+### Mutants (13 applied, 13 killed, 0 survivors)
+
+Harness patches `rank_durations.py`, runs `tests/test_suite_profile.py`,
+restores. M1 drop the rank tie-break → `test_equal_durations_break_ties…`;
+M2 `missing_header_fields`→`[]` and M3 `is_admissible_profile`→`True` → the
+AC-4 header tests; M4 `other_pytest_processes`→`[]` → `test_detects_a_competing_suite`;
+M5 `parse_header` doesn't stop at the table →
+`test_a_comment_below_the_table_cannot_supply_a_header_field`; M6 node-id
+regex `\S+` → `test_parametrised_ids_containing_spaces_survive_parsing`;
+M7 render set ignored → `test_render_share_counts_only_the_frozen_set`;
+M8 status regex `\w+` → `test_known_bad_lines_are_rejected`; M9 file rows
+count phase records → `test_file_rows_count_tests_not_phase_records`;
+M10 TOP_TESTS/TOP_FILES→10/5 → `test_report_lists_fifty_tests_and_twenty_files`;
+M11 drop the header fallback → `test_header_is_used_when_the_body_has_no_summary`;
+M12 `malformed_timing_lines` stops exempting comments →
+`test_malformed_detector_finds_the_bad_line_among_good_ones`; M13
+`timing_log_entries` keeps unparseable lines →
+`test_a_commented_out_entry_is_not_counted_in_the_log`.
+
+Two earlier mutants were **equivalent** and were replaced rather than left as
+false survivors: removing the `^` from `TIMING_LOG_LINE` (redundant — the
+pattern is used with `.match()`, which anchors at position 0 anyway) and
+removing `parse_timing_line`'s blank/comment guard (redundant with that same
+anchoring). Each masked the other, and removing both together still changed
+nothing observable. M12/M13 above target the guard in `malformed_timing_lines`
+and the filter in `timing_log_entries`, which are load-bearing.
+
+Three real bugs were caught by these tests before hand-off: the `ps` matcher
+fired on `tail -f pytest-output.log` (`pytest\b` matches before a hyphen —
+now `(?:\s|$)`); the three-phases assertion ignored the 8 tests skipped at
+setup, which carry only setup+teardown; and the module loader tripped
+`@dataclass` by not registering the module in `sys.modules` first.
+
+
+## Fix cycle 1 (review 9.0, four of eight minors)
+
+**N-003 — the landmine.** `test_exactly_one_artefact_is_committed` asserted
+there is exactly one `suite-durations-*.txt`, which would have gone red the
+first time CARD-218/219/220/235/236 committed its own re-profile — the very
+thing each is instructed to do. It also contradicted the dated naming
+convention and this file's own `found[-1]` fixture. Replaced by four tests
+saying what was actually meant:
+
+- `test_at_least_one_artefact_is_committed`
+- `test_every_committed_artefact_is_well_formed` — parametrised over *every*
+  artefact: header complete, admissible, >6000 tests
+- `test_every_artefact_has_a_hotspots_document` — the date-pairing rule
+- `test_the_latest_artefact_is_the_one_the_hotspots_document_cites` — the
+  real risk a multi-profile future introduces is a hotspots document quietly
+  describing a superseded run, so the document must cite its source's sha256
+
+Verified by scenario, not assertion. With a consistent second profile present
+(`suite-durations-20261120.txt` + its hotspots doc) the file goes **81 passed**
+— the parametrised tests simply expand to cover both. Removing that second
+hotspots doc, or pointing it at the wrong sha, each reds
+`test_the_latest_artefact_is_the_one_the_hotspots_document_cites`. The
+scenario files were deleted; `git status --porcelain` confirms nothing left.
+
+**N-002 — the unpinned constant.** `RENDER_HEAVY_SNAPSHOT` decides the
+21.23 % that CARD-218/219 are now sized against, and dropping a path from it
+survived all 74 tests. `--verify-render-set` already existed and nothing
+called it. Added `test_the_frozen_render_set_still_matches_the_grep_that_
+defines_it`, which calls `regrep_render_set(tests/)` and requires exact
+agreement, plus `test_the_frozen_render_set_is_sorted_and_duplicate_free`.
+New mutants **M14** (drop `tests/test_book_toc.py` from the snapshot) and
+**M15** (unsort it) are both killed. Suite-wide: **15 mutants, 15 killed, 0
+survivors.**
+
+**N-001 — the contention argument was backwards.** The old caveat claimed the
+sweep biased I/O-bound tests upward and so favoured the render hypothesis,
+which lost. Wrong way round: the render set is in-process CPU work (176.82 s
+call, 0.03 s teardown) while the **browser family is the wait-bound one**
+(137.97 s of teardown blocked on another process), so CPU starvation inflates
+the *winner*. Rewritten in both the hotspots document and the artefact header
+around the two things that actually settle it:
+
+- magnitude bound — ~4 min at 25 % rather than 76 % of a core is at most
+  ~161 s of excess across the whole suite, against the **170.77 s** the
+  family would have to shed to fall behind the render set (366.19 → 195.42);
+- per-test teardown across all 422 browser tests — mean 0.327 s, median
+  0.370 s, stdev 0.144 s, max 0.520 s, per-file means 0.198–0.413 s,
+  histogram bimodal (41-test cluster near zero, main mass 0.3–0.5 s with
+  no tail and a hard 0.520 s maximum). A four-minute
+  stall would have left a cluster of outliers. There is none, so the cost is
+  structural.
+
+**N-007 — two quotable figures.** The browser files' commit range ends
+**2026-10-08T07:28Z**, not 04:19Z (I had sorted `+03:00` timestamps
+lexically; the load-bearing "all after the wave-30 run" claim is unaffected).
+And `tests/README.md`'s worked log line read 1071 s / 151 ms per test against
+a real run of **931 s / 131 ms** — wrong arithmetic in the one document that
+teaches the next person to re-measure. Both corrected, and the worked line's
+timestamp aligned to the real 05:34:34Z.
+
+Editing the artefact header changed its sha256
+(`483c06b8…` → `7d204cf9…`); the hotspots document's citation was updated and
+all 70 embedded ranking rows re-diffed against the script's stdout — identical.
+
+**Also taken, unprompted (review bonus).** The browser family is defined
+conservatively: three more files drive the same `browser_page` fixture
+(`test_books_list_mobile.py` 4.71 s, `test_book_finalise_guide_preview_
+layout.py` 2.78 s, `test_book_setup_print_mobile.py` 1.62 s), taking it to
+375.30 s / **40.77 %**. Recorded as a caveat; the headline 39.78 % is the
+floor and the margin is wider than stated, so no figure needed restating.
+
+### Left open deliberately (per the coordinator)
+
+- **N-004 — the file-share denominator is unpinned.** Real. Pinning derived
+  shares is a design decision (which denominator is canonical, and what a
+  future profile's shares are comparable *to*) and should not be rushed into
+  a measurement card. Note for whoever takes it: `_pct` currently divides by
+  attributed time, and the document says so at the point of use, so the
+  present numbers are unambiguous — the gap is that nothing stops a later
+  edit switching denominators silently.
+- **N-005 — AC-5's two log tests skip off-host.** `meta/kanban/suite-timing.log`
+  is gitignored (`*.log`), so a fresh checkout has none. Disclosed in the
+  commit message and worked around by copying the main checkout's copy into
+  the worktree so they run here. The format-contract tests (known-good /
+  known-bad corpora, malformed detector) always run everywhere and carry the
+  teeth; only the two "read the real log" tests are conditional.
+- **N-006 — the admissibility check is blind to the contention that actually
+  happened, and nothing calls it at profile time.** A known limit of the
+  method: `is_admissible_profile` only reads what the header *claims*, and
+  `other_pytest_processes` only sees competing **pytest** processes — neither
+  would have noticed this run's macOS sweep, which was the contention that
+  mattered. The solo-run guarantee is therefore "no competing suite", not "a
+  quiet host"; the host-load caveat is prose, checked by a human, not a test.
+  Anyone automating the next profile should sample load during the run rather
+  than trusting the header.
+- N-008 is a labelling point already handled by the existing labels.
+
+## Fix cycle 2 (AC/EC/G gate — four small things)
+
+**F-1 — nothing pinned the document's *body*.** The sha256 citation pins
+*which* artefact a document derives from; it says nothing about *what the
+document claims*. The gate proved it: rewriting the headline in the prose
+(366.19 → 166.19 s, 39.78 → 19.78 %) shipped 79 passed. Closed at the source,
+because the real gap was that the deciding table had never come from the
+committed script at all — only the three rankings had. The table was
+hand-computed in a throwaway analysis script, which is precisely what this
+card exists to stop.
+
+`rank_durations.py` now defines the cost families
+(`BROWSER_FAMILY_PREFIX`, `PROPERTY_PREFIX`, `ADMIN_LOCAL_TRIO`) and a
+`group_totals()` that emits the deciding table as a report section. Every
+figure in the conclusion is now derived, and the document quotes the block
+verbatim. Three tests pin it:
+
+- `test_hotspots_ranking_rows_are_the_scripts_own_output` — the gate's
+  suggested row diff, taken as offered
+- `test_hotspots_embeds_the_deciding_table_verbatim`
+- `test_hotspots_headline_figures_are_the_scripts_own_output`
+
+The third went through two wrong shapes before landing. "Figure appears
+somewhere in the document" let the gate's own mutant survive, because
+falsifying one of two copies leaves the other standing. "Every line stating
+the figure carries its share" was too strict and red on honest prose — a
+sentence may legitimately quote `366.19 s` beside a *different* statistic
+("69 % of the entire +533 s"), and demanding the share there would be wrong.
+What landed is an invariant instead of a lookup: **every seconds/share pair
+stated in a markdown table row must be internally consistent with the
+attributed denominator**, plus a presence check so a row cannot be deleted to
+dodge it. Both columns would have to be forged in agreement to survive, and
+forging them in agreement means stating the truth.
+
+Mutants, all against the committed document unless noted: F1-a falsified
+prose headline **killed**; F1-a2 falsified deciding-table (bolded) copy
+**killed**; F1-a3 falsified figure inside the verbatim block **killed**;
+F1-b falsified ranking row **killed**; F1-c `_pct` denominator perturbed 1 %
+(script) **killed by two tests**. F1-a4 — deleting the split-table row while
+the deciding table still states the figure truthfully — **survives, and
+should**: that is removing a redundant restatement, not falsifying anything.
+Deleting *both* markdown statements is caught (verified). Script mutants
+re-run: **15/15 killed, 0 survivors**; `git status --porcelain -- src tests`
+clean after every run.
+
+Boundary stated plainly: free prose is not pinned to the numbers, only table
+rows and the quoted block are. Pinning narrative text would forbid the
+legitimate case above, and the numbers a follow-on card acts on live in the
+tables and the block.
+
+**F-2 — the citation test only checked `found[-1]`.** Parametrised over
+`_artefacts()` like its sibling and renamed
+`test_every_hotspots_document_cites_its_own_artefact`. Harmless with one
+artefact; live the moment CARD-218 commits the second, which is the future
+N-003 was reframed around — a stale citation on the *older* pair would
+otherwise never be looked at again.
+
+**F-3 — `rank_files`'s tie-break was unpinned** while the identical one in
+`rank_tests` was pinned by M1. Added
+`test_equal_file_totals_break_ties_on_path_not_on_dict_order`. Not a live
+determinism hole (`sorted` is stable over an insertion order that is itself a
+pure function of the artefact), but an untested asymmetry between two
+functions that must behave identically is how determinism quietly stops being
+true.
+
+**F-4 — "unimodal" was wrong.** The histogram is
+`{0.0: 41, 0.1: 22, 0.2: 37, 0.3: 81, 0.4: 141, 0.5: 100}` — strictly
+bimodal, with a 41-test cluster near zero. The word is corrected in the
+hotspots document and here; the argument is unchanged, because the
+load-bearing half was always the main mass at 0.3–0.5 s with no tail and a
+hard 0.520 s maximum, and a bounded maximum is exactly what rules out a
+four-minute stall. The document now also notes that the near-zero cluster is
+the opposite of a contention signal: those are tests that tear nothing down.
+
+Writing the F-1 test also found a real documentation gap it was not aimed at:
+the split table's "everything else" row carried `554.44 s` and `6660` but no
+share, so `60.22 %` appeared nowhere. Added.
+
+The artefact was not touched this cycle, so its sha256 is unchanged
+(`7d204cf9…`) and the citation still holds. Zero-deletions against main is
+preserved.
+
+- [Fix cycle 2 complete] 2026-10-15 — `f9b20c8`. 83 tests in the file, 186 targeted, 15/15
+  script mutants and 5/6 document mutants killed (the sixth survives **by design**, argued
+  below). Zero deletions against main preserved: **591/0, 21305/0, 274/0, 112/0, 640/0**.
+  Merge gate should now read **~7156 passed** (7073 + 83).
+  - **F-1 was closed at the source, because the gap was bigger than the finding.** The agent
+    found that **the deciding table had never come from the committed script at all** — only
+    the three rankings had; the table was hand-computed in a throwaway analysis script, which
+    is precisely the practice this card exists to end. So `rank_durations.py` now defines the
+    cost families (`BROWSER_FAMILY_PREFIX`, `PROPERTY_PREFIX`, `ADMIN_LOCAL_TRIO`) and a
+    `group_totals()` that emits the deciding table as a report section, and the document quotes
+    that block verbatim. Every figure in the conclusion is now derived.
+  - **The third test took two wrong shapes first, and both failures are worth keeping.**
+    "The figure appears somewhere in the document" **let the mutant survive** — falsifying one
+    of two copies leaves the other standing. "Every line stating the figure carries its share"
+    **went red on honest prose** — a sentence may legitimately quote `366.19 s` beside a
+    different statistic ("69% of the entire +533 s"), and demanding the share there would be
+    wrong. What landed is an **invariant rather than a lookup**: every seconds/share pair in a
+    markdown table row must be internally consistent with the attributed denominator, plus a
+    presence check so a row cannot be deleted to dodge it. Both columns would have to be forged
+    **in agreement** to survive — and forging them in agreement means stating the truth.
+  - **Six document mutants.** Falsified prose headline, falsified ranking row, `_pct`
+    denominator perturbed 1%, falsified bolded deciding-table copy, falsified figure inside the
+    verbatim block — **all killed**. Deleting a redundant restatement while the deciding table
+    still states the figure truthfully **survives by design**, and the agent argued the boundary
+    rather than asserting it: what is pinned is table rows and the quoted block, not free
+    narrative, because pinning narrative would forbid the legitimate case above, and because the
+    numbers a follow-on card acts on live in the tables. Deleting **every** markdown statement
+    of a family *is* caught — verified explicitly rather than assumed.
+  - **F-2** `test_every_hotspots_document_cites_its_own_artefact`, parametrised over every
+    artefact. Harmless today; live the moment CARD-218 commits the second profile — a stale
+    citation on the *older* pair would otherwise never be looked at again.
+  - **F-3** the `rank_files` tie-break is pinned, with the right reasoning: not a live hole, but
+    "an untested asymmetry between two functions that must behave identically is how determinism
+    quietly stops being true".
+  - **F-4** "unimodal" -> **bimodal**, histogram quoted inline, argument unchanged — its
+    load-bearing half was always the main mass at 0.3–0.5 s with **a hard 0.520 s maximum**, and
+    a bounded maximum is exactly what rules out a four-minute stall. The document now also notes
+    the near-zero cluster is the **opposite** of a contention signal: those are tests that tear
+    nothing down.
+  - **And the new test found something nobody was looking for:** the split table's "everything
+    else" row carried `554.44 s` and `6660` but **no share**, so **60.22% appeared nowhere in
+    the document**. The presence check caught it on its first run.
