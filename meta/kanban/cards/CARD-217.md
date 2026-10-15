@@ -243,7 +243,14 @@ teardown, invisible in any "slowest tests" list.
 G-1 holds: no test edited, deleted, skipped or reordered. The suite's
 7073/9 is identical to the CARD-221 gate on this same tree. This card *adds*
 one new file, `tests/test_suite_profile.py` (74 tests, 0.47 s), so the next
-gate should read ~7147 passed. G-2: no new dependency. G-3: `tests/fixtures/**`
+gate should read ~7147 passed.
+> **[Correction, AC/EC/G gate 2026-10-15]** Superseded by fix cycle 1: the file is
+> **79 tests in 0.76 s**, so the gate should read **~7152**, and the card's own
+> closing note already says so. Left in place because this block is the agent's
+> verbatim record of what was true when it was written — but corrected here,
+> because a merge gate reads top-down and would meet the stale figure first.
+> Fix cycles must amend a superseded figure where it stands, not only append
+> the new one further down. G-2: no new dependency. G-3: `tests/fixtures/**`
 untouched. G-4: `tests/README.md` gained one section, nothing rewritten.
 
 ### Mutants (13 applied, 13 killed, 0 survivors)
