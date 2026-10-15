@@ -1,0 +1,166 @@
+version: 1
+generated_at: "2026-10-15T10:06:33Z"
+target: "CARD-234 cycle 1 — branch card/234-cover-packaged-face, commit b8b929a (worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-234)"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - src/nonogram/admin/book_pdf_generator.py
+    - src/nonogram/cli.py
+    - src/nonogram/errors.py
+    - tests/helpers/book_corpus.py
+    - tests/test_book_cover.py
+    - tests/test_book_export_interior_cover.py
+    - tests/test_cli.py
+    - "src/nonogram/admin/app.py (read-only, for error reachability + title storage)"
+    - "src/nonogram/admin/book_manager.py (read-only, title validation)"
+    - "src/nonogram/admin/templates/book_create.html (read-only, title input type)"
+  not_reached:
+    - "meta/architecture/ ADR/INV source texts (system contract taken from the injected block)"
+    - "the deployed Linux panel (host-dependence verified only by simulation)"
+  confidence: high
+
+metrics:
+  diff: { files: 7, added: 939, removed: 19 }
+  max_fan_in: { symbol: "BookPDFGenerator.create_cover_page", callers: 4 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/book_pdf_generator.py"]
+  cochange_missing:
+    - "tests/test_book_pdf_memory.py"
+    - "tests/property/test_book_export_interior.py"
+    - "src/nonogram/admin/app.py"
+    - "src/nonogram/export/layout.py"
+  unmeasured:
+    comp_spread: "not_applicable — meta/architecture/trace.yml is requirement-keyed and carries no components[].code globs (stated by the orchestrator, confirmed by not finding one)"
+
+system_contract:
+  rules_checked: 6
+  holds: 6
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — no font file and no manifest change in the diff (git diff HEAD~1 HEAD touches neither pyproject.toml nor any font asset); the cover now reads the already-packaged DejaVu via _band_font_bytes/importlib.resources. tests/test_export_pdf.py::TestDependencyBaseline_IsExactlyPillowAndNumpy and ::test_the_font_ships_as_package_data_and_not_as_a_dependency green on b8b929a."
+    - "CON-019 ✓ holds — the diff adds nothing to the CLI/web export path; tests/property/test_cli_exports_byte_identity.py::PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry green on b8b929a."
+    - "INV-013 ✓ holds — create_cover_page is still only reached through export_cover/export_book; no interior page function changed; tests/property/test_book_export_interior.py::PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage green on b8b929a."
+    - "ADR-0036/R2 ✓ holds — review-lens: grep of the added lines for compute_layout|page_width_px|page_height_px|cell_px|grid_line returns nothing; the cover's centring arithmetic is byte-unchanged (only the font-lookup line and the blank-title guard changed) and the admin panel fits no cells and places no grid lines in this diff."
+    - "ADR-0019/R1 ✓ holds — errors.py gains one NonogramError subclass and no import (file stays import-free); cli.py gains one _EXIT_CODES row, which CLAUDE.md assigns to the adapter, and no domain logic; book_pdf_generator.py imports nonogram.errors, the innermost rank. tests/test_cli.py::test_every_import_in_the_package_points_inward green on b8b929a."
+    - "ADR-0036/R1 ✓ holds — no PageSpec field added or read in the diff; tests/test_layout_page_spec.py::TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden green on b8b929a."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_pdf_generator.py
+    line: 3297
+    title: "Whitespace with no ink inside a title is refused, while a whitespace-only title is drawn blank"
+    description: |
+      The glyph gate treats "has no glyph" as "unletterable", which pulls in whitespace
+      and control characters that carry no ink at all. Measured through the real entry
+      point on this worktree:
+
+        create_cover_page("Winter Pictures\t")  -> UnletterableTitle
+        create_cover_page("Winter\tPictures")   -> UnletterableTitle
+        create_cover_page("\t")                 -> blank cover (the AC-5 guard)
+
+      Also refused: U+000D, U+000B, U+000C, U+0085, U+3000. Accepted (verified over 59
+      characters): NBSP U+00A0, ZWSP U+200B, SHY U+00AD, BOM U+FEFF, WJ U+2060, LRM/RLM,
+      U+2002, U+202F — so the common paste artefacts are safe and the gate is sound for
+      realistic Latin/Cyrillic/Greek/punctuation/currency titles.
+
+      Reachability (this is what makes it more than theoretical): HTML's value
+      sanitization for <input type="text"> (src/nonogram/admin/templates/book_create.html:74)
+      strips LF and CR but NOT tabs, and the title is stored raw — the only validation is
+      `len(title.strip()) == 0` at src/nonogram/admin/book_manager.py:522. So a title
+      copied out of a spreadsheet cell with a trailing tab is storable, and the cover
+      export then fails. The owner sees only the generic PDF_EXPORT_FAILED flash
+      (src/nonogram/admin/app.py:4900 / :5227); the named character is in the server log.
+
+      Before this card that title printed a .notdef box (or tiny type); now it produces
+      no cover file at all. That direction is the card's declared decision and the loud
+      failure is better than a bad book, so this is not a gate — but the card's own
+      principle ("nothing to letter, so nothing is drawn", the AC-5 guard) is applied
+      only when the WHOLE title is whitespace, and mutant M2 shows why: with the guard
+      removed, "\t" raises UnletterableTitle. The guard exists precisely to stop the gate
+      refusing inkless whitespace, and it stops it in one position only.
+    suggestion: |
+      Either exclude inkless whitespace from the gate (skip characters for which
+      `character.isspace()` and the face draws nothing, or probe the title with its
+      whitespace runs collapsed), or normalise the title on the Finalise/create screen so
+      a tab never reaches the drawing code. The card's observation #3 already names the
+      second option; a follow-up card is the right home, and it should also cover the
+      untreated tab in the download filename at app.py:5223.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (title normalisation is not in Touches) and explicitly deferred by the card's own observation #3 — a follow-up, not a defect of this diff."
+      dismissed_count: 3
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_cover.py
+    line: 285
+    title: "The anti-cache guard asserts the trailing cache_clear, not the one at the host boundary"
+    description: |
+      `test_the_comparison_is_two_measurements_and_not_one_cache` asserts
+      `_band_font.cache_info().currsize == 0` AFTER `both_hosts()` returns, i.e. it
+      observes the trailing `clear_font_caches()` at the end of `both_hosts`. A refactor
+      that dropped only the clear inside `refuse_host_fonts` — the one that separates the
+      on-host half from the off-host half, which is the CARD-221 F-G1 trap the guard is
+      named for — would still leave the cache empty at the end and still pass.
+
+      The AC-1 comparison is NOT vacuous regardless: mutant M4 (restoring the pre-card
+      host lookup) reds all six `test_the_generated_cover_is_the_same_pixels_on_both_hosts`
+      cases plus the file-size and negative-control tests, so the comparison does
+      discriminate. The claim "it clears at each host boundary and asserts that it does"
+      is accurate about the clearing and overstated about the assertion.
+    suggestion: |
+      Assert the cache is empty from inside the measured callable (e.g. have `both_hosts`
+      record `cache_info().currsize` at entry to each half and assert both were 0), so the
+      mid-boundary clear is what the test observes.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-234.md
+    line: 0
+    title: "The card's mutation claim mis-names which ACs the pre-card lookup reds"
+    description: |
+      The card states "restoring the pre-card lookup reds AC-1 and AC-2". Measured here
+      (mutant M4, full failure list): it reds AC-1 (all 6 titles, the file-size test, the
+      negative control, the cache guard) and AC-4 (5 tests) — but NOT AC-2. On a host with
+      Arial present, Arial at 72 px and DejaVu at 72 px set the same cap height, so AC-2
+      discriminates the dropped SIZE (the sizeless load_default branch) and not the wrong
+      FACE. That is the correct division of labour between AC-1 and AC-2 and no test is
+      weaker than it looks; only the card's note is wrong about which test catches what.
+    suggestion: "Correct the Worktree-notes sentence to 'reds AC-1 and AC-4'."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

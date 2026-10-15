@@ -15,7 +15,7 @@
 **Wave:** 40
 **Depends on:** CARD-221 (which establishes the packaged face as the rule and the helper that returns it)
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_cover.py, tests/test_book_export_interior_cover.py
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-10-15T08:44:16Z
 **Closed:** —
 **Actual:** —
@@ -221,7 +221,8 @@ wider than the page is clipped by the canvas and its ink box then reports an
 edge that is inside the page.
 
 **Mutation-checked**, each mutant red by name: restoring the pre-card lookup
-reds AC-1 and AC-2; deleting the blank-title guard reds AC-5's tab cases;
+reds AC-1 and AC-4 [CORRECTED at review, see below — the implementation agent
+wrote "AC-1 and AC-2"]; deleting the blank-title guard reds AC-5's tab cases;
 disabling the glyph gate reds AC-4; changing `COVER_TITLE_PX` reds AC-2's
 `test_the_size_asked_for_is_still_the_seventy_two_px_the_card_names` (added
 for exactly that, since every other AC-2 claim scales with the constant).
@@ -300,3 +301,185 @@ CARD-221, that "the generated title cover still reads the host's Arial at
     diff touching export/ or the book PDF", and this is a book-PDF diff. Enforcing it is
     following the rule, not overriding the tool.
   Injected floor for review: ADR-0006/R1, CON-019, INV-013, ADR-0036/R2, ADR-0019/R1, ADR-0036/R1.
+
+- [Review 1/3] Score: 9.0 — crit: 0, imp: 0. Risk LOW, lane FAST. Threshold (8) reached
+  and the severity gate is clear, so the success path is open. Adversarial verification of
+  gating findings was SKIPPED because there were none to verify — the cap exists to bound
+  fan-out over findings, and there is no finding here to refute.
+- [Review 1/3] Step 8h checked 2 rules beyond the card's section (ADR-0019/R1, ADR-0036/R1)
+  — legal and logged, not penalised: those are the two I injected after the lens refresh, and
+  the card's frozen projection is what was stale. Coverage guard PASSES: all 4 ids in the
+  card's own `## System contract` carry a verdict line, and the count line is present
+  ("6 rules checked, 6 ✓ holds, 0 ⚠, 0 ✗").
+- [8h spot-check] 3/3 sampled holds reproduced (ADR-0006/R1, CON-019, INV-013) — and the
+  re-derivation caught something the verdicts' phrasing hid.
+  **Method, stated honestly:** I re-derived these mechanically myself rather than spawning
+  three skeptic subagents. The protocol's selection rule is deterministic (fresh `✓ holds`
+  citing a named test first, in report order, capped at 3), and for a verdict whose whole
+  evidence is "this named test is green", running the test IS the crisp re-derivation the
+  protocol asks for — a subagent's opinion would be weaker evidence than the exit code. The
+  independence that matters (not being anchored on the reviewer's prose) is preserved because
+  a test result cannot be talked into agreeing.
+  **What it caught:** every ref these three verdicts cite is a MODEL ALIAS, not a runnable
+  pytest id. `-k TestDependencyBaseline_IsExactlyPillowAndNumpy` and
+  `-k PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` both collect **zero
+  tests** — the names exist only inside comments and docstrings. A zero-collection run exits
+  0, so a spot-check that trusted the alias would have recorded a pass having executed
+  nothing. The real tests, found and run:
+    * ADR-0006/R1 → `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`
+      + `::test_the_font_ships_as_package_data_and_not_as_a_dependency` — 2 passed
+    * CON-019 → `tests/property/test_cli_exports_byte_identity.py::test_property_cli_exports_byte_identical_whatever_the_book_geometry`
+      + `::test_property_web_ui_exports_byte_identical_whatever_the_book_geometry` — 2 passed
+    * INV-013 → `tests/property/test_book_export_interior.py::test_PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` — 1 passed
+  So the holds are genuinely reproduced (5 tests, 5 green on b8b929a) and the reviewer's
+  substance was right; what does not re-derive is the CITATION FORM. This is the backlog's
+  own "dead `check:` refs on mandatory rules" item — which names ADR-0006/R1 explicitly — now
+  observed biting a live gate rather than sitting in a list. Not charged against this card.
+- [Review 1/3] mutation revert discipline verified independently: `git diff --stat HEAD -- src
+  tests` is clean in the worktree and the only outstanding change is this card file, so the
+  reviewer's 6 mutants were all restored as it claimed.
+- [Review 1/3] F-003 applied: the card's own mutation note said the pre-card lookup "reds AC-1
+  and AC-2"; measured, it reds AC-1 and AC-4. Corrected in place above with the original
+  wording preserved, because silently rewriting a claim is how a record stops being evidence.
+  The reviewer's explanation is worth keeping: on a host that HAS Arial, Arial and DejaVu share
+  a 52 px cap at 72 px, so AC-2 discriminates the dropped SIZE and AC-1 the wrong FACE. The
+  division of labour was right; only the sentence was wrong.
+- [AC/EC check] All criteria/constraints ✓ (evidence): 11 of 11 items demonstrated by a
+  fresh-context gate agent, **zero skips** (every run used `-rs`), nothing modified.
+  * AC-1 ✓ `tests/test_book_cover.py::TestBookCover_IsIdenticalWithAndWithoutHostFonts` — 9 passed.
+    Non-vacuous: carries its own negative control plus the `_band_font` LRU cache guard, so the
+    two halves cannot be one cached face compared with itself.
+  * AC-2 ✓ `::TestBookCover_TitleIsDrawnAtTheSizeAsked` — 4 passed. Cap height measured off the
+    rendered ink against an independently loaded packaged face; `COVER_TITLE_PX == 72` pinned
+    separately so both sides of the comparison cannot scale together.
+  * AC-3 ✓ `::TestBookCover_TitleStaysCentredAndInsideTheTrim` — 2 passed. Corpus minimum and
+    length span asserted in-test; overflow measured against `textlength`, not the clippable ink box.
+  * AC-4 ✓ `::TestBookCover_UnletterableTitle` — 15 passed. Probe cross-checked against the
+    shipped font file; Cyrillic/Latin-Ext/Greek/Hebrew/Arabic asserted NOT refused.
+  * AC-5 ✓ `::TestBookCover_EmptyTitle` — 8 passed over `"", " ", "   ", "\t", "\n", " \t\n "`.
+  * AC-6 ✓ six uploaded-cover classes in `tests/test_book_export_interior_cover.py` — 21 passed.
+    Weakening check: that file's diff is +20/−0, one appended method, no existing test edited,
+    retargeted or deleted.
+  * G-1 ✓ both real dependency-baseline tests green; structurally, no font file added
+    (`--diff-filter=A` grep for `.ttf/.otf/.woff*/.pfb` empty) and `pyproject.toml` not in the diff.
+  * G-2 ✓ INV-013's real property test green; its file is not in this card's changed-file list.
+  * G-3 ✓ no named test, so verified by reading the src diff: the only `try`/`except` hits are the
+    REMOVALS (`- try:`, `- except OSError:`); zero new `try`/`except`/`contextlib.suppress` in
+    production code. Bounded claim, stated as such: this covers the diff's own lines only —
+    pre-existing `except Exception` sites elsewhere in the file are untouched and not this card's.
+  * G-4 ✓ both real CON-019 property tests green; their file is not in this card's changed-file list.
+  * G-5 ✓ by diff inspection: the only interior-side touch is three added docstring lines on
+    `_band_font` (body unchanged); the canvas and the centring block are unchanged CONTEXT lines,
+    and `COVER_TITLE_PX = 72` keeps the old number verbatim. Bounded: a diff-scope check, not a
+    statement about the cover's design globally.
+  The unset `DATABASE_URL` undercuts nothing here — no item's evidence rests on a skipped test.
+- [Deferral scan] clean — no `TODO`/`FIXME`/`later card`/`placeholder`/`for now` markers in the
+  card's added lines. Nothing to capture to the backlog from the diff itself. (The three
+  out-of-scope observations below are recorded obligations, not code-comment debt, and are
+  carded separately rather than left as comments — which is why the scan has nothing to find.)
+- [Docs] per-directory README step is a deliberate NO-OP, not a skipped step. Two reasons:
+  the per-directory README convention is still an OPEN OWNER DECISION on the board's backlog,
+  so generating `src/nonogram/README.md` and `src/nonogram/admin/README.md` would decide it by
+  side effect; and the one README in this card's changed dirs, `tests/README.md`, does not
+  enumerate test files, while its only current section is CARD-217's profiling method — which
+  CARD-235, not this card, is the one to update.
+- [Build gate] MERGE GATE FAILED (full, rebased onto 91518ad as 1ac46a8, 1062s) —
+  **1 failed, 7195 passed, 11 skipped**. Failure:
+  `tests/test_book_pdf_memory.py::TestBookPdfMemory_RealBookExportsUnderTheCap::test_one_cap_the_streaming_shape_survives_and_the_list_shape_dies_under`
+  The export itself SUCCEEDED — returncode 0, outcome "written", 305 pages read back out of
+  the file. What failed is the test's own **headroom guard**:
+    `assert resident * CHILD_HEADROOM < CHILD_CAP_BYTES` → `280297472 * 3 < 807840000` → false
+  i.e. the streaming child peaked at 280.3 MB where the guard needs under 269.3 MB. The
+  assertion's own message says what tripping it means: "this test's verdict has started to
+  depend on the interpreter's footprint rather than on the export's shape". It is a
+  self-invalidation tripwire, not a statement that the export regressed.
+- [Build gate] DIAGNOSIS — not this card, and established statically rather than by asserting
+  "flaky". Three independent facts:
+  1. **The cover is not in the measured path.** The capped child runs `STREAMING_SHAPE`, which
+     `tests/helpers/book_corpus.py:790` resolves to `generator.export_interior(puzzles)` — and
+     INV-013 guarantees the interior holds NO cover page. So `create_cover_page` and the new
+     `_cover_title_face` are never invoked in the child whose resident set is measured.
+     `create_cover_page` does appear in this file's `PAGE_FACTORIES` instrument list, which is
+     why this needed checking rather than dismissing — but that list is the probe's coverage,
+     and the pair-under-one-cap test is not the one that exercises `export_book`.
+  2. **This card adds nothing at import time.** Its only module-level additions to
+     `book_pdf_generator.py` are `from nonogram.errors import UnletterableTitle`,
+     `COVER_TITLE_PX = 72`, `_UNASSIGNED_CODEPOINT = ""` and a function definition. No
+     font is loaded until a cover is drawn. Cost in the child: bytes, not 11 MB.
+  3. **The one file this card touches in the failing test's import path is comment-only.**
+     Verified against the diff myself rather than taking the implementation agent's and the
+     reviewer's word: `tests/helpers/book_corpus.py`'s two hunks are docstring and `#` prose
+     recording that the cover no longer reads the host's Arial. Zero executable lines.
+  **[RETRACTED 2026-10-15T10:45Z] The paragraph that stood here blamed the sibling CARD-235
+  agent for running an unlocked full suite during this gate. That was false and the evidence
+  to check it was in my own log.** My merge gate held the lock 10:15:47Z -> 10:33:29Z; that
+  agent's profile started 10:33:43Z, fourteen seconds AFTER I released it. They never
+  overlapped. The error: I ran `pgrep` at ~10:35Z, after my own gate had exited, saw its
+  pytest, and read "running now" as "was running then" — without opening the log that gave
+  the window. The lock is a working mutex and was never violated. What did share the window
+  was that agent's targeted AC-3/AC-5 sweeps (10:10-10:25Z), which the brief explicitly
+  exempts from the lock; if 422-node "targeted" family runs are too heavy for that exemption,
+  that is a defect in the spec I wrote, not in its conduct. Kept rather than deleted because
+  a retraction that erases what it retracts teaches nothing.
+  **The real cause, and it is not load at all** — see the correlation note below.
+- [Build gate] UNEXPLAINED, recorded rather than smoothed over: the skip count moved **84 → 11**
+  between the pre-rebase gate and this one, on an identical code tree, with the collected total
+  unchanged at 7207. So 73 tests that skipped in the first run executed in the second. Leading
+  hypothesis is host contention — this project already has one test whose host-shared state
+  makes it misbehave when another worktree runs — but I have not proved it, and I am not
+  claiming it. It does not bear on this card's verdict either way: no CARD-234 AC rests on a
+  DB-mode test (the AC/EC/G gate ran with `-rs` and reported zero skips across all 11 items).
+- [Build gate] Procedure deviation, stated plainly: a failed test gate normally increments
+  `build_attempts` and spawns a /fix agent. I did NOT, because there is nothing in this card to
+  fix — the three facts above locate the failure outside the diff. The remedy is a re-run on a
+  quiet host, and that re-run is the evidence; until it is green this card does NOT merge.
+- [Build gate] CORRECTED DIAGNOSIS — the guard trips MORE on a quiet host, which inverts the
+  obvious reading and kills my own proposed remedy. Four runs of the same test:
+    09:20-09:35Z  CARD-235 branch, solo + locked (empty `ps` either side)  FAILED, 279.7 MB
+    09:35-09:52Z  CARD-234 branch, locked                                  PASSED, 84 skipped
+    10:15-10:33Z  CARD-234 branch rebased, locked                          FAILED, 280.3 MB, 11 skipped
+    10:42Z        CARD-234 branch AND main, each run ALONE, locked          PASSED both
+  The 09:20 run is the one that matters: solo, locked, on a branch carrying **no CARD-234
+  code**, and it failed at 279.7 MB — 4% over the same bar my 280.3 MB cleared by. That datum
+  came from the CARD-235 agent volunteering evidence against the convenient answer, which is
+  worth recording as conduct.
+  So: the failure is independent of this card (already proven statically) **and independent of
+  concurrent load**. The live variable is how much of the suite actually EXECUTES. The only run
+  that passed is the one where 73 more tests skipped — fewer tests running, less memory
+  pressure, the spawned child's RSS stays under the 3x bar. That ties the unexplained 84 -> 11
+  skip delta directly to the failure: they are two faces of one variable, not two mysteries.
+  Consequence I got wrong and am correcting: "re-run it on a quiet host" is NOT the remedy. A
+  quieter host runs MORE of the suite and fails HARDER. And my 10:42Z A/B, green on both trees,
+  proves only that isolation is the one condition under which this test cannot discriminate
+  anything — `_habitable`/6.75s alone was never the question. I ran the wrong experiment and it
+  told me nothing; the control I actually need is a FULL suite on untouched main.
+- [Build gate] STATUS: this card is NOT merged and will not be on this gate. Its own code is
+  proven innocent on three static grounds plus the 09:20 control, but a red merge gate is a red
+  merge gate, and the owner's standing rule is explicit that a red gate still blocks even when
+  everything else passes. Next step is a full suite on untouched `main`: if that is also red on
+  this test, the blocker is repo-level and sits ahead of every remaining card in the interior
+  redesign, not ahead of this one — and that is an owner decision about the suite, not a
+  CARD-234 fix. Queued behind the CARD-235 agent's locked AFTER profile and gate run.
+- [Build gate] CORRECTION #2 — I had the skip gradient the wrong way round, and the error is in
+  my own gate, not in the card. The CARD-235 agent's solo locked run reported **7167 passed,
+  11 skipped, 1 failed** (the memory test the only failure), and notes that 11 is the NORMAL
+  skip count on this host — CARD-217's profile recorded 9. So:
+  * my rebased gate's **11 skipped is normal**;
+  * my first gate's **84 skipped is the anomaly** — 73 tests DECLINED TO RUN in it.
+  I had read this as "73 extra tests ran in the second run, raising pressure". Backwards. The
+  run I reported to the owner as a clean pass ("7123 passed, 84 skipped, 0 failed") was a
+  **partially-executed suite**, and the memory test's pass in it is worth exactly as much as
+  the 73 tests that did not run. I presented that gate as green without noticing a 73-test
+  hole in it; the hole was visible in the summary line I quoted.
+  Worse, I cannot say WHICH 73, because neither of my gate runs passed `-rs` — so no skip
+  reasons were recorded, and `-q` progress output carries no per-test attribution. The
+  information is simply gone and both gates have to be re-run to recover it. Gate scripts now
+  carry `-rs`; this should have been there from the first run, for exactly the reason the AC/EC
+  gate was told to use it ("a skipped test proves nothing").
+- [Build gate] Standing-rule fix I owe, from the CARD-235 agent's suggestion and my own brief's
+  defect: the lock exemption for "targeted runs" is too loose. It let a legitimate 422-node,
+  nine-minute family sweep run unlocked beside a gate. Better rule, to go into future card
+  briefs: **take the lock for any pytest invocation expected to exceed ~60s, whatever selects
+  it.** A `-k density` or a single file stays exempt; a 78-run loop or a whole-family sweep does
+  not. The current wording made this the agent's judgement call when it should have been a
+  measurable threshold.

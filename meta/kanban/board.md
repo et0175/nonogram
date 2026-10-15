@@ -118,7 +118,8 @@ _Next, once these merge: CARD-228 (the dots glyph) then CARD-222 (the frame), in
 - **CARD-234** The generated cover's title letters from packaged data · P2 · 0.5d · bug _(wave 40)_
   `worktree: ../PythonProject4-card-234` · `branch: card/234-cover-packaged-face`
   implementation committed `b8b929a` · scope gate ⚠ grown (4/7 files outside Touches, forced
-  by the exit-code hierarchy test) · review cycle 1 pending
+  by the exit-code hierarchy test) · cycle 1/3 · score 9.0 — 0 critical, 0 important, 6 mutants killed
+  · build gate 7123/0 · 8h spot-check 3/3 reproduced · AC/EC/G gate running
 
 
 ## Blocked
