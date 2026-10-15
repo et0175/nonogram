@@ -107,12 +107,31 @@ CHANGED_FILE = "tests/test_puzzle_solver_page.py"
 BEFORE_SHARE_PCT = 39.78
 BEFORE_SECONDS = 366.19
 
-#: How much of the family AC-1 requires back. The saving predicted from the
-#: poll interval alone is ~134 s and ~10 points of share; these bars are set
-#: well inside that, but far outside CARD-217's "treat any single-run
-#: difference under ~20 % as noise" band for the absolute seconds.
-MIN_SECONDS_SAVED = 100.0
+#: The family's per-test teardown as CARD-217 measured it, used to synthesise
+#: the pre-fix behaviour and prove the bars below are not vacuous.
+BEFORE_TEARDOWN_PER_TEST = 0.327
+
+#: How much of the family AC-1 requires back.
+#:
+#: The structural saving is 422 x (0.327 - 0.028) = ~126 s of teardown, and the
+#: A/B says the chosen interval adds nothing to ``call``. These are regression
+#: tripwires set below that with headroom, not the claim: the claim is the
+#: measured pair of figures, which ``test_the_document_records_the_before_and_
+#: the_after`` pins to two decimal places. The headroom is there because
+#: CARD-217 measured a 19 % run-to-run spread on this host and says to treat a
+#: single-run difference under ~20 % as noise — a performance bar tight enough
+#: to red the suite on noise is a bar that gets deleted.
+#:
+#: They are not vacuous: ``test_the_bars_reject_the_pre_fix_teardown`` feeds
+#: the same comparison an artefact with the 0.5 s poll's teardown added back
+#: and requires it to fail every one of them.
+MIN_SECONDS_SAVED = 80.0
 MIN_SHARE_POINTS_SAVED = 5.0
+MIN_TEARDOWN_SECONDS_SAVED = 100.0
+#: The family's cost as a multiple of the rest of the suite's. A ratio cancels
+#: whatever made the whole host slower or faster between the two runs, which
+#: neither of the absolute bars can do.
+MAX_FAMILY_TO_REST_RATIO = 0.50
 
 #: AC-3's recorded shuffle seed. Recorded, not drawn fresh, so that a failure
 #: is reproducible — the point of a shuffled order is to find an ordering that
@@ -175,6 +194,103 @@ def _family(artefact: Path) -> tuple[float, float, int]:
         if name.startswith("browser family"):
             return seconds, 100.0 * seconds / profile.attributed, count
     raise AssertionError("rank_durations no longer reports a browser-family row")
+
+
+def _phase_total(profile, phase: str, *, family: bool) -> float:
+    return sum(
+        record.phase(phase)
+        for record in profile.tests.values()
+        if record.file.startswith(FAMILY_PREFIX) is family
+    )
+
+
+def _saving(before, after) -> dict[str, float]:
+    """Every figure AC-1 turns on, from two parsed profiles.
+
+    One function so that the real comparison and the synthetic pre-fix
+    comparison below cannot diverge — if the bars are checked one way for the
+    committed artefact and another way for the mutant, the mutant proves
+    nothing.
+    """
+    def family(profile) -> tuple[float, float]:
+        for name, seconds, _count in ranker.group_totals(profile):
+            if name.startswith("browser family"):
+                return seconds, 100.0 * seconds / profile.attributed
+        raise AssertionError("rank_durations no longer reports a browser-family row")
+
+    before_seconds, before_share = family(before)
+    after_seconds, after_share = family(after)
+    rest_before = before.attributed - before_seconds
+    rest_after = after.attributed - after_seconds
+    return {
+        "before_seconds": before_seconds,
+        "after_seconds": after_seconds,
+        "seconds_saved": before_seconds - after_seconds,
+        "before_share": before_share,
+        "after_share": after_share,
+        "share_points_saved": before_share - after_share,
+        "before_teardown": _phase_total(before, "teardown", family=True),
+        "after_teardown": _phase_total(after, "teardown", family=True),
+        "teardown_saved": (
+            _phase_total(before, "teardown", family=True)
+            - _phase_total(after, "teardown", family=True)
+        ),
+        "ratio_before": before_seconds / rest_before,
+        "ratio_after": after_seconds / rest_after,
+    }
+
+
+def _failed_bars(saving: dict[str, float], after_tests: int) -> list[str]:
+    """Which of AC-1's bars this saving misses. Empty means it clears them all."""
+    missed = []
+    if saving["seconds_saved"] < MIN_SECONDS_SAVED:
+        missed.append(
+            f"seconds: {saving['before_seconds']:.2f}s -> "
+            f"{saving['after_seconds']:.2f}s is only "
+            f"{saving['seconds_saved']:.2f}s, under {MIN_SECONDS_SAVED:.0f}s"
+        )
+    if saving["share_points_saved"] < MIN_SHARE_POINTS_SAVED:
+        missed.append(
+            f"share: {saving['before_share']:.2f}% -> {saving['after_share']:.2f}% "
+            f"is only {saving['share_points_saved']:.2f} points"
+        )
+    if saving["teardown_saved"] < MIN_TEARDOWN_SECONDS_SAVED:
+        missed.append(
+            f"teardown: {saving['before_teardown']:.2f}s -> "
+            f"{saving['after_teardown']:.2f}s is only "
+            f"{saving['teardown_saved']:.2f}s"
+        )
+    if saving["ratio_after"] > MAX_FAMILY_TO_REST_RATIO:
+        missed.append(
+            f"ratio to the rest of the suite: {saving['ratio_before']:.3f} -> "
+            f"{saving['ratio_after']:.3f}, over {MAX_FAMILY_TO_REST_RATIO}"
+        )
+    if saving["after_teardown"] / after_tests >= _SERVE_POLL_INTERVAL_S + 0.02:
+        missed.append(
+            f"per-test teardown {saving['after_teardown'] / after_tests:.3f}s is "
+            f"not bounded by the {_SERVE_POLL_INTERVAL_S}s poll it now waits on"
+        )
+    return missed
+
+
+def _with_pre_fix_teardown(text: str, ids: set[str]) -> str:
+    """The after artefact as it would read with the 0.5 s poll interval back.
+
+    Only the family's teardown rows are rewritten, to CARD-217's measured
+    0.327 s mean. Nothing else is touched, so this is the one-change mutant of
+    "somebody reverts the poll interval" and not a differently-shaped run.
+    """
+    out = []
+    for line in text.splitlines():
+        match = ranker._DURATION_LINE.match(line)
+        if (
+            match is not None
+            and match["phase"] == "teardown"
+            and match["nodeid"] in ids
+        ):
+            line = f"{BEFORE_TEARDOWN_PER_TEST:.2f}s teardown {match['nodeid']}"
+        out.append(line)
+    return "\n".join(out) + "\n"
 
 
 def _family_node_ids(artefact: Path) -> set[str]:
@@ -269,59 +385,59 @@ class TestBrowserFixtures_FamilyShareIsRecorded:
         assert round(share, 2) == BEFORE_SHARE_PCT
 
     def test_the_family_costs_materially_less_than_it_did(self) -> None:
-        before_seconds, before_share, before_tests = _family(BEFORE_ARTEFACT)
-        after_seconds, after_share, after_tests = _family(AFTER_ARTEFACT)
+        """Four bars, measuring four different ways of being wrong.
 
-        # Seconds first: the share has the suite's own growth in its
-        # denominator, so a share that fell is not on its own proof that the
-        # family got cheaper. The seconds are.
-        assert before_seconds - after_seconds >= MIN_SECONDS_SAVED, (
-            f"the family went {before_seconds:.2f}s -> {after_seconds:.2f}s, "
-            f"which is less than the {MIN_SECONDS_SAVED:.0f}s this card claims"
-        )
-        assert before_share - after_share >= MIN_SHARE_POINTS_SAVED, (
-            f"the family's share went {before_share:.2f}% -> {after_share:.2f}%"
-        )
-        # The saving must be per-test, not a test that stopped running.
-        assert after_tests == before_tests
-
-    def test_the_saving_is_the_teardown_it_was_diagnosed_as(self) -> None:
-        """The mechanism, not just the total: teardown is what collapsed.
-
-        A saving of the right size in the wrong phase would mean the diagnosis
-        is wrong and something else changed — a test body that got shorter, or
-        a page that stopped loading.
+        Seconds, because the share has the suite's own growth in its
+        denominator and a share that fell is not on its own proof that the
+        family got cheaper. Share, because that is what AC-1 is phrased in.
+        Teardown, because a saving of the right size in the wrong phase would
+        mean the diagnosis is wrong and something else changed. And the ratio
+        to the rest of the suite, because that one figure cancels whatever
+        made the host slower or faster between the two runs.
         """
-        def teardown(artefact: Path) -> float:
-            return sum(
-                record.phase("teardown")
-                for record in _profile(artefact).tests.values()
-                if record.file.startswith(FAMILY_PREFIX)
+        before, after = _profile(BEFORE_ARTEFACT), _profile(AFTER_ARTEFACT)
+        saving = _saving(before, after)
+
+        assert _failed_bars(saving, 422) == [], saving
+        # The saving has to be per test, not a test that stopped running.
+        assert _family_node_ids(AFTER_ARTEFACT) == _family_node_ids(BEFORE_ARTEFACT)
+
+    def test_the_bars_reject_the_pre_fix_teardown(self) -> None:
+        """The bars above bite: put the 0.5 s poll back and they all fail.
+
+        Without this, "the family got faster" is a check on one committed
+        number against another committed number, and nobody can tell whether
+        the thresholds were set where a regression would trip them. The mutant
+        is the one change somebody could actually make — restore the stdlib
+        poll interval — expressed as CARD-217's own measured 0.327 s of
+        teardown per family test, with every other row left alone.
+        """
+        before = _profile(BEFORE_ARTEFACT)
+        reverted = ranker.parse_artefact(
+            _with_pre_fix_teardown(
+                AFTER_ARTEFACT.read_text(encoding="utf-8"),
+                _family_node_ids(AFTER_ARTEFACT),
             )
-
-        before, after = teardown(BEFORE_ARTEFACT), teardown(AFTER_ARTEFACT)
-
-        assert before - after >= MIN_SECONDS_SAVED, (
-            f"family teardown went {before:.2f}s -> {after:.2f}s; the saving "
-            f"this card claims is a teardown saving"
         )
-        # And it is bounded by the poll interval it now waits on, with room
-        # for the page close that was always there. A regression that put the
-        # stdlib 0.5s back would land at ~0.33s per test and fail here.
-        assert after / 422 < _SERVE_POLL_INTERVAL_S + 0.02
+
+        missed = _failed_bars(_saving(before, reverted), 422)
+
+        assert len(missed) == 5, (
+            f"a reverted poll interval still clears some of AC-1's bars, so "
+            f"those bars do not test anything: only {missed} failed"
+        )
 
     def test_the_document_records_the_before_and_the_after(self) -> None:
         document = AFTER_DOCUMENT.read_text(encoding="utf-8")
-        before_seconds, before_share, _ = _family(BEFORE_ARTEFACT)
-        after_seconds, after_share, _ = _family(AFTER_ARTEFACT)
+        saving = _saving(_profile(BEFORE_ARTEFACT), _profile(AFTER_ARTEFACT))
 
         missing = [
             figure
             for figure in (
-                f"{before_seconds:.2f} s",
-                f"{before_share:.2f} %",
-                f"{after_seconds:.2f} s",
-                f"{after_share:.2f} %",
+                f"{saving['before_seconds']:.2f} s",
+                f"{saving['before_share']:.2f} %",
+                f"{saving['after_seconds']:.2f} s",
+                f"{saving['after_share']:.2f} %",
             )
             if figure not in document
         ]

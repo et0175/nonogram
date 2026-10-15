@@ -114,6 +114,17 @@ There is no test to delete that materially changes the number.
 1. The largest prize by far is the browser family — 39.8 %, and 96 % of the
    suite's teardown. Session- or module-scoped browser pages, or collapsing
    per-interaction tests into fewer longer ones, is where the seconds are.
+
+   **Settled by CARD-235, and item 1's diagnosis was wrong.** The family's
+   teardown was not Chromium's page lifecycle (one page lifecycle is 57 ms) but
+   `socketserver.serve_forever`'s 0.5 s poll interval in the per-test `live`
+   fixture, which `shutdown()` must wait out. No fixture scope was widened and
+   no page is shared; the family is now 256.57 s / 29.78 %, its teardown 11.62 s.
+   The clue was in this document's own caveat below: a teardown distribution
+   with the mass at 0.3–0.5 s and "no tail at all, stopping dead at 0.520 s" is
+   a bounded poll wait, not a browser teardown. Before and after, with the
+   artefacts and the A/B that chose the interval:
+   `meta/profiling/card-235-browser-teardown.md`.
 2. The render hypothesis is worth acting on second (21.2 %), and within it the
    four `tests/property/test_book_pdf_geometry.py` tests (48.66 s, 5.3 % in
    *four* tests) are the densest target in the suite.
