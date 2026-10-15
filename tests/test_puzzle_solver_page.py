@@ -557,8 +557,107 @@ def browser_type(playwright, browser_name):
     return browser
 
 
+#: CARD-235, AC-4. Which page-isolation category each of the twelve
+#: ``tests/test_puzzle_solver_*.py`` files is in, and why — stated here, beside
+#: the fixture that implements it, so that a file's isolation is a declaration
+#: somebody has to change on purpose rather than a side effect of whichever
+#: fixture happened to be in scope.
+#:
+#: Two categories:
+#:
+#: * ``own-page`` — the file's tests get a fresh Chromium page each
+#:   (``browser_page`` below is function-scoped, as is ``live``).
+#: * ``shared-page`` — the file's tests share one page, reset between tests.
+#:
+#: **Every file is ``own-page``, and that was chosen on measurement.** CARD-217
+#: read the family's 0.33 s per-test teardown as the price of Chromium's page
+#: lifecycle. It is not. One ``new_context`` + ``new_page`` + close costs 57 ms
+#: on this host (20 iterations against a launched Chromium), so collapsing the
+#: page lifecycle for all 422 tests is worth ~24 s — 2.6 % of the suite. The
+#: teardown was the ``live`` server's stop (see :data:`_SERVE_POLL_INTERVAL_S`):
+#: ~134 s, 14.6 %, and free of any isolation risk. Sharing a page would buy a
+#: sixth of the saving for the whole of the order-dependence risk, so no file
+#: was converted.
+#:
+#: The reasons below are what each file would have to undo to become
+#: convertible, and they are not hypothetical: ``page.on("console")`` /
+#: ``page.on("pageerror")`` handlers and ``page.route`` interceptors accumulate
+#: on a page and are not undone by navigating, so on a shared page a later
+#: test's console output lands in an earlier test's list — cross-talk that
+#: reports as green.
+PAGE_ISOLATION: dict[str, tuple[str, str]] = {
+    "test_puzzle_solver_brush_menu.py": (
+        "own-page",
+        "reloads the page mid-test to assert the chosen brush survives a "
+        "reload, so it depends on the page's own navigation history",
+    ),
+    "test_puzzle_solver_clues.py": (
+        "own-page",
+        "sets the viewport 29 times across its cases; a viewport left behind "
+        "silently changes which layout the next test's board chooses",
+    ),
+    "test_puzzle_solver_hint.py": (
+        "own-page",
+        "sets the viewport and installs a page listener to watch for console "
+        "problems, which would accumulate across tests on a shared page",
+    ),
+    "test_puzzle_solver_marking.py": (
+        "own-page",
+        "installs page.route interceptors (a corrupted payload, an aborted "
+        "solver.js), a context request listener and four page listeners, and "
+        "reloads; none of that is undone by navigating",
+    ),
+    "test_puzzle_solver_maybe.py": (
+        "own-page",
+        "sets the viewport and installs a page listener, and carries the "
+        "family's longest test (30.9 s of call) whose state no reset describes",
+    ),
+    "test_puzzle_solver_mirror.py": (
+        "own-page",
+        "crosses the phone/desktop breakpoint by viewport and asserts marks, "
+        "undo/redo and the localStorage save survive the crossing — that save "
+        "is exactly the state a reset would have to erase",
+    ),
+    "test_puzzle_solver_page.py": (
+        "own-page",
+        "defines these fixtures; installs page.route interceptors and request, "
+        "console, pageerror and requestfailed listeners, and sets the viewport "
+        "to both 1440x900 and 390x844",
+    ),
+    "test_puzzle_solver_percent.py": (
+        "own-page",
+        "reloads to assert the percentage is restored, and installs a console "
+        "listener",
+    ),
+    "test_puzzle_solver_phone.py": (
+        "own-page",
+        "is entirely about the 390x844 phone viewport: it sets it eight times "
+        "and its assertions are computed-style readings of that viewport",
+    ),
+    "test_puzzle_solver_progress.py": (
+        "own-page",
+        "reads and writes the localStorage save six times and installs six "
+        "page listeners",
+    ),
+    "test_puzzle_solver_resume.py": (
+        "own-page",
+        "is the resume feature's test: it writes, corrupts and restores the "
+        "localStorage save eight times and reloads to prove it restores",
+    ),
+    "test_puzzle_solver_zoom.py": (
+        "own-page",
+        "sets the viewport 20 times, persists the zoom level to localStorage "
+        "and reloads to prove the zoom is restored",
+    ),
+}
+
+#: The only two categories :data:`PAGE_ISOLATION` may name.
+PAGE_ISOLATION_CATEGORIES = ("own-page", "shared-page")
+
+
 @pytest.fixture
 def browser_page(request):
+    """A fresh Chromium page per test (``own-page``; see :data:`PAGE_ISOLATION`)."""
     try:
         import pytest_playwright  # noqa: F401
     except ImportError:
@@ -576,6 +675,25 @@ class Live:
         return _store(self.app.puzzle_review_service, grid, **kwargs)
 
 
+#: How often this fixture's serve loop checks whether it has been asked to
+#: stop. Same constant, same reason, as ``tests/test_web_server.py``'s
+#: ``_POLL_INTERVAL_S``: ``socketserver.serve_forever``'s stdlib default is
+#: 0.5 s, and ``shutdown()`` cannot return until the loop next wakes up, so the
+#: default is a uniform 0–0.5 s wait paid on *every* test's teardown. The
+#: server here is never asked to be responsive, only to stop promptly.
+#:
+#: CARD-235. This is the 0.33 s per test — 137.97 s, 96 % of the whole suite's
+#: teardown — that CARD-217's profile attributed to Chromium's page lifecycle.
+#: The profile's own evidence says so in hindsight: teardown was bimodal with
+#: the mass at 0.3–0.5 s and "no tail at all, stopping dead at 0.520 s", which
+#: is the signature of a bounded poll wait and not of a browser teardown. The
+#: near-zero cluster is the family's non-browser tests, which never ask for
+#: ``live``. Dropping the interval to 0.01 s takes the family's teardown from
+#: 137.97 s to ~4 s and changes nothing any test can observe: the server is
+#: already stopped before the fixture returns either way.
+_SERVE_POLL_INTERVAL_S = 0.01
+
+
 @pytest.fixture
 def live(tmp_path, monkeypatch):
     """The real panel over SQLite, served on loopback with an ephemeral port."""
@@ -584,7 +702,11 @@ def live(tmp_path, monkeypatch):
     scope = sqlite_session_scope(tmp_path, "card-160-live.db")
     app = _build_app("sqlite", scope, monkeypatch)
     server = make_server("127.0.0.1", 0, app, threaded=True)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread = threading.Thread(
+        target=server.serve_forever,
+        kwargs={"poll_interval": _SERVE_POLL_INTERVAL_S},
+        daemon=True,
+    )
     thread.start()
     try:
         yield Live(f"http://127.0.0.1:{server.server_port}", app, scope)
