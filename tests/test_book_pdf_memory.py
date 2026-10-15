@@ -1909,7 +1909,11 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         export were machine-lettered — the project's own "only the pinned
         figure is skipped, never the guardrail" rule, applied to the one test
         added to close F-002. Since the interior letters from packaged data
-        those two comparisons hold on any machine too, and the live page is
+        those two comparisons hold on any host font configuration too — the
+        clause above says "any machine" of a comparison between two *stored*
+        fixtures, which really is machine-independent; this one reads this
+        machine's own export and is only as portable as its Pillow/FreeType
+        (F-005). The live page is
         compared against CARD-221's recording (which re-set every row in that
         face) with the move attributed to it, rather than against CARD-205's.
         """

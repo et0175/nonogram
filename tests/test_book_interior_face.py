@@ -397,16 +397,25 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
     #: the arithmetic under test is the shipped arithmetic.
     SPILLING_LEVELS = 4
 
-    #: 72 puzzles on 71 puzzle pages (one two-up pair) and 72 answer pages,
-    #: chosen so the interior lands **exactly on KDP's 150/151 band edge**:
-    #: with one TOC page it is 150 pages and the gutter minimum is 0.9525 cm,
-    #: with two it is 151 and the minimum is 1.27 cm. So the extra page the
-    #: face decides does not merely move a number — it moves the margin the
-    #: cover is printed against, which is the defect this card exists to
-    #: close, and the assertion below is on the band and the centimetres as
-    #: well as the count.
+    #: 72 puzzles on 70 puzzle pages (two two-up pairs) and 72 answer pages,
+    #: with :data:`SPILLING_LEVELS` dividers — chosen so the interior lands
+    #: **exactly on KDP's 150/151 band edge**: with one TOC page it is 150
+    #: pages and the gutter minimum is 0.9525 cm, with two it is 151 and the
+    #: minimum is 1.27 cm. So the extra page the face decides does not merely
+    #: move a number — it moves the margin the cover is printed against,
+    #: which is the defect this card exists to close, and the assertion below
+    #: is on the band and the centimetres as well as the count.
+    #:
+    #: **71 pages and three dividers until fix cycle 5**, which is a book
+    #: that does not exist: the row count said four levels and the page
+    #: count said three dividers, and no book has both. A self-consistent
+    #: four-level book at 71 puzzle pages is 151 pages with one TOC page and
+    #: 152 with two — inside one band either way, so the gutter half of this
+    #: case's claim was an artifact of the mismatch. Measured again with
+    #: ``level_dividers`` taken from :data:`SPILLING_LEVELS` and one more
+    #: pair: 150 against 151, the edge, self-consistent, same claim.
     SPILLING_PUZZLES = 72
-    SPILLING_PUZZLE_PAGES = 71
+    SPILLING_PUZZLE_PAGES = 70
 
     def test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees(self) -> None:
         """AC-2's witness: the one shape whose gutter band the face decides.
@@ -446,7 +455,10 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
                 self.SPILLING_PUZZLES,
                 puzzle_pages=self.SPILLING_PUZZLE_PAGES,
                 answer_pages=self.SPILLING_PUZZLES,
-                level_dividers=3,
+                # The same level count the TOC's own rows were derived from:
+                # a four-level list and a three-divider book is not a book
+                # (fix cycle 5).
+                level_dividers=self.SPILLING_LEVELS,
                 toc_pages=toc_pages,
             )
             return capacity, toc_pages, total, kdp_page_band(total), kdp_min_gutter_cm(total)
@@ -480,18 +492,29 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
             f"{rows} rows are {on_host[1]} TOC page(s) on this frame, not the "
             "2 that make the page count face-dependent"
         )
-        assert on_host[2] == 151 and on_host[3] == (151, 300), on_host
+        assert on_host[2] == 151 and on_host[3] == (151, 300), (
+            f"this book is {on_host[2]} pages in band {on_host[3]}, not the "
+            "151 in (151, 300) this case is tuned to. The case only says "
+            "anything about the printed *gutter* while it straddles KDP's "
+            "150/151 edge — one TOC page fewer must be 150 and one more must "
+            "be 151 — so if a later card changes any other page term (a "
+            "third guide page, a divider, an answer-page rule), re-tune "
+            "SPILLING_PUZZLES and SPILLING_PUZZLE_PAGES back onto that edge "
+            "rather than relaxing this assertion. The page-count half of the "
+            "claim holds wherever the book sits; the band half does not"
+        )
         assert interior_page_count(
             self.SPILLING_PUZZLES,
             puzzle_pages=self.SPILLING_PUZZLE_PAGES,
             answer_pages=self.SPILLING_PUZZLES,
-            level_dividers=3,
+            level_dividers=self.SPILLING_LEVELS,
             toc_pages=1,
         ) == 150, (
             "this case's own premise: one TOC page fewer puts this book at "
             "150 pages, the last page of KDP's first gutter band, so the "
             "split the face decides is the difference between a 0.9525 cm "
-            "minimum gutter and a 1.27 cm one"
+            "minimum gutter and a 1.27 cm one. Re-tune SPILLING_PUZZLES / "
+            "SPILLING_PUZZLE_PAGES onto the edge if a page term moves"
         )
 
     def test_the_comparison_can_tell_the_pre_card_face_from_this_one(

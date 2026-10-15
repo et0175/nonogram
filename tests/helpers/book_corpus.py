@@ -59,8 +59,11 @@ list of pages a mismatched machine had to skip. All three are **removed**:
 ``_guide_face`` now returns the packaged DejaVu Sans
 (``src/nonogram/export/fonts/``, ADR-0006/R1 package data) that the band and
 the folio were already set in, so every page of this book is comparable on
-every machine and ``book_baseline_card221.json``'s own
-``font_dependent_pages`` is empty.
+any **host font configuration** — not on any machine: the pages are still
+rasterised by the installed Pillow/FreeType, which ``pyproject.toml`` leaves
+unbounded at ``>=10.0``, and catching a move in that is what the digest
+comparison is for rather than something it is immune to (CARD-221's F-005).
+``book_baseline_card221.json``'s own ``font_dependent_pages`` is empty.
 
 The measurement that justifies removing them, rather than an argument that it
 ought to be safe: ``tests/test_book_interior_face.py`` exports this same book
