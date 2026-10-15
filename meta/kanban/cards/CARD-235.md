@@ -15,7 +15,7 @@
 **Wave:** 40
 **Depends on:** CARD-217 (the measurement; do not start before it merges)
 **Touches:** tests/conftest.py, tests/test_puzzle_solver_*.py (12 files), meta/profiling/
-**Review score:** 8.0 (cycle 1/3)
+**Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-10-15T08:44:16Z
 **Closed:** —
 **Actual:** —
@@ -405,3 +405,61 @@ wall clock unusable as evidence.
   comment block, with no `src/**` change. So the intent is met without paying twice.
   This card does NOT merge on that reasoning — the full suite still runs post-rebase, and a red
   there still blocks.
+- [Review sync] 2 report(s) → meta/review/20261015T142852Z-CARD-235-cycle2.yml
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0. **F-001 ✓ RESOLVED**, re-derived by the reviewer's
+  own mutation runs rather than taken from the fix agent's report or mine. Confirmation mode:
+  carried only what the fix delta provably cannot touch (ADR-0038/R1/R2/R3/R4/R5/R6 on `src/**`
+  scope, G-3, G-5, AC-4), re-derived the rest. Severity gate CLEAR — success path open.
+  Mutation table worth keeping: M2 (pre-card thread, constant left) killed by BOTH new tests,
+  and the monkeypatch half kills it **with no clock involved**, which is what makes the guard
+  robust rather than merely present. M1 (constant → 0.5, kwarg still passed) killed twice —
+  once by the timing bound, once by the new diagnostic assert, again clock-free. M4 (interval
+  passed positionally) survived BY DESIGN and correctly so: `serve_forever`'s only positional
+  parameter *is* `poll_interval`, so that shape genuinely applies it, and the test still pins
+  equality with the constant and `< 0.5`. Not an escape hatch.
+  Noise question answered with measurement rather than judgement: 20 samples of the asserted
+  quantity gave median 0.0472s / max 0.0506s at the shipped interval — a 3.95x margin — and
+  0/20 under the bound at 0.5s. A false red would need +150ms of scheduling delay on a 47ms
+  operation.
+- [Review 2/3] Step 8h: 14 rules checked, 6 ✓ holds, 8 ⚠ unchecked (no_eligible_fact), 0 ✗.
+  Coverage guard PASSES. Two things worth carrying forward: the reviewer **added ADR-0006/R1 by
+  hand as a 14th rule** because the lens's `--card` touches-scoping drops it even though the
+  card's own `## System contract` names it — a scoping gap in the tool, not in the card. And it
+  confirmed the alias trap empirically: `-k TestDependencyBaseline_IsExactlyPillowAndNumpy`
+  collects **zero and exits 0**, so it ran the real node ids instead.
+- [8h spot-check] 2/2 sampled fresh holds reproduced by the orchestrator (ADR-0006/R1 — both
+  real tests, 2 passed; ADR-0038/R8 — the cited `_run_in` assertions read directly and they are
+  exactly as claimed: `returncode == 0`, exact node order, `{"PASSED"}`, so a Chromium-less
+  child that SKIPped would red the parent rather than pass silently). Carried holds were
+  deliberately excluded from the pool, per protocol.
+- [AC/EC check] All criteria/constraints ✓ (evidence): **11 of 11 demonstrated, 0 skipped**
+  across every run, by a fresh-context gate agent. `25 passed in 46.50s`, rc=0, empty `-rs`
+  section. Every named AC test exists and is runnable — **no AC's `test:` turned out to be a
+  model alias.**
+  * AC-1 ✓ 6/6 · AC-2 ✓ 2/2 · AC-3 ✓ 4/4 · AC-4 ✓ 3/3 · AC-5 ✓ 5/5 · AC-6 ✓ 1/1
+  * G-1 ✓ verified INDEPENDENTLY over the whole card (`git diff 96620e6`, committed +
+    uncommitted) restricted to the twelve pre-existing files: only ONE of the twelve changed at
+    all; the four `assert` hits in its diff are all prose inside `PAGE_ISOLATION` reason strings;
+    and the non-comment residue is the additive dict, the additive constant, a docstring, and
+    the single behavioural statement — the `kwargs={"poll_interval": ...}` replacement. Reached
+    the same conclusion as two prior reviews by its own route.
+  * G-2 ✓ zero hits for `def browser_type`/`.launch(`/`chromium.launch`/`[tool.pytest` across
+    the whole card diff · G-3 ✓ both artefacts `is_admissible_profile == True` under the
+    UNTOUCHED committed `rank_durations.py`, with `solo run: yes` headers · G-4 ✓ pyproject
+    untouched, real dependency-baseline tests green · G-5 ✓ zero hits against CARD-218/219/236's
+    guarded sets, and CARD-236's own G-4 reciprocally excludes this card.
+  * Child-skip risk explicitly closed: the six child-spawning tests assert the child's per-test
+    VERDICT SET, not just its return code, so a child that skipped for want of Chromium fails
+    the parent. AC-6's child genuinely ran — it requires `returncode == 1` with one FAILED
+    between two PASSED.
+- [Docs] F-008 and one more stale claim corrected in the branch rather than deferred, both
+  doc-only and both claim-REDUCING: the headline wall-clock row (−59.79 s) is marked superseded
+  with the arithmetic of why the realised net is about half, since the pinned artefact cannot
+  see that the review's own probe change added ~30 s to the guard file; and
+  `card-235-order-independence.txt`'s "the family's smallest file" is corrected, because the
+  cycle-2 repoint made it untrue. Neither needed a review cycle — a correction that only
+  weakens a claim cannot invalidate a passing review, and leaving a known-wrong number in a
+  measurement card is how an unmeasured figure becomes the next card's premise. Which is the
+  mistake CARD-217 was cut to end, and the one CARD-218/219 were cut on.
+- [Status] gates all green; **held unmerged pending CARD-237**, which fixes the flaky memory
+  guard. Merging this first would hand its own merge gate a ~3-in-4 chance of a false red.

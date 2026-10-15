@@ -1,0 +1,425 @@
+version: 1
+generated_at: "2026-10-15T14:28:52Z"
+target: "card/235-browser-fixture-scope @ 4302684 + uncommitted fix delta (tests/test_browser_fixture_scope.py, tests/test_puzzle_solver_page.py); CARD-235 cycle 2, CONFIRMATION MODE"
+overall_score: 9.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+mode:
+  kind: confirmation
+  fix_delta: ["tests/test_browser_fixture_scope.py", "tests/test_puzzle_solver_page.py"]
+  re_derived_at_full_depth: ["F-001", "F-003", "F-004", "G-1"]
+  carried_from_cycle_1: ["F-002", "F-005", "F-006", "AC-2", "AC-4", "AC-5", "AC-6", "G-2", "G-4", "G-5", "ADR-0038/R1", "ADR-0038/R2", "ADR-0038/R3", "ADR-0038/R4", "ADR-0038/R5", "ADR-0038/R6"]
+
+coverage:
+  read:
+    - "tests/test_browser_fixture_scope.py (fix delta in full; plus the AC-1 bars, AC-3 class, _fixture_function/_recorded_poll_interval, _run_in/_probe_ids, header docstring)"
+    - "tests/test_puzzle_solver_page.py (fix delta in full; the live fixture body and the _SERVE_POLL_INTERVAL_S comment block; whole-card non-comment diff vs 96620e6)"
+    - "meta/kanban/cards/CARD-235.md (ACs, guardrails, system contract, implementation summary)"
+    - "meta/profiling/card-235-durations-after.txt (header + machine-summed per-file and per-test rows)"
+    - "meta/architecture/decisions/adr/0006-dependency-baseline.md (## Rules block)"
+    - "tests/README.md (the CARD-235 paragraph)"
+    - "all twelve tests/test_puzzle_solver_*.py (grepped for localStorage / .route( / .on( against the new probe guard)"
+    - "meta/review/20261015T113059Z-CARD-235-cycle1.yml (in full)"
+  not_reached:
+    - "the full suite (forbidden by the invoking prompt; ran 11 targeted node ids plus two 20-sample timing harnesses and three collect-only runs)"
+    - "the six child-pytest tests of the guard file were not re-run at their new cost (21.51 s / 20.29 s taken from the implementer's record and the file's own docstring, cross-checked against the artefact's 6.99 s / 4.82 s at the old probe)"
+    - "everything outside the fix delta that cycle 1 covered (carried, see mode.carried_from_cycle_1)"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 259, removed: 15 }
+  code_change: "tests/test_puzzle_solver_page.py: comment-only (8 `#:` lines replace 3). tests/test_browser_fixture_scope.py: +1 test class (2 tests), +1 test, 4 new module constants, 2 new helpers, _RUN_TIMEOUT_S 600->90, ORDER_PROBE_FILE mirror.py->resume.py, 1 new assertion in an existing test."
+  max_fan_in: { symbol: "tests.test_puzzle_solver_page.live", callers: 12, note: "unchanged from cycle 1; the fix delta adds a 13th consumer, the new guard class, which drives the fixture by hand" }
+  tests_cover_change: true
+  churn: { file: "tests/test_puzzle_solver_page.py", commits_12mo: 11, fix_commits: 4 }
+  hotspots: ["tests/test_browser_fixture_scope.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — the fix delta is tests-only and its co-change peers are the player's own sources, which G-2/ADR-0038/R1 require this card NOT to touch; their absence is the contract"
+    child_test_runtime: "budget_truncated — the six child-pytest tests were not re-run (the prompt forbids the full suite and a Chromium child would contend with CARD-237's memory run); 21.51 s / 20.29 s carried from the implementer's record"
+
+system_contract:
+  rules_checked: 14
+  holds: 8
+  unchecked: 6
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — carried(cycle 1, delta-clean): scope is src/** only (admin/**, static/**, templates/**, cli.py, clues.py, db/**, difficulty.py, export/**, orchestrator.py, solver/**, sourcing/**, web/**); the fix delta is two files under tests/, intersecting none of those globs"
+    - "ADR-0038/R2 ✓ holds — carried(cycle 1, delta-clean): scope src/**; no intersection with the fix delta. Its check ref TestSolverMarking_NoRequestPerMark is untouched by the delta"
+    - "ADR-0038/R3 ✓ holds — carried(cycle 1, delta-clean): scope src/**; no intersection"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): scope src/**; no intersection"
+    - "ADR-0038/R5 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): scope pyproject.toml, which the delta does not touch (and `git diff --name-only 96620e6` shows the whole card does not touch it)"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact; carried(cycle 1, delta-clean): scope src/**; no intersection"
+    - "ADR-0038/R7 ✓ holds — re-derived (scope pyproject.toml + tests/**, so NOT carriable). pyproject.toml is absent from `git diff --name-only 96620e6`, so the dev-only extra is unchanged. The delta adds no runner and no browser: the new TestBrowserFixtures_ThePollIntervalIsStillApplied drives the `live` werkzeug fixture only and launches no Chromium (ran it standalone: 2 passed in 0.38 s, no browser fixture requested). The new ORDER_PROBE_FILE still runs under the same `sys.executable -m pytest` child"
+    - "ADR-0038/R8 ✓ holds — re-derived (scope tests/**). The delta changes which file the AC-3 children run (resume.py, 15 collected — verified by --collect-only) but not how their verdicts are read: _run_in still asserts `returncode == 0`, the exact node order, and `{verdict ...} == {\"PASSED\"}` (lines 749-754), so a Chromium-less child that SKIPs reds the parent. The new guard class adds no browser test and so cannot pass silently without Chromium"
+    - "ADR-0006/R1 ✓ holds — re-derived; NOT checked by cycle 1 although the card's ## System contract names it (cycle 1 reported 13 rules, the lens's set, which omits it because its scope — pyproject.toml, src/nonogram/** — does not intersect the card's Touches). pyproject.toml untouched by the whole card; the delta's only new imports are stdlib (`threading`, `time`). The card's named check ref is a doc-level alias: `--collect-only -k TestDependencyBaseline_IsExactlyPillowAndNumpy` collects ZERO tests and exits 0, so it is not evidence. Ran the real tests instead: tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed and ::test_the_font_ships_as_package_data_and_not_as_a_dependency — 2 passed in 0.06 s"
+    - "CON-005 ⚠ unchecked — no_eligible_fact (re-derived, scope global so not carriable): grepped the fix delta for solver references — it imports nothing from nonogram.solver and touches no solver test; the two mutants applied were in a werkzeug thread construction"
+    - "CON-009 ⚠ unchecked — no_eligible_fact (re-derived, scope global). The delta does newly drive a socket bind by hand (_fixture_function(_live_fixture) starts the panel's server), but the bind itself is the unchanged `make_server(\"127.0.0.1\", 0, app, threaded=True)` in the fixture; the delta introduces no bind of its own and the rule's subject is the web UI's server (src/nonogram/web/**), which is not in the delta"
+    - "CON-010 ⚠ unchecked — no_eligible_fact (re-derived, scope global): no request-handling code in the delta; the new tests issue no HTTP request at all"
+    - "CON-011 ⚠ unchecked — no_eligible_fact (re-derived, scope global): no grid-size path in the delta"
+    - "CON-012 ⚠ unchecked — no_eligible_fact (re-derived, scope global): no image path in the delta"
+  assembly: "forge system_rules.py --root meta/architecture --card CARD-235 --verify-refs; 13 rules returned (ADR-0038/R1..R8, CON-005, CON-009..012); diagnostics: dead_check_ref [], check_refs_verified true, unresolvable_scope [], scope_unmapped_model [], tooling_failure [], card_scope touches. ADR-0006/R1 added by hand as the 14th because the card's own ## System contract section names it and the lens's `touches` scoping drops it — cycle 1's count of 13 therefore under-enumerated the card's declared set by one."
+
+mutation_check:
+  ran: true
+  deferred: false
+  revert_discipline: "both files pre-captured to the scratchpad before any edit; every revert was `cp` from that copy followed by `cmp` (byte-identical) and sha256 on both files; final `git diff HEAD --stat -- tests/` reproduced the captured 263/11, 259 insertions, 15 deletions and `git status --short` is unchanged"
+  mutants:
+    - id: M2
+      description: "the gating mutant of cycle 1 — restore the pre-card `thread = threading.Thread(target=server.serve_forever, daemon=True)`, leave _SERVE_POLL_INTERVAL_S = 0.05 defined and unused"
+      result: killed
+      evidence: "TestBrowserFixtures_ThePollIntervalIsStillApplied -> 2 failed in 3.17 s. Both tests fail independently: the monkeypatch test on `assert None is not None` (no interval recorded), the timing test at 0.446 s against the 0.2 s bound. Re-run of the monkeypatch test alone under the same mutant: 1 failed in 0.71 s, so the kill is deterministic and does not depend on timing"
+    - id: M1
+      description: "_SERVE_POLL_INTERVAL_S 0.05 -> 0.5 (the stdlib value) with the kwarg still passed"
+      result: killed
+      evidence: "the guard class -> 2 failed in 1.28 s (timing test at 0.446 s; monkeypatch test on `interval < STDLIB_POLL_INTERVAL_S`). Independently, test_the_bars_reject_the_pre_fix_teardown -> failed on the new diagnostic `assert 0.5 == 0.05`. A 20-sample timing harness under this mutant: 0/20 samples under the 0.2 s bound, range 0.4454-0.4506 s. MAX_LIVE_TEARDOWN_S is therefore an absolute literal and not derived from the constant"
+    - id: M4
+      description: "the interval passed positionally, `args=(_SERVE_POLL_INTERVAL_S,)`, instead of by keyword — probes whether _recorded_poll_interval's leniency is an escape hatch"
+      result: "survived by design (correct)"
+      evidence: "2 passed in 0.38 s. serve_forever's only positional parameter IS poll_interval, so args[0] genuinely applies the interval; the test then still pins it with `interval == _SERVE_POLL_INTERVAL_S` and `interval < STDLIB_POLL_INTERVAL_S`. The leniency admits only shapes that really deliver the interval"
+    - id: M3
+      description: "ORDER_PROBE_FILE pointed back at the cheap file the F-003 fix moved away from (tests/test_puzzle_solver_mirror.py)"
+      result: survived
+      evidence: "test_the_probe_file_installs_the_state_the_ordering_is_about -> 1 passed in 0.12 s. mirror.py matches both regexes (3 `localStorage` hits at lines 260/276/303 and `page.on(\"request\", ...)` at line 280). Filed as F-007"
+    - id: M5
+      description: "_fixture_function handed a plain lambda (non-fixture) — probes whether a failed unwrap could make the whole guard vacuous"
+      result: killed
+      evidence: "raises AssertionError('cannot unwrap <function <lambda>>'). On the installed pytest 9.1.1 the real path is FixtureFunctionDefinition -> _get_wrapped_function(), which returns the undecorated generator function (inspect.isgeneratorfunction -> True); the `__wrapped__` fallback is never reached, so the pytest-9 branch is tried first and correctly"
+
+root_causes:
+  - id: RC-1
+    title: "the one measured number of the card — the net suite saving — is pinned to a frozen artefact that predates the guards the review asked for, so the guards' own cost is outside the measurement"
+    finding_ids: [F-008]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 725
+    title: "Nothing fails when the fixture stops applying the poll interval — the 126 s saving is unguarded"
+    description: |
+      RESOLVED in cycle 2, re-derived at full depth and not taken on report.
+
+      The fix adds TestBrowserFixtures_ThePollIntervalIsStillApplied (two
+      tests) plus one diagnostic assertion in the existing bars test, and the
+      three cover the two plausible regressions by two independent,
+      non-overlapping mechanisms:
+
+        * M2 (kwarg dropped, the shape cycle 1 proved invisible): killed.
+          The monkeypatch test fails on `assert None is not None`,
+          deterministically — re-run alone under the mutant, 1 failed in
+          0.71 s. The timing test also fails, at 0.446 s against 0.2 s.
+        * M1 (constant raised to the stdlib 0.5 while still passed): killed
+          twice over — the timing test (0/20 samples under the bound in a
+          20-sample harness, range 0.4454-0.4506 s) and, independently and
+          without any timing, the bars test's new
+          `_SERVE_POLL_INTERVAL_S == POLL_INTERVAL_AS_MEASURED`
+          (`assert 0.5 == 0.05`).
+
+      MAX_LIVE_TEARDOWN_S = 0.2 is a literal, not a function of
+      _SERVE_POLL_INTERVAL_S (verified by reading the constant and by M1
+      firing on it), so it is not circular. The sceptical case that the guard
+      catches only something adjacent does not survive: the two mechanisms
+      fail for different reasons, on different mutants, and one of them has
+      no clock in it at all.
+    suggestion: "none — closed"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted fix delta on 4302684"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_browser_fixture_scope.py
+    line: 159
+    title: "AC-3's in-suite probe was 5 of 422 tests on the family's cheapest file"
+    description: |
+      SUBSTANTIVELY RESOLVED; its new guard is not (see F-007).
+
+      ORDER_PROBE_FILE moved mirror.py -> resume.py. Verified: resume.py
+      collects 15 tests (--collect-only) against mirror.py's 5, has 8
+      `localStorage` sites to mirror.py's 3, and writes/corrupts/restores the
+      save rather than only reading it. Cross-checked the cost claim against
+      the committed after artefact: resume.py 16.11 s, and of the five family
+      files that carry both a save and a listener/interceptor
+      (page 'n/a — it is the fixture file', marking 39.58 s, progress 23.79 s,
+      zoom 22.38 s, resume 16.11 s), resume.py is the cheapest. The choice is
+      optimal for the chosen policy; what the policy costs is F-008.
+    suggestion: "none for the probe choice itself"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted fix delta on 4302684"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_browser_fixture_scope.py
+    line: 189
+    title: "_RUN_TIMEOUT_S = 600 on six child-pytest tests whose observed worst case is 8.5 s"
+    description: |
+      RESOLVED. _RUN_TIMEOUT_S is now 90, documented against the new measured
+      worst case (21.51 s), i.e. ~4.2x headroom. Judged adequate: CARD-217's
+      own recorded run-to-run spread on this host is 19 %, so 4.2x absorbs a
+      loaded host with room to spare, and the failure mode of an
+      under-generous bound here is a red gate rather than a silent pass. The
+      old bound allowed one hung child to hold the gate for 10 minutes and
+      the six of them for up to an hour.
+    suggestion: "none — closed"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted fix delta on 4302684"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_browser_fixture_scope.py
+    line: 755
+    title: "The new probe-file guard passes for the exact file it was written to exclude"
+    description: |
+      Step 8f mutant M3. Point ORDER_PROBE_FILE back at
+      tests/test_puzzle_solver_mirror.py — the file F-003 was filed about, and
+      the one the fix spends ~30 s/suite moving away from — and run the new
+      guard:
+
+          test_the_probe_file_installs_the_state_the_ordering_is_about
+          1 passed in 0.12s
+
+      Both regexes match mirror.py: `localStorage` at lines 260 (a docstring),
+      276 and 303, and `\.on\(` at line 280 (`page.on("request", ...)`).
+      Grepped all twelve family files: 7 of 12 satisfy `localStorage` OR are
+      irrelevant, and every file with a save also has a listener, so the
+      conjunction discriminates nothing among the candidates the comment is
+      arguing between.
+
+      The test's own docstring states the claim it does not establish —
+      "which is why :data:`ORDER_PROBE_FILE` is not the cheapest file" — and
+      the ORDER_PROBE_FILE comment says
+      "test_the_probe_file_installs_the_state_the_ordering_is_about keeps that
+      choice honest rather than leaving it to this comment". It does not; the
+      comment is still what holds the choice.
+
+      Not escalated to Important although Step 8f's default for a surviving
+      mutant is Important: the mutated entity is a test's input selection, not
+      production code. AC-3 itself remains verified — two real orderings over
+      a 15-test file plus the exhaustive 422-test reverse/shuffled record —
+      and no behaviour of the card regresses on this mutant. What is lost is
+      only the guard against a future reversion of a Minor.
+    suggestion: |
+      Make the guard discriminate on the thing the comment argues, or delete
+      it and keep the comment (which is at least honest about being a comment):
+
+        * require a localStorage *write* (`setItem`/`saveKey(`) and not merely
+          the string — resume.py has 8 such sites, mirror.py reads only; or
+        * assert the collected test count of the probe file (resume.py 15,
+          mirror.py 5), which is the quantity the "5 of 422" complaint was
+          actually about; or
+        * assert the probe file's PAGE_ISOLATION reason names at least two of
+          the three mechanisms, so the declaration and the probe cannot drift
+          apart.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/profiling/card-235-durations-after.txt
+    line: 16
+    title: "The guard file has grown ~30 s since the after-profile that certifies the saving was taken"
+    description: |
+      The committed after artefact is pinned to commit 77428ce (its own
+      header, and its sha256 is pinned into the document). In it,
+      tests/test_browser_fixture_scope.py costs 23.99 s across 42 duration
+      rows, with the two orderings at 6.99 s and 4.82 s. After the cycle-2
+      fix the same two orderings are 21.51 s and 20.29 s and the file's own
+      docstring reports the whole file at 54.05 s — ~+30 s of permanent
+      per-suite cost added after the measurement that certifies the card.
+
+      Nothing fails, and that is the point: every AC-1 bar reads the frozen
+      artefact, and `test_the_profile_is_this_cards_run` pins the artefact to
+      its own digest, not to the tree. So the card's headline row — "suite
+      wall clock 930.81 s -> 871.02 s, -59.79 s" — is now the measurement of
+      a tree that is two commits and one fix delta behind, and the realised
+      wall-clock return is roughly half of what that row says. The 126.35 s
+      teardown saving itself is untouched (the guard file is not in the
+      `tests/test_puzzle_solver` family prefix, so it moves no family total);
+      what moved is the net.
+
+      This is the same class of defect the card exists to correct — CARD-217
+      committed a confident attribution from one run's shape — one layer out:
+      here the number is honestly labelled with the commit it was taken at,
+      and the drift is that the card's summary presents it as the card's
+      outcome. Kept Minor for that reason: the direction of the conclusion
+      (the family's teardown collapses, the chosen interval costs call
+      nothing) is unaffected, and no merge decision turns on it.
+    suggestion: |
+      Cheapest honest fix: one line in
+      meta/profiling/card-235-browser-teardown.md stating the guard file's
+      post-review cost (54.05 s against the 23.99 s in the artefact) and the
+      adjusted net, so the next reader who quotes -59.79 s sees the caveat
+      beside it. Re-profiling is the thorough fix but costs another ~15 min
+      solo run and would itself be stale after the next guard.
+
+      Worth deciding at the same time whether the in-suite ordering pair earns
+      its 41.8 s at all, given ORDER_RECORD already holds 422 tests in both
+      orders out of band — that, and not the probe file's identity, is where
+      this card's remaining suite cost is.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_browser_fixture_scope.py
+    line: 216
+    title: "_SERVE_SETTLE_S does not reliably establish the state it exists for — measured 2/20 — but only on correct code"
+    description: |
+      _SERVE_SETTLE_S = 0.05 exists so the serve loop is measured *inside* a
+      poll wait. Measured it: 20 samples of exactly the quantity the test
+      asserts on, driven through the same `_fixture_function(live)` path.
+
+        at the shipped 0.05 s: 20/20 under the bound, median 0.0472 s,
+          max 0.0506 s (3.95x margin against 0.2 s) — but 2 of 20 samples
+          came in at 0.0002 s, i.e. the loop was not in a poll wait at all
+          and those iterations measured nothing.
+        at 0.5 s (M1 applied): 0/20 under the bound, range 0.4454-0.4506 s,
+          0 near-zero samples.
+
+      So the resonance (settle == poll interval) produces false-GREEN on
+      already-correct code and vanishes under the mutant, where the loop is
+      always deep inside a 0.5 s select after a 0.05 s settle. The guard's
+      discrimination is unaffected, and M2 is in any case killed by the
+      clock-free monkeypatch test.
+
+      On the project's no-sleep-synchronisation convention: this sleep is the
+      legitimate exception — it establishes a state with a bounded 50 ms cost
+      rather than waiting for one, and it never polls. Flake risk is low in
+      the direction that matters: a false red needs +150 ms of scheduling
+      delay on a 47 ms operation.
+    suggestion: |
+      Optional. Replacing the sleep with one HTTP request to `live.url`
+      before starting the clock would guarantee the loop has reached select
+      and remove the 2/20 vacuous iterations, at the cost of a request. If
+      the sleep stays, note in the comment that it is best-effort and that
+      the monkeypatch test is what makes the pair deterministic — the class
+      docstring currently says "both fail on the mutant above", which is true
+      of M2 and M1 as measured but not guaranteed of the timing half.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/profiling/card-235-poll-interval-ab.txt
+    line: 46
+    title: "The 92.97 s GIL figure is quoted from the one measurement whose own table contradicts the mechanism"
+    description: |
+      CARRIED OPEN from cycle 1, delta-clean. The fix delta does not touch
+      meta/profiling/card-235-poll-interval-ab.txt,
+      card-235-browser-teardown.md, or the A/B table in
+      _SERVE_POLL_INTERVAL_S's comment block (the comment-only change to that
+      block is the new cross-reference to the guard class; the A/B table and
+      the "costs 93 s of call" sentence are byte-identical). Cycle 1's
+      verdict and suggestion stand unchanged.
+    suggestion: "as cycle 1: soften the three statements of the mechanism to a direction-only claim, cite the full-suite pair as primary, and state the 0.5 s row's anomaly"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_browser_fixture_scope.py
+    line: 780
+    title: "The two order-independence tests launch Chromium without @pytest.mark.browser"
+    description: |
+      CARRIED OPEN from cycle 1. The fix delta touches this class (it adds
+      test_the_probe_file_installs_the_state_the_ordering_is_about and changes
+      ORDER_PROBE_FILE) but adds no marker, so the finding is re-derived
+      rather than carried on scope: grepped the class — no
+      @pytest.mark.browser on test_reverse_order_passes or
+      test_shuffled_order_passes, and the child they spawn now runs 15 real
+      browser tests instead of 5, which widens the gap slightly.
+
+      The new TestBrowserFixtures_ThePollIntervalIsStillApplied correctly
+      carries no browser marker: it drives the werkzeug `live` fixture only
+      and launches no Chromium (confirmed by running it standalone without a
+      browser fixture, 2 passed in 0.38 s).
+    suggestion: "as cycle 1: mark both with @pytest.mark.browser, or move the marker to the class"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/profiling/card-235-browser-teardown.md
+    line: 78
+    title: "The 57 ms page-lifecycle benchmark is the only figure in the card with no committed artefact"
+    description: |
+      CARRIED OPEN from cycle 1, delta-clean: the fix delta touches no file
+      under meta/profiling/. Cycle 1's verdict and suggestion stand.
+    suggestion: "as cycle 1: commit the 20-iteration snippet, or state the setup-column bound as the primary evidence with 57 ms as corroboration"
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
