@@ -1,6 +1,6 @@
 # CARD-234: The generated cover's title letters from packaged data, like the interior
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** bug
 **Complexity:** standard
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/234-cover-packaged-face
-**Worktree:** ../PythonProject4-card-234
+**Worktree:** —
 **Source:** found at CARD-221's implementation station, 2026-10-14 — the one place the interior's new "typography is deterministic" rule is still untrue
 **Idea:** —
 **Wave:** 40
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_cover.py, tests/test_book_export_interior_cover.py
 **Review score:** 9.0 (cycle 1/3)
 **Started:** 2026-10-15T08:44:16Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-15T16:54:14Z
+**Actual:** 1.0d
+**Merge commit:** c6dfeed
 **Blocked by:** —
 
 ## What to implement
@@ -483,3 +483,27 @@ CARD-221, that "the generated title cover still reads the host's Arial at
   it.** A `-k density` or a single file stays exempt; a 78-run loop or a whole-family sweep does
   not. The current wording made this the agent's judgement call when it should have been a
   measurable threshold.
+- [Build gate] RE-GATE after CARD-237 merged: rebased to `462da7d` onto main `9a062ce`, full
+  suite **7205 passed, 11 skipped, 0 failed in 947.50s**, exit 0, under the lock.
+  **The memory test passed.** That is CARD-237 proving itself on the very gate that failed twice
+  on the old guard — and the skip count is the normal 11, not the anomalous 84 of my first run,
+  so this gate is the first fully-executed green suite this card has had.
+- [Trace] FR-043 is the card's traced requirement (as amended by CARD-135: the cover is its own
+  file). Evidence tests available for write-back from the AC gate: `TestBookCover_*` (the five
+  new classes) plus `test_the_uploaded_cover_is_used_whatever_the_title_holds`. Not appended to
+  trace.yml by me — FR-043 is still open across CARD-206/229 and others in the interior
+  redesign, so flipping its status would be wrong and appending tests piecemeal while the FR has
+  live cards is the kind of half-update that makes a trace untrustworthy. Routed to the wave's
+  trace pass instead.
+- [Closed] merged c6dfeed, actual 1.0d against 0.5d. One review cycle (9.0, no gating
+  findings), 11/11 AC/G demonstrated, 6 mutants each red by name. The elapsed time is almost
+  entirely the flaky-guard investigation and CARD-237, not this card's own work.
+- [Follow-ups it leaves, all recorded and none fixed here] a title wider than the trim still runs
+  off both edges (measured: 69 characters at the Book 1 trim, far fewer at the 10 cm minimum —
+  pre-existing, and fitting a title is cover design, excluded by G-5); the refusal reaches the
+  owner only through the panel's log because both export routes flash the generic
+  `PDF_EXPORT_FAILED`, an `app.py` change outside this card's Touches; a tab INSIDE a title is
+  refused while a tab-only title draws blank, reachable because `<input type="text">` strips
+  LF/CR but not tabs and `book_manager.py` validates only emptiness; and the anti-cache guard
+  asserts the trailing `cache_clear` rather than the one at the host boundary, so dropping only
+  the mid-boundary clear would still pass.
