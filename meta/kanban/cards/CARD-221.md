@@ -17,7 +17,7 @@
 **Deferred waves:** 0
 **Depends on:** CARD-205
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/fonts/, tests/test_book_toc.py, tests/test_book_pdf_memory.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_interior_type_floor.py, tests/test_book_finalise_gutter.py, tests/helpers/book_corpus.py, tests/fixtures/
-**Review score:** —
+**Review score:** 8.5/10 (cycle 2/3) — clears the gate; 0 critical, 0 important, 3 minor. Cycle 1 was 7.5 with 3 gating.
 **Started:** 2026-10-14T14:20:00Z
 **Closed:** —
 **Actual:** —
@@ -699,3 +699,48 @@ still that same gate closing.)
   load that produced the first gate's false failure and the CARD-195 `page.goto` artefact. The
   gate's signal is the thing standing between CARD-212 and merging, so it gets the machine.
   CARD-221's review starts when the gate reports.
+
+- [Review cycle 2] 2026-10-15 — **8.5/10, clears the gate** (+1.0 on cycle 1's 7.5, against a
+  min_improvement of 0.5). **0 critical, 0 important, 3 minor.** Report:
+  `meta/review/20261015T022658Z-CARD-221-cycle2.yml`. On host **363 passed / 1 skipped /
+  0 failed**; off host under the reviewer's own collection-time plugin, **362 / 2 / 0**.
+  Their own mutation set: **7 mutants, 7 killed.**
+  - **N1's capacity sweep exercises capacity rather than asserting arithmetic about it** — it
+    calls the real `_toc_entries_per_page` and places that many rows using metrics read off
+    package data independently, so deleting the reservation produces a *behavioural* failure.
+    The reviewer re-derived every figure from scratch and matched exactly: **381 heights, 0
+    short with the reservation, 185 without, first failing 10.30 cm at 24 px against 49.** That
+    also makes 10.30 cm the **tightest** available rendered witness rather than a convenient
+    one — it is the first height the reservation saves. A half-reservation mutant kills the
+    sweep and leaves the rendered witness green, which the reviewer judged **the correct
+    separation rather than a gap**.
+  - **N5a's gate class pins discrimination through the gate's own code path** — it kills a
+    mutant the agent never ran (blanking the probe string so the gate closes wrongly on every
+    host), which is the real test of the class.
+  - **The 10.531% figure now has an independent witness.** The reviewer rebuilt the deleted 3x3
+    instrument **from the cycle-1 diff**, not from anything on the branch, and ran it over both
+    guide pages: page 1 7.596% / 254,766, page 2 10.531% / 478,630 — exact match. Page 1 is a
+    genuine control, because it is what the *original* tool produced before deletion, so
+    reproducing it validates the rebuild.
+  - **F-002's four numbers verified with the reviewer's own `_draw_folio` spy:** page 2 room
+    **18 px packaged against 93 px Arial** (so 75 px is the face's cost) against the folio's 49;
+    page 1 ink 111 px past the frame on both faces. They judged the prose's distinction between
+    the ladder's `bottom` and where ink lands "exactly right and worth separating".
+  - **The box-around-nothing question: honest.** They read the CSS rather than a render — the
+    screen's box is a `flex` row with `flex: 1 1 10rem` that hugs its content, where the printed
+    rule spanned a measure, so the print-side argument does not transfer. F-007's
+    kept-with-a-reason also checks out: they verified against `record_interior` that it spies
+    `ImageDraw.text`, so the claimed complementarity with the `truetype`-argument watch is real
+    for the case that matters.
+- [Review cycle 2 — the three minors, all being taken] Non-gating, and worth a short cycle
+  because one of them is the card's own subject:
+  - **N-001: the only host-dependent function this card *adds* has an untested branch.** The
+    gate's third real case — a host face that **loads but is indistinguishable**, where the gate
+    must return False from the pixel comparison rather than from the `except OSError` branch —
+    is uncovered. That branch is why the function samples pixels at all. The rationale beside it
+    is also wrong in a small, checkable way: the docstring says that without the companion test
+    the yes-test "would pass for the wrong reason"; it would **fail**, not pass.
+  - **N-002: `.guide-difficulty-column p` (`admin.css:401`) is now dead** — a selector for an
+    element the template no longer emits, and the one part that should have gone with the `<p>`.
+  - **N-003: "212 px ... on either face" is 212 packaged, 210 Arial.** Only the 111 px figure is
+    identical on both.
