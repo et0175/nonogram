@@ -143,6 +143,33 @@ TIMING_LOG_LINE = re.compile(
     r"(?: \[(?P<rate>\d+ms/test)\])?$"
 )
 
+# --------------------------------------------------------------------------
+# Cost families -- the deciding table
+#
+# These are the groupings the card's question is settled on. They are defined
+# here, rather than in a throwaway analysis script, so that the hotspots
+# document's *headline* is derived from committed code exactly like the three
+# rankings below it. The card's conclusion turns on the first two rows, and
+# four follow-on cards are steered by them, so a figure nobody can regenerate
+# is a figure nobody can check.
+#
+# The browser family is the twelve tests/test_puzzle_solver_*.py files, which
+# all drive Chromium through the shared `browser_page` fixture defined in
+# test_puzzle_solver_page.py. Three further files use that same fixture
+# (test_books_list_mobile, test_book_finalise_guide_preview_layout,
+# test_book_setup_print_mobile, 9.11s between them); they are deliberately
+# left out so the figure is a floor rather than a best case -- see the
+# hotspots document's caveat.
+# --------------------------------------------------------------------------
+
+BROWSER_FAMILY_PREFIX = "tests/test_puzzle_solver"
+PROPERTY_PREFIX = "tests/property/"
+ADMIN_LOCAL_TRIO = (
+    "tests/test_run_admin_tests.py",
+    "tests/test_setup_admin_local.py",
+    "tests/test_start_admin_local.py",
+)
+
 TOP_TESTS = 50
 TOP_FILES = 20
 
@@ -385,6 +412,36 @@ def render_heavy_total(profile: Profile) -> tuple[float, int, int]:
     return seconds, len(files), tests
 
 
+def group_totals(profile: Profile) -> list[tuple[str, float, int]]:
+    """The deciding table, as ``(name, seconds, tests)`` in report order.
+
+    Deterministic: the order is fixed here, not derived from a dict or a
+    sort over floats, so two runs cannot disagree about it.
+    """
+    render = set(RENDER_HEAVY_SNAPSHOT)
+    tests = profile.tests.values()
+
+    def total(predicate) -> tuple[float, int]:
+        chosen = [t for t in tests if predicate(t)]
+        return sum(t.total for t in chosen), len(chosen)
+
+    is_browser = lambda t: t.file.startswith(BROWSER_FAMILY_PREFIX)  # noqa: E731
+    is_render = lambda t: t.file in render  # noqa: E731
+    is_property = lambda t: t.file.startswith(PROPERTY_PREFIX)  # noqa: E731
+    is_admin = lambda t: t.file in ADMIN_LOCAL_TRIO  # noqa: E731
+
+    rows = [
+        ("browser family (Chromium)", *total(is_browser)),
+        ("render-heavy frozen set", *total(is_render)),
+        ("property corpora", *total(is_property)),
+        ("property AND render", *total(lambda t: is_property(t) and is_render(t))),
+        ("property OR render", *total(lambda t: is_property(t) or is_render(t))),
+        ("admin-local script trio", *total(is_admin)),
+        ("everything but the browser family", *total(lambda t: not is_browser(t))),
+    ]
+    return rows
+
+
 def phase_totals(profile: Profile) -> dict[str, float]:
     return {
         phase: sum(t.phase(phase) for t in profile.tests.values()) for phase in PHASES
@@ -436,6 +493,17 @@ def report(profile: Profile, source: Path, digest: str) -> str:
         add(f"# result: {profile.passed} passed, {profile.skipped} skipped")
     add("#")
     add("# Shares below are of attributed time, not of wall clock.")
+    add("")
+
+    add("## Cost families (the deciding table)")
+    add("")
+    add(f"{'family':<36} {'total':>9} {'share':>7} {'tests':>6} {'ms/test':>8}")
+    for name, seconds, count in group_totals(profile):
+        per = f"{seconds / count * 1000:.0f}" if count else "n/a"
+        add(
+            f"{name:<36} {seconds:>8.2f}s {_pct(seconds, attributed)} "
+            f"{count:>6} {per:>8}"
+        )
     add("")
 
     add(f"## {TOP_TESTS} slowest tests")

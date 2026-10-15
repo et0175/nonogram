@@ -33,6 +33,22 @@ third family the card did not consider is larger than both combined.
 | render ∪ property (the card's two hypotheses together) | 264.86 s | 28.77 % | | |
 | admin-local script tests (`test_start_admin_local`, `test_run_admin_tests`, `test_setup_admin_local`) | 117.16 s | 12.73 % | 83 | 1412 |
 
+Derived, not hand-counted — this is `rank_durations.py`'s own
+cost-families block, quoted verbatim:
+
+```
+(the deciding table)
+
+family                                   total   share  tests  ms/test
+browser family (Chromium)              366.19s  39.78%    422      868
+render-heavy frozen set                195.42s  21.23%   1079      181
+property corpora                       140.19s  15.23%    184      762
+property AND render                     70.75s   7.68%     11     6432
+property OR render                     264.86s  28.77%   1252      212
+admin-local script trio                117.16s  12.73%     83     1412
+everything but the browser family      554.44s  60.22%   6660       83
+```
+
 - **The render hypothesis is real but minority**: 21.23 % of attributed time,
   not the bulk. It is the larger of the two the card named.
 - **The corpus hypothesis is the weaker**: `tests/property/*` is 15.23 %, and
@@ -57,10 +73,10 @@ its twelve files was first committed between 2026-10-03T08:32Z and
 
 Split the current suite in two and the doubling disappears:
 
-| | time | tests | ms/test |
-|---|---|---|---|
-| browser family | 366.19 s | 422 | **868** |
-| everything else | 554.44 s | 6660 | **83** |
+| | time | share | tests | ms/test |
+|---|---|---|---|---|
+| browser family | 366.19 s | 39.78 % | 422 | **868** |
+| everything else | 554.44 s | 60.22 % | 6660 | **83** |
 
 **A browser test costs 10.4× a non-browser test.** The non-browser suite sits
 at 83 ms/test against wave 30's whole-suite 68 ms/test — it has barely slowed
@@ -134,11 +150,16 @@ There is no test to delete that materially changes the number.
     to that one family — which nothing supports — still leaves it ahead.
   - **The per-test teardown distribution shows no contention spike.** Across
     all 422 browser tests, teardown is mean 0.327 s, median 0.370 s, stdev
-    0.144 s, max 0.520 s; per-file means span only 0.198–0.413 s; the
-    histogram is unimodal, massed at 0.3–0.5 s, with no tail. A four-minute
-    stall would have left a visible cluster of outliers among whichever tests
-    ran through it. There is none — so the ~0.33 s per test is structural,
-    the price of tearing down a browser page, not an artefact of the sweep.
+    0.144 s, max 0.520 s; per-file means span only 0.198–0.413 s. The
+    histogram is bimodal — `{0.0: 41, 0.1: 22, 0.2: 37, 0.3: 81, 0.4: 141,
+    0.5: 100}` — with a 41-test cluster near zero and the main mass at
+    0.3–0.5 s. The load-bearing half is that main mass: it is tightly packed
+    and **has no tail at all**, stopping dead at 0.520 s. A four-minute stall
+    would have left a visible cluster of outliers among whichever tests ran
+    through it, and a bounded maximum is precisely what rules that out. So
+    the ~0.33 s per test is structural — the price of tearing down a browser
+    page — not an artefact of the sweep. (The near-zero cluster is the
+    opposite of a contention signal: those are tests that tear nothing down.)
 - **Phase attribution is near-total** (98.9 %), so these shares are not hiding
   in unmeasured session fixtures.
 - The card estimated "19 render-heavy files"; the grep that defines the set

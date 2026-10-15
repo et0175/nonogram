@@ -129,12 +129,18 @@ class TestSuiteProfile_ArtefactExistsAndIsComplete:
             "naming convention pairs a profile with its analysis by date"
         )
 
-    def test_the_latest_artefact_is_the_one_the_hotspots_document_cites(
-        self, artefact_path: Path, artefact_text: str
+    @pytest.mark.parametrize(
+        "path", _artefacts(), ids=lambda p: p.name if hasattr(p, "name") else str(p)
+    )
+    def test_every_hotspots_document_cites_its_own_artefact(
+        self, path: Path
     ) -> None:
         # The real risk a multi-profile future introduces is not duplication,
-        # it is a hotspots document quietly describing a superseded run. The
-        # document cites its source's sha256, so that cannot drift unnoticed.
+        # it is a hotspots document quietly describing a superseded run. Every
+        # document is checked, not just the newest: the moment CARD-218
+        # commits a second profile, a stale citation on the *older* pair would
+        # otherwise go unnoticed forever.
+        artefact_path = path
         digest = hashlib.sha256(artefact_path.read_bytes()).hexdigest()
         document = _hotspots_for(artefact_path).read_text(encoding="utf-8")
         assert digest in document, (
@@ -142,6 +148,89 @@ class TestSuiteProfile_ArtefactExistsAndIsComplete:
             f"{artefact_path.name} ({digest[:16]}...); it was derived from a "
             "different artefact"
         )
+
+    @pytest.mark.parametrize(
+        "path", _artefacts(), ids=lambda p: p.name if hasattr(p, "name") else str(p)
+    )
+    def test_hotspots_ranking_rows_are_the_scripts_own_output(
+        self, path: Path
+    ) -> None:
+        # The sha256 citation pins *which* artefact a document derives from.
+        # It says nothing about *what the document claims* about it, and those
+        # are different guarantees: a falsified ranking row, or a denominator
+        # nudged by 1 %, leaves the citation perfectly valid. Four cards steer
+        # on the second guarantee, so it gets its own test.
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        profile = ranker.parse_artefact(path.read_text(encoding="utf-8"))
+        generated = ranker.report(profile, path, digest)
+        document = _hotspots_for(path).read_text(encoding="utf-8")
+        row = re.compile(r"^\s*\d+\s+\d+\.\d+s")
+        assert [line for line in document.splitlines() if row.match(line)] == [
+            line for line in generated.splitlines() if row.match(line)
+        ]
+
+    @pytest.mark.parametrize(
+        "path", _artefacts(), ids=lambda p: p.name if hasattr(p, "name") else str(p)
+    )
+    def test_hotspots_headline_figures_are_the_scripts_own_output(
+        self, path: Path
+    ) -> None:
+        # The ranking rows above are tabular; the conclusion is prose, and the
+        # prose is what the follow-on cards actually read. Every figure in the
+        # deciding table must appear in the document on a single line, so that
+        # editing "366.19 s / 39.78 %" down to "166.19 s / 19.78 %" cannot
+        # pass -- which it did before this test existed.
+        profile = ranker.parse_artefact(path.read_text(encoding="utf-8"))
+        document = _hotspots_for(path).read_text(encoding="utf-8")
+        rows = [
+            line for line in document.splitlines() if line.lstrip().startswith("|")
+        ]
+        wrong = []
+
+        # (a) Every seconds/share pair stated in a table must be internally
+        # consistent with the attributed denominator. This catches a
+        # falsified figure without having to know which figure it was: both
+        # columns would have to be forged in agreement to survive, and
+        # forging them in agreement means stating the truth.
+        for line in rows:
+            secs = re.findall(r"(\d+\.\d{2}) s\b", line)
+            share = re.findall(r"(\d+\.\d{2}) %", line)
+            if len(secs) != 1 or len(share) != 1:
+                continue  # not a "time + share" row; nothing to cross-check
+            expected = 100.0 * float(secs[0]) / profile.attributed
+            if abs(expected - float(share[0])) > 0.01:
+                wrong.append(
+                    f"{secs[0]} s is {expected:.2f} % of attributed time, "
+                    f"row claims {share[0]} %: {line.strip()}"
+                )
+
+        # (b) …and each cost family must actually be stated somewhere, so a
+        # row cannot simply be deleted to dodge (a).
+        for name, seconds, _count in ranker.group_totals(profile):
+            pair = (
+                f"{seconds:.2f} s",
+                f"{100.0 * seconds / profile.attributed:.2f} %",
+            )
+            if not any(pair[0] in line and pair[1] in line for line in rows):
+                wrong.append(f"{name}: no table row states {pair[0]} / {pair[1]}")
+
+        assert wrong == [], wrong
+
+    @pytest.mark.parametrize(
+        "path", _artefacts(), ids=lambda p: p.name if hasattr(p, "name") else str(p)
+    )
+    def test_hotspots_embeds_the_deciding_table_verbatim(self, path: Path) -> None:
+        # Belt to the prose check's braces: the script's own deciding-table
+        # block is quoted in the document byte for byte, so the authoritative
+        # figures are present in a form that cannot be edited into agreement
+        # with a falsified prose table.
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        profile = ranker.parse_artefact(path.read_text(encoding="utf-8"))
+        generated = ranker.report(profile, path, digest)
+        block = generated.partition("## Cost families")[2].partition("\n## ")[0]
+        assert block.strip(), "the report no longer has a cost-families block"
+        document = _hotspots_for(path).read_text(encoding="utf-8")
+        assert block.strip() in document
 
     def test_artefact_is_named_for_its_date(self, artefact_path: Path) -> None:
         stem = artefact_path.stem
@@ -302,6 +391,23 @@ class TestSuiteProfile_RankingIsDeterministic:
             "tests/test_t.py::test_alpha",
             "tests/test_t.py::test_mike",
             "tests/test_t.py::test_zulu",
+        ]
+
+    def test_equal_file_totals_break_ties_on_path_not_on_dict_order(self) -> None:
+        # rank_files carries the same tie-break as rank_tests and, unlike it,
+        # nothing pinned it. Not a live hole today -- sorted() is stable over
+        # an insertion order that is itself a pure function of the artefact --
+        # but an untested asymmetry between two functions that must behave
+        # the same way is how determinism quietly stops being true.
+        artefact = "\n".join(
+            f"1.00s call     tests/test_{name}.py::test_one"
+            for name in ("zulu", "alpha", "mike")
+        )
+        order = [row[0] for row in ranker.rank_files(ranker.parse_artefact(artefact))]
+        assert order == [
+            "tests/test_alpha.py",
+            "tests/test_mike.py",
+            "tests/test_zulu.py",
         ]
 
     def test_file_totals_sum_the_phases_of_their_tests(self) -> None:
