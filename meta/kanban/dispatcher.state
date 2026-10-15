@@ -7,14 +7,13 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
-  - id: CARD-217
-    phase: implementation
-    branch: card/217-profile-the-suite
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-217
-    started: 2026-10-15T06:45:00Z
-    note: "SOLO. Wave 39 holds this card alone, by the owner's 2026-10-14 decision: its whole method is to profile the suite with nothing else on the host, so a concurrent card would corrupt the measurement it exists to take. Nothing else starts until it merges." 
+active: []
 merged:
+  - id: CARD-217
+    review_cycle: 1
+    success_commit: 321284f
+    merge_commit: 967a7fa
+    note: "wave 39, solo. Cycle 1 = 9.0, cleared first time; 2 fix cycles, both spent making the measurement's own claims checkable. AC/EC/G gate passed, 63 mutants across the card. Merge gate 7156/0. Actual ~0.25d. Answer: the browser family is 39.78% of the suite, neither card hypothesis. Re-points CARD-218/219/220 and produces CARD-235/236."
   - id: CARD-221
     review_cycle: 2
     success_commit: 0188110
@@ -110,6 +109,10 @@ conflict_edges:
 # whether to merge it — merge, then report and point at the renders. This is not permission to
 # merge past a gate: a review under min_score, an unmet AC, a red merge gate, an open owner
 # decision or a strict xfail standing in for a defect all still block.
+# NOTE 2026-10-15: wave 39 (CARD-217, solo) is merged. Next is the interior redesign, in the
+# order under queued_after_card_217 — CARD-234 and CARD-228 have no dependencies and CARD-222
+# is the frame everything else sits in. CARD-235 (the browser family, 39.78% of the suite) is
+# P1 and now outranks CARD-218/219 among the test-cost cards.
 # NOTE 2026-10-15: wave 38's six cards are all merged. CARD-217 is next, ALONE, per the owner's
 # 2026-10-14 decision; nothing else starts until it is done. After it, the interior redesign runs
 # in the order listed under queued_after_card_217.
