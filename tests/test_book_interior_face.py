@@ -815,8 +815,8 @@ class TestInteriorFace_NoFaceIsReadFromAHostPath:
         costs three lines and one more export each.
 
         **The caches are cleared first, and that is what makes the sweep
-        real** (AC/EC/G gate, F-G1). ``_band_font``/``_band_font_bytes`` are
-        ``lru_cache``\ d, so by the time the second parametrization runs the
+        real** (AC/EC/G gate, F-G1). ``_band_font`` and ``_band_font_bytes``
+        are ``lru_cache`` objects, so by the time the second parametrization runs the
         faces this export needs are already loaded and the watch sees no
         ``truetype`` call at all: against a host lookup mutated back in, a
         cold process killed only the first case and running the file
