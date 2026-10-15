@@ -499,13 +499,20 @@ class TestInteriorFace_TheOneHostGateDiscriminates:
     contrast and the control disappears with nothing red, which is the
     "dead weight that hides the next real gap" AC-6 is about. Its verdict
     on any particular machine is host-dependent by definition and cannot be
-    asserted here — what can, and what these two tests do, is pin the
-    **logic**: refuse every host path and it must say no; hand it two faces
-    that genuinely differ and it must say yes. Both hold on every host.
+    asserted here — what can, and what these tests do, is pin the
+    **logic**, on all three of its paths: refuse every host path and it
+    must say no (the exception); hand it a face that draws the sample
+    exactly as Pillow's own does and it must say no (the comparison, which
+    is the only reason this function rasterises anything); hand it a face
+    that genuinely differs and it must say yes. All three hold on every
+    host.
 
     Added in review cycle 1's mutation round, which asked for a set aimed
     at this function: before it, mutating the gate to ``return False``
-    survived the whole suite in silence.
+    survived the whole suite in silence. The comparison branch was added in
+    cycle 2 (N-001), which found it the one path still uncovered — the
+    exception path having been the only way the gate had ever been seen to
+    close.
     """
 
     def test_it_says_no_when_the_host_offers_no_face_at_all(self, monkeypatch) -> None:
@@ -539,11 +546,61 @@ class TestInteriorFace_TheOneHostGateDiscriminates:
             "open, or the negative control it guards can never run anywhere"
         )
 
-    def test_the_two_faces_it_compares_really_do_draw_differently(self) -> None:
-        """Non-vacuity: the sample the gate digests discriminates at all.
+    def test_it_says_no_when_the_host_face_loads_but_is_indistinguishable(
+        self, monkeypatch
+    ) -> None:
+        """The branch the pixel comparison exists for (review cycle 2, N-001).
 
-        If Pillow's built-in face and the packaged one rendered this sample
-        identically, the test above would pass for the wrong reason.
+        A host that *has* a font at the path but whose font draws the sample
+        exactly as Pillow's own built-in face does — the metric-compatible
+        clone case, which is not hypothetical: Pillow's embedded Aileron is
+        a Helvetica clone and so is Arial, and this card's own cycle-0
+        measurements found the two drawing the guide page identically line
+        for line. The gate must close, and it must close **through the
+        comparison**, not through the ``except OSError`` that
+        ``test_it_says_no_when_the_host_offers_no_face_at_all`` already
+        covers. That is the whole reason this function samples pixels
+        instead of asking ``os.path.exists``, and nothing exercised it.
+
+        The stand-in is Pillow's own face returned from the host lookup, so
+        the two sides of the comparison are the same face by construction;
+        the call is recorded so the test can show the lookup really
+        succeeded and the exception path was never taken.
+        """
+        original = ImageFont.truetype
+        loaded: List[int] = []
+
+        def truetype(font=None, *args, **kwargs):
+            if isinstance(font, (str, bytes)):
+                size = args[0] if args else kwargs.get("size", 12)
+                loaded.append(size)
+                return ImageFont.load_default(size)
+            return original(font, *args, **kwargs)
+
+        monkeypatch.setattr(ImageFont, "truetype", truetype)
+        verdict = host_offers_a_second_face()
+
+        assert loaded, (
+            "the host lookup never ran, so this test exercised the "
+            "exception path rather than the comparison it is here for"
+        )
+        assert verdict is False, (
+            "the host's face draws this sample exactly as Pillow's own does, "
+            "so there is no contrast for the negative control to measure and "
+            "the gate must close — a gate that opens here would run that "
+            "control on a machine where it cannot possibly find a difference"
+        )
+
+    def test_the_two_faces_it_compares_really_do_draw_differently(self) -> None:
+        """Non-vacuity, for the two tests above: the sample discriminates.
+
+        The yes-test hands the gate the packaged face as its stand-in host
+        face and expects ``True``; the indistinguishable-test hands it
+        Pillow's own and expects ``False``. Both rest on the premise that
+        those two faces really do draw this sample differently — so if they
+        did not, the yes-test would **fail** and there would be no way to
+        tell a broken gate from a premise that never held. This measures
+        the premise, so that failure can only mean the gate.
         """
         size = type_px(22.0, BOOK_DPI)
         packaged = Image.new("L", (900, 120), 255)
