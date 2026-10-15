@@ -1,0 +1,314 @@
+version: 1
+generated_at: "2026-10-15T15:30:22Z"
+target: "CARD-237 cycle 2 (confirmation) — branch card/237-memory-guard-floor-relative, HEAD 487841b with the fix UNCOMMITTED in the working tree (+113/-17 on tests/test_book_pdf_memory.py), file scope tests/test_book_pdf_memory.py, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-237"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "tests/test_book_pdf_memory.py — the whole fix delta line by line, plus the full constants block (lines 700-800), the helper region (_habitable / _the_pair_under_one_cap / _export_marginal_cost / _assert_the_export_fitted_with_room / _assert_the_streaming_child_fitted, 960-1100), _a_child_reporting (1383-1413), and all five TestMemoryGuard_* classes (1443-1720)"
+    - "meta/review/20261015T143100Z-CARD-237-cycle1.yml (full)"
+    - "meta/kanban/cards/CARD-237.md (full)"
+    - "every call site of _capped_child/_habitable/_export_marginal_cost in the file (grep, 14 hits) and every use of WORST_RECORDED_EXPORT_* and CHILD_EXPORT_COST_* (grep, 7 and 14 hits)"
+  not_reached:
+    - "the RLIMIT_AS twin's executed path (skips on this host, kernel refuses setrlimit below 1 TiB; read statically, its named skip reason observed under -rs)"
+    - "full-suite behaviour — not re-run per instruction; the fix agent's two post-fix locked suites (7163 passed, 11 skipped) taken on trust. My own evidence is file-scoped: 53 passed / 1 skipped on the whole file, plus 36 scoped runs (see metrics.repeated_runs)"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 113, removed: 17 }
+  max_fan_in:
+    symbol: "_assert_the_export_fitted_with_room"
+    callers: 8
+  tests_cover_change: true
+  hotspots: ["tests/test_book_pdf_memory.py"]
+  cochange_missing: []
+  churn_12mo: 32
+  fix_commits_12mo: 14
+  repeated_runs:
+    pure_pair_20x: "test_a_floor_at_the_edge_of_the_share_still_passes + test_the_bound_is_where_the_constant_says_it_is — 20/20 green, solo, quiet host"
+    live_sibling_8x: "test_this_hosts_measured_export_passes_the_new_guard — 8/8 green, solo, quiet host"
+    real_capped_test_5x: "TestBookPdfMemory_RealBookExportsUnderTheCap — 5/5 green; margins printed under -rP: 2.93, 4.18, 4.75, 5.20, 4.91 page bitmaps (74.0-131.4 MB); floor 4.37-4.38 bitmaps every run"
+    memory_guard_family_3x: "9 tests, 3/3 green"
+    whole_file_1x: "53 passed, 1 skipped (the RLIMIT twin, named reason) under the repo lock"
+  unmeasured:
+    cochange_missing: "not_applicable — single-file, test-only delta; the file's co-change peers (tests/helpers/book_corpus.py, src/nonogram/admin/book_pdf_generator.py) are out of scope by G-4/G-5"
+    full_suite_result: "budget_truncated — instructed not to run the full suite; the fix agent's two locked suites stand as the AC-5 evidence"
+
+system_contract:
+  rules_checked: 8
+  holds: 3
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived: the delta adds zero import lines (git diff | grep -cE '^\\+(import |from .* import )' = 0) and tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed + ::test_the_font_ships_as_package_data_and_not_as_a_dependency are green on this working tree (2 passed)"
+    - "CON-005 ✓ holds — re-derived, review-lens: git diff --stat HEAD = 1 file changed (tests/test_book_pdf_memory.py); no solver symbol, no tests/property/test_solver_uniqueness.py, no src/**"
+    - "ADR-0038/R8 ✓ holds — re-derived: the delta adds no browser test and no new skip path; the only skip the file produces is the RLIMIT twin's, and it printed its named reason under -rs in this review's whole-file run (1 skipped, reason quoted). The new test's only skip route is _habitable's two named skips, untouched by the delta, and asserted by TestMemoryGuard_StillSkipsWhenTheFloorSwallowsTheCap (green)"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact (re-derived, not carried: scope tests/** intersects the delta): the delta adds no browser test, no pytest-playwright usage, and does not touch pyproject.toml (git diff --stat = 1 file)"
+    - "CON-009 ⚠ unchecked — no_eligible_fact (re-derived; scope global, so not carriable): no web-server socket code in a test-only memory-guard delta"
+    - "CON-010 ⚠ unchecked — no_eligible_fact (re-derived; scope global): no HTTP request handling in this delta"
+    - "CON-011 ⚠ unchecked — no_eligible_fact (re-derived; scope global): no grid-size path in this delta"
+    - "CON-012 ⚠ unchecked — no_eligible_fact (re-derived; scope global): no image-sourcing or aspect-guard path in this delta"
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: tests/test_book_pdf_memory.py
+    line: 1536
+    title: "The new AC-2 test is itself flaky and fails on the unchanged tree — the flake is relocated, not removed"
+    description: |
+      CYCLE 1 FINDING — RESOLVED in this working tree. Re-derived at full depth:
+
+      * The vacuity guard is now free of every measured quantity.
+        test_a_floor_at_the_edge_of_the_share_still_passes (1535-1553) contains exactly
+        four statements before its asserts, all pure: int arithmetic on CHILD_CAP_BYTES /
+        CHILD_FLOOR_SHARE, and two _a_child_reporting() calls. _a_child_reporting (1383)
+        builds a CappedChild dataclass from literals and never reaches _capped_child;
+        _assert_the_export_fitted_with_room is a pure function of two reports. The test
+        spawns no child at all — confirmed by grep: the _capped_child/_habitable/
+        _export_marginal_cost call sites are 1457-1458 (AC-1), 1567-1569 (the new live
+        sibling), 1620-1622 (AC-3's fraction test), 1697 and 1714 (AC-4), 1198 and 1246
+        (the two real tests) — none inside this test.
+      * The arithmetic clears the old bound deterministically: 201_959_999 +
+        165_607_200 = 367_567_199; x3 = 1_102_701_597 > 807_840_000, a 1.365x margin on
+        the total, and the export term 165_607_200 is 2.46x the 67_320_001 it has to
+        carry. Both figures are constants.
+      * 20/20 green over 20 solo invocations on a quiet host (the exact condition the
+        cycle-1 flake lived in, where it went red 5 times in ~11).
+      * Load-bearing, not a tautology: mutating WORST_RECORDED_EXPORT_IN_PAGES to 2.0
+        turns it RED with its own message ("a floor of 202.0 MB carrying the worst
+        recorded export of 50.5 MB totals 252.4 MB ... assert 757349997 > 807840000").
+      * The live half survives as a sibling (test_this_hosts_measured_export_passes_the_new_guard,
+        1566-1577), whose only threshold is CHILD_EXPORT_COST_BYTES — 16 bitmaps against a
+        recorded maximum of 6.56 — a 2.44x margin, outside the instrument's spread.
+        8/8 green solo.
+      * G-2 intact: no bound constant moved (CHILD_EXPORT_COST_IN_PAGES = 16,
+        CHILD_CAP_IN_PAGES = 32, CHILD_FLOOR_SHARE = 0.25 all unchanged).
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted working tree on card/237-memory-guard-floor-relative (+113/-17)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 1663
+    title: "test_the_bound_is_where_the_constant_says_it_is is self-referential and cannot detect a weakened constant"
+    description: |
+      CYCLE 1 FINDING — RESOLVED. The test now carries an absolute assertion on the
+      constant's value (CHILD_EXPORT_COST_IN_PAGES < CORPUS_PAGE_COUNT / 10, i.e.
+      16 < 30.7) plus an honest docstring that states the two edge assertions hold for
+      any value of the constant and cites the 320 mutant by name.
+
+      Re-derived by mutation: at CHILD_EXPORT_COST_IN_PAGES = 320 this test is now RED
+      ("assert 320 < (307 / 10)") where in cycle 1 it stayed green. The memory-guard
+      family goes 4-of-9 red under that mutant (1492 AC-1 opposite-verdicts, 1603 AC-3
+      list-order, 1625 AC-3 fraction, 1663 the new anchor) against 3-of-8 in cycle 1.
+      The fix implements cycle 1's own suggested assertion verbatim. See F-005 for the
+      anchor's measured discriminating power.
+    suggestion: ""
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: "uncommitted working tree on card/237-memory-guard-floor-relative (+113/-17)"
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_memory.py
+    line: 1026
+    title: "The instrument, not the quantity, sets the sensitivity floor — and the recorded spread is now 3.5x, not 2.2x"
+    description: |
+      CYCLE 1 FINDING — still open, and the fix's own re-measurements widen it. The
+      export term is a difference of two processes' ru_maxrss peaks; the recorded range
+      is now 1.86-6.56 page bitmaps (3.5x) where cycle 1 reasoned about 2.26x, against a
+      floor whose spread is 1.005x. This review's five fresh measurements of the real
+      pair, solo on a quiet host, were 2.93 / 4.18 / 4.75 / 5.20 / 4.91 bitmaps — none
+      below the old 2.667 threshold, so my own cycle-1 reds did not reproduce today,
+      which is itself the point: the quantity is not reproducible run to run.
+
+      Two consequences worth recording, neither of them gating:
+      (a) The widening is entirely at the BOTTOM of the range — the maximum on record is
+          unchanged at 6.56 — so the 16-bitmap bound's headroom above the worst case is
+          unchanged at 2.44x and the cycle-1 judgement ("looser in absolute terms but
+          stronger as a discriminator") stands unaltered.
+      (b) The sensitivity floor MOVES WITH the instrument: smallest_caught =
+          CHILD_EXPORT_COST_IN_PAGES - measured, so it now ranges 9.4 (at 6.56 measured)
+          to 14.1 (at 1.86) retained pages, i.e. 3.1-4.6 % of the 307-page book, where
+          cycle 1 quoted ~11-13. Still two orders of magnitude short of the list shape.
+      The file's own comment has not followed (see F-006).
+    suggestion: |
+      Unchanged from cycle 1: if a tighter capped-child bound is ever wanted, have the
+      child report a tracemalloc or sampled-RSS high-water mark of the export phase
+      alone so one process yields both terms, rather than differencing two processes'
+      ru_maxrss. Backlog, not this card.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 1574
+    title: "The live sibling's equality assertion is tautological — the same pure function on the same two arguments"
+    description: |
+      test_this_hosts_measured_export_passes_the_new_guard asserts
+
+          _assert_the_export_fitted_with_room(real_streaming, real_floor) == measured_export
+
+      where measured_export is _export_marginal_cost(real_streaming, real_floor) three
+      lines above, and the guard's return value IS _export_marginal_cost(streaming, floor)
+      (line 1052/1066). Same deterministic function, same two objects: the equality holds
+      by construction and cannot fail for any implementation of the guard that returns its
+      own marginal — including one that asserted on the child's TOTAL and then returned the
+      marginal. The sibling's equality (== WORST_RECORDED_EXPORT_BYTES, line 1553) does not
+      have this problem, because there the expected value is independent of the guard.
+
+      The test is NOT vacuous overall — the guard call itself can fail (marginal >= 16
+      bitmaps), which is the half AC-2 asks a measurement to carry, and that half is real.
+      Only the trailing equality is decorative. This is the pattern CLAUDE.md names
+      explicitly ("prefer an independent second implementation over re-deriving a value
+      with the same function you're testing").
+    suggestion: |
+      Either drop the equality and keep the bare guard call (the assertion that matters),
+      or re-derive the expectation independently:
+          assert _assert_the_export_fitted_with_room(real_streaming, real_floor) == (
+              real_streaming.report["resident"] - real_floor.report["resident"]
+          )
+      which is what AC-1's test at line 1467 already does and which can actually fail.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_memory.py
+    line: 1663
+    title: "The new absolute anchor is the loosest of the three ceilings the file already imposes on the bound"
+    description: |
+      The anchor permits any CHILD_EXPORT_COST_IN_PAGES up to 30. Measured by mutation
+      (whole memory-guard family, 9 tests, each value reverted from a checksummed copy):
+
+          bound 17 -> 9 green     (nothing in the file notices)
+          bound 20 -> 9 green
+          bound 21 -> 1 red       (line 1492, AC-1's same-total/opposite-verdicts test)
+          bound 24 -> 2 red       (1492 + 1625, AC-3's fraction test)
+          bound 30 -> 2 red       (same two; the new anchor still passes, 30 < 30.7)
+          bound 320 -> 4 red      (the above + 1603 + the new anchor at 1663)
+
+      So the binding ceiling on the constant is 20 bitmaps, imposed incidentally by AC-1's
+      choice of 30/20/10-bitmap figures, and the second is ~22-27 from AC-3's fraction test
+      (measurement-dependent: it fires when the bound exceeds 20 + measured). The new
+      anchor at 30.7 never fires first for any widening between 21 and 30, and only adds a
+      fourth killer above 30.7 where two others already fire.
+
+      Its real contributions are not numeric and are worth keeping: it is the only one of
+      the three that is deterministic (AC-3's ceiling rides the live measurement), and it
+      is the only one that states the claim inside the test whose docstring advertises
+      pinning the bound — which is exactly the gap F-002 named. It is also verbatim what
+      cycle 1 asked for, so this is a refinement note, not a rejected fix.
+    suggestion: |
+      If a tighter deterministic anchor is wanted, the fix has just introduced the right
+      denominator for it: assert CHILD_EXPORT_COST_IN_PAGES < 3 * WORST_RECORDED_EXPORT_IN_PAGES
+      (16 < 19.68) ties the bound to the measurement its comment claims it is sized against
+      (2.4x the worst case), stays deterministic, and would catch the 21 and 24 widenings
+      that only the incidental AC-1 figures catch today. Optional; do not gate on it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 770
+    title: "The corrected measurement table did not propagate to the two prose claims derived from it"
+    description: |
+      The delta corrects the table row to 46.9-148.1 MB / 1.86-5.87 bitmaps and adds the
+      six new re-measurements and the 3.5x spread. Two sentences downstream still carry the
+      pre-correction numbers:
+
+        * line 770-771: "the export is 3-6 bitmaps and constant in the page count" —
+          the recorded range is 1.86-6.56.
+        * line 773: "retaining as few as 10-13 of the book's 307 pages is already red" —
+          re-derived from the corrected range, the band is 9.4-14.1 pages (F-003b).
+        * line 1646 (added by this delta) repeats "the export (3-6 bitmaps ...)".
+
+      Comments only, and the live assertions are unaffected — but this file's constants are
+      justified by their comments, so a stale figure in the justification is the same class
+      of defect the card exists to fix, one layer down. Cheap to correct while the file is open.
+    suggestion: |
+      Replace "3-6 bitmaps" with "1.9-6.6 bitmaps" at lines 770 and 1646, and "10-13" with
+      "9-14" at line 773.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-237.md
+    line: 148
+    title: "Out of scope — the card's Architecture context names NFR-008 for the memory envelope, and NFR-008 is the cell-size NFR"
+    description: |
+      CYCLE 1 FINDING — unchanged and unaddressed (correctly: it is not a code finding and
+      the fix delta is tests-only). The card records "NFR-008's neighbourhood" for the book
+      export's memory envelope; NFR-008 in meta/architecture/requirements.yml:4926 is the
+      7.5 mm / 4.8 mm book cell-size requirement, and no requirement states the memory
+      envelope at all — the 512 MB figure lives only as ENVELOPE_BYTES in this test file,
+      sourced to CARD-145's prose. Carried forward for the wave retrospective's
+      rule-promotion pass, not for a fix cycle on this card.
+    suggestion: |
+      Either state the memory envelope as an NFR, or correct the card's Architecture context.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

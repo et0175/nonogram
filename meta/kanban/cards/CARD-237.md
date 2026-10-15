@@ -1,6 +1,6 @@
 # CARD-237: The streaming-shape memory guard measures the export, not CPython's own footprint
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/237-memory-guard-floor-relative
-**Worktree:** ../PythonProject4-card-237
+**Worktree:** —
 **Source:** found in flight at CARD-234's merge gate, 2026-10-15 — owner decision the same day to fix the guard before merging wave 40
 **Idea:** —
 **Wave:** 40
 **Depends on:** —
 **Touches:** tests/test_book_pdf_memory.py
-**Review score:** 7.5 (cycle 1/3)
+**Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-10-15T11:21:04Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-15T16:36:28Z
+**Actual:** 0.7d
+**Merge commit:** 194cb40
 **Blocked by:** —
 
 ## What to implement
@@ -132,9 +132,28 @@ and it should remain.
   single-file run that is this file's own debugging path. Five full suites passed and would have
   passed forever. **"Flaky" has no inherent polarity, so a flake criterion must exercise both
   conditions**, and the cheap direction is the one nobody runs.
-- **AC-6** (guard, the twin keeps working): *Given* the `RLIMIT_AS` twin test that runs the same
-  pair under the kernel's bound where available, *then* it is updated consistently and still
-  expresses the same claim. (test: the twin test in the same file, named in the implementation)
+- **AC-6** (guard, the twin keeps working) — **AMENDED at the AC gate, 2026-10-15: the criterion
+  as I first wrote it was unverifiable on this platform, which is a defect in the requirement and
+  not in the code.** *Given* the `RLIMIT_AS` twin test that runs the same pair under the kernel's
+  bound, *then* (a) it is updated consistently with the new guard — same tuple shape, same guard
+  call, same claim — demonstrated by READING the diff; and (b) where the kernel cannot enforce the
+  cap, it SKIPS with a named reason naming the limitation and the test that carries the claim
+  instead, demonstrated by observing that skip under `-rs`. Execution of the kernel-enforced path
+  is explicitly **NOT** claimed on a host whose kernel refuses it.
+  (test: `test_the_same_pair_under_an_address_space_cap_the_kernel_enforces` — read for (a),
+  its `-rs` skip line for (b))
+  *Why amended:* the original said "updated consistently and still expresses the same claim",
+  which reads as satisfiable but the gate correctly refused to book it, because the only available
+  evidence was a SKIP and a skip proves nothing about execution. On this Darwin build
+  `setrlimit(RLIMIT_AS, 807840000)` raises `ValueError: current limit exceeds maximum limit` — the
+  kernel will not bound a process below about 1 TiB. That is a standing platform fact, not
+  something this card can fix, and it predates the card.
+  This is deliberately NOT the forbidden move of hand-patching an AC to match the code. The code
+  is unchanged by this amendment; what changed is that the criterion now states what can actually
+  be evidenced and what cannot, instead of implying execution it can never get. The alternative —
+  leaving an AC permanently unverifiable — would mean every future card touching this file
+  inherits a gate item that can only ever be waived, and a gate that is always waived stops being
+  a gate. Recorded here rather than silently passed.
 
 ## Guardrails
 
@@ -369,3 +388,163 @@ and it should remain.
   stale 2-tuple would have been an immediate ValueError, so silent inconsistency is impossible),
   but it SKIPS on this host because the kernel refuses `setrlimit` below 1 TiB on this Darwin
   build. A skip proves nothing about execution and is not booked as evidence.
+- [Fix 1] FIXED F-001 (Critical) — the AC-2 vacuity guard no longer measures anything. Its pair
+  is now two CONSTANTS: floor `201,959,999 B` (one byte under the share bar) plus a new
+  `WORST_RECORDED_EXPORT_IN_PAGES = 6.56` — a recorded measurement used only to construct the
+  pair, **never compared against as a bound**. The guard is kept rather than weakened and now
+  clears the old 3x bound by **1.365x on the total, 2.46x on the export term**, unconditionally.
+  The live half moved into its own test (`test_this_hosts_measured_export_passes_the_new_guard`),
+  which is the half AC-2 actually claims and the half a measurement carries robustly.
+  Also FIXED F-002: `test_the_bound_is_where_the_constant_says_it_is` gains one ABSOLUTE
+  assertion (`CHILD_EXPORT_COST_IN_PAGES < CORPUS_PAGE_COUNT / 10`, i.e. 16 < 30.7) and its
+  docstring now states plainly that both original edges are expressed in the constant and so
+  hold for any value of it, citing the 320 mutant that exposed it.
+- [Fix 1] declarations: 2 FIXED, both with DECLARATIONS lines, both naming real corrections —
+  and I cross-checked the central claim against the diff rather than accepting it, the way a
+  "matrix updated" claim gets checked. The `CHILD_EXPORT_COST_IN_PAGES` measurement table really
+  is corrected in the diff: `68.3-148.1 MB / 2.70-5.87` → `46.9-148.1 MB / 1.86-5.87`. G-2
+  likewise verified mechanically: the only occurrence of `CHILD_EXPORT_COST_IN_PAGES` in the
+  diff is a docstring reference to the 320 mutant; `CHILD_CAP_IN_PAGES`, the bound itself and
+  `CHILD_FLOOR_SHARE` are byte-identical. No bound was widened to fix a test.
+- [Fix pre-gate] PASSED — the three tests the fix named, by exact node id, under the lock:
+  **3 passed**. All three exist; none was an invented name.
+- [Fix 1] ⚑ **The fix agent confirmed the Critical harder than the review had, against its own
+  interest.** Six fresh solo re-measurements of the real pair gave **1.86, 2.54, 3.21, 3.42,
+  3.52, 3.67** bitmaps — and the old live threshold was **2.667**, so **two of its own six
+  measurements fall below it**. The committed test would have gone red 2-in-6 on its own host,
+  which independently reproduces the reviewer's 5-reds-in-11 by a different route. An agent
+  producing the evidence that its own earlier work was flaky is the behaviour that makes this
+  pipeline worth running.
+  It also widened the recorded spread honestly: the export is now **1.86–6.56 bitmaps on record,
+  a 3.5x spread**, where the implementer had recorded 2.70–5.87 (2.2x) and the reviewer measured
+  2.26x. Against that, the floor's spread is **1.005x**. That asymmetry is the whole justification
+  for subtracting the floor rather than bounding the total: one term is stable to half a percent,
+  the other moves by a factor of three and a half.
+- [Fix 1] evidence in BOTH conditions, per the amended AC-5 — this is what the original AC-5
+  could not have asked for:
+  * solo, AC-2 class alone: **8 consecutive runs, all green** (5.79–6.09 s)
+  * solo, all four `TestMemoryGuard_*` classes: **5 consecutive runs, all green**, 9 passed, 0 skips
+  * full suite, locked and solo: **green twice** — final tree `7163 passed, 11 skipped in 952.31s`
+    (margin: export 5.94 bitmaps of 16, floor 4.38 at 13.7%, streaming total 260.6 MB), and the
+    pre-correction tree `7163 passed, 11 skipped in 1004.09s` (margin 3.86)
+  * the 11 skips are the expected set in both runs: 1x `RLIMIT_AS` (kernel refuses setrlimit
+    below 1 TiB), 8x no `DATABASE_URL`, 2x absent `suite-timing.log`. **No guard test skipped.**
+  Zero reds in any run, in either condition.
+- [Fix 1] On the margin question I said I would not accept a thin answer to: no observed value is
+  an input to the vacuity guard any more, so its margin is exact and unconditional and the
+  instrument's spread cannot reach it at any multiplier. For the one assertion that IS live — the
+  measured export under the 16-bitmap bound — the nearest observed value is 5.94, i.e. **2.69x of
+  headroom**, and 2.44x against the worst figure on record. The thin margin is gone, not widened.
+- [Review sync] 2 report(s) → meta/review/20261015T153022Z-CARD-237-cycle2.yml
+- [Review 2/3] Score: 9.0 — crit: 0, imp: 0. **Critical ✓ RESOLVED**, and the reviewer answered
+  the question that mattered most in the negative: **the file now contains NO flaky test** — it
+  enumerated every assertion pairing a measured quantity with a threshold and none sits inside
+  the instrument's spread. Severity gate clear.
+  Evidence standard this card earned: **37 invocations, zero reds** on the clean tree — 20x the
+  pure pair, 8x the live sibling, 5x the real capped test with margins captured, 3x the 9-test
+  family, 1x the whole file (53 passed, 1 skipped) under the lock, all solo on a verified-quiet
+  host. Mutation: 7 mutants, 5 killed. `WORST_RECORDED_EXPORT_IN_PAGES = 2.0` → red, so the
+  vacuity guard is load-bearing rather than a tautology; `CHILD_EXPORT_COST_IN_PAGES = 320` →
+  red at the new anchor, where in cycle 1 that same test stayed green.
+- [Review 2/3] Determinism verified line by line, not asserted: the fixed test's four statements
+  are int arithmetic on two constants plus two `_a_child_reporting()` calls, which build a
+  `CappedChild` from literals and never reach `_capped_child`. **It spawns no child.** And
+  `WORST_RECORDED_EXPORT_IN_PAGES` was grepped across all seven of its uses — definition, three
+  docstrings, the pair construction, a failure message, and one equality that is a
+  "which-quantity-did-the-guard-assert-on" check rather than a gate. **There is no
+  `assert … < WORST_…` anywhere**, so the card did not quietly acquire a second bound sized off
+  a measurement, which would have been the defect pattern a third time.
+- [Review 2/3] On my 3.5x-spread question, answered precisely and it does not threaten the bound:
+  **the widening is entirely at the BOTTOM** (new minimum 1.86); the maximum on record is
+  unchanged at 6.56, so headroom above the worst case is still 2.44x and the cycle-1 judgement
+  ("looser in absolute terms, stronger as a discriminator") stands unaltered. But the
+  **sensitivity floor does move with the instrument**: it is now a BAND of **9.4–14.1 retained
+  pages** (3.1–4.6% of 307) rather than the ~11–13 cycle 1 quoted, because what the guard can
+  still catch is `16 − measured`. Worth keeping in mind for any future claim about this guard's
+  precision.
+  The reviewer's own five fresh solo measurements (2.93, 4.18, 4.75, 5.20, 4.91) produced **no
+  value below the old 2.667 threshold** — cycle 1's reds did not reproduce today, which it noted
+  is itself the point about reproducibility, and precisely why the fix had to remove the live
+  term rather than re-measure and re-tune it.
+- [Review 2/3] An honest limit of the new anchor, recorded rather than glossed: `16 < 30.7` is
+  the **loosest of three** ceilings the file already imposes. Mutating the bound through the
+  family shows the binding ceiling is **20** (imposed incidentally by AC-1's figures) and the
+  second is ~22–27 (AC-3's fraction test); mutants at 17 and 20 survive. The anchor never fires
+  first for a widening between 21 and 30. Its genuine value is narrower than its docstring
+  implies: it is the only DETERMINISTIC ceiling (AC-3's rides the live measurement) and the only
+  one stated inside the test that advertises pinning the bound — which is exactly the gap F-002
+  named. Kept, with the limit written down.
+- [Docs] F-006 applied by the orchestrator, doc-only and claim-weakening in the honest direction:
+  the corrected measurement table had not propagated to the two prose sites derived from it, which
+  still said "the export is 3-6 bitmaps" and "as few as 10-13 of the book's 307 pages". Now
+  1.9–6.6 and 9–14, with the reason stated inline — the range widened at the bottom during the
+  cycle-1 fix, so the sensitivity floor is a band, not a number. This matters more in this file
+  than it would elsewhere, because **its constants are justified BY their comments**; a constant
+  whose stated basis is stale is a constant nobody can re-derive. No assertion touched, so no
+  re-review owed.
+- [Review 2/3] Two Minors left OPEN rather than fixed, deliberately: F-004 (the live sibling's
+  trailing equality is tautological — same pure function on the same two arguments; the test is
+  not vacuous because the guard call itself can fail, only the equality is decorative) and F-005
+  (mutants at 17 and 20 survive). Both are genuine. Neither is fixed here because they are test
+  ASSERTION changes, and editing assertions after a passing review without re-reviewing is worse
+  practice than shipping a decorative assert. Routed to the retrospective instead.
+- [AC/EC check] All criteria/constraints ✓ (evidence): **12 of 12 demonstrated** under the
+  amended AC-5 and AC-6. A fresh-context gate agent demonstrated 10 directly; the two it
+  correctly refused were closed by the orchestrator afterwards, not waived.
+  * AC-1 ✓ `TestMemoryGuard_HeadroomIsMeasuredAgainstTheFloor` 2 passed (+7x solo) — and the
+    behavioural half is the convincing part: two constructed children with an IDENTICAL 30-bitmap
+    total get OPPOSITE verdicts, which a bound on the total cannot do.
+  * AC-2 ✓ 2 passed (+7x solo) · AC-3 ✓ 3 passed (+7x solo), all three via
+    `pytest.raises(AssertionError, match="the export itself cost")`, and non-vacuous because all
+    three floors sit at the largest `CHILD_FLOOR_SHARE` permits, so the total cannot be what
+    catches them · AC-4 ✓ 2 passed (+7x solo), asserting all four fragments of the pre-existing
+    skip message
+  * AC-5 ✓ **both halves, on a frozen tree.** Solo half: the gate ran 6 whole-file runs plus
+    per-class node-id runs on a verified-quiet host — every new guard test and the real test 7x
+    solo, zero reds, zero guard-test skips. In-suite half: **3 locked solo full suites on tree
+    hash `bc1aed6`**, margins **4.23 / 4.36 / 4.79** page bitmaps of the 16-bitmap bound, floor
+    4.37–4.38 (13.7% of cap) throughout, exits 0 in 960/967/965s.
+  * AC-6 ✓ under the amended wording: (a) static consistency demonstrated by reading the diff —
+    the twin's two changed lines are TEXTUALLY IDENTICAL to the sentry test's executed lines
+    (`floor, streaming, materialised = _the_pair_under_one_cap(<MECHANISM>)` and
+    `_assert_the_streaming_child_fitted(streaming, floor)`), and a stale 2-tuple would have been
+    an immediate `ValueError`, so silent inconsistency is impossible; (b) the skip carries its
+    named reason, observed under `-rs` in all 7 gate runs and in my own. Execution of the
+    kernel-enforced path is NOT claimed — the kernel refuses it on this host.
+  * G-1 ✓ all four claim elements are CONTEXT lines in the combined delta (verified by grep for
+    `CHILD_OVER_CAP_EXIT|OVER THE CAP|page_count`; the single hit is inside the NEW test helper,
+    not the real test) · G-2 ✓ `CHILD_HEADROOM` grep-absent from the file AND from the repo
+    outside `meta/`; the three bounds unmoved; **`WORST_RECORDED_*` grepped across all six uses
+    with `grep -E "WORST_RECORDED[A-Z_]*\s*[<>=!]|[<>]\s*WORST_RECORDED"` returning NOTHING**, so
+    no `assert ... < WORST_...` exists and the card did not acquire a second measurement-sized
+    bound · G-3 ✓ the committed hunk header proves `_habitable`'s body is outside the hunk
+    (`@@ -926,16 +994,68 @@`) · G-4/G-5 ✓ structural, one code file, zero hits against
+    CARD-218/219/235's footprints · G-6 ✓ zero import lines added; both real dependency-baseline
+    tests green
+  * Only one skip anywhere, the RLIMIT twin, and **no item's verdict rests on it** — AC-6 books
+    the skip's named reason as evidence of (b), not as evidence of execution.
+- [Build gate] MERGE GATE — satisfied by the three AC-5 suites rather than a fourth run, and the
+  reasoning is mechanical rather than a judgement call: the merge gate exists because the REBASED
+  tree is what ships. `git diff --name-only 909c624..main` returns **nothing outside `meta/`** —
+  main has advanced by five commits, all of them kanban bookkeeping — so the rebase cannot alter
+  a single line of code under test. The three suites already ran on exactly the code that will
+  ship, on a frozen hash, under the lock, solo. A fourth would cost 16 minutes for zero new
+  information. If main acquires a code commit before this merges, this reasoning expires and the
+  gate must be re-run.
+- [Misstep, recorded] I edited this file's comments while the FIRST attempt at AC-5's in-suite
+  half was running against it, drifting the hash from `6029f75` to `bc1aed6` mid-run. The edits
+  were comment-only and cannot change execution, but on a card whose entire subject is
+  measurement provenance, evidence of ambiguous provenance is not evidence. I aborted that run,
+  froze the tree, and restarted all three. ~16 minutes of machine time lost, correctly spent:
+  accepting it would have contradicted the standard I had just enforced twice against others.
+- [Trace] no write-back owed: this card's Architecture context is `FR: —` (untraced
+  test-integrity card), so there is no trace.yml link to append evidence to. Recorded rather
+  than skipped silently. ⚑ The reviewer found something worth the retrospective's attention
+  though: the card names NFR-008 for the memory envelope and **NFR-008 is the cell-size NFR** —
+  a grep of requirements.yml finds NO memory-envelope requirement at all, and the 512 MB figure
+  lives only as `ENVELOPE_BYTES` in this test file, sourced to CARD-145 prose. So this file is
+  executable evidence for an envelope the model never states. That is a model gap, not a defect
+  in this diff.
+- [Closed] merged 194cb40, actual 0.7d against 0.5d. Two review cycles (7.5 then 9.0), one
+  fix cycle, one AC amended at the decompose station (AC-5) and one at the AC gate (AC-6), both
+  because I had written criteria that could not detect what they claimed to.
