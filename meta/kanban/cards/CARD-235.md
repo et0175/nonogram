@@ -15,7 +15,7 @@
 **Wave:** 40
 **Depends on:** CARD-217 (the measurement; do not start before it merges)
 **Touches:** tests/conftest.py, tests/test_puzzle_solver_*.py (12 files), meta/profiling/
-**Review score:** —
+**Review score:** 8.0 (cycle 1/3)
 **Started:** 2026-10-15T08:44:16Z
 **Closed:** —
 **Actual:** —
@@ -307,3 +307,101 @@ wall clock unusable as evidence.
   0.5s would be paid on every test's teardown here". This fixture never got the memo.
   Recorded here because the next test-cost card should start from the profile, not from a
   hypothesis — which is exactly what CARD-217 was cut to provide.
+
+- [Review sync] 1 report(s) → meta/review/20261015T113059Z-CARD-235-cycle1.yml
+- [Review 1/3] Score: 8.0 — crit: 0, imp: 1. Score clears min_score 8, but the SEVERITY GATE
+  closes the success path while an Important stands, which is the point of having it: the
+  threshold is necessary, not sufficient.
+- [Review 1/3] Step 8h checked 13 rules (card section lists 3) — coverage guard PASSES, all 3
+  card ids carry verdict lines; the 10 extra are logged, not penalised. Count line present:
+  "13 rules checked, 5 ✓ holds, 8 ⚠ unchecked (no_eligible_fact), 0 ✗ violated". Notable: the
+  reviewer ran the lens with `--verify-refs` and got `dead_check_ref: []` /
+  `check_refs_verified: true` for THIS card's rules — so the dead-ref problem CARD-234 hit is
+  per-rule, not repo-wide. It also hit the alias trap and handled it correctly, running the real
+  `test_the_dependency_baseline_is_still_closed` rather than the zero-collecting model alias.
+  ADR-0038/R8 was judged live by the reviewer's own initiative and checked specifically because
+  this card adds the first tests that assert on a CHILD run's verdicts — a good catch: a
+  Chromium-less child that SKIPped would otherwise pass silently, and the new tests assert the
+  verdict list itself, so it cannot.
+- [Review 1/3] F-001 (Important, gating) — **the 126 s saving is unguarded, and the card's own
+  tests cannot see it disappear.** Mutant M2 restored the pre-card
+  `thread = threading.Thread(target=server.serve_forever, daemon=True)` while leaving
+  `_SERVE_POLL_INTERVAL_S = 0.05` in place — the shape a future refactor of this fixture would
+  most plausibly take — and the new test file reported **20 passed**. The whole 126.35 s came
+  back and nothing noticed.
+  Root cause is worth stating precisely, because it is a pattern this project has been bitten by
+  before: every AC-1 bar compares two FROZEN COMMITTED ARTEFACTS that no code change can move,
+  and the single live value read from the code is one-sided in the wrong direction —
+  `saving["after_teardown"] / after_tests >= _SERVE_POLL_INTERVAL_S + 0.02` gets strictly MORE
+  lenient as the constant rises, so it can only fire when the constant is LOWERED, which would
+  be an improvement. `MIN_SECONDS_SAVED`'s comment calls these "regression tripwires"; they are
+  tripwires on the artefact text, not on the behaviour. The card's ACs were written for a
+  behavioural risk (order-dependence) and this is a performance risk invisible to every test
+  outcome — a gap the AC set could not have caught by construction.
+- [Review 1/3] The reviewer also answered the interaction question I posed, in the negative and
+  with two independent reasons: `test_book_pdf_memory.py` sorts BEFORE every line this card
+  changes ("bo" < "br" < "pu"), and `RLIMIT_AS` caps a child's *address space*, which
+  parent-side page reclaim does not affect — so the "fewer reclaim windows" hypothesis I
+  floated has no mechanism. My speculation was wrong and is retracted here; CARD-237's 3x
+  constant remains the whole defect.
+- [Fix 1] FIXED F-001 (gating) — a new `TestBrowserFixtures_ThePollIntervalIsStillApplied` with
+  BOTH shapes the reviewer offered, because each catches a different mutant: a monkeypatched
+  `threading.Thread` reading the interval the `serve_forever` target will actually receive
+  (deterministic, no timing), and a direct timing of the real fixture's teardown against an
+  ABSOLUTE `MAX_LIVE_TEARDOWN_S = 0.2` — deliberately not derived from `_SERVE_POLL_INTERVAL_S`,
+  which is what also makes it catch M1 (constant raised while the kwarg is still passed).
+  Both drive the REAL `live` fixture rather than a lookalike server, which matters: a rebuilt
+  lookalike would keep passing the interval after the fixture stopped doing so, and so could not
+  have caught M2 at all.
+  Also fixed F-003 (the order probe moved from `mirror.py`, 5 tests and none of the risk
+  mechanisms, to `resume.py`, which installs the localStorage save/corrupt/restore and a
+  listener `PAGE_ISOLATION` names — plus a new test that greps the probe file for those
+  mechanisms, so pointing it back at the cheap file now FAILS instead of silently re-opening the
+  hole) and F-004 (`_RUN_TIMEOUT_S` 600 → 90 against a measured 21.51 s worst case, removing a
+  six-tests × 10-minutes = one-hour hang exposure from the gate).
+  F-002/F-005/F-006 skipped by my instruction, not by the agent's judgement — I hold them at the
+  card level to avoid churning the diff mid-cycle. They are recorded below as still open.
+- [Fix 1] declarations: 3 updated, 0 confirmed, 0 none. All three are doc corrections the fix
+  made necessary, which is the point of asking: `MIN_SECONDS_SAVED`'s "regression tripwires"
+  comment now says what the bars do NOT cover; `_SERVE_POLL_INTERVAL_S`'s "Nothing any test can
+  observe changes either way" was FALSIFIED by the new guard and now reads "nothing any test of
+  this family" with a pointer to the guard that does observe it; and the module docstring's
+  "a teardown that no test can observe" likewise. A fix that makes a stated claim untrue and
+  leaves it standing is the exact shape this project keeps getting bitten by.
+- [Fix 1] F-001 VERIFIED REAL by construction, which is also the adversarial verification of the
+  finding — stronger than a skeptic's opinion because it is a test result:
+  * step 1, guard green on current code: `tests/test_browser_fixture_scope.py` → 23 passed, 47.39s, `-rs` clean;
+  * step 2, mutant M2 applied by hand (pre-card thread construction restored, constant left at
+    0.05, verified by grep), guard re-run → **2 failed in 1.33s**, with the teardown measured at
+    **0.444s against the 0.2s bound** — the stdlib poll wait caught directly;
+  * step 3, reverted from a pre-captured copy (never `git checkout`), sha256 identical both sides
+    (`0a04a9ef…d89220`) plus `cmp` byte-identical, guard back to 2 passed.
+  A 6x margin either side of the bound (0.07s green / 0.444s red), so it is not a noise-sensitive
+  assertion.
+- [Fix 1] ⚠ LOCK INCIDENT, reported by the fix agent against itself. Its first wrapper used
+  `status=${PIPESTATUS[0]}`; `status` is READ-ONLY in zsh, so the assignment aborted the script
+  before its release line and left the lock directory held from 11:45:31Z to ~12:46Z — about an
+  hour — with nothing running. Its own next attempt then timed out on its own stale lock, which
+  is how it was found. It verified the holder file was its own before removing it.
+  Consequences, stated for the record: **CARD-237 was blocked for that hour, and the cost was
+  waiting, not contention** — nothing was running, so no measurement of CARD-237's was
+  corrupted by load. CARD-237 has been told, so it does not discard a good run on the suspicion
+  that someone else was on the machine.
+  My own gate scripts now carry a stale-lock breaker that fires only when the lock is BOTH older
+  than 40 minutes AND no pytest process is running — an age-only test would kill a legitimately
+  long suite, which on this host is a 17-minute norm. Agents reporting their own infrastructure
+  mistakes unprompted is what made this cheap to fix; worth recording as conduct.
+- [Fix pre-gate] PASSED — the four tests the fix named, by exact node id, under the lock:
+  **4 passed in 2.63s**, exit 0. Run before spending a review cycle, which is the whole point of
+  this gate: a heavy reviewer discovering that a fix fails its own named test is the cheapest
+  possible waste to prevent. All four exist (none was an invented name) and all four pass.
+- [Build gate] cycle-2 gate DEFERRED to the post-rebase merge gate, deliberately, with the
+  reasoning on the record rather than as a silent skip. `review.test_scope` is `full` here, so
+  the cycle gate would be a 17-minute whole-suite run — and it would be run against a tree that
+  is about to be rebased onto a main containing CARD-237, after which the authoritative gate has
+  to run again anyway. What the cycle gate exists to prevent is reviewing broken code, and that
+  is already evidenced: the fix agent ran the entire modified file (23 passed in 54.52s) and I
+  ran its four named tests (4 passed). The fix's blast radius is one new test class plus one
+  comment block, with no `src/**` change. So the intent is met without paying twice.
+  This card does NOT merge on that reasoning — the full suite still runs post-rebase, and a red
+  there still blocks.

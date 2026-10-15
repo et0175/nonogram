@@ -1,0 +1,299 @@
+version: 1
+generated_at: "2026-10-15T11:30:59Z"
+target: "card/235-browser-fixture-scope @ 4302684 (3 commits on 96620e6); CARD-235 cycle 1"
+overall_score: 8.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "tests/test_puzzle_solver_page.py (diff in full; fixtures, listeners, PAGE_ISOLATION)"
+    - "tests/test_browser_fixture_scope.py (all 762 lines)"
+    - "tests/README.md (diff + inventory + markers sections)"
+    - "meta/profiling/suite-hotspots-20261015.md (diff)"
+    - "meta/profiling/card-235-browser-teardown.md (in full)"
+    - "meta/profiling/card-235-poll-interval-ab.txt (in full)"
+    - "meta/profiling/card-235-order-independence.txt (in full)"
+    - "meta/profiling/card-235-tests-alone.txt (header + sampled rows)"
+    - "meta/profiling/card-235-durations-after.txt (header + re-parsed in full by rank_durations.py)"
+    - "meta/profiling/card-235-durations-poll-001.txt (re-parsed in full by rank_durations.py)"
+    - "meta/profiling/rank_durations.py (API used: parse_artefact, group_totals, report, is_admissible_profile)"
+    - "tests/test_suite_profile.py (globs + pairing contract only)"
+    - "tests/test_puzzle_solver_{marking,progress,mirror}.py (listener/assert sites only)"
+  not_reached:
+    - "the other eight family files beyond grep-level (listener/viewport/route sites)"
+    - "the 42,000 raw per-test duration rows (sampled + machine-parsed, not read)"
+    - "the full suite on this head (ran 51 targeted tests; relied on the implementer's gate run for the rest)"
+  confidence: high
+metrics:
+  diff: { files: 10, added: 44514, removed: 1 }
+  code_change: "tests/test_puzzle_solver_page.py: 1 line removed, 1 statement rewritten (threading.Thread kwargs); all other +144 lines are constants and comments"
+  max_fan_in: { symbol: "tests.test_puzzle_solver_page.live", callers: 12, note: "12 family files, 422 tests, consume the changed fixture" }
+  tests_cover_change: true
+  churn: { file: "tests/test_puzzle_solver_page.py", commits_12mo: 11, fix_commits: 4 }
+  hotspots: ["tests/test_puzzle_solver_page.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — the historical peers of tests/test_puzzle_solver_page.py are the player's own sources (solver.js 6/11, admin.css 5/11, puzzle_solve.html 4/11, admin/app.py 3/11); G-2 and ADR-0038/R1 require this card NOT to touch them, so their absence is the contract, not a missing change"
+
+system_contract:
+  rules_checked: 13
+  holds: 5
+  unchecked: 8
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1 ✓ holds — no player source changed: `git diff --name-only 96620e6..HEAD` matches no `src/**` and no `pyproject.toml` path; the new test file adds no JS, no build step and no vendored library (the only generated artefact is a Python module written to tmp_path by AC-6)"
+    - "ADR-0038/R2 ✓ holds — scope is `src/**`, untouched; its named check `TestSolverMarking_NoRequestPerMark::test_twenty_strokes_issue_no_request` is unmodified by the diff and re-run green by me on this head (9 passed in 5.76s, with ShowsTheClues)"
+    - "ADR-0038/R3 ✓ holds — same run on this head: `TestSolverPage_ShowsTheClues` unmodified and green; clue embedding untouched"
+    - "ADR-0038/R4 ⚠ unchecked — no_eligible_fact: the rule's scope is `src/**` (solver_state.js purity); no src file is in the diff"
+    - "ADR-0038/R5 ⚠ unchecked — no_eligible_fact: scope is `pyproject.toml`, which the diff does not touch"
+    - "ADR-0038/R6 ⚠ unchecked — no_eligible_fact: scope is `src/**`; no solution-shipping code path is in the diff"
+    - "ADR-0038/R7 ✓ holds — pyproject.toml untouched (`dev = [\"pytest>=8.3\", \"pytest-playwright>=0.7\"]`, line 31, unchanged); the new file adds no runner and no browser, reusing `browser_page`/`browser_type` from the family, and its child runs are `sys.executable -m pytest`"
+    - "ADR-0038/R8 ✓ holds — checked against the new file specifically, since it adds the first tests that assert on a CHILD run's verdicts: all six child-spawning tests assert the verdict list itself (`{\"PASSED\"}`, `[(node_id, \"PASSED\")]`, `[\"PASSED\",\"FAILED\",\"PASSED\"]` with `returncode == 1`), so a Chromium-less child that SKIPs fails the parent loudly instead of passing silently; `browser_page` still `pytest.fail(_PLAYWRIGHT_MISSING, pytrace=False)` and session `browser_type` still refuses a missing executable, both unchanged by the diff"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: solver uniqueness, matched by `scope: global` only; no solver code and no solver test is in the diff"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: matched by `scope: global` only. The touched fixture does bind a socket, but it is a test fixture's, not the web server's, and its `make_server(\"127.0.0.1\", 0, app, threaded=True)` address argument is byte-identical across the diff — only the serve thread's `poll_interval` kwarg changed"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: cross-site/foreign-authority refusal, matched by `scope: global` only; no request-handling code in the diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: 10..30 grid bounds, matched by `scope: global` only"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: image aspect guard, matched by `scope: global` only"
+  assembly: "forge system_rules.py --root meta/architecture --card CARD-235 --verify-refs; 13 rules returned (ADR-0038/R1..R8, CON-005, CON-009..012), matching the card's own section plus the ADR's other rules; diagnostics: dead_check_ref [], check_refs_verified true, unresolvable_scope [], scope_unmapped_model []"
+
+root_causes:
+  - id: RC-1
+    title: "the card's whole saving lives in one constant, and every guard around it compares two frozen text artefacts instead of the running behaviour"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_page.py
+    line: 725
+    title: "Nothing fails when the fixture stops applying the poll interval — the 126 s saving is unguarded"
+    description: |
+      Step 8f mutant M2: restore the pre-card statement
+      `thread = threading.Thread(target=server.serve_forever, daemon=True)`
+      while leaving `_SERVE_POLL_INTERVAL_S = 0.05` in place — i.e. the shape a
+      future refactor of this fixture would most plausibly take — and run the
+      card's own guard file:
+
+          tests/test_browser_fixture_scope.py .................... [100%]  20 passed
+
+      The stdlib 0.5 s poll is back, the entire 126.35 s teardown saving is
+      gone, and not one of the twenty tests notices.
+
+      Root cause: every AC-1 bar in `_failed_bars` is computed from two
+      committed text artefacts (`suite-durations-20261015.txt` vs
+      `card-235-durations-after.txt`), which no code change can move. The one
+      live value read from the code is the declared constant in the last bar,
+      `saving["after_teardown"] / after_tests >= _SERVE_POLL_INTERVAL_S + 0.02`,
+      and that bar is one-sided in the wrong direction: raising the constant
+      makes it strictly more lenient (0.0275 >= 0.52 is False), so it can only
+      ever fire when the constant is *lowered*, which would be an improvement.
+
+      Mutant M1 (constant 0.05 -> 0.5, kwarg still passed) *is* caught, but
+      only obliquely, by `test_the_bars_reject_the_pre_fix_teardown`'s
+      `assert len(missed) == 5` — and its failure message then reads "a
+      reverted poll interval still clears some of AC-1's bars, so those bars do
+      not test anything", which is a misleading diagnostic for "somebody
+      reverted the poll interval".
+
+      The claim this contradicts is in the code: MIN_SECONDS_SAVED's comment
+      calls these bars "regression tripwires set below that with headroom".
+      They are tripwires on the artefact text, not on the code. The ACs cannot
+      be blamed for the hole — AC-3/5/6 were written for a behavioural risk
+      that shows up in test outcomes, whereas a constant that silently stops
+      being applied is a performance regression invisible to every test
+      outcome. That risk arrived with the chosen solution and has no guard.
+    suggestion: |
+      Add one behavioural guard, about a second of suite time, to
+      tests/test_browser_fixture_scope.py — pin the behaviour, not the literal:
+
+        * start a werkzeug server exactly as `live` does, call `shutdown()` and
+          assert it returns well under the stdlib default (e.g. < 0.2 s), so the
+          test fails whichever way the interval stops being applied; or
+        * monkeypatch `threading.Thread` around one `live` setup and assert the
+          recorded `kwargs["poll_interval"] == _SERVE_POLL_INTERVAL_S`.
+
+      While there, make `test_the_bars_reject_the_pre_fix_teardown` say what it
+      means when the constant itself moved, instead of reporting it as "the
+      bars do not test anything".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/profiling/card-235-poll-interval-ab.txt
+    line: 46
+    title: "The 92.97 s GIL figure is quoted from the one measurement whose own table contradicts the mechanism"
+    description: |
+      The decision (0.05 s over 0.01 s) is robust and I confirmed it three
+      independent ways: the two committed full-suite profiles (family total
+      256.57 s at 0.05 vs 306.45 s at 0.01, with host drift running *against*
+      0.05 — the rest of the suite was 90 ms/test in the 0.05 run against
+      84 ms/test in the 0.01 run), and both rounds of the maybe.py A/B on
+      `total`. That part of the review is clean.
+
+      The *stated mechanism and its number* are weaker than three places in the
+      tree now assert them to be:
+
+        * The cited table's own first row refutes monotonic contention. At
+          0.5 s the serve thread wakes least often of the three, so under the
+          stated mechanism it should have the cheapest `call`; measured, it has
+          the dearest — 345.20 s, 99.09 s above 0.05 s's 246.11 s. The file
+          notes that family-only runs are not comparable to full-suite slices
+          but never addresses this contradiction inside its own table, and the
+          92.97 s figure is read off that same column.
+        * Round 2 of the confirming maybe.py A/B has 0.01 s and 0.05 s tied
+          *exactly* on call (51.46 s each). The claim that it "ranks the three
+          intervals the same way" holds for `total`, not for `call`, which is
+          what the mechanism is about.
+        * The full-suite pair, normalised for the 7 % remainder drift, supports
+          roughly 61–76 s — not 92.97 s.
+
+      Why this is worth a cycle's attention at all: the card exists because
+      CARD-217 committed a confident per-test attribution that one run's shape
+      supported and the mechanism did not. Committing a second attribution of
+      the same kind — to three decimal places, in a constant's docstring that
+      also sets policy ("which is why this is a constant per file and not one
+      shared between them") — reproduces the defect this card just paid to find.
+    suggestion: |
+      Keep the decision and the artefacts; soften the three statements of the
+      mechanism (the constant's docstring in tests/test_puzzle_solver_page.py,
+      meta/profiling/card-235-poll-interval-ab.txt, and the "Why 0.05 s" section
+      of card-235-browser-teardown.md) to a direction-only claim, cite the
+      full-suite pair as the primary evidence rather than the family-only table,
+      and state the 0.5 s row's anomaly instead of leaving it for the next reader
+      to find.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_browser_fixture_scope.py
+    line: 143
+    title: "AC-3's in-suite probe is 5 of 422 tests on the family's cheapest file; the exhaustive half is a self-reported record"
+    description: |
+      `ORDER_PROBE_FILE = tests/test_puzzle_solver_mirror.py` collects exactly
+      5 tests (verified) and is the family's cheapest file (3.46 s of 283.37 s
+      in the A/B). The exhaustive reverse/shuffled evidence reduces to two
+      regexes over `card-235-order-independence.txt` — a hand-written record the
+      test can check for shape but not for truth — and AC-5's 67-test sweep is
+      the same arrangement. The implementer declares this openly and the
+      arrangement is reasonable for ~8 minutes of runtime, so this is a
+      calibration note, not a correctness claim: mirror.py installs no
+      `page.route` interceptor and no console listener, i.e. none of the
+      mechanisms PAGE_ISOLATION names as the actual cross-talk risk.
+    suggestion: |
+      Point ORDER_PROBE_FILE at a file that exercises a mechanism the
+      declaration names — marking.py (page.route + four listeners + a reload)
+      or resume.py (localStorage, eight writes) — accepting a few more seconds,
+      so the in-suite half probes the risk rather than the cheapest file.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_browser_fixture_scope.py
+    line: 159
+    title: "_RUN_TIMEOUT_S = 600 on six child-pytest tests whose observed worst case is 8.5 s"
+    description: |
+      Measured on this head: the whole new file is 20 passed in ~26 s, slowest
+      child run 8.46 s (test_reverse_order_passes). A hung child therefore
+      blocks the gate for 10 minutes per test, up to an hour across the six,
+      against an 8.5 s observed ceiling — on a suite whose cost is the reason
+      this card exists.
+    suggestion: "Drop _RUN_TIMEOUT_S to ~90 s, which is 10x the observed worst case."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_browser_fixture_scope.py
+    line: 541
+    title: "The two order-independence tests launch Chromium without @pytest.mark.browser"
+    description: |
+      `test_reverse_order_passes` and `test_shuffled_order_passes` spawn child
+      pytests that run five real browser tests, but carry no
+      `@pytest.mark.browser`, unlike the other four child-spawning tests in the
+      same file (lines 641, 728). pyproject.toml line 88 declares that marker as
+      "drives the admin panel in Chromium through pytest-playwright (needs
+      `playwright install chromium`; ADR-0038/R8)", so by the project's own
+      definition these two qualify. Minor rather than Important because the repo
+      documents no `-m "not browser"` escape hatch anywhere (grepped
+      tests/README.md, CLAUDE.md, pyproject.toml, README.md), so nothing relies
+      on the marker today — but tests/README.md's marker list is already stale
+      and this adds to the drift.
+    suggestion: "Mark both with @pytest.mark.browser, or move the marker to the class."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/profiling/card-235-browser-teardown.md
+    line: 78
+    title: "The 57 ms page-lifecycle benchmark is the only figure in the card with no committed artefact"
+    description: |
+      "One new_context + new_page + close, measured 20 times against a launched
+      Chromium on this host, costs 57 ms" is the number that justifies not doing
+      what the card asked (shape 3 for all twelve files), and it is the one
+      measurement with no committed raw data and no script, in a card that
+      committed 5.5 MB of dumps for the primary one.
+
+      It is not unsupported, which is why this is Minor and not Important: the
+      committed after artefact independently bounds it — family setup is 26.12 s
+      across 422 tests, 62 ms per test for the page lifecycle *plus* the live
+      server start *plus* the app build — so "collapsing the page lifecycle is
+      worth at most ~26 s of setup" follows from the artefact without the
+      micro-benchmark at all, and the scope decision stands on that.
+    suggestion: "Commit the 20-iteration snippet (or state the setup-column bound as the primary evidence for the scope decision, with 57 ms as corroboration)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
