@@ -30,7 +30,7 @@ third family the card did not consider is larger than both combined.
 | render-heavy files (the 29-path frozen set) | 195.42 s | 21.23 % | 1079 | 181 |
 | `tests/property/*` (the seeded corpora) | 140.19 s | 15.23 % | 184 | 762 |
 | — of which counted in *both* rows above | 70.75 s | 7.68 % | | |
-| render ∪ property (the card's two hypotheses together) | 264.86 s | 28.78 % | | |
+| render ∪ property (the card's two hypotheses together) | 264.86 s | 28.77 % | | |
 | admin-local script tests (`test_start_admin_local`, `test_run_admin_tests`, `test_setup_admin_local`) | 117.16 s | 12.73 % | 83 | 1412 |
 
 - **The render hypothesis is real but minority**: 21.23 % of attributed time,
@@ -39,7 +39,7 @@ third family the card did not consider is larger than both combined.
   more than half of that (70.75 s) is *also* render-heavy — the four tests in
   `tests/property/test_book_pdf_geometry.py` alone are 48.66 s. Property tests
   that are not render-heavy come to 69.44 s, 7.5 %.
-- **Together the two hypotheses account for 28.78 %.** The browser family
+- **Together the two hypotheses account for 28.77 %.** The browser family
   alone accounts for 39.78 %.
 
 ### Why the cost per test doubled
