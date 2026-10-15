@@ -18,9 +18,9 @@
 **Depends on:** —
 **Touches:** meta/profiling/, meta/kanban/suite-timing.log, tests/README.md
 **Review score:** 9.0/10 (cycle 1/3) — clears the gate; 0 critical, 0 important, 8 minor. The reviewer re-derived every headline number independently and confirmed the conclusion.
-**Started:** 2026-10-15T06:45:00Z
+**Started:** 2026-10-15T05:00:00Z (approx.)
 **Closed:** 2026-10-15T06:49:37Z
-**Actual:** 0.0d
+**Actual:** 0.25d
 **Merge commit:** 967a7fa
 **Blocked by:** —
 
@@ -156,7 +156,7 @@ so the next person does not re-derive it.
 - [Merge guard] `git log card/217-profile-the-suite..main` is **empty** — main had not moved at
   all. The tree that passed is the tree that merged.
 - [Done] 2026-10-15 — merged as `967a7fa` (`--no-ff`). Worktree removed, branch deleted.
-  **Actual 0.0d against a 0.5d estimate** — the measurement took one run; the two fix
+  **Actual ~0.25d against a 0.5d estimate** — the measurement took one run; the two fix
   cycles were spent making the measurement's own claims checkable, which is the part the card
   did not budget for and the part the next five cards depend on.
   **What the acting cards now have:** a committed profile, a deterministic script that derives
@@ -520,3 +520,13 @@ preserved.
   - **And the new test found something nobody was looking for:** the split table's "everything
     else" row carried `554.44 s` and `6660` but **no share**, so **60.22% appeared nowhere in
     the document**. The presence check caught it on its first run.
+
+- [Bookkeeping correction, 2026-10-15] The `Started:` field first read `06:45:00Z`, which the
+  orchestrator **invented rather than recorded** — the card's own profiling run is timestamped
+  05:18–05:34Z, i.e. before the start it claimed, and the first commit on the branch is
+  05:48:58Z. The close arithmetic then produced a nonsensical **0.0d**. Corrected to an
+  approximate 05:00Z start and **~0.25d**, with the approximation marked as one.
+  Worth recording rather than quietly fixing, because it is the same class of defect this card
+  and its gate kept finding in everyone else's work: a number written down without being
+  measured. The card ends as it began — the fix is to say which figures are measured and which
+  are estimates, and this one is an estimate.
