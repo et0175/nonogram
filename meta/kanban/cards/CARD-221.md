@@ -94,10 +94,28 @@ use — so that every measurement the interior makes is deterministic:
   that path, *then* every page's digest, the interior's page count and the chosen gutter
   band are identical between the two runs. (test:
   `TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts`)
-- **AC-2** (happy, the gutter): *Given* the gutter scenarios in
-  `test_book_finalise_gutter.py`, *when* they run with the host's Arial refused, *then*
-  all of them pass — the 10 page-count failures `main` shows off-host are gone. (test:
-  `test_book_finalise_gutter.py`, run under the off-host plugin)
+- **AC-2** (happy, the gutter): *Given* a book whose **structural TOC spills onto a second
+  page on one face and not the other** — measured: a 10-row list at the 10.00 cm trim is 2
+  pages on the packaged face and 1 on Arial (capacity 9 vs 10) — *when* its interior is
+  exported on both faces, *then* the page count and the chosen KDP gutter band are the same.
+  (test: `TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts::`
+  `test_the_page_count_and_its_gutter_band_agree_on_both_faces`, extended with that case)
+  **Amended 2026-10-15 at the decompose station, on the AC/EC/G gate's FAILURE.** Original:
+  > *Given* the gutter scenarios in `test_book_finalise_gutter.py`, *when* they run with the
+  > host's Arial refused, *then* all of them pass — the 10 page-count failures `main` shows
+  > off-host are gone. (test: `test_book_finalise_gutter.py`, run under the off-host plugin)
+
+  **The original AC was true and evidenced nothing.** `test_book_finalise_gutter.py` is
+  byte-identical to this card's base and was **already 126/126 off host at `d9c2c1a`** — its
+  10 failures were removed by **CARD-205's** structural TOC, not by this card. Restoring the
+  full pre-card `_guide_face` leaves all 126 green on host **and** off host. Worse, the test
+  carrying the card's headline risk —
+  `test_the_page_count_and_its_gutter_band_agree_on_both_faces` — also passes with the defect
+  fully restored, at all three of its counts. The mechanism: `_toc_entries_per_page` measures
+  **41 rows/page packaged, 42 Arial, 40 Pillow's built-in** on Book 1's frame, and a structural
+  list is ≤ 12 rows, so it is one page on every face. Face sensitivity begins at 42 rows. **No
+  book in the suite has a TOC that spills, so nothing would have failed if the printed gutter
+  band went host-dependent again** — which is the single defect this card exists to close.
 - **AC-3** (guard, the type floor): *Given* every face the interior fits, *when* it is
   measured on the packaged font, *then* none is below CON-020's 10 pt floor except the
   clue digits CON-020 exempts. (test: `TestInteriorType_EveryFaceHoldsTheFloor`
@@ -122,7 +140,12 @@ use — so that every measurement the interior makes is deterministic:
 ## Guardrails
 
 - G-1: The text the interior prints is unchanged — this card changes the FACE, never the
-  wording, the sizes' derivation rule, or the layout (test: the guide-page content tests).
+  wording, the sizes' derivation rule, or the layout (test:
+  `TestBookPdfMemory_PagesAreUnchanged`, `tests/test_book_pdf_memory.py:1228`).
+  **Citation corrected 2026-10-15 at the decompose station:** it read "the guide-page content
+  tests", and the gate measured that changing one word of `GUIDE_INTRO` leaves
+  `tests/test_book_guide_page.py` **green** — only the baseline digest reds. The claim is
+  evidenced; it was evidenced by a different test than the one named.
 - G-2: CLI and web-UI exports stay byte-identical (CON-019). They draw no guide page, but
   prove it rather than assume it (test:
   `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`).
@@ -132,8 +155,15 @@ use — so that every measurement the interior makes is deterministic:
   `src/nonogram/export/fonts/` (ADR-0006/R1). Packaged font data is package data, not a
   dependency — that distinction is already in ADR-0006/R1's own text.
 - G-5: No earlier baseline fixture is regenerated or deleted; the chain's "NEVER
-  regenerate" warnings stand (CARD-217's finding: the superseded recordings are
-  referenced only from docstrings and cost no runtime).
+  regenerate" warnings stand.
+  **Parenthetical struck 2026-10-15 at the decompose station.** It read "(CARD-217's finding:
+  the superseded recordings are referenced only from docstrings and cost no runtime)" and that
+  is **no longer true**: `book_baseline_card200/203/204/205.json` are loaded and compared at
+  runtime by `TestBookPdfMemory_NonDrawingPagesAreByteIdentical`
+  (`tests/test_book_pdf_memory.py:1715/:1731/:1747/:1764`), which the gate proved with a mutant
+  that regenerates CARD-205's TOC-page digest and kills 2 tests. The guardrail still rests
+  mainly on git — which the gate verified fully, comparing all 17 earlier blobs' object ids
+  against main — but it no longer rests on "nothing reads them".
 - G-6: Out of scope — CARD-205's 8.5 pt constant (the owner kept it deliberately), and
   the admin panel's own screen typography (this card is the printed interior).
 
@@ -182,11 +212,11 @@ name survived drafting, implementation, a review and three fix cycles.
 | name | resolves to |
 |------|-------------|
 | `TestInteriorType_EveryFaceHoldsTheFloor` | `tests/test_book_interior_type_floor.py:303` |
-| `TestBookPdfMemory_PagesAreUnchanged` | `tests/test_book_pdf_memory.py:1230` |
+| `TestBookPdfMemory_PagesAreUnchanged` | `tests/test_book_pdf_memory.py:1228` |
 | `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` | `tests/property/test_book_export_interior.py:582`, as `test_PropertyTest_…` (this project's property-test naming) |
 | `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` | `tests/property/test_cli_exports_byte_identity.py`, same convention |
-| `test_the_gaps_leave_the_folio_its_line_on_every_trim_kdp_admits` | `tests/test_book_toc.py:1166` |
-| `test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place` | `tests/test_book_toc.py:1309` |
+| `test_the_gaps_leave_the_folio_its_line_on_every_trim_kdp_admits` | `tests/test_book_toc.py:1184` |
+| `test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place` | `tests/test_book_toc.py:1400` |
 | `TestBookGuidePageType_*` | **did not exist** — corrected above to the four real `TestGuidePage_*` classes in `tests/test_book_guide_page_type.py` |
 | `TestDependencyBaseline_IsExactlyPillowAndNumpy` | **resolves to nothing** — corrected above to the two real tests it maps to |
 | `TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts` (AC-1) | **to be written by this card.** It does not exist and is not expected to: it is the new determinism test. Say so when you report it; do not report it as passing before you have written it |
@@ -225,7 +255,7 @@ card records.
 
 ### Implementation, 2026-10-14 (agent)
 
-**[What was changed]** `_guide_face` (`src/nonogram/admin/book_pdf_generator.py:1093`) now
+**[What was changed]** `_guide_face` (`src/nonogram/admin/book_pdf_generator.py:1131`) now
 returns the packaged DejaVu Sans — `ImageFont.truetype(BytesIO(_band_font_bytes()),
 size=size)`, the same bytes `_band_font` reads through `importlib.resources` — instead of
 the host's Arial by path with Pillow's built-in face as a fallback. No escape hatch: the
@@ -761,3 +791,49 @@ The one host-dependent skip is still the gate this card adds, closing honestly o
     a gate that stops comparing. P2 is worth recording too: forcing the gate closed now fails
     the new test on `assert loaded` rather than on the verdict, so it catches an answer that
     came from the wrong path even where the answer itself would have been right.
+
+- [AC/EC/G gate] 2026-10-15 — **FAILED on AC-2, which was unevidenced.** Everything else passes,
+  most of it with strong teeth: **21 mutant runs**, each applied behind a single-anchor
+  assertion, reverted, **sha256-compared** to its pre-mutation digest, and followed by a
+  `git status --porcelain -- src tests` check that printed empty. AC-3, AC-4, AC-5, AC-6, G-2,
+  G-3, G-4, G-5, CON-018, CON-019, CON-020, ADR-0006/R1, ADR-0036/R2 and INV-013 all pass.
+  - **The FAILURE, and it is the card's own reason for existing.** `test_book_finalise_gutter.py`
+    is byte-identical to this card's base and was **already 126/126 off host at `d9c2c1a`** —
+    its 10 failures were removed by CARD-205, not by this card, so AC-2's text was true and
+    proved nothing. Restoring the full pre-card `_guide_face` leaves all 126 green **on host and
+    off**. Worse, `test_the_page_count_and_its_gutter_band_agree_on_both_faces` — the test
+    carrying the headline risk — **also passes with the defect fully restored**, at all three of
+    its counts. Measured mechanism: `_toc_entries_per_page` gives **41 rows/page packaged, 42
+    Arial, 40 Pillow's built-in** on Book 1's frame, and a structural TOC is ≤ 12 rows, so it is
+    one page on every face; sensitivity begins at 42 rows. **No book in the suite has a TOC that
+    spills, so nothing would fail if the printed gutter band went host-dependent again.**
+    The cheap witness the gate measured for us: at the **10.00 cm** trim a 10-row structural TOC
+    is **2 pages packaged, 1 Arial** (capacity 9 vs 10); at 10.10 cm it is 1 page on packaged and
+    Arial and 2 on Pillow's built-in. AC-2 is amended above and the witness is Fix 4's job.
+  - **F-G1 (Minor, but it weakens AC-1): `_band_font` is `@lru_cache(maxsize=8)`.** With a host
+    lookup mutated in, `_both_faces` runs the on-host half first, the cache carries Arial into
+    the off-host half, and **all four AC-1 tests stay green**. The three-shape structural watch
+    is blinded the same way — in a cold process it kills only the first parametrization. Only
+    the baseline caught it, and only because this Mac has Arial. One line each:
+    `cache_clear()` on `_band_font` and `_band_font_bytes` inside `refuse_host_fonts` and at the
+    top of the watch.
+  - **F-G2: the card added an absolute determinism claim in the very place F-005 narrowed.**
+    `tests/test_book_pdf_memory.py:1366` says "so the length is the same number on every
+    machine", and that line is a `+` in this card's own diff — in the docstring of the test the
+    card names as the catcher of a FreeType move. Same wording at `:1786`, `:1896`, `:1997`.
+  - **F-G3 / F-G4** are handled above as corrections to G-1's citation and G-5's parenthetical.
+- [AC/EC/G gate — what it verified, worth keeping] "Every face the interior prints" was measured
+  rather than trusted: the gate drove the type-floor recorder over all **796** `draw.text` calls
+  of a Book 1 interior and enumerated **thirteen** distinct non-exempt faces, every one at or
+  above the floor, the tightest at **10.08 pt — 0.08 pt of margin**. That margin is why the spy,
+  not a constant list, is what makes CON-020's quantifier hold. G-5 was verified by comparing
+  **all 17** earlier baseline blobs' git object ids against main, with
+  `git diff --diff-filter=D` empty over the whole branch. And the one remaining host path in the
+  entire package is `create_cover_page` (CARD-234): `grep -rn "truetype(|load_default"
+  src/nonogram/` finds nothing else naming a path.
+- [AC/EC/G gate — stale citations] Every name in the card's resolved-names table still resolves;
+  **three line numbers drifted** across the fix cycles and are corrected above. Also corrected:
+  `_guide_face` `:1093` -> `:1131`. Left as historical narrative but flagged: the Block-1 note
+  names `test_the_difficulty_box_carries_the_three_sentences_verbatim`, which **fix cycle 2
+  renamed** to `test_the_difficulty_legend_carries_the_three_labels_the_page_prints` (`:626`) —
+  accurate inside the cycle-1 story, a dead ref as a pointer.
