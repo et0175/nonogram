@@ -676,3 +676,67 @@ class TestSolverPhone_SwipingTheCluesPansTheBoard:
             assert on[kind] == ["auto"], on
 
 
+# ==========================================================================
+# CARD-212 AC-6 — doubling needs MORE room than the mirror, so a phone falls
+# back to CARD-193's single mirrored gutter
+# ==========================================================================
+
+
+@pytest.mark.browser
+class TestSolverPhone_FallsBackToMirrorWhenDoublingWouldNotFit:
+    """CARD-212 AC-6 — a big board repeats its clues on both sides of an axis
+    only while the cells that leaves are at least 24 px on a side (solver.js
+    DOUBLE_MIN_CELL: CARD-182's phone-fit minimum, read as a condition rather
+    than the floor CARD-193 removed). A 30 x 30 on a 390 px phone is nowhere
+    near that — its cells are the 14.4 px CARD-196's column-numeral floor
+    gives them, already below the bar before a duplicate is considered — so
+    the board keeps exactly CARD-193's rendering: ONE row-clue gutter, on the
+    right, one column-clue gutter, on top, and the same cell size as before
+    this card. The duplicates are not shrunk in; they are not drawn.
+
+    The cell is measured here, not assumed: it is both the reason the
+    fallback happens (14.4 px < 24 px) and the thing the fallback protects
+    (the board does not lose a pixel of cell to a gutter it cannot afford).
+    """
+
+    def test_a_30x30_at_390_keeps_one_mirrored_gutter_per_axis(self, browser_page, live) -> None:
+        page = browser_page
+        page.set_viewport_size({"width": 390, "height": 844})
+        _open(page, live, live.store(BIG))
+
+        seen = page.evaluate(
+            """() => {
+              const table = document.querySelector('.player-board');
+              const rows = [...table.querySelectorAll('tbody tr')];
+              const isRowClue = (el) => el.matches('th.player-clue.is-row');
+              return {
+                mirrored: table.classList.contains('is-mirrored'),
+                rowBoxes: table.querySelectorAll('th.player-clue.is-row').length,
+                colBoxes: table.querySelectorAll('th.player-clue.is-col').length,
+                duplicates: table.querySelectorAll('[aria-hidden="true"]').length,
+                feet: table.querySelectorAll('tfoot').length,
+                corners: table.querySelectorAll('.player-corner').length,
+                rowCluesLast: rows.every((tr) => isRowClue(tr.lastElementChild)),
+                rowCluesFirst: rows.some((tr) => isRowClue(tr.firstElementChild)),
+                cell: document.querySelector('td.player-cell').getBoundingClientRect().width,
+                gutters: getComputedStyle(table).getPropertyValue('--player-row-gutters').trim()
+                  + getComputedStyle(table).getPropertyValue('--player-col-gutters').trim(),
+              };
+            }"""
+        )
+
+        assert seen["mirrored"] is True
+        # One box per line, on each axis — not two. (BIG is 30 x 30; the
+        # 15 solver.js calls BIG_SIDE is the "is this board big" threshold,
+        # not this file's BIG_SIDE, which is the fixture's own side.)
+        assert (seen["rowBoxes"], seen["colBoxes"]) == (len(BIG), len(BIG[0]))
+        assert seen["duplicates"] == 0 and seen["feet"] == 0 and seen["corners"] == 1
+        # CARD-193's mirror, unchanged: the row clues are on the right of
+        # every body row and on the left of none.
+        assert seen["rowCluesLast"] is True and seen["rowCluesFirst"] is False
+        # The cell is the one CARD-193/CARD-196 give this board — the fit is
+        # not charged for a gutter that was never drawn — and it is below the
+        # 24 px that doubling is conditional on, which is why.
+        assert seen["cell"] == pytest.approx(14.39, abs=0.05), seen["cell"]
+        assert seen["cell"] < FLOOR, seen["cell"]
+        assert seen["gutters"] == "11", seen["gutters"]

@@ -12,7 +12,7 @@
 **Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 1: "PDF book - Table of contents - let's don't not have individual puzzles in ToC - only How-to-Solve, Easy-medium-hard divisors and Solutions"; restated later in the same doc under "Add table of contents" with the same sample)
 **Idea:** —
-**Wave:** 37
+**Wave:** 38
 **Depends on:** —
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_toc.py, tests/test_book_finalise_gutter.py, tests/property/test_book_export_interior.py
 **Review score:** 8.8/10 (cycle 1/3) — 0 critical, 1 important (F-001, a false docstring claim), 3 minor; 4 fix cycles; AC/EC/G gate passed after G-1 was amended
@@ -1977,3 +1977,22 @@ can move a pixel, and the fixture confirms none did.
 
 The full suite was deliberately not run (the orchestrator owns the merge gate).
 626 tests across 16 files, all green.
+
+- [Correction from CARD-221, 2026-10-14 — this card's gate conclusion was too strong]
+  This card's AC/EC/G gate found that deleting `_toc_entries_per_page`'s folio reservation
+  survived 187 tests, concluded that the reservation "is no longer load-bearing", amended G-1 to
+  drop its mechanism clause, and said re-anchoring was impossible because "a test would have to
+  exercise a multi-page structural TOC — which the card proves cannot happen on any trim KDP
+  admits". **CARD-221's mutation set found the way.** Its N1 mutant reproduces the same
+  survival — every existing test feeds the split the eight-row structural list, which never
+  fills a page — and then measures what the mutant actually breaks by feeding
+  `_toc_entries_per_page` a packed list directly, at the unit level, rather than through a
+  rendered book: **0 of 381 heights lose the folio with the reservation, 185 lose it without**,
+  starting at 10.30 cm (24 px against the folio's 49). CARD-221 closed it with a sweep and a
+  rendered 10.30 cm page.
+  So both statements stand, and the distinction is the useful part: the reservation does not
+  bind **the structural TOC**, which is what G-1's amendment says and is still correct; it very
+  much binds **the function**, which is what the original mechanism clause was about. The gate's
+  error was not the amendment but the inference that no test could reach it — "this book shape
+  cannot exercise it" is not "nothing can". Recorded on the merged card because the next reader
+  of G-1 should see both halves.

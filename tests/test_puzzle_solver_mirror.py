@@ -76,7 +76,11 @@ def _is_row_clue(tag) -> bool:
 
 
 def _is_corner(tag) -> bool:
-    return tag["tag"] == "TD" and tag["cls"].split() == ["player-corner"]
+    # CARD-212 marks the corner that sits on the RIGHT of the column clues
+    # (this card's mirrored one, and the second corner of a doubled board)
+    # with .is-right, which is where its heavy rule comes from since then —
+    # so "is this a corner" is a class the element carries, not the only one.
+    return tag["tag"] == "TD" and "player-corner" in tag["cls"].split()
 
 
 def _is_col_clue(tag) -> bool:

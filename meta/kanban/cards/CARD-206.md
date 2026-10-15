@@ -135,3 +135,20 @@ the title page as right-hand page 1; the guide follows"). Kanban cards only read
 ## Worktree notes
 
 —
+
+## Amendment 2026-10-14 — the owner's "Puzzle page layout" artifact
+
+The artifact (https://claude.ai/artifact/Wp4iGB27cyBAV62da5ACMP) puts the guide on interior
+pages **2 and 3** so the two pages face each other. That is only possible if something occupies
+page 1 — which is this card. So:
+
+- This card is no longer only a nicety; **CARD-229 depends on it structurally.** "Facing" is a
+  claim about parity, and two pages face only when the first of them is a verso.
+- The **INV-013 amendment this card already flags is now owed jointly with CARD-229** (INV-013
+  says the interior starts at the guide page as right-hand page 1). One amendment at the
+  architect station should cover both claimants; do not let two cards each propose their own.
+- The page this card adds shifts every interior page number by one, which moves the TOC's rows,
+  the KDP band and therefore the printed gutter. CARD-205 left a three-caller page-count
+  cross-check in place (`TestBookToc_KdpAgreesWithTheExportedCount`,
+  `tests/test_book_toc.py:595`) — that is the test which must stay green.
+- Still blocked in substance until the architect pass makes the INV-013 / FR-043 amendment.

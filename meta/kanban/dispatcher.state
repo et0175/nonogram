@@ -1,4 +1,4 @@
-wave: 37
+wave: 38
 mode: interactive
 # Owner 2026-10-13: concurrency capped at 2 (config max_concurrent is 5); "merge both
 # when the fixes land"; "start the next pair after merging". Merges run SEQUENTIALLY and
@@ -9,18 +9,17 @@ mode: interactive
 max_concurrent_override: 2
 active:
   - id: CARD-221
-    phase: implementation
-    branch: card/221-interior-packaged-face
+    phase: ac_ec_gate
+    branch: card/221-packaged-interior-face
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221
     started: 2026-10-14T14:20:00Z
     note: "P1, unblocked by CARD-205's merge. Its proof of success is CARD-205's own two red-off-host folio tests going green on both faces. CARD-206..209 queued behind it on the book_pdf_generator.py hotspot."
-  - id: CARD-212
-    phase: implementation
-    branch: card/212-clues-both-sides
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-212
-    started: 2026-10-14T14:20:00Z
-    note: "unblocked by CARD-211's merge; inherits its rebase surface in puzzle_solve.html / solver.js / admin.css. No file overlap with CARD-221, which is why these two are the pair."
 merged:
+  - id: CARD-212
+    review_cycle: 2
+    success_commit: 4638bf5
+    merge_commit: a2cd3f3
+    note: "cycle 1 = 7.0 (3 gating), cycle 2 = 8.5; 3 fix cycles; AC/EC/G gate passed with 14 fresh mutants, 14 killed; merge gate FAILED once on its own test racing a 600 ms bound under concurrent load, passed at 7053/0 on a quiet host. Actual 0.7d. Unblocks CARD-216 and CARD-213."
   - id: CARD-205
     review_cycle: 1
     success_commit: bf45a3d
@@ -51,11 +50,35 @@ queued:
   - id: CARD-206
     reason: "CARD-204 and CARD-205 both merged, but now queued behind CARD-221 on the same book_pdf_generator.py hotspot AND architecturally blocked in substance: the card needs an INV-013 / FR-043 amendment (the interior currently starts at the guide page as right-hand page 1, and a blank title page moves that) which only the architect station can make. Do not start it before that pass."
   - id: CARD-217
-    reason: "P1 and ready, but its whole method is to profile the suite with nothing else running - it CANNOT share the machine with another card's test run. Needs a solo slot, which is an owner scheduling call: the suite is now 1042s per gate (398s at wave 30), so every card after it pays for the delay."
+    reason: "OWNER-SCHEDULED NEXT, ALONE (2026-10-14): runs by itself as soon as CARD-221 and CARD-212 have merged, and nothing else starts until it is done. Its method is to profile the suite with nothing else on the machine, so a concurrent card would corrupt the measurement it exists to take."
   - id: CARD-216
     reason: "eligible, but conflicts with CARD-212 on the same template + statics; starts when CARD-212 frees its slot"
   - id: CARD-213
     reason: "concurrency cap 2"
+queued_after_card_217:
+  # The interior redesign, cut 2026-10-14 from the owner's "Puzzle page layout" artifact.
+  # Listed as one ordered run rather than as independent queue entries: every card touches
+  # src/nonogram/admin/book_pdf_generator.py (a declared hotspot), so they serialize anyway,
+  # and each later card draws INSIDE the frame CARD-222 establishes. Starting them out of
+  # order means implementing against a page that is about to move.
+  - CARD-234   # the cover's host font lookup, found at CARD-221's station
+  - CARD-228   # the dots glyph: no dependencies, 0.5d, and four later cards need it
+  - CARD-222   # the frame: margins, header rule, footer rule, puzzle area
+  - CARD-223   # the QR into the footer's outer corner
+  - CARD-224   # the grid back to centred (reverses CARD-204's placement)
+  - CARD-225   # one cell size per grid size
+  - CARD-207   # the header's content (now needs 222's rule and 228's dots)
+  - CARD-208   # clue boxes + the 5% shading the artifact names it for
+  - CARD-227   # the three grid rule weights
+  - CARD-226   # two-up equal slots
+  - CARD-206   # the title page - STILL BLOCKED on the INV-013/FR-043 amendment
+  - CARD-229   # the guide spread (needs 206 merged: two pages face only if the first is a verso)
+  - CARD-230   # the worked example's four steps
+  - CARD-231   # section openers
+  - CARD-232   # solution tiles
+  - CARD-233   # the tile header and running head
+  - CARD-209   # wide-short solutions, now CARD-232's single exception, adopting 233's header
+
 conflict_edges:
   - pair: [CARD-221, CARD-206]
     reason: "predicted: src/nonogram/admin/book_pdf_generator.py (hotspot); CARD-221 also re-records the interior baselines CARD-206 would have to re-record again"
@@ -73,6 +96,18 @@ conflict_edges:
     reason: "predicted: tests/test_puzzle_solver_clues.py (overlap 0.50 >= 0.3)"
   - pair: [CARD-204, CARD-203]
     reason: "observed at the merge gate: tests/helpers/book_corpus.py (baseline chain, resolved manually) AND a real geometric interaction - CARD-203's right-aligned caption against CARD-204's flush drawing (see conflict-history.yml)"
+# NOTE 2026-10-14 (owner): this run is wave 38, not 37 - the board's wave table already
+# recorded wave 37 as complete with CARD-197/198/199, so the number was used twice. All six
+# cards of this batch (204, 214, 205, 211, 221, 212) were renumbered, the two closed ones
+# included, so one batch is not split across two wave numbers.
+# NOTE 2026-10-14 (owner): "Please merge changes, I'll verify later." Their visual check is
+# POST-merge. Do not hold a card whose own gates pass waiting for an eyeball, and do not ask
+# whether to merge it — merge, then report and point at the renders. This is not permission to
+# merge past a gate: a review under min_score, an unmet AC, a red merge gate, an open owner
+# decision or a strict xfail standing in for a defect all still block.
+# NOTE 2026-10-14 (owner): CARD-217 runs NEXT AND ALONE, once CARD-221 and CARD-212 merge.
+# Do not start another pair before it. The suite is 1042s per merge gate against 398s at
+# wave 30, and CARD-218/219/220 are blocked behind it.
 # NOTE 2026-10-14T14:20Z: CARD-205 merged (d30e0f0) and the next pair started per the
 # owner's "start the next pair after merging": CARD-221 (P1, freed by this merge) and
 # CARD-212 (P2, freed by CARD-211's). They share no file. Flagged for the owner: CARD-217

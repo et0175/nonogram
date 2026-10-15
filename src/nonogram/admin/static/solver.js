@@ -200,11 +200,29 @@
 //
 // DOM / CSS (admin.css, "Puzzle player"): table.player-board inside
 // .player-stage; th.player-clue.is-col (one box per column, above) and
-// th.player-clue.is-row (one box per row, left), each holding one
-// span.player-clue-num per number; td.player-cell with data-row, data-col and
-// data-state = the cell's state. Every fifth line on both axes is heavier:
-// a cell or clue box after one carries .major-right / .major-below (never the
-// last line, which is the board's frame).
+// th.player-clue.is-row (one box per row, left), each carrying its 0-based
+// line in data-line and holding one span.player-clue-num per number;
+// td.player-cell with data-row, data-col and data-state = the cell's state.
+// Every fifth line on both axes is heavier: a cell or clue box after one
+// carries .major-right / .major-below (never the last line, which is the
+// board's frame).
+//
+// BOTH GUTTERS (CARD-212, owner's doc 2026-10-13). A big board repeats its
+// clues on both sides of an axis: row clues left AND right, column clues
+// above AND below, so a player scrolled to the far edge still has clues in
+// view. "Big" is BIG_SIDE per axis and each axis is decided on its own; the
+// repetition is drawn only while the cells it leaves are DOUBLE_MIN_CELL or
+// more, and otherwise the board keeps exactly today's rendering, CARD-193's
+// mirror included — see layoutLadder and drawSettledLayout in start(), which
+// choose the rung by measuring the board they drew (today's rendering first,
+// so a board that can afford no duplicate is built once and no more).
+// Because that condition is a measurement and not a media query, the board
+// is redrawn when the WINDOW changes too, not only when the 820 px
+// breakpoint flips. The duplicate gutter carries the same numbers in the
+// same order as its twin and is aria-hidden, so a screen reader reads each
+// clue once (clueBox); its numbers circle with their twins (clueNumbersOf
+// pairs them by data-line). Every board built leaves one
+// performance.mark(DRAW_MARK), so what a layout choice cost is countable.
 //
 // ZOOM (CARD-195, FR-044). A view setting that multiplies the fitted cell
 // side (admin.css --player-zoom on table.player-board); it changes no board
@@ -267,6 +285,31 @@ import { gesturePaints, nextRegion } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
 
+// A board is "big" on an axis once that side is past BIG_SIDE. CARD-193 chose
+// 15 for the row axis (W > 15 mirrors the row clues on a phone) and had the
+// number inline in two places; CARD-212 names it once and reuses the same
+// number for the column axis (H > 15 doubles the column clues), so the two
+// axes are one rule read twice, not two rules that can drift apart.
+const BIG_SIDE = 15;
+
+// CARD-212: a second gutter is drawn only while the cells it leaves are at
+// least this many CSS pixels on a side — CARD-182's phone-fit minimum (a
+// WCAG 2.2 (2.5.8) 24 px target), the number CARD-193 then dropped as a
+// *floor* because a floor forced a sideways scroll. As a *condition* it costs
+// nothing: a board that cannot afford the duplicate keeps exactly today's
+// rendering (see layoutLadder in start()). It is compared against the cell as
+// actually drawn, never against a re-derivation of admin.css's clamp.
+const DOUBLE_MIN_CELL = 24;
+
+// The performance.mark drawBoard leaves behind, one per board built.
+const DRAW_MARK = "nonogram-player-board-draw";
+
+// How long after the last `resize` event the board is redrawn for the new
+// window (CARD-212; see the listener in start()). Long enough that dragging
+// a window edge redraws once at the end rather than on every event, short
+// enough that letting go feels like it settled immediately.
+const RESIZE_SETTLE = 150;
+
 function majorAfter(index, length) {
   return (index + 1) % MAJOR_EVERY === 0 && index + 1 < length;
 }
@@ -306,11 +349,21 @@ function readPayload() {
   return payload;
 }
 
-function clueBox(tag, kind, label, clue) {
+// One clue box for line `line` (0-based) of its axis. `data-line` is what
+// pairs a duplicate with its twin (clueNumbersOf below), independently of
+// where in the table either of them sits.
+//   right      the box draws on the right of the grid instead of the left
+//              (CARD-193's mirrored gutter, and CARD-212's second row gutter)
+//   duplicate  CARD-212's repetition: aria-hidden and unlabelled, so a screen
+//              reader still reads each clue exactly once — from the first
+//              gutter, which keeps the aria-label
+function clueBox(tag, kind, line, label, clue, { right = false, duplicate = false } = {}) {
   const box = document.createElement(tag);
-  box.className = `player-clue is-${kind}`;
+  box.className = `player-clue is-${kind}${right ? " is-right" : ""}`;
   box.scope = kind === "row" ? "row" : "col";
-  box.setAttribute("aria-label", `${label}: ${clue.join(" ")}`);
+  box.dataset.line = String(line);
+  if (duplicate) box.setAttribute("aria-hidden", "true");
+  else box.setAttribute("aria-label", `${label}: ${clue.join(" ")}`);
   for (const n of clue) {
     const number = document.createElement("span");
     number.className = "player-clue-num";
@@ -320,19 +373,50 @@ function clueBox(tag, kind, label, clue) {
   return box;
 }
 
+// The blank box where a clue gutter crosses another. `right` puts it on the
+// right of the column clues, where it carries the heavy rule the row clues'
+// own side normally draws (admin.css .player-corner.is-right).
+function cornerBox(right) {
+  const corner = document.createElement("td");
+  corner.className = right ? "player-corner is-right" : "player-corner";
+  return corner;
+}
+
 // Draw the empty board for `payload` into `stage`; returns the cell elements,
-// row-major, in the same order as a board's cells. `mirrored` (CARD-193:
-// boards wider than 15 columns, on phones only — see isMirrored in start())
-// moves each body row's row-clue box after its cells and the head row's
-// corner after the last column clue, so the row-clue gutter draws on the
-// right (admin.css .player-board.is-mirrored); the `cells` array stays
-// row-major regardless — only DOM placement within each row changes.
+// row-major, in the same order as a board's cells. The `cells` array is
+// row-major whatever `layout` says — only the clue boxes around them move.
+//
+// `layout` is one rung of start()'s layoutLadder:
+//   mirrored     CARD-193: the one row-clue gutter draws on the RIGHT (each
+//                body row's box after its cells, the head row's corner after
+//                the last column clue), for boards wider than BIG_SIDE on
+//                phones only. The left gutter is gone, not doubled.
+//   rowGutters   1, or 2 for CARD-212's repetition: a second row-clue box
+//                after each body row's cells and a second corner after the
+//                last column clue. Never 2 together with `mirrored` — two
+//                gutters are what the mirror is the fallback for.
+//   colGutters   1, or 2: a whole second gutter of column-clue boxes in a
+//                <tfoot> under the grid, with its own corner(s). The
+//                duplicate carries the same numbers in the same order as its
+//                twin (a bottom box reads top to bottom like the top one);
+//                it is a repetition, never a mirror of the sequence.
+// Each axis is counted into admin.css's cell clamp through
+// --player-row-gutters / --player-col-gutters, so a doubled axis is fitted
+// with both of its bands rather than one.
 // `zoomPercent` (CARD-195, 100..300) sets --player-zoom as the multiplier
-// admin.css's cell clamp multiplies by (100 -> 1); a mirror redraw (the only
-// other caller of drawBoard, see redraw() in start()) passes the current
-// zoom through too, so re-mirroring never resets it.
-function drawBoard(stage, payload, mirrored, zoomPercent) {
+// admin.css's cell clamp multiplies by (100 -> 1); every redraw (see redraw()
+// in start()) passes the current zoom through, so neither re-mirroring nor
+// re-doubling ever resets it.
+function drawBoard(stage, payload, layout, zoomPercent) {
+  // One performance mark per board built (CARD-212). Building a board is the
+  // player's one expensive act — a 30 x 30 is ~900 cells plus its gutters —
+  // and the layout ladder in start() can build more than one before it
+  // settles, so how many it built is worth being able to count: see
+  // DRAW_MARK's own test (tests/test_puzzle_solver_clues.py
+  // TestSolverClues_TheLadderStopsAtTheFirstRungThatFits).
+  performance.mark(DRAW_MARK);
   const { width, height, rows, columns } = payload;
+  const { mirrored, rowGutters, colGutters } = layout;
   const table = document.createElement("table");
   table.className = mirrored ? "player-board is-mirrored" : "player-board";
   table.setAttribute("aria-label", `Puzzle board, ${width} columns by ${height} rows`);
@@ -345,25 +429,33 @@ function drawBoard(stage, payload, mirrored, zoomPercent) {
   table.style.setProperty("--player-row-ch", Math.max(...rows.map((c) => c.reduce((sum, n) => sum + String(n).length + 1.45, 0.5))));
   table.style.setProperty("--player-col-depth", Math.max(...columns.map((c) => c.length)));
   table.style.setProperty("--player-col-digits", Math.max(...columns.flatMap((c) => c.map((n) => String(n).length))));
+  table.style.setProperty("--player-row-gutters", rowGutters);
+  table.style.setProperty("--player-col-gutters", colGutters);
 
-  const head = table.createTHead().insertRow();
-  const corner = document.createElement("td");
-  corner.className = "player-corner";
-  if (!mirrored) head.append(corner);
-  columns.forEach((clue, col) => {
-    const box = clueBox("th", "col", `Column ${col + 1}`, clue);
-    if (majorAfter(col, width)) box.classList.add("major-right");
-    head.append(box);
-  });
-  if (mirrored) head.append(corner);
+  // The column-clue gutter: above the grid, or (duplicate) under it.
+  const columnGutter = (duplicate) => {
+    const line = (duplicate ? table.createTFoot() : table.createTHead()).insertRow();
+    if (!mirrored) line.append(cornerBox(false));
+    columns.forEach((clue, col) => {
+      const box = clueBox("th", "col", col, `Column ${col + 1}`, clue, { duplicate });
+      if (majorAfter(col, width)) box.classList.add("major-right");
+      line.append(box);
+    });
+    if (mirrored || rowGutters === 2) line.append(cornerBox(true));
+  };
+  columnGutter(false);
 
   const body = table.createTBody();
   const cells = [];
   rows.forEach((clue, row) => {
     const line = body.insertRow();
-    const box = clueBox("th", "row", `Row ${row + 1}`, clue);
-    if (majorAfter(row, height)) box.classList.add("major-below");
-    if (!mirrored) line.append(box);
+    const rowClue = (duplicate) => {
+      const box = clueBox("th", "row", row, `Row ${row + 1}`, clue,
+        { right: duplicate || mirrored, duplicate });
+      if (majorAfter(row, height)) box.classList.add("major-below");
+      return box;
+    };
+    if (!mirrored) line.append(rowClue(false));
     for (let col = 0; col < width; col += 1) {
       const cell = line.insertCell();
       cell.className = "player-cell";
@@ -375,8 +467,12 @@ function drawBoard(stage, payload, mirrored, zoomPercent) {
       cell.style.setProperty("--player-wave", row + col);
       cells.push(cell);
     }
-    if (mirrored) line.append(box);
+    // Mirrored, the one labelled gutter moves here; doubled, a duplicate
+    // follows the left gutter's labelled boxes.
+    if (mirrored) line.append(rowClue(false));
+    else if (rowGutters === 2) line.append(rowClue(true));
   });
+  if (colGutters === 2) columnGutter(true);
 
   stage.replaceChildren(table);
   return cells;
@@ -430,14 +526,59 @@ function start() {
   // callbacks) sees the current board after a mirror redraw (CARD-193).
   let table, cellElements, clueNumbers;
   let solved = false;
-  let hinted = null; // the cell element carrying .is-hinted
+  // The cell the last hint revealed, as {row, col} and not as the element
+  // showing it (CARD-212 review cycle 2, G-003): a redraw replaces every
+  // element, and a hint is a CELL, not an element, so naming it this way is
+  // what lets showHint put the highlight back on the redrawn table.
+  let hintedAt = null;
 
-  // CARD-193: boards wider than 15 columns mirror their row clues to the
-  // right, but only on phones (owner decision, 2026-10-06) — the ≤ 820 px
+  // Move the .is-hinted highlight to `next` ({row, col}), or take it off
+  // (null). The element is looked up through the live cellElements each
+  // time, so this is also how the highlight is re-applied after a redraw.
+  function showHint(next) {
+    const element = (cell) => cellElements[cell.row * payload.width + cell.col];
+    if (hintedAt) element(hintedAt)?.classList.remove("is-hinted");
+    hintedAt = next;
+    if (hintedAt) element(hintedAt)?.classList.add("is-hinted");
+  }
+
+  // CARD-193: boards wider than BIG_SIDE columns mirror their row clues to
+  // the right, but only on phones (owner decision, 2026-10-06) — the ≤ 820 px
   // shell breakpoint, the same one admin.css keys the phone cell floor to.
   const mirrorQuery = window.matchMedia("(max-width: 820px)");
   function isMirrored() {
-    return payload.width > 15 && mirrorQuery.matches;
+    return payload.width > BIG_SIDE && mirrorQuery.matches;
+  }
+
+  // CARD-212: the layouts to try for this board, roomiest first. Each axis is
+  // eligible for its duplicate on its own (a 30 x 12 board doubles its row
+  // clues and not its column clues), and a rung is taken only if the cells it
+  // leaves are still DOUBLE_MIN_CELL or more (redraw() below measures the
+  // rung it drew). Doubling needs MORE room than the mirror, not less, so
+  // when no doubled rung fits, the last rung — exactly today's rendering,
+  // mirror included — is drawn whether it fits or not. The row axis is
+  // preferred over the column axis when only one of the two can be afforded,
+  // because the row gutter is the one the owner reported first and the only
+  // one CARD-193 ever mirrored.
+  function layoutLadder() {
+    const bigRows = payload.width > BIG_SIDE;
+    const bigColumns = payload.height > BIG_SIDE;
+    const mirrored = isMirrored();
+    const ladder = [];
+    if (bigRows && bigColumns) ladder.push({ mirrored: false, rowGutters: 2, colGutters: 2 });
+    if (bigRows) ladder.push({ mirrored: false, rowGutters: 2, colGutters: 1 });
+    if (bigColumns) ladder.push({ mirrored, rowGutters: 1, colGutters: 2 });
+    ladder.push({ mirrored, rowGutters: 1, colGutters: 1 });
+    return ladder;
+  }
+
+  // The side of a cell of the board as just drawn, in unzoomed CSS pixels:
+  // --player-zoom multiplies admin.css's fitted cell, so dividing it out
+  // again makes this measurement — and with it the rung redraw() settles on —
+  // the same at every zoom level (CARD-195), rather than letting zooming in
+  // change the board's structure.
+  function drawnCell(zoomPercent) {
+    return stage.querySelector("td.player-cell").getBoundingClientRect().width / (zoomPercent / 100);
   }
 
   // Error count, hint count, progress percent and solved state of the recorded history (see
@@ -460,19 +601,59 @@ function start() {
     paintCircles(clueNumbers, circledClues(history.board, payload.rows, payload.columns));
   }
 
-  // (Re)draws the board for the current mirror state from the recorded
-  // history — called once at load and again, from the same recorded board,
-  // whenever mirrorQuery crosses 820 px (CARD-193: nothing recorded is
-  // lost — history, undo/redo and the save are untouched by a redraw).
+  // (Re)draws the board for the current viewport from the recorded history —
+  // called once at load and again, from the same recorded board, whenever
+  // mirrorQuery crosses 820 px (CARD-193: nothing recorded is lost — history,
+  // undo/redo and the save are untouched by a redraw).
   // `marking` (below) always exists by the time this runs (the first call
   // is textually after `const marking = wireMarking(...)`) — CARD-195's
-  // zoom (marking.getZoom()) survives a mirror redraw the same way.
+  // zoom (marking.getZoom()) survives a redraw the same way.
+  // CARD-212: the gutter layout is chosen by measuring, not by predicting —
+  // a rung is drawn and the cell it produced is measured. Only the rung that
+  // settles is wired to the marking code; the discarded ones are replaced
+  // within this same task, so no frame is ever produced from one.
+  //
+  // Today's rendering is drawn FIRST, and when it is already under the bar
+  // nothing else is drawn at all. Doubling only ever takes room from the
+  // cells — in admin.css's min() each extra gutter adds a subtrahend to both
+  // width terms and a band to the height term — so a plain board below
+  // DOUBLE_MIN_CELL cannot be rescued by a rung above it. That is the
+  // commonest case by far — at 1280 x 720 it is every board from about 24
+  // columns up — and it costs one draw where it used to cost four
+  // (measured at review cycle 1 on a 30 x 30 there: ~125 ms to an
+  // interactive board on one draw, ~810 ms on four). A board that CAN
+  // afford a duplicate pays for the rungs it tries, and if none of them
+  // fits, the plain board already drawn is put back rather than built
+  // again. The counts are pinned by draw marks, not by timings:
+  // tests/test_puzzle_solver_clues.py
+  // TestSolverClues_TheLadderStopsAtTheFirstRungThatFits.
+  function drawSettledLayout(zoom) {
+    const ladder = layoutLadder();
+    const plain = ladder[ladder.length - 1];
+    const plainCells = drawBoard(stage, payload, plain, zoom);
+    if (ladder.length === 1 || drawnCell(zoom) < DOUBLE_MIN_CELL) return plainCells;
+    const plainTable = stage.firstElementChild;
+    for (let rung = 0; rung < ladder.length - 1; rung += 1) {
+      const cells = drawBoard(stage, payload, ladder[rung], zoom);
+      if (drawnCell(zoom) >= DOUBLE_MIN_CELL) return cells;
+    }
+    stage.replaceChildren(plainTable);
+    return plainCells;
+  }
+
   function redraw() {
-    cellElements = drawBoard(stage, payload, isMirrored(), marking.getZoom());
+    const zoom = marking.getZoom();
+    cellElements = drawSettledLayout(zoom);
     table = stage.querySelector(".player-board");
     clueNumbers = clueNumbersOf(table);
     paint(cellElements, board);
-    hinted = null; // the old highlighted element no longer exists
+    // The highlighted ELEMENT is gone with the old table; the hinted CELL is
+    // not, so it is put back on the new one (CARD-212 review cycle 2,
+    // G-003). Before this card a redraw meant crossing 820 px; it now also
+    // means any window resize — a phone fires one when its URL bar
+    // collapses, mid-solve — and "Hints: N" survives a redraw, so the
+    // highlight the reader paid for has to survive it too.
+    showHint(hintedAt);
     showProgress(null);
     marking.refresh();
   }
@@ -492,9 +673,7 @@ function start() {
       history = next;
       board = history.board;
       paint(cellElements, board);
-      hinted?.classList.remove("is-hinted");
-      hinted = hint ? cellElements[hint.row * payload.width + hint.col] : null;
-      hinted?.classList.add("is-hinted");
+      showHint(hint ? { row: hint.row, col: hint.col } : null);
       showProgress(hint);
       save.write(serializeState(history, payload));
     },
@@ -502,9 +681,37 @@ function start() {
   });
   redraw();
   // CARD-193: the mirror follows the viewport, not a redraw of its own
-  // accord — a board that never mirrors (width <= 15) never redraws here.
+  // accord. CARD-212: the gutter layout follows it too — the room for a
+  // duplicate is a property of the viewport — so a board big on EITHER side
+  // redraws here, not only a mirrorable one; a board big on neither, which
+  // can have no mirror and no duplicate, never redraws at all.
+  const isBig = payload.width > BIG_SIDE || payload.height > BIG_SIDE;
   mirrorQuery.addEventListener("change", () => {
-    if (payload.width > 15) redraw();
+    if (isBig) redraw();
+  });
+  // CARD-212: and the window itself, not only the breakpoint. CARD-193's
+  // mirror could never go stale, because its condition IS the media query
+  // above — cross 820 px and it is re-evaluated, and it is false everywhere
+  // else. This card's condition is a continuous one (does the board still
+  // measure DOUBLE_MIN_CELL with the duplicate?), so behind that discrete
+  // trigger alone a board loaded wide stayed doubled while the window
+  // shrank: measured, a 30 x 25 loaded at 1920 x 1500 and dragged to
+  // 900 x 800 kept its duplicates at 14.39 px cells — 9.6 px under its own
+  // bar — with 376 px of sideways scroll inside the stage that the same
+  // board reloaded at that size does not have.
+  // Trailing debounce rather than a redraw per event: a drag fires `resize`
+  // continuously, and a redraw of a 30 x 30 is tens of milliseconds of
+  // layout even now that the ladder early-outs. RESIZE_SETTLE after the LAST
+  // event the board is redrawn once — a burst of eight events costs at most
+  // two draws, not eight (tests/test_puzzle_solver_zoom.py
+  // ..._a_burst_of_resize_events_redraws_once) — from the recorded history,
+  // exactly as a breakpoint crossing redraws it: marks, zoom, undo/redo, the
+  // save, and since G-003 the hinted cell's highlight all survive.
+  let resizeSettling = 0;
+  window.addEventListener("resize", () => {
+    if (!isBig) return;
+    clearTimeout(resizeSettling);
+    resizeSettling = setTimeout(redraw, RESIZE_SETTLE);
   });
 
   window.puzzlePlayer = Object.freeze({
@@ -573,15 +780,25 @@ function browserSave(key) {
 // redo, reset, setBoard) and never for a drag's preview, sets
 // .is-circled on each span.player-clue-num that solver_state.js circledClues
 // circles for the recorded board, and clears it on the rest. The spans are
-// collected once, here, at draw time: { rows: [[span...]] per row,
-// columns: [[span...]] per column }, each span also given its digit count
-// as --player-clue-digits. Text and aria-labels are left alone.
+// collected once, here, at draw time: { rows: [...] per row, columns: [...]
+// per column }, and each line holds one entry per clue NUMBER — the one or
+// two spans that show it, one per gutter (CARD-212), paired by their box's
+// data-line rather than by DOM order. So a duplicate is circled with its
+// twin, by construction: paintCircles cannot reach one and miss the other.
+// Each span is also given its digit count as --player-clue-digits. Text and
+// aria-labels are left alone.
 function clueNumbersOf(table) {
-  const spans = (kind) => [...table.querySelectorAll(`th.player-clue.is-${kind}`)]
-    .map((box) => [...box.querySelectorAll(".player-clue-num")]);
-  const numbers = { rows: spans("row"), columns: spans("col") };
+  const axis = (kind) => {
+    const lines = [];
+    for (const box of table.querySelectorAll(`th.player-clue.is-${kind}`)) {
+      const line = Number(box.dataset.line);
+      (lines[line] ??= []).push([...box.querySelectorAll(".player-clue-num")]);
+    }
+    return lines.map((gutters) => gutters[0].map((_, k) => gutters.map((spans) => spans[k])));
+  };
+  const numbers = { rows: axis("row"), columns: axis("col") };
   // The ring's pill width comes from the digit count (admin.css, --player-ring).
-  for (const span of [...numbers.rows, ...numbers.columns].flat()) {
+  for (const span of [...numbers.rows, ...numbers.columns].flat(2)) {
     span.style.setProperty("--player-clue-digits", span.textContent.length);
   }
   return numbers;
@@ -589,8 +806,10 @@ function clueNumbersOf(table) {
 
 function paintCircles(clueNumbers, circled) {
   for (const axis of ["rows", "columns"]) {
-    clueNumbers[axis].forEach((spans, line) => {
-      spans.forEach((span, k) => span.classList.toggle("is-circled", circled[axis][line][k]));
+    clueNumbers[axis].forEach((numbers, line) => {
+      numbers.forEach((twins, k) => {
+        for (const span of twins) span.classList.toggle("is-circled", circled[axis][line][k]);
+      });
     });
   }
 }

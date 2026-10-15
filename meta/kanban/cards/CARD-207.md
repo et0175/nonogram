@@ -135,3 +135,19 @@ becomes two pieces plus a rule:
 ## Worktree notes
 
 —
+
+## Amendment 2026-10-14 — the owner's "Puzzle page layout" artifact
+
+The artifact's "Header" rule is more specific than this card was, and splits the work:
+
+- The header is **"Puzzle 52" left, difficulty right (three dots plus the word)**. So this card
+  gains the **dots**, and therefore a dependency on **CARD-228** (the one glyph four cards
+  share). Do not draw dots here.
+- The **0.6 pt rule under the header across the full text width, at the same baseline on every
+  page**, moves to **CARD-222**, which owns the frame. This card owns what sits *in* the header.
+- The artifact confirms the rest of this card as written: the centred `Puzzle 7 · Easy` caption
+  is the owner's issue 5 ("there is no consistent top edge to the page").
+- **Depends on:** CARD-222 (the header region and its rule), CARD-228 (the dots). Update the
+  card's `Depends on:` field at dispatch.
+- ADR-0037/R1 says a puzzle page's band carries number + tier only. Dots *are* the tier, so the
+  split header stays inside R1 — say so rather than assuming it.
