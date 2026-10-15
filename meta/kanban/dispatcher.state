@@ -1,4 +1,4 @@
-wave: 40
+wave: 41
 mode: interactive
 # Owner 2026-10-13: concurrency capped at 2 (config max_concurrent is 5); "merge both
 # when the fixes land"; "start the next pair after merging". Merges run SEQUENTIALLY and
@@ -7,7 +7,13 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active: []
+active:
+  - id: CARD-238
+    phase: implementation
+    branch: card/238-timing-log-host-state
+    worktree: ../PythonProject4-card-238
+    started: 2026-10-15T17:52:53Z
+    note: "wave 41, SOLO on owner instruction ('start 238'). Runs alone for the same reason CARD-217 did: it changes the suite every other card's merge gate runs through, and main is currently RED on one of the tests it fixes. TDD: true - its ACs are literally 'a test that fails if X is reintroduced', which cannot be evidenced without driving the guard red against the current code first."
 escalated: []
 queued:
   - id: CARD-215
@@ -119,4 +125,4 @@ conflict_edges:
 #             test_the_real_log_is_entirely_well_formed until it lands)
 # Next: CARD-238 (P1, the third of those), then the interior redesign in the order under
 # queued_after_card_217 - CARD-228 (dots glyph) then CARD-222 (the frame).
-last_updated: '2026-10-15T17:30:00Z'
+last_updated: '2026-10-15T17:52:53Z'

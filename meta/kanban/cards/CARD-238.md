@@ -1,22 +1,22 @@
 # CARD-238: The suite-timing tests stop asserting on gitignored host state
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
 **Estimate:** 0.5d
 **Revision pending:** false
 **Skill:** python-pro
-**TDD:** —
+**TDD:** true
 **Branch:** card/238-timing-log-host-state
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-238
 **Source:** found in flight at CARD-235's merge gate, 2026-10-15; owner decision the same day to card the test fix and leave the local log untouched
 **Idea:** —
-**Wave:** —
+**Wave:** 41
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-15T17:52:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
