@@ -1,6 +1,6 @@
 # CARD-221: The book interior letters in the packaged face, so its geometry stops depending on the host
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 1d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/221-packaged-interior-face
-**Worktree:** ../PythonProject4-CARD-221
+**Worktree:** —
 **Source:** CARD-205 review cycle 1 finding F-004, then a dedicated measurement round (2026-10-14); owner decision 2026-10-14 — keep CARD-205's 8.5 pt and card the root cause instead, having confirmed that book PDFs are generated **both** locally and through the deployed panel
 **Idea:** —
 **Wave:** 38
@@ -19,9 +19,9 @@
 **Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/export/fonts/, tests/test_book_toc.py, tests/test_book_pdf_memory.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_interior_type_floor.py, tests/test_book_finalise_gutter.py, tests/helpers/book_corpus.py, tests/fixtures/
 **Review score:** 8.5/10 (cycle 2/3) — clears the gate; 0 critical, 0 important, 3 minor. Cycle 1 was 7.5 with 3 gating.
 **Started:** 2026-10-14T14:20:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-15T05:16:06Z
+**Actual:** 2.0d
+**Merge commit:** 806dbe1
 **Blocked by:** —
 
 ## What to implement
@@ -245,6 +245,30 @@ card records.
   that signal and collide in the same file.
 
 ---
+
+- [Merge gate] 2026-10-15 — **PASSED. `7073 passed, 9 skipped, 0 failed, PYTEST_EXIT=0`** in
+  938 s (15:38) on a host waited for rather than shared. Exit code written into the log as its
+  last line and read in a command of its own. Against CARD-212's merge at 7053, +20: this
+  card's net test change.
+- [Merge guard] `git log card/221-packaged-interior-face..main -- src tests docs pyproject.toml`
+  is **empty**, and so is the whole `..main` range — main had not moved at all since the branch
+  took it in. The tree that passed is the tree that merged.
+- [Done] 2026-10-15 — merged as `806dbe1` (`--no-ff`). Worktree removed, branch deleted, both
+  review reports in `meta/review/`. **Actual 2.0d against a 1d estimate** — five fix
+  cycles, two reviews and two gate passes, where the estimate assumed one of each.
+  **Unblocks CARD-234** (the generated cover's title is the one host font path left in the
+  package) and **CARD-222**, the frame card that opens the owner's interior redesign.
+  **What the next print card inherits:** every reader-facing interior face now comes from
+  packaged data, so a page's geometry is reproducible anywhere; `font_dependent_pages` is empty
+  and all thirteen baseline pages are compared unconditionally, so a print card that moves ink
+  **will** be caught by the baseline rather than skipped on someone's machine; and
+  `clear_font_caches()` must be called on both sides of any harness that simulates a different
+  font environment — an `lru_cache` carried the host's faces across that boundary twice in this
+  card and hid a live defect both times.
+  **Still true and recorded, not fixed here:** `Pillow>=10.0` is unbounded, so a FreeType build
+  can still move the interior's metrics. The code says so rather than overclaiming, the byte-
+  length comparison is named as what would red on it, and bounding it is an architect-station
+  item in `backlog.md`.
 
 ### Implementation agent's own records (verbatim, synced from the worktree 2026-10-15, all cycles)
 
