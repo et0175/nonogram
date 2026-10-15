@@ -730,9 +730,18 @@ CHILD_CAP_BYTES = CHILD_CAP_IN_PAGES * PAGE_BITMAP_BYTES
 #: ========================================= ================= ==============
 #: measured, floor and streaming in one run   bytes             page bitmaps
 #: ========================================= ================= ==============
-#: the floor child (the subtrahend)           110.0-110.6 MB    4.36-4.38
+#: the floor child (the subtrahend)           107.3-110.6 MB    4.25-4.38
+#:   (floor range WIDENED at the AC gate, 2026-10-15, from 110.0-110.6 /
+#:   4.36-4.38: one of the gate's seven solo runs measured 4.25 bitmaps,
+#:   below the recorded bottom, making the floor's observed spread 1.031x
+#:   rather than 1.005x. It is widened here rather than left to be
+#:   corrected a third time — this card has already had to widen the
+#:   EXPORT's range at the bottom once, and an under-recorded range in
+#:   this table is what sized the bound that flaked. The argument is
+#:   unaffected: 1.031x against the export's 3.5x is still two orders of
+#:   separation, and the floor stays 1.8x clear of CHILD_FLOOR_SHARE.)
 #: the streaming child's total RSS            178.7-258.5 MB    7.08-10.24
-#: **the export's marginal cost**             **68.3-148.1 MB** **2.70-5.87**
+#: **the export's marginal cost**             **46.9-148.1 MB** **1.86-5.87**
 #: the same, on the worst red run on record   ~165.5 MB         ~6.56
 #: **the bound below**                        **403.9 MB**      **16**
 #: the list shape's own peak                 ~7.75 GB          ~307
@@ -741,7 +750,11 @@ CHILD_CAP_BYTES = CHILD_CAP_IN_PAGES * PAGE_BITMAP_BYTES
 #: The six runs of the pair taken while this constant was chosen — solo,
 #: whole-file, and three times inside the whole suite — measured the marginal
 #: cost at 2.70, 3.22, 3.41, 3.44, 5.04 and 5.87 page bitmaps, against a floor
-#: that moved by 0.6 MB across all six. **That spread is the instrument's own,
+#: that moved by 0.6 MB across all six; six more taken in CARD-237's review
+#: cycle, all solo on a quiet host, measured 1.86, 2.54, 3.21, 3.42, 3.52 and
+#: 3.67 against a floor that moved by 0.6 MB again — so the recorded range is
+#: 1.86-6.56 bitmaps, a 3.5x spread, while the floor's is 1.005x.
+#: **That spread is the instrument's own,
 #: not the export's**, and it is the reason the bound is not placed just above
 #: the smallest figure: ``ru_maxrss`` is a *peak*, and how much of 307 pages'
 #: worth of freed bitmap the allocator hands back to the OS depends on what
@@ -763,15 +776,25 @@ CHILD_CAP_BYTES = CHILD_CAP_IN_PAGES * PAGE_BITMAP_BYTES
 #: below the shape this test exists to separate the export from. Like every RSS
 #: figure in this module (see the module docstring on why RSS may not be
 #: asserted on as a *shape*) it is a bound on an order of
-#: magnitude: the export is 3-6 bitmaps and constant in the page count, the
+#: magnitude: the export is 1.9-6.6 bitmaps and constant in the page count, the
 #: regression it must catch is ~307 and linear in it, and the bound sits in the
 #: empty two orders of magnitude between them — close enough to the export that
-#: retaining as few as 10-13 of the book's 307 pages is already red. Measured
+#: retaining as few as 9-14 of the book's 307 pages is already red. (Both figures
+#: corrected at review cycle 2 from "3-6" and "10-13": the table above was
+#: re-measured during the cycle-1 fix and its range widened at the bottom to 1.86,
+#: so the sensitivity floor is a BAND, 9.4-14.1 pages, not a number. It moves with
+#: the instrument because `16 - measured` is what the guard can still catch.) Measured
 #: on the real pair with the streaming child's reported figure inflated by hand
 #: (CARD-237's own mutants): 12 pages retained passed at 15.9 bitmaps, 14
 #: failed at 17.88, and the whole book retained failed at 309.92.
 #: :class:`TestMemoryGuard_StillFailsWhenTheExportItselfRegresses` keeps that
-#: evidence live, and pins both sides of the bound itself.
+#: evidence live: it pins both *edges* of the comparison (strictly under the
+#: constant passes, exactly at it fails) and, since those two are expressed in
+#: the constant and so hold for any value of it, one absolute fact about the
+#: value — that it stays under a tenth of the book, in the empty band between
+#: the export and the regression. CARD-237 review cycle 1 added that third
+#: assertion; before it, nothing in the file would have noticed the bound
+#: being widened.
 CHILD_EXPORT_COST_IN_PAGES = 16
 CHILD_EXPORT_COST_BYTES = CHILD_EXPORT_COST_IN_PAGES * PAGE_BITMAP_BYTES
 
@@ -1403,6 +1426,33 @@ def _a_child_reporting(shape: str, resident: int, **extra: Any) -> CappedChild:
     )
 
 
+#: The largest export cost on record for this machine, in page bitmaps: the
+#: worst red run the card measured (a streaming total of 276.1 MB against the
+#: 107.3-110.6 MB floor this host reports), the figure
+#: :data:`CHILD_EXPORT_COST_IN_PAGES` is sized against.
+#:
+#: **Why a recorded constant and not this run's measurement (CARD-237 review
+#: cycle 1).** :class:`TestMemoryGuard_InterpreterGrowthDoesNotTripTheGuard`
+#: needs a pair whose *total* the old ``resident * 3 < CHILD_CAP_BYTES`` bound
+#: would have refused, and the floor it pins that pair at is the largest
+#: :data:`CHILD_FLOOR_SHARE` permits, so the export term has to carry the
+#: total past ``CHILD_CAP_BYTES / 3`` — 2.67 page bitmaps of export — on its
+#: own. The first version of that test carried the *live* measurement there,
+#: and 2.67 bitmaps is **inside** what the live measurement reports: the
+#: smallest figure on record when the constant was chosen was 2.70 bitmaps —
+#: a 1.2 % margin — the review cycle then measured 65.5-67.1 MB (2.59-2.66
+#: bitmaps) on five of eleven quiet solo runs, every one of them a red, and
+#: this fix's own six re-measurements spread 1.86-3.67 with two under the
+#: threshold. So the demonstration's own
+#: precondition was a coin toss on a quiet host. Below, the same demonstration
+#: clears the threshold by 2.46x of the export (1.36x of the total) and cannot
+#: flake at all, because nothing in it is measured. The live measurement keeps
+#: the half it can carry robustly — that this host's own export passes the new
+#: guard — in a test of its own.
+WORST_RECORDED_EXPORT_IN_PAGES = 6.56
+WORST_RECORDED_EXPORT_BYTES = int(WORST_RECORDED_EXPORT_IN_PAGES * PAGE_BITMAP_BYTES)
+
+
 class TestMemoryGuard_HeadroomIsMeasuredAgainstTheFloor:
     """AC-1: the tripwire's quantity is the export's cost, not the child's total.
 
@@ -1467,35 +1517,72 @@ class TestMemoryGuard_InterpreterGrowthDoesNotTripTheGuard:
 
     The floor is inflated to just under the most :data:`CHILD_FLOOR_SHARE`
     permits — 201.96 MB, i.e. the largest footprint under which this test will
-    still render a verdict at all — while the export's cost is the one this
-    host actually measured. The old tripwire asserted
+    still render a verdict at all — and carries
+    :data:`WORST_RECORDED_EXPORT_IN_PAGES` of export, the largest cost on
+    record for this machine. The old tripwire asserted
     ``resident * 3 < CHILD_CAP_BYTES``, so it is computed here too and shown to
     fail on exactly this pair: that is the false red, reproduced, and then not
     reproduced by the guard that replaced it.
+
+    **The pair is constructed, not measured (CARD-237 review cycle 1).** This
+    class's first version built the pair from *this run's* export measurement,
+    which made its own vacuity guard — "the old bound would have refused this
+    pair" — a live comparison against a threshold of 2.67 page bitmaps, a
+    figure the export measurement routinely comes in under: 1.86-3.67 bitmaps
+    across six quiet re-measurements here, and red on five of eleven quiet
+    solo runs of the committed tree. That is the very defect class this card
+    exists to remove — a bound inside the instrument's own spread — with the
+    polarity inverted: a busy host raises the measured ``ru_maxrss`` peak and
+    so *helps*, which is why every full-suite run passed and only the
+    single-file run this file is debugged with failed. The recorded worst case
+    clears the same threshold by 2.46x and is deterministic. A bigger floor
+    could not have rescued the live version: to carry even a 2.70-bitmap
+    export past the old bound the floor would have to be 203.8 MB, which
+    :data:`CHILD_FLOOR_SHARE` forbids.
+
+    What the live measurement *can* carry robustly is the other half — that
+    this host's own export passes the new guard — and that is
+    :meth:`test_this_hosts_measured_export_passes_the_new_guard` below.
     """
 
     def test_a_floor_at_the_edge_of_the_share_still_passes(self):
-        real_floor = _habitable(SENTRY_MECHANISM)
-        real_streaming = _capped_child(STREAMING_SHAPE, SENTRY_MECHANISM)
-        measured_export = _export_marginal_cost(real_streaming, real_floor)
-
         grown_floor_bytes = int(CHILD_CAP_BYTES * CHILD_FLOOR_SHARE) - 1
         grown_floor = _a_child_reporting(BASELINE_SHAPE, grown_floor_bytes)
-        same_export = _a_child_reporting(
-            STREAMING_SHAPE, grown_floor_bytes + measured_export
+        worst_export = _a_child_reporting(
+            STREAMING_SHAPE, grown_floor_bytes + WORST_RECORDED_EXPORT_BYTES
         )
 
-        old_tripwire_quantity = same_export.report["resident"] * 3
+        old_tripwire_quantity = worst_export.report["resident"] * 3
         assert old_tripwire_quantity > CHILD_CAP_BYTES, (
             "this pair no longer reproduces CARD-237's false red: a floor of "
-            f"{grown_floor_bytes / 1e6:.1f} MB carrying a measured export of "
-            f"{measured_export / 1e6:.1f} MB totals "
-            f"{same_export.report['resident'] / 1e6:.1f} MB, which the old 3x "
+            f"{grown_floor_bytes / 1e6:.1f} MB carrying the worst recorded "
+            f"export of {WORST_RECORDED_EXPORT_BYTES / 1e6:.1f} MB totals "
+            f"{worst_export.report['resident'] / 1e6:.1f} MB, which the old 3x "
             "bound on the total would have accepted — so AC-2 proves nothing"
         )
 
         assert (
-            _assert_the_export_fitted_with_room(same_export, grown_floor)
+            _assert_the_export_fitted_with_room(worst_export, grown_floor)
+            == WORST_RECORDED_EXPORT_BYTES
+        )
+
+    def test_this_hosts_measured_export_passes_the_new_guard(self):
+        """The live half: whatever this run measures, the new guard accepts it.
+
+        No constructed figure and no reproduction of the old bound — just the
+        real pair under the real cap, through the real guard. This is the half
+        of AC-2 a measurement can carry: every export figure on record,
+        1.86-6.56 page bitmaps, is 2.4x or more under
+        :data:`CHILD_EXPORT_COST_IN_PAGES`, so the instrument's spread cannot
+        reach the threshold — where in the version this replaced the spread
+        straddled it.
+        """
+        real_floor = _habitable(SENTRY_MECHANISM)
+        real_streaming = _capped_child(STREAMING_SHAPE, SENTRY_MECHANISM)
+        measured_export = _export_marginal_cost(real_streaming, real_floor)
+
+        assert (
+            _assert_the_export_fitted_with_room(real_streaming, real_floor)
             == measured_export
         )
 
@@ -1561,7 +1648,21 @@ class TestMemoryGuard_StillFailsWhenTheExportItselfRegresses:
             _assert_the_export_fitted_with_room(regressed, floor)
 
     def test_the_bound_is_where_the_constant_says_it_is(self):
-        """One byte either side of :data:`CHILD_EXPORT_COST_BYTES`."""
+        """One byte either side of :data:`CHILD_EXPORT_COST_BYTES`, plus its value.
+
+        The two edge assertions pin *where the comparison sits* — strictly
+        under the constant passes, exactly at it fails — and nothing more:
+        both sides are expressed in the constant, so they hold for any value
+        of it. (Confirmed in CARD-237's review cycle 1 by mutation: at
+        ``CHILD_EXPORT_COST_IN_PAGES = 320`` this test stayed green while
+        three sibling tests went red.) So the value itself is pinned here too,
+        absolutely: the bound has to stay in the empty band between the export
+        (1.9-6.6 bitmaps, constant in the page count) and the regression it exists
+        to catch (one bitmap per page of the book, linear in it), and a bound
+        of a tenth of the book or more is out of that band: at a tenth, a
+        shape retaining a couple of dozen of the book's pages would already
+        pass the guard that exists to refuse exactly that.
+        """
         under_floor, under = self._floor_and_export(CHILD_EXPORT_COST_BYTES - 1)
         over_floor, over = self._floor_and_export(CHILD_EXPORT_COST_BYTES)
 
@@ -1571,6 +1672,14 @@ class TestMemoryGuard_StillFailsWhenTheExportItselfRegresses:
         )
         with pytest.raises(AssertionError, match="the export itself cost"):
             _assert_the_export_fitted_with_room(over, over_floor)
+
+        assert CHILD_EXPORT_COST_IN_PAGES < CORPUS_PAGE_COUNT / 10, (
+            f"the bound is {CHILD_EXPORT_COST_IN_PAGES} page bitmaps against a "
+            f"{CORPUS_PAGE_COUNT}-page book — a tenth of the book or more is "
+            "no longer in the empty band between the export's own cost and the "
+            "retention this file exists to catch, so the two edge assertions "
+            "above are pinning a comparison that has stopped meaning anything"
+        )
 
 
 class TestMemoryGuard_StillSkipsWhenTheFloorSwallowsTheCap:
