@@ -9,7 +9,7 @@ mode: interactive
 max_concurrent_override: 2
 active:
   - id: CARD-221
-    phase: review
+    phase: ac_ec_gate
     branch: card/221-packaged-interior-face
     worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221
     started: 2026-10-14T14:20:00Z
