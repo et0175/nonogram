@@ -138,3 +138,17 @@ large deletion set means the proof step is being skipped.
 ## Worktree notes
 
 —
+
+## Correction inherited 2026-10-15, before this card starts
+
+This card's premise includes CARD-217's finding that the superseded baseline recordings are
+"referenced only from docstrings and cost no runtime". **That is no longer true.**
+`book_baseline_card200/203/204/205.json` are loaded and compared at runtime by
+`TestBookPdfMemory_NonDrawingPagesAreByteIdentical`
+(`tests/test_book_pdf_memory.py:1715/:1731/:1747/:1764`) — proved at CARD-221's AC/EC/G gate by
+a mutant that regenerates CARD-205's TOC-page digest and kills 2 tests.
+
+So the fixtures are **live attribution evidence**, not inert provenance. Re-measure which
+fixtures are actually read before proposing to retire anything that touches them, and treat
+"nothing reads this" as a claim needing a measurement like any other — this is the second time
+that particular claim has been wrong on this chain.
