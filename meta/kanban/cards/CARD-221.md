@@ -209,7 +209,7 @@ card records.
 
 ---
 
-### Implementation agent's own records (verbatim, synced from the worktree 2026-10-14, all cycles)
+### Implementation agent's own records (verbatim, synced from the worktree 2026-10-15, all cycles)
 
 - [Why this is P1 rather than tidy-up] The owner confirmed on 2026-10-14 that books are
   finalised BOTH locally and through the deployed panel. Two machines, two faces, and a
@@ -390,7 +390,8 @@ found by review cycle 1 and is the only one still standing — accepted, not fix
    that trim on both faces, and in two independent ways, both measured at HEAD: no fallback
    form of page 2 passes `fits_width` there (all five fail, so the ladder exhausts and
    draws its last regardless of the horizontal overflow), and page 1's chosen form ends
-   **212 px past the bottom margin** — 111 px of actual ink past it — on either face. So
+   **212 px past the bottom margin on the packaged face and 210 px past it on Arial** —
+   111 px of actual ink past it, and that one *is* identical on both. So
    the folio this card drops sits on a page no book can ship at that trim either way, and
    Book 1, the real product, is untouched. The honest one-line framing: *a 10 cm book's
    guide pages were already broken, and this card also takes page 2's number.*
@@ -667,80 +668,96 @@ gate's own logic, 2 more parametrizations of the no-host-path watch. The single
 host-dependent skip is still the one gate this card adds, and the second off-host skip is
 still that same gate closing.)
 
-- [Fix cycle 2 complete] 2026-10-14 — `b876736`, `6e8b151`, `62a70f8`. All three gating findings
-  closed, all five minors decided with a stated reason each, and the fuller mutation set run.
-  Impact scope both faces: **on host 2525 passed, 1 skipped, 0 failed, 0 xfailed; off host 2524
-  passed, 2 skipped.** No `pytest.mark.xfail` remains anywhere in `tests/test_book_*.py`. The
-  agent kept its heavy runs backgrounded while CARD-212's merge gate had the machine.
-- [Fix cycle 2 — the mutation set found two real holes, which is why it was worth asking for]
-  - **N1: `_toc_entries_per_page` dropping `- folio_space` SURVIVED 217 tests.** Every existing
-    test of the split feeds it the eight-row structural list, which never fills a page. The
-    agent then measured what the mutant actually breaks: packed to capacity, **0 of 381 heights
-    lose the folio with the reservation and 185 lose it without**, starting at 10.30 cm (24 px
-    against the folio's 49). Closed with a new sweep plus a rendered 10.30 cm page; the mutant
-    now dies to both.
-  - **N5a: `host_offers_a_second_face()` forced to `False` SURVIVED** — a gate that closes
-    wrongly takes its own test with it and reds nothing. Closed by a class that pins the gate's
-    logic host-independently (refuse every path -> it must close; a face that really differs ->
-    it must open) with a non-vacuity check that the sample discriminates. Both directions now die.
-  - N2/N3/N4 confirm all three of `folio_band`'s structural assertions are live.
-- [Fix cycle 2 — the agent's own root cause, recorded because it generalises] F-001's four stale
-  figures came from **edit scripts that "succeeded" while writing nothing**: the first bundled a
-  docstring rewrite and an assertion rewrite behind one `assert old in s`; the assertion half
-  missed by a word, the script raised, and *neither* edit landed — and the agent then verified by
-  running the test, which passed, and never re-read the prose. A second used a bare
-  `str.replace` with no guard on a fixture field. Its own corrective — edit one claim at a time
-  and grep for the old text afterwards — is what found that the first docstring rewrite had never
-  landed at all.
+### Fix cycle 3, 2026-10-15 (agent) — review cycle 2 (8.5, no gating findings), the three minors
 
-- [Review cycle 2 — held until the machine is free] 2026-10-14 — the card is ready for it, and
-  it is deliberately not started yet. CARD-212's merge gate began at 19:01:33 UTC on a quiet
-  host, having waited for one; a reviewer's targeted runs and mutants on top of it are the same
-  load that produced the first gate's false failure and the CARD-195 `page.goto` artefact. The
-  gate's signal is the thing standing between CARD-212 and merging, so it gets the machine.
-  CARD-221's review starts when the gate reports.
+#### N-001 — the gate's own comparison branch, which nothing had run
 
-- [Review cycle 2] 2026-10-15 — **8.5/10, clears the gate** (+1.0 on cycle 1's 7.5, against a
-  min_improvement of 0.5). **0 critical, 0 important, 3 minor.** Report:
-  `meta/review/20261015T022658Z-CARD-221-cycle2.yml`. On host **363 passed / 1 skipped /
-  0 failed**; off host under the reviewer's own collection-time plugin, **362 / 2 / 0**.
-  Their own mutation set: **7 mutants, 7 killed.**
-  - **N1's capacity sweep exercises capacity rather than asserting arithmetic about it** — it
-    calls the real `_toc_entries_per_page` and places that many rows using metrics read off
-    package data independently, so deleting the reservation produces a *behavioural* failure.
-    The reviewer re-derived every figure from scratch and matched exactly: **381 heights, 0
-    short with the reservation, 185 without, first failing 10.30 cm at 24 px against 49.** That
-    also makes 10.30 cm the **tightest** available rendered witness rather than a convenient
-    one — it is the first height the reservation saves. A half-reservation mutant kills the
-    sweep and leaves the rendered witness green, which the reviewer judged **the correct
-    separation rather than a gap**.
-  - **N5a's gate class pins discrimination through the gate's own code path** — it kills a
-    mutant the agent never ran (blanking the probe string so the gate closes wrongly on every
-    host), which is the real test of the class.
-  - **The 10.531% figure now has an independent witness.** The reviewer rebuilt the deleted 3x3
-    instrument **from the cycle-1 diff**, not from anything on the branch, and ran it over both
-    guide pages: page 1 7.596% / 254,766, page 2 10.531% / 478,630 — exact match. Page 1 is a
-    genuine control, because it is what the *original* tool produced before deletion, so
-    reproducing it validates the rebuild.
-  - **F-002's four numbers verified with the reviewer's own `_draw_folio` spy:** page 2 room
-    **18 px packaged against 93 px Arial** (so 75 px is the face's cost) against the folio's 49;
-    page 1 ink 111 px past the frame on both faces. They judged the prose's distinction between
-    the ladder's `bottom` and where ink lands "exactly right and worth separating".
-  - **The box-around-nothing question: honest.** They read the CSS rather than a render — the
-    screen's box is a `flex` row with `flex: 1 1 10rem` that hugs its content, where the printed
-    rule spanned a measure, so the print-side argument does not transfer. F-007's
-    kept-with-a-reason also checks out: they verified against `record_interior` that it spies
-    `ImageDraw.text`, so the claimed complementarity with the `truetype`-argument watch is real
-    for the case that matters.
-- [Review cycle 2 — the three minors, all being taken] Non-gating, and worth a short cycle
-  because one of them is the card's own subject:
-  - **N-001: the only host-dependent function this card *adds* has an untested branch.** The
-    gate's third real case — a host face that **loads but is indistinguishable**, where the gate
-    must return False from the pixel comparison rather than from the `except OSError` branch —
-    is uncovered. That branch is why the function samples pixels at all. The rationale beside it
-    is also wrong in a small, checkable way: the docstring says that without the companion test
-    the yes-test "would pass for the wrong reason"; it would **fail**, not pass.
-  - **N-002: `.guide-difficulty-column p` (`admin.css:401`) is now dead** — a selector for an
-    element the template no longer emits, and the one part that should have gone with the `<p>`.
-  - **N-003: "212 px ... on either face" is 212 packaged, 210 Arial.** Only the 111 px figure is
-    identical on both.
+`host_offers_a_second_face` has three paths and only two were covered: the
+`except OSError` (a host with no font at the path) and the differing-face case. The
+branch it rasterises *for* — **a host face that loads and draws the sample exactly as
+Pillow's own does** — had nothing on it, and that is the only reason the function
+compares pixels instead of asking `os.path.exists`. It is also not hypothetical: Pillow's
+embedded Aileron is a Helvetica clone and so is Arial, and this card's own cycle-0
+measurement found the two drawing guide page 2 identically, band for band.
+
+`test_it_says_no_when_the_host_face_loads_but_is_indistinguishable` hands the lookup
+Pillow's own face, **records that the lookup really succeeded** (`assert loaded`) and
+requires `False` — so the gate is shown to close through the comparison and not through
+the exception. The class docstring now enumerates all three paths instead of "these two
+tests".
+
+Also in that file, as asked: `test_the_two_faces_it_compares_really_do_draw_differently`
+said the yes-test "would pass for the wrong reason" if the two faces rendered alike. It
+would **fail**. What that test actually buys is that a failure of the yes-test can only
+mean a broken gate and never a premise that never held — which is what it now says. The
+project's rule about claims applies to a test's own prose too, and this one was wrong
+about its own sibling.
+
+#### N-002 — the dead selector, and what stays
+
+`.guide-difficulty-column p` is removed: it styled an element the template stopped
+emitting in fix cycle 2. Checked the rest of the block rather than assuming — the other
+two selectors are live (`book_finalize.html` still emits both divs). The box's own border
+**stays**, deliberately and now in writing: on screen it is a flex row that hugs its three
+labels, where the printed rule spanned the full measure around three words, so the print
+side's reason for dropping the rule does not transfer. The reviewer reached the same
+conclusion from the CSS; the stylesheet now says it so the next reader does not have to.
+
+#### N-003 — one number
+
+"212 px … on either face" was 212 on the packaged face and **210** on Arial. Only the
+111 px of ink is identical on both. Corrected in the F-002 write-up; both figures now
+named with their face.
+
+#### Mutants
+
+| # | mutant | result |
+|---|--------|--------|
+| P1 | `_toc_entries_per_page` drops `- folio_space` | KILLED, both packed-page tests (the sweep and the rendered 10.30 cm page) |
+| P2 | `host_offers_a_second_face` forced closed (`return False` before the lookup) | KILLED by **two** tests — and the new one fails on `assert loaded` rather than on the verdict, i.e. it catches that the answer came from the wrong path even when the answer itself would have been right. That guard is what makes the branch covered rather than merely exercised |
+| P3 | the gate's probe string blanked (the reviewer's own mutant, re-run) | KILLED by the yes-test |
+| P4 | **the comparison skipped** — `return True` in place of `sample(arial) != sample(fallback)` | KILLED by the new N-001 test **alone**. That is the measurement that the branch was uncovered before this cycle: nothing else in the suite notices a gate that stops comparing |
+
+All reverted with `git checkout --`; `git status --porcelain -- src tests` empty after each
+and after the last.
+
+#### Taken off this card by the coordinator, recorded for the architect station
+
+- Bounding the unbounded `Pillow>=10.0` that F-005's wording now names honestly.
+- The declined 10.00 → 10.10 cm minimum trim, which would retire both folio problems at
+  that trim in one constant (full write-up under "What this card could NOT close", item 3).
+
+#### Fix-cycle-3 runs
+
+Impact scope, both faces (two files added to the scope this cycle, `test_admin_design_tokens`
+and `test_admin_serving`, because this cycle edits a stylesheet):
+
+- on host (Arial present): **2569 passed, 1 skipped, 0 failed, 0 xfailed**
+- off host (`ImageFont.truetype` refusing every host path): **2568 passed, 2 skipped**
+
+The one host-dependent skip is still the gate this card adds, closing honestly off host.
+
+- [Fix cycle 3 complete] 2026-10-15 — committed `ef89b26`. All three minors closed. Impact
+  scope, now including `test_admin_design_tokens` and `test_admin_serving` because the cycle
+  edits a stylesheet: **on host 2569 passed, 1 skipped, 0 failed, 0 xfailed; off host 2568
+  passed, 2 skipped.** The one remaining host-dependent skip is the gate this card adds,
+  closing honestly off host.
+  - **N-001.** `host_offers_a_second_face` has three paths and only two were run. The new
+    `test_it_says_no_when_the_host_face_loads_but_is_indistinguishable` hands the lookup
+    Pillow's own face, **records that the lookup really succeeded** (`assert loaded`), and
+    requires `False` — so the gate is shown to close *through the comparison* rather than
+    through the exception. The class docstring now enumerates all three paths instead of
+    "these two tests". The companion test's own docstring was corrected too: it claimed the
+    yes-test "would pass for the wrong reason" if the two faces rendered alike, when it would
+    **fail**; it now says what it actually buys — that a failure of the yes-test can only mean
+    a broken gate, never a premise that never held.
+  - **N-002.** `.guide-difficulty-column p` removed, and the agent **checked the rest of the
+    block rather than assuming**: the other two selectors are live, so nothing else is
+    unreachable. The stylesheet now carries the reason the box's border stays, in writing.
+  - **N-003.** 212 px is the packaged face, Arial is 210; only the 111 px of ink is identical
+    on both. Both figures now named with their face.
+  - **P4 is the measurement that the branch was uncovered**: replacing the comparison with
+    `return True` is **killed by the new N-001 test alone** — nothing else in the suite notices
+    a gate that stops comparing. P2 is worth recording too: forcing the gate closed now fails
+    the new test on `assert loaded` rather than on the verdict, so it catches an answer that
+    came from the wrong path even where the answer itself would have been right.
