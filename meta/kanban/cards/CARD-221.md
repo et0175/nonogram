@@ -863,86 +863,101 @@ Impact scope, both faces:
 (+1 each side: the AC-2 witness. The single host-dependent skip is still the gate this
 card adds, closing honestly off host.)
 
-- [Fix cycle 4 complete] 2026-10-15 — `241db52`, `22625a6`. Both faces: **on host 2570 passed,
-  1 skipped, 0 failed, 0 xfailed; off host 2569 passed, 2 skipped** (+1 each side, the witness).
-  The agent's own first line is worth preserving: *"I reported AC-2 green four times on a file
-  that was already 126/126 off host at my base, and never asked the one question that mattered —
-  would it be red without my change?"*
-  - **F-G1 fixed first, because it was hiding the card's own work.** `clear_font_caches()` now
-    runs on both sides of `_both_faces`, inside `refuse_host_fonts`, at the top of the
-    three-shape watch and in the pre-card control. Measured against the full pre-card
-    `_guide_face` restored: both AC-1 digest comparisons go **green -> red**, and the structural
-    watch goes from **1 of 3 cold and 0 as a file** to **3 of 3**. That mutant went from 3 kills
-    to 6. The gate's diagnosis was exact — the two halves had been comparing one run with itself.
-  - **The witness: `test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees`.**
-    Capacity measured at **9 rows at 10.00 cm packaged against 10 on Arial**; a ten-row list —
-    derived from `structural_toc_entry_count(4, …)`, not written down — therefore splits
-    differently by face. It is built so the **printed gutter** turns on it: 72 puzzles on 71
-    puzzle pages sit on KDP's 150/151 band edge, so the packaged face gives 2 TOC pages, a
-    151-page interior and a **1.27 cm** minimum gutter where pre-card Arial gives 1, 150 and
-    **0.9525 cm**. Two different printed books from one source.
-    **The restored-`_guide_face` mutant now reds it**, reporting exactly that pair — which is
-    AC-2's acceptance criterion, and it is met. The agreement is asserted **before** the
-    non-vacuity guards, so a restored lookup fails on what it broke rather than on "ten rows no
-    longer spill"; the guards run after, so the case cannot pass by quietly ceasing to be a
-    witness.
-  - **Mutants re-run with the cache cleared, and one verdict changed honestly.** Q1 (full
-    pre-card restore) 3 -> **6 kills**. R2 (Arial for size 42 only) kills 5 but **correctly does
-    not red the witness** — with the title still packaged the capacity lands the same side of
-    its own rounding, so a partial defect is the digests' job, not the page count's. R1 (the
-    claim's edge, packaged at `size+1`) unchanged: AC-1 green, baselines red, separation intact.
-  - **F-G2** — all four "on every machine" clauses now read *any host font configuration, on one
-    Pillow/FreeType build*, and the byte-length docstring names the unbounded `Pillow>=10.0` as
-    the lever it exists to catch rather than one it is immune to.
+### Fix cycle 5, 2026-10-15 (agent) — the AC/EC/G gate's pass-with-items
 
-- [AC/EC/G gate, re-verification] 2026-10-15 — **PASSED. The card clears its gate.** Fix cycle 4
-  touches only two test files (+202/-13, no `src/` hunk, confirmed by diff), so the 21 mutants
-  that cleared everything else stand; the gate re-ran three as a spot check and added 13 of its
-  own. `git status --porcelain -- src tests` empty after each and at the end.
-  - **AC-2's witness is confirmed on all three points.** Derived: `structural_toc_entry_count`
-    is the shipped function and `(4, 72)` really measures 10 rows where `(3, 72)` measures 8.
-    Ordered: `assert on_host == off_host` is the **first** assertion after the `_both_faces`
-    call, and the restored-defect mutant fails on **that** line. Comprehensible when the premise
-    dies: a mutant dropping the folio reservation makes the capacity guard say *"the 10.00 cm
-    frame holds 10 TOC rows, not the 9 this case needs to be a witness"*. The gate captured the
-    witness's actual failure text, which reports capacity, TOC pages, interior pages, KDP band
-    and minimum gutter: `(10, 1, 150, (1, 150), 0.9525)` with the host's fonts against
-    `(9, 2, 151, (151, 300), 1.27)` without.
-  - **The cache fix is confirmed as the cycle's biggest single improvement**, with one
-    attribution corrected: the **0 -> 6** and **1 of 3 -> 3 of 3** figures belong to the mutant
-    that puts a host lookup **inside the `lru_cache`d `_band_font`**, not to the uncached
-    `_guide_face` restore (which already killed 5 before the cache fix; its +1 is the witness).
-    Blast radius checked rather than assumed: `refuse_host_fonts` has one caller outside
-    `_both_faces`, `clear_font_caches` is confined to its module, no test asserts `cache_info()`,
-    and cross-file ordering is clean in both directions.
-  - **R2 accepted, its explanation corrected.** The separation is right — a partial defect is the
-    pixel baselines' job, and R2 dies 5 times — but the card's reason was wrong. Measured row
-    heights on the 10.00 cm frame: all-packaged 49 px (capacity 9), all-Arial 48 px (10), all
-    Pillow built-in 51 px (9), **R2 on host 48 px (9), R2 off host 51 px (9)**. Under R2 the two
-    runs disagree about row height by 3 px — the defect is fully live — and the capacity agrees
-    only because the packaged title shifts the dividend enough for the floor division to absorb
-    it **at this one frame height**. Good separation, coincidental reason; it must not be read
-    as a guarantee.
-  - **F-G2 was fixed at five sites, one more than flagged**, including the byte-length docstring
-    now saying explicitly *not* "the same number on every machine" and naming the unbounded
-    `Pillow>=10.0` as the lever it exists to red on.
-- [AC/EC/G gate, re-verification — four items for fix cycle 5, none gating]
-  - **The one the gate would not merge without:** `tests/test_book_interior_type_floor.py` never
-    got cycle 4's cache clearing, so the blindness is still live there — and that is the file
-    holding the class the card **keeps** on the F-007 argument that it is "what fails first if a
-    host lookup returns to the drawing". Proof: a mutant putting a host Arial lookup with a
-    **sizeless `load_default()`** fallback inside `_band_font` — the CARD-149 defect verbatim —
-    **survived the whole floor file (21 passed, 0 failed)** while killing 3 when that class ran
-    alone in a cold process. The card's stated reason for keeping the class is false of the
-    suite as it runs.
-  - **The witness is internally inconsistent**: `SPILLING_LEVELS = 4` for the TOC rows,
-    `level_dividers=3` for the page count. No book has four levels and three dividers, and a
-    self-consistent four-level book at 71 puzzle pages lands **inside one band either way**
-    (151 / 152), so the gutter half of the claim is currently an artifact of the mismatch. The
-    page-count half stands. Measured fix: `level_dividers=self.SPILLING_LEVELS` and
-    `SPILLING_PUZZLE_PAGES = 70` -> 150 with one TOC page, 151 with two.
-  - **The band-edge guard has no message** and short-circuits, so a later card that grows the
-    guide gets `assert (152 == 151)` and nothing else — the assertion that *would* explain the
-    band edge never runs. A knife-edge fixture that fails incomprehensibly is a trap.
-  - **Two "every/any machine" clauses remain**, both `+` lines in this card's diff:
-    `tests/helpers/book_corpus.py:62` and `tests/test_book_pdf_memory.py:1912`.
+#### 1. The type-floor file had the blindness cycle 4 fixed next door
+
+`tests/test_book_interior_type_floor.py` was untouched by cycle 4: `without_arial` did not
+clear the font caches and `recording()` memoises per `(book, arial)` with the Arial
+recording first. The gate demonstrated it rather than suspecting it — a host Arial lookup
+with a **sizeless `load_default()`** fallback inside `_band_font` (the CARD-149 defect
+verbatim) **survived the whole file, 21 passed**, while killing 3 when
+`TestInteriorType_FloorHoldsWithoutArial` ran alone in a cold process. So this card's
+F-007 justification — that the class is "what fails first if a host lookup returns to the
+drawing" — was false of the suite as it actually runs.
+
+`clear_font_caches()` is now called in `without_arial` and at the top of `record_interior`.
+Same mutant, re-run against the whole file: **5 failures**, including both parametrizations
+of `test_no_face_is_unsized` and `test_every_face_outside_the_exemption_is_at_least_ten_points`
+— the two the class is named for — plus the DPI-independence test. F-007's justification
+is now true as written.
+
+#### 2. The witness described a book that does not exist
+
+It took ten TOC rows from four levels and then counted pages with three dividers. Measured
+self-consistently (verified here, not taken): a four-level book at 71 puzzle pages is
+**151 pages with one TOC page and 152 with two — one band either way**, so the gutter half
+of the claim was an artifact of the mismatch. The page-count half was never in doubt.
+
+Re-tuned: `level_dividers` now comes from `SPILLING_LEVELS`, and one more two-up pair
+(`SPILLING_PUZZLE_PAGES` 71 → **70**) puts the book back on the edge. Verified directly
+against `interior_page_count`:
+
+| dividers | puzzle pages | TOC pages | interior | band | minimum gutter |
+|---|---|---|---|---|---|
+| 4 | 70 | 1 | **150** | (1, 150) | **0.9525 cm** |
+| 4 | 70 | 2 | **151** | (151, 300) | **1.27 cm** |
+| 4 | 71 | 1 / 2 | 151 / 152 | (151, 300) both | 1.27 both — the old, inconsistent shape |
+
+R1 (the full pre-card `_guide_face`) still reds it, same message shape, now with honest
+numbers: `(10, 1, 150, (1, 150), 0.9525)` with the host's Arial against
+`(9, 2, 151, (151, 300), 1.27)` without.
+
+#### 3. The band-edge guard had no message
+
+`assert on_host[2] == 151 and on_host[3] == (151, 300), on_host` was the only assertion in
+the test without prose, and it short-circuits — so the assertion that *does* explain the
+edge never ran. A later card growing the guide to three pages would have read
+`assert (152 == 151)` and nothing else. It now names `SPILLING_PUZZLES` and
+`SPILLING_PUZZLE_PAGES` as the knobs, says to re-tune onto the 150/151 edge rather than
+relax the assertion, and says which half of the claim survives if nobody does (the page
+count holds wherever the book sits; the band does not).
+
+#### 4. Two more over-wide clauses, both this card's own additions
+
+- `tests/helpers/book_corpus.py:62` — "comparable on every machine" → "on any **host font
+  configuration**", with the Pillow/FreeType lever named.
+- `tests/test_book_pdf_memory.py:1912` — "those two comparisons hold on any machine too" →
+  "on any host font configuration too", and the distinction from the clause six lines
+  above it (which compares two *stored* fixtures and really is machine-independent) is now
+  written down rather than left to coincidence.
+
+`book_corpus.py:613` (seeded generation) and `test_book_pdf_memory.py:24` (the memory
+instrument) are left alone: neither is about fonts.
+
+#### Fix-cycle-5 runs
+
+Impact scope, both faces:
+
+- on host (Arial present): **2570 passed, 1 skipped, 0 failed, 0 xfailed**
+- off host (`ImageFont.truetype` refusing every host path): **2569 passed, 2 skipped**
+
+Unchanged counts from cycle 4 — this cycle adds no test, it makes three existing ones
+mean what they say and clears two caches. The single host-dependent skip is still the one
+gate this card adds.
+
+- [Fix cycle 5 complete] 2026-10-15 — `2b6b899`. All four items taken. Both faces unchanged from
+  cycle 4 **by design** — this cycle adds no test; it makes three existing ones mean what they
+  say and clears two caches: **on host 2570 passed, 1 skipped, 0 failed, 0 xfailed; off host
+  2569 passed, 2 skipped.**
+  - **The floor file's blindness is closed, and F-007's justification is now true rather than
+    struck.** `clear_font_caches()` runs in `without_arial` and at the top of `record_interior`.
+    The gate's mutant — a host Arial lookup with a sizeless `load_default()` inside `_band_font`,
+    the CARD-149 defect verbatim — goes from **21 passed / 0 failed to 5 failed** against the
+    whole file: both parametrizations of `test_no_face_is_unsized`, both of
+    `test_every_face_outside_the_exemption_is_at_least_ten_points` (the two the class is named
+    for), and the dpi-independence test. So the card's reason for **keeping**
+    `TestInteriorType_FloorHoldsWithoutArial` — that it is what fails first if a host lookup
+    returns to the drawing — is now a fact about the suite as it runs, not an argument.
+  - **The witness is self-consistent and still a witness.** Four levels, `level_dividers` now
+    derived from `SPILLING_LEVELS`, 70 puzzle pages (two two-up pairs), 72 puzzles, 72 answer
+    pages: **150 pages and a 0.9525 cm gutter with one TOC page, 151 and 1.27 cm with two** —
+    verified against `interior_page_count` directly. The old shape is confirmed as the artifact
+    the gate said it was: four levels at 71 puzzle pages is 151/152, one band either way. R1
+    still reds it with the same message shape, now honest.
+  - **The band-edge guard speaks.** It names `SPILLING_PUZZLES` and `SPILLING_PUZZLE_PAGES` as
+    the knobs, says to re-tune onto the 150/151 edge rather than relax it, and says which half
+    survives if nobody does — the page count holds wherever the book sits, the band does not.
+  - **The last two over-wide clauses narrowed**, with the distinction written down rather than
+    left to coincidence: at `test_book_pdf_memory.py:1912` the clause six lines above really is
+    machine-independent, because it compares two *stored* fixtures.
