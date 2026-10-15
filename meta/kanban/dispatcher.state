@@ -7,14 +7,13 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
-  - id: CARD-221
-    phase: ac_ec_gate
-    branch: card/221-packaged-interior-face
-    worktree: /Users/omelnikova/PycharmProjects/PythonProject4-CARD-221
-    started: 2026-10-14T14:20:00Z
-    note: "P1, unblocked by CARD-205's merge. Its proof of success is CARD-205's own two red-off-host folio tests going green on both faces. CARD-206..209 queued behind it on the book_pdf_generator.py hotspot."
+active: []
 merged:
+  - id: CARD-221
+    review_cycle: 2
+    success_commit: 0188110
+    merge_commit: 806dbe1
+    note: "cycle 1 = 7.5 (3 gating), cycle 2 = 8.5; 5 fix cycles; AC/EC/G gate FAILED once on AC-2 being true-but-unevidenced (CARD-205 had already delivered its outcome), passed on re-verification; merge gate 7073/0. Actual 2.0d against 1d. Unblocks CARD-234 and CARD-222."
   - id: CARD-212
     review_cycle: 2
     success_commit: 4638bf5
@@ -105,6 +104,9 @@ conflict_edges:
 # whether to merge it — merge, then report and point at the renders. This is not permission to
 # merge past a gate: a review under min_score, an unmet AC, a red merge gate, an open owner
 # decision or a strict xfail standing in for a defect all still block.
+# NOTE 2026-10-15: wave 38's six cards are all merged. CARD-217 is next, ALONE, per the owner's
+# 2026-10-14 decision; nothing else starts until it is done. After it, the interior redesign runs
+# in the order listed under queued_after_card_217.
 # NOTE 2026-10-14 (owner): CARD-217 runs NEXT AND ALONE, once CARD-221 and CARD-212 merge.
 # Do not start another pair before it. The suite is 1042s per merge gate against 398s at
 # wave 30, and CARD-218/219/220 are blocked behind it.
