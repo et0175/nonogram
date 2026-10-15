@@ -9,7 +9,8 @@ mode: interactive
 max_concurrent_override: 2
 active:
   - id: CARD-234
-    phase: implementation
+    phase: review
+    review_cycle: 1
     branch: card/234-cover-packaged-face
     worktree: ../PythonProject4-card-234
     started: 2026-10-15T08:44:16Z

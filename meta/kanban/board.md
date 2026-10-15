@@ -105,9 +105,6 @@ _CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were c
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-- **CARD-234** The generated cover's title letters from packaged data · P2 · 0.5d · bug _(wave 40)_
-  `worktree: ../PythonProject4-card-234` · `branch: card/234-cover-packaged-face`
-  `started: 2026-10-15T08:44Z`
 - **CARD-235** The browser tests stop paying for a page they throw away · P1 · 1d · tech-debt _(wave 40)_
   `worktree: ../PythonProject4-card-235` · `branch: card/235-browser-fixture-scope`
   `started: 2026-10-15T08:44Z` · ⚑ its authoritative before/after profile must run under the
@@ -118,7 +115,10 @@ _Next, once these merge: CARD-228 (the dots glyph) then CARD-222 (the frame), in
 `book_pdf_generator.py`, so lane A runs one card at a time whatever the concurrency cap says._
 
 ## Review
-_(none)_
+- **CARD-234** The generated cover's title letters from packaged data · P2 · 0.5d · bug _(wave 40)_
+  `worktree: ../PythonProject4-card-234` · `branch: card/234-cover-packaged-face`
+  implementation committed `b8b929a` · scope gate ⚠ grown (4/7 files outside Touches, forced
+  by the exit-code hierarchy test) · review cycle 1 pending
 
 
 ## Blocked

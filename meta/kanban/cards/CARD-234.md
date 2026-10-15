@@ -1,6 +1,6 @@
 # CARD-234: The generated cover's title letters from packaged data, like the interior
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** bug
 **Complexity:** standard
@@ -130,3 +130,142 @@ typography is deterministic") would not yet be true.
   comparison is a no-op rather than a pass. Recorded so a later diagnosis is possible.
 - [Wave] 40, dispatched 2026-10-15. Paired with CARD-235: no shared path and no shared
   hotspot, so the two run concurrently under the owner's concurrency cap of 2.
+
+- [Scope] src/nonogram/admin/book_pdf_generator.py, src/nonogram/cli.py,
+  src/nonogram/errors.py, tests/helpers/book_corpus.py, tests/test_book_cover.py,
+  tests/test_book_export_interior_cover.py, tests/test_cli.py
+- [Scope gate] ⚠ GROWN — 4 of 7 changed files (57%) sit outside this card's `Touches:`
+  (`cli.py`, `errors.py`, `test_cli.py`, `tests/helpers/book_corpus.py`), well over the
+  ~25% mark. NOT escalated, and the reasoning is on the record rather than implied:
+  * `comp_spread` could not be measured at all — this project's `trace.yml` is
+    requirement-keyed and carries no `components[].code` globs, so the metric the gate
+    leans on hardest is unavailable here. Said plainly instead of scored as zero.
+  * The excess is forced, not opportunistic. `tests/test_cli.py`'s
+    `test_every_domain_error_has_an_exit_code` closes the error hierarchy over the
+    exit-code map, so AC-4's new `NonogramError` subclass CANNOT be added without one
+    additive row in `errors.py` and one in `cli.py` — the suite reds otherwise. That is
+    SCOPE DISCIPLINE's additive-entry case, not scope growth.
+  * `tests/helpers/book_corpus.py` is comment-only: two blocks CARD-221 wrote asserting
+    the cover still reads the host's Arial, which this card makes false.
+  The reviewer gets the SCOPE NOTE and judges necessity; the gate detects, it does not decide.
+- [Scope gate] poach metric is DEGENERATE against CARD-220 and was disregarded:
+  CARD-220's `Touches:` is the single glob `tests/**`, so its matched/min ratio is 1/1
+  = 100% for ANY card that touches any test file, and every card does. This is a defect
+  in CARD-220's footprint breadth, not a slicing defect in this card — carded below.
+- [Guard] no structural guardrail to hit: G-1/G-2/G-3/G-4 are behavioral and G-5 names
+  components ("the interior", "the cover's design"), not paths. Guardrail evidence is
+  therefore the AC/EC/G gate's job, not this gate's.
+
+### Implementation, 2026-10-15
+
+**What changed.** `create_cover_page`'s five lines — the hardcoded
+`/System/Library/Fonts/Arial.ttf` and the bare `except OSError:
+ImageFont.load_default()` — are gone. The generated title cover now letters
+through `_cover_title_face(book_title)`, a new module function beside the
+class that returns `_band_font(COVER_TITLE_PX)`: the packaged DejaVu Sans
+CARD-221 gave the interior and CARD-197 gave the band, reused rather than
+wrapped in a lookup of its own (ADR-0006/R1 package data, no new font file and
+no new dependency — G-1). `COVER_TITLE_PX = 72` is the size the old code
+already asked for, kept verbatim; the cover's visual design is untouched
+(G-5). There is **no fallback left at all**, so G-3 is satisfied by removal
+rather than by documentation: the one face is this repository's.
+
+Measured here, and it is the figure the card asked to be written against: the
+packaged face at 72 px sets a cap height of **52 px**, the pre-card sizeless
+`load_default()` sets **8 px** — a seventh, as CARD-221's F-009 recorded.
+
+**AC-4 decision: refuse, do not substitute.** A title holding a character the
+packaged face has no glyph for raises `nonogram.errors.UnletterableTitle`
+(new, `INVALID_INPUT` group), naming each character and its codepoint. Why
+refuse: a book title is typed by the owner so its repertoire is unbounded,
+unlike the interior's; the cover is the file KDP prints, bills for and sells;
+and both alternatives are the same defect this card exists to kill wearing a
+different costume — printing FreeType's `.notdef` boxes is silent, and
+substituting `?`/`U+FFFD`/a transliteration ships a title that is *not the
+title*, quietly. A refusal is loud, names the fix, and reaches the owner
+through the export route's existing `PDF_EXPORT_FAILED` flash ("the details
+are in the panel's log"), where the characters are named with a traceback.
+Measured repertoire (pinned by a test, not assumed): the face sets Latin,
+Latin Extended, **Cyrillic** (the owner's own language), Greek, Hebrew,
+Arabic and a title's punctuation; it does not set CJK, kana, hangul, Thai or
+most emoji. Glyph presence is asked of the face by drawing the character and
+comparing it with the face's own `.notdef` (U+E000), because Pillow exposes no
+character map.
+
+**AC-5 needed a guard, and the measurement says why.** A title of nothing but
+whitespace now returns the blank page before a face is asked for. Without it a
+title of one tab drew a `.notdef` box centred on an otherwise empty cover —
+U+0009 has no glyph of its own — which is exactly the "stray centred artefact"
+AC-5 names. Spaces and newlines were always blank.
+
+**Tests** (`tests/test_book_cover.py`, new, 38 cases; every figure measured off
+the rendered ink, never off a font object the test built, and every expected
+value from an independently loaded packaged face):
+
+| AC | Test | Status |
+|----|------|--------|
+| AC-1 | `TestBookCover_IsIdenticalWithAndWithoutHostFonts` | pass |
+| AC-2 | `TestBookCover_TitleIsDrawnAtTheSizeAsked` | pass |
+| AC-3 | `TestBookCover_TitleStaysCentredAndInsideTheTrim` | pass |
+| AC-4 | `TestBookCover_UnletterableTitle` | pass |
+| AC-5 | `TestBookCover_EmptyTitle` | pass |
+| AC-6 | existing uploaded-cover tests in `tests/test_book_export_interior_cover.py`, plus a new `test_the_uploaded_cover_is_used_whatever_the_title_holds` there | pass |
+
+AC-1 clears `_band_font`/`_band_font_bytes` at each host boundary and asserts
+that it does (CARD-221's F-G1: a cached face made that card's AC-1
+comparisons green against the defect they were meant to catch). AC-3's corpus
+is 80 seeded `random.Random(234)` titles with a minimum case count and a
+length span asserted inside the test, and overflow is checked against an
+independently measured advance width rather than the ink box, because a title
+wider than the page is clipped by the canvas and its ink box then reports an
+edge that is inside the page.
+
+**Mutation-checked**, each mutant red by name: restoring the pre-card lookup
+reds AC-1 and AC-2; deleting the blank-title guard reds AC-5's tab cases;
+disabling the glyph gate reds AC-4; changing `COVER_TITLE_PX` reds AC-2's
+`test_the_size_asked_for_is_still_the_seventy_two_px_the_card_names` (added
+for exactly that, since every other AC-2 claim scales with the constant).
+
+**Guardrails.** G-1 — no font file added, no dependency added;
+`tests/test_export_pdf.py`'s two baseline tests pass. G-2 — the cover is
+untouched as an interior page; INV-013's property test passes. G-3 — the
+silent `except` is removed, not replaced; the module has no fallback face
+left. G-4 — CON-019's property test passes. G-5 — the interior is untouched
+and the cover's design (its 72 px, its centring rule, its colours) is exactly
+as found.
+
+`SCOPE+ src/nonogram/errors.py` — AC-4 refuses with a `NonogramError`
+subclass, which the card names as an option, and this is the flat import-free
+hierarchy CLAUDE.md says every domain error funnels through. Purely additive:
+one class.
+
+`SCOPE+ src/nonogram/cli.py` + `SCOPE+ tests/test_cli.py` — forced by
+`test_every_domain_error_has_an_exit_code`, which closes the hierarchy over
+the exit-code map: a new error must be grouped or the suite reds. One row each,
+`INVALID_INPUT`, with the comment the neighbouring rows carry ("no CLI path
+raises it; INTERNAL_ERROR is reserved for a mapping gap").
+
+`SCOPE+ tests/helpers/book_corpus.py` — two comment blocks stated, as of
+CARD-221, that "the generated title cover still reads the host's Arial at
+72 px". This card makes that false. Comments only; no behaviour.
+
+**Observations for the orchestrator, not fixed here.**
+1. *A title wider than the page still runs off it.* The page centres the title
+   by its measured bbox with no fitting step, so a title past the trim's
+   capacity is centred off both edges. Measured at the Book 1 trim (2550 px,
+   72 px type): **69 characters** of a mixed-case title fit; at the 10 cm
+   minimum trim it is roughly a third of that. Pre-existing and unchanged —
+   shrinking or wrapping a title is the cover's visual design (G-5) and the
+   interior's guide title already has a shrink-to-fit pattern that could be
+   borrowed. Pinned honestly by
+   `test_the_longest_title_the_trim_holds_is_measured_and_not_assumed`.
+2. *The refusal reaches the owner only through the log.* `app.py`'s export
+   routes flash the generic `PDF_EXPORT_FAILED` and log the traceback, so the
+   named characters are in the panel's log rather than on screen. Surfacing a
+   `NonogramError`'s own message on those routes is an `app.py` change and
+   outside this card's Touches.
+3. *A tab inside a title refuses; a title of only whitespace does not.*
+   `"A\tB"` is refused (U+0009 has no glyph) while `"\t"` draws the blank
+   cover AC-5 asks for. Both branches are documented and tested; if the owner
+   would rather have tabs folded to spaces, that is a title-normalisation
+   decision for the Finalise screen, not for the drawing code.
