@@ -99,7 +99,14 @@ use — so that every measurement the interior makes is deterministic:
   pages on the packaged face and 1 on Arial (capacity 9 vs 10) — *when* its interior is
   exported on both faces, *then* the page count and the chosen KDP gutter band are the same.
   (test: `TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts::`
-  `test_the_page_count_and_its_gutter_band_agree_on_both_faces`, extended with that case)
+  `test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees`,
+  `tests/test_book_interior_face.py:398`)
+  **Citation corrected 2026-10-15 at the re-verification gate:** this line first said the
+  evidence was the sibling `test_the_page_count_and_its_gutter_band_agree_on_both_faces`,
+  "extended with that case". It was not extended — the witness is a **separate** test, and the
+  sibling still holds only its three face-insensitive counts and **still passes with the defect
+  fully restored**. A name that resolves to a test which does not carry the claim is the exact
+  failure this gate exists to catch, and it caught it in the correction for the previous one.
   **Amended 2026-10-15 at the decompose station, on the AC/EC/G gate's FAILURE.** Original:
   > *Given* the gutter scenarios in `test_book_finalise_gutter.py`, *when* they run with the
   > host's Arial refused, *then* all of them pass — the 10 page-count failures `main` shows
@@ -887,3 +894,55 @@ card adds, closing honestly off host.)
   - **F-G2** — all four "on every machine" clauses now read *any host font configuration, on one
     Pillow/FreeType build*, and the byte-length docstring names the unbounded `Pillow>=10.0` as
     the lever it exists to catch rather than one it is immune to.
+
+- [AC/EC/G gate, re-verification] 2026-10-15 — **PASSED. The card clears its gate.** Fix cycle 4
+  touches only two test files (+202/-13, no `src/` hunk, confirmed by diff), so the 21 mutants
+  that cleared everything else stand; the gate re-ran three as a spot check and added 13 of its
+  own. `git status --porcelain -- src tests` empty after each and at the end.
+  - **AC-2's witness is confirmed on all three points.** Derived: `structural_toc_entry_count`
+    is the shipped function and `(4, 72)` really measures 10 rows where `(3, 72)` measures 8.
+    Ordered: `assert on_host == off_host` is the **first** assertion after the `_both_faces`
+    call, and the restored-defect mutant fails on **that** line. Comprehensible when the premise
+    dies: a mutant dropping the folio reservation makes the capacity guard say *"the 10.00 cm
+    frame holds 10 TOC rows, not the 9 this case needs to be a witness"*. The gate captured the
+    witness's actual failure text, which reports capacity, TOC pages, interior pages, KDP band
+    and minimum gutter: `(10, 1, 150, (1, 150), 0.9525)` with the host's fonts against
+    `(9, 2, 151, (151, 300), 1.27)` without.
+  - **The cache fix is confirmed as the cycle's biggest single improvement**, with one
+    attribution corrected: the **0 -> 6** and **1 of 3 -> 3 of 3** figures belong to the mutant
+    that puts a host lookup **inside the `lru_cache`d `_band_font`**, not to the uncached
+    `_guide_face` restore (which already killed 5 before the cache fix; its +1 is the witness).
+    Blast radius checked rather than assumed: `refuse_host_fonts` has one caller outside
+    `_both_faces`, `clear_font_caches` is confined to its module, no test asserts `cache_info()`,
+    and cross-file ordering is clean in both directions.
+  - **R2 accepted, its explanation corrected.** The separation is right — a partial defect is the
+    pixel baselines' job, and R2 dies 5 times — but the card's reason was wrong. Measured row
+    heights on the 10.00 cm frame: all-packaged 49 px (capacity 9), all-Arial 48 px (10), all
+    Pillow built-in 51 px (9), **R2 on host 48 px (9), R2 off host 51 px (9)**. Under R2 the two
+    runs disagree about row height by 3 px — the defect is fully live — and the capacity agrees
+    only because the packaged title shifts the dividend enough for the floor division to absorb
+    it **at this one frame height**. Good separation, coincidental reason; it must not be read
+    as a guarantee.
+  - **F-G2 was fixed at five sites, one more than flagged**, including the byte-length docstring
+    now saying explicitly *not* "the same number on every machine" and naming the unbounded
+    `Pillow>=10.0` as the lever it exists to red on.
+- [AC/EC/G gate, re-verification — four items for fix cycle 5, none gating]
+  - **The one the gate would not merge without:** `tests/test_book_interior_type_floor.py` never
+    got cycle 4's cache clearing, so the blindness is still live there — and that is the file
+    holding the class the card **keeps** on the F-007 argument that it is "what fails first if a
+    host lookup returns to the drawing". Proof: a mutant putting a host Arial lookup with a
+    **sizeless `load_default()`** fallback inside `_band_font` — the CARD-149 defect verbatim —
+    **survived the whole floor file (21 passed, 0 failed)** while killing 3 when that class ran
+    alone in a cold process. The card's stated reason for keeping the class is false of the
+    suite as it runs.
+  - **The witness is internally inconsistent**: `SPILLING_LEVELS = 4` for the TOC rows,
+    `level_dividers=3` for the page count. No book has four levels and three dividers, and a
+    self-consistent four-level book at 71 puzzle pages lands **inside one band either way**
+    (151 / 152), so the gutter half of the claim is currently an artifact of the mismatch. The
+    page-count half stands. Measured fix: `level_dividers=self.SPILLING_LEVELS` and
+    `SPILLING_PUZZLE_PAGES = 70` -> 150 with one TOC page, 151 with two.
+  - **The band-edge guard has no message** and short-circuits, so a later card that grows the
+    guide gets `assert (152 == 151)` and nothing else — the assertion that *would* explain the
+    band edge never runs. A knife-edge fixture that fails incomprehensibly is a trap.
+  - **Two "every/any machine" clauses remain**, both `+` lines in this card's diff:
+    `tests/helpers/book_corpus.py:62` and `tests/test_book_pdf_memory.py:1912`.
