@@ -255,7 +255,7 @@ card records.
 
 ### Implementation, 2026-10-14 (agent)
 
-**[What was changed]** `_guide_face` (`src/nonogram/admin/book_pdf_generator.py:1131`) now
+**[What was changed]** `_guide_face` (`src/nonogram/admin/book_pdf_generator.py:1093`) now
 returns the packaged DejaVu Sans — `ImageFont.truetype(BytesIO(_band_font_bytes()),
 size=size)`, the same bytes `_band_font` reads through `importlib.resources` — instead of
 the host's Arial by path with Pillow's built-in face as a fallback. No escape hatch: the
@@ -767,73 +767,123 @@ and `test_admin_serving`, because this cycle edits a stylesheet):
 
 The one host-dependent skip is still the gate this card adds, closing honestly off host.
 
-- [Fix cycle 3 complete] 2026-10-15 — committed `ef89b26`. All three minors closed. Impact
-  scope, now including `test_admin_design_tokens` and `test_admin_serving` because the cycle
-  edits a stylesheet: **on host 2569 passed, 1 skipped, 0 failed, 0 xfailed; off host 2568
-  passed, 2 skipped.** The one remaining host-dependent skip is the gate this card adds,
-  closing honestly off host.
-  - **N-001.** `host_offers_a_second_face` has three paths and only two were run. The new
-    `test_it_says_no_when_the_host_face_loads_but_is_indistinguishable` hands the lookup
-    Pillow's own face, **records that the lookup really succeeded** (`assert loaded`), and
-    requires `False` — so the gate is shown to close *through the comparison* rather than
-    through the exception. The class docstring now enumerates all three paths instead of
-    "these two tests". The companion test's own docstring was corrected too: it claimed the
-    yes-test "would pass for the wrong reason" if the two faces rendered alike, when it would
-    **fail**; it now says what it actually buys — that a failure of the yes-test can only mean
-    a broken gate, never a premise that never held.
-  - **N-002.** `.guide-difficulty-column p` removed, and the agent **checked the rest of the
-    block rather than assuming**: the other two selectors are live, so nothing else is
-    unreachable. The stylesheet now carries the reason the box's border stays, in writing.
-  - **N-003.** 212 px is the packaged face, Arial is 210; only the 111 px of ink is identical
-    on both. Both figures now named with their face.
-  - **P4 is the measurement that the branch was uncovered**: replacing the comparison with
-    `return True` is **killed by the new N-001 test alone** — nothing else in the suite notices
-    a gate that stops comparing. P2 is worth recording too: forcing the gate closed now fails
-    the new test on `assert loaded` rather than on the verdict, so it catches an answer that
-    came from the wrong path even where the answer itself would have been right.
+### Fix cycle 4, 2026-10-15 (agent) — the AC/EC/G gate's AC-2 failure
 
-- [AC/EC/G gate] 2026-10-15 — **FAILED on AC-2, which was unevidenced.** Everything else passes,
-  most of it with strong teeth: **21 mutant runs**, each applied behind a single-anchor
-  assertion, reverted, **sha256-compared** to its pre-mutation digest, and followed by a
-  `git status --porcelain -- src tests` check that printed empty. AC-3, AC-4, AC-5, AC-6, G-2,
-  G-3, G-4, G-5, CON-018, CON-019, CON-020, ADR-0006/R1, ADR-0036/R2 and INV-013 all pass.
-  - **The FAILURE, and it is the card's own reason for existing.** `test_book_finalise_gutter.py`
-    is byte-identical to this card's base and was **already 126/126 off host at `d9c2c1a`** —
-    its 10 failures were removed by CARD-205, not by this card, so AC-2's text was true and
-    proved nothing. Restoring the full pre-card `_guide_face` leaves all 126 green **on host and
-    off**. Worse, `test_the_page_count_and_its_gutter_band_agree_on_both_faces` — the test
-    carrying the headline risk — **also passes with the defect fully restored**, at all three of
-    its counts. Measured mechanism: `_toc_entries_per_page` gives **41 rows/page packaged, 42
-    Arial, 40 Pillow's built-in** on Book 1's frame, and a structural TOC is ≤ 12 rows, so it is
-    one page on every face; sensitivity begins at 42 rows. **No book in the suite has a TOC that
-    spills, so nothing would fail if the printed gutter band went host-dependent again.**
-    The cheap witness the gate measured for us: at the **10.00 cm** trim a 10-row structural TOC
-    is **2 pages packaged, 1 Arial** (capacity 9 vs 10); at 10.10 cm it is 1 page on packaged and
-    Arial and 2 on Pillow's built-in. AC-2 is amended above and the witness is Fix 4's job.
-  - **F-G1 (Minor, but it weakens AC-1): `_band_font` is `@lru_cache(maxsize=8)`.** With a host
-    lookup mutated in, `_both_faces` runs the on-host half first, the cache carries Arial into
-    the off-host half, and **all four AC-1 tests stay green**. The three-shape structural watch
-    is blinded the same way — in a cold process it kills only the first parametrization. Only
-    the baseline caught it, and only because this Mac has Arial. One line each:
-    `cache_clear()` on `_band_font` and `_band_font_bytes` inside `refuse_host_fonts` and at the
-    top of the watch.
-  - **F-G2: the card added an absolute determinism claim in the very place F-005 narrowed.**
-    `tests/test_book_pdf_memory.py:1366` says "so the length is the same number on every
-    machine", and that line is a `+` in this card's own diff — in the docstring of the test the
-    card names as the catcher of a FreeType move. Same wording at `:1786`, `:1896`, `:1997`.
-  - **F-G3 / F-G4** are handled above as corrections to G-1's citation and G-5's parenthetical.
-- [AC/EC/G gate — what it verified, worth keeping] "Every face the interior prints" was measured
-  rather than trusted: the gate drove the type-floor recorder over all **796** `draw.text` calls
-  of a Book 1 interior and enumerated **thirteen** distinct non-exempt faces, every one at or
-  above the floor, the tightest at **10.08 pt — 0.08 pt of margin**. That margin is why the spy,
-  not a constant list, is what makes CON-020's quantifier hold. G-5 was verified by comparing
-  **all 17** earlier baseline blobs' git object ids against main, with
-  `git diff --diff-filter=D` empty over the whole branch. And the one remaining host path in the
-  entire package is `create_cover_page` (CARD-234): `grep -rn "truetype(|load_default"
-  src/nonogram/` finds nothing else naming a path.
-- [AC/EC/G gate — stale citations] Every name in the card's resolved-names table still resolves;
-  **three line numbers drifted** across the fix cycles and are corrected above. Also corrected:
-  `_guide_face` `:1093` -> `:1131`. Left as historical narrative but flagged: the Block-1 note
-  names `test_the_difficulty_box_carries_the_three_sentences_verbatim`, which **fix cycle 2
-  renamed** to `test_the_difficulty_legend_carries_the_three_labels_the_page_prints` (`:626`) —
-  accurate inside the cycle-1 story, a dead ref as a pointer.
+The gate failed this card on its own subject and it was right to. I take the finding: I
+reported AC-2 green four times, on a file (`test_book_finalise_gutter.py`) that is
+byte-identical to my base and **was already 126/126 off host at `d9c2c1a`**. Its 10
+failures were removed by CARD-205's structural TOC, not by this card. I ran the file, saw
+green, and never asked the one question that mattered — *would it be red without my
+change?* The answer was no, and the same was true of the test carrying the headline risk.
+
+#### F-G1 — the font cache was hiding the defect from my own tests
+
+`_band_font` is `lru_cache(maxsize=8)`, `_band_font_bytes` `maxsize=1`, and `_both_faces`
+runs both halves **in one process**. With a host lookup mutated back in, the on-host half
+warmed the cache and the off-host half re-used the same faces: all four AC-1 comparisons
+stayed green against the fully restored defect — they were comparing one run with itself.
+The three-shape structural watch was blinded the same way: in a cold process it killed
+only the first parametrization, and run as a file an earlier test warmed the cache and the
+mutant survived it entirely.
+
+`clear_font_caches()` is now called on both sides of `_both_faces`, inside
+`refuse_host_fonts`, at the top of the watch and in the pre-card control. Measured effect
+on the one mutant that matters — the **full pre-card `_guide_face` restored**:
+
+| | before the cache fix | after |
+|---|---|---|
+| `test_every_page_of_the_baseline_book_is_the_same_page_on_both_faces` | green | **red** |
+| `test_the_minimum_trim_is_the_same_book_on_both_faces` | green | **red** |
+| `test_no_font_is_loaded_from_a_filesystem_path` ×3 | 1 of 3 cold, 0 as a file | **3 of 3** |
+| `test_the_page_count_and_its_gutter_band_agree_on_both_faces` | green | green (the AC-2 gap — closed by the witness below, not by the cache) |
+
+#### AC-2's witness — the first thing in this card that reds when the defect returns
+
+Measured on the real frames: `_toc_entries_per_page` gives **9 rows at the 10.00 cm trim
+on the packaged face and 10 on Arial** (and 9 on Pillow's built-in); at 10.10 cm it is
+10/10/**9**. So ten rows are 2 TOC pages on one face and 1 on the other, at the smallest
+trim a book can be stored at. Ten rows is `structural_toc_entry_count(4, …)` — a
+four-level book, which ADR-0031's three stocked tiers do not produce; that is the single
+hypothesis the case makes, it is derived through the real function rather than written as
+a literal, and it is the smallest list in reach that spills anywhere.
+
+The case is built so the **printed gutter** turns on it, not just a number: 72 puzzles on
+71 puzzle pages and 72 answer pages put the interior on KDP's 150/151 band edge.
+
+| | TOC pages | interior | band | minimum gutter |
+|---|---|---|---|---|
+| packaged face (ships) | 2 | 151 | (151, 300) | **1.27 cm** |
+| host Arial (pre-card) | 1 | 150 | (1, 150) | **0.9525 cm** |
+
+Against the restored defect the new test reports exactly that pair. The agreement is
+asserted **before** the non-vacuity checks, deliberately: a restored host lookup then
+fails on what it broke rather than on "ten rows no longer spill", and a capacity that
+drifts still fails on the vacuity guard.
+
+The three existing counts (4, 83, 150) stay, relabelled in the docstring as what they are
+— a control on the shapes the product ships, not evidence.
+
+#### F-G2 — four absolute claims narrowed
+
+`tests/test_book_pdf_memory.py` said the interior is identical "on every machine" at
+`:1366` (the byte-length test — the very one this card names as the catcher of a FreeType
+move), `:1786`, `:1896` and `:1997`. All four now say *any host font configuration, on one
+Pillow/FreeType build*, and the byte-length docstring names the unbounded `Pillow>=10.0`
+as the lever it exists to catch rather than one it is immune to.
+
+#### Mutants re-run with the cache cleared
+
+| # | mutant | verdict |
+|---|--------|---------|
+| Q1 | the **full pre-card `_guide_face`** restored | **CHANGED: 3 → 6 kills.** Both digest comparisons, all three watch shapes, and the new witness. This is AC-2's acceptance criterion and it is met |
+| R1 | packaged face at `size + 1` (the claim's edge) | unchanged: AC-1 file green, `test_book_pdf_memory` 5 red. The separation still holds — this file claims host-independence, not the right size |
+| R2 | the host's Arial for **size 42 only** (partial defect) | 5 kills (both digests, all three watches). It does **not** red the new witness, and that is correct rather than a gap: the witness reads the whole page's metrics, and with the title still packaged the capacity lands on the same side of its own rounding (649 px over a 65 px line is 9, as it is over 68). The digests are what catch a partial |
+| P1 | `_toc_entries_per_page` drops the folio reservation | unchanged kill, now **3** tests: both packed-page tests and the new witness (which reads the same capacity) |
+
+Every mutant reverted with `git checkout --`; `git status --porcelain -- src tests` empty
+after each and after the last.
+
+Re-confirmed after the cache change, unchanged: the gate forced closed (2 kills) and the
+gate's probe string blanked (1 kill).
+
+#### Fix-cycle-4 runs
+
+Impact scope, both faces:
+
+- on host (Arial present): **2570 passed, 1 skipped, 0 failed, 0 xfailed**
+- off host (`ImageFont.truetype` refusing every host path): **2569 passed, 2 skipped**
+
+(+1 each side: the AC-2 witness. The single host-dependent skip is still the gate this
+card adds, closing honestly off host.)
+
+- [Fix cycle 4 complete] 2026-10-15 — `241db52`, `22625a6`. Both faces: **on host 2570 passed,
+  1 skipped, 0 failed, 0 xfailed; off host 2569 passed, 2 skipped** (+1 each side, the witness).
+  The agent's own first line is worth preserving: *"I reported AC-2 green four times on a file
+  that was already 126/126 off host at my base, and never asked the one question that mattered —
+  would it be red without my change?"*
+  - **F-G1 fixed first, because it was hiding the card's own work.** `clear_font_caches()` now
+    runs on both sides of `_both_faces`, inside `refuse_host_fonts`, at the top of the
+    three-shape watch and in the pre-card control. Measured against the full pre-card
+    `_guide_face` restored: both AC-1 digest comparisons go **green -> red**, and the structural
+    watch goes from **1 of 3 cold and 0 as a file** to **3 of 3**. That mutant went from 3 kills
+    to 6. The gate's diagnosis was exact — the two halves had been comparing one run with itself.
+  - **The witness: `test_a_toc_that_spills_on_one_face_but_not_the_other_still_agrees`.**
+    Capacity measured at **9 rows at 10.00 cm packaged against 10 on Arial**; a ten-row list —
+    derived from `structural_toc_entry_count(4, …)`, not written down — therefore splits
+    differently by face. It is built so the **printed gutter** turns on it: 72 puzzles on 71
+    puzzle pages sit on KDP's 150/151 band edge, so the packaged face gives 2 TOC pages, a
+    151-page interior and a **1.27 cm** minimum gutter where pre-card Arial gives 1, 150 and
+    **0.9525 cm**. Two different printed books from one source.
+    **The restored-`_guide_face` mutant now reds it**, reporting exactly that pair — which is
+    AC-2's acceptance criterion, and it is met. The agreement is asserted **before** the
+    non-vacuity guards, so a restored lookup fails on what it broke rather than on "ten rows no
+    longer spill"; the guards run after, so the case cannot pass by quietly ceasing to be a
+    witness.
+  - **Mutants re-run with the cache cleared, and one verdict changed honestly.** Q1 (full
+    pre-card restore) 3 -> **6 kills**. R2 (Arial for size 42 only) kills 5 but **correctly does
+    not red the witness** — with the title still packaged the capacity lands the same side of
+    its own rounding, so a partial defect is the digests' job, not the page count's. R1 (the
+    claim's edge, packaged at `size+1`) unchanged: AC-1 green, baselines red, separation intact.
+  - **F-G2** — all four "on every machine" clauses now read *any host font configuration, on one
+    Pillow/FreeType build*, and the byte-length docstring names the unbounded `Pillow>=10.0` as
+    the lever it exists to catch rather than one it is immune to.
