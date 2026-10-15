@@ -134,3 +134,19 @@ assert an integer.
 - Scheduling: same reason as CARD-218 — it edits the book test files that
   CARD-205..209 extend, so it waits for all five.
 
+## Re-pointed 2026-10-15 by CARD-217's measurement
+
+CARD-217 profiled the suite solo and **neither hypothesis this card was cut on is where the time
+is**. Measured shares of a 930.81 s run: the browser family `tests/test_puzzle_solver_*.py`
+**39.78%**, the render-heavy set **21.23%**, `tests/property/*` **15.23%** — and over half the
+property time is itself render-heavy, so the corpus hypothesis was largely a restatement of the
+render one rather than a rival. A browser test costs 868 ms against everything else's 83 ms.
+
+So this card is **no longer the biggest prize**, and `meta/profiling/suite-hotspots-20261015.md`
+is now its source of truth rather than the counts in its own body. **CARD-235** takes the
+browser family and is P1 ahead of it.
+
+The profile points this card at one file above all others:
+**`tests/property/test_book_pdf_geometry.py`, 48.66 s in four tests** — the densest spot in the
+suite and exactly the shape this card exists for (positional claims paid for in rendered pixels).
+Start there and measure the saving by `rank_durations.py` on a solo run.

@@ -152,3 +152,29 @@ So the fixtures are **live attribution evidence**, not inert provenance. Re-meas
 fixtures are actually read before proposing to retire anything that touches them, and treat
 "nothing reads this" as a claim needing a measurement like any other — this is the second time
 that particular claim has been wrong on this chain.
+
+## Re-pointed 2026-10-15 by CARD-217's measurement
+
+CARD-217 profiled the suite solo and **neither hypothesis this card was cut on is where the time
+is**. Measured shares of a 930.81 s run: the browser family `tests/test_puzzle_solver_*.py`
+**39.78%**, the render-heavy set **21.23%**, `tests/property/*` **15.23%** — and over half the
+property time is itself render-heavy, so the corpus hypothesis was largely a restatement of the
+render one rather than a rival. A browser test costs 868 ms against everything else's 83 ms.
+
+So this card is **no longer the biggest prize**, and `meta/profiling/suite-hotspots-20261015.md`
+is now its source of truth rather than the counts in its own body. **CARD-235** takes the
+browser family and is P1 ahead of it.
+
+**This card's cost premise is dead, and it should not be run as a performance card.** The profile
+is explicit: **6057 tests finish under 0.1 s and hold 7.4% of the suite between them**, the top
+50 tests hold 32.1%, and CARD-217's own recommendation is "**no single test is worth
+deleting**". Retiring subsumed tests will not measurably speed anything up.
+
+Two things follow. First, if this card is kept, it must be re-justified on **maintenance** terms
+— duplicate coverage is a cost when a behaviour changes and five tests must be edited — and its
+acceptance criteria rewritten accordingly, because they currently promise time that is not there.
+Second, it already carries a correction from CARD-221's gate: the superseded baseline fixtures it
+was told are inert **are loaded and compared at runtime**. Both corrections point the same way.
+
+**Recommend: park it** until CARD-235, CARD-218, CARD-219 and CARD-236 have run, and re-cut it
+from whatever duplication is still irritating then. Owner's call.
