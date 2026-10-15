@@ -15,7 +15,7 @@
 **Wave:** 40
 **Depends on:** —
 **Touches:** tests/test_book_pdf_memory.py
-**Review score:** —
+**Review score:** 7.5 (cycle 1/3)
 **Started:** 2026-10-15T11:21:04Z
 **Closed:** —
 **Actual:** —
@@ -118,11 +118,20 @@ and it should remain.
   cap, *then* the test still SKIPS with its existing message rather than passing or failing —
   the self-invalidation mechanism is retained, not replaced.
   (test: `TestMemoryGuard_StillSkipsWhenTheFloorSwallowsTheCap`)
-- **AC-5** (happy, it actually passes now, repeatedly): *Given* the real test on this host,
-  *when* it is run inside a full suite **three** times, *then* it passes all three — the flake
-  is gone, not merely re-rolled. Record the three runs and their reported margins.
-  (test: the real `test_one_cap_the_streaming_shape_survives_and_the_list_shape_dies_under`,
-  evidenced by three recorded full-suite runs)
+- **AC-5** (happy, it actually passes now, repeatedly) — **AMENDED at review cycle 1, 2026-10-15,
+  because as originally written this criterion was blind to the defect the review then found.**
+  *Given* the real test and every new guard test this card adds, *when* each is run **three times
+  inside a full suite AND at least five times solo (single-file, quiet host)**, *then* all runs
+  pass. Record every run and its reported margin.
+  (test: the real `test_one_cap_the_streaming_shape_survives_and_the_list_shape_dies_under` plus
+  all four `TestMemoryGuard_*` classes, evidenced by recorded runs in BOTH conditions)
+  *Why amended:* the original said "inside a full suite three times" only, reasoning from the old
+  guard's failure mode, where host LOAD produced the red. That certified the wrong direction. The
+  review found a new flaky test whose polarity is reversed — it passes under load (a busier host
+  means a higher peak means a larger measured marginal cost) and fails SOLO, which is the
+  single-file run that is this file's own debugging path. Five full suites passed and would have
+  passed forever. **"Flaky" has no inherent polarity, so a flake criterion must exercise both
+  conditions**, and the cheap direction is the one nobody runs.
 - **AC-6** (guard, the twin keeps working): *Given* the `RLIMIT_AS` twin test that runs the same
   pair under the kernel's bound where available, *then* it is updated consistently and still
   expresses the same claim. (test: the twin test in the same file, named in the implementation)
@@ -303,3 +312,60 @@ and it should remain.
 - **[Why the guard now reports its own margin]** The defect was undiagnosable for two gate
   cycles because the floor was measured and discarded and the margin was only ever printed on
   failure. Both are now visible on a passing run.
+
+- [Review sync] 1 report(s) → meta/review/20261015T143100Z-CARD-237-cycle1.yml
+- [Review 1/3] Score: 7.5 — crit: **1**, imp: 0. Below min_score AND a Critical stands, so the
+  gate is closed twice over. The card does NOT merge on this cycle.
+- [Review 1/3] ⚠ **THE FLAKE WAS RELOCATED, NOT REMOVED** — and the polarity is inverted, which
+  is why everything else looked green.
+  `TestMemoryGuard_InterpreterGrowthDoesNotTripTheGuard::test_a_floor_at_the_edge_of_the_share_still_passes`
+  guards against vacuity by asserting the constructed pair would have failed the OLD 3x bound.
+  Its floor is pinned one byte under the share bar (201,959,999 B) and it adds **this run's live**
+  export measurement — so it demands `measured_export > 67,320,001 B = 2.667 page bitmaps`. The
+  implementer's own recorded minimum was 2.70 bitmaps: **1.2% above the threshold**. The reviewer
+  measured 65.5, 66.6, 66.7, 67.0, 67.1 MB and the test went RED every time — **5 reds in ~11
+  solo invocations on the committed tree with no mutant applied.**
+  This is the exact defect class the card was cut to remove — a bound placed just above the
+  minimum of an instrument with a 2.26x spread — reproduced inside the fix. The inversion is the
+  dangerous part: the old guard failed in a busy suite and passed solo; this one **passes in a
+  busy suite and fails SOLO**, because a busier host means a higher peak means a larger measured
+  marginal cost. So it fails precisely on the single-file run that is this file's own debugging
+  path.
+- [Review 1/3] **MY OWN AC-5 IS WHY THIS NEARLY SHIPPED, and that is a defect in the card I
+  wrote.** I specified "run it inside a full suite three times … the flake is gone, not merely
+  re-rolled", reasoning from the old guard's failure mode, where load caused the red. AC-5 is
+  therefore blind by construction to a test whose polarity is reversed: all five full suites
+  passed (margins 3.41–5.87, comfortably above the 2.667 threshold) and would have passed
+  forever. An AC written against one failure mode certified the absence of the opposite one.
+  The correction belongs in the card, not just in this note: **a flake criterion must demand
+  repeated runs in BOTH conditions — in-suite and solo** — because "flaky" has no inherent
+  polarity and the cheap direction is the one nobody runs. The reviewer reached the same
+  conclusion independently and asked that the fix be re-derived by repeated SOLO runs, on the
+  grounds that "a single green run is exactly the evidence that failed to detect this defect in
+  the first place." That is now a requirement of cycle 2.
+- [Review 1/3] What the reviewer verified clean, so the fix stays narrow: the closure arithmetic
+  is real AND enforced (`_habitable`'s skip is a genuine precondition — it is deliberately not
+  `lru_cache`d, so it re-fires, and stubbing it red-tests AC-4); `CHILD_HEADROOM` is gone
+  repo-wide with nothing loosened to compensate (G-2); AC-3 re-derived independently on the real
+  seam (red at +14 → 16.87 bitmaps, green at +12 → 15.60, so ~13 of 307 pages = 4.2%), and a
+  30-page regression would be red by 2x; the floor is stable at 110.5–110.6 MB across four runs;
+  AC-2's +80 MB demonstration is real, not tautological (green at a 282.7 MB total the old bound
+  rejected); the margin print cannot fail or spam and its arithmetic cross-checks.
+  All five of its mutants were killed, including "weaken the constant to 320" (3 tests red) and
+  "re-aim the guard at the total" (5 red).
+- [Review 1/3] An honest qualification I am recording rather than letting the headline stand
+  alone: the new guard is **stronger as a discriminator, looser as an absolute bound.** The old
+  bar sat at ~6.3 export bitmaps — *inside* the 2.59–5.87 noise band, which is why it fired at
+  roughly the base rate and its true positives were indistinguishable from its false ones. The
+  new bound sits 2.7x outside that band. But on the child's total, the composition permits
+  < 605.9 MB where the old constant demanded < 269.3 MB — 2.25x looser. That is disclosed in the
+  constant's own comment and permitted by the guardrails, and it matters less than it reads only
+  because the fine-grained claim is carried elsewhere: `test_neither_book_holds_more_than_one_page_bitmap`
+  asserts an EQUALITY at one page bitmap through the in-process instrument, untouched by this
+  card. The RSS guard only has to be a coarse envelope check. That is the reason 16 is
+  defensible rather than merely safe — not the noise margin on its own.
+- [Review 1/3] AC-6 recorded as **static PASS / dynamic UNVERIFIED**, not demonstrated: the
+  RLIMIT_AS twin is consistently updated (same 3-tuple unpack, same guard, same claim — and a
+  stale 2-tuple would have been an immediate ValueError, so silent inconsistency is impossible),
+  but it SKIPS on this host because the kernel refuses `setrlimit` below 1 TiB on this Darwin
+  build. A skip proves nothing about execution and is not booked as evidence.

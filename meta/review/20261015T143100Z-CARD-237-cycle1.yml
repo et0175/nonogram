@@ -1,0 +1,217 @@
+version: 1
+generated_at: "2026-10-15T14:31:00Z"
+target: "CARD-237 cycle 1 — branch card/237-memory-guard-floor-relative, commit 487841b, file scope tests/test_book_pdf_memory.py, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-237"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "tests/test_book_pdf_memory.py (whole capped-child region, all four new TestMemoryGuard_* classes, _habitable/_capped_child/_the_pair_under_one_cap/_export_marginal_cost/_assert_the_export_fitted_with_room, the RLIMIT twin, the in-process LivePageBytes instrument and TestBookPdfMemory_PeakDoesNotGrowWithPageCount)"
+    - "meta/kanban/cards/CARD-237.md (full)"
+    - "CLAUDE.md"
+    - "meta/architecture/requirements.yml (NFR-008 neighbourhood, memory-envelope search)"
+  not_reached:
+    - "the RLIMIT_AS twin's executed path (skips on this host — kernel refuses setrlimit below 1 TiB); read statically only"
+    - "full-suite behaviour (not re-run per instruction; implementer's five suites taken on trust)"
+  confidence: high
+metrics:
+  diff: { files: 1, added: 428, removed: 30 }
+  max_fan_in:
+    symbol: "_assert_the_streaming_child_fitted"
+    callers: 2
+  tests_cover_change: true
+  hotspots: ["tests/test_book_pdf_memory.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "not_applicable — single-file, test-only diff on a file whose co-change peers (tests/helpers/book_corpus.py, src/nonogram/admin/book_pdf_generator.py) are out of this card's scope by G-4/G-5"
+  churn_12mo: 32
+  fix_commits_12mo: 14
+
+system_contract:
+  rules_checked: 8
+  holds: 3
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed and ::test_the_font_ships_as_package_data_and_not_as_a_dependency both green on this head (2 passed); the diff adds no import beyond stdlib typing/functools already in the file (G-6)"
+    - "CON-005 ✓ holds — review-lens: diff touches only tests/test_book_pdf_memory.py; no solver symbol, no tests/property/test_solver_uniqueness.py, no src/** (G-4 verified by git show --stat: 1 file changed)"
+    - "ADR-0038/R8 ✓ holds — the diff's only skip paths (the RLIMIT twin's _address_space_cap_verdict skip, _habitable's two skips) all carry named reasons visible under -rs; verified in the review's own runs (1 skipped, reason printed). No test was made to pass silently"
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: the diff adds no browser test and does not touch pyproject.toml or any pytest-playwright declaration"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server socket code in a test-only memory-guard diff"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no HTTP request handling in this diff"
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size path in this diff"
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no image-sourcing or aspect-guard path in this diff"
+
+root_causes:
+  - id: RC-1
+    title: "AC-2's demonstration is derived from this run's live export cost, which straddles the demonstration's own threshold"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: tests/test_book_pdf_memory.py
+    line: 1489
+    title: "The new AC-2 test is itself flaky and fails on the unchanged tree — the flake is relocated, not removed"
+    description: |
+      TestMemoryGuard_InterpreterGrowthDoesNotTripTheGuard::test_a_floor_at_the_edge_of_the_share_still_passes
+      carries a non-vacuity guard at line 1489:
+
+          old_tripwire_quantity = same_export.report["resident"] * 3
+          assert old_tripwire_quantity > CHILD_CAP_BYTES, (...)
+
+      with grown_floor_bytes = int(CHILD_CAP_BYTES * CHILD_FLOOR_SHARE) - 1 = 201_959_999 B
+      and same_export.resident = grown_floor_bytes + measured_export, where measured_export is
+      THIS RUN's live _export_marginal_cost. The assert therefore demands
+
+          201_959_999 + measured_export > CHILD_CAP_BYTES / 3 = 269_280_000
+          i.e.  measured_export > 67_320_001 B = 2.667 page bitmaps
+
+      That threshold sits inside the export's own measured distribution. The implementer's
+      recorded minimum is 2.70 bitmaps (68.15 MB) — 1.2 % above it. This review measured the
+      export at 65.5, 66.6, 66.7, 67.0 and 67.1 MB (2.59-2.66 bitmaps) and the test went RED
+      each time, including on the first batched run alongside the real capped test:
+
+          AssertionError: this pair no longer reproduces CARD-237's false red: a floor of
+          202.0 MB carrying a measured export of 67.0 MB totals 268.9 MB, which the old 3x
+          bound on the total would have accepted — so AC-2 proves nothing
+          assert 806764221 > 807840000
+
+      Observed red in 5 of ~11 solo invocations on this host, on the committed tree with no
+      mutant applied. This is the same defect class the card exists to remove — a bound placed
+      just above the minimum of an instrument with a 2.26x spread — with the polarity inverted:
+      the old test failed inside a busy suite and passed solo, this one passes inside a busy
+      suite (where the peak, and so the marginal, runs higher) and fails solo or on a quiet host.
+      The implementer's five green full suites are consistent with that and do not refute it:
+      their margins were 3.41-5.87 bitmaps, all comfortably above 2.667. The merge gate goes red
+      either way, and it fails precisely on the solo-file run that is the debugging path for this
+      file.
+    suggestion: |
+      Do not derive the old-bound refutation from the live measurement. Make the demonstration
+      deterministic and keep the live measurement as a separate, robust assertion:
+
+        * build the AC-2 pair from the WORST recorded export cost (the comment's own ~6.56
+          bitmaps / 165.5 MB) rather than from measured_export: 201_959_999 + 165_500_000 =
+          367.5 MB, which the old 3x bound rejects by 1.36x — a margin far outside the
+          instrument's spread, so the demonstration cannot go red on noise; then
+        * separately assert that THIS run's live measured_export passes the new guard at the
+          same share-edge floor (that half is already robust and is the half AC-2 actually
+          claims).
+
+      Alternatively keep the live figure but drop the non-vacuity assert to a documented
+      constant floor chosen so the old bound fails for any export >= the smallest ever
+      measured (~2.59 bitmaps), i.e. a floor >= 269_280_000 - 65_500_000 = 203.8 MB — which is
+      over CHILD_FLOOR_SHARE and so not available; this is why the share-edge pair cannot carry
+      the demonstration on a small live export at all, and why the worst-case constant is the
+      right fix.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_pdf_memory.py
+    line: 1563
+    title: "test_the_bound_is_where_the_constant_says_it_is is self-referential and cannot detect a weakened constant"
+    description: |
+      The test asserts _assert_the_export_fitted_with_room passes at CHILD_EXPORT_COST_BYTES - 1
+      and fails at CHILD_EXPORT_COST_BYTES. Both sides are expressed in terms of the constant
+      under test, so the test holds for ANY value of CHILD_EXPORT_COST_IN_PAGES. Confirmed by
+      mutation: with CHILD_EXPORT_COST_IN_PAGES = 320 (the "weaken until green" fix) this test
+      stayed GREEN while three of its siblings went red. It does pin the comparison's edge
+      (a `<=` / `<` slip would be caught), which is worth keeping — but the constant's VALUE is
+      pinned only by its two siblings, and the docstring/comment claim that it "pins both sides
+      of the bound itself" overstates what it can do.
+    suggestion: |
+      Either state in the docstring that this test pins the comparison edge and not the
+      constant's value (the value is pinned by
+      test_an_export_at_the_list_shapes_order_of_magnitude_fails and
+      test_an_export_that_retains_a_fraction_of_the_book_fails), or add one absolute assertion
+      on the constant itself (e.g. CHILD_EXPORT_COST_IN_PAGES < CORPUS_PAGE_COUNT / 10) so a
+      weakened constant is red in this class too.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_pdf_memory.py
+    line: 1016
+    title: "The instrument, not the quantity, sets the sensitivity floor — a cross-process ru_maxrss difference with a 2.26x spread"
+    description: |
+      _export_marginal_cost subtracts two peak resident-set figures taken from two different
+      processes. That is why the bound cannot be tighter than ~2.4-2.7x the worst noise, and so
+      why the guard cannot bite below ~11-13 retained pages (re-derived below). The card chose
+      to size around the noise rather than reduce it, and the comment is honest about that. The
+      residual risks worth recording: (a) the peak difference is not an export term in any strict
+      sense — the floor child's own transient peak is subtracted from the streaming child's, so a
+      regression in the SHARED half (imports, corpus construction) is subtracted away and
+      invisible to this guard, bounded now only by the much looser CHILD_FLOOR_SHARE skip at 8
+      bitmaps; (b) the 2.26x spread is what made F-001 possible.
+      Mitigating, and the reason this is Minor rather than Important: the fine-grained shape
+      claim is NOT carried by this RSS guard. TestBookPdfMemory_PeakDoesNotGrowWithPageCount::
+      test_neither_book_holds_more_than_one_page_bitmap asserts an EQUALITY (retained peak ==
+      exactly one page bitmap) through the in-process LivePageBytes instrument, untouched by this
+      card, so a single retained page is already red at bitmap precision elsewhere in this file.
+      The capped-child RSS guard only has to be a coarse envelope check, which is what 16 is.
+    suggestion: |
+      If a tighter capped-child bound is ever wanted, measure something less peak-sensitive in
+      the child (e.g. have the child report a tracemalloc or sampled-RSS high-water mark of the
+      export phase alone, after the floor work has completed, so one process yields both terms)
+      rather than differencing two processes' ru_maxrss. Out of scope for this card; worth a
+      backlog note.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-237.md
+    line: 148
+    title: "Out of scope — the card's Architecture context names NFR-008 for the memory envelope, and NFR-008 is the cell-size NFR"
+    description: |
+      The card records "NFR-008's neighbourhood — this file is the executable evidence for the
+      book export's memory envelope". NFR-008 in meta/architecture/requirements.yml:4926 is the
+      7.5 mm / 4.8 mm book cell-size requirement. A grep of requirements.yml for
+      envelope/memory/512 MB returns no requirement at all for the memory envelope; the 512 MB
+      figure lives only as ENVELOPE_BYTES in this test file, sourced to CARD-145's prose. So the
+      guard this card repairs is executable evidence for an envelope that is not a stated
+      requirement. Not a defect in this diff and not actionable here.
+    suggestion: |
+      Either state the memory envelope as an NFR (then this file's cap arithmetic traces to it),
+      or correct the card's Architecture context. Candidate for the wave retrospective's
+      rule-promotion pass rather than a fix cycle on CARD-237.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
