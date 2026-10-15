@@ -32,9 +32,14 @@
 # own CPU share fell from 76% to 25% for that window. No competing *suite* ran
 # at any point, and the total landed at 930.81s against the two cleanest
 # comparable gates (CARD-212 1123s, CARD-221 939s), so the sweep cost little
-# net. It is noted anyway because it affects I/O-bound tests more than
-# CPU-bound ones, which is exactly the axis the render hypothesis turns on;
-# see the hotspots document for why the conclusion survives it.
+# net. It is noted anyway because CPU starvation inflates wait-bound tests
+# more than CPU-bound ones, and the family this profile concludes *for* -- the
+# Chromium-driven tests, whose cost is largely teardown blocked on another
+# process -- is the wait-bound one. The exposure therefore runs toward the
+# winner, not away from it. The hotspots document bounds it: ~161s of excess
+# at most against a 170.8s margin, plus a per-test teardown distribution over
+# all 422 browser tests with no contention spike in it (mean 0.327s, median
+# 0.370s, stdev 0.144s, max 0.520s, per-file means 0.198-0.413s).
 #
 # Why --durations-min=0 is on the command line. The card specifies
 # `--durations=0`, which asks for every test rather than the slowest N, but

@@ -1,7 +1,7 @@
 # Suite hotspots, 2026-10-15
 
 Derived from `meta/profiling/suite-durations-20261015.txt`
-(sha256 `483c06b83f465935fea71cfc8788854ca18a63914bc6cf0b994a9fbaaaeda535`)
+(sha256 `7d204cf956580d9f36a223ee196a3d0b739fe5124a5af50265938630a37e760e`)
 by `meta/profiling/rank_durations.py`. Every figure below is that script's
 output; nothing here was counted by hand. To reproduce:
 
@@ -53,7 +53,7 @@ third family the card did not consider is larger than both combined.
 The browser family holds 366.19 s — **69 % of the entire +533 s** — while
 being only 34 % of the new tests. It did not exist at wave 30: every one of
 its twelve files was first committed between 2026-10-03T08:32Z and
-2026-10-08T04:19Z, i.e. *after* the wave-30 run.
+2026-10-08T07:28Z, i.e. *after* the wave-30 run.
 
 Split the current suite in two and the doubling disappears:
 
@@ -118,16 +118,40 @@ There is no test to delete that materially changes the number.
 - **A system sweep overlapped this run** (see the artefact header): between
   roughly 05:24Z and 05:28Z a macOS management scan and a Spotlight re-index
   pushed the 1-minute load average to ~140 and cut pytest's CPU share from
-  76 % to 25 %. No competing *suite* ran at any point. This biases I/O-bound
-  tests upward relative to CPU-bound ones — i.e. it works *in favour* of the
-  render hypothesis, and the render hypothesis still lost. The conclusion is
-  therefore safe in the direction that matters.
+  76 % to 25 %. No competing *suite* ran at any point.
+
+  **The exposure runs toward the winner, not away from it.** The render set is
+  in-process CPU work (176.82 s of `call`, 0.03 s of teardown); the browser
+  family is the wait-bound one (137.97 s of teardown, blocked on another
+  process). A CPU-starving sweep inflates a wait-bound measurement more than a
+  CPU-bound one, so it inflates the family that won. That is the right way
+  round to worry about it, and the conclusion survives on two measurements:
+
+  - **A magnitude bound.** Roughly four minutes at 25 % rather than 76 % of a
+    core is at most ~161 s of excess, spread across the *whole* suite. For the
+    browser family to fall behind the render set it would have to shed
+    **170.8 s** (366.19 → 195.42). Charging every second of the sweep's excess
+    to that one family — which nothing supports — still leaves it ahead.
+  - **The per-test teardown distribution shows no contention spike.** Across
+    all 422 browser tests, teardown is mean 0.327 s, median 0.370 s, stdev
+    0.144 s, max 0.520 s; per-file means span only 0.198–0.413 s; the
+    histogram is unimodal, massed at 0.3–0.5 s, with no tail. A four-minute
+    stall would have left a visible cluster of outliers among whichever tests
+    ran through it. There is none — so the ~0.33 s per test is structural,
+    the price of tearing down a browser page, not an artefact of the sweep.
 - **Phase attribution is near-total** (98.9 %), so these shares are not hiding
   in unmeasured session fixtures.
 - The card estimated "19 render-heavy files"; the grep that defines the set
   finds 29 paths (27 test modules plus 2 helpers that carry no tests). The
   larger set is the one measured here, so 21.23 % is if anything generous to
   the render hypothesis.
+- **The browser family is defined conservatively.** It is the twelve
+  `tests/test_puzzle_solver_*.py` files. Three further files drive the same
+  `browser_page` fixture — `test_books_list_mobile.py` (4.71 s),
+  `test_book_finalise_guide_preview_layout.py` (2.78 s) and
+  `test_book_setup_print_mobile.py` (1.62 s) — and counting them takes the
+  family to 375.30 s, **40.77 %**. The headline 39.78 % is the floor, and the
+  margin over the render set is wider than stated, not narrower.
 
 ---
 

@@ -323,7 +323,7 @@ committed ranking.
 Append one line to `meta/kanban/suite-timing.log` in the existing format:
 
 ```
-2026-10-15T07:05:00Z wave-39 card-217-profiling-run 1071s PASS (7073 passed, 9 skipped, 0 failed) [151ms/test]
+2026-10-15T05:34:34Z wave-39 card-217-profiling-run 931s PASS (7073 passed, 9 skipped, 0 failed) [131ms/test]
 ```
 
 That log is gitignored (`.gitignore`'s blanket `*.log`), so it is **not**

@@ -19,6 +19,7 @@ would make the repo's structural import guard's job harder for no gain.
 from __future__ import annotations
 
 import collections
+import hashlib
 import importlib.util
 import re
 import subprocess
@@ -51,7 +52,14 @@ ranker = _load_ranker()
 
 
 def _artefacts() -> list[Path]:
+    """Every committed profile, oldest first by its ``YYYYMMDD`` name."""
     return sorted(PROFILING_DIR.glob("suite-durations-*.txt"))
+
+
+def _hotspots_for(artefact: Path) -> Path:
+    """The analysis document that pairs with an artefact, by naming rule."""
+    date = artefact.stem.removeprefix("suite-durations-")
+    return artefact.parent / f"suite-hotspots-{date}.md"
 
 
 @pytest.fixture(scope="module")
@@ -95,11 +103,44 @@ SYNTHETIC_ARTEFACT = """\
 class TestSuiteProfile_ArtefactExistsAndIsComplete:
     """AC-1: the artefact exists, states its conditions, and holds the table."""
 
-    def test_exactly_one_artefact_is_committed(self) -> None:
-        found = _artefacts()
-        assert len(found) == 1, (
-            "the rankings name one source artefact; multiple profiles would "
-            f"make 'the' profile ambiguous: {[p.name for p in found]}"
+    def test_at_least_one_artefact_is_committed(self) -> None:
+        assert _artefacts(), f"no suite-durations-*.txt under {PROFILING_DIR}"
+
+    @pytest.mark.parametrize(
+        "path", _artefacts(), ids=lambda p: p.name if hasattr(p, "name") else str(p)
+    )
+    def test_every_committed_artefact_is_well_formed(self, path: Path) -> None:
+        # Deliberately *not* "exactly one artefact". CARD-218/219/220/235/236
+        # are each instructed to re-profile to measure their own saving, so a
+        # second, third and fourth profile are the expected end state -- which
+        # is why the files are dated. What has to hold of each of them is that
+        # it is complete and honest, not that it is alone.
+        text = path.read_text(encoding="utf-8")
+        assert ranker.missing_header_fields(text) == [], path.name
+        assert ranker.is_admissible_profile(text), path.name
+        assert len(ranker.parse_artefact(text).tests) > 6000, path.name
+
+    @pytest.mark.parametrize(
+        "path", _artefacts(), ids=lambda p: p.name if hasattr(p, "name") else str(p)
+    )
+    def test_every_artefact_has_a_hotspots_document(self, path: Path) -> None:
+        assert _hotspots_for(path).exists(), (
+            f"{path.name} has no matching {_hotspots_for(path).name}; the "
+            "naming convention pairs a profile with its analysis by date"
+        )
+
+    def test_the_latest_artefact_is_the_one_the_hotspots_document_cites(
+        self, artefact_path: Path, artefact_text: str
+    ) -> None:
+        # The real risk a multi-profile future introduces is not duplication,
+        # it is a hotspots document quietly describing a superseded run. The
+        # document cites its source's sha256, so that cannot drift unnoticed.
+        digest = hashlib.sha256(artefact_path.read_bytes()).hexdigest()
+        document = _hotspots_for(artefact_path).read_text(encoding="utf-8")
+        assert digest in document, (
+            f"{_hotspots_for(artefact_path).name} does not cite the sha256 of "
+            f"{artefact_path.name} ({digest[:16]}...); it was derived from a "
+            "different artefact"
         )
 
     def test_artefact_is_named_for_its_date(self, artefact_path: Path) -> None:
@@ -273,6 +314,30 @@ class TestSuiteProfile_RankingIsDeterministic:
         profile = ranker.parse_artefact(SYNTHETIC_ARTEFACT)
         counts = {path: n for path, _, n in ranker.rank_files(profile)}
         assert counts == {"tests/test_a.py": 1, "tests/test_b.py": 1}
+
+    def test_the_frozen_render_set_still_matches_the_grep_that_defines_it(
+        self,
+    ) -> None:
+        # RENDER_HEAVY_SNAPSHOT is the constant that decides the 21.23 %
+        # figure, and CARD-218 and CARD-219 are sized against it. Frozen so
+        # the committed ranking cannot shift under a changing tree -- but
+        # frozen is only safe if drift is loud, so re-run the defining grep
+        # and require agreement. If a render call site is added to a new test
+        # file, this goes red and the snapshot (and the profile) are restated
+        # deliberately rather than silently diverging.
+        live = ranker.regrep_render_set(REPO_ROOT / "tests")
+        assert live == list(ranker.RENDER_HEAVY_SNAPSHOT), {
+            "added since freeze": sorted(
+                set(live) - set(ranker.RENDER_HEAVY_SNAPSHOT)
+            ),
+            "gone since freeze": sorted(
+                set(ranker.RENDER_HEAVY_SNAPSHOT) - set(live)
+            ),
+        }
+
+    def test_the_frozen_render_set_is_sorted_and_duplicate_free(self) -> None:
+        snapshot = list(ranker.RENDER_HEAVY_SNAPSHOT)
+        assert snapshot == sorted(set(snapshot))
 
     def test_render_share_counts_only_the_frozen_set(self) -> None:
         artefact = (
