@@ -198,7 +198,7 @@ the conclusion is safe in the direction that matters.
 Browser tests cost **868 ms** each; everything else costs **83 ms** — a
 **10.4×** gap. Wave 30 was 68 ms/test overall; the non-browser suite today is
 83 ms/test, i.e. barely slower. All twelve browser files were first committed
-2026-10-03T08:32Z … 2026-10-08T04:19Z, *after* the wave-30 run, and they hold
+2026-10-03T08:32Z … 2026-10-08T07:28Z, *after* the wave-30 run, and they hold
 69 % of the +533 s growth while being 34 % of the +1224 new tests. The
 "marginal test costs 5× the average" effect is one family, not a trend.
 
@@ -279,118 +279,148 @@ now `(?:\s|$)`); the three-phases assertion ignored the 8 tests skipped at
 setup, which carry only setup+teardown; and the module loader tripped
 `@dataclass` by not registering the module in `sys.modules` first.
 
-- [Implementation complete] 2026-10-15 — `13c3694` and `5ff9980`. **930.81 s wall, 7073 passed /
-  9 skipped / 0 failed, 7082 tests timed, solo confirmed** (`ps` before and after; the
-  `.full-suite.lock` absent, taken, released). 920.63 s of 930.81 (98.9%) attributed to
-  individual tests. Ran in the worktree, whose tree is byte-identical to main at `56c716e`, and
-  the artefact header says so.
-- [AC-3 — **the answer is neither hypothesis the card proposed**]
 
-  | group | time | share |
-  |---|---|---|
-  | **`tests/test_puzzle_solver_*.py`** — 12 files, Chromium through a shared `browser_page` fixture | **366.19 s** | **39.78%** |
-  | render-heavy set (29 paths, not the card's 19) | 195.42 s | 21.23% |
-  | `tests/property/*` | 140.19 s | 15.23% |
-  | counted in both of the two above | 70.75 s | 7.68% |
-  | **both card hypotheses together** | 264.86 s | 28.77% |
-  | admin-local script trio | 117.16 s | 12.73% |
+## Fix cycle 1 (review 9.0, four of eight minors)
 
-  Between the two the render hypothesis is the stronger (21.23% against 15.23%), and **over half
-  the property time is itself render-heavy**, so the corpus hypothesis is largely a restatement
-  of it rather than a rival. Both are dwarfed by a family the card never named.
-- [AC-3 — why the cost per test doubled, which is the finding that matters]
-  **A browser test costs 868 ms; everything else costs 83 ms — a 10.4x gap.** Wave 30 measured
-  68 ms/test overall, and **the non-browser suite today is 83 ms/test**, barely slower. All
-  twelve browser files were first committed between 2026-10-03 and 2026-10-08, *after* the
-  wave-30 run, and they hold **69% of the +533 s of growth while being 34% of the +1224 new
-  tests**. So "the marginal test of the last five waves costs 5x the historical average" was
-  real as arithmetic and wrong as a diagnosis: it is **one family, not a trend**, and the rest
-  of the suite has not meaningfully degraded.
-  **96% of all teardown time (137.97 s of 144.37 s) belongs to that family** — about 0.33 s per
-  test with no single test above 0.52 s. That cost is invisible in any slowest-tests list, which
-  is exactly why nobody had found it.
-- [AC-3 — the densest single spot] `tests/property/test_book_pdf_geometry.py`: **48.66 s in four
-  tests.** Slowest single test 30.94 s (3.36% of the suite); top 50 tests = 32.1%; and **6057
-  tests finish under 0.1 s and hold 7.4% between them** — the long tail is not the problem.
-- [Three defects in the card's own instructions, found by following them]
-  - **`-q` becomes `-qq`.** `pyproject.toml` already sets `addopts = "-q"`, so the card's `-q`
-    doubles it and pytest prints **no** summary line at all. Counts came from `/usr/bin/time`
-    and from counting node ids, and `rank_durations.py` now falls back to the header when the
-    body has no summary.
-  - **`--durations=0` is not enough**: pytest still hides everything under its 0.005 s floor,
-    which across ~7000 tests distorts every per-file share. `--durations-min=0` added. Both are
-    stock pytest, so G-2 holds.
-  - The card's "19 render-heavy files" is **29** (27 modules + 2 helpers) by the card's own grep.
-- [Contention caveat, recorded in the artefact rather than hidden] A macOS management sweep and
-  a Spotlight re-index overlapped ~05:24–05:28Z; 1-minute load peaked near 140 and pytest's CPU
-  share fell from 76% to 25%. **No competing suite at any point.** It biases I/O-bound tests
-  upward, which favours the render hypothesis — and the render hypothesis still lost, so the
-  conclusion is safe in the direction that matters. The agent reasoning about which way its own
-  noise would push the answer is the right instinct.
-- [Mutants] **13 applied, 13 killed, 0 survivors.** Two earlier mutants were **equivalent** and
-  were replaced rather than logged as false survivors (a redundant `^` in a regex used with
-  `.match()`, and a blank/comment guard that the same anchoring already made redundant) — each
-  masked the other, and removing both together still changed nothing observable. The tests
-  caught three real bugs before hand-off, including a `ps` matcher that fired on
-  `tail -f pytest-output.log` because `pytest\b` matches before a hyphen, and one mutant that
-  was **initially tautological** (comparing against the constant it was meant to pin) and
-  survived until that was fixed.
-- [Note for the next merge gate] This card **adds** `tests/test_suite_profile.py` (74 tests), so
-  the gate should read **~7147 passed**, not 7073. G-1 holds: no existing test edited, deleted,
-  skipped or reordered, and the profiling run's 7073/9 is identical to CARD-221's gate on the
-  same tree.
+**N-003 — the landmine.** `test_exactly_one_artefact_is_committed` asserted
+there is exactly one `suite-durations-*.txt`, which would have gone red the
+first time CARD-218/219/220/235/236 committed its own re-profile — the very
+thing each is instructed to do. It also contradicted the dated naming
+convention and this file's own `found[-1]` fixture. Replaced by four tests
+saying what was actually meant:
 
-- [Review cycle 1] 2026-10-15 — **9.0/10, clears the gate on cycle 1.** 0 critical, 0 important,
-  8 minor. Report: `meta/review/20261015T060200Z-CARD-217-cycle1.yml`. 26 mutants.
-  **The reviewer believes the conclusion, having re-derived it rather than read it:** they wrote
-  their own parser against the committed artefact, importing nothing from `rank_durations.py`,
-  and **every headline number reproduces exactly** — browser 366.19 s / 39.78% / 422 tests /
-  868 ms; render-heavy 195.42 s / 21.23% / 1079; property 140.19 s / 15.23% / 184; overlap
-  70.75 s; admin trio 117.16 s / 12.73%; non-browser 554.44 s / 6660 tests / 83 ms; browser
-  teardown 137.97 of 144.37.
-  - **No double counting**: the four families are pairwise disjoint, the one overlap is declared
-    on its own line, `195.42 + 140.19 - 70.75 = 264.86` exactly, and every share uses the same
-    denominator — the reviewer specifically checked that none silently switches between the
-    920.63 s attributed and the 930.81 s wall clock.
-  - **The committed rankings are byte-identical to the script's stdout** across all 82 rows, and
-    the artefact is internally consistent (`21238 = 7074x3 + 8x2`, the 8 being tests skipped at
-    setup, which carry no call phase) — i.e. not truncated.
-  - **The render set's re-definition is honest and the browser family is conservative.**
-    Re-running the card's own grep gives exactly the 29 frozen paths; and **three other
-    `browser_page`-driven files sit outside the family** (9.11 s / 12 tests) — including them
-    would raise it to 40.77%. The agent left 9 s on the table against its own conclusion.
-  - **Both self-reported items are honest.** The two "equivalent" mutants really are equivalent:
-    the reviewer fuzzed four implementations over **200,922 inputs** — structured
-    prefix/suffix cross-products, every single-character substitution and insertion in a good
-    line, and 200k random strings — with **0 differences on full groupdict**, not merely on
-    None-ness. And M10's tautology was real and is really fixed. All 13 of the agent's own
-    mutants were re-run and all 13 killed: its mutation report is accurate, not inflated.
-- [Review cycle 1 — N-001: the contention argument is backwards, and the conclusion survives
-  anyway] The card argues the sweep biased I/O-bound tests upward, favouring the render
-  hypothesis, which still lost. **The exposure is the other way round:** the render set is
-  in-process CPU work (176.82 s of `call`, 0.03 s of teardown) while the **browser family is the
-  wait-bound one** (137.97 s of teardown blocked on another process), so a CPU-starving sweep
-  inflates the *winner*. The reviewer supplied the two arguments that do hold and the document
-  should carry instead: **(a)** a magnitude bound — about four minutes at 25% instead of 76% CPU
-  is at most ~161 s of excess across the whole suite, where the browser family would have to
-  shed **170.8 s** to lose; and **(b)** per-test teardown measured across all 422 browser tests
-  is mean 0.327 s, median 0.370, stdev 0.144, per-file means 0.198–0.413, histogram unimodal —
-  **no contention spike anywhere in the family**. The cost is structural, not an artefact.
-- [Review cycle 1 — three real survivors, none gating, one of them aimed at the next four cards]
-  - **N-003: `test_exactly_one_artefact_is_committed` will red the first time CARD-218, 219,
-    220, 235 or 236 re-profiles** — which is exactly what every one of them is instructed to do
-    to measure its saving. It also contradicts the dated naming convention and the `found[-1]`
-    fixture in its own file. A landmine pointed at this card's own successors; fix before merge.
-  - **N-002: `RENDER_HEAVY_SNAPSHOT` is pinned by nothing.** Dropping a path from it survives
-    all 74 tests — and that constant is what decides the 21.23% the re-pointed CARD-218/219 are
-    now sized against. `--verify-render-set` exists and works, and no test calls it.
-  - **N-004:** swapping the file-share denominator `attributed` -> `wall_clock` survives; no
-    share value is pinned anywhere, and nothing checks the committed hotspots document against
-    `report(...)`.
-  - Minor beyond those: **N-007** two prose slips — the browser files' date range ends
-    2026-10-08T07:28Z, not 04:19Z (the load-bearing "all after wave 30" claim holds), and the
-    README's worked log line shows 1071 s / 151 ms per test where the real run was 931 s /
-    131 ms; **N-005** AC-5's two real-log tests skip silently off this host because the log is
-    gitignored (disclosed and worked around); **N-006** the admissibility check is blind to the
-    kind of contention that actually happened and nothing calls it at profile time; **N-008**
-    shares are of attributed time where AC-2 says wall clock (labelled, 1.09% apart).
+- `test_at_least_one_artefact_is_committed`
+- `test_every_committed_artefact_is_well_formed` — parametrised over *every*
+  artefact: header complete, admissible, >6000 tests
+- `test_every_artefact_has_a_hotspots_document` — the date-pairing rule
+- `test_the_latest_artefact_is_the_one_the_hotspots_document_cites` — the
+  real risk a multi-profile future introduces is a hotspots document quietly
+  describing a superseded run, so the document must cite its source's sha256
+
+Verified by scenario, not assertion. With a consistent second profile present
+(`suite-durations-20261120.txt` + its hotspots doc) the file goes **81 passed**
+— the parametrised tests simply expand to cover both. Removing that second
+hotspots doc, or pointing it at the wrong sha, each reds
+`test_the_latest_artefact_is_the_one_the_hotspots_document_cites`. The
+scenario files were deleted; `git status --porcelain` confirms nothing left.
+
+**N-002 — the unpinned constant.** `RENDER_HEAVY_SNAPSHOT` decides the
+21.23 % that CARD-218/219 are now sized against, and dropping a path from it
+survived all 74 tests. `--verify-render-set` already existed and nothing
+called it. Added `test_the_frozen_render_set_still_matches_the_grep_that_
+defines_it`, which calls `regrep_render_set(tests/)` and requires exact
+agreement, plus `test_the_frozen_render_set_is_sorted_and_duplicate_free`.
+New mutants **M14** (drop `tests/test_book_toc.py` from the snapshot) and
+**M15** (unsort it) are both killed. Suite-wide: **15 mutants, 15 killed, 0
+survivors.**
+
+**N-001 — the contention argument was backwards.** The old caveat claimed the
+sweep biased I/O-bound tests upward and so favoured the render hypothesis,
+which lost. Wrong way round: the render set is in-process CPU work (176.82 s
+call, 0.03 s teardown) while the **browser family is the wait-bound one**
+(137.97 s of teardown blocked on another process), so CPU starvation inflates
+the *winner*. Rewritten in both the hotspots document and the artefact header
+around the two things that actually settle it:
+
+- magnitude bound — ~4 min at 25 % rather than 76 % of a core is at most
+  ~161 s of excess across the whole suite, against the **170.77 s** the
+  family would have to shed to fall behind the render set (366.19 → 195.42);
+- per-test teardown across all 422 browser tests — mean 0.327 s, median
+  0.370 s, stdev 0.144 s, max 0.520 s, per-file means 0.198–0.413 s,
+  histogram unimodal and massed at 0.3–0.5 s with no tail. A four-minute
+  stall would have left a cluster of outliers. There is none, so the cost is
+  structural.
+
+**N-007 — two quotable figures.** The browser files' commit range ends
+**2026-10-08T07:28Z**, not 04:19Z (I had sorted `+03:00` timestamps
+lexically; the load-bearing "all after the wave-30 run" claim is unaffected).
+And `tests/README.md`'s worked log line read 1071 s / 151 ms per test against
+a real run of **931 s / 131 ms** — wrong arithmetic in the one document that
+teaches the next person to re-measure. Both corrected, and the worked line's
+timestamp aligned to the real 05:34:34Z.
+
+Editing the artefact header changed its sha256
+(`483c06b8…` → `7d204cf9…`); the hotspots document's citation was updated and
+all 70 embedded ranking rows re-diffed against the script's stdout — identical.
+
+**Also taken, unprompted (review bonus).** The browser family is defined
+conservatively: three more files drive the same `browser_page` fixture
+(`test_books_list_mobile.py` 4.71 s, `test_book_finalise_guide_preview_
+layout.py` 2.78 s, `test_book_setup_print_mobile.py` 1.62 s), taking it to
+375.30 s / **40.77 %**. Recorded as a caveat; the headline 39.78 % is the
+floor and the margin is wider than stated, so no figure needed restating.
+
+### Left open deliberately (per the coordinator)
+
+- **N-004 — the file-share denominator is unpinned.** Real. Pinning derived
+  shares is a design decision (which denominator is canonical, and what a
+  future profile's shares are comparable *to*) and should not be rushed into
+  a measurement card. Note for whoever takes it: `_pct` currently divides by
+  attributed time, and the document says so at the point of use, so the
+  present numbers are unambiguous — the gap is that nothing stops a later
+  edit switching denominators silently.
+- **N-005 — AC-5's two log tests skip off-host.** `meta/kanban/suite-timing.log`
+  is gitignored (`*.log`), so a fresh checkout has none. Disclosed in the
+  commit message and worked around by copying the main checkout's copy into
+  the worktree so they run here. The format-contract tests (known-good /
+  known-bad corpora, malformed detector) always run everywhere and carry the
+  teeth; only the two "read the real log" tests are conditional.
+- **N-006 — the admissibility check is blind to the contention that actually
+  happened, and nothing calls it at profile time.** A known limit of the
+  method: `is_admissible_profile` only reads what the header *claims*, and
+  `other_pytest_processes` only sees competing **pytest** processes — neither
+  would have noticed this run's macOS sweep, which was the contention that
+  mattered. The solo-run guarantee is therefore "no competing suite", not "a
+  quiet host"; the host-load caveat is prose, checked by a human, not a test.
+  Anyone automating the next profile should sample load during the run rather
+  than trusting the header.
+- N-008 is a labelling point already handled by the existing labels.
+
+- [Fix cycle 1 complete] 2026-10-15 — `492ac40`. 182 targeted tests pass; **15 mutants, 15
+  killed**; **zero deleted lines across the whole card** against main (523/0, 21305/0, 253/0,
+  112/0, 534/0), so G-1 is a fact about the diff rather than a claim.
+  - **N-003 became four tests, and the replacement is better than the instruction.** The single
+    `test_exactly_one_artefact_is_committed` is gone; in its place: at least one artefact
+    exists, **every** committed artefact is well-formed (parametrised over all of them), every
+    artefact has a dated hotspots document, and — the one that matters — **the latest artefact
+    is the one the hotspots document cites, by sha256**. The agent's reasoning for that last
+    one is the right reframing: in a multi-profile future the risk is not duplication, it is a
+    hotspots document quietly describing a superseded run.
+    **Verified by scenario rather than by assertion:** it created a consistent second profile,
+    saw the file go to **81 passed** as the parametrised tests expanded to cover both, then
+    deleted that profile's hotspots document and pointed its citation at a wrong sha — each
+    reds the citation test. Scenario files removed and the tree verified clean afterwards.
+  - **N-002: the render snapshot is pinned by the function that already existed.**
+    `test_the_frozen_render_set_still_matches_the_grep_that_defines_it` calls `regrep_render_set`
+    — written, working, and called by nothing — and requires exact agreement with
+    `RENDER_HEAVY_SNAPSHOT`. Dropping `tests/test_book_toc.py` from the snapshot is now killed
+    by it; unsorting the set is killed by both new tests.
+  - **N-001: the caveat is rewritten in both the hotspots document and the artefact header**,
+    around the two measurements that settle it — the ~161 s magnitude bound against the
+    **170.77 s** the family would have to shed to fall behind (366.19 -> 195.42), and the
+    per-test teardown distribution across all 422 browser tests (mean 0.327 s, median 0.370,
+    stdev 0.144, max 0.520, per-file means 0.198–0.413, unimodal, no tail). As the agent puts
+    it: a four-minute stall would have left a cluster of outliers, and there is none. All
+    re-derived from the artefact rather than transcribed from the review.
+  - **N-007: both figures corrected, and the agent found the cause of its own slip** — it had
+    sorted `+03:00` timestamps **lexically**, so `zoom` (10:28+03:00 = 07:28Z) lost to
+    `brush_menu` (07:19+03:00 = 04:19Z). The README's worked line now reads 931 s / 131 ms.
+  - **Two knock-ons handled rather than left:** editing the artefact header changed its sha256,
+    so the hotspots citation was updated and **all 70 embedded ranking rows re-diffed against
+    the script's stdout — identical**, with determinism re-verified across two runs.
+  - **The reviewer's bonus finding was taken as a caveat, not a restatement.** The three extra
+    browser-driven files (`test_books_list_mobile.py` 4.71 s,
+    `test_book_finalise_guide_preview_layout.py` 2.78 s, `test_book_setup_print_mobile.py`
+    1.62 s) take the family to 375.30 s / **40.77%**, so **39.78% is now documented as a
+    floor** — the margin over the render set is wider than stated, not narrower. No published
+    figure needed changing, which is the right call.
+  - **N-006 recorded as a known limit of the method**, and it is the one worth remembering: the
+    solo-run guarantee is "no competing **suite**", not "a quiet host". Neither
+    `is_admissible_profile` (which reads only what the header claims) nor
+    `other_pytest_processes` (which sees only pytest) would have noticed the macOS sweep that
+    actually contended with this run. Anyone automating the next profile should sample load
+    **during** the run rather than trust the header.
+  - N-004 and N-005 left with reasons in the notes; N-008 is a labelling point the existing
+    labels already handle.
+- [Note for the merge gate] This card adds 79 tests, so the gate should read **~7152 passed**,
+  not 7073.
