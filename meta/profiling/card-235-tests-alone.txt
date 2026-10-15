@@ -1,10 +1,12 @@
 # CARD-235, AC-5 — every test run ALONE, in its own pytest process
 #
-# Taken on the card/235-browser-fixture-scope worktree at 96620e6 with the
-# teardown fix in place, on 2026-10-15. One `python -m pytest -p no:cacheprovider
-# <node id>` per line, so each test ran with no predecessor at all — the
-# failure mode AC-5 names is a test that silently depends on an earlier test's
-# navigation, and a test that never had one cannot hide it.
+# Taken on the card/235-browser-fixture-scope worktree, 2026-10-15, at the
+# chosen _SERVE_POLL_INTERVAL_S = 0.05 (an earlier identical sweep at 0.01,
+# before the A/B chose 0.05, was also 78/78). One
+# `python -m pytest -p no:cacheprovider <node id>` per line, so each test ran
+# with no predecessor at all — the failure mode AC-5 names is a test that
+# silently depends on an earlier test's navigation, and a test that never had
+# one cannot hide it.
 #
 # Scope: all 67 tests of tests/test_puzzle_solver_page.py, the one file this
 # card's diff touches (it holds the browser_page and live fixtures the other

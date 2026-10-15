@@ -575,8 +575,8 @@ def browser_type(playwright, browser_name):
 #: on this host (20 iterations against a launched Chromium), so collapsing the
 #: page lifecycle for all 422 tests is worth ~24 s — 2.6 % of the suite. The
 #: teardown was the ``live`` server's stop (see :data:`_SERVE_POLL_INTERVAL_S`):
-#: ~134 s, 14.6 %, and free of any isolation risk. Sharing a page would buy a
-#: sixth of the saving for the whole of the order-dependence risk, so no file
+#: 118 s of teardown, and free of any isolation risk. Sharing a page would buy
+#: a fifth of the saving for the whole of the order-dependence risk, so no file
 #: was converted.
 #:
 #: The reasons below are what each file would have to undo to become
@@ -676,22 +676,42 @@ class Live:
 
 
 #: How often this fixture's serve loop checks whether it has been asked to
-#: stop. Same constant, same reason, as ``tests/test_web_server.py``'s
-#: ``_POLL_INTERVAL_S``: ``socketserver.serve_forever``'s stdlib default is
-#: 0.5 s, and ``shutdown()`` cannot return until the loop next wakes up, so the
-#: default is a uniform 0–0.5 s wait paid on *every* test's teardown. The
-#: server here is never asked to be responsive, only to stop promptly.
+#: stop. Same reason as ``tests/test_web_server.py``'s ``_POLL_INTERVAL_S``:
+#: ``socketserver.serve_forever``'s stdlib default is 0.5 s, and ``shutdown()``
+#: cannot return until the loop next wakes up, so the default is a uniform
+#: 0–0.5 s wait paid on *every* test's teardown. The server here is never asked
+#: to be responsive, only to stop promptly. Nothing any test can observe
+#: changes either way: ``shutdown()`` + ``join()`` mean the server is stopped
+#: before the fixture returns, whatever the interval.
 #:
-#: CARD-235. This is the 0.33 s per test — 137.97 s, 96 % of the whole suite's
-#: teardown — that CARD-217's profile attributed to Chromium's page lifecycle.
-#: The profile's own evidence says so in hindsight: teardown was bimodal with
-#: the mass at 0.3–0.5 s and "no tail at all, stopping dead at 0.520 s", which
-#: is the signature of a bounded poll wait and not of a browser teardown. The
-#: near-zero cluster is the family's non-browser tests, which never ask for
-#: ``live``. Dropping the interval to 0.01 s takes the family's teardown from
-#: 137.97 s to ~4 s and changes nothing any test can observe: the server is
-#: already stopped before the fixture returns either way.
-_SERVE_POLL_INTERVAL_S = 0.01
+#: CARD-235. That wait is the 0.33 s per test — 137.97 s, 96 % of the whole
+#: suite's teardown — which CARD-217's profile attributed to Chromium's page
+#: lifecycle. The profile's own evidence says so in hindsight: teardown was
+#: bimodal with the mass at 0.3–0.5 s and "no tail at all, stopping dead at
+#: 0.520 s", which is the signature of a bounded poll wait and not of a browser
+#: teardown. The near-zero cluster is the family's non-browser tests, which
+#: never ask for ``live``.
+#:
+#: **0.05 s, not the 0.01 s this fixture's neighbour uses, and the difference
+#: was measured rather than assumed.** A solo back-to-back A/B over all twelve
+#: files (``meta/profiling/card-235-poll-interval-ab.txt``) says:
+#:
+#: == ===========  ========  =========  ==========
+#:    poll            total       call    teardown
+#: == ===========  ========  =========  ==========
+#:    0.5 (stdlib)  507.80 s   345.20 s    129.93 s
+#:    **0.05**      283.37 s   246.11 s     11.88 s
+#:    0.01          372.34 s   339.08 s      3.69 s
+#: == ===========  ========  =========  ==========
+#:
+#: 0.01 s buys 8 s more teardown and costs **93 s of call**: a thread waking
+#: 100 times a second takes the GIL from a main thread that is driving Chromium
+#: through synchronous RPC, and every handoff lands in the middle of a round
+#: trip. At 20 Hz that cost is gone and 91 % of the teardown saving remains.
+#: ``test_web_server.py`` can afford 0.01 s because nothing there runs a browser
+#: on the other side of the GIL — which is why this is a constant per file and
+#: not one shared between them.
+_SERVE_POLL_INTERVAL_S = 0.05
 
 
 @pytest.fixture

@@ -17,9 +17,13 @@ Measurement says the page lifecycle is not the cost:
 * the 0.33 s was ``socketserver.serve_forever``'s **0.5 s stdlib poll
   interval**: the ``live`` fixture's ``shutdown()`` cannot return until the
   serve loop next wakes, so every test paid a uniform 0–0.5 s wait. Dropping
-  the interval to 0.01 s (``test_puzzle_solver_page._SERVE_POLL_INTERVAL_S``,
-  the same constant and the same reason as ``test_web_server._POLL_INTERVAL_S``)
-  takes the family's teardown from 137.97 s to ~4 s.
+  the interval to 0.05 s (``test_puzzle_solver_page._SERVE_POLL_INTERVAL_S``)
+  takes the family's teardown from 137.97 s to ~12 s. 0.05 s and not the
+  0.01 s its neighbour ``test_web_server._POLL_INTERVAL_S`` uses: a measured
+  A/B over all twelve files says 0.01 s buys 8 s more teardown and costs 93 s
+  of *call*, because a thread waking 100 times a second takes the GIL from a
+  main thread driving Chromium through synchronous RPC. See
+  ``meta/profiling/card-235-poll-interval-ab.txt``.
 
 The profile's own evidence says so in hindsight: its teardown histogram was
 bimodal with the mass at 0.3–0.5 s and "no tail at all, stopping dead at
@@ -45,7 +49,7 @@ Cost discipline
 Four of these tests spawn a child pytest, because "in reverse order", "alone"
 and "after a deliberate failure" are claims about a *run*, not about a value,
 and cannot be made in-process. They cost ~35 s between them against the
-~134 s this card returns. The exhaustive sweeps they sample — every test of
+~126 s this card returns. The exhaustive sweeps they sample — every test of
 the changed file run alone, and the whole family run in reverse and in a
 shuffled order — were run out of band and are committed under
 ``meta/profiling/``; the tests below check those records are complete rather
@@ -302,8 +306,9 @@ class TestBrowserFixtures_FamilyShareIsRecorded:
             f"this card claims is a teardown saving"
         )
         # And it is bounded by the poll interval it now waits on, with room
-        # for the page close that was always there.
-        assert after / 422 < 10 * _SERVE_POLL_INTERVAL_S + 0.05
+        # for the page close that was always there. A regression that put the
+        # stdlib 0.5s back would land at ~0.33s per test and fail here.
+        assert after / 422 < _SERVE_POLL_INTERVAL_S + 0.02
 
     def test_the_document_records_the_before_and_the_after(self) -> None:
         document = AFTER_DOCUMENT.read_text(encoding="utf-8")

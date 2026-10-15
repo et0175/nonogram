@@ -1,0 +1,72 @@
+# CARD-235 — choosing the serve poll interval on measurement
+#
+# The card names fixture scope as its lever. Measurement says the family's
+# 0.33 s per-test teardown is not Chromium's page lifecycle but
+# socketserver.serve_forever's 0.5 s poll interval, so the lever is that
+# constant — and its value is itself a trade-off that had to be measured, not
+# copied from tests/test_web_server.py's 0.01 s.
+#
+# Method. One solo back-to-back pass over all twelve tests/test_puzzle_solver_*.py
+# files per interval, in the order 0.5 -> 0.05 -> 0.01, holding
+# meta/kanban/.full-suite.lock throughout (started 2026-10-15T09:53:00Z, host
+# Mac15,6 M3 Pro, python 3.14.3, pytest 9.1.1, worktree
+# card/235-browser-fixture-scope at 8a3edbe^). Command per run:
+#
+#   python -m pytest -p no:cacheprovider --durations=0 --durations-min=0 <the 12 files>
+#
+# Phase totals are summed from each run's own --durations table. 422 tests in
+# every run; all three runs green.
+#
+# NOTE ON ABSOLUTE NUMBERS. A family-only run is not a slice of a full-suite
+# run: the twelve files run back to back, hammering one Chromium, with none of
+# the suite's other 6757 tests interleaved. At the stdlib 0.5 s this host
+# measured 507.80 s here against the 366.19 s CARD-217 attributed to the same
+# 422 tests inside a full suite. These three rows are comparable to EACH OTHER
+# — same host, same hour, same order, solo — and that is all they are for. The
+# card's before/after share is measured on full suites
+# (meta/profiling/card-235-browser-teardown.md).
+#
+# poll          total      call  teardown   per-test teardown
+# 0.5 (stdlib)  507.80s  345.20s   129.93s   0.308s
+# 0.05          283.37s  246.11s    11.88s   0.028s
+# 0.01          372.34s  339.08s     3.69s   0.009s
+#
+# THE CHOICE: 0.05 s.
+#
+# 0.01 s buys 8.19 s more teardown than 0.05 s and costs 92.97 s of CALL. That
+# is not noise and it is not an artefact of the run order: a separate two-round
+# A/B on the family's call-heaviest file (test_puzzle_solver_maybe.py, 35
+# tests), run in the order 0.01 -> 0.5 -> 0.05 each round, puts the same three
+# intervals in the same order —
+#
+#   poll=0.01 round=1 call=60.74 teardown=0.36 total=64.35
+#   poll=0.5  round=1 call=56.87 teardown=9.71 total=68.98
+#   poll=0.05 round=1 call=53.00 teardown=1.25 total=56.89
+#   poll=0.01 round=2 call=51.46 teardown=0.38 total=59.06
+#   poll=0.5  round=2 call=53.06 teardown=9.14 total=65.21
+#   poll=0.05 round=2 call=51.46 teardown=1.01 total=54.70
+#
+# The mechanism: at 0.01 s the serve thread wakes 100 times a second and takes
+# the GIL from a main thread that is driving Chromium through synchronous RPC,
+# so a handoff lands in the middle of a round trip. At 20 Hz that cost is gone
+# while 91 % of the teardown saving (118.05 s of 126.24 s) remains.
+# tests/test_web_server.py can afford 0.01 s because nothing there runs a
+# browser on the other side of the GIL — which is why this is a constant per
+# file rather than one shared between them.
+#
+# Per-file totals, poll=0.5 / poll=0.05 / poll=0.01 (total, call, teardown):
+# file                                            0.5: tot/call/tdwn       0.05: tot/call/tdwn       0.01: tot/call/tdwn
+# test_puzzle_solver_brush_menu.py             53.04   33.25   15.12     29.50   25.25    1.27     27.48   23.31    0.36
+# test_puzzle_solver_clues.py                  58.08   36.56   17.22     30.48   25.20    1.69     40.69   35.24    0.61
+# test_puzzle_solver_hint.py                   32.78   22.27    8.30     14.30   12.13    0.68     22.05   19.69    0.27
+# test_puzzle_solver_marking.py                83.12   52.62   24.48     39.85   32.79    2.16     57.63   50.80    0.67
+# test_puzzle_solver_maybe.py                  82.40   70.56    9.36     63.02   60.21    0.96     77.54   75.39    0.27
+# test_puzzle_solver_mirror.py                  6.29    4.32    1.64      3.46    3.01    0.12      4.62    4.22    0.06
+# test_puzzle_solver_page.py                   34.73   19.61   12.54     16.32   12.75    0.98     25.61   22.55    0.27
+# test_puzzle_solver_percent.py                24.52   14.94    8.42     14.47   12.81    0.76     18.41   17.21    0.12
+# test_puzzle_solver_phone.py                  17.56   10.73    5.58      8.79    7.25    0.51     14.27   13.13    0.14
+# test_puzzle_solver_progress.py               52.18   35.15   14.03     23.34   19.04    1.34     35.15   31.74    0.42
+# test_puzzle_solver_resume.py                 27.63   19.71    5.21     15.44   13.99    0.41     20.85   19.47    0.20
+# test_puzzle_solver_zoom.py                   35.47   25.48    8.03     24.40   21.68    1.00     28.04   26.33    0.30
+# FAMILY TOTAL                                507.80  345.20  129.93    283.37  246.11   11.88    372.34  339.08    3.69
+# tests per run: 0.5=422, 0.05=422, 0.01=422
