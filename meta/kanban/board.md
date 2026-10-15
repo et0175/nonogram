@@ -35,7 +35,7 @@ _Updated: 2026-10-15 UTC_  ·  <!-- forge:run wave=40 mode=interactive concurren
 | 37 | CARD-197 P2, CARD-198 P2, CARD-199 P2 | CARD-199 ✓ merged 7d4bcf8 (score 9.5, cycle 1/3) · CARD-197 ✓ merged 81156b1 (score 9.0, cycle 2/3) · CARD-198 ✓ merged da0f8bb (score 8.5, cycle 1/3; owner confirmed the three flagged consequences — level heading dropped, Finalise label narrower, page-growth ceiling risk — before merge) · wave 37 complete — owner solution-layout doc |
 | 38 | CARD-204 P2, CARD-214 P1, CARD-205 P1, CARD-211 P2, CARD-221 P1, CARD-212 P2 | CARD-214 ✓ merged d49e73a (8.1, cycle 1/3) · CARD-204 ✓ merged cd641df (8.5 cycle 4, then 6.5 cycle 5 on a merge-gate fix; 8 fix cycles) · CARD-211 ✓ merged 4790243 (9.0, cycle 1/3) · CARD-205 ✓ merged d30e0f0 (8.8, cycle 1/3; AC/EC/G gate failed on G-1 and the guardrail was amended) · CARD-221 ✓ merged 806dbe1 (7.5 then 8.5, cycle 2/3; 5 fix cycles) · CARD-212 ✓ merged a2cd3f3 (7.0 then 8.5, cycle 2/3; 3 fix cycles) ✓ wave 38 complete, 6/6 merged — owner print-layout doc |
 | 39 | CARD-217 P1 | CARD-217 ✓ merged 967a7fa (9.0, cycle 1/3; 2 fix cycles, both spent making the measurement's own claims checkable; 63 mutants) ✓ wave 39 complete — ran SOLO by owner decision, which is what made the number trustworthy. Answer: the browser family is 39.78% of the suite, neither card hypothesis; re-points CARD-218/219/220 and cuts CARD-235/236 |
-| 40 | CARD-234 P2, CARD-235 P1 | ▶ active — dispatched 2026-10-15, both implementation running. Paired because they share no path and no hotspot; the rest of the interior redesign serializes behind CARD-234 on `book_pdf_generator.py` |
+| 40 | CARD-234 P2, CARD-235 P1, CARD-237 P1 | ▶ active — CARD-234 review 9.0 + 11/11 ACs but merge gate RED on a pre-existing flaky memory guard; CARD-235 implementation done (own gate green 7174/0), review running; **CARD-237 cut in flight** (owner, 2026-10-15) to fix that guard before either merges. The rest of the interior redesign still serializes behind CARD-234 on `book_pdf_generator.py` |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -105,10 +105,11 @@ _CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were c
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-- **CARD-235** The browser tests stop paying for a page they throw away · P1 · 1d · tech-debt _(wave 40)_
-  `worktree: ../PythonProject4-card-235` · `branch: card/235-browser-fixture-scope`
-  `started: 2026-10-15T08:44Z` · ⚑ its authoritative before/after profile must run under the
-  repo full-suite lock, or CARD-234's own suite runs contaminate it (G-3: solo measurement)
+- **CARD-237** The streaming-shape memory guard measures the export, not CPython's own footprint · P1 · 0.5d · tech-debt _(wave 40)_
+  `worktree: ../PythonProject4-card-237` · `branch: card/237-memory-guard-floor-relative`
+  `started: 2026-10-15T11:21Z` · cut in flight by owner decision; blocks CARD-234's and
+  CARD-235's merges · ⚑ AC-5 needs three consecutive locked full suites, so it holds the lock
+  for ~45 min · ⚑ G-2 forbids the tempting fix (widen the constant until it goes green)
 
 _Next, once these merge: CARD-228 (the dots glyph) then CARD-222 (the frame), in the order under
 `dispatcher.state → queued_after_card_217`. The whole interior redesign serializes on
@@ -117,10 +118,18 @@ _Next, once these merge: CARD-228 (the dots glyph) then CARD-222 (the frame), in
 ## Review
 - **CARD-234** The generated cover's title letters from packaged data · P2 · 0.5d · bug _(wave 40)_
   `worktree: ../PythonProject4-card-234` · `branch: card/234-cover-packaged-face`
-  implementation committed `b8b929a` · scope gate ⚠ grown (4/7 files outside Touches, forced
-  by the exit-code hierarchy test) · cycle 1/3 · score 9.0 — 0 critical, 0 important, 6 mutants killed
-  · build gate 7123/0 · 8h spot-check 3/3 reproduced · AC/EC/G gate running
-
+  cycle 1/3 · score **9.0** — 0 critical, 0 important, 6 mutants killed · AC/EC/G **11/11
+  demonstrated**, zero skips · 8h spot-check 3/3 reproduced · scope gate ⚠ grown (4/7 files
+  outside Touches, forced by the exit-code closure test)
+  ⚠ **merge gate RED** — `test_book_pdf_memory.py`'s headroom guard, proven pre-existing and
+  independent of this card (it failed at 279.7 MB on a branch carrying none of its code).
+  Held unmerged pending CARD-237; not overridden.
+- **CARD-235** The browser tests stop paying for a page they throw away · P1 · 1d · tech-debt _(wave 40)_
+  `worktree: ../PythonProject4-card-235` · `branch: card/235-browser-fixture-scope`
+  implementation `4302684` · own merge gate **green 7174/0** (solo, locked) · review cycle 1 running
+  ⚑ **the card's premise was wrong**: the lever was `socketserver`'s 0.5 s poll in the per-test
+  `live` fixture, not Chromium's page lifecycle (one page = 57 ms). No file's page scope changed.
+  Family 39.78% → 29.78%, teardown 137.97 s → 11.62 s, from a one-line `poll_interval` kwarg.
 
 ## Blocked
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
