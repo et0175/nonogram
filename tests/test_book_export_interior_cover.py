@@ -279,6 +279,26 @@ class TestBookExport_CoverIsSeparateSinglePageFile:
 
         assert [float(v) for v in media_box] == [0.0, 0.0, 8.5 * 72, 11 * 72]
 
+    def test_the_uploaded_cover_is_used_whatever_the_title_holds(self, covered_book):
+        """CARD-234 AC-6 — the uploaded path never looks at the title.
+
+        That card gave the **generated** title cover a packaged face and a
+        refusal for a title the face cannot letter
+        (``tests/test_book_cover.py``). This is the guard that the refusal
+        cannot reach a book whose cover is an uploaded image: the title is
+        returned past, not measured, so a book titled in a script the
+        shipped font has no glyphs for still downloads its own cover.
+        """
+        client, book_id = covered_book
+        uploaded = pdf_pages(_download(client, "finalise", book_id, "cover"))
+        generator = BookPDFGenerator()
+
+        direct = generator.create_cover_page("\u4e2d\u6587", _cover_art())
+
+        assert len(uploaded) == 1
+        assert same_page(uploaded[0], _cover_art().resize(TRIM_PX))
+        assert same_page(direct, _cover_art().resize(TRIM_PX))
+
 
 class TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover:
     """AC-286 — with no upload the cover file holds the generated title cover."""

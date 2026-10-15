@@ -370,6 +370,7 @@ from nonogram.admin.book_answer_key import (
 from nonogram.admin.book_page_spec import InkMode, book_ink_mode, book_page_spec
 from nonogram.admin.book_plan import TIERS, book_level_order
 from nonogram.difficulty import Tier, tier_of_record
+from nonogram.errors import UnletterableTitle
 from nonogram.export import ExportPayload
 from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
@@ -1357,7 +1358,9 @@ def _band_font_bytes() -> bytes:
 @lru_cache(maxsize=8)
 def _band_font(size: int) -> ImageFont.FreeTypeFont:
     """The packaged face at ``size`` device pixels. Cached: a book asks for one
-    or two sizes across every page it prints."""
+    or two sizes across every page it prints — plus the generated title
+    cover's own :data:`COVER_TITLE_PX`, which letters through here too since
+    CARD-234 (:func:`_cover_title_face`)."""
     return ImageFont.truetype(BytesIO(_band_font_bytes()), size=size)
 
 
@@ -3202,6 +3205,113 @@ def _degrade_infeasible_packed_pages(
     return degraded
 
 
+# ---------------------------------------------------------------------------
+# The generated title cover's lettering (CARD-234, FR-043)
+# ---------------------------------------------------------------------------
+
+#: The em square, in device pixels, the generated title cover sets its title
+#: in. The number :meth:`BookPDFGenerator.create_cover_page` has always asked
+#: for, kept verbatim: how large a cover's title should be is the cover's
+#: visual design, which CARD-234 leaves exactly as it found it (G-5). At the
+#: 300 DPI every book page is drawn at it is 17.3 pt, and in the packaged face
+#: it sets a cap height of 52 px. That cap height is what AC-2 measures off
+#: the ink, because until this card the size was silently dropped on any host
+#: without Arial and the title came out at 8 px — about a seventh.
+COVER_TITLE_PX = 72
+
+#: The first Private Use codepoint. No real face assigns it, so whatever the
+#: packaged face draws for it *is* that face's ``.notdef`` box, which is the
+#: instrument :func:`_cover_title_face` measures a title against. Verified
+#: against the shipped font rather than assumed:
+#: ``tests/test_book_cover.py``'s
+#: ``test_the_glyph_probe_can_tell_a_missing_glyph_from_a_blank_one``.
+_UNASSIGNED_CODEPOINT = "\ue000"
+
+
+def _cover_title_face(book_title: str) -> ImageFont.FreeTypeFont:
+    """The face the generated title cover letters ``book_title`` in.
+
+    The packaged DejaVu Sans at :data:`COVER_TITLE_PX` — :func:`_band_font`,
+    the one font this project ships (ADR-0006/R1, package data and not a
+    dependency), reused rather than wrapped in a lookup of its own. So the
+    cover file, like the interior since CARD-221, is lettered from this
+    repository's own font data and from nothing the host's font configuration
+    offers.
+
+    **What it replaced** (CARD-234). ``create_cover_page`` asked the host for
+    ``/System/Library/Fonts/Arial.ttf`` at 72 px and, on the ``OSError``,
+    called ``ImageFont.load_default()`` **with no size**. Two defects that
+    compounded: the path exists only on macOS, so the deployed Linux panel
+    took the fallback every time; and a sizeless ``load_default()`` drops the
+    72 px it was asked for, leaving Pillow's small bitmap face. Measured at
+    CARD-221's review (2026-10-14, F-009) and again here: a cap height of 8 px
+    where the packaged face sets 52. The title was still centred by its own
+    measured bbox, so nothing overflowed and nothing was logged — the one page
+    a buyer sees first simply came out at about a seventh of its size.
+
+    **A title the face cannot letter is refused, not substituted** (AC-4, the
+    decision this card was asked to make and state). The interior's repertoire
+    is bounded and known to be covered glyph by glyph (:func:`_guide_face`); a
+    book title is typed by the owner, so its repertoire is not. The packaged
+    face covers printable ASCII, Latin-1, Latin Extended, Cyrillic, Greek,
+    Hebrew, Arabic and the punctuation a title plausibly carries — measured
+    against the shipped file, not assumed. It does not cover CJK, kana,
+    hangul, Thai, most emoji or an unassigned codepoint, and for any of those
+    FreeType draws ``.notdef`` — an empty rectangle. Printing that is the same silent defect in a new
+    costume: the cover is the file KDP prints, bills for and sells, and a row
+    of empty boxes is only discovered by a buyer. So the characters are named
+    in a :class:`~nonogram.errors.UnletterableTitle` and the owner retypes
+    them. Substituting (``?``, ``U+FFFD``, transliteration) was rejected for
+    the same reason: it ships a title that is not the title, quietly.
+
+    Whether a glyph exists is asked of the face by **drawing** the character
+    and comparing it with the face's own ``.notdef``
+    (:data:`_UNASSIGNED_CODEPOINT`), because Pillow exposes no character map.
+    A character the face sets as blank — a space, U+200B — renders blank,
+    which is not ``.notdef``, so it is letterable and passes; a tab is not,
+    and does not (U+0009 has no glyph at all and FreeType boxes it). The
+    probe is ``3 x COVER_TITLE_PX`` square with the pen one em in from the
+    corner, which no glyph of this face at this size comes close to filling.
+
+    Args:
+        book_title: The title to be lettered. Callers pass a title with
+            something in it: a blank or all-whitespace title never reaches
+            here, because :meth:`BookPDFGenerator.create_cover_page` returns
+            the blank page before asking for a face (AC-5).
+
+    Raises:
+        ~nonogram.errors.UnletterableTitle: some character of ``book_title``
+            has no glyph in the packaged face. The message names each one and
+            its codepoint.
+    """
+    face = _band_font(COVER_TITLE_PX)
+
+    def sample(character: str) -> bytes:
+        box = 3 * COVER_TITLE_PX
+        probe = Image.new("L", (box, box), 0)
+        ImageDraw.Draw(probe).text(
+            (COVER_TITLE_PX, COVER_TITLE_PX), character, fill=255, font=face
+        )
+        return probe.tobytes()
+
+    notdef = sample(_UNASSIGNED_CODEPOINT)
+    missing = [
+        character
+        for character in dict.fromkeys(book_title)
+        if sample(character) == notdef
+    ]
+    if missing:
+        named = ", ".join(
+            f"{character!r} (U+{ord(character):04X})" for character in missing
+        )
+        raise UnletterableTitle(
+            f"the book title {book_title!r} cannot be set on a cover: the "
+            f"packaged face has no glyph for {named}. Retype or remove "
+            "those characters."
+        )
+    return face
+
+
 class BookPDFGenerator:
     """Generates a book's interior PDF (guide, puzzles, answers) and cover file.
 
@@ -3256,12 +3366,34 @@ class BookPDFGenerator:
         own; its page is the trim, and the generated title cover is centred on
         it, which a mirrored margin would not move anyway.
 
+        **The generated title cover is lettered from packaged data**
+        (CARD-234): :func:`_cover_title_face` at :data:`COVER_TITLE_PX`, the
+        face the interior has used since CARD-221 and the band since CARD-197.
+        Until this card the title was set in the host's Arial by path with a
+        **sizeless** ``ImageFont.load_default()`` behind a bare ``except
+        OSError`` — so off a Mac the cover's title came out at an 8 px cap
+        height instead of 52, silently. There is no fallback here now: the one
+        face is this repository's, and a title it cannot letter is refused by
+        name (see that function, AC-4).
+
+        An uploaded ``cover_image`` is resized and returned untouched by any
+        of this: nothing about that path changed (AC-6).
+
         Args:
-            book_title: Title for the book
+            book_title: Title for the book. A blank or all-whitespace title
+                is a title with nothing to letter, and its cover is the blank
+                page (AC-5) — never a centred ``.notdef`` box, which is what
+                a lone tab used to draw.
             cover_image: Optional pre-built cover image
 
         Returns:
             Cover page as PIL Image
+
+        Raises:
+            ~nonogram.errors.UnletterableTitle: the title holds a character
+                the packaged face has no glyph for (AC-4). Only the generated
+                cover can raise it; an uploaded ``cover_image`` is returned
+                before the title is looked at.
         """
         if cover_image:
             # Use provided cover, resized to standard page size
@@ -3269,14 +3401,15 @@ class BookPDFGenerator:
 
         # Create blank cover with title
         cover = Image.new("RGB", (self.page_width_px, self.page_height_px), "white")
-        draw = ImageDraw.Draw(cover)
+        if not book_title.strip():
+            # Nothing to letter, so nothing is drawn (AC-5). Without this, a
+            # title of one tab reached the face as a character with no glyph
+            # and printed a .notdef box in the middle of an otherwise empty
+            # cover; a title of spaces drew nothing but was still measured.
+            return cover
 
-        # Try to load a nice font, fall back to default
-        try:
-            title_font = ImageFont.truetype("/System/Library/Fonts/Arial.ttf", 72)
-        except OSError:
-            # Fallback font
-            title_font = ImageFont.load_default()
+        draw = ImageDraw.Draw(cover)
+        title_font = _cover_title_face(book_title)
 
         # Draw title centered on page
         title_bbox = draw.textbbox((0, 0), book_title, font=title_font)

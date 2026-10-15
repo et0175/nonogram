@@ -73,11 +73,11 @@ digest, the page count and the chosen gutter band identical; and the
 page-by-page comparison recorded in ``book_baseline_card221.json``'s
 ``why_a_new_baseline`` shows that exactly the seven pages lettered through
 ``_guide_face`` moved under that card and the other six are byte-identical to
-CARD-205's digests. What remains host-dependent, and is deliberately outside
-this helper's reach, is the **generated title cover** (``create_cover_page``
-still asks the host for Arial at 72 px): the cover is a separate file, no
-baseline digests it, and ``MACHINE_FACE_SIZES`` never covered its size for
-exactly that reason.
+CARD-205's digests. The **generated title cover** is deliberately outside this
+helper's reach — the cover is a separate file, no baseline digests it, and
+``MACHINE_FACE_SIZES`` never covered its size — and it asked the host for
+Arial at 72 px until CARD-234 gave it the same packaged face, measured by
+``tests/test_book_cover.py`` rather than from here.
 """
 
 from __future__ import annotations
@@ -679,11 +679,12 @@ def page_digests(pages: Sequence[Image.Image]) -> List[Dict[str, Any]]:
 # ``_lettered_as_recorded`` went with it).
 #
 # Two things this removal deliberately does NOT claim. (1) The **generated
-# title cover** still reads the host's Arial at 72 px
-# (``create_cover_page``): the cover is a separate file, INV-013 keeps it out
-# of the interior, no baseline digests it, and this tuple never covered its
-# size — recorded in CARD-221's notes as work outside that card, not gated
-# here. (2) A puzzle page's clue digits come from Pillow's own embedded face
+# title cover** is not covered from here at all: the cover is a separate
+# file, INV-013 keeps it out of the interior, no baseline digests it, and
+# this tuple never covered its size. It read the host's Arial at 72 px until
+# CARD-234 — recorded in CARD-221's notes as work outside that card — and now
+# letters from the same packaged face, which ``tests/test_book_cover.py``
+# measures. (2) A puzzle page's clue digits come from Pillow's own embedded face
 # rather than from this repository; that was always on the
 # machine-independent side of this line (every predecessor fixture's own
 # note), and it is a dependency's package data, not the host's.
