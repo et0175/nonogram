@@ -1,6 +1,6 @@
 # CARD-217: Profile the suite once, serialized, and commit the duration record the curation cards work from
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/217-suite-duration-profile
-**Worktree:** ../PythonProject4-CARD-217
+**Worktree:** —
 **Source:** owner request 2026-10-13 ("make cards for tests curation"), after the dispatcher's own cost analysis of `meta/kanban/suite-timing.log`
 **Idea:** —
 **Wave:** 39
@@ -19,9 +19,9 @@
 **Touches:** meta/profiling/, meta/kanban/suite-timing.log, tests/README.md
 **Review score:** 9.0/10 (cycle 1/3) — clears the gate; 0 critical, 0 important, 8 minor. The reviewer re-derived every headline number independently and confirmed the conclusion.
 **Started:** 2026-10-15T06:45:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-15T06:49:37Z
+**Actual:** 0.0d
+**Merge commit:** 967a7fa
 **Blocked by:** —
 
 ## What to implement
@@ -149,6 +149,25 @@ so the next person does not re-derive it.
   regeneration, and the chain is documented in
   `test_book_pdf_memory.py:1225-1290`). The real duplication is duplicated
   *rendering*, not duplicated fixtures — which is what this card measures.
+
+- [Merge gate] 2026-10-15 — **PASSED. `7156 passed, 9 skipped, 0 failed, PYTEST_EXIT=0`** in
+  963 s (16:03) on a host waited for. Exactly the ~7156 the card predicted (7073 + 83), which
+  is itself a small check that nothing was lost.
+- [Merge guard] `git log card/217-profile-the-suite..main` is **empty** — main had not moved at
+  all. The tree that passed is the tree that merged.
+- [Done] 2026-10-15 — merged as `967a7fa` (`--no-ff`). Worktree removed, branch deleted.
+  **Actual 0.0d against a 0.5d estimate** — the measurement took one run; the two fix
+  cycles were spent making the measurement's own claims checkable, which is the part the card
+  did not budget for and the part the next five cards depend on.
+  **What the acting cards now have:** a committed profile, a deterministic script that derives
+  every figure in the conclusion (not just the rankings — fix cycle 2 found the deciding table
+  had been hand-computed), a document whose table rows cannot be falsified without forging both
+  columns in agreement, and the method written down in `tests/README.md`.
+  **The limit of that method, recorded on purpose:** the solo-run guarantee is "no competing
+  **suite**", not "a quiet host". Neither `is_admissible_profile` nor `other_pytest_processes`
+  would have noticed the macOS sweep that actually contended with this run — it was caught by a
+  human-equivalent `ps` check. Anyone automating the next profile should sample load **during**
+  the run.
 
 ### Implementation agent's own records (verbatim, synced from the worktree 2026-10-15, all cycles)
 
