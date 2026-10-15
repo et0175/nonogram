@@ -285,6 +285,17 @@ meta/profiling/suite-hotspots-<YYYYMMDD>.md     the rankings and the conclusion
 Naming convention: `<YYYYMMDD>`, the UTC date of the run, on both the durations
 file and the hotspots file, so a profile and its analysis always pair by name.
 
+That convention allows one profile per date, and `tests/test_suite_profile.py`
+holds it to that: it pairs every `suite-durations-*.txt` with its hotspots
+document by name and requires the date to be eight digits. A card that
+re-profiles the suite on the same day as an existing profile — CARD-235 did,
+measuring its own saving against CARD-217's run — therefore names its artefact
+after itself (`meta/profiling/card-235-durations-after.txt` and
+`card-235-browser-teardown.md`) rather than taking the date name twice. Such a
+pair sits outside that harness, so the card carries the equivalent checks
+itself: CARD-235's are in `tests/test_browser_fixture_scope.py`, and they call
+the same `rank_durations.py` rather than restating any figure of their own.
+
 The `.txt` carries a `#`-comment header before the table stating the commit
 sha, the host, the Python version, the exact command, the wall clock, the
 pass/skip counts and `solo run: yes`. `tests/test_suite_profile.py` enforces

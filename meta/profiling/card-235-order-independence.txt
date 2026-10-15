@@ -1,0 +1,32 @@
+# CARD-235, AC-3 — the whole browser family run in REVERSE and in a SHUFFLED order
+#
+# seed: 20261015
+#
+# Taken on the card/235-browser-fixture-scope worktree, 2026-10-15, at the
+# chosen _SERVE_POLL_INTERVAL_S = 0.05. All 422 node ids of the twelve
+# tests/test_puzzle_solver_*.py files were taken from CARD-217's committed
+# artefact, then passed to pytest on the command line in the order under test
+# (pytest runs command-line ids in the order given, and the `-vv` progress
+# lines were checked to confirm the order it actually ran).
+#
+# The shuffle is `random.Random(20261015).shuffle(sorted(ids))` — a recorded
+# seed, not a fresh one, because an ordering nobody can replay is not evidence.
+# The same seed is `SHUFFLE_SEED` in tests/test_browser_fixture_scope.py, which
+# runs the same two orderings over tests/test_puzzle_solver_resume.py in-suite
+# (CORRECTED at review cycle 2: this line used to say "the family's smallest
+# file", which was mirror.py and was true when this record was written. The
+# probe was deliberately moved because the smallest file installs no
+# localStorage save, no page.route and no listener, so an ordering over it
+# could only ever have proved that pytest can reorder tests. resume.py writes
+# and restores the save, which is the cross-talk PAGE_ISOLATION names.); this
+# record is the exhaustive version, kept out of the suite because ~10 minutes
+# of re-running the family twice is not worth paying on every gate.
+#
+# Both orderings were also run green at _SERVE_POLL_INTERVAL_S = 0.01 before
+# the A/B chose 0.05 — the shortest teardown tried, and so the most adversarial
+# setting for a race between a stopped server and the next test.
+#
+# reverse: 422 selected, 422 passed, 0 failed, 0 errors, rc=0, 271.2s
+#   pytest said: ================== 422 passed, 1 warning in 269.58s (0:04:29) ==================
+# shuffled: 422 selected, 422 passed, 0 failed, 0 errors, rc=0, 321.8s
+#   pytest said: ================== 422 passed, 1 warning in 319.89s (0:05:19) ==================
