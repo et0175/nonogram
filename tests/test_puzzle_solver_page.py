@@ -680,9 +680,14 @@ class Live:
 #: ``socketserver.serve_forever``'s stdlib default is 0.5 s, and ``shutdown()``
 #: cannot return until the loop next wakes up, so the default is a uniform
 #: 0–0.5 s wait paid on *every* test's teardown. The server here is never asked
-#: to be responsive, only to stop promptly. Nothing any test can observe
-#: changes either way: ``shutdown()`` + ``join()`` mean the server is stopped
-#: before the fixture returns, whatever the interval.
+#: to be responsive, only to stop promptly. Nothing any test of this family can
+#: observe changes either way: ``shutdown()`` + ``join()`` mean the server is
+#: stopped before the fixture returns, whatever the interval — which is why
+#: ``tests/test_browser_fixture_scope.py``'s
+#: ``TestBrowserFixtures_ThePollIntervalIsStillApplied`` exists. It drives this
+#: fixture by hand and fails if the ``poll_interval`` kwarg below stops being
+#: passed, or stops being well under the stdlib 0.5 s, because nothing else in
+#: the suite would notice.
 #:
 #: CARD-235. That wait is the 0.33 s per test — 137.97 s, 96 % of the whole
 #: suite's teardown — which CARD-217's profile attributed to Chromium's page

@@ -31,9 +31,12 @@ bimodal with the mass at 0.3–0.5 s and "no tail at all, stopping dead at
 browser teardown; the near-zero cluster is the family's non-browser tests,
 which never ask for ``live``.
 
-So **no file's page scope changed** — the whole saving is in a teardown that
-no test can observe, and sharing a page would have bought a sixth of it for
-the whole of the order-dependence risk. The guards below nonetheless prove the
+So **no file's page scope changed** — the whole saving is in a teardown whose
+outcome no test of the family can observe (which is why
+:class:`TestBrowserFixtures_ThePollIntervalIsStillApplied` below times that
+teardown directly: a saving nothing observes is a saving nothing defends), and
+sharing a page would have bought a sixth of it for the whole of the
+order-dependence risk. The guards below nonetheless prove the
 family is order-independent, passes alone and does not cascade, because that is
 what the card's acceptance criteria are for and because a faster teardown
 changes the timing every one of those 422 tests runs under.
@@ -46,10 +49,15 @@ inflate the very number AC-1 is about.
 
 Cost discipline
 ---------------
-Four of these tests spawn a child pytest, because "in reverse order", "alone"
-and "after a deliberate failure" are claims about a *run*, not about a value,
-and cannot be made in-process. They cost ~35 s between them against the
-~126 s this card returns. The exhaustive sweeps they sample — every test of
+Several of these tests spawn a child pytest, because "in reverse order",
+"alone" and "after a deliberate failure" are claims about a *run*, not about a
+value, and cannot be made in-process. They cost ~52 s between them against the
+~126 s this card returns, and 41.8 s of that is the two orderings over
+:data:`ORDER_PROBE_FILE` (21.51 s and 20.29 s, measured) — which is the
+family's cheapest file that actually installs the page state an ordering could
+expose, rather than its cheapest file outright. The whole of this file runs in
+54.05 s on this host, and each child is capped at :data:`_RUN_TIMEOUT_S`. The
+exhaustive sweeps they sample — every test of
 the changed file run alone, and the whole family run in reverse and in a
 shuffled order — were run out of band and are committed under
 ``meta/profiling/``; the tests below check those records are complete rather
@@ -64,6 +72,8 @@ import random
 import re
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 from types import ModuleType
 
@@ -125,6 +135,14 @@ BEFORE_TEARDOWN_PER_TEST = 0.327
 #: They are not vacuous: ``test_the_bars_reject_the_pre_fix_teardown`` feeds
 #: the same comparison an artefact with the 0.5 s poll's teardown added back
 #: and requires it to fail every one of them.
+#:
+#: What they do **not** cover, and what covers it instead: these bars compare
+#: two committed artefacts, so no change to the code can move them. The saving
+#: itself — the ``live`` fixture actually asking its serve loop to wake 20
+#: times a second, and actually stopping promptly when it does —
+#: is guarded behaviourally by
+#: :class:`TestBrowserFixtures_ThePollIntervalIsStillApplied`. That class, not
+#: these bars, is what fails if the fixture stops passing ``poll_interval``.
 MIN_SECONDS_SAVED = 80.0
 MIN_SHARE_POINTS_SAVED = 5.0
 MIN_TEARDOWN_SECONDS_SAVED = 100.0
@@ -138,9 +156,21 @@ MAX_FAMILY_TO_REST_RATIO = 0.50
 #: breaks, and an ordering nobody can replay is not evidence.
 SHUFFLE_SEED = 20261015
 
-#: AC-3 runs the real thing on the family's smallest file. The exhaustive
+#: AC-3 runs the real thing on one file of the family. The exhaustive
 #: whole-family reverse and shuffled runs are in :data:`ORDER_RECORD`.
-ORDER_PROBE_FILE = "tests/test_puzzle_solver_mirror.py"
+#:
+#: ``resume.py`` and not the family's cheapest file (``mirror.py``, 5 tests,
+#: 3.34 s): the cross-talk :data:`PAGE_ISOLATION` actually names is a
+#: ``localStorage`` save surviving a reload, a ``page.route`` interceptor and a
+#: context listener outliving the test that installed them — and ``mirror.py``
+#: installs none of those, so an ordering over it could not expose any of them.
+#: ``resume.py`` writes, corrupts and restores the save and reloads, and
+#: installs a context ``request`` listener. It is the cheapest file that does
+#: (15 tests, 16.11 s in :data:`AFTER_ARTEFACT`, so ~20 s per ordering against
+#: ``marking.py``'s 72 tests and 39.58 s).
+#: ``test_the_probe_file_installs_the_state_the_ordering_is_about`` keeps that
+#: choice honest rather than leaving it to this comment.
+ORDER_PROBE_FILE = "tests/test_puzzle_solver_resume.py"
 
 #: AC-5's in-suite sample: one test per kind of page state the declaration
 #: names as un-resettable — a localStorage save restored across a reload, a
@@ -156,7 +186,37 @@ ALONE_PROBES = (
     "test_a_refused_payload_shows_no_controls",
 )
 
-_RUN_TIMEOUT_S = 600
+#: Wall clock each child pytest below is allowed. The dearest of them is an
+#: ordering over :data:`ORDER_PROBE_FILE`, measured at 21.51 s (it was 8.46 s
+#: while the probe was the family's cheapest file); 90 s is ~4x that, which is
+#: headroom for a loaded host without letting one hung child hold a gate for
+#: ten minutes. There are six of these tests, so the old 600 s bound was up to
+#: an hour of gate spent waiting on a child that was never going to finish.
+_RUN_TIMEOUT_S = 90
+
+#: ``socketserver.serve_forever``'s stdlib default poll interval — the wait
+#: this card removed, quoted here as the thing the guards below must stay well
+#: clear of. Not imported from ``socketserver``: the point is the 0.5 s the
+#: measurements were taken against, not whatever a future stdlib defaults to.
+STDLIB_POLL_INTERVAL_S = 0.5
+
+#: The poll interval every committed artefact in this card was measured under.
+#: Used only as a diagnostic: if the constant moves, the artefact comparisons
+#: above are comparing runs taken under different intervals, and the failure
+#: should say that rather than blaming the bars.
+POLL_INTERVAL_AS_MEASURED = 0.05
+
+#: How long the ``live`` fixture's teardown may take, as an absolute bound and
+#: deliberately **not** derived from ``_SERVE_POLL_INTERVAL_S``: a bound
+#: computed from the constant would move with it and could never fail on a
+#: reverted interval. 0.2 s is under half the stdlib 0.5 s wait and 4x the
+#: 0.05 s the fixture asks for, so it is clear of both.
+MAX_LIVE_TEARDOWN_S = 0.2
+
+#: Slept after the serve thread starts, before timing its stop, so that the
+#: loop is measured *inside* a poll wait. Without it the stop can be timed
+#: before the loop reaches its first wait, which is fast at any interval.
+_SERVE_SETTLE_S = 0.05
 
 
 def _load_ranker() -> ModuleType:
@@ -323,6 +383,48 @@ def _fixture_scope(fixture: object) -> str:
     raise AssertionError(f"{fixture!r} is not a pytest fixture")
 
 
+def _recorded_poll_interval(call: dict[str, object]):
+    """The poll interval a recorded ``threading.Thread(...)`` call hands on.
+
+    ``threading.Thread`` forwards ``args``/``kwargs`` to its target, so the
+    interval the serve loop will actually use is inside those, not among the
+    ``Thread`` keywords themselves. Both forms are read — ``kwargs={...}`` as
+    the ``live`` fixture spells it, and a positional ``args=(interval,)`` —
+    so that a rewrite that keeps passing the interval differently still
+    passes, and only one that stops passing it fails. ``None`` means the
+    target was started with no interval at all.
+    """
+    target_kwargs = call.get("kwargs") or {}
+    if isinstance(target_kwargs, dict) and "poll_interval" in target_kwargs:
+        return target_kwargs["poll_interval"]
+    target_args = call.get("args") or ()
+    if target_args:
+        return target_args[0]
+    return None
+
+
+def _fixture_function(fixture: object):
+    """The undecorated generator function behind a ``@pytest.fixture``.
+
+    So that the ``live`` fixture's own setup and teardown can be driven by hand
+    and timed, which pytest gives no hook for: its teardown runs after the test
+    has finished reporting. pytest 9 wraps the function in a
+    ``FixtureFunctionDefinition``; older versions decorate the function itself.
+    Both are handled, and an unrecognised shape raises rather than silently
+    handing back something that is not the fixture.
+    """
+    getter = getattr(fixture, "_get_wrapped_function", None)
+    if getter is not None:
+        return getter()
+    for attribute in ("_fixture_function", "__wrapped__"):
+        function = getattr(fixture, attribute, None)
+        if function is not None:
+            return function
+    if getattr(fixture, "_pytestfixturefunction", None) is not None:
+        return fixture
+    raise AssertionError(f"cannot unwrap {fixture!r}")
+
+
 def _pytest(*args: str, env_extra: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     """Run a child pytest from the repo root and hand back the result."""
     import os
@@ -422,9 +524,23 @@ class TestBrowserFixtures_FamilyShareIsRecorded:
 
         missed = _failed_bars(_saving(before, reverted), 422)
 
+        # Said first, and separately, because one of the five bars reads the
+        # live constant: if the constant itself has moved, this test fails for
+        # that reason and not because a bar went slack, and the message has to
+        # say which. (The constant's *application* is guarded behaviourally by
+        # TestBrowserFixtures_ThePollIntervalIsStillApplied, not here.)
+        assert _SERVE_POLL_INTERVAL_S == POLL_INTERVAL_AS_MEASURED, (
+            f"_SERVE_POLL_INTERVAL_S is now {_SERVE_POLL_INTERVAL_S}s, not the "
+            f"{POLL_INTERVAL_AS_MEASURED}s both committed artefacts were "
+            f"measured under. The bars above compare those two artefacts, so "
+            f"they say nothing about the new interval: re-measure the after "
+            f"profile at {_SERVE_POLL_INTERVAL_S}s and re-record the A/B, "
+            f"rather than moving the constant alone"
+        )
         assert len(missed) == 5, (
-            f"a reverted poll interval still clears some of AC-1's bars, so "
-            f"those bars do not test anything: only {missed} failed"
+            f"a reverted poll interval still clears {5 - len(missed)} of AC-1's "
+            f"five bars, so those bars have gone slack and would not trip on a "
+            f"regression of this size: only {missed} failed"
         )
 
     def test_the_document_records_the_before_and_the_after(self) -> None:
@@ -466,6 +582,105 @@ class TestBrowserFixtures_FamilyShareIsRecorded:
         block = report.partition("## Cost families")[2].partition("\n## ")[0]
         assert block.strip(), "the report no longer has a cost-families block"
         assert block.strip() in document
+
+
+# ==========================================================================
+# AC-1 — and the saving itself, measured off the running fixture
+# ==========================================================================
+
+
+class TestBrowserFixtures_ThePollIntervalIsStillApplied:
+    """The whole 126 s saving is one kwarg; these two tests are what holds it.
+
+    Everything above compares two committed artefacts, which no edit to the
+    code can move, so a fixture that stopped passing ``poll_interval`` — the
+    most plausible shape of a future refactor, ``thread =
+    threading.Thread(target=server.serve_forever, daemon=True)``, with the
+    constant left defined and unused — would take the entire saving back and
+    leave this file green. These tests pin the *application* of the constant
+    and the *behaviour* that application buys, never its literal value:
+
+    * :meth:`test_the_live_fixture_passes_its_poll_interval_to_the_serve_loop`
+      records what the fixture hands ``threading.Thread`` and fails if the
+      interval is not there, whatever the constant says;
+    * :meth:`test_the_live_fixture_stops_well_inside_the_stdlib_wait` times the
+      fixture's real teardown against an absolute 0.2 s, so it also fails if
+      the constant is raised back to the stdlib 0.5 s while still being passed.
+
+    Both drive the real ``live`` fixture by hand rather than re-building a
+    server that resembles it: a copy of the fixture's own code would keep
+    passing the interval after the fixture stopped. Together they cost 0.24 s
+    (0.17 s + 0.07 s measured), and both fail on the mutant above.
+    """
+
+    def test_the_live_fixture_passes_its_poll_interval_to_the_serve_loop(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The kwarg reaches ``serve_forever``, read off the real fixture."""
+        recorded: list[dict[str, object]] = []
+        real_thread = threading.Thread
+
+        def spy(*args, **kwargs):
+            recorded.append(kwargs)
+            return real_thread(*args, **kwargs)
+
+        monkeypatch.setattr(threading, "Thread", spy)
+
+        generator = _fixture_function(_live_fixture)(tmp_path, monkeypatch)
+        next(generator)
+        try:
+            serve_loops = [
+                kwargs
+                for kwargs in recorded
+                if getattr(kwargs.get("target"), "__name__", "") == "serve_forever"
+            ]
+        finally:
+            with pytest.raises(StopIteration):
+                next(generator)
+
+        assert len(serve_loops) == 1, (
+            f"the live fixture started {len(serve_loops)} serve_forever threads; "
+            f"this guard reads the poll interval off exactly one"
+        )
+        interval = _recorded_poll_interval(serve_loops[0])
+        assert interval is not None, (
+            "the live fixture no longer passes poll_interval to serve_forever, so "
+            "its serve loop is back on socketserver's "
+            f"{STDLIB_POLL_INTERVAL_S}s default and every browser test pays a "
+            f"0-{STDLIB_POLL_INTERVAL_S}s teardown wait again — the whole of "
+            f"CARD-235's ~126 s saving. Pass "
+            "kwargs={'poll_interval': _SERVE_POLL_INTERVAL_S} as the fixture did"
+        )
+        assert interval == _SERVE_POLL_INTERVAL_S
+        assert interval < STDLIB_POLL_INTERVAL_S
+
+    def test_the_live_fixture_stops_well_inside_the_stdlib_wait(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """And the kwarg does what it is for: ``shutdown()`` returns promptly.
+
+        The fixture's teardown is driven by hand because pytest runs the real
+        one after the test has finished reporting, where nothing can time it.
+        The sleep before the clock starts is what makes the measurement mean
+        something: it puts the serve loop inside a poll wait, which is the
+        state every real teardown finds it in.
+        """
+        generator = _fixture_function(_live_fixture)(tmp_path, monkeypatch)
+        next(generator)
+        time.sleep(_SERVE_SETTLE_S)
+
+        started = time.perf_counter()
+        with pytest.raises(StopIteration):
+            next(generator)
+        elapsed = time.perf_counter() - started
+
+        assert elapsed < MAX_LIVE_TEARDOWN_S, (
+            f"the live fixture took {elapsed:.3f}s to stop its server, over the "
+            f"{MAX_LIVE_TEARDOWN_S}s bound and near socketserver's "
+            f"{STDLIB_POLL_INTERVAL_S}s default poll. shutdown() cannot return "
+            f"until the serve loop next wakes, so this is the wait CARD-235 "
+            f"removed coming back: 422 browser tests pay it once each"
+        )
 
 
 # ==========================================================================
@@ -537,6 +752,30 @@ class TestBrowserFixtures_OrderIndependent:
         # silently ran in collection order would prove nothing.
         assert [node for node, _ in reported] == order
         assert {verdict for _, verdict in reported} == {"PASSED"}
+
+    def test_the_probe_file_installs_the_state_the_ordering_is_about(self) -> None:
+        """The probe has to be a file where an ordering could expose something.
+
+        Running two orderings over a file that never saves to ``localStorage``,
+        never intercepts a request and never installs a listener proves only
+        that pytest can reorder tests. :data:`PAGE_ISOLATION` names those three
+        mechanisms as the family's cross-talk risk, so the probe file is
+        required to carry at least an interceptor or a listener as well as a
+        save — which is why :data:`ORDER_PROBE_FILE` is not the cheapest file.
+        """
+        assert ORDER_PROBE_FILE in _family_files()
+        source = (REPO_ROOT / ORDER_PROBE_FILE).read_text(encoding="utf-8")
+
+        assert re.search(r"localStorage", source), (
+            f"{ORDER_PROBE_FILE} touches no localStorage, so an ordering over "
+            f"it cannot expose a save outliving the test that wrote it"
+        )
+        assert re.search(r"\.route\(|\.on\(", source), (
+            f"{ORDER_PROBE_FILE} installs neither a page.route interceptor nor "
+            f"a listener, which is what PAGE_ISOLATION names as the risk an "
+            f"ordering is meant to find; point ORDER_PROBE_FILE at a file that "
+            f"does"
+        )
 
     def test_reverse_order_passes(self) -> None:
         self._run_in(list(reversed(self._probe_ids())))

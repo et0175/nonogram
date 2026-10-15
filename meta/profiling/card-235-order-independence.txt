@@ -12,7 +12,13 @@
 # The shuffle is `random.Random(20261015).shuffle(sorted(ids))` — a recorded
 # seed, not a fresh one, because an ordering nobody can replay is not evidence.
 # The same seed is `SHUFFLE_SEED` in tests/test_browser_fixture_scope.py, which
-# runs the same two orderings over the family's smallest file in-suite; this
+# runs the same two orderings over tests/test_puzzle_solver_resume.py in-suite
+# (CORRECTED at review cycle 2: this line used to say "the family's smallest
+# file", which was mirror.py and was true when this record was written. The
+# probe was deliberately moved because the smallest file installs no
+# localStorage save, no page.route and no listener, so an ordering over it
+# could only ever have proved that pytest can reorder tests. resume.py writes
+# and restores the save, which is the cross-talk PAGE_ISOLATION names.); this
 # record is the exhaustive version, kept out of the suite because ~10 minutes
 # of re-running the family twice is not worth paying on every gate.
 #
