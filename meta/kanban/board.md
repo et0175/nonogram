@@ -99,8 +99,7 @@ _One coherent frame, so the order is forced rather than chosen: the frame lands 
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-- **CARD-221** The book interior letters in the packaged face, so its geometry stops depending on the host · P1 · architectural · wave 38 · implementation agent running · worktree `../PythonProject4-CARD-221` · branch `card/221-packaged-interior-face` · its proof of success is CARD-205's own two red-off-host folio tests going green on both faces
-- **CARD-212** Big boards repeat their clues on both sides · P2 · standard · wave 38 · implementation `ee0d3a0` complete (15 of 16 mutants killed), **review cycle 1 running** · worktree `../PythonProject4-CARD-212` · branch `card/212-clues-both-sides` · ⚑ owner decision pending: the doubling bar (24 px/cell) leaves a 25×15 at 1440×900 0.47 px short, so a 1440-wide laptop gets no second gutter
+_(none — wave 38 is complete. **CARD-217 runs next and alone**, per the owner's 2026-10-14 decision; nothing else starts until it is done.)_
 
 ## Review
 _(none)_
@@ -110,6 +109,8 @@ _(none)_
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
 
 ## Done
+- **CARD-221** The book interior letters from packaged data, so a book's printed gutter stops depending on the machine that made it · P1 · architectural · score 7.5 then 8.5 · **5 fix cycles** · AC/EC/G gate failed once on AC-2 being true-but-unevidenced (CARD-205 had already delivered its outcome), passed on re-verification with 34 mutants across both passes · merge gate 7073/0 · merged 806dbe1 · actual 2.0d against 1d · ⚑ `Pillow>=10.0` unbounded is the one lever left, carded to the architect station
+- **CARD-212** Big boards repeat their clues on both sides — left and right, top and bottom · P2 · standard · score 7.0 then 8.5 · 3 fix cycles · AC/EC/G gate passed with 14 fresh mutants, 14 killed · merge gate failed once on its own test racing a 600 ms bound under concurrent load, then 7053/0 · merged a2cd3f3 · actual 0.7d · found and fixed two defects CARD-193 had shipped
 - **CARD-205** The table of contents lists sections, not puzzles — guide, each level's range, Solutions · P1 · standard · score 8.8 (cycle 1/3 — 0 critical, 11/11 mutants killed) · 4 fix cycles · AC/EC/G gate FAILED on G-1 (its named test had never existed; its mechanism clause described CARD-200's behaviour) — amended at the decompose station, then passed · merge gate 7019/0 in 1042s · merged d30e0f0 · actual 1d against 1d, the one card of this batch to land on its estimate · corpus 310 → 307 pages · ⚑ FR-043's per-puzzle ToC criteria + the legacy admin/pdf_generator.py ToC owed at the architect station
 - **CARD-211** Region leaves the brush menu and becomes its own control · P2 · standard · score 9.0 (cycle 1/3 — 0 critical; 1 fix cycle for two owner decisions: brush and Region independent, trigger pinned to its widest brush) · AC/EC gate: all evidenced (AC-7 added at the gate) · merge gate 6971/0 · merged 4790243 · actual 0.5d · unblocks CARD-212 and CARD-216
 - **CARD-204** Puzzle pages right-align by parity, gain a 2x2cm QR slot, and keep every two-up folio · P2 · architectural · scores 8.5 (cycle 4) then 6.5 (cycle 5, on the merge-gate fix: 1 critical, fixed) · 8 fix cycles · gate 6938/0 · merged cd641df · ⚑ FR-040/EC-027 + FR-032 amendments owed at the architect station
