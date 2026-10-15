@@ -7,67 +7,7 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
-  - id: CARD-234
-    phase: review
-    review_cycle: 1
-    note: "9.0 cycle 1, 0 gating; AC/EC/G 11/11; MERGE GATE RED on the pre-existing flaky memory guard. Held unmerged by owner decision 2026-10-15: fix the guard (CARD-237) first, then re-gate and merge."
-  - id: CARD-235
-    phase: review
-    review_cycle: 1
-    branch: card/235-browser-fixture-scope
-    worktree: ../PythonProject4-card-235
-    note: "implementation complete 4302684; own merge gate GREEN 7174/0 solo+locked. Premise was wrong: lever was socketserver's 0.5s poll, not fixture scope; no page scope changed."
-  - id: CARD-237
-    phase: implementation
-    branch: card/237-memory-guard-floor-relative
-    worktree: ../PythonProject4-card-237
-    started: 2026-10-15T11:21:04Z
-    note: "OWNER-SCHEDULED 2026-10-15: cut in flight to fix the flaky memory headroom guard blocking every merge gate (~3 false reds in 4). P1, ahead of the rest of the wave." 
-    branch: card/234-cover-packaged-face
-    worktree: ../PythonProject4-card-234
-    started: 2026-10-15T08:44:16Z
-  - id: CARD-235
-    phase: implementation
-    branch: card/235-browser-fixture-scope
-    worktree: ../PythonProject4-card-235
-    started: 2026-10-15T08:44:16Z
-merged:
-  - id: CARD-217
-    review_cycle: 1
-    success_commit: 321284f
-    merge_commit: 967a7fa
-    note: "wave 39, solo. Cycle 1 = 9.0, cleared first time; 2 fix cycles, both spent making the measurement's own claims checkable. AC/EC/G gate passed, 63 mutants across the card. Merge gate 7156/0. Actual ~0.25d. Answer: the browser family is 39.78% of the suite, neither card hypothesis. Re-points CARD-218/219/220 and produces CARD-235/236."
-  - id: CARD-221
-    review_cycle: 2
-    success_commit: 0188110
-    merge_commit: 806dbe1
-    note: "cycle 1 = 7.5 (3 gating), cycle 2 = 8.5; 5 fix cycles; AC/EC/G gate FAILED once on AC-2 being true-but-unevidenced (CARD-205 had already delivered its outcome), passed on re-verification; merge gate 7073/0. Actual 2.0d against 1d. Unblocks CARD-234 and CARD-222."
-  - id: CARD-212
-    review_cycle: 2
-    success_commit: 4638bf5
-    merge_commit: a2cd3f3
-    note: "cycle 1 = 7.0 (3 gating), cycle 2 = 8.5; 3 fix cycles; AC/EC/G gate passed with 14 fresh mutants, 14 killed; merge gate FAILED once on its own test racing a 600 ms bound under concurrent load, passed at 7053/0 on a quiet host. Actual 0.7d. Unblocks CARD-216 and CARD-213."
-  - id: CARD-205
-    review_cycle: 1
-    success_commit: bf45a3d
-    merge_commit: d30e0f0
-    note: "cycle 1 = 8.8 (0 critical, 11/11 mutants killed); 4 fix cycles; AC/EC/G gate FAILED on G-1 (its named test had never existed and its mechanism clause described CARD-200's behaviour) - amended at the decompose station, gate re-passed; merge gate 7019/0 in 1042s. Actual 1d against 1d. Unblocks CARD-221 and CARD-206."
-  - id: CARD-211
-    review_cycle: 1
-    success_commit: 207831d
-    merge_commit: 4790243
-    note: "cycle 1 = 9.0 (0 critical); 1 fix cycle; AC/EC gate all passed; merge gate 6971/0. Unblocks CARD-212 and CARD-216, which inherit its rebase surface in puzzle_solve.html / solver.js / admin.css."
-  - id: CARD-204
-    review_cycle: 5
-    success_commit: d78c7a9
-    merge_commit: cd641df
-    note: "8 fix cycles, 5 reviews, 3 owner decisions, 2 decompose amendments, 1 architect deferral; gate 6938/0. Unblocks CARD-205..209 and CARD-215."
-  - id: CARD-214
-    review_cycle: 1
-    success_commit: fe2c945
-    merge_commit: d49e73a
-    note: "cycle 1 = 8.1; AC/EC gate all passed; merge gate 6883/0. Unblocks CARD-215 and CARD-216."
+active: []
 escalated: []
 queued:
   - id: CARD-215
@@ -168,4 +108,15 @@ conflict_edges:
 # runs 7156 tests in ~1040s, and CARD-217 measured the browser family at 39.78% of that.
 # Conflict edges that shaped the choice: 234-228 and 228-215 (hotspots), 213-216 and
 # 213-235 (tests/test_puzzle_solver_*), 220-235 (tests/**).
-last_updated: '2026-10-15T11:21:04Z'
+# NOTE 2026-10-15T17:30Z: WAVE 40 COMPLETE - 3 of 3 merged (CARD-234, CARD-235, CARD-237).
+# The wave cost far more than its 2d of estimates, and all of the overrun was test
+# infrastructure rather than card work. Three defects of ONE shape were found and fixed:
+# a test whose verdict depends on something other than the code it judges.
+#   CARD-237  a headroom guard measuring the interpreter's footprint, not the export
+#   CARD-235  a saving guarded only by frozen artefacts no code change could move
+#   CARD-238  two tests asserting on a gitignored host file (CARD and NOT fixed - owner
+#             chose to card it and leave their timing log untouched; main is RED on
+#             test_the_real_log_is_entirely_well_formed until it lands)
+# Next: CARD-238 (P1, the third of those), then the interior redesign in the order under
+# queued_after_card_217 - CARD-228 (dots glyph) then CARD-222 (the frame).
+last_updated: '2026-10-15T17:30:00Z'

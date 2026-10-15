@@ -1,6 +1,6 @@
 # CARD-235: The browser tests stop paying for a page they throw away, 40% of the suite
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/235-browser-fixture-scope
-**Worktree:** ../PythonProject4-card-235
+**Worktree:** —
 **Source:** CARD-217's profile, 2026-10-15 — `meta/profiling/suite-hotspots-20261015.md`
 **Idea:** —
 **Wave:** 40
@@ -17,9 +17,9 @@
 **Touches:** tests/conftest.py, tests/test_puzzle_solver_*.py (12 files), meta/profiling/
 **Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-10-15T08:44:16Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-15T17:28:29Z
+**Actual:** 1.1d
+**Merge commit:** 6ac8627
 **Blocked by:** —
 
 ## What to implement
@@ -463,3 +463,41 @@ wall clock unusable as evidence.
   mistake CARD-217 was cut to end, and the one CARD-218/219 were cut on.
 - [Status] gates all green; **held unmerged pending CARD-237**, which fixes the flaky memory
   guard. Merging this first would hand its own merge gate a ~3-in-4 chance of a false red.
+- [Build gate] RE-GATE attempt 1 **FAILED**, and not on this card's code —
+  `tests/test_suite_profile.py::TestSuiteTimingLog_FormatUnchanged::test_the_last_entry_is_this_cards_profiling_run`
+  red: `expected the profiling run last, got card-235-merge-gate`. Diagnosis, with the decisive
+  check run on main:
+  * That test, and its sibling `test_the_real_log_is_entirely_well_formed`, assert on
+    `meta/kanban/suite-timing.log` — which is **gitignored host state** (`.gitignore:61 *.log`).
+    Their verdict therefore depends on which machine and which worktree runs them, and on what
+    has been appended since.
+  * This card's agent appended one line (`card-235-merge-gate …`) to its WORKTREE's copy, which
+    is sanctioned behaviour — `cmd-run.md` instructs the dispatcher to append a timing line per
+    gate. That made the file exist in that worktree, which un-skipped both tests, and the
+    last-entry test fails because a gate line is not a profiling run.
+  * **The same class is red on main**, differently and for a different reason: main's log carries
+    CARD-217's OWN gate entry, whose `[135ms/test] — the profiling card's own gate; …` suffix
+    **CARD-217's own parser rejects as malformed**, so
+    `test_the_real_log_is_entirely_well_formed` fails there. Verified by running it in the main
+    repo and by calling `malformed_timing_lines` directly: 1 malformed of 17 non-comment lines.
+  * This also finally explains the skip-count variance that has dogged this wave: CARD-234's
+    worktree had no log, so both tests SKIPPED (11 skips, green); this worktree had one, so they
+    RAN (9 skips, 1 red).
+  Resolution: the worktree's log is a gitignored artefact of the agent's own run, not part of the
+  card, and could never have been merged. Removed (a copy kept in the session scratchpad) and the
+  gate re-run — restoring exactly the conditions CARD-234 was gated under. **Nothing about this
+  card's code changed between the red and the green.**
+- [Build gate] RE-GATE attempt 2 **PASSED**: rebased `7b30236` onto main `cd79e77`, full suite
+  **7228 passed, 11 skipped, 0 failed in 877.04s**, exit 0, under the lock. Target unmoved
+  between rebase and merge, so the tree gated is the tree that shipped.
+- [Trace] no write-back owed: FR-044 (the player) is this card's traced FR, but the card changes
+  only the tests' fixture timing and adds guards — it ships no new behaviour for FR-044, so there
+  is no new evidence to append. Recorded rather than skipped silently.
+- [Closed] merged 6ac8627, actual 1.1d against 1d. Two review cycles (8.0 then 9.0), one fix
+  cycle, 11/11 AC/G demonstrated with zero skips. ⚑ **The card's premise was wrong and the
+  measurement said so** — that is the result worth carrying, not the saving: CARD-218/219/220
+  were all cut on the same unmeasured hypothesis, and CARD-217 exists precisely so the next
+  test-cost card starts from a profile instead.
+- [Found in flight] two defects in `tests/test_suite_profile.py`'s host-state coupling, carded as
+  CARD-238 by owner decision 2026-10-15. The owner chose to leave their own timing log untouched,
+  so main stays red on `test_the_real_log_is_entirely_well_formed` until that card lands.
