@@ -631,6 +631,12 @@ ERROR_EXIT_CODES = [
     # INTERNAL_ERROR while every other row stays green.
     (errors.SizeTooSmallForSource, cli.ExitCode.INVALID_INPUT),
     (errors.InvalidPuzzleName, cli.ExitCode.INVALID_INPUT),
+    # CARD-234: a book title holding a character the packaged face has no
+    # glyph for, refused rather than printed as .notdef boxes on a cover. Like
+    # ``NotUniquelySolvable`` below, nothing in the CLI raises it — it comes
+    # from the admin panel's book export — and like every row in this group,
+    # what the user does about it is go and change what they typed.
+    (errors.UnletterableTitle, cli.ExitCode.INVALID_INPUT),
     (errors.UnsupportedDifficulty, cli.ExitCode.INVALID_INPUT),
     (errors.GenerationAbandoned, cli.ExitCode.GENERATION_FAILED),
     (errors.SolverTimeout, cli.ExitCode.GENERATION_FAILED),

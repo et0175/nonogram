@@ -173,3 +173,18 @@ class UnsupportedDifficulty(NonogramError):
     tiers exist is a domain rule and not argument syntax, so ``--difficulty``
     carries no ``choices=`` (AC-021, ADR-0010, CARD-010 guardrail G-4).
     """
+
+
+class UnletterableTitle(NonogramError):
+    """A book title holds a character the packaged face has no glyph for.
+
+    Raised by ``admin.book_pdf_generator._cover_title_face`` when the
+    generated title cover is asked to letter a title the shipped DejaVu Sans
+    (ADR-0006/R1 package data) cannot set — a CJK ideograph, an unassigned
+    codepoint, a stray control character. A book title is typed by the owner,
+    so its repertoire is unbounded, unlike the interior's (CARD-221); and the
+    cover is a file KDP prints and sells, so a title the face cannot letter is
+    refused by name rather than printed as a row of ``.notdef`` boxes nobody
+    re-reads (CARD-234, AC-4). The message names every offending character and
+    its codepoint, so the fix is to retype that character.
+    """

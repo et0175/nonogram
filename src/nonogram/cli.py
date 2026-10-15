@@ -53,6 +53,7 @@ from nonogram.errors import (
     SizeOutOfRange,
     SolverTimeout,
     UnknownLibraryImage,
+    UnletterableTitle,
     UnreadableImage,
     UnsupportedDifficulty,
 )
@@ -110,6 +111,13 @@ _EXIT_CODES: dict[type[NonogramError], ExitCode] = {
     # shaped grid.
     ImageNeedsManualCrop: ExitCode.INVALID_INPUT,
     InvalidPuzzleName: ExitCode.INVALID_INPUT,
+    # CARD-234: a book title the packaged face cannot letter on a cover. No
+    # CLI path raises it — it comes from the admin panel's book export — and
+    # the row exists for the reason ``NotUniquelySolvable``'s does below:
+    # every declared domain error must be grouped, and INTERNAL_ERROR is
+    # reserved for a mapping gap. This group, because what the user does
+    # about it is go and change what they typed.
+    UnletterableTitle: ExitCode.INVALID_INPUT,
     UnsupportedDifficulty: ExitCode.INVALID_INPUT,
     GenerationAbandoned: ExitCode.GENERATION_FAILED,
     SolverTimeout: ExitCode.GENERATION_FAILED,
