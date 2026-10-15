@@ -424,3 +424,71 @@ floor and the margin is wider than stated, so no figure needed restating.
     labels already handle.
 - [Note for the merge gate] This card adds 79 tests, so the gate should read **~7152 passed**,
   not 7073.
+
+- [AC/EC/G gate] 2026-10-15 — **PASSED, no gating failure.** 22 further mutants (63 across the
+  card now), 17 killed, 5 survivors — and the survivors cluster somewhere worth knowing about.
+  `git status --porcelain -- src tests` empty; every scenario file removed by exact path and
+  the directories re-listed.
+  - **AC-3 verified the way a gate must.** The gate re-derived **every** figure in the
+    conclusion from the artefact with its own parser — all 14 rows of the deciding table, the
+    phase totals, the 10.4x gap, the top-50 share, the conservative-definition caveat, and the
+    corrected commit-date range via `git log --diff-filter=A` — and every one matched. The
+    claim four cards are now pointed by is the artefact's own arithmetic.
+  - **The landmine is genuinely defused, and the gate extended the scenario rather than
+    rebuilding it.** Reproducing the agent's scenario gave **exactly 81 passed**, with the two
+    parametrised tests expanding by one each; deleting the second profile's document reds two
+    tests, a wrong sha reds the citation test. The gate then added its own: **S4**, a newer
+    profile whose document still cites the superseded run — the precise failure the test was
+    reframed around — **killed**.
+  - **The render snapshot is pinned in both directions.** Dropping a path reds with a message
+    naming it (`added since freeze` / `gone since freeze`), and the gate's own probe — a new
+    file containing `export_book` dropped into `tests/` — **also** reds. Symmetry is structural,
+    not accidental.
+  - **The rewritten contention caveat is correct, not merely different.** Both legs re-derived:
+    render 176.82 s call / **0.03 s** teardown against the browser family's 137.97 s of 144.37
+    (95.6%), so the wait-bound family is the browser one and CPU starvation inflates the
+    winner; and the bound, 240 s at 25% = 60 CPU-s = 78.95 s wall, excess **161.05 s** against
+    a **170.77 s** margin — charging every second of the sweep to the family still leaves
+    205.19 s against 195.42 s.
+  - **G-1 is a fact about the diff**: `--numstat` is 523/0, 21305/0, 253/0, 112/0, 534/0 —
+    **zero deleted lines across the whole card**, and no pre-existing test file appears in the
+    diff at all. The gate notes this is strictly stronger evidence than the card's own
+    parenthetical "test", which resolves to nothing runnable and would need the full suite to
+    check literally.
+- [AC/EC/G gate — the findings, none gating, and the one that matters]
+  - **F-1: nothing pins the hotspots document's body to the script's output.** Rewriting the
+    headline in the prose (366.19 -> 166.19 s, 39.78% -> 19.78%) ships **79 passed**. So does
+    falsifying a ranking row, and so does perturbing `_pct`'s denominator by 1%. The sha256
+    citation pins **which artefact** the document derives from; it does not pin **what the
+    document says about it**. Today's figures are right — checked twice, independently — so
+    this is a regression risk rather than a defect, and it is six lines to close.
+  - **The gate judged the orchestrator's deferral of N-004 "half honest", correctly.** The
+    recorded reason addressed the denominator question, which genuinely is a design decision
+    not to be rushed into a measurement card. But N-004's second half — "nothing checks the
+    committed hotspots document against the script's output" — carries no design question at
+    all, and the gate closed it by hand in one command. The reason as written let the design
+    question carry a check that did not need it.
+  - **F-2: the sha-citation test only checks `found[-1]`**, so a non-latest artefact's document
+    can cite the wrong run unnoticed (scenario S5 survived). Harmless with one artefact; live
+    the moment CARD-218 commits the second — which is the exact future N-003 was reframed
+    around.
+  - **F-3: `rank_files`'s tie-break is unpinned** while the identical one in `rank_tests` is.
+    Not a live determinism hole (`sorted` is stable over an insertion order that is a pure
+    function of the artefact), an untested asymmetry.
+  - **F-4: "unimodal" is loose** — the histogram is `{0.0:41, 0.1:22, 0.2:37, 0.3:81, 0.4:141,
+    0.5:100}`, strictly bimodal with a spike at ~0.0. The **load-bearing** half, "massed at
+    0.3–0.5 with no tail", is exactly true, which is what the argument needs.
+- [AC/EC/G gate — retro input, and the first one generalises past this card]
+  - **63 mutants in, the five survivors cluster in exactly one place: derived numbers published
+    in prose.** The code is well pinned; the committed document is pinned only by the hash of
+    its input. **"Cite the source's hash" proves provenance, not arithmetic — they are different
+    guarantees**, and every future measurement card needs both.
+  - **"Verified by scenario, not by assertion" worked and should be reusable.** The agent's
+    claim reproduced to the exact test count and the exact two reds, which made this gate cheap
+    and let the gate *extend* the scenario instead of rebuilding it. A card that replaces one
+    test with four should be expected to state its scenario and its numbers.
+  - **A guardrail whose `(test: …)` is prose costs a gate cycle.** Cards whose guardrail is
+    "change nothing" should cite the diff shape, which is better evidence and free.
+  - **Self-contradicting cards are a merge-gate hazard**: this card carried both "74 tests /
+    ~7147" and "79 / ~7152". Fix cycles must amend the earlier figure **in place**, not only
+    append the corrected one. Done above.
