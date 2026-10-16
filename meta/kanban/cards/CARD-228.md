@@ -1,6 +1,6 @@
 # CARD-228: Difficulty becomes three dots, filled by tier — one glyph the whole book reuses
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/228-difficulty-dots
-**Worktree:** ../PythonProject4-card-228
+**Worktree:** — (removed at merge)
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "Header: difficulty right (three dots plus the word)"; the guide's "difficulty legend reuses the dots from the puzzle headers, so readers learn them here once"; the openers' and solution tiles' dots
 **Idea:** —
 **Wave:** 42
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_book_interior_type_floor.py
 **Review score:** 8.0 (c1) → 8.5 (c2) → 8.0 (c3/3) — min_score met every cycle; severity gate FAILED every cycle; min_improvement missed at c3
 **Started:** 2026-10-16T17:04:17Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-16T20:41:14Z
+**Actual:** 0.5d
+**Merge commit:** 08eecf3
 **Blocked by:** — (escalation resolved 2026-10-16 by owner decision; see the AC-4 amendment below)
 
 ## What to implement
@@ -948,3 +948,41 @@ and CARD-241 named.
   history rather than this card's three. `git checkout -- .` restored it before the rebase and both
   trees verified at 251 files and clean — but the right command was a targeted pathspec, and the
   only reason this was free is that the files were tracked.
+- [Merge gate] **7592 passed, 9 skipped, exit 0 in 842.29s** on the rebased branch, run ALONE.
+  Target did not move between rebase and merge, so the tree gated is the tree that shipped.
+- [Closed] merged **08eecf3**, actual **0.5d against 0.5d** — the estimate was exactly right on
+  wall-clock, which is worth noticing precisely because the card took 3 review cycles, 2 fix cycles,
+  an owner escalation and a follow-up card. The estimate measured the glyph. What it could not
+  measure was the *promise* around the glyph.
+- [Retrospective material — the wave's richest card, and the lesson is not the one it looks like]
+  * **What the three cycles were actually about.** The glyph was never in question: AC-1/2/3/5/6 were
+    green from cycle 1, the geometry was independently verified twice, G-5 held throughout, the
+    src diff is purely additive with zero deletions, and the whole structural fight happened in one
+    test file. The cost was AC-4 — the promise that nothing ELSE in the package draws a round mark,
+    which is what makes "four cards reuse one glyph" real instead of aspirational.
+  * **The transferable root cause, stated generally:** a guard that discriminates by *syntactic form*
+    cannot be made complete, because no authority enumerates the forms. CARD-238 escaped its own
+    family by deriving its set from `dir(os)` et al; here `dir(ImageDraw.ImageDraw)` served the
+    *method* half for exactly the same reason, and that half was sound from cycle 1. The vertex and
+    receiver halves had no such authority, so each cycle's fix closed the named spellings and the
+    next cycle found a new family one level down. **A completeness test over hand-enumerated
+    syntactic shapes is not a completeness test.**
+  * **Default-deny was the right move and still not sufficient.** Cycle 2's inversion — the guard
+    understands a closed set of forms and FAILS on anything else — is what finally killed receivers
+    and binding forms for good, and it is the pattern to reach for. But it moves the frontier rather
+    than closing it: cycle 3 came back through `draw.line`, cross-call ink and a stored bound method.
+    Worth recording so the next card does not expect inversion alone to converge.
+  * **The instrument, not the guard, was the question** — and three cycles is how long it took to see
+    that. The cheaper path would have been to ask at cycle 2 what instrument could possibly hold a
+    universal negative over syntax. The escalation's value was framing it as a choice between
+    instruments rather than as another fix.
+  * **What the review station earned here:** every one of the three cycles' gating findings was found
+    by review, never by a fix, and cycle 3's three survivors were found only because the brief made
+    "try to land a second dot glyph" the review rather than part of it. An adversarial brief with one
+    concrete goal outperformed three general ones.
+  * **Three times in this card a downstream agent refused an instruction of mine and was right**: the
+    `polygon`/`point` "it is free" premise I inherited from cycle 1's report and passed on unchecked;
+    the `draw.text`-literal form I specified, which would not have caught CARD-207 at all; and item
+    6's "moved or replaced" wording, whose two halves are mutually exclusive once the names are back.
+    All three were caught because the briefs said to refuse with evidence rather than comply. That
+    instruction is cheap and it paid three times in one card.

@@ -295,3 +295,9 @@ No blocker: the clause was made true by wording alone, with no code change.
   `/commit` excludes `meta/kanban/`; I pulled the notes into the main copy at each sync point, so
   nothing is lost when the worktree goes. Noting it because the reviewer could only see the worktree.
 - [Closed] merged **9f0ab10**, actual **0.1d against 0.25d**. One review cycle at 9.0, its one low finding fixed in the branch, no escalation. Worktree removed, `card/240-fr044-rule-c` deleted.
+- [Merge gate deviation DISCHARGED] 2026-10-16T20:41Z, and by the stronger run I said it would be.
+  CARD-228's merge gate — **7592 passed, 9 skipped, exit 0** — ran on a branch rebased onto main at
+  `09748b4`, and `git merge-base --is-ancestor 9f0ab10 09748b4` confirms this card's merge was an
+  ancestor of that base. So this card's change WAS covered by a full suite, running with CARD-228
+  merged alongside rather than in isolation, which is exactly the backstop the deviation note
+  promised. Nothing is outstanding.
