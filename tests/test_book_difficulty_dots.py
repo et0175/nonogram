@@ -48,7 +48,8 @@ from __future__ import annotations
 import ast
 import inspect
 import random
-from collections.abc import Mapping
+from collections import Counter
+from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
 import numpy as np
@@ -718,11 +719,70 @@ ROUND_DINGBATS = frozenset(chr(code) for code in range(0x25A0, 0x2600)) | {
 DINGBAT_EXEMPT_MODULES = frozenset({"nonogram.admin.pdf_generator"})
 
 #: How a Pillow draw object is spelled in this package: the bare name
-#: ``draw``, or an inline ``ImageDraw.Draw(...)``. Two known binding shapes are
-#: measured against it — see
-#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_draw_object_in_the_package_is_spelled_draw`,
-#: whose docstring names the shapes it does **not** collect.
+#: ``draw``, or an inline ``ImageDraw.Draw(...)``. Both halves of that are
+#: **default-deny** rather than enumerated (cycle 2, F-101): every written
+#: receiver of a draw-method name must be one of those two or a named
+#: exemption (:data:`NON_DRAW_RECEIVER_SITES`), and every ``.Draw(...)`` call
+#: must sit in a binding form this guard understands
+#: (:data:`DRAW_BINDING_FORMS`) or at a named site
+#: (:data:`DRAW_OBJECT_UNBOUND_SITES`). A spelling nobody predicted is a test
+#: failure, not a silent pass. See
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_receiver_of_a_draw_method_is_a_draw_object`
+#: and
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_draw_object_in_the_package_is_spelled_draw`.
 DRAW_RECEIVER_NAME = "draw"
+
+#: The binding forms :func:`_draw_object_bindings` can read a name out of.
+#: Everything else a ``.Draw(...)`` call can sit in — an attribute or tuple
+#: target, a loop target, a dict value, a ``return`` — is reported as its own
+#: unrecognised form and must then be a named site, which is what makes the
+#: receiver rule converge instead of chasing Python's grammar. This set is the
+#: *understood* half; there is deliberately no attempt to enumerate the other.
+DRAW_BINDING_FORMS = frozenset({"assignment", "annotated assignment", "walrus"})
+
+#: Every ``.Draw(...)`` call in the package that is **not** bound to a name, as
+#: ``(module, form, how many)`` — an equality, not a pattern, so a fifth one is
+#: a failure that has to be looked at.
+#:
+#: * ``receiver`` — ``ImageDraw.Draw(probe).text(...)``, the one-shot text
+#:   metric in ``book_pdf_generator``. It *is* a draw object and
+#:   :func:`_is_draw_receiver` accepts it as one.
+#: * ``argument`` — a draw object built inline and handed straight to a
+#:   function. Safe not because of this line but because the callee's own
+#:   parameter is then a receiver, and the receiver rule
+#:   (:func:`_unrecognised_draw_receivers`) covers it whatever it is called.
+#:   The two mechanisms compose; neither is trusted alone.
+#:
+#: **Why a count and not the enclosing function names.** One of the four sites
+#: sits in a function whose name is in ``meta/profiling``'s frozen
+#: ``RENDER_API_PATTERN``, so writing it out here would add this file to
+#: ``test_suite_profile.py``'s render-heavy set and redden a guard that has
+#: nothing to do with this card — and the snapshot that would have to be
+#: restated lives under ``meta/``, which this card may not commit. The count
+#: keeps the equality's real power (a new unbound site anywhere in a module
+#: changes it); what it gives up is noticing a site *moving* between two
+#: functions of the same module, which is a named limit of this line.
+DRAW_OBJECT_UNBOUND_SITES = (
+    ("nonogram.admin.book_pdf_generator", "argument", 1),
+    ("nonogram.admin.book_pdf_generator", "receiver", 1),
+    ("nonogram.export.pdf", "argument", 2),
+)
+
+#: Every call to a draw-method *name* in the package whose receiver is not a
+#: draw object, as ``(module, enclosing function, method, receiver)`` — an
+#: earned exemption in the shape :data:`DINGBAT_EXEMPT_MODULES` already uses:
+#: an equality against what exists today, plus a second assertion (in
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark`)
+#: that neither site can actually put a round mark on a page.
+#:
+#: Both are ``Image.point``, a per-pixel lookup table: one takes a 256-entry
+#: table built with ``*`` and ``+``, the other a lambda. Neither takes
+#: coordinates, which is the property the second assertion pins — so these are
+#: excluded by what they are, not by a widened bin.
+NON_DRAW_RECEIVER_SITES = (
+    ("nonogram.sourcing.image", "binarize", "point", "scaled"),
+    ("nonogram.sourcing.image", "ink_bounding_box", "point", "greyscale"),
+)
 
 #: The one function allowed to put a round mark on a page.
 THE_DRAWING_SITE = ("nonogram.admin.book_pdf_generator", "_draw_difficulty_dots")
@@ -809,6 +869,10 @@ def _is_draw_receiver(node: ast.AST) -> bool:
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "Draw"
+        # Cycle 2: ``anything.Draw(...)`` used to qualify. Requiring the
+        # factory to be Pillow's own keeps this from accepting a look-alike,
+        # and the real site (``ImageDraw.Draw(probe)``) still passes.
+        and "ImageDraw" in ast.unparse(node.func)
     )
 
 
@@ -846,6 +910,218 @@ def _draw_calls(
     for module, source in sorted(sources.items()):
         walk(ast.parse(source), "<module>", module)
     return calls
+
+
+def _enclosing_walk(
+    sources: Mapping[str, str],
+) -> Iterator[tuple[str, str, ast.AST, ast.AST]]:
+    """Every node as ``(module, enclosing function, parent, node)``.
+
+    The same enclosing-function bookkeeping :func:`_round_mark_sites` and
+    :func:`_draw_calls` do by hand, plus the parent — which is what lets a
+    guard say *what form* a node was written in rather than only that it
+    exists. Takes its sources as an argument for the same reason they do.
+    """
+
+    def walk(node: ast.AST, enclosing: str, module: str) -> Iterator[
+        tuple[str, str, ast.AST, ast.AST]
+    ]:
+        for child in ast.iter_child_nodes(node):
+            yield module, enclosing, node, child
+            inner = (
+                child.name
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                else enclosing
+            )
+            yield from walk(child, inner, module)
+
+    for module, source in sorted(sources.items()):
+        yield from walk(ast.parse(source), "<module>", module)
+
+
+def _uncountable_vertices(
+    calls: Sequence[tuple[str, str, ast.Call]],
+) -> list[tuple[str, str, str]]:
+    """Every vertex argument this guard cannot verify, and why — **default-deny**.
+
+    The inverted form of cycle 1's bound (cycle 2, F-101). Instead of asking
+    "is this a literal of at most :data:`MAX_FLAT_VERTICES` points?" and
+    passing everything the question does not fit, it enumerates the one shape
+    the guard *understands* — a list or tuple display whose elements are all
+    countable — and reports everything else as a complaint:
+
+    * no positional argument at all (``draw.polygon(xy=...)``);
+    * a bare name, a call, a comprehension or a conditional, none of which this
+      walk can count to the end of;
+    * a display containing a starred unpack — ``draw.polygon([*points])`` —
+      which *looks* countable (one element) and is not. This is the form that
+      survived cycle 2 with 198 green, two characters from the form cycle 1's
+      bound already caught, and the reason the default had to invert: the old
+      shape of this guard taught the evasion by complaining about "vertices
+      this guard cannot count";
+    * a countable display over the bound.
+
+    A complaint is a **failure**, not information: the author must either write
+    a countable literal or earn an exemption the way
+    :data:`NON_DRAW_RECEIVER_SITES` does. The guard therefore never has to
+    predict the next spelling — it only has to recognise this one.
+    """
+    complaints: list[tuple[str, str, str]] = []
+    for module, function, call in calls:
+        points = call.args[0] if call.args else None
+        if not isinstance(points, (ast.List, ast.Tuple)):
+            shape = "no positional argument" if points is None else type(points).__name__
+            complaints.append(
+                (module, function, f"not a countable vertex display ({shape})")
+            )
+            continue
+        starred = [element for element in points.elts if isinstance(element, ast.Starred)]
+        if starred:
+            complaints.append(
+                (
+                    module,
+                    function,
+                    f"{len(starred)} starred unpack(s) in the vertex display: its "
+                    f"{len(points.elts)} element(s) are not its vertex count",
+                )
+            )
+            continue
+        if len(points.elts) > MAX_FLAT_VERTICES:
+            complaints.append(
+                (
+                    module,
+                    function,
+                    f"{len(points.elts)} vertices, over the bound of {MAX_FLAT_VERTICES}",
+                )
+            )
+    return complaints
+
+
+def _draw_method_calls(
+    sources: Mapping[str, str],
+) -> list[tuple[str, str, str, ast.AST, ast.Call]]:
+    """Every written attribute call to a draw-method name, *whatever* its receiver.
+
+    ``(module, enclosing function, method, receiver node, call node)``. Unlike
+    :func:`_draw_calls` this does **not** filter on the receiver — filtering is
+    the caller's job, because the point of the receiver guard is to see the
+    receivers the package was not expecting.
+    """
+    return [
+        (module, function, node.func.attr, node.func.value, node)
+        for module, function, _parent, node in _enclosing_walk(sources)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr in ALL_DRAW_METHODS
+    ]
+
+
+def _unrecognised_draw_receivers(
+    sources: Mapping[str, str],
+) -> list[tuple[str, str, str, str]]:
+    """Every draw-method call whose receiver this guard cannot account for.
+
+    ``(module, enclosing function, method, receiver as written)``, sorted.
+    **Default-deny**: a receiver is accounted for only if
+    :func:`_is_draw_receiver` recognises it — the bare name
+    :data:`DRAW_RECEIVER_NAME` or an inline ``ImageDraw.Draw(...)``. An
+    unannotated parameter, an attribute (``self.canvas``), a subscript, a call
+    result: all reported.
+
+    This is what replaces "every spelling the package currently uses" (cycle 2,
+    F-101). The old receiver test enumerated two syntactic shapes and was
+    silent for every other, so a new spelling evaded the guard *and* its own
+    completeness test together; here a new spelling lands in this list and the
+    equality against :data:`NON_DRAW_RECEIVER_SITES` fails. It also catches by
+    *behaviour* rather than by annotation: a parameter is reported because of
+    the draw method written on it, not because of how it was typed.
+    """
+    return sorted(
+        (module, function, method, ast.unparse(receiver))
+        for module, function, method, receiver, _call in _draw_method_calls(sources)
+        if not _is_draw_receiver(receiver)
+    )
+
+
+def _draw_object_bindings(
+    sources: Mapping[str, str],
+) -> list[tuple[str, str, str, str]]:
+    """Every ``.Draw(...)`` call written in the package, by the form it sits in.
+
+    ``(module, enclosing function, form, name)``, sorted. The form is one of
+    :data:`DRAW_BINDING_FORMS` when a name can be read out of it, ``receiver``
+    or ``argument`` for the two unbound uses the package really has, and
+    ``unrecognised:<NodeType>`` — or ``unrecognised assignment target`` —
+    otherwise. ``name`` is ``"<unbound>"`` when there is none.
+
+    **Default-deny** (cycle 2, F-101): the forms listed are the ones this guard
+    understands, and an unlisted form is not silence but an entry that breaks
+    :data:`DRAW_OBJECT_UNBOUND_SITES`' equality. The form cycle 2 walked
+    through — ``canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)``, the
+    *more* idiomatic spelling in a package that annotates all 13 of its draw
+    parameters — is now read as an ``annotated assignment`` named ``canvas``,
+    so it fails on the name; and a form nobody has thought of fails on the
+    form.
+    """
+    bindings: list[tuple[str, str, str, str]] = []
+    for module, function, parent, node in _enclosing_walk(sources):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "Draw"
+        ):
+            continue
+        form, name = "unrecognised:" + type(parent).__name__, "<unbound>"
+        if isinstance(parent, ast.Assign):
+            targets = parent.targets
+            if len(targets) == 1 and isinstance(targets[0], ast.Name):
+                form, name = "assignment", targets[0].id
+            else:
+                form = "unrecognised assignment target (" + ", ".join(
+                    type(target).__name__ for target in targets
+                ) + ")"
+        elif isinstance(parent, ast.AnnAssign) and isinstance(parent.target, ast.Name):
+            form, name = "annotated assignment", parent.target.id
+        elif isinstance(parent, ast.NamedExpr) and isinstance(parent.target, ast.Name):
+            form, name = "walrus", parent.target.id
+        elif isinstance(parent, ast.Attribute) and parent.value is node:
+            form = "receiver"
+        elif isinstance(parent, ast.Call) and node in (*parent.args, *(
+            keyword.value for keyword in parent.keywords
+        )):
+            form = "argument"
+        bindings.append((module, function, form, name))
+    return sorted(bindings)
+
+
+def _imagedraw_annotated_parameters(
+    sources: Mapping[str, str],
+) -> list[tuple[str, str, str]]:
+    """Every parameter whose annotation mentions ``ImageDraw``, however spelled.
+
+    ``(module, function, parameter)``, sorted. Matched on the unparsed
+    annotation text rather than on one ``ast`` shape (cycle 2, F-101): a bare
+    ``ImageDraw``, an ``ImageDraw.ImageDraw``, a string annotation, an
+    ``Optional[...]`` wrapper and a keyword-only parameter all count. The
+    over-approximation is the safe direction — it can only add names the
+    equality then has to account for.
+    """
+    annotated: list[tuple[str, str, str]] = []
+    for module, _enclosing, _parent, node in _enclosing_walk(sources):
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        arguments = (
+            *node.args.posonlyargs,
+            *node.args.args,
+            *node.args.kwonlyargs,
+            *(argument for argument in (node.args.vararg, node.args.kwarg) if argument),
+        )
+        for argument in arguments:
+            if argument.annotation is not None and "ImageDraw" in ast.unparse(
+                argument.annotation
+            ):
+                annotated.append((module, node.name, argument.arg))
+    return sorted(annotated)
 
 
 def _dingbat_literals(sources: Mapping[str, str]) -> list[tuple[str, str]]:
@@ -897,37 +1173,62 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     4. a dot typed as a character — :data:`ROUND_DINGBATS`, which is the route
        CARD-207 would most cheaply take.
 
-    What this instrument **cannot** see, named rather than argued away, since
-    the set of methods it watches is derived from ``dir(ImageDraw.ImageDraw)``
-    and the walk reads written syntax:
+    **The guards are default-deny** (cycle 2, F-101). Cycle 1's version
+    discriminated by syntactic *form* and its completeness tests enumerated
+    only the forms the package happened to use, so a new spelling evaded the
+    guard and its completeness test together — twice, by execution. CARD-238
+    escaped that family by deriving its set from an authority; half of this one
+    can do the same (``dir(ImageDraw.ImageDraw)``, which is why the method
+    partition is sound), but **there is no authority that enumerates "every way
+    to write a vertex list" or "every way to name a draw receiver"** — Python's
+    grammar has no such list to import. Enumerating more shapes is an infinite
+    regress. So the default is inverted instead: each guard names the forms it
+    *understands* and treats anything else as a **failure** that must be
+    answered with a countable literal or a named, reasoned exemption
+    (:data:`NON_DRAW_RECEIVER_SITES`, :data:`DRAW_OBJECT_UNBOUND_SITES`, in the
+    shape :data:`DINGBAT_EXEMPT_MODULES` already uses). A new spelling is then a
+    test failure, not a silent pass: the guard never has to predict the future,
+    only to recognise the present and refuse the unknown.
+
+    What that buys, stated as the distinction it is — three limits are now
+    **true by mechanism**:
+
+    * an uncountable vertex argument *fails*. A bare name, a call, a
+      comprehension, a conditional, a keyword-only ``xy=`` and a display
+      holding a starred unpack are all complaints
+      (:func:`_uncountable_vertices`), each with its own control;
+    * an unrecognised draw **receiver** fails. Every written call to a
+      draw-method name is collected whatever its receiver, and the two honest
+      ``Image.point`` sites are an equality with a second assertion that
+      neither can draw (:meth:`test_every_receiver_of_a_draw_method_is_a_draw_object`,
+      :meth:`test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark`);
+    * an unrecognised ``.Draw(...)`` **binding form** fails — an annotated
+      assignment, an attribute target, a tuple or loop target, a walrus, or a
+      form nobody has thought of
+      (:meth:`test_every_draw_object_in_the_package_is_spelled_draw`).
+
+    And three remain **named limits** — written down rather than left as
+    confident sentences, because this instrument genuinely cannot reach them:
 
     * anything outside ``ImageDraw`` entirely — ``Image.paste`` of a circular
       mask, ``ImageDraw.floodfill`` (a module function, not a draw method), a
       pre-rendered PNG asset pasted in, a circle that arrives inside an
-      imported image;
+      imported image. The watched methods come from ``dir(ImageDraw.ImageDraw)``
+      and nothing here can see past it; closing this would be a card of its own;
     * a dynamically dispatched draw call, ``getattr(draw, "ellipse")(box)``
-      (also stated on :func:`_round_mark_sites`);
+      (also stated on :func:`_round_mark_sites`) — the walk reads written
+      syntax, and a computed method name is not written;
     * a round mark **computed** into a string rather than written as one —
       ``chr(0x25CF)``, ``b"\xe2\x97\x8f".decode()``,
-      ``unicodedata.lookup("BLACK CIRCLE")``. The dingbat rule is about string
-      *literals* (:func:`_dingbat_literals` says so), and a computed character
-      is not one; nor are the non-``.py`` assets the walk never opens;
-    * a vertex list spelled as a bare name, a call, a comprehension or a
-      conditional — each of those is a **failure** rather than a pass. A
-      vertex *literal* that contains a starred unpack
-      (``draw.polygon([*points])``) is **not** inspected, though: it parses to
-      a one-element ``ast.List``, so it passes the literal check and the count;
-    * a draw object assigned to a plain local name under a second spelling
-      fails :meth:`test_every_draw_object_in_the_package_is_spelled_draw`. One
-      reached by an annotated assignment (``canvas: ImageDraw.ImageDraw =
-      ImageDraw.Draw(image)``), by an attribute or tuple target, or by an
-      unannotated parameter handed the real draw object, does **not** — those
-      forms contribute nothing to that test's two sets, so it fails when a
-      known shape changes rather than when a new spelling appears.
+      ``unicodedata.lookup("BLACK CIRCLE")`` (cycle 2, F-102). The dingbat rule
+      is about string *literals*, which :func:`_dingbat_literals` says in so
+      many words, so claim and mechanism agree; this names the gap between the
+      literal route (closed, exemption and all) and the character itself. The
+      non-``.py`` assets the walk never opens belong on the same line.
 
-    A card taking one of the first two routes would be making a deliberate
-    choice this guard should be extended for. That is a narrower promise than
-    "cannot each grow their own circles", and it is the one the tests keep.
+    A card taking one of those three routes would be making a deliberate choice
+    this guard should be extended for. That is a narrower promise than "cannot
+    each grow their own circles", and it is the one the tests keep.
     """
 
     def test_the_method_classification_covers_every_pillow_draw_method(self) -> None:
@@ -1086,53 +1387,213 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     # Route 3: a round mark built out of vertices (cycle 1, F-001 / H2, H3)
     # ----------------------------------------------------------------------
 
-    def test_every_draw_object_in_the_package_is_spelled_draw(self) -> None:
-        """The receiver set's own completeness test — :func:`_is_draw_receiver`'s oracle.
+    def test_every_receiver_of_a_draw_method_is_a_draw_object(self) -> None:
+        """The receiver rule, inverted: an unknown spelling **fails** (cycle 2, F-101).
 
         ``point`` is a method of ``Image`` as well as of the draw object, so
         the vertex guard below has to tell ``draw.point([...])`` (ink) from
-        ``greyscale.point([...])`` (a pixel-value map) and does it on the
-        receiver. That only works if every draw object in the package really
-        is spelled :data:`DRAW_RECEIVER_NAME` or built inline, which is what
-        this measures: every ``ImageDraw.Draw(...)`` the package assigns, and
-        every parameter it annotates ``ImageDraw.ImageDraw``, carries that one
-        name.
+        ``greyscale.point([...])`` (a pixel-value map), and it does that on the
+        receiver. Cycle 1 asserted that discrimination was complete by
+        enumerating the two binding shapes the package happened to use; cycle 2
+        walked past it with an unannotated parameter and with an annotated
+        assignment, because an enumerated guard is silent for everything it did
+        not enumerate.
 
-        **How far this reaches.** It collects exactly two shapes: an
-        ``ast.Assign`` whose value is a ``.Draw(...)`` call *and* whose target
-        is a bare ``ast.Name``, and a parameter annotated with an
-        ``ast.Attribute`` named ``ImageDraw``. Nothing else contributes —
-        ``ast.AnnAssign``, an attribute or tuple target, a loop target, an
-        unannotated parameter, a bare-``ImageDraw`` annotation. So it fails
-        when one of those two known shapes changes its name, not when a new
-        spelling appears, and an annotated assignment or an unannotated
-        parameter handed the real draw object slips past it.
+        So the default is inverted. Every *written* call to a draw-method name
+        is collected whatever its receiver, and a receiver that is not a draw
+        object as this package spells one must be a **named** exemption. There
+        is no authority that enumerates "every way to name a draw receiver" —
+        Python's grammar has no such list to import — so the guard does not
+        try: it recognises two forms and refuses the rest.
         """
-        assigned: set[str] = set()
-        annotated: set[str] = set()
-        for source in _package_sources().values():
-            for node in ast.walk(ast.parse(source)):
-                if (
-                    isinstance(node, ast.Assign)
-                    and isinstance(node.value, ast.Call)
-                    and isinstance(node.value.func, ast.Attribute)
-                    and node.value.func.attr == "Draw"
-                ):
-                    assigned |= {
-                        target.id
-                        for target in node.targets
-                        if isinstance(target, ast.Name)
-                    }
-                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    for argument in (*node.args.posonlyargs, *node.args.args):
-                        annotation = argument.annotation
-                        if (
-                            isinstance(annotation, ast.Attribute)
-                            and annotation.attr == "ImageDraw"
-                        ):
-                            annotated.add(argument.arg)
-        assert assigned == {DRAW_RECEIVER_NAME}, assigned
-        assert annotated == {DRAW_RECEIVER_NAME}, annotated
+        unrecognised = _unrecognised_draw_receivers(_package_sources())
+        assert unrecognised == sorted(NON_DRAW_RECEIVER_SITES), unrecognised
+
+    def test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark(self) -> None:
+        """The exemptions' own control — earned by the call, not granted to it.
+
+        The equality above says *which* two sites are excused; this says *why*,
+        so the exemption cannot quietly grow into one that could draw. Both are
+        ``Image.point``, a per-pixel lookup table, and the discriminating
+        property is that it takes no coordinates: a table built with ``*`` and
+        ``+``, or a lambda. A future card that writes a coordinate display on
+        an exempt receiver fails here instead of inheriting the excuse.
+        """
+        sources = _package_sources()
+        exempt = [
+            (module, function, method, call)
+            for module, function, method, receiver, call in _draw_method_calls(sources)
+            if not _is_draw_receiver(receiver)
+        ]
+        assert len(exempt) == len(NON_DRAW_RECEIVER_SITES)
+        for module, function, method, call in exempt:
+            assert method == "point", (module, function, method)
+            argument = call.args[0] if call.args else None
+            assert not isinstance(argument, (ast.List, ast.Tuple)), (
+                module,
+                function,
+                "a coordinate display on a receiver excused as a pixel map",
+            )
+        # And the excused names are never a draw object anywhere in the
+        # package, so the excuse cannot be borrowed by rebinding the name.
+        bound = {name for _, _, _, name in _draw_object_bindings(sources)}
+        for _module, _function, _method, spelling in NON_DRAW_RECEIVER_SITES:
+            assert spelling not in bound, spelling
+
+    def test_every_draw_object_in_the_package_is_spelled_draw(self) -> None:
+        """The binding rule, inverted: an unknown **form** fails (cycle 2, F-101).
+
+        The companion to the receiver rule above, from the other end: not "what
+        is this call written on" but "what was this draw object called when it
+        was made". Every ``.Draw(...)`` call in the package is classified by the
+        form it sits in. A form that yields a name must yield
+        :data:`DRAW_RECEIVER_NAME`; a form that yields none must be one of the
+        four named sites in :data:`DRAW_OBJECT_UNBOUND_SITES`; and a form this
+        guard does not understand is reported as unrecognised, which breaks
+        that equality rather than contributing nothing.
+
+        That is the whole of the fix for cycle 2's M3b. ``canvas:
+        ImageDraw.ImageDraw = ImageDraw.Draw(image)`` is now read as an
+        annotated assignment named ``canvas`` and fails on the name; ``self.canvas
+        = ...``, a tuple target and a loop target fail on the form.
+        """
+        sources = _package_sources()
+        bindings = _draw_object_bindings(sources)
+        assert bindings, (
+            "the walk found no ImageDraw.Draw(...) call in the package — this "
+            "guard has gone vacuous; keep it honest with the fabricated sources "
+            "in test_an_unrecognised_draw_binding_form_is_caught"
+        )
+        named = sorted(
+            {name for _m, _f, form, name in bindings if form in DRAW_BINDING_FORMS}
+        )
+        assert named == [DRAW_RECEIVER_NAME], named
+        unbound = Counter(
+            (module, form)
+            for module, _function, form, _name in bindings
+            if form not in DRAW_BINDING_FORMS
+        )
+        assert sorted(
+            (module, form, count) for (module, form), count in unbound.items()
+        ) == sorted(DRAW_OBJECT_UNBOUND_SITES), unbound
+
+    def test_every_imagedraw_annotated_parameter_is_spelled_draw(self) -> None:
+        """And the third end: a parameter *typed* as a draw object.
+
+        Matched on the annotation's text rather than on one ``ast`` shape
+        (cycle 2, F-101), so a bare ``ImageDraw``, a string annotation and a
+        keyword-only parameter all count. An unannotated parameter handed the
+        real draw object is invisible here by construction — it is caught by
+        :meth:`test_every_receiver_of_a_draw_method_is_a_draw_object`, which
+        judges a parameter by the draw method written on it rather than by how
+        it was typed. Neither rule is trusted alone.
+        """
+        annotated = _imagedraw_annotated_parameters(_package_sources())
+        assert {parameter for _m, _f, parameter in annotated} == {DRAW_RECEIVER_NAME}, (
+            annotated
+        )
+        # A floor rather than an equality: thirteen such parameters exist
+        # today, and a card that adds a fourteenth is doing nothing wrong. The
+        # floor is here only so the rule cannot pass by finding nothing.
+        assert len(annotated) >= 13, annotated
+
+    def test_a_second_receiver_spelling_is_caught(self) -> None:
+        """Control, caught **with** the receiver rule and missed **without** it.
+
+        Cycle 2's M2: an unannotated parameter handed the real draw object,
+        drawing a 32-gon on it. The first half is the new mechanism firing; the
+        second half is the two older mechanisms being shown blind to it, which
+        is what makes this a control rather than a restatement.
+        """
+        points = ", ".join(f"({index}, {index})" for index in range(32))
+        rogue = {
+            "fake.mod": (
+                "def _rogue(canvas, rank):\n"
+                f"    canvas.polygon([{points}], fill=1)\n"
+            )
+        }
+        assert _unrecognised_draw_receivers(rogue) == [
+            ("fake.mod", "_rogue", "polygon", "canvas")
+        ]
+        # Missed without it: the receiver-filtered vertex guard sees no call,
+        # and there is no `.Draw(...)` anywhere for the binding rule to read.
+        assert _draw_calls(rogue, VERTEX_BOUNDED_METHODS) == []
+        assert _draw_object_bindings(rogue) == []
+        assert _imagedraw_annotated_parameters(rogue) == []
+
+    def test_an_annotated_draw_assignment_is_caught(self) -> None:
+        """Control, caught with the inverted default and missed without it.
+
+        Cycle 2's M3b — the *more* idiomatic spelling in this package, which
+        annotates all 13 of its draw parameters and runs
+        ``from __future__ import annotations``. Caught twice over: on the
+        binding's name, and on the receiver the 9-gon is drawn on.
+        """
+        points = ", ".join(f"({index}, {index})" for index in range(9))
+        rogue = {
+            "fake.mod": (
+                "def dots(image):\n"
+                "    canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)\n"
+                f"    canvas.polygon([{points}], fill=1)\n"
+            )
+        }
+        assert _draw_object_bindings(rogue) == [
+            ("fake.mod", "dots", "annotated assignment", "canvas")
+        ]
+        assert _unrecognised_draw_receivers(rogue) == [
+            ("fake.mod", "dots", "polygon", "canvas")
+        ]
+        # Missed without it: cycle 1's collector read only `ast.Assign` with a
+        # `Name` target, and this source has no such node at all — nor is the
+        # annotation on a *parameter*, so the annotation rule is blind to it
+        # too. Only the inverted default sees this source.
+        assert [form for _m, _f, form, _n in _draw_object_bindings(rogue)] != [
+            "assignment"
+        ]
+        assert _imagedraw_annotated_parameters(rogue) == []
+
+    def test_an_unrecognised_draw_binding_form_is_caught(self) -> None:
+        """Control, caught: the forms nobody enumerated are reported as unknown.
+
+        An attribute target, a tuple target and a loop target. None of these is
+        a spelling this guard was taught; each is reported as its own
+        unrecognised form, which is the whole point of inverting the default —
+        the guard does not need to predict the next spelling, only to refuse
+        one it cannot read.
+        """
+        rogue = {
+            "fake.attr": "def make(self, image):\n    self.canvas = ImageDraw.Draw(image)\n",
+            "fake.tuple": "def make(image):\n    canvas, size = ImageDraw.Draw(image), 1\n",
+            "fake.loop": "def make(image):\n    for canvas in (ImageDraw.Draw(image),):\n        pass\n",
+        }
+        forms = {module: form for module, _f, form, _n in _draw_object_bindings(rogue)}
+        assert forms == {
+            "fake.attr": "unrecognised assignment target (Attribute)",
+            "fake.tuple": "unrecognised:Tuple",
+            "fake.loop": "unrecognised:Tuple",
+        }, forms
+        assert all(form not in DRAW_BINDING_FORMS for form in forms.values())
+
+    def test_the_one_honest_spelling_is_not_caught(self) -> None:
+        """Control, not caught: the package's own form must pass, or the rule is a ban.
+
+        Without this the inverted default's discriminating power would be
+        unknown — a guard that reported everything would also pass the three
+        controls above.
+        """
+        honest = {
+            "fake.mod": (
+                "def page(image):\n"
+                "    draw = ImageDraw.Draw(image)\n"
+                "    draw.ellipse((0, 0, 9, 9))\n"
+                "    ImageDraw.Draw(image).text((0, 0), 'x')\n"
+            )
+        }
+        assert _unrecognised_draw_receivers(honest) == []
+        assert _draw_object_bindings(honest) == [
+            ("fake.mod", "page", "assignment", "draw"),
+            ("fake.mod", "page", "receiver", "<unbound>"),
+        ]
 
     def test_no_module_draws_a_round_mark_out_of_vertices(self) -> None:
         """A polygon with enough vertices is a circle; this bounds the vertices.
@@ -1145,13 +1606,14 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         pipeline diagram really does draw an arrow head with it. So the bound
         is on the shape, not on the call.
 
-        A vertex list this walk cannot count is a **failure**, not a pass: a
-        card that computes its points (a comprehension, a helper, a name) has
-        to say so by extending this guard, which is the declaration the lenient
-        reading would have let it skip. **Except one form**: a literal that
-        contains a starred unpack — ``draw.polygon([*points])`` — parses to a
-        one-element ``ast.List``, so it passes both the literal check and the
-        count. That form is not inspected here.
+        A vertex argument this walk cannot count is a **failure**, not a pass,
+        and since cycle 2 (F-101) that is true by mechanism rather than by
+        intention: the check is :func:`_uncountable_vertices`, which enumerates
+        the one shape it understands — a list or tuple display of countable
+        elements — and complains about every other, the starred unpack
+        ``draw.polygon([*points])`` included. A card that computes its points
+        has to say so by earning an exemption, which is the declaration the
+        lenient reading would have let it skip.
         """
         calls = _draw_calls(_package_sources(), VERTEX_BOUNDED_METHODS)
         assert calls, (
@@ -1160,30 +1622,72 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             "has gone vacuous; keep it honest by pointing it at a fabricated "
             "source, as test_a_many_sided_polygon_is_caught does"
         )
-        for module, function, call in calls:
-            points = call.args[0] if call.args else None
-            assert isinstance(points, (ast.List, ast.Tuple)), (
-                module,
-                function,
-                "vertices this guard cannot count",
-            )
-            assert len(points.elts) <= MAX_FLAT_VERTICES, (
-                module,
-                function,
-                len(points.elts),
-            )
+        complaints = _uncountable_vertices(calls)
+        assert complaints == [], complaints
 
     def test_a_many_sided_polygon_is_caught(self) -> None:
-        """Control, caught: cycle 1's surviving H2 mutant, against the new guard."""
+        """Control, caught: cycle 1's surviving H2 mutant, through the real check."""
         points = ", ".join(f"({index}, {index})" for index in range(32))
         rogue = {"fake.mod": f"def dots(draw):\n    draw.polygon([{points}], fill=1)\n"}
         calls = _draw_calls(rogue, VERTEX_BOUNDED_METHODS)
         assert [(module, function) for module, function, _ in calls] == [
             ("fake.mod", "dots")
         ]
-        with pytest.raises(AssertionError):
-            for _, _, call in calls:
-                assert len(call.args[0].elts) <= MAX_FLAT_VERTICES
+        complaints = _uncountable_vertices(calls)
+        assert [(module, function) for module, function, _ in complaints] == [
+            ("fake.mod", "dots")
+        ]
+        assert "32 vertices" in complaints[0][2]
+
+    def test_a_starred_vertex_literal_is_caught(self) -> None:
+        """Control, caught **with** the inverted default and missed **without** it.
+
+        Cycle 2's M1, which survived with 198 green: the 32-gon moved into a
+        comprehension and spliced back into a literal. Two characters from the
+        form cycle 1's bound already caught, and the old guard's own assertion
+        message ("vertices this guard cannot count") pointed at it.
+
+        The second half of this control is the one that matters — it shows the
+        two clauses cycle 1 relied on *passing* this source, so the complaint
+        above can only come from the starred clause.
+        """
+        rogue = {
+            "fake.mod": (
+                "def dots(draw):\n"
+                "    points = [(50 + i, 50 - i) for i in range(32)]\n"
+                "    draw.polygon([*points], fill=1)\n"
+            )
+        }
+        calls = _draw_calls(rogue, VERTEX_BOUNDED_METHODS)
+        assert len(calls) == 1
+        complaints = _uncountable_vertices(calls)
+        assert [(module, function) for module, function, _ in complaints] == [
+            ("fake.mod", "dots")
+        ]
+        assert "starred unpack" in complaints[0][2]
+        # Missed without it: cycle 1's two clauses both pass this source.
+        argument = calls[0][2].args[0]
+        assert isinstance(argument, (ast.List, ast.Tuple))
+        assert len(argument.elts) == 1 <= MAX_FLAT_VERTICES
+
+    def test_a_vertex_list_passed_by_name_is_caught(self) -> None:
+        """Control, caught: the bare-name form, and the keyword-only form.
+
+        Neither is countable, so neither is read as safe. These two and the
+        comprehension below are the shapes the default-deny rule exists to
+        refuse without having had to predict them.
+        """
+        rogue = {
+            "fake.name": "def dots(draw, points):\n    draw.polygon(points, fill=1)\n",
+            "fake.keyword": "def dots(draw, points):\n    draw.point(xy=points, fill=1)\n",
+        }
+        complaints = _uncountable_vertices(
+            _draw_calls(rogue, VERTEX_BOUNDED_METHODS)
+        )
+        assert [(module, why) for module, _f, why in complaints] == [
+            ("fake.keyword", "not a countable vertex display (no positional argument)"),
+            ("fake.name", "not a countable vertex display (Name)"),
+        ], complaints
 
     def test_a_disc_drawn_point_by_point_is_caught(self) -> None:
         """Control, caught: cycle 1's surviving H3 mutant (a filled disc via ``point``)."""
@@ -1196,15 +1700,19 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         calls = _draw_calls(rogue, VERTEX_BOUNDED_METHODS)
         assert len(calls) == 1
         # A computed point list is exactly the shape the guard refuses to read
-        # as safe: not a countable literal, so not a pass.
-        assert not isinstance(calls[0][2].args[0], (ast.List, ast.Tuple))
+        # as safe: not a countable display, so not a pass.
+        complaints = _uncountable_vertices(calls)
+        assert complaints == [
+            ("fake.mod", "dots", "not a countable vertex display (ListComp)")
+        ]
 
     def test_a_three_vertex_arrow_head_is_not_caught(self) -> None:
         """Control, not caught: the guard bounds roundness, not drawing.
 
         Without this the bound's discriminating power would be unknown — a
-        guard that rejected every polygon would also pass the two controls
-        above.
+        guard that rejected every polygon would also pass the three controls
+        above. The real arrow head at ``book_pdf_generator:1895`` is this
+        shape, and it has to keep passing without the bin being widened.
         """
         flat = {
             "fake.mod": (
@@ -1214,7 +1722,7 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         }
         calls = _draw_calls(flat, VERTEX_BOUNDED_METHODS)
         assert len(calls) == 1
-        assert len(calls[0][2].args[0].elts) <= MAX_FLAT_VERTICES
+        assert _uncountable_vertices(calls) == []
 
     def test_a_point_call_on_an_image_is_not_a_draw_call(self) -> None:
         """Control, not caught: ``Image.point`` is a pixel map, not ink.
