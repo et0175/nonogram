@@ -1,6 +1,6 @@
 # CARD-228: Difficulty becomes three dots, filled by tier — one glyph the whole book reuses
 
-**Status:** blocked
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — architect/owner: AC-4 as reinterpreted is a universal negative over Python syntax, and three cycles of a static `ast` walk have not held it (3 glyphs landed, then 2, then 3 — a new syntactic family each time). The instrument is the question, and picking it is not a worktree decision.
+**Blocked by:** — (escalation resolved 2026-10-16 by owner decision; see the AC-4 amendment below)
 
 ## What to implement
 
@@ -56,15 +56,99 @@ its own literals; see CARD-155).
 - **AC-3** (happy, filled vs outlined): *Given* a middle tier, *then* the filled dots are
   solid and the remainder are outlined with the same stroke, measured off the ink.
   (test: `TestDifficultyDots_FilledAndOutlinedAreDistinguishable`)
-- **AC-4** (happy, one function, four callers): *Given* the four call sites, *then* each draws
-  its dots through this one function — asserted structurally, the way `tests/test_cli.py`'s
-  import guard walks the tree with `ast`. (test: `TestDifficultyDots_HasExactlyOneDrawingSite`)
+- **AC-4** (happy, one drawing site — **amended 2026-10-16 by owner decision; see the amendment
+  section below**): *Given* the package, *then* exactly one function draws a round mark through any
+  of the four routes a static walk can see — an **ellipse-family method**, an **unrecognised draw
+  receiver**, an **unrecognised `.Draw(...)` binding form**, or a **dingbat string literal** — and
+  the routes the walk cannot see are named, each with a mutant that demonstrates it is open.
+  (test: `TestDifficultyDots_HasExactlyOneDrawingSite`)
+  *This replaces the original wording ("given the four call sites, then each draws its dots through
+  this one function"), which was unsatisfiable while G-4/G-5 forbid building CARD-207/229/231/233,
+  and whose forward-compatible reading — a universal negative over Python syntax — three review
+  cycles of a static `ast` walk did not hold. The universal guarantee moves to CARD-241.*
 - **AC-5** (edge, the smallest place it appears): *Given* the smallest box any caller gives it
   (a solution tile's header), *then* the three dots fit without touching the text beside them
   or the tile's own rule. (test: `TestDifficultyDots_FitsTheSmallestHeader`)
 - **AC-6** (edge, a puzzle with no tier of record): *Given* a puzzle whose tier cannot be read,
   *then* no dots are drawn at all — not three outlined ones, which would read as "easy".
   (test: `TestDifficultyDots_UntieredDrawsNothing`)
+
+## AC-4 amendment — 2026-10-16, owner decision at the architect station
+
+**Decision: narrow AC-4 to what the guard actually holds, land this card, and move the universal
+guarantee to its own card (CARD-241).** Option (c)-then-(b) of the three put to the owner.
+
+### What the three cycles established
+
+The glyph is correct and was never in question: AC-1, AC-2, AC-3, AC-5 and AC-6 are green, the
+geometry was verified independently in cycles 1 and 2 (including the row-not-flush bound, measured
+at 0.2105 of a dot against an asserted 0.20), G-5 holds with zero callers, G-1..G-5 hold, the
+system contract is 4 of 4, and both exemption sets rejected every absorption probe cycle 3 threw
+at them. The cycle-2 structural fix was real work: cycle 3 confirmed all three of cycle 2's
+survivors are dead, the composition claim holds, and both named limits really are open.
+
+What did not hold is AC-4's **forward-compatible reading** — that no second round mark can be
+written anywhere in the package. Three cycles of a static `ast` walk landed 3 glyphs, then 2,
+then 3, **a new syntactic family each time**: receiver → binding form → call shape and cross-call
+ink. The root cause is stable and worth stating once more, because it is the generalisable part:
+**these guards discriminate by syntactic form, and no authority enumerates the forms.**
+`dir(ImageDraw.ImageDraw)` is a real authority for the *method* half — which is why that half is
+sound — but Python's grammar offers nothing to import that lists every way to write a vertex list
+or name a receiver. So enumeration cannot converge, and cycle 2's default-deny inversion, while
+right, only moves the frontier rather than closing it.
+
+### Why not the other two options
+
+**(a) Move `line` into the vertex-bounded set — rejected as blocked, not merely expensive.**
+Verified at this station: `FLAT_METHODS`' stated reason for leaving `line` unguarded ("a straight
+line has no vertex list to hide a dot in") is **factually false**. Pillow's own docstring reads
+*"Draw a line, or a connected sequence of line segments"*, the method calls `draw_lines`, and
+`joint="curve"` rounds the joints. The package already hands it computed lists at
+`book_pdf_generator.py:1429` (`ends`), `:1441` (`list(side)`), `png.py:186` and `:217` — those are
+computed by construction and **cannot** pass a countable display, so each would need an exemption.
+That is the same regress the cycle-2 fix was right to refuse for receivers, arriving one level down.
+
+**(d) Land with the three evasions recorded as bounds — rejected.** That ending (CARD-238 →
+CARD-239) suits a mechanism that converged with honestly-named residue. Here the bounds would
+**swallow the AC**: "no second round mark, except via `draw.line`, except via a loop of
+`draw.point`, except via a stored bound method" is not a promise CARD-207/229/231/233 can build
+on, and those four cards are the entire reason this one was cut first.
+
+### What this card must now do — and it is small
+
+1. **Narrow the AC-4 wording in the test's own docstring** to the four routes the walk sees, exactly
+   as the amended AC above states, and keep the existing "true by mechanism" / "named limits" split
+   that cycle 2 introduced — it is sound and cycle 3 verified both directions of it.
+2. **Add cycle 3's three survivors to the named-limits list**, each with the mutant that
+   demonstrates it is open, in the same style as the `getattr` and `chr()` limits already carried:
+   `draw.line` polylines, ink accumulated across calls, and a stored bound method. A named limit
+   with a surviving-mutant demonstration is honest; the same route left implied is not.
+3. **Correct the two over-reaching sentences cycle 3 found**, which are wording, not mechanism:
+   `_unrecognised_draw_receivers` does **not** collect "every written call to a draw-method name
+   whatever its receiver" — `_draw_method_calls` requires `isinstance(node.func, ast.Attribute)`,
+   so `stamp(circle)` is collected by nothing; and route 3's "a circle built out of vertices is
+   held to `MAX_FLAT_VERTICES`" is false, because the bound is **per call**.
+4. **Point the limits list at CARD-241** as the card that closes them, so a reader of this guard
+   learns where the universal guarantee lives.
+5. **Fix `FLAT_METHODS`' false rationale for `line`** — say it is unguarded and *why that is a
+   known hole*, not that it cannot hide a dot. Leaving a false reason in place is how the next
+   reader concludes the route is safe.
+6. Optional, cheap, cycle 3's two Minors: keep the function names in `DRAW_OBJECT_UNBOUND_SITES` by
+   splitting the literal to defeat a *textual* grep (`"render" + "_pages"` with a comment), which
+   was the third option the fix cycle missed; and widen that limit's wording to "moved **or
+   replaced** within one module+form".
+
+### Guardrails on the amendment
+
+- **GB-1: no new guard mechanism.** This is a wording-and-limits pass plus one false rationale
+  corrected. The instrument change is CARD-241's, not this card's. If closing a route looks
+  tempting, that is CARD-241.
+- **GB-2: do not weaken what cycle 2 built.** The three default-deny mechanisms and both exemption
+  equalities stay exactly as they are — cycle 3 probed them and they held.
+- **GB-3: every named limit carries a mutant that demonstrates it is open.** A limit asserted
+  without that demonstration is the same defect in a new costume.
+- **GB-4: `src/` stays untouched** except `FLAT_METHODS`' rationale if it lives there (it does
+  not — it is in the test file). G-5 must still hold: zero callers for `_draw_difficulty_dots`.
 
 ## Guardrails
 
