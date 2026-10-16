@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_manager import Book, BookMetadata
@@ -498,3 +498,75 @@ class TestDividerPage_PointSizeIsIndependentOfDpi:
         at_600 = self.divider_points(600, monkeypatch)
         assert at_300 == pytest.approx([DIVIDER_PT, self._expected_folio_pt(300)])
         assert at_600 == pytest.approx([DIVIDER_PT, self._expected_folio_pt(600)])
+
+
+class TestInteriorType_DifficultyDotsAreNotText:
+    """CARD-228 (G-2): the difficulty glyph is ink, not type, so the floor misses it.
+
+    CON-020 is a rule about *text*, and ``TestInteriorType_EveryFaceHoldsTheFloor``
+    above enforces it by spying on ``draw.text``. CARD-228's three dots are
+    drawn as circles, so that spy does not see them — and the card says it
+    should not (guardrail G-2: the dots are not text; the **word** beside them
+    is, and is held to the floor by its own caller).
+
+    A guardrail no test can falsify is worth nothing, so both halves of that
+    sentence are measured here rather than asserted in a docstring:
+
+    * the glyph makes **no** ``draw.text`` call at all, so the floor cannot
+      reach it *and* nothing can evade the floor by hiding a caption inside
+      it (a dot drawn as a "•" glyph at 6 pt would be exactly that);
+    * the spy that sees nothing here is the same spy that *does* see the
+      word, which is the control — without it, "no text calls" could equally
+      mean the spy was broken.
+    """
+
+    BOX = (0, 0, 999, 141)
+
+    @staticmethod
+    def _text_sizes(draw_something) -> List[Optional[int]]:
+        """Every ``draw.text`` size ``draw_something`` asks for, in order."""
+        sizes: List[Optional[int]] = []
+        original = ImageDraw.ImageDraw.text
+
+        def spy(self, xy, text, fill=None, font=None, *args, **kwargs):
+            sizes.append(font.size if isinstance(font, ImageFont.FreeTypeFont) else None)
+            return original(self, xy, text, fill, font, *args, **kwargs)
+
+        with pytest.MonkeyPatch.context() as patch:
+            patch.setattr(ImageDraw.ImageDraw, "text", spy)
+            draw_something()
+        return sizes
+
+    def _page(self):
+        page = Image.new("RGB", (self.BOX[2] + 1, self.BOX[3] + 1), "white")
+        return page, ImageDraw.Draw(page)
+
+    def test_the_glyph_sets_no_type_at_all(self):
+        page, draw = self._page()
+        drawn: List[object] = []
+
+        def draw_dots():
+            drawn.append(
+                book_pdf_generator._draw_difficulty_dots(draw, "medium", *self.BOX)
+            )
+
+        assert self._text_sizes(draw_dots) == []
+        assert drawn[0] is not None, "the glyph must have drawn, or this proves nothing"
+
+    def test_the_spy_does_see_the_word_beside_them(self):
+        """The control: the same spy, on the band line the glyph sits beside."""
+        page, draw = self._page()
+        band = book_pdf_generator.HeaderBand(
+            height=self.BOX[3] + 1,
+            center_x=(self.BOX[0] + self.BOX[2]) // 2,
+            center_y=(self.BOX[1] + self.BOX[3]) // 2,
+            font_size=book_pdf_generator.type_px(FLOOR_PT, 300),
+        )
+
+        def draw_word():
+            book_pdf_generator._set_band(draw, band, "Puzzle 12 · Medium", self.BOX[2] + 1)
+
+        sizes = self._text_sizes(draw_word)
+        assert len(sizes) == 1
+        assert sizes[0] is not None
+        assert sizes[0] * POINTS_PER_INCH / 300 >= FLOOR_PT

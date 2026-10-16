@@ -220,11 +220,15 @@ __all__ = [
     "ANSWER_TILE_GAP_MM",
     "CELL_COMFORT_MM",
     "DEFAULT_PAGE_SPEC",
+    "DIFFICULTY_DOT_GAP_RATIO",
+    "DIFFICULTY_DOT_RATIO",
+    "DIFFICULTY_DOT_STROKE_RATIO",
     "DPI",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
     "MAX_CELL_MM",
     "MIN_CELL_MM",
+    "MIN_DIFFICULTY_DOT_MM",
     "MAJOR_RULE_EVERY",
     "PAGE_HEIGHT_MM",
     "PAGE_MARGIN_MM",
@@ -239,6 +243,7 @@ __all__ = [
     "CaptionSlot",
     "CellCapPolicy",
     "ClueEntry",
+    "DifficultyDots",
     "GridLine",
     "HeaderBand",
     "Layout",
@@ -257,6 +262,7 @@ __all__ = [
     "compute_layout",
     "compute_packed_solved_layout",
     "compute_pair_layout",
+    "difficulty_dots",
     "header_band",
     "qr_slot",
 ]
@@ -1224,6 +1230,269 @@ def caption_slot(layout: Layout, text_width: int) -> CaptionSlot | None:
     # have to do, so it stops at the margin instead.
     right = min(max(page.drawing_right, page.usable_left + width), page.usable_right)
     return CaptionSlot(left=right - width, right=right, measure=measure)
+
+
+# --------------------------------------------------------------------------
+# The difficulty glyph (CARD-228)
+# --------------------------------------------------------------------------
+
+#: A difficulty dot's diameter, as a fraction of the height of the box it is
+#: drawn in — a **cap**, not the size: the row is fitted to the box's width
+#: too, and the smaller of the two wins, exactly as a cell is
+#: ``min(cap, page fit)`` (:func:`_fit_cell`).
+#:
+#: 0.3 is the cap height of type set on a line that deep, which is what makes
+#: the dots read as a mark *beside a word* rather than as a second row of
+#: furniture. A book puzzle page's band is :data:`HEADER_BAND_MM` (12 mm) deep
+#: and set in :data:`HEADER_FONT_MM` (5 mm) type: 5/12 of the line as an em,
+#: and a cap height is about seven tenths of an em, so the word's own capitals
+#: stand 0.29 of that band. A dot the same height sits on the word's own
+#: optical line; at 0.5 it would stand half a centimetre tall on a 12 mm band
+#: and read as a bullet list.
+DIFFICULTY_DOT_RATIO = 0.3
+
+#: The white gap between two neighbouring dots, as a fraction of a dot's own
+#: diameter. Half a dot of white is the ordinary setting for a row of repeated
+#: marks: closer and three dots read as one grey smear at print size, wider
+#: and they read as three separate marks rather than as one glyph.
+#:
+#: The same gap is what keeps the row off the ends of its box — see
+#: :func:`difficulty_dots` on why the row is fitted to
+#: ``total * (1 + DIFFICULTY_DOT_GAP_RATIO)`` dots of width and then centred,
+#: so there is always white between the outermost dot and whatever sits beside
+#: the box.
+DIFFICULTY_DOT_GAP_RATIO = 0.5
+
+#: A dot's outline stroke, as a fraction of its own diameter — pinned to the
+#: dot the way :data:`_THIN_RULE_RATIO` pins a grid rule to the cell, so the
+#: glyph keeps its proportions at every size a caller's box can produce. At
+#: 1/8 an outlined dot keeps three quarters of its own diameter in white,
+#: which is what makes it legibly *not* a filled one (see
+#: :meth:`DifficultyDots.__post_init__`, which refuses any stroke that would
+#: close the ring).
+DIFFICULTY_DOT_STROKE_RATIO = 0.125
+
+#: The smallest dot worth putting on paper, in millimetres. Below a
+#: millimetre a filled dot and an outlined one are the same grey speck to a
+#: reader, so the glyph would be saying nothing — :func:`difficulty_dots`
+#: declines (answers ``None``) rather than draw it, the way :func:`qr_slot`
+#: declines a corner too small for the icon.
+MIN_DIFFICULTY_DOT_MM = 1.0
+
+
+@dataclass(frozen=True, slots=True)
+class DifficultyDots:
+    """Where a tier's dots sit inside a box, in device pixels (CARD-228).
+
+    Only :func:`difficulty_dots` constructs one, and it exists for the same
+    reason :class:`QrSlot` and :class:`CaptionSlot` do: the renderer strokes
+    the circles (it owns the draw object), but it does not get to pick their
+    size or their spacing (ADR-0036/R2).
+
+    The glyph is **one row of same-sized circles**, of which the first
+    :attr:`filled` are solid and the rest outlined. Which dots are filled is
+    the only thing a tier changes: every tier of the same length ladder, in
+    the same box, gets byte-identical :attr:`dots` and :attr:`stroke`, so a
+    header's layout does not shift between an Easy puzzle and a Hard one.
+
+    Attributes:
+        dots: One ``(left, top, right, bottom)`` box per dot, left to right,
+            inclusive at both ends — Pillow's own ``ellipse`` bounds, so a
+            renderer strokes a dot with the tuple as it stands. Never empty.
+        filled: How many of them are **solid**, counting from the left. At
+            least one: "no tier" is not a row of outlined dots, it is no row
+            at all, which is :func:`difficulty_dots`' caller's business and
+            is why this type cannot express it.
+        stroke: The outline width every dot is stroked at, filled or not —
+            one stroke for the row, so the solid dots and the outlined ones
+            share a silhouette.
+    """
+
+    dots: tuple[tuple[int, int, int, int], ...]
+    filled: int
+    stroke: int
+
+    def __post_init__(self) -> None:
+        """Refuse a row that could not say what it means.
+
+        Valid by construction, in the house style of :class:`AnswerPageLayout`
+        and :class:`PairLayout`: a caller holding one of these never re-checks
+        that the dots are the same size, that they do not overlap, or — the
+        one that carries the meaning — that an outlined dot still has white
+        inside it. A stroke of half the diameter or more closes the ring, and
+        a closed ring *is* a filled dot: the glyph would then draw three
+        identical marks and claim they said three different things.
+        """
+        if not self.dots:
+            raise ValueError("a difficulty glyph is at least one dot")
+        if not 1 <= self.filled <= len(self.dots):
+            raise ValueError(
+                f"filled must be 1..{len(self.dots)} for a {len(self.dots)}-dot "
+                f"glyph, not {self.filled}"
+            )
+        if self.stroke < 1:
+            raise ValueError(f"a dot's outline is at least one pixel, not {self.stroke}")
+        diameters = {right - left + 1 for left, _, right, _ in self.dots}
+        heights = {bottom - top + 1 for _, top, _, bottom in self.dots}
+        if len(diameters | heights) != 1:
+            raise ValueError(f"every dot is the same circle, got {sorted(diameters | heights)}")
+        if 2 * self.stroke >= self.diameter:
+            raise ValueError(
+                f"a stroke of {self.stroke} closes a {self.diameter}px dot: an "
+                "outlined dot would be indistinguishable from a filled one"
+            )
+        tops = {top for _, top, _, _ in self.dots}
+        if len(tops) != 1:
+            raise ValueError("every dot of the row sits on one line")
+        for (_, _, right, _), (left, _, _, _) in zip(self.dots, self.dots[1:]):
+            if left <= right:
+                raise ValueError("two dots of the row overlap")
+
+    @property
+    def total(self) -> int:
+        """How many dots the row holds — the length of the ladder it draws."""
+        return len(self.dots)
+
+    @property
+    def diameter(self) -> int:
+        """Every dot's diameter, in device pixels."""
+        return self.dots[0][2] - self.dots[0][0] + 1
+
+    @property
+    def left(self) -> int:
+        """The row's leftmost ink."""
+        return self.dots[0][0]
+
+    @property
+    def top(self) -> int:
+        """The row's topmost ink."""
+        return self.dots[0][1]
+
+    @property
+    def right(self) -> int:
+        """The row's rightmost ink."""
+        return self.dots[-1][2]
+
+    @property
+    def bottom(self) -> int:
+        """The row's bottommost ink."""
+        return self.dots[0][3]
+
+    def is_filled(self, index: int) -> bool:
+        """Whether the dot at ``index`` is solid rather than outlined."""
+        return index < self.filled
+
+
+def difficulty_dots(
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+    *,
+    filled: int,
+    total: int,
+) -> DifficultyDots | None:
+    """Fit ``total`` dots, the first ``filled`` of them solid, inside a box (CARD-228).
+
+    The one measurement behind every difficulty glyph the book prints — a
+    puzzle page's band, the guide's key strip, a section opener and a solution
+    tile's header all get their circles from here, so the mark a reader learns
+    on the guide page is the same mark, to the pixel, everywhere else.
+
+    A measurement and nothing else: no tier, no ladder and no
+    :class:`~nonogram.difficulty.Tier` appears in this signature. COMP-006 is
+    a sibling capability ADR-0007 forbids COMP-007 from importing, and the
+    *order* of the tiers is the book's own (``book_plan.TIERS``), which is
+    further out still. So the caller resolves the tier to a rank and hands in
+    two numbers; this function knows only how to put ``total`` circles in a
+    box. ``filled`` and ``total`` come from one ordered tuple at that one
+    caller, which is what keeps a second ladder from growing here.
+
+    The arithmetic, in device pixels, over the box's own ``width`` and
+    ``height``::
+
+        cap      = height * DIFFICULTY_DOT_RATIO
+        fit      = width / (total * (1 + DIFFICULTY_DOT_GAP_RATIO))
+        diameter = int(min(cap, fit))            # None below the minimum
+        gap      = round(diameter * DIFFICULTY_DOT_GAP_RATIO)
+        stroke   = round(diameter * DIFFICULTY_DOT_STROKE_RATIO)
+
+    and the row — ``total`` dots with ``gap`` between them — is then centred
+    in the box on both axes.
+
+    **Why the row is fitted to one more half-dot than it needs.** ``fit``
+    divides the width by ``total * 1.5`` dots, but the row only occupies
+    ``total`` dots plus ``total - 1`` gaps — half a dot less. That slack is
+    the point: a glyph is drawn *beside* something (a puzzle's number, a tier's
+    word, a tile's rule), and ink flush with the box it was given touches
+    whatever the caller put next to it. Spending the width as though there
+    were one more gap, and then centring, leaves white at each end of the row
+    whichever of the two terms decided the size — never less than one device
+    pixel, and never less than a **fifth of a dot** at the three-rung ladder
+    this project draws. (Measured, not reasoned: the worst case over every box
+    up to 1600 x 300 px at ladder lengths 1..6 is 0.20 of a dot at three rungs
+    and 0.13 at six, both at the 15 px dot a 50 px-tall box gives. The bound
+    loosens as the ladder lengthens, because the gaps the reservation pays for
+    grow with it; the one-pixel floor does not.)
+
+    The vertical side needs no such reservation: ``cap`` is three tenths of
+    the height, so a dot always leaves more than twice its own diameter of
+    white to share between above and below.
+
+    Args:
+        left: The box's left edge, inclusive.
+        top: Its top edge, inclusive.
+        right: Its right edge, inclusive.
+        bottom: Its bottom edge, inclusive.
+        filled: How many dots are solid, counting from the left — the tier's
+            1-based rank. ``1..total``.
+        total: How many dots the row holds — the length of the ladder.
+
+    Returns:
+        The row's geometry, or ``None`` when the box cannot hold a dot of at
+        least :data:`MIN_DIFFICULTY_DOT_MM`. ``None`` means **draw nothing**:
+        a glyph too small to tell a filled dot from an outlined one is worse
+        than no glyph, because it still looks like an answer.
+
+    Raises:
+        ValueError: ``total`` is not a ladder (below 1), or ``filled`` is not
+            a rank on it (outside ``1..total``). Both are programmer errors
+            about the ladder rather than facts about the box, so they are not
+            answered with ``None``: a tier that has no rank must draw nothing
+            at the caller (there is no "zero of three" glyph), and a caller
+            that silently got an empty row would print one.
+    """
+    if total < 1:
+        raise ValueError(f"a ladder has at least one rung, not {total}")
+    if not 1 <= filled <= total:
+        raise ValueError(f"filled must be 1..{total}, not {filled}")
+
+    width = right - left + 1
+    height = bottom - top + 1
+    cap = height * DIFFICULTY_DOT_RATIO
+    fit = width / (total * (1 + DIFFICULTY_DOT_GAP_RATIO))
+    diameter = int(min(cap, fit))
+    if diameter < _mm_to_px(MIN_DIFFICULTY_DOT_MM):
+        return None
+
+    gap = round(diameter * DIFFICULTY_DOT_GAP_RATIO)
+    pitch = diameter + gap
+    row_width = total * diameter + (total - 1) * gap
+    row_left = left + (width - row_width) // 2
+    row_top = top + (height - diameter) // 2
+    return DifficultyDots(
+        dots=tuple(
+            (
+                row_left + index * pitch,
+                row_top,
+                row_left + index * pitch + diameter - 1,
+                row_top + diameter - 1,
+            )
+            for index in range(total)
+        ),
+        filled=filled,
+        stroke=max(1, round(diameter * DIFFICULTY_DOT_STROKE_RATIO)),
+    )
 
 
 def _mm_to_px(millimetres: float) -> int:
