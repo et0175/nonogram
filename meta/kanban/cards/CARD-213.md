@@ -506,3 +506,35 @@ it was never meant to, and `ADDED_SINCE_BEFORE` does not make it a review gate.
 - [AC/EC/G gate] spawned for AC-1..AC-7, G-1..G-5, the two System contract rules, and the
   amendment's own GA-1..GA-4. Briefed to produce its own verdicts rather than inherit the review's,
   to prefer `-k` selection, and to re-confirm any timing failure in isolation before reporting it.
+- [AC/EC/G check] **PASS — every item demonstrated**: AC-1..AC-7, EC-044, G-1..G-5, ADR-0038/R3 and
+  R4, and the amendment's GA-1..GA-4. The gate did its own measurements rather than inheriting the
+  review's, and three of its findings are worth keeping:
+  * **GA-1's relaxation is bounded, and the removed direction is strictly STRONGER than main's.**
+    main compared `before - ids` against CARD-217's record alone; HEAD compares
+    `baseline - collected` where `baseline = record | allowlist ⊇ record`, so allowlisted removals
+    are now caught too. The gate verified the bound by deriving with an EMPTY allowlist: all 12 node
+    ids report as added, so nothing is let through except the 12 recorded ones.
+  * **G-4's monotonicity is structural, not just tested**: rule C runs after A and B and only ever
+    writes `circled[number] = true`, never `false`; `walkIn` and rule B's condition line are
+    byte-identical; the run scan gained one `else closed.push(...)` inside the existing branch. The
+    gate also hand-traced all three table flips to rule C, and traced that the two new repeated-value
+    `STOPS` twins go red if rule A's stop is removed — so the stop is still load-bearing.
+  * **The baseline arithmetic re-derived independently**: record 422 + allowlist 12 + overlap 0 = 434,
+    matching the family's actual collection with both drift sets empty.
+- [AC/EC/G check] honesty note the gate volunteered, and it is the right call: it deliberately did NOT
+  run `TestBrowserFixtures_ThePollIntervalIsStillApplied` (the MAX_LIVE_TEARDOWN_S bound), to avoid a
+  CPU-contention false red while another agent was working, and said plainly that this one test's
+  green state is inherited from my full-suite run rather than re-verified. It is not one of the card's
+  declared items. That is exactly the discipline this wave has been buying.
+- [AC/EC/G check] it also flagged FR-044/AC-347's staleness independently, having not been told about
+  it — the same finding review cycle 1 raised as F-002 and that I had already carded as **CARD-240**
+  before this gate ran. Two stations reaching it separately is a reasonable signal the card is worth
+  its 0.25d.
+- [Merge gate] branch rebased cleanly onto main `0fc48ef` (3 commits, 3 files, no conflict — main's
+  intervening commits are all under meta/). **Gate HELD, deliberately, not yet run:** CARD-228's
+  review cycle 2 is running mutants on this machine, and the full suite contains
+  MAX_LIVE_TEARDOWN_S, whose verdict depends on machine load. The owner's dispatcher note already
+  requires merges to run sequentially and never beside a concurrent full suite; this wave's whole
+  lesson is the same rule stated differently. Cost of waiting is ~15 min of wall-clock with nothing
+  else blocked, since CARD-228 cannot merge before its review returns anyway. Cost of not waiting is
+  a 900 s suite I could not trust.
