@@ -62,3 +62,10 @@ htmlcov/
 
 # The full-suite lock (cmd-start-review): a runtime artifact, never committed.
 meta/kanban/.full-suite.lock
+
+# The guards' sandbox manifest (tests/test_suite_profile.py): written into a
+# throwaway tree so the copy judges the parent's TRACKED file set rather than
+# whatever is on that disk. A stray copy at the repository root is host state
+# and is ignored there by _files_under_guard (CARD-239, F-306); this line is
+# the other half of that decision.
+.card238-tracked

@@ -6,12 +6,16 @@ build-backend = "setuptools.build_meta"
 name = "nonogram"
 version = "0.1.0"
 description = "Command-line generator for uniquely-solvable black-and-white nonogram puzzles."
-requires-python = ">=3.9"
+requires-python = ">=3.14"
 authors = [{ name = "Puzzle Creator" }]
 keywords = ["nonogram", "puzzle", "generator", "cli"]
 classifiers = [
   "Environment :: Console",
-  "Programming Language :: Python :: 3.9+",
+  # The floor is declared once, by requires-python above. This classifier
+  # is the same number in PyPI's vocabulary and is checked against it by
+  # tests/test_guard_integrity.py (CARD-239); it said 3.9+ while
+  # CLAUDE.md said 3.14, which is the contradiction that card settled.
+  "Programming Language :: Python :: 3.14",
   "Topic :: Games/Entertainment :: Puzzle Games",
 ]
 

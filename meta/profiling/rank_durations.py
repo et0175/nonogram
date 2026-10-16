@@ -146,6 +146,12 @@ _PYTEST_PROCESS = re.compile(
 # and says why.
 # --------------------------------------------------------------------------
 
+#: A rate bracket anywhere in a line, whether or not the line parses. The
+#: entry regex cannot answer this for a line it rejects, and the deliberate
+#: reader's second question -- how many bracket-bearing lines give their rate
+#: back -- is about exactly those lines too.
+_RATE_BRACKET = re.compile(r"\[\d+ms/test\]")
+
 TIMING_LOG_LINE = re.compile(
     r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) "
     r"(?P<wave>wave-\d+) "
@@ -399,6 +405,57 @@ def malformed_timing_lines(text: str) -> list[str]:
     return bad
 
 
+def check_log_report(text: str) -> tuple[list[str], int]:
+    """``(report lines, exit status)`` for one timing log's text.
+
+    The deliberate reader CARD-238 removed and CARD-239 puts back somewhere
+    it belongs. Two tests used to read the owner's live log *as part of the
+    suite*, which made the suite's verdict a fact about the machine -- that
+    was the defect CARD-238 cut, and it is not coming back. But the
+    mechanism it cut had found a real malformed entry (CARD-217's merge-gate
+    line), and after the cut nothing would ever notice the next one. So the
+    check lives here, as a subcommand somebody runs on purpose, over a path
+    they name.
+
+    Pure: it takes the log's text, not its path, so every test here is over
+    a log the test constructs. ``--check-log`` is the only thing that reads
+    a file, and no test invokes it -- asserted structurally, because a test
+    that ran it on the live log would be the original defect wearing this
+    card's badge.
+
+    It reports two things, and the second is why the subcommand is worth
+    having rather than a one-liner in the shell. Malformed lines, which is
+    the check itself; and **how many of the lines carrying a rate bracket
+    actually yield a rate field**, which is the question CARD-238's review
+    settled for the two entries it could see -- six bracket-bearing lines,
+    three ``rate`` fields -- and which nothing has been able to ask of the
+    whole log since. If the two numbers differ, some entry is losing a field
+    the cost trend is read off.
+
+    Never writes. The log is the owner's (CARD-238's G-1, CARD-239's G-1).
+    """
+    lines: list[str] = []
+    malformed = malformed_timing_lines(text)
+    entries = timing_log_entries(text)
+    bracketed = [line for line in text.splitlines() if _RATE_BRACKET.search(line)]
+    rated = [entry for entry in entries if entry["rate"]]
+    lines.append(f"entries: {len(entries)}")
+    lines.append(f"malformed: {len(malformed)}")
+    for line in malformed:
+        lines.append(f"  not an entry: {line.rstrip()}")
+    lines.append(
+        f"rate recovered: {len(rated)} of {len(bracketed)} lines carrying a "
+        "rate bracket"
+    )
+    if len(rated) != len(bracketed):
+        lines.append(
+            "  a bracket-bearing line is not giving its rate back; the line "
+            "contract above is what to read next"
+        )
+    status = 1 if malformed or len(rated) != len(bracketed) else 0
+    return lines, status
+
+
 def rank_tests(profile: Profile) -> list[TestRecord]:
     """Slowest tests first; ties broken on the id so the order is stable."""
     return sorted(profile.tests.values(), key=lambda t: (-t.total, t.nodeid))
@@ -569,7 +626,30 @@ def report(profile: Profile, source: Path, digest: str) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("artefact", type=Path, help="suite-durations-<date>.txt")
+    parser.add_argument(
+        "artefact",
+        type=Path,
+        nargs="?",
+        default=None,
+        help="suite-durations-<date>.txt",
+    )
+    parser.add_argument(
+        "--check-log",
+        type=Path,
+        metavar="PATH",
+        dest="check_log",
+        default=None,
+        # The path is the caller's to give and there is no default, which is
+        # deliberate twice over. A default would put the owner's gitignored
+        # timing log's path into this file as a constant -- and this file is
+        # one of the two territories tests/test_suite_profile.py's AC-1 guard
+        # walks, so that constant is the mutant review cycle 2 planted here
+        # and watched survive. It would also make the subcommand a thing that
+        # reads the owner's log when run with no argument, which is the
+        # opposite of deliberate.
+        help="read the timing log at PATH and report lines the entry "
+        "contract rejects; exits 1 if it finds any. Reads only",
+    )
     parser.add_argument(
         "--verify-render-set",
         type=Path,
@@ -579,6 +659,18 @@ def main(argv: list[str] | None = None) -> int:
         "(stderr only; stdout is unaffected)",
     )
     args = parser.parse_args(argv)
+
+    if args.check_log is not None:
+        lines, status = check_log_report(
+            args.check_log.read_text(encoding="utf-8")
+        )
+        stream = sys.stderr if status else sys.stdout
+        for line in lines:
+            print(line, file=stream)
+        return status
+
+    if args.artefact is None:
+        parser.error("give an artefact to rank, or --check-log PATH")
 
     raw = args.artefact.read_bytes()
     digest = hashlib.sha256(raw).hexdigest()

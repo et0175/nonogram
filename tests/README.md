@@ -337,10 +337,39 @@ Append one line to `meta/kanban/suite-timing.log` in the existing format:
 2026-10-15T05:34:34Z wave-39 card-217-profiling-run 931s PASS (7073 passed, 9 skipped, 0 failed) [131ms/test]
 ```
 
+A note **after** the rate bracket is legal too, and has been in use since
+wave 38 — but only inside parentheses, which is the form the parser gives a
+field of its own (`extra`):
+
+```
+2026-10-14T19:20:17Z wave-38 card-212-merge-gate 1123s PASS (7053 passed, 9 skipped, 0 failed) [159ms/test] (a first attempt on a shared host failed at 1476s)
+```
+
+A **bare** trailing note — the same sentence without the parentheses — is
+**not** legal and does not parse at all: CARD-217's merge-gate line wrote one
+(`… [135ms/test] — the profiling card's own gate; …`) and it is the malformed
+line CARD-238 was cut from. Prose lives inside parentheses; nothing but a
+parenthesised note may follow the rate bracket. This paragraph is the one
+place in this repository that says so, and it was missing until CARD-239 —
+`skills/kanban/references/cmd-run.md`, which is what the dispatcher actually
+reads at a merge gate, lives outside this repository and still documents only
+the bracket-terminated form.
+
 That log is gitignored (`.gitignore`'s blanket `*.log`), so it is **not**
 committed and a fresh checkout will not have one — append to it anyway; it is
 the only place the cost trend is kept across waves. Its line format is pinned
-by `TIMING_LOG_LINE` in `rank_durations.py` and tested, so keep to it.
+by `TIMING_LOG_LINE` in `rank_durations.py` and tested, so keep to it. **No
+test reads the live log** (CARD-238): the format is asserted against entries
+the tests construct, and the one thing that reads the real file is a
+subcommand somebody runs on purpose, over a path they name:
+
+```bash
+./.venv/bin/python meta/profiling/rank_durations.py --check-log meta/kanban/suite-timing.log
+```
+
+It reports the lines the entry contract rejects and how many of the lines
+carrying a rate bracket actually give their rate back, exits 1 if either
+count is wrong, and never writes.
 
 ## Troubleshooting
 
