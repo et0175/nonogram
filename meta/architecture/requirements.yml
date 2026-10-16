@@ -4117,7 +4117,7 @@ functional:
       - id: AC-347
         given: each line of the rule's examples table, including a mismatch that stops the walk from one edge but not the other, a "0" clue on a line marked empty throughout, and a wrong mark that closes a run
         when: the circled numbers are computed
-        then: exactly the table's circled numbers are returned — anchored from either edge, or all numbers when the line's closed runs equal the clue; a "0" circles only when its whole line is marked empty; and a wrong mark can circle a number
+        then: exactly the table's circled numbers are returned — anchored from either edge, or all numbers when the line's closed runs equal the clue, or a number whose value, unique in its clue, is the length of exactly one closed run of the line; a "0" circles only when its whole line is marked empty; and a wrong mark can circle a number
         kind: boundary
         test: TestSolverClues_RuleExamples
       - id: AC-348
