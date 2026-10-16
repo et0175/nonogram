@@ -246,3 +246,109 @@ _Roadmap wave 1 of the 2026-10-04 re-plan: CARD-169..CARD-176._
 - Owner defaults: a default that changes what the owner SEES (UI copy, layout, print placement) is shown as a render before merge, not just recorded — the two reworks this wave came from visible defaults
 - Actual time: stamp `Started` when the pipeline begins work and exclude owner-wait/queue time from calibration (CARD-170/171 wall-clock 2.6–2.8× was waiting, not work)
 - Suite cost: ~21 full runs per wave is the dominant cost; the identical-tree merge-gate skip has 3 clean waves — consider making it the rule
+
+## Waves 40–41 — 2026-10-16
+
+_Note: waves 34–39 have no retro section. The last retrospective is wave 33 (2026-10-05), so
+these two waves are examined against a six-wave gap — which is itself a finding below._
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-234 | The cover's title letters from packaged data | 0.5d | 1.0d | 2.00× | 1 | 9.0 | underestimated (actual) |
+| CARD-235 | The browser family stops paying socketserver's poll | 1d | 1.1d | 1.10× | 2 | 9.0 | accurate (actual) |
+| CARD-237 | The memory tripwire measures the export | 0.5d | 0.7d | 1.40× | 2 | 9.0 | underestimated (actual) |
+| CARD-238 | The timing-log tests stop judging the host | 0.5d | 2.7d | 5.40× | 5 | 8.0 | significantly underestimated (actual), escalated ×2 |
+
+### Metrics
+
+- wave 40: cards 3, escalated 0, split 0, actual_time 3; estimate 2.0d, actual 2.8d;
+  avg_accuracy 1.50×; avg_cycles 1.67; avg_final_score 9.0 (initial 8.17, improvement +0.83)
+- wave 41: cards 1, escalated 1 (CARD-238, twice); estimate 0.5d, actual 2.7d; cycles 5;
+  initial 6.0 → final 8.0 (+2.0). Single card — no calibration signal emitted from the wave alone
+- combined: estimate 2.5d, actual 5.5d, avg_accuracy 2.48×, avg_final_score 8.75 (↓ −0.79 vs wave 33)
+- test_cost: ~24–26 full-suite runs across both waves at 950–1050s each ≈ 6.5–7.5h machine time.
+  **Sourced from session gate logs, NOT from suite-timing.log, which has zero entries for these
+  waves** — see Process shortcuts
+- all four cards `Complexity: standard`; no architectural card, so the model-upgrade verdict stays
+  `(insufficient data — accumulating: 1 architectural card incl. history)`
+
+### Calibration signals
+
+- **python-pro tech-debt: avg_accuracy 2.63× over 3 cards (CARD-235 1.10×, CARD-237 1.40×,
+  CARD-238 5.40×) → estimates too LOW → suggest effort scale ×2.6.** This is the reversal of the
+  standing signal and it is category-driven, not noise: waves 28–33 measured python-pro **feature**
+  at 0.39–0.45× (estimates ~2.5× HIGH, hence the ×0.4 scale in force), and that scale is being
+  applied to test-integrity work that overruns by 2.6×. Wave 33's retro recorded "python-pro
+  tech-debt: 1 clean card — no signal"; there are now four.
+- ⚑ **CARD-234 carries `Category: bug`, which is outside the documented taxonomy**
+  (feature | enabler | tech-debt | compliance | ops), so it drops out of per-category metrics
+  silently. Either add `bug` to the taxonomy or map it onto one.
+
+### Process shortcuts
+
+- other:suite-timing-not-logged → clean (no rework), but it cost this retrospective its primary
+  cost data: ~25 full suites ran and none appended to `meta/kanban/suite-timing.log`, which
+  `cmd-run.md`'s SUITE TIMING step requires. Orchestrator omission, not a card's.
+- other:merge-gate-not-rerun-on-identical-tree (CARD-237) → clean. Main had advanced five commits,
+  all kanban bookkeeping, so the rebase could not alter a line under test and three locked solo
+  suites had already run on exactly that code. Recorded on the card with an explicit expiry. This
+  shortcut now has **4 clean waves** (wave 33's retro suggested promoting it to a rule).
+- other:max-cycles-exceeded-by-owner (CARD-238) → clean. `review.max_cycles` is 3; cycles 4 and 5
+  ran on explicit per-cycle owner authorisation, cycle 5 with a binding stop rule set before its
+  result was known. The family's root cause was fixed on the authorised cycle.
+
+### Finding families
+
+- **a guard's stated coverage is wider than its mechanism** — 9 gating findings, CARD-238
+  cycles 1–5, escalated twice. **ALREADY COVERED by a promoted rule that did not bite**: wave 33's
+  owner-approved suggestion of 2026-10-05, "a comment/docstring claim about what a test catches
+  needs a mutant proving it", applied to the standard brief. Diagnosed causes, both of the kinds
+  Step 4h.4 names: it lives in the pipeline **brief** so it carries no `check:` and nothing
+  executes it; and its wording is **satisfiable while the defect persists** — CARD-238 produced
+  mutants proving claims in every cycle, because a mutant *inside* a claimed region passes while
+  the claim's *scope* stays unbounded. → **owner-approved 2026-10-16: promote to a model rule with
+  a check**, strengthened for quantified claims. Routed to `/forge:architect-adr-writer`.
+- **fix-induced share: 8 of 9 gating findings after cycle 1 ≈ 89%** — every cycle's findings were
+  about the previous cycle's own work. Wave 33 recorded 1 of 1; this is the metric the
+  DECLARATION RE-DERIVATION protocol exists to move, and on this card it moved the wrong way.
+- what finally worked, recorded because it is the transferable part: not another fix but a **change
+  of kind** — derive the enumeration from an authority and audit it. The audit named `os.walk`,
+  `os.fwalk`, `glob0` and `glob1` *before* the agent added them, four spellings five hand-written
+  passes had missed. Two patterns worth carrying: completeness guards **parametrized from the set
+  itself**, and baselines expressed as **equalities**. The deepest artefact is
+  `test_the_control_for_each_spelling_depends_on_the_set` — a control must be caught WITH its set
+  member and missed WITHOUT it, a guard on the guards' discriminating power.
+- **a skip predicated on host state is a hole in the gate, not a concession to portability** —
+  one `skipif(not TIMING_LOG.exists())` is why CARD-234's gate was green at 11 skips and
+  CARD-235's red at 9 on identical code.
+
+### Merge conflicts
+
+- No card-pair conflicts. The conflict graph's predictions held: CARD-234 ∩ CARD-228 and
+  CARD-228 ∩ CARD-215 were serialized on the `book_pdf_generator.py` / `export/layout.py`
+  hotspots and never ran concurrently.
+- ⚑ **Recurring merge-time friction, three times (CARD-237 ×1, CARD-238 ×2), orchestrator-process
+  not card-pair**: the review-report sync copies worktree → main, main then tracks those files, and
+  the worktree's untracked copies block the *next* `git rebase`. It also led to a careless
+  `rm -f meta/review/*.yml` that deleted 236 tracked reports (restored — they were tracked).
+  Structural fix: delete the worktree copies immediately after syncing, or sync only at `done`.
+  Recorded in `conflict-history.yml`.
+
+### Suggestions
+
+- **python-pro tech-debt effort scale ×2.6** (avg_accuracy 2.63× over 4 cards incl. history).
+  Keep the existing ×0.4 for `feature` — the two categories now have opposite signals on this
+  project, and one scale cannot serve both. Apply: `/forge:retrospective calibrate`
+- **Orchestrator: append a `suite-timing.log` line per gate.** ~25 runs produced zero entries
+  across two waves. Fold it into the gate script so it cannot be forgotten, since the data is only
+  ever collected at gate time.
+- **Orchestrator: delete a worktree's review-report copies right after syncing them to main**,
+  so the next rebase is not blocked by files main has since started tracking (3 occurrences).
+- **Run the retrospective per wave.** Waves 34–39 have none, which is why a rule promoted on
+  2026-10-05 was not noticed failing until 2026-10-16 — eleven days and five review cycles.
+- **Taxonomy:** decide whether `bug` is a category or maps onto one; today it silently drops a
+  card out of every per-category metric.
+- Consider promoting `merge-gate-not-rerun-on-identical-tree` to a rule (now 4 clean waves), with
+  the expiry condition CARD-237 recorded: the reasoning lapses the moment main gains a code commit.

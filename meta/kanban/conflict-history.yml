@@ -10,3 +10,20 @@ conflicts:
     entries (the chain is append-only provenance) and advancing only the pointer.
     The same pair then produced a real integration failure at the merge gate (the
     caption/flush-alignment margin overhang) - see CARD-204's notes.
+- pair: [CARD-237, CARD-238]
+  files: [meta/review/*.yml]
+  resolution: manual
+  at: 2026-10-16
+  note: >-
+    NOT a card-pair conflict — orchestrator process, recorded here because this is
+    where merge-time friction is calibrated from. The review-report sync copies a
+    worktree's meta/review/*.yml into the main repo, the main repo then tracks them,
+    and the worktree's now-redundant untracked copies block the NEXT `git rebase`
+    ("untracked working tree files would be overwritten by checkout"). Hit three
+    times across waves 40-41: CARD-237 once, CARD-238 twice. The first recovery used
+    a glob (`rm -f meta/review/*.yml`) which deleted 236 TRACKED reports in two
+    worktrees — restored with `git checkout --`, nothing lost, but it cost a failed
+    rebase and is the reason the later recoveries named the six files individually.
+    Structural fix: delete the worktree copies immediately after syncing, or sync only
+    at `done` time. Until then, name files explicitly — never glob meta/review/.
+
