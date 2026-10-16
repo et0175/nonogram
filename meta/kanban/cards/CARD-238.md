@@ -15,7 +15,7 @@
 **Wave:** 41
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py
-**Review score:** 6.0 → 7.5 → 7.5 → 6.5 (cycle 4, owner-authorised beyond max)
+**Review score:** 6.0 → 7.5 → 7.5 → 6.5 → **8.0** (cycle 5; min_score met)
 **Started:** 2026-10-15T17:52:53Z
 **Closed:** —
 **Actual:** —
@@ -132,6 +132,15 @@ widen the skip condition — a test that skips more often is not a test that wor
   standing rule is that an xfail standing in for a defect blocks merge.
 - G-4: `tests/test_suite_profile.py` only. The rest of the profiling harness (CARD-217's
   artefact checks) stays as it is.
+  **AMENDED 2026-10-16 at the AC gate — my omission, caught by the gate agent.** When G-3 was
+  amended to license the parser change and `Touches:` was widened to include
+  `meta/profiling/rank_durations.py`, **this sentence was not amended alongside them**, so the
+  card contradicted its own licensed footprint in writing. The licensed set is
+  **`tests/test_suite_profile.py` plus `meta/profiling/rank_durations.py`** (the latter for the
+  parenthesised-trailing-note change only, per G-3). G-4's substantive clause is unchanged and
+  was verified directly: CARD-217's three artefact classes are **byte-identical** to main
+  (AST source-segment md5s matched on both sides), and no `meta/profiling/*` file other than
+  the ranker is touched.
 - G-5: No `src/**` change. No new dependency (ADR-0006/R1).
 
 ## System contract
@@ -828,3 +837,109 @@ corpus is `random.Random`, not `hypothesis`.
 - [Fix 5] the claim sweep is **a file this time**, synced to
   `meta/review/CARD-238-cycle5-claim-sweep.md` — 34 claims across four areas, each PINNED with a
   named control, DELETED, or RECORDED, plus a counts table. My spec defect from cycle 4 is closed.
+- [Review sync] 5 report(s) → meta/review/20261016T145350Z-CARD-238-cycle5.yml
+- [Review 5/5] Score: **8.0 — min_score met**, 0 critical, 2 important. Recommendation: **MERGE**,
+  with F-501 recorded as a bound and F-502 folded into the follow-up card.
+- [Review 5/5] **(a) The audit genuinely polices — it could not be made to pass vacuously in any
+  of eight directions.** The reviewer tested seven beyond the one I checked: dropping `glob1`,
+  `realpath`, `getsize`; an invented `listdirs`; an emptied reason; `walk` classified twice; and
+  re-vacuuming the `glob0` control. Each red, each with a message saying what to do.
+  **(b) The surface is genuinely derived**, proved without editing the file: a pytest plugin
+  injecting `os.brandnewlister`, `glob.iglob2` and `pathlib.Path.scanchildren` before collection
+  turns the completeness test red at exactly those three. **No fallback swallows unknowns.** The
+  307-vs-271 arithmetic is honest — 36 extras, all platform-only, all `KIND_NEITHER`.
+  **(d) The meta-guard works and is "the strongest thing on this card":** re-planting the vacuous
+  `glob0` control reds exactly `test_the_control_for_each_spelling_depends_on_the_set[glob0]` and
+  nothing else. **That is the mechanism that would have caught cycle 4's decorative wrapper test**,
+  which is the strongest structural claim this card makes, and it is corroborated rather than
+  asserted.
+  **(f) All kills genuine**, re-derived across 12 plants with md5-verified reverts: MUT-W killed 3
+  ways, MUT-KB killed 3 ways, MUT-L 3, MUT-R 2, D1c's mechanism green, and the env-var survivor
+  still surviving and still documented as such.
+  Cost judged proportionate and **not padding**: all 104 generated probe controls run in <0.005s
+  each; the module's ~19s is still dominated by the pre-existing sandbox comparison.
+- [Review 5/5] ⚠ **F-501 — RECORDED BOUND under the owner's stop rule, not fixed.** The audit
+  polices the spellings that *read* a directory; **nothing polices the spellings that build one.**
+  `os.listdir(os.path.join(REPO_ROOT,"meta","kanban"))`, the hoisted form,
+  `REPO_ROOT.joinpath("meta","kanban")` and `os.path.join(os.getcwd(),…)` all return `[]`, while
+  the `/` and `Path.cwd() / …` controls are caught. Compounded with the already-disclosed
+  `except`-handler bound it survives end to end at **250 passed, rc=0**, and the mutant's own
+  verdict is `1 SKIPPED` without a log and `1 PASSED` with one — **the CARD-234/CARD-235 flip
+  verbatim**. The join spelling is load-bearing, measured both ways: `/` + except → killed;
+  `os.path.join` + `if not names:` → killed; the pair → survives.
+  **Kind: another member of an unfalsifiable set, one layer out from the one cycle 5 fixed.** That
+  is exactly the finding the owner pre-committed to record rather than re-cycle, so it merges as a
+  bound. The reviewer carried it at **zero score deduction** and said so explicitly, so the
+  arithmetic is auditable rather than tacit: scoring it would have manufactured the cycle 6 the
+  owner forbade.
+  The honest reading, in the reviewer's words: **the audit moved the unfalsifiable set rather than
+  eliminating it** — which is still a strict improvement over four cycles of hand-editing, because
+  the set it moved to is one the next card can police the same way.
+- [Review 5/5] ⚠ **F-502 — RECORDED, NOT FIXED, and this is my decision rather than the stop
+  rule's.** `test_a_spelling_the_guards_use_is_a_real_stdlib_name` exempts `KIND_NEITHER` "and no
+  others", so five version-gated members (`glob0`, `glob1`, `is_junction`, `isjunction`,
+  `isdevdrive`) make the suite **red on an interpreter lacking them** — measured by deleting
+  exactly those five attributes in a plugin. `pyproject.toml:9` says `requires-python = ">=3.9"`,
+  and `glob0`/`glob1` are deprecated in CPython **and were added by cycle 5**.
+  Why recorded rather than fixed: the reviewer's one-line remedy
+  (`_classified(KIND) & frozenset(_stdlib_directory_surface())`) is **not one line in this file** —
+  the four sets are hard-coded frozensets at lines 1135/1161/1182/2145, defined *before*
+  `_stdlib_directory_surface` (1251) and `_classified` (1490), so deriving them needs a reordering
+  in a 4000-line module, applied after a passing review and unreviewed. **That is precisely the
+  shape of change that produced five cycles on this card.** Against that: the defect is **loud,
+  not silent**; there is no CI in this repo; the project runs 3.14 (CLAUDE.md), so present
+  exposure is nil; and if CPython drops `glob0`/`glob1` the suite goes red with a message naming
+  them, which is a minutes-long fix at that point.
+  ⚑ It also rides on a **pre-existing contradiction worth settling independently**:
+  `pyproject.toml` declares `>=3.9` while CLAUDE.md says `>=3.14`, so the interpreter range the
+  suite actually supports is not written down once.
+- [Review 5/5] three Minors recorded, none fixed: the module docstring says "331 tests" over a
+  **341**-test module (and the sweep's own row A16 claims that was corrected — the one sweep row
+  found wrong on measurement, in the cycle whose subject is false counts); two exclusion reasons
+  are plausible-but-wrong (`popen`, `system` — both genuinely list a directory) with `subprocess`
+  outside the audited surface entirely, which is **this module's own idiom**; and `_unwrapped`
+  peels only single-argument calls, so `os.path.relpath(KANBAN, REPO_ROOT)` is unseen.
+- [AC/EC check] All criteria/constraints ✓ (evidence): **10 of 10 demonstrated**, by a
+  fresh-context gate agent, **zero skips across 626 node executions** — so no item's evidence
+  rests on a skip, and every named `test:` on this card exists (none was missing or an
+  empty-collection alias).
+  * **AC-1 ✓** `TestSuiteTiming_NoTestReadsTheLiveLog` → **125 passed**. Proved non-vacuous
+    independently: the gate called `_live_log_references` on 13 fabricated in-memory sources and
+    it caught **9 of 9** re-introduction forms — including **the original defect verbatim**, cycle
+    1's MUT-3 hoisted filename, the `f"{STEM}.log"` form, MUT-L's `os.listdir`, **MUT-W's
+    `os.walk` (cycle 4's Critical)**, `os.fwalk`, `Path.walk()`, `os.listdir(path=…)` and
+    `glob.iglob` — with both negatives correctly clean.
+  * **AC-2 ✓** `TestSuiteTimingLog_FormatUnchanged` → 30 passed, and the before/after was measured
+    fresh by AST-diffing `git show main:…` against the working tree: **exactly two tests removed
+    module-wide**, both the host-coupled pair, both of which carried the `skipif` on main. Nothing
+    else removed from any class; `GOOD` and `BAD` **byte-identical** to main; every removed
+    assertion's new home read and confirmed.
+  * **AC-3 ✓** → 125 passed, with the structural half corroborated by an independent `ast` walk:
+    **zero** applied `skip`/`xfail` decorators, **zero** `pytestmark` assignments, **zero**
+    `allow_module_level` calls. All ~35 grep hits for skip language are comments, docstrings, or
+    the guard's own fabricated-source corpora.
+  * **AC-4 ✓** → 3 passed, re-derived against the live parser: CARD-217's literal returns `None`
+    and is listed malformed (**rejected**); the same sentence parenthesised yields
+    `rate='135ms/test'` with the prose in `extra` (**legal, fields intact**); real log line 19 goes
+    from `rate=None` under main's regex to `rate='159ms/test'`. The writer **is** named.
+  * **AC-5 ✓** full-suite leg demonstrated-on-record and **explicitly not re-run**, but the
+    *mechanism* verified fresh: `--collect-only` → **341 with the log absent and 341 with one
+    present**, and a `diff` of the full collection trees reported **IDENTICAL**. The gate wrote its
+    scratch log at the *worktree* path, confirmed gitignored, and deleted it.
+  * **G-1 ✓** md5 `fd3e799a4ea30862d8d8e03966ae9349`, 2802 bytes, mtime Oct 15 09:50:34 — checked
+    at the start AND end of its run, untouched. · **G-2 ✓** and it added its own measurement rather
+    than trusting the card's: main's old regex against the new one over **40,214 constructed
+    lines** → **0 accept/reject differences**, so the accepted language is identical and only field
+    assignment changed. · **G-3 ✓** the ranker's whole diff is **+21/−2** — a comment block, the
+    two-line regex change, a docstring — and **no import change at all**. · **G-4 ✓** against the
+    amendments, with CARD-217's three classes byte-identical by AST source-segment md5.
+    · **G-5 ✓** `src/**` empty on both diffs, `pyproject.toml` unchanged, all eight new test-module
+    imports stdlib, and the dependency-baseline pair green on the **real** node ids.
+- [AC/EC check] three documentation inaccuracies handed back, none changing a verdict:
+  **(1) G-4's literal sentence was never amended alongside G-3 and `Touches:` — my omission, now
+  fixed above.** It was the one place the card contradicted its own licensed footprint in writing.
+  (2) the cycle-1 note says the class went 22→29; measured **30** (cycle 2 added
+  `test_the_real_logs_post_bracket_note_keeps_its_rate`, documented then but the class figure was
+  never restated). (3) the module docstring says "331 tests" over a **341**-test module — left
+  recorded rather than fixed, because it is a code change after a passing review and the Minor is
+  already on the record.

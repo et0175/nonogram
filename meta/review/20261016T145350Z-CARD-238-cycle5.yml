@@ -1,0 +1,555 @@
+version: 1
+generated_at: "2026-10-16T14:53:50Z"
+target: "CARD-238 cycle 5 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-238, branch card/238-timing-log-host-state, HEAD ee53986 with cycles 2-5 uncommitted; tests/test_suite_profile.py (md5 2111403410773639e6b917428ee98a72, 3975 lines, 341 tests) and meta/profiling/rank_durations.py (md5 1dab65e2e0d79581ef5dd48d971968fe, byte-identical to cycle 2, parser out of scope)"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "tests/test_suite_profile.py (full, 3975 lines; the audit block 1127-1500, the rule 1838-2145, the probe 2145-2235, the corpora 2427-3145, both guard classes 3221-3752, _build_sandbox 3845-3926 read line by line)"
+    - "meta/profiling/rank_durations.py (byte-identical to cycle 2; parser declared settled and out of scope by the brief)"
+    - "meta/kanban/cards/CARD-238.md (main-repo authoritative copy, full, incl. [Fix 5] block)"
+    - "meta/review/CARD-238-cycle5-claim-sweep.md (full, audited row by row; A16, B3, C4, C6, D8, D9 spot-checked by measurement)"
+    - "meta/review/20261016T121120Z-CARD-238-cycle4.yml (full)"
+    - "meta/review/20261016T073645Z-CARD-238-cycle2.yml, ...cycle3.yml (mutant catalogue: MUT-R, D1c, D2b, allow_module_level)"
+    - "tests/test_clues.py (mutant host, md5 942627df2b6df5a003bf52775ab1d398 restored and verified after each of 12 plants)"
+    - "pyproject.toml (requires-python, dependency baseline), .github/ci absence confirmed"
+    - "meta/architecture system-rules lens output (system_rules.py --card CARD-238 --root meta/architecture --verify-refs)"
+  not_reached:
+    - "the full suite — the brief forbids re-running it; AC-5's recorded pair (7488 passed, 9 skipped, 0 failed on both legs, skip lists diffed identical) accepted on the orchestrator's evidence"
+    - "other-platform surfaces (Windows/Linux dir(os)) — cannot be enumerated from macOS; simulated by deletion instead (see F-502)"
+    - "cycle-1 report body (only its score/finding count used)"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 3017, removed: 143 }
+  max_fan_in:
+    symbol: "n/a — test module, exports nothing"
+    callers: 0
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — the diff touches one test module plus one standalone profiling script; every module-level helper (_live_log_references, _conditional_silences, _stdlib_directory_surface, _probe_pattern, _build_sandbox) is called only from this file"
+    hotspots: "no_eligible_fact — tests/test_suite_profile.py was created by CARD-217 on 2026-10-15; no 12-month churn window exists"
+    cochange_missing: "no_eligible_fact — same reason: a two-day-old file has no co-change peers"
+
+system_contract:
+  rules_checked: 8
+  holds: 3
+  unchecked: 5
+  violated: 0
+  notes: >
+    FULL mode, nothing carried. Set = the card's ## System contract (ADR-0006/R1)
+    plus the 7 the lens returns for CARD-238's touches scope (ADR-0038/R7,
+    ADR-0038/R8, CON-005, CON-009, CON-010, CON-011, CON-012). Lens:
+    system_rules.py --card CARD-238 --root meta/architecture --verify-refs on
+    this working tree. Diagnostics: unresolvable_scope [], scope_unmapped_model [],
+    dead_check_ref [], tooling_failure [], bcon_without_derived_con [],
+    unparseable_sources [], check_refs_verified true, card_scope "touches",
+    no_check [CON-004, CON-006, CON-007, CON-008, CON-013, CON-017, CON-018],
+    sources_absent [threat-model.md, business/constraints.md]. Counts identical
+    to cycles 1-4 and independently re-assembled.
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — checker run on this head with the REAL node ids: tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed and ::test_the_font_ships_as_package_data_and_not_as_a_dependency -> 2 passed in 0.09s. The alias TestDependencyBaseline_IsExactlyPillowAndNumpy re-confirmed to collect ZERO (ERROR: not found), so it is never evidence. No manifest in the diff (git diff --stat HEAD: 3 files, none pyproject.toml). This cycle's new top-level imports enumerated against cycle 4's module head: `glob` (line 54) and `pathlib` (line 58) — both stdlib, both needed by _stdlib_directory_surface/_SURFACE_NAMESPACES. `os` (line 57) was cycle 4's and is also stdlib. The card's [Fix 5] accounting states exactly this ('two new stdlib imports, glob and pathlib') and explicitly corrects cycle 4's inaccurate 'no new import at all' — the accounting is accurate this cycle."
+    - "ADR-0038/R7 ✓ holds — pytest-playwright stays dev-only. No manifest file in the diff, so project.dependencies and the admin extra cannot have changed; rank_durations.py's diff is comment + regex + docstring only (byte-identical to cycle 2) and adds no dependency."
+    - "ADR-0038/R8 ✓ holds — browser tests still fail/skip loudly. _conditional_silences(this module) == [] (test_nothing_in_this_module_goes_quiet_on_a_condition green in my own 341-passed run). MEASURED_SILENCES_ELSEWHERE still records exactly four silences and names no browser test: tests/test_admin_design_tokens.py::test_the_served_tokens_are_the_design_systems_tokens (not _DESIGN.exists()), tests/test_sourcing_image.py x2 (not picture.is_file(), not PICTURES.is_dir()), tests/test_web_submission.py::test_an_out_under_an_unwritable_directory_is_reported_as_a_failure_page (geteuid). I verified the equality goes red in both directions this cycle: three planted skips in tests/test_clues.py (MUT-W, MUT-L, MUT-KB, MY-E1', MY-E2') each made test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones fail. _run_module_in_sandbox runs only tests/test_suite_profile.py plus the control node, so no browser test executes in either sandbox. The widened probe (9 regex alternatives -> 52 audited names) reports the same four entries, so no browser skip was retargeted."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no src/** change (git diff --stat HEAD: 3 files, none under src/); no solver code touched and the uniqueness property's neighbourhood is not entered. The sandbox copies the solver property tests but never runs them (the sandbox command is tests/test_suite_profile.py plus the control node)."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server binding code in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-handling code in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size validation code in the diff; limits.py untouched."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard or image-sourcing code in the diff."
+
+root_causes:
+  - id: RC-1
+    title: >
+      The audit polices the sets of CALL spellings (listers, globbers, wrappers,
+      probes) against dir(os)/dir(os.path)/dir(glob)/dir(pathlib.Path). It does
+      not police the enumerations one layer out: which spellings BUILD the
+      directory (the `/` BinOp, and nothing else), which namespaces the surface
+      is read from (_SURFACE_NAMESPACES, four by hand), and which call arities
+      the wrapper peel accepts (one). Each of those is a hand-written set whose
+      completeness nothing can test — the same shape the audit was written to
+      remove, displaced rather than eliminated.
+    finding_ids: [F-501, F-504, F-505]
+
+findings:
+  - id: F-501
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/test_suite_profile.py
+    line: 1851
+    title: "RECORDED BOUND (owner stop rule): a directory built with os.path.join / Path.joinpath is invisible to the path guard, and compounded with the already-disclosed except-handler bound it yields a surviving mutant that restores this card's own defect"
+    description: |
+      KIND / SEVERITY CALL FIRST, because the owner's stop rule turns on it:
+      this is **another member of an unfalsifiable set** — the set of spellings
+      that BUILD the kanban directory. The audit this cycle delivered polices
+      the spellings that READ it. Per the owner's pre-commitment ("if you find
+      another member of an unfalsifiable set, the card merges with that hole
+      recorded; there is no cycle 6") this is a recorded bound, NOT a reason to
+      stop the card. It is reported at full strength anyway because the owner
+      asked for that, and because the recording needs to be precise enough to
+      be actionable later.
+
+      The falsified claim, tests/test_suite_profile.py:1850-1851
+      (`_live_log_references` docstring):
+
+        "... or a listing of that directory **by any spelling**
+         :data:`STDLIB_DIRECTORY_SURFACE` **classifies as one**."
+
+      `listdir` IS such a spelling, the directory IS that directory, and the
+      guard returns []. Measured as pure functions (module imported by path,
+      no edit):
+
+        os.listdir(os.path.join(REPO_ROOT, "meta", "kanban"))      -> []  MISSED
+        KANBAN = os.path.join(REPO_ROOT, "meta", "kanban");
+          os.listdir(KANBAN)                                       -> []  MISSED
+        os.listdir(REPO_ROOT.joinpath("meta", "kanban"))           -> []  MISSED
+        os.listdir(os.path.join(os.getcwd(), "meta", "kanban"))    -> []  MISSED
+        -- controls, same listing, directory built with `/` --
+        os.listdir(REPO_ROOT / "meta" / "kanban")                  -> ['listdir() of meta/kanban']
+        os.listdir(Path.cwd() / "meta" / "kanban")                 -> ['listdir() of meta/kanban']
+
+      Note the second-order inaccuracy this exposes. `os.path.join` and
+      `joinpath` are classified KIND_NEITHER, reason "pure path-string
+      arithmetic; it consults no filesystem" — true of the function in
+      isolation, and beside the point: the guard does not need `join` to
+      consult a filesystem, it needs to recognise the directory `join` built.
+      And `joinpath`'s entry in NOT_A_PATH_WRAPPER ("a wrapper that names
+      another directory is not peeled") asserts a miss whose correctness is
+      indistinguishable from this hole: `REPO_ROOT.joinpath("meta","kanban")`
+      names exactly the kanban directory, and the negative control passes for
+      the wrong reason.
+
+      EXECUTED END TO END, in a tracked guarded source other than this module
+      (tests/test_clues.py, reverted from a pre-captured copy, md5
+      942627df2b6df5a003bf52775ab1d398 restored and verified after every
+      plant). The card's declined Option 2 shape — "find whatever .log is
+      under meta/kanban" — so the source names no log at all, plus the
+      except-handler skip that the file already discloses as a bound (sweep
+      D5, NOT_A_CONDITIONAL_SILENCE):
+
+        KANBAN = os.path.join(REPO_ROOT, "meta", "kanban")
+        def test_the_timing_history_is_present_and_nonempty() -> None:
+            try:
+                names = sorted(n for n in os.listdir(KANBAN)
+                               if n.endswith(".log"))
+                first = names[-1]
+            except (FileNotFoundError, IndexError):
+                pytest.skip("no timing history on this host")
+            assert Path(os.path.join(KANBAN, first)).read_text().strip()
+
+        both guard classes                 -> 250 passed, rc=0   SURVIVED
+        the mutant's own verdict,
+          meta/kanban with no *.log        -> 1 SKIPPED
+        the mutant's own verdict,
+          one *.log present                -> 1 PASSED
+
+      That last pair is this card's defect verbatim: CARD-234-green-by-skipping
+      vs CARD-235-red/green-on-the-same-code, restored, with every guard green.
+
+      THE JOIN SPELLING IS THE LOAD-BEARING SUBSTITUTION, measured both ways:
+
+        `/` join   + except-handler skip -> 2 failed (path guard + behavioural)  KILLED
+        os.path.join + `if not names:`   -> 2 failed (silence equality + behavioural) KILLED
+        os.path.join + except-handler    -> 250 passed                          SURVIVED
+
+      So neither bound alone survives; the compound does, and the undisclosed
+      half is the join spelling. This is precisely cycle 4's lesson ("the
+      Critical's lesson was that two sets compounded") recurring one layer
+      out — which is why I am calling it a member of the family rather than a
+      fresh defect.
+
+      Why the behavioural half cannot help: `_run_module_in_sandbox` runs only
+      `tests/test_suite_profile.py` plus the sandbox control node, so a
+      coupling in any of the other ~220 guarded sources has the two structural
+      rules as its sole defence. That is stated accurately in the docstring at
+      lines 2029-2043; it is the stated bound, not a new one.
+
+      Blast radius, stated honestly: nothing in the repo today uses this
+      shape. `os.path.join` in a pathlib-idiomatic repo plus an
+      except-handler skip is a moderately contrived combination — each half
+      plausible on its own, the pair less so. That, plus the stop rule, is
+      why this is filed `high` and explicitly NOT as a gate.
+    suggestion: |
+      For the record, not for this cycle. The durable fix is the same move the
+      audit made one level down: stop enumerating by hand.
+
+      1. Teach `_kanban_directories` / `_joined_components` the two other join
+         spellings — an `ast.Call` to a name whose tail is `join` or `joinpath`
+         whose string arguments spell `meta`, `kanban` — and add the three
+         measured shapes above to REINTRODUCTIONS so each gets a control that
+         `test_the_control_for_each_spelling_depends_on_the_set` can police.
+      2. Then make the DIRECTORY-construction spellings an audited projection
+         of STDLIB_DIRECTORY_SURFACE too (a KIND_JOINER group), so the next
+         one is a red test rather than a review finding — otherwise this
+         finding is occurrence seven in waiting.
+      3. Correct line 1850-1851 to what the mechanism holds: a listing of that
+         directory when the directory is reached by a `/` join, a single
+         string, or a classified wrapper around one — and name
+         `os.path.join`/`joinpath` in MEASURED_STRUCTURAL_MISSES so the bound
+         goes red the day the resolver grows past it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-502
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/test_suite_profile.py
+    line: 3389
+    title: "The audit hard-codes THIS interpreter's surface into the guards: five version-gated members make the suite red on a lower interpreter inside the declared requires-python range — the card's own anti-pattern, in a new variable"
+    description: |
+      A DIFFERENT defect, not a member of the family — judged on its own
+      merits. It is the one thing this cycle newly introduced that makes the
+      suite's verdict depend on something other than the code it judges.
+
+      `test_a_spelling_the_guards_use_is_a_real_stdlib_name`
+      (lines 3389-3404) asserts that every non-KIND_NEITHER classification
+      exists on the running interpreter's surface, exempting KIND_NEITHER
+      and "no others" (the comment at 1221-1228 states this deliberately).
+      Five members of the guards are version-gated:
+
+        glob0, glob1        — undocumented glob internals, deprecated in
+                              CPython and slated for removal
+        is_junction         — pathlib.Path, 3.12+
+        isjunction          — os.path, 3.12+
+        isdevdrive          — os.path, 3.12+
+
+      Measured, without editing the file — a pytest plugin that deletes those
+      five attributes before collection, simulating an interpreter that lacks
+      them:
+
+        test_a_spelling_the_guards_use_is_a_real_stdlib_name -> FAILED
+          "a spelling classified into one of the guards is not a public
+           callable of os, os.path, glob or pathlib on this host:
+           ['glob0', 'glob1', 'is_junction', 'isdevdrive', 'isjunction']"
+        test_every_spelling_the_stdlib_offers_is_classified  -> passed
+          (the completeness direction is correctly tolerant)
+
+      Two reasons this matters rather than being a curiosity:
+
+      * `pyproject.toml:9` declares `requires-python = ">=3.9"`. On any
+        interpreter below 3.12 inside that declared range the suite is RED on
+        a test that says nothing about the code. (CLAUDE.md says 3.14 for
+        dev; the pyproject/CLAUDE.md inconsistency is pre-existing and not
+        this card's, but this cycle is what makes it bite.)
+      * `glob.glob0`/`glob1` are new members THIS cycle added ("no reason to
+        exclude them survived the asking", sweep A12). They are the two
+        likeliest to disappear from a future CPython, at which point the
+        suite goes red because a spelling nobody can write any more is
+        missing from a guard that no longer needs it. The red is a false
+        alarm about a non-risk.
+
+      The file discloses the OTHER direction and only that direction
+      (lines 1217-1228): "A platform or version offering a name this host
+      does not ... makes the completeness audit red until that name is
+      classified -- which is the audit working, not failing." A platform or
+      version *lacking* a name this host has is not mentioned, and that is
+      the direction that is wrong. So the disclosure is one-sided, and the
+      stated bound is narrower than the real one — structurally the same
+      prose-vs-mechanism gap this card keeps producing, but with the error
+      pointing the other way, which is why it is not RC-1.
+
+      Severity judgement: `high`, not critical. The failure mode is LOUD
+      (a red test naming exactly what to do), which is the opposite of the
+      silent skip this card exists to remove, and there is no CI in the repo
+      (no .github/, no ci/) so nothing but a deliberate interpreter change
+      triggers it today. But it is a real, measured, newly-introduced
+      dependence of the suite's verdict on the host, on a card whose whole
+      thesis is that such a dependence is not a gate.
+    suggestion: |
+      One line, and it removes the class rather than the symptom: derive the
+      guards from the intersection rather than asserting equality with the
+      table.
+
+        _LISTERS  = _classified(KIND_LISTER)  & frozenset(_stdlib_directory_surface())
+        _GLOBBERS = _classified(KIND_GLOBBER) & frozenset(_stdlib_directory_surface())
+        ... and likewise for _PATH_WRAPPERS and _HOST_STATE_PROBES
+
+      Then every set is automatically correct on every interpreter, the
+      completeness direction keeps all its power (an unclassified name is
+      still red), `test_the_listing_sets_are_exactly_the_classified_spellings`
+      becomes an equality against the same intersection, and
+      `test_a_spelling_the_guards_use_is_a_real_stdlib_name` can be dropped
+      or restricted to "a classified name that no supported interpreter has
+      ever offered". Failing that, exempt a declared VERSION_GATED set with
+      the version each name arrived in, and say so in the comment at 1217.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-503
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_suite_profile.py
+    line: 19
+    title: "The module docstring's measured baseline says '331 tests' over a 341-test module, and the claim sweep's A16 row claims that very sentence was corrected to 341"
+    description: |
+      Small, but it is a false count inside the cycle whose subject is false
+      counts, and it is the one row of the sweep I found dishonest on
+      measurement rather than on judgement — so it is reported rather than
+      swallowed.
+
+      tests/test_suite_profile.py:19:
+        "The real baseline, measured on the owner's host on 2026-10-16:
+         **331 tests, 16.5-16.7s** over three runs ..."
+
+      meta/review/CARD-238-cycle5-claim-sweep.md, row A16:
+        | A16 | module docstring: "168 tests, 16.5-19.8s" | corrected to
+          measured fact | 341 tests, 16.5-16.7s over three runs ... |
+
+      Measured: the module collects and passes 341 (`--collect-only -q` ->
+      "tests/test_suite_profile.py: 341"; full run -> "341 passed"), and the
+      card's own [Fix 5] G-2 line says "module 168 -> 341 tests". So 341 is
+      the agreed number everywhere except the file, where the correction
+      landed as 331.
+
+      The timing half does not reproduce either: three runs of the module on
+      this host at 1-minute load 4.36-5.49 gave 19.69s, 18.54s and (with the
+      two guard classes only) 15.3-16.6s — above the stated 16.5-16.7s
+      ceiling for the whole module. The sweep itself says the figure is a
+      dated measurement and deliberately not pinned by a test, which is the
+      honest framing; the number is still outside its own stated range on the
+      first host that re-measured it.
+
+      Same family as the carried F-405 ("These three" over four entries),
+      which the sweep records as untouched and still true.
+    suggestion: |
+      Change 331 to 341, and either widen the stated range to 16.5-19.8s (the
+      figure cycle 4 used) or state the load the range was measured at next
+      to it, since 2x load swings on this host move the module by ~20%.
+      While in that paragraph, F-405's "These three" over four entries at
+      line ~3117 is the one-word fix the sweep flags for whoever opens the
+      block next.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-504
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 1243
+    title: "Two exclusion reasons are plausible-sounding and wrong (os.popen, os.system), and subprocess — this module's own idiom for listing files — is outside _SURFACE_NAMESPACES entirely"
+    description: |
+      This is the answer to "is the exclusion list honest on a sample". I
+      sampled ~60 of the 307 entries across all 18 reasons. Eighteen of the
+      18 reasons are defensible and the four guard groups are right: the
+      listers, globbers, wrappers and probes all belong where they are, the
+      probe group is deliberately over-inclusive (fd reads classified as
+      probes, which widens what is reported and cannot hide anything), the
+      env-var survivor and the except-handler/`open` bound are both
+      classified KIND_NEITHER with the honest reason and carry negative
+      controls. No actual directory enumerator is parked in an exclusion.
+
+      Two reason texts are nonetheless wrong as written:
+
+      * `popen` sits in "file-descriptor plumbing; **it names no directory**
+        and answers no presence question" (lines ~1452-1462). `os.popen("ls "
+        + str(KANBAN))` names a directory and lists it.
+      * `system` sits in "process, signal or scheduling control, **not the
+        filesystem**" (lines ~1353-1369). `os.system("ls " + str(KANBAN))`
+        is the filesystem.
+
+      Measured: both shapes return [] from `_live_log_references`, as does
+      `subprocess.run(["git","ls-files",str(KANBAN)])`.
+
+      And `subprocess` is the sharper half: it is not an exclusion at all,
+      because `_SURFACE_NAMESPACES` is `(os, os.path, glob, pathlib.Path)` —
+      itself a four-member hand-written set whose completeness nothing can
+      test (RC-1). `subprocess` is excluded by not being looked at. That
+      matters here more than it would elsewhere, because shelling out to list
+      files is THIS MODULE'S OWN house idiom: the docstring at line 24 counts
+      "six `git ls-files` listings behind :func:`_files_under_guard`". A
+      future author copying the module's own pattern to find logs under
+      meta/kanban writes `subprocess.run(["git","ls-files","meta/kanban"])`
+      and the path guard says nothing.
+
+      Why Minor and not gating: a shell-out to list a directory is deliberate
+      evasion rather than a plausible refactor in a test asserting on timing
+      data — unlike F-501's join spelling. The silence detector also still
+      fires on `listdir(`-shaped conditions, and a shell-out that produces a
+      host-state skip through an `if` is caught by the probe pattern if the
+      condition text names a probe. No mutant was constructed that survives
+      on this route alone.
+    suggestion: |
+      Two sentence edits and one recorded bound: move `popen`, `system` and
+      the `spawn*`/`exec*` family into a reason that says what is true — "can
+      reach any directory through a shell, which this guard does not parse;
+      a listing written this way is a recorded bound, not a covered case" —
+      and add a line to `_SURFACE_NAMESPACES`' docstring stating the four
+      namespaces are a judgement whose completeness is not measured, in the
+      same explicit-non-claim form A11 uses for the other-platform handful.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-505
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1704
+    title: "_unwrapped peels only single-argument calls, so os.path.relpath(KANBAN, REPO_ROOT) is not seen through — a peel-shape arity bound that neither the audit nor the generated controls can reach"
+    description: |
+      `_unwrapped` (lines 1704-1733) peels a call whose function tail is in
+      `_PATH_WRAPPERS` only when it has exactly one argument, plus a
+      no-argument method. The audit polices WHICH names are wrappers; nothing
+      polices which CALL SHAPES the peel accepts, and the two generated
+      templates (`WRAPPED_DIRECTORY_SOURCE`, `WRAPPED_DIRECTORY_METHOD_SOURCE`)
+      are the only two shapes exercised — so the shape set is a two-member
+      hand enumeration behind an audited name set (RC-1 again, two layers in).
+
+      Measured:
+
+        os.listdir(os.path.relpath(KANBAN, REPO_ROOT))   -> []   MISSED
+        os.listdir(os.path.relpath(KANBAN))              -> ['listdir() of meta/kanban']
+        os.listdir(str(KANBAN))                          -> ['listdir() of meta/kanban']
+        os.listdir(str(KANBAN.resolve()))                -> ['listdir() of meta/kanban']   (nested peels fine)
+
+      `relpath`, `commonpath` and `fspath`-with-a-second-argument are the
+      members where a second argument is natural. Minor because the direction
+      is "peels less, so catches less" on a shape nobody writes in a test,
+      and because `test_every_path_wrapper_is_seen_through`'s comment is now
+      honest about being non-vacuity of the peel and nothing more — it no
+      longer claims to bound anything.
+    suggestion: |
+      Either accept arity > 1 when the FIRST argument resolves to the kanban
+      directory, or add `os.path.relpath(KANBAN, REPO_ROOT)` to
+      MEASURED_STRUCTURAL_MISSES so the bound is a control that goes red when
+      the peel grows, which is the pattern the rest of the file now uses.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-506
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 3320
+    title: "The meta-guard mutates module-level globals with setattr; correct today, but it makes the module unsafe under any parallel or randomised runner"
+    description: |
+      `test_the_control_for_each_spelling_depends_on_the_set` (lines
+      3320-3340) rebinds `_LISTERS`/`_GLOBBERS` on the live module object to
+      measure each control's discriminating power, restoring in a `finally`.
+
+      It is correct as written and it is the single most valuable test this
+      cycle added (verified below), so this is a note, not a complaint about
+      the design. But it is shared mutable global state in the unit tier
+      (engineering-standards §6, "serialization without a reason"): under
+      `pytest-xdist`, `pytest-randomly`, or any future `-n auto`, another
+      test in the same worker reading `_LISTERS` mid-window sees a narrowed
+      set, and the 10 parametrised cases each open that window twice per
+      REINTRODUCTIONS entry. Nothing in the file records the constraint.
+    suggestion: |
+      Add one line of comment stating the module must not be run under
+      xdist/randomly because of this rebinding — or, better, pass the sets as
+      a parameter: `_live_log_references(source, listers=..., globbers=...)`
+      defaulting to the module globals, so the test narrows an argument
+      instead of a global and the window disappears.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-507
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 3143
+    title: "Out of scope: GUARDED_DIRECTORIES is a two-member hand enumeration with 86 tracked .py files outside it"
+    description: |
+      `GUARDED_DIRECTORIES = ("tests", "meta/profiling")`.
+      `git ls-files '*.py'` outside those two trees returns 86 files,
+      including `meta/ops/*.py` (owner-run tooling) and `migrations/`. A read
+      of the live log in `meta/ops/` is unguarded by both halves.
+
+      Not filed as a defect: the card's subject is the SUITE's verdict, and a
+      module pytest never collects cannot make the suite host-dependent
+      unless a test imports it — at which point the importing test is in
+      `tests/` and the constant it uses is resolved by `_tainted_names`.
+      `test_the_walk_actually_sees_both_guarded_trees` pins that both named
+      trees are reached. Recorded because the completeness of this set is, in
+      form, the same unfalsifiable enumeration as RC-1.
+    suggestion: "No action. If a follow-up card widens the guard, derive GUARDED_DIRECTORIES from pyproject's testpaths plus the tracked tree rather than naming two directories."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-508
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 1127
+    title: "Out of scope, carried: the module-level allow_module_level skip (cycle 3's F-308) and F-405's 'These three' over four entries are still open, both correctly recorded"
+    description: |
+      Re-verified both, so the record is not taken on report.
+
+      F-308 (module-level skip): planting
+        _MUT_LIVE = REPO_ROOT / "meta" / "kanban" / "suite-timing.log"
+        if not _MUT_LIVE.exists():
+            pytest.skip("suite-timing.log absent", allow_module_level=True)
+      at module scope gives rc=4 when either guard class is targeted ("found
+      no collectors") and rc=5 for the whole module — the module is skipped
+      above every guard inside it, exactly as the docstrings say. Irreducible
+      from one module under G-4; the follow-up card cycle 3 proposed (a
+      second guard module) is still the fix.
+
+      F-405: `MEASURED_SILENCES_ELSEWHERE`'s header still says "These three"
+      over four entries, one of which the same block says is not filesystem
+      state. The sweep lists it under "recorded, not fixed" with the correct
+      reason (the data is unchanged by this cycle). Honest.
+    suggestion: "Carry both to the follow-up card already proposed by cycle 3 (F-306/F-308)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
