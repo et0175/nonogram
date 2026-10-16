@@ -1,6 +1,6 @@
 # CARD-228: Difficulty becomes three dots, filled by tier — one glyph the whole book reuses
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/228-difficulty-dots
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-228
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — "Header: difficulty right (three dots plus the word)"; the guide's "difficulty legend reuses the dots from the puzzle headers, so readers learn them here once"; the openers' and solution tiles' dots
 **Idea:** —
-**Wave:** —
+**Wave:** 42
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_book_interior_type_floor.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-16T17:04:17Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -100,3 +100,4 @@ its own literals; see CARD-155).
   its own 0.5d card is what stops four agents inventing four slightly different dots — the
   shape of defect this project already carries in its own architecture model, where one rule's
   check names a test that does not exist and another names one that cannot test it.
+- [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)

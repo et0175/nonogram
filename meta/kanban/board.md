@@ -1,6 +1,6 @@
 # Kanban Board
 
-_Updated: 2026-10-15 UTC_  ·  <!-- forge:run wave=40 mode=interactive concurrency=2 -->
+_Updated: 2026-10-16 UTC_  ·  <!-- forge:run wave=42 mode=interactive concurrency=2 -->
 
 ## Wave plan
 | Wave | Cards | Status |
@@ -36,6 +36,8 @@ _Updated: 2026-10-15 UTC_  ·  <!-- forge:run wave=40 mode=interactive concurren
 | 38 | CARD-204 P2, CARD-214 P1, CARD-205 P1, CARD-211 P2, CARD-221 P1, CARD-212 P2 | CARD-214 ✓ merged d49e73a (8.1, cycle 1/3) · CARD-204 ✓ merged cd641df (8.5 cycle 4, then 6.5 cycle 5 on a merge-gate fix; 8 fix cycles) · CARD-211 ✓ merged 4790243 (9.0, cycle 1/3) · CARD-205 ✓ merged d30e0f0 (8.8, cycle 1/3; AC/EC/G gate failed on G-1 and the guardrail was amended) · CARD-221 ✓ merged 806dbe1 (7.5 then 8.5, cycle 2/3; 5 fix cycles) · CARD-212 ✓ merged a2cd3f3 (7.0 then 8.5, cycle 2/3; 3 fix cycles) ✓ wave 38 complete, 6/6 merged — owner print-layout doc |
 | 39 | CARD-217 P1 | CARD-217 ✓ merged 967a7fa (9.0, cycle 1/3; 2 fix cycles, both spent making the measurement's own claims checkable; 63 mutants) ✓ wave 39 complete — ran SOLO by owner decision, which is what made the number trustworthy. Answer: the browser family is 39.78% of the suite, neither card hypothesis; re-points CARD-218/219/220 and cuts CARD-235/236 |
 | 40 | CARD-234 P2, CARD-235 P1, CARD-237 P1 | ✓ **3/3 merged** — CARD-237 ✓ 194cb40 (7.5 then 9.0; cut IN FLIGHT to unblock the wave; 0.7d) · CARD-234 ✓ c6dfeed (9.0 cycle 1, 11/11 AC/G, 6 mutants; 1.0d) · CARD-235 ✓ 6ac8627 (8.0 then 9.0, 11/11 AC/G; premise refuted — the lever was socketserver's poll, not fixture scope; 1.1d) — **2d of estimates, ~9h elapsed, and essentially all the overrun was test infrastructure**: three defects of one shape, a test whose verdict depends on something other than the code it judges |
+| 41 | CARD-238 P1 | ✓ **1/1 merged** — CARD-238 ✓ 6c511a4, SOLO, scores 6.0 → 7.5 → 7.5 → 6.5 → **8.0** (cycle 5/3, two owner escalations), 5 fix cycles · **2.7d against 0.5d** · ⚑ the deliverable is the fix; the *result* is the rule it produced — a set a guard consults needs a completeness test written BEFORE the set, and a claim about coverage needs a control that can fail. Five passes each fixed the named instances and minted a new unfalsifiable claim; what broke the loop was deriving the enumeration from `dir(os)` et al, which named four spellings five hand-written passes had missed. Bounds shipped as recorded controls → **CARD-239** |
+| 42 | CARD-228 P1, CARD-213 P2 | ▶ **active** — dispatched 2026-10-16T17:04Z, both implementing. CARD-228 is lane A's head (the dots glyph four later cards need); CARD-213 took slot 2 because every remaining P1 serializes on the two declared hotspots behind it |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -89,12 +91,12 @@ _One coherent frame, so the order is forced rather than chosen: the frame lands 
 
 **Test curation (cut 2026-10-13 on owner request; RE-POINTED 2026-10-15 by CARD-217's measurement)**
 
-- **CARD-238** The suite-timing tests stop asserting on gitignored host state · **P1** · 0.5d · tech-debt · ⚑ **main is RED on `test_the_real_log_is_entirely_well_formed` right now** — CARD-217 wrote a gate entry its own parser rejects; and `test_the_last_entry_is_this_cards_profiling_run` goes red for any card whose gate logs a line, which the dispatcher does by design. Both skip when the log is absent, which is why CARD-234's gate was green at 11 skips and CARD-235's red at 9 — same suite, same code, different host file. ⚑ owner decision 2026-10-15: card the test fix, leave the local timing log untouched
 
 _CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were cut on is where the time is. `meta/profiling/suite-hotspots-20261015.md` is now this group's source of truth, ahead of the counts in the cards' own bodies. The two cards below came out of that profile and outrank the three that preceded it._
 
 - ~~**CARD-235**~~ → In Progress (wave 40). The browser tests stop paying for a page they throw away, 40% of the suite · **P1** · 1d · tech-debt · ⚑ the measured hotspot: 366.19 s / 39.78%, 868 ms per browser test against 83 ms for everything else, and 96% of all teardown time
 - **CARD-236** The admin-local script tests stop spawning a subprocess per assertion · P2 · 0.5d · tech-debt · depends CARD-217
+- **CARD-239** The timing-log guards' remaining bounds, and the one place that reads the log on purpose · P2 · 1d · tech-debt · **TDD** · ⚑ cut from CARD-238's five review cycles — every item in it was *measured* there and deliberately deferred under the owner's stop rule, not discovered since. The headline bound: the audit polices the spellings that **read** a directory and nothing polices the ones that **build** one, so a mutant in CARD-238's own declined shape survives end to end at 250 passed, rc=0. Also settles the version floor, which `pyproject.toml` (`>=3.9`) and CLAUDE.md (`>=3.14`) currently state differently. ⚑ its AC-7 — no claim without a control, recorded in a sweep *file* — exists because four of CARD-238's five passes closed bounds while minting a fresh unfalsifiable claim
 - **CARD-218** Each book renders once per module, not once per test · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209 · re-pointed: the render family is 21.23%, not the top cost
 - **CARD-219** Positional assertions read the page plan instead of rendering pixels · P2 · 1d · tech-debt · depends CARD-217 + CARD-205..209 · re-pointed
 - **CARD-220** Retire tests whose coverage another test already provides — only with a named survivor · P2 · 1d · tech-debt · depends CARD-217 · ⚑ footprint is `tests/**`; run on a quiet board · **CARD-217 recommends parking it** until 235/218/219/236 have run: the top 50 tests hold 32.1% and "no single test is worth retiring"
@@ -107,13 +109,20 @@ _CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were c
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
-_(none — wave 40 is complete, 3/3 merged.)_
+_Wave 42, dispatched 2026-10-16T17:04Z at concurrency 2. Main was verified green on
+`tests/test_suite_profile.py` (341 passed) before dispatch — the module CARD-238 landed, and the
+one main had been RED on all through wave 41._
 
-_**Next, and the order is already decided:** CARD-238 (P1, the third test-integrity defect this
-wave surfaced — main is RED on `test_the_real_log_is_entirely_well_formed` until it lands), then
-the interior redesign per `dispatcher.state → queued_after_card_217`: CARD-228 (the dots glyph,
-no dependencies, four later cards need it) then CARD-222 (the frame everything else sits inside).
-Those two were wave 40's original plan before the memory guard blocked it._
+- **CARD-228** Difficulty becomes three dots, filled by tier — one glyph the whole book reuses · **P1** · 0.5d · standard · implementing · `card/228-difficulty-dots` · lane A's recorded head: no dependencies, and CARD-207/229/231/233 all draw these dots, so cutting the glyph first is what stops four agents inventing four of them
+- **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard · implementing · `card/213-unique-clue-circle` · slot 2 by the dispatcher rule, not by preference: CARD-222/223/224/225 are all P1 but all serialize on `book_pdf_generator.py` + `export/layout.py` behind CARD-228, so the slot went to the highest-priority card with no conflict edge — among the P2s, the lowest-numbered eligible one. Touches `solver_state.js` and one solver test file only
+
+_Serialized within the wave (predicted conflicts): CARD-206/207/208/209 and CARD-222..CARD-227 all
+behind CARD-228 on `book_pdf_generator.py`; CARD-215 on `export/layout.py`; CARD-220 on `tests/**`
+(it covers CARD-228's own test files); CARD-236 against CARD-239's `meta/profiling/`._
+
+_**First refill candidate when a slot frees:** CARD-239 (P2, 1d) — it holds CARD-238's recorded
+bounds. It lost slot 2 to CARD-213 only on card number, and it loses nothing by waiting: its own
+notes carry every figure CARD-238 measured, explicitly "so nothing here needs re-deriving"._
 
 _⚠ Owed at the architect station before lane A reaches them: CARD-206's INV-013/FR-043
 amendment (CARD-229 sits behind it), CARD-222's CON-018, CARD-225's NFR-008, and CARD-224
@@ -126,6 +135,7 @@ _(none)_
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist
 
 ## Done
+- **CARD-238** The suite-timing tests stop asserting on gitignored host state · P1 · tech-debt · scores 6.0 → 7.5 → 7.5 → 6.5 → **8.0** (cycle 5/3) · 5 fix cycles, **two owner escalations** · merged 6c511a4 · actual **2.7d against 0.5d** · ⚑ verified in the main repo after the merge: `tests/test_suite_profile.py` is 341 passed where `test_the_real_log_is_entirely_well_formed` was red on main before · ⚑ **the family ran five occurrences of one shape** — a guard's stated coverage wider than its mechanism — and four of the five passes fixed the named instances while minting the next pass's unfalsifiable claim. What broke it was a change of kind, not another fix: deriving the listing surface from `dir(os)` / `dir(os.path)` / `dir(glob)` / `dir(pathlib.Path)`, which named `os.walk`, `os.fwalk`, `glob0` and `glob1` *before* the agent added them. The most transferable artefact is `test_the_control_for_each_spelling_depends_on_the_set`: a control must be caught WITH its set member and missed WITHOUT it — a guard on the guards' discriminating power. Every Critical after cycle 1 was found by **review**, not by the fix · bounds shipped as recorded controls → CARD-239
 - **CARD-235** The browser tests stop paying for a page they throw away · P1 · tech-debt · score 8.0 then 9.0 (cycle 2/3) · 1 fix cycle · AC/EC/G 11/11 demonstrated, zero skips · merge gate 7228/0 (attempt 1 was a false red from a gitignored host file — see CARD-238) · merged 6ac8627 · actual 1.1d against 1d · ⚑ **its premise was refuted by measurement, which is the better outcome**: a Chromium page lifecycle costs 57 ms and the 0.33 s/test was `socketserver`'s 0.5 s poll in the per-test `live` fixture, so NO file's page scope changed. Family 39.78% → 29.78%, teardown 137.97 s → 11.62 s, from a one-line `poll_interval` kwarg — and the repo already knew, `test_web_server.py` has carried `_POLL_INTERVAL_S = 0.01` since the start with a comment saying why
 - **CARD-234** The generated cover's title letters from packaged data · P2 · bug · score 9.0 (cycle 1/3 — 0 critical, 0 important) · AC/EC/G 11/11 demonstrated, zero skips · 6 mutants each red by name · merge gate 7205/0 with the normal 11 skips, the first fully-executed green suite it had · merged c6dfeed · actual 1.0d against 0.5d, almost all of it the guard investigation · ⚑ measured the defect it fixed: 52 px of cap height from the packaged face against 8 px from the sizeless `load_default()` — a seventh of the intended size on every cover the deployed panel generated · leaves 4 recorded follow-ups (over-wide title, log-only error surfacing, the tab asymmetry, the anti-cache guard's weak assertion)
 - **CARD-237** The streaming-shape memory guard measures the export, not CPython's footprint · P1 · tech-debt · **cut in flight 2026-10-15 by owner decision to unblock the wave** · score 7.5 then 9.0 · 1 fix cycle · AC/EC/G 12/12 · merged 194cb40 · actual 0.7d against 0.5d · ⚑ `CHILD_HEADROOM` **removed, not widened** — the bound is a closed argument (16 export + 8 floor = 24 of the cap's 32, so passing both guards *proves* the child fits with a quarter unused) · ⚑ **two of its ACs were amended because I had written criteria that could not detect what they claimed**: AC-5 demanded in-suite runs only and was blind to the inverted-polarity flake the first fix introduced (five green suites certified it), AC-6 demanded execution of a test this kernel refuses to run

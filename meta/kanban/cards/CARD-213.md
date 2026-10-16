@@ -1,6 +1,6 @@
 # CARD-213: A clue number unique in its line gets circled wherever its run is closed
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/213-unique-clue-circle
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-213
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 4: "Solver - if we have only one (unique) option for some number of black cells (e.g. 3 for the set 1 2 3 2 1) and that number is found (we have correct .xxx. sequence), then please place this number (3 in this case) in a circle")
 **Idea:** —
-**Wave:** —
+**Wave:** 42
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-16T17:04:17Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -131,3 +131,4 @@ be that number.
 ## Worktree notes
 
 —
+- [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)

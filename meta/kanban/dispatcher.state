@@ -1,4 +1,4 @@
-wave: 41
+wave: 42
 mode: interactive
 # Owner 2026-10-13: concurrency capped at 2 (config max_concurrent is 5); "merge both
 # when the fixes land"; "start the next pair after merging". Merges run SEQUENTIALLY and
@@ -7,7 +7,21 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active: []
+active:
+  - id: CARD-228
+    branch: card/228-difficulty-dots
+    worktree: ../PythonProject4-card-228
+    started: 2026-10-16T17:04:17Z
+    phase: implementation
+    review_cycle: 0
+    note: "wave 42, lane A head per queued_after_card_217. P1, 0.5d, no dependencies, and four later cards (207/229/231/233) draw the dots it cuts. Touches the two declared hotspots, so nothing else in lane A can run beside it."
+  - id: CARD-213
+    branch: card/213-unique-clue-circle
+    worktree: ../PythonProject4-card-213
+    started: 2026-10-16T17:04:17Z
+    phase: implementation
+    review_cycle: 0
+    note: "wave 42, slot 2. The dispatcher rule picked it: every P1 card left (222/223/224/225) is lane A and serializes on book_pdf_generator.py + layout.py behind CARD-228, so slot 2 goes to the highest-priority non-conflicting card, and among the P2s that is the lowest-numbered eligible one. Touches solver_state.js + one solver test file - no overlap with CARD-228, no hotspot. Its old conflict edges (CARD-212, CARD-235) are both merged."
 previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
@@ -144,4 +158,18 @@ conflict_edges:
 # OWED AT THE ARCHITECT STATION before lane A reaches them: CARD-206's INV-013/FR-043
 # amendment (CARD-229 sits behind it), CARD-222's CON-018, CARD-225's NFR-008, and CARD-224
 # cancelling CARD-204's pending FR-032.
-last_updated: '2026-10-16T15:30:00Z'
+# NOTE 2026-10-16T17:04Z: WAVE 42 DISPATCHED - CARD-228 + CARD-213, concurrently, cap 2.
+# Main verified green on tests/test_suite_profile.py (341 passed) before dispatch - the
+# module CARD-238 landed, and the one main was RED on through wave 41.
+# Why not CARD-239 in slot 2, the direct follow-up to wave 41's escalation: it is P2 like
+# CARD-213 but higher-numbered, and its own notes carry every measured figure forward
+# ("so nothing here needs re-deriving"), so it loses nothing by waiting a wave. It is the
+# first refill candidate when a slot frees.
+# Skipped for conflict this pass: CARD-206/207/208/209 (book_pdf_generator.py hotspot),
+# CARD-215 (export/layout.py hotspot), CARD-220 (tests/** covers CARD-228's test files),
+# CARD-236 (meta/profiling/ against CARD-239's lane).
+# STILL OWED AT THE ARCHITECT STATION before lane A reaches them: CARD-222's CON-018
+# amendment, CARD-225's NFR-008, CARD-224 cancelling CARD-204's pending FR-032, and
+# CARD-206's INV-013/FR-043 (CARD-229 sits behind it). CARD-228 needs none of them, which
+# is the other reason it is the right head.
+last_updated: '2026-10-16T17:04:17Z'
