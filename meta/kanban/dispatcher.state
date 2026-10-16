@@ -7,8 +7,14 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active: []
-escalated_cards:
+active:
+  - id: CARD-238
+    phase: fix
+    review_cycle: 4
+    branch: card/238-timing-log-host-state
+    worktree: ../PythonProject4-card-238
+    note: "CYCLE 4 - max_cycles(3) exceeded by explicit owner decision 2026-10-16, not drift. Two hard conditions: fix the receiver-vs-argument hole AND widen the silence detector to all 221 guarded sources; plus a mandatory sweep where every claim written in the pass is pinned by a control or deleted. The sweep is the family breaker - cycle 3 fixed every known instance and wrote five new unfalsifiable claims in the same pass."
+previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
     station: decompose/owner

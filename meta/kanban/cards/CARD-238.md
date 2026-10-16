@@ -1,6 +1,6 @@
 # CARD-238: The suite-timing tests stop asserting on gitignored host state
 
-**Status:** blocked
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — decompose/owner: family regression, occurrence 2 — a guard's stated coverage exceeded its actual coverage in all three cycles, and cycle 3 added five new unfalsifiable declarations, one hiding a mutant that restores this card's own defect
+**Blocked by:** —
 
 ## What to implement
 
@@ -614,3 +614,96 @@ corpus is `random.Random`, not `hypothesis`.
   between one more bounded fix cycle, merging with F-301/F-302 recorded as bounds plus a follow-up
   card, or a clean-slate redo carrying the family as a prior-attempt constraint.
   Worktree and branch are KEPT: `../PythonProject4-card-238`, `card/238-timing-log-host-state`.
+- [Unblocked] 2026-10-16T10:27:36Z — **owner decision: one more fix cycle, with a mandatory claim sweep.**
+  `review.max_cycles` is 3 and this is cycle 4, so the limit is exceeded deliberately and by the
+  owner, not drifted past. Their stated reasoning, recorded because it is the rationale the next
+  reader needs:
+  * **not merging as-is**, because this card's entire deliverable IS the guard's completeness, and
+    a mutant restoring the original defect passes. Merging it would ship a guard that does not
+    guard — the exact thing CARD-238 exists to stop, and barred for the same reason the owner's
+    standing rule bars an xfail standing in for a defect.
+  * **not a clean-slate redo**, because three cycles of verified work would be discarded — the
+    parser fix (safe over 41,088 lines, an analytic identity), the byte-copy sandbox, the taint
+    tracker with 25 controls, 148 tests. The approach is right; what slips is the discipline on
+    NEW claims.
+  * the added condition is chosen to break the family rather than patch its latest instance:
+    cycle 3 fixed every known instance **and wrote five new unfalsifiable claims in the same
+    pass.** A mandatory sweep of the claims written in the pass is what catches that, and is
+    precisely what cycle 3 omitted.
+  **Two hard conditions on this cycle:**
+  1. Fix F-301 by testing the call's **arguments** as well as its receiver, AND widen
+     `_conditional_silences` to all **221 guarded sources** rather than `Path(__file__)` alone —
+     the reviewer verified by hand that the second change also reports MUT-L's skip half, so it
+     closes the finding from both directions and removes the "220 of 221 sources have one
+     defence" asymmetry. Fix F-302's false write-containment sentence with a widened pinning test.
+  2. **A mandatory claim sweep, reported as a list**: every claim about what is caught, reported
+     or seen that this pass writes or leaves standing must be either pinned by a control or
+     deleted. Four of the five claims cycle 3 left unpinned are already named (F-303 `IfExp`,
+     F-304 `iglob`, F-305 the compositional reading, F-301 `_LISTERS`); the sweep must also cover
+     anything NEW. A claim that cannot go red is the family, and this is the cycle that stops
+     writing them.
+- [Fix 4] All five findings fixed; three deferred to a follow-up card with reasons (F-306 needs
+  `.gitignore`, F-308 needs a second guard module — both forbidden by G-4). **F-307 closed as a
+  side effect** of F-301's second remedy rather than separately: the 221-sources-vs-1-module
+  asymmetry is gone, and the false positive the reviewer predicted did not materialise — the scan
+  over all 221 sources reports four entries in three modules, all genuine.
+- [Fix 4] **MUT-L KILLED, by three tests and from both directions**, planted exactly as the
+  reviewer did (`os.listdir` of the kanban dir, `*.log` filter, host-state skip, live-log
+  assertion, in `tests/test_clues.py`). Cycle 3: both guard classes PASS, 57 passed, rc=0. Now
+  rc=1, 3 failed / 66 passed:
+  * path guard (the new argument rule): `{'tests/test_clues.py': ['listdir() of meta/kanban']}`
+  * silence guard (widened territory): the frozen-baseline equality fails on
+    `('tests/test_clues.py', 'test_the_timing_log_is_present_and_nonempty', 'not names')`
+  * behavioural, transitively: the sandbox's own copy of the AC-1 guard flags the copied module.
+  Verified independently by me on the raw function: `os.listdir`, `os.scandir` and a bare
+  `from os import listdir` are all now caught, the F-303 ternary is caught, and the negative
+  control (`cards` subdirectory) stays correctly clean.
+- [Fix 4] the three previously-killed mutants all still die (MUT-R, D1c tracked and untracked, the
+  module-level skip with a present probe) — widening the silence detector to 221 sources broke
+  none of them. The env-var survivor **still survives and is still documented as surviving**
+  (161 passed with the variable set; loud 2-failed when unset), with this cycle's re-measurement
+  added beside cycle 3's and an explicit sentence that the widening does not close it.
+- [Fix 4] ⚑ **THE CLAIM SWEEP WORKED, and the proof is that it caught the family reproducing
+  inside its own pass.** Three of the new unpinned claims were found by the agent's own sweep, not
+  by any review, and **it aborted a running AC-5 pair to fix them rather than ship them**:
+  * **`_PATH_WRAPPERS` contained `PosixPath` and `WindowsPath`** — two members nobody writes, with
+    nothing exercising them, so the set declared a width no control could fail on. The agent's own
+    words: *"the F-301 shape in miniature, in my own pass."* Narrowed to three members, each
+    generated into a control.
+  * **`rglob` had no control** either — the per-spelling test was red at `['rglob']` before it
+    added one.
+  * **its own replacement sentence for F-302 was false in the same way as the original**: "`root`
+    is the base of all writes, so this function puts nothing in the real tree" — the inference
+    fails for a write through a data link. Deleted rather than requalified.
+  Eight claims were **deleted rather than pinned**, including those. Nineteen were pinned, each
+  with the named control. **No `[BLOCKER]`** — every claim found a control or was deleted. Two
+  patterns worth keeping: the completeness guards are parametrized **from the sets themselves**
+  (so adding a member without a control fails), and `MEASURED_SILENCES_ELSEWHERE` is an
+  **equality**, so it goes red both when a new silence appears and when a recorded one is fixed
+  without being struck.
+  One control was deliberately written **bottom-up** because in source order its claim would have
+  been vacuous — the two-pass alias resolution genuinely needs two passes, and the agent measured
+  that rather than asserting it.
+- [Fix 4] G-2: tests **148 → 168**; positive controls 25 → 36; negatives 7 → 10; measured misses
+  4 → 5; `MEASURED_SILENCES_ELSEWHERE` new (4); silence-detector territory **1 module → 221
+  guarded sources**; two new set-completeness guards. Nothing removed. Module cost 16.5–19.8s,
+  cut from a measured 4.6s of added scanning to 1.2s by two provably-identical refactors.
+- [Fix 4] AC-5: **7315 passed, 9 skipped, 0 failed on both legs**, rc=0, wall−pytest gaps of
+  **4.8s and 2.8s** — at or inside cycle 3's standard. Skip lists verified IDENTICAL by `diff` of
+  the `-rs` reports, not just the counts. 7315 = cycle 3's 7295 + this cycle's 20 tests.
+  Two process disclosures, both volunteered: it aborted the first pair on finding the three
+  unpinned claims mid-run, and then **rejected a clean 918s leg** because its own acceptance check
+  could not read that run's summary (`-q` suppresses it on this host) — fixed the harness and
+  re-ran both legs from scratch rather than report a leg whose counts it had not actually seen.
+- [Fix 4] G-1 CONFIRMED at start, after every mutant revert, before and after each AC-5 leg, and
+  by me after: md5 `fd3e799a4ea30862d8d8e03966ae9349`, 2802 bytes, mtime Oct 15 09:50:34.
+  G-3 CONFIRMED by me: `rank_durations.py` **byte-identical** to cycle 3 — widening
+  `_guarded_sources` needed no parser change, as predicted. G-4/G-5 held; no new import at all.
+- [Fix 4] three things the agent flagged for the reviewer rather than burying, which is the right
+  instinct on this card: (1) `MEASURED_SILENCES_ELSEWHERE` now **couples this module to the rest of
+  `tests/`** — a future card adding a host-state skip anywhere under the guarded trees turns this
+  module red. That is intended, but it is a new standing cost and the judgement call of the cycle.
+  (2) The three pre-existing silences are **recorded, not fixed** (G-4 forbids editing those
+  modules), and two of them are genuinely this card's own defect one module over. (3)
+  `_kanban_directories` is the one place this cycle guesses wider — measured as producing no false
+  positive across all 221 real sources, with three negative controls pinning the narrowness.
