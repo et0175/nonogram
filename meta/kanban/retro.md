@@ -338,9 +338,22 @@ these two waves are examined against a six-wave gap — which is itself a findin
 
 ### Suggestions
 
-- **python-pro tech-debt effort scale ×2.6** (avg_accuracy 2.63× over 4 cards incl. history).
-  Keep the existing ×0.4 for `feature` — the two categories now have opposite signals on this
-  project, and one scale cannot serve both. Apply: `/forge:retrospective calibrate`
+- **python-pro tech-debt effort scale ×1.4, NOT ×2.6 — corrected on reading the signal library.**
+  My first reading of this wave (×2.6) was wrong twice over. First, the library already holds a
+  `python-pro / tech-debt` entry at **0.48× over 4 cards**, so the weighted merge is
+  (0.48×4 + 2.63×3) / 7 = **1.40× over 7 cards**, not 2.63×. Second, and more important: the wave
+  figure is **almost entirely one card**. Two of the three tech-debt cards were well calibrated —
+  CARD-235 at 1.10× and CARD-237 at 1.40×, averaging 1.25×, i.e. "calibrated" — and CARD-238's
+  **5.40×** is what moves the mean.
+  So the real signal is **not an effort signal at all**: it is that an escalated card costs ~5× its
+  estimate, which belongs to cycles and convergence, not to the effort scale. Scaling tech-debt
+  estimates up by 2.6× would have inflated every well-estimated card to pay for one that escalated
+  twice. Apply ×1.4 if anything: `/forge:retrospective calibrate`
+  ⚑ Note the merged 1.40× **hides a bimodal distribution** — 4 historical cards near 0.48× and 3
+  recent ones at 1.10/1.40/5.40×. The mechanical `trend` rule will label this "improving" because
+  1.40 is closer to 1.0 than 0.48 was, which is true of the average and false of the variance.
+  Keep the existing ×0.4 for `feature` (0.41× over 12): the two categories genuinely have opposite
+  signals on this project, and one scale cannot serve both.
 - **Orchestrator: append a `suite-timing.log` line per gate.** ~25 runs produced zero entries
   across two waves. Fold it into the gate script so it cannot be forgotten, since the data is only
   ever collected at gate time.
