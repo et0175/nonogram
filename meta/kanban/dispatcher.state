@@ -10,7 +10,7 @@ max_concurrent_override: 2
 active:
   - id: CARD-238
     phase: fix
-    review_cycle: 4
+    review_cycle: 5
     branch: card/238-timing-log-host-state
     worktree: ../PythonProject4-card-238
     note: "CYCLE 4 - max_cycles(3) exceeded by explicit owner decision 2026-10-16, not drift. Two hard conditions: fix the receiver-vs-argument hole AND widen the silence detector to all 221 guarded sources; plus a mandatory sweep where every claim written in the pass is pinned by a control or deleted. The sweep is the family breaker - cycle 3 fixed every known instance and wrote five new unfalsifiable claims in the same pass."

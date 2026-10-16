@@ -1,6 +1,6 @@
 # CARD-238: The suite-timing tests stop asserting on gitignored host state
 
-**Status:** blocked
+**Status:** review
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — owner: family regression occurrence 5; cycle 4 fixed the instance, not the generator. `os.walk` is missed by both guard halves and a mutant restoring the card's own defect survives at 168 passed
+**Blocked by:** —
 
 ## What to implement
 
@@ -757,3 +757,19 @@ corpus is `random.Random`, not `hypothesis`.
   derive the listing surface from `dir(os)` / `dir(pathlib.Path)` and force every member into the
   sets or into an explicit exclusion list with a reason.
   Worktree and branch KEPT: `../PythonProject4-card-238`, `card/238-timing-log-host-state`.
+- [Unblocked] 2026-10-16T13:32:32Z — **owner decision: cycle 5, scoped to the GENERATOR only, with a stop rule.**
+  **The single deliverable is to make the enumeration falsifiable** — derive the listing surface
+  from `dir(os)` / `dir(pathlib.Path)` and fail if any member sits in neither the guard's sets nor
+  an explicit exclusion carrying a reason. Explicitly **NOT** "add `walk`": every previous cycle
+  added members to a set nothing could audit, and that is why the same family returned five times.
+  This attacks the auditability itself, so the next missing spelling becomes a **red test** rather
+  than a review finding.
+  Two small fixes ride along because they are one token and one assertion: the keyword-argument
+  omission (F-402) and the decorative wrapper guard (F-403).
+  **STOP RULE, stated up front and binding: if review 5 finds another member of an unfalsifiable
+  set, the card merges with that hole recorded. There is no cycle 6.** The owner set this when
+  authorising the cycle, not after seeing its result.
+  Also fixed at my own station this cycle: the claim sweep must be written to a FILE under
+  `meta/review/`, not narrated in a report. Requiring it "as a report section" was my spec defect
+  — it left the owner's cycle-4 condition with no auditable artefact and forced the reviewer to
+  redo the sweep from scratch, which is the only reason occurrence five was caught.
