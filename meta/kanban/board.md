@@ -114,7 +114,6 @@ _Wave 42, dispatched 2026-10-16T17:04Z at concurrency 2. Main was verified green
 one main had been RED on all through wave 41._
 
 - **CARD-228** Difficulty becomes three dots, filled by tier — one glyph the whole book reuses · **P1** · 0.5d · standard · implementing · `card/228-difficulty-dots` · lane A's recorded head: no dependencies, and CARD-207/229/231/233 all draw these dots, so cutting the glyph first is what stops four agents inventing four of them
-- **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard · implementing · `card/213-unique-clue-circle` · slot 2 by the dispatcher rule, not by preference: CARD-222/223/224/225 are all P1 but all serialize on `book_pdf_generator.py` + `export/layout.py` behind CARD-228, so the slot went to the highest-priority card with no conflict edge — among the P2s, the lowest-numbered eligible one. Touches `solver_state.js` and one solver test file only
 
 _Serialized within the wave (predicted conflicts): CARD-206/207/208/209 and CARD-222..CARD-227 all
 behind CARD-228 on `book_pdf_generator.py`; CARD-215 on `export/layout.py`; CARD-220 on `tests/**`
@@ -129,7 +128,7 @@ amendment (CARD-229 sits behind it), CARD-222's CON-018, CARD-225's NFR-008, and
 cancelling CARD-204's pending FR-032 amendment._
 
 ## Review
-_(none)_
+- **CARD-213** A clue number unique in its line gets circled wherever its run is closed · P2 · 0.5d · standard · `card/213-unique-clue-circle` · impl `e107af4` · cycle 0, build gate running · scope exactly the card's `Touches:` (`solver_state.js` + `tests/test_puzzle_solver_clues.py`), no drift, no `SCOPE+`, `solver.js` untouched as the card predicted · ⚑ the agent flags one judgement call for the owner: rule C has no left-to-right ordering check, so `(1,2) "DDWDW....."` now circles both numbers although the runs appear in the wrong order — consistent with the card's literal rule and with G-3, and invisible to the brute-force oracle because those marks fit no placement
 
 ## Blocked
 - **CARD-210** Each puzzle's QR code becomes a real, scannable link to that puzzle's online solver · P2 · 1d · architectural · depends CARD-204 · blocked by the owner's 2026-10-13 decision: keep CARD-204's placeholder glyph until the public-solver infrastructure exists (hosting + a stable per-puzzle URL namespace). ACs are written; `/forge:kanban unblock CARD-210` when both exist

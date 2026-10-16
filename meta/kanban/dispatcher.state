@@ -19,8 +19,10 @@ active:
     branch: card/213-unique-clue-circle
     worktree: ../PythonProject4-card-213
     started: 2026-10-16T17:04:17Z
-    phase: implementation
+    phase: review
     review_cycle: 0
+    impl_commit: e107af4
+    gate: full suite running under meta/kanban/.full-suite.lock (test_scope is full; no pytest-testmon in this venv, and the python-pro recipe refuses to narrow without it)
     note: "wave 42, slot 2. The dispatcher rule picked it: every P1 card left (222/223/224/225) is lane A and serializes on book_pdf_generator.py + layout.py behind CARD-228, so slot 2 goes to the highest-priority non-conflicting card, and among the P2s that is the lowest-numbered eligible one. Touches solver_state.js + one solver test file - no overlap with CARD-228, no hotspot. Its old conflict edges (CARD-212, CARD-235) are both merged."
 previously_escalated:
   - id: CARD-238
@@ -44,8 +46,7 @@ queued:
     reason: "CARD-204 and CARD-205 both merged, but now queued behind CARD-221 on the same book_pdf_generator.py hotspot AND architecturally blocked in substance: the card needs an INV-013 / FR-043 amendment (the interior currently starts at the guide page as right-hand page 1, and a blank title page moves that) which only the architect station can make. Do not start it before that pass."
   - id: CARD-216
     reason: "eligible, but conflicts with CARD-212 on the same template + statics; starts when CARD-212 frees its slot"
-  - id: CARD-213
-    reason: "concurrency cap 2"
+  # CARD-213 left the queue at 2026-10-16T17:04Z — it is wave 42's slot 2, now in review.
 queued_after_card_217:
   # The interior redesign, cut 2026-10-14 from the owner's "Puzzle page layout" artifact.
   # Listed as one ordered run rather than as independent queue entries: every card touches

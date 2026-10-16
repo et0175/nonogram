@@ -1,6 +1,6 @@
 # CARD-213: A clue number unique in its line gets circled wherever its run is closed
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -130,5 +130,111 @@ be that number.
 
 ## Worktree notes
 
-—
+**Built** (commit `e107af4` on `card/213-unique-clue-circle`; files:
+`src/nonogram/admin/static/solver_state.js`,
+`tests/test_puzzle_solver_clues.py` — exactly the card's `Touches:`, no
+`SCOPE+` entries, `solver.js` untouched).
+
+Rule C lives in `circledNumbers` next to A and B: the run scan that rule B
+already did now also collects the lengths of the *closed* runs, and rule C
+circles number *i* when `clue` holds `clue[i]` exactly once and that list of
+closed lengths holds it exactly once. Pure, DOM-free, reads only the cells
+and the clue (ADR-0038/R3, R4). The rule comment block at the head of the
+section describes rule C in full — the uniqueness being per line and per
+value, the two-matching-runs refusal, the irrelevance of the rest of the
+line, and that the `0` clue is outside it.
+
+One line per AC:
+
+* **AC-1** — `TestSolverClues_UniqueLengthCirclesAnywhere`: five lines,
+  including `1 2 3 2 1` with a closed run of three mid-line, circling only
+  the 3; its second test is the control showing rules A and B circle nothing
+  on any of them, so every circle in the table is rule C's.
+* **AC-2** — `TestSolverClues_RepeatedLengthDoesNotCircle`: four sets of
+  marks holding one closed run of two circle nothing under `1 2 3 2 1`, and
+  the paired test runs the *same* marks under `1 2 3`, where the 2 is
+  circled in every row.
+* **AC-3** — `TestSolverClues_AmbiguousUniqueLengthCirclesNothing`: four
+  pairs; the half with two (or three) closed runs of three circles nothing,
+  the half with one circles the 3.
+* **AC-4** — `TestSolverClues_OpenRunDoesNotCircle`: five pairs (open right,
+  open left, open both, and an open side against the far edge); the open half
+  circles nothing, the closed half circles the 3.
+* **AC-5** — `TestSolverClues_RuleCOnlyAddsToTheOldTable`: the two examples
+  tables' fifteen pre-card verdicts kept as a frozen `BEFORE` snapshot. Rule
+  C never turns a True into a False, and changes exactly three lines
+  (`(3,1) ".WDDDW...."`, `(1,2) "DDWDW....."`, `(2,1) ".....WDWDD"`), all
+  asserted as a set, not a count. Those three rows' expectations in
+  `ROWS`/`STOPS` are updated, and each of the two `STOPS` rows gained a twin
+  whose clue repeats every value (`(1,1,2,2)`, `(2,2,1,1)`), so rule A's
+  "the walk stops" demonstration survives with rule C unable to fire.
+* **AC-6** — `TestSolverClues_ZeroClueRuleUnchanged`: `[0]` circles only on
+  an all-white line (that row is the control that fails if the `0` branch is
+  dropped for rule C), and the last rows read the same marks under `1`, where
+  rule C is the only rule that can fire.
+* **AC-7** — `test_PropertyTest_SolverClues_RuleCInvariantUnderTransposition`:
+  180 boards over three shapes, 4920 lines (asserted `>= 200`); the
+  transposed board with its clue sets swapped equals the upright board with
+  its axes swapped, every line also matches the Python reference, and the
+  corpus is asserted to contain >= 150 lines rule C changes and >= 100 lines
+  only rule C circles — so the property cannot hold vacuously.
+* **G-4 (property)** — `test_PropertyTest_SolverClues_RuleCOnlyAddsToRulesAAndB`:
+  3000 seeded lines; the module equals `_rule_circles` with rule C on, never
+  loses a circle `_rule_circles` gives with rule C off, and the corpus is
+  asserted to hold >= 500 changed, >= 500 untouched and >= 300 lines whose
+  clue repeats every value.
+* **G-1 / G-3** — unchanged and re-run green:
+  `tests/test_puzzle_solver_page.py` (`TestSolverPage_ShowsTheClues`),
+  `test_puzzle_solver_progress.py`, `test_puzzle_solver_percent.py`.
+
+`_rule_circles` is the rule block written again in Python from its prose
+(not from the JS), the repo's second-implementation style. It is calibrated,
+not assumed: `test_the_reference_reproduces_the_pre_card_verdicts` shows that
+with `rule_c=False` it reproduces all fifteen pre-card verdicts of the
+committed module.
+
+**Mutation check run by hand** (each mutation applied to the JS, suite run,
+then reverted — not committed): rule C taking any matching closed run
+instead of exactly one; rule C ignoring clue-value uniqueness; open runs
+counted as closed; the `[0]` early return removed; rule C removed
+altogether. Every one of the five turns at least one of the new tests red,
+and the fifth reds all four AC test classes — the negatives are paired, so
+they fail both when the rule fires wrongly and when it does not fire.
+
+**Invariants the card did not name, found while implementing:**
+
+1. *Rule C is sound against the existing brute-force oracle, and that is
+   load-bearing.* `test_PropertyTest_SolverClues_NeverCirclesWhatBruteForce
+   DoesNot` (CARD-188 AC-1) asserts every circle is one the brute force
+   agrees with: number *i* is circled only if run *i* covers the same cells
+   in every placement agreeing with the marks. Rule C passes it for a reason
+   worth recording — a closed run of dark cells is a maximal filled run of
+   that length in *every* agreeing placement, so when the length occurs once
+   in the clue, that run is that number in every placement. The test stayed
+   green unmodified, including its `brute_only >= 100` count.
+2. *Rule C has no ordering check, by design, and it is visible on
+   wrong-marks lines.* `(1,2) "DDWDW....."` now circles both numbers even
+   though the runs appear in the wrong order (2 then 1). That is the card's
+   literal rule and is consistent with "wrong but self-consistent marks can
+   circle a number" (G-3) — those marks fit no placement at all, so AC-1's
+   oracle never sees them. Two of the three changed `STOPS` rows are of this
+   kind. If the owner wants the circle withheld there, that is a later card
+   (it would need a left-to-right ordering check across the closed runs), not
+   a defect in this one.
+3. *Rule C cannot fire on a column from a single fully marked row* — a lone
+   dark cell whose neighbours along the other axis are undecided is not a
+   closed run — which is why the player-page and zoom tests that count
+   exactly the circles of one marked row (`test_puzzle_solver_zoom.py`
+   `circled == 2 * numbers`) still hold.
+
+**Suite run before handing off:** `tests/test_puzzle_solver_clues.py` (64
+passed), plus `test_puzzle_solver_page.py`, `_marking`, `_maybe`,
+`_progress`, `_percent`, `test_cli.py` (exit 0) and `_hint`, `_mirror`,
+`_zoom`, `_resume`, `_brush_menu`, `_phone` (130 passed). Nothing under
+`meta/` is committed.
+
+### Orchestrator log
+
 - [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)
+- [Scope] src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py — exactly the card's Touches:, no drift, no SCOPE+ entries, solver.js untouched as the card predicted
+- [Build gate] review.test_scope is `full` in config.yml, so the cycle gate IS the full suite (no pytest-testmon in this venv — the python-pro recipe explicitly refuses to narrow without it). Run under the repo-level lock meta/kanban/.full-suite.lock, since CARD-228 is active in the same wave.
