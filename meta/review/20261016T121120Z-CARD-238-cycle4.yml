@@ -1,0 +1,676 @@
+version: 1
+generated_at: "2026-10-16T12:11:20Z"
+target: "CARD-238 cycle 4 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-238, branch card/238-timing-log-host-state, HEAD ee53986 with cycles 2+3+4 uncommitted; tests/test_suite_profile.py (md5 5332159d22ab20226fa68657535182e2) and meta/profiling/rank_durations.py (md5 1dab65e2e0d79581ef5dd48d971968fe)"
+overall_score: 6.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "tests/test_suite_profile.py (full, 3152 lines)"
+    - "meta/profiling/rank_durations.py (diff + regex/docstring context; byte-identical to cycle 2, parser out of scope)"
+    - "meta/kanban/cards/CARD-238.md (main-repo authoritative copy, full)"
+    - "meta/review/20261016T032051Z-CARD-238-cycle1.yml (full)"
+    - "meta/review/20261016T093542Z-CARD-238-cycle3.yml (findings + system_contract)"
+    - "meta/review/20261016T073645Z-CARD-238-cycle2.yml (finding index)"
+    - "tests/test_clues.py, tests/test_admin_design_tokens.py, tests/test_sourcing_image.py, tests/test_web_submission.py (mutant hosts / recorded silences)"
+    - "meta/architecture system-rules lens output (system_rules.py --card CARD-238 --verify-refs)"
+  not_reached:
+    - "the full suite (brief forbids re-running it; cycle 4's recorded AC-5 pair accepted on the orchestrator's evidence)"
+    - "the fix agent's claim-sweep list itself — it is recorded in no file in the repo, so its 19-pinned/8-deleted accounting could not be checked line by line; an independent sweep was done instead"
+    - "cycle-2 report body beyond its finding index"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 2195, removed: 144 }
+  max_fan_in:
+    symbol: "n/a — test module, exports nothing"
+    callers: 0
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — the diff touches one test module and one standalone profiling script; the module-level helpers (_live_log_references, _conditional_silences, _kanban_directories, _host_state_names, _build_sandbox) are called only from this file"
+    hotspots: "no_eligible_fact — tests/test_suite_profile.py was created by CARD-217 on 2026-10-15; no 12-month churn history exists"
+    cochange_missing: "no_eligible_fact — same reason: a two-day-old file has no co-change peers"
+
+system_contract:
+  rules_checked: 8
+  holds: 3
+  unchecked: 5
+  violated: 0
+  notes: >
+    FULL mode, nothing carried. Set = the card's ## System contract (ADR-0006/R1)
+    plus the 7 the lens returns for CARD-238's touches scope. Lens:
+    system_rules.py --card CARD-238 --root meta/architecture --verify-refs on this
+    working tree. Diagnostics: unresolvable_scope [], scope_unmapped_model [],
+    dead_check_ref [], tooling_failure [], bcon_without_derived_con [],
+    unparseable_sources [], check_refs_verified true, card_scope "touches",
+    no_check [CON-004, CON-006, CON-007, CON-008, CON-013, CON-017, CON-018],
+    sources_absent [threat-model.md, business/constraints.md]. Counts identical to
+    cycles 1-3 and independently re-assembled.
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml absent from the diff (git diff --stat HEAD lists 3 files, none a manifest). Every added import line in the diff enumerated: `+import os` (new, module level, tests/test_suite_profile.py:53, stdlib), `+from pathlib import Path`, `+import importlib.util`, `+import sys` — the last three sit INSIDE the SANDBOX_CONTROL_MODULE source string (lines 2962, 2987-2988), not imports of this module. rank_durations.py's diff is comment + regex + docstring only, no import line. Checker run on this head with the REAL node ids: tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed and ::test_the_font_ships_as_package_data_and_not_as_a_dependency -> 2 passed in 0.07s. (Alias warning confirmed again: TestDependencyBaseline_IsExactlyPillowAndNumpy is a doc alias and collects zero.) NOTE: the card's [Fix 4] line claims 'no new import at all', which is inaccurate — `import os` is new — but os is stdlib, so the rule holds."
+    - "ADR-0038/R7 ✓ holds — pytest-playwright stays dev-only. No manifest file in the diff, so project.dependencies and the admin extra cannot have changed; re-confirmed against the ranker diff, which adds no dependency of any kind."
+    - "ADR-0038/R8 ✓ holds — browser tests still fail/skip loudly. _conditional_silences(this module) == [] (test_nothing_in_this_module_goes_quiet_on_a_condition green in a 168-passed run). The widened detector is read-only over 221 guarded sources and cannot retarget a browser skip; _run_module_in_sandbox runs exactly tests/test_suite_profile.py plus the control node, so no browser test executes in either sandbox. The newly widened MEASURED_SILENCES_ELSEWHERE equality records 4 silences and names no browser test, and I verified it goes red in both directions, so a future weakening of a browser skip in the guarded tree would now be reported rather than silent."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no src/** change (git diff --stat HEAD: 3 files, none under src/); no solver code touched and the uniqueness property's neighbourhood is not entered. The sandbox copies the solver property tests but never runs them."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server binding code in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-handling code in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size validation code in the diff; limits.py untouched."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard or image-sourcing code in the diff."
+
+root_causes:
+  - id: RC-1
+    title: >
+      The listing/globbing rule and the host-state probe both enumerate call
+      spellings by hand, and nothing pins the enumerations' completeness — so
+      a spelling nobody thought of (os.walk, Path.walk, a keyword-only
+      directory argument) is silent in both halves at once, which is exactly
+      the compound that let F-301 survive.
+    finding_ids: [F-401, F-402]
+
+findings:
+  - id: F-401
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: tests/test_suite_profile.py
+    line: 1147
+    title: "os.walk / Path.walk of the kanban directory is missed by BOTH guard halves; a mutant restoring this card's own defect survives the whole module — the fifth occurrence of the family"
+    description: |
+      `_LISTERS = frozenset({"iterdir", "scandir", "listdir"})` and
+      `_HOST_STATE_PROBE` both omit `walk`. The two omissions compound, and
+      the result is cycle 3's F-301 with one spelling substituted.
+
+      Measured as pure functions:
+
+        _live_log_references("import os\nKANBAN = REPO_ROOT / 'meta' / 'kanban'\n"
+                             "NAMES = [n for _,_,fs in os.walk(KANBAN) for n in fs "
+                             "if n.endswith('.log')]\n")            -> []   MISSED
+        same, inline (no hoist)                                     -> []   MISSED
+        (REPO_ROOT / "meta" / "kanban").walk()   (Path.walk, 3.12+) -> []   MISSED
+        _conditional_silences(<skip gated on the walk result>)      -> []   MISSED
+
+      Compare the shapes that ARE caught, to show the omission is in the set
+      and not in the rule: `os.listdir(KANBAN)`, `os.scandir(KANBAN)`,
+      `listdir(KANBAN)` bare-imported, and `.iterdir()` are all reported, and
+      a skip gated on `os.listdir`'s result IS reported
+      (`[('test_x', 'not names')]`).
+
+      Executed end to end, planted in a tracked guarded source other than
+      this module (`tests/test_clues.py`, reverted, md5
+      942627df2b6df5a003bf52775ab1d398 restored and verified) — MUT-L's shape
+      with `os.walk` for `os.listdir`: walk the kanban directory, filter to
+      `*.log`, `pytest.skip` when the host has none, then assert on the live
+      log:
+
+        tests/test_suite_profile.py                 -> 168 passed, GREEN
+        both guard classes                          -> 77 passed, GREEN
+        the mutant's own verdict (log-less worktree) -> 1 SKIPPED
+
+      That last line is the original defect verbatim: green-by-skipping on a
+      machine without the file, and it would go red on the owner's machine
+      the moment a gate line lands — the CARD-234-green/CARD-235-red flip
+      this card exists to remove. For contrast, MUT-L (`os.listdir`) now dies
+      to exactly the three tests the card claims: the path guard
+      (`{'tests/test_clues.py': ['listdir() of meta/kanban']}`), the widened
+      silence equality (`('tests/test_clues.py',
+      'test_the_timing_log_is_present_and_nonempty', 'not names')`) and the
+      behavioural comparison — 3 failed, 74 passed, rc=1. The fix is real;
+      its reach is one hand-written set wide.
+
+      Why the behavioural half cannot save it: the comparison runs only
+      `tests/test_suite_profile.py` plus the sandbox control, so a coupling in
+      any of the other 220 guarded sources has the two structural rules as its
+      sole defence — and here both are silent. Confirmed by the 168-passed
+      run above.
+
+      Four standing claims are falsified by this, and none of them can go red:
+
+      * line 1498, `_live_log_references`: "...or a listing of that directory
+        **at all**." It is not: two listing spellings walk through.
+      * lines 1551-1563: "What it cannot see is measured by executing each
+        form, not guessed, and is held as controls in
+        :data:`MEASURED_STRUCTURAL_MISSES` rather than only described here...
+        **The five**, as of 2026-10-16: ..." — the enumeration is presented as
+        closed and is not. `os.walk` is a sixth and is in no control, so
+        nothing goes red (all five listed entries ARE honest misses: I ran
+        `_live_log_references` on each and all return `[]`).
+      * lines 3064-3068, `_build_sandbox` on G-1: "no path in any guarded
+        source names the owner's log at all, **within the measured bound of**
+        :class:`TestSuiteTiming_NoTestReadsTheLiveLog` **and its five**
+        :data:`MEASURED_STRUCTURAL_MISSES` -- which is the strongest statement
+        anything here pins." The stated bound is not the real bound.
+      * lines 1835-1841, `_conditional_silences`: "**Measured limits, each one
+        a form this returns [] for**: a test that calls a helper which skips;
+        a skip keyed on an environment variable; a module-scope skip under a
+        condition that is neither host state nor absent." A skip keyed on a
+        walk result is a fourth and is not named.
+
+      `os.walk` is not an evasion. It is stdlib's most commonly written
+      directory enumerator — more common in practice than `os.scandir`, which
+      IS a member of `_LISTERS` and which the cycle-4 fix went out of its way
+      to make reachable. The card's own declined Option 2 ("find whatever
+      `.log` is under meta/kanban") is naturally written with `os.walk` or
+      `glob`. This is the same judgement cycle 3 applied to `os.listdir` when
+      it gated F-301.
+
+      Worth stating plainly on severity: this IS worth stopping the card for.
+      The card's entire deliverable is the guard's completeness, the owner's
+      recorded reason for authorising cycle 4 was "merging it would ship a
+      guard that does not guard", and a second, structurally identical
+      surviving mutant is exactly that condition unchanged.
+    suggestion: |
+      Two changes, and one of them is what makes the fix durable:
+
+      1. Add `walk` to `_LISTERS` and `os.walk`/`\.walk\(` to
+         `_HOST_STATE_PROBE`, with a positive control per spelling in
+         `REINTRODUCTIONS` (`os.walk` hoisted, `os.walk` inline, `Path.walk()`)
+         and a conditional-silence control for the walk-gated skip in
+         `CONDITIONAL_SILENCES`. `test_every_listing_and_globbing_spelling_has_a_control`
+         then covers the new members automatically — I verified that test is
+         genuine (adding `walk` to `_LISTERS` alone makes it red at
+         `['walk']`).
+
+      2. Stop the enumeration being a judgement nothing can check. The honest
+         version of the "at all" claim is a control that enumerates the
+         *stdlib surface* rather than the author's memory — e.g. a test that
+         asserts every name in `{n for n in dir(os) if ...}` plus
+         `{n for n in dir(pathlib.Path) if ...}` that returns directory
+         contents is either in `_LISTERS`/`_GLOBBERS` or in an explicit
+         `NOT_A_LISTING` exclusion list with a reason. That is the only shape
+         that makes "a listing of that directory at all" a claim that can go
+         red, and without it the next unlisted spelling is occurrence six.
+
+      3. Delete or narrow the four sentences above to what is pinned: "the
+         listing spellings in `_LISTERS`/`_GLOBBERS`, each with a control",
+         not "at all"; and drop "the five" / "its five" / "each one a form
+         this returns [] for" in favour of a reference to the data, which can
+         grow without a sentence going stale.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-402
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1708
+    title: "The listing rule's 'judged by both ends of the call' omits keyword arguments; os.listdir(path=...) evades the path guard, and the bare-imported form evades both halves"
+    description: |
+      The argument rule the owner's condition 1 asked for collects positional
+      arguments only:
+
+        tests/test_suite_profile.py:1708-1715
+          where = [
+              candidate
+              for candidate in [*receiver, *node.args]
+              ...
+
+      `node.keywords` is absent, while the same function's `Call` branch four
+      lines earlier does include them for the string-operand rule
+      (`operands = [*node.args, *(kw.value for kw in node.keywords)]`). So the
+      omission is inconsistent within the one function.
+
+      Measured:
+
+        _live_log_references("import os\nKANBAN = REPO_ROOT / 'meta' / 'kanban'\n"
+                             "NAMES = os.listdir(path=KANBAN)\n")  -> []  MISSED
+
+      `os.listdir(path=...)` and `os.scandir(path=...)` are legal signatures,
+      so this is a spelling and not a trick.
+
+      Executed end to end in `tests/test_clues.py` (reverted, md5 verified):
+
+        MUT-K  os.listdir(path=KANBAN)              -> 2 failed, 166 passed  KILLED
+        MUT-KB from os import listdir; listdir(path=KANBAN)
+                                                    -> 168 passed            SURVIVED
+
+      MUT-K dies, but only on the silence half, and only because the source
+      text happens to contain the literal `os.listdir` that
+      `_HOST_STATE_PROBE` greps for — not because the path guard saw it.
+      Drop the `os.` prefix and both halves go quiet: MUT-KB is a second
+      surviving mutant restoring the card's own defect (SKIPPED on this
+      log-less worktree, green module).
+
+      The claim this falsifies, at lines 1500-1503: "A listing or a glob is
+      judged by both ends of the call -- the receiver for ``p.iterdir()`` and
+      ``d.glob(...)``, **the arguments** for the module functions
+      ``os.listdir``, ``os.scandir`` and ``glob.iglob``". A keyword argument
+      is an argument. Nothing in the 36 controls uses one, so nothing goes red.
+
+      On severity: MUT-KB's spelling (bare import *and* a keyword-only
+      directory) is contrived in a way `os.walk` is not, so taken alone this
+      would be a bound worth recording rather than a reason to stop. It is
+      filed as Important because it is the same root cause as F-401, it is a
+      one-token fix, and the asymmetry the owner's condition 1 was written to
+      remove ("220 of 221 sources have one defence") is still live wherever
+      `_HOST_STATE_PROBE`'s text match does not happen to fire.
+    suggestion: |
+      Change the one line to
+
+        for candidate in [*receiver, *node.args, *(kw.value for kw in node.keywords)]
+
+      and add two controls to `REINTRODUCTIONS`: `os.listdir(path=KANBAN)` and
+      the bare-imported `listdir(path=KANBAN)`. Then re-word line 1500-1503 to
+      say positional *and* keyword arguments, or drop the enumeration in favour
+      of pointing at the controls.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-403
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 2685
+    title: "test_every_path_wrapper_is_seen_through cannot fail for any bare-name member, so the claim the sweep wrote it to pin is still unpinned"
+    description: |
+      This is the one item on the agent's own sweep list that is reported as
+      pinned and is not, which the review brief singles out as worse than an
+      unlisted claim — so it is reported even though its consequence is benign.
+
+      The cycle-4 sweep found `_PATH_WRAPPERS` holding `PosixPath` and
+      `WindowsPath` with nothing exercising them, called it "the F-301 shape in
+      miniature, in my own pass", narrowed the set to three, and wrote
+      `test_every_path_wrapper_is_seen_through` parametrized from the set with
+      `WRAPPED_DIRECTORY_SOURCE` generated per member. The comment at 1153-1159
+      says the set is now "exercised by that test on the next run rather than
+      taken on trust", and at 2253-2256 "the set and the controls cannot drift
+      apart".
+
+      The test cannot discriminate. `_unwrapped` (line 1370-1379) peels any
+      single-argument call whose function name is in `_PATH_WRAPPERS`, so the
+      generated source `os.listdir({wrapper}(KANBAN))` is caught *because* the
+      wrapper is in the set. Measured — `PosixPath` re-added to
+      `_PATH_WRAPPERS`:
+
+        tests/test_suite_profile.py::TestSuiteTiming_NoTestReadsTheLiveLog
+          -> 60 passed  (59 before; the new parametrisation collected and PASSED)
+
+      versus the sibling guard, which is genuine — `walk` added to `_LISTERS`:
+
+        -> 1 failed, 58 passed
+           AssertionError: ... with no positive control that the guard actually
+           catches it: ['walk']
+
+      So the exact two members the sweep removed would pass the guard it wrote
+      to justify removing them, and `_PATH_WRAPPERS`' own claim ("Three
+      members, each one a spelling somebody writes") is held by prose alone.
+      The only member that could make the test red is a dotted spelling such
+      as `os.fspath`, since `_unwrapped` rsplits on `.`.
+
+      Why this is Minor and not gating, stated plainly: a wrong member of
+      `_PATH_WRAPPERS` widens the *peel*, which makes the guard catch more,
+      not less. The one way it can bite is through `_leftmost`, which also
+      peels: a bogus wrapper lets `os.listdir(bogus(root) / "meta" / "kanban")`
+      reach the caller-root exemption. That is a false-exemption path, not a
+      hole that exists today. This is a bound worth accepting and recording,
+      not a reason to stop the card.
+    suggestion: |
+      Either give the test power — assert the wrapper is seen through by a
+      mechanism that does not consult the set (e.g. parametrize over
+      `_PATH_WRAPPERS` but assert the *resolved directory*, and add a negative
+      control asserting a name NOT in the set, such as
+      `os.listdir(reversed_name(KANBAN))`, is NOT seen through, so the set's
+      narrowness is what the test measures) — or delete the two sentences and
+      say what is true: the three members are a judgement, and the test
+      exercises each one end to end without bounding the set.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-404
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1749
+    title: "_HOST_STATE_PROBE omits .iterdir(), os.scandir and os.access, so a skip gated on those results is not reported"
+    description: |
+      Separate from F-401's `walk` because for these spellings the path guard
+      does fire, so no mutant survives today — it is the stated limit that is
+      wrong, not the defence.
+
+      Measured:
+
+        _conditional_silences(<skip gated on list(KANBAN.iterdir())>)        -> []
+        _conditional_silences(<skip gated on [e for e in os.scandir(KANBAN)]>) -> []
+        _conditional_silences(<skip gated on os.listdir(KANBAN)>)            -> [('test_x', 'not names')]
+
+      The probe is `\.exists\(\)|\.is_file\(\)|\.is_dir\(\)|\.stat\(\)|os\.path\.(?:exists|isfile|isdir)|os\.listdir|\.glob\(|\.rglob\(`
+      — `os.listdir` is there, `.iterdir()`, `os.scandir`, `os.walk`,
+      `os.access` and `.is_symlink()` are not. The docstring's "Measured
+      limits, each one a form this returns [] for" names three forms and
+      these are not among them, so the enumeration reads closed and is not
+      (same shape as F-401's, which is why the walk half of it is gating and
+      this half is not).
+
+      Consequence today: a host-state skip keyed on an `.iterdir()` or
+      `os.scandir` result in another guarded source is reported only by the
+      path guard, which fires on the lister itself. So the "two defences from
+      both directions" the owner asked for is one defence for these
+      spellings. Loud either way, hence Minor.
+    suggestion: |
+      Add `\.iterdir\(\)|os\.scandir|os\.walk|\.walk\(|os\.access` to
+      `_HOST_STATE_PROBE` with a control per addition in
+      `CONDITIONAL_SILENCES`, and replace the three-item "Measured limits"
+      sentence with a pointer to `NOT_A_CONDITIONAL_SILENCE`, which can grow
+      without a sentence going stale.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-405
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 2470
+    title: "MEASURED_SILENCES_ELSEWHERE's header says 'Every host-state silence' and 'These three' over four entries, one of which it says is not host state"
+    description: |
+      A small prose inconsistency in the one block the owner's judgement call
+      (2) turns on, so it is worth naming rather than swallowing.
+
+      Line 2470-2471: "Every **host-state** silence the detector reports in the
+      guarded tree *outside this module*". Line 2482-2483: "**These three** are
+      pre-existing and belong to other cards". The tuple holds **four**
+      entries, and the fourth is introduced at line 2508 with "And one that is
+      **not filesystem state at all**" — `tests/test_web_submission.py`'s
+      `hasattr(os, 'geteuid') and os.geteuid() == 0`.
+
+      So the header's "host-state" is wrong for one of the four and the "three"
+      undercounts; all four are in fact pre-existing. The two inline comment
+      blocks disambiguate correctly, and the test name
+      (`test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones`)
+      carries the same narrowing. Nothing is hidden by it — the equality is
+      over whatever the detector returns, which I verified in both directions —
+      but on a card whose defect class is "a sentence wider than its
+      mechanism", a count in a docstring that disagrees with the data two lines
+      below it is the same habit in miniature.
+
+      I verified the substance the prose describes. The three filesystem
+      silences are genuine pre-existing host state belonging to other cards:
+      `tests/test_admin_design_tokens.py` skips on `not _DESIGN.exists()`
+      (`meta/design/`, not shipped with the package) and
+      `tests/test_sourcing_image.py` skips twice on a picture corpus
+      (`not picture.is_file()`, `not PICTURES.is_dir()`) that exists on the
+      owner's host and not in a fresh checkout. Two of those three are
+      therefore accurately characterised as this card's own defect one module
+      over, and G-4 does confine the card to two files, so recording rather
+      than fixing is the right call.
+    suggestion: |
+      Change the header to "Every silence the detector reports in the guarded
+      tree outside this module" and "These four are pre-existing", or move the
+      geteuid entry's width note into the header. One-line edit.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-406
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 1424
+    title: "Out of scope: _kanban_directories over-approximates in two measured ways, both in the false-positive direction"
+    description: |
+      Judgement call (3) probed and accepted. `_kanban_directories` resolves
+      **zero** names across all 221 real guarded sources (measured by running
+      it over every one), so the claimed "no false positive across all 221
+      real sources" is confirmed, and confirmed more strongly than claimed —
+      it fires on nothing in the tree at all.
+
+      Two over-approximations found by probing, both harmless because they
+      produce a loud false positive and never a hole:
+
+      * a `meta/kanban` under a *different* root is treated as the owner's:
+        `OTHER = Path("/tmp/fake") / "meta" / "kanban"; os.listdir(OTHER)`
+        -> `['listdir() of meta/kanban']`. `_joined_components` folds a
+        single-string `Path(...)` call into the component list, so the root is
+        not distinguished.
+      * the resolution is flow-insensitive: `K = REPO_ROOT / "meta" / "kanban"`
+        then `K = K / "cards"` leaves `K` resolved as the kanban directory, so
+        the subsequent `os.listdir(K)` is reported even though it lists
+        `cards/`.
+
+      Three negative controls pin the narrowness that matters (a subdirectory
+      listing by either spelling, and a caller-supplied root), and all three
+      are green. Noted for a follow-up only if a future card trips one.
+    suggestion: "No action on this card. If a real false positive ever appears, compare the join's root against REPO_ROOT rather than folding it into the component list."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-407
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 2488
+    title: "Out of scope: MEASURED_SILENCES_ELSEWHERE's new coupling to the rest of tests/ is worth its cost, and its failure message is actionable"
+    description: |
+      Judgement call (1), answered on the message itself rather than on the
+      design. I triggered both directions.
+
+      Direction A, a NEW silence appears: MUT-L's planted skip in
+      `tests/test_clues.py` produced
+
+        FAILED ...::test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones
+
+      Direction B, a recorded silence FIXED without being struck off: I removed
+      the `skipif` from `tests/test_admin_design_tokens.py:46` and the same
+      test went red (1 failed in 1.45s), with
+
+        "the host-state silences in the guarded tree are no longer the ones
+         CARD-238 measured. A new entry is a verdict that depends on the host
+         rather than on the code; a missing one has been fixed and should be
+         struck off MEASURED_SILENCES_ELSEWHERE: (('tests/test_sourcing_image.py',
+         ...), ('tests/test_web_submission.py', ...))"
+
+      The message is good enough to act on: it states both directions
+      explicitly, says which edit each one calls for, and prints the full found
+      set as `(file, test, condition)` triples while pytest's own diff names
+      the single differing item ("At index 0 diff: ... Right contains one more
+      item: ..."). A future card's author who has never read this module can
+      act on it without opening it. The standing cost is real and the owner
+      should know it is being accepted, but the mechanism is the right one:
+      this is exactly the half of the fix that killed MUT-L from the second
+      direction.
+    suggestion: "Accept. If the coupling ever becomes a nuisance, the cheapest relief is to key the equality on file+test only, not the condition text, so a reworded condition in another card's file does not turn this module red."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-408
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-238.md
+    line: 666
+    title: "Out of scope (card, not the two files): the mandatory claim sweep's list is recorded in no file, so the owner's condition 2 produced no auditable artefact"
+    description: |
+      The owner's second hard condition was "**A mandatory claim sweep,
+      reported as a list**". The card's `[Fix 4]` block narrates the sweep's
+      outcome (19 pinned, 8 deleted, no `[BLOCKER]`) and names three of the
+      finds, but the list itself is in neither the main-repo card, the worktree
+      card, nor any file under the worktree — I searched the card for
+      `sweep|pinned|DELETED|CLAIM` (one unrelated hit) and listed every file
+      modified since the escalation.
+
+      Consequence for this review: the brief asked me to check the sweep list
+      "for completeness and for honesty", and the list is not checkable
+      line by line. I did an independent sweep of the guard section instead,
+      which is how F-401's four falsified sentences, F-403's unpinnable guard
+      and F-404/F-405 were found — i.e. the thing the list was supposed to make
+      cheap had to be redone from scratch, and it found more.
+
+      Not charged against the two files in scope. Named because if cycle 5
+      happens, the list belongs in the card's Worktree notes, where the next
+      reviewer can diff it against the file.
+    suggestion: "On the next pass, paste the sweep as a table in the card's Worktree notes: claim location -> pinning control -> verdict (pinned / deleted / BLOCKER)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+  - id: F-409
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 17
+    title: "Out of scope: the cycle-4 cost is proportionate and the two 'provably-identical' refactors are identical in effect, measured"
+    description: |
+      Verified rather than taken on report.
+
+      Cost: `tests/test_suite_profile.py` -> **168 passed in 17.59s** on this
+      host (a second run 14.4s), inside the claimed 16.5-19.8s band and
+      matching the claimed 148 -> 168 test count. The two scans measured
+      directly over all 221 guarded sources: path guard **1.16s**, silence
+      guard **1.30s**, total **2.46s** — the silence guard's 1.30s matches the
+      "cut 4.6s to 1.2s" claim. Against the recorded ~1035s full suite the
+      module is ~1.7% and this cycle's addition ~0.5%. Proportionate for the
+      only mechanism standing between the suite and a host-dependent verdict.
+
+      Refactor 1, `_host_state_names` collecting bindings in one `ast.walk`
+      then running two fixpoint passes over the list: I re-implemented the
+      pre-refactor two-full-walk shape and compared on all 221 sources —
+      **0 differences**. Sound for the stated reason: `ast.walk` yields the
+      same nodes in the same order on both passes, so iterating a pre-collected
+      list in that order is the same computation with `ast.unparse` hoisted.
+
+      Refactor 2, `_kanban_directories` resolved lazily and memoised in
+      `resolved`: the function is pure (same answer on repeated calls across all
+      221 sources, **0 impure**), so memoising one call per tree cannot change
+      the result; the only behavioural difference is that it is not computed at
+      all when no glob/lister call appears, which the return value cannot
+      observe. Both claims hold.
+    suggestion: "No action."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-410
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 1584
+    title: "Out of scope: the env-var survivor still survives, is still documented as surviving, and this cycle did not claim it closed"
+    description: |
+      Checked because the brief required it. `MEASURED_STRUCTURAL_MISSES`'
+      second entry is `LOG = Path(os.environ["CARD238_LOG"])`, and
+      `_live_log_references` returns `[]` for it — the control is honest, and
+      `test_the_disclosed_structural_misses_are_still_misses[a path read out of
+      the environment at run time]` is green.
+
+      The documentation at lines 1584-1598 still says, in these words, "an
+      absolute path read out of the environment -- **NOT killed, by either
+      half**", carries both measurements (cycle 3's 149 passed and cycle 4's
+      161 passed with the variable set, red in all three when unset), and adds
+      the explicit sentence that "Widening the listing rule to call arguments
+      and the silence detector to every guarded source does not touch it, and
+      it is an accepted bound rather than quietly reclassified". So the cycle
+      did not accidentally claim it closed — it did the opposite, and
+      re-measured it against the widened guards.
+
+      The argument for accepting it stands: an unset variable fails rather than
+      skips, so its failure mode is loud, which is the one property the
+      original defect lacked.
+    suggestion: "Accept and keep recorded, as cycle 3 recommended."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-411
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 2589
+    title: "Out of scope: the rglob fallback in _files_under_guard is the last residual host dependence, and MEASURED_SILENCES_ELSEWHERE now amplifies it"
+    description: |
+      Answering the brief's "any host-dependent assertion left?" directly: no
+      assertion in the module judges untracked host state on a normal
+      checkout. I scanned every non-comment line matching `_HOST_STATE_PROBE`
+      (43 hits) and classified them: all are either inside fabricated-source
+      string constants, inside the sandbox control module, in helpers, or over
+      **committed** artefacts (`PROFILING_DIR.glob("suite-durations-*.txt")`
+      at line 88, `_hotspots_for(path).exists()` at line 159) — repo state,
+      not host state.
+
+      One residual, pre-existing and already filed twice (cycle 1 F-008, cycle
+      2 F-103, cycle 3 F-306): `_files_under_guard` falls back to
+      `rglob("*")` when the manifest is absent and `git ls-files` cannot
+      answer, and that branch admits untracked files. New this cycle is the
+      amplification: `MEASURED_SILENCES_ELSEWHERE` is now an equality over
+      whatever that resolution returns, so on a git-less checkout a
+      developer's untracked scratch test carrying a host-state skip would turn
+      this module red. The direction is loud (red, with the path named), which
+      is the opposite of the defect this card removes, and the manifest + git
+      path is what runs everywhere in practice. Recorded, not charged.
+    suggestion: "If the follow-up card for F-306 happens, gitignore .card238-tracked and make the rglob fallback filter the repo's ignore rules in the same pass."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

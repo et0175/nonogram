@@ -1,6 +1,6 @@
 # CARD-238: The suite-timing tests stop asserting on gitignored host state
 
-**Status:** review
+**Status:** blocked
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -15,12 +15,12 @@
 **Wave:** 41
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py
-**Review score:** 6.0 → 7.5 → 7.5 (cycle 3/3, max reached)
+**Review score:** 6.0 → 7.5 → 7.5 → 6.5 (cycle 4, owner-authorised beyond max)
 **Started:** 2026-10-15T17:52:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — owner: family regression occurrence 5; cycle 4 fixed the instance, not the generator. `os.walk` is missed by both guard halves and a mutant restoring the card's own defect survives at 168 passed
 
 ## What to implement
 
@@ -707,3 +707,53 @@ corpus is `random.Random`, not `hypothesis`.
   modules), and two of them are genuinely this card's own defect one module over. (3)
   `_kanban_directories` is the one place this cycle guesses wider — measured as producing no false
   positive across all 221 real sources, with three negative controls pinning the narrowness.
+- [Review sync] 4 report(s) → meta/review/20261016T121120Z-CARD-238-cycle4.yml
+- [Review 4/4] Score: 6.5 — crit: **1**, imp: 1. ⚠ **THE FAMILY RECURRED A FIFTH TIME**, and the
+  reviewer's diagnosis is the one that matters: **cycle 4 fixed the INSTANCE, not the GENERATOR.**
+  `_LISTERS` and `_HOST_STATE_PROBE` are still hand-written enumerations **whose completeness
+  nothing can test**, and `os.walk` was simply not on the list.
+  Verified independently by me on the raw function: `os.walk` hoisted, `os.walk` inline and
+  `Path.walk()` **all return `[]`**, while `os.listdir` is caught. `os.listdir(path=...)` is
+  missed too (the Important). MUT-W, planted end to end as MUT-L's shape with `os.walk`
+  substituted, **survives at 168 passed** — and its own verdict on a log-less host is
+  **`1 SKIPPED`**: the original defect verbatim, green-by-skipping.
+  The sting: **`os.walk` is stdlib's most-written directory enumerator, more common than
+  `os.scandir` — which IS in the set and which this very cycle went out of its way to make
+  reachable.** Four standing sentences are falsified and none can go red, including
+  `_live_log_references`' "or a listing of that directory **at all**".
+- [Review 4/4] ⚠ **And one claim reported as pinned whose control cannot fail** — precisely the
+  "worse than an unlisted one" case I warned the reviewer to look for.
+  `test_every_path_wrapper_is_seen_through` was written in the sweep to justify removing
+  `PosixPath`/`WindowsPath`, but `_unwrapped` peels whatever is in that same set, so the generated
+  source passes **by construction**. Measured: re-adding `PosixPath` → 60 passed, green. Its
+  sibling guard IS genuine (`walk` added to `_LISTERS` → 1 failed at `['walk']`), which is what
+  makes the contrast diagnostic.
+- [Review 4/4] ⚑ **My own spec defect, and it cost the audit.** I required the claim sweep "as a
+  report section" rather than as a file. So the sweep's list **exists in no file** — the card
+  narrates 19 pinned / 8 deleted but the list itself is unrecorded, and the owner's condition 2
+  produced **no auditable artefact**. The reviewer had to redo the sweep from scratch, which is
+  how it found the Critical's four falsified sentences and the decorative guard. That worked out,
+  but by luck rather than design: had the reviewer trusted the narration, occurrence five would
+  have shipped.
+- [Review 4/4] What is verified sound, so the decision is about one hole and not about the work:
+  **every claimed kill is genuine** — MUT-L dies to exactly the three claimed tests (cycle 3's
+  `57 passed, rc=0` is closed), MUT-R 3 failed, the module-level skip 2 failed, D1c pinned,
+  `MEASURED_SILENCES_ELSEWHERE` verified red in **both** directions, the fifth miss's behavioural
+  kill reproduces exactly ("measured not reasoned"). All five `MEASURED_STRUCTURAL_MISSES` are
+  **honest** (run individually). All 36 positives caught, all 10 negatives clean. Both
+  "provably identical" refactors hold (re-implemented in their pre-refactor shape → 0 differences
+  over 221 sources). All three self-flagged judgement calls **accepted**, and
+  `_kanban_directories` produces **zero** hits across 221 real sources — more conservative than
+  claimed. AC-2/AC-4/AC-5 satisfied; G-1 through G-5 held; Step 8h 8 rules, 3 holds, 0 violated.
+  Cost measured at ~1.7% of the suite, this cycle adding ~0.5%.
+- [Escalated] 2026-10-16T12:16:35Z — family regression occurrence 5 · station: **owner** (the procedure forbids
+  auto-assigning a station on a family regression, and this is the second time the same family has
+  reached a human) · the reviewer's recommendation is BACK TO THE OWNER, and it was explicit that
+  **merging with recorded bounds is the case the owner barred at cycle 3**, so choosing it now is a
+  *different* decision rather than the same one; and that a clean-slate redo would be wrong because
+  the approach is right and four cycles of verified mechanism would be discarded.
+  Its proposed route, if the owner spends another cycle: the deliverable must **not** be "add
+  `walk`" — that is occurrence six waiting — but **one test that makes the enumeration falsifiable**:
+  derive the listing surface from `dir(os)` / `dir(pathlib.Path)` and force every member into the
+  sets or into an explicit exclusion list with a reason.
+  Worktree and branch KEPT: `../PythonProject4-card-238`, `card/238-timing-log-host-state`.
