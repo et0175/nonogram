@@ -7,6 +7,12 @@ that a contended run cannot be passed off as the profile (AC-4), and that the
 append to ``meta/kanban/suite-timing.log`` keeps the format every wave reads
 (AC-5).
 
+CARD-238 cut the one thing here that was never about the code: two tests used
+to read that live log, which is gitignored and written by the pipeline, so
+their verdict flipped with the host. The format contract is unchanged and is
+now asserted only against logs the tests construct, and two structural guards
+at the foot of this module keep it that way.
+
 These tests are deliberately cheap. The card's whole subject is a suite that
 has grown expensive, so its own tests parse text and shell out exactly once;
 none of them renders anything.
@@ -18,12 +24,16 @@ would make the repo's structural import guard's job harder for no gain.
 
 from __future__ import annotations
 
+import ast
 import collections
 import hashlib
 import importlib.util
+import random
 import re
 import subprocess
 import sys
+from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from types import ModuleType
 
@@ -32,7 +42,6 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PROFILING_DIR = REPO_ROOT / "meta" / "profiling"
 RANKER_PATH = PROFILING_DIR / "rank_durations.py"
-TIMING_LOG = REPO_ROOT / "meta" / "kanban" / "suite-timing.log"
 
 
 def _load_ranker() -> ModuleType:
@@ -560,6 +569,178 @@ class TestSuiteProfile_RefusesToRecordAContendedRun:
         assert ranker.is_admissible_profile(sneaky) is False
 
 
+# --------------------------------------------------------------------------
+# CARD-238 -- a seeded corpus and an independent reading of the line format
+#
+# The format contract used to be checked against the live, gitignored
+# ``meta/kanban/suite-timing.log``, which made its verdict a fact about the
+# host. The corpus below replaces that breadth with breadth the test owns: a
+# seeded sweep of well-formed entries, every one of them mutated nine ways
+# into a line that must be refused, cross-checked against a second
+# implementation of the format written from its documented shape rather than
+# from ``TIMING_LOG_LINE``. No ``hypothesis`` (not in the dependency
+# baseline, ADR-0006/R1) -- a ``random.Random`` with a fixed seed, with the
+# case count asserted in the test so the corpus cannot silently shrink.
+# --------------------------------------------------------------------------
+
+_NOTE_WORDS = (
+    "passed",
+    "skipped",
+    "failed",
+    "pre-existing",
+    "excluded",
+    "duration",
+    "not",
+    "recorded",
+    "solo",
+    "gate",
+)
+_LABELS = ("full-suite", "card-204-merge-gate", "card-217-profiling-run", "wave-smoke")
+
+
+def _seeded_entries(seed: int = 238, count: int = 160) -> list[str]:
+    """``count`` distinct well-formed entries, built from parts, not parsed."""
+    rng = random.Random(seed)
+    lines: list[str] = []
+    seen: set[str] = set()
+    while len(lines) < count:
+        stamp = (
+            f"{rng.randint(2024, 2031)}-{rng.randint(1, 12):02d}-"
+            f"{rng.randint(1, 28):02d}T{rng.randint(0, 23):02d}:"
+            f"{rng.randint(0, 59):02d}:{rng.randint(0, 59):02d}Z"
+        )
+        wave = f"wave-{rng.randint(1, 400)}"
+        label = rng.choice(_LABELS)
+        duration = "---" if rng.random() < 0.15 else f"{rng.randint(1, 99999)}s"
+        status = rng.choice(("PASS", "FAIL"))
+        # Notes deliberately exclude parentheses and brackets: the real log
+        # has none inside a note, and the mutations below depend on the
+        # wrapper being the only one.
+        notes = " ".join(rng.sample(_NOTE_WORDS, rng.randint(1, 5)))
+        if rng.random() < 0.3:
+            notes = f"{rng.randint(1, 9999)} passed — {notes}"
+        line = f"{stamp} {wave} {label} {duration} {status} ({notes})"
+        if rng.random() < 0.5:
+            line = f"{line} [{rng.randint(1, 999)}ms/test]"
+        if line not in seen:
+            seen.add(line)
+            lines.append(line)
+    return lines
+
+
+def _unlabel(line: str) -> str:
+    """Put a space inside the label, which must then be two fields too many."""
+    for label in _LABELS:
+        if f" {label} " in line:
+            return line.replace(f" {label} ", f" {label.replace('-', ' ')} ", 1)
+    raise AssertionError(line)  # every generated entry carries one of _LABELS
+
+
+# Each mutation turns a well-formed entry into one the format must refuse.
+# The last is the shape CARD-217's merge gate actually wrote (AC-4).
+MUTATIONS: tuple[tuple[str, Callable[[str], str]], ...] = (
+    (
+        "space instead of T and Z",
+        lambda line: line.replace("T", " ", 1).replace("Z", "", 1),
+    ),
+    ("wave abbreviated", lambda line: line.replace("wave-", "w", 1)),
+    (
+        "duration without its s",
+        lambda line: re.sub(r" (\d+)s ", r" \1 ", line, count=1),
+    ),
+    (
+        "status lowercased",
+        lambda line: line.replace("PASS", "pass").replace("FAIL", "fail"),
+    ),
+    (
+        "notes unparenthesised",
+        lambda line: line.replace("(", "", 1).replace(")", "", 1),
+    ),
+    ("label split in two", _unlabel),
+    ("leading indent", lambda line: f"  {line}"),
+    ("commented out", lambda line: f"# {line}"),
+    ("trailing prose after the rate", lambda line: f"{line} — the card's own gate"),
+)
+
+
+def _mutants(entries: list[str]) -> list[tuple[str, str]]:
+    """``(mutation name, line)`` for every entry put through every mutation.
+
+    A mutation that leaves an entry untouched -- dropping the ``s`` from a
+    ``---`` duration, say -- contributes nothing and is left out, so no case
+    in the corpus is secretly a well-formed line.
+    """
+    out: list[tuple[str, str]] = []
+    for line in entries:
+        for name, mutate in MUTATIONS:
+            mutated = mutate(line)
+            if mutated != line:
+                out.append((name, mutated))
+    return out
+
+
+_GOOD_ENTRIES = _seeded_entries()
+MUTANT_CASES: list[tuple[str, str]] = _mutants(_GOOD_ENTRIES)
+CORPUS: tuple[list[str], list[str]] = (
+    _GOOD_ENTRIES,
+    [line for _, line in MUTANT_CASES],
+)
+
+
+def _looks_like_an_entry(line: str) -> bool:
+    """Decide the line format by hand -- the independent second reading.
+
+    Written from the shape documented in ``rank_durations.py``'s header
+    comment and in ``tests/README.md``, using ``str`` methods and
+    ``datetime.strptime`` rather than ``TIMING_LOG_LINE``, so that the two
+    implementations can be played off each other instead of the regex
+    confirming itself:
+
+        <ISO ts> wave-<N> <label> <seconds>s|--- <PASS|FAIL> (<notes>)
+        optionally followed by a single ` [<N>ms/test]` and nothing else.
+
+    One deliberate difference: ``strptime`` also rejects an impossible date
+    (``2026-13-45T99:99:99Z``), which ``TIMING_LOG_LINE``'s two-digit
+    groups accept. No case in the corpus below exercises that, because no writer
+    produces such a stamp -- and tightening the parser is out of scope here
+    (CARD-238 G-3 permits a parser change only for AC-4's shape, and that
+    ruling was "reject"). A future corpus that reaches for it should expect
+    this function to be the stricter of the two.
+    """
+    if not line.strip() or line.lstrip().startswith("#"):
+        return False
+    opened = line.find("(")
+    closed = line.rfind(")")
+    if opened < 0 or closed < opened:
+        return False
+    head, tail = line[:opened], line[closed + 1 :]
+    if not head.endswith(" "):
+        return False
+    fields = head[:-1].split(" ")
+    if len(fields) != 5:
+        return False
+    if any(not field or any(ch.isspace() for ch in field) for field in fields):
+        return False
+    stamp, wave, _label, duration, status = fields
+    try:
+        datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    if not wave.startswith("wave-") or not wave[len("wave-") :].isdigit():
+        return False
+    if duration != "---" and not (
+        duration.endswith("s") and duration[:-1].isdigit() and len(duration) > 1
+    ):
+        return False
+    if status not in {"PASS", "FAIL"}:
+        return False
+    if tail == "":
+        return True
+    if not (tail.startswith(" [") and tail.endswith("ms/test]")):
+        return False
+    return tail[len(" [") : -len("ms/test]")].isdigit()
+
+
 class TestSuiteTimingLog_FormatUnchanged:
     """AC-5: the append keeps the format the whole log is read in."""
 
@@ -617,24 +798,435 @@ class TestSuiteTimingLog_FormatUnchanged:
         text = "\n".join([*self.GOOD, self.BAD[0], "# trailing note"])
         assert ranker.malformed_timing_lines(text) == [self.BAD[0]]
 
-    @pytest.mark.skipif(
-        not TIMING_LOG.exists(),
-        reason="suite-timing.log is gitignored (*.log) and absent from this checkout",
-    )
-    def test_the_real_log_is_entirely_well_formed(self) -> None:
-        text = TIMING_LOG.read_text(encoding="utf-8")
-        assert ranker.malformed_timing_lines(text) == []
+    # ------------------------------------------------------------------
+    # CARD-238 replaced two tests here that read the live
+    # ``meta/kanban/suite-timing.log``. Both assertions are kept; both are
+    # now made against logs the test constructs. See the class comment at
+    # the foot of this module for what each one became.
+    # ------------------------------------------------------------------
 
-    @pytest.mark.skipif(
-        not TIMING_LOG.exists(),
-        reason="suite-timing.log is gitignored (*.log) and absent from this checkout",
+    # Every shape the owner's log actually used as of 2026-10-15, transcribed
+    # by hand: a plain wave run, a note carrying an em dash, an unrecorded
+    # duration, a rate bracket, a rate bracket followed by a *parenthesised*
+    # second note, and the header/GAP/NOTE comment lines. This is what
+    # "the real log is entirely well formed" asserted, over text that cannot
+    # change under the suite's feet.
+    REAL_SHAPES = (
+        "# GAP: waves 36 and 37 have no wave-smoke-test line. The per-card\n"
+        "# gates below are labelled as gates and not as wave runs.\n"
+        "2026-09-22T16:27:26Z wave-20 full-suite 125s PASS "
+        "(1 pre-existing failure excluded)\n"
+        "2026-10-04T09:53:23Z wave-32 full-suite 587s PASS "
+        "(6083 passed, 0 failed — first wave with a clean suite since wave 20)\n"
+        "2026-10-14T05:20:00Z wave-37 card-214-merge-gate --- PASS "
+        "(6883 passed, 9 skipped, 0 failed; duration not recorded)\n"
+        "2026-10-14T19:20:17Z wave-38 card-212-merge-gate 1123s PASS "
+        "(7053 passed, 9 skipped, 0 failed) [159ms/test] "
+        "(a first attempt on a shared host failed at 1476s)\n"
+        "2026-10-15T05:34:34Z wave-39 card-217-profiling-run 931s PASS "
+        "(7073 passed, 9 skipped, 0 failed) [131ms/test]\n"
+        "# NOTE 2026-10-15: the two figures above ran on a quiet host.\n"
     )
-    def test_the_last_entry_is_this_cards_profiling_run(self) -> None:
-        entries = ranker.timing_log_entries(TIMING_LOG.read_text(encoding="utf-8"))
-        assert entries, "the log holds no parseable entries"
-        last = entries[-1]
-        assert "profil" in last["label"] or "profil" in last["notes"], (
-            f"expected the profiling run last, got {last['label']}"
+
+    # The one line in the owner's log that its own format validator refuses,
+    # written at CARD-217's merge gate. Kept verbatim; see
+    # test_the_trailing_prose_shape_is_not_legal for the ruling and the
+    # writer that produced it.
+    CARD_217_GATE_LINE = (
+        "2026-10-15T06:49:21Z wave-39 card-217-merge-gate 963s PASS "
+        "(7156 passed, 9 skipped, 0 failed) [135ms/test] — the profiling "
+        "card's own gate; +83 tests, all of them over the profile artefacts"
+    )
+
+    def test_every_shape_the_real_log_uses_is_well_formed(self) -> None:
+        assert ranker.malformed_timing_lines(self.REAL_SHAPES) == []
+        assert len(ranker.timing_log_entries(self.REAL_SHAPES)) == 5
+
+    def test_the_trailing_prose_shape_is_not_legal(self) -> None:
+        # AC-4's ruling: **not legal.** The format already has a slot for
+        # free prose -- the parentheses -- and all 16 other entries in the
+        # owner's log use it, em dashes included ("0 failed — first wave with
+        # a clean suite"). The one entry that wanted a note *after* the rate
+        # bracket, wave-38's card-212 gate, parenthesised it and parses. So
+        # the convention the entries share is: commentary lives inside
+        # parentheses, and the rate bracket terminates the line.
+        #
+        # Widening the regex to swallow a bare trailing tail would make the
+        # `notes` and `rate` fields ambiguous for every reader of the log
+        # (the cost trend is read off `duration` and `rate`), which is why
+        # the parser is left alone here (CARD-238 G-3) and the shape is
+        # pinned as rejected instead.
+        #
+        # Writer, so the next author does not repeat it: the forge:kanban
+        # dispatcher's merge-gate "SUITE TIMING" append step
+        # (skills/kanban/references/cmd-run.md), which documents the line as
+        # `<ISO date> wave-<N> <label> <seconds>s <PASS|FAIL>` and carries no
+        # trailing-prose form; tests/README.md's "Logging the run" shows the
+        # same. Put the gate's commentary inside the notes parentheses.
+        assert ranker.parse_timing_line(self.CARD_217_GATE_LINE) is None
+        assert ranker.malformed_timing_lines(self.CARD_217_GATE_LINE + "\n") == [
+            self.CARD_217_GATE_LINE
+        ]
+
+    def test_the_same_note_parenthesised_is_legal_and_keeps_its_fields(self) -> None:
+        # The ruling above is about placement, not about content: the very
+        # same sentence is accepted the log's own way, which is what makes
+        # "not legal" a correctable instruction rather than a lost note.
+        head, _, tail = self.CARD_217_GATE_LINE.partition(" — ")
+        legal = f"{head} ({tail})"
+        entry = ranker.parse_timing_line(legal)
+        assert entry is not None
+        assert entry["label"] == "card-217-merge-gate"
+        assert entry["duration"] == "963s"
+        assert entry["rate"] == ""  # the bracket is no longer line-final
+        assert "the profiling card's own gate" in entry["notes"]
+
+    def test_the_last_entry_is_the_last_uncommented_one(self) -> None:
+        # What the deleted "the last entry is this card's profiling run"
+        # test could actually check: that `timing_log_entries` reports file
+        # order and that a commented-out or quoted entry below the last live
+        # one does not become the tail. Whether a profiling run happens to
+        # be last is a fact about the pipeline's workflow order, which no
+        # code can keep true -- the dispatcher appends a gate line after
+        # every card -- so that part is not asserted anywhere now.
+        log = (
+            f"{self.GOOD[0]}\n"
+            "2026-10-15T05:34:34Z wave-39 card-217-profiling-run 931s PASS "
+            "(7073 passed) [131ms/test]\n"
+            f"# {self.GOOD[1]}\n"
+            "# NOTE: the line above is a superseded entry, commented out.\n"
         )
+        entries = ranker.timing_log_entries(log)
+        assert [entry["wave"] for entry in entries] == ["wave-35", "wave-39"]
+        last = entries[-1]
+        assert last["label"] == "card-217-profiling-run"
         assert last["status"] == "PASS"
-        assert last["duration"] != "---", "the profiling run must record a duration"
+        assert last["duration"] == "931s"
+        assert last["rate"] == "131ms/test"
+
+    def test_a_profiling_run_is_recognisable_by_label_or_notes(self) -> None:
+        # The other half of the deleted assertion: the *recognition* rule
+        # ("profil" in the label or the notes) still works, and does not
+        # match a gate line that merely mentions a card number.
+        by_label = ranker.parse_timing_line(
+            "2026-10-15T05:34:34Z wave-39 card-217-profiling-run 931s PASS (ok)"
+        )
+        by_notes = ranker.parse_timing_line(
+            "2026-10-15T05:34:34Z wave-39 card-217-run 931s PASS (solo profiling run)"
+        )
+        gate = ranker.parse_timing_line(
+            "2026-10-15T06:49:21Z wave-39 card-235-merge-gate 963s PASS (7156 passed)"
+        )
+        assert by_label is not None and by_notes is not None and gate is not None
+        for entry in (by_label, by_notes):
+            assert "profil" in entry["label"] or "profil" in entry["notes"]
+        assert "profil" not in gate["label"] and "profil" not in gate["notes"]
+
+    def test_the_seeded_corpus_is_large_enough_to_be_a_corpus(self) -> None:
+        good, bad = CORPUS
+        assert len(good) >= 150, len(good)
+        assert len(bad) >= 1000, len(bad)
+        assert len(set(good)) == len(good)  # no accidental duplicates
+        assert len(MUTATIONS) >= 9, len(MUTATIONS)
+        assert len(MUTANT_CASES) == len(bad)
+
+    def test_every_seeded_entry_parses_and_yields_back_its_own_fields(self) -> None:
+        good, _ = CORPUS
+        for line in good:
+            entry = ranker.parse_timing_line(line)
+            assert entry is not None, line
+            # The fields are checked against the shape the generator built,
+            # not re-derived with the parser being tested.
+            assert line.startswith(f"{entry['ts']} {entry['wave']} {entry['label']} ")
+            assert f" {entry['duration']} {entry['status']} (" in line
+            if entry["rate"]:
+                assert line.endswith(f"[{entry['rate']}]")
+
+    def test_every_seeded_mutant_is_rejected(self) -> None:
+        accepted = [
+            (name, line)
+            for name, line in MUTANT_CASES
+            if ranker.parse_timing_line(line) is not None
+        ]
+        assert accepted == [], accepted[:5]
+
+    def test_the_parser_agrees_with_an_independent_validator(self) -> None:
+        # A second implementation of the line format, written by hand from
+        # the documented shape rather than from TIMING_LOG_LINE (see
+        # _looks_like_an_entry). Either implementation drifting from the
+        # other fails here -- including on the CARD-217 gate line and on the
+        # commented-out forms, which are in the corpus below.
+        good, bad = CORPUS
+        extras = [
+            *self.GOOD,
+            *self.BAD,
+            self.CARD_217_GATE_LINE,
+            f"# {self.GOOD[0]}",
+            "   ",
+            "",
+        ]
+        every = (*good, *bad, *extras)
+        disagreed = [
+            line
+            for line in every
+            if (ranker.parse_timing_line(line) is not None)
+            != _looks_like_an_entry(line)
+        ]
+        assert len(every) >= 1150, len(every)
+        assert disagreed == [], disagreed[:5]
+        # A validator that always answered the same way would agree with
+        # nothing; it has to split the corpus roughly as the generator built
+        # it, or this cross-check proves nothing.
+        verdicts = collections.Counter(_looks_like_an_entry(line) for line in every)
+        assert verdicts[True] >= 150 and verdicts[False] >= 1000, verdicts
+
+
+# --------------------------------------------------------------------------
+# CARD-238 -- the suite's verdict may not depend on the live timing log
+#
+# ``meta/kanban/suite-timing.log`` is gitignored (``.gitignore``'s blanket
+# ``*.log``), is appended to by the dispatcher at every merge gate, and is
+# absent from a fresh worktree. A test that reads it reports a fact about the
+# machine, not about the code: CARD-234's gate was green at 11 skips with the
+# file absent while CARD-235's was red at 9 with it present -- the same suite,
+# the same code, the same host. The two guards below keep that coupling out,
+# structurally, so re-introducing it fails rather than merely re-introducing
+# the confusion.
+#
+# The format contract itself is not host state and stays fully tested, against
+# entries the tests construct -- see TestSuiteTimingLog_FormatUnchanged.
+# --------------------------------------------------------------------------
+
+TESTS_DIR = REPO_ROOT / "tests"
+
+# The live log's distinctive name component. Declared as a plain constant on
+# purpose: a bare literal bound to a name is not a path and not a read, which
+# is exactly the distinction the guard below draws.
+LIVE_LOG_STEM = "suite-timing"
+
+
+def _live_log_references(source: str) -> list[str]:
+    """Literals in ``source`` that name the live log *where it would be used*.
+
+    Takes source text rather than walking the disk itself, so the rule can be
+    exercised against the fabricated sources below and cannot pass vacuously
+    (the precedent is ``tests/test_cli.py``'s structural import guard).
+
+    A reference is a literal naming the log that appears either as a direct
+    operand of a ``/`` join (``REPO_ROOT / "meta" / "kanban" / "...log"``) or
+    as a direct argument of a call (``Path(...)``, ``open(...)``,
+    ``joinpath(...)`` -- and ``skipif(..., reason="...log is absent")``, which
+    is the same coupling wearing a different hat). f-string parts count.
+
+    Deliberately *not* a reference: the name in a comment, in a docstring, or
+    bound to a constant as :data:`LIVE_LOG_STEM` is above. That is the whole
+    reason this is an ``ast`` walk and not a ``grep`` -- a grep cannot tell a
+    note about the file from a read of it, and this module's own docstring
+    mentions the file by name.
+    """
+    found: list[str] = []
+
+    def literals(node: ast.AST) -> list[str]:
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            return [node.value]
+        if isinstance(node, ast.JoinedStr):
+            return [
+                part.value
+                for part in node.values
+                if isinstance(part, ast.Constant) and isinstance(part.value, str)
+            ]
+        return []
+
+    for node in ast.walk(ast.parse(source)):
+        used: list[ast.AST] = []
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            used = [node.left, node.right]
+        elif isinstance(node, ast.Call):
+            used = [*node.args, *(keyword.value for keyword in node.keywords)]
+        for child in used:
+            found.extend(
+                text for text in literals(child) if LIVE_LOG_STEM in text
+            )
+    return sorted(set(found))
+
+
+def _skipif_decorators(source: str) -> list[tuple[str, str]]:
+    """``(decorated name, condition source)`` for every ``skipif`` in ``source``."""
+    found: list[tuple[str, str]] = []
+    for node in ast.walk(ast.parse(source)):
+        if not isinstance(
+            node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+        ):
+            continue
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+            if not ast.unparse(decorator.func).endswith("skipif"):
+                continue
+            condition = ast.unparse(decorator.args[0]) if decorator.args else ""
+            found.append((node.name, condition))
+    return found
+
+
+# Every form in which the read could come back. Held as a module constant
+# rather than inline in a ``parametrize`` call so that these sources are not
+# themselves direct call arguments -- which would make this module its own
+# first offender.
+REINTRODUCTIONS: tuple[str, ...] = (
+    'TIMING_LOG = REPO_ROOT / "meta" / "kanban" / "suite-timing.log"\n',
+    'LOG = Path("meta/kanban/suite-timing.log")\n',
+    'text = open("meta/kanban/suite-timing.log").read()\n',
+    'LOG = REPO_ROOT.joinpath("meta", "kanban", "suite-timing.log")\n',
+    'LOG = Path(f"{root}/meta/kanban/suite-timing.log")\n',
+    "import pytest\n"
+    '@pytest.mark.skipif(not LOG.exists(), reason="suite-timing.log is absent")\n'
+    "def test_x() -> None:\n    pass\n",
+)
+
+# Mentions that are not reads. A grep-based guard would fail every one of
+# these, which is why the guard parses instead.
+INNOCENT_MENTIONS: tuple[str, ...] = (
+    "# suite-timing.log is host state; no test may read it\nX = 1\n",
+    '"""The appended line keeps suite-timing.log\'s format."""\n',
+    'LIVE_LOG_STEM = "suite-timing"\n',
+    "def test_x() -> None:\n"
+    "    # the log (suite-timing.log) is not consulted here\n"
+    "    assert True\n",
+)
+
+FABRICATED_SKIP = (
+    "import pytest\n"
+    "@pytest.mark.skipif(not LOG.exists(), reason=\"absent\")\n"
+    "def test_x() -> None:\n    pass\n"
+)
+
+
+class TestSuiteTiming_NoTestReadsTheLiveLog:
+    """AC-1: no test reads ``meta/kanban/suite-timing.log``, proved structurally."""
+
+    def test_no_test_module_reaches_for_the_live_log(self) -> None:
+        offenders = {
+            str(path.relative_to(REPO_ROOT)): references
+            for path in sorted(TESTS_DIR.rglob("*.py"))
+            if (references := _live_log_references(path.read_text(encoding="utf-8")))
+        }
+        assert offenders == {}, (
+            "a test reaches for the gitignored live timing log, so its verdict "
+            f"depends on the host rather than on the code: {offenders}. Assert "
+            "the format against entries the test constructs instead (CARD-238)."
+        )
+
+    def test_the_walk_actually_sees_the_test_tree(self) -> None:
+        # Guards the guard: a mistyped glob would make the test above pass by
+        # inspecting nothing at all.
+        walked = list(TESTS_DIR.rglob("*.py"))
+        assert len(walked) > 100, len(walked)
+        assert Path(__file__).resolve() in {path.resolve() for path in walked}
+
+    @pytest.mark.parametrize("source", REINTRODUCTIONS)
+    def test_every_way_of_reintroducing_the_read_is_caught(self, source: str) -> None:
+        assert _live_log_references(source) != []
+
+    @pytest.mark.parametrize("source", INNOCENT_MENTIONS)
+    def test_a_mention_that_is_not_a_read_is_not_caught(self, source: str) -> None:
+        assert _live_log_references(source) == []
+
+
+class TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog:
+    """AC-3: the class cannot pass by skipping, and the log cannot change it."""
+
+    TARGET = "tests/test_suite_profile.py::TestSuiteTimingLog_FormatUnchanged"
+
+    def test_no_test_in_this_module_skips_on_host_state(self) -> None:
+        declared = _skipif_decorators(Path(__file__).read_text(encoding="utf-8"))
+        assert declared == [], (
+            "a skipif here turns 'this test cannot run on this machine' into "
+            f"silence rather than into a failure: {declared}"
+        )
+
+    def test_the_skipif_detector_is_not_vacuous(self) -> None:
+        assert _skipif_decorators(FABRICATED_SKIP) == [("test_x", "not LOG.exists()")]
+
+    def test_the_outcomes_are_identical_with_and_without_the_log(
+        self, tmp_path: Path
+    ) -> None:
+        # The real question is not "are the same tests collected" -- a skipif
+        # collects either way -- but "is the same verdict reached". So the
+        # class is run twice in a sandbox tree that holds nothing but this
+        # module, the ranker it loads, and (once) a timing log, and the two
+        # runs' per-test outcomes are compared.
+        present = _run_format_class(tmp_path / "with-log", SANDBOX_LOG)
+        absent = _run_format_class(tmp_path / "without-log", None)
+        assert len(present) >= 20, present
+        assert present == absent
+        assert set(present.values()) == {"PASSED"}, present
+
+
+# A log for the sandbox runs: well formed, and ending on a profiling run, so
+# that a reinstated "the last entry is this card's profiling run" assertion
+# would *pass* with the file present and skip without it -- i.e. the sandbox
+# reproduces the defect rather than papering over it.
+SANDBOX_LOG = (
+    "# a header comment, as the real log carries\n"
+    "2026-10-06T17:20:55Z wave-35 full-suite 770s PASS (6618 passed, 9 skipped, 0 failed)\n"
+    "2026-10-15T05:34:34Z wave-39 card-217-profiling-run 931s PASS "
+    "(7073 passed, 9 skipped, 0 failed) [131ms/test]\n"
+)
+
+_OUTCOME_LINE = re.compile(
+    r"^(?P<nodeid>\S+::.+?) "
+    r"(?P<outcome>PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b"
+)
+
+
+def _run_format_class(root: Path, log: str | None) -> dict[str, str]:
+    """Run the format class in a throwaway tree; return ``{nodeid: outcome}``.
+
+    ``log`` is written to the sandbox's ``meta/kanban/suite-timing.log`` when
+    given and omitted when ``None``. Nothing outside ``root`` is touched: the
+    owner's log is never created, read or removed by this suite (CARD-238 G-1).
+    """
+    (root / "tests").mkdir(parents=True)
+    (root / "meta" / "profiling").mkdir(parents=True)
+    (root / "meta" / "kanban").mkdir(parents=True)
+    (root / "tests" / Path(__file__).name).write_text(
+        Path(__file__).read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    (root / "meta" / "profiling" / RANKER_PATH.name).write_text(
+        RANKER_PATH.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    if log is not None:
+        # The name is derived from LIVE_LOG_STEM rather than written as a
+        # literal, because the guard above flags that literal in a path join
+        # wherever it appears -- and rightly: it cannot tell a sandbox root
+        # from REPO_ROOT by looking at the name. This path is under tmp_path,
+        # so the owner's log is neither created nor read (CARD-238 G-1).
+        (root / "meta" / "kanban" / f"{LIVE_LOG_STEM}.log").write_text(
+            log, encoding="utf-8"
+        )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-p",
+            "no:cacheprovider",
+            "--no-header",
+            "-v",
+            "--tb=line",
+            f"{Path('tests') / Path(__file__).name}::"
+            "TestSuiteTimingLog_FormatUnchanged",
+        ],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    outcomes: dict[str, str] = {}
+    for line in completed.stdout.splitlines():
+        match = _OUTCOME_LINE.match(line)
+        if match is not None:
+            outcomes[match["nodeid"]] = match["outcome"]
+    assert outcomes, completed.stdout[-4000:]
+    return outcomes
