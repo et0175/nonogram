@@ -131,7 +131,7 @@ findings:
     violates: AC-7
     root_cause: RC-1
     status: fixed
-    fixed_in: 098a19c
+    fixed_in: null
     dismissed_reason: null
     learned_pattern: null
 
@@ -209,7 +209,7 @@ findings:
     violates: AC-7
     root_cause: RC-1
     status: fixed
-    fixed_in: 098a19c
+    fixed_in: null
     dismissed_reason: null
     learned_pattern: null
 
@@ -238,7 +238,7 @@ findings:
     violates: null
     root_cause: null
     status: fixed
-    fixed_in: 098a19c
+    fixed_in: null
     dismissed_reason: null
     learned_pattern: null
 
@@ -265,7 +265,7 @@ findings:
     violates: null
     root_cause: null
     status: fixed
-    fixed_in: 098a19c
+    fixed_in: null
     dismissed_reason: null
     learned_pattern: null
 

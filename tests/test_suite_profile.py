@@ -1870,13 +1870,28 @@ def _is_pathish(value: str) -> bool:
     return bool(value) and len(value) <= 120 and not any(c.isspace() for c in value)
 
 
-def _string_values(node: ast.AST, env: dict[str, list[str]]) -> list[str]:
+def _string_values(
+    node: ast.AST,
+    env: dict[str, list[str]],
+    spellings: Spellings = SPELLINGS,
+) -> list[str]:
     """Every string ``node`` could evaluate to, as far as one module can tell.
 
     Deliberately over-approximate: a ``%``-format or a ``+`` is reported both
     folded and in parts, a slice reports the string it slices, and a lookup
     reports every value its container holds. The question this answers is
     "could the log's name be in here", so guessing wide is the safe direction.
+
+    One call shape is **not** folded, which is review cycle 1's F-004: a
+    path joiner's arguments are separate path *components*, so concatenating
+    them yields a string no filesystem has.
+    ``glob.glob(os.path.join(ROOT, "meta", "kanban", "*.log"))`` reported two
+    references for one call site -- ``glob('*.log') under meta/kanban`` and
+    ``glob('metakanban*.log') under meta/kanban`` -- and the second named
+    nothing real. Detection was unaffected either way; the message a future
+    reader acts on was not. The fold is kept where it means something: a
+    ``str.join`` written on a string literal (``"".join(parts)``) *is*
+    concatenation, and its receiver says so.
     """
     if isinstance(node, ast.Constant):
         return [node.value] if isinstance(node.value, str) else []
@@ -1886,21 +1901,25 @@ def _string_values(node: ast.AST, env: dict[str, list[str]]) -> list[str]:
             if isinstance(part, ast.Constant) and isinstance(part.value, str):
                 out += part.value
             elif isinstance(part, ast.FormattedValue):
-                resolved = _string_values(part.value, env)
+                resolved = _string_values(part.value, env, spellings)
                 out += resolved[0] if resolved else ""
         return [out]
     if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
-        return [value for elt in node.elts for value in _string_values(elt, env)]
+        return [
+            value
+            for elt in node.elts
+            for value in _string_values(elt, env, spellings)
+        ]
     if isinstance(node, ast.Dict):
         return [
             value
             for item in node.values
             if item is not None
-            for value in _string_values(item, env)
+            for value in _string_values(item, env, spellings)
         ]
     if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
-        left = _string_values(node.left, env)
-        right = _string_values(node.right, env)
+        left = _string_values(node.left, env, spellings)
+        right = _string_values(node.right, env, spellings)
         folded = [a + b for a in left or [""] for b in right or [""]]
         return [*left, *right, *folded]
     if isinstance(node, ast.Name):
@@ -1912,29 +1931,62 @@ def _string_values(node: ast.AST, env: dict[str, list[str]]) -> list[str]:
         # the stem. The walrus is review cycle 2, F-105 -- one wrapper node
         # was enough to make a literal written straight into the join
         # invisible.
-        return _string_values(node.value, env)
+        return _string_values(node.value, env, spellings)
     if isinstance(node, ast.IfExp):
         # A ternary, which is the same lesson one cycle later (review cycle
         # 3, F-303): either arm is a string the path could be built from.
-        return [*_string_values(node.body, env), *_string_values(node.orelse, env)]
+        return [
+            *_string_values(node.body, env, spellings),
+            *_string_values(node.orelse, env, spellings),
+        ]
     if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
         # What is comprehended over is where the strings come from; the
         # element expression renames them at most.
         return [
             value
             for generator in node.generators
-            for value in _string_values(generator.iter, env)
+            for value in _string_values(generator.iter, env, spellings)
         ]
     if isinstance(node, ast.Call):
         # ``"...{}...".format(x)``, ``"".join(parts)``, ``str(p)``: what the
         # call is made of is what matters, not what it is called.
         parts: list[str] = []
         if isinstance(node.func, ast.Attribute):
-            parts.extend(_string_values(node.func.value, env))
+            parts.extend(_string_values(node.func.value, env, spellings))
         for argument in [*node.args, *(kw.value for kw in node.keywords)]:
-            parts.extend(_string_values(argument, env))
+            parts.extend(_string_values(argument, env, spellings))
+        if _assembles_path_components(node, spellings):
+            return parts
         return [*parts, "".join(parts)]
     return []
+
+
+def _assembles_path_components(node: ast.Call, spellings: Spellings) -> bool:
+    """Does this call take its arguments as separate path COMPONENTS?
+
+    Review cycle 1's F-004. ``os.path.join``, ``os.sep.join([...])``,
+    ``p.joinpath(...)`` and ``p.with_segments(...)`` are handed components,
+    so folding them into one string invents a name no filesystem has
+    (``"metakanban*.log"``) -- and that invented name was being *reported*,
+    beside the real one, for a glob under a joined directory.
+
+    Which names those are is the audited joiner projection
+    (:data:`_JOINERS`, through ``spellings``), not a judgement made here --
+    the same source :func:`_component_arguments` reads.
+
+    The one exception is the shape that is genuinely concatenation:
+    ``"".join(parts)`` and its siblings, where the separator is a string
+    literal the call names. Those keep the fold, so the taint chain that
+    resolves ``"suite" + "-timing.log"`` is untouched.
+    """
+    name = _call_name(node)
+    if name is None or name not in spellings.joiners:
+        return False
+    return not (
+        isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Constant)
+        and isinstance(node.func.value.value, str)
+    )
 
 
 def _tainted_names(tree: ast.Module) -> dict[str, list[str]]:
@@ -2591,12 +2643,14 @@ def _live_log_references(
                     found.update(
                         f"{called}({pattern!r}) under meta/kanban"
                         for argument in node.args
-                        for pattern in _string_values(argument, env)
+                        for pattern in _string_values(argument, env, spellings)
                         if pattern.endswith(".log")
                     )
         for operand in operands:
             found.update(
-                value for value in _string_values(operand, env) if names_the_log(value)
+                value
+                for value in _string_values(operand, env, spellings)
+                if names_the_log(value)
             )
         for child in ast.iter_child_nodes(node):
             visit(child, roots)
@@ -4387,6 +4441,38 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         # resolver grows past one of these, this goes red and the sentence
         # describing the bound is the thing to edit.
         assert _live_log_references(source) == []
+
+    def test_a_joined_directory_contributes_one_reference_it_can_name(
+        self,
+    ) -> None:
+        # Review cycle 1's F-004. The report is what a future reader acts
+        # on, and for a glob under a directory joined inline this guard
+        # named two references for one call site -- the second of them
+        # `glob('metakanban*.log') under meta/kanban`, the path's components
+        # folded without a separator, so a pattern no filesystem has.
+        # Detection was never affected; the message was.
+        #
+        # Both directions, because narrowing a report is also a way to stop
+        # reporting: exactly one reference, and it is the pattern the source
+        # actually writes.
+        inline = (
+            "import glob\n"
+            "import os\n"
+            "HITS = glob.glob(\n"
+            '    os.path.join(REPO_ROOT, "meta", "kanban", "*.log")\n'
+            ")\n"
+        )
+        assert _live_log_references(inline) == [
+            "glob('*.log') under meta/kanban"
+        ]
+        # And the fold is kept where it is concatenation rather than path
+        # assembly, which is what `_assembles_path_components` turns on: a
+        # `str.join` written on a string literal still folds, so a stem
+        # built that way is still resolved.
+        concatenated = ast.parse(
+            'NAME = "".join(["suite", "-timing.log"])\n'
+        ).body[0]
+        assert "suite-timing.log" in _string_values(concatenated.value, {})
 
     def test_an_untracked_file_cannot_decide_the_verdict(
         self, tmp_path: Path
