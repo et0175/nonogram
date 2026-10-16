@@ -658,6 +658,13 @@ VERTEX_BOUNDED_METHODS = frozenset({"point", "polygon"})
 #: is the cheapest implementation CARD-207 has — its header already goes
 #: through ``_set_band``'s ``draw.text``, and CON-020's 10 pt floor passes a
 #: 14 pt bullet happily. See :data:`ROUND_DINGBATS`.
+#:
+#: **This set is a classification only — no guard consults it** (cycle 2,
+#: out-of-scope note). The dingbat rule ignores methods entirely and reads
+#: every string literal in the package, so there is no method-scoped text
+#: guard to look for; this set exists to keep
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_the_method_classification_covers_every_pillow_draw_method`'s
+#: partition exhaustive and to say which names the dingbat rule stands in for.
 TEXT_METHODS = frozenset({"multiline_text", "text"})
 
 #: Everything else Pillow's draw object does: flat shapes and the measuring
@@ -711,9 +718,10 @@ ROUND_DINGBATS = frozenset(chr(code) for code in range(0x25A0, 0x2600)) | {
 DINGBAT_EXEMPT_MODULES = frozenset({"nonogram.admin.pdf_generator"})
 
 #: How a Pillow draw object is spelled in this package: the bare name
-#: ``draw``, or an inline ``ImageDraw.Draw(...)``. Completeness is measured
-#: rather than assumed — see
-#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_draw_object_in_the_package_is_spelled_draw`.
+#: ``draw``, or an inline ``ImageDraw.Draw(...)``. Two known binding shapes are
+#: measured against it — see
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_draw_object_in_the_package_is_spelled_draw`,
+#: whose docstring names the shapes it does **not** collect.
 DRAW_RECEIVER_NAME = "draw"
 
 #: The one function allowed to put a round mark on a page.
@@ -899,11 +907,23 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       imported image;
     * a dynamically dispatched draw call, ``getattr(draw, "ellipse")(box)``
       (also stated on :func:`_round_mark_sites`);
-    * a vertex list this walk cannot count — which it treats as a failure
-      rather than a pass, so it is a blind spot that shows itself;
-    * a draw object reached by a receiver this package does not currently use
-      (:data:`DRAW_RECEIVER_NAME` has its own completeness test, so a new
-      spelling fails that test rather than slipping past this one).
+    * a round mark **computed** into a string rather than written as one —
+      ``chr(0x25CF)``, ``b"\xe2\x97\x8f".decode()``,
+      ``unicodedata.lookup("BLACK CIRCLE")``. The dingbat rule is about string
+      *literals* (:func:`_dingbat_literals` says so), and a computed character
+      is not one; nor are the non-``.py`` assets the walk never opens;
+    * a vertex list spelled as a bare name, a call, a comprehension or a
+      conditional — each of those is a **failure** rather than a pass. A
+      vertex *literal* that contains a starred unpack
+      (``draw.polygon([*points])``) is **not** inspected, though: it parses to
+      a one-element ``ast.List``, so it passes the literal check and the count;
+    * a draw object assigned to a plain local name under a second spelling
+      fails :meth:`test_every_draw_object_in_the_package_is_spelled_draw`. One
+      reached by an annotated assignment (``canvas: ImageDraw.ImageDraw =
+      ImageDraw.Draw(image)``), by an attribute or tuple target, or by an
+      unannotated parameter handed the real draw object, does **not** — those
+      forms contribute nothing to that test's two sets, so it fails when a
+      known shape changes rather than when a new spelling appears.
 
     A card taking one of the first two routes would be making a deliberate
     choice this guard should be extended for. That is a narrower promise than
@@ -948,9 +968,13 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         # the module by indexing it, the function name by finding its own
         # ``def``. This is the one real assertion F-006's
         # test_the_real_packages_one_site_is_the_dot_drawer_itself was making,
-        # and it is made here instead (cycle 1, F-006).
+        # and it is made here instead (cycle 1, F-006). The `getattr` clause
+        # that used to follow it is gone (cycle 2, F-104): because
+        # _draw_difficulty_dots is imported from book_pdf_generator at module
+        # scope, it could only fail by ImportError at collection, and on the
+        # one input that could break it — a typo in the literal — the line
+        # above fails first.
         assert f"def {THE_DRAWING_SITE[1]}" in sources[THE_DRAWING_SITE[0]]
-        assert getattr(book_pdf_generator, THE_DRAWING_SITE[1]) is _draw_difficulty_dots
 
     def test_the_package_draws_a_round_mark_in_exactly_one_function(self) -> None:
         sites = _round_mark_sites(_package_sources(), ELLIPSE_METHODS)
@@ -1072,8 +1096,17 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         is spelled :data:`DRAW_RECEIVER_NAME` or built inline, which is what
         this measures: every ``ImageDraw.Draw(...)`` the package assigns, and
         every parameter it annotates ``ImageDraw.ImageDraw``, carries that one
-        name. A module introducing a second spelling fails here, where the
-        remedy is obvious, instead of quietly widening the blind spot.
+        name.
+
+        **How far this reaches.** It collects exactly two shapes: an
+        ``ast.Assign`` whose value is a ``.Draw(...)`` call *and* whose target
+        is a bare ``ast.Name``, and a parameter annotated with an
+        ``ast.Attribute`` named ``ImageDraw``. Nothing else contributes —
+        ``ast.AnnAssign``, an attribute or tuple target, a loop target, an
+        unannotated parameter, a bare-``ImageDraw`` annotation. So it fails
+        when one of those two known shapes changes its name, not when a new
+        spelling appears, and an annotated assignment or an unannotated
+        parameter handed the real draw object slips past it.
         """
         assigned: set[str] = set()
         annotated: set[str] = set()
@@ -1115,7 +1148,10 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         A vertex list this walk cannot count is a **failure**, not a pass: a
         card that computes its points (a comprehension, a helper, a name) has
         to say so by extending this guard, which is the declaration the lenient
-        reading would have let it skip.
+        reading would have let it skip. **Except one form**: a literal that
+        contains a starred unpack — ``draw.polygon([*points])`` — parses to a
+        one-element ``ast.List``, so it passes both the literal check and the
+        count. That form is not inspected here.
         """
         calls = _draw_calls(_package_sources(), VERTEX_BOUNDED_METHODS)
         assert calls, (

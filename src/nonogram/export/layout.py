@@ -1329,10 +1329,13 @@ class DifficultyDots:
         an edge are one smear at print size, so the type refuses the touching
         row the corpus invariant ``test_no_two_dots_of_a_row_touch`` and this
         card's own prose already say cannot happen. Every refusal here has its
-        own ``pytest.raises`` case in
-        ``tests/test_book_difficulty_dots.py::TestDifficultyDots_UntieredDrawsNothing``
-        — before that cycle four of the five were exercised by nothing but the
-        absence of a caller that could violate them (F-002).
+        own ``pytest.raises`` case in ``tests/test_book_difficulty_dots.py``:
+        six of the seven in
+        ``TestDifficultyDots_UntieredDrawsNothing``, and the ring-closing
+        stroke — the one AC-3 leans on — in
+        ``TestDifficultyDots_FilledAndOutlinedAreDistinguishable::test_the_type_refuses_a_stroke_that_closes_the_ring``
+        (cycle 2, F-103). Before cycle 1 four of them were exercised by nothing
+        but the absence of a caller that could violate them (F-002).
         """
         if not self.dots:
             raise ValueError("a difficulty glyph is at least one dot")
