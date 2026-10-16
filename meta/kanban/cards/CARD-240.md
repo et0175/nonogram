@@ -1,6 +1,6 @@
 # CARD-240: FR-044's examples AC still enumerates only rules A and B
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P3
 **Category:** tech-debt
 **Complexity:** trivial
@@ -98,3 +98,159 @@ rather than a dismissal.
   It is carded instead of deferred to a sweep because the clause is load-bearing *as a check
   reference*, and the cost of leaving it is that the next reader of
   `TestSolverClues_RuleExamples` mistakes a correct row for a broken test.
+
+### Implementation (2026-10-16)
+
+One line changed in one file: `meta/architecture/requirements.yml`, FR-044 / AC-347's `then:`.
+`git diff --stat` is `1 file changed, 1 insertion(+), 1 deletion(-)`.
+
+**Before:**
+
+> then: exactly the table's circled numbers are returned — anchored from either edge, or all
+> numbers when the line's closed runs equal the clue; a "0" circles only when its whole line is
+> marked empty; and a wrong mark can circle a number
+
+**After:**
+
+> then: exactly the table's circled numbers are returned — anchored from either edge, or all
+> numbers when the line's closed runs equal the clue, **or a number whose value, unique in its
+> clue, is the length of exactly one closed run of the line**; a "0" circles only when its whole
+> line is marked empty; and a wrong mark can circle a number
+
+Rule C joins the existing "or …" list rather than becoming a new sentence, so the clause keeps
+the same register and the same shape: the three circling rules as alternatives, then the "0"
+proviso, then the wrong-mark proviso.
+
+[Why not " … unique in its clue and whose length is held by exactly one closed run"] The first
+draft was worded that way and `validate.py` answered with a new WARN on this very AC —
+`FR-044/AC-347 'then' bundles several outcomes — split into separate acceptance criteria`.
+The heuristic (`validators/requirements.py`, "3+ behaviours joined ⇒ split") counts `" and "` in
+the `then` and warns at two or more; the clause already spends its one allowance on "and a wrong
+mark can circle a number". Splitting the AC is forbidden by G-1, so the clause was reworded to
+carry rule C without a second "and". The committed wording leaves the validator output
+byte-identical to the pre-edit baseline (see G-4 below) — the edit adds no finding of any
+severity.
+
+**AC-2 — AC-346 re-derived against the shipped rule.** Its text is byte-identical (it is not in
+the diff). Its outcome was re-derived by reading `circledNumbers` in
+`src/nonogram/admin/static/solver_state.js` (rules A, B, C in that order; rule C is the final
+loop) and running the case by hand. AC-346's case is clue `[2, 2]` with one closed run of 2 in
+the middle and undecided cells around it — the shipped test feeds `"....WDDW......."`:
+
+- **Rule A, walk from the left:** step 0 is undecided — neither `EMPTY` nor `FILLED` — so
+  `walkIn` hits `if (at(step) !== FILLED) break;` on its first step and returns `[]`.
+- **Rule A, walk from the right:** symmetric; the last cell is undecided, so that walk also
+  returns `[]`.
+- **Rule B:** `runs == [2]`, so `runs.length (1) === count (2)` is false and `circled.fill(true)`
+  never runs. (`whole` is in fact true — the single run is closed on both sides — but the
+  length-vs-clue test fails regardless.)
+- **Rule C:** the guard is `times(clue, clue[number]) === 1`. For both numbers `clue[number]` is
+  2 and `times([2, 2], 2) === 2`, so the per-value uniqueness premise fails for *each* number and
+  the loop sets nothing. The second half of the guard (`times(closed, 2) === 1`, which *would*
+  hold — exactly one closed run of length 2) is never reached.
+
+So the result is `[false, false]`: **neither "2" is circled**, and AC-346's stated reason — "the
+run cannot be assigned unambiguously" — is exactly rule C's own premise failing. The widened
+AC-347 clause says the same thing with the same quantifier ("a number whose value, unique in its
+clue"), so it cannot be read as circling either 2 here. `TestSolverClues_AmbiguousRunStaysUncircled`
+asserts `[False, False]` for this row and passes.
+
+**AC-3 — nothing else moved.** The diff touches exactly one line, so AC-345, AC-348, AC-349 (and
+AC-350, and FR-044's `statement:` and `_meta:`) are byte-identical by construction. FR-044's
+statement was left alone deliberately: "assigned to that number only when the assignment is
+unambiguous" already states rule C's premise.
+
+**G-1 / G-3 held.** No AC, FR or `test:` reference added, removed or renumbered; `src/**` and
+`tests/**` are untouched (`git diff --stat` shows one file).
+
+**G-4 — validators actually run.** The forge validator lives outside this repo, at
+`~/MyProjects/forge_1/forge/skills/architect-validate/scripts/`. `validate.py` has no
+`--verify-refs` flag; that flag belongs to `system_rules.py` in the same directory, so both were
+run from the worktree root:
+
+```
+$ ./.venv/bin/python ~/MyProjects/forge_1/forge/skills/architect-validate/scripts/validate.py \
+      --root meta/architecture
+...
+0 error(s), 86 warning(s), 0 info
+```
+
+Baseline check: the same command was run against `git show HEAD:meta/architecture/requirements.yml`
+staged into place, and `diff` of the two full outputs is **empty** — 0 errors, 86 warnings before
+and after, the same findings in the same order. The 86 warnings are all pre-existing (missing
+`tests:` on partial requirements, one dead `check:` ref on FR-044/EC-035 — the board's known
+backlog item, not introduced here).
+
+```
+$ ./.venv/bin/python ~/MyProjects/forge_1/forge/skills/architect-validate/scripts/system_rules.py \
+      --root meta/architecture --verify-refs
+exit 0; diagnostics:
+  dead_check_ref: []
+  tooling_failure: []
+  check_refs_verified: true
+  no_check: [CON-004, CON-006, CON-007, CON-008, CON-013, CON-017, CON-018]   # pre-existing
+  sources_absent: [threat-model.md, business/constraints.md]                   # pre-existing
+  65 rules assembled
+```
+
+`check_refs_verified: true` with an empty `dead_check_ref` is the live reading (an
+architecture-only checkout would report `false`, and then an empty list would mean *unknown*).
+
+YAML still parses: `yaml.safe_load` succeeds and FR-044's `acceptance` list reads back AC-346 and
+AC-347 with their `test:` names intact.
+
+**AC-4 — the `test:` reference is live.**
+
+```
+$ ./.venv/bin/python -m pytest tests/test_puzzle_solver_clues.py -q
+................................................................         [100%]
+```
+
+64 passed, 0 failed, including `TestSolverClues_RuleExamples` (both
+`test_each_row_circles_what_the_table_says`, which carries the rule-C row
+`(3,1) ".WDDDW...."` → `[True, False]`, and `test_a_mismatched_closed_run_stops_its_walk`) and
+`TestSolverClues_AmbiguousRunStaysUncircled`. The full suite was deliberately NOT run — another
+card's merge gate holds this machine.
+
+No blocker: the clause was made true by wording alone, with no code change.
+
+### Orchestrator log
+
+- [Env] forge unknown (no resolvable plugin manifest; no meta/.skills.yml, so no forge.min_version)
+- [Scope] meta/architecture/requirements.yml only — 1 file, 1 insertion, 1 deletion, verified by
+  `git diff main...HEAD --stat`. Exactly the card's Touches, and G-1/G-3 hold by construction.
+- [Build gate] **I measured the change's actual reach instead of assuming it.** Five test files
+  mention `requirements.yml` — test_cli, test_orchestrator, test_sourcing_image,
+  test_book_puzzle_frame, property/test_book_layout — so I ran all five: **383 passed**. Then I
+  checked *how* they mention it: every reference is in a **docstring**, not a parse. So nothing in
+  the suite reads this file's content, and a prose change to a `then:` clause has no mechanical
+  reach into the tests at all. Recording that as a calibration fact: the risk surface of an
+  architecture-wording card is the validators, not the suite.
+- [Fix to my own brief] the implementing agent corrected me, and it was right: **`validate.py` has
+  no `--verify-refs` flag** — that flag is on `system_rules.py` in the same scripts/ directory, so a
+  full reference check is two commands. My brief asserted the flag on the wrong script. I have
+  updated the `forge-validator-location` memory note with this, plus the detail that
+  `check_refs_verified` must be read before `dead_check_ref` (an architecture-only checkout reports
+  `false`, which makes an empty list mean *unknown*, not *clean*).
+- [Validators] 0 errors / 86 warnings, and the load-bearing claim is the **baseline diff**: the
+  agent staged `git show HEAD:meta/architecture/requirements.yml` back into place, re-ran, and
+  diffed the two full outputs — empty, same findings in the same order. So the edit adds no finding
+  at any severity. `system_rules.py --verify-refs` exit 0, `dead_check_ref: []`,
+  `check_refs_verified: true`, 65 rules.
+- [Worth knowing, and it cost a rewrite] the agent's FIRST wording tripped a **new** WARN on this
+  very AC — `validators/requirements.py` counts `" and "` in a `then:` and warns at two or more
+  ("bundles several outcomes"), and the clause already spends its one allowance on "and a wrong mark
+  can circle a number". Splitting the AC is forbidden by G-1, so it reworded to carry rule C without
+  a second "and". A careless rewording of this clause silently costs a warning; that is now in the
+  memory note too.
+- [AC-2] the agent **re-derived** AC-346 from `circledNumbers` rather than restating my premise, and
+  the derivation is right: for clue `[2,2]` with `"....WDDW......."`, rule A's two walks both break
+  on step 0 (the edge cell is undecided), rule B fails `runs.length(1) === count(2)`, and rule C's
+  guard `times(clue, clue[number]) === 1` fails for *both* numbers because `times([2,2], 2) === 2` —
+  so its second half is never even reached. `[false, false]`, and AC-346's stated reason ("the run
+  cannot be assigned unambiguously") is literally rule C's premise failing.
+- [Review 1/3] dispatched, briefed to be **proportionate** — a one-line prose change on a P3 trivial
+  card — and told explicitly not to manufacture findings to justify the cycle. I did not skip the
+  review even though I had verified the substance myself: skipping a configured gate because I judged
+  it cheap is the kind of shortcut this board's history argues against, and the owner's call is the
+  only thing that waives one.
