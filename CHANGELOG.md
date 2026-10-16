@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-10-16
+- CARD-238 (tech-debt): The suite-timing tests no longer assert on the gitignored live log, so a gate's verdict stops depending on whether that file happens to exist in the worktree — with an audit that derives the directory-listing surface from the standard library, so a guard's spelling set can no longer be silently incomplete. Also recovers the timing log's rate field for entries carrying a note after the rate bracket (66 of 84 to 84 of 84).
+
 ## 2026-10-15
 - CARD-235 (tech-debt): The browser tests no longer pay socketserver's 0.5 s poll interval on every teardown — the family's share of the suite falls from 39.78% to 29.78% and its teardown from 137.97 s to 11.62 s, from a one-line poll_interval kwarg, with a guard that fails if the interval ever stops being applied.
 - CARD-234 (bug): The generated book cover's title now letters from the packaged face the interior uses, at the size the code asks for — fixing a macOS-only font path whose silent fallback printed the title at roughly a seventh of its intended size on every cover generated on the deployed panel.

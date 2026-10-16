@@ -1,6 +1,6 @@
 # CARD-238: The suite-timing tests stop asserting on gitignored host state
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/238-timing-log-host-state
-**Worktree:** ../PythonProject4-card-238
+**Worktree:** —
 **Source:** found in flight at CARD-235's merge gate, 2026-10-15; owner decision the same day to card the test fix and leave the local log untouched
 **Idea:** —
 **Wave:** 41
@@ -17,9 +17,9 @@
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py
 **Review score:** 6.0 → 7.5 → 7.5 → 6.5 → **8.0** (cycle 5; min_score met)
 **Started:** 2026-10-15T17:52:53Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-16T15:25:31Z
+**Actual:** 2.7d
+**Merge commit:** 6c511a4
 **Blocked by:** —
 
 ## What to implement
@@ -943,3 +943,45 @@ corpus is `random.Random`, not `hypothesis`.
   never restated). (3) the module docstring says "331 tests" over a **341**-test module — left
   recorded rather than fixed, because it is a code change after a passing review and the Minor is
   already on the record.
+- [Build gate] MERGE GATE PASSED: rebased `5b446eb` onto main `f99c9f4`, full suite
+  **7488 passed, 9 skipped, 0 failed in 954.08s**, exit 0, under the lock. Matches AC-5's recorded
+  pair exactly. Target unmoved between rebase and merge, so the tree gated is the tree that shipped.
+- [Closed] merged **6c511a4**, actual **2.7d against 0.5d** — **five review cycles, five fix
+  cycles, two owner decisions**. And the thing it was cut to do is done, verified in the main repo
+  after the merge: `tests/test_suite_profile.py` is **341 passed** where
+  `test_the_real_log_is_entirely_well_formed` was red on main before.
+- [Retrospective material — this card is the wave's richest source and should feed the
+  rule-promotion pass]
+  * **The family, five occurrences:** a guard's stated coverage wider than its mechanism, every
+    pass. Cycles 1–4 each fixed the named instances and minted new unfalsifiable claims doing it.
+    What finally worked was not another fix but a change of kind: **make the enumeration
+    falsifiable.** The audit that derives the listing surface from `dir(os)` / `dir(os.path)` /
+    `dir(glob)` / `dir(pathlib.Path)` named `os.walk`, `os.fwalk`, `glob0` and `glob1` — four
+    spellings five hand-written passes had missed — and it named them *before* the agent added
+    them.
+  * **The promotable rule, stated generally:** *a set a guard consults needs a completeness test
+    written before the set, and a claim about coverage needs a control that can fail.* Two
+    concrete patterns worth carrying: completeness guards **parametrized from the set itself**
+    (adding a member without a control fails), and baselines expressed as **equalities** (red both
+    when a new entry appears and when a recorded one is fixed without being struck).
+  * **The deeper one:** `test_the_control_for_each_spelling_depends_on_the_set` — a control must be
+    caught WITH its set member and missed WITHOUT it. That is a guard on the guards' discriminating
+    power, and the reviewer verified it would have caught cycle 4's decorative wrapper test. This
+    is the single most transferable artefact of the card.
+  * **A skip predicated on host state is a hole in the gate, not a concession to portability.**
+    `skipif(not TIMING_LOG.exists())` turned "cannot run here" into silence, which is why one
+    card's gate was green at 11 skips and another's red at 9 on identical code.
+  * **My own station's defects, all four worth promoting into how I brief:** I required the claim
+    sweep "as a report section" rather than a file (no auditable artefact, reviewer had to redo it
+    — which is the only reason occurrence five was caught); I amended G-3 and `Touches:` without
+    amending G-4's text, so the card contradicted its own licence; I used `ceiling as estimate` on
+    CARD-237's floor; and I twice disturbed a measurement's provenance mid-run.
+  * **Cost, honestly:** 2.7d against 0.5d on a card whose deliverable was a test-integrity fix.
+    Every one of the five Criticals/Importants after cycle 1 was found by **review**, not by the
+    fix — which is an argument for the review station's value and against trusting a fix's own
+    account of its coverage.
+- [Bounds shipped, recorded as controls rather than prose] directory-construction spellings
+  (`os.path.join`, `Path.joinpath`) are not policed and compound with the except-handler bound into
+  a surviving mutant (F-501, owner's stop rule); five version-gated set members would red the suite
+  on a lower interpreter (F-502); an env-var path with no literal in the source; a module-level
+  skip in the module that cannot judge itself. **All carded as CARD-239.**

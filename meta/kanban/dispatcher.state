@@ -7,13 +7,7 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
-  - id: CARD-238
-    phase: fix
-    review_cycle: 5
-    branch: card/238-timing-log-host-state
-    worktree: ../PythonProject4-card-238
-    note: "CYCLE 4 - max_cycles(3) exceeded by explicit owner decision 2026-10-16, not drift. Two hard conditions: fix the receiver-vs-argument hole AND widen the silence detector to all 221 guarded sources; plus a mandatory sweep where every claim written in the pass is pinned by a control or deleted. The sweep is the family breaker - cycle 3 fixed every known instance and wrote five new unfalsifiable claims in the same pass."
+active: []
 previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
@@ -136,4 +130,18 @@ conflict_edges:
 #             test_the_real_log_is_entirely_well_formed until it lands)
 # Next: CARD-238 (P1, the third of those), then the interior redesign in the order under
 # queued_after_card_217 - CARD-228 (dots glyph) then CARD-222 (the frame).
-last_updated: '2026-10-15T17:52:53Z'
+# NOTE 2026-10-16: WAVE 41 COMPLETE - CARD-238 merged 6c511a4, solo, after five review
+# cycles and two owner escalations. The transferable result is not the fix but the rule it
+# produced: a set a guard consults needs a completeness test written BEFORE the set, and a
+# claim about coverage needs a control that can fail. Two patterns to carry: completeness
+# guards parametrized from the set itself, and baselines expressed as equalities. The deepest
+# artefact is test_the_control_for_each_spelling_depends_on_the_set - a control must be caught
+# WITH its set member and missed WITHOUT it, which is a guard on the guards' discriminating
+# power. Feed all of this to the retrospective's rule-promotion pass.
+# NEXT: CARD-228 (the dots glyph, no dependencies, four later cards need it) then CARD-222
+# (the frame everything else sits inside), per queued_after_card_217. CARD-239 holds CARD-238's
+# recorded bounds and is P2, so it does not block the redesign.
+# OWED AT THE ARCHITECT STATION before lane A reaches them: CARD-206's INV-013/FR-043
+# amendment (CARD-229 sits behind it), CARD-222's CON-018, CARD-225's NFR-008, and CARD-224
+# cancelling CARD-204's pending FR-032.
+last_updated: '2026-10-16T15:30:00Z'
