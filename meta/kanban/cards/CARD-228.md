@@ -1,6 +1,6 @@
 # CARD-228: Difficulty becomes three dots, filled by tier — one glyph the whole book reuses
 
-**Status:** in_progress
+**Status:** review
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -100,4 +100,157 @@ its own literals; see CARD-155).
   its own 0.5d card is what stops four agents inventing four slightly different dots — the
   shape of defect this project already carries in its own architecture model, where one rule's
   check names a test that does not exist and another names one that cannot test it.
+
+### Implementation (agent, 2026-10-16)
+
+**What was built — two halves, because ADR-0036/R2 splits them.**
+
+1. `src/nonogram/export/layout.py` (COMP-007) gained the *measurement*:
+   `difficulty_dots(left, top, right, bottom, *, filled, total) -> DifficultyDots | None`,
+   the frozen `DifficultyDots` value it returns, and the four ratios it is cut from
+   (`DIFFICULTY_DOT_RATIO` 0.3 of the box's height as a cap, `DIFFICULTY_DOT_GAP_RATIO`
+   0.5 of a dot, `DIFFICULTY_DOT_STROKE_RATIO` 1/8, `MIN_DIFFICULTY_DOT_MM` 1.0).
+   The size is `min(height cap, width fit)` — the module's own `min(cap, page fit)`
+   shape — and the row is then centred in the box. It takes **two ints and a box, no
+   tier**: ADR-0007 forbids COMP-007 from importing COMP-006, and the tier *order* is
+   further out still (`admin.book_plan`), so there is no ladder in `export/` that could
+   drift from `TIERS`. `DifficultyDots.__post_init__` refuses a row that cannot say
+   what it means — an empty row, a rank of zero, dots of unequal size, dots that
+   overlap, and a stroke of half the diameter or more (which would close the ring and
+   make an outlined dot identical to a filled one). AC-3 and AC-6's "not three outlined
+   dots" are therefore partly *structural*: those values are unconstructible.
+
+2. `src/nonogram/admin/book_pdf_generator.py` (COMP-009) gained the *one drawing site*:
+   `_draw_difficulty_dots(draw, stored_tier, left, top, right, bottom)`. It reads the
+   tier through `difficulty.tier_of_record` (ADR-0033/R1 — read, never written), takes
+   `total=len(TIERS)` and `filled=TIERS.index(tier) + 1` from `book_plan.TIERS` and
+   from nothing else, and strokes the circles on the draw object it was handed
+   (`draw.ellipse`, G-1 — no new primitive, no new surface). It returns the geometry it
+   drew so a caller can set its word beside the ink, and returns `None` — drawing
+   nothing at all — for a row with no tier of record, for a tier absent from `TIERS`,
+   and for a box the measurement declined.
+
+**G-5 held: no page's geometry moved.** Nothing calls `_draw_difficulty_dots` yet. The
+four callers (CARD-207/229/231/233) adopt it, and no existing page gained or lost a
+pixel — `git diff` touches only additions in the two source files, and the whole suite
+is unchanged.
+
+**One AC per test:**
+
+- AC-1 `TestDifficultyDots_FilledCountIsTheTierRank` — rank per tier, total always
+  `len(TIERS)`, the rank re-counted off the *rendered ink* (solid middles) rather than
+  read back, and swept over the corpus.
+- AC-2 `TestDifficultyDots_ReadsTheProjectsTierOrder` — the assertions are driven from
+  `TIERS`, with three controls that give the guard its discriminating power:
+  shortening `TIERS` to two shortens the glyph (**caught**), reversing it reverses every
+  rank (**caught**), and a tier the ladder does not carry draws nothing (**not caught** —
+  the complement). Plus a completeness test for the set the guard consults
+  (`tuple(TIERS) == tuple(Tier)`, every member once) and an *independent* second source
+  of the same order (COMP-006's `TIER_BANDS`, sorted by band floor), so a reordered
+  `TIERS` fails here instead of printing a glyph that grades Hard as one dot.
+- AC-3 `TestDifficultyDots_FilledAndOutlinedAreDistinguishable` — measured off the ink:
+  solid middles vs paper middles, the ring run on each dot's middle row equal to the
+  reported `stroke`, one silhouette shared by filled and outlined dots, the middle third
+  of an outlined dot all paper. Control: the type refuses a ring-closing stroke.
+- AC-4 `TestDifficultyDots_HasExactlyOneDrawingSite` — an `ast` walk of
+  `src/nonogram/**/*.py` modelled on `tests/test_cli.py`'s import guard, with
+  `_round_mark_sites(sources, methods)` taking its sources as an argument exactly as
+  `_outward_imports` does, so the rule runs against fabricated packages too. Controls:
+  a second site in another module, a second site in the same module, a method and a
+  nested helper (innermost enclosing function reported), a module-level call — all
+  **caught**; a flat shape (`rectangle`/`line`/`text`/`polygon`), an attribute *read* of
+  `.circle`, and a bare `ellipse(...)` function call — all **not caught**. The set the
+  guard consults has its own completeness test *against Pillow's API*: every public
+  `ImageDraw.ImageDraw` method is classified into exactly one of `ELLIPSE_METHODS`,
+  `ROUND_ENOUGH_METHODS` or `FLAT_METHODS`, so a Pillow release that adds a method fails
+  that line until this project decides which kind it is.
+- AC-5 `TestDifficultyDots_FitsTheSmallestHeader` — the box is *measured*, not invented:
+  a packed solution tile's own band at the 10 cm minimum trim, four answers to a page
+  (313 x 141 px, the narrowest header any caller will hand the glyph). Asserts the glyph
+  is produced, keeps paper on all four sides, never reaches the tile's own rule at
+  `drawing_top`, lands its rendered ink exactly inside the reported box, and leaves more
+  width beside it than the widest tier label needs at the band's own shrink floor
+  (`_MIN_BAND_FONT_RATIO`). Control: a box one dot too short is **declined** (`None`,
+  zero ink) — paired with a test that the decline is not a blanket rule.
+- AC-6 `TestDifficultyDots_UntieredDrawsNothing` — ten unreadable stored values each
+  leave a blank page; "not even three outlined dots" is asserted by pixel count against
+  a page a real glyph *did* ink; the readable spellings are the control; `"guess"` still
+  reads as Hard through the one reader; and the zero-filled row is shown to be
+  unconstructible in both halves.
+- The invariants: `TestDifficultyDots_GeometryHoldsOverASeededCorpus` — a hand-built
+  seeded `random.Random(228)` corpus of 700 boxes x 3 tiers = 2100 cases, with **two**
+  floors asserted inside the tests (`CORPUS_MIN_CASES` 2100 cases,
+  `CORPUS_MIN_GLYPHS` 1800 of them actually producing a glyph — the second is the
+  load-bearing one, since 2100 declined boxes would satisfy the first and measure
+  nothing) and an assertion that *some* boxes are still declined, so the declining
+  branch is swept too. Invariants named then checked: one line of equal circles; no two
+  dots touch; strictly inside the box; centred in it; at least a fifth of a dot of white
+  at each end (the bound the docstring quotes); the diameter under both of its two
+  bounds; the footprint independent of the tier; the measurement pure.
+
+**G-2 is now falsifiable** (`tests/test_book_interior_type_floor.py`, in `Touches`):
+`TestInteriorType_DifficultyDotsAreNotText` shows the glyph makes **no** `draw.text`
+call at all — so CON-020's floor cannot reach it *and* nothing can evade the floor by
+hiding a caption inside it — with the same spy seeing the band's word as the control.
+`TestInteriorType_EveryFaceHoldsTheFloor` is untouched and still green.
+
+**Edge mutants run against the finished tests** (each reverted): `total=3` literal for
+`len(TIERS)`; a second literal tier-to-rank dict; untiered falling back to `TIERS[0]`;
+the half-dot width reservation dropped; a ring-closing stroke; a left-aligned instead of
+centred row; outlined dots filled with ink; the minimum-dot floor removed; a rogue
+`draw.ellipse` added to `export/png.py`; a rogue `draw.regular_polygon` added to
+`admin/grid_renderer.py`. **All ten were caught.**
+
+**Invariants the card did not name, found while building:**
+
+- *The glyph's footprint must not depend on the tier.* If the row's size or position
+  moved between Easy and Hard, every adopting caller's header would shift between two
+  puzzles on facing pages. It holds by construction (only `filled` varies) and is swept
+  (`test_the_footprint_does_not_depend_on_the_tier`, `test_only_which_dots_are_filled_changes_between_tiers`).
+- *A tier absent from `TIERS` has no rank.* The card's AC-6 is about a tier that cannot
+  be *read*; there is a second route to the same place — a tier the ladder does not
+  carry — and it must take the same exit. It does (`tier not in TIERS` returns `None`),
+  and that is also AC-2's "not caught" control.
+- *An outlined dot needs white inside it, which bounds the stroke.* The card asks for
+  "the same stroke" but not for an upper bound on it; without one, a large enough stroke
+  silently turns all three dots into filled ones. Now refused by the type.
+- *The row must not be flush with its box.* "Beside the word" is a property of the
+  geometry, not of the caller's care, so the width fit reserves one more half-dot than
+  the row occupies. This is why AC-5's "does not touch the text beside them" can be
+  asserted at all without knowing CARD-207/229/231/233's typography (G-4).
+
+No `SCOPE+` entries: every file changed is in the card's own `Touches`.
+No blockers. No new runtime dependency (stdlib + Pillow only, as already declared).
+
+**How AC-4 was read, since G-5 says this card adds no caller.** "Given the four call
+sites, then each draws its dots through this one function" cannot be asserted against
+four call sites that do not exist yet, and building them would be exactly the scope
+growth G-4/G-5 forbid. So the criterion is asserted in its forward-compatible,
+*structural* form — the package contains **exactly one** function that puts a round mark
+on a page, and the walk covers `src/nonogram/**/*.py` rather than a list of files. That
+is the assertion that actually binds CARD-207/229/231/233: whichever module each of them
+ends up drawing from, a second dot is a failing test on their branch rather than a
+discovery on a printed proof. (All four callers' own `Touches` name only
+`admin/book_pdf_generator.py`, so the one site is reachable from each of them —
+`export/pdf.py`'s `_draw_header` is the single-puzzle CLI/web path CON-019 freezes, and
+no caller needs to draw from there.)
+
+### Orchestrator log
+
 - [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)
+- [Scope] src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_book_interior_type_floor.py — exactly the card's Touches:, no drift, no SCOPE+. Components touched are COMP-007 and COMP-009, exactly the card's slice, so the scope gate sees no growth. Noted for the retrospective rather than as a finding: 1579 insertions on a 0.5d card, 1144 of them one new test file — volume in the tests, not scope in the source.
+- [Guard] G-5 verified mechanically in the main repo, not taken on the agent's word: `grep -rn` over src/ shows `_draw_difficulty_dots` has no caller anywhere, so no existing page gains or loses ink. The four adopting cards (CARD-207/229/231/233) are what wire it.
+- [Build gate] cycle gate is the full suite (review.test_scope: full). Queued behind CARD-213's run on meta/kanban/.full-suite.lock — the agent's own `pytest tests/ --ignore=tests/e2e -x` is not the gate.
+- [Build gate] cycle 1: **7557 passed, 9 skipped, exit 0 in 877.93s** — full suite in the worktree,
+  under the repo lock. Clean first attempt. Worth recording: 9 skips, the same number CARD-228's
+  sibling gate showed, where CARD-234's gate saw 11 and CARD-235's 9 on identical code. That spread
+  was the host-state coupling CARD-238 removed, so a stable 9 across two unrelated gates in one wave
+  is the first positive evidence that CARD-238's fix holds.
+- [Review 1/3] spawned. Briefed NOT to run the full suite (I already have its result, and CARD-213's
+  re-gate is using the machine) and to scope mutation runs to the card's own test files plus
+  tests/test_cli.py: review.test_scope is `full` here, so an unscoped Step 8f would cost 878s PER
+  MUTANT. The reviewer was told to verify the agent's 11 claimed mutants rather than inherit them,
+  and pointed at the four coverage-claim shapes this card turns on — AC-4's ast guard and its Pillow
+  partition, AC-2's TIERS controls, G-2's no-draw.text discharge, and the __post_init__ "unconstructible
+  rather than untested" claim. AC-4's forward-compatible reading was named as the single most
+  important call in the review.

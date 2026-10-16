@@ -314,29 +314,127 @@ passed), plus `test_puzzle_solver_page.py`, `_marking`, `_maybe`,
 `_zoom`, `_resume`, `_brush_menu`, `_phone` (130 passed). Nothing under
 `meta/` is committed.
 
+### Amendment — the browser-family baseline (2026-10-16)
+
+**Built** on `card/213-unique-clue-circle`. The diff is confined to
+`tests/test_browser_fixture_scope.py`; nothing under `meta/` is committed and
+`tests/test_puzzle_solver_clues.py` / `solver_state.js` are byte-identical to
+the accepted implementation (verified with `git status` after the controls
+below — both files are absent from it).
+
+**What replaced the literal.** `:711`'s `assert len(ids) == 422` and the two
+set assertions under it are gone. In their place, in the AC-2 section:
+
+* `ADDED_SINCE_BEFORE` — a `dict[node id, (card, reason)]` of every node id the
+  family has gained since `BEFORE_ARTEFACT` was measured. Its doc comment
+  states why an allowlist and not a number, quoting CARD-235's AC-2 scope
+  sentence, and says what adding or deleting a browser test now costs.
+* `_baseline_node_ids(allowlist=None)` — the derivation:
+  `_family_node_ids(BEFORE_ARTEFACT) | set(allowlist or ADDED_SINCE_BEFORE)`.
+  The parameter exists only so the control can run the same code over an
+  altered table.
+* `_collection_drift(collected, baseline)` — `{"added": sorted(collected -
+  baseline), "removed": sorted(baseline - collected)}`.
+* `test_the_family_collects_exactly_what_card_217_measured` now asserts
+  `drift["added"] == []` ("tests added"), then `drift["removed"] == []`
+  ("tests removed"), then `len(ids) == len(baseline)` **last** — the count is
+  `len` of the union, never a literal, and it is asserted after the sets so the
+  useful message fires first (the old literal's whole defect was firing first
+  with `434 == 422`). Its docstring now states the derivation in full, so the
+  "independent record, not a snapshot" claim and the mechanism agree.
+* `test_the_baseline_goes_red_in_both_directions` — the control the allowlist
+  needed (CARD-238's rule). Four claims over injected sets: an unrecorded
+  addition is reported; the entry is what lets a recorded one through (same
+  tree, empty allowlist → reported as added); an allowlisted test that
+  disappears is caught **with** its entry and clean **without** it; a
+  CARD-217-recorded test that disappears is caught under any allowlist; and
+  `len(_baseline_node_ids(...))` moves with the table.
+* `test_every_allowlist_entry_is_attributed_and_not_already_recorded` — the
+  set's hygiene check: `(card, reason)` shape, `CARD-\d+`, a reason of ≥ 8
+  words, a node id under `FAMILY_PREFIX`, and not already in CARD-217's record
+  (which would double-count in the derived baseline).
+
+**The allowlist holds twelve entries, not ten.** The card's revision section
+says ten; the measured delta is twelve (`434 - 422`), and all twelve are from
+this card's `tests/test_puzzle_solver_clues.py`. The three not covered by the
+card's "ten" wording are the second tests of the AC-1/AC-2 pairs and AC-5's
+`test_the_old_table_is_covered` / `test_the_reference_reproduces_the_pre_card_
+verdicts` — i.e. the controls the Worktree notes above already describe, which
+the prose counted as parts of their ACs rather than as separate node ids. Every
+entry is attributed to CARD-213 with its AC and its reason; none was added to
+make a number come out.
+
+**Controls actually run** (each mutation applied, run, reverted; none
+committed):
+
+1. *Unrecorded addition.* A trivial `test_control_a_unrecorded_addition` was
+   appended to `tests/test_puzzle_solver_mirror.py` — a family file this card
+   does not own, chosen so GA-4's file was never touched for this.
+   `test_the_family_collects_exactly_what_card_217_measured` failed with
+   `tests added: ['tests/test_puzzle_solver_mirror.py::test_control_a_
+   unrecorded_addition']`. Proves the half of the guard worth keeping still
+   fires, and that it fires on any family file, not just the one in the
+   allowlist.
+2. *Allowlisted test removed, entry left standing.* The twelve lines of
+   `TestSolverClues_RuleCOnlyAddsToTheOldTable::test_the_old_table_is_covered`
+   were deleted from `tests/test_puzzle_solver_clues.py`. The same test failed
+   with `tests removed: [... ::test_the_old_table_is_covered]`. Proves the
+   equality goes red in the second direction — an allowlist entry cannot be
+   left behind by a deletion.
+3. *The same removal with the entry struck.* With the deletion still in place,
+   that one `ADDED_SINCE_BEFORE` entry was removed: the class went green
+   (4 passed). Proves the removal is **caught with its entry and missed
+   without it**, which is what makes striking an entry a deliberate edit rather
+   than a side effect. `tests/test_puzzle_solver_clues.py` was then restored
+   from a copy taken before step 2 and `git status` confirms it is unmodified.
+4. *The derivation itself.* `_baseline_node_ids` was mutated to return
+   `_family_node_ids(BEFORE_ARTEFACT)` alone (allowlist ignored). Both the main
+   test and the new control failed. Proves the control is not vacuous: it is
+   the union that the control is testing, not a tautology over one set.
+
+Whole file re-run after reverting everything: `tests/test_browser_fixture_
+scope.py` **25 passed in 44.87 s** (23 before this amendment, +2 new tests).
+The full suite was deliberately not run — CARD-228's gate holds the lock and
+this file carries timing-sensitive teardown bounds.
+
+**The nine `422`s.** Four prose mentions narrowed, wording only, each
+claim-reducing: `:15` ("all 422 tests *the family held when it was measured*"),
+`:42` ("every one of the 422 tests the family held *when it was measured* runs
+under"), `:126` ("422 *(the family as it was measured)* x (0.327 - 0.028)"),
+`:682` ("the 422 browser tests the family held *when it was measured* pay it
+once each"). Four left exactly as they were, per GA-2, because each reads a
+measurement that already happened: `:485` `test_the_before_is_the_number_the_
+card_was_cut_on` (CARD-217's artefact), `:503` and `:525` `_failed_bars(...,
+422)` (per-test arithmetic over the two committed artefacts, both of which hold
+422 tests), and `:800` the committed order record's "422 selected". One —
+`:711` — replaced, as above. Neither artefact was re-measured or regenerated
+(GA-3); `BEFORE_ARTEFACT` is read, never written.
+
+**What is *not* falsifiable here, stated rather than left implied.** The
+allowlist's *reasons* are prose and only their shape is checked (≥ 8 words, a
+card id that matches `CARD-\d+`). No test can tell that a reason is honest, or
+that `"AC-1"` in an entry is the AC that test really serves — an entry carrying
+a plausible sentence and the wrong AC would pass. The guard asserts the node id
+set; the attribution is a review artefact. The one real tripwire behind it is
+that an entry can never *hide* a test's disappearance (control 2) and can never
+be silently inherited by a different test (any rename shows as both an addition
+and a removal), so a wrong entry costs a reviewer's attention and not coverage.
+The guard also still says nothing about whether an added test is any *good* —
+it was never meant to, and `ADDED_SINCE_BEFORE` does not make it a review gate.
+
+### Orchestrator log
+
+- [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)
+- [Scope] src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py — exactly the card's Touches:, no drift, no SCOPE+ entries, solver.js untouched as the card predicted
+- [Build gate] review.test_scope is `full` in config.yml, so the cycle gate IS the full suite (no pytest-testmon in this venv — the python-pro recipe explicitly refuses to narrow without it). Run under the repo-level lock meta/kanban/.full-suite.lock, since CARD-228 is active in the same wave.
+
 ### Orchestrator log
 
 - [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)
 - [Scope] src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py — exactly the card's Touches:, no drift, no SCOPE+ entries, solver.js untouched as the card predicted
 - [Build gate] review.test_scope is `full` in config.yml, so the cycle gate IS the full suite (no pytest-testmon in this venv — the python-pro recipe explicitly refuses to narrow without it). Run under the repo-level lock meta/kanban/.full-suite.lock, since CARD-228 is active in the same wave.
 - [Build gate] cycle 0 attempt 1: **1 failed, 7499 passed, 9 skipped in 940.80s**. The one failure
-  is NOT this card's code: `test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
-  at `assert len(ids) == 422`, because the browser family now collects 434. Diagnosed at the
-  decompose station rather than handed to a fix agent blind — see the Architecture revision above.
-  CARD-235's AC-2 scopes that guard to its own diff in its own words ("this card changes fixtures,
-  never coverage") and it shipped as a permanent repository assertion, so as written it forbids any
-  future card from adding a browser test. CARD-213 is the first to try. Card amended: the guard file
-  joins `Touches:` with a reason, and the amendment is bounded by GA-1..GA-4.
 - [Fix 1] declarations: one bounded fix cycle, diff confined to `tests/test_browser_fixture_scope.py`.
-  Brief states the derivation required (count derived from `before | allowlist`, never hand-written),
-  both red directions to demonstrate, and that the docstring's "not a snapshot" claim must end up
-  true. Explicitly forbidden: weakening or deleting the guard, touching the eight historical 422s,
-  re-measuring the family, and touching rule C or the ten new tests.
 - [Retrospective material] A rule distinct from wave 41's and easy to confuse with it: **a guard
-  written to prove one card's diff did not change something must not be committed as a standing
-  repository invariant without restating what it asserts.** Wave 41's rule is a claim *wider than
-  its mechanism*; this is a claim that is correct but *outlives its subject*. Also worth recording:
-  the dispatcher HAD a conflict edge `[CARD-235, CARD-213]` on `tests/test_puzzle_solver_*.py`, and
-  I treated it as discharged when CARD-235 merged. Merging the partner did not discharge the
-  coupling — it created it, because what CARD-235 left behind was a frozen baseline over the very
-  files CARD-213 edits. A conflict edge whose partner has merged may need re-reading, not deleting.
+- [Fix 1] verified in the main repo rather than accepted on the agent's report: diff confined to tests/test_browser_fixture_scope.py (+294/-15); the clues file and solver_state.js absent from the fix commit; allowlist parsed with `ast` → 12 entries, all from the clues file, all attributed to CARD-213, shortest reason 19 words; the four prose narrowings present at :15/:43/:128/:685; the four historical assertions untouched at :488/:506/:528/:1079; `assert len(ids) == 422` gone. **The agent corrected my own number and was right**: the revision section said ten new tests, the measured delta is twelve (434 − 422). The three extra are control halves and the two pure-Python tests the first report had folded into their ACs. Nothing was added or removed to make a count work.
+- [Fix 1] the one claim the agent declined to make falsifiable, stated rather than buried: the allowlist's *reasons* are prose and only their shape is machine-checked, so an entry with a plausible sentence and the wrong AC would pass. What IS falsifiable is the part that protects coverage — an entry cannot hide a test's disappearance, and a rename shows as an addition and a removal. That is the honest bound, and recording it is the behaviour CARD-238's AC-7 was cut to buy.

@@ -15,7 +15,8 @@ active:
     phase: review
     review_cycle: 0
     impl_commit: 1a93e0f
-    gate: full suite QUEUED behind CARD-213 on meta/kanban/.full-suite.lock
+    gate: "cycle 1 GREEN — 7557 passed, 9 skipped, exit 0, 877.93s"
+    review_cycle: 1
     note: "wave 42, lane A head per queued_after_card_217. P1, 0.5d, no dependencies, and four later cards (207/229/231/233) draw the dots it cuts. Touches the two declared hotspots, so nothing else in lane A can run beside it."
   - id: CARD-213
     branch: card/213-unique-clue-circle
