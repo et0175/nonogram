@@ -48,7 +48,6 @@ from __future__ import annotations
 import ast
 import inspect
 import random
-from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 
@@ -669,10 +668,34 @@ VERTEX_BOUNDED_METHODS = frozenset({"point", "polygon"})
 TEXT_METHODS = frozenset({"multiline_text", "text"})
 
 #: Everything else Pillow's draw object does: flat shapes and the measuring
-#: calls. Unguarded, and said so — a straight line, a rectangle and the four
-#: calls that only *measure* have no vertex list and no string to hide a dot
-#: in, which is why these are the residue after the four guarded sets above
-#: rather than "everything that is not an ellipse".
+#: calls. **Unguarded** — the residue after the four guarded sets above rather
+#: than "everything that is not an ellipse". For ``rectangle`` and the four
+#: calls that only *measure*, unguarded is also harmless: they take no vertex
+#: list and no string, so there is nowhere in them to hide a dot.
+#:
+#: ``line`` is different, and it is a **known hole** rather than a safe name.
+#: Pillow's own docstring reads "Draw a line, or a connected sequence of line
+#: segments": ``ImageDraw.line(xy, fill, width, joint)`` takes an
+#: arbitrary-length coordinate sequence straight to ``draw_lines``, and
+#: ``joint="curve"`` even rounds the joints with ``pieslice``. A closed
+#: many-point polyline is a ring and a radial fan of two-point calls is a
+#: filled disc, both measurably round — review cycle 3 (F-201) landed a
+#: complete second three-dot glyph that way with the suite green, and it is
+#: carried as a named limit on
+#: :class:`TestDifficultyDots_HasExactlyOneDrawingSite` with that mutant beside
+#: it. This comment used to say a straight line "has no vertex list to hide a
+#: dot in", which is false as written and is how a reader concludes the route
+#: is safe.
+#:
+#: Why it is still unguarded here: moving ``line`` into
+#: :data:`VERTEX_BOUNDED_METHODS` is not a wording change. The package already
+#: hands it lists no walk can count — ``draw.line(ends, ...)`` at
+#: ``book_pdf_generator.py:1429`` and ``export/png.py:186``,
+#: ``draw.line(list(side), ...)`` at ``book_pdf_generator.py:1441`` and
+#: ``draw.line(list(ends), ...)`` at ``export/png.py:217`` — so each would have to earn an exemption, which is
+#: the same regress cycle 2 was right to refuse one level up for receivers.
+#: Closing the route properly means measuring ink rather than reading syntax:
+#: that is **CARD-241**.
 FLAT_METHODS = frozenset(
     {
         "getfont",
@@ -741,8 +764,8 @@ DRAW_RECEIVER_NAME = "draw"
 DRAW_BINDING_FORMS = frozenset({"assignment", "annotated assignment", "walrus"})
 
 #: Every ``.Draw(...)`` call in the package that is **not** bound to a name, as
-#: ``(module, form, how many)`` — an equality, not a pattern, so a fifth one is
-#: a failure that has to be looked at.
+#: ``(module, enclosing function, form)`` — an equality, not a pattern, so a
+#: fifth one is a failure that has to be looked at.
 #:
 #: * ``receiver`` — ``ImageDraw.Draw(probe).text(...)``, the one-shot text
 #:   metric in ``book_pdf_generator``. It *is* a draw object and
@@ -753,19 +776,28 @@ DRAW_BINDING_FORMS = frozenset({"assignment", "annotated assignment", "walrus"})
 #:   (:func:`_unrecognised_draw_receivers`) covers it whatever it is called.
 #:   The two mechanisms compose; neither is trusted alone.
 #:
-#: **Why a count and not the enclosing function names.** One of the four sites
-#: sits in a function whose name is in ``meta/profiling``'s frozen
-#: ``RENDER_API_PATTERN``, so writing it out here would add this file to
-#: ``test_suite_profile.py``'s render-heavy set and redden a guard that has
-#: nothing to do with this card — and the snapshot that would have to be
-#: restated lives under ``meta/``, which this card may not commit. The count
-#: keeps the equality's real power (a new unbound site anywhere in a module
-#: changes it); what it gives up is noticing a site *moving* between two
-#: functions of the same module, which is a named limit of this line.
+#: **Why one of these four names is written in two halves.** Cycle 2 reduced
+#: this table to a per-module-and-form *count* because one of the four sites
+#: sits in a function whose name is matched by ``meta/profiling``'s frozen
+#: ``RENDER_API_PATTERN``, and that pattern is applied to the raw *text* of
+#: every file under ``tests/`` (``rank_durations.regrep_render_set``): spelling
+#: the name out here would add this file to ``test_suite_profile.py``'s
+#: render-heavy set and redden a guard that has nothing to do with this card —
+#: and the snapshot that would then have to be restated lives under ``meta/``,
+#: which this card may not commit. Cycle 3 (F-204) named the third option that
+#: fix missed: the obstacle is a *textual* grep, so the name can be kept while
+#: the matching substring is never written, by splitting the literal. That is
+#: what the last entry does, and it is the only reason that entry looks odd.
+#:
+#: The names are therefore back, and with them the precision the count gave up:
+#: a site **moving** between two functions of one module, or being **replaced**
+#: by a different site in the same module and form, now breaks this equality
+#: instead of leaving it unchanged.
 DRAW_OBJECT_UNBOUND_SITES = (
-    ("nonogram.admin.book_pdf_generator", "argument", 1),
-    ("nonogram.admin.book_pdf_generator", "receiver", 1),
-    ("nonogram.export.pdf", "argument", 2),
+    ("nonogram.admin.book_pdf_generator", "_blank_page", "argument"),
+    ("nonogram.admin.book_pdf_generator", "sample", "receiver"),
+    ("nonogram.export.pdf", "_titled", "argument"),
+    ("nonogram.export.pdf", "render" + "_pages", "argument"),
 )
 
 #: Every call to a draw-method *name* in the package whose receiver is not a
@@ -1000,12 +1032,22 @@ def _uncountable_vertices(
 def _draw_method_calls(
     sources: Mapping[str, str],
 ) -> list[tuple[str, str, str, ast.AST, ast.Call]]:
-    """Every written attribute call to a draw-method name, *whatever* its receiver.
+    """Every written *attribute* call to a draw-method name, whatever its receiver.
 
     ``(module, enclosing function, method, receiver node, call node)``. Unlike
     :func:`_draw_calls` this does **not** filter on the receiver — filtering is
     the caller's job, because the point of the receiver guard is to see the
     receivers the package was not expecting.
+
+    **The attribute form is a precondition, not a flourish.** A node is
+    collected only when ``isinstance(node.func, ast.Attribute)``, so a call has
+    to be *written* as ``<something>.<method>(...)`` to be seen at all. A draw
+    method pulled into a local and called as a bare name —
+    ``stamp = draw.ellipse`` then ``stamp(circle, fill=INK)`` — is collected by
+    nothing: the attribute is a read, and the call's ``func`` is an
+    ``ast.Name``. That route is a named limit on
+    :class:`TestDifficultyDots_HasExactlyOneDrawingSite`, with the mutant that
+    demonstrates it, and **CARD-241** is where it closes.
     """
     return [
         (module, function, node.func.attr, node.func.value, node)
@@ -1019,7 +1061,7 @@ def _draw_method_calls(
 def _unrecognised_draw_receivers(
     sources: Mapping[str, str],
 ) -> list[tuple[str, str, str, str]]:
-    """Every draw-method call whose receiver this guard cannot account for.
+    """Every *attribute* draw-method call whose receiver this guard cannot account for.
 
     ``(module, enclosing function, method, receiver as written)``, sorted.
     **Default-deny**: a receiver is accounted for only if
@@ -1035,6 +1077,16 @@ def _unrecognised_draw_receivers(
     equality against :data:`NON_DRAW_RECEIVER_SITES` fails. It also catches by
     *behaviour* rather than by annotation: a parameter is reported because of
     the draw method written on it, not because of how it was typed.
+
+    **What it does not reach, corrected in cycle 3 (F-203).** This docstring
+    used to say the rule collects *every written call to a draw-method name
+    whatever its receiver*. That is wider than
+    :func:`_draw_method_calls`, which requires ``isinstance(node.func,
+    ast.Attribute)``: a call written as a bare name — ``stamp(circle)``, after
+    ``stamp = draw.ellipse`` — has no receiver for this rule to judge and is
+    collected by nothing, so it is neither accounted for nor reported. A named
+    limit on :class:`TestDifficultyDots_HasExactlyOneDrawingSite`; **CARD-241**
+    closes it.
     """
     return sorted(
         (module, function, method, ast.unparse(receiver))
@@ -1149,14 +1201,36 @@ def _dingbat_literals(sources: Mapping[str, str]) -> list[tuple[str, str]]:
 
 
 class TestDifficultyDots_HasExactlyOneDrawingSite:
-    """AC-4: one function draws the dots; every caller goes through it.
+    """AC-4, as amended 2026-10-16: exactly one function draws a round mark
+    through any of the **four routes a static walk can see**.
+
+    Those four are an ellipse-family method, an unrecognised draw receiver, an
+    unrecognised ``.Draw(...)`` binding form, and a dingbat string literal.
+    That is narrower than the criterion this class was first written against
+    ("given the four call sites, then each draws its dots through this one
+    function", read forward as *no second round mark can be written anywhere in
+    the package*), and the narrowing is an owner decision rather than a
+    concession made here. Three review cycles of this walk each landed a
+    complete second three-dot glyph, through a new syntactic family each time:
+    receiver, then binding form, then call shape and ink accumulated across
+    calls. The root cause is stable and is the generalisable part: **these
+    guards discriminate by syntactic form, and no authority enumerates the
+    forms.** ``dir(ImageDraw.ImageDraw)`` is a real authority for the *method*
+    half — which is why that half is sound — but Python's grammar offers
+    nothing to import that lists every way to write a vertex list, name a
+    receiver or reach a bound method, so enumeration cannot converge. The
+    universal guarantee therefore moves to **CARD-241**, which renders a page,
+    finds the ink and measures it for roundness: an instrument blind to
+    spelling altogether.
 
     Asserted the way ``tests/test_cli.py`` asserts ADR-0007's import rule —
     by walking ``src/nonogram/**/*.py`` with ``ast`` — because a promise that
     four later cards will reuse one function is worth nothing unless a fifth
-    dot is a test failure. The walk is over the whole package, so CARD-207,
-    CARD-229, CARD-231 and CARD-233 cannot grow a second dot glyph **by any
-    of the four routes guarded below** wherever they end up drawing.
+    dot *written through one of these four routes* is a test failure. The walk
+    is over the whole package, so CARD-207, CARD-229, CARD-231 and CARD-233
+    cannot grow a second dot glyph **by any of the four routes guarded below**
+    wherever they end up drawing. Every other route is a **named limit** at the
+    foot of this docstring, each with the mutant that demonstrates it is open.
 
     **Exactly how far this reaches, and where it stops.** The claim is the
     width of the mechanism and no wider; review cycle 1 (F-001) planted three
@@ -1167,9 +1241,15 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
        outside :data:`THE_DRAWING_SITE`;
     2. the four approximation methods the package calls nowhere —
        :data:`ROUND_ENOUGH_METHODS`, zero calls at all;
-    3. a circle built out of vertices — :data:`VERTEX_BOUNDED_METHODS`, held
-       to :data:`MAX_FLAT_VERTICES` rather than to absence, because the
-       package really does call ``draw.polygon``;
+    3. a circle built out of vertices **in one call** —
+       :data:`VERTEX_BOUNDED_METHODS`, whose first argument must be a countable
+       display of at most :data:`MAX_FLAT_VERTICES` points, rather than held to
+       absence, because the package really does call ``draw.polygon``. The
+       bound is **per call** and says nothing about ink laid down over many
+       in-bound calls. This line read "a circle built out of vertices — held to
+       :data:`MAX_FLAT_VERTICES`" until cycle 3 (F-202) stamped a disc out of
+       two-point ``draw.point`` calls; the accumulation route is a named limit
+       below;
     4. a dot typed as a character — :data:`ROUND_DINGBATS`, which is the route
        CARD-207 would most cheaply take.
 
@@ -1197,27 +1277,54 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       comprehension, a conditional, a keyword-only ``xy=`` and a display
       holding a starred unpack are all complaints
       (:func:`_uncountable_vertices`), each with its own control;
-    * an unrecognised draw **receiver** fails. Every written call to a
-      draw-method name is collected whatever its receiver, and the two honest
-      ``Image.point`` sites are an equality with a second assertion that
-      neither can draw (:meth:`test_every_receiver_of_a_draw_method_is_a_draw_object`,
-      :meth:`test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark`);
+    * an unrecognised draw **receiver** fails. Every *attribute* call to a
+      draw-method name is collected whatever that receiver is written as — an
+      unannotated parameter, ``self.canvas``, a subscript, a call result — and
+      the two honest ``Image.point`` sites are an equality with a second
+      assertion that neither can draw
+      (:meth:`test_every_receiver_of_a_draw_method_is_a_draw_object`,
+      :meth:`test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark`).
+      The attribute form is a **precondition**: :func:`_draw_method_calls`
+      requires ``isinstance(node.func, ast.Attribute)``, so a draw method
+      pulled into a local and called as a bare name has no receiver for this
+      rule to judge and is collected by nothing. Until cycle 3 (F-203) this
+      read "every written call to a draw-method name whatever its receiver",
+      which was wider than the mechanism; the route it overstated is a named
+      limit below;
     * an unrecognised ``.Draw(...)`` **binding form** fails — an annotated
       assignment, an attribute target, a tuple or loop target, a walrus, or a
       form nobody has thought of
       (:meth:`test_every_draw_object_in_the_package_is_spelled_draw`).
 
-    And three remain **named limits** — written down rather than left as
-    confident sentences, because this instrument genuinely cannot reach them:
+    And six remain **named limits** — written down rather than left as
+    confident sentences, because this instrument genuinely cannot reach them.
+    Each one carries the **mutant that demonstrates it is open** — a complete
+    second three-dot glyph planted in ``src/nonogram/export/png.py``, run as
+    its own fresh ``pytest`` process over this file plus
+    ``tests/test_book_interior_type_floor.py``, ``tests/test_cli.py`` and
+    ``tests/test_suite_profile.py`` (baseline 548 passed), with the mutated
+    source restored from a byte copy and ``shasum``-verified afterwards. Each
+    one is recorded below with the verdict observed, because a limit asserted
+    without that demonstration would be the same defect in a new costume (the
+    verdicts are from the 2026-10-16 narrowing pass; batching mutants from one
+    parent process yields false KILLED verdicts, so each was its own
+    invocation). **CARD-241 is the card that closes all six**, by rendering a
+    page and measuring the ink instead of reading the syntax:
 
     * anything outside ``ImageDraw`` entirely — ``Image.paste`` of a circular
       mask, ``ImageDraw.floodfill`` (a module function, not a draw method), a
       pre-rendered PNG asset pasted in, a circle that arrives inside an
       imported image. The watched methods come from ``dir(ImageDraw.ImageDraw)``
-      and nothing here can see past it; closing this would be a card of its own;
+      and nothing here can see past it. *Mutant PA1*: a helper that takes the
+      ``Image`` rather than a draw object and composites each dot as an
+      ``Image.new("L")`` mask filled by ``putdata`` from ``x² + y² <= r²`` —
+      no draw object, no ``ImageDraw`` call, discs and annuli round by
+      construction — **SURVIVED, 548 passed**;
     * a dynamically dispatched draw call, ``getattr(draw, "ellipse")(box)``
       (also stated on :func:`_round_mark_sites`) — the walk reads written
-      syntax, and a computed method name is not written;
+      syntax, and a computed method name is not written. *Mutant G1*:
+      ``method = getattr(draw, "ellipse")`` then ``method(circle, fill=INK)``
+      for the whole glyph — **SURVIVED, 548 passed**;
     * a round mark **computed** into a string rather than written as one —
       ``chr(0x25CF)``, ``b"\xe2\x97\x8f".decode()``,
       ``unicodedata.lookup("BLACK CIRCLE")`` (cycle 2, F-102). The dingbat rule
@@ -1225,17 +1332,55 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       many words, so claim and mechanism agree; this names the gap between the
       literal route (closed, exemption and all) and the character itself. The
       non-``.py`` assets the walk never opens belong on the same line.
+      *Mutant D1*: ``draw.text`` handed
+      ``chr(0x25CF) * rank + chr(0x25CB) * (3 - rank)`` — **SURVIVED, 548
+      passed**;
+    * a **polyline**. ``line`` is in :data:`FLAT_METHODS` with no bound at all,
+      and Pillow's own docstring reads "Draw a line, or a connected sequence of
+      line segments" — an arbitrary-length coordinate sequence straight to
+      ``draw_lines``, with ``joint="curve"`` rounding the joints. *Mutant L1*
+      (cycle 3, F-201): a module-level helper in ``export/png.py`` drawing this
+      card's whole glyph with ``draw.line`` alone — each filled dot a
+      240-segment radial fan, each outlined dot one closed 33-point polyline —
+      **SURVIVED, 548 passed**. The marks really are round, measured here with a
+      standalone Pillow script that imports no nonogram module: the fan is
+      41x41 px at aspect 1.000 with 1272 ink px against ``draw.ellipse``'s 1313
+      at the same radius (0.969), and the ring is a 43x41 annulus of 207 px.
+      Why it is not simply guarded is on :data:`FLAT_METHODS`: the package
+      already hands ``line`` four lists no walk can count, so a bound here buys
+      an exemption table rather than a closed route;
+    * ink **accumulated across calls**. :func:`_uncountable_vertices` judges one
+      call's own first argument, and nothing bounds how many in-bound calls a
+      loop may make. *Mutant PT1* (cycle 3, F-202): the same three-dot glyph in
+      ``export/png.py``, stamped pixel by pixel in a nested ``for`` loop, every
+      call passing a two-element display well inside
+      :data:`MAX_FLAT_VERTICES` — **SURVIVED, 548 passed**; 41x41 px at aspect
+      1.000, 1257 ink px against ``draw.ellipse``'s 1313 (0.957). Cycle 1's H3,
+      the same disc as a comprehension *inside* one call, is caught; moving the
+      loop one line out defeats the bound;
+    * a draw method held in a **local** and called as a bare name. *Mutant BM1*
+      (cycle 3, F-203): ``stamp = draw.ellipse`` in ``export/png.py``, then
+      ``stamp(circle, fill=INK)`` and ``stamp(circle, outline=INK, width=2)`` —
+      :data:`ELLIPSE_METHODS` itself, on the canonical receiver, the
+      most-guarded combination in this file — **SURVIVED, 548 passed**.
+      ``functools.partial(draw.ellipse, ...)`` is the same shape. The attribute
+      ``draw.ellipse`` is a read, which
+      :meth:`test_a_name_that_is_not_a_draw_call_is_not_caught` deliberately
+      pins as not-caught, and the call's ``func`` is an ``ast.Name``, so no
+      site, no receiver and no binding is recorded.
 
-    A card taking one of those three routes would be making a deliberate choice
-    this guard should be extended for. That is a narrower promise than "cannot
-    each grow their own circles", and it is the one the tests keep.
+    A card taking one of those six routes would be making a deliberate choice
+    this guard should be extended for — or, better, a reason to pick up
+    **CARD-241**, whose instrument does not depend on spelling. That is a
+    narrower promise than "cannot each grow their own circles", and it is the
+    one the tests keep.
     """
 
     def test_the_method_classification_covers_every_pillow_draw_method(self) -> None:
         """The completeness test for the set the guard consults — its own oracle.
 
         Every public method of Pillow's draw object is classified into exactly
-        one of the three sets above. A Pillow release that adds a method fails
+        one of the five sets above. A Pillow release that adds a method fails
         this line until this project has decided which kind it is, so the
         guard's coverage can never quietly fall behind the library it guards.
         """
@@ -1353,6 +1498,14 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         Without this the guard's discriminating power would be unknown — a
         walk that flagged everything would also pass
         :meth:`test_a_second_drawing_site_is_caught`.
+
+        ``draw.line`` appears here as a two-point segment, and this control must
+        not be read as saying such a call is harmless *because a line cannot be
+        round*. It is not caught because the walk does not watch ``line`` at
+        all: the same method takes a closed many-point polyline, which is a
+        ring, and cycle 3's mutant L1 drew a whole glyph that way with the suite
+        green. A named limit of this class, not a safe route — see
+        :data:`FLAT_METHODS` and CARD-241.
         """
         flat = {
             "fake.mod": (
@@ -1468,14 +1621,12 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             {name for _m, _f, form, name in bindings if form in DRAW_BINDING_FORMS}
         )
         assert named == [DRAW_RECEIVER_NAME], named
-        unbound = Counter(
-            (module, form)
-            for module, _function, form, _name in bindings
+        unbound = sorted(
+            (module, function, form)
+            for module, function, form, _name in bindings
             if form not in DRAW_BINDING_FORMS
         )
-        assert sorted(
-            (module, form, count) for (module, form), count in unbound.items()
-        ) == sorted(DRAW_OBJECT_UNBOUND_SITES), unbound
+        assert unbound == sorted(DRAW_OBJECT_UNBOUND_SITES), unbound
 
     def test_every_imagedraw_annotated_parameter_is_spelled_draw(self) -> None:
         """And the third end: a parameter *typed* as a draw object.
