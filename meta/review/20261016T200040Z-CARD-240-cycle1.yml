@@ -1,0 +1,179 @@
+version: 1
+generated_at: "2026-10-16T20:00:40Z"
+target: "card/240-fr044-rule-c @ 74f2e53 (cycle 1; diff main...HEAD = 1 file, +1/-1)"
+overall_score: 9.0
+risk_level: low
+review_lane: light
+reviewer: forge:review
+reviewer_version: "unknown"
+lane_rationale: |
+  P3 / trivial / 0.25d, one prose line in meta/architecture/requirements.yml, no
+  src/** or tests/** reach (the caller established that nothing in the suite
+  parses that file). A light lane with four targeted checks — wording fidelity
+  against the shipped rule, AC-346's re-derivation, diff containment, and the
+  validator baseline diff re-run first-hand — is the proportionate instrument.
+
+coverage:
+  read:
+    - "git diff main...HEAD (the whole change: requirements.yml:4120, AC-347 'then')"
+    - "meta/kanban/cards/CARD-240.md (full, incl. Implementation + Worktree notes)"
+    - "src/nonogram/admin/static/solver_state.js:380-469 (rule comment block A/B/C, walkIn, circledNumbers)"
+    - "meta/architecture/requirements.yml FR-044 statement (the 'unambiguous' clause) and AC-345..AC-350"
+    - "tests/test_puzzle_solver_clues.py:140-181 (RuleExamples.ROWS incl. the rule-C row, .STOPS), :950-963 (AmbiguousRunStaysUncircled)"
+    - "~/MyProjects/forge_1/forge/skills/architect-validate/scripts/validators/requirements.py:219-240 (the bundling heuristic)"
+    - "meta/review/20261016T182448Z-CARD-213-cycle1.yml (F-002, the originating finding and its suggested wording)"
+  not_reached:
+    - "the rest of requirements.yml (unreachable by a 1-line diff; containment proved from the diff itself)"
+    - "the full suite (caller runs it as the merge gate; forbidden here)"
+  confidence: high
+
+metrics:
+  diff: { files: 1, added: 1, removed: 1 }
+  max_fan_in:
+    unmeasured: "not_applicable — the change is prose in a model artifact; no symbol, signature or behaviour exists to count callers of."
+  tests_cover_change: true   # AC-347's named test TestSolverClues_RuleExamples is live (64 passed, caller-established)
+  hotspots: []
+  cochange_missing: []
+
+verification_run_here:
+  - name: "validator baseline diff (the load-bearing 'no new finding' claim) — RE-RUN FIRST-HAND"
+    command: "validate.py --root meta/architecture, committed tree vs `git show main:meta/architecture/requirements.yml` staged in place"
+    result: |
+      Both runs: exit 0, "0 error(s), 86 warning(s), 0 info". `diff` of the two
+      FULL outputs is EMPTY — same findings, same order. The agent's claim is
+      confirmed exactly as stated; the edit adds no finding of any severity.
+      requirements.yml was restored after each probe (`git diff --stat` clean).
+  - name: "system_rules.py --root meta/architecture --verify-refs"
+    result: "exit 0; dead_check_ref: [], tooling_failure: [], check_refs_verified: true, no_check: [CON-004, CON-006, CON-007, CON-008, CON-013, CON-017, CON-018] (pre-existing), sources_absent: [threat-model.md, business/constraints.md] (pre-existing). Matches the card verbatim."
+  - name: "the rejected wording's WARN (the agent's rationale, independently reproduced)"
+    result: |
+      Staging "or a number unique in its clue and whose length is held by exactly
+      one closed run" yields 87 warnings, the extra one being
+      "[WARN] FR-044/AC-347 'then' bundles several outcomes — split into separate
+      acceptance criteria (one behaviour each)". The heuristic is
+      validators/requirements.py:236 — `then.lower().count(" and ") + count(" и ") >= 2`.
+      The committed clause spends its single allowance on "and a wrong mark can
+      circle a number". The card's account of why it reworded is accurate.
+  - name: "AC-346 re-derived independently (not inherited from the card)"
+    result: |
+      AC-346's test feeds OWNER_ROW "....WDDW......." against ROW_CLUES == [2, 2]
+      (tests/test_puzzle_solver_clues.py:956-958). Hand-run of circledNumbers:
+      rule A from the left breaks at step 0 (cell '.' is neither EMPTY nor FILLED,
+      walkIn's `if (at(step) !== FILLED) break;`) → []; from the right, symmetric → [].
+      Rule B: runs == [2], runs.length 1 !== count 2 → no fill. Rule C:
+      times([2,2], 2) === 2, so the per-value uniqueness guard fails for BOTH
+      numbers and `times(closed, 2) === 1` is never reached. Result [false, false].
+      AC-346's text and stated reason ("the run cannot be assigned unambiguously")
+      therefore still hold under the shipped rule C, and the clause added to AC-347
+      carries the same quantifier ("unique in its clue"), so it cannot be read as
+      circling either 2 here.
+
+task_contract:
+  ac_verdicts:
+    - id: AC-1
+      verdict: met
+      evidence: |
+        AC-347's then-clause now names rule C as a third alternative in the same
+        "or …" list, in the same register: "…or a number whose value, unique in its
+        clue, is the length of exactly one closed run of the line". Mapped against
+        solver_state.js:466 — `times(clue, clue[number]) === 1 && times(closed, clue[number]) === 1`:
+        "unique in its clue" ⇔ the first conjunct (per-value uniqueness within the
+        line's clue, matching the rule comment's "in '1 2 3 2 1' only the 3 can ever
+        be circled by rule C"); "the length of exactly one closed run" ⇔ the second
+        conjunct, including the "exactly" that makes two closed runs of the unique
+        length circle NOTHING rather than guess. The clause introduces no new term —
+        "the line's closed runs" was already AC-347's own vocabulary (rule B half).
+        Rule C's non-application to a "0" clue is preserved by the untouched
+        exclusive proviso ("a '0' circles only when its whole line is marked empty");
+        the code's early return at solver_state.js:437 agrees.
+    - id: AC-2
+      verdict: met
+      evidence: "AC-346 is not in the diff (byte-identical by construction) and its outcome was re-derived here from the shipped code — see verification_run_here. G-2 held."
+    - id: AC-3
+      verdict: met
+      evidence: |
+        `git diff main...HEAD` is exactly one hunk of one line at requirements.yml:4120.
+        AC-345, AC-348, AC-349, AC-350, FR-044's `statement:` and `_meta:`, and every
+        `test:` reference are byte-identical by construction. FR-044's statement was
+        correctly left alone: "a filled run bounded by marked-empty cells or the edge,
+        assigned to that number only when the assignment is unambiguous" is already
+        rule C's own premise, so no widening was due there.
+    - id: AC-4
+      verdict: met
+      evidence: "Baseline-identical validate.py output and system_rules.py --verify-refs at exit 0 re-run here; TestSolverClues_RuleExamples exists under that name and carries the rule-C row (ROWS:155), 64 passed per the caller."
+  guardrails:
+    - "G-1 ✓ no AC, FR or test reference added, removed or renumbered (one-line diff)."
+    - "G-2 ✓ AC-346 and FR-044's statement untouched."
+    - "G-3 ✓ no src/** or tests/** change (`git diff --stat` = 1 file, meta/architecture/requirements.yml)."
+    - "G-4 ✓ both validators run from the worktree root, and the baseline diff re-confirmed by the reviewer rather than taken on report."
+
+system_contract:
+  rules_checked: 1
+  holds: 1
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0038/R1, R3, R4 ✓ not reachable — the change touches no code, no clue source and no test; system_rules.py assembles 65 rules at exit 0 with dead_check_ref empty and output byte-identical to the pre-edit baseline, so no standing rule's check moved."
+
+root_causes: []
+
+findings:
+  - id: F-001
+    severity: low
+    category: clarity
+    type: nit
+    file: meta/architecture/requirements.yml
+    line: 4120
+    title: "'exactly one closed run of the line' has a second, wrong reading the code does not do"
+    description: |
+      The committed clause is accurate on its plain reading (exactly one closed run
+      HAS that length), which is the reading the code implements. But the scope of
+      "exactly one" can also attach to the line's run count — "the line has exactly
+      one closed run, and the number is its length" — which is strictly narrower than
+      rule C and is contradicted by AC-347's own named test: TestSolverClues_RuleExamples
+      .STOPS carries ((1, 2), "DDWDW.....") → [True, True], a line with TWO closed runs
+      (lengths 2 and 1) where rule C circles both numbers because each length occurs
+      once among the closed runs. A reader who takes the narrow reading would think
+      that row is a test bug — which is the exact failure mode this card exists to
+      remove, one register quieter. The code's own comment (solver_state.js:382-386)
+      avoids the ambiguity by phrasing it as "the line holds exactly one closed run of
+      that length".
+
+      On the caller's question — whether clarity was traded for the validator
+      heuristic — my judgement is NO, or very nearly so: the rejected wording
+      ("unique in its clue and whose length is held by exactly one closed run")
+      carries the same attachment ambiguity, so the rework cost little or no clarity.
+      The residual ambiguity predates both drafts and is also present in CARD-213's
+      originating F-002 suggestion ("matched by exactly one closed run"). It is worth
+      recording only because a strictly clearer wording exists at zero validator cost.
+    suggestion: |
+      Optional, and a card note is an acceptable alternative to an edit. If edited:
+      "…or a number whose value is unique in its clue, where exactly one closed run of
+      the line has that length". Verified here — this wording leaves validate.py's
+      output BYTE-IDENTICAL to the committed tree's (0 errors / 86 warnings, `diff`
+      empty), so it adds no "and", trips no heuristic and needs no AC split (G-1 safe).
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+observations:
+  - "The card's Implementation / Worktree notes (115 lines) are UNCOMMITTED in the worktree (`M meta/kanban/cards/CARD-240.md`); only requirements.yml is in 74f2e53. Not a finding — the board commits card state at merge — but the merge commit must carry them, since this card's whole value is the recorded derivation."
+  - "`?? .venv` is untracked in the worktree and correctly ignored by the diff."
+  - "The card's narrative is accurate in every detail I checked, including the exact test string it quotes for AC-346 and the validator warning counts. No claim in it failed verification."
+
+severity_gate:
+  min_score: 8
+  blockers: 0
+  high: 0
+  medium: 0
+  low: 1
+  verdict: pass
+  rationale: |
+    Score 9.0 ≥ min_score 8, no blocker/high/medium finding, every AC met and every
+    guardrail held. The one open finding is a low-severity wording nit that the card
+    may carry as a note rather than fix. Merge-ready as it stands.

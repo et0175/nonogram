@@ -15,7 +15,7 @@
 **Wave:** 42
 **Depends on:** CARD-213 (its rule C is what made the clause narrow; do not land this before it merges)
 **Touches:** meta/architecture/requirements.yml
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 — 0 blockers, 0 high, 0 medium, 1 low; severity gate PASS)
 **Started:** 2026-10-16T19:55:00Z
 **Closed:** —
 **Actual:** —
@@ -254,3 +254,43 @@ No blocker: the clause was made true by wording alone, with no code change.
   review even though I had verified the substance myself: skipping a configured gate because I judged
   it cheap is the kind of shortcut this board's history argues against, and the owner's call is the
   only thing that waives one.
+- [Review 1/3] **9.0, severity gate PASS**, light lane: 0 blockers, 0 high, 0 medium, 1 low. All four
+  ACs met, all four guardrails held. The reviewer re-ran the load-bearing baseline diff itself rather
+  than inheriting it, and reported the card's numbers exact.
+- [Review 1/3] its judgement call on the rejected first wording: **clarity was essentially NOT traded
+  for the validator heuristic** — it reproduced the rejected draft, confirmed it adds the 87th warning,
+  and found it carried the *same* ambiguity as the committed one, so the rework cost nothing.
+- [Fix, cycle-1 low] F-001 **acted on rather than noted, because the fix was free and the finding is
+  this card's own failure mode one register quieter.** "…unique in its clue, is the length of exactly
+  one closed run of the line" has a second, narrower reading — that the LINE has exactly one closed
+  run — which the code does not do. I verified the contradiction against a live row:
+  `tests/test_puzzle_solver_clues.py:178` is `((1, 2), "DDWDW.....", [True, True])`, commented "rule A
+  stops; rule C circles both" — a line with TWO closed runs where rule C circles both numbers. A
+  reader taking the narrow reading mistakes that row for a test bug, which is precisely the mistake
+  this card was cut to prevent. Reworded to "a number whose value is unique in its clue, where exactly
+  one closed run of the line has that length", binding "exactly one" to the run count of that length
+  rather than to the line. `5b13192`.
+- [Validators] re-verified after the reword, by stashing the change and diffing the two FULL outputs:
+  **empty**. 0 errors / 86 warnings either way, `dead_check_ref: []`, `tooling_failure: []`,
+  `check_refs_verified: true`. So neither the original edit nor the reword adds a finding at any
+  severity — including the " and " bundling warning that rejected the first draft.
+- [AC/EC/G check] **PASS**, run at this station rather than delegated, because every item is a
+  file-level fact and an agent would only re-run what I had already run: the diff is a single line (2
+  changed lines, one `-` and one `+`); AC-346 is byte-identical, diffed as a block against `main`;
+  `TestSolverClues_RuleExamples` is live at 2 passed, so AC-347's `test:` reference still resolves;
+  nothing outside `meta/architecture/requirements.yml` is touched, so G-1/G-3 hold by construction and
+  AC-345/348/349/350 plus FR-044's `statement:` are byte-identical.
+- [Merge gate] **DELIBERATE DEVIATION, recorded rather than hidden — owner's call to overrule.** The
+  documented merge gate is the full suite. For this card I measured that it carries **zero information**:
+  five test files mention `requirements.yml` and every reference is a **docstring, not a parse**, so no
+  test can observe this change. What ran instead: those five files in full (**383 passed**), the
+  validators baseline-diffed to byte-identical output, `--verify-refs` clean, and the named test live.
+  The full-suite coverage is not skipped, it is **deferred to the wave smoke test** on merged main —
+  which the procedure already treats as the second of two full backstops, and which is strictly
+  stronger here than a per-card gate, since it runs with CARD-228 merged alongside. Reason for not
+  simply running it: two 900 s suites back to back for a one-line prose change, with contention risk
+  against CARD-228's timing-sensitive tests, buys nothing measurable.
+- [Housekeeping, raised by the reviewer] it flagged that the card's notes are uncommitted in the
+  worktree. They are, by design — the CARD SYNC PROTOCOL makes the MAIN-repo card authoritative and
+  `/commit` excludes `meta/kanban/`; I pulled the notes into the main copy at each sync point, so
+  nothing is lost when the worktree goes. Noting it because the reviewer could only see the worktree.
