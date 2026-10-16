@@ -907,3 +907,44 @@ and CARD-241 named.
 - [Fix 2] **one deliberate divergence from the amendment's literal wording, and the agent is right.** Item 6 asked for two things — put the function names back, AND widen the limit's wording to 'moved or replaced within one module+form'. It did the first and refused the second, because with the names back there IS no moved-or-replaced limit left, so writing that sentence would be **false** — the exact defect family this pass exists to remove. The amendment's two halves are mutually exclusive once the first is done, which I did not see when I wrote it. It stated the strengthening in a comment instead, and **demonstrated** rather than asserted it: mutant R1 moves the `_titled` site into a new helper in the same module and same form, so a per-module+form count would be unchanged — KILLED, where the old count would have passed.
 - [Fix 2] F-205 (a bare `Draw(image)` from an aliased import classifies as nothing) carried to CARD-241 rather than fixed, correctly: its one-clause fix changes a guard's classification rule, which GB-1 assigns to CARD-241. And the cycle-3 statuses use **`deferred`, not `dismissed`** — a distinction that matters, because `dismissed` findings feed the cross-project `review_false_positives` signal and these are not false positives.
 - [AC/EC/G gate] dispatched. Briefed that **AC-4 now has two halves and the second is as binding as the first** — the four routes guarded, AND the unguarded routes named with a demonstration each — and that limits 4, 5 and 6 must be verified first-hand, since those are the three cycle 3 found. Also asked to judge the item-6 divergence explicitly, with the instruction that a fix agent declining a literal instruction because following it would write a false claim is the behaviour this card's history has been trying to produce and must not be scored as non-compliance.
+- [AC/EC/G gate] **PASS — every item demonstrated**: AC-1..AC-6 (AC-4 in its amended form, both
+  halves), G-1..G-5, GB-1..GB-4, and all four System contract rules. **17 mutants**, each in its own
+  fresh process, every mutated file restored from a byte copy and shasum-verified, tree clean after.
+  Three results worth keeping:
+  * **AC-4's first half holds under five probes**, not just the obvious one: a second `draw.ellipse`
+    glyph, the same glyph on an unannotated receiver, a list-element `.Draw(...)` binding form, a
+    `"●●○"` literal into `draw.text`, and — the interesting one — **A1, F-205's own route**: an
+    aliased `from PIL.ImageDraw import Draw` with `pen = Draw(image)`. A1 was KILLED by the receiver
+    rule, which **proves the composition claim** the pass leans on to defer F-205 to CARD-241. That
+    deferral is therefore evidenced rather than hopeful.
+  * **AC-4's second half holds too, and in the honest direction**: all six named limits were re-run
+    by the gate and all six SURVIVED. None was closed-and-mis-named, and none lacked a working
+    demonstration. The gate also re-measured roundness independently (standalone Pillow, `-I`, no
+    `nonogram` import) and **every figure matches the file's quoted numbers exactly**.
+  * **GB-1 verified structurally rather than by reading**: an AST comparison with docstrings
+    stripped, `56cec05` vs HEAD, found **exactly two** code-level changes — the
+    `DRAW_OBJECT_UNBOUND_SITES` data and one assertion. No guard function added or altered, so "no
+    new mechanism" is a measured fact, not a promise.
+- [AC/EC/G gate] it judged the item-6 divergence as asked and **sided with the fix agent**, having
+  run the mutant itself: R1 (the `_titled` site moved into a new helper of the same module and form)
+  is KILLED where the per-module count it replaced would have passed, and the failure message proves
+  it — the sorted lists differ only in the function name while `pdf.py` still holds two `argument`
+  sites. Its verdict: declining the literal instruction to avoid asserting a limit that no longer
+  exists is the better of the two readings and must not be scored as non-compliance.
+- [Fix, gate notes] the gate raised two Minor wording notes and **one of them was a false claim this
+  pass itself introduced** — so I fixed both before the merge gate rather than carrying them, on the
+  grounds that merging a known-false sentence into the file whose subject is claims exceeding
+  mechanisms would be the wrong note to end on. `fb50a40` (rebased `1702b55`), loop still 548:
+  * The names-back comment claimed the equality catches a site "moved **or replaced** in the same
+    module and form". The gate's **mutant R2 SURVIVED**: an unbound site replaced by a different one
+    *inside the same function* leaves the triple unchanged. The comment now claims only what R1
+    proved, and states the residue with the reason it is not an open route.
+  * Mechanism 3's precondition was unstated — `_draw_object_bindings` reads **attribute-form**
+    `.Draw(...)` only. Its sibling got exactly this correction under item 3; the amendment named only
+    two sentences, so this one was inside the letter of the pass and outside its list.
+- [Merge gate] rebased cleanly onto main `09748b4`; 7 commits, 4 files. Running ALONE on a quiet
+  machine. ⚠ **My own slip, recorded:** clearing the worktree's synced review reports before the
+  rebase I used `rm -f meta/review/*.yml`, which globbed the whole **tracked** 251-file review
+  history rather than this card's three. `git checkout -- .` restored it before the rebase and both
+  trees verified at 251 files and clean — but the right command was a targeted pathspec, and the
+  only reason this was free is that the files were tracked.
