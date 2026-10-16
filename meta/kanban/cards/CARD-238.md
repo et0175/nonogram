@@ -14,8 +14,8 @@
 **Idea:** —
 **Wave:** 41
 **Depends on:** —
-**Touches:** tests/test_suite_profile.py
-**Review score:** 6.0 (cycle 1/3)
+**Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py
+**Review score:** 6.0 then 7.5 (cycle 2/3)
 **Started:** 2026-10-15T17:52:53Z
 **Closed:** —
 **Actual:** —
@@ -362,3 +362,132 @@ corpus is `random.Random`, not `hypothesis`.
   provably resolves its own root (MUT-2 passed with the sandbox log present and failed without it,
   impossible if it had reached the real repo). G-1 held by the reviewer too — log md5 identical.
   The deliberate deletion of "a profiling run ran most recently" was the **right** call.
+- [Scope] tests/test_suite_profile.py, meta/profiling/rank_durations.py
+- [Scope gate] `Touches:` AMENDED to add `meta/profiling/rank_durations.py` rather than letting the
+  gate read GROWN against a stale prediction. The prediction was written when AC-4's answer was
+  assumed to be "not legal"; the data split that answer, G-3 was amended to license the parser
+  branch, and `Touches:` is a prediction that should move with it. Recording the amendment instead
+  of silently tolerating a 50%-outside-footprint diff.
+- [Fix 2] FIXED all four gating findings plus six of the seven Minors (F-005 skipped by my
+  instruction, routed to the retrospective; F-010 declined under G-4 as needing a new tool surface).
+- [Fix 2] **Critical 1 fixed twice over, because the two defences fail differently:**
+  * the behavioural sandbox went from ONE class to the **whole module** — 132 of 132 pass inside
+    it, one node id deselected (the comparison itself, which would recurse). Worth recording how
+    that nearly went wrong: symlinking `tests/` wholesale silently hid `tests/helpers` and
+    `tests/property`, because `rglob` does not descend into a symlinked directory, and it broke
+    the frozen-render-set test. Mirroring per-file fixed it, and the module is written as a real
+    **copy** because a symlink would `resolve()` back to the real repo and defeat the isolation.
+  * the AST guard now **taint-tracks** module-level bindings (3 passes, so `STEM → NAME → PATHS`
+    settles) over literals, f-strings, `+`, `%`, tuples, dicts, slices, starred and comprehended
+    values, plus flat bans on `glob`/`rglob` and `iterdir`/`scandir`/`listdir` over a
+    `meta/kanban` receiver. A tainted name is followed only when its value *looks like a path*,
+    which is what stops the module's own fabricated-source corpora tainting themselves.
+  * the sandbox exemption is keyed on the join's **shape** (leftmost operand is a caller-supplied
+    parameter), not on the name `root` — and pinned by
+    `test_the_sandbox_exemption_turns_off_when_the_root_is_a_constant`, so it cannot be borrowed
+    by a future real read.
+- [Fix 2] MUT-3 and MUT-5 **both KILLED**, with the pre-fix survival reproduced first to prove the
+  mutants were the right ones: pre-fix `_live_log_references` returned `[]` for both path shapes
+  and `_skipif_decorators` returned `[]` for MUT-5's skip, with 15/15 guards green at rc=0.
+  Post-fix MUT-3 fails twice (the AST guard and the outcome comparison) and MUT-5 three times (the
+  guard, the skip detector, and the comparison). **MUT-5 is the original defect verbatim**, so the
+  card now demonstrably catches the thing it was written to prevent.
+- [Fix 2] evasion probes, measured not claimed: AC-1 **8/21 → 21/21**, AC-3 **1/6 → 6/6**, zero
+  false positives on 9 innocent controls. **Three forms remain missed and are disclosed rather
+  than hidden**: a path imported from another module, one read from an environment variable, and a
+  stem rebuilt at run time (`"gol.gnimit-etius"[::-1]`). The first two are outside what a
+  single-module AST walk can decide; the third is deliberate evasion, not a refactor. All three
+  are caught by the whole-module outcome comparison, and the docstring says so — which is the
+  right shape for a bounded claim.
+- [Fix 2] **Critical 2 fixed, and the regex shape is justified by measurement.** Chosen:
+  lazy `notes` + an optional trailing parenthesised `extra` group. Greedy `.*` cannot be rescued
+  by adding a group, and `[^)]*` would have turned real log lines 19 and 24 malformed — the
+  reviewer's own warning. The property that makes it safe was measured, not assumed: over **1759
+  constructed lines, 0 accept/reject differences**, so G-2's contract is not weakened by a single
+  case; only field assignment changes. Rate recovery **66/84 → 84/84** bracket-bearing accepted
+  lines.
+  Verified independently by me on the real line-19 text: `rate='159ms/test'`,
+  `notes='7053 passed, 9 skipped, 0 failed'`, the aside in `extra` — and **bare trailing prose is
+  still rejected**, so the illegal shape stayed illegal while the legal one gained its fields.
+  All four of AC-4's false or stale statements were corrected rather than dropped, including the
+  one that caused the whole error: **REAL_SHAPES' transcription of log line 24 had silently
+  dropped that line's trailing note**, which is what made "the ONE entry" look true.
+- [Fix 2] declarations: 8 FIXED lines, each with a DECLARATIONS line, and they name real
+  corrections — `notes`' MEANING changed (from "everything between the first `(` and the last `)`"
+  to "the first parenthesised note"), so the ranker's line contract, `parse_timing_line`'s
+  docstring, the class docstring's bare "proved structurally", the stale `TARGET` constant, and
+  the module docstring's false "shell out exactly once" were all corrected in the same fix.
+- [Fix 2] coverage up on every axis: module **105 → 132**, the live-log guard class **12 → 30**,
+  the sandbox class **3 → 11**, corpus mutants **1416 → 1580** with a tenth mutation and a
+  post-bracket branch (16 of 160 entries), and the seeded-field test now requires ≥10
+  rated-with-an-aside entries so that branch cannot silently vanish. Nothing removed.
+- [Fix 2] ⚑ self-reported, and the kind of disclosure that makes the rest credible: its first
+  attempt shipped a prefilter that short-circuited the directory-listing rule (which needs no
+  filename at all), it found that by probing its own widened guard, and pinned it with
+  `"listing the kanban directory, naming no log at all"` as a control. It also fixed a latent bug
+  in its own timeout handler (`TimeoutExpired.stdout` is `str` under `text=True`, so the original
+  `.decode` would have raised).
+- [Fix pre-gate] PASSED — the whole module under the lock: **132 passed**. Every test named across
+  the eight FIXED lines exists and passes; none was an invented name.
+- [Guard] G-1 CONFIRMED by me again after this cycle: md5 `fd3e799a4ea30862d8d8e03966ae9349`,
+  2802 bytes, mtime Oct 15 09:50. The agent reports it did not even READ the log this cycle —
+  every real shape came from cycle 1's transcription and the review's quotations.
+- [Review sync] 2 report(s) → meta/review/20261016T073645Z-CARD-238-cycle2.yml
+- [AC/EC check] AC-5's cycle-2 pair, recorded here because the reviewer correctly found it was
+  written nowhere — the card still carried cycle 1's numbers against a tree since changed by
+  +926/−131 and +27 tests, and AC-5's own clause says "record both runs":
+  * **Run A, worktree log PRESENT** (4-line dirty scratch: header, two good entries, CARD-217's
+    bare-trailing-prose line, one post-bracket parenthesised note):
+    `7279 passed, 9 skipped, 17035 warnings in 873.05s`, rc=0, wall 881s — clean.
+  * **Run B, same file ABSENT**: `7279 passed, 9 skipped, 17035 warnings in 947.36s`, rc=0,
+    wall **1988s** — the suspension signature.
+  * **Identical: 7279 / 0 failed / 9 skipped both ways.** The 9 are the host's own: 8 unset
+    `DATABASE_URL` (`tests/conftest.py:171`), 1 kernel-refused `setrlimit(RLIMIT_AS)`
+    (`tests/test_book_pdf_memory.py:1250`).
+  * Run B's gap is disclosed, not smoothed: the agent tried to redo it, the host went to **load
+    average 212–296** (Defender's `wdavdaemon_unprivileged` plus Spotlight `mds`), it added a load
+    gate (wait for 1-min load < 12) and could not get a second window.
+  **AC-5 judged SATISFIED on this evidence, and the reasoning is the reviewer's, not convenience:**
+  AC-5 asserts only that the counts match with the log present and absent, and a suspension is the
+  right *kind* of noise to discount because when it bites it bites LOUDLY, as `Page.goto: Timeout`
+  failures — exactly what cycle 1's first attempt showed and what run B did not. Had it mattered,
+  run B would have carried extra failures and the comparison would have come back unequal; the
+  failure mode runs in the direction that breaks the assertion. Burning another ~35 minutes of a
+  load-212 host to re-measure a number that cannot move would cost more than it buys.
+- [Review 2/3] Score: 7.5 — crit: 0, imp: **2**. **Both cycle-1 Criticals RESOLVED**, re-derived
+  at full depth by the reviewer's own mutants: MUT-3 and MUT-5 both die, and it built a harder one
+  (MUT-5 dressed in two plausible refactors at once) which dies too. 13 mutants executed.
+  G-2 was re-derived **analytically, not just empirically**: the reviewer built its own corpus —
+  32 adversarial shapes + 1,056 exhaustive suffix-grammar combinations + 40,000 seeded fuzz lines
+  = **41,088 lines, 0 accept/reject differences** — and then proved it is an identity rather than a
+  measurement: `L_old == L_new` exactly, because the new form always terminates in `)` when
+  `extra` is present, so the old greedy `notes` could always absorb the whole suffix. Lazy vs
+  greedy changes which match is found, never whether one exists. It also measured **fan-in zero**:
+  nothing in the repo reads `notes`/`rate`/`extra`, so the field-semantics change has no consumer
+  to break. The parser is finished and safe.
+- [Review 2/3] ⚑ **FAMILY, and I am naming it because it is now three for three: on this card, a
+  guard's STATED coverage has exceeded its ACTUAL coverage every single cycle.**
+  * cycle 1: AC-1's "so a future test that re-introduces the read fails" — false for 10 of 12 forms.
+  * cycle 2 finding #1: the fix's own residual-miss **disclosure** ("all three are caught by the
+    behavioural comparison") — **false, by executed mutant.** Three survived at 41 passed: the log
+    path constant placed in `meta/profiling/rank_durations.py` and read by a test; an env-var path
+    to a file that exists; a sibling module reached through the sandbox symlink. Mechanism:
+    `_build_sandbox` symlinks `meta/profiling` wholesale and `tests/` per file, so such a module's
+    `Path(__file__).resolve()` escapes **through** the link to the real repository — its outcome is
+    then invariant between the with-log and without-log sandboxes, and both `present == absent` and
+    `== {"PASSED"}` hold **vacuously**.
+  * cycle 2 finding #2: the skip detector's "All six forms are now reported" — false for
+    module-level `pytest.skip(..., allow_module_level=True)`, which silences the whole module
+    **including both guards** (pytest reports `found no collectors` for both guard classes) and on
+    a log-less host reads as `1 skipped, exit 0`. That is the fresh-worktree case that hid the
+    original defect, and it is the imperative twin of the `pytestmark` idiom cycle 1 had already
+    named as the worst of its five misses.
+  The aggravating detail in both: **the docstring now asserts the coverage the code lacks**, so the
+  file reads as having been hardened against exactly what still gets through. The first of the two
+  is a plausible refactor rather than evasion — `rank_durations.py` is now in this card's
+  `Touches:`, and the declined Option 2 (`--check-log`) would put the log's path constant precisely
+  there. Cycle-1's defect, one indirection out.
+  Per `review.family_regression`, this is **occurrence 1** of the family (cycle 1's findings had no
+  prior fix to attribute to). If cycle 3's review lands in it again the streak hits 2 and the card
+  escalates rather than taking a fourth cycle — and `max_cycles` is 3, so cycle 3 is the last one
+  available either way.

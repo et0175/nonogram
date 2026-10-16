@@ -1,0 +1,542 @@
+version: 1
+generated_at: "2026-10-16T07:36:45Z"
+target: "CARD-238 cycle 2 (confirmation) — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-238, branch card/238-timing-log-host-state, HEAD ee53986 + UNCOMMITTED fix delta; files tests/test_suite_profile.py and meta/profiling/rank_durations.py (+1038/-131 incl. the card)"
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "tests/test_suite_profile.py (full, 2008 lines, working tree)"
+    - "meta/profiling/rank_durations.py (full diff + parse_timing_line/timing_log_entries/malformed_timing_lines bodies)"
+    - "meta/kanban/cards/CARD-238.md (main-repo copy, amended G-3 and Touches)"
+    - "meta/review/20261016T032051Z-CARD-238-cycle1.yml (all 10 findings)"
+    - "tests/README.md 'Logging the run' (lines 332-344)"
+    - "meta/kanban/suite-timing.log (main repo, md5 only — never opened for content this cycle)"
+  not_reached:
+    - "skills/kanban/references/cmd-run.md (outside this repo; the writer AC-4 names)"
+    - "the full suite (deliberately not re-run; two pairs already recorded)"
+    - "the cycle-2 AC-5 run logs themselves (only the orchestrator's summary of them was available; they are not on the card)"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 1038, removed: 131 }
+  max_fan_in:
+    symbol: "ranker.parse_timing_line / timing_log_entries / malformed_timing_lines"
+    callers: 0
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: >
+      no_eligible_fact — measured, and the zero is real: a repo-wide grep over
+      *.py/*.md finds no caller of parse_timing_line, timing_log_entries,
+      malformed_timing_lines or TIMING_LOG_LINE outside
+      tests/test_suite_profile.py and rank_durations.py itself. The ranker's CLI
+      does not read the timing log. So the `notes` field's MEANING change (greedy
+      "first ( to last )" -> lazy "the first parenthesised note") has no code
+      consumer to break; only human readers of the log and the suite see it.
+    hotspots: >
+      no_eligible_fact — tests/test_suite_profile.py was created 2026-10-15 and
+      rank_durations.py 2026-10-15 (CARD-217). 4 commits in the 12-month window,
+      0 of them fix/bug/hotfix. No churn or defect-density signal exists yet.
+    cochange_missing: >
+      no_eligible_fact — the same 4-commit history. The co-change set over the
+      window is exactly {tests/test_suite_profile.py (4), rank_durations.py (2)},
+      both present in this diff, so there is no absent peer to name — but on a
+      one-day-old pair that is an artefact of the window, not a clean signal.
+
+system_contract:
+  rules_checked: 8
+  holds: 3
+  unchecked: 5
+  violated: 0
+  notes: >
+    NOTHING CARRIED from cycle 1. Intersection check, stated as required: the fix
+    delta touches tests/test_suite_profile.py and meta/profiling/rank_durations.py.
+    ADR-0038/R7 (scope pyproject.toml, tests/**) and ADR-0038/R8 (scope tests/**)
+    both intersect the delta -> not carriable. CON-005/009/010/011/012 are
+    scope: global, i.e. global-over-touched-territory -> not carriable (fail-closed).
+    ADR-0006/R1 is the card's own rule and the delta adds a new in-scope file
+    (rank_durations.py) -> re-derived. All 8 re-derived fresh this cycle.
+    Lens: system_rules.py --card CARD-238 --root meta/architecture --verify-refs,
+    run on this head. Diagnostics clean: unresolvable_scope [], scope_unmapped_model [],
+    dead_check_ref [], tooling_failure [], check_refs_verified true,
+    no_check [CON-004, CON-006, CON-007, CON-008, CON-013, CON-017, CON-018]
+    (those carry no check: and are not in the card's scoped set).
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — re-derived over the NEW scope. pyproject.toml is absent from the diff (`git diff --stat -- pyproject.toml` empty). The only genuinely new import in either file is stdlib `os` (tests/test_suite_profile.py); the one other `+from pathlib import Path` in the diff is inside the SANDBOX_CONTROL_MODULE source *string*, not an import of this module. meta/profiling/rank_durations.py's diff is comment + regex + docstring only — no import line. Checker run on this head: tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed and ::test_the_font_ships_as_package_data_and_not_as_a_dependency -> 2 passed. (Run with the real node ids; the TestDependencyBaseline_IsExactlyPillowAndNumpy alias collects zero and exits 0.)"
+    - "ADR-0038/R7 ✓ holds — pytest-playwright stays dev-only. No manifest file is in the diff (3 files: 2 code + the card), so project.dependencies and the admin extra cannot have changed; re-confirmed against the new file by reading rank_durations.py's diff, which adds no dependency of any kind."
+    - "ADR-0038/R8 ✓ holds — browser tests still fail/skip loudly. The diff adds no skip and no xfail anywhere and removes two skipifs. Re-derived against the widened machinery: _skipif_decorators is applied only to Path(__file__) (this module), never to the tree, so it cannot retarget a browser skip; _live_log_references now reads all 220 tracked tests/**/*.py but only reads them; and _run_module_in_sandbox runs exactly `tests/test_suite_profile.py` plus the control node, so no browser test executes in the sandbox. Evidence: tests/test_suite_profile.py -> 132 passed on this head with -rs reporting no new skips."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in the diff; rank_durations.py is a profiling script, not the solver, and the uniqueness property's neighbourhood is not entered."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server binding code in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-handling code in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size validation code in the diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard code in the diff."
+
+root_causes:
+  - id: RC-1
+    title: "Both widened guards are bounded by territory the comparison cannot reach, and the code states the opposite in writing"
+    finding_ids: [F-101, F-103, F-105]
+  - id: RC-2
+    title: "The silence detectors key on surface text, so one hoist out of the scanned scope turns them off"
+    finding_ids: [F-102, F-104, F-106]
+
+findings:
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/test_suite_profile.py
+    line: 1289
+    title: "The residual-miss disclosure is false: the whole-module comparison catches only couplings whose outcome varies with the SANDBOX log, and a plausible-refactor live-log read survives all 41 guard tests"
+    description: |
+      `_live_log_references`' docstring (lines 1287-1296) states of its three
+      disclosed misses: "All three are caught by the behavioural comparison in
+      :class:`TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog`, which judges
+      the whole module by outcome rather than by spelling". The class docstring
+      (lines 1739-1741) makes the same promise: "What it cannot see -- a path
+      assembled across modules, or read at run time -- is caught by outcome
+      instead, in the class below."
+
+      The orchestrator asked for that claim to be verified by mutation. It does
+      not hold. Three executed mutants, each reverted from a pre-captured copy
+      (md5 c97b27fbb2b25943a867af2136e61f52 / 1dab65e2e0d79581ef5dd48d971968fe
+      restored and verified after every one):
+
+        MUT-R  the log path constant defined in meta/profiling/rank_durations.py
+               (`LIVE_TIMING_LOG = Path(__file__).resolve().parents[2] / "meta"
+               / "kanban" / "suite-timing.log"`), read by a test as
+               `ranker.timing_log_entries(ranker.LIVE_TIMING_LOG.read_text())`,
+               on a host where the log exists   -> SURVIVED, 41 passed
+        D2b    `Path(os.environ.get("CARD238_MUT_LOG", ...))` pointing at a file
+               that exists (the disclosed env-var miss)  -> SURVIVED, 41 passed
+        D1c    a sibling module under tests/ reached through the sandbox's
+               per-file symlink, reading `REPO_ROOT / "pyproject.toml"` where
+               REPO_ROOT = Path(__file__).resolve().parent.parent
+                                                          -> SURVIVED, 41 passed
+
+      D1c is the mechanism and it generalises: `_build_sandbox` mirrors `tests/`
+      as symlinks and symlinks `meta/profiling` wholesale, so ANY module reached
+      that way has `Path(__file__).resolve()` resolve through the link to the REAL
+      repository. Its paths therefore point at the real tree, its outcome does not
+      change between the with-log and without-log sandboxes, and
+      `present == absent` plus `set(present.values()) == {"PASSED"}` both hold
+      vacuously. MUT-R is that mechanism carrying the card's actual defect: a test
+      asserting on the live log, red on a machine without it and green on one with
+      it — CARD-234-green-at-11-skips vs CARD-235-red-at-9 restored verbatim —
+      with every guard green.
+
+      MUT-R is a plausible refactor, not deliberate evasion. The test module
+      already loads the ranker (`_load_ranker()` / `ranker.*`), the card's own
+      declined Option 2 is "a `rank_durations.py --check-log` subcommand", and
+      `meta/profiling/rank_durations.py` is now in this card's `Touches:` — so the
+      log path constant landing there is the single most likely next move. The AST
+      guard cannot see it because `_test_sources()` walks `tests/` only; the
+      comparison cannot see it because `meta/profiling` is symlinked.
+
+      This is cycle 1's F-001 one indirection further out, with the aggravating
+      difference that the code now asserts in writing that the case is covered. A
+      disclosed gap is a bounded claim; a gap the docstring says is closed is not.
+    suggestion: |
+      Any one of these closes it; the first makes the disclosure true as written.
+        1. Copy `meta/profiling` into the sandbox instead of symlinking it (and
+           copy, not symlink, any `tests/` file the module imports), so a
+           cross-module path resolves the SANDBOX root and its outcome does flip
+           with the log. Then add MUT-R as a positive control: a fabricated module
+           outside `tests/` whose outcome must be PASSED with the log and FAILED
+           without, exactly as SANDBOX_CONTROL_MODULE already does for `tests/`.
+        2. Widen `_test_sources()` to the tracked `*.py` under `meta/profiling/`
+           as well as `tests/` — one line, and it catches MUT-R structurally.
+        3. If neither is wanted, correct both docstrings to what is true: the
+           comparison catches a coupling only when its outcome changes with the
+           sandbox log, so a path that resolves the real repository root from
+           outside `tests/` is caught by NEITHER guard. State it, and the claim
+           becomes honest again.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1395
+    title: "A module-level pytest.skip(allow_module_level=True) on the log silences the whole module including both guards, and neither guard sees it"
+    description: |
+      `_skipif_decorators`' docstring claims "All six forms are now reported" and
+      names its two remaining limits (a helper that skips; a skip keyed on an
+      environment variable). It misses a third, which is pytest's own documented
+      imperative module-skip and the exact twin of the `pytestmark` form cycle 1
+      called the worst of the five (F-003):
+
+        MUT_TIMING_LOG = REPO_ROOT / "meta" / "kanban" / "suite-timing.log"
+        if not MUT_TIMING_LOG.exists():
+            pytest.skip("the whole module goes quiet", allow_module_level=True)
+
+      Executed as a mutant (reverted, md5 verified): pytest reports
+      `ERROR: found no collectors for ...::TestSuiteTiming_NoTestReadsTheLiveLog`
+      and the same for `...::TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog`
+      — the module is skipped wholesale before either guard is collected. Run as
+      `pytest tests/test_suite_profile.py` on a host without the log (the common
+      case in a fresh worktree, and the precise condition that hid the original
+      defect) it reports 1 skipped and exits 0.
+
+      Why the detector misses it: `silences_itself` is applied only to the bodies
+      of `FunctionDef`s whose name starts with `test`, and the `pytestmark` branch
+      matches only an `Assign`/`AnnAssign` to the name `pytestmark`. A bare
+      module-scope `if ...: pytest.skip(...)` is neither. And the behavioural half
+      cannot help: when the module self-silences, the comparison test is one of
+      the tests that never runs. The path literal in the mutant IS flagged by
+      `_live_log_references`, but the test that would report it is not collected —
+      a module-level skip sits above every guard inside the module.
+
+      This is the F-003 defect class left half-closed while the docstring declares
+      it closed, which is why it is not a Minor: cycle 1's reasoning for
+      `pytestmark` ("it is how pytest documents skipping a whole module, it would
+      silence every test in the file, and the guard test would itself be one of
+      the silenced tests") is true of this form word for word.
+    suggestion: |
+      Add a module-scope pass to `_skipif_decorators`: walk `tree.body` for an
+      `ast.If` whose test matches `_HOST_STATE_PROBE` and whose body reaches a
+      `skip(...)` call (the existing `silences_itself` logic, applied at module
+      scope and reported as `("<module>", condition)`), and flag any
+      `skip(..., allow_module_level=True)` under a host-state condition regardless
+      of nesting. Add the form to `HOST_STATE_SILENCES` as a positive control so
+      the widening is itself tested, and add the matching negative — a
+      module-level skip on something that is not host state — to `NOT_HOST_STATE`.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: medium
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 1700
+    title: "F-008's host dependence was moved into the behavioural guard, not removed: the sandbox falls back to rglob and re-admits untracked files"
+    description: |
+      `_test_sources()` now lists tracked files via `git ls-files -z -- tests`,
+      which fixes F-008 for the direct guard. It falls back to
+      `TESTS_DIR.rglob("*.py")` when git cannot answer — and the sandbox is
+      exactly that case, so the fallback is not a rare path but the one the
+      behavioural guard always takes.
+
+      Verified: `git ls-files` outside a checkout returns rc=128 (measured in
+      /private/tmp), so inside the sandbox `_test_sources()` always falls back to
+      the walk; and `_build_sandbox` mirrors `TESTS_DIR.rglob("*")`, i.e.
+      everything on disk including untracked files. Measured end to end: an
+      untracked `tests/scratch_check_log.py` containing
+
+        REPO_ROOT = Path(__file__).resolve().parent.parent
+        LOG = REPO_ROOT / "meta" / "kanban" / "suite-timing.log"
+
+      leaves `test_no_test_module_reaches_for_the_live_log` GREEN (git ls-files
+      does not list it) and turns
+      `test_the_outcomes_are_identical_with_and_without_the_log` RED. So the gate
+      still flips on a gitignored file that is not in the repo — the same class
+      this card removes — just one test over from where cycle 1 found it.
+
+      Medium rather than high for the reason cycle 1 gave F-008: the failure
+      direction is loud (red, with the sandbox output attached) rather than silent.
+      But the failing test is now the module's most expensive one and the message
+      points at a sandbox outcome diff, not at the scratch file, so the diagnosis
+      is considerably worse than before.
+    suggestion: |
+      Make the sandbox's file set explicit instead of inheriting the disk: mirror
+      only the files `git ls-files -- tests` lists (computed in the parent, where
+      git does work, and passed into `_build_sandbox`), or write a
+      `.card238-tracked` manifest into the sandbox and have `_test_sources()`
+      prefer it over the rglob fallback. Either way the two guards then judge the
+      same, repo-determined set of files.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 1123
+    title: "The directory-listing rule false-positives on any receiver whose text merely contains 'meta' and 'kanban' — including a plausible future test over meta/kanban/cards"
+    description: |
+      The `_LISTERS` branch fires when `"meta" in receiver and "kanban" in
+      receiver` and needs no filename at all (deliberate — that is what pins the
+      "listing the kanban directory, naming no log" control). But the receiver test
+      is a substring test on unparsed text and does not require the directory to BE
+      `meta/kanban`, and unlike the glob branch it has no `.log` filter. Measured:
+
+        NAMES = sorted(p.name for p in (REPO_ROOT / "meta" / "kanban" / "cards").iterdir())
+          -> ['iterdir() of meta/kanban']        FALSE POSITIVE
+
+      while the glob equivalent over the same directory is correctly clean:
+
+        CARDS = sorted((REPO_ROOT / "meta" / "kanban" / "cards").glob("*.md"))
+          -> []                                  clean
+
+      This repo is full of kanban-card tooling, so a future test that walks
+      `meta/kanban/cards/` — a card-registry consistency test, say — would be
+      reported as a live-log read with a message telling the author to assert the
+      log format against constructed entries. 9 of my 10 other innocent controls
+      came back clean, including the real sandbox helper shape, an unrelated `.log`
+      under `meta/profiling`, a `meta/kanban/board.md` read, and a name appearing
+      only in an assertion message — so the resolver's false-positive rate is
+      otherwise good and this is one rule, not a general over-approximation.
+    suggestion: |
+      Require the receiver to resolve to the kanban directory itself rather than to
+      contain both words: compare the unparsed receiver against the known join
+      shapes (`.../ "meta" / "kanban"`, `"meta/kanban"`) and exclude a receiver that
+      appends a further component. Add the `cards` listing to INNOCENT_MENTIONS as
+      the negative control.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-105
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1200
+    title: "Four more single-module bindings the taint tracker does not resolve, one of them a literal written directly in the join"
+    description: |
+      Probed as a pure function against 12 evasions of my own (beyond the fix's 21
+      controls and 3 disclosed misses). 7 were caught, including the ones that
+      matter most — a function-local assignment, an augmented assignment, a
+      SimpleNamespace attribute, `str.join` of tainted parts, a default-valued
+      `root` parameter, `with_suffix`, and a fixture. Five were missed; one is
+      F-101's exemption case, and these four are the rest:
+
+        MISSED  OTHER, NAME = "x.txt", "suite-timing.log"   (tuple-unpacking target)
+        MISSED  REPO_ROOT / "meta" / "kanban" / (n := "suite-timing.log")   (walrus)
+        MISSED  for name in NAMES: ... / name               (for-loop target)
+        MISSED  class Paths: LOG = "..."  then Path(Paths.LOG)   (class attribute)
+
+      Causes: `_tainted_names` only binds `ast.Name`/`ast.Attribute` targets of
+      `Assign`/`AnnAssign` (so a `Tuple` target and a `for` target bind nothing),
+      `_string_values` has no `ast.NamedExpr` arm, and a class-body assignment is
+      keyed as `LOG` while the use site unparses to `Paths.LOG`.
+
+      The walrus case contradicts a specific sentence in `_is_pathish`' docstring:
+      "A literal written directly where a path is used is flagged either way." It
+      is not — one wrapper node is enough. Low severity because all four die on
+      the behavioural comparison (verified by executing the class-attribute form:
+      KILLED on outcome divergence), so no mutant among them survives; the defect
+      is the over-stated sentence plus four cheap gaps in a resolver whose whole
+      point is that one-step refactors do not get through.
+    suggestion: |
+      Four small additions to `_tainted_names`/`_string_values`: bind `ast.Tuple`
+      targets element-wise (and `ast.Starred` within them), bind `ast.For` targets
+      from `_string_values(node.iter)`, add an `ast.NamedExpr` arm returning
+      `_string_values(node.value)`, and key a class-body assignment under both
+      `LOG` and `<ClassName>.LOG`. Add all four to REINTRODUCTIONS, and either fix
+      or soften the "flagged either way" sentence.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-106
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 1376
+    title: "_skipif_decorators reports every conditional skip, not host-state ones, and misses a skip gated on a hoisted exists() flag"
+    description: |
+      Two opposite inaccuracies in the same function, both measured, both Minor
+      because the module's own assertion is `declared == []` and the path half of
+      the coupling is caught elsewhere.
+
+      Over-reporting. `conditions_in` reports EVERY `skipif`/conditional-`xfail`
+      condition it finds; `_HOST_STATE_PROBE` is applied only to in-body skips and
+      early returns. Measured: `@pytest.mark.skipif(sys.platform == 'win32',
+      reason="posix only")` -> `[('test_x', "sys.platform == 'win32'")]`. So the
+      function name, its docstring ("for every host-state silence") and the test
+      name `test_no_test_in_this_module_skips_on_host_state` all over-claim: what
+      is really enforced is "this module carries no conditional skip at all".
+      Harmless today and arguably the safer rule, but it bans a legitimate future
+      platform or DATABASE_URL skip here under a message about host state, and
+      `NOT_HOST_STATE` carries no decorator-level negative control for it.
+
+      Under-reporting. Hoisting the probe out of the condition turns it off:
+
+        _MUT_HAVE = MUT_TIMING_LOG.exists()
+        def test_x():
+            if not _MUT_HAVE:
+                pytest.skip("not here")
+
+        -> _skipif_decorators(...) == []        MISSED
+
+      That is cycle 1's decisive miss (hoisting a name past a text-level test) one
+      layer over, and it is not among the two limits the docstring discloses. The
+      full mutant dies — the AST guard catches the path literal and the outcomes
+      diverge — so the skip half alone is Minor; but combined with F-101's exempt
+      path shape it is one half of a coupling that no structural guard sees.
+    suggestion: |
+      Resolve names before judging the condition, the way `_live_log_references`
+      now does: taint module-level names bound to a value whose source text matches
+      `_HOST_STATE_PROBE`, and treat a condition mentioning such a name as host
+      state. Separately, either apply `_HOST_STATE_PROBE` to decorator conditions
+      too and rename nothing, or keep the stricter rule and rename the function and
+      the test to what they enforce ("no conditional skip in this module"), adding
+      a platform-skipif case to NOT_HOST_STATE in the first case.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-107
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-238.md
+    line: 283
+    title: "AC-5's cycle-2 pair is not recorded anywhere; the card still carries the cycle-1 pair against a tree that has since changed by +926/-131"
+    description: |
+      AC-5 requires "Record both runs". The card's `**AC-5 — two full suites,
+      locked and solo, on the final tree.**` section (main-repo copy, line 283;
+      worktree copy identical) records the CYCLE-1 pair: 7252 passed / 9 skipped /
+      0 failed, 1007.06s present and 1195.32s absent. The cycle-2 pair the
+      orchestrator describes — run A 881s wall / 873s pytest, run B 1988s wall /
+      947s pytest, 7279 passed / 9 skipped / 0 failed both ways, the load gate, the
+      failed second attempt at run B — appears nowhere in the card, in either copy
+      (`grep -n 7279|1988|947s|881s|load aver` -> no hits).
+
+      The recorded pair therefore describes the pre-fix tree. The fix added 27
+      tests to this module alone (105 -> 132) and one test that launches two whole
+      pytest sessions, so the +27 and the ~9s are exactly the delta an AC-5 record
+      is supposed to pin. Substantively AC-5 is satisfied (see the verdict); what is
+      missing is the evidence clause.
+    suggestion: |
+      Write the cycle-2 pair into the AC-5 section before merge, with the wall-vs-
+      pytest split for run B stated as the agent disclosed it and the reasoning for
+      accepting it (the counts are what AC-5 compares; a suspension inflates wall
+      clock and, when it does bite, bites as loud browser timeouts, of which run B
+      had none). Keep the cycle-1 pair below it as the pre-fix baseline.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-108
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_suite_profile.py
+    line: 611
+    title: "The seeded generator excludes parentheses from notes by design, so the one field case where lazy and greedy notes could diverge is outside the 1,589-line corpus"
+    description: |
+      Informational, not charged: I verified there is no divergence to find. The
+      generator's comment is explicit — "Notes deliberately exclude parentheses and
+      brackets" — which is right for the mutation scheme, but it means no corpus
+      line puts a `)` inside `notes`, and that is the only place where the greedy
+      -> lazy change could in principle assign a different `notes`. My own probe
+      settles it: on `(7000 passed (whoa), 0 failed) [159ms/test] (an aside)` the
+      lazy group backtracks to the same `notes` the greedy one produced, because
+      the trailing anchors force it. The field-level assertions in
+      `test_every_seeded_entry_parses_and_yields_back_its_own_fields` are also
+      substring/suffix tests (`f"({entry['notes']})" in line`), which would not
+      discriminate a wrong-but-contained `notes` — again moot for this corpus, but
+      worth knowing if the generator is ever widened.
+    suggestion: "If the generator is widened to put a `)` inside a note, tighten those assertions from `in` to an index-anchored comparison at the same time."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-109
+    severity: info
+    category: tech-debt
+    type: gap
+    file: meta/profiling/rank_durations.py
+    line: 149
+    title: "Out of scope: tests/README.md's documented line format does not mention the now-legal trailing note, and the AC-4 comment cites it as the authority"
+    description: |
+      Noted, not charged — tests/README.md is outside this card's `Touches:` and
+      G-4 scopes the card to the two files reviewed. tests/README.md:334-343
+      documents the format as a single example line with no trailing-note form and
+      says "Its line format is pinned by `TIMING_LOG_LINE` in `rank_durations.py`
+      and tested, so keep to it." `test_the_trailing_prose_shape_is_not_legal`'s
+      comment then cites that README, together with
+      skills/kanban/references/cmd-run.md, as the writer-facing authority for the
+      ruling. After this card the format has a third legal element (`extra`), so
+      the README is now the narrower of the two documents it is cited as agreeing
+      with. The ranker's own line-contract comment (lines 131-145) is correct and
+      complete; this is only the downstream copy.
+    suggestion: "Follow-up: add the `(...) [Nms/test] (...)` shape to tests/README.md's 'Logging the run' example and to cmd-run.md's SUITE TIMING step, which is also the one place that would stop the next bare-trailing-prose line being written."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-110
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/profiling/rank_durations.py
+    line: 391
+    title: "Out of scope, carried from cycle 1 (F-010): still nothing in the repo will notice a new malformed line in the live log"
+    description: |
+      Unchanged by this fix and correctly so. The deliberate check Option 2
+      describes — a `rank_durations.py --check-log <path>` subcommand, or a
+      /forge:ci step — remains the successor to the capability CARD-238 removed,
+      and it is now more clearly worth opening: this cycle's parser work proves the
+      log accumulates shapes the parser mis-reads, and nothing standing will report
+      the next one. The relevance to F-101 is worth flagging: if that subcommand
+      lands, the natural place for the log's path constant is rank_durations.py,
+      which is precisely MUT-R.
+    suggestion: "Open the follow-up card, and when it lands make sure F-101's remedy is already in place so the new constant does not reopen the hole."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

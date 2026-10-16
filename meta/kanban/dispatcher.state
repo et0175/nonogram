@@ -9,7 +9,8 @@ mode: interactive
 max_concurrent_override: 2
 active:
   - id: CARD-238
-    phase: implementation
+    phase: review
+    review_cycle: 1
     branch: card/238-timing-log-host-state
     worktree: ../PythonProject4-card-238
     started: 2026-10-15T17:52:53Z
