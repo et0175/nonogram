@@ -491,3 +491,72 @@ corpus is `random.Random`, not `hypothesis`.
   prior fix to attribute to). If cycle 3's review lands in it again the streak hits 2 and the card
   escalates rather than taking a fourth cycle — and `max_cycles` is 3, so cycle 3 is the last one
   available either way.
+- [Fix 3] All four gating findings fixed plus four Minors, and **the family's root cause is fixed
+  structurally rather than instance by instance.** The limits are now held as CONTROLS
+  (`MEASURED_STRUCTURAL_MISSES`, asserting the known misses are still misses) instead of as
+  prose, with the reason written in the file: *"a sentence cannot go red when it stops being
+  true, and on this card a stated coverage outran the real one three review cycles running."*
+  That is the correct response to the family — a claim that can rot was replaced by a claim that
+  fails when it rots.
+  Verified by me: **both false sentences are gone (0 grep hits)**, and the three surviving
+  "all of them" matches are legitimate — a transcribed log entry, a comment about dict/slice/
+  walrus forms, and a historical note recording the old wording as corrected.
+- [Fix 3] F-107 — **AC-5's cycle-3 pair, recorded here because it is outside G-4 and therefore
+  mine to write.** Both runs on the frozen tree `75cd1e98e03e19045a6bc83e41de7498`, under the
+  lock, solo, `caffeinate -i`, each gated on 1-minute load < 12:
+  * **log PRESENT**: `7295 passed, 9 skipped, 0 failed`, rc=0, pytest 1034.64s, wall 1040s —
+    **gap 5.4s**, load 3.45 at the gate.
+  * **log ABSENT**: `7295 passed, 9 skipped, 0 failed`, rc=0, pytest 1096.64s, wall 1101s —
+    **gap 4.4s**, load 3.94 at the gate.
+  * Identical counts AND identical skip reasons (8 × unset `DATABASE_URL`, 1 × kernel-refused
+    `setrlimit(RLIMIT_AS)`). **Both windows clean — no suspension disclosure needed this time**,
+    unlike cycle 2's run B at 1988s wall against 947s pytest.
+  Cycle 1's pair (7252/9) and cycle 2's (7279/9) stand above as the pre-fix baselines; the count
+  rises with each cycle's added tests, which is the expected direction.
+- [Fix 3] the four kills, each re-run against the final file and reverted from a pre-captured copy
+  with md5 verified:
+  * **MUT-R** (the plausible-refactor one: log path constant in `rank_durations.py`, read by a
+    test) — **KILLED by BOTH halves.** Structurally because `_test_sources` became
+    `_guarded_sources` over `("tests", "meta/profiling")`, so the AST walk now sees the territory
+    the defect was planted in; behaviourally with a `PASSED` vs `FAILED` divergence — **and that
+    divergence IS the host-with-log case**, because the with-log sandbox is such a host. The
+    CARD-234-green/CARD-235-red flip is now visible instead of vacuous.
+  * **D1c** (sibling module resolving the real repo through the mirror) — **KILLED**, because
+    `_build_sandbox` no longer symlinks: every `*.py` is a byte copy and every directory is
+    created, so no module's `Path(__file__).resolve()` escapes. Verified both tracked and
+    untracked, identical verdict.
+  * **the module-level `allow_module_level=True` skip** — **KILLED by both halves** where the
+    probe resolves to something present, and the comparison catches a self-silencing module via
+    `len(present) >= 100`. **One limit stated rather than papered over:** the verbatim mutant
+    keyed on the live log, run in a log-less worktree, silences its own module before any guard
+    in it is collected. That is irreducible from inside one module — the comparison is itself one
+    of the silenced tests — and it is now written as a limit in both docstrings.
+  * **the exemption abuse** (`_log_under(REPO_ROOT)`) — structurally **NOT** caught, behaviourally
+    **KILLED**, and stated in exactly those terms with the condition attached ("only while the
+    helper is in a mirrored module").
+- [Fix 3] ⚑ **The discipline test, and it passed.** Probing the env-var form two ways gave a split
+  verdict, and the agent reported the half that **survived**: the shape a refactor actually
+  produces (default spelled out in the source) is KILLED by both halves, but
+  `Path(os.environ["..."])` with nothing named in the source **SURVIVED — 149 passed, nothing
+  red**. An absolute path does not vary with the sandbox root and the source holds no literal to
+  resolve. It is pinned as a control and written as *"NOT killed, by either half"* with the
+  measurement. **An agent finding a hole in its own fix and documenting it as a hole is precisely
+  what the previous two cycles failed to do.**
+  Nine residuals are listed, each pinned by a control or written as a limit, and R4 is explicitly
+  labelled **"reasoned, not measured"** because measuring it would need `src/**`, which G-5
+  forbids — a distinction the earlier cycles collapsed.
+- [Fix 3] G-2: tests **132 → 148**; positive controls 21 → 25; negative 6 → 7; conditional-silence
+  controls 5 → 9; the AC-1 walk now covers 221 sources across two trees instead of 220 across one;
+  controls running inside the sandbox 1 → 2. **Nothing removed.** Verified green by me: 148 passed.
+- [Fix 3] G-1 CONFIRMED again at every checkpoint: md5 `fd3e799a4ea30862d8d8e03966ae9349`, 2802
+  bytes, mtime Oct 15 09:50. AC-5's "present" leg used a **fabricated** log at the *worktree*
+  path, clearly labelled as agent-written, removed before run B and gone now.
+  G-3 CONFIRMED: `rank_durations.py` is **byte-identical to cycle 2** — the parser was not
+  reopened.
+- [Fix 3] two process disclosures, both volunteered: it **killed a first attempt at the AC-5 pair**
+  because it had refined a docstring 60s in, and re-ran both suites from scratch against the
+  frozen file rather than report a pair taken on a mid-edit tree — the same provenance discipline
+  I had to enforce by hand on CARD-237, now applied unprompted. And its first red run flagged
+  **its own new fabricated source** as a live-log read, because the source was an inline call
+  argument naming the log: "the module was its own first offender", fixed by binding it to a
+  constant.
