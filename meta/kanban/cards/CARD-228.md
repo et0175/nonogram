@@ -15,7 +15,7 @@
 **Wave:** 42
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_book_interior_type_floor.py
-**Review score:** 8.0 (cycle 1/3 — meets min_score 8, 0 critical, 2 important; severity gate open)
+**Review score:** 8.0 (cycle 1) → 8.5 (cycle 2/3 — min_improvement met; severity gate still FAILS on one new Important IN THE FIX)
 **Started:** 2026-10-16T17:04:17Z
 **Closed:** —
 **Actual:** —
@@ -434,3 +434,57 @@ beside CON-020's floor.
 - [Fix 1] applied as `b3ba400`, all 7 findings marked fixed, loop 198 green (was 186). **And the fix agent found a premise in MY brief false, checked it, and refused the instruction — which is what I asked for and the right call.** Cycle 1's report said moving `polygon`/`point` into ROUND_ENOUGH was "free" because the file asserts they are called nowhere; I propagated that into the fix brief without checking it. It is wrong, and I have now confirmed it myself: `draw.polygon` is called at book_pdf_generator.py:1895 (the proof sheet's arrow head) and `.point(` twice in sourcing/image.py (as `Image.point`, a pixel value map the old walk could not tell from a draw call). Moving either would have reddened a test on honest code, and the only way to 'fix' that would have been to weaken the assertion. Only `bitmap` moved for free; the other two got a real mechanism (VERTEX_BOUNDED_METHODS held to MAX_FLAT_VERTICES, with an uncountable vertex list treated as a FAILURE rather than a pass, so the blind spot announces itself).
 - [Fix 1] the agent also closed the `text` route WIDER than I asked, with a reason I accept: my suggested form — no `draw.text` call passing a dingbat string literal — would **not** catch CARD-207, because its header string is built at the caller and handed to `_set_band`, so no literal sits anywhere near a `draw.text` call. The shipped rule is that no string literal anywhere in src/nonogram/ holds a ROUND_DINGBATS codepoint, and its caught-control covers the f-string-at-the-caller form specifically. I verified the exemption's shape myself: `DINGBAT_EXEMPT_MODULES` is held to an **equality** against the modules actually carrying such a codepoint, and the one exempt module is additionally asserted to make no draw call and contain no `ImageDraw` — so the exemption cannot grow to cover a module that draws, nor outlive its reason. That is CARD-238's promoted pattern applied correctly rather than cited.
 - [Review 2/3] dispatched as ADVERSARIAL verification of the fix, not a fresh review. The fix introduced three new sets and three new claims (VERTEX_BOUNDED_METHODS, `_is_draw_receiver`, ROUND_DINGBATS + its exemption), and CARD-238 needed five cycles precisely because four of them fixed the named instances while minting the next cycle's finding in the same mechanism. The reviewer was told that checking for exactly that is the whole assignment, pointed at the specific holes worth probing (an uncountable vertex list passing silently; whether `_is_draw_receiver`'s completeness test fails on a NEW receiver spelling or only on a changed known one; whether `_dingbat_literals` sees f-string format specs, implicit concatenation, `chr()` and module-level constants later interpolated), and told explicitly NOT to treat cycle 1's report as ground truth, since it contained a factual error that propagated into the fix brief.
+- [Review 2/3] **score 8.5** (8.0 → 8.5, min_improvement 0.5 met). Severity gate **FAILS**: one new
+  Important finding, and it is **in the fix itself** — the CARD-238 family-regression shape I had
+  the reviewer looking for. Surfacing it at cycle 2 instead of cycle 5 is the whole value of that
+  brief. Report synced: meta/review/20261016T184513Z-CARD-228-cycle2.yml.
+- [Review 2/3] cycle 1's seven findings: **six CLOSED by execution**, one partially. F-002's four
+  refusals each red when disabled (all four survived in cycle 1). F-003's **0.45 is now RED** — the
+  cycle-1 survivor is dead, killed by a measurement independent of the constant. F-004 red on revert,
+  and the reviewer verified G-5 more strongly than the fix's own corpus argument: `__post_init__` is
+  reachable only through `difficulty_dots()`, whose only caller is `_draw_difficulty_dots`, which has
+  zero callers — so the tightened bound cannot reach a rendered page **by construction**, not merely
+  because no corpus row touched. F-006 lost nothing (a typo reddens two tests). F-001 went 1 guarded
+  route → 4, all four controls firing.
+- [Review 2/3] **the new Important (F-101): two of the four limits the widened guard states about
+  itself are FALSE, and a second dot glyph still lands with 198 green by two spellings.**
+  * `draw.polygon([*points], fill=INK)` with a 32-point comprehension **SURVIVES** — `[*points]`
+    parses to an `ast.List` whose `elts` is a single `ast.Starred`, so the literal check passes and
+    `len(elts) == 1 <= MAX_FLAT_VERTICES`. That is cycle 1's 32-gon mutant on the canonical `draw`
+    receiver, **two characters** from the form the guard catches. Worse than a plain blind spot
+    because **the guard teaches the evasion**: its own assertion message says "vertices this guard
+    cannot count", and wrapping the name in a literal list is the cheapest way to silence it.
+  * `canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)` + a 9-gon **SURVIVES** — `ast.AnnAssign`
+    is not collected, and that annotated form is the *more* idiomatic spelling in this codebase (all
+    13 draw params are annotated, `from __future__ import annotations` is on). An unannotated
+    parameter taking the real draw object also survives.
+  * **Root cause RC-1, and it is the part worth carrying:** the guards discriminate by syntactic
+    **form**, and their completeness tests enumerate only the forms in current use — so a new
+    spelling evades the guard **and its completeness test together**. That is a sharper statement of
+    the family than wave 41 reached, and it generalises: a completeness test over a hand-enumerated
+    set of *syntactic shapes* is not a completeness test, because the space of shapes has no
+    authority to derive from the way `dir(os)` served CARD-238.
+- [Review 2/3] bound on F-101 that keeps it Important rather than Critical, and the reviewer stated
+  it unprompted: the hole is **confined to the vertex route**. `_round_mark_sites` ignores the
+  receiver, so a circle drawn as a circle is caught under any spelling (verified: `draw.ellipse`
+  killed), and the dingbat route is receiver-agnostic. Nothing renders a dot today (G-5), so this is
+  an unverified **future** constraint on four unbuilt cards, not a live defect.
+- [Review 2/3] the dingbat rule came out **wider than I expected and its claim matches its
+  mechanism**: f-string *format specs* (`f"{word:●^12}"`), implicit concatenation and `\u` escapes
+  are all caught, and both red paths also fire the exemption equality, so that equality is
+  load-bearing. Two non-literal routes survive (`chr(0x25CF)`, a decoded bytes literal) and the
+  test's own sentence is exact about being about *string literals* — so claim ⇐ mechanism holds
+  there. What is missing is only symmetry of honesty: the class docstring lists four limits and
+  omits the computed-string route while documenting the vertex analogue (F-102).
+- [Review 2/3] the reviewer **re-derived the refusal of my own false premise independently**, rather
+  than trusting either side: its own AST scan of every receiver of a Pillow draw-method name across
+  src/nonogram/ returns exactly `draw` (48 calls), one inline `ImageDraw.Draw(probe)`, and
+  `greyscale`/`scaled` in sourcing/image.py. `draw.polygon` is real at book_pdf_generator.py:1895.
+  Cycle 1's suggestion was wrong and the fix agent was right to refuse it — now confirmed by three
+  independent checks (the fix agent's, mine, and the reviewer's).
+- [Review 2/3] OWED AT THE ARCHITECT STATION, new: the package-wide dingbat constraint is undeclared
+  outside the test file. It is now a standing rule on **every** string literal in src/nonogram/,
+  docstrings included, over all of U+25A0-U+25FF — and the exemption cannot absorb a legitimate prose
+  need in a module that draws, because its second half asserts no draw call and no `ImageDraw`. The
+  reviewer judged the practical hit rate low (box-drawing and block elements are outside the range)
+  and accepted it; the objection is that it should not be undeclared. Belongs in ADR-0036 or the card.

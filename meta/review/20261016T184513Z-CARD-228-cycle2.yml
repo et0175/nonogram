@@ -1,0 +1,382 @@
+version: 1
+generated_at: "2026-10-16T18:45:00Z"
+target: "card/228-difficulty-dots @ b3ba400 (confirmation cycle over the fix delta df66445..b3ba400 touching src/nonogram/export/layout.py +25/-14 and tests/test_book_difficulty_dots.py; card diff main...HEAD = 4 files, +2125/-1)"
+overall_score: 8.5
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"   # /Users/omelnikova/MyProjects/forge_1/.claude-plugin/plugin.json is unreadable/absent here; no version field obtainable
+
+mode: confirmation            # cycle 2 of max 3; unit of review is the fix delta, not the whole card
+
+coverage:
+  read:
+    - "git show b3ba400 (both files, in full)"
+    - "tests/test_book_difficulty_dots.py lines 559-1320 (the five new sets, the four new helpers, the whole AC-4 class, the AC-5 docstring) and 1416-1560 (the new refusal tests)"
+    - "src/nonogram/export/layout.py lines 1240-1400 (the ratios, the whole __post_init__, difficulty_dots)"
+    - "meta/kanban/cards/CARD-228.md in full, including the uncommitted cycle-1 fix notes"
+    - "meta/review/20261016T181040Z-CARD-228-cycle1.yml in full"
+    - "src/nonogram/admin/pdf_generator.py (the exempt module's three bullets, its ImageDraw-free surface)"
+    - "src/nonogram/sourcing/image.py:456,893 (the two Image.point calls) and src/nonogram/admin/book_pdf_generator.py:1895 (the one draw.polygon call)"
+    - "an independent AST scan of src/nonogram/**/*.py for every receiver of a Pillow draw-method name"
+  not_reached:
+    - "CARD-207 / CARD-229 / CARD-231 / CARD-233 (still unbuilt; AC-4's and AC-5's forward claims still cannot be checked against real callers)"
+    - "the full suite (run by the caller as the merge gate, by instruction)"
+    - "rendered-page eyeball (no caller exists to render; visual loop off in this project)"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 593, removed: 47 }
+  max_fan_in: { symbol: "nonogram.admin.book_pdf_generator._draw_difficulty_dots", callers: 0 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/export/layout.py (18 commits/12mo, 9 fix-shaped — a declared conflict hotspot; the fix delta touches it for 1 operator + 1 docstring)"
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "no_eligible_fact — re-verified this cycle: grep -rn '_draw_difficulty_dots' src/ returns only the definition at book_pdf_generator.py:1515, and difficulty_dots() has exactly one caller (that function). G-5 holds; the zero carries no risk signal."
+    cochange_missing: "not_applicable — the fix delta is one comparison operator plus tests; the co-change peers cycle 1 listed (book_corpus.py, test_book_pdf_memory.py, property/test_book_export_interior.py, admin/app.py) have nothing to change, and I verified structurally that the operator cannot reach any rendered page."
+    bus_factor: "no_eligible_fact — single committer identity across the repo, as cycle 1 found; the signal cannot discriminate."
+
+system_contract:
+  rules_checked: 4
+  holds: 2
+  unchecked: 0
+  violated: 0
+  carried: 2
+  verdicts:
+    - "CON-020 ✓ holds — re-derived, not carried: the fix delta adds no draw.text call and no new face. The rule's declared check TestInteriorType_EveryFaceHoldsTheFloor is green in my own run of tests/test_book_interior_type_floor.py (72 of the 198), as is TestInteriorType_DifficultyDotsAreNotText. The new package-wide dingbat rule strictly narrows what text the package may carry, so it cannot weaken the floor."
+    - "ADR-0033/R1 ✓ holds — carried(cycle 1, delta-clean): the fix delta touches src/nonogram/export/layout.py and tests/ only; src/nonogram/admin/book_pdf_generator.py, where the tier is read, is byte-identical to the state cycle 1 verified (git show b3ba400 --stat lists two files). test_the_stored_tier_is_read_and_never_written is green in my run."
+    - "ADR-0036/R2 ✓ holds — re-derived: the delta's only non-docstring change is the comparison in export/layout.py's DifficultyDots.__post_init__ (COMP-007, where geometry belongs). No arithmetic moved into admin/. export/layout.py's import surface is unchanged by the delta (the diff contains no import lines), and tests/test_cli.py's ADR-0007 import guard is green in my run."
+    - "ADR-0037/R1 ✓ holds — carried(cycle 1, delta-clean): the puzzle page's band lives in book_pdf_generator.py, untouched by the delta, and the glyph still has no caller, so no band's surface changed."
+
+root_causes:
+  - id: RC-1
+    title: "AC-4's guards discriminate by syntactic FORM; their completeness tests enumerate only the forms in current use, so a new spelling evades the guard AND its completeness test together"
+    finding_ids: [F-101]
+  - id: RC-2
+    title: "Residual claim/mechanism overshoot in prose written during the fix (the cycle-1 root cause, one order of magnitude smaller)"
+    finding_ids: [F-102, F-103, F-104]
+
+findings:
+  - id: F-101
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 1104
+    title: "Two of the four limits the widened round-mark guard states about itself are false; a second dot glyph still lands in the package with 198 green"
+    description: |
+      The fix is a real widening — 1 guarded route became 4, and I confirmed all four controls
+      fire against the real package, each mutant in its own fresh process, every file restored
+      and shasum-verified:
+
+        C1  draw.bitmap((0,0), mask, fill=INK)            in export/png.py -> KILLED
+            (test_no_module_approximates_a_round_mark_another_way)
+        C2  draw.point([(x,y) for x in range(9) for y in range(9)])        -> KILLED
+        C3  draw.polygon([<10 literal points>])                           -> KILLED
+            (both: test_no_module_draws_a_round_mark_out_of_vertices)
+        C4  draw.ellipse((0,0,9,9))                                       -> KILLED
+            (test_the_package_draws_a_round_mark_in_exactly_one_function)
+
+      What fails is the same thing that failed in cycle 1, one layer in: the class docstring's
+      list of "what this instrument cannot see" contains two sentences that are false in the
+      direction that matters, and both are refutable by execution.
+
+      SYMPTOM A — "a vertex list this walk cannot count ... treats it as a failure rather than
+      a pass, so it is a blind spot that shows itself" (class docstring; repeated verbatim in
+      test_no_module_draws_a_round_mark_out_of_vertices' docstring, in the card's notes and in
+      b3ba400's commit message). Planted in src/nonogram/export/png.py:
+
+          points = [(50 + 20*cos(i*tau/32), 50 + 20*sin(i*tau/32)) for i in range(32)]
+          draw.polygon([*points], fill=INK)
+
+      -> SURVIVED. 198 green; also green with tests/test_suite_profile.py added. This is cycle 1's
+      H2 mutant (a 32-gon tier glyph, the one the vertex bound exists for), on the canonical
+      `draw` receiver, two characters away from the form the guard catches.
+
+      Mechanism, so the finding is refutable without re-running it: `[*points]` parses to an
+      ast.List whose elts is a single ast.Starred, so `isinstance(points, (ast.List, ast.Tuple))`
+      passes and `len(points.elts) == 1 <= MAX_FLAT_VERTICES`. Verified directly:
+      `[*points]` -> List/elts=1, `(*points,)` -> Tuple/elts=1, `[(0,0), *more]` -> List/elts=2.
+      Only the bare name form (`draw.polygon(points)`) is uncountable to this guard.
+
+      This is worse than an ordinary blind spot because the guard teaches the evasion: its own
+      assertion message is "vertices this guard cannot count", and the cheapest way for a future
+      card to silence that message is to wrap the name in a literal list.
+
+      SYMPTOM B — "a draw object reached by a receiver this package does not currently use
+      (DRAW_RECEIVER_NAME has its own completeness test, so a new spelling fails that test
+      rather than slipping past this one)". Two mutants, each in its own fresh process:
+
+        M2   def _rogue(canvas, rank): canvas.polygon([<32 literal points>], fill=INK)
+             plus a caller passing the real draw object                     -> SURVIVED
+        M3b  canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)
+             canvas.polygon([<9 literal points>], fill=INK)                 -> SURVIVED
+        M3   canvas = ImageDraw.Draw(image)   (the agent's own tested control)
+             canvas.polygon([(0,0),(1,1),(2,2)], fill=INK)                  -> KILLED
+             (test_every_draw_object_in_the_package_is_spelled_draw)
+
+      So the agent's claimed control is true as stated and the completeness test is one annotation
+      away from silent. test_every_draw_object_in_the_package_is_spelled_draw collects exactly two
+      shapes: ast.Assign whose value is a `.Draw(...)` call AND whose target is an ast.Name, and
+      function parameters whose annotation is an ast.Attribute named ImageDraw. Everything else
+      contributes nothing to `assigned`/`annotated`, so the assertion `== {"draw"}` still holds:
+      ast.AnnAssign (M3b), an Attribute target (`self.canvas = ...`), a tuple target, a loop
+      target, an unannotated parameter (M2), and a parameter annotated with a bare `ImageDraw`
+      name. AnnAssign is the *more* idiomatic spelling in this package, which annotates all 13 of
+      its draw parameters and runs `from __future__ import annotations`.
+
+      The test therefore fails when a known shape changes, not when a new receiver spelling
+      appears — which is precisely the distinction the fix brief asked this cycle to check.
+
+      Bound, stated rather than overclaimed: the hole is confined to the vertex route.
+      _round_mark_sites ignores the receiver entirely, so a circle drawn as a circle
+      (ELLIPSE_METHODS) is still caught under any spelling — I verified that path separately
+      (C4), and the dingbat route is receiver-agnostic by construction. Nothing in src/ renders
+      a dot today (G-5), so this is an unverified future constraint, not a live defect; that is
+      what holds it at high rather than critical.
+
+      Cycle 1's premise that this cycle correctly refused is independently confirmed, so the
+      review does not rest on it: my own AST scan of every receiver of a Pillow draw-method name
+      across src/nonogram/ returns exactly `draw` (48 calls), one inline ImageDraw.Draw(probe)
+      (book_pdf_generator.py:3385), `greyscale` (sourcing/image.py:456) and `scaled`
+      (sourcing/image.py:893). draw.polygon is real and sits at book_pdf_generator.py:1895.
+      Moving polygon/point into ROUND_ENOUGH_METHODS would indeed have reddened a test on honest
+      code; cycle 1's F-001 suggestion was wrong and refusing it was right.
+    suggestion: |
+      Two one-line mechanism fixes, each with the control the project's standing rule asks for:
+
+      1. In test_no_module_draws_a_round_mark_out_of_vertices, require every element of the
+         vertex literal to be countable too — `assert all(not isinstance(e, ast.Starred) for e
+         in points.elts)` before the length bound — and add a not-caught/caught control pair for
+         `draw.polygon([*points])` beside test_a_disc_drawn_point_by_point_is_caught.
+      2. In test_every_draw_object_in_the_package_is_spelled_draw, collect the *concept* rather
+         than one shape: walk ast.Assign AND ast.AnnAssign AND ast.NamedExpr AND for-targets for
+         any `.Draw(...)` value, flatten Attribute/Tuple/Starred targets, and assert any
+         non-Name target is itself a failure; and classify parameters by whether their enclosing
+         function body writes an attribute call on them from ALL_DRAW_METHODS, so an unannotated
+         `canvas` is caught by what it does rather than by how it is spelled. Then re-plant M2
+         and M3b as controls.
+
+      Alternatively — and this is the cheaper honest move if the mechanism is not to be widened —
+      delete the two false sentences from the class docstring and replace them with what the
+      mechanism actually guarantees: "a vertex list spelled as a bare name is a failure; a vertex
+      literal containing a starred unpack is NOT inspected", and "a draw object assigned to a
+      plain local name under a second spelling fails the completeness test; one reached by an
+      annotated assignment, an attribute target or an unannotated parameter does not". A named
+      limit costs nothing; a false limit costs the next four cards.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-102
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 843
+    title: "The dingbat guard's limit list omits the computed-string route, while the vertex guard's analogous route is documented"
+    description: |
+      I pushed on _dingbat_literals exactly where the brief asked, one mutant per fresh process
+      in src/nonogram/export/png.py. The mechanism is wider than I expected and matches its own
+      stated wording precisely:
+
+        f-string format spec   draw.text(xy, f"{word:\u25cf^12}")      -> KILLED (both the
+                               offenders test AND the exemption-equality test)
+        implicit concatenation draw.text(xy, "\u25cf" "\u25cb")        -> KILLED (both)
+        \u escapes             (resolved by the parser into the Constant) -> covered by the above
+        f-string literal part  (the agent's own control)               -> covered
+
+      A dingbat in a module-level constant later interpolated is a string literal and is caught
+      for the same reason. So _dingbat_literals does see every *string literal* route I could
+      construct, including the three the brief named as unchecked, and the exemption equality is
+      load-bearing: both red paths above fired it.
+
+      Two routes are NOT literals and survive:
+
+        chr()        glyph = chr(0x25CF)*rank + chr(0x25CB)*(3-rank); draw.text(...)  -> SURVIVED
+        bytes decode draw.text(xy, b"\xe2\x97\x8f".decode("utf-8"))                   -> SURVIVED
+
+      The test's own sentence is exact ("no module in src/nonogram/ writes a string literal
+      holding a ROUND_DINGBATS codepoint"), so claim and mechanism agree there. What is missing
+      is symmetry in the honesty: the class docstring enumerates four things the instrument
+      cannot see and this is not among them, and b3ba400's commit message says "the character
+      route is closed package-wide", which one chr() call refutes. The vertex guard's equivalent
+      route is documented; this one is not. Low because chr() is not a spelling anyone reaches
+      for when "\u25cf" is available, and because the exemption equality makes the literal route
+      genuinely closed.
+    suggestion: |
+      Add the computed-string route to the class docstring's limit list beside the dynamically
+      dispatched draw call — one line, naming chr()/bytes-decode/unicodedata.lookup — and narrow
+      the commit-message-level phrasing in the card notes from "closed package-wide" to "every
+      string literal in the package, docstrings included". Optionally also exclude the assets
+      the walk cannot see (non-.py files) in the same line.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-103
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 1327
+    title: "__post_init__'s new docstring points every refusal's pytest.raises case at one test class; one of the seven lives in another"
+    description: |
+      The docstring added by this fix says: "Every refusal here has its own ``pytest.raises``
+      case in ``tests/test_book_difficulty_dots.py::TestDifficultyDots_UntieredDrawsNothing``".
+
+      The substance is true and I verified it by execution — six of the seven cases are in that
+      class (test_the_type_cannot_express_an_empty_or_unfilled_row,
+      test_the_type_refuses_every_row_it_documents_as_impossible,
+      test_the_type_refuses_two_dots_that_merely_touch). The seventh, the ring-closing stroke
+      (`2 * self.stroke >= self.diameter`, layout.py:1350), is pinned by
+      TestDifficultyDots_FilledAndOutlinedAreDistinguishable::test_the_type_refuses_a_stroke_that_closes_the_ring
+      at tests/test_book_difficulty_dots.py:554 — a different class.
+
+      Flagged only because this card is being graded on the rule that a claim must be derivable
+      from the thing it names, and a reader following this pointer to check the strongest refusal
+      (the one AC-3 leans on) finds it absent from the class named.
+    suggestion: "Name both classes, or drop the class name and point at the file."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-104
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 954
+    title: "F-006's tautological clause was relocated into test_the_walk_actually_sees_the_package rather than dropped"
+    description: |
+      F-006 asked for the removal of test_the_real_packages_one_site_is_the_dot_drawer_itself,
+      on the ground that its three assertions each derived both sides from the same source. The
+      test is gone (the name now appears once, in an explanatory comment), and the real check
+      was genuinely strengthened: test_the_walk_actually_sees_the_package now resolves
+      `f"def {THE_DRAWING_SITE[1]}"` against the source on disk instead of a hardcoded name.
+      I verified the claim that nothing was lost: a typo in THE_DRAWING_SITE[1]
+      ("_draw_difficulty_dotz") turns two tests red — test_the_walk_actually_sees_the_package and
+      test_the_package_draws_a_round_mark_in_exactly_one_function.
+
+      But line 954 also carries over the removed test's tautological assertion:
+      `assert getattr(book_pdf_generator, THE_DRAWING_SITE[1]) is _draw_difficulty_dots`. Because
+      _draw_difficulty_dots is imported from book_pdf_generator at module scope, this can only
+      fail by ImportError at collection, never by assertion, and on the one input that could
+      break it (a typo in the literal) the line above it already fails first. The fix removed
+      the decorative test and kept one of its decorative assertions.
+    suggestion: "Drop the getattr clause; the `f\"def {THE_DRAWING_SITE[1]}\" in sources[...]` line above it is the whole of its discriminating power."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verified_closed:
+  - finding: F-001
+    verdict: "partially closed — see F-101"
+    evidence: |
+      1 guarded route -> 4. All four controls fire against the real package (C1 bitmap, C2
+      computed point-list disc, C3 10-gon, C4 ellipse — each a separate fresh process, each file
+      restored and shasum-verified). The three overshooting statements cycle 1 named are narrowed.
+      Cycle 1's false premise (polygon/point "already asserted to be called nowhere") was
+      correctly refused, and I confirmed the refusal independently: draw.polygon at
+      book_pdf_generator.py:1895, Image.point at sourcing/image.py:456 and :893, and an AST scan
+      showing `draw` / inline Draw / greyscale / scaled are the only receivers of a draw-method
+      name in the package. What remains open is the width of the two limit sentences (F-101).
+  - finding: F-002
+    verdict: closed
+    evidence: |
+      All four previously-surviving refusals are now red. One mutant per fresh process, file
+      restored and shasum-verified after each: `if self.stroke < 1` -> if False -> RED;
+      `if len(diameters | heights) != 1` -> RED; `if len(tops) != 1` -> RED; the spacing refusal
+      -> RED. All four via test_the_type_refuses_every_row_it_documents_as_impossible (the
+      fourth also via test_the_type_refuses_two_dots_that_merely_touch).
+  - finding: F-003
+    verdict: closed
+    evidence: |
+      DIFFICULTY_DOT_RATIO 0.3 -> 0.45 is RED at
+      test_the_dot_is_the_cap_height_of_the_band_it_sits_on. That is cycle 1's survivor, killed
+      by a measurement independent of the constant (the rendered cap height of the band's own
+      face). The weaker test_a_dot_never_outgrows_its_share_of_the_box still re-derives from the
+      constant, as cycle 1 noted, but the height term is now pinned elsewhere, which was the ask.
+  - finding: F-004
+    verdict: closed
+    evidence: |
+      Reverting `left <= right + 1` to `left <= right` is RED at
+      test_the_type_refuses_two_dots_that_merely_touch. G-5 re-verified independently and more
+      strongly than by the corpus argument: __post_init__ is reachable only through
+      difficulty_dots(), whose only caller in src/ is _draw_difficulty_dots (book_pdf_generator.py
+      :1515), which has zero callers — so the tightened bound cannot reach any rendered page by
+      construction, not merely because the corpus happened never to produce a touching row.
+  - finding: F-005
+    verdict: closed
+    evidence: |
+      Card notes now read 474 x 142 px and six tile bands at SOLVED_TILE_CAPACITIES (2, 4); the
+      AC-5 class docstring carries the same numbers and says they are quoted for a reader and
+      never relied on. The mutant count stands at ten, named one by one, with "eleven" explicitly
+      withdrawn as unevidenced.
+  - finding: F-006
+    verdict: closed
+    evidence: |
+      test_the_real_packages_one_site_is_the_dot_drawer_itself is gone; the ratio test keeps only
+      its two real bounds (STROKE_RATIO < 0.5, GAP_RATIO > 0) and the displaying clause is
+      replaced by F-003's assertion. The "caught twice" claim is verified: a typo in
+      THE_DRAWING_SITE[1] reddens test_the_walk_actually_sees_the_package and
+      test_the_package_draws_a_round_mark_in_exactly_one_function. See F-104 for the one clause
+      that should have gone with it.
+  - finding: F-007
+    verdict: closed
+    evidence: |
+      The AC-5 class docstring now claims "the narrowest header this project can measure today",
+      states why the superlative is not checkable (only CARD-233's box exists) and names the
+      property that does carry over. The carve-out the agent flagged — adding an AC-5 re-check to
+      CARD-229's and CARD-231's criteria — is correctly left undone and correctly attributed to
+      the orchestrator; noted, not acted on, per instruction.
+
+mutants:
+  note: "Every verdict below comes from its own fresh `./.venv/bin/python -m pytest` invocation on the prescribed loop (tests/test_book_difficulty_dots.py tests/test_book_interior_type_floor.py tests/test_cli.py = 198 tests, baseline exit 0). Each mutated file was restored from a byte copy and verified with `shasum -c` before the next mutant. The working tree at the end of the review is identical to the start (only the pre-existing uncommitted meta/kanban/cards/CARD-228.md change and untracked .venv / the cycle-1 report)."
+  survived:
+    - "M1  export/png.py: 32-gon tier glyph via `draw.polygon([*points], fill=INK)` — 198 green; re-run with tests/test_suite_profile.py added, still green"
+    - "M2  export/png.py: 32 literal vertices via an unannotated receiver `canvas`, fed the real draw object — 198 green"
+    - "M3b export/png.py: `canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)` + a 9-gon — 198 green (the annotated form of the agent's own killed control)"
+    - "D1  export/png.py: dot glyph via `chr(0x25CF)`/`chr(0x25CB)` into draw.text — 198 green"
+    - "D4  export/png.py: dot glyph via `b\"\\xe2\\x97\\x8f\".decode()` into draw.text — 198 green"
+  killed:
+    - "C1 draw.bitmap -> test_no_module_approximates_a_round_mark_another_way"
+    - "C2 draw.point([comprehension]) -> test_no_module_draws_a_round_mark_out_of_vertices"
+    - "C3 draw.polygon([10 literal points]) -> test_no_module_draws_a_round_mark_out_of_vertices"
+    - "C4 draw.ellipse -> test_the_package_draws_a_round_mark_in_exactly_one_function"
+    - "M3 `canvas = ImageDraw.Draw(image)` -> test_every_draw_object_in_the_package_is_spelled_draw"
+    - "M4 DIFFICULTY_DOT_RATIO 0.3 -> 0.45 -> test_the_dot_is_the_cap_height_of_the_band_it_sits_on"
+    - "M5.1 `if self.stroke < 1` disabled -> test_the_type_refuses_every_row_it_documents_as_impossible"
+    - "M5.2 `if len(diameters | heights) != 1` disabled -> same test"
+    - "M5.3 `if len(tops) != 1` disabled -> same test"
+    - "M5.4 the spacing refusal disabled -> same test + test_the_type_refuses_two_dots_that_merely_touch"
+    - "M5.5 `left <= right + 1` reverted to `left <= right` -> test_the_type_refuses_two_dots_that_merely_touch"
+    - "D2 f-string format spec `f\"{word:\\u25cf^12}\"` -> test_no_module_types_a_round_mark_as_a_character + the exemption-equality test"
+    - "D3 implicit concatenation `\"\\u25cf\" \"\\u25cb\"` -> same two tests"
+    - "T1 typo in THE_DRAWING_SITE[1] -> test_the_walk_actually_sees_the_package + test_the_package_draws_a_round_mark_in_exactly_one_function"
+
+out_of_scope:
+  - "TEXT_METHODS is a fifth new set with a completeness test (the partition assertion) but no guard consults it — _dingbat_literals ignores methods entirely and guards every string literal in the package. The set is inert rather than wrong; it exists to keep the partition exhaustive. Worth a sentence in its docstring so a later reader does not look for the method-scoped guard its wording implies."
+  - "The dingbat rule now constrains every string in src/nonogram/, docstrings included, over the whole U+25A0..U+25FF block plus two bullets. The exemption cannot absorb a legitimate prose need in a module that draws, since its second half asserts the exempt module makes no draw-object call and contains no 'ImageDraw' — the only remedies left to a future card are deleting the character or narrowing ROUND_DINGBATS. Sustainable (box-drawing and block elements are outside the range, so the practical hit rate is low) but it is a standing constraint on the whole package that no card declares; a line in ADR-0036 or the card would make it visible to the next author."
+  - "F-007's carve-out — an AC-5 re-check on CARD-229's and CARD-231's acceptance criteria — remains open and is the orchestrator's, as instructed. Noted, not acted on."
