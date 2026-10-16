@@ -616,6 +616,15 @@ def _round_mark_sites(
     object putting ink on a page. The function reported is the innermost one
     enclosing the call, so a helper nested inside another is named as itself;
     a call at module level is reported as ``"<module>"``.
+
+    **What a static walk cannot see, stated rather than claimed away.** A
+    dynamically dispatched call — ``getattr(draw, "ellipse")(box)`` — is
+    invisible to it, so the guard's claim is about *written* calls to those
+    methods and no wider. Nothing in this package reaches a draw method that
+    way (every draw call in ``src/nonogram/**/*.py`` is written out, which is
+    what makes the walk the right instrument here), and a card that started to
+    would be making a deliberate choice this guard should be extended for
+    rather than slipping past it.
     """
     sites: list[tuple[str, str]] = []
 
