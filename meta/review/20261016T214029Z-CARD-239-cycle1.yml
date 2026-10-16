@@ -130,8 +130,8 @@ findings:
     source: static
     violates: AC-7
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 098a19c
     dismissed_reason: null
     learned_pattern: null
 
@@ -208,8 +208,8 @@ findings:
     source: static
     violates: AC-7
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 098a19c
     dismissed_reason: null
     learned_pattern: null
 
@@ -237,8 +237,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 098a19c
     dismissed_reason: null
     learned_pattern: null
 
@@ -264,8 +264,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 098a19c
     dismissed_reason: null
     learned_pattern: null
 
@@ -290,7 +290,7 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: dismissed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: "no change required per the finding itself; the bound is now on the record as sweep row G-11's neighbour -- the guards' territory is *.py and tests/README.md is not walked. Carried in the cycle-2 worktree notes."
     learned_pattern: null

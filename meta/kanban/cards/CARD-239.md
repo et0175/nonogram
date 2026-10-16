@@ -416,8 +416,143 @@ floor vs the running interpreter) — red before the change with the message nam
 `tests/test_cli.py` + `tests/test_export_pdf.py` → **728 passed** in 28.09s. The two guard modules
 alone: **440 passed** in ~18s. Under the lower-interpreter plugin: **388 passed, 0 failed.**
 
+### Review cycle 2 — cycle 1's two Important findings applied (2026-10-17)
+
+Cycle 1 scored **8.0**, no Critical, and failed the severity gate on two Important findings.
+Both were in `tests/test_guard_integrity.py` — the module AC-4 required — and **both were
+recorded as PINNED in the sweep**, so they were AC-7 failures and not only defects. The sweep
+held on 31 of the 33 rows the reviewer sampled and was decorative at exactly the two rows about
+the new module's own rules. That is the card's own stated failure mode happening one module in,
+and it is written that way in the sweep's new header rather than softened.
+
+Nothing in the first module's verified work was touched: AC-1's projection, AC-2's compound
+mutant and its honest three-halves split, AC-3, AC-5's struck silences, the `relpath` trade, `os`
+excluded by measurement, the three argparse lines as a structural-only bound, and the
+"reasoned, not measured" label on the xdist/randomly interleaving all stand as merged.
+`TIMING_LOG_LINE` is still byte-identical to `main` (G-3, re-diffed).
+
+**F-001 — `_MODULE_SCOPE_SILENCERS` was swept as default-deny and was not. Closed by
+mechanism.** The sentence was inverted: what was enumerated was what is *reported*, and the rule
+passes every module-scope statement it does not recognise. Reproduced the reviewer's four
+measurements against `46a5d31` exactly — `raise unittest.SkipTest(...)` → `[]`, `os._exit(0)`
+under a host-state `if` → `[]`, a module-scope call into a local helper that skips → `[]`,
+`collect_ignore = [...]` → `[]`. A *literal* default-deny is unavailable here and the module now
+says so: a test module's module scope is legitimately full of imports, constants and helper
+defs, so reporting everything unrecognised reports everything. So the completeness question was
+moved into the two halves it can be answered in.
+
+- **Derived where an authority exists.** `_pytest_surface()` reads `dir(pytest)` under the same
+  two mechanical filters `_stdlib_directory_surface` uses — public, callable — measuring **88
+  public names, 84 callable** on pytest 9.1.1. All 84 are classified in
+  `_PYTEST_CLASSIFICATION` with a grouped reason, and `_pytest_silencers()` is
+  `{KIND_SILENCER} & _pytest_surface()` → `['exit', 'importorskip', 'skip', 'xfail']`. A new
+  pytest silencer must now land in a set or in an exclusion with a reason, exactly as a new
+  `dir(os)` name must one module over.
+- **Explicit members with reasons for the rest**, because no `dir()` is an authority for them:
+  `_NON_PYTEST_SILENCERS` = `SkipTest`, `_exit`; `_MODULE_SCOPE_SILENCING_BINDINGS` =
+  `pytestmark`, `collect_ignore`, `collect_ignore_glob` (a binding is not a call at all).
+  Each has a control that is caught WITH its member and missed WITHOUT it.
+- **Recorded as measured misses**, named rather than implied to be covered:
+  `MEASURED_MODULE_SCOPE_MISSES` — the helper-indirection case, and the silencer bound to a new
+  name and called through the alias. Same shape as the other module's
+  `MEASURED_STRUCTURAL_MISSES`, red the day the rule grows past one.
+
+Closed **by mechanism**: `unittest.SkipTest`, `os._exit`, `collect_ignore`,
+`collect_ignore_glob`. **Recorded misses**, still open and now with controls: helper
+indirection, the aliased callable. Three sentences (the module docstring's bullet, the set's own
+comment, and the baseline's "Every module-scope silence in the guarded tree") now say what the
+rule does, and sweep row **D-6** no longer says PINNED.
+
+**F-002 — AC-6's rule missed a shell string and its control certified a copy. Fixed by
+widening, not by recording.** Reproduced the reviewer's split exactly: a subprocess argv
+`control=True DEPLOYED=True`, `main()` directly `True/True`, a shell string
+`control=True DEPLOYED=False`, `shell=True` `True/False`. RC-1 is closed first — the rule is one
+module-level function, `_check_log_invocations`, and all three tests call it, the
+`_live_log_references` shape — and then the predicate is the **substring** form, because a
+command line is one string with the option inside it. Three exemptions, each keyed on shape and
+each with its own control: `add_argument`'s arguments; `error(...)` on a receiver that registers
+arguments somewhere in the same source, which is how `rank_durations.py:673` names the option in
+its own usage message and is **not borrowable without building a real parser** (`reporter.error`
+on a receiver that registers nothing **is** reported, and that is a positive control, not an
+exempt one); and a module-scope binding plus any bare string expression, i.e. a docstring.
+`test_the_invocation_rule_is_the_one_the_guard_runs` reads this module's own source and is red if
+any test in the class asks the question by walking `ast` itself again. Sweep row **E-3** now
+records that three of its four controls discriminated and the shell-string one measured a copy.
+
+**Minors, both carried as sweep rows with their measurement** (D-12, A-12), on the same terms as
+A-9, D-2 and F-13.
+
+- **F-003, the emptied-module floor.** `tests/test_suite_profile.py` declares **94** test
+  methods, so `>= 60` permitted 34 going with the probe green — "emptied" and "60" are not the
+  same claim. Two assertions now and each says only what it can: a **derived** equality with no
+  number in it (what the import produced equals what the file's source declares, so a guard that
+  fails to materialise at import is *named* — measured red by `del`-ing one method), and a
+  **floor at 90** that is labelled a hand-maintained number near the real count rather than a
+  measurement, for the emptying case the equality cannot see. Deletion is G-2's and is enforced
+  where it can be, by the dispatcher's `ast` diff.
+- **F-004, the garbled second reference.** Fixed at the root rather than deduped at the report:
+  `_assembles_path_components` turns the `_string_values` fold off for a call whose name is in
+  the audited joiner projection, since a joiner's arguments are separate path components; the
+  fold is kept where the receiver is a string literal, which is the shape that is genuinely
+  concatenation. The inline and hoisted glob forms now both return exactly
+  `["glob('*.log') under meta/kanban"]`, and the `"".join` taint chain still resolves.
+
+**The reviewer's two surviving mutants, re-run.** Each in its own fresh `pytest` process, planted
+in `tests/test_clues.py`, restored from a byte copy with md5 `942627df2b6df5a003bf52775ab1d398`
+verified and `git diff --stat` empty after each.
+
+- `os.system("python meta/profiling/rank_durations.py --check-log meta/kanban/suite-timing.log")`
+  — cycle 1: **GREEN, 1 passed, SURVIVED**. Now: **RED (killed)**, naming
+  `{'tests/test_clues.py': ["_m_os.system('python meta/profiling/rank_durations.py --check-log
+  meta/kanban/su"]}`. Planted inside a module-scope `def` that is never called, so the AST rule
+  sees the shell-out and **no process ever runs it** — G-1 is not approached, let alone touched.
+- `raise unittest.SkipTest("no timing log on this host")` at module scope, keyed on a path that
+  does not exist — cycle 1: `[]`, unreported. Now: **RED (killed)**, naming
+  `('tests/test_clues.py', 'SkipTest() at module scope', "not
+  _m_os.path.exists('/nonexistent-timing-log')")`. Its own verdict, measured in this tree:
+  **`1 skipped in 0.06s`, rc=0** — 386 tests in that module gone and the run green, the F-308
+  verdict verbatim. (The same module in an isolated sandbox: `1 skipped in 0.00s`, rc=0, which is
+  the reviewer's figure reproduced. One earlier attempt of mine reported a collection error
+  instead; that was my plant sitting above `from __future__ import annotations` and is recorded
+  here rather than quietly dropped.)
+
+**Six further mutants, proving the new mechanisms can fail** — each in a fresh process, restored
+from a byte copy with the md5 verified (`ec4fcfb02a531917bfa114f37c650a12` /
+`74d75c46cd843be807fbec733f15187a`):
+
+| mutant | verdict |
+| --- | --- |
+| drop `fail` from the pytest classification | RED — `assert ['fail'] == []` |
+| classify `skip_module` KIND_SILENCER | RED — `assert ['skip_module'] == []` (D-4's own member) |
+| make `_MODULE_SCOPE_SILENCERS` a literal frozenset again | RED — the derived-set structural test |
+| empty the `bindings` set | RED — 8 failed, naming `pytestmark` and both `collect_ignore` forms |
+| narrow the `--check-log` predicate back to the equality | RED — 4 failed: two shell strings, the f-string command, the non-parser `error` |
+| restore the joiner fold | RED — the F-004 control, naming `glob('metakanban*.log') under meta/kanban` |
+
+**Counts.** `tests/test_suite_profile.py` **398 → 399**, `tests/test_guard_integrity.py`
+**42 → 69**, total **440 → 468 passed** in 18.49s. `ast`-diff of test function names against
+`HEAD`: +1/−0 and +9/−0, so **nothing removed** (G-2);
+`test_the_definition_shape_is_not_an_invocation` kept its name while widening from one control to
+four, so the name-level diff stays clean. Build gate, five modules: **728 → 756 passed** in
+27.58s. **G-1 HELD** — the main repository's log is still md5
+`be3dfae8a428d62aec0087926c89b44d`. **G-3 HELD** — `TIMING_LOG_LINE` re-diffed against
+`main:meta/profiling/rank_durations.py`, byte-identical; `meta/profiling/rank_durations.py` is
+not touched by this cycle at all. **G-6 HELD** — no `src/**` change, no new import of any kind.
+
+**What is NOT claimed, and is stated here rather than left to be inferred.** The module-scope
+rule is an *enumerated* rule and now says so in every place it describes itself; its derived half
+is complete against the installed pytest only, and a KIND_NOT_A_SILENCER name an older or newer
+pytest lacks is not reported (G-10 in the sweep). The `error(...)` exemption trusts a shape, and
+a source that builds a real parser, registers something on it and then hands the option to that
+parser's `error` is exempt — the half that matters is measured from the other side (G-11). Two
+module-scope routes stay open as recorded misses with controls (G-8, G-9). The emptied-module
+floor is a number somebody will have to edit, and it is labelled as one.
+
 ### Orchestrator log
 
+- [Why TDD is true on this card] Every AC here is of the form "a test exists that fails when X
+- [The one thing that would make this card fail the way CARD-238 nearly did] Closing these bounds
+- [Measured figures carried over, so nothing here needs re-deriving] the join forms return `[]`; the
 - [Why TDD is true on this card] Every AC here is of the form "a test exists that fails when X
 - [The one thing that would make this card fail the way CARD-238 nearly did] Closing these bounds
 - [Measured figures carried over, so nothing here needs re-deriving] the join forms return `[]`; the
@@ -432,43 +567,14 @@ alone: **440 passed** in ~18s. Under the lower-interpreter plugin: **388 passed,
 - [Review 1/3] dispatched with AC-7's sweep audit as priority 1, on the grounds that if the sweep is decorative the card has reproduced the CARD-238 defect one level of abstraction higher — which is the only way this card can fail quietly. Also asked to judge the one gap the agent named itself (three argparse lines no test executes, asserted structurally only because AC-6 forbids invoking the subcommand) and the one claim it labelled **reasoned, not measured** (the xdist/randomly interleaving, undemonstrable because neither is in the dependency baseline).
 - [Raised for the owner, G-5] `cmd-run.md` in `~/MyProjects/forge_1` is **not** edited, correctly. But it is the one file the dispatcher reads at a merge gate, and it documents neither the legal parenthesised post-bracket note nor the illegality of a bare one — **so it is still where the next malformed timing line will come from.** `tests/README.md` now documents both, with the writer named and the `--check-log` invocation shown. I nearly wrote such a line myself today and caught it only by running it through the committed regex.
 - [Review 1/3] **8.0, severity gate FAILS** on 2 Important, 0 Critical. Risk MEDIUM, lane DEEP.
-  Report synced. The reviewer ran **8 mutants of its own**, each in a fresh process, restored from a
-  byte copy with md5 verified, tree clean after.
 - [Review 1/3] **the sweep is NOT decorative — 31 of 33 PINNED rows held the sample, and every one of
-  the 21 tests it names exists in the module it claims.** The two rows it found false are the finding,
-  and they are both about the **new module's own rules**, which is what makes them AC-7 failures
-  rather than ordinary defects. That is a much better outcome than a decorative sweep: the mechanism
-  works, and it has two blind spots that are precisely where the mechanism does not reach itself.
 - [Review 1/3] it also **confirmed the two claims the sweep caught in its own pass are real** — M5
-  re-added `skip_module`/`fail` and the control killed it, and `'skip_module' in dir(pytest)` is
-  `False`. So AC-7 catching its own author twice is verified, not self-reported.
 - [Review 1/3] **F-001 (Important): `_MODULE_SCOPE_SILENCERS` is swept as default-deny and is not.**
-  I re-ran the decisive measurement MYSELF in a sandbox rather than relaying it, because this is the
-  claim that decides the finding's severity and because relaying unverified figures has been my own
-  failure mode all day: `raise unittest.SkipTest(...)` at module scope on host state, run as a real
-  pytest module → **`1 skipped in 0.05s`, rc=0**. That is the **F-308 verdict verbatim** — the
-  CARD-234-green / CARD-235-red flip this entire card exists to end, reachable through a sibling
-  spelling the new rule cannot see. `os._exit(0)` is quieter still. The set has no completeness test,
-  and sweep row D-6 pins "what is enumerated is what is allowed" — inverted; what is enumerated is
-  what is **reported**.
 - [Review 1/3] **F-002 (Important): AC-6's no-invocation guard misses a shell string, and its control
-  for that case certifies a copy of the predicate.** The deployed rule matches
-  `node.value == CHECK_LOG_OPTION`; its control reimplements it inline as
-  `CHECK_LOG_OPTION in str(node.value)`, strictly wider — so the control passes on a predicate the
-  guard does not run. On disk: the argv form is killed, and
-  `os.system("python meta/profiling/rank_durations.py --check-log meta/kanban/suite-timing.log")`
-  **SURVIVED at 1 passed**. A guarded source can shell out to the deliberate reader against the
-  owner's live gitignored log with the guard green — exactly the coupling CARD-238 removed and G-1
-  protects. And it is realistic here: the sweep's **own row F-8** argues shelling out "is this
-  module's own idiom (six `git ls-files` listings)".
 - [Fix 2] dispatched. On F-001 I told the agent **not** to attempt the reviewer's first option as
-  written, because a pure derivation is unavailable and a literal default-deny is unworkable: a test
-  module's module scope is legitimately full of imports, constants and helper defs, so reporting
-  every statement the rule does not understand would report everything — which is presumably how the
-  description and the mechanism drifted apart to begin with. The brief instead prescribes the three
-  parts that do work: derive the pytest half over `dir(pytest)` with a completeness test, add the
-  measured non-pytest routes (`unittest.SkipTest`, `os._exit`, `collect_ignore`) as explicit members
-  each with a caught-with/missed-without control, and record the residue as measured misses. On F-002
-  it is told to factor the rule into one function all three tests call and then **widen** the
-  predicate rather than record a miss — a recorded miss is right for an obscure route, and this one
-  is the module's own idiom reaching the owner's live log.
+- [Fix 2] `098a19c` + `e9f0e8f`. **Both Important findings closed by MECHANISM, not by narrowing** — and I verified the two decisive mutants myself on disk rather than relaying them, each planted and reverted with `tests/test_clues.py` restored to md5 `942627df2b6df5a003bf52775ab1d398`: the `os.system(... --check-log meta/kanban/suite-timing.log)` shell string is now **RED** at `test_no_guarded_source_invokes_the_check_log_subcommand`, and a module-scope `raise unittest.SkipTest(...)` under a host-state `if` (planted after `from __future__`, so it is legal and truly at module scope) is now **RED** at `test_no_guarded_module_silences_itself_at_module_scope`. Both survived cycle 1.
+- [Fix 2] F-001's three halves, which is the shape my brief prescribed and the agent implemented: **derived** where an authority exists — `_pytest_surface()` over `dir(pytest)` under the same public+callable filters the first module uses (88 public, 84 callable on pytest 9.1.1, all 84 classified with grouped reasons), red on an unclassified name, a phantom, or the set reverting to a literal; **explicit members with reasons and discriminating controls** where no `dir()` could ever supply them (`SkipTest`, `os._exit`, and the three *bindings* `pytestmark`/`collect_ignore`/`collect_ignore_glob` — a binding is not a call, so no surface enumerates it); and **recorded misses** for what remains (helper indirection, and a silencer aliased then called). Closed by mechanism: `unittest.SkipTest`, `os._exit`, `collect_ignore`, `collect_ignore_glob`.
+- [Fix 2] F-002 closed at the root cause first: the rule is now ONE function (`_check_log_invocations`) that all three tests call, with the **substring** predicate, and `test_the_invocation_rule_is_the_one_the_guard_runs` reads this module's own source and goes red if any test in the class walks `ast` itself again — which is the defect cycle 1 found (a control certifying a copy of the predicate) made structurally impossible rather than merely fixed.
+- [Fix 2] **two things the agent flagged rather than hid, both honest and both passed to the reviewer to judge rather than accepted by me**: the emptied-module floor is 90 and NOT derived — it declined to derive it from `git show main:…` because that would put a git/`main`-ref dependency, and a possible skip, into the module whose entire subject is removing host dependence from verdicts (that reasoning looks right to me, and it is paired with a derived equality so the floor is the weaker half of a two-part check); and the `error(...)` exemption trusts a *shape*, with the discriminating half measured (`error` on a non-parser IS reported). It also flagged that it hand-counted the sweep's new totals and asked for a re-tally.
+- [Fix 2] a near-miss it reported rather than quietly fixing, and the right call: its first shell-string control carried the literal `meta/kanban/suite-timing.log`, and **the other module's AC-1 guard immediately reported it** — that guard working exactly as designed, on this card's own author. The committed control spells the destination `PATH`. It also recorded a false start (a plant above `from __future__` produced a collection error, not a skip) instead of dropping it.
+- [Review 2/3] dispatched in **confirmation mode**, as cycle 1's reviewer judged appropriate: the delta is confined to two test files and the sweep, and `rank_durations.py` was not touched this cycle. Priority 1 is whether closing the two findings minted a third claim wider than its mechanism — the card's own subject, and the fix added three new mechanisms and seven new sweep rows. It was told to try to BORROW the `error(...)` exemption, to re-tally the hand-counted sweep, and to check that nothing hid behind `test_the_definition_shape_is_not_an_invocation` keeping its name while widening from one control to four.
