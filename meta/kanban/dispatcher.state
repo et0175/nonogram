@@ -8,22 +8,14 @@ mode: interactive
 # from the session record and committed.
 max_concurrent_override: 2
 active:
-  - id: CARD-228
-    branch: card/228-difficulty-dots
-    worktree: ../PythonProject4-card-228
-    phase: fix
-    review_cycle: 3
-    score: 8.0
-    head: 56cec05
-    note: "escalation RESOLVED 2026-10-16 by owner decision (option c then b): AC-4 narrowed to the four routes a static walk can see, the universal guarantee moved to CARD-241. Final bounded pass running under GB-1..GB-4 - wording, three named limits each with a surviving mutant, two overreaching sentences corrected, FLAT_METHODS' false `line` rationale fixed. GB-1 forbids a new mechanism: that is CARD-241's."
-  - id: CARD-240
-    branch: card/240-fr044-rule-c
-    worktree: ../PythonProject4-card-240
-    started: 2026-10-16T19:55:00Z
+  - id: CARD-239
+    branch: card/239-timing-guard-bounds
+    worktree: ../PythonProject4-card-239
+    started: 2026-10-16T20:45:00Z
     phase: implementation
     review_cycle: 0
-    note: "wave 42, dispatched after CARD-213's merge unblocked it. P3, 0.25d, wording only in meta/architecture/requirements.yml - no overlap with lane A's hotspots and none with CARD-228's test file, so it runs safely beside CARD-228's final pass."
-
+    base: 436717e
+    note: "wave 42. The owner approved starting this alongside CARD-240, and I HELD it deliberately until CARD-228 merged: it edits tests/test_suite_profile.py, and CARD-228's final pass was changing the very file that test's frozen render-set grep scans (rank_durations.RENDER_API_PATTERN, applied to the raw text of every file under tests/). CARD-228 landed at 0 matches so the collision never materialised, but that was not knowable in advance and the same shape cost CARD-213 a merge gate earlier today. Starting from a base containing 08eecf3 cost ~20 minutes and removed the question."
 previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
@@ -203,4 +195,29 @@ conflict_edges:
 # KILLED verdicts. One mutant per process is reliable; batching is not. Any record on this board
 # of the form "all N mutants caught" from a batched run is worth re-deriving - CARD-234's six and
 # CARD-228's own ten included.
-last_updated: '2026-10-16T19:45:00Z'
+# NOTE 2026-10-16T20:45Z: WAVE 42 - THREE MERGED, ONE RUNNING.
+#   CARD-213 ✓ cbd5a8e  9.0 cycle 1, AC/EC/G 21/21, 0.2d against 0.5d
+#   CARD-240 ✓ 9f0ab10  9.0 cycle 1, 0.1d against 0.25d
+#   CARD-228 ✓ 08eecf3  8.0/8.5/8.0 over 3 cycles + 1 owner escalation, 0.5d against 0.5d
+#   CARD-239 ▶ running, started from a base containing all three
+# LANE A IS UNBLOCKED. CARD-222 (the frame) is its next head, but FOUR architect-station
+# amendments are owed before lane A can run clean - see the list below. CARD-241 (P1, 1d,
+# architectural) is also now Ready and is what four adopting cards actually lean on.
+# OWED AT THE ARCHITECT STATION: CARD-206's INV-013/FR-043 · CARD-222's CON-018 ·
+# CARD-225's NFR-008 · CARD-224 cancelling CARD-204's pending FR-032 · and NEW from CARD-228:
+# the package-wide dingbat constraint (no string literal anywhere in src/nonogram/ may hold a
+# codepoint in U+25A0-U+25FF, U+2022 or U+2219, docstrings included) is declared ONLY inside a
+# test file although it binds every module. CARD-241 carries the question.
+# FOR THE RETROSPECTIVE, two findings that are not about any one card:
+#  1. Mutation verdicts from a BATCHED run are not trustworthy. Running several mutants
+#     sequentially from one parent process yields FALSE KILLED verdicts - bogus failures in
+#     tests the mutant cannot affect. One mutant per process. Any record of the form "all N
+#     mutants caught" from a batched run is worth re-deriving, CARD-234's six and CARD-228's
+#     own ten included. Found in the REVIEW station's instrument, not in a card's tests.
+#  2. A sharper statement of the family than wave 41 reached: a completeness test over
+#     hand-enumerated SYNTACTIC SHAPES is not a completeness test, because no authority
+#     enumerates the shapes. Where an authority exists (dir(os) for CARD-238, dir(ImageDraw)
+#     for CARD-228's method half) the guard converges; where none does, default-deny - make
+#     anything the guard cannot parse a FAILURE - is the pattern that converges, and even that
+#     moves the frontier rather than closing it (CARD-228 cycle 3).
+last_updated: '2026-10-16T20:45:00Z'

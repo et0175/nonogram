@@ -1,6 +1,6 @@
 # CARD-239: The timing-log guards' remaining bounds, and the one place that reads the log on purpose
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/239-timing-guard-bounds
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-239
 **Source:** CARD-238's five review cycles, 2026-10-15/16 — every item below was measured there and deliberately deferred rather than discovered here
 **Idea:** —
-**Wave:** —
+**Wave:** 42
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py, .gitignore, pyproject.toml
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-16T20:45:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -206,3 +206,11 @@ bare-trailing-prose line being written. Note `cmd-run.md` lives in the forge ski
   compound mutant survives at 250 passed; the five version-gated members red the suite when deleted;
   `subprocess` is outside the audited namespaces; `os.path.relpath(KANBAN, REPO_ROOT)` is unseen;
   the module docstring says 331 against 341 collected.
+- [Env] forge unknown (no resolvable plugin manifest; no meta/.skills.yml)
+- [Dispatch] started 2026-10-16T20:45Z, after CARD-228 merged rather than beside it. **The owner
+  approved starting this card alongside CARD-240, and I held it deliberately**: it edits
+  `tests/test_suite_profile.py`, and CARD-228's final pass was changing the very file that test's
+  frozen render-set grep scans (`rank_durations.RENDER_API_PATTERN`, applied to the raw text of
+  every file under `tests/`). CARD-228 ended up at 0 matches so the collision never materialised —
+  but that was not knowable in advance, and the same shape cost CARD-213 a merge gate earlier today.
+  Starting from a base that already contains `08eecf3` costs ~20 minutes and removes the question.
