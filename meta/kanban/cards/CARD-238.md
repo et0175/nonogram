@@ -773,3 +773,58 @@ corpus is `random.Random`, not `hypothesis`.
   `meta/review/`, not narrated in a report. Requiring it "as a report section" was my spec defect
   — it left the owner's cycle-4 condition with no auditable artefact and forced the reviewer to
   redo the sweep from scratch, which is the only reason occurrence five was caught.
+- [Fix 5] **The generator fix works, and the proof is that the audit named the Critical before the
+  agent did.** The first red run — audit written, exclusion table empty — listed
+  `'walk (os/pathlib.Path)'`, `'fwalk (os)'`, `'glob0 (glob)'`, `'scandir (os)'`,
+  `'iterdir (pathlib.Path)'` among 271 unclassified names. So `os.walk` was identified by the
+  mechanism rather than hand-added, which was the whole condition of this cycle — **and it found
+  three more nobody had thought of**: `fwalk`, `glob0`, `glob1`. Those would have been occurrences
+  six, seven and eight.
+  The surface is derived from `dir(os)`, `dir(os.path)`, `dir(glob)`, `dir(pathlib.Path)` and
+  pathlib's `PurePath` subclasses: **307 classified entries over a 271-name live surface, 18
+  reasons.** `_HOST_STATE_PROBE` became `_probe_pattern(_HOST_STATE_PROBES)` so the silence half is
+  a **set the audit can police too** — the Critical's two omissions compounded, and fixing one
+  would have left the other. Sets filled by the audit: `_LISTERS` 3→5, `_GLOBBERS` 3→5,
+  `_PATH_WRAPPERS` 3→20, probes 9→52.
+- [Fix 5] verified independently by me, not taken on report:
+  * `os.walk` hoisted → `['walk() of meta/kanban']`; `Path.walk()` → caught; `os.fwalk` → caught;
+    `os.listdir(path=…)` → caught; bare-imported `listdir(path=…)` → caught; the `cards`
+    subdirectory negative → `[]`, still correctly clean.
+  * **the audit can fail**: I deleted `walk` from `_LISTERS` and got **5 red**, including
+    `test_the_listing_sets_are_exactly_the_classified_spellings` — the audit itself — plus the
+    three `os.walk` controls and the behavioural comparison. Reverted, md5 back to
+    `2111403410773639e6b917428ee98a72`. **That is the difference from cycles 1–4: a missing
+    spelling is now a red test rather than a review finding.**
+  * G-1 `fd3e799a4ea30862d8d8e03966ae9349` and G-3 `1dab65e2e0d79581ef5dd48d971968fe` both
+    confirmed; the sweep file exists (12,840 bytes).
+- [Fix 5] ⚑ **the audit caught the family inside the agent's own pass, a second time and at a
+  deeper level.** Its first `glob0` control used the pattern `"suite-timing.log"`, so the *string*
+  rule caught it even with `glob0` removed from the set — **a control that proved nothing**. It
+  then wrote `test_the_control_for_each_spelling_depends_on_the_set` (every spelling needs a
+  control caught **with** its member and missed **without** it), watched it go red at `glob0`, and
+  changed the pattern to `"latest.log"`. That is a guard on the guards' discriminating power, and
+  it is the mechanism that would have caught cycle 4's decorative wrapper test.
+  Two more self-corrections are on the record rather than quietly fixed: a false "exactly two of
+  its members" count it wrote in `_probe_pattern`, and a "53 cases" miscount in its own sweep
+  file's first draft (the set holds 52). It also **deleted its own first-draft claim** that the
+  pre-classified Linux/Windows handful is complete for those hosts, replacing it with an explicit
+  non-claim — the bound being that the surface is the *running* interpreter's, so a new platform's
+  unclassified name is red by design.
+- [Fix 5] mutants: **MUT-W KILLED** (3 failed / 237 passed — path guard `['walk() of meta/kanban']`,
+  the silence equality, and the behavioural half transitively); **MUT-KB KILLED** (3 failed — the
+  keyword fix on the path side, and the *derived* pattern matching bare `listdir(` where the
+  hand-written `os\.listdir` could not). All four earlier regressions still die. The env-var
+  survivor **still survives and is still documented as surviving** (341 passed with the variable
+  set), now with `os.getenv` classified `KIND_NEITHER` and a negative control pinning it.
+- [Fix 5] AC-5: **7488 passed, 9 skipped, 0 failed on both legs**, rc=0, gaps **2.4s and 2.8s**,
+  loads 6.34 and 6.03 at the gates, **skip lists verified identical by `diff` of the `-rs`
+  reports**. 7488 = cycle 4's 7315 − 168 + 341, exactly as predicted.
+- [Fix 5] G-2: module **168 → 341** tests; positive controls 36 → 47; wrapper controls 3 → 40;
+  probe controls 0 → 104 generated; new `NOT_A_PATH_WRAPPER` corpus. Nothing removed.
+  G-5: **two new stdlib imports, `glob` and `pathlib`**, which the audit needs to read the surface
+  — stated plainly because cycle 4's card text wrongly claimed "no new import at all".
+  Scope limit honoured: F-405 and a newly-found `except FileNotFoundError` bound were **RECORDED,
+  not fixed**, and the latter is pinned by a control that goes red if the detector grows past it.
+- [Fix 5] the claim sweep is **a file this time**, synced to
+  `meta/review/CARD-238-cycle5-claim-sweep.md` — 34 claims across four areas, each PINNED with a
+  named control, DELETED, or RECORDED, plus a counts table. My spec defect from cycle 4 is closed.
