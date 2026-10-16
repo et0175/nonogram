@@ -1,6 +1,6 @@
 # CARD-239: The timing-log guards' remaining bounds, and the one place that reads the log on purpose
 
-**Status:** review
+**Status:** blocked
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -15,12 +15,12 @@
 **Wave:** 42
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py, .gitignore, pyproject.toml
-**Review score:** 8.0 (cycle 1/3 — min_score met, 0 critical, 2 important; severity gate FAILS)
+**Review score:** 8.0 (c1) → **7.5** (c2/3) — below min_score 8, min_improvement missed, trajectory DOWN
 **Started:** 2026-10-16T20:45:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — architect/owner: family regression. Cycle 1 found two claims wider than their mechanism; cycle 2 closed both by mechanism and minted two more in the same family, one of them re-opening the exact route cycle 1 was about through the exemption added to fix it.
 
 ## What to implement
 
@@ -578,3 +578,57 @@ floor is a number somebody will have to edit, and it is labelled as one.
 - [Fix 2] **two things the agent flagged rather than hid, both honest and both passed to the reviewer to judge rather than accepted by me**: the emptied-module floor is 90 and NOT derived — it declined to derive it from `git show main:…` because that would put a git/`main`-ref dependency, and a possible skip, into the module whose entire subject is removing host dependence from verdicts (that reasoning looks right to me, and it is paired with a derived equality so the floor is the weaker half of a two-part check); and the `error(...)` exemption trusts a *shape*, with the discriminating half measured (`error` on a non-parser IS reported). It also flagged that it hand-counted the sweep's new totals and asked for a re-tally.
 - [Fix 2] a near-miss it reported rather than quietly fixing, and the right call: its first shell-string control carried the literal `meta/kanban/suite-timing.log`, and **the other module's AC-1 guard immediately reported it** — that guard working exactly as designed, on this card's own author. The committed control spells the destination `PATH`. It also recorded a false start (a plant above `from __future__` produced a collection error, not a skip) instead of dropping it.
 - [Review 2/3] dispatched in **confirmation mode**, as cycle 1's reviewer judged appropriate: the delta is confined to two test files and the sweep, and `rank_durations.py` was not touched this cycle. Priority 1 is whether closing the two findings minted a third claim wider than its mechanism — the card's own subject, and the fix added three new mechanisms and seven new sweep rows. It was told to try to BORROW the `error(...)` exemption, to re-tally the hand-counted sweep, and to check that nothing hid behind `test_the_definition_shape_is_not_an_invocation` keeping its name while widening from one control to four.
+- [Review 2/3] **7.5** — below `min_score: 8`, `min_improvement` missed, trajectory **DOWN** from 8.0.
+  Severity gate FAILS on **two new Important findings, both in the family this card exists to close**,
+  both grounded in planted-and-reverted mutants with discriminating controls.
+- [Review 2/3] **F-201: the module-scope-binding exemption absorbs a real invocation — and it
+  re-opens the exact route cycle 1's F-002 was about, through the exemption added to fix it.** Cycle 1
+  found the guard matching an equality and missing a shell string; the fix widened the predicate to a
+  substring match, then exempted *every* module-scope `ast.Assign` unconditionally on its value. So
+  hoisting cycle 1's own killed mutant into a module-scope constant makes it survive: M3 (inline)
+  KILLED, **M2 (hoisted) SURVIVED at 854 passed, rc=0**. The hole is exactly `NAME = "<command line>"`
+  at module scope — the most idiomatic spelling in this repo, and the one shape that looks covered
+  because `ARGV = [...]` sits in the positive controls. The missing discriminator is the one the
+  sibling rule already has: **does the bound name reach an executor?** `_live_log_references` answers
+  that with its taint step; this rule reimplemented the shape and dropped that half.
+- [Review 2/3] **F-202: `__test__ = False` silences a guarded module with a green session, and it is
+  in neither the enumerated set nor the recorded misses.** I verified this myself in a sandbox rather
+  than relaying it: a module with two failing guards plus one other module collects as **`1 passed`,
+  rc=0** — both failures silently gone. Planted in `tests/test_clues.py` it took **386 tests to
+  nothing with 468 passed and both guard modules green**. That is the F-308 verdict in its quietest
+  form — quieter than `collect_ignore` (which only works in conftest.py) and quieter than `SkipTest`
+  (which at least prints `1 skipped`). The rule's own standard forecloses the "nobody writes that"
+  defence, since it reports `importorskip`/`xfail` with the comment "Not a spelling anyone in this
+  tree writes, and reported anyway". No live `__test__` exists in the tree (223 files grepped).
+- [Review 2/3] **what cycle 2 DID hold, re-derived rather than trusted**: `_pytest_surface()` is exact
+  (88 public / 84 callable / 84 classified / 0 unclassified / 0 phantom, and the filters genuinely are
+  the same two the first module applies — the reviewer hunted for a pytest silencer outside the set
+  and found none); both recorded misses are genuinely open with a red-able bound; the RC-1 pin is real
+  (≥3 callers, zero re-derivers); F-004's fix was verified **differentially over 283 sources with zero
+  differences**; and G-2 was re-derived at name AND body level, +1/−0 and +9/−0, nothing hiding behind
+  the kept test name.
+- [Review 2/3] it **agreed with both flagged bounds**: the undrived floor of 90 is the correct
+  resolution (deriving from a `main` ref would put a git dependency and a possible skip inside the
+  module whose subject is removing host dependence from verdicts), and F-005's dismissal with G-12 is
+  right. It also answered the hand-counted sweep: rows 56 → 67, but **PINNED is 32 not 37** (net +1
+  against a declared +4), and the four buckets are not a partition. Minor, since every row carries its
+  own checkable verdict — but pointed, because row F-6 DELETED a prose count on the grounds that "a
+  count in prose cannot go red", and the header table is four prose counts.
+- [Review 2/3] **the generalisable rule it extracted, which is the most valuable thing in this report
+  and belongs in the retrospective's promotion pass:** *an **exemption** is a claim, and it needs the
+  same control a set member needs — caught WITH it, missed WITHOUT it, and the residue recorded as a
+  bound.* Both of this cycle's defects are exactly that rule unmet: `_check_log_invocations`' three
+  exemptions have controls for what they *exempt* and none for what they must not **absorb**, and the
+  binding set has no completeness substitute for the audit it opted out of. This is a sharper
+  statement than either CARD-238's or CARD-228's, because it names the *exemption* — the construct
+  both of those cards reached for as the honest escape hatch — as itself needing a falsifier.
+- [Escalated] 2026-10-17T00:30Z — **score below min_score, min_improvement missed, trajectory down,
+  and family regression attributed to the previous fix.** · station: **architect/owner** · the
+  reviewer's own words: a third cycle would be "the loop asked to audit the exemptions it just
+  wrote", and it recommends not running one automatically. Worktree and branch KEPT.
+- [Escalated] **neither finding is a live violation today** — no `__test__` exists anywhere in the
+  tree, and no hoisted-constant invocation exists either — and the card's substantive work is sound
+  across two cycles of adversarial checking: the first module's derived surface, AC-1/2/3/5, the
+  deliberate `--check-log` reader, the version floor (including the third statement nobody had
+  noticed), and the struck host-state silences. What is unmet is the *completeness of the new
+  module's own exemptions*.

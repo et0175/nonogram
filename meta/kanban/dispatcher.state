@@ -7,15 +7,7 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
-  - id: CARD-239
-    branch: card/239-timing-guard-bounds
-    worktree: ../PythonProject4-card-239
-    started: 2026-10-16T20:45:00Z
-    phase: implementation
-    review_cycle: 0
-    base: 436717e
-    note: "wave 42. The owner approved starting this alongside CARD-240, and I HELD it deliberately until CARD-228 merged: it edits tests/test_suite_profile.py, and CARD-228's final pass was changing the very file that test's frozen render-set grep scans (rank_durations.RENDER_API_PATTERN, applied to the raw text of every file under tests/). CARD-228 landed at 0 matches so the collision never materialised, but that was not knowable in advance and the same shape cost CARD-213 a merge gate earlier today. Starting from a base containing 08eecf3 cost ~20 minutes and removed the question."
+active: []   # CARD-239 escalated; see escalated: below
 previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
@@ -37,7 +29,17 @@ previously_escalated:
     head: 56cec05
     note: "The PRODUCT code is not in question: AC-1/2/3/5/6 green, geometry independently verified in cycles 1-2, the cycle-3 src delta is a single docstring hunk, G-5 holds with zero callers, G-1..G-5 hold, system contract 4 of 4, and both exemption sets rejected every absorption probe. What is unmet is AC-4 alone - a universal negative over Python syntax that four downstream cards were meant to lean on. Verified at this station before escalating: FLAT_METHODS' reason for leaving `line` unguarded is factually false. Pillow's own docstring reads 'Draw a line, or a connected sequence of line segments' and it calls draw_lines."
     resolved: "2026-10-16T19:55:00Z - owner chose option (c) then (b): AC-4 narrowed to the four routes a static walk can see, card returned to `review` for one bounded wording-and-limits pass, universal guarantee carded as CARD-241 (render-and-measure). Worktree was never discarded."
-escalated: []
+escalated:
+  - id: CARD-239
+    reason: "score 7.5 BELOW min_score 8, min_improvement missed, trajectory DOWN from 8.0, and family regression attributed to the previous fix. Cycle 1 found two claims wider than their mechanism (both pinned in the sweep, so AC-7 failures); cycle 2 closed both BY MECHANISM - verified on disk, not taken on trust - and minted two more in the same family. F-201 re-opens the exact route cycle 1's F-002 was about, through the exemption added to fix it: the predicate was widened to catch a shell string, then every module-scope assignment was exempted unconditionally on its value, so hoisting cycle 1's own killed mutant into a module-scope constant makes it survive (M3 inline KILLED, M2 hoisted SURVIVED at 854 passed). F-202: `__test__ = False` silences a guarded module with rc=0 and a green session - verified independently at this station, 386 tests to nothing - and is in neither the enumerated set nor the recorded misses."
+    station: architect/owner
+    route: "owner picks. (a) LAND IT with F-201/F-202 as recorded bounds plus a follow-up card - defensible and my recommendation's base: neither is a live violation (no `__test__` anywhere in 223 files, no hoisted-constant invocation either), and the card's substantive work survived two cycles of adversarial checking. (b) ONE MORE BOUNDED PASS applying the exemption rule - but the reviewer's objection stands: that is the loop asked to audit the exemptions it just wrote, which is how CARD-238 reached five cycles. (c) SPLIT, which is my actual recommendation: F-202 is a genuine one-liner whose control comes free from the existing parametrised pair, and it closes the QUIETEST hole in the suite (rc=0, no output, 386 guards gone); F-201 needs the taint step the sibling rule already has, which is real work and a card. So: one pass that does ONLY F-202 and records F-201 as a bound with a control, then land, then card the taint step. ORCHESTRATOR RECOMMENDATION: (c)."
+    at: 2026-10-17T00:30:00Z
+    worktree_kept: ../PythonProject4-card-239
+    branch: card/239-timing-guard-bounds
+    head: e9f0e8f
+    note: "The rule this card produced is more valuable than the card: AN EXEMPTION IS A CLAIM, AND IT NEEDS THE SAME CONTROL A SET MEMBER NEEDS - caught WITH it, missed WITHOUT it, residue recorded as a bound. Sharper than CARD-238's or CARD-228's, because it names the EXEMPTION - the construct both of those cards reached for as the honest escape hatch - as itself needing a falsifier. Feed it to the retrospective's promotion pass regardless of which option is chosen."
+
 queued:
   - id: CARD-215
     reason: "dependency CARD-214 satisfied and CARD-204 merged; now eligible, waiting on a free slot (conflict edge with CARD-205/CARD-206 on export/layout.py and book_pdf_generator.py)"
