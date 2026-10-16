@@ -169,9 +169,42 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 56cec05
     dismissed_reason: null
+    fix_note: |
+          Mechanism inverted to default-deny (56cec05), after landing the honest narrow
+          wording first (dc8d2df) so a true sentence was on disk before the widening was
+          attempted. Three new mechanisms, each with a control caught WITH its entry and
+          missed WITHOUT it:
+            _uncountable_vertices        — the one understood shape (a list/tuple display of
+                                           countable elements); no positional argument, a bare
+                                           name, a call, a comprehension, a conditional, a
+                                           starred unpack and an over-bound display all complain.
+                                           The two existing controls were rewritten to fire
+                                           THROUGH this check instead of re-implementing it.
+            _unrecognised_draw_receivers — every written call to a draw-method name, whatever
+                                           its receiver; judges a parameter by the draw method
+                                           written on it, not by its annotation.
+            _draw_object_bindings        — every `.Draw(...)` call by the form it sits in;
+                                           an unreadable form is reported, not silence.
+          Two earned exemptions under an equality plus a cannot-draw assertion, no bin widened:
+          NON_DRAW_RECEIVER_SITES (the two Image.point calls — pinned on the property that
+          Image.point takes a table or a lambda, never a coordinate display, and that neither
+          name is ever bound to a draw object) and DRAW_OBJECT_UNBOUND_SITES (the inline
+          ImageDraw.Draw(probe) metric and the three draw objects handed to a function, safe
+          because the callee's parameter is then a receiver — the two mechanisms compose).
+          The arrow head at book_pdf_generator.py:1895 needed no exemption; it passes the
+          bound as written.
+          Mutants, each in its own fresh pytest process, png.py restored and shasum-verified:
+          M1 (starred 32-gon) KILLED, M2 (unannotated receiver) KILLED, M3b (annotated
+          assignment + 9-gon) KILLED. Three further evasions invented against the new
+          mechanism: M6 (draw object returned from a helper) KILLED, M7 (self.canvas) KILLED,
+          V1 (vertices by bare name) KILLED. Cycle 1's controls re-run and still killing:
+          C1, C3, C4, M3. Still surviving and therefore NAMED limits, not claims: G1
+          (getattr dispatch) and D1 (chr()). The class docstring now separates the three
+          limits true by mechanism from the three named limits. Loop: 207 green (was 198),
+          548 with test_suite_profile.py.
     learned_pattern: null
 
   - id: F-102
@@ -220,9 +253,18 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 56cec05
     dismissed_reason: null
+    fix_note: |
+          Limit list only — the mechanism was already exact and was left alone. The
+          computed-string route (chr(), a decoded bytes literal, unicodedata.lookup) is
+          named in the class docstring beside the vertex analogue, together with the
+          non-.py assets the walk never opens. D1 (chr(0x25CF) into draw.text) was re-run
+          in its own fresh process and SURVIVES, which is what makes the new line a
+          measured limit rather than a guess. "Closed package-wide" is not repeated: the
+          card and the new commit message both say "every string literal in the package,
+          docstrings included".
     learned_pattern: null
 
   - id: F-103
@@ -252,9 +294,15 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 56cec05
     dismissed_reason: null
+    fix_note: |
+          export/layout.py:1331 now names both classes — six of the seven refusals in
+          TestDifficultyDots_UntieredDrawsNothing, and the ring-closing stroke in
+          TestDifficultyDots_FilledAndOutlinedAreDistinguishable::test_the_type_refuses_a_stroke_that_closes_the_ring.
+          Docstring only; export/layout.py's import surface is untouched and no geometry
+          moved.
     learned_pattern: null
 
   - id: F-104
@@ -285,9 +333,15 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
-    fixed_in: null
+    status: fixed
+    fixed_in: 56cec05
     dismissed_reason: null
+    fix_note: |
+          The getattr clause is dropped, with the reason in a comment beside the
+          `f"def {THE_DRAWING_SITE[1]}" in sources[...]` line that carries all of its
+          discriminating power. Cycle 1's T1 control is unaffected: a typo in
+          THE_DRAWING_SITE[1] still reds test_the_walk_actually_sees_the_package and
+          test_the_package_draws_a_round_mark_in_exactly_one_function.
     learned_pattern: null
 
 verified_closed:

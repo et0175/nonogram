@@ -415,8 +415,195 @@ untouched. Every file changed is in the card's own `Touches`; `tests/test_book_i
 needed no change, because the dingbat guard belongs beside the AC-4 walk rather than
 beside CON-020's floor.
 
+### Review cycle 2 fixes (agent, 2026-10-16)
+
+Cycle 2 scored **8.5** — improvement met, no Critical, and **one new Important
+finding in the fix itself** (F-101): two of the four limits the widened round-mark
+guard stated about itself were false, and the reviewer landed a second dot glyph
+twice with 198 green. Root cause RC-1, named by the reviewer and accepted here:
+**the guards discriminated by syntactic form, and their completeness tests
+enumerated only the forms in current use — so a new spelling evaded the guard and
+its completeness test together.**
+
+Worked in two steps on purpose, and the first was landed before the second was
+attempted (`dc8d2df`, then `56cec05`), so a true narrow sentence was on disk at
+every point.
+
+**The distinction this cycle actually delivers.** The guard's limits are now
+sorted into two kinds, and the class docstring says which is which:
+
+*True by mechanism* — each has a control that fires through the real check:
+
+1. **An uncountable vertex argument fails.** `_uncountable_vertices` enumerates
+   the one shape it understands (a list or tuple display of countable elements)
+   and complains about everything else: no positional argument, a bare name, a
+   call, a comprehension, a conditional, a display holding a starred unpack, and
+   a countable display over `MAX_FLAT_VERTICES`.
+2. **An unrecognised draw receiver fails.** `_unrecognised_draw_receivers`
+   collects every written call to a draw-method name *whatever* its receiver, and
+   a receiver that is not a draw object as this package spells one must be a named
+   exemption. It judges a parameter by the draw method written on it rather than
+   by how it was typed, which is what closes the unannotated-parameter route.
+3. **An unrecognised `.Draw(...)` binding form fails.** `_draw_object_bindings`
+   classifies every `.Draw(...)` call by the form it sits in — assignment,
+   annotated assignment, walrus, receiver, argument — and reports anything else as
+   its own `unrecognised:<NodeType>`, which breaks an equality instead of
+   contributing nothing.
+
+*Named limits* — written down because this instrument genuinely cannot reach
+them, each confirmed by a mutant that **survives**:
+
+4. Anything outside `ImageDraw` entirely (`Image.paste` of a circular mask,
+   `ImageDraw.floodfill`, a pre-rendered asset, a circle inside an imported
+   image). The watched set comes from `dir(ImageDraw.ImageDraw)` and nothing here
+   sees past it. Not mutated — unchanged from cycle 1, still a card of its own.
+5. A dynamically dispatched draw call. **G1** `getattr(draw, "ellipse")(box)`
+   planted in `export/png.py` → **SURVIVED**.
+6. A round mark **computed** into a string rather than written as one. **D1**
+   `chr(0x25CF)*rank + chr(0x25CB)*(3-rank)` into `draw.text` → **SURVIVED**
+   (F-102). The dingbat rule's own sentence was already exact — it is about string
+   *literals* — so claim and mechanism agreed; only the limit list was asymmetric.
+7. `DRAW_OBJECT_UNBOUND_SITES` carries a count per module+form rather than the
+   enclosing function names. One of those functions is named by
+   `meta/profiling`'s frozen `RENDER_API_PATTERN`, so writing it out adds this
+   file to `test_suite_profile.py`'s render-heavy set and reddens a guard with
+   nothing to do with this card — and the snapshot that would then have to be
+   restated lives under `meta/`, which this card may not commit. What the count
+   gives up is noticing a site *moving* between two functions of one module.
+
+**Why not "add the missing spellings".** CARD-238 escaped this family by
+deriving its set from an **authority** (`dir(os)`, `dir(os.path)`, `dir(glob)`,
+`dir(pathlib.Path)`). The *method* half of this guard already has that authority
+(`dir(ImageDraw.ImageDraw)`) and it is sound. But there is no authority that
+enumerates "every way to write a vertex list" or "every way to name a draw
+receiver" — Python's grammar has no such list to import — so adding shapes is an
+infinite regress, which is how CARD-238 burned cycles 1 through 4. Inverting the
+default converges instead: the guard never predicts the next spelling, it
+recognises the present one and refuses the unknown.
+
+**Exemptions, earned rather than granted** — the shape `DINGBAT_EXEMPT_MODULES`
+already uses: an equality against what exists today, plus a second assertion that
+each exempt site cannot actually draw a round mark. **No bin was widened to make
+an honest call pass** (the move cycle 1's report recommended and this card
+refused):
+
+- `NON_DRAW_RECEIVER_SITES` — the two `Image.point` calls in `sourcing/image.py`.
+  The second assertion pins the discriminating property: `Image.point` takes a
+  lookup table or a lambda and *never a coordinate display*, so a future card
+  writing coordinates on an excused receiver reds
+  `test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark` rather than
+  inheriting the excuse. It also asserts neither name is ever bound to a draw
+  object anywhere in the package, so the excuse cannot be borrowed by rebinding.
+- `DRAW_OBJECT_UNBOUND_SITES` — the inline `ImageDraw.Draw(probe).text(...)`
+  metric (`receiver`) and the three draw objects handed straight to a function
+  (`argument`). The three are safe **not** because this line says so but because
+  the callee's own parameter is then a receiver and mechanism 2 covers it whatever
+  it is called. The two mechanisms compose; neither is trusted alone.
+- The real three-vertex arrow head at `book_pdf_generator.py:1895` needed no
+  exemption at all — it passes the vertex bound as it stands, with
+  `test_a_three_vertex_arrow_head_is_not_caught` as the not-caught control.
+
+**Controls, each caught with its entry and missed without it** (the CARD-238
+standard the dingbat exemption already met):
+
+- `test_a_starred_vertex_literal_is_caught` — the complaint fires, *and* the two
+  clauses cycle 1 relied on are shown passing the same source (`isinstance(List)`
+  is true, `len(elts) == 1 <= MAX_FLAT_VERTICES`), so the complaint can only come
+  from the new starred clause.
+- `test_a_second_receiver_spelling_is_caught` — M2's complaint fires, *and* the
+  two older mechanisms are shown blind to it (`_draw_calls(...) == []`,
+  `_draw_object_bindings(...) == []`, `_imagedraw_annotated_parameters(...) == []`).
+- `test_an_annotated_draw_assignment_is_caught` — M3b caught twice (binding name
+  and receiver), *and* shown to produce no `assignment`-form binding and no
+  annotated *parameter*, which is why cycle 1's collector saw nothing.
+- `test_an_unrecognised_draw_binding_form_is_caught` — attribute, tuple and loop
+  targets each reported as their own unrecognised form.
+- `test_the_one_honest_spelling_is_not_caught` — the package's own form passes, so
+  the inverted default is a discrimination and not a ban.
+- `test_a_vertex_list_passed_by_name_is_caught` — the bare-name and keyword-only
+  forms, with the exact complaint text asserted.
+- `test_a_many_sided_polygon_is_caught` and `test_a_disc_drawn_point_by_point_is_caught`
+  were rewritten to fire **through** `_uncountable_vertices` instead of
+  re-implementing the bound inline, so a control can no longer pass while the real
+  check is broken.
+
+**Mutants — every one its own fresh `pytest` process**, `export/png.py` restored
+from a byte copy and `shasum -c`-verified after each (cycle 1 found that batching
+from one parent yields false KILLED verdicts). Loop:
+`tests/test_book_difficulty_dots.py tests/test_book_interior_type_floor.py
+tests/test_cli.py` — **207 green** (was 198; +9 tests), and **548 green** with
+`tests/test_suite_profile.py` added.
+
+Cycle 2's survivors, now dead:
+
+| mutant | verdict | killed by |
+|---|---|---|
+| M1 `draw.polygon([*points], fill=INK)`, 32-gon, canonical receiver | **KILLED** | `test_no_module_draws_a_round_mark_out_of_vertices` |
+| M2 unannotated receiver `canvas`, 32 literal vertices, fed the real draw object | **KILLED** | `test_every_receiver_of_a_draw_method_is_a_draw_object` (+ the exemption test) |
+| M3b `canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)` + a 9-gon | **KILLED** | the receiver test, the exemption test *and* `test_every_draw_object_in_the_package_is_spelled_draw` |
+
+Three further evasions this agent invented against its own new mechanism, to
+check it was not merely patched to the two the reviewer happened to try:
+
+| mutant | verdict | killed by |
+|---|---|---|
+| M6 draw object returned from a helper, bound as `pen` | **KILLED** | receiver + binding-form rules |
+| M7 `self.canvas = ImageDraw.Draw(image)`, 32-gon on `self.canvas` | **KILLED** | receiver + binding-form rules |
+| V1 `draw.polygon(points)` — vertices by bare name | **KILLED** | `test_no_module_draws_a_round_mark_out_of_vertices` |
+
+Cycle 1's controls re-run after the rewrite, so nothing was traded away: **C1**
+`draw.bitmap` → KILLED, **C3** ten literal vertices → KILLED, **C4**
+`draw.ellipse` → KILLED, **M3** plain `canvas = ImageDraw.Draw(image)` → KILLED.
+
+**F-102 — the dingbat guard's limit list.** The computed-string route
+(`chr()`, a decoded bytes literal, `unicodedata.lookup`) is now named in the
+class docstring beside the vertex analogue, together with the non-`.py` assets the
+walk never opens. Nothing about the mechanism changed, because nothing was wrong
+with it: the test's sentence is about string *literals* and that is exactly what
+`_dingbat_literals` reads. The fix commit's "closed package-wide" overshot by one
+`chr()` call and is not repeated — the phrasing is now "every string literal in
+the package, docstrings included", and D1 above is the mutant that holds that
+wording honest.
+
+**F-103 — the refusal pointer.** `export/layout.py`'s `__post_init__` docstring
+named only `TestDifficultyDots_UntieredDrawsNothing` for all seven refusals; the
+ring-closing stroke — the one AC-3 leans on — lives in
+`TestDifficultyDots_FilledAndOutlinedAreDistinguishable::test_the_type_refuses_a_stroke_that_closes_the_ring`.
+Both classes are named now. This is the cycle's only change to `src/`, and it is a
+docstring: `export/layout.py`'s import surface is untouched (ADR-0007, the
+COMP-007/COMP-009 split), and no page's geometry moved.
+
+**F-104 — the relocated tautology, dropped.**
+`assert getattr(book_pdf_generator, THE_DRAWING_SITE[1]) is _draw_difficulty_dots`
+could only fail by `ImportError` at collection, and on the one input that could
+break it (a typo in the literal) the `f"def {THE_DRAWING_SITE[1]}" in sources[...]`
+line above it fails first. Removed, with the reason in a comment beside the line
+that keeps all of its discriminating power. Cycle 1's T1 control is unaffected:
+the typo still reds `test_the_walk_actually_sees_the_package` and
+`test_the_package_draws_a_round_mark_in_exactly_one_function`.
+
+**The out-of-scope note, resolved rather than implemented.** `TEXT_METHODS`'
+docstring now says it is a **classification only, consulted by no guard** — the
+dingbat rule ignores methods entirely and reads every string literal in the
+package, so there is no method-scoped text guard to go looking for. The set stays
+because `test_the_method_classification_covers_every_pillow_draw_method`'s
+partition must be exhaustive. **No new guard was built to justify the set.**
+
+**One further honest limit found while fixing, not papered over.**
+`_imagedraw_annotated_parameters` asserts a *floor* of thirteen annotated draw
+parameters rather than an equality: thirteen exist today, and a card that adds a
+fourteenth is doing nothing wrong. The floor is there only so the rule cannot
+pass by finding nothing.
+
+**G-5 re-verified after the fix:** `grep -rn "_draw_difficulty_dots" src/` finds
+the definition at `book_pdf_generator.py:1515` and no call. Every file changed is
+in the card's own `Touches`; `tests/test_book_interior_type_floor.py` and
+`src/nonogram/admin/book_pdf_generator.py` needed no change this cycle. Nothing
+under `meta/` is committed.
+
 ### Orchestrator log
 
+- [Cut first, deliberately] Four cards in this set draw difficulty dots. Cutting the glyph as
 - [Cut first, deliberately] Four cards in this set draw difficulty dots. Cutting the glyph as
 - [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)
 - [Scope] src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_book_interior_type_floor.py — exactly the card's Touches:, no drift, no SCOPE+. Components touched are COMP-007 and COMP-009, exactly the card's slice, so the scope gate sees no growth. Noted for the retrospective rather than as a finding: 1579 insertions on a 0.5d card, 1144 of them one new test file — volume in the tests, not scope in the source.
@@ -435,56 +622,13 @@ beside CON-020's floor.
 - [Fix 1] the agent also closed the `text` route WIDER than I asked, with a reason I accept: my suggested form — no `draw.text` call passing a dingbat string literal — would **not** catch CARD-207, because its header string is built at the caller and handed to `_set_band`, so no literal sits anywhere near a `draw.text` call. The shipped rule is that no string literal anywhere in src/nonogram/ holds a ROUND_DINGBATS codepoint, and its caught-control covers the f-string-at-the-caller form specifically. I verified the exemption's shape myself: `DINGBAT_EXEMPT_MODULES` is held to an **equality** against the modules actually carrying such a codepoint, and the one exempt module is additionally asserted to make no draw call and contain no `ImageDraw` — so the exemption cannot grow to cover a module that draws, nor outlive its reason. That is CARD-238's promoted pattern applied correctly rather than cited.
 - [Review 2/3] dispatched as ADVERSARIAL verification of the fix, not a fresh review. The fix introduced three new sets and three new claims (VERTEX_BOUNDED_METHODS, `_is_draw_receiver`, ROUND_DINGBATS + its exemption), and CARD-238 needed five cycles precisely because four of them fixed the named instances while minting the next cycle's finding in the same mechanism. The reviewer was told that checking for exactly that is the whole assignment, pointed at the specific holes worth probing (an uncountable vertex list passing silently; whether `_is_draw_receiver`'s completeness test fails on a NEW receiver spelling or only on a changed known one; whether `_dingbat_literals` sees f-string format specs, implicit concatenation, `chr()` and module-level constants later interpolated), and told explicitly NOT to treat cycle 1's report as ground truth, since it contained a factual error that propagated into the fix brief.
 - [Review 2/3] **score 8.5** (8.0 → 8.5, min_improvement 0.5 met). Severity gate **FAILS**: one new
-  Important finding, and it is **in the fix itself** — the CARD-238 family-regression shape I had
-  the reviewer looking for. Surfacing it at cycle 2 instead of cycle 5 is the whole value of that
-  brief. Report synced: meta/review/20261016T184513Z-CARD-228-cycle2.yml.
 - [Review 2/3] cycle 1's seven findings: **six CLOSED by execution**, one partially. F-002's four
-  refusals each red when disabled (all four survived in cycle 1). F-003's **0.45 is now RED** — the
-  cycle-1 survivor is dead, killed by a measurement independent of the constant. F-004 red on revert,
-  and the reviewer verified G-5 more strongly than the fix's own corpus argument: `__post_init__` is
-  reachable only through `difficulty_dots()`, whose only caller is `_draw_difficulty_dots`, which has
-  zero callers — so the tightened bound cannot reach a rendered page **by construction**, not merely
-  because no corpus row touched. F-006 lost nothing (a typo reddens two tests). F-001 went 1 guarded
-  route → 4, all four controls firing.
 - [Review 2/3] **the new Important (F-101): two of the four limits the widened guard states about
-  itself are FALSE, and a second dot glyph still lands with 198 green by two spellings.**
-  * `draw.polygon([*points], fill=INK)` with a 32-point comprehension **SURVIVES** — `[*points]`
-    parses to an `ast.List` whose `elts` is a single `ast.Starred`, so the literal check passes and
-    `len(elts) == 1 <= MAX_FLAT_VERTICES`. That is cycle 1's 32-gon mutant on the canonical `draw`
-    receiver, **two characters** from the form the guard catches. Worse than a plain blind spot
-    because **the guard teaches the evasion**: its own assertion message says "vertices this guard
-    cannot count", and wrapping the name in a literal list is the cheapest way to silence it.
-  * `canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)` + a 9-gon **SURVIVES** — `ast.AnnAssign`
-    is not collected, and that annotated form is the *more* idiomatic spelling in this codebase (all
-    13 draw params are annotated, `from __future__ import annotations` is on). An unannotated
-    parameter taking the real draw object also survives.
-  * **Root cause RC-1, and it is the part worth carrying:** the guards discriminate by syntactic
-    **form**, and their completeness tests enumerate only the forms in current use — so a new
-    spelling evades the guard **and its completeness test together**. That is a sharper statement of
-    the family than wave 41 reached, and it generalises: a completeness test over a hand-enumerated
-    set of *syntactic shapes* is not a completeness test, because the space of shapes has no
-    authority to derive from the way `dir(os)` served CARD-238.
 - [Review 2/3] bound on F-101 that keeps it Important rather than Critical, and the reviewer stated
-  it unprompted: the hole is **confined to the vertex route**. `_round_mark_sites` ignores the
-  receiver, so a circle drawn as a circle is caught under any spelling (verified: `draw.ellipse`
-  killed), and the dingbat route is receiver-agnostic. Nothing renders a dot today (G-5), so this is
-  an unverified **future** constraint on four unbuilt cards, not a live defect.
 - [Review 2/3] the dingbat rule came out **wider than I expected and its claim matches its
-  mechanism**: f-string *format specs* (`f"{word:●^12}"`), implicit concatenation and `\u` escapes
-  are all caught, and both red paths also fire the exemption equality, so that equality is
-  load-bearing. Two non-literal routes survive (`chr(0x25CF)`, a decoded bytes literal) and the
-  test's own sentence is exact about being about *string literals* — so claim ⇐ mechanism holds
-  there. What is missing is only symmetry of honesty: the class docstring lists four limits and
-  omits the computed-string route while documenting the vertex analogue (F-102).
 - [Review 2/3] the reviewer **re-derived the refusal of my own false premise independently**, rather
-  than trusting either side: its own AST scan of every receiver of a Pillow draw-method name across
-  src/nonogram/ returns exactly `draw` (48 calls), one inline `ImageDraw.Draw(probe)`, and
-  `greyscale`/`scaled` in sourcing/image.py. `draw.polygon` is real at book_pdf_generator.py:1895.
-  Cycle 1's suggestion was wrong and the fix agent was right to refuse it — now confirmed by three
-  independent checks (the fix agent's, mine, and the reviewer's).
 - [Review 2/3] OWED AT THE ARCHITECT STATION, new: the package-wide dingbat constraint is undeclared
-  outside the test file. It is now a standing rule on **every** string literal in src/nonogram/,
-  docstrings included, over all of U+25A0-U+25FF — and the exemption cannot absorb a legitimate prose
-  need in a module that draws, because its second half asserts no draw call and no `ImageDraw`. The
-  reviewer judged the practical hit rate low (box-drawing and block elements are outside the range)
-  and accepted it; the objection is that it should not be undeclared. Belongs in ADR-0036 or the card.
+- [Fix 2] **both steps landed** — `dc8d2df` (the floor: the two false limit sentences deleted, three Minors) then `56cec05` (the structural fix), in the order the brief required, so a true sentence was on disk at every point. Loop 207 green in the three-file set, 548 with test_suite_profile.py. Verified by me rather than accepted: **G-5 still holds** (zero callers in src/); the only `src/` change this cycle is a **docstring** hunk in export/layout.py (F-103's pointer correction — I read the diff line by line); `Touches:` respected; export/layout.py's import surface untouched.
+- [Fix 2] the fix accepted RC-1 as named and **inverted the guard's default to deny**, which is the only shape that converges: `dir(ImageDraw.ImageDraw)` is a genuine authority for the *method* half, but no authority enumerates every way to write a vertex list or name a draw receiver, so adding spellings is the regress that burned CARD-238's cycles 1-4. Now an uncountable vertex argument, an unrecognised receiver and an unrecognised `.Draw(...)` binding each FAIL rather than pass, and honest existing sites became **earned exemptions under equalities** rather than widened bins — which is the move cycle 1's report recommended and this card twice refused.
+- [Fix 2] the agent self-reported a limit it hit and backed out of, and I want it judged rather than accepted: `DRAW_OBJECT_UNBOUND_SITES` carries a **count** per module+form, not the enclosing function names, because writing the names out literally pulled this file into test_suite_profile.py's render-heavy set (one name matches meta/profiling's frozen RENDER_API_PATTERN) and restating that snapshot would mean committing under meta/, which the card may not do. Stated cost: the equality still catches additions but cannot notice a site *moving* between two functions of one module. Backing out of a change that would have forced a meta/ commit is the right instinct; whether the count is as strong as claimed is cycle 3's call.
+- [Review 3/3] dispatched — **the last cycle before this card escalates**. The brief makes one thing the review and everything else secondary: *try to land a second dot glyph*. Cycle 1 found three evasions and cycle 2 found two more, and each time the previous cycle believed the route closed, so the only evidence that default-deny worked is a genuine adversarial attempt that fails. It was given a list of forms not yet tried (a draw object through a dict/list/attribute chain, a walrus or `as` rebinding, `functools.partial` or a stored bound method, itertools/numpy vertices splatted, a module `_package_sources()` does not reach, `from PIL.ImageDraw import Draw` aliased, a chained or subscripted `Draw` result) and told that finding one outranks everything else in the report. It was also told to check the limit split in BOTH directions — a 'named limit' that is actually closed is harmless, a 'true by mechanism' claim that is actually open is the family defect again — and to probe whether an exemption can absorb a newly-added drawing site. Closing instruction: choose explicitly between land it / land it with recorded bounds plus a follow-up card / escalate, and that I would rather have an honest escalate at cycle 3 than a generous pass that CARD-207 discovers on a printed proof.
