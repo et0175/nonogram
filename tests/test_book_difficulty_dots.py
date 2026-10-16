@@ -790,9 +790,17 @@ DRAW_BINDING_FORMS = frozenset({"assignment", "annotated assignment", "walrus"})
 #: what the last entry does, and it is the only reason that entry looks odd.
 #:
 #: The names are therefore back, and with them the precision the count gave up:
-#: a site **moving** between two functions of one module, or being **replaced**
-#: by a different site in the same module and form, now breaks this equality
-#: instead of leaving it unchanged.
+#: a site **moving** to a different function of the same module now breaks this
+#: equality instead of leaving it unchanged (demonstrated: the ``_titled``
+#: argument site moved into a new helper of the same module and the same form
+#: reds this test, where the per-module-and-form count it replaced passed).
+#:
+#: What it still does **not** catch, measured rather than assumed: an unbound
+#: site *replaced by a different one inside the same function*, since the
+#: triple is then unchanged. That is not an open drawing route — the callee's
+#: parameter is a receiver and :func:`_unrecognised_draw_receivers` covers it,
+#: which is the composition this table leans on — but the equality alone does
+#: not see it. CARD-241.
 DRAW_OBJECT_UNBOUND_SITES = (
     ("nonogram.admin.book_pdf_generator", "_blank_page", "argument"),
     ("nonogram.admin.book_pdf_generator", "sample", "receiver"),
@@ -1295,6 +1303,12 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       assignment, an attribute target, a tuple or loop target, a walrus, or a
       form nobody has thought of
       (:meth:`test_every_draw_object_in_the_package_is_spelled_draw`).
+      Precondition, stated because its sibling above needed the same
+      correction: this reads **attribute-form** ``.Draw(...)`` only, so a bare
+      ``Draw(image)`` from ``from PIL.ImageDraw import Draw`` is classified as
+      nothing here. No round mark escapes that way today — the receiver rule
+      catches the glyph whatever the object is called — but the classification
+      gap is real and belongs to CARD-241.
 
     And six remain **named limits** — written down rather than left as
     confident sentences, because this instrument genuinely cannot reach them.
