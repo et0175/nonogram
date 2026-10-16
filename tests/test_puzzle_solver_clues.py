@@ -825,7 +825,10 @@ def test_PropertyTest_SolverClues_RuleCInvariantUnderTransposition(browser_page,
                     lines += 1
                     rule_c_added += now != before
                     rule_c_only += any(now) and not any(before)
-    assert lines >= 200, lines
+    # An equality, not a floor: the corpus is fully determined by its seed and
+    # its shape list, so `>= 200` against a measured 4920 would let the corpus
+    # shrink 24-fold in silence. Re-record this deliberately if the shapes move.
+    assert lines == 4920, lines
     assert rule_c_added >= 150, rule_c_added
     assert rule_c_only >= 100, rule_c_only
 

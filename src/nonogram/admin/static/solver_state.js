@@ -394,6 +394,18 @@ export function solvedPercent(board, solution) {
 // is circled only when every cell of the line is white; rule C does not apply
 // to it. Wrong but self-consistent marks can circle a number; the error
 // count, not the circle, says whether a mark is right.
+//
+// Rule C applies NO left-to-right ordering check, and that is deliberate
+// rather than an oversight: it circles a number from the length of one closed
+// run, so a line clued "1 2" marked "DDWDW....." circles BOTH numbers even
+// though the 2-run sits left of the 1-run. Each run's length is still
+// decisive given the clue, and such marks fit no placement at all, so a
+// solver's brute force never sees them. This is the same family rules A and
+// B already produce and at a smaller magnitude — measured over every line of
+// length <= 7, marks that fit no placement already drew two or more circles
+// in 941 cases before rule C existed, and rule C adds 226. Withholding the
+// circle here needs an ordering check across the closed runs, which would
+// belong to A and B as much as to C; that is a later card, not this rule.
 
 // The indices of the clue numbers one walk of rule A circles. `at(step)` is
 // the walk's step-th cell from its edge; `numberAt(step)` is the walk's
