@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 42
 **Depends on:** —
-**Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py
+**Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py, tests/test_browser_fixture_scope.py (amended 2026-10-16 at the decompose station — see the Architecture revision below; this card is the first to add a browser-family test since CARD-235 froze the family, and the freeze cannot be satisfied and the card implemented at the same time)
 **Review score:** —
 **Started:** 2026-10-16T17:04:17Z
 **Closed:** —
@@ -64,6 +64,87 @@ be that number.
    from the solution (ADR-0038/R3), and the state module stays DOM-free
    (ADR-0038/R4) — rule C is pure, like A and B. `solver.js` needs no change:
    `paintCircles` already paints whatever `circledClues` returns.
+
+## Architecture revision — 2026-10-16, decompose station
+
+**This section was added after implementation, and it is not a change to what rule C does.**
+The implementation is accepted as it stands. What follows is one bounded amendment forced by a
+guard this card had no way to anticipate.
+
+### What the gate found
+
+The full-suite gate came back `1 failed, 7499 passed` in 940 s. The one failure is
+`tests/test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`,
+at `assert len(ids) == 422` — the browser family now collects **434**. This card added ten
+browser-driven tests to `tests/test_puzzle_solver_clues.py`, which is one of that family's
+twelve files. Nothing is wrong with rule C, and nothing is wrong with the ten tests.
+
+### Why this is CARD-235's guard outliving its own scope, not this card's defect
+
+CARD-235's **AC-2 states its own scope in its own words**: *"no test lost: the collected test
+count and every test's node id are unchanged — **this card changes fixtures, never coverage**."*
+The guard exists to prove that **CARD-235's diff** changed no coverage. It was committed as a
+permanent assertion over the repository instead, so it now reads as "no card may ever add a
+browser test again". CARD-213 is simply the first card to try.
+
+This is worth stating generally, for the retrospective's rule-promotion pass, because it is a
+*different* rule from the one wave 41 produced and the two are easy to confuse: **a guard
+written to prove one card's diff did not change something must not be committed as a standing
+repository invariant without restating what it asserts.** Wave 41's rule is about a claim being
+wider than its mechanism; this is about a claim being correct but *outliving its subject*.
+
+### The amendment — exactly this, and no more
+
+Nine `422` literals sit in that file and they do **not** all mean the same thing. Eight of them
+describe **frozen historical measurements** and are correct as they stand:
+
+- `:485` `test_the_before_is_the_number_the_card_was_cut_on` reads the count out of
+  `BEFORE_ARTEFACT`. CARD-217's artefact genuinely recorded 422. **Do not touch.**
+- `:503`, `:525` `_failed_bars(saving, 422)` — per-test arithmetic over the two committed
+  artefacts, both of which hold 422 tests. **Do not touch.**
+- `:800` the committed order record says "422 selected". That is a committed file from
+  CARD-235's run. **Do not touch.**
+- `:15`, `:42`, `:126`, `:682` prose about the measured saving. Narrow the wording only — "the
+  422 the family held **when it was measured**" — because the saving is about the measured
+  family. Claim-reducing, so it invalidates nothing.
+
+**Exactly one** `422` is a claim about the family *today*: `:711`, inside the failing test. Two
+things are wrong with it and both must be fixed:
+
+1. **It is redundant.** The two assertions immediately below it — `sorted(ids - before) == []`
+   and `sorted(before - ids) == []` — already imply `ids == before` and therefore
+   `len(ids) == len(before)`. The literal adds no coverage; it only fires first and reports
+   `434 == 422` instead of the designed, far more useful `"tests added"` with the list.
+2. **It is a snapshot, in a test whose own docstring says it is not one** — *"Compared against
+   an independent record, not against a snapshot ... A snapshot regenerated from today's tree
+   could only ever agree with today's tree."* A hand-written 422 is precisely a snapshot. This
+   is wave 41's family in miniature, in the file that polices the family.
+
+Replace the literal and the two set assertions with a baseline of the shape CARD-238's
+retrospective promoted — **CARD-217's recorded set PLUS an explicit, reasoned allowlist of node
+ids added since**, each entry carrying the card that added it and why:
+
+- "tests added" must still fire for an **unrecorded** addition. That is the half worth keeping.
+- "tests removed" must keep working unchanged.
+- The count must be **derived** from `before | allowlist`, never written by hand again.
+- The equality must go red in **both** directions: when an unrecorded test appears, and when an
+  allowlisted one is removed without being struck from the allowlist. State the derivation in
+  the docstring so the claim and the mechanism agree.
+
+The ten node ids this card adds are the allowlist's first entries, attributed to CARD-213.
+
+### Guardrails on the amendment itself
+
+- **GA-1:** do not weaken the guard to make this card pass. Deleting the test, loosening it to
+  an inequality, or replacing the set comparison with a count is a refusal, not a fix. If the
+  only way through is to weaken it, write `[BLOCKER] guardrail conflict` and stop.
+- **GA-2:** do not touch the eight historical `422`s beyond the four prose narrowings named
+  above. They describe measurements that already happened.
+- **GA-3:** do not re-measure the family or regenerate either artefact. The saving CARD-235
+  recorded is not in question here and re-running a profile on this host would disturb its
+  provenance — a mistake CARD-238's notes record twice.
+- **GA-4:** `tests/test_puzzle_solver_clues.py` and `solver_state.js` are **done**. Do not
+  revisit rule C, and do not remove or move any of the ten new tests to dodge the guard.
 
 ## Acceptance criteria
 
@@ -238,3 +319,24 @@ passed), plus `test_puzzle_solver_page.py`, `_marking`, `_maybe`,
 - [Env] forge unknown (no .claude-plugin/plugin.json resolvable; no meta/.skills.yml, so no forge.min_version to compare against — no models: block either, so agents inherit the session model)
 - [Scope] src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py — exactly the card's Touches:, no drift, no SCOPE+ entries, solver.js untouched as the card predicted
 - [Build gate] review.test_scope is `full` in config.yml, so the cycle gate IS the full suite (no pytest-testmon in this venv — the python-pro recipe explicitly refuses to narrow without it). Run under the repo-level lock meta/kanban/.full-suite.lock, since CARD-228 is active in the same wave.
+- [Build gate] cycle 0 attempt 1: **1 failed, 7499 passed, 9 skipped in 940.80s**. The one failure
+  is NOT this card's code: `test_browser_fixture_scope.py::TestBrowserFixtures_NoTestAddedOrRemoved::test_the_family_collects_exactly_what_card_217_measured`
+  at `assert len(ids) == 422`, because the browser family now collects 434. Diagnosed at the
+  decompose station rather than handed to a fix agent blind — see the Architecture revision above.
+  CARD-235's AC-2 scopes that guard to its own diff in its own words ("this card changes fixtures,
+  never coverage") and it shipped as a permanent repository assertion, so as written it forbids any
+  future card from adding a browser test. CARD-213 is the first to try. Card amended: the guard file
+  joins `Touches:` with a reason, and the amendment is bounded by GA-1..GA-4.
+- [Fix 1] declarations: one bounded fix cycle, diff confined to `tests/test_browser_fixture_scope.py`.
+  Brief states the derivation required (count derived from `before | allowlist`, never hand-written),
+  both red directions to demonstrate, and that the docstring's "not a snapshot" claim must end up
+  true. Explicitly forbidden: weakening or deleting the guard, touching the eight historical 422s,
+  re-measuring the family, and touching rule C or the ten new tests.
+- [Retrospective material] A rule distinct from wave 41's and easy to confuse with it: **a guard
+  written to prove one card's diff did not change something must not be committed as a standing
+  repository invariant without restating what it asserts.** Wave 41's rule is a claim *wider than
+  its mechanism*; this is a claim that is correct but *outlives its subject*. Also worth recording:
+  the dispatcher HAD a conflict edge `[CARD-235, CARD-213]` on `tests/test_puzzle_solver_*.py`, and
+  I treated it as discharged when CARD-235 merged. Merging the partner did not discharge the
+  coupling — it created it, because what CARD-235 left behind was a frozen baseline over the very
+  files CARD-213 edits. A conflict edge whose partner has merged may need re-reading, not deleting.
