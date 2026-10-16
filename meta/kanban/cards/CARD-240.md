@@ -1,6 +1,6 @@
 # CARD-240: FR-044's examples AC still enumerates only rules A and B
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P3
 **Category:** tech-debt
 **Complexity:** trivial
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** false
-**Branch:** —
-**Worktree:** —
+**Branch:** card/240-fr044-rule-c
+**Worktree:** ../PythonProject4-card-240
 **Source:** CARD-213's review cycle 1 (2026-10-16), finding F-002 — raised as a Minor and routed here rather than fixed in that card, because `meta/architecture/requirements.yml` is architect-delta-owned and outside CARD-213's `Touches:`
 **Idea:** —
-**Wave:** —
+**Wave:** 42
 **Depends on:** CARD-213 (its rule C is what made the clause narrow; do not land this before it merges)
 **Touches:** meta/architecture/requirements.yml
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-16T19:55:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

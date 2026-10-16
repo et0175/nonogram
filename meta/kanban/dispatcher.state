@@ -7,7 +7,23 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active: []   # CARD-213 merged cbd5a8e; CARD-228 escalated (see below)
+active:
+  - id: CARD-228
+    branch: card/228-difficulty-dots
+    worktree: ../PythonProject4-card-228
+    phase: fix
+    review_cycle: 3
+    score: 8.0
+    head: 56cec05
+    note: "escalation RESOLVED 2026-10-16 by owner decision (option c then b): AC-4 narrowed to the four routes a static walk can see, the universal guarantee moved to CARD-241. Final bounded pass running under GB-1..GB-4 - wording, three named limits each with a surviving mutant, two overreaching sentences corrected, FLAT_METHODS' false `line` rationale fixed. GB-1 forbids a new mechanism: that is CARD-241's."
+  - id: CARD-240
+    branch: card/240-fr044-rule-c
+    worktree: ../PythonProject4-card-240
+    started: 2026-10-16T19:55:00Z
+    phase: implementation
+    review_cycle: 0
+    note: "wave 42, dispatched after CARD-213's merge unblocked it. P3, 0.25d, wording only in meta/architecture/requirements.yml - no overlap with lane A's hotspots and none with CARD-228's test file, so it runs safely beside CARD-228's final pass."
+
 previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
@@ -19,7 +35,6 @@ previously_escalated:
     worktree: ../PythonProject4-card-238
     started: 2026-10-15T17:52:53Z
     note: "wave 41, SOLO on owner instruction ('start 238'). Runs alone for the same reason CARD-217 did: it changes the suite every other card's merge gate runs through, and main is currently RED on one of the tests it fixes. TDD: true - its ACs are literally 'a test that fails if X is reintroduced', which cannot be evidenced without driving the guard red against the current code first."
-escalated:
   - id: CARD-228
     reason: "max_cycles 3 reached with the severity gate still open, min_improvement missed (8.0 -> 8.5 -> 8.0, needed >=9.0), and family regression for the THIRD consecutive cycle: each cycle's closed route reopens one syntactic level down - receiver, then binding form, then call shape and cross-call ink. Cycle 3 landed three more COMPLETE dot glyphs at 548 green: draw.line as a 240-ray fan (41x41 px, aspect 1.000, 1329 ink px against draw.ellipse's 1313 at the same radius - indistinguishable on a printed proof), a loop of in-bound draw.point calls (so the vertex bound is per-call and says nothing about ink accumulated across calls), and a stored bound method `stamp = draw.ellipse`."
     station: architect/owner
@@ -29,6 +44,8 @@ escalated:
     branch: card/228-difficulty-dots
     head: 56cec05
     note: "The PRODUCT code is not in question: AC-1/2/3/5/6 green, geometry independently verified in cycles 1-2, the cycle-3 src delta is a single docstring hunk, G-5 holds with zero callers, G-1..G-5 hold, system contract 4 of 4, and both exemption sets rejected every absorption probe. What is unmet is AC-4 alone - a universal negative over Python syntax that four downstream cards were meant to lean on. Verified at this station before escalating: FLAT_METHODS' reason for leaving `line` unguarded is factually false. Pillow's own docstring reads 'Draw a line, or a connected sequence of line segments' and it calls draw_lines."
+    resolved: "2026-10-16T19:55:00Z - owner chose option (c) then (b): AC-4 narrowed to the four routes a static walk can see, card returned to `review` for one bounded wording-and-limits pass, universal guarantee carded as CARD-241 (render-and-measure). Worktree was never discarded."
+escalated: []
 queued:
   - id: CARD-215
     reason: "dependency CARD-214 satisfied and CARD-204 merged; now eligible, waiting on a free slot (conflict edge with CARD-205/CARD-206 on export/layout.py and book_pdf_generator.py)"
