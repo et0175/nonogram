@@ -1,0 +1,163 @@
+version: 1
+generated_at: "2026-10-16T18:24:48Z"
+target: "card/213-unique-clue-circle (git diff main...HEAD: e107af4 + 7f3867a) — solver_state.js, tests/test_puzzle_solver_clues.py, tests/test_browser_fixture_scope.py"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "unknown"   # no .claude-plugin/plugin.json resolvable from the executing skill path
+
+coverage:
+  read:
+    - "src/nonogram/admin/static/solver_state.js (circledNumbers + the rule comment block, in full)"
+    - "src/nonogram/admin/static/solver.js (the circledClues call site, lines 276/601/781)"
+    - "tests/test_puzzle_solver_clues.py (the whole diff + the pre-card tables on main)"
+    - "tests/test_browser_fixture_scope.py (the whole diff + every surviving 422 literal)"
+    - "meta/kanban/cards/CARD-213.md (in full, incl. the Architecture revision)"
+    - "meta/architecture/decisions/adr/0038-puzzle-player-plain-js-and-playwright.md (Rules block)"
+    - "meta/architecture/requirements.yml (FR-044 statement, AC-345..AC-349, CON-021 header)"
+    - "meta/kanban/config.yml, ~/.forge/retro-signals.yml"
+  not_reached:
+    - "tests/test_puzzle_solver_{page,marking,maybe,zoom,hint,phone,resume,brush_menu,mirror,progress,percent}.py — read only through the green full-suite gate, not line by line"
+    - "the live-fixture timing half of tests/test_browser_fixture_scope.py — deliberately never executed (machine contention); no finding depends on it"
+  confidence: high
+
+metrics:
+  diff: { files: 3, added: 840, removed: 26 }
+  max_fan_in: { symbol: "circledClues", callers: 1 }   # src/nonogram/admin/static/solver.js:601 (+ 2 test call sites)
+  tests_cover_change: true
+  hotspots: ["src/nonogram/admin/static/solver_state.js"]   # 15 commits/12mo, 3 fix-shaped
+  cochange_missing:
+    - "src/nonogram/admin/static/solver.js (20 co-changes/12mo)"
+    - "src/nonogram/admin/static/admin.css (17)"
+    - "src/nonogram/admin/templates/puzzle_solve.html (11)"
+    - "tests/test_puzzle_solver_marking.py (8)"
+  unmeasured:
+    max_fan_in: "no_eligible_fact — circledNumbers is module-internal (2 call sites inside circledClues); circledClues has exactly one production consumer, so the fan-in number is true but says little about risk"
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0038/R3 ✓ holds — circledNumbers(clue, cells) takes only the line's cells and the payload clue; grep for `solution` in the diff's JS hunk returns nothing, and the only production caller (solver.js:601) passes history.board + payload.rows/columns. Re-derivable: TestSolverPage_ShowsTheClues (tests/test_puzzle_solver_page.py:206) green in the 7502-pass gate."
+    - "ADR-0038/R4 ✓ holds — `grep -c 'document\\.|window\\.|localStorage|querySelector' src/nonogram/admin/static/solver_state.js` = 0 after the diff; rule C is three statements over two local arrays and returns the same frozen array. Re-derivable by re-running that grep."
+    - "ADR-0038/R1 ✓ holds — the diff adds hand-written ES-module JavaScript only: no import of a library, no package manifest, no build step touched (diff is 32 lines in one existing static file)."
+    - "CON-021 ✓ holds — the change is confined to src/nonogram/admin/static/, i.e. the admin panel's player; no public/reader-facing surface is added and no new solution data crosses to the browser (ADR-0038/R6 unaffected)."
+    - "note — ADR-0038/R2 and /R6 also scope-match src/nonogram/admin/static/** but are not in the card's System contract section; both read as no_eligible_fact for this diff (no network call added, no solution shipped). Counted outside the 4 above."
+
+root_causes:
+  - id: RC-1
+    title: "rule C is correct and tested, but the two committed specifications of the circling behaviour (the JS rule block and FR-044's AC-347) each stop one clause short of describing it"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/static/solver_state.js
+    line: 382
+    title: "The rule block does not say rule C performs no left-to-right ordering check"
+    description: |
+      The card calls the comment block at :369-396 "the specification readers
+      trust, so a rule not described there is a rule that will be deleted by a
+      later card". The block describes rule C's per-line/per-value uniqueness,
+      the two-matching-runs refusal and the irrelevance of the rest of the
+      line, but it never states the one consequence a reader is most likely to
+      read as a bug: rule C applies no ordering constraint across the closed
+      runs. Two of the three table rows this card re-expects are exactly that
+      case — `((1, 2), "DDWDW.....")` and `((2, 1), ".....WDWDD")` now circle
+      both numbers although the runs appear in the opposite order to the clue.
+      "Nothing else about the line matters" implies it, but a reader
+      reconciling that sentence with `[True, True]` on a line that fits no
+      placement has to re-derive the argument the card's Worktree notes make.
+      Verified sound, so this is a documentation gap and not a behaviour
+      finding (see the Out-of-scope note on ordering).
+    suggestion: |
+      One sentence in the rule C paragraph: rule C checks each closed run's
+      length against the clue's multiset only — it does not check that the
+      circled numbers appear in clue order, so marks that fit no placement can
+      circle numbers whose runs are out of order (the G-3 "wrong but
+      self-consistent marks" allowance, which rules A and B already exercise).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/architecture/requirements.yml
+    line: 4117
+    title: "FR-044 AC-347's then-clause enumerates only rules A and B, while its named test's table now holds a rule-C row"
+    description: |
+      AC-347's then reads "exactly the table's circled numbers are returned —
+      anchored from either edge, or all numbers when the line's closed runs
+      equal the clue; ...". Its test is TestSolverClues_RuleExamples, whose
+      ROWS table this card changes so that `((3, 1), ".WDDDW....")` expects
+      `[True, False]` — a circle produced by neither listed mechanism (the row
+      previously carried the comment "no length-only matching"). The operative
+      clause ("exactly the table's circled numbers") still holds and FR-044's
+      own statement is already rule-C-compatible ("assigned to that number
+      only when the assignment is unambiguous"), so this is gloss drift rather
+      than a requirement conflict. It is nonetheless a committed claim that is
+      now narrower than the code it describes and names the test that
+      contradicts it — the same defect family as the CARD-235 guard this card
+      had to amend, one layer up.
+      requirements.yml is edited by architect-delta commits in this repo
+      (24a1e63, e3a7db3, 27490ad), never by implementation cards, so the fix is
+      an architect delta (a new AC for rule C, or AC-347 amended), not an edit
+      inside this card's Touches.
+    suggestion: |
+      Open an architect delta for FR-044: add an AC for rule C (AC-1..AC-4 of
+      this card are already written as given/when/then and name their tests)
+      and widen AC-347's then-clause to "...or where a value unique in the
+      line's clue is matched by exactly one closed run". Record it on the card
+      so the next circling card does not read rule C as unspecified.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope (a file the card must not edit); deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_puzzle_solver_clues.py
+    line: 828
+    title: "AC-7's corpus floor is 4% of the corpus it guards"
+    description: |
+      Measured by re-running the generators in pure Python with the committed
+      seeds: `_rule_c_boards(Random(2132), ...)` over the three shapes yields
+      4920 lines, against `assert lines >= 200`. The floor permits a 24x
+      silent shrink of the corpus it exists to protect. The two counts beside
+      it are the ones doing the work — `rule_c_added >= 150` against a
+      measured 218 and `rule_c_only >= 100` against a measured 155 — and they
+      bound the line count indirectly, which is why this is a calibration nit
+      and not a hole. G-4's floors are properly tight by contrast: 3000 >= 3000
+      exactly, added 576 >= 500, untouched 2424 >= 500, no_unique_value 724 >= 300.
+      The 200 is the number the card's AC-7 itself names, so raising it is a
+      card-text change as much as a test change.
+    suggestion: |
+      Raise AC-7's line floor to the same ~15% margin the other five floors
+      carry (>= 4000), or state in the test why the line count is deliberately
+      the loosest of the six.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

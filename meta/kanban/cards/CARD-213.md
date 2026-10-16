@@ -15,7 +15,7 @@
 **Wave:** 42
 **Depends on:** —
 **Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py, tests/test_browser_fixture_scope.py (amended 2026-10-16 at the decompose station — see the Architecture revision below; this card is the first to add a browser-family test since CARD-235 froze the family, and the freeze cannot be satisfied and the card implemented at the same time)
-**Review score:** —
+**Review score:** 9.0 (cycle 1/3 — 0 critical, 0 important, 3 minor; both gates pass)
 **Started:** 2026-10-16T17:04:17Z
 **Closed:** —
 **Actual:** —
@@ -456,3 +456,53 @@ it was never meant to, and `ADDED_SINCE_BEFORE` does not make it a review gate.
   promoted standard since `ADDED_SINCE_BEFORE` is exactly "a set a guard consults". It was also told
   to verify the Python reference's *calibration* claim, on the grounds that an uncalibrated
   independent reference is worse than none because it still looks like evidence.
+- [Review 1/3] **score 9.0**, risk LOW, 0 critical, 0 important, 3 minor. Score gate AND severity
+  gate both pass on cycle 1. Report synced to meta/review/20261016T182448Z-CARD-213-cycle1.yml.
+- [Review 1/3] the reviewer PROVED rule C's soundness rather than accepting the agent's argument,
+  and the proof is the card's most valuable artefact: an independent re-implementation plus its own
+  brute-force oracle over **all clues x all mark strings over {D,W,.} for every line length 1..8 —
+  63,211 placement-bearing cases, 0 oracle violations**, plus CARD-188's 6000-line safety corpus
+  (5068 placement-bearing, 0 violations). It also closed the two edge cases I asked about by
+  argument: closure holds at the line's edges, and a clue value equal to the sum of others cannot
+  be confused with a merge, because a merge needs the separating cell filled and closure forbids it.
+- [Review 1/3] **the ordering question is correctly deferred, and the reviewer settled it with a
+  measurement rather than an opinion.** The "misleading circle on impossible marks" family PRE-DATES
+  rule C and is dominated by rules A and B: over all lines of length <= 7, marks that fit no
+  placement already drew >=2 circles in **941** cases before this card (>=1 circle in 10,347), e.g.
+  `(1,1) "DWW"` circles both numbers off a single run via the two independent rule-A walks. Rule C
+  adds **226**. So G-3 is not being stretched — it is being exercised at the same character and a
+  smaller magnitude than rule A already does, and an ordering check would belong to A and B as much
+  as to C. That reframes the owner-facing flag I raised earlier: it is not a new wart this card
+  introduces, it is a pre-existing one it slightly enlarges.
+- [Review 1/3] mutation: the reviewer ran the agent's five claimed mutants **plus four of its own,
+  9/9 killed**, each scoped to the clues file (~4 s per run against ~900 s unscoped), sha256-restored
+  after each. Its M7 is the one that mattered — rule A skipping a mismatched run instead of stopping
+  — because it proves the card's edits to the `STOPS` table did NOT destroy rule A's demonstration;
+  the repeated-value twins work.
+- [Review 1/3] on the amendment: **the guard is not weakened, and the fix agent's recorded bound is
+  narrower than it claimed.** Five controls run against the real tree, including one the fix agent
+  never claimed (G5): a bogus allowlist entry naming a nonexistent test is caught as "tests removed",
+  so a fabricated node id cannot be smuggled in and a stale entry cannot sit silently. The
+  unfalsifiable residue is only the attribution *text* on an entry whose node id is real — which
+  costs reviewer attention, never coverage. All twelve attributions were read against the tests they
+  name and all twelve are correct. GA-1..GA-4 all honoured; the four historical assertions are
+  **byte-identical**, and `solver_state.js` + the clues file are byte-identical to `e107af4` in the
+  amendment commit.
+- [Fix, cycle 1 minors] Two of the three minors were in scope and I applied them myself rather than
+  spend an agent round trip — commit `a674209`, 64 passed:
+  * F-001 the rule comment block now states rule C's ordering blindness, with the 941-vs-226
+    measurement as the reason it is a deliberate choice and not an oversight.
+  * F-003 AC-7's `assert lines >= 200` became `assert lines == 4920`. The corpus is fully determined
+    by its seed and shape list, so an inequality permitted a 24-fold silent shrink; an equality is
+    the pattern CARD-238's retrospective promoted, for exactly this reason. The two anti-vacuity
+    counts beside it stay inequalities, which is correct — they measure reach, not size.
+- [Fix, cycle 1 minors] F-002 was NOT fixed here and that is deliberate: it is a gloss drift in
+  `meta/architecture/requirements.yml` (FR-044/AC-347's then-clause enumerates only rules A and B
+  while its named test now carries a rule-C row), the file is architect-delta-owned and outside this
+  card's `Touches:`. **Carded as CARD-240** (P3, 0.25d, depends on CARD-213). I verified the
+  diagnosis before carding it, including the part a careless fix would get wrong: AC-346 is NOT
+  affected, because its clue `"2 2"` repeats the value so rule C cannot fire and "neither 2 is
+  circled" remains correct. CARD-240's AC-2 guards that byte-identically.
+- [AC/EC/G gate] spawned for AC-1..AC-7, G-1..G-5, the two System contract rules, and the
+  amendment's own GA-1..GA-4. Briefed to produce its own verdicts rather than inherit the review's,
+  to prefer `-k` selection, and to re-confirm any timing failure in isolation before reporting it.
