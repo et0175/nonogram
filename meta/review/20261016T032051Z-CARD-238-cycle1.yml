@@ -1,0 +1,505 @@
+version: 1
+generated_at: "2026-10-16T03:20:51Z"
+target: "CARD-238 cycle 1 — worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-238, branch card/238-timing-log-host-state, commit ee53986, file tests/test_suite_profile.py (+609/-17)"
+overall_score: 6.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_suite_profile.py (full, both revisions)"
+    - "meta/profiling/rank_durations.py (full, read-only)"
+    - "meta/kanban/suite-timing.log (main repo, read-only — md5 unchanged)"
+    - "meta/kanban/cards/CARD-238.md"
+    - "CLAUDE.md"
+  not_reached:
+    - "tests/test_cli.py's import-guard precedent (named by AC-1, not opened)"
+    - "skills/kanban/references/cmd-run.md (the writer named in AC-4's comment)"
+    - "the full suite (deliberately not re-run; implementer's two locked solo runs accepted)"
+  confidence: high
+
+metrics:
+  diff: { files: 1, added: 609, removed: 17 }
+  max_fan_in:
+    symbol: "n/a — tests only, no exported symbol changed"
+    callers: 0
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — the diff touches one test module and exports nothing; the module-level helpers it adds (_live_log_references, _skipif_decorators, _looks_like_an_entry, _run_format_class) are called only from this file"
+    hotspots: "no_eligible_fact — tests/test_suite_profile.py was created by CARD-217 on 2026-10-15, so there is no 12-month churn or defect-density history to mine"
+    cochange_missing: "no_eligible_fact — same reason: a file one day old has no co-change peers"
+
+system_contract:
+  rules_checked: 8
+  holds: 3
+  unchecked: 5
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — runtime deps unchanged: the diff touches one test file (git diff --stat), pyproject.toml is untouched, and the four new imports (ast, random, datetime, collections.abc) are stdlib. tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed and ::test_the_font_ships_as_package_data_and_not_as_a_dependency both green on ee53986 (2 passed) — run with the real node ids, not the TestDependencyBaseline_IsExactlyPillowAndNumpy doc alias, which collects zero."
+    - "ADR-0038/R7 ✓ holds — pytest-playwright stays dev-only: no manifest file is in the diff, so project.dependencies and the admin extra cannot have changed."
+    - "ADR-0038/R8 ✓ holds — browser tests untouched; the diff adds no skip of any kind and removes two. The module-scoped skipif ban in TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog reads only Path(__file__), so it cannot reach the browser family's loud Chromium skips."
+    - "CON-005 ⚠ unchecked — no_eligible_fact: no solver code in the diff; the uniqueness property's neighbourhood is not entered (stated rather than omitted, per the review brief)."
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server binding code in the diff."
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no request-handling code in the diff."
+    - "CON-011 ⚠ unchecked — no_eligible_fact: no grid-size validation code in the diff."
+    - "CON-012 ⚠ unchecked — no_eligible_fact: no aspect-guard code in the diff."
+  notes: >
+    The card declares one rule (ADR-0006/R1). The fresh lens
+    (system_rules.py --card CARD-238 --root meta/architecture --verify-refs)
+    returned seven more scoped to tests/** or global: ADR-0038/R7, ADR-0038/R8,
+    CON-005, CON-009..CON-012. Those seven are logged, not penalised.
+    Lens diagnostics were clean: unresolvable_scope [], scope_unmapped_model [],
+    dead_check_ref [], tooling_failure [], check_refs_verified true.
+
+root_causes:
+  - id: RC-1
+    title: "Both structural guards decide by syntactic shape, so any equivalent spelling of the same coupling is invisible"
+    finding_ids: [F-001, F-003]
+  - id: RC-2
+    title: "AC-4's ruling was derived from an incomplete read of the real log, and TIMING_LOG_LINE's greedy notes group silently swallows the rate bracket"
+    finding_ids: [F-002, F-004]
+
+findings:
+  - id: F-001
+    severity: critical
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1038
+    title: "AC-1's AST guard misses 10 of 12 ways to re-introduce the live-log read; a mutant restoring the original coupling survives every guard"
+    description: |
+      `_live_log_references` only flags a string literal containing
+      LIVE_LOG_STEM when that literal is a direct operand of a `/` BinOp or a
+      direct arg/keyword of a Call. Anything that puts the name behind one
+      level of indirection is invisible. Probed as a pure function (the guard
+      takes source text, so this is exact, not inferred) — 10 of 12 evasions
+      were MISSED:
+
+        MISSED  LOG_NAME = "suite-timing.log"; REPO_ROOT / "meta" / "kanban" / LOG_NAME
+        MISSED  os.path.join(str(REPO_ROOT), "meta", "kanban", NAME)
+        MISSED  Path("meta/kanban/suite-" + "timing.log")
+        MISSED  next((REPO_ROOT / "meta" / "kanban").glob("*.log"))
+        MISSED  Path(*PARTS)
+        MISSED  REPO_ROOT / "meta" / "kanban" / f"{STEM}.log"
+        MISSED  a @pytest.fixture returning the path built from a hoisted name
+        MISSED  Path("meta/kanban/%s.log" % "suite-timing")
+        MISSED  PATHS["log"] out of a module-level dict
+        MISSED  a slice of a longer string
+        CAUGHT  "meta/kanban/{}.log".format("suite-timing")
+        CAUGHT  .with_name("suite-timing.log")
+        CAUGHT  (positive control) the original literal form
+
+      The first one is decisive: it is not an evasion, it is a routine
+      refactor — naming the filename — and it reproduces the exact coupling
+      this card exists to remove. The sixth is the pattern this very module
+      already uses in `_run_format_class`, so the file demonstrates its own
+      bypass.
+
+      Step 8f mutants in the real file (reverted from a pre-captured copy,
+      md5 9b3064f4b75e0910496dca695864578d restored and verified):
+
+        MUT-1  literal live read, format class        -> KILLED (rc=1)
+        MUT-2  hoisted filename, format class         -> KILLED (rc=1) but only by
+                                                         AC-3's behavioural test;
+                                                         AC-1's guard stayed green
+        MUT-3  hoisted filename, ANOTHER class        -> SURVIVED (rc=0, 15/15 green)
+        MUT-5  in-body pytest.skip + live read,
+               ANOTHER class                          -> SURVIVED (rc=0, 15/15 green)
+
+      MUT-5 is the original defect verbatim — a host-conditional skip wrapped
+      around a read of the gitignored log, green-with-a-skip on a machine
+      without the file, red on one with a gate line in it — and all twelve
+      AC-1 tests plus all three AC-3 tests pass over it.
+
+      So the class docstring's claim ("AC-1: no test reads
+      meta/kanban/suite-timing.log, proved structurally") and AC-1's own
+      wording ("so a future test that re-introduces the read fails") are both
+      false. The AST guard is the sole mechanism for AC-1, which is why this
+      is Critical rather than Important: a surviving mutant against the sole
+      test for a stated AC. The real defence that did fire — AC-3's
+      `test_the_outcomes_are_identical_with_and_without_the_log` — is scoped
+      to one class of one module, which is narrower than either claim.
+    suggestion: |
+      Either narrow the claim to what the guard proves, or widen the guard.
+      Widening is cheap and keeps the AC: resolve names before judging. In a
+      single-module AST walk that means collecting every
+      `Assign`/`AnnAssign` whose value is a string literal (or an f-string, or
+      a `+`/`%`/`.format()` of literals) containing LIVE_LOG_STEM into a
+      tainted-name set, then flagging a `/` operand or Call argument that is
+      an `ast.Name`/`ast.Attribute`/`ast.Subscript` resolving into that set —
+      plus a flat ban on `glob`/`rglob` calls whose pattern ends `.log` under
+      a `meta/kanban` path. Add each MISSED form above to REINTRODUCTIONS as a
+      positive control so the widening is itself tested.
+
+      Complementarily, broaden the behavioural guard, which is the part that
+      actually bites: run the *whole module* in the sandbox rather than only
+      `TestSuiteTimingLog_FormatUnchanged`, so a read re-introduced in any
+      class is caught by outcome divergence. That alone would have killed
+      MUT-3 and MUT-5.
+    confidence: high
+    source: static
+    violates: "G-5"
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: critical
+    category: tech-debt
+    type: bug
+    file: tests/test_suite_profile.py
+    line: 836
+    title: "AC-4's ruling rests on two false statements about the real log, and the alternative it prescribes silently drops the rate field for half the log's rate-bearing entries"
+    description: |
+      `test_the_trailing_prose_shape_is_not_legal`'s comment justifies the
+      ruling with two claims. Measured against
+      /Users/omelnikova/PycharmProjects/PythonProject4/meta/kanban/suite-timing.log
+      (read-only, md5 fd3e799a4ea30862d8d8e03966ae9349 before and after):
+
+      1. "The one entry that wanted a note *after* the rate bracket, wave-38's
+         card-212 gate, parenthesised it and parses." — There are TWO such
+         entries, not one. Line 19 (wave-38 card-212-merge-gate) and line 24
+         (wave-39 card-217-profiling-run, `[131ms/test] (solo profiling run,
+         --durations=0 ...; artefact meta/profiling/...)`) both carry a
+         parenthesised note after the bracket. Line 24 is the very entry the
+         deleted `test_the_last_entry_is_this_cards_profiling_run` singled out,
+         so it was in front of the author.
+
+      2. "The convention the entries share is: commentary lives inside
+         parentheses, and the rate bracket terminates the line." — Refuted by
+         those same two entries: for 2 of the 6 rate-bearing entries the
+         bracket does not terminate the line.
+
+      And the consequence the ruling did not examine: because
+      TIMING_LOG_LINE's `notes` group is a greedy `.*`, those two lines parse
+      but their `rate` is swallowed into `notes`:
+
+        line 19 -> rate='' , notes='7053 passed, 9 skipped, 0 failed) [159ms/test] (a first attempt...'
+        line 24 -> rate='' , notes='7073 passed, 9 skipped, 0 failed) [131ms/test] (solo profiling run...'
+
+        entries carrying a rate bracket in the text:        6
+        parsed entries yielding a non-empty rate field:     3
+
+      So the ruling's own load-bearing argument — "widening the regex would
+      make the `notes` and `rate` fields ambiguous for every reader of the
+      log (the cost trend is read off `duration` and `rate`)" — describes the
+      status quo, not the counterfactual. Those fields are ALREADY ambiguous
+      for half the log's rate-bearing entries, and they are ambiguous *because*
+      the author took the parenthesised form the ruling prescribes. Per the
+      review brief's criterion ("if even one entry contradicts the stated
+      convention, the ruling is wrong and the parser, not the log, is at
+      fault"), AC-4's premise does not hold, and G-3's conclusion ("no parser
+      change was licensed and none was made") does not follow from it.
+
+      This is not a one-line regex fix, which is part of why it needs a
+      decision rather than a patch: making `notes` non-greedy (`[^)]*`) would
+      recover `rate` for the plain shape but turn lines 19 and 24 — which
+      parse today — into malformed lines. Accepting an optional trailing
+      parenthesised note after the bracket is the shape the log actually uses.
+    suggestion: |
+      Re-derive AC-4 from the whole log, not from a sample, and decide the
+      rate-loss deliberately. Concretely:
+        1. Fix the comment's facts: two post-bracket entries (lines 19 and 24),
+           and the bracket does not always terminate the line.
+        2. Decide whether `rate` must be recoverable when a parenthesised note
+           follows the bracket. If yes, this is a licensed parser change under
+           a corrected AC-4 (the shape in question IS legal and is currently
+           mis-parsed) — e.g.
+             \((?P<notes>[^)]*)\)(?: \[(?P<rate>\d+ms/test)\])?(?: \((?P<extra>[^)]*)\))?$
+           with a test asserting rate=='159ms/test' for the real line 19 and
+           for the card-212 shape already sitting in REAL_SHAPES.
+        3. If the owner prefers to leave the parser alone, say so explicitly
+           and record that the log's `rate` field is unreliable for 3 of 6
+           rate-bearing entries — otherwise the next cost-trend reading is
+           computed off half the data without knowing it.
+      Either way the bare-trailing-prose rejection (the CARD-217 gate line)
+      can stand; it is the justification and the rate-loss that must be redone.
+    confidence: high
+    source: static
+    violates: "G-3"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1077
+    title: "AC-3's skipif detector misses every spelling of a host-state skip except the bare decorator, including the standard module-level pytestmark idiom"
+    description: |
+      `_skipif_decorators` walks only FunctionDef/AsyncFunctionDef/ClassDef
+      decorator lists and matches on `ast.unparse(decorator.func).endswith("skipif")`.
+      Probed as a pure function — 5 of 5 alternative spellings MISSED:
+
+        MISSED  pytestmark = pytest.mark.skipif(not LOG.exists(), reason=...)   # module-level, the standard pytest idiom
+        MISSED  def test_x(): \n  if not LOG.exists(): pytest.skip(...)          # the imperative equivalent
+        MISSED  skipper = mark.skipif  /  @skipper(not LOG.exists(), ...)        # aliased decorator
+        MISSED  @pytest.mark.xfail(not LOG.exists(), reason=...)                 # same silence, different mark
+        MISSED  def test_x(): \n  if not LOG.exists(): return                    # early return
+        CAUGHT  (positive control) @pytest.mark.skipif(...)
+
+      The module-level `pytestmark` miss is the worst of these: it is how
+      pytest documents skipping a whole module, it would silence every test in
+      the file, and `test_no_test_in_this_module_skips_on_host_state` would
+      itself be one of the silenced tests.
+
+      Mitigation, stated fairly: inside
+      `TestSuiteTimingLog_FormatUnchanged` the behavioural test does catch
+      these — MUT-4 (in-body `pytest.skip` on `live.exists()`, format class)
+      was KILLED. Outside that class nothing catches them: MUT-5 (the same
+      in-body skip in `TestSuiteProfile_RankingIsDeterministic`) SURVIVED with
+      all 15 guard tests green. So the structural half of AC-3 is close to
+      decoration, and the behavioural half is what holds the line.
+    suggestion: |
+      Extend the detector to the forms above: walk module-level assignments to
+      `pytestmark` (and list elements thereof), match `xfail` with a positional
+      condition, and add a body-level scan for `pytest.skip(...)` reached under
+      a condition that touches the filesystem (`.exists()`, `os.path.isfile`,
+      `glob`). Add each as a positive control alongside FABRICATED_SKIP. Then
+      run the whole module in the sandbox (see F-001's suggestion) so the
+      behavioural half covers every class, not one.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: high
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 862
+    title: "test_the_same_note_parenthesised_is_legal_and_keeps_its_fields does not keep its fields, and the shape it pins is absent from the cross-check corpus"
+    description: |
+      The test's name asserts a property its body refutes:
+
+        assert entry["rate"] == ""  # the bracket is no longer line-final
+
+      The inline comment is honest, but the test *pins the field loss as
+      correct* for the very shape AC-4 recommends as the remedy, under a name
+      that says the opposite. This is the aspirational-green shape — a name
+      echoing the AC's vocabulary over a body exercising the weaker case —
+      and it is the single place where F-002's latent parser defect was
+      visible and was instead certified.
+
+      Two reinforcing weaknesses in the same territory:
+
+      * `test_every_shape_the_real_log_uses_is_well_formed` includes the
+        card-212 shape in REAL_SHAPES but asserts only
+        `malformed_timing_lines(...) == []` and `len(entries) == 5`. Measured
+        on REAL_SHAPES, that entry parses with rate='' and
+        notes='7053 passed, 9 skipped, 0 failed) [159ms/test] (a first atte…'.
+        So a test named "every shape the real log uses is well formed" is
+        green over a shape whose rate field is destroyed. (Not a coverage
+        reduction — the deleted test asserted the same `malformed == []` and
+        no more — but it is where this should have been caught.)
+
+      * The `ms/test] (` shape appears nowhere in the 1,576-line cross-check
+        corpus (verified: no member of CORPUS, GOOD or BAD contains it). The
+        seeded generator never emits a post-bracket note, so the corpus's
+        breadth does not reach the one real-world shape where `notes` and
+        `rate` are ambiguous. The independence of `_looks_like_an_entry` is
+        genuine (see the Verdict), but the two implementations agree on this
+        shape only by both ignoring the fields.
+    suggestion: |
+      Rename to `..._is_legal_but_loses_its_rate_field` (or fix the parser per
+      F-002 and keep the name, asserting rate == '159ms/test'). Add a
+      field-level assertion to `test_every_shape_the_real_log_uses_is_well_formed`
+      for each of the 5 entries, so "well formed" means the fields come back,
+      not merely that nothing is rejected. Add a post-bracket-note generator
+      branch to `_seeded_entries` so the corpus and the cross-check reach the
+      shape.
+    confidence: high
+    source: static
+    violates: "G-2"
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 879
+    title: "test_a_profiling_run_is_recognisable_by_label_or_notes is effectively tautological"
+    description: |
+      The "profil in label or notes" recognition rule has no consumer in the
+      codebase — it existed only inside the deleted test's assertion. The new
+      test feeds `parse_timing_line` three literals it wrote itself and
+      asserts that the one containing "card-217-profiling-run" has "profil" in
+      its label. The only behaviour under test is that the parser puts the
+      label in `label` and the notes in `notes`, which
+      `test_fields_are_extracted_not_merely_matched` already asserts. The
+      negative control (`"profil" not in gate["label"]`) is the one part with
+      content. AC-2's accounting presents this as a re-homed assertion; it is
+      closer to a restatement of a string literal.
+    suggestion: |
+      Either drop it (the assertion it replaces was unassertable, which the
+      card correctly says) or give it content — e.g. a `is_profiling_run(entry)`
+      predicate in rank_durations.py that something actually calls, tested over
+      the awkward cases ("profiler", "unprofiled", "profil" appearing only in
+      the notes of a gate line).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 16
+    title: "The module docstring still claims it shells out exactly once; it now launches three subprocesses"
+    description: |
+      "its own tests parse text and shell out exactly once" (line 16-18,
+      unchanged by the diff) is now false: `test_rerunning_the_script_is_byte_identical`
+      runs the ranker twice and `test_the_outcomes_are_identical_with_and_without_the_log`
+      launches two full pytest subprocesses. Measured on this host: that one
+      test is 1.13s of the module's 3.41s total (105 passed). Small in
+      absolute terms, but this module's own subject is a suite that got
+      expensive, and the claim is in the file the card is editing.
+    suggestion: "Update the paragraph to state what it now does and the cost (~1.1s for the two sandbox runs), so the next author inherits a true baseline."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 1113
+    title: "The sandbox isolation the AC-3 test depends on is not itself asserted"
+    description: |
+      `test_the_outcomes_are_identical_with_and_without_the_log` is only
+      meaningful if the copied module resolves its own sandbox root. It does
+      today — I proved it with MUT-2, whose injected read PASSED in the
+      with-log run and FAILED in the without-log run, which is only possible
+      if it read `root/meta/kanban/suite-timing.log` (this worktree has no log
+      at all, so a copy resolving the real root would have failed both ways
+      and compared equal). But the test asserts nothing about that: if a
+      future refactor made the copy resolve the real repo root, `present ==
+      absent` and `set(present.values()) == {"PASSED"}` would both hold
+      vacuously and the guard would go quiet — the same trap the card's own
+      notes identify for the collected count.
+    suggestion: |
+      Add a positive control to the sandbox: write one extra fabricated test
+      module into `root/tests/` that reads `root/meta/kanban/<stem>.log` and
+      assert its outcome is PASSED in the with-log run and FAILED in the
+      without-log run. That asserts the isolation directly rather than relying
+      on it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 1148
+    title: "The guard sweeps untracked .py files under tests/, so its verdict still has a residual dependence on files that are not in the repo"
+    description: |
+      `TESTS_DIR.rglob("*.py")` enumerates whatever is on disk, including
+      gitignored and untracked scratch files. A developer's throwaway
+      `tests/check_log.py` referencing the log by literal would turn the gate
+      red on their machine and green everywhere else — a weak instance of
+      exactly the host-dependence class this card removes. Minor because the
+      failure direction is loud (red, with the offending path named) rather
+      than silent, which is the opposite of the original defect.
+    suggestion: "Restrict the walk to tracked files (e.g. `git ls-files tests/**/*.py`, falling back to rglob when git is unavailable), or skip paths matching the repo's ignore rules."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_suite_profile.py
+    line: 1208
+    title: "The sandbox subprocess has no timeout and inherits the parent environment"
+    description: |
+      `subprocess.run([...pytest...], cwd=root, capture_output=True)` carries
+      no `timeout=`, so a hung sandbox pytest hangs the suite indefinitely
+      rather than failing. It also inherits the parent environment, so a
+      PYTEST_ADDOPTS set in a future CI (e.g. `-x`, `-p` plugins) would flow
+      into both runs; the `present == absent` comparison survives that, but
+      `set(present.values()) == {"PASSED"}` need not. The pre-existing
+      shell-out at line 338 has the same no-timeout shape, so this is
+      precedent rather than a new habit — but this one launches a whole pytest
+      session, not a 50ms script.
+    suggestion: "Pass `timeout=300` and `env={**os.environ, 'PYTEST_ADDOPTS': ''}`; on TimeoutExpired fail with the captured output."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/profiling/rank_durations.py
+    line: 372
+    title: "Out of scope: nothing in the repo will ever notice a malformed line in the live log again"
+    description: |
+      Noted, not charged against this card. The deleted
+      `test_the_real_log_is_entirely_well_formed` was the only mechanism that
+      would ever flag a new malformed entry — and it worked: that is how
+      CARD-217's bad line was found. The card considered Option 2 (a
+      `rank_durations.py --check-log` subcommand or a /forge:ci step) and
+      declined it under G-4, which is the right call for a card scoped to one
+      test file. But the capability is now gone with no successor, and
+      `malformed_timing_lines` is dead code from the suite's point of view
+      outside constructed strings. F-002 shows the log is already accumulating
+      shapes the parser mis-reads.
+    suggestion: "Open a follow-up card for the deliberate check Option 2 describes — a `rank_durations.py --check-log <path>` subcommand the owner or the dispatcher runs, which also settles F-002's rate-recovery question in the one place that reads the log for real."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
