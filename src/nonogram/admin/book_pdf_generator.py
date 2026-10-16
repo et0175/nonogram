@@ -376,6 +376,7 @@ from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
     ANSWER_TILE_GAP_MM,
     DPI,
+    DifficultyDots,
     HeaderBand,
     Layout,
     PageSpec,
@@ -385,6 +386,7 @@ from nonogram.export.layout import (
     compute_layout,
     compute_packed_solved_layout,
     compute_pair_layout,
+    difficulty_dots,
     header_band,
     qr_slot,
 )
@@ -1508,6 +1510,97 @@ def _set_band(draw: ImageDraw.ImageDraw, band: HeaderBand, text: str, room: int)
         fill=INK,
         anchor="lm",
     )
+
+
+def _draw_difficulty_dots(
+    draw: ImageDraw.ImageDraw,
+    stored_tier: object,
+    left: int,
+    top: int,
+    right: int,
+    bottom: int,
+) -> Optional[DifficultyDots]:
+    """Draw ``stored_tier`` as a row of dots inside a box (CARD-228).
+
+    **The only place in this package that puts a circle on a page**, and the
+    one call every difficulty glyph the book prints goes through: the puzzle
+    page's band (CARD-207), the guide's key strip (CARD-229), a section opener
+    (CARD-231) and a solution tile's header (CARD-233). That is asserted
+    structurally rather than promised — ``tests/test_book_difficulty_dots.py``
+    walks ``src/nonogram/**/*.py`` with ``ast`` and fails on a second call to
+    any Pillow method whose geometry is an ellipse, the way
+    ``tests/test_cli.py`` walks the same tree for a lateral import. Four cards
+    drawing four slightly different dots is the defect this function exists to
+    make impossible, so "readers learn them here once" can be true.
+
+    One stroke for the row, filled or outlined (:attr:`DifficultyDots.stroke`),
+    so the solid dots and the outlined ones share a silhouette and the glyph
+    reads as *n of three* rather than as two kinds of mark.
+
+    The count and the order are :data:`~nonogram.admin.book_plan.TIERS` and
+    nothing else — ``len(TIERS)`` dots, the tier's own index in it as the rank.
+    There is deliberately no second ladder, not even a ``3``: a tuple of tier
+    names on its own literals is exactly how ``strategy_counter.py`` grew a
+    second classifier (CARD-155), and a glyph whose rank disagreed with the
+    panel's own tier order would be wrong on paper, where it cannot be fixed.
+
+    The tier is **read, never written** (ADR-0033/R1): ``stored_tier`` is
+    whatever the puzzle's row holds, normalised through
+    :func:`nonogram.difficulty.tier_of_record` — the one reader of stored tier
+    text — exactly as :func:`band_identity` reads it for the word beside these
+    dots. Nothing here assigns, defaults or re-grades a tier.
+
+    **A row with no tier of record draws nothing at all.** Not three outlined
+    dots: an empty three-dot frame is the same mark an "easiest of three
+    tiers" glyph would be if the first dot failed to ink, and a reader has no
+    way to tell "we do not know" from "the easy one" on a printed page. The
+    absence is visible as an absence to whoever proofs the book, which is the
+    same call :func:`band_identity` makes for the missing word.
+
+    The dots are **not text**, so CON-020's 10 pt floor does not reach them
+    (guardrail G-2) — and cannot be evaded through them either: this function
+    makes no ``draw.text`` call, which
+    ``tests/test_book_interior_type_floor.py`` pins. The *word* beside them is
+    text and is held to the floor by its own caller.
+
+    Args:
+        draw: The page's own draw object — the existing drawing primitive
+            (guardrail G-1); no new surface, image or canvas is made here.
+        stored_tier: The puzzle's tier as its row spells it, in any of the
+            spellings :func:`~nonogram.difficulty.tier_of_record` reads.
+        left: The box the glyph may use, left edge inclusive.
+        top: Its top edge, inclusive.
+        right: Its right edge, inclusive.
+        bottom: Its bottom edge, inclusive.
+
+    Returns:
+        The geometry actually drawn — so a caller can set its word beside the
+        ink rather than beside the box — or ``None`` when nothing was drawn,
+        either because the row carries no tier or because
+        :func:`~nonogram.export.layout.difficulty_dots` declined the box as
+        too small for a legible dot.
+    """
+    tier = tier_of_record(stored_tier)
+    if tier is None or tier not in TIERS:
+        return None
+    dots = difficulty_dots(
+        left,
+        top,
+        right,
+        bottom,
+        filled=TIERS.index(tier) + 1,
+        total=len(TIERS),
+    )
+    if dots is None:
+        return None
+    for index, dot in enumerate(dots.dots):
+        draw.ellipse(
+            dot,
+            fill=INK if dots.is_filled(index) else BACKGROUND,
+            outline=INK,
+            width=dots.stroke,
+        )
+    return dots
 
 
 #: CARD-204's placeholder QR icon: a plain alternating checkerboard, never a
