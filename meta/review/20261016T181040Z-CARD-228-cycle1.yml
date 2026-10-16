@@ -131,7 +131,32 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: fixed
+    fix_note: |
+      The guard now covers four routes instead of one, and names what it cannot
+      cover. PARTLY DISMISSED PREMISE, stated rather than edited around: the suggestion's
+      claim that `polygon`, `point` and `bitmap` are "already asserted to be called
+      nowhere" is false — `draw.polygon` is called at book_pdf_generator.py:1895 (the
+      pipeline diagram's three-vertex arrow head) and `point` twice in sourcing/image.py
+      as `Image.point`, which the walk could not tell from a draw call. Moving either
+      would have turned test_no_module_approximates_a_round_mark_another_way red on
+      honest code. So: `bitmap` moved to ROUND_ENOUGH (control: planted draw.bitmap ->
+      red); `polygon`/`point` got VERTEX_BOUNDED_METHODS with a MAX_FLAT_VERTICES=4 bound
+      on countable literal vertex lists, an uncountable list failing rather than passing
+      (controls: H2's 32-gon -> red, H3's computed disc -> red, the real arrow head and
+      Image.point -> pass, both pinned as not-caught controls); receiver discrimination
+      via _is_draw_receiver with its own completeness test (control: a second draw-object
+      spelling -> red). The text route was closed WIDER than suggested, because the
+      suggested form misses the realistic case: CARD-207 builds its band string at the
+      caller, so the literal is nowhere near a draw.text call. The rule is now "no string
+      literal anywhere in src/nonogram/ holds a ROUND_DINGBATS codepoint", with one
+      earned exemption (admin/pdf_generator.py, three prose bullets) whose justification
+      is itself asserted — the exempt set must equal the set of modules carrying such a
+      codepoint, and that module must make no draw-object call and contain no ImageDraw
+      (control: H1's draw.text with a BLACK CIRCLE literal -> red). All three overshooting statements narrowed;
+      the class docstring now names the routes outside ImageDraw (Image.paste of a mask,
+      floodfill, a pre-rendered asset) as a limit this instrument cannot reach. Each
+      control was run in its own fresh process, file restored and shasum-verified.
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -183,7 +208,14 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: fixed
+    fix_note: |
+      test_the_type_refuses_every_row_it_documents_as_impossible constructs
+      DifficultyDots directly with a zero stroke, unequal diameters, different tops and
+      overlapping dots. Controls: each of layout.py:1333/1337/1345/1348 disabled in its
+      own fresh process turns that test red (each previously survived with 186 green).
+      The finding's two confirmations are kept and still hold, and the card's overreaching
+      "refuses a row that cannot say what it means" sentence is corrected in its notes.
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -222,7 +254,17 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: fixed
+    fix_note: |
+      test_the_dot_is_the_cap_height_of_the_band_it_sits_on pins the derivation
+      with a second, independent measurement: the dot at a HEADER_BAND_MM-deep box
+      (142 px, width-unbounded so the height cap decides) against the RENDERED cap height
+      of a capital in the band's own face at HEADER_FONT_MM (43 px vs the dot's 42), two
+      pixels of tolerance; the 0.7-em rule of thumb asserted separately and loosely.
+      Nothing is computed from DIFFICULTY_DOT_RATIO. Controls: 0.45 is now red (it
+      survived cycle 1); 0.32 is still green, so the pin is on the derivation, not on a
+      bit pattern. test_a_dot_never_outgrows_its_share_of_the_box is left alone — it
+      bounds the width term usefully and the height term is now pinned independently.
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -247,7 +289,13 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
+    fix_note: |
+      `left <= right` -> `left <= right + 1`, message "two dots of the row overlap
+      or touch". test_the_type_refuses_two_dots_that_merely_touch pairs the touching row
+      (refused) with the row one pixel wider (accepted); reverting the bound turns it red.
+      No page's geometry changes — the measurement never produced a touching row (gap >= 6
+      px at the 12 px minimum dot), so this closes a claim/mechanism gap, not a defect.
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -276,7 +324,13 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
+    fix_note: |
+      Card notes corrected: 474 x 142 px, and six tile bands at capacities (2, 4).
+      Re-measured through the test's own fixture: all six are 474-475 x 142, the narrowest
+      is the right-hand column's at either capacity. The test needed no change. The mutant
+      count is left at the ten the notes name one by one, with the hand-back's "eleven"
+      explicitly withdrawn as unevidenced.
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -310,7 +364,15 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
+    fix_note: |
+      Both acted on, nothing padded. The ratio test's middle clause is replaced by
+      F-003's derivation assertion and the test keeps only its two real bounds.
+      test_the_real_packages_one_site_is_the_dot_drawer_itself is removed and its one real
+      check moved into test_the_walk_actually_sees_the_package, which now resolves both
+      halves of THE_DRAWING_SITE against the source on disk. Control: a typo in
+      THE_DRAWING_SITE's function name is caught twice after the removal, so dropping the
+      test loses nothing.
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -336,7 +398,14 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
+    fix_note: |
+      AC-5's class docstring now claims "the narrowest header this project can
+      measure today" and says why the superlative is not checkable (only CARD-233's box
+      exists), alongside the property that does carry over (a box too small is declined,
+      not overflowed). The card's notes carry the same correction. NOT DONE, and out of
+      this agent's ownership: adding an AC-5 re-check to CARD-229's and CARD-231's
+      acceptance criteria — those are other cards under meta/, owned by the orchestrator.
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
