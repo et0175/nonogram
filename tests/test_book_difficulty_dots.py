@@ -29,10 +29,16 @@ catch and a case it deliberately does not:
   by reversing the ladder and watching the glyph follow — not by a comment.
 * AC-4's structural one-site assertion runs its ``ast`` walk against fabricated
   sources as well as against the real package
-  (``_round_mark_sites`` takes its sources as an argument for exactly that
-  reason, the way ``tests/test_cli.py``'s ``_outward_imports`` does), and the
-  set of Pillow methods it consults has a completeness test against Pillow's
-  own API, so a method this project has not classified cannot slip past it.
+  (``_round_mark_sites`` and ``_draw_calls`` take their sources as an argument
+  for exactly that reason, the way ``tests/test_cli.py``'s ``_outward_imports``
+  does), and the set of Pillow methods it consults has a completeness test
+  against Pillow's own API, so a method this project has not classified cannot
+  slip past it. It guards **four** routes to a second dot glyph — an ellipse,
+  an unused approximation method, a many-sided polygon, a typed dingbat — each
+  with a control that fires, and
+  :class:`TestDifficultyDots_HasExactlyOneDrawingSite`'s own docstring names
+  the routes it cannot see (cycle 1, F-001, which planted three second glyphs
+  that the first version of this guard let through).
 * AC-5's "it fits" is paired with a box the function declines, so "fits" is a
   measurement and not a tautology.
 """
@@ -62,6 +68,8 @@ from nonogram.export.layout import (
     DIFFICULTY_DOT_GAP_RATIO,
     DIFFICULTY_DOT_RATIO,
     DIFFICULTY_DOT_STROKE_RATIO,
+    HEADER_BAND_MM,
+    HEADER_FONT_MM,
     MIN_DIFFICULTY_DOT_MM,
     SOLVED_TILE_CAPACITIES,
     DifficultyDots,
@@ -86,6 +94,16 @@ DPI = 300
 #: :data:`~nonogram.export.layout.MIN_DIFFICULTY_DOT_MM` in device pixels at
 #: :data:`DPI`, restated here: a dot smaller than this is declined.
 MIN_DOT_PX = round(MIN_DIFFICULTY_DOT_MM / 25.4 * DPI)
+
+
+def _px(millimetres: float) -> int:
+    """Millimetres at :data:`DPI`, this file's own conversion.
+
+    Written out rather than imported from ``export.layout``'s private
+    ``_mm_to_px`` for the same reason :data:`DPI` is: a physical size this
+    file asserts should not be computed by the module it is checking.
+    """
+    return round(millimetres / 25.4 * DPI)
 
 #: The smallest trim a book may be stored with
 #: (``book_page_spec.MIN_TRIM_CM``), in millimetres, and the narrowest side
@@ -538,10 +556,52 @@ class TestDifficultyDots_FilledAndOutlinedAreDistinguishable:
         with pytest.raises(ValueError, match="indistinguishable"):
             DifficultyDots(dots=((0, 0, 9, 9), (20, 0, 29, 9)), filled=1, stroke=5)
 
+    def test_the_dot_is_the_cap_height_of_the_band_it_sits_on(self) -> None:
+        """:data:`DIFFICULTY_DOT_RATIO`'s stated derivation, measured not restated.
+
+        The constant's docstring derives 0.3 from two other constants: a book
+        puzzle page's band is :data:`HEADER_BAND_MM` deep and set in
+        :data:`HEADER_FONT_MM` type, a cap height is about seven tenths of an
+        em, so the word's own capitals stand about 0.29 of the band and a dot
+        the same height sits on the word's optical line.
+
+        Nothing pinned that until review cycle 1 (F-003) measured the hole:
+        ``DIFFICULTY_DOT_RATIO`` 0.3 -> 0.45 — a half-again taller dot —
+        passed every test in this file, because the one test that looked like
+        it bounded the dot re-derived its bound *from the constant under
+        test*, which CLAUDE.md names as the anti-pattern it is.
+
+        So the bound here comes from a second, independent measurement: the
+        **rendered** cap height of a capital in the face the band is really
+        lettered in, at the band's own type size. Two pixels of tolerance, at
+        a 142 px band: 0.29-0.32 passes, 0.45 and 0.9 do not. The 0.7-em
+        figure the docstring reasons with is asserted separately and more
+        loosely, since it is a rule of thumb about type rather than a fact
+        about this face.
+        """
+        band = _px(HEADER_BAND_MM)
+        em = _px(HEADER_FONT_MM)
+        # Wide enough that the height cap, not the width fit, decides the size
+        # — the term DIFFICULTY_DOT_RATIO is the whole of.
+        dots = difficulty_dots(0, 0, 40 * band, band - 1, filled=2, total=len(TIERS))
+        assert dots is not None
+        top, bottom = _band_font(em).getbbox("HARD")[1], _band_font(em).getbbox("HARD")[3]
+        rendered_cap = bottom - top
+        assert rendered_cap > 0
+        assert abs(dots.diameter - rendered_cap) <= 2, (dots.diameter, rendered_cap)
+        # And the docstring's own arithmetic, held to the looser bound a rule
+        # of thumb deserves.
+        assert abs(dots.diameter - em * 0.7) <= 0.1 * band
+
     def test_the_stroke_ratio_is_what_keeps_them_apart(self) -> None:
-        """The three ratios the glyph is cut from, pinned where a reader can see them."""
+        """The two ratios whose bound is a *bound* rather than a measurement.
+
+        The cap ratio is not among them: it is pinned by measurement in
+        :meth:`test_the_dot_is_the_cap_height_of_the_band_it_sits_on`. It used
+        to be "pinned" here as ``0 < DIFFICULTY_DOT_RATIO < 1``, which
+        displayed it rather than pinning it and is what let F-003 through.
+        """
         assert DIFFICULTY_DOT_STROKE_RATIO < 0.5
-        assert 0 < DIFFICULTY_DOT_RATIO < 1
         assert DIFFICULTY_DOT_GAP_RATIO > 0
 
 
@@ -556,29 +616,105 @@ ELLIPSE_METHODS = frozenset({"arc", "chord", "circle", "ellipse", "pieslice"})
 
 #: Pillow draw methods that are not ellipses but could be made to *look* like
 #: one — a 24-gon, a square rounded at half its own side, an arbitrary
-#: outline. The guard's claim about them is narrower and separate (see
-#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_no_module_approximates_a_round_mark`):
-#: nothing in the package calls them at all, so there is no second route to a
-#: dot for :data:`ELLIPSE_METHODS` to have to cover.
-ROUND_ENOUGH_METHODS = frozenset({"regular_polygon", "rounded_rectangle", "shape"})
+#: outline, a blitted mask. The guard's claim about them is narrower and
+#: separate (see
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_no_module_approximates_a_round_mark_another_way`):
+#: **this package writes no call to any of these four**, so for them there is
+#: no second route to a dot for :data:`ELLIPSE_METHODS` to have to cover.
+#: That is a claim about these four names only — the two other approximation
+#: routes the package *does* use are in :data:`VERTEX_BOUNDED_METHODS`, and
+#: the dingbat route is in :data:`TEXT_METHODS`.
+#:
+#: ``bitmap`` was moved here from :data:`FLAT_METHODS` in review cycle 1
+#: (F-001): a blitted mask is as round as its mask, and nothing calls it, so
+#: the stronger claim was free.
+ROUND_ENOUGH_METHODS = frozenset(
+    {"bitmap", "regular_polygon", "rounded_rectangle", "shape"}
+)
 
-#: Everything else Pillow's draw object does: flat shapes, text and the
-#: measuring calls. Unguarded, and said so — none of them can draw a circle.
+#: Draw methods that can approximate a round mark out of *vertices* and that
+#: this package really does call, so "nobody calls them" is not a claim
+#: available for these two — the proof cycle 1 wanted for them does not exist:
+#:
+#: * ``draw.polygon`` is called once, for the arrow head between two boxes of
+#:   the proof sheet's pipeline diagram
+#:   (``book_pdf_generator._draw_pipeline_diagram``) — three vertices.
+#: * ``point`` is called twice in ``sourcing/image.py``, but on an *image*
+#:   (``Image.point``, a per-pixel value map) and not on a draw object; those
+#:   are excluded on the receiver, not waved away (see
+#:   :func:`_draw_calls` and
+#:   :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_a_point_call_on_an_image_is_not_a_draw_call`).
+#:
+#: So the guard for them is a **vertex bound** rather than absence: see
+#: :data:`MAX_FLAT_VERTICES`. Cycle 1's F-001 suggested moving these two into
+#: :data:`ROUND_ENOUGH_METHODS` "for free, since the file already asserts they
+#: are called nowhere"; that premise is false, and the bound is what closes
+#: the route instead.
+VERTEX_BOUNDED_METHODS = frozenset({"point", "polygon"})
+
+#: Draw methods that put a *string* on a page. These are guarded for
+#: **content**, not for shape: ``draw.text`` is called from four modules, so
+#: absence is unavailable here too, and a tier glyph spelled ``"\u25cf\u25cf\u25cb"``
+#: is the cheapest implementation CARD-207 has — its header already goes
+#: through ``_set_band``'s ``draw.text``, and CON-020's 10 pt floor passes a
+#: 14 pt bullet happily. See :data:`ROUND_DINGBATS`.
+TEXT_METHODS = frozenset({"multiline_text", "text"})
+
+#: Everything else Pillow's draw object does: flat shapes and the measuring
+#: calls. Unguarded, and said so — a straight line, a rectangle and the four
+#: calls that only *measure* have no vertex list and no string to hide a dot
+#: in, which is why these are the residue after the four guarded sets above
+#: rather than "everything that is not an ellipse".
 FLAT_METHODS = frozenset(
     {
-        "bitmap",
         "getfont",
         "line",
-        "multiline_text",
         "multiline_textbbox",
-        "point",
-        "polygon",
         "rectangle",
-        "text",
         "textbbox",
         "textlength",
     }
 )
+
+#: Every public Pillow draw method, guarded or not — the union the
+#: completeness test closes over.
+ALL_DRAW_METHODS = (
+    ELLIPSE_METHODS
+    | ROUND_ENOUGH_METHODS
+    | VERTEX_BOUNDED_METHODS
+    | TEXT_METHODS
+    | FLAT_METHODS
+)
+
+#: The most vertices a flat shape in this package is allowed to be written
+#: with. The one real call has three (an arrow head); a polygon that passes
+#: for a dot needs a dozen or more (cycle 1's surviving mutant used 32). Four
+#: leaves room for a quadrilateral without leaving room for a circle.
+MAX_FLAT_VERTICES = 4
+
+#: Codepoints that are a round or geometric mark in their own right: Unicode's
+#: Geometric Shapes block (U+25A0..U+25FF, which holds \u25cf BLACK CIRCLE and
+#: \u25cb WHITE CIRCLE — a three-dot glyph needs nothing else), plus U+2022
+#: BULLET and U+2219 BULLET OPERATOR.
+ROUND_DINGBATS = frozenset(chr(code) for code in range(0x25A0, 0x2600)) | {
+    "\u2022",
+    "\u2219",
+}
+
+#: The one module exempt from the dingbat rule, and the reason — which is
+#: itself asserted, not asserted-to-be-obvious
+#: (:meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw`):
+#: ``admin/pdf_generator.py`` is the legacy ReportLab generator. It carries
+#: three U+2022 bullets in a prose paragraph about the difficulty levels, and
+#: it imports no Pillow and makes no draw-object call at all, so it has no
+#: route to a page through this guard's subject.
+DINGBAT_EXEMPT_MODULES = frozenset({"nonogram.admin.pdf_generator"})
+
+#: How a Pillow draw object is spelled in this package: the bare name
+#: ``draw``, or an inline ``ImageDraw.Draw(...)``. Completeness is measured
+#: rather than assumed — see
+#: :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_draw_object_in_the_package_is_spelled_draw`.
+DRAW_RECEIVER_NAME = "draw"
 
 #: The one function allowed to put a round mark on a page.
 THE_DRAWING_SITE = ("nonogram.admin.book_pdf_generator", "_draw_difficulty_dots")
@@ -648,6 +784,86 @@ def _round_mark_sites(
     return sites
 
 
+def _is_draw_receiver(node: ast.AST) -> bool:
+    """Whether ``node`` evaluates to a Pillow draw object, as this package spells one.
+
+    Either the bare name :data:`DRAW_RECEIVER_NAME` or an inline
+    ``ImageDraw.Draw(...)``. Needed because two method names Pillow's draw
+    object carries are also carried by ``Image`` — ``point`` most of all —
+    and ``greyscale.point([...])`` mapping pixel values is not a draw call.
+    The receiver set's completeness is asserted by
+    :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_every_draw_object_in_the_package_is_spelled_draw`,
+    so this is a measured discrimination rather than a convention.
+    """
+    if isinstance(node, ast.Name) and node.id == DRAW_RECEIVER_NAME:
+        return True
+    return (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "Draw"
+    )
+
+
+def _draw_calls(
+    sources: Mapping[str, str], methods: frozenset[str]
+) -> list[tuple[str, str, ast.Call]]:
+    """Every call to one of ``methods`` written **on a draw object**.
+
+    The same walk as :func:`_round_mark_sites`, with two differences: the
+    receiver must satisfy :func:`_is_draw_receiver`, and the call node itself
+    comes back so a guard can look at what was passed to it. Takes its sources
+    as an argument for the same reason.
+
+    Carries the same stated blind spot: a dynamically dispatched call
+    (``getattr(draw, "polygon")(...)``) is invisible to it.
+    """
+    calls: list[tuple[str, str, ast.Call]] = []
+
+    def walk(node: ast.AST, enclosing: str, module: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if (
+                isinstance(child, ast.Call)
+                and isinstance(child.func, ast.Attribute)
+                and child.func.attr in methods
+                and _is_draw_receiver(child.func.value)
+            ):
+                calls.append((module, enclosing, child))
+            inner = (
+                child.name
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                else enclosing
+            )
+            walk(child, inner, module)
+
+    for module, source in sorted(sources.items()):
+        walk(ast.parse(source), "<module>", module)
+    return calls
+
+
+def _dingbat_literals(sources: Mapping[str, str]) -> list[tuple[str, str]]:
+    """Every ``(module, value)`` string literal holding a :data:`ROUND_DINGBATS` codepoint.
+
+    Every string constant in the module, **including docstrings** — wider than
+    "the argument of a ``draw.text`` call", and deliberately so. Cycle 1's
+    F-001 proposed the narrow form, but the route it names bypasses it: a
+    caller that builds ``f"{number}  {word}  \u25cf\u25cf\u25cb"`` and hands it to
+    ``_set_band`` has written the literal nowhere near a ``draw.text`` call.
+    A module that genuinely needs such a codepoint — in a docstring, even —
+    extends this guard and says why, which is the declaration the narrow form
+    would have let it skip.
+    """
+    found: list[tuple[str, str]] = []
+    for module, source in sorted(sources.items()):
+        for node in ast.walk(ast.parse(source)):
+            if (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and set(node.value) & ROUND_DINGBATS
+            ):
+                found.append((module, node.value))
+    return found
+
+
 class TestDifficultyDots_HasExactlyOneDrawingSite:
     """AC-4: one function draws the dots; every caller goes through it.
 
@@ -655,8 +871,43 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     by walking ``src/nonogram/**/*.py`` with ``ast`` — because a promise that
     four later cards will reuse one function is worth nothing unless a fifth
     dot is a test failure. The walk is over the whole package, so CARD-207,
-    CARD-229, CARD-231 and CARD-233 cannot each grow their own circles
-    wherever they end up drawing.
+    CARD-229, CARD-231 and CARD-233 cannot grow a second dot glyph **by any
+    of the four routes guarded below** wherever they end up drawing.
+
+    **Exactly how far this reaches, and where it stops.** The claim is the
+    width of the mechanism and no wider; review cycle 1 (F-001) planted three
+    second glyphs that an earlier, more confidently worded version of this
+    class let through. Four routes are guarded, each by a control that fires:
+
+    1. an ellipse drawn as an ellipse — :data:`ELLIPSE_METHODS`, zero calls
+       outside :data:`THE_DRAWING_SITE`;
+    2. the four approximation methods the package calls nowhere —
+       :data:`ROUND_ENOUGH_METHODS`, zero calls at all;
+    3. a circle built out of vertices — :data:`VERTEX_BOUNDED_METHODS`, held
+       to :data:`MAX_FLAT_VERTICES` rather than to absence, because the
+       package really does call ``draw.polygon``;
+    4. a dot typed as a character — :data:`ROUND_DINGBATS`, which is the route
+       CARD-207 would most cheaply take.
+
+    What this instrument **cannot** see, named rather than argued away, since
+    the set of methods it watches is derived from ``dir(ImageDraw.ImageDraw)``
+    and the walk reads written syntax:
+
+    * anything outside ``ImageDraw`` entirely — ``Image.paste`` of a circular
+      mask, ``ImageDraw.floodfill`` (a module function, not a draw method), a
+      pre-rendered PNG asset pasted in, a circle that arrives inside an
+      imported image;
+    * a dynamically dispatched draw call, ``getattr(draw, "ellipse")(box)``
+      (also stated on :func:`_round_mark_sites`);
+    * a vertex list this walk cannot count — which it treats as a failure
+      rather than a pass, so it is a blind spot that shows itself;
+    * a draw object reached by a receiver this package does not currently use
+      (:data:`DRAW_RECEIVER_NAME` has its own completeness test, so a new
+      spelling fails that test rather than slipping past this one).
+
+    A card taking one of the first two routes would be making a deliberate
+    choice this guard should be extended for. That is a narrower promise than
+    "cannot each grow their own circles", and it is the one the tests keep.
     """
 
     def test_the_method_classification_covers_every_pillow_draw_method(self) -> None:
@@ -672,10 +923,16 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             for name in dir(ImageDraw.ImageDraw)
             if not name.startswith("_") and callable(getattr(ImageDraw.ImageDraw, name))
         }
-        assert ELLIPSE_METHODS | ROUND_ENOUGH_METHODS | FLAT_METHODS == pillow
-        assert not ELLIPSE_METHODS & ROUND_ENOUGH_METHODS
-        assert not ELLIPSE_METHODS & FLAT_METHODS
-        assert not ROUND_ENOUGH_METHODS & FLAT_METHODS
+        partition = (
+            ELLIPSE_METHODS,
+            ROUND_ENOUGH_METHODS,
+            VERTEX_BOUNDED_METHODS,
+            TEXT_METHODS,
+            FLAT_METHODS,
+        )
+        assert ALL_DRAW_METHODS == pillow
+        assert sum(len(part) for part in partition) == len(ALL_DRAW_METHODS)
+        assert ALL_DRAW_METHODS == set().union(*partition)
 
     def test_the_walk_actually_sees_the_package(self) -> None:
         """Guard the guard: an empty or misrooted walk must not pass silently."""
@@ -687,19 +944,30 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
             "nonogram.export.png",
             "nonogram.export.pdf",
         } <= set(sources)
-        assert "def _draw_difficulty_dots" in sources[THE_DRAWING_SITE[0]]
+        # Both halves of THE_DRAWING_SITE checked against the source on disk:
+        # the module by indexing it, the function name by finding its own
+        # ``def``. This is the one real assertion F-006's
+        # test_the_real_packages_one_site_is_the_dot_drawer_itself was making,
+        # and it is made here instead (cycle 1, F-006).
+        assert f"def {THE_DRAWING_SITE[1]}" in sources[THE_DRAWING_SITE[0]]
+        assert getattr(book_pdf_generator, THE_DRAWING_SITE[1]) is _draw_difficulty_dots
 
     def test_the_package_draws_a_round_mark_in_exactly_one_function(self) -> None:
         sites = _round_mark_sites(_package_sources(), ELLIPSE_METHODS)
         assert set(sites) == {THE_DRAWING_SITE}
 
     def test_no_module_approximates_a_round_mark_another_way(self) -> None:
-        """The second, narrower claim: the approximation routes are unused.
+        """The second claim: the four *unused* approximation routes stay unused.
 
         :data:`ELLIPSE_METHODS` catches a circle drawn as a circle. It cannot
         catch a dot drawn as a 24-gon, so that is not claimed — instead the
-        three methods that could do it are asserted to be called nowhere at
-        all, which is a claim this walk really can make.
+        four methods that could do it and that this package calls nowhere are
+        asserted to be called nowhere, which is a claim this walk really can
+        make. The two approximation methods the package *does* call are
+        guarded by vertex count instead
+        (:meth:`test_no_module_draws_a_round_mark_out_of_vertices`), and the
+        character route by content
+        (:meth:`test_no_module_types_a_round_mark_as_a_character`).
         """
         assert _round_mark_sites(_package_sources(), ROUND_ENOUGH_METHODS) == []
 
@@ -789,12 +1057,221 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
         }
         assert _round_mark_sites(benign, ELLIPSE_METHODS) == []
 
-    def test_the_real_packages_one_site_is_the_dot_drawer_itself(self) -> None:
-        """And it really is the function this card added, not some other circle."""
-        module, function = THE_DRAWING_SITE
-        assert function == _draw_difficulty_dots.__name__
-        assert getattr(book_pdf_generator, function) is _draw_difficulty_dots
-        assert book_pdf_generator.__name__ == module
+
+    # ----------------------------------------------------------------------
+    # Route 3: a round mark built out of vertices (cycle 1, F-001 / H2, H3)
+    # ----------------------------------------------------------------------
+
+    def test_every_draw_object_in_the_package_is_spelled_draw(self) -> None:
+        """The receiver set's own completeness test — :func:`_is_draw_receiver`'s oracle.
+
+        ``point`` is a method of ``Image`` as well as of the draw object, so
+        the vertex guard below has to tell ``draw.point([...])`` (ink) from
+        ``greyscale.point([...])`` (a pixel-value map) and does it on the
+        receiver. That only works if every draw object in the package really
+        is spelled :data:`DRAW_RECEIVER_NAME` or built inline, which is what
+        this measures: every ``ImageDraw.Draw(...)`` the package assigns, and
+        every parameter it annotates ``ImageDraw.ImageDraw``, carries that one
+        name. A module introducing a second spelling fails here, where the
+        remedy is obvious, instead of quietly widening the blind spot.
+        """
+        assigned: set[str] = set()
+        annotated: set[str] = set()
+        for source in _package_sources().values():
+            for node in ast.walk(ast.parse(source)):
+                if (
+                    isinstance(node, ast.Assign)
+                    and isinstance(node.value, ast.Call)
+                    and isinstance(node.value.func, ast.Attribute)
+                    and node.value.func.attr == "Draw"
+                ):
+                    assigned |= {
+                        target.id
+                        for target in node.targets
+                        if isinstance(target, ast.Name)
+                    }
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    for argument in (*node.args.posonlyargs, *node.args.args):
+                        annotation = argument.annotation
+                        if (
+                            isinstance(annotation, ast.Attribute)
+                            and annotation.attr == "ImageDraw"
+                        ):
+                            annotated.add(argument.arg)
+        assert assigned == {DRAW_RECEIVER_NAME}, assigned
+        assert annotated == {DRAW_RECEIVER_NAME}, annotated
+
+    def test_no_module_draws_a_round_mark_out_of_vertices(self) -> None:
+        """A polygon with enough vertices is a circle; this bounds the vertices.
+
+        Cycle 1 (F-001/H2) put a 32-gon tier glyph in ``export/png.py`` and
+        every test stayed green, because ``polygon`` was binned flat on the
+        reasoning that "none of them can draw a circle" while
+        ``regular_polygon`` — strictly less capable — was binned round.
+        Absence is not available as a claim for ``polygon``: the proof sheet's
+        pipeline diagram really does draw an arrow head with it. So the bound
+        is on the shape, not on the call.
+
+        A vertex list this walk cannot count is a **failure**, not a pass: a
+        card that computes its points (a comprehension, a helper, a name) has
+        to say so by extending this guard, which is the declaration the lenient
+        reading would have let it skip.
+        """
+        calls = _draw_calls(_package_sources(), VERTEX_BOUNDED_METHODS)
+        assert calls, (
+            "no draw-object call to "
+            f"{sorted(VERTEX_BOUNDED_METHODS)} remains in the package — this guard "
+            "has gone vacuous; keep it honest by pointing it at a fabricated "
+            "source, as test_a_many_sided_polygon_is_caught does"
+        )
+        for module, function, call in calls:
+            points = call.args[0] if call.args else None
+            assert isinstance(points, (ast.List, ast.Tuple)), (
+                module,
+                function,
+                "vertices this guard cannot count",
+            )
+            assert len(points.elts) <= MAX_FLAT_VERTICES, (
+                module,
+                function,
+                len(points.elts),
+            )
+
+    def test_a_many_sided_polygon_is_caught(self) -> None:
+        """Control, caught: cycle 1's surviving H2 mutant, against the new guard."""
+        points = ", ".join(f"({index}, {index})" for index in range(32))
+        rogue = {"fake.mod": f"def dots(draw):\n    draw.polygon([{points}], fill=1)\n"}
+        calls = _draw_calls(rogue, VERTEX_BOUNDED_METHODS)
+        assert [(module, function) for module, function, _ in calls] == [
+            ("fake.mod", "dots")
+        ]
+        with pytest.raises(AssertionError):
+            for _, _, call in calls:
+                assert len(call.args[0].elts) <= MAX_FLAT_VERTICES
+
+    def test_a_disc_drawn_point_by_point_is_caught(self) -> None:
+        """Control, caught: cycle 1's surviving H3 mutant (a filled disc via ``point``)."""
+        rogue = {
+            "fake.mod": (
+                "def dots(draw):\n"
+                "    draw.point([(x, y) for x in range(9) for y in range(9)], fill=1)\n"
+            )
+        }
+        calls = _draw_calls(rogue, VERTEX_BOUNDED_METHODS)
+        assert len(calls) == 1
+        # A computed point list is exactly the shape the guard refuses to read
+        # as safe: not a countable literal, so not a pass.
+        assert not isinstance(calls[0][2].args[0], (ast.List, ast.Tuple))
+
+    def test_a_three_vertex_arrow_head_is_not_caught(self) -> None:
+        """Control, not caught: the guard bounds roundness, not drawing.
+
+        Without this the bound's discriminating power would be unknown — a
+        guard that rejected every polygon would also pass the two controls
+        above.
+        """
+        flat = {
+            "fake.mod": (
+                "def arrow(draw):\n"
+                "    draw.polygon([(0, 0), (4, 2), (0, 4)], fill=1)\n"
+            )
+        }
+        calls = _draw_calls(flat, VERTEX_BOUNDED_METHODS)
+        assert len(calls) == 1
+        assert len(calls[0][2].args[0].elts) <= MAX_FLAT_VERTICES
+
+    def test_a_point_call_on_an_image_is_not_a_draw_call(self) -> None:
+        """Control, not caught: ``Image.point`` is a pixel map, not ink.
+
+        ``sourcing/image.py`` calls it twice with a 256-entry table and with a
+        lambda. Neither is a draw object putting a mark on a page, and both
+        would be unmeasurable vertex lists if the receiver were ignored — so
+        the vertex guard would fail on honest code. The receiver rule is what
+        keeps it honest, and this pins that rule from the other side.
+        """
+        images = {
+            "fake.mod": (
+                "def binarise(greyscale):\n"
+                "    ink = greyscale.point([255] * 128 + [0] * 128, mode='L')\n"
+                "    return ink.point(lambda value: value, mode='L')\n"
+            )
+        }
+        assert _draw_calls(images, VERTEX_BOUNDED_METHODS) == []
+        # And the unfiltered walk shows the discrimination is the receiver's
+        # doing rather than a quirk of the fabricated source.
+        assert len(_round_mark_sites(images, VERTEX_BOUNDED_METHODS)) == 2
+
+    # ----------------------------------------------------------------------
+    # Route 4: a dot typed as a character (cycle 1, F-001 / H1)
+    # ----------------------------------------------------------------------
+
+    def test_no_module_types_a_round_mark_as_a_character(self) -> None:
+        """The route CARD-207 would most cheaply take, closed.
+
+        Cycle 1 (F-001/H1) drew a second tier glyph with
+        ``draw.text(xy, "\u25cf" * rank + "\u25cb" * (3 - rank))`` and every test stayed
+        green. ``draw.text`` is called from four modules, so absence is not
+        available as a claim for it either; the claim is about **content**:
+        no module in ``src/nonogram/`` writes a string literal holding a
+        :data:`ROUND_DINGBATS` codepoint.
+
+        Wider than "the argument of a ``draw.text`` call" on purpose — see
+        :func:`_dingbat_literals` — because CARD-207's cheapest route builds
+        the band's string at its caller and hands it to ``_set_band``.
+        """
+        offenders = [
+            (module, value)
+            for module, value in _dingbat_literals(_package_sources())
+            if module not in DINGBAT_EXEMPT_MODULES
+        ]
+        assert offenders == []
+
+    def test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw(self) -> None:
+        """The exemption's own control: it is earned by the module, not granted.
+
+        :data:`DINGBAT_EXEMPT_MODULES` is exactly the set of modules that
+        carry such a codepoint today, and the one in it reaches no Pillow draw
+        object at all — so it cannot put a dingbat on a Pillow page however
+        its prose is spelled. Both halves are measured: the exemption cannot
+        quietly grow to cover a module that *does* draw, and it cannot quietly
+        stay behind a module that stopped needing it.
+        """
+        sources = _package_sources()
+        assert {module for module, _ in _dingbat_literals(sources)} == (
+            DINGBAT_EXEMPT_MODULES
+        )
+        for module in DINGBAT_EXEMPT_MODULES:
+            assert _draw_calls({module: sources[module]}, ALL_DRAW_METHODS) == []
+            assert "ImageDraw" not in sources[module]
+
+    def test_a_typed_round_mark_is_caught(self) -> None:
+        """Control, caught: the glyph as a band string, and as a ``draw.text`` argument."""
+        band = {
+            "fake.caller": (
+                "def header(draw, band, number, word):\n"
+                "    _set_band(draw, band, f'{number}  {word}  \u25cf\u25cf\u25cb', 100)\n"
+            )
+        }
+        assert [module for module, _ in _dingbat_literals(band)] == ["fake.caller"]
+        inline = {"fake.mod": "def dots(draw):\n    draw.text((0, 0), '\u2022\u2022\u25cb')\n"}
+        assert [module for module, _ in _dingbat_literals(inline)] == ["fake.mod"]
+
+    def test_plain_text_is_not_caught(self) -> None:
+        """Control, not caught: the words the bands really carry.
+
+        The band's own strings — a puzzle number, a tier label, an ellipsis
+        spelled with three full stops — must pass, or the guard would be a
+        ban on text rather than on a typed dot.
+        """
+        plain = {
+            "fake.mod": (
+                "def header(draw):\n"
+                "    draw.text((0, 0), 'PUZZLE 12  MEDIUM')\n"
+                "    draw.text((0, 0), '...')\n"
+                "    draw.text((0, 0), 'Easy / Medium / Hard')\n"
+            )
+        }
+        assert _dingbat_literals(plain) == []
 
 
 # ==========================================================================
@@ -805,10 +1282,25 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
 class TestDifficultyDots_FitsTheSmallestHeader:
     """AC-5: three dots fit a solution tile's header, clear of the text and the rule.
 
-    The box is measured, not invented: it is the band a packed solution tile
-    reserves inside itself on the smallest trim a book may be stored with —
-    four answers to a page at a 10 cm square trim, which is the narrowest
-    header any of the four callers will ever hand the glyph.
+    The box is measured, not invented: it is the narrowest of the bands a
+    packed solution tile reserves inside itself on the smallest trim a book
+    may be stored with. :data:`SOLVED_TILE_CAPACITIES` is ``(2, 4)``, so there
+    are **six** such bands at a 10 cm square trim, and the narrowest measures
+    **474 x 142 px** (the right-hand column's, at either capacity; the
+    left-hand column's are 475 wide). Those numbers are quoted here for a
+    reader, never relied on: every assertion below measures the box through
+    :func:`_smallest_solution_tile_band`, which is why review cycle 1 found
+    the card's prose wrong (F-005) and the tests right.
+
+    **The superlative this cannot check.** "The narrowest header *any* of the
+    four callers will hand the glyph" is what the card wants and is not yet
+    measurable: only CARD-233's box exists. CARD-229's guide key strip and
+    CARD-231's section opener are unbuilt and could be narrower — a key strip
+    beside a legend line is a plausible candidate. So what is claimed is the
+    narrowest header **this project can measure today**, plus the general
+    property that carries over: a box too small is declined rather than
+    overflowed (:meth:`test_a_box_too_small_is_declined_rather_than_overflowed`).
+    The adopting cards re-run AC-5 against their own box (cycle 1, F-007).
     """
 
     def test_the_box_really_is_the_smallest_one_a_caller_gives(self, box) -> None:
@@ -983,7 +1475,12 @@ class TestDifficultyDots_UntieredDrawsNothing:
 
         The mistake the criterion warns about is unconstructible rather than
         merely untested — a row with no filled dot is refused by the type, and
-        a rank of zero is refused by the measurement.
+        a rank of zero is refused by the measurement. That claim is about
+        AC-3's and AC-6's two refusals (this one and the ring-closing stroke
+        below); the other four are pinned by
+        :meth:`test_the_type_refuses_every_row_it_documents_as_impossible`,
+        which exists because review cycle 1 (F-002) disabled each of them and
+        watched all 186 tests stay green.
         """
         with pytest.raises(ValueError, match="filled must be"):
             DifficultyDots(dots=((0, 0, 11, 11),), filled=0, stroke=1)
@@ -995,6 +1492,44 @@ class TestDifficultyDots_UntieredDrawsNothing:
             difficulty_dots(*self.BOX, filled=len(TIERS) + 1, total=len(TIERS))
         with pytest.raises(ValueError, match="at least one rung"):
             difficulty_dots(*self.BOX, filled=1, total=0)
+
+    def test_the_type_refuses_every_row_it_documents_as_impossible(self) -> None:
+        """The four refusals no caller can currently reach, reached directly.
+
+        Review cycle 1 (F-002) disabled each of these four lines in
+        ``__post_init__`` and every test stayed green: the single constructor
+        cannot emit a row that violates them, so "unconstructible" was resting
+        on the absence of a caller rather than on the type. These cases
+        construct the bad rows by hand, which is the only way the refusals can
+        fail if a later card (CARD-229's key strip is a declared consumer)
+        changes the measurement.
+        """
+        # A stroke of zero: an "outlined" dot with no outline is invisible.
+        with pytest.raises(ValueError, match="at least one pixel"):
+            DifficultyDots(dots=((0, 0, 11, 11),), filled=1, stroke=0)
+        # Two dots of different diameters: the row is not one glyph.
+        with pytest.raises(ValueError, match="the same circle"):
+            DifficultyDots(dots=((0, 0, 11, 11), (20, 0, 29, 9)), filled=1, stroke=1)
+        # Two dots on different tops: the row is not one line.
+        with pytest.raises(ValueError, match="one line"):
+            DifficultyDots(dots=((0, 0, 11, 11), (20, 5, 31, 16)), filled=1, stroke=1)
+        # Two overlapping dots.
+        with pytest.raises(ValueError, match="overlap or touch"):
+            DifficultyDots(dots=((0, 0, 11, 11), (6, 0, 17, 11)), filled=1, stroke=1)
+
+    def test_the_type_refuses_two_dots_that_merely_touch(self) -> None:
+        """F-004: "no two dots touch" is the type's rule, not just the sweep's.
+
+        ``left == right + 1`` is adjacency — two dots sharing an edge, one
+        smear at print size. The refusal used to be ``left <= right``, which
+        accepted it while the corpus invariant and the card both claimed no
+        two dots touch. Paired with the row one pixel wider, which is accepted,
+        so the bound is a measurement rather than a blanket refusal.
+        """
+        with pytest.raises(ValueError, match="overlap or touch"):
+            DifficultyDots(dots=((0, 0, 11, 11), (12, 0, 23, 11)), filled=1, stroke=1)
+        spaced = DifficultyDots(dots=((0, 0, 11, 11), (13, 0, 24, 11)), filled=1, stroke=1)
+        assert spaced.dots[1][0] - spaced.dots[0][2] - 1 == 1
 
     def test_the_stored_tier_is_read_and_never_written(self) -> None:
         """ADR-0033/R1: book assembly never changes a puzzle's tier.

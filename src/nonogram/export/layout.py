@@ -1317,11 +1317,22 @@ class DifficultyDots:
 
         Valid by construction, in the house style of :class:`AnswerPageLayout`
         and :class:`PairLayout`: a caller holding one of these never re-checks
-        that the dots are the same size, that they do not overlap, or — the
-        one that carries the meaning — that an outlined dot still has white
-        inside it. A stroke of half the diameter or more closes the ring, and
-        a closed ring *is* a filled dot: the glyph would then draw three
-        identical marks and claim they said three different things.
+        that the dots are the same size, that they neither overlap **nor
+        touch**, or — the one that carries the meaning — that an outlined dot
+        still has white inside it. A stroke of half the diameter or more
+        closes the ring, and a closed ring *is* a filled dot: the glyph would
+        then draw three identical marks and claim they said three different
+        things.
+
+        The spacing refusal is ``left <= right + 1`` rather than
+        ``left <= right`` (CARD-228 review cycle 1, F-004): two dots sharing
+        an edge are one smear at print size, so the type refuses the touching
+        row the corpus invariant ``test_no_two_dots_of_a_row_touch`` and this
+        card's own prose already say cannot happen. Every refusal here has its
+        own ``pytest.raises`` case in
+        ``tests/test_book_difficulty_dots.py::TestDifficultyDots_UntieredDrawsNothing``
+        — before that cycle four of the five were exercised by nothing but the
+        absence of a caller that could violate them (F-002).
         """
         if not self.dots:
             raise ValueError("a difficulty glyph is at least one dot")
@@ -1345,8 +1356,8 @@ class DifficultyDots:
         if len(tops) != 1:
             raise ValueError("every dot of the row sits on one line")
         for (_, _, right, _), (left, _, _, _) in zip(self.dots, self.dots[1:]):
-            if left <= right:
-                raise ValueError("two dots of the row overlap")
+            if left <= right + 1:
+                raise ValueError("two dots of the row overlap or touch")
 
     @property
     def total(self) -> int:
