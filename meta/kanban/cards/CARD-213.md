@@ -1,6 +1,6 @@
 # CARD-213: A clue number unique in its line gets circled wherever its run is closed
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** feature
 **Estimate:** 0.5d
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/213-unique-clue-circle
-**Worktree:** ../PythonProject4-card-213
+**Worktree:** — (removed at merge)
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 (item 4: "Solver - if we have only one (unique) option for some number of black cells (e.g. 3 for the set 1 2 3 2 1) and that number is found (we have correct .xxx. sequence), then please place this number (3 in this case) in a circle")
 **Idea:** —
 **Wave:** 42
@@ -17,9 +17,9 @@
 **Touches:** src/nonogram/admin/static/solver_state.js, tests/test_puzzle_solver_clues.py, tests/test_browser_fixture_scope.py (amended 2026-10-16 at the decompose station — see the Architecture revision below; this card is the first to add a browser-family test since CARD-235 froze the family, and the freeze cannot be satisfied and the card implemented at the same time)
 **Review score:** 9.0 (cycle 1/3 — 0 critical, 0 important, 3 minor; both gates pass)
 **Started:** 2026-10-16T17:04:17Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-16T19:02:39Z
+**Actual:** 0.2d
+**Merge commit:** cbd5a8e
 **Blocked by:** —
 
 ## What to implement
@@ -538,3 +538,25 @@ it was never meant to, and `ADDED_SINCE_BEFORE` does not make it a review gate.
   lesson is the same rule stated differently. Cost of waiting is ~15 min of wall-clock with nothing
   else blocked, since CARD-228 cannot merge before its review returns anyway. Cost of not waiting is
   a 900 s suite I could not trust.
+- [Merge gate] **7502 passed, 9 skipped, exit 0 in 901.47s** on the rebased branch, run ALONE with
+  the machine quiet — CARD-228's reviewer had finished. Target did not move between the rebase and
+  the merge, so the tree gated is the tree that shipped.
+- [Closed] merged **cbd5a8e** (a real merge commit, two parents, matching this board's convention),
+  actual **0.2d against 0.5d**. One review cycle at 9.0, one build-gate fix cycle, one AC/EC/G gate,
+  zero escalations. Worktree removed and `card/213-unique-clue-circle` deleted.
+- [Suite timing] appended `2026-10-16T19:02:39Z wave-42 card-213-merge-gate 901s PASS (7502 passed,
+  9 skipped, 0 failed) [120ms/test]`. My first attempt at that line was MALFORMED — no time
+  component, and prose where the parser wants `(N passed, N skipped, N failed)`. I caught it by
+  validating against `TIMING_LOG_LINE` in `rank_durations.py` rather than by eye, and rewrote it.
+  Recording the near-miss because it is the same defect CARD-217 shipped and CARD-238 spent 2.7d
+  cleaning up: the format is pinned by a committed regex, and the cheap habit is to run the line
+  through that regex before leaving it. While validating I confirmed line 25 — CARD-217's own
+  merge-gate entry, with bare trailing prose after the rate instead of a parenthesised note — still
+  does not parse. Left untouched deliberately: it is pre-existing, carded as CARD-239 item 5, and
+  CARD-239's G-1 carries the owner's standing decision not to normalise this log.
+- [Retrospective material] the card cost 0.2d against a 0.5d estimate and took ONE review cycle at
+  9.0, which is the wave's counterweight to CARD-228 — and the reason is worth naming: the work was
+  pure logic in a module with no I/O, no geometry and no host coupling, and its correctness had an
+  independent oracle already sitting in the repo (CARD-188's brute force). Every expensive card this
+  wave and last fought something else: a host file, a frozen baseline, a syntactic guard. The cheap
+  one had a decidable question and a judge that pre-dated it.
