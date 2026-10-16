@@ -438,3 +438,21 @@ it was never meant to, and `ADDED_SINCE_BEFORE` does not make it a review gate.
 - [Retrospective material] A rule distinct from wave 41's and easy to confuse with it: **a guard
 - [Fix 1] verified in the main repo rather than accepted on the agent's report: diff confined to tests/test_browser_fixture_scope.py (+294/-15); the clues file and solver_state.js absent from the fix commit; allowlist parsed with `ast` → 12 entries, all from the clues file, all attributed to CARD-213, shortest reason 19 words; the four prose narrowings present at :15/:43/:128/:685; the four historical assertions untouched at :488/:506/:528/:1079; `assert len(ids) == 422` gone. **The agent corrected my own number and was right**: the revision section said ten new tests, the measured delta is twelve (434 − 422). The three extra are control halves and the two pure-Python tests the first report had folded into their ACs. Nothing was added or removed to make a count work.
 - [Fix 1] the one claim the agent declined to make falsifiable, stated rather than buried: the allowlist's *reasons* are prose and only their shape is machine-checked, so an entry with a plausible sentence and the wrong AC would pass. What IS falsifiable is the part that protects coverage — an entry cannot hide a test's disappearance, and a rename shows as an addition and a removal. That is the honest bound, and recording it is the behaviour CARD-238's AC-7 was cut to buy.
+- [Build gate] cycle 0 attempt 2 (after Fix 1): **7502 passed, 9 skipped, exit 0 in 902.87s**. The
+  arithmetic reconciles: attempt 1 was 7499 passed + 1 failed = 7500 collected-and-run, and the fix
+  added exactly the two new control tests. Skips stable at 9 across all three full-suite runs this
+  wave (both of CARD-213's and CARD-228's), which is CARD-238's host-state fix holding.
+- [Review 1/3] spawned. Briefed on the same two cost rules as CARD-228's reviewer (no full suite,
+  mutation runs scoped to the card's own test files) plus one this card needs specifically: a
+  concurrent reviewer is active and `tests/test_browser_fixture_scope.py` carries timing-sensitive
+  bounds, so any timing failure must be re-confirmed in isolation before being reported. Reporting a
+  CPU-contention false red as a finding would be this week's defect family committed by the review
+  station itself.
+- [Review 1/3] the two questions it was told ARE the review: (1) rule C's soundness, including the
+  ordering consequence the implementation agent flagged rather than fixed — a line clued `1 2` marked
+  `DDWDW.....` now circles both numbers though the runs sit in the wrong order — and whether the
+  general soundness argument holds at the line's edges and for a clue value equal to the sum of
+  others; (2) whether the amendment preserved CARD-235's guard, with the allowlist held to CARD-238's
+  promoted standard since `ADDED_SINCE_BEFORE` is exactly "a set a guard consults". It was also told
+  to verify the Python reference's *calibration* claim, on the grounds that an uncalibrated
+  independent reference is worse than none because it still looks like evidence.
