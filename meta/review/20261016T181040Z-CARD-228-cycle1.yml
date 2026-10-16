@@ -1,0 +1,342 @@
+version: 1
+generated_at: "2026-10-16T18:10:40Z"
+target: "card/228-difficulty-dots @ 1a93e0f (git diff main...HEAD; df66445..1a93e0f, 4 files, +1579/-1)"
+overall_score: 8.0
+risk_level: low
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"   # /Users/omelnikova/MyProjects/forge_1/forge/.claude-plugin/plugin.json carries no `version` field
+
+coverage:
+  read:
+    - "src/nonogram/export/layout.py (the whole CARD-228 block, lines 1232-1498)"
+    - "src/nonogram/admin/book_pdf_generator.py (_draw_difficulty_dots + its imports)"
+    - "tests/test_book_difficulty_dots.py (all 1144 lines)"
+    - "tests/test_book_interior_type_floor.py (the diff + TestInteriorType_EveryFaceHoldsTheFloor context)"
+    - "tests/test_cli.py (the ADR-0007 import guard, lines 732-1090)"
+    - "src/nonogram/difficulty.py (Tier, TIER_BANDS, tier_of_record)"
+    - "src/nonogram/admin/book_plan.py (TIERS)"
+    - "src/nonogram/admin/book_page_spec.py (InkMode)"
+    - "meta/architecture/decisions/adr/0033,0036,0037 (## Rules blocks)"
+    - "meta/architecture/requirements.yml (CON-020)"
+    - "meta/kanban/cards/CARD-228.md (in full)"
+    - "meta/kanban/config.yml"
+  not_reached:
+    - "CARD-207 / CARD-229 / CARD-231 / CARD-233 (the four adopting cards do not exist yet; AC-5's and AC-4's forward claims could not be checked against real callers)"
+    - "the full 7557-test suite (run by the caller: 7557 passed / 9 skipped, exit 0 — not re-run here by instruction)"
+    - "rendered-page eyeball (visual: off in this project; no caller exists to render)"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 1579, removed: 1 }
+  max_fan_in: { symbol: "nonogram.admin.book_pdf_generator._draw_difficulty_dots", callers: 0 }
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (66 commits/12mo, 38 fix-shaped — the repo's highest-churn file, and a declared conflict hotspot)"
+    - "src/nonogram/export/layout.py (18 commits/12mo, 9 fix-shaped — also a declared conflict hotspot)"
+  cochange_missing:
+    - "tests/helpers/book_corpus.py (24 co-changes)"
+    - "tests/test_book_pdf_memory.py (23)"
+    - "tests/property/test_book_export_interior.py (16)"
+    - "src/nonogram/admin/app.py (16)"
+  unmeasured:
+    max_fan_in: "no_eligible_fact — `callers: 0` is a real, verified zero and is the card's intent (G-5): `grep -rn` over src/ finds no call to _draw_difficulty_dots and only one call to difficulty_dots (from _draw_difficulty_dots). The zero therefore carries no risk signal either way."
+    bus_factor: "no_eligible_fact — `git shortlog -sn` returns nothing for these paths; this repo's history is authored under a single committer identity, so the signal cannot discriminate."
+    cochange_missing_verdict: "not_applicable — the four peers listed above are absent BY DESIGN: guardrail G-5 states this card changes no page's geometry, so the interior-page property suites and the route module have nothing to change. Checked, explained, not a finding."
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-020 ✓ holds — the dots are not text and cannot hide text: TestInteriorType_DifficultyDotsAreNotText spies ImageDraw.ImageDraw.text and records [] for the glyph, with the same spy seeing _set_band's word as the control (>= 10 pt). TestInteriorType_EveryFaceHoldsTheFloor (the rule's declared check) is untouched by the diff and green in my own run of tests/test_book_interior_type_floor.py."
+    - "ADR-0033/R1 ✓ holds — scope src/nonogram/admin/book_*.py. _draw_difficulty_dots (book_pdf_generator.py:1575) reads the tier through difficulty.tier_of_record and assigns nothing; no default, no re-grade, no write. Re-derivable: grep for an assignment to any tier field in the diff returns nothing, and test_the_stored_tier_is_read_and_never_written asserts the caller's mutable row is unchanged."
+    - "ADR-0036/R2 ✓ holds — scope src/nonogram/admin/**. The admin half computes no geometry: every number (diameter, gap, stroke, row origin) comes from export.layout.difficulty_dots; book_pdf_generator.py:1586-1593 passes a box and two ints and consumes the returned tuples verbatim. Re-derivable: no arithmetic on left/top/right/bottom appears anywhere in the new function."
+    - "ADR-0037/R1 ✓ holds — scope src/nonogram/admin/book_pdf_generator.py. The glyph renders the tier and nothing else; no title, no picture name. No puzzle page's band changed (the function has no caller), so R1's surface is untouched by this diff."
+
+root_causes:
+  - id: RC-1
+    title: "A guard's or a type's stated coverage is wider than the mechanism that enforces it"
+    finding_ids: [F-001, F-002, F-003]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 566
+    title: "AC-4's round-mark guard claims a coverage its method partition does not have; the getattr hole is not the only hole"
+    description: |
+      The AC-4 reinterpretation itself is ACCEPTED (see the markdown report): asserting that the
+      package holds exactly one function putting a round mark on a page is the strongest form of
+      AC-4 available while G-4/G-5 forbid building the four callers, and it does bind them.
+
+      What fails is the width of the mechanism against the width of the claim. Three statements in
+      the file assert package-wide coverage:
+
+        * line 566, FLAT_METHODS' docstring: "Unguarded, and said so — none of them can draw a circle."
+        * line 564, ROUND_ENOUGH_METHODS' docstring: "nothing in the package calls them at all, so
+          there is no second route to a dot for ELLIPSE_METHODS to have to cover."
+        * line 658, the test class docstring: "The walk is over the whole package, so CARD-207,
+          CARD-229, CARD-231 and CARD-233 cannot each grow their own circles wherever they end up
+          drawing."
+
+      All three are false, and `test_the_method_classification_covers_every_pillow_draw_method` does
+      not detect it: it proves the partition is EXHAUSTIVE over dir(ImageDraw.ImageDraw) (verified
+      true on the installed Pillow 12.3.0 — 19 public methods, zero missing, zero extra), never that
+      the bin assignments are semantically right. The load-bearing claim is the assignment, and it
+      has no control that can fail.
+
+      Demonstrated by execution, each as a single mutant against
+      tests/test_book_difficulty_dots.py + tests/test_book_interior_type_floor.py + tests/test_cli.py,
+      every file restored and hash-verified afterwards:
+
+        H1  a rogue second tier glyph in src/nonogram/export/png.py drawn with
+            draw.text(xy, "●"*rank + "○"*(3-rank))          -> SURVIVED (186 pass)
+        H2  the same glyph as a 32-gon via draw.polygon(pts)          -> SURVIVED
+        H3  the same glyph as a filled disc via draw.point([...])     -> SURVIVED
+        C1  CONTROL: the same glyph via draw.ellipse(box)             -> KILLED
+            (test_the_package_draws_a_round_mark_in_exactly_one_function)
+
+      C1 proves the instrument works; H1-H3 are three unguarded routes to a second dot glyph. Two
+      details raise this above academic:
+
+        * `polygon` is binned FLAT while `regular_polygon` is binned ROUND_ENOUGH — yet
+          ROUND_ENOUGH's own docstring names "a 24-gon" as the approximation route it exists to
+          cover, and draw.polygon is strictly more capable than draw.regular_polygon. The partition
+          is internally inconsistent with its own stated rationale.
+        * the `text` route is the single most likely way CARD-207 will actually implement this.
+          Its header already goes through _set_band's draw.text call, so appending "●●○"
+          to the band string is the cheapest implementation available, and the G-2 test that would
+          notice a text-drawn dot spies only on _draw_difficulty_dots, not on the band.
+          CON-020's floor would not catch it either: a 14 pt bullet clears 10 pt.
+
+      Routes that leave ImageDraw entirely (Image.paste of a circular mask, ImageDraw.floodfill, a
+      pre-rendered PNG asset) are also outside the guard, since the set is derived from
+      dir(ImageDraw.ImageDraw).
+    suggestion: |
+      Either narrow the three claims to what the walk measures — "no module writes a call to an
+      ellipse-family Pillow method outside this one function" — or widen the mechanism. Widening is
+      cheap and keeps the stronger claim: move `polygon`, `point` and `bitmap` into
+      ROUND_ENOUGH_METHODS (they are already asserted to be called nowhere, so
+      test_no_module_approximates_a_round_mark_another_way covers them for free — verify that is
+      still true for `polygon`/`point`/`bitmap` before moving them), and for `text`, which IS called
+      package-wide, add the narrow assertion the G-2 test already has the machinery for: no
+      draw.text call anywhere in src/nonogram/ passes a string containing a geometric-shape
+      codepoint (U+25A0..U+25FF, U+2022, U+2219). Then restate FLAT_METHODS' docstring as
+      "unguarded for shape, guarded for dingbat content" rather than "none of them can draw a circle".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 1333
+    title: "Four of the five DifficultyDots.__post_init__ refusals the card claims are exercised by nothing"
+    description: |
+      The card's Worktree notes state that __post_init__ "refuses a row that cannot say what it
+      means — an empty row, a rank of zero, dots of unequal size, dots that overlap, and a stroke of
+      half the diameter or more", and conclude that "AC-3 and AC-6's 'not three outlined dots' are
+      therefore partly structural: those values are unconstructible".
+
+      Two of the five refusals are genuinely pinned, and they happen to be the two the ACs lean on:
+        * the empty-row / filled-range refusal — test_the_type_cannot_express_an_empty_or_unfilled_row
+        * the ring-closing stroke refusal      — test_the_type_refuses_a_stroke_that_closes_the_ring
+      So AC-3's and AC-6's structural claim survives this finding.
+
+      The other four have no test at all. Each of these mutants left all 186 tests in
+      tests/test_book_difficulty_dots.py + tests/test_book_interior_type_floor.py +
+      tests/test_cli.py green (one mutant per isolated subprocess; every file restored and
+      hash-verified afterwards):
+
+        layout.py:1333  `if self.stroke < 1:`                      -> disabled -> SURVIVED
+        layout.py:1337  `if len(diameters | heights) != 1:`        -> disabled -> SURVIVED
+        layout.py:1345  `if len(tops) != 1:`                       -> disabled -> SURVIVED
+        layout.py:1348  `if left <= right:`  (the overlap refusal) -> disabled -> SURVIVED
+
+      These are not equivalent mutants: disabling them makes the type accept rows it is documented
+      to refuse. They are unreachable only because the single constructor cannot currently produce
+      such a row — which is precisely the circularity: the refusals are cited as what makes bad
+      values unconstructible, while the only evidence they work is that nothing constructs them.
+      A later card changing the measurement (CARD-229's key strip is a declared consumer) would
+      silently lose four invariants with no failing test.
+
+      Verified separately, and clean: the refusals cannot be BYPASSED by the one caller.
+      difficulty_dots is the only constructor; it builds through DifficultyDots(...) so
+      __post_init__ always runs, and dataclasses.replace would re-run it. _draw_difficulty_dots
+      never constructs one.
+    suggestion: |
+      Add four one-line pytest.raises cases beside the two that already exist in
+      test_the_type_cannot_express_an_empty_or_unfilled_row — a zero stroke, two dots of different
+      diameters, two dots on different tops, and two overlapping dots. Four lines closes the claim.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 1252
+    title: "DIFFICULTY_DOT_RATIO's stated derivation is not pinned; the only test that uses it re-derives from the constant under test"
+    description: |
+      The constant's docstring derives 0.3 carefully (HEADER_FONT_MM 5 mm on a HEADER_BAND_MM 12 mm
+      band, cap height ~0.7 em => the word's own capitals stand 0.29 of the band). Nothing tests
+      that relationship.
+
+      Measured: DIFFICULTY_DOT_RATIO 0.3 -> 0.9 is KILLED (by
+      test_the_glyph_leaves_room_for_the_widest_tier_word), but 0.3 -> 0.45 SURVIVES — a 50 %
+      taller dot passes every test in the three files.
+
+      The two tests that look like they pin it do not:
+        * test_a_dot_never_outgrows_its_share_of_the_box asserts
+          `dots.diameter <= (bottom - top + 1) * DIFFICULTY_DOT_RATIO` — it re-derives the bound
+          from the constant under test, so it holds for any value. This is the exact anti-pattern
+          CLAUDE.md names ("Prefer an independent second implementation over re-deriving a value
+          with the same function you're testing").
+        * test_the_stroke_ratio_is_what_keeps_them_apart asserts only `0 < DIFFICULTY_DOT_RATIO < 1`.
+      The other two ratios ARE pinned by independent measurement: GAP_RATIO 0.5 -> 0.1 breaks the
+      fifth-of-a-dot clearance sweep, and a STROKE_RATIO at or above 0.5 is refused by the type.
+    suggestion: |
+      Pin the derivation rather than the number: assert the dot's diameter at the book band
+      (HEADER_BAND_MM deep) is within a pixel or two of the cap height of HEADER_FONT_MM type —
+      an independent second computation from the two font/band constants, not from
+      DIFFICULTY_DOT_RATIO. That is the assertion the docstring already argues for.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: risk
+    file: src/nonogram/export/layout.py
+    line: 1348
+    title: "The type's overlap refusal permits touching dots, while the invariant it is cited for says they never touch"
+    description: |
+      __post_init__ raises only when `left <= right` of the previous dot, so two dots at
+      `left == right + 1` — adjacent, visually one smear — are accepted. The corpus invariant
+      test_no_two_dots_of_a_row_touch asserts the strictly stronger `left - right - 1 >= 1`, and the
+      card names the invariant as "no two dots touch". The measurement never produces a touching
+      row today (gap = round(diameter * 0.5) >= 6 at the 12 px minimum dot), so this is a
+      claim/mechanism mismatch rather than a live defect — but it is the mismatch that makes
+      F-002's overlap mutant survivable in both directions.
+    suggestion: "Make the refusal `left <= right + 1` so the type enforces the invariant the tests and the card state."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-228.md
+    line: 168
+    title: "The card records AC-5's measured box as 313 x 141 px; it measures 474 x 142 px"
+    description: |
+      The Worktree notes say AC-5's box is "a packed solution tile's own band at the 10 cm minimum
+      trim, four answers to a page (313 x 141 px, the narrowest header any caller will hand the
+      glyph)". Re-measured through the test's own fixture
+      (tests/test_book_difficulty_dots.py::_smallest_solution_tile_band): the box is
+      (633, 112, 1106, 253) = 474 x 142 px, and every one of the six tile bands at that trim is
+      474-475 x 142 (capacities (2, 4), so six boxes, not four).
+
+      The TEST is unaffected and correct — it measures the box rather than hardcoding it, which is
+      why the error is only in the prose. But the board's standing rule is that a card's claims
+      must be derivable from its tests, and this number is not: a reader checking "does a 42 px
+      glyph fit a 313 px header" is checking a box that does not exist.
+    suggestion: "Correct the number in the Worktree notes to 474 x 142 px and the tile count to six (capacities (2, 4))."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 541
+    title: "Two near-tautological tests, one of which is what lets F-003 through"
+    description: |
+      Of 54 test methods in 1144 lines, the great majority carry real weight (I killed 9 of 14 of
+      my own mutants with them). Two do not:
+
+        * line 541 test_the_stroke_ratio_is_what_keeps_them_apart — asserts
+          `STROKE_RATIO < 0.5`, `0 < DOT_RATIO < 1`, `GAP_RATIO > 0`. The middle clause is the one
+          that reads as "the cap ratio is checked" while admitting 0.45 (F-003). Docstring claims
+          the ratios are "pinned where a reader can see them"; they are displayed, not pinned.
+        * line 792 test_the_real_packages_one_site_is_the_dot_drawer_itself — asserts
+          `function == _draw_difficulty_dots.__name__`, `getattr(book_pdf_generator, function) is
+          _draw_difficulty_dots`, `book_pdf_generator.__name__ == module`. Each side is derived from
+          the same source as the other; it can only fail on a typo in the THE_DRAWING_SITE literal,
+          which test_the_walk_actually_sees_the_package already catches via its
+          `"def _draw_difficulty_dots" in sources[THE_DRAWING_SITE[0]]` assertion.
+
+      Flagging because CARD-238's cycle 4 shipped exactly this shape (a decorative wrapper test a
+      later guard caught). The rest of the file is not decorative and should not be read as such.
+    suggestion: "Replace line 541's middle clause with F-003's derivation assertion, and drop line 792 (its one real check is already made at test_the_walk_actually_sees_the_package)."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: question
+    file: tests/test_book_difficulty_dots.py
+    line: 806
+    title: "AC-5's \"smallest box any caller gives it\" is an assumption about three cards that do not exist"
+    description: |
+      AC-5 is discharged against a packed solution tile's band, which the class docstring calls
+      "the narrowest header any of the four callers will ever hand the glyph". Only CARD-233's box
+      is knowable today; CARD-229's guide key strip and CARD-231's section opener are unbuilt and
+      could be narrower (a key strip beside a legend line is a plausible candidate). The assertion
+      the card can actually make — "the glyph fits the narrowest box that exists today, and
+      declines anything too small rather than overflowing it" — is made and is correct; the
+      superlative is not yet checkable. Surfacing it so the adopting cards re-run AC-5 against
+      their own box rather than inheriting this one.
+    suggestion: "Soften the docstring to \"the narrowest header this project can measure today\", and add an AC-5 re-check to CARD-229's and CARD-231's criteria."
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

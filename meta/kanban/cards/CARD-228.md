@@ -15,7 +15,7 @@
 **Wave:** 42
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_book_interior_type_floor.py
-**Review score:** —
+**Review score:** 8.0 (cycle 1/3 — meets min_score 8, 0 critical, 2 important; severity gate open)
 **Started:** 2026-10-16T17:04:17Z
 **Closed:** —
 **Actual:** —
@@ -254,3 +254,53 @@ no caller needs to draw from there.)
   partition, AC-2's TIERS controls, G-2's no-draw.text discharge, and the __post_init__ "unconstructible
   rather than untested" claim. AC-4's forward-compatible reading was named as the single most
   important call in the review.
+- [Review 1/3] **score 8.0**, risk LOW, 7 findings, 0 critical, 2 important. Meets min_score 8, so
+  the SCORE gate passes and the SEVERITY gate does not — cycle 2 is for the two Importants plus three
+  cheap Minors of the same family. Report synced to meta/review/20261016T181040Z-CARD-228-cycle1.yml.
+  The reviewer ran **14 mutants of its own, none reused from the agent's list: 9 killed, 5 survived.**
+- [Review 1/3] **AC-4's reinterpretation is ACCEPTED** by the reviewer, and on the stronger of the two
+  available grounds: the card's literal wording is unsatisfiable while G-4/G-5 forbid building the four
+  adopting cards, and "the package holds exactly one function putting a round mark on a page" binds
+  those cards *prospectively* rather than asserting something about code that does not exist. The `ast`
+  walk is the right instrument and its six controls genuinely discriminate.
+- [Review 1/3] F-001, the finding that matters, and I confirmed its premise myself before acting on it:
+  the partition is exhaustive against Pillow's API but **nothing checks the bins are right**, and three
+  of them are wrong. `FLAT_METHODS` holds `point`, `polygon`, `text` and `bitmap`; `ROUND_ENOUGH` holds
+  `regular_polygon`, which is strictly *less* general than the `polygon` in FLAT, and whose own
+  docstring names "a 24-gon" as the route it exists to cover — the partition contradicts its own stated
+  rationale. Three planted second dot-glyphs in export/png.py SURVIVED (`draw.text("●●○")`,
+  a 32-gon `polygon`, a `point` disc); only the `ellipse` control was killed. The `text` route is not
+  academic: I verified `draw.text` is called in four package modules including book_pdf_generator.py,
+  the file all four adopting cards name in their Touches, and CARD-207's header already goes through
+  `_set_band`'s draw.text — so appending "●●○" to the band string is the cheapest way for it to ship
+  dots, bypassing the very guarantee this card exists to create, with CON-020's 10 pt floor passing a
+  14 pt bullet happily.
+- [Review 1/3] F-002: four of the five `__post_init__` refusals survive being disabled with 186 tests
+  green. Partly good news though — the two refusals AC-3 and AC-6 actually lean on ARE pinned, so the
+  card's "unconstructible rather than merely untested" claim **holds for AC-3 and AC-6**; only the
+  broader notes sentence overreaches. And the refusals cannot be bypassed by the one caller.
+- [Review 1/3] what the review CONFIRMED rather than merely passed: the COMP-007/COMP-009 split is real,
+  not nominal (`export/layout.py` imports nothing from `nonogram` at all, so no tier ordering can reach
+  it); the second independent source of tier order is non-tautological (TIER_BANDS floors 0.0/33.0/90.0
+  are distinct, so it is not passing on sort stability) and there is even a third (enum declaration
+  order); all four unnamed invariants genuinely hold, with the row-not-flush one verified analytically —
+  worst observed clearance 0.2105 of a dot against an asserted 0.20, tight at odd diameters; the corpus
+  floors are load-bearing (1944 of 2100 produce a glyph against CORPUS_MIN_GLYPHS 1800); system contract
+  4 rules checked, 4 hold, 0 dead `check:` refs; G-1/G-2/G-3/G-5 all hold.
+- [Review 1/3] **METHODOLOGY FINDING, and it reaches past this card — feed it to the retrospective.**
+  Running several mutants sequentially from ONE parent process produced **false KILLED verdicts**: 11-12
+  bogus failures in tests the mutant could not possibly affect (a `book_pdf_generator` fill= change
+  failing a pure-layout.py corpus sweep). One mutant per process is reliable; batching is not. The
+  reviewer's warning, which I am recording verbatim because of what it implies: *anything in this
+  project's card records of the form "all N mutants caught" from a batched run is worth re-deriving.*
+  That potentially touches every mutation claim this board has accepted as evidence — including
+  CARD-234's "6 mutants each red by name" and this card's own "all ten caught". It is the same defect
+  family the wave has been fighting, found this time in the REVIEW station's instrument rather than in
+  a card's tests.
+- [Fix 2] dispatched. On F-001 I chose to do all three remedies rather than pick one: widen where free
+  (polygon/point/bitmap into ROUND_ENOUGH — already asserted called-nowhere, so it costs nothing),
+  close the `text` route with a dingbat-codepoint assertion plus a control that fires, AND narrow the
+  three over-claiming sentences to what an ast walk over `dir(ImageDraw.ImageDraw)` can measure, naming
+  the routes outside it (Image.paste of a mask, floodfill, a pre-rendered asset) as the limit they are.
+  Closing the text route has real forward value, which is the whole reason this card was cut first.
+  The fix agent was also told, with the reasons, to run every mutant in a fresh process.
