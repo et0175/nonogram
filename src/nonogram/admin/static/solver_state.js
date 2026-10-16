@@ -372,17 +372,40 @@ export function solvedPercent(board, solution) {
 // never from the solution, with the payload's clues (ADR-0038/R3). In a line
 // a cell is dark (FILLED), white (EMPTY) or undecided (any other state). A
 // closed run is a maximal run of dark cells whose neighbour on each side is a
-// white cell or the line's edge. A number is circled by rule A or rule B:
+// white cell or the line's edge. A number is circled by rule A, B or C:
 //   A  walk in from each edge: skip white cells; stop at the end or at an
 //      undecided cell; at a dark run, stop unless it is closed and its length
 //      is the next unassigned clue number from that edge — then circle that
 //      number and walk on past the run. The two walks are independent.
 //   B  every dark run of the line is closed and their lengths, left to
 //      right, are exactly the clue: every number is circled.
-// Nothing else circles a number (no matching by length alone). A "0" clue
-// ([0]) is circled only when every cell of the line is white. Wrong but
-// self-consistent marks can circle a number; the error count, not the
-// circle, says whether a mark is right.
+//   C  (CARD-213, owner's print-layout doc 2026-10-13 item 4) a number whose
+//      VALUE occurs exactly once in this line's clue, when the line holds
+//      exactly one closed run of that length: no other number can own that
+//      run, so it needs no edge anchoring — rule C reaches a number rules A
+//      and B cannot. Uniqueness is per line and per value: in "1 2 3 2 1"
+//      only the 3 can ever be circled by rule C. Two closed runs of the
+//      unique length are contradictory marks, and rule C then circles
+//      nothing rather than guessing one of them. Nothing else about the line
+//      matters: undecided cells and other runs elsewhere are irrelevant, the
+//      run's own two neighbours are what "closed" means.
+// Nothing else circles a number (no matching by length alone — rule C matches
+// a length only where the clue makes that length decisive). A "0" clue ([0])
+// is circled only when every cell of the line is white; rule C does not apply
+// to it. Wrong but self-consistent marks can circle a number; the error
+// count, not the circle, says whether a mark is right.
+//
+// Rule C applies NO left-to-right ordering check, and that is deliberate
+// rather than an oversight: it circles a number from the length of one closed
+// run, so a line clued "1 2" marked "DDWDW....." circles BOTH numbers even
+// though the 2-run sits left of the 1-run. Each run's length is still
+// decisive given the clue, and such marks fit no placement at all, so a
+// solver's brute force never sees them. This is the same family rules A and
+// B already produce and at a smaller magnitude — measured over every line of
+// length <= 7, marks that fit no placement already drew two or more circles
+// in 941 cases before rule C existed, and rule C adds 226. Withholding the
+// circle here needs an ordering check across the closed runs, which would
+// belong to A and B as much as to C; that is a later card, not this rule.
 
 // The indices of the clue numbers one walk of rule A circles. `at(step)` is
 // the walk's step-th cell from its edge; `numberAt(step)` is the walk's
@@ -419,8 +442,10 @@ export function circledNumbers(clue, cells) {
   const fromLeft = walkIn(length, count, (step) => cells[step], (k) => k, clue);
   const fromRight = walkIn(length, count, (step) => cells[length - 1 - step], (k) => count - 1 - k, clue);
   for (const number of [...fromLeft, ...fromRight]) circled[number] = true;
-  // Rule B: every dark run closed, lengths exactly the clue.
+  // Rules B and C read the line's dark runs: `runs` is every run's length,
+  // left to right, and `closed` the lengths of the closed ones among them.
   const runs = [];
+  const closed = [];
   let whole = true;
   for (let start = 0; start < length; start += 1) {
     if (cells[start] !== FILLED) continue;
@@ -429,10 +454,17 @@ export function circledNumbers(clue, cells) {
     const closedLeft = start === 0 || cells[start - 1] === EMPTY;
     const closedRight = end === length || cells[end] === EMPTY;
     if (!closedLeft || !closedRight) whole = false;
+    else closed.push(end - start);
     runs.push(end - start);
     start = end;
   }
+  // Rule B: every dark run closed, lengths exactly the clue.
   if (whole && runs.length === count && runs.every((run, k) => run === clue[k])) circled.fill(true);
+  // Rule C: a value unique in the clue, matched by exactly one closed run.
+  const times = (list, value) => list.reduce((n, item) => n + (item === value ? 1 : 0), 0);
+  for (let number = 0; number < count; number += 1) {
+    if (times(clue, clue[number]) === 1 && times(closed, clue[number]) === 1) circled[number] = true;
+  }
   return Object.freeze(circled);
 }
 

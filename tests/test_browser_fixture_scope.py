@@ -13,7 +13,8 @@ Measurement says the page lifecycle is not the cost:
 
 * one ``new_context`` + ``new_page`` + close costs **57 ms** on this host
   (20 iterations against a launched Chromium), so collapsing it for all 422
-  tests is worth ~24 s — 2.6 % of the suite;
+  tests the family held *when it was measured* is worth ~24 s — 2.6 % of the
+  suite;
 * the 0.33 s was ``socketserver.serve_forever``'s **0.5 s stdlib poll
   interval**: the ``live`` fixture's ``shutdown()`` cannot return until the
   serve loop next wakes, so every test paid a uniform 0–0.5 s wait. Dropping
@@ -39,7 +40,8 @@ sharing a page would have bought a sixth of it for the whole of the
 order-dependence risk. The guards below nonetheless prove the
 family is order-independent, passes alone and does not cascade, because that is
 what the card's acceptance criteria are for and because a faster teardown
-changes the timing every one of those 422 tests runs under.
+changes the timing every one of the 422 tests the family held *when it was
+measured* runs under.
 
 Why this file is not named ``test_puzzle_solver_*.py``
 -----------------------------------------------------
@@ -123,7 +125,8 @@ BEFORE_TEARDOWN_PER_TEST = 0.327
 
 #: How much of the family AC-1 requires back.
 #:
-#: The structural saving is 422 x (0.327 - 0.028) = ~126 s of teardown, and the
+#: The structural saving is 422 (the family as it was measured) x
+#: (0.327 - 0.028) = ~126 s of teardown, and the
 #: A/B says the chosen interval adds nothing to ``call``. These are regression
 #: tripwires set below that with headroom, not the claim: the claim is the
 #: measured pair of figures, which ``test_the_document_records_the_before_and_
@@ -679,25 +682,188 @@ class TestBrowserFixtures_ThePollIntervalIsStillApplied:
             f"{MAX_LIVE_TEARDOWN_S}s bound and near socketserver's "
             f"{STDLIB_POLL_INTERVAL_S}s default poll. shutdown() cannot return "
             f"until the serve loop next wakes, so this is the wait CARD-235 "
-            f"removed coming back: 422 browser tests pay it once each"
+            f"removed coming back: the 422 browser tests the family held when "
+            f"it was measured pay it once each"
         )
 
 
 # ==========================================================================
-# AC-2 — no test added or removed
+# AC-2 — no *unrecorded* test added, and no test removed
 # ==========================================================================
+
+#: Node ids the browser family has gained since :data:`BEFORE_ARTEFACT` was
+#: measured, each attributed to the card that added it and carrying the reason
+#: that test exists.
+#:
+#: Why an allowlist rather than a number. CARD-235's AC-2 states its own scope
+#: in its own words — *"no test lost: the collected test count and every test's
+#: node id are unchanged — this card changes fixtures, never coverage"*. The
+#: guard below was written to prove **CARD-235's own diff** changed no
+#: coverage, but it was committed as a standing assertion over the repository,
+#: where it reads instead as "no card may ever add a browser test again".
+#: CARD-213 was the first card to try, and what it tripped on was a
+#: hand-written ``assert len(ids) == 422`` — a snapshot, sitting in a test
+#: whose own docstring says it compares against an independent record and not
+#: against a snapshot.
+#:
+#: So the baseline is CARD-217's recorded set **plus this table**, and the
+#: expected count is *derived* from that union by
+#: :func:`_baseline_node_ids` — never written down again. The half of the
+#: guard worth keeping still bites: an addition nobody recorded here fires
+#: ``"tests added"``, and an allowlisted test that disappears without its
+#: entry being struck fires ``"tests removed"``. An allowlist is a set a guard
+#: consults, so it gets a control that can fail:
+#: ``test_the_baseline_goes_red_in_both_directions`` drives the same derivation
+#: over injected sets and shows a removal is caught **with** its entry and
+#: missed **without** it (CARD-238's retrospective rule).
+#:
+#: Adding a browser test therefore means adding its node id here with a card
+#: and a reason; deleting one means striking its entry. Neither is free, and
+#: that is the point — the guard now catches an *unrecorded* change to the
+#: family's coverage rather than any change at all.
+ADDED_SINCE_BEFORE: dict[str, tuple[str, str]] = {
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_UniqueLengthCirclesAnywhere::"
+    "test_the_unique_length_is_circled_where_its_run_is_closed": (
+        "CARD-213",
+        "AC-1: a clue value unique in its line is circled wherever its closed "
+        "run sits, with undecided cells on both sides of it (rule C)",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_UniqueLengthCirclesAnywhere::"
+    "test_rules_a_and_b_circle_none_of_them": (
+        "CARD-213",
+        "AC-1's control: rules A and B circle nothing on any of those lines, "
+        "so every circle AC-1 asserts is rule C's and not an edge walk's",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_RepeatedLengthDoesNotCircle::"
+    "test_the_repeated_value_circles_nothing": (
+        "CARD-213",
+        "AC-2: a closed run whose length occurs twice in the clue circles "
+        "nothing, because rule C's uniqueness is per line and per value",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_RepeatedLengthDoesNotCircle::"
+    "test_the_same_marks_circle_a_two_that_occurs_once": (
+        "CARD-213",
+        "AC-2's paired positive: the same marks under a clue where that value "
+        "occurs once do circle it, so the negative is not vacuous",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_AmbiguousUniqueLengthCirclesNothing::"
+    "test_two_matching_runs_circle_nothing_and_one_circles_the_three": (
+        "CARD-213",
+        "AC-3: two closed runs of the unique length are contradictory marks, "
+        "so rule C circles nothing and must not take the leftmost; paired "
+        "with the one-run half that does circle",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_OpenRunDoesNotCircle::"
+    "test_the_open_run_does_not_circle_and_closing_it_does": (
+        "CARD-213",
+        "AC-4: a run with an undecided neighbour on either side is not "
+        "closed, so rule C does not fire; paired with the closed half",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_RuleCOnlyAddsToTheOldTable::"
+    "test_rule_c_adds_three_circles_and_removes_none": (
+        "CARD-213",
+        "AC-5 / G-4: against the frozen pre-card verdicts, rule C turns no "
+        "True into a False and changes exactly three named lines, as a set",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_RuleCOnlyAddsToTheOldTable::"
+    "test_the_old_table_is_covered": (
+        "CARD-213",
+        "AC-5's completeness check: the frozen BEFORE table covers every row "
+        "of the two examples tables, so the comparison cannot skip a row",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_RuleCOnlyAddsToTheOldTable::"
+    "test_the_reference_reproduces_the_pre_card_verdicts": (
+        "CARD-213",
+        "AC-5's calibration: the Python second implementation with rule C off "
+        "reproduces all fifteen pre-card verdicts of the committed module",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "TestSolverClues_ZeroClueRuleUnchanged::"
+    "test_the_zero_clue_and_the_same_marks_under_a_one": (
+        "CARD-213",
+        "AC-6: the [0] clue keeps its own rule — circled only on an all-white "
+        "line — and the same marks under a clue of 1 show rule C still fires",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "test_PropertyTest_SolverClues_RuleCInvariantUnderTransposition": (
+        "CARD-213",
+        "AC-7: a seeded corpus of 180 boards and 4920 lines shows rule C is "
+        "axis-independent, with asserted counts so it cannot hold vacuously",
+    ),
+    "tests/test_puzzle_solver_clues.py::"
+    "test_PropertyTest_SolverClues_RuleCOnlyAddsToRulesAAndB": (
+        "CARD-213",
+        "G-4 as a property: over 3000 seeded lines rule C never loses a "
+        "circle rules A and B give, with asserted changed/untouched counts",
+    ),
+}
+
+
+def _baseline_node_ids(
+    allowlist: dict[str, tuple[str, str]] | None = None,
+) -> set[str]:
+    """The node ids the family is expected to hold: the record | the allowlist.
+
+    CARD-217's committed artefact supplies the recorded part and
+    :data:`ADDED_SINCE_BEFORE` the part added since. ``allowlist`` is a
+    parameter only so the control below can run this same derivation against a
+    table it has altered; every real caller passes nothing.
+    """
+    entries = ADDED_SINCE_BEFORE if allowlist is None else allowlist
+    return _family_node_ids(BEFORE_ARTEFACT) | set(entries)
+
+
+def _collection_drift(
+    collected: set[str], baseline: set[str]
+) -> dict[str, list[str]]:
+    """The two directions the baseline comparison can go red in."""
+    return {
+        "added": sorted(collected - baseline),
+        "removed": sorted(baseline - collected),
+    }
 
 
 class TestBrowserFixtures_NoTestAddedOrRemoved:
-    """AC-2: every node id, not just the count. This card changes fixtures."""
+    """AC-2: every node id, not just the count — and no node id written by hand.
+
+    CARD-235 changed fixtures and no coverage, which is what AC-2 was about.
+    The standing version of that claim is the weaker, still useful one: the
+    family's coverage changes only where a card has written the change down
+    (:data:`ADDED_SINCE_BEFORE`).
+    """
 
     def test_the_family_collects_exactly_what_card_217_measured(self) -> None:
-        """Compared against an independent record, not against a snapshot.
+        """Compared against an independent record plus a recorded allowlist.
 
-        The "before" set is read out of CARD-217's committed ``--durations``
-        artefact — every test that ran, by node id, recorded before this card
-        existed and by somebody else. A snapshot regenerated from today's tree
-        could only ever agree with today's tree.
+        Nothing here is a snapshot of today's tree. The recorded half is read
+        out of CARD-217's committed ``--durations`` artefact — every test that
+        ran, by node id, recorded before CARD-235 existed and by somebody
+        else. The added half is :data:`ADDED_SINCE_BEFORE`, one entry per node
+        id gained since, each naming the card that added it and why. The
+        expected count is ``len`` of their union, **derived** by
+        :func:`_baseline_node_ids`: a hand-written count is exactly what
+        failed here when CARD-213 added ten tests to one of the twelve files,
+        and a count regenerated from today's collection could only ever agree
+        with today's collection.
+
+        Both directions still bite. A test added without an entry in the
+        allowlist is reported as ``"tests added"``; a test removed — whether
+        CARD-217 recorded it or the allowlist did — is reported as
+        ``"tests removed"``, so deleting an allowlisted test means striking
+        its entry in the same diff.
+
+        The set comparisons are asserted before the count because
+        ``"tests added"`` with the node ids is the useful failure; the count is
+        implied by them and is asserted last as a statement of the derivation.
         """
         collected = _pytest(*_family_files(), "--collect-only")
         assert collected.returncode == 0, collected.stdout[-4000:]
@@ -707,10 +873,123 @@ class TestBrowserFixtures_NoTestAddedOrRemoved:
             if line.startswith("tests/") and "::" in line
         }
 
+        baseline = _baseline_node_ids()
+        drift = _collection_drift(ids, baseline)
+
+        assert drift["added"] == [], (
+            f"tests added: {drift['added']} are collected in the browser "
+            f"family but recorded nowhere. CARD-217's artefact does not hold "
+            f"them and ADDED_SINCE_BEFORE does not either. If they are "
+            f"deliberate, add each node id to ADDED_SINCE_BEFORE with the "
+            f"card that added it and one line of why"
+        )
+        assert drift["removed"] == [], (
+            f"tests removed: {drift['removed']} are expected but not "
+            f"collected. A test recorded by CARD-217's artefact must not "
+            f"disappear; one added by a later card may, but its "
+            f"ADDED_SINCE_BEFORE entry has to be struck in the same diff"
+        )
+        assert len(ids) == len(baseline), (
+            f"the family collects {len(ids)} tests against a baseline of "
+            f"{len(baseline)} = {len(_family_node_ids(BEFORE_ARTEFACT))} "
+            f"recorded by CARD-217 + {len(ADDED_SINCE_BEFORE)} allowlisted "
+            f"since, with the two set comparisons above clean — which should "
+            f"be impossible, so one of them is no longer comparing sets"
+        )
+
+    def test_the_baseline_goes_red_in_both_directions(self) -> None:
+        """The allowlist is a set the guard consults, so it gets a failing control.
+
+        Driven over injected sets rather than over a real collection: the
+        point is what the comparison does when the tree and the record
+        disagree, and no real tree can be made to disagree on demand. Four
+        claims, each one the guard would be worthless without:
+
+        1. an addition that is **not** in the allowlist is reported as added,
+           and the entry is what lets a recorded one through — the same tree
+           against an empty allowlist reports it as added;
+        2. an allowlisted test that disappears is caught **with** its entry
+           and missed **without** it, which is precisely why striking an entry
+           has to be a deliberate edit rather than a side effect;
+        3. a test CARD-217 recorded is caught when it disappears whatever the
+           allowlist says, because the allowlist can only ever add;
+        4. the derived count moves with the allowlist, so it cannot silently
+           become a snapshot again.
+        """
         before = _family_node_ids(BEFORE_ARTEFACT)
-        assert len(ids) == 422
-        assert sorted(ids - before) == [], "tests added"
-        assert sorted(before - ids) == [], "tests removed"
+        recorded = sorted(ADDED_SINCE_BEFORE)[0]
+        one_entry = {recorded: ADDED_SINCE_BEFORE[recorded]}
+        unrecorded = (
+            "tests/test_puzzle_solver_clues.py::"
+            "TestSolverClues_NotInTheAllowlist::test_an_unrecorded_addition"
+        )
+        assert unrecorded not in ADDED_SINCE_BEFORE
+        assert unrecorded not in before
+        tree = before | {recorded}
+
+        # 1 — an unrecorded addition is caught; the entry is what lets the
+        # recorded one through.
+        assert _collection_drift(
+            tree | {unrecorded}, _baseline_node_ids(one_entry)
+        ) == {"added": [unrecorded], "removed": []}
+        assert _collection_drift(tree, _baseline_node_ids(one_entry)) == {
+            "added": [],
+            "removed": [],
+        }
+        assert _collection_drift(tree, _baseline_node_ids({}))["added"] == [recorded]
+
+        # 2 — the same test removed: caught with its entry, missed without it.
+        assert _collection_drift(before, _baseline_node_ids(one_entry)) == {
+            "added": [],
+            "removed": [recorded],
+        }
+        assert _collection_drift(before, _baseline_node_ids({})) == {
+            "added": [],
+            "removed": [],
+        }
+
+        # 3 — a test CARD-217 recorded cannot be dropped under any allowlist.
+        dropped = sorted(before)[0]
+        for table in ({}, one_entry, ADDED_SINCE_BEFORE):
+            baseline = _baseline_node_ids(table)
+            assert _collection_drift(baseline - {dropped}, baseline) == {
+                "added": [],
+                "removed": [dropped],
+            }
+
+        # 4 — the count is a function of the allowlist, not a literal.
+        assert len(_baseline_node_ids({})) == len(before)
+        assert len(_baseline_node_ids(one_entry)) == len(before) + 1
+        assert len(_baseline_node_ids()) == len(before) + len(ADDED_SINCE_BEFORE)
+
+    def test_every_allowlist_entry_is_attributed_and_not_already_recorded(
+        self,
+    ) -> None:
+        """The allowlist has to read as a record, not as a mute set of strings.
+
+        An entry whose reason says nothing is an entry nobody can review, and
+        an entry already in CARD-217's artefact is dead weight that would also
+        break the derived count's arithmetic (claim 4 of the control above).
+        """
+        before = _family_node_ids(BEFORE_ARTEFACT)
+        wrong = []
+        for node, entry in sorted(ADDED_SINCE_BEFORE.items()):
+            if not isinstance(entry, tuple) or len(entry) != 2:
+                wrong.append(f"{node}: entry must be (card, reason), not {entry!r}")
+                continue
+            card, reason = entry
+            if not node.startswith(f"{FAMILY_PREFIX}") or "::" not in node:
+                wrong.append(f"{node}: not a node id of the browser family")
+            if not re.fullmatch(r"CARD-\d+", card):
+                wrong.append(f"{node}: {card!r} does not name the card that added it")
+            if len(reason.split()) < 8:
+                wrong.append(f"{node}: the reason says too little: {reason!r}")
+            if node in before:
+                wrong.append(
+                    f"{node}: already in CARD-217's record, so the entry adds "
+                    f"nothing and double-counts in the derived baseline"
+                )
+        assert wrong == [], wrong
 
     def test_the_twelve_files_are_still_twelve(self) -> None:
         files = _family_files()

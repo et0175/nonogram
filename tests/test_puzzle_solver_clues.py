@@ -6,8 +6,10 @@ dark (FILLED), white (EMPTY) or undecided; a closed run is a maximal dark run
 with a white cell or the edge on each side. Rule A walks in from each edge,
 circling a closed run whose length is the next clue number from that edge
 and stopping at anything else; rule B circles every number when the closed
-runs are exactly the clue. A "0" clue is circled only when every cell is
-white.
+runs are exactly the clue; rule C (CARD-213) circles a number whose value
+occurs exactly once in the line's clue when the line holds exactly one closed
+run of that length, wherever in the line that run sits. A "0" clue is circled
+only when every cell is white.
 
 What each tier shows:
 
@@ -17,6 +19,12 @@ What each tier shows:
   (AC-1); fully marked lines (AC-3); a board is its lines, and transposes
   (AC-4). Corpora are seeded ``random.Random`` (no ``hypothesis``), each
   asserting its own minimum counts.
+* **Rule C** (CARD-213, the section after AC-4): the unique-value cases and
+  their negatives, each negative paired with a positive control on the same
+  marks so that "nothing is circled" cannot pass for a rule that never ran;
+  the pre-card verdicts of the examples tables, kept as a frozen column
+  (CARD-213 AC-5); and two properties against ``_rule_circles``, the rule
+  block written again in Python from its prose (CARD-213 AC-7, G-4).
 * **Player page** (real clicks and drags, CARD-160's loopback panel over a
   temp SQLite store): circles follow every commit and not a drag's preview
   (AC-5, AC-7), the owner's "2 2" case stays uncircled (AC-6), circling moves
@@ -141,7 +149,13 @@ class TestSolverClues_RuleExamples:
         ((1, 1), ".WDW.WDW.", [True, True]),  # rule B
         ((1, 1, 1), "WDWD......", [True, False, False]),
         ((3, 1), "DDW....WDW", [False, True]),  # one walk stops, not the other
-        ((3, 1), ".WDDDW....", [False, False]),  # no length-only matching
+        # CARD-213 rule C: "3" is unique in "3 1" and one closed run has that
+        # length, so the length alone now settles it (this row read
+        # [False, False] before that card).
+        ((3, 1), ".WDDDW....", [True, False]),
+        # The same marks under a clue in which no value is unique: there is
+        # still no matching by length alone.
+        ((3, 1, 3), ".WDDDW....", [False, False, False]),
         ((0,), "WWWWW", [True]),
         ((0,), "WW.WW", [False]),
     ]
@@ -154,10 +168,17 @@ class TestSolverClues_RuleExamples:
     #: "What to implement" 2, rule A: a closed run whose length is not its
     #: anchored clue number STOPS the walk from that edge. These marks fit no
     #: placement (the by-design wrong-marks case), so AC-1 cannot see them.
+    #: CARD-213: on two of these lines every clue value is unique and a closed
+    #: run matches each, so rule C circles what rule A's walk refused (they
+    #: read [False, False] before that card). Each keeps a twin whose clue
+    #: repeats every value — rule C cannot fire there, so the walk's stop is
+    #: still what the row shows.
     STOPS = [
         ((1, 1), "DDW.......", [False, False]),  # longer than c1: no circle
-        ((1, 2), "DDWDW.....", [False, False]),  # stop, not skip to the next run
-        ((2, 1), ".....WDWDD", [False, False]),  # the same from the right edge
+        ((1, 2), "DDWDW.....", [True, True]),  # rule A stops; rule C circles both
+        ((1, 1, 2, 2), "DDWDW.....", [False, False, False, False]),  # the walk stops, and only the walk runs
+        ((2, 1), ".....WDWDD", [True, True]),  # the same from the right edge
+        ((2, 2, 1, 1), ".....WDWDD", [False, False, False, False]),
         ((1, 2), "WWWWWWWWWD", [True, False]),  # a closed run may end at the far edge
         ((2, 1), "DWWWWWWWWW", [False, True]),  # the same, walking from the right
     ]
@@ -313,6 +334,503 @@ def test_PropertyTest_SolverClues_BoardIsLineByLine(browser_page, live) -> None:
             assert [len(line) for line in result["whole"]["columns"]] == [len(c) for c in columns]
             circled_lines += sum(any(line) for axis in ("rows", "columns") for line in result["whole"][axis])
     assert circled_lines >= 1000, circled_lines
+
+
+# ==========================================================================
+# CARD-213 — rule C: a value that occurs once in the line's clue
+# ==========================================================================
+#
+# Rule C circles a clue number whose VALUE occurs exactly once in that line's
+# clue as soon as the line holds exactly one closed run of that length: no
+# other number can own that run, so the deduction needs no edge anchoring.
+# Every negative below ("nothing is circled") is paired with a positive
+# control over the SAME marks, so a rule that never ran at all cannot pass
+# for a rule that correctly declined to fire.
+
+#: "1 2 3 2 1" from the owner's note: the 3 (index 2) is the only value that
+#: occurs once, so it is the only number rule C can ever circle here.
+_OWNER_CLUE = (1, 2, 3, 2, 1)
+#: Only the 3 of _OWNER_CLUE circled.
+_ONLY_THE_THREE = [False, False, True, False, False]
+_NOTHING = [False] * 5
+
+
+def _closed_runs(marks):
+    """(length, closed) of each dark run of `marks`, left to right. A run is
+    closed when its neighbour on each side is a white cell or the line's
+    edge."""
+    runs, start = [], 0
+    while start < len(marks):
+        if marks[start] != "D":
+            start += 1
+            continue
+        end = start
+        while end < len(marks) and marks[end] == "D":
+            end += 1
+        closed = ((start == 0 or marks[start - 1] == "W")
+                  and (end == len(marks) or marks[end] == "W"))
+        runs.append((end - start, closed))
+        start = end
+    return runs
+
+
+def _walk_in(clue, marks, numbers):
+    """Rule A's walk over `marks` from its first cell, taking its clue
+    numbers from `numbers` in order (the clue's indices in walk order): the
+    left walk is called with the line and 0..n-1, the right walk with the
+    reversed line and n-1..0. Returns the indices the walk circles."""
+    circled, step = [], 0
+    while step < len(marks) and len(circled) < len(clue):
+        if marks[step] == "W":
+            step += 1
+            continue
+        if marks[step] != "D":
+            break  # undecided: the walk cannot see past it
+        end = step
+        while end < len(marks) and marks[end] == "D":
+            end += 1
+        if end < len(marks) and marks[end] != "W":
+            break  # the run is not closed
+        number = numbers[len(circled)]
+        if end - step != clue[number]:
+            break
+        circled.append(number)
+        step = end
+    return circled
+
+
+def _rule_circles(clue, marks, *, rule_c=True):
+    """``solver_state.js``'s rule block written again here, from its prose
+    rather than its code: rules A and B (CARD-188) and, unless `rule_c` is
+    off, rule C (CARD-213). ``rule_c=False`` is the behaviour before this
+    card — ``TestSolverClues_RuleCOnlyAddsToTheOldTable`` calibrates it
+    against the committed pre-card verdicts of the two examples tables."""
+    clue = list(clue)
+    if clue == [0]:
+        return [all(mark == "W" for mark in marks)]
+    circled = [False] * len(clue)
+    numbers = list(range(len(clue)))
+    walked = _walk_in(clue, marks, numbers) + _walk_in(clue, marks[::-1], numbers[::-1])
+    for number in walked:
+        circled[number] = True
+    runs = _closed_runs(marks)
+    if all(closed for _, closed in runs) and [length for length, _ in runs] == clue:
+        circled = [True] * len(clue)  # rule B
+    if rule_c:
+        closed = [length for length, is_closed in runs if is_closed]
+        for number, value in enumerate(clue):
+            if clue.count(value) == 1 and closed.count(value) == 1:
+                circled[number] = True
+    return circled
+
+
+# --------------------------------------------------------------------------
+# AC-1 — a unique length circles wherever its run is closed
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.browser
+class TestSolverClues_UniqueLengthCirclesAnywhere:
+    """CARD-213 AC-1 — "1 2 3 2 1" with one closed run of three and
+    undecided cells on both sides of it: the 3 is circled and no other
+    number is. Neither walk of rule A can reach that run (both stop at an
+    undecided cell) and rule B needs the whole clue, so every circle in the
+    table is rule C's — which the second test here is the control for."""
+
+    LINES = [
+        # (clue, marks, circled)
+        (_OWNER_CLUE, "....WDDDW.........", _ONLY_THE_THREE),
+        (_OWNER_CLUE, "........WDDDW.....", _ONLY_THE_THREE),
+        # One cell in from the edge: the left walk still stops on the
+        # undecided cell 0, so the circle is rule C's, not rule A's.
+        (_OWNER_CLUE, ".WDDDW............", _ONLY_THE_THREE),
+        # Another closed run, of a length that occurs twice: the 1s stay
+        # uncircled and the 3 is unaffected by it.
+        (_OWNER_CLUE, "...WDDDWWDW.......", _ONLY_THE_THREE),
+        # Two unique values, each with one closed run: both are circled.
+        ((1, 2, 3), "..WDW..WDDDW......", [True, False, True]),
+    ]
+
+    def test_the_unique_length_is_circled_where_its_run_is_closed(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        got = _numbers(browser_page, [(clue, marks) for clue, marks, _ in self.LINES])
+        assert got == [circled for _, _, circled in self.LINES]
+
+    def test_rules_a_and_b_circle_none_of_them(self, browser_page, live) -> None:
+        """The control: without rule C the same lines circle nothing, so each
+        row above is rule C's work and not a walk that happened to reach."""
+        assert [_rule_circles(clue, marks, rule_c=False) for clue, marks, _ in self.LINES] \
+            == [[False] * len(clue) for clue, _, _ in self.LINES]
+
+
+# --------------------------------------------------------------------------
+# AC-2 — a value that occurs twice never circles by length
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.browser
+class TestSolverClues_RepeatedLengthDoesNotCircle:
+    """CARD-213 AC-2 — the same clue with a closed run of TWO mid-line and
+    undecided cells either side: "2" occurs twice in "1 2 3 2 1", so rule C
+    cannot tell which of them the run is and circles nothing.
+
+    The control is every one of those marks under "1 2 3", where 2 occurs
+    once: there the 2 IS circled. Both assertions read the same marks, so
+    "nothing is circled" cannot be a rule that never ran."""
+
+    #: Each holds exactly one closed run of two and no closed run of three.
+    MARKS = [
+        "....WDDW..........",
+        ".WDDW.............",
+        "..WDDW...WDW......",
+        "........WDDWWDDDDW",
+    ]
+    #: The clue that makes 2 unique, and what it circles on those marks.
+    CONTROL = (1, 2, 3)
+    CIRCLES_THE_TWO = [
+        [False, True, False],
+        [False, True, False],
+        [True, True, False],  # the lone dark cell is a closed run of 1 too
+        [False, True, False],
+    ]
+
+    def test_the_repeated_value_circles_nothing(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        got = _numbers(browser_page, [(_OWNER_CLUE, marks) for marks in self.MARKS])
+        assert got == [_NOTHING] * len(self.MARKS)
+
+    def test_the_same_marks_circle_a_two_that_occurs_once(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        got = _numbers(browser_page, [(self.CONTROL, marks) for marks in self.MARKS])
+        assert got == self.CIRCLES_THE_TWO
+        assert all(circled[1] for circled in got)  # the 2, in every row
+
+
+# --------------------------------------------------------------------------
+# AC-3 — two closed runs of the unique length circle nothing
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.browser
+class TestSolverClues_AmbiguousUniqueLengthCirclesNothing:
+    """CARD-213 AC-3 — "1 2 3 2 1" holding two (or three) closed runs of
+    three: the marks are contradictory, and rule C circles neither — it must
+    not take the first or the leftmost.
+
+    Each is paired with a line of the same shape holding exactly ONE closed
+    run of three, which does circle the 3: a rule that picked a run out of
+    several would read the same on both halves of the pair, and a rule that
+    never fired would read the same the other way."""
+
+    PAIRS = [
+        # (two or more closed runs of three, the same line with one)
+        ("..WDDDW...WDDDW...", "..WDDDW..........."),
+        ("WDDDWDDDWDDDW.....", "WDDDW............."),
+        ("DDDW........WDDDW.", "DDDW.............."),
+        ("WDDDW........WDDDW", ".........WWDDDW..."),
+    ]
+
+    def test_two_matching_runs_circle_nothing_and_one_circles_the_three(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        lines = [(_OWNER_CLUE, marks) for pair in self.PAIRS for marks in pair]
+        got = _numbers(browser_page, lines)
+        assert got[0::2] == [_NOTHING] * len(self.PAIRS)  # the ambiguous lines
+        assert got[1::2] == [_ONLY_THE_THREE] * len(self.PAIRS)  # the controls
+
+
+# --------------------------------------------------------------------------
+# AC-4 — an open run is not a closed run
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.browser
+class TestSolverClues_OpenRunDoesNotCircle:
+    """CARD-213 AC-4 — a run of three dark cells with an undecided cell on
+    one side is not closed, so rule C does not circle the 3; the run's own
+    two neighbours are what "closed" means.
+
+    Each row is paired with the same line whose open side is white instead:
+    one cell apart, and that cell decides the circle."""
+
+    PAIRS = [
+        # (open, the same run closed)
+        ("....WDDD..........", "....WDDDW........."),  # open on the right
+        ("...DDDW...........", "..WDDDW..........."),  # open on the left
+        ("....DDD...........", "...WDDDW.........."),  # open on both sides
+        ("..........WDDD....", "..........WDDDW..."),
+        # The far edge closes one side; the other is one undecided cell, and
+        # however much of the line is decided elsewhere, open means open.
+        ("WWWWWWWWWWWWWW.DDD", "WWWWWWWWWWWWWWWDDD"),
+    ]
+
+    def test_the_open_run_does_not_circle_and_closing_it_does(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        lines = [(_OWNER_CLUE, marks) for pair in self.PAIRS for marks in pair]
+        got = _numbers(browser_page, lines)
+        assert got[0::2] == [_NOTHING] * len(self.PAIRS)
+        assert got[1::2] == [_ONLY_THE_THREE] * len(self.PAIRS)
+
+
+# --------------------------------------------------------------------------
+# AC-6 — the "0" clue keeps its own rule
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.browser
+class TestSolverClues_ZeroClueRuleUnchanged:
+    """CARD-213 AC-6 — a "0" clue is circled when every cell of the line is
+    white and at no other time; rule C does not apply to it (its value, 0,
+    is matched by no run of dark cells, and the line's dark runs are
+    irrelevant to it).
+
+    The all-white row is the control that can fail: drop the "0" branch in
+    favour of rule C and it reads False. The last two rows are the same
+    marks under "1", where rule C is the only rule that can fire — they show
+    the rows above are a rule that declined, not a rule that is absent."""
+
+    ZERO = [
+        ((0,), "WWWWW", [True]),  # every cell white
+        ((0,), "WW.WW", [False]),  # one undecided cell: not yet
+        ((0,), ".....", [False]),
+        ((0,), "WWDWW", [False]),  # a closed run of one, and still nothing
+        ((0,), "..WDW.", [False]),
+    ]
+    CONTROL = [
+        ((1,), "WWDWW", [True]),  # rule A reaches this one from both edges
+        ((1,), "..WDW.", [True]),  # neither walk reaches it: rule C's circle
+        ((1,), "WW.WW", [False]),  # no closed run at all
+    ]
+
+    def test_the_zero_clue_and_the_same_marks_under_a_one(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        rows = [*self.ZERO, *self.CONTROL]
+        got = _numbers(browser_page, [(clue, marks) for clue, marks, _ in rows])
+        assert got == [circled for _, _, circled in rows]
+
+
+# --------------------------------------------------------------------------
+# AC-5 / G-4 — the pre-card verdicts, and rule C only adds
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.browser
+class TestSolverClues_RuleCOnlyAddsToTheOldTable:
+    """CARD-213 AC-5 and G-4 — every line of the two examples tables above
+    with the verdict the committed module gave it BEFORE this card, copied
+    from that file. Rule C turns a False into a True on three of those lines
+    and leaves the other twelve exactly as they were; it never takes a
+    circle away.
+
+    The snapshot is also what calibrates ``_rule_circles(..., rule_c=False)``,
+    the rules-A-and-B reference the two properties below compare against."""
+
+    #: (clue, marks) -> the circles before CARD-213.
+    BEFORE = {
+        ((2, 2), "...WDDW..."): [False, False],
+        ((2, 2), "DDW......."): [True, False],
+        ((2, 2), "WDDWWDDW.."): [True, True],
+        ((2, 2), "DD.DD....."): [False, False],
+        ((1, 1), ".WDW.WDW."): [True, True],
+        ((1, 1, 1), "WDWD......"): [True, False, False],
+        ((3, 1), "DDW....WDW"): [False, True],
+        ((3, 1), ".WDDDW...."): [False, False],
+        ((0,), "WWWWW"): [True],
+        ((0,), "WW.WW"): [False],
+        ((1, 1), "DDW......."): [False, False],
+        ((1, 2), "DDWDW....."): [False, False],
+        ((2, 1), ".....WDWDD"): [False, False],
+        ((1, 2), "WWWWWWWWWD"): [True, False],
+        ((2, 1), "DWWWWWWWWW"): [False, True],
+    }
+    #: The three lines rule C changes, and what it adds to each.
+    ADDED = {
+        ((3, 1), ".WDDDW...."): [True, False],
+        ((1, 2), "DDWDW....."): [True, True],
+        ((2, 1), ".....WDWDD"): [True, True],
+    }
+
+    def test_the_old_table_is_covered(self) -> None:
+        """Every line of the snapshot is still a row of the two tables
+        above, and the snapshot still holds all fifteen pre-card lines: it
+        cannot drift away from the tables it is the history of. (The tables
+        also carry rows added by this card, which have no pre-card verdict.)
+        """
+        rows = {(clue, marks) for clue, marks, _ in
+                (*TestSolverClues_RuleExamples.ROWS, *TestSolverClues_RuleExamples.STOPS)}
+        assert set(self.BEFORE) <= rows
+        assert len(self.BEFORE) == 15
+        assert set(self.ADDED) <= set(self.BEFORE)
+
+    def test_rule_c_adds_three_circles_and_removes_none(self, browser_page, live) -> None:
+        _blank_page(browser_page, live)
+        rows = list(self.BEFORE)
+        got = _numbers(browser_page, rows)
+        changed = {}
+        for (clue, marks), now in zip(rows, got):
+            before = self.BEFORE[(clue, marks)]
+            assert len(now) == len(before)
+            assert all(b <= n for b, n in zip(before, now)), (clue, marks, before, now)
+            if now != before:
+                changed[(clue, marks)] = now
+        assert changed == self.ADDED
+
+    def test_the_reference_reproduces_the_pre_card_verdicts(self) -> None:
+        """``_rule_circles(..., rule_c=False)`` was written from the rule
+        block's prose; on all fifteen lines it agrees with what the module
+        actually did before rule C existed, and with the module now once
+        rule C is switched on."""
+        assert {row: _rule_circles(*row, rule_c=False) for row in self.BEFORE} == self.BEFORE
+        now = {row: _rule_circles(*row) for row in self.BEFORE}
+        assert {row: verdict for row, verdict in now.items() if verdict != self.BEFORE[row]} == self.ADDED
+
+
+# --------------------------------------------------------------------------
+# G-4 (property) — rule C only adds, on a seeded corpus
+# --------------------------------------------------------------------------
+
+
+def _rule_c_lines(rng, size):
+    """Lines built to put closed runs where rules A and B cannot reach them:
+    a clue of 1..5 values drawn so that some lines have a unique value and
+    some have none, marks that reveal a run and its two neighbours and leave
+    the rest undecided, sometimes with a second matching run, sometimes with
+    the run left open."""
+    lines = []
+    for k in range(size):
+        length = rng.randint(6, 24)
+        count = rng.randint(1, 5)
+        if k % 5 == 0:  # every value repeated: rule C can never fire
+            half = [rng.randint(1, 5) for _ in range(count)]
+            clue = tuple(half + half)
+        else:
+            clue = tuple(rng.randint(1, 5) for _ in range(count))
+        marks = ["."] * length
+        for _ in range(rng.randint(1, 3)):
+            run = rng.choice(clue)
+            start = rng.randint(0, max(0, length - run))
+            if start + run > length:
+                continue
+            for index in range(start, start + run):
+                marks[index] = "D"
+            for side in (start - 1, start + run):
+                if 0 <= side < length:
+                    marks[side] = "." if rng.random() < 0.25 else "W"
+        if rng.random() < 0.25:  # some white noise elsewhere
+            for index in range(length):
+                if marks[index] == "." and rng.random() < 0.4:
+                    marks[index] = "W"
+        lines.append((clue, "".join(marks)))
+    return lines
+
+
+@pytest.mark.browser
+def test_PropertyTest_SolverClues_RuleCOnlyAddsToRulesAAndB(browser_page, live) -> None:
+    """CARD-213 G-4 — on a seeded corpus, circledNumbers equals the Python
+    reference with rule C on, and every circle the reference gives with rule
+    C OFF is still there: rule C only ever adds. The counts below keep the
+    claim from being vacuous — the corpus has to contain lines rule C
+    changes, lines it leaves alone, and lines whose clue repeats every value
+    so that rule C cannot fire at all."""
+    _blank_page(browser_page, live)
+    lines = [*_rule_c_lines(random.Random(213), 2400), *_safety_corpus(random.Random(2131), 600)]
+    got = []
+    for chunk in range(0, len(lines), 2000):
+        got += _numbers(browser_page, lines[chunk:chunk + 2000])
+
+    added = untouched = no_unique_value = 0
+    mismatched, removed = [], []
+    for (clue, marks), now in zip(lines, got):
+        before = _rule_circles(clue, marks, rule_c=False)
+        after = _rule_circles(clue, marks)
+        if now != after:
+            mismatched.append((clue, marks, now, after))
+        if any(b and not n for b, n in zip(before, now)):
+            removed.append((clue, marks, before, now))
+        added += now != before
+        untouched += now == before
+        no_unique_value += all(clue.count(value) > 1 for value in clue)
+    assert mismatched == []
+    assert removed == []
+    assert len(lines) >= 3000, len(lines)
+    assert added >= 500, added
+    assert untouched >= 500, untouched
+    assert no_unique_value >= 300, no_unique_value
+
+
+# --------------------------------------------------------------------------
+# AC-7 (property) — rule C is axis-independent
+# --------------------------------------------------------------------------
+
+_TRANSPOSE = """async ({ width, height, rows, columns, boards }) => {
+  const S = await import('/static/solver_state.js');
+  const codes = { D: S.FILLED, W: S.EMPTY, '.': S.UNKNOWN };
+  const board = (w, h, cells) => Object.freeze({ width: w, height: h, cells: Object.freeze(cells) });
+  const plain = (c) => ({ rows: c.rows.map((l) => [...l]), columns: c.columns.map((l) => [...l]) });
+  return boards.map((text) => {
+    const cells = [...text].map((ch) => codes[ch]);
+    const flipped = Array.from({ length: width * height },
+      (_, i) => cells[(i % height) * width + Math.floor(i / height)]);
+    return {
+      upright: plain(S.circledClues(board(width, height, cells), rows, columns)),
+      transposed: plain(S.circledClues(board(height, width, flipped), columns, rows)),
+    };
+  });
+}"""
+
+
+def _rule_c_boards(rng, width, height, count):
+    """A random solution's clues, and boards that reveal each cell with a
+    per-board probability — so closed runs turn up mid-line, with undecided
+    cells between them and the edges, on both axes."""
+    solution = [[rng.random() < 0.45 for _ in range(width)] for _ in range(height)]
+    rows = [_encode(row) for row in solution]
+    columns = [_encode(column) for column in zip(*solution)]
+    boards = []
+    for _ in range(count):
+        reveal = rng.choice((0.5, 0.65, 0.8, 0.9))
+        boards.append("".join(
+            ("D" if cell else "W") if rng.random() < reveal else "."
+            for row in solution for cell in row))
+    return rows, columns, boards
+
+
+@pytest.mark.browser
+def test_PropertyTest_SolverClues_RuleCInvariantUnderTransposition(browser_page, live) -> None:
+    """CARD-213 AC-7 — on a seeded corpus of boards and clue sets, the
+    circles of the transposed board with its clue sets swapped are the
+    circles of the upright board with its axes swapped: rule C reads a line,
+    not a direction. Every line is also checked against the Python
+    reference, and the corpus must contain enough lines that only rule C
+    circles — otherwise the property would hold for a rule C that was never
+    there."""
+    _blank_page(browser_page, live)
+    rng = random.Random(2132)
+    lines = rule_c_only = rule_c_added = 0
+    for width, height in [(12, 12), (18, 11), (9, 20)]:
+        rows, columns, boards = _rule_c_boards(rng, width, height, 60)
+        got = browser_page.evaluate(_TRANSPOSE, {
+            "width": width, "height": height, "rows": rows, "columns": columns, "boards": boards})
+        assert len(got) == len(boards) == 60
+        for text, result in zip(boards, got):
+            assert result["transposed"] == {"rows": result["upright"]["columns"],
+                                            "columns": result["upright"]["rows"]}
+            marks = {
+                "rows": [text[r * width:(r + 1) * width] for r in range(height)],
+                "columns": ["".join(text[r * width + c] for r in range(height)) for c in range(width)],
+            }
+            for axis, clues in (("rows", rows), ("columns", columns)):
+                for clue, line, now in zip(clues, marks[axis], result["upright"][axis]):
+                    before = _rule_circles(clue, line, rule_c=False)
+                    assert now == _rule_circles(clue, line), (axis, clue, line, now)
+                    lines += 1
+                    rule_c_added += now != before
+                    rule_c_only += any(now) and not any(before)
+    # An equality, not a floor: the corpus is fully determined by its seed and
+    # its shape list, so `>= 200` against a measured 4920 would let the corpus
+    # shrink 24-fold in silence. Re-record this deliberately if the shapes move.
+    assert lines == 4920, lines
+    assert rule_c_added >= 150, rule_c_added
+    assert rule_c_only >= 100, rule_c_only
 
 
 # ==========================================================================
