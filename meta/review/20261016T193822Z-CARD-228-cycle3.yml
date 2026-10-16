@@ -118,9 +118,17 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: deferred
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      AC-4 narrowed by owner decision 2026-10-16 (card amendment, item 1/5). The
+      false half is fixed in the narrowing pass: FLAT_METHODS' rationale no longer
+      claims a straight line has no vertex list to hide a dot in, it states line
+      is unguarded and why that is a known hole, and the route is now a named
+      limit on TestDifficultyDots_HasExactlyOneDrawingSite carrying mutant L1
+      (re-run here in its own process: SURVIVED, 548 passed). Closing the route is
+      CARD-241's (render a page, find the ink, measure it for roundness); GB-1
+      forbids a new guard mechanism on this card.
     learned_pattern: null
 
   - id: F-202
@@ -161,9 +169,14 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: deferred
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      Wording fixed (card amendment, items 2/3): route 3 of the class docstring no
+      longer claims 'a circle built out of vertices is held to MAX_FLAT_VERTICES'
+      - it states the bound is per call and says nothing about ink accumulated
+      over many in-bound calls, carried as a named limit with mutant PT1 (re-run
+      here: SURVIVED, 548 passed). Mechanism deferred to CARD-241 per GB-1.
     learned_pattern: null
 
   - id: F-203
@@ -207,9 +220,16 @@ findings:
     source: static
     violates: null
     root_cause: RC-1
-    status: open
+    status: deferred
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      Claim/mechanism gap closed on the claim side (card amendment, items 2/3):
+      _draw_method_calls, _unrecognised_draw_receivers and the class docstring's
+      limit #2 now state the ast.Attribute precondition explicitly and no longer
+      say 'every written call to a draw-method name whatever its receiver'. The
+      bare-name route is a named limit carrying mutant BM1 (re-run here: SURVIVED,
+      548 passed). The suggested default-deny on attribute *reads* is a new guard
+      mechanism, which GB-1 assigns to CARD-241.
     learned_pattern: null
 
   - id: F-204
@@ -255,7 +275,7 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -286,9 +306,14 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: deferred
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      The one-clause fix (accept ast.Name 'Draw' as a candidate binding) is a
+      change to a guard mechanism, which GB-1 forbids on this card and GB-2
+      protects from weakening either way; the finding itself records that the
+      exposure is F-201's, not this line's, and that composition already kills
+      mutant A1. Carried to CARD-241.
     learned_pattern: null
 
   - id: F-206
@@ -315,9 +340,12 @@ findings:
     source: model
     violates: null
     root_cause: null
-    status: open
+    status: fixed
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: >-
+      Answered: the owner decided at the architect station on 2026-10-16 - narrow
+      AC-4 to the four routes the walk sees, land this card, move the universal
+      guarantee to CARD-241. The card's AC-4 and its amendment section record it.
     learned_pattern: null
 
 # ---------------------------------------------------------------------------
