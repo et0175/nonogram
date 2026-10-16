@@ -1,6 +1,6 @@
 # CARD-228: Difficulty becomes three dots, filled by tier — one glyph the whole book reuses
 
-**Status:** review
+**Status:** blocked
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -15,12 +15,12 @@
 **Wave:** 42
 **Depends on:** —
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_difficulty_dots.py, tests/test_book_interior_type_floor.py
-**Review score:** 8.0 (cycle 1) → 8.5 (cycle 2/3 — min_improvement met; severity gate still FAILS on one new Important IN THE FIX)
+**Review score:** 8.0 (c1) → 8.5 (c2) → 8.0 (c3/3) — min_score met every cycle; severity gate FAILED every cycle; min_improvement missed at c3
 **Started:** 2026-10-16T17:04:17Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — architect/owner: AC-4 as reinterpreted is a universal negative over Python syntax, and three cycles of a static `ast` walk have not held it (3 glyphs landed, then 2, then 3 — a new syntactic family each time). The instrument is the question, and picking it is not a worktree decision.
 
 ## What to implement
 
@@ -632,3 +632,55 @@ under `meta/` is committed.
 - [Fix 2] the fix accepted RC-1 as named and **inverted the guard's default to deny**, which is the only shape that converges: `dir(ImageDraw.ImageDraw)` is a genuine authority for the *method* half, but no authority enumerates every way to write a vertex list or name a draw receiver, so adding spellings is the regress that burned CARD-238's cycles 1-4. Now an uncountable vertex argument, an unrecognised receiver and an unrecognised `.Draw(...)` binding each FAIL rather than pass, and honest existing sites became **earned exemptions under equalities** rather than widened bins — which is the move cycle 1's report recommended and this card twice refused.
 - [Fix 2] the agent self-reported a limit it hit and backed out of, and I want it judged rather than accepted: `DRAW_OBJECT_UNBOUND_SITES` carries a **count** per module+form, not the enclosing function names, because writing the names out literally pulled this file into test_suite_profile.py's render-heavy set (one name matches meta/profiling's frozen RENDER_API_PATTERN) and restating that snapshot would mean committing under meta/, which the card may not do. Stated cost: the equality still catches additions but cannot notice a site *moving* between two functions of one module. Backing out of a change that would have forced a meta/ commit is the right instinct; whether the count is as strong as claimed is cycle 3's call.
 - [Review 3/3] dispatched — **the last cycle before this card escalates**. The brief makes one thing the review and everything else secondary: *try to land a second dot glyph*. Cycle 1 found three evasions and cycle 2 found two more, and each time the previous cycle believed the route closed, so the only evidence that default-deny worked is a genuine adversarial attempt that fails. It was given a list of forms not yet tried (a draw object through a dict/list/attribute chain, a walrus or `as` rebinding, `functools.partial` or a stored bound method, itertools/numpy vertices splatted, a module `_package_sources()` does not reach, `from PIL.ImageDraw import Draw` aliased, a chained or subscripted `Draw` result) and told that finding one outranks everything else in the report. It was also told to check the limit split in BOTH directions — a 'named limit' that is actually closed is harmless, a 'true by mechanism' claim that is actually open is the family defect again — and to probe whether an exemption can absorb a newly-added drawing site. Closing instruction: choose explicitly between land it / land it with recorded bounds plus a follow-up card / escalate, and that I would rather have an honest escalate at cycle 3 than a generous pass that CARD-207 discovers on a printed proof.
+- [Review 3/3] **score 8.0** — min_score 8 met, **severity gate FAILS**, and min_improvement missed
+  (8.5 → 8.0 needed >= 9.0). The score did not fall because the code got worse; it did not. It fell
+  because a deeper probe found the same number of landed glyphs as cycle 1 did.
+- [Review 3/3] **three more complete second dot glyphs landed, each at 548 green, through a route
+  family neither prior cycle named** — and the marks are genuinely round, measured outside the guard
+  with standalone Pillow + numpy: the `draw.line` fan is 41x41 px, aspect 1.000, **1329 ink px against
+  `draw.ellipse`'s 1313** at the same radius. Indistinguishable on a printed proof.
+  * **L1** `draw.line` — a 240-ray fan for filled dots, a closed 33-point polyline for outlined ones.
+  * **PT1** `draw.point` in a loop OUTSIDE the call, one 2-element display per call — so the vertex
+    bound is per-call and says nothing about ink accumulated across calls.
+  * **BM1** `stamp = draw.ellipse` then `stamp(circle, fill=INK)` — a stored bound method, written
+    syntax, not the named `getattr` limit.
+- [Review 3/3] **I verified the central claim myself before escalating, because it decides which
+  options are even available.** `FLAT_METHODS`' stated reason for leaving `line` unguarded — "a
+  straight line has no vertex list to hide a dot in" — is **factually false**: Pillow's own docstring
+  reads "Draw a line, or a connected sequence of line segments" and it calls `draw_lines`;
+  `joint="curve"` even rounds the joints. And the package already hands it computed lists at
+  book_pdf_generator.py:1429 (`ends`) and :1441 (`list(side)`), plus png.py:186 and :217. The blind
+  spot is even blessed by a control — `test_a_flat_shape_is_not_caught` pins
+  `draw.line([(0,0),(1,1)])` as deliberately not-caught.
+- [Review 3/3] what the cycle-2 fix DID hold, and it is real work: cycle 2's three survivors are
+  genuinely dead (M1 starred 32-gon, M2 unannotated receiver, M3b annotated assignment — 1/2/3
+  failures each, by exactly the tests the card names); both exemption sets **rejected every absorption
+  probe** (a new `argument`-form `.Draw(...)` and a duplicate exempt `scaled.point` tuple were both
+  caught); the composition claim holds (an aliased `Draw` bound to `pen` was killed); a brand-new
+  module drawing `draw.ellipse` was killed; and both "named limits" really are open, so that split is
+  honest. Guardrails G-1..G-5 all hold; system contract 4 of 4.
+- [Review 3/3] where the wording still overshoots its mechanism: `_unrecognised_draw_receivers`
+  claims to collect "every written call to a draw-method name whatever its receiver", but
+  `_draw_method_calls` requires `isinstance(node.func, ast.Attribute)`, so `stamp(circle)` is
+  collected by nothing. And route 3's "a circle built out of vertices is held to MAX_FLAT_VERTICES"
+  is false, because PT1 is inside the guarded method set, on the canonical receiver, with every call
+  in bounds.
+- [Review 3/3] the self-reported count-vs-names trade: premise **verified independently** (the four
+  unbound sites sit in `_blank_page`, `sample`, `pdf.py::_titled` and `pdf.py::render_pages`, and
+  `render_pages` is matched by rank_durations.py:44's RENDER_API_PATTERN, applied to the *text* of
+  every file under tests/), so the meta/ refusal was right. Two corrections: a third option existed
+  and is cheap — keep the names and defeat a *textual* grep by splitting the literal — and the limit
+  is slightly narrower than stated, since it also cannot see a site *replaced* by a different one in
+  the same module+form.
+- [Escalated] 2026-10-16T19:45Z — **max_cycles 3 reached with the severity gate still open, +
+  min_improvement missed, + family regression for the third consecutive cycle** (cycle 2's Important
+  was attributed to cycle 1's fix; cycle 3's are attributed to cycle 2's — receiver → binding form →
+  call shape and cross-call ink, one syntactic level down each time). · station: **architect/owner**
+  · route: the owner picks the instrument, then funds ONE cycle against it — see the three options in
+  the escalation note below. Worktree and branch KEPT at `b3ba400`..`56cec05`.
+- [Escalated] why this is NOT the CARD-238/CARD-239 ending, which was my first instinct: that ending
+  is for a mechanism that **converged** with honestly-named residue. Writing these three into the
+  limits list instead of fixing them would record bounds that **swallow the AC** — "no second round
+  mark, except via draw.line, except via a loop of draw.point, except via a stored bound method" is
+  not a promise CARD-207/229/231/233 can build on, and those four cards are the entire reason this
+  card was cut first.

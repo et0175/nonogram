@@ -1,0 +1,357 @@
+version: 1
+generated_at: "2026-10-16T19:38:22Z"
+target: "card/228-difficulty-dots @ 56cec05 (cycle 3 of max 3; fix delta dc8d2df..56cec05 over cycle 2's reviewed state b3ba400)"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "unknown"
+
+coverage:
+  read:
+    - "tests/test_book_difficulty_dots.py (AC-4 guard: sets at 616-790, helpers 793-1150, class 1151-1824)"
+    - "meta/kanban/cards/CARD-228.md (full, incl. both fix sections)"
+    - "meta/review/20261016T181040Z-CARD-228-cycle1.yml"
+    - "meta/review/20261016T184513Z-CARD-228-cycle2.yml"
+    - "src/nonogram/export/layout.py (cycle-2 docstring hunk)"
+    - "src/nonogram/export/png.py, src/nonogram/export/pdf.py, src/nonogram/sourcing/image.py (mutant hosts)"
+    - "meta/profiling/rank_durations.py (RENDER_API_PATTERN, regrep_render_set)"
+    - "tests/test_suite_profile.py (frozen render set tests)"
+    - "PIL/ImageDraw.py (line/point/polygon semantics, Pillow in .venv)"
+  not_reached:
+    - "tests/test_book_interior_type_floor.py (read only by name/green status, not line by line)"
+    - "src/nonogram/admin/book_pdf_generator.py (unchanged this cycle; the 1515 definition and the draw.line call sites only)"
+    - "the rest of the 7557-test suite (merge gate runs it; the caller forbade a full run here)"
+  confidence: high
+
+metrics:
+  diff: { files: 2, added: 629, removed: 82 }
+  max_fan_in: { symbol: "nonogram.export.layout.DifficultyDots.__post_init__", callers: 0 }
+  tests_cover_change: true
+  hotspots: ["src/nonogram/export/layout.py"]
+  cochange_missing: []
+  unmeasured:
+    max_fan_in: "not_applicable — this cycle's only src/ hunk is a docstring inside DifficultyDots.__post_init__; no symbol's signature or behaviour changed, so a caller count carries no risk signal. (The card's drawing site _draw_difficulty_dots has 0 callers in src/ by design, G-5.)"
+    churn: "tooling_failure — git log --since=12.months returns 0 commits against a tree whose HEAD is dated 2026-10-16; the window and the commit dates disagree in this environment. Windowless counts used instead: src/nonogram/export/layout.py 20 commits, 10 of them fix/bug-tagged (high defect density, which is why the layout half was re-read rather than carried)."
+    cochange_missing: "no_eligible_fact — the top co-change peers of the touched pair are src/nonogram/admin/book_pdf_generator.py (11/20) and the book baseline fixtures; this cycle's delta changes no geometry and no behaviour (tests + one docstring), so no peer is implied. Verified: no baseline fixture restatement is due."
+
+system_contract:
+  rules_checked: 4
+  holds: 4
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "CON-020 ✓ holds — TestInteriorType_EveryFaceHoldsTheFloor and TestInteriorType_DifficultyDotsAreNotText both green in this cycle's loop (548 passed, 2026-10-16T19:0xZ, tests/test_book_difficulty_dots.py + test_book_interior_type_floor.py + test_cli.py + test_suite_profile.py); the glyph still makes no draw.text call, so the 10 pt floor neither reaches it nor can be evaded through it."
+    - "ADR-0033/R1 ✓ holds — TestDifficultyDots_UntieredDrawsNothing::test_the_stored_tier_is_read_and_never_written green in the same run; the cycle's only src/ hunk is a docstring (git diff b3ba400..56cec05 -- src/ = 11 lines in export/layout.py, all inside a docstring), so no write path to a tier was added."
+    - "ADR-0036/R2 ✓ holds — no new drawing primitive: the fix delta adds no src/ code at all (docstring only), and the one drawing site still strokes draw.ellipse on the draw object it is handed. Re-derivable: git diff b3ba400..56cec05 -- src/."
+    - "ADR-0037/R1 ✓ holds — no band content changed; the dots remain the tier and no caller was added (grep -rn '_draw_difficulty_dots' src/ → definition at book_pdf_generator.py:1515 only)."
+
+root_causes:
+  - id: RC-1
+    title: "AC-4's guards reason about ONE call node — the method name in a frozen bin, the vertex count of that call's own first argument, the receiver of that call — so a round mark assembled ACROSS calls, or reached by a reference that is not a call-with-attribute-func, is outside every mechanism. Third consecutive cycle of the same family (claim wider than mechanism), one syntactic level down each time."
+    finding_ids: [F-201, F-202, F-203]
+  - id: RC-2
+    title: "Residual overshoot in prose written during the fix (cycle 1's RC-1, two orders of magnitude smaller)"
+    finding_ids: [F-204, F-205]
+
+findings:
+  - id: F-201
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 672
+    title: "draw.line is unguarded and draws a round mark: a complete second three-dot glyph lands with 548 green, and FLAT_METHODS' stated reason for not guarding it is factually false"
+    description: |
+      FLAT_METHODS (line 676, with "line" at 679) is justified at lines 672-675 by:
+      "a straight line, a rectangle and the four calls that only *measure* have no vertex
+      list and no string to hide a dot in". That is false for `line`. Pillow's
+      `ImageDraw.line(xy, fill, width, joint)` takes an arbitrary-length coordinate
+      sequence and draws a *connected polyline* (PIL/ImageDraw.py:226-232 →
+      `self.draw.draw_lines(xy, ink, width)`), and with `joint="curve"` it even rounds the
+      joints with `pieslice`. `line` is therefore a vertex-taking method sitting outside
+      VERTEX_BOUNDED_METHODS (654) with no bound, no absence claim and no named limit.
+
+      The package itself already writes uncountable vertex lists to it — `draw.line(ends, ...)`
+      (export/png.py:186), `draw.line(list(side), ...)` (export/png.py:217),
+      `book_pdf_generator.py:1429/1441/4703/4713`, `export/pdf.py:395` — so `line` is the one
+      round-capable method with both an uncountable-argument precedent and zero guard.
+
+      EXECUTED (mutant L1, its own fresh pytest process, export/png.py restored from a byte
+      copy and shasum-verified back to b43169cc…): a module-level helper
+      `_draw_tier_dots_as_polylines(draw, box, rank)` that draws exactly this card's glyph —
+      filled dots as a 240-radius fan of two-point `draw.line` calls, outlined dots as one
+      closed 33-point `draw.line` polyline — **548 passed, 0 failed**. Mutant A2 (the same
+      route behind `from PIL.ImageDraw import Draw` bound to the canonical name `draw`) also
+      **SURVIVED** 548 green.
+
+      The marks really are round, measured independently of the guard (standalone Pillow
+      script, no nonogram import): the fan's filled dot is 41x41 px, aspect 1.000, 1329 ink
+      px against `draw.ellipse`'s 1313 at the same radius (fill-vs-ellipse ratio 1.007 vs
+      0.995) — indistinguishable on a printed page. The polyline ring is 43x43, aspect 1.000.
+
+      This is not covered by any of the three named limits in the class docstring
+      (1215-1230): `line` is inside ImageDraw, the call is written syntax (not `getattr`),
+      and no string is involved. Worse, the blind spot is *blessed* by a control:
+      `test_a_flat_shape_is_not_caught` (1350) pins `draw.line([(0, 0), (1, 1)])` as
+      deliberately not-caught — true for two points, and the exact mechanism a 33-point ring
+      uses.
+    suggestion: |
+      Human decision, not a one-line fix — which is why this escalates rather than recycles.
+      Two coherent options, each with a real cost:
+      (a) Move `line` into VERTEX_BOUNDED_METHODS. Then the 13 honest `draw.line` call sites
+          must each pass a countable display or earn an exemption, and at least two of them
+          (`draw.line(ends, ...)`, `draw.line(list(side), ...)`) cannot — they are computed by
+          construction, so the exemption list would carry ~6-13 entries, each needing the
+          "why it cannot draw a round mark" second assertion that NON_DRAW_RECEIVER_SITES has.
+          That is a card, not a line, and it is exactly the regress the fix cycle correctly
+          refused to enter for receivers.
+      (b) Stop asking a syntax walk to prove "no second round mark" and switch the AC-4
+          promise to the instrument that can: render a page and measure the ink (the project
+          already owns both halves — _ink/_ink_box in this very file, and the roundness metric
+          used above is four lines of numpy). A render-and-measure guard is blind to spelling
+          altogether and is what CARD-207's printed proof will do anyway.
+      Either way the class docstring's route-3 sentence ("a circle built out of vertices is
+      bounded") and FLAT_METHODS' "no vertex list" rationale must be corrected first — they
+      are false as written, today, on disk.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 942
+    title: "The vertex bound is per-call, so a loop of in-bound draw.point calls paints a filled disc on the canonical receiver with every guard green"
+    description: |
+      `_uncountable_vertices` (942) judges one call's own first argument. `point` IS in
+      VERTEX_BOUNDED_METHODS and the receiver IS the canonical `draw`, so this is squarely
+      inside the mechanism the fix cycle declares "true by mechanism" (#1) — and the ink is
+      still unbounded, because nothing bounds how many bounded calls a loop may make.
+
+      EXECUTED (mutant PT1, own fresh process, restore shasum-verified):
+        for y in range(cy - radius, cy + radius + 1):
+            for x in range(cx - radius, cx + radius + 1):
+                if (x - cx) ** 2 + (y - cy) ** 2 <= radius * radius and ...:
+                    draw.point((x, y), fill=INK)
+      — a three-dot tier glyph, filled dots stamped pixel by pixel, outlined dots as an
+      annulus. **548 passed, 0 failed.** Each call passes a countable 2-element display, well
+      inside MAX_FLAT_VERTICES = 4, so `_uncountable_vertices` has nothing to complain about.
+      Independently measured roundness: 41x41 px, aspect 1.000, 1257 ink px vs
+      `draw.ellipse`'s 1313 (ratio 0.952).
+
+      Cycle 1's H3 (`draw.point([(x, y) for ... ])`) is caught because the comprehension is
+      *inside* the call. Moving the loop one line out defeats it. The claim that fails is not
+      limit #1's wording (which is about a single argument and is true) but route 3 of the
+      class docstring — "a circle built out of vertices — VERTEX_BOUNDED_METHODS, held to
+      MAX_FLAT_VERTICES" — which reads as a claim about round marks and is not one.
+    suggestion: |
+      Same decision as F-201 (one root cause, one fix). A per-call vertex bound cannot bound
+      ink laid down across calls; either the route-3 claim narrows to "no single call writes
+      more than four vertices" (honest, and much weaker than AC-4 needs), or AC-4's guard
+      moves to render-and-measure.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-203
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 1014
+    title: "A draw method reached through a stored bound method (stamp = draw.ellipse) escapes all three mechanisms; the receiver rule's stated reach — 'every written call to a draw-method name whatever its receiver' — overshoots its implementation"
+    description: |
+      `_draw_method_calls` (1000) collects a node only when
+      `isinstance(node.func, ast.Attribute)` (1014); `_round_mark_sites` (808) and
+      `_draw_calls` (879) carry the same precondition. A bound method held in a local defeats
+      all three: the *attribute* `draw.ellipse` is a read, not a call (and
+      `test_a_name_that_is_not_a_draw_call_is_not_caught`, 1368, deliberately pins attribute
+      reads as not-caught), and the *call* `stamp(circle, fill=INK)` has `func` = ast.Name,
+      so it is not collected at all — no site, no receiver, no binding.
+
+      EXECUTED (mutant BM1, own fresh process, restore shasum-verified):
+        stamp = draw.ellipse
+        ...
+        stamp(circle, fill=INK)        # filled dot
+        stamp(circle, outline=INK, width=2)   # outlined dot
+      — ELLIPSE_METHODS, the most-guarded set in the file, on the canonical receiver.
+      **548 passed, 0 failed.** `functools.partial(draw.ellipse, ...)` is the same shape.
+
+      This is a claim/mechanism gap, not merely an unnamed route, and the claim is in the fix
+      itself: `_unrecognised_draw_receivers`' docstring (1019) and the class docstring's limit
+      #2 (1203-1209) both say *every written call to a draw-method name* is collected
+      whatever its receiver. `stamp(circle)` is a written call to a draw method and is not
+      collected. It is also not one of the three named limits: the method name is written out
+      in plain syntax, so it is not the `getattr` route the file does name.
+    suggestion: |
+      If AC-4 keeps a syntax walk, the honest minimum is to make an *attribute read* of a
+      draw-method name on a recognised receiver a complaint too (default-deny applied to
+      references, not only to calls) — cheap to add, and the package has no honest such read
+      today, so it costs nothing. But note that this is the fourth syntactic level in three
+      cycles (receiver → binding form → call shape → reference), which is the argument for
+      F-201's option (b) rather than for another level.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-204
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 765
+    title: "DRAW_OBJECT_UNBOUND_SITES' count-instead-of-names trade is real but avoidable: a third option (keep the names, defeat the grep) was available and not taken"
+    description: |
+      The self-reported limit is verified true in its premise. The four unbound `.Draw(...)`
+      sites sit in `_blank_page` (argument), `sample` (receiver), `export/pdf.py::_titled`
+      (argument) and `export/pdf.py::render_pages` (argument) — I re-derived this with an
+      independent ast walk. `render_pages` is matched by `meta/profiling`'s
+      RENDER_API_PATTERN (rank_durations.py:44-47), and `regrep_render_set`
+      (rank_durations.py:476-485) greps the *text* of every file under `tests/`, so writing
+      the name out literally would indeed add tests/test_book_difficulty_dots.py to the live
+      render set and red
+      `test_the_frozen_render_set_still_matches_the_grep_that_defines_it`
+      (tests/test_suite_profile.py:461) plus the share tests. The refusal to restate a
+      snapshot under `meta/` is also correct for this card. So the reasoning is sound and the
+      limit is honestly named.
+
+      What the judgment misses: the obstacle is a *textual* grep, and the third option is to
+      keep the full equality while not writing the matching substring —
+      `("nonogram.export.pdf", "argument", "render" + "_pages")`, with a comment saying why
+      it is split. That restores the function names (and so the moving-site detection) at the
+      cost of one odd-looking literal, with no `meta/` commit and no snapshot restatement.
+
+      The count's strength is as claimed for additions: verified by execution. Mutant E1 (a
+      fourth `argument`-form `.Draw(...)` added in export/pdf.py, a module that already has
+      two) → **KILLED**, 4 failures including
+      `test_every_draw_object_in_the_package_is_spelled_draw`. What the count cannot see is
+      narrower than "a site moving": it also cannot see a site *replaced* by a different one
+      in the same module and form (remove one from `_titled`, add one in a new round-mark
+      helper in the same module — the count stays 2). That composite case is worth one line
+      beside the existing limit.
+    suggestion: |
+      Either split the literal as above and restore the names, or widen the stated limit to
+      "a site moving *or being replaced* within one module+form". Do not re-work this while
+      RC-1 is open.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-205
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 1046
+    title: "_draw_object_bindings sees only attribute-form `.Draw(...)`; a bare `Draw(image)` from an aliased import is classified as nothing, which is a precondition the 'unrecognised binding form fails' claim does not state"
+    description: |
+      `_draw_object_bindings` (1046) requires `isinstance(node.func, ast.Attribute) and
+      node.func.attr == "Draw"`, so `from PIL.ImageDraw import Draw` followed by
+      `pen = Draw(image)` produces no binding entry at all — neither a recognised form nor an
+      `unrecognised:<NodeType>`. Limit #3 as worded ("an unrecognised `.Draw(...)` binding
+      form fails") is literally about `.Draw(...)` with the dot, so this is a thin reading
+      rather than a false claim, and composition does cover the case I executed: mutant A1
+      (`from PIL.ImageDraw import Draw`; `pen = Draw(image)`; `pen.ellipse(...)`) →
+      **KILLED**, 3 failures (receiver rule, exemption control, and the one-site rule).
+      It is only unguarded in combination with F-201 (mutant A2, aliased import + canonical
+      name + `draw.line` ring → SURVIVED), i.e. the exposure is F-201's, not this line's.
+      Recorded so the next cycle does not rediscover it as a separate route.
+    suggestion: |
+      One clause: accept `ast.Name` with id "Draw" as a candidate binding too, so the
+      classification is about the factory and not about how it was imported.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-206
+    severity: info
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-228.md
+    line: 1
+    title: "Out-of-scope / for the human: AC-4's structural reading may be the wrong contract, and the product code is not what is in doubt"
+    description: |
+      Noted, not gating. Nothing in RC-1 touches the drawn page: this cycle's src/ delta is a
+      docstring, `_draw_difficulty_dots` has no caller (G-5), the geometry half was verified
+      correct in cycles 1-2, and all of AC-1/2/3/5/6 are green. What is unmet is AC-4 as the
+      card chose to read it — "the package contains exactly one function that puts a round
+      mark on a page" — which is a universal negative over Python syntax that three cycles of
+      a static walk have not been able to hold (3 glyphs landed in cycle 1, 2 in cycle 2, 3
+      in cycle 3 through a new family each time). The human picking this up may reasonably
+      decide the AC's forward-compatible reading should be narrowed to the four adopting
+      cards' own render checks (CARD-207/229/231/233) instead of being carried by this
+      instrument at all.
+    suggestion: |
+      Decide the contract before funding a fourth fix cycle.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+# ---------------------------------------------------------------------------
+# Confirmed by execution (no finding — recorded so the next cycle need not
+# re-run them). Every verdict below is one isolated pytest process over
+# tests/test_book_difficulty_dots.py tests/test_book_interior_type_floor.py
+# tests/test_cli.py tests/test_suite_profile.py; baseline 548 passed; each
+# mutated file restored from a byte copy and shasum-verified afterwards
+# (png.py b43169cc…, pdf.py d332130b…, image.py 29cb0470…).
+# ---------------------------------------------------------------------------
+verified_claims:
+  cycle2_survivors_now_dead:
+    - "M1 starred 32-gon (draw.polygon([*points])) → KILLED by test_no_module_draws_a_round_mark_out_of_vertices (1 failed / 547 passed)"
+    - "M2 unannotated receiver `canvas` + 32 literal vertices fed the real draw object → KILLED by test_every_receiver_of_a_draw_method_is_a_draw_object AND test_the_non_draw_receiver_exemptions_cannot_draw_a_round_mark (2 failed)"
+    - "M3b `canvas: ImageDraw.ImageDraw = ImageDraw.Draw(image)` + 9-gon → KILLED by test_every_draw_object_in_the_package_is_spelled_draw, the receiver rule and the exemption control (3 failed)"
+  named_limits_really_open:
+    - "G1 getattr(draw, 'ellipse')(circle) three-dot glyph → SURVIVED 548 green — limit #5 is honestly named"
+    - "D1 chr(0x25CF)*rank + chr(0x25CB)*(3-rank) into draw.text → SURVIVED 548 green — limit #6 is honestly named"
+  exemptions_are_not_escape_hatches:
+    - "E1 a new `argument`-form ImageDraw.Draw(...) in export/pdf.py whose callee draws ellipses → KILLED (4 failures): the per-module+form count equality catches additions"
+    - "E2 a duplicate exempt tuple — a second `scaled.point([(0,0),(1,1),(2,2),(3,3)])` inside sourcing/image.py::binarize, i.e. borrowing the excused receiver with a coordinate display → KILLED by the equality AND by the 'why it cannot draw' second assertion (2 failures)"
+    - "No bin was widened to make honest code pass; cycle 1's recommendation was correctly still refused."
+  walk_reach:
+    - "NM1 a brand-new module src/nonogram/export/newglyph.py drawing draw.ellipse → KILLED by test_the_package_draws_a_round_mark_in_exactly_one_function — _package_sources()'s rglob('*.py') does reach modules added later, __init__.py included"
+  guardrails:
+    - "G-1 ✓ no new primitive (src delta is a docstring)"
+    - "G-2 ✓ TestInteriorType_DifficultyDotsAreNotText + TestInteriorType_EveryFaceHoldsTheFloor green"
+    - "G-3 ✓ test_the_stored_tier_is_read_and_never_written green"
+    - "G-4 ✓ no caller-side typography added"
+    - "G-5 ✓ grep -rn '_draw_difficulty_dots' src/ → definition only (book_pdf_generator.py:1515)"
+  acceptance_criteria:
+    - "AC-1 ✓ carried(cycle 2, delta-clean) + green in this cycle's loop"
+    - "AC-2 ✓ carried(cycle 2, delta-clean) + green"
+    - "AC-3 ✓ green (incl. the ring-closing refusal F-103 re-pointed)"
+    - "AC-4 ✗ not held as claimed — see F-201/F-202/F-203"
+    - "AC-5 ✓ green"
+    - "AC-6 ✓ green"

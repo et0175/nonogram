@@ -7,29 +7,7 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
-  - id: CARD-228
-    branch: card/228-difficulty-dots
-    worktree: ../PythonProject4-card-228
-    started: 2026-10-16T17:04:17Z
-    phase: review
-    review_cycle: 0
-    impl_commit: 1a93e0f
-    gate: "cycle 1 GREEN — 7557 passed, 9 skipped, exit 0, 877.93s"
-    review_cycle: 1
-    score: 8.0
-    phase_detail: "fix cycle 2 — 2 important + 3 minor, severity gate"
-    note: "wave 42, lane A head per queued_after_card_217. P1, 0.5d, no dependencies, and four later cards (207/229/231/233) draw the dots it cuts. Touches the two declared hotspots, so nothing else in lane A can run beside it."
-  - id: CARD-213
-    branch: card/213-unique-clue-circle
-    worktree: ../PythonProject4-card-213
-    started: 2026-10-16T17:04:17Z
-    phase: review
-    review_cycle: 0
-    impl_commit: e107af4
-    gate: "cycle 0 attempt 1: 1 failed / 7499 passed / 940s — the failure is CARD-235's frozen browser-family baseline (422 vs 434), not this card's code; amended at the decompose station, fix cycle 1 running"
-    review_cycle_note: build-gate fix, not a review cycle (build_fix_attempts 1 of 2)
-    note: "wave 42, slot 2. The dispatcher rule picked it: every P1 card left (222/223/224/225) is lane A and serializes on book_pdf_generator.py + layout.py behind CARD-228, so slot 2 goes to the highest-priority non-conflicting card, and among the P2s that is the lowest-numbered eligible one. Touches solver_state.js + one solver test file - no overlap with CARD-228, no hotspot. Its old conflict edges (CARD-212, CARD-235) are both merged."
+active: []   # CARD-213 merged cbd5a8e; CARD-228 escalated (see below)
 previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
@@ -41,7 +19,16 @@ previously_escalated:
     worktree: ../PythonProject4-card-238
     started: 2026-10-15T17:52:53Z
     note: "wave 41, SOLO on owner instruction ('start 238'). Runs alone for the same reason CARD-217 did: it changes the suite every other card's merge gate runs through, and main is currently RED on one of the tests it fixes. TDD: true - its ACs are literally 'a test that fails if X is reintroduced', which cannot be evidenced without driving the guard red against the current code first."
-escalated: []
+escalated:
+  - id: CARD-228
+    reason: "max_cycles 3 reached with the severity gate still open, min_improvement missed (8.0 -> 8.5 -> 8.0, needed >=9.0), and family regression for the THIRD consecutive cycle: each cycle's closed route reopens one syntactic level down - receiver, then binding form, then call shape and cross-call ink. Cycle 3 landed three more COMPLETE dot glyphs at 548 green: draw.line as a 240-ray fan (41x41 px, aspect 1.000, 1329 ink px against draw.ellipse's 1313 at the same radius - indistinguishable on a printed proof), a loop of in-bound draw.point calls (so the vertex bound is per-call and says nothing about ink accumulated across calls), and a stored bound method `stamp = draw.ellipse`."
+    station: architect/owner
+    route: "owner picks the instrument, then funds ONE cycle against it. (a) move `line` into the vertex-bounded set - BLOCKED, not merely expensive: two honest call sites (book_pdf_generator.py:1429 `ends`, :1441 `list(side)`; also png.py:186 and :217) are computed by construction and cannot pass a countable display, and this is the same regress the cycle-2 fix was right to refuse for receivers. (b) stop asking a syntax walk for a universal negative - switch AC-4's guard to render-and-measure: draw a page, find the ink, test it for roundness. The project already owns both halves (`_ink`/`_ink_box` live in this very test file), it is blind to spelling, all three cycle-3 survivors die instantly under it, and it is what CARD-207's printed proof does anyway. (c) narrow AC-4 to what is actually held, let the glyph land now, and card (b) as the follow-up the four adopting cards lean on. ORCHESTRATOR RECOMMENDATION: (c) then (b) - land the glyph, which is correct and verified, and fund the right instrument once as its own card rather than a fourth cycle here."
+    at: 2026-10-16T19:45:00Z
+    worktree_kept: ../PythonProject4-card-228
+    branch: card/228-difficulty-dots
+    head: 56cec05
+    note: "The PRODUCT code is not in question: AC-1/2/3/5/6 green, geometry independently verified in cycles 1-2, the cycle-3 src delta is a single docstring hunk, G-5 holds with zero callers, G-1..G-5 hold, system contract 4 of 4, and both exemption sets rejected every absorption probe. What is unmet is AC-4 alone - a universal negative over Python syntax that four downstream cards were meant to lean on. Verified at this station before escalating: FLAT_METHODS' reason for leaving `line` unguarded is factually false. Pillow's own docstring reads 'Draw a line, or a connected sequence of line segments' and it calls draw_lines."
 queued:
   - id: CARD-215
     reason: "dependency CARD-214 satisfied and CARD-204 merged; now eligible, waiting on a free slot (conflict edge with CARD-205/CARD-206 on export/layout.py and book_pdf_generator.py)"
@@ -179,4 +166,24 @@ conflict_edges:
 # amendment, CARD-225's NFR-008, CARD-224 cancelling CARD-204's pending FR-032, and
 # CARD-206's INV-013/FR-043 (CARD-229 sits behind it). CARD-228 needs none of them, which
 # is the other reason it is the right head.
-last_updated: '2026-10-16T17:04:17Z'
+# NOTE 2026-10-16T19:45Z: WAVE 42 - CARD-213 MERGED (cbd5a8e, 9.0 cycle 1, AC/EC/G 21/21,
+# 0.2d against 0.5d). CARD-228 ESCALATED after 3 review cycles and 2 fix cycles.
+# LANE A IS BLOCKED AT ITS HEAD. CARD-222 (the frame) and CARD-207/229/231/233 all sit behind
+# CARD-228, and four of them adopt the very glyph whose guard is in question. Nothing in lane A
+# should start until the owner picks AC-4's instrument. The non-lane-A queue is still open:
+# CARD-239 (P2, holds CARD-238's bounds) and CARD-216 are the eligible heads, and CARD-240 (P3,
+# 0.25d) is now unblocked by CARD-213's merge.
+# CARD-240 added - FR-044/AC-347's then-clause still enumerates only rules A and B while naming
+# the test that now holds a rule-C row. Found independently by CARD-213's review AND its AC/EC/G
+# gate, which is a fair signal it earns its quarter-day.
+# OWED AT THE ARCHITECT STATION, growing: CARD-206's INV-013/FR-043, CARD-222's CON-018,
+# CARD-225's NFR-008, CARD-224 cancelling CARD-204's pending FR-032, CARD-228's AC-4 instrument
+# (this escalation), and NEW - the package-wide dingbat constraint CARD-228 introduced is
+# undeclared outside its own test file although it now binds every string literal in
+# src/nonogram/ including docstrings, over all of U+25A0-U+25FF.
+# METHODOLOGY FINDING for the retrospective, found in the REVIEW station's own instrument rather
+# than in a card: running several mutants sequentially from ONE parent process yields FALSE
+# KILLED verdicts. One mutant per process is reliable; batching is not. Any record on this board
+# of the form "all N mutants caught" from a batched run is worth re-deriving - CARD-234's six and
+# CARD-228's own ten included.
+last_updated: '2026-10-16T19:45:00Z'
