@@ -1,6 +1,6 @@
 # CARD-238: The suite-timing tests stop asserting on gitignored host state
 
-**Status:** review
+**Status:** blocked
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** standard
@@ -15,12 +15,12 @@
 **Wave:** 41
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py
-**Review score:** 6.0 then 7.5 (cycle 2/3)
+**Review score:** 6.0 → 7.5 → 7.5 (cycle 3/3, max reached)
 **Started:** 2026-10-15T17:52:53Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** —
+**Blocked by:** escalated — decompose/owner: family regression, occurrence 2 — a guard's stated coverage exceeded its actual coverage in all three cycles, and cycle 3 added five new unfalsifiable declarations, one hiding a mutant that restores this card's own defect
 
 ## What to implement
 
@@ -560,3 +560,57 @@ corpus is `random.Random`, not `hypothesis`.
   **its own new fabricated source** as a live-log read, because the source was an inline call
   argument naming the log: "the module was its own first offender", fixed by binding it to a
   constant.
+- [Review sync] 3 report(s) → meta/review/20261016T093542Z-CARD-238-cycle3.yml
+- [Review 3/3] Score: 7.5 — crit: 0, imp: 2. **max cycles reached.** The reviewer's own
+  recommendation is ESCALATE, narrowly, and it was explicit that it was not softening.
+- [Review 3/3] ⚠ **F-301, the gating one: a mutant that restores THIS CARD'S OWN DEFECT survives
+  the entire guard suite.** `_LISTERS = frozenset({"iterdir","scandir","listdir"})` under the
+  comment "Listing that directory is the same coupling without a filename at all" — but the rule
+  tests the call's **receiver**, and `os.listdir` / `os.scandir` take the directory as an
+  **argument**; there is no `Path.listdib`/`Path.scandir`. So **two of three members are
+  structurally unreachable** and only `.iterdir()` is controlled.
+  Measured end to end as MUT-L, planted in another tracked guarded source (`tests/test_clues.py`,
+  reverted, md5 restored): `os.listdir` of the kanban dir, filtered to `*.log`, `pytest.skip` when
+  the host has none, then an assertion on the live log — **the original defect verbatim**. Both
+  guard classes PASS, **57 passed, rc=0**.
+  Why the behavioural half cannot save it: the comparison runs only `tests/test_suite_profile.py`
+  plus the control, so **220 of 221 guarded sources have the structural guard as their sole
+  defence** — and this form is not in `MEASURED_STRUCTURAL_MISSES`, so nothing goes red.
+- [Review 3/3] F-302 (Important): `_build_sandbox` states "a write here cannot land in the real
+  tree even if a future edit points a source path at it". The mkdir argument covers directories,
+  not the **57 data symlinks** the same function creates four lines earlier, whose `resolve()`
+  escapes. Latent — nothing writes there today — but it is a false **safety** claim on the card
+  whose hardest guardrail is "do not touch the owner's file", and the "even if a future edit…"
+  clause invites reliance on it.
+- [Review 3/3] ⚑ **FAMILY REGRESSION — occurrence 2, so the streak is 2 and the rule fires.**
+  The root-cause mechanism cycle 3 built is **real and correct**: holding limits as
+  `MEASURED_STRUCTURAL_MISSES` controls is the right answer, both false sentences are gone, and
+  the reviewer verified **all four controls are honest** by running `_live_log_references` on each.
+  What did not happen is a fresh sweep for NEW instances — the controls pin the misses already
+  known, and **five new declarations that cannot go red were written in the same pass**, one of
+  them (F-301) hiding a surviving mutant. The family is therefore: *a guard on this card acquires
+  a stated coverage wider than its mechanism, every single pass.* Four passes, four occurrences.
+- [Review 3/3] What HOLDS, so the escalation is proportionate and not a dismissal — the reviewer
+  verified every one of these independently with executed mutants:
+  * **all four claimed kills are genuine.** MUT-R dies to both halves, and crucially **the with-log
+    sandbox is a real "host that has the log"** (the planted node is PASSED there and FAILED
+    without, and the sandbox log genuinely exists/doesn't) — cycle 2's vacuity is gone. D1c's
+    mechanism confirmed: **0 symlinked `.py`, 0 symlinked directories, 0 `.py` resolving outside
+    the sandbox**. The module-level skip dies to both halves where the probe resolves to something
+    present, and **its stated limit reproduces byte for byte** and is genuinely irreducible from
+    inside one module.
+  * the exemption-abuse split is exactly as stated: structurally not caught, behaviourally killed.
+  * **the env-var survivor is an acceptable stated bound, not a blocker** — reproduced at 149
+    passed, documentation accurate on both halves, and the key argument is that its failure mode is
+    **loud**: the lethal property of the original defect was green-by-skipping, and an unset
+    variable here fails rather than skips.
+  * AC-2/AC-3/AC-4/AC-5 all SATISFIED; G-1 through G-5 all HELD; Step 8h 8 rules, 3 holds, 0
+    violated; suite cost proportionate at **0.35%** of the full run, with the self-reported numbers
+    independently reconciled.
+  * G-1 verified at start, after every mutant, and at the end: md5 `fd3e799a4ea30862d8d8e03966ae9349`.
+- [Escalated] 2026-10-16T09:40:34Z — family regression, occurrence 2, plus max_cycles reached · station:
+  decompose/owner (the procedure forbids auto-assigning a station on a family regression — the
+  evidence cannot distinguish the causes, and one question to a human can) · route: owner chooses
+  between one more bounded fix cycle, merging with F-301/F-302 recorded as bounds plus a follow-up
+  card, or a clean-slate redo carrying the family as a prior-attempt constraint.
+  Worktree and branch are KEPT: `../PythonProject4-card-238`, `card/238-timing-log-host-state`.

@@ -7,10 +7,14 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
+active: []
+escalated_cards:
   - id: CARD-238
-    phase: review
-    review_cycle: 1
+    reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
+    station: decompose/owner
+    route: "owner picks: one bounded fix cycle | merge with F-301/F-302 as recorded bounds + follow-up card | /kanban redo with the family as a prior-attempt constraint"
+    at: 2026-10-16T09:40:00Z
+    worktree_kept: ../PythonProject4-card-238
     branch: card/238-timing-log-host-state
     worktree: ../PythonProject4-card-238
     started: 2026-10-15T17:52:53Z
