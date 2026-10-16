@@ -131,6 +131,19 @@ _PYTEST_PROCESS = re.compile(
 #   2026-10-06T17:20:55Z wave-35 full-suite 770s PASS (6618 passed, 9 skipped, 0 failed)
 #   2026-10-15T06:30:00Z wave-38 card-221-merge-gate 939s PASS (...) [133ms/test]
 #   2026-10-14T05:20:00Z wave-37 card-214-merge-gate --- PASS (...)
+#   2026-10-14T19:20:17Z wave-38 card-212-merge-gate 1123s PASS (...) [159ms/test] (...)
+#
+# CARD-238 added the fourth shape -- a parenthesised note *after* the rate
+# bracket. It was not new to the log: two entries have used it since wave 38,
+# and both of them parsed with `rate=''` because `notes` was a greedy `.*`
+# that swallowed the bracket. Six of the log's lines carry a rate and only
+# three gave one back. So `notes` is now lazy and the trailing note has a
+# group of its own (`extra`), which leaves the accepted/rejected *language*
+# exactly as it was -- `(...)` followed by optional junk inside the
+# parentheses always matched -- and changes only which field gets which text.
+# A *bare* trailing note (` — prose`, no parentheses) stays rejected: no
+# entry uses it, and `tests/test_suite_profile.py` pins it, names the writer
+# and says why.
 # --------------------------------------------------------------------------
 
 TIMING_LOG_LINE = re.compile(
@@ -139,8 +152,9 @@ TIMING_LOG_LINE = re.compile(
     r"(?P<label>\S+) "
     r"(?P<duration>\d+s|---) "
     r"(?P<status>PASS|FAIL) "
-    r"\((?P<notes>.*)\)"
-    r"(?: \[(?P<rate>\d+ms/test)\])?$"
+    r"\((?P<notes>.*?)\)"
+    r"(?: \[(?P<rate>\d+ms/test)\])?"
+    r"(?: \((?P<extra>.*)\))?$"
 )
 
 # --------------------------------------------------------------------------
@@ -350,6 +364,11 @@ def parse_timing_line(line: str) -> dict[str, str] | None:
     """Parse one ``suite-timing.log`` entry, or ``None`` if it is not one.
 
     Blank lines and ``#`` comments are not entries and return ``None``.
+
+    ``notes`` is the parenthesised note the format has always had; ``extra``
+    is a second parenthesised note after the rate bracket, which two entries
+    have used since wave 38 (see the line-contract comment above). ``extra``
+    is ``""`` when there is none, as every absent group is.
     """
     stripped = line.rstrip("\n")
     if not stripped.strip() or stripped.lstrip().startswith("#"):
