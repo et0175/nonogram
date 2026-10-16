@@ -1,6 +1,6 @@
 # CARD-240: FR-044's examples AC still enumerates only rules A and B
 
-**Status:** review
+**Status:** done
 **Priority:** P3
 **Category:** tech-debt
 **Complexity:** trivial
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/240-fr044-rule-c
-**Worktree:** ../PythonProject4-card-240
+**Worktree:** — (removed at merge)
 **Source:** CARD-213's review cycle 1 (2026-10-16), finding F-002 — raised as a Minor and routed here rather than fixed in that card, because `meta/architecture/requirements.yml` is architect-delta-owned and outside CARD-213's `Touches:`
 **Idea:** —
 **Wave:** 42
@@ -17,9 +17,9 @@
 **Touches:** meta/architecture/requirements.yml
 **Review score:** 9.0 (cycle 1/3 — 0 blockers, 0 high, 0 medium, 1 low; severity gate PASS)
 **Started:** 2026-10-16T19:55:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-16T20:10:00Z
+**Actual:** 0.1d
+**Merge commit:** 9f0ab10
 **Blocked by:** —
 
 ## What to implement
@@ -294,3 +294,4 @@ No blocker: the clause was made true by wording alone, with no code change.
   worktree. They are, by design — the CARD SYNC PROTOCOL makes the MAIN-repo card authoritative and
   `/commit` excludes `meta/kanban/`; I pulled the notes into the main copy at each sync point, so
   nothing is lost when the worktree goes. Noting it because the reviewer could only see the worktree.
+- [Closed] merged **9f0ab10**, actual **0.1d against 0.25d**. One review cycle at 9.0, its one low finding fixed in the branch, no escalation. Worktree removed, `card/240-fr044-rule-c` deleted.
