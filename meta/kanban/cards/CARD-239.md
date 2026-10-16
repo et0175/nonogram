@@ -15,7 +15,7 @@
 **Wave:** 42
 **Depends on:** —
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py, .gitignore, pyproject.toml
-**Review score:** —
+**Review score:** 8.0 (cycle 1/3 — min_score met, 0 critical, 2 important; severity gate FAILS)
 **Started:** 2026-10-16T20:45:00Z
 **Closed:** —
 **Actual:** —
@@ -431,3 +431,44 @@ alone: **440 passed** in ~18s. Under the lower-interpreter plugin: **388 passed,
 - [Found in passing] a **third** version-floor statement nobody had noticed: the PyPI classifier said `Python :: 3.9+`. So two of three statements agreed with each other and not with the interpreter anyone runs. `pyproject.toml` is now authoritative at `>=3.14`, CLAUDE.md already agreed, and all three are pinned by `TestTheInterpreterFloor`.
 - [Review 1/3] dispatched with AC-7's sweep audit as priority 1, on the grounds that if the sweep is decorative the card has reproduced the CARD-238 defect one level of abstraction higher — which is the only way this card can fail quietly. Also asked to judge the one gap the agent named itself (three argparse lines no test executes, asserted structurally only because AC-6 forbids invoking the subcommand) and the one claim it labelled **reasoned, not measured** (the xdist/randomly interleaving, undemonstrable because neither is in the dependency baseline).
 - [Raised for the owner, G-5] `cmd-run.md` in `~/MyProjects/forge_1` is **not** edited, correctly. But it is the one file the dispatcher reads at a merge gate, and it documents neither the legal parenthesised post-bracket note nor the illegality of a bare one — **so it is still where the next malformed timing line will come from.** `tests/README.md` now documents both, with the writer named and the `--check-log` invocation shown. I nearly wrote such a line myself today and caught it only by running it through the committed regex.
+- [Review 1/3] **8.0, severity gate FAILS** on 2 Important, 0 Critical. Risk MEDIUM, lane DEEP.
+  Report synced. The reviewer ran **8 mutants of its own**, each in a fresh process, restored from a
+  byte copy with md5 verified, tree clean after.
+- [Review 1/3] **the sweep is NOT decorative — 31 of 33 PINNED rows held the sample, and every one of
+  the 21 tests it names exists in the module it claims.** The two rows it found false are the finding,
+  and they are both about the **new module's own rules**, which is what makes them AC-7 failures
+  rather than ordinary defects. That is a much better outcome than a decorative sweep: the mechanism
+  works, and it has two blind spots that are precisely where the mechanism does not reach itself.
+- [Review 1/3] it also **confirmed the two claims the sweep caught in its own pass are real** — M5
+  re-added `skip_module`/`fail` and the control killed it, and `'skip_module' in dir(pytest)` is
+  `False`. So AC-7 catching its own author twice is verified, not self-reported.
+- [Review 1/3] **F-001 (Important): `_MODULE_SCOPE_SILENCERS` is swept as default-deny and is not.**
+  I re-ran the decisive measurement MYSELF in a sandbox rather than relaying it, because this is the
+  claim that decides the finding's severity and because relaying unverified figures has been my own
+  failure mode all day: `raise unittest.SkipTest(...)` at module scope on host state, run as a real
+  pytest module → **`1 skipped in 0.05s`, rc=0**. That is the **F-308 verdict verbatim** — the
+  CARD-234-green / CARD-235-red flip this entire card exists to end, reachable through a sibling
+  spelling the new rule cannot see. `os._exit(0)` is quieter still. The set has no completeness test,
+  and sweep row D-6 pins "what is enumerated is what is allowed" — inverted; what is enumerated is
+  what is **reported**.
+- [Review 1/3] **F-002 (Important): AC-6's no-invocation guard misses a shell string, and its control
+  for that case certifies a copy of the predicate.** The deployed rule matches
+  `node.value == CHECK_LOG_OPTION`; its control reimplements it inline as
+  `CHECK_LOG_OPTION in str(node.value)`, strictly wider — so the control passes on a predicate the
+  guard does not run. On disk: the argv form is killed, and
+  `os.system("python meta/profiling/rank_durations.py --check-log meta/kanban/suite-timing.log")`
+  **SURVIVED at 1 passed**. A guarded source can shell out to the deliberate reader against the
+  owner's live gitignored log with the guard green — exactly the coupling CARD-238 removed and G-1
+  protects. And it is realistic here: the sweep's **own row F-8** argues shelling out "is this
+  module's own idiom (six `git ls-files` listings)".
+- [Fix 2] dispatched. On F-001 I told the agent **not** to attempt the reviewer's first option as
+  written, because a pure derivation is unavailable and a literal default-deny is unworkable: a test
+  module's module scope is legitimately full of imports, constants and helper defs, so reporting
+  every statement the rule does not understand would report everything — which is presumably how the
+  description and the mechanism drifted apart to begin with. The brief instead prescribes the three
+  parts that do work: derive the pytest half over `dir(pytest)` with a completeness test, add the
+  measured non-pytest routes (`unittest.SkipTest`, `os._exit`, `collect_ignore`) as explicit members
+  each with a caught-with/missed-without control, and record the residue as measured misses. On F-002
+  it is told to factor the rule into one function all three tests call and then **widen** the
+  predicate rather than record a miss — a recorded miss is right for an obscure route, and this one
+  is the module's own idiom reaching the owner's live log.

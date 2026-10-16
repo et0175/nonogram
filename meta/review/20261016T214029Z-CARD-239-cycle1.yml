@@ -1,0 +1,296 @@
+version: 1
+generated_at: "2026-10-16T21:40:29Z"
+target: "CARD-239, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-239, branch card/239-timing-guard-bounds, HEAD 46a5d31, git diff main...HEAD (8 files, +2301/-195)"
+overall_score: 8.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "tests/test_guard_integrity.py (full)"
+    - "tests/test_suite_profile.py (all CARD-239 regions: lines 739-805, 1157-1760, 2016-2300, 3257-3500, 3740-3930, 3981-4560)"
+    - "meta/profiling/rank_durations.py (full diff + main())"
+    - "meta/review/CARD-239-claim-sweep.md (full, audited row by row)"
+    - "meta/kanban/cards/CARD-239.md (full incl. Worktree notes)"
+    - "tests/test_sourcing_image.py (AC-5 diff)"
+    - "tests/README.md (diff)"
+    - ".gitignore, pyproject.toml (diff)"
+  not_reached:
+    - "meta/kanban/cards/CARD-238.md (read only via CARD-239's restatement of it and the cycle-5 sweep's filename; its retrospective note was taken from CARD-239's quotation)"
+    - "the full suite (run by the dispatcher as the merge gate; not run here by instruction)"
+    - "the lower-interpreter deletion plugin (AC-3's 388-passed figure not independently re-run; the typo direction was mutated instead)"
+  confidence: high
+metrics:
+  diff: { files: 8, added: 2301, removed: 195 }
+  max_fan_in:
+    symbol: "_live_log_references (tests/test_suite_profile.py)"
+    callers: 14
+  tests_cover_change: true
+  hotspots:
+    - "tests/test_suite_profile.py (24 commits over the touched set in 12 months; 2 fix/bug commits on the two guard files)"
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact - the co-change peers of tests/test_suite_profile.py over 12 months are itself (6) and meta/profiling/rank_durations.py (4); both are in this diff, so the absent-peer set is genuinely empty rather than uncounted"
+
+system_contract:
+  rules_checked: 1
+  holds: 1
+  unchecked: 0
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 (runtime dependencies are exactly stdlib + Pillow + NumPy) - holds: its own check ran green on this head (./.venv/bin/python -m pytest tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed -> 1 passed). pyproject.toml's only edits are requires-python and one classifier; every new import in the diff is stdlib (typing.NamedTuple; ast, importlib.util, re, sys, tomllib, pathlib, types)."
+
+root_causes:
+  - id: RC-1
+    title: "In the new second guard module, two claims are certified by something other than the rule that actually runs - the CARD-238 family reproduced one module over"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 126
+    title: "The module-scope silence rule is described and swept as default-deny; measured, it is enumerate-and-report, and a sibling silencing spelling produces the identical verdict undetected"
+    description: |
+      `_MODULE_SCOPE_SILENCERS = frozenset({"skip", "exit", "importorskip", "xfail"})`
+      with `_module_scope_silences()` reporting (a) a module-scope call whose last
+      name component is in that set and (b) any `pytestmark` binding. Nothing else
+      at module scope is reported.
+
+      Three claims in this diff are false of that code:
+        * line 126 "Default-deny, because the alternative does not work."
+        * lines 131-133 "the completeness claim is carried by the shape of the
+          rule: a module-scope statement this rule does not understand is
+          reported, not ignored."
+        * line 259 (MEASURED_MODULE_SCOPE_SILENCES) "Every module-scope silence in
+          the guarded tree. Empty, measured 2026-10-17."
+
+      Measured by calling `_module_scope_silences` directly (fresh process, module
+      loaded by path):
+        raise unittest.SkipTest("no timing log on this host")  -> []
+        os._exit(0) under a host-state if                      -> []
+        a helper function that calls pytest.skip(...)           -> []
+        collect_ignore = ["test_suite_profile.py"]              -> []
+        pytest.skip(..., allow_module_level=True)               -> [('skip() at module scope', '')]
+
+      The first of those is not hypothetical. Run as a real pytest module
+      (scratchpad sandbox, fresh process):
+
+        import unittest, os
+        if not os.path.exists("/nonexistent-timing-log"):
+            raise unittest.SkipTest("no timing log on this host")
+        def test_guard_a(): assert False
+        def test_guard_b(): assert False
+
+      -> `1 skipped in 0.00s`, rc=0. That is byte-for-byte the verdict the F-308
+      mutant produced ("1 skipped in 0.03s, rc=0 - 398 guards gone, run green")
+      and the verdict the card calls the CARD-234-green / CARD-235-red flip. So
+      AC-4's hole is closed for the four spellings someone thought of and open for
+      a sibling with the same observable outcome. (`os._exit(0)` is quieter still:
+      rc=0 with no output at all.)
+
+      This is the governing rule unmet: the set a guard consults has no
+      completeness test. The only completeness-shaped test,
+      `test_every_silencer_it_names_has_a_control`, runs the CONVERSE direction
+      (every member has a control) - which is why it caught `skip_module` and
+      `fail` and cannot catch an absent member. `test_every_way_a_module_goes_quiet_is_reported`
+      (9 positive) and `test_what_this_rule_must_not_claim_is_not_claimed`
+      (6 negative) are all about members of the set.
+
+      And the sweep records it as pinned. Row D-6: '"the module-scope rule is
+      default-deny" | **PINNED** - nine positive controls ... the completeness
+      claim is carried by the rule's shape, not by the list: nothing enumerates
+      the ways a module can go quiet, so what is enumerated is what is *allowed*.'
+      The last clause is inverted: what is enumerated is what is REPORTED.
+      D-6 is the row a generous reading would hide behind, and it is false.
+
+      The card knew the right shape and applied it one module over: the first
+      module derives its surface from dir(os)/dir(os.path)/dir(glob)/dir(pathlib.Path)
+      and is red on any unclassified name (`test_every_spelling_the_stdlib_offers_is_classified`,
+      verified red by mutant M3 below). The new module has no equivalent.
+    suggestion: |
+      Either close it or record it, not describe it:
+        (a) derive, the way AC-1 did - probe a surface (e.g. `dir(pytest)` plus
+            `unittest.SkipTest`, `os._exit`, `sys.exit`, conftest's
+            `collect_ignore`/`collect_ignore_glob`) and be red on any name that is
+            neither a silencer nor an exclusion carrying a reason; or
+        (b) delete the three sentences and add the measured misses as controls in
+            the shape this card already uses for exactly this purpose - a
+            MEASURED_STRUCTURAL_MISSES-style tuple asserting
+            `_module_scope_silences(src) == []` for the SkipTest, `os._exit`,
+            helper-indirection and `collect_ignore` forms, so the bound goes red
+            the day the rule grows past it.
+      (b) is one tuple and honours G-4. Whichever is chosen, sweep row D-6 must
+      stop saying PINNED.
+    confidence: high
+    source: static
+    violates: AC-7
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/test_guard_integrity.py
+    line: 715
+    title: "AC-6's no-invocation guard misses a shell-string invocation of --check-log; its own positive control for that case passes against a reimplemented predicate the guard does not use"
+    description: |
+      `test_no_guarded_source_invokes_the_check_log_subcommand` (line 715) walks
+      every *.py under tests/ and meta/profiling/ and reports a Constant whose
+      value is EXACTLY `CHECK_LOG_OPTION`:
+
+          and node.value == CHECK_LOG_OPTION
+
+      Its positive-control test, `test_the_invocation_rule_catches_every_way_of_passing_it`
+      (line 759), does not call that rule. It reimplements it inline with a
+      strictly wider predicate:
+
+          and CHECK_LOG_OPTION in str(node.value)
+
+      So the "a shell string" control (`os.system("r.py --check-log x")`) is green
+      against a predicate the guard does not run. Measured, both predicates copied
+      verbatim into one script:
+
+          a subprocess argv      control=True  DEPLOYED=True
+          main() directly        control=True  DEPLOYED=True
+          a shell string         control=True  DEPLOYED=False
+          subprocess(shell=True) control=True  DEPLOYED=False
+
+      Measured on disk too, one mutant per fresh pytest process, both restored
+      from a byte copy with md5 verified:
+        * planted in tests/test_clues.py:
+          `subprocess.run(["python","meta/profiling/rank_durations.py","--check-log","x"])`
+          -> guard RED (killed).
+        * planted in tests/test_clues.py:
+          `os.system("python meta/profiling/rank_durations.py --check-log meta/kanban/suite-timing.log")`
+          -> guard GREEN, `1 passed`. SURVIVED.
+
+      The consequence is the one CARD-238 was cut for: a guarded source can shell
+      out to the deliberate reader against the owner's live gitignored log and
+      AC-6's guard stays green - the suite's verdict becomes a fact about the host
+      again, and G-1's territory is reachable through a route no test reports.
+      It is a realistic route in this very tree: the sweep's own row F-8 argues
+      that shelling out to list files "is **this module's own idiom** (six
+      `git ls-files` listings)". The first module records exactly that blind spot
+      as two MEASURED_STRUCTURAL_MISSES entries; the new module's rule has the
+      same blind spot and claims a control for it instead.
+
+      Sweep row E-3 therefore overstates: '"no test invokes the subcommand" |
+      **PINNED** ... with four fabricated positive controls (a subprocess argv,
+      `main([...])`, a shell string, an argv list)'. Three of four discriminate
+      against the deployed rule; the shell-string one measures a copy.
+
+      Root cause shared with F-001 and with the project's own precedent: all three
+      AC-6 tests (lines 679, 759, 797) re-derive the predicate inline instead of
+      calling one function, so a control certifies a copy rather than the rule.
+      The first module avoids this by construction - every control there calls
+      `_live_log_references`, which is why mutants M1/M6 and the
+      `SPELLINGS.without(spelling)` discrimination tests are meaningful.
+    suggestion: |
+      Factor the rule into a module-level function (e.g.
+      `_check_log_invocations(source) -> dict[str, list[str]]`) and have all three
+      tests call it, so a control cannot be green against a predicate that is not
+      deployed - the shape `_live_log_references` already has in the other module.
+      Then decide the shell-string case explicitly: either widen the deployed
+      predicate to `CHECK_LOG_OPTION in str(node.value)` (and keep the
+      add_argument / module-assignment shape exemptions, which still hold), or
+      drop the shell-string control and record the form as a measured miss with a
+      reason. Do not leave a control that passes for a form the rule misses.
+    confidence: high
+    source: static
+    violates: AC-7
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 459
+    title: "The emptied-module half of the import probe has a floor of 60 against a 398-test module"
+    description: |
+      `test_the_guard_module_imports_without_going_quiet` asserts
+      `len(tests) >= 60` and documents the claim as "a module emptied rather than
+      silenced is reported too". tests/test_suite_profile.py collects 398, so the
+      floor is ~15% of actual: 330 of the guards could be deleted with this probe
+      green. The claim as written is wider than the control. G-2 is enforced
+      elsewhere (the dispatcher ast-diffed the function names), so the exposure is
+      small - but the sentence says "emptied" and the number permits "gutted".
+    suggestion: |
+      Either raise the floor to something near the real count (and accept editing
+      it when the module grows), or derive it - e.g. assert the count is not below
+      the count of `def test_` in `git show main:tests/test_suite_profile.py`, or
+      narrow the docstring to "a module emptied down to a handful".
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_suite_profile.py
+    line: 2055
+    title: "A glob under a joined directory reports a second, garbled reference"
+    description: |
+      Measured: for
+        `glob.glob(os.path.join(ROOT, "meta", "kanban", "*.log"))`
+      `_live_log_references` returns
+        ["glob('*.log') under meta/kanban", "glob('metakanban*.log') under meta/kanban"]
+      - two references for one call site, the second with the components
+      concatenated without a separator. Detection is unaffected (the guard fires
+      either way, and the AC-1 control for this form is real), but the reported
+      text is what a future reader will act on, and "metakanban*.log" names
+      nothing.
+    suggestion: "In `_joined_components`/`_live_log_references`, dedupe the component chain so a joined directory contributes one reference, not one per prefix fold."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: question
+    file: tests/README.md
+    line: 365
+    title: "The live log's path is now a literal inside a guarded tree, in a file no guard walks"
+    description: |
+      tests/README.md now carries
+      `rank_durations.py --check-log meta/kanban/suite-timing.log` as a runnable
+      example. That is the right documentation (AC/part 5) and sweep row E-6
+      correctly argues the option must have no default so the path does not land
+      in a *.py the AC-1 guard walks. The note is only that the path literal is
+      now in a tracked file inside a guarded directory, and both guards filter to
+      `.endswith(".py")`, so nothing covers it. No claim in the diff says
+      otherwise - this is a bound worth stating rather than a defect.
+    suggestion: "No change required. If the card wants it on the record, one line in the sweep's section G ('the path appears in tests/README.md, which no guard walks; the guards' territory is *.py') closes it."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
