@@ -121,8 +121,44 @@ Tests are marked for easy filtering:
 
 Available fixtures (from `conftest.py`):
 
-- `db_session` — `SessionLocal` factory bound to an empty, fully migrated test database (`TEST_DATABASE_URL`, default `…/nonogram_test`). The schema is rebuilt once per session (`DROP SCHEMA public CASCADE`, then `alembic upgrade head`) and every table is truncated before each test. Refuses — as a failure, before connecting — any URL whose database name does not end in `_test` or that overrides it with a `dbname`/`database` query parameter. Skips when the database is unreachable (one cached probe per run).
+- `db_session` — `SessionLocal` factory bound to an empty, fully migrated test database (`TEST_DATABASE_URL`; when unset, **a name derived from this repo root** — see below). The schema is rebuilt once per session (`DROP SCHEMA public CASCADE`, then `alembic upgrade head`) and every table is truncated before each test. The database is created if it does not exist. Refuses — as a failure, before connecting — any URL whose database name does not end in `_test` or that overrides it with a `dbname`/`database` query parameter. Skips when the database is unreachable (one cached probe per run).
 - `app` — Flask test app (depends on `db_session`)
+
+#### One test database per worktree (CARD-244)
+
+The fixtures above **erase** the database they are given. Until CARD-244 every
+pytest process on the machine was given the same one, `nonogram_test`, so two
+cards running at once destroyed each other's data rather than merely contending
+for it — measured in wave 44 as two failures in `test_book_trim_persistence`
+that are 200 passed in isolation, and as a 48-test "regression" in a build gate
+that never existed.
+
+So with `TEST_DATABASE_URL` unset the name is derived from the resolved repo
+root:
+
+    nonogram_<tree>_<12 hex of sha256(root)>_test
+
+for example `nonogram_pythonproject4_543f9f3f05e1_test` (41 bytes) for the
+repo and `nonogram_pythonproject4_card_244_d541cdce17d1_test` (50 bytes) for a
+worktree beside it. The slug is trimmed so the name never exceeds Postgres's
+63-byte limit — which Postgres silently *truncates* rather than refuses, and a
+truncation collision would put the shared-database bug straight back. The
+digest is taken over the whole path, so two deep trees whose names truncate
+alike still differ.
+
+The database is created on first use, through the `postgres` maintenance
+database, and migrated to head by the usual session fixture. Nothing has to be
+set up by hand.
+
+An exported `TEST_DATABASE_URL` is used **verbatim** and no name is derived, so
+CI, `scripts/run_admin_tests.sh` and a hand-run with one exported all behave
+exactly as before. `run_admin_tests.sh` now sets it to the `DATABASE_URL` it
+checked, so the database it reports is the database the fixtures erase.
+
+The names end in `_test` on purpose: that is the one thing
+`_refuse_unless_test_database` requires, so deriving a name needed no change to
+the guard that keeps `DROP SCHEMA` away from the panel's `nonogram_poc`.
+
 - `client` — Flask test client
 - `puzzle_review_service` — Puzzle review service
 - `batch_generator_service` — Batch generator service
@@ -379,10 +415,15 @@ pip install -e .
 ```
 
 **"database does not exist"**
+
+Since CARD-244 the fixtures create their own database, so this should not
+happen for a derived name. If you have pointed `TEST_DATABASE_URL` at a name
+outside `[a-z0-9_]`, the fixtures decline to create it (they would have to
+interpolate it into `CREATE DATABASE`) and say so in the skip reason — make it
+yourself, or pick a plainer name:
 ```bash
-# Set test database URL
-export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_test"
-createdb nonogram_test
+export TEST_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/nonogram_mine_test"
+createdb nonogram_mine_test
 ```
 
 **"Refusing to set up the test database"**

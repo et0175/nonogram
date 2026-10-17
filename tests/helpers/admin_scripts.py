@@ -82,6 +82,12 @@ exit 0
 _PYTEST_STUB = r"""#!/bin/bash
 echo "pytest $*" >> "$STUB_LOG"
 echo "pytest-env DATABASE_URL=${DATABASE_URL-<unset>}" >> "$STUB_LOG"
+# CARD-244: the suite's destructive fixtures read TEST_DATABASE_URL, not
+# DATABASE_URL, so "the script did not point the suite somewhere else" is a
+# statement about this variable too. Logged under its own prefix, which
+# ``Run.handed`` does not match -- so the existing DATABASE_URL assertions
+# read exactly what they read before.
+echo "pytest-env TEST_DATABASE_URL=${TEST_DATABASE_URL-<unset>}" >> "$STUB_LOG"
 if [ -n "${STUB_PYTEST_FAIL:-}" ]; then
     echo "1 failed" >&2
     exit 1
@@ -139,6 +145,16 @@ class Run:
         prefix = f"{consumer}-env DATABASE_URL="
         return [c[len(prefix):] for c in self.calls if c.startswith(prefix)]
 
+    def handed_test_url(self, consumer: str) -> list[str]:
+        """The TEST_DATABASE_URL each run of ``consumer`` saw (CARD-244).
+
+        Separate from :meth:`handed` because the two variables are read by
+        different code and only one of them decides which database gets
+        ``DROP SCHEMA``-ed.
+        """
+        prefix = f"{consumer}-env TEST_DATABASE_URL="
+        return [c[len(prefix):] for c in self.calls if c.startswith(prefix)]
+
 
 def connections(run: Run) -> list[dict[str, str]]:
     """What each psql the script ran would have connected to (model's reading)."""
@@ -153,6 +169,7 @@ def run_script(
     tmp_path: Path,
     *args: str,
     database_url: str | None = None,
+    test_database_url: str | None = None,
     missing_db: str | None = None,
     existing_dbs: list[str] | None = None,
     alembic_fails: bool = False,
@@ -199,7 +216,13 @@ def run_script(
     env = {
         k: v
         for k, v in os.environ.items()
-        if k not in ("DATABASE_URL", "VIRTUAL_ENV") and not k.startswith("PG")
+        # CARD-244 adds TEST_DATABASE_URL to the stripped set, for the reason
+        # DATABASE_URL is in it: the suite's destructive fixtures read it, so
+        # a developer's exported value would otherwise decide what
+        # ``run_admin_tests.sh`` hands pytest, and these tests would pass or
+        # fail by the shell they were started from.
+        if k not in ("DATABASE_URL", "TEST_DATABASE_URL", "VIRTUAL_ENV")
+        and not k.startswith("PG")
     }
     if without_psql:
         env["PATH"] = f"{bin_dir}{os.pathsep}{_real_tools_dir()}"
@@ -218,6 +241,8 @@ def run_script(
         env["STUB_PYTEST_FAIL"] = "1"
     if database_url is not None:
         env["DATABASE_URL"] = database_url
+    if test_database_url is not None:
+        env["TEST_DATABASE_URL"] = test_database_url
 
     bash = shutil.which("bash")
     assert bash, "bash is needed to run the script"

@@ -69,6 +69,18 @@ PSQL_URL="${PSQL_URL%%+*}://${DATABASE_URL#*://}"
 # parsed, so --help and a mistyped option still answer without a database.
 export FLASK_ENV=development
 export DATABASE_URL
+# CARD-244: the database this script checks is also the database the suite's
+# destructive fixtures erase. tests/conftest.py's db_session fixture takes
+# TEST_DATABASE_URL, and since CARD-244 it *derives* a per-worktree name when
+# that variable is unset -- so without this line the script would check one
+# database, print its name, and then watch the suite DROP SCHEMA on another.
+# Any database-backed test that could not reach the derived one would skip,
+# and the script would report "Tests completed!" having tested nothing: the
+# green-for-nothing failure CARD-152 added the check for in the first place.
+#
+# An exported TEST_DATABASE_URL still wins, exactly as an exported
+# DATABASE_URL does above.
+export TEST_DATABASE_URL="${TEST_DATABASE_URL:-$DATABASE_URL}"
 
 # Defaults
 TEST_TYPE="all"
@@ -139,6 +151,13 @@ while [[ $# -gt 0 ]]; do
             echo "                    smoke included, checks it first: psql must be"
             echo "                    installed and the database reachable, or the script"
             echo "                    stops before running any test."
+            echo "  TEST_DATABASE_URL The database the suite's fixtures rebuild and erase."
+            echo "                    This script sets it to DATABASE_URL, so the database"
+            echo "                    it checks above is the one that gets erased. An"
+            echo "                    exported value wins. A bare 'pytest' run, which sets"
+            echo "                    neither, derives a name from the repo root instead"
+            echo "                    (nonogram_<tree>_<digest>_test) so that two worktrees"
+            echo "                    cannot wipe each other's schema mid-run -- CARD-244."
             echo ""
             echo "Examples:"
             echo "  ./scripts/run_admin_tests.sh wave1                # Run Wave 1 tests"

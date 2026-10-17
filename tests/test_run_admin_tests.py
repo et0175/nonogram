@@ -180,3 +180,57 @@ class TestRunAdminTests_DefaultsToTheTestDatabase:
         assert [c["dbname"] for c in connections(run)] == ["nonogram_mine_test"]
         assert run.handed("pytest") == [url], run.calls
         assert "nonogram_test" not in run.output.replace("nonogram_mine_test", "")
+
+
+class TestRunAdminTests_ErasesTheDatabaseItChecked:
+    """CARD-244: the database checked above is the one the fixtures rebuild.
+
+    The suite's destructive fixtures read ``TEST_DATABASE_URL``, and since
+    CARD-244 they *derive* a per-worktree name when it is unset. So a script
+    exporting only ``DATABASE_URL`` would check one database, print its name,
+    and then hand the suite another — and if that other one could not be
+    reached, every database-backed test would skip and this script would still
+    say "Tests completed!". That green-for-nothing run is what CARD-152 added
+    the check for; this pins that the check and the suite mean one database.
+    """
+
+    def test_pytest_is_handed_the_same_url_in_both_variables(
+        self, tmp_path: Path
+    ) -> None:
+        run = run_script(SCRIPT, tmp_path, existing_dbs=["nonogram_test"])
+
+        assert run.returncode == 0, run.output
+        assert run.handed("pytest") == [TEST_DB_URL], run.calls
+        assert run.handed_test_url("pytest") == [TEST_DB_URL], run.calls
+        # The one psql the script ran, and the database the suite would erase,
+        # are the same database.
+        assert [c["dbname"] for c in connections(run)] == ["nonogram_test"]
+
+    def test_an_exported_url_reaches_both_variables(self, tmp_path: Path) -> None:
+        url = "postgresql://someone@localhost:5432/nonogram_mine_test"
+        run = run_script(
+            SCRIPT, tmp_path, database_url=url, existing_dbs=["nonogram_mine_test"]
+        )
+
+        assert run.returncode == 0, run.output
+        assert run.handed_test_url("pytest") == [url], run.calls
+
+    def test_an_exported_test_database_url_is_not_overwritten(
+        self, tmp_path: Path
+    ) -> None:
+        """CARD-244 AC-3: an explicit TEST_DATABASE_URL still wins, as in CI.
+
+        Handed through the harness rather than exported into this process: the
+        harness strips both database variables for the same reason, so that
+        the shell these tests were started from cannot decide an outcome.
+        """
+        mine = "postgresql://ci@localhost:5432/ci_run_41_test"
+        run = run_script(
+            SCRIPT, tmp_path, test_database_url=mine, existing_dbs=["nonogram_test"]
+        )
+
+        assert run.returncode == 0, run.output
+        assert run.handed_test_url("pytest") == [mine], run.calls
+        # …and the check still ran against DATABASE_URL's default, which is
+        # what a caller exporting only one of the two asked for.
+        assert run.handed("pytest") == [TEST_DB_URL], run.calls
