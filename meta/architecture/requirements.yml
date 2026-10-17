@@ -2500,6 +2500,36 @@ functional:
     # RESOLVED 2026-09-22 by ADR-0037 (DEC-039): the band shows "Puzzle N ·
     # Tier"; under the book PageSpec thin rule >= 0.25 mm, heavy = 2 x thin,
     # pure black; final values confirmed on printed proof pages (30x30, 15x15).
+    #
+    # AMENDED 2026-10-17 (owner decision, CARD-227) — the open question below
+    # is CLOSED, and ADR-0037/R2 is amended with it (see that ADR's History).
+    # The grid gets THREE weights, not two, stated in points so they do not
+    # depend on the render resolution: 0.48 pt ordinary cell lines in GREY,
+    # 1.28 pt every 5th line, 2.08 pt outer border.
+    #   Provenance: the owner's artifact "Puzzle page layout" (2026-10-14)
+    #   specified 0.3 / 0.8 / 1.3 pt. Those RATIOS are kept exactly
+    #   (1 : 2.667 : 4.333); the figures are scaled up by 1.6 so the thinnest
+    #   line is 2 device pixels at 300 DPI. Why, measured rather than assumed:
+    #   0.3 pt is 0.1058 mm = 1.25 px, i.e. a ONE-pixel grey line, which can
+    #   dither or drop out on press -- and it is THINNER than the 0.17 mm that
+    #   ADR-0037 explicitly rejected as "exactly where faint lines hurt most"
+    #   on the evidence of 7 of 17 reviews of the 450-puzzle book complaining
+    #   of faint grid lines (research section 5). Shipping the artifact's
+    #   figures literally would have re-opened the complaint ADR-0037 exists
+    #   to close. 0.48 pt = 0.1693 mm = exactly 2 px, which is the same
+    #   0.17 mm the package already prints at its small cells today.
+    #   Rendered widths 2 / 5 / 9 px at 300 DPI are all distinct, so the three
+    #   weights stay distinguishable (AC-374).
+    #   The obvious middle path is arithmetically DEAD and was ruled out, not
+    #   skipped: lifting only the cell line to ADR-0037's old 0.25 mm floor
+    #   (0.709 pt) puts it at 2.95 px against the 5th line's 0.8 pt = 3.33 px,
+    #   and BOTH round to 3 px -- indistinguishable.
+    # Two things this amendment deliberately changes in ADR-0037/R2: the thin
+    # minimum (0.25 -> 0.17 mm, grey cell lines only) and "pure black" (cell
+    # lines are grey; the 5th lines and border stay dark). The heavy rule is
+    # no longer "2 x thin" -- it is the owner's ratio.
+    # NOT re-decided here: NFR-008's cell band, and the cell GEOMETRY. This
+    # changes stroke widths only.
     # New 2026-09-22 (BK-5, rules 7-8). Today the PDF header band
     # (export/layout.py header_band, HEADER_BAND_MM = 12) prints
     # "<name> — <tier>" on the puzzle page itself; MAJOR_RULE_EVERY = 5 in
@@ -2510,13 +2540,16 @@ functional:
     # expected, see _meta), not invented here.
     statement: >-
       In a book, a puzzle's picture title appears only on its answer-key
-      page, never on its puzzle page. The puzzle grid is printed with dark
-      grid lines, and every 5th grid line is drawn bolder than the lines
-      between.
+      page, never on its puzzle page. The puzzle grid is printed in three
+      rule weights, stated in points so they do not depend on the render
+      resolution: 0.48 pt for ordinary cell lines, drawn in grey; 1.28 pt
+      for every 5th grid line on both axes; and 2.08 pt for the outer
+      border. The cell lines are lighter in ink than the 5th lines and the
+      border, so the grid reads through its heavier rules.
     source: [US-024]
     _meta:
       source: authored
-      open_question: "Measurable thresholds for 'dark' grid lines and 'clearly bolder' 5th lines are unstated (colour/min stroke width in mm, bold:thin ratio) — NFR threshold needed from the owner, not invented."
+      resolved_question: "CLOSED 2026-10-17 by owner decision (CARD-227): the thresholds are 0.48 pt grey cell lines, 1.28 pt every 5th line, 2.08 pt outer border — the owner's own 1 : 2.667 : 4.333 ratios, scaled so the thinnest line is 2 device pixels at 300 DPI rather than one. Was an open question from 2026-09-22 to 2026-10-17; ADR-0037/R2 is amended with it."
       evidence: ["src/nonogram/export/layout.py:233-252", "src/nonogram/export/layout.py:406-500", "src/nonogram/admin/book_pdf_generator.py:185-210"]
     acceptance:
       - id: AC-193
@@ -2531,12 +2564,48 @@ functional:
         then: the puzzle's answer-key page shows "Snowflake"
         kind: happy
         test: TestBookPdf_AnswerKeyCarriesPictureTitle
+      # AC-195 survives the 2026-10-17 three-weight amendment unchanged in
+      # SUBSTANCE: indices 0 and 30 are now the outer border (2.08 pt) and
+      # 5/10/15/20/25 the 5th lines (1.28 pt), and both are still wider than
+      # the 0.48 pt cell lines between them, so the assertion holds as
+      # written. Its `given` figure is STALE and deliberately not guessed:
+      # "printed at 4.97 mm" predates CON-018's amended margins (outside
+      # 0.5 in, top 0.55 in, bottom 0.47 in), which shrink the usable area
+      # and push a 30x30 cell to roughly 4.54-4.65 mm. Those margins are in
+      # flight on CARD-222's branch and are not merged, so the honest figure
+      # cannot be measured yet. Re-measure against the merged tree once
+      # CARD-222 lands; the same re-measurement is owed on ADR-0037's proof
+      # page parenthesis.
       - id: AC-195
         given: a Book 1 profile book holding a 30x30 puzzle printed at 4.97 mm
         when: its puzzle page's grid rules are measured
         then: the rules at line indices 0, 5, 10, 15, 20, 25 and 30 are each wider in pixels than every rule between them
         kind: boundary
         test: TestBookPdf_EveryFifthGridLineWider
+      - id: AC-372
+        given: a book puzzle page's drawn grid
+        when: its rules are measured off the ink at the page's own resolution
+        then: ordinary cell lines are 0.48 pt, every 5th line is 1.28 pt and the outer border is 2.08 pt
+        kind: happy
+        test: TestBookGridRules_HasThreeWeights
+      - id: AC-373
+        given: the same drawn grid
+        when: the ink value of each weight is read
+        then: the cell lines are lighter than the 5th lines and the border — asserted as an ink-value ordering, not as one literal colour
+        kind: happy
+        test: TestBookGridRules_CellLinesAreLighterThanTheFifths
+      - id: AC-374
+        given: a puzzle printed at the smallest cell the book admits (NFR-008's 4.75 mm floor)
+        when: the three weights are rendered at 300 DPI
+        then: each is at least one device pixel and no two round to the same width — measured 2, 5 and 9 px
+        kind: boundary
+        test: TestBookGridRules_WeightsSurviveTheFloor
+      - id: AC-375
+        given: the same page drawn at two different resolutions
+        when: each weight is measured at both
+        then: each scales with the page's dpi and the cell < 5th < border ordering holds at both — the weights are points, never pixel counts
+        kind: guard
+        test: TestBookGridRules_PointsNotPixels
 
   - id: FR-034
     # New 2026-09-22 (BK-UI-1..BK-UI-3). Today Print setup

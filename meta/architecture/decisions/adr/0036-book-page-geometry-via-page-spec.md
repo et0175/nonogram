@@ -10,7 +10,7 @@
 
 ## Context
 
-FR-030 requires the book PDF to size each puzzle's cell for the book's own trim and margins. The usable area is the trim minus the outside, gutter, top and bottom margins, minus the 12 mm title band. The cell is computed from the puzzle's real clue depth, capped at the 7.5 mm standard cell, with the top edge at a fixed position and the page always portrait (FR-032, NFR-008, CON-018). FR-031 needs the same per-puzzle cell size on the selection tiles, to flag puzzles below the 4.8 mm floor.
+FR-030 requires the book PDF to size each puzzle's cell for the book's own trim and margins. The usable area is the trim minus the outside, gutter, top and bottom margins, minus the 12 mm title band. The cell is computed from the puzzle's real clue depth, capped at the 7.5 mm standard cell, with the top edge at a fixed position and the page always portrait (FR-032, NFR-008, CON-018). FR-031 needs the same per-puzzle cell size on the selection tiles, to flag puzzles below the 4.75 mm floor.
 
 Today COMP-007's `export/layout.py` has one entry point, `compute_layout(row_clues, column_clues)`. It hard-codes A4 with 12 mm margins, NFR-005's comfort-cap curve (9.0 → 6.5 mm) and NFR-006's rule of turning the sheet whichever way prints the larger cell. A guardrail in its docstring (G-1, from the card that built it) says "no second paper size". The admin panel (COMP-009) renders every book page through `export.pdf.render_pages`, so books print on A4 geometry inside an 8.5×11 page.
 
@@ -49,7 +49,7 @@ COMP-009 would compute the cell, gutters and placement itself and hand COMP-007 
 - `render_pages` and the PDF sink must thread the spec through, so their signatures change too (optional, defaulted).
 
 ### Neutral
-- NFR-005 and NFR-006 are unchanged for the default spec. The book spec opts out of them explicitly: flat 7.5 mm cap, portrait only. NFR-008 is the book's own range (4.8–7.5 mm).
+- NFR-005 and NFR-006 are unchanged for the default spec. The book spec opts out of them explicitly: flat 7.5 mm cap, portrait only. NFR-008 is the book's own range (4.75–7.5 mm).
 - ADR-0007 needs no revision: admin → export is already a legal import, and nothing in export learns about the admin panel.
 - DEC-039 (what the band shows and the line thresholds) builds on this spec: the title band's height is a `PageSpec` field.
 
@@ -74,6 +74,16 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
 
 ## History
 
+- 2026-10-17: **The cell floor restated 4.8 → 4.75 mm, decision unchanged** — the
+  owner-approved NFR-008 amendment of the same day (CARD-225 owns the requirement; the
+  propagation pass that followed carried `requirements.yml`, `aggregates.yml`, CAP-006,
+  `glossary.yml` and `trace.yml`). This ADR stated the number in two present-tense places —
+  FR-031's tile flag in the Context, and "NFR-008 is the book's own range" in the
+  Consequences — and both now read 4.75 mm. **Nothing here was re-decided:** this ADR owns
+  *who computes page geometry*, not where the band's ends sit, so a moved endpoint is a
+  restatement and not a revision. The 4.9 mm tile example in the Consequences is left as it
+  was: it is above both the old floor and the new one, so it still demonstrates the property
+  it was written for.
 - 2026-10-17: **R3's reach widened, decision and statement unchanged** — CARD-243, the other
   half of the narrowing recorded below. R3's render check read ink at one hard threshold, grey
   128, and the package draws its solved grid at grey 160: a difficulty dot stroked in the book's
