@@ -515,12 +515,14 @@ these two waves are examined against a six-wave gap — which is itself a findin
 
 ### Suggestions
 
-- **EXECUTE the waves-40–41 rule promotion before dispatching wave 43.** It is owner-approved, it
+- ✅ **APPLIED 2026-10-17 — ADR-0039.** (Original text:) **EXECUTE the waves-40–41 rule promotion before dispatching wave 43.** It is owner-approved, it
   did not land, and this wave paid for the family across its two most expensive cards. It should carry
   all three sentences (CARD-238's, CARD-228's and CARD-239's) with a `check:`, and its provenance note
   should name the cards and cycles: CARD-238 c1–c5, CARD-228 c1–c3, CARD-239 c1–c2 — 19 gating
   findings across three cards and ten review cycles.
-- **Add the authority test to the card brief**, as the cheap front-end of that rule: *before writing a
+- ✅ **APPLIED 2026-10-17 — it became ADR-0039/R2** rather than a brief line, for the reason this
+  wave recorded: a brief carries no `check:`. (Original text:) **Add the authority test to the card
+  brief**, as the cheap front-end of that rule: *before writing a
   guard that claims completeness over a set, name the authority the set derives from. If there is
   none, say so and make the guard default-deny.* It predicted convergence twice within single cards
   this wave, which is a stronger validation than a promoted rule usually gets before promotion.
@@ -558,3 +560,46 @@ these two waves are examined against a six-wave gap — which is itself a findin
 - `value_calibration`, `hypothesis_outcomes`, `risk_calibration`: no `meta/business/` ledgers with
   due MET entries, no unexported terminal ASM/MET/BCON, and no `meta/risk-register.yml` — all skipped
   silently, as in previous waves.
+
+### Promotion executed — 2026-10-17
+
+**ADR-0039: "A test guard's coverage claim is only as wide as the control that can fail"**, resolving
+DEC-042 with resolution label `three_rules_with_executing_checks`. Recorded here so the next
+retrospective does not rediscover "the promotion never landed" a third time.
+
+- **R1** a set a guard consults needs a completeness test written before the set, and any coverage
+  claim needs a control caught WITH the set member and missed WITHOUT it
+  · check `test_the_control_for_each_spelling_depends_on_the_set` (tests/test_suite_profile.py)
+- **R2** derive the set from an authority the runtime can enumerate; where none exists, default-deny —
+  an unanalysable shape is a FAILURE, and its sites become named exemptions under R3
+  · check `test_the_guard_sets_are_derived_and_not_hand_written` (tests/test_suite_profile.py)
+- **R3** an exemption is a claim: a control for what it must NOT absorb, an equality against today's
+  sites, and residue recorded as a measured bound
+  · check `test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw`
+  (tests/test_book_difficulty_dots.py)
+
+All three `scope: {contexts: [CTX-001], code: ["tests/**"]}`, `severity: mandatory`, and all three
+appear in the assembled system contract — so the decompose lens hands them to cards touching
+`tests/**` and `forge:review` Step 8h checks diffs against them. `system_rules --verify-refs`:
+`dead_check_ref: []`, `check_refs_verified: true`. Validator counts identical to the pre-change
+baseline (0 errors; 4 decisions-phase / 86 full warnings), verified by stashing and re-running, so
+the ADR adds no finding of its own.
+
+**Three deliberate choices, recorded because each could have reproduced the failure:**
+1. **Three rules, not one clause-bearing rule.** No single test in this repo fails for all three
+   mechanisms, so one rule would have carried one check and left two unchecked — and CARD-239 proved
+   the modes are separately satisfiable by honouring R1 and breaking R3 in the same module.
+2. **The checks are tests the paying cards built**, not new ones written for the ADR. The family is
+   now enforced by the mechanism its own provenance produced.
+3. **The rules state their reach instead of implying it.** The checks cover the guards that exist and
+   do not reach a guard written tomorrow; the comments say so in those words. Overclaiming there
+   would have committed, inside the rule meant to prevent it, exactly the defect the rule is about —
+   which is the failure mode of the 2026-10-05 version, repeated one level up.
+
+**Still open, and now recorded rather than implied:** the repo-wide guard audit (a meta-test that
+finds every guard in `tests/**` consulting a set and asserts each carries a completeness test and a
+discriminating control). It was the strongest of the three alternatives and was rejected only as the
+*first* step, since the family has cost a wave each time it stayed unpromoted. When it exists, R1–R3's
+checks should be re-pointed at it and their stated reach widened — itself an application of R1 to
+ADR-0039. `Migration: on-touch`, so guards predating the rules come into line when a card next
+touches them rather than in a sweep.
