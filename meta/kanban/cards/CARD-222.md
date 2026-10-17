@@ -179,6 +179,49 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 
 ## Worktree notes
 
+- **[Build gate] PASSED (full, 995s) — fix attempt 2/2, rebased onto `main`.**
+  `7873 passed, 9 skipped, 0 failed` in 989.07s, run by the orchestrator under
+  `meta/kanban/.full-suite.lock` on a quiet host. **7873 + 9 = 7882, which is exactly the
+  worktree's collect-only count** — the figures reconcile, which the earlier gate's did not.
+  The 9 are this suite's two documented host gates and nothing else: 8 × `conftest.py:171`
+  "Database not reachable" and 1 × `test_book_pdf_memory.py:1256` `setrlimit(RLIMIT_AS)`
+  unenforceable on macOS. Both skip messages name the non-skipping tests that carry their
+  host-independent halves, so the evidence is placed rather than lost.
+
+- **[Build gate, correction of the orchestrator's own finding] The "48 silently skipped tests"
+  did not exist, and chasing them cost a fix-agent attempt.** The earlier gate reported
+  `passed=7881 skipped=57`; I read it against a previous gate as +38 passed / +48 skipped and
+  briefed the fix agent to account for 48 tests that had stopped running. Measured properly:
+  **main collects 7852 and this worktree 7882, a delta of +30**, and collection does not vary
+  with the DB environment (7882 both with `TEST_DATABASE_URL` unset and pointed at a refused
+  port). `7881 + 57 + 1 failed = 7939` against a tree that collects 7882 — **the figures never
+  reconciled with each other and I did not check that they added up.** The sound experiment is
+  the fix agent's: two full suites under one *pinned* host condition, one per tree, agreeing
+  **9/9** with the database up and **82/82** with it down, per-file identical. **Zero skips
+  introduced by this card.** The geometry hypothesis I passed it was ruled out rather than
+  merely unsupported: the diff adds no `pytest.skip`, `skipif`, `importorskip` or `add_marker`,
+  and no skip reason in the suite is a geometry or fit condition. Lesson, recorded because it
+  generalises: **a count that does not reconcile with its own total is not evidence**, and a
+  skip delta measured across two runs whose DB state was not pinned measures the host.
+
+- **[Build gate, root cause — a board-level defect, now the top backlog item]** The phantom 57
+  came from the shared test database. `tests/conftest.py`'s `db_session` **TRUNCATEs
+  `nonogram_test` before every test**, so two concurrently running cards do not merely contend —
+  they destroy each other's data, presenting as **skips** when a run loses the database and as
+  **failures** when it loses it mid-test. `meta/kanban/.full-suite.lock` serialises *full
+  suites only*, so any narrower selection bypasses it. Demonstrated rather than theorised: a
+  7-file DB selection run beside a full suite produced 2 failures in
+  `test_book_trim_persistence` that are **200 passed in isolation**. CARD-236 was active
+  throughout the earlier gate. 57 sits strictly between the two reproducible states
+  (9 < 57 < 82) and 57 − 9 = 48 is not any subset-sum of the per-file DB skip counts
+  (73/29/18/16/6/4), so it was *partial* reachability during that run, not a stable condition.
+
+- **[Rebase] Clean onto `main` @ the architect pass — the predicted ADR-0036 conflict did not
+  fire.** Git resolved the adjacent hunks. Verified **both** halves survived rather than
+  assuming: `main`'s 4.75 propagation and new History entry, and this card's re-measured
+  tolerance rooms (`fill` 1.8855, `aspect` 47.1809 → 46.5789 at grey 208). The branch carries
+  no `meta/kanban/cards/*.md`, so it cannot revert these stamps at merge.
+
 - **[Predicted conflict at the merge gate — recorded so it cannot be forgotten]** `main` moved
   under this worktree while its fix agent was running. `db04c23` (the architect-station pass:
   FR-033 closed, ADR-0037/R2 amended, the 4.75 floor propagated to the ADRs) edits
