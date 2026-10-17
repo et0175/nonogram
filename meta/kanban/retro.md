@@ -603,3 +603,145 @@ discriminating control). It was the strongest of the three alternatives and was 
 checks should be re-pointed at it and their stated reach widened — itself an application of R1 to
 ADR-0039. `Migration: on-touch`, so guards predating the rules come into line when a card next
 touches them rather than in a sweep.
+
+## Wave 43 — 2026-10-17
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-241 | One round mark on the page, proved by rendering it | 1d | 0.6d | 0.60× | 2 | 9.0 | overestimated (actual) |
+| CARD-242 | The check-log guard learns the taint step | 0.5d | 0.5d | 1.00× | 2 | 8.5 | accurate (actual) |
+
+### Metrics
+
+- cards: 2, escalated: **0**, split: 0, actual_time: 2
+- total_estimate: 1.5d, total_actual: 1.1d
+- avg_accuracy: 0.80× (within band)
+- avg_cycles: 2.0
+- avg_final_score: 8.75 (↑ +0.375 vs wave 42's 8.375)
+- score_improvement: **+1.5** (initial 7.25 → final 8.75) — **reverses wave 42's −0.125**, which was
+  the first negative in the journal. Both cards improved 1.5 points with no escalation, where wave 42
+  escalated 2 of 4 and lost ground on average.
+- test_cost: **6 full suites, 6195s ≈ 1.72h machine time, gate_full_share 100%** (config pins
+  `review.test_scope: full` — pytest-testmon is not installed)
+- suite: 876s (↑ +6.1% vs wave 42's 826s — stable, within ±20%)
+- ⚠ **cost per card 1322s → 3098s (2.3×)** — the suite is stable; the growth is entirely in how many
+  times it ran. Three full suites per card instead of ~1.5, because each card took a fix round AND an
+  AC-gate fix round, and at `test_scope: full` every round costs ~900s. This is the number to watch:
+  quality improved and convergence improved, but the machine bill per card more than doubled.
+- complexity: 1 standard, 1 **architectural** → model-upgrade verdict stays
+  `(insufficient data — accumulating: 2 architectural cards incl. history)`. Worth recording rather
+  than losing: the board's only prior architectural card (wave 31) escalated at 4.0 cycles; this one
+  converged in 2 at 9.0. One more card makes the verdict computable.
+
+### Calibration signals
+
+- python-pro: avg_accuracy 0.80× (2 cards, actual) → **calibrated, no change**
+
+### Process shortcuts
+
+- `skip_review` → clean (no rework this wave). **Owner-confirmed, and it was the orchestrator's call
+  twice**: CARD-242's AC-6 fix (+220/−35, six new node types) was never re-reviewed — the procedure
+  says to repeat from the same cycle after an AC-gate fix, and instead the orchestrator verified it by
+  its own measurement and committed; and CARD-241's G-6 sentence fix was **written by the orchestrator
+  and reviewed by nobody**, a change to a docstring that states a mandatory rule's reach. Both
+  decisions were made partly to conserve a budget already exhausted once mid-wave. Nothing came back
+  this wave (merge gate 7814/0, and the AC gate verified the un-reviewed AC-6 work independently), but
+  the honest record is "shortcut taken, got away with it", not "diligence".
+- `defer_nfr_adr` → clean this wave, **but the debt is now two waves old**: the architect session for
+  CON-018, NFR-008, INV-013/FR-043 and cancelling CARD-204's FR-032 amendment is still owed, and
+  CARD-222 plus the 11 cards behind it cannot start until it lands.
+- `skip_validate` → clean. `validate.py` was run twice against CARD-241's ADR delta (0 errors / 86
+  warnings) but not as a phase gate between stations.
+
+### Finding families
+
+**The result is a negative one, and it is the wave's most useful output.** All five gating findings
+across both cards, plus both AC-gate failures, reduce to one sentence: *a coverage claim must not
+state more than its control can demonstrate.*
+
+That sentence is **already ADR-0039/R1** — `severity: mandatory`, scoped to `tests/**`, which both
+cards are. So this is not a promotion candidate; it is a report that **the rule existed and did not
+bite**. Of the three causes the procedure names:
+
+- scope mismatch — **no**, both cards sit squarely inside `tests/**`;
+- missing `check:` — **no**, R1 carries `test_the_control_for_each_spelling_depends_on_the_set`;
+- **not reachable by mechanism — yes.** R1's check is a *point test* over one guard's controls in
+  `test_suite_profile.py`. It cannot see a new claim written in another file, which is exactly what
+  both cards did. Both reviewers reached this independently, and ADR-0039 says it about itself: "The
+  checks are specific tests, not a repo-wide audit, so a guard written tomorrow is covered by
+  judgement rather than by mechanism."
+
+→ **The fix is ADR-0039's own deferred follow-up, the repo-wide guard audit.** Wave 43 is its second
+and third instance. Recommend carding it; a fourth instance would make this the most expensive
+unpromoted mechanism on the board.
+
+- fix-induced share: **0 of 0 gating findings after cycle 1** — both fixes converged without
+  regenerating defects, against wave 42 where two cards regenerated families across cycles. The
+  DECLARATION RE-DERIVATION protocol is doing its job. (1 of the 2 AC-gate failures was a fix left
+  incomplete: CARD-241's fix narrowed three statements of the pair's residue and missed the fourth.)
+
+### Station analysis
+
+Which station caught what is the wave's structural finding:
+
+- **review** caught 3 of 5 gating findings (all of CARD-241's);
+- **adversarial verification** caught a *false positive* and saved a cycle plus a regression —
+  CARD-242's F-002, whose two prescribed remedies were both measured worse than the defect: the
+  `dir()`-derived set loses AC-1 (`main` is in no namespace's `dir()`), and deny-by-default takes the
+  hoisted command line from CAUGHT to MISSED, i.e. the fix for ADR-0039/R2 would have committed the
+  R3 defect inside the card written to apply R3;
+- **the AC/EC/G gate** caught 2 that review *and* a mutation pass had both passed: CARD-242's residue
+  list claiming a completeness it lacked (the third instance of that shape inside that one card), and
+  **CARD-241's entire fix being uncommitted** — HEAD was the pre-fix 31-test state, so merging from it
+  would have shipped a card whose merged state was not its reviewed state. Nothing but that gate
+  would have caught it.
+
+### Process defects found this wave
+
+1. **A gating finding can read as non-gating in the machine-readable half.** CARD-241's F-003 is
+   `severity: medium` in the review YAML while sitting under `### Important` in the markdown. The
+   severity gate parses the markdown; this retrospective's family analysis reads the YAML. A finding
+   that blocks a merge is therefore invisible to the learning loop. Worth a format fix.
+2. **Carrying `meta/` before a merge makes a live rule read as dead.** ADR-0036 copied into `main`
+   ahead of its test file produced a dead-check-ref warning on R3 (87 warnings against the card's
+   correctly-measured 86) for the length of the window. Carry `meta/` **after** the merge.
+
+### Suggestions
+
+- **Card ADR-0039's repo-wide guard audit** (see Finding families). Two cards this wave violated a
+  mandatory rule that could not reach them; the rule's own ADR names the audit as deferred work.
+- **Reconsider `review.test_scope`** — not by flipping it, but by installing `pytest-testmon`, which
+  is the stated precondition in `config.yml`'s own comment. At 100% full-suite share and 3 full runs
+  per card, the inner loop now costs ~2700s per card in machine time.
+- Fix the review-report severity mismatch (markdown `### Important` vs YAML `severity: medium`) so the
+  gate and the learning loop agree on what gated.
+
+### Process defect found while exporting (3)
+
+3. **The adversarial step's note did not carry the literal marker the retrospective reads.**
+   `cmd-start-review.md` specifies `[Adversarial] dropped false positive: <title> — <reason>`, and this
+   wave's note was written as `[Adversarial] F-002 **dropped as a gating finding**`. Step 7.5e of this
+   skill mines card notes for that exact literal, so the wave's single most reusable signal — a
+   prescribed remedy measured to make a guard worse — would have been invisible to a mechanical read.
+   Caught only because the export was done with the procedure open. Note corrected in CARD-242 after
+   the fact; the lesson is that a literal-contract marker is not prose to be improved on. Note also
+   that the review YAML left F-002 at `status: open` rather than `dismissed`, so source 2 would not
+   have caught it either — **both** of the step's automated sources missed it.
+
+### Signals exported
+
+- effort_calibration python-pro/tech-debt: 1.2 (n=9) → **1.18** (n=10), trend improving. CARD-242's
+  1.00× supports the entry's own closing claim rather than its bimodal split.
+- effort_calibration python-pro/enabler: **deliberately NOT created** — CARD-241 is the only card in
+  that group with no prior entry, and the ≥2-card floor applies. A one-card signal would read as
+  calibration and is noise.
+- review_quality python-pro: n=35 → **37** (init 8.458, final 9.120, cycles 1.663)
+- process_shortcuts: `skip_review`, `defer_nfr_adr`, `skip_validate` — all new, all `clean`
+- review_false_positives: **new entry (rule: adversarial)** — "a guard's set is hand-enumerated and
+  its default is a silent pass: the diagnosis holds, but verify a prescribed polarity change by
+  measurement before spending a fix cycle on it". The wave's most portable lesson.
+- Skipped with reason: velocity (no `waves.duration`), capacity_drift (no `meta/.skills.yml`),
+  tech_debt_aging (no deferred tech-debt cards in wave scope), testing_impact (both cards `TDD: true`,
+  so no comparison group), value_calibration (no `meta/business/`), risk_calibration (no register).
