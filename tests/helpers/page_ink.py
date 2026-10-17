@@ -127,15 +127,27 @@ def pdf_page_boxes(data: bytes) -> list[tuple[float, float, float, float]]:
         parser.close()
 
 
-def ink_mask(page: Image.Image) -> np.ndarray:
+def ink_mask(page: Image.Image, level: int = INK_LEVEL) -> np.ndarray:
     """``page``'s ink as a boolean mask, ``True`` where a pixel is darker than
-    :data:`INK_LEVEL`.
+    ``level`` (:data:`INK_LEVEL` by default).
 
     Public because a second measurement of the same pages needs the same
     reading of what ink *is* (CARD-241's ``tests/helpers/round_ink.py``): two
     helpers disagreeing about the threshold would be two different pages.
+
+    ``level`` is a parameter rather than a constant read from the module
+    because one of those two measurements reads the page at **two** thresholds
+    (CARD-243): a mark the book prints in its own grey is paper to
+    :data:`INK_LEVEL` and ink to ``round_ink.MARK_LEVEL``. The default is the
+    one every geometry measurement in this module uses, so :func:`drawing_of`
+    and ``tests/helpers/two_up_ink.py`` read exactly the page they always did
+    — a rule is told from a gutter at grey 128 and nowhere else.
+
+    Args:
+        page: The page to read.
+        level: A pixel strictly darker than this (0..255 grey) is ink.
     """
-    return np.asarray(page.convert("L")) < INK_LEVEL
+    return np.asarray(page.convert("L")) < level
 
 
 # Kept as an alias only because four call sites already import this name (one

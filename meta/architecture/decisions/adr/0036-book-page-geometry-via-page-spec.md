@@ -74,6 +74,26 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
 
 ## History
 
+- 2026-10-17: **R3's reach widened, decision and statement unchanged** — CARD-243, the other
+  half of the narrowing recorded below. R3's render check read ink at one hard threshold, grey
+  128, and the package draws its solved grid at grey 160: a difficulty dot stroked in the book's
+  own grey had no region to measure, so the rule's declared check passed green with eighteen
+  undeclared grey dots on the pages. Measured twice independently at CARD-241's review (F-001).
+  The check now reads at **grey 208** — the midpoint of the gap between the lightest tone the
+  package draws and paper, derived from the package's own palette on disk rather than chosen —
+  so R3 covers a round mark at any darkness the book prints at, and the *darkness* bound is
+  struck from the rule's comment in the same diff that closed the route
+  (`test_the_struck_bound_and_the_closed_route_agree`, red in both directions).
+  **What that cost, measured rather than assumed:** the book's own margin to the closest
+  legitimate mark falls from 1.8859 tolerances to 1.8182 and changes hands from `fill` to
+  `aspect`; both tolerances keep their values, because the re-measurement against the wider
+  population says so (`fill`'s own room on the book is unchanged at 1.8859). Reading the pages
+  at two thresholds rather than one is recorded in `meta/profiling/card-243-two-threshold-cost.md`.
+  **What is left open** is one half of a sentence rather than two: a round mark in one of
+  CARD-228's six recorded spellings, drawn on a surface nobody renders. Three narrower bounds
+  replace the struck one — a tone lighter than grey 208, a colour whose *luminance* is lighter
+  (pure yellow reads 226), and ink composited above that tone — and none of them is a tone the
+  package draws, which is the difference between this residue and the bound that was struck.
 - 2026-10-17: **Rules added (R3, R4), decision unchanged** — CARD-241, which owns the same
   subject as CARD-228 and was asked to decide this. CARD-228 introduced two standing
   constraints on the whole of `src/nonogram/**` and declared both *only inside a test file*:
@@ -101,6 +121,8 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
   closing the grey route is a follow-up card's, not this one's. R4 is about string *literals*:
   a computed string (`chr(0x25CF)`) is
   not one, and is closed by R3's render check instead, because a typed dot is still ink.
+  *(The grey half of that residue was closed by CARD-243, recorded above; this paragraph is
+  left as CARD-241 wrote it, because it is the record of what that card decided.)*
 - 2026-09-22: Created — book geometry is an optional `PageSpec` on `compute_layout`, defaulting to today's A4; layout.py's "no second paper size" guardrail (G-1) retired.
 - 2026-09-22: Clarified (owner, same session; FR-040) — two-up pages come from a pair-aware COMP-007 call with one shared cell; the book lays out with its stored gutter margin and finalise checks it against KDP's page-count minimum. Decision unchanged.
 - 2026-09-22: Clarified (owner) — margins are mirrored by page parity and the drawing is centred across the usable width. Decision unchanged.
@@ -134,25 +156,52 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
     fixed once a book is on paper.
   scope: {contexts: [CTX-001], code: ["src/nonogram/**"]}
   check: {kind: test, ref: test_the_books_own_pages_carry_no_undeclared_round_mark}
-  # tests/test_book_difficulty_dots.py (CARD-241). Two instruments, neither
-  # inside the other, and the rule is only as wide as their union:
+  # tests/test_book_difficulty_dots.py (CARD-241, widened by CARD-243). Two
+  # instruments, neither inside the other, and the rule is only as wide as
+  # their union:
   #   * the ast walk (TestDifficultyDots_HasExactlyOneDrawingSite) reads every
   #     module on disk -- code no test renders included -- and sees four
   #     spellings: an ellipse-family call, an unrecognised draw receiver, an
   #     unrecognised .Draw(...) binding form, a dingbat literal;
   #   * the render check (the TestRoundMarkOnThePage_* classes, named above)
   #     renders the book's interior and asserts every round region on it was
-  #     declared by the one drawing site. Blind to spelling, and bounded by
-  #     SILHOUETTE: it discriminates on a region's shape alone, so every
-  #     non-silhouette property of ink -- darkness, colour, opacity -- is open
-  #     to it by construction. Concretely: bounded by the pages it renders, by
-  #     a near-square footprint, by a filled mark, by a mark of at least 7 px
-  #     across, and by DARKNESS -- grey 128 (page_ink.py's INK_LEVEL) is where
-  #     ink begins, and the package draws the solved grid at grey 160, so a dot
-  #     in the book's own grey leaves this check green (measured; control
-  #     test_a_mark_lighter_than_the_ink_level_is_not_measured_at_all).
+  #     declared by the one drawing site. Blind to spelling, and blind to WHICH
+  #     TONE the mark is printed in across the range the package prints at: a
+  #     mark begins at grey 208 (round_ink.py's MARK_LEVEL, the midpoint of the
+  #     gap between the lightest tone the package draws and paper), so the
+  #     solved grid's own grey 160 is a mark and a dot stroked in it is caught
+  #     on the real pages it is planted on. What bounds it is SILHOUETTE plus
+  #     that one range: it discriminates on a region's shape, and on nothing
+  #     about the mark except that some pixel of it reaches grey 208.
+  #     Concretely -- every bound carrying a control that fails if the reach
+  #     widens, and every verdict derived by execution in
+  #     MEASURED_MARK_BOUNDS, which test_each_bound_list_carries_exactly_the_
+  #     open_bounds holds this list to:
+  #       BOUND: lightness   -- a flat tone at grey 208 exactly; one level
+  #                             darker is found, and nothing the package draws
+  #                             is on the far side
+  #       BOUND: colour      -- luminance, not colour: pure yellow reads 226
+  #                             and is missed, pure red reads 76 and is found
+  #       BOUND: opacity     -- ink composited to a tone above 208 (alpha 40
+  #                             lands at 215 and is missed, 64 at 191 is found)
+  #       BOUND: hollow      -- a mark drawn only as rings
+  #       BOUND: touching    -- a mark merged with other ink into one region
+  #       BOUND: footprint   -- a footprint outside ROUND_ASPECT_TOLERANCE
+  #       BOUND: resolution  -- under 7 px across, where the verdict is the
+  #                             raster's accident and not monotone in diameter
+  #       BOUND: unrendered  -- a surface nobody renders (a cover, a proof
+  #                             sheet, a CLI PNG export)
+  #     DARKNESS is no longer among them. It was CARD-241's widest bound --
+  #     grey 128 was where ink began, the package drew the solved grid at grey
+  #     160, and eighteen undeclared grey dots left this check green -- and
+  #     CARD-243 closed it. The bound is struck here and in round_ink.py's own
+  #     list in the diff that closed it;
+  #     test_the_struck_bound_and_the_closed_route_agree is red if either half
+  #     ever moves without the other.
   # Open to BOTH: a round mark in one of CARD-228's six recorded spellings,
-  # drawn either on a surface nobody renders or in ink lighter than INK_LEVEL.
+  # drawn on a surface nobody renders. (Before CARD-243 the second half of
+  # that sentence read "or in ink lighter than INK_LEVEL"; that route is
+  # closed, and the one unrendered surface is what the union has left.)
   # Stated, not implied (ADR-0039/R1).
   severity: mandatory
 - id: ADR-0036/R4
