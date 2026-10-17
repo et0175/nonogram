@@ -405,3 +405,42 @@ nothing today. Owner decision, 2026-10-17.
   at **42% of the puzzle area's spare height**. The owner's note explains the reversal: the flush
   alignment existed to free the gutter strip for the QR code, and once the QR has its own footer
   (CARD-223), centring is the calmer choice. Source: owner's artifact 2026-10-14; CARD-224 vs CARD-204.
+
+# NOT YET PROCESSED — intake 2026-10-18, owner's doc "Admin panel" / "Player" (Google Doc 1omQiUl9...). Cards CARD-245, CARD-246, CARD-247 drafted against it; the registry work below is owed at the architect station.
+- **Manual editing of a generated puzzle — a new capability with NO requirement behind it.** The owner
+  asks for an Edit button reachable from a puzzle's card or the puzzle list; on save the grid is
+  re-verified for a unique solution and re-graded for difficulty; the difficulty is then shown with
+  Cancel / Approve buttons; and a puzzle without a unique solution may not be saved at all. Source:
+  owner's doc, 2026-10-18.
+  **What is owed here, and why it is not just bookkeeping.** Every FR today describes a puzzle that
+  arrives from `orchestrator.generate` — random or image — and INV-002 plus CARD-080 rest on exactly
+  that: the store's uniqueness refusal is documented as a *backstop* whose reaching "is a bug in the
+  caller, because this candidate came from orchestrator.generate, which enforces INV-002". This feature
+  makes **the human the generator**, so for the first time that refusal becomes a working gate on a
+  path with no upstream guarantee. That needs a stated requirement, not an implied one: a new FR for
+  "a stored puzzle's grid may be replaced by hand, and the replacement is admitted only if it is
+  uniquely solvable", with acceptance criteria, and a decision on whether INV-002's wording still
+  holds when the producer is a person. Until it is written, CARD-245 and CARD-246 implement a
+  capability the registry does not describe.
+- **`quality_score` / `recognizability` after a hand edit — an open question, deliberately not guessed.**
+  Both measure fidelity against the *source image* (`measure_quality(original_image, puzzle.grid)`,
+  CARD-050). A hand-edited grid is a deliberate departure from the picture, so "fidelity to the source"
+  stops being meaningful and there is no honest value to recompute them to. Three defensible answers:
+  keep them and record that they describe the pre-edit grid; null them so a hand-edited puzzle shows
+  "—"; or re-measure and accept that a good edit may score worse. Whichever is chosen, a hand-edited
+  puzzle should become **distinguishable** from a generated one in the store, or the two scores silently
+  mean different things for different rows. Owner decision needed; recorded on CARD-245.
+- **Editing a puzzle that is already in a book.** The approve, reject and delete routes all call
+  `in_a_book()` first (`app.py:2392`, `:2415`, `:5554`) and refuse. Editing must follow that precedent —
+  changing the grid of a puzzle a finalised book prints would re-paginate that book underneath its
+  owner, the same class of harm CARD-222's migration avoided by not backfilling. Carded as CARD-245 AC-4
+  and CARD-246 AC-7; noted here because it is a registry-level rule about book integrity, not a UI
+  detail.
+- **Player wording and iconography (two items, no registry impact).** "Undecided" becomes **"Clear"** as
+  a user-facing label only — the model's `UNKNOWN` state and the `data-state="unknown"` hooks stay. The
+  Region control shows **three cells in the active brush's mark** instead of the word "Region". Carded
+  as CARD-247. Reading recorded because the source is terse: the owner's parenthetical lists four brush
+  states for three cells, so it is three cells in whichever brush is active, not one cell of each.
+  Source: owner's doc, 2026-10-18, Player items 1 and 2.
+  **The owner's Player list has a third item, "3.", with nothing after it.** Nothing has been invented
+  to fill it. If a third change was meant, it needs a line and will be its own card.
