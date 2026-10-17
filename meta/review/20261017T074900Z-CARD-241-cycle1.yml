@@ -1,0 +1,583 @@
+version: 1
+generated_at: "2026-10-17T07:49:00Z"
+target: "card/241-round-mark-render-proof @ 2a6c321 (base main @ b894e00) + 2 uncommitted meta/ files"
+card: CARD-241
+cycle: 1
+overall_score: 7.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/helpers/round_ink.py
+    - tests/helpers/page_ink.py
+    - tests/test_book_difficulty_dots.py
+    - meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md
+    - meta/profiling/card-241-render-check-cost.md
+    - meta/kanban/cards/CARD-241.md
+    - meta/architecture/decisions/adr/0039-a-guards-coverage-claim.md (Rules block)
+    - meta/architecture/trace.yml (FR-033, FR-043 rows)
+    - meta/profiling/rank_durations.py (RENDER_API_PATTERN)
+    - src/nonogram/export/png.py, src/nonogram/admin/book_pdf_generator.py (colour constants only)
+  not_reached:
+    - "CARD-228 cycle-1/2/3 review reports (meta/review/*CARD-228-cycle*.yml) read only through the card's quotations of them; the three ink counts they record were not independently re-derived"
+    - "the full suite (forbidden by the brief; the build gate's 7758/9/0 is inherited)"
+  confidence: high
+
+metrics:
+  diff:
+    files: 5
+    added: 1814
+    removed: 25
+  max_fan_in:
+    symbol: "tests.helpers.page_ink.ink_mask"
+    callers: 2
+  tests_cover_change: true
+  hotspots:
+    - tests/test_book_difficulty_dots.py
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the diff is test-only and meta-only; tests/helpers/round_ink.py is new
+      (no history at all) and tests/test_book_difficulty_dots.py co-changes with
+      tests/test_suite_profile.py and tests/test_book_interior_type_floor.py, both of which the
+      brief placed outside the review's file scope, so no absent peer could be filed as a finding.
+    max_fan_in: >-
+      tooling_failure — `_dark` and `ink_mask` are also defined privately in four other test
+      modules (tests/test_book_puzzle_frame.py:264, tests/test_book_proof_pages.py:198,
+      tests/test_book_pdf_ink_mode.py:186), so a name grep cannot be separated into a caller
+      count for the page_ink symbol; the 2 reported are the two import-resolved call sites.
+
+system_contract:
+  rules_checked: 13
+  holds: 10
+  unchecked: 2
+  violated: 1
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — pyproject.toml is not in the diff at all; tests/helpers/round_ink.py imports only math, dataclasses, numpy and PIL (round_ink.py:95-101), all already on the baseline, and scipy.ndimage.label was deliberately reimplemented instead (ink_regions docstring, round_ink.py:207-221). Re-derivable: `git diff b894e00...HEAD --stat` shows 3 files, none under src/ or pyproject."
+    - "ADR-0036/R1 ✓ holds — the default PageSpec path is untouched; tests/test_layout_page_spec.py + tests/test_export_a4_golden.py -k golden: 126 passed on this head."
+    - "ADR-0036/R2 ✓ holds — every planted glyph takes its geometry from COMP-007 (`difficulty_dots` in nonogram.export.layout) via _planted_dots (tests/test_book_difficulty_dots.py:2489-2498); no geometry is re-derived in the test or in the admin layer. No src/ file is in the diff."
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: the diff adds no browser test and does not touch pyproject.toml's extras."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: the diff adds no browser test; no Chromium-dependent skip/fail path is touched."
+    - "ADR-0039/R1 ✗ violated — tests/helpers/round_ink.py:65-69 and :58-63 plus tests/test_book_difficulty_dots.py:3186-3191: three reach claims on this card's own metric have no control that can fail, and two are refuted by measurement. (a) `no size floor ... a floor at 12 px would have hidden a rogue mark smaller than the glyph itself can draw` — measured: discs at 2 px (fill 1.273), 3 px (0.707) and 6 px (0.849) are NOT round, and six 6 px black discs planted through _interior_ink give unaccounted == () (18 marks, guard silent); _disc_sweep() starts at MIN_DOT_PX so no control exists below 12 px. (b) the instrument's `what this does not see` list names four bounds and omits the ink threshold: six glyphs planted in the package's own _SOLVED_GRID_GRAY = (160,160,160) (src/nonogram/admin/book_pdf_generator.py:1341) give found == 0, unaccounted == (). (c) `it is over 2, so both tolerances could double and the book would still pass` — measured margin is 1.8859 (closest region: a 99x94 block at (144,1266,242,1359), aspect 1.0532, fill 1.2263); the asserted floor is 1.5, and doubling ROUND_FILL_TOLERANCE to 0.24 turns that block round, so the book would NOT still pass. Findings F-001..F-003, root cause RC-1."
+    - "ADR-0039/R2 ✓ holds — the render check consults no set by construction (that is its thesis) and defaults to deny: any round region not in the declared multiset fails (_unaccounted, tests/test_book_difficulty_dots.py:2768-2787). NAMED_LIMITS' membership is hand-written but it is a historical record, not a set the guard consults, and both of its boolean columns are derived by execution — verified by re-running: test_the_guard_sets_are_derived_and_not_hand_written passes on this head (tests/test_suite_profile.py -k guard_sets_are_derived: green)."
+    - "ADR-0039/R3 ✓ holds — the rule's own check test, test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw (tests/test_book_difficulty_dots.py:1990), is NOT in the diff. `git diff b894e00...HEAD -- tests/test_book_difficulty_dots.py` touches only the module docstring, the import block, three docstring hunks of TestDifficultyDots_HasExactlyOneDrawingSite, and an append after line 2438; every `+def test_` in the diff is a new CARD-241 test. The exemption's control is unweakened: the whole class runs 29 passed on this head."
+    - "CON-005 ✓ holds — PropertyTest_Solver_NeverFalsePositiveUniqueness (tests/property/test_solver_uniqueness.py) green in the build gate's full-suite run on this head (7758 passed / 9 skipped / 0 failed, exit 0); no src/ file is in the diff."
+    - "CON-009 ✓ holds — TestWebServer_BindsLoopbackOnlyByDefault (tests/test_admin_binding.py) green in the same build-gate run; no web-server code in the diff."
+    - "CON-010 ✓ holds — PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest (tests/test_web_server.py) green in the same build-gate run; no web-server code in the diff."
+    - "CON-011 ✓ holds — PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 (tests/property/test_grid_dimensions.py) green in the same build-gate run. The card's own seeded picture corpus only ever builds sides 10/12/15 (tests/test_book_difficulty_dots.py:3133-3144), inside the range."
+    - "CON-012 ✓ holds — PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore (tests/property/test_image_fit.py) green in the same build-gate run; no image-fit code in the diff."
+  notes: >-
+    CON-020 (reader-facing interior type >= 10 pt) was dropped from this card's scope by the lens
+    but is reasoned about by the new ADR-0036/R4 text, so it was verified rather than inherited:
+    tests/test_book_interior_type_floor.py -k EveryFaceHoldsTheFloor gives 4 passed on this head.
+    _rogue_typed_dingbat sets a face far above the floor and is a test-local plant, never a
+    reader-facing face.
+
+root_causes:
+  - id: RC-1
+    title: "the render check's stated reach is wider than what it measures, on this card's own metric"
+    finding_ids: [F-001, F-002, F-003]
+    description: >-
+      The card names this exact trap in its own Worktree notes ("writing a render check whose
+      stated reach exceeds what it measures ... the same family as the static guard's, one
+      abstraction over") and ADR-0039/R1 makes it a standing rule. The instrument's bound list
+      is presented as exhaustive (four entries in round_ink.py's docstring, three in
+      ADR-0036/R3's comment) and two further bounds exist that are neither stated nor
+      controlled: the binary ink threshold and the small-mark floor the fill metric imposes.
+      A third claim, the measured margin, is simply wrong by 0.38 tolerances and the conclusion
+      drawn from it is false. All three are one defect: a reach sentence written ahead of the
+      measurement that would have to fail to make it true.
+  - id: RC-2
+    title: "recorded measurements in the card's own AC-6 artefacts do not reproduce"
+    finding_ids: [F-004, F-005, F-006]
+    description: >-
+      AC-6 requires the cost be "measured and recorded". The headline figures reproduce (31
+      tests in 4.5 s observed vs 4.63 s claimed; whole file 6.70 s vs 6.41 s; peak RSS
+      836,435,968 B vs 836 MB claimed, exact). Three secondary figures do not: the page counts
+      in the instrument's docstring, the page arithmetic in the profiling note, and the
+      measurement's own memory share.
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/helpers/round_ink.py
+    line: 71
+    title: "A round mark drawn in the package's own grey is invisible to the instrument, and that bound is neither stated nor controlled"
+    description: |
+      `ink_mask` is a hard binary threshold at grey 128 (tests/helpers/page_ink.py:138,
+      INK_LEVEL = 128). Anything lighter is not ink, so it has no region, no aspect and no fill,
+      and the guard cannot see it at all.
+
+      This is not hypothetical. The production module already draws in a grey above that
+      threshold: `_SOLVED_GRID_GRAY = (160, 160, 160)` at
+      src/nonogram/admin/book_pdf_generator.py:1341, used at :4705 and :4715. The card's own
+      test leans on exactly this fact — test_a_seeded_corpus_of_pictures_draws_no_round_mark's
+      docstring (tests/test_book_difficulty_dots.py:3249-3257) says "a solved page draws its
+      grid over the cells in grey, which is lighter than INK_LEVEL, so neighbouring filled
+      cells stay separate regions". The same property that makes the corpus sweep come back
+      clean is an open route for a round mark.
+
+      Measured, planted through the real harness (`_interior_ink`), 6 glyphs of the planted
+      tier stroked in `_SOLVED_GRID_GRAY` on every band of the baseline interior:
+
+          GREY (160,160,160) dots: plants=6 pages=13 found=0 unaccounted=0 -> guard silent
+
+      So ADR-0036/R3 ("exactly one function in src/nonogram/** puts a round mark on a page"),
+      whose declared check is test_the_books_own_pages_carry_no_undeclared_round_mark, passes
+      green with 18 undeclared grey dots on the pages. A reader of the printed book sees them.
+
+      round_ink.py's "What this instrument does **not** see" section (lines 71-90) lists four
+      bounds — hollow, touching other ink, non-square footprint, unrendered surface — and reads
+      as exhaustive; the ADR-0036/R3 comment lists three ("bounded instead by the pages it
+      renders, by a near-square footprint and by a filled mark"). Neither names ink darkness.
+      ADR-0039/R1 requires every claim about what a guard catches to carry a control that can
+      fail; there is no control at any grey level.
+    suggestion: |
+      Either narrow the claim or close the route — both are cheap:
+      (1) add a fifth bullet to round_ink.py's bound list and to ADR-0036/R3's comment: "a mark
+          lighter than INK_LEVEL (grey 128) — the package already draws at grey 160
+          (_SOLVED_GRID_GRAY)", with a control in
+          TestRoundMarkOnThePage_TheBoundaryIsMeasured that plants a grey disc and asserts the
+          metric misses it while the same disc in INK is found; or
+      (2) close it: measure against a second, lighter threshold (or against "not BACKGROUND")
+          for the roundness pass only, with the solved-grid grey as the named exemption under
+          ADR-0039/R3 and a control for what that exemption must not absorb.
+      (1) is the honest minimum under ADR-0039/R1; (2) is what makes ADR-0036/R3 as wide as it
+      reads.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: bug
+    file: tests/helpers/round_ink.py
+    line: 65
+    title: "The \"no size floor\" claim is refuted by measurement: discs below the glyph's own minimum escape, and the sweep has no control there"
+    description: |
+      round_ink.py:65-69 states:
+
+          **No size floor**, deliberately. ... a floor at the glyph's own smallest dot
+          (12 px at 300 DPI) would have hidden a rogue mark smaller than the glyph itself
+          can draw.
+
+      The card repeats it verbatim in its STRUCTURE notes. The sentence's whole force is that
+      the absence of a floor BUYS the catching of sub-12 px marks. It does not: the `fill`
+      metric imposes an effective floor of its own, because at small diameters Pillow's raster
+      of a circle is too square or too sparse to land inside 0.88..1.12.
+
+      Measured (filled `draw.ellipse` on a blank canvas, via `ink_regions`):
+
+          d= 2  aspect 1.000  fill 1.273  round=False
+          d= 3  aspect 1.000  fill 0.707  round=False
+          d= 4  aspect 1.000  fill 0.955  round=True
+          d= 6  aspect 1.000  fill 0.849  round=False
+          d= 7..15                        round=True
+
+      and planted through the real harness, three 6 px black discs per band:
+
+          TINY 6 px black discs: plants=6 pages=13 found=0 unaccounted=0 -> guard silent
+
+      `_disc_sweep()` (tests/test_book_difficulty_dots.py:3352-3363) starts at `MIN_DOT_PX`
+      (12), so `test_a_disc_measures_round_at_every_diameter_it_can_be_drawn` cannot fail on
+      any of these — the claim about marks "smaller than the glyph itself can draw" has no
+      control at all in the region it is about. That is the ADR-0039/R1 shape exactly: a claim
+      whose control cannot fail.
+
+      Severity: this does not break the guard for the marks the glyph draws (>= 12 px, all
+      round at every diameter 12..142, verified), and a 6 px speck is a weaker threat than a
+      full dot. But the sentence is in the instrument four more cards will read and build on,
+      and it reads as a measured property.
+    suggestion: |
+      Narrow the sentence to what is measured and add the control:
+      - replace the claim with the measured fact: "no size floor is imposed, and none is needed
+        to keep the guard quiet over the real pages; the `fill` metric's own resolution is an
+        effective floor — a filled disc reads round from 7 px up, and at 2, 3 and 6 px it does
+        not (measured)". Then the bound list gains a fifth entry: "a mark too small for the
+        fill metric to resolve (under ~7 px)".
+      - extend `_disc_sweep()` down to 1 px and assert the verdict per diameter against a
+        recorded table, so the boundary is stated and tested (AC-4's own wording) instead of
+        starting the sweep above it. That makes the floor a control that can fail.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: medium
+    category: tech-debt
+    type: bug
+    file: tests/test_book_difficulty_dots.py
+    line: 3186
+    title: "AC-2's margin is 1.886, not 2.27, and the conclusion drawn from it (\"both tolerances could double\") is false"
+    description: |
+      TestRoundMarkOnThePage_PassesOnTheRealBook's docstring (lines 3186-3191) says:
+
+          The closest any region on those pages comes to being round is reported as
+          BookInk.margin, in units of the tolerance: it is over 2, so both tolerances could
+          double and the book would still pass.
+
+      and test_the_closest_the_book_comes_to_a_round_mark_is_measured's failure message
+      (line 3201-3205) says "it was 2.27 when the tolerances were set".
+
+      Measured on this head, through `_book_ink(None)` itself:
+
+          margin = 1.8859
+
+      The 2.27 figure belongs to the letter-stem family (aspect 0.5455, fill 0.9067 ->
+      0.4545/0.2 = 2.27), which round_ink.py:60 also names as the closest mark. But the actual
+      closest region is nearer and of a different kind — a 99x94 px nearly-square filled block
+      at (144, 1266, 242, 1359), aspect 1.0532, fill 1.2263, ink 8963, on interior page 1:
+
+          1.8859  page 0  (144,1266,242,1359)  aspect 1.0532  fill 1.2263
+          2.2727  page 0  (476,2114,481,2124)  aspect 0.5455  fill 0.9067   <- the stem
+
+      Consequences:
+      * "it is over 2" is false (1.886);
+      * "both tolerances could double and the book would still pass" is false in the strong
+        direction — that block is already INSIDE the aspect tolerance (0.053 from square), and
+        doubling ROUND_FILL_TOLERANCE to 0.24 makes |1.2263-1| = 0.2263 < 0.24, so it becomes
+        round and AC-2 reds. The book's margin is carried entirely by `fill`, not by both;
+      * the assertion floor is 1.5, so no test is red today — the misstatement is exactly the
+        kind that survives green and misleads the next reader of the failure message.
+
+      The aspect-tolerance justification on round_ink.py:58-63 ("the nearest mark ... that gets
+      anywhere near a disc's fill is a letter stem at aspect 0.545 ... 0.2 sits in a gap with
+      0.255 of margin") survives this only on the qualifier "that carries a disc's fill" — the
+      1.053-aspect block does not. Worth saying out loud there, because the unqualified reading
+      is what a future card will take.
+    suggestion: |
+      Replace the three numbers with the measured ones and the conclusion with the measured
+      one: margin 1.886, carried by `fill` alone, driven by a 99x94 filled block at aspect
+      1.053; the fill tolerance could rise to 0.226 before the book reds, and the aspect
+      tolerance has no margin left on that block at all. Then raise the asserted floor from
+      1.5 to something that actually guards the measured value (e.g. 1.8), so the test reds
+      when the margin erodes rather than after it has halved.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/helpers/round_ink.py
+    line: 65
+    title: "\"44 real pages ... a seeded 31-page corpus book\" measures 33 pages and a 20-page corpus"
+    description: |
+      round_ink.py:65-67 grounds the no-floor claim on "Measured over 44 real pages (the
+      baseline book's 13 and a seeded 31-page corpus book's)". Measured on this head:
+      baseline 13 pages (3222 regions), picture corpus 20 pages (4236 regions) — 33 pages, not
+      44, and the corpus is 20 pages, not 31. `PICTURE_MIN_PAGES` is asserted at 18, which is
+      consistent with 20 and not with 31.
+    suggestion: "State 33 (13 + 20), or raise PICTURE_MIN_PAGES and the corpus to match the prose."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-005
+    severity: low
+    category: tech-debt
+    type: bug
+    file: meta/profiling/card-241-render-check-cost.md
+    line: 38
+    title: "AC-6's page count does not add up and over-counts the picture corpus"
+    description: |
+      The table records "pages rendered and measured | 152 (13 x 11 baseline pages, 22
+      picture-corpus pages)". 13 x 11 = 143, and 143 + 22 = 165, not 152. The row above says 11
+      interiors "(10 routes memoised, one per route, plus the picture corpus)", i.e. 10 baseline
+      interiors, so the baseline figure should be 13 x 10 = 130. And the picture corpus renders
+      20 pages, not 22 (measured). 130 + 20 = 150.
+      The headline figures in the same file do reproduce: 31 tests in 4.5 s observed against
+      4.63 s claimed; the whole file 6.70 s against 6.41 s; peak RSS 836,435,968 B against
+      "836 MB" — exact.
+    suggestion: "Recompute the row: 11 interiors = 10 x 13 baseline + 1 x 20 corpus = 150 pages."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/profiling/card-241-render-check-cost.md
+    line: 54
+    title: "The 836 MB attribution is right in direction, but the measurement's own share is understated 5x"
+    description: |
+      The note's claim — "The 836 MB peak is the materialising call, not the measurement" — is
+      correct and now measured. Peak RSS at three points in one process:
+
+          after imports                         63 MB
+          after interior_pages (13 pages)      518 MB   (+455 MB, the materialising call)
+          after measuring all 13 (3222 regions) 564 MB   (+46 MB, the measurement)
+
+      So the attribution holds: render is ~10x the measurement. Two sub-figures do not:
+      * "The measurement itself holds one page's boolean mask (8.4 MB)" — the measurement's
+        actual peak contribution is ~46 MB. `ink_regions` also allocates the padded copy, the
+        int64 edge/start/end arrays, and then three Python int lists plus a `parent` list over
+        every horizontal run (`_ink_runs` ends in `.tolist()`), which is where the rest goes.
+      * "holds all 13 pages at ~25 MB each" implies 325 MB; measured 455 MB, ~35 MB/page.
+      This matters only because the note's own last line points the next card at "a streaming
+      render would cut the peak to about one page" — a decision that will be taken against
+      these numbers.
+    suggestion: >-
+      Record the measured split (render +455 MB, measure +46 MB, ~35 MB/page) and drop the
+      8.4 MB figure, or qualify it as the mask alone rather than as the measurement's footprint.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-2
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-007
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/page_ink.py
+    line: 141
+    title: "`_dark` left as a pass-through alias of `ink_mask` — two names for one function"
+    description: |
+      The diff promotes `_dark` to a public `ink_mask` and then re-adds `_dark` as a one-line
+      delegate (page_ink.py:141-142). Both names now live. Remaining `_dark` callers through
+      the import: page_ink.py:249 and tests/helpers/two_up_ink.py:66,79,99 (two_up_ink imports
+      `_dark` from page_ink by name). Every other `_dark` in the test tree is a separate local
+      definition in another module and unaffected, which is why nothing broke — verified: no
+      consumer of page_ink changed behaviour and the static-guard class plus the type-floor and
+      A4-golden suites are green on this head.
+      The public-surface change itself is justified under the minimalism ladder — reuse before
+      new, and round_ink genuinely needs the same threshold reading, which is the stated reason
+      (page_ink.py:134-137). The alias is the part that is convenience rather than need.
+    suggestion: >-
+      Delete `_dark` and update its four call sites (page_ink.py:249 and two_up_ink.py:66,79,99)
+      — a four-line edit that leaves one name for one concept. If the alias is kept to hold the
+      diff small, say so in a comment so the next reader does not add a third caller to the
+      private name.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-008
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 3100
+    title: "The revert half of AC-1 is partly tautological and partly order-dependent"
+    description: |
+      `test_reverting_the_plant_leaves_the_book_clean` asserts `ink.plants == 0` first. For
+      `route=None`, `_interior_ink` never wraps `_set_band` at all (line 2846: `if plant is not
+      None`), so `plants` is 0 by construction and that assertion cannot fail — a tautological
+      assertion in the sense of Step 8f's static check. The substantive half (`found == ()` on
+      the unplanted book) is real and does fail under mutation (killed by M1, M3b and M5 in the
+      probe below).
+      Separately, "the revert happened" is only true because `_MEASURED` (line 2876) is a
+      module-level cache and pytest runs the file in declaration order, so `_book_ink(None)` is
+      computed after the three AC-1 plants. Run alone (`-k reverting`) it is computed first and
+      the test measures a book that was never planted. The card presents this as the proof that
+      no page is cached, so the property is worth making order-independent.
+    suggestion: >-
+      Drop the `plants == 0` assertion or replace it with one that can fail (e.g. assert
+      `book_pdf_generator._set_band is the original` after a planted render, which is the
+      restore this test is named for). Make the ordering explicit by calling one plant inside
+      the test before re-measuring the clean book, rather than relying on the cache being warm.
+    confidence: high
+    source: static
+    violates: G-6
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-009
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 2768
+    title: "The accounting multiset is page-agnostic, which is a wider hiding place than the pixel tolerance it refuses"
+    description: |
+      `_unaccounted` matches found boxes against declared boxes as a flat multiset over the
+      whole interior; page identity is dropped in `_interior_ink` (lines 2855-2863 append
+      `region.box` and the declared dots without a page index). Its docstring argues against a
+      coordinate tolerance because "a tolerance here would only buy a rogue mark room to hide
+      beside a declared one" — but dropping the page gives a rogue mark room to hide on a
+      *different page* at a declared box's coordinates, whenever a declared dot on some other
+      page is not itself found (it touches ink, or is outlined). The band geometry is identical
+      on every page, so those coordinates are not hard to hit.
+      Contrived rather than likely, and the guard still counts totals, so an added mark
+      normally shows up. Filed because the docstring presents exactness as closing this class.
+    suggestion: >-
+      Carry the page index into `found` and `declared` and match `(page, box)` pairs; it is a
+      two-line change and makes the "exact multiset" claim as narrow as it reads.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: enabler
+    type: question
+    file: meta/architecture/trace.yml
+    line: 1733
+    title: "[opinion, not a gate] trace.yml's FR-033/FR-043 rows were not updated although the ADR delta was taken"
+    description: |
+      The card header declares "Trace: to be updated if the ADR delta is taken", and the delta
+      was taken, so by the card's own declared surface an update was owed. The implementer
+      flagged it rather than skipping it quietly.
+      My opinion: leaving it alone is defensible and does not gate. (a) Both new rules carry
+      live `check:` refs — `test_the_books_own_pages_carry_no_undeclared_round_mark` at
+      tests/test_book_difficulty_dots.py:3190 and
+      `test_no_module_types_a_round_mark_as_a_character` at :1969 — which is what `--verify-refs`
+      reads, so there is no verification gap to close. (b) The `adrs:` lists on both rows already
+      name ADR-0036 (trace.yml:1739, :2025), and trace rows name rule ids only in prose notes,
+      so no field is now stale. (c) No src/ file changed and neither FR gained or lost an AC. (d)
+      `validate.py --root meta/architecture` gives 0 errors, 86 warnings — I re-ran it and
+      confirm the figure. The right move is a one-line note from the architect station, which is
+      cheaper there than here.
+      Precedent cuts slightly the other way and is worth the architect knowing: trace.yml:1671
+      does list an ADR-0036/R1 check test inside a requirement row's `tests:`.
+    suggestion: >-
+      Architect station: add FR-033's AMENDED note naming ADR-0036/R3 and the
+      TestRoundMarkOnThePage_* classes, next time that row is touched. Not this card's.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: info
+    category: ops
+    type: gap
+    file: meta/profiling/card-241-render-check-cost.md
+    line: 44
+    title: "[out of scope] RENDER_HEAVY_SNAPSHOT is now one file short of the live set, by decision"
+    description: |
+      Verified, and the handling is honest: `tests/test_book_difficulty_dots.py` does not match
+      `RENDER_API_PATTERN` (meta/profiling/rank_durations.py:44-47) — I ran the pattern over the
+      file's text and it returns zero matches, so the file is genuinely outside the grep that
+      defines the set, and `test_the_frozen_render_set_still_matches_the_grep_that_defines_it`
+      is green (tests/test_suite_profile.py -k frozen_render_set: 2 passed). The two respellings
+      the card describes (`_interior_ink` rather than `_measure_interior`, and the docstring
+      spelling the matched literal out rather than quoting it) are both present and both
+      documented in the helper's own docstring (lines 2795-2812).
+      So the frozen set is not *wrong* — it is exactly the grep's answer. What is true is that
+      the file now costs ~0.15 s/test of render and belongs in the set on cost grounds, which
+      the note records for the next profiling run. That is the deliberate handling G-5 asked
+      for, and the `meta/` re-freeze correctly is not this card's.
+    suggestion: "Next profiling run: add tests/test_book_difficulty_dots.py to RENDER_HEAVY_SNAPSHOT."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: info
+    category: enabler
+    type: question
+    file: meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md
+    line: 146
+    title: "[out of scope] ADR-0036/R4's home is acknowledged as wrong-but-cheap by the delta itself"
+    description: |
+      Judged on content, as briefed. R3 is true as written and its reach statement is honest:
+      two instruments, neither containing the other, with the residue named ("a round mark in
+      one of CARD-228's six recorded spellings drawn on a surface nobody renders"). I verified
+      the non-containment both ways — the walk complains about `ellipse`/`polygon` and is silent
+      on all six NAMED_LIMITS routes (test_the_walk_really_is_blind_to_every_route_in_the_table,
+      green), and the render check catches all six (green). The residue is correctly stated.
+      The one thing R3's comment does NOT state is the ink-threshold bound and the small-mark
+      floor — that is F-001/F-002, filed there.
+      R4's literals-only scope is correctly bounded: `_dingbat_literals` reads string literals,
+      a computed string is explicitly handed to R3's render check, and non-.py assets are named
+      as outside both. Accurate.
+      The home question the ADR raises against itself (a package-wide literal ban is not a
+      geometry decision) is real, and the ADR's own note that relocating it "costs nothing"
+      because both rules name their own checks is correct. Architect's call, not a gate.
+    suggestion: "Architect station: decide whether R4 relocates to a CON in requirements.yml."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verification:
+  what_reproduced:
+    - "Region decomposition is correct. `ink_regions` cross-checked against an independent BFS 4-connected labeller over 400 seeded random masks (sizes 1x1..27x27, densities 0.1..0.9, including degenerate single-row and single-column masks): 0 mismatches on (left, top, right, bottom, ink) for every region. This is the number every downstream measurement rests on."
+    - "M4b is real and its repair is honest. In-memory mutant replacing the half-open overlap test `starts[there] < ends[here] and starts[here] < ends[there]` with `<=` on both sides (i.e. 8-connected) is KILLED by exactly one test, test_a_diagonal_touch_is_not_a_merge, 1 failed of 31 — the card's claim verbatim. The control is discriminating, not decorative: under the mutant the disc and the corner-touching line become one region at (4,100,140,140) and round_marks returns it as a 137x41 box, so the guard reports neither mark."
+    - "The threshold mutants die as claimed. ROUND_FILL_TOLERANCE 0.12->0.40: 9 failed. 0.12->0.025: 12 failed. ROUND_ASPECT_TOLERANCE 0.2->0.08: 1 failed, by exactly test_the_aspect_tolerance_sits_in_a_measured_gap. Two further mutants I added: aspect 0.2->0.5 (the untested widening direction) 5 failed; aspect inverted to height/width 1 failed. Merging disabled 17 failed; fill measured against the box instead of the inscribed ellipse 14 failed. Baseline 0 failed of 31."
+    - "AC-5's equality is red in both directions. Direction B via the fill-tolerance mutant: test_the_limits_list_is_exactly_the_routes_no_instrument_closes fails when the metric stops closing the routes while all six stay struck. Direction A verified directly by appending `* **LIMIT:** L1 line fan` to the static guard's docstring in memory: RED, 'it carries [L1 line fan] while the page closes [...]'; restored, GREEN. The marker extractor's own control fires (_limits_carried_by on a synthetic line returns {'L1 line fan'}), and the real docstring now carries zero markers."
+    - "G-1 holds. CARD-228's static guard class is intact and still fires: TestDifficultyDots_HasExactlyOneDrawingSite 29 passed on this head; the diff touches only its docstring. test_the_walks_own_predicate_can_fire keeps the blindness claim from being a claim about nothing."
+    - "ADR-0039/R3's check test is untouched. No `def test_` inside lines 1-2438 is modified by the diff; all 1292 added lines are the module docstring, the import block, three docstring hunks, and the append after line 2438."
+    - "No new dependency. round_ink.py imports math, dataclasses, numpy, PIL only; pyproject.toml is not in the diff; scipy was deliberately avoided."
+    - "Cost reproduces: 31 tests in 4.49 s user / 5.26 s wall (claimed 4.63 s); whole file 6.70 s / 119 tests (claimed 6.41 s / 119); peak RSS 836,435,968 B (claimed 836 MB)."
+  what_did_not_reproduce:
+    - "margin 2.27 -> measured 1.8859 (F-003)"
+    - "44 real pages / 31-page corpus -> measured 33 / 20 (F-004)"
+    - "152 pages rendered -> 150 by the note's own structure, and the corpus is 20 pages not 22 (F-005)"
+    - "the measurement holds 8.4 MB -> +46 MB above the render-only peak (F-006)"
+  the_next_mutant:
+    description: >-
+      Asked for by the brief: what the ink metric itself cannot see, beyond the four stated
+      bounds. Two routes found and both confirmed by planting through the real harness, not by
+      argument — a grey mark (F-001) and a sub-resolution mark (F-002). Both are the same shape
+      as the static walk's failures: a dimension the instrument does not measure at all, rather
+      than a value inside a dimension it measures. The honest generalisation is that this
+      instrument discriminates on silhouette and nothing else, so every non-silhouette property
+      of ink (darkness, colour, opacity, the raster it lands on) is open by construction. That
+      sentence, with the two controls, is what ADR-0039/R1 asks for in place of a four-item list.
+  mutation_check: "8f-mutation: deferred(cost) — gating findings present; certify on the stable cycle. The in-memory probes above were diagnosis of the card's own recorded claims (M4b, the thresholds, AC-5's two directions) and of the metric's reach, not certification of the test set; the worktree was never edited."
+  worktree_state: "unchanged — `git status --porcelain` shows only ` M meta/architecture/decisions/adr/0036-...md`, ` M meta/kanban/cards/CARD-241.md`, `?? meta/profiling/card-241-render-check-cost.md` (plus this report). All probes ran from /private/tmp scratchpad against in-memory module copies."

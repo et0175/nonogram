@@ -1,0 +1,396 @@
+version: 1
+generated_at: "2026-10-17T09:09:57Z"
+target: "card/241-round-mark-render-proof @ 2a6c321 + the uncommitted cycle-1 fix delta (tests/test_book_difficulty_dots.py, tests/helpers/round_ink.py, tests/helpers/page_ink.py, meta/architecture/decisions/adr/0036-*.md, meta/profiling/card-241-render-check-cost.md, meta/kanban/cards/CARD-241.md)"
+card: CARD-241
+cycle: 2
+mode: confirmation
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/test_book_difficulty_dots.py (fix delta in full; lines 1-2445 byte-compared against 2a6c321)
+    - tests/helpers/round_ink.py
+    - tests/helpers/page_ink.py
+    - meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md (History + R3/R4)
+    - meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md (R1/R2/R3 statements + scopes)
+    - meta/architecture/decisions/adr/0006-dependency-baseline.md, 0038-*.md (R1, R7, R8 scopes)
+    - meta/architecture/requirements.yml (CON-005, CON-009..CON-012)
+    - meta/profiling/card-241-render-check-cost.md
+    - meta/kanban/cards/CARD-241.md (AC, guardrails, system contract, M15 mutation table)
+    - meta/review/20261017T074900Z-CARD-241-cycle1.yml (previous report, in full)
+  not_reached:
+    - "the full suite (forbidden by the brief; the post-fix gate's 7760 passed / 9 skipped / 0 failed is inherited, cross-checked as 7727 base + 33 against my own 33-passed selection)"
+    - "CARD-228's own cycle reports (read only through this card's quotations, as at cycle 1)"
+    - "src/nonogram/** beyond the two colour constants (_SOLVED_GRID_GRAY, INK/BACKGROUND) — the delta touches no src file"
+  confidence: high
+
+metrics:
+  diff:
+    files: 6
+    added: 731
+    removed: 85
+    note: "fix delta only (2a6c321 -> working tree); the whole card is 1587 added / 25 removed over 3 code files"
+  max_fan_in:
+    symbol: "tests.helpers.page_ink.ink_mask"
+    callers: 3
+    note: "page_ink.py:255 via the _dark alias, tests/helpers/two_up_ink.py (3 sites via the same alias), tests/helpers/round_ink.py; the alias itself gained no new caller in the delta (4 call sites, unchanged)"
+  tests_cover_change: true
+  hotspots:
+    - tests/test_book_difficulty_dots.py
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: >-
+      no_eligible_fact — the delta is test-only and meta-only; tests/helpers/round_ink.py is still
+      uncommitted (no history), and tests/test_book_difficulty_dots.py's co-change peers
+      (tests/test_suite_profile.py, tests/test_book_interior_type_floor.py) were both run as check
+      refs and are green, so no absent peer is filable as a missing change.
+
+system_contract:
+  rules_checked: 13
+  holds: 11
+  unchecked: 2
+  violated: 0
+  carried: 3
+  notes: >-
+    N = 13 from the injected SYSTEM CONTRACT block, which takes precedence over the card's own
+    `## System contract` section (that section lists only 3: ADR-0006/R1, ADR-0036/R2, CON-020).
+    CON-020 was re-run anyway: tests/test_book_interior_type_floor.py -k EveryFaceHoldsTheFloor,
+    4 passed. ADR-0036/R3 and R4 are this card's own new rules, not standing contract at decompose
+    time; they are judged under the task contract (AC-4) rather than counted here, and the
+    assembled lens now returns 15 rules for the card because the uncommitted ADR delta added them.
+    Carriable set determined mechanically from `system_rules.py --root meta/architecture --card
+    CARD-241 --verify-refs`: the fix delta's files are tests/** and meta/**, so a rule whose scope
+    resolves only under src/** or pyproject.toml intersects nothing and is carried; every rule
+    scoped to tests/** and every `scope: global` CON was re-verified fail-closed.
+    `diagnostics.check_refs_verified: true` and `diagnostics.dead_check_ref: []`, so no rule is
+    check_ref_missing.
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — carried(cycle 1, delta-clean). Scope is [pyproject.toml, src/nonogram/**] (ADR-0006 Rules block); the fix delta touches neither — `git status --porcelain pyproject.toml` empty, and `git diff -- tests/ | grep -niE 'playwright|chromium|scipy'` returns nothing. Re-derived additionally: the delta's only two new imports are first-party (_SOLVED_GRID_GRAY from nonogram.admin, INK_LEVEL from tests.helpers)."
+    - "ADR-0036/R1 ✓ holds — carried(cycle 1, delta-clean). Scope resolves to src/nonogram/export/** and siblings (lens output); no src file is in the delta. Re-derived anyway, cheaply: tests/test_layout_page_spec.py -k TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden — 63 passed, 48 deselected."
+    - "ADR-0036/R2 ✓ holds — carried(cycle 1, delta-clean). Scope is src/nonogram/admin/** (lens output); the delta is test-only and meta-only, and the planted glyphs' geometry still comes from COMP-007 via _planted_dots, which the delta does not touch (`git diff -- tests/test_book_difficulty_dots.py` has no hunk in the _planted_dots region)."
+    - "ADR-0038/R7 ⚠ unchecked — no_eligible_fact: scope is [pyproject.toml, tests/**], which the delta intersects, so this was NOT carried — re-checked and nothing in it bears on the rule. pyproject.toml is untouched (`git status --porcelain pyproject.toml` empty) and the delta adds no browser test (grep over `git diff -- tests/` for playwright/chromium/browser/page.goto: 0 hits)."
+    - "ADR-0038/R8 ⚠ unchecked — no_eligible_fact: scope tests/** intersects the delta, so re-checked rather than carried; the delta adds no browser test and touches no Chromium-dependent skip or fail path (same grep, 0 hits)."
+    - "ADR-0039/R1 ✓ holds — the rule cycle 1 recorded as violated, re-verified in full and NOT carried. All three refuted claims are now narrowed to the measurement and each carries a control that fails. (a) darkness: the bound is stated in round_ink.py's bound list (now 6 bullets, round_ink.py:102-124) and in ADR-0036/R3's comment (0036-*.md:138-153); its control is test_a_mark_lighter_than_the_ink_level_is_not_measured_at_all, which I killed two ways — mutant INK_LEVEL 128->200 (FAILED, the premise assertion fires) and, the faithful reach-widening mutant, ink_mask's threshold -> `< 255` with INK_LEVEL untouched (FAILED: 'a grey-160 disc is not ink at all ... [(100,100,140,140)]'). (b) size floor: the sweep starts at 1 (round_ink.py / _disc_sweep), the verdicts 1..11 are asserted against DISC_VERDICT_BELOW_THE_SMALLEST_DOT, and the recorded table reproduces diameter for diameter (1 no ink, 2 F 1.2732, 3 F 0.7074, 4 T 0.9549, 5 T 1.0695, 6 F 0.8488, 7..11 T) — mutant 6: False -> True KILLED by test_the_metrics_own_size_floor_is_where_the_raster_puts_it. (c) margin: measured 1.885921 through _book_ink(None) itself, closest (144,1266,242,1359) 99x94 aspect 1.0532 fill 1.2263 ink 8963 on page index 0, next family the letter stem at 2.2727 — mutant `_distance_from_round` x0.9 KILLED at exactly `assert 1.697329174291799 >= 1.8`, which the retired 1.5 floor would have passed; mutant BookInk.closest -> farthest region (M15e) KILLED by the carried-by-fill assertion."
+    - "ADR-0039/R2 ✓ holds — scope tests/** intersects the delta, so re-verified. The delta's one new hand-written collection, DISC_VERDICT_BELOW_THE_SMALLEST_DOT, is a golden record rather than a set the guard consults: its keys are held to an equality against the executed sweep (`assert below == sorted(DISC_VERDICT_BELOW_THE_SMALLEST_DOT)`) so it cannot shrink, and its values are compared against a fresh measurement — the same distinction cycle 1 drew for NAMED_LIMITS. Default-deny is unchanged: _unaccounted still fails on any round region not in the declared multiset, now matched on (page, box). Check ref re-run: tests/test_suite_profile.py -k 'control_for_each_spelling_depends_on_the_set or guard_sets_are_derived_and_not_hand_written' — 14 passed."
+    - "ADR-0039/R3 ✓ holds — scope tests/** intersects the delta and the rule's own check test lives inside this card's file, so this was re-derived, not carried. CARD-228's whole static-walk region is byte-identical apart from two added import names: `diff -u <(git show 2a6c321:tests/test_book_difficulty_dots.py | sed -n 1,2443p) <(sed -n 1,2445p tests/test_book_difficulty_dots.py)` yields exactly `+    _SOLVED_GRID_GRAY,` and `+    INK_LEVEL,` and nothing else; the R3 check test's own region hashes identically on both sides (`sed -n 1900,2100p` of cycle 1 and `sed -n 1902,2102p` of now both shasum ac10f6a29aa8d1d95af3e08965da079a0eb9caa9). The rule's check ref plus the dingbat rule: 2 passed; the whole static-walk class TestDifficultyDots_HasExactlyOneDrawingSite: 29 passed, unchanged from cycle 1. The delta grants no new exemption."
+    - "CON-005 ✓ holds — no scope: key (lens reports `scope: global`), so not carriable; re-run fail-closed. tests/property/test_solver_uniqueness.py + tests/test_admin_binding.py: 36 passed. No src/ file is in the delta."
+    - "CON-009 ✓ holds — scope global, re-run: tests/test_admin_binding.py green in the same 36-passed run (TestAdminPanel_BindsLoopbackOnlyByDefault, the ref's live spelling per the lens's dead_check_ref: []). No web-server code in the delta."
+    - "CON-010 ✓ holds — scope global, re-run: tests/test_web_server.py -k 'CrossOrigin or ForeignAuthority or cross' — 5 passed, 149 deselected. No web-server code in the delta."
+    - "CON-011 ✓ holds — scope global, re-run: tests/property/test_grid_dimensions.py + tests/property/test_image_fit.py — 32 passed. The delta changes no grid side; the picture corpus it measures still builds sides 10/12/15."
+    - "CON-012 ✓ holds — scope global, green in the same 32-passed run. No image-fit code in the delta."
+
+task_contract:
+  guardrails:
+    - "G-1 ✓ holds — re-derived (the delta edits the file that holds the static guard, so not carriable): the static-walk region differs by two import names only, the R3 check-test region is byte-identical by shasum, and TestDifficultyDots_HasExactlyOneDrawingSite is 29 passed."
+    - "G-2 ✓ holds — re-derived: round_ink.py's delta is docstring and comment only (no import line changed), page_ink.py's is a comment only, the test file's two new imports are first-party, pyproject.toml untouched."
+    - "G-3 ✓ holds — re-derived: still stdlib random.Random(DISC_SWEEP_SEED=241), no hypothesis. The sweep grew from range(MIN_DOT_PX,61) to range(1,61) and the asserted-minimum check moved behind a `>= MIN_DOT_PX` filter — measured 129 cases against DISC_SWEEP_MIN_CASES=120, the same 129 as before the delta, so the minimum was not weakened by the filter, and the below-floor half is pinned separately by the table-keys equality."
+    - "G-4 ✓ holds — carried(cycle 1, delta-clean): the glyph lives in src/nonogram/export/layout.py and src/nonogram/admin/book_pdf_generator.py; no src file is in the delta."
+    - "G-5 ✓ holds — re-derived: `git status --porcelain meta/profiling/` shows only the new untracked card-241-render-check-cost.md; no frozen artefact is modified. The note still records, rather than performs, the RENDER_HEAVY_SNAPSHOT addition."
+    - "G-6 ✓ holds — the guardrail form of ADR-0039/R1; see that verdict. Ten mutants run, ten killed, including one per previously-uncontrolled claim."
+  acceptance_criteria:
+    - "AC-1 ✓ — the revert half is now order-independent and non-tautological: `-k reverting` alone passes (1 passed), the test plants first, asserts plants >= 6 and unaccounted non-empty, asserts both module attributes are the originals captured at import, and only then measures a fresh clean book. Control: removing `book_pdf_generator._set_band = set_band` from the finally block FAILS it ('the plant's hook on _set_band was not restored')."
+    - "AC-2 ✓ — margin 1.885921 reproduced exactly; floor raised 1.5 -> 1.8 and it bites (the x0.9 mutant dies at 1.697329, above the old floor); the carried-by-fill claim is asserted off BookInk.closest and dies under the farthest-region mutant."
+    - "AC-3 ✓ — strengthened only: the page is now carried through and compared across spellings (`assert my_page == their_page`)."
+    - "AC-4 ✓ — the bound list went 4 -> 6 and both new bounds are asserted, not narrated; 2 mutants kill them."
+    - "AC-5 ✓ holds — carried(cycle 1, delta-clean): NAMED_LIMITS and TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly are outside every hunk of the fix delta."
+    - "AC-6 ✓ — re-measured independently: 12 interiors / 163 pages by instrumenting BookPDFGenerator.interior_pages during the selection run (exactly the note's figures, derived not computed); selection 4.69/4.73/4.81 s against the claimed 4.70-4.91 s; whole file 121 tests at 6.09/6.42 s against the claimed 6.18-6.48 s; peak RSS 837,386,240 B inside the claimed 835-851 MB; memory split +455 MB render (35.0 MB/page) and +46 MB measure, inside the recorded +398..455 / +38..92 ranges."
+
+root_causes:
+  - id: RC-1
+    title: "cycle 1's RC-1 (reach sentences written ahead of the measurement) is resolved"
+    finding_ids: []
+    description: >-
+      All three cycle-1 Important/medium findings re-derived as fixed, each with a control I killed
+      a mutant through. No new instance of the family in the delta's code. The one residue is two
+      prose compressions of the new bounds (F-201, F-202) and one mis-scoped verdict in the card's
+      own mutation table (F-203) — all in the conservative direction (they under-claim reach or
+      under-claim coverage), which is why they are Minor rather than a reopening of RC-1.
+
+findings:
+  - id: F-201
+    severity: low
+    category: tech-debt
+    type: risk
+    file: meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md
+    line: 149
+    title: "ADR-0036/R3's comment compresses the non-monotone floor back into the one number the card proved does not describe it"
+    description: |
+      The rule's bound list reads "bounded by the pages it renders, by a near-square footprint, by
+      a filled mark, by a mark of at least 7 px across, and by DARKNESS". "At least 7 px across" is
+      the single floor the fix's own measurement refutes: the instrument does see a 4 px disc
+      (fill 0.9549) and a 5 px one (1.0695), and does not see a 6 px one (0.8488) — I reproduced
+      the whole table. round_ink.py:135-139 states this correctly ("Under 7 px across the verdict
+      is the raster's accident rather than the shape's ... a 6 px disc is not round, a 4 px one
+      is"); the ADR comment does not, and the ADR is the artefact a future card reads first.
+      The error direction is conservative — it claims less reach than the instrument has — so it
+      cannot hide a round mark, which is why this is Minor and not a reopening of RC-1. But the
+      card's own thesis is that no single number describes this bound, and the architectural
+      record is the one place that still says otherwise.
+    suggestion: >-
+      One clause: "by a mark whose diameter the fill metric can resolve — from 7 px up always, and
+      below 7 px the raster's accident rather than the shape's (measured table in
+      DISC_VERDICT_BELOW_THE_SMALLEST_DOT)". Naming the table also gives the comment the floor's
+      control, which it currently names only for darkness.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-202
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/helpers/round_ink.py
+    line: 102
+    title: "\"discriminates on silhouette only\" is the right generalisation under the wrong word — the metric also reads interior density"
+    description: |
+      The card's main defence against the next gap is "It discriminates on silhouette only. Every
+      bound below is a corollary of that one sentence ... every non-silhouette property of ink —
+      its darkness, its colour, its opacity — is open by construction." I judge the *claim* true
+      and well placed: the metric's only input is the thresholded boolean mask (page_ink.ink_mask),
+      so everything thresholding discards is open, and that does predict the grey gap cycle 1
+      found rather than merely record it. It appears where a reader of R3 will see it — the lead
+      sentence of round_ink.py's bound list, ADR-0036/R3's comment (0036-*.md:146), the
+      TestRoundMarkOnThePage_TheBoundaryIsMeasured docstring, the new darkness test's docstring,
+      and the ADR History.
+      The word is the problem. "Silhouette" ordinarily means outline, and the second bullet of the
+      very list this sentence introduces contradicts that reading: a hollow ring has the same
+      outline as a filled disc and is not round, because `fill` counts the ink *inside* the box.
+      A reader taking "silhouette" literally would conclude the fill bound is inconsistent with
+      the generalisation, when in fact both follow from "the binary ink mask".
+    suggestion: >-
+      Gloss it once, at round_ink.py:102 and in ADR-0036/R3's comment: "it discriminates on the
+      binary ink mask alone — a region's footprint and the ink inside it — and on nothing else".
+      Same sentence, same force, and the hollow bound becomes a corollary instead of an exception.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-203
+    severity: low
+    category: tech-debt
+    type: bug
+    file: meta/kanban/cards/CARD-241.md
+    line: 298
+    title: "The M15d row records SURVIVED at a scope its own table does not state — the mutant dies under the card's selection"
+    description: |
+      Row M15d claims `ROUND_ASPECT_TOLERANCE` 0.2 -> 0.02 "SURVIVED, correctly". Run under the
+      same selection the sibling rows report against (`-k RoundMarkOnThePage`, which is the
+      command the profiling note records), the mutant is KILLED: 1 failed, 32 passed, by
+      tests/test_book_difficulty_dots.py::TestRoundMarkOnThePage_TheBoundaryIsMeasured::test_the_aspect_tolerance_sits_in_a_measured_gap
+      — the hexagon at aspect 1.083..1.167 escapes a 0.02 tolerance, which round_ink.py:64-66
+      says in so many words. It survives only the narrower TestRoundMarkOnThePage_PassesOnTheRealBook
+      class (5 passed), which is the scope the row's reasoning is actually about and does not say.
+      The row's *substance* checks out, and I verified the sub-claim too: under the mutant the
+      closest region becomes a 56x56 perfectly square filled cell at aspect exactly 1.000000,
+      fill 1.2732, margin 2.2770, still fill-carried — so "the carried-by-fill claim is not
+      falsifiable by an aspect tolerance" is true, and M15e is the right compensating control
+      (I killed it: the farthest-region mutant fails exactly that assertion). So no claim is left
+      uncontrolled, and the error under-states the card's own coverage. It is Minor for that
+      reason — but it is a verdict recorded wider than the measurement that produced it, which is
+      the family this card spent a cycle on.
+    suggestion: >-
+      "SURVIVED within TestRoundMarkOnThePage_PassesOnTheRealBook (killed suite-wide by
+      test_the_aspect_tolerance_sits_in_a_measured_gap, as intended) — recorded because the
+      asserted carried-by-fill property still holds under it, which is what M15e controls."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-204
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 2871
+    title: "Page attribution is keyed on id() of a live image, which the unplaced assertion cannot fully guard"
+    description: |
+      F-009's per-page fix takes the page from `id(draw._image)` in the spy and resolves it after
+      the render via `number_of = {id(page): number for ...}`, with an assertion for keys that
+      resolve to no page. That assertion catches a draw object on a *stranger* image, but not the
+      one case it cannot see: a temporary image drawn on, freed, and its address reused by a page
+      created later — CPython reuses ids freely. The result would be a silent misattribution of a
+      declared dot to the wrong page, i.e. a weakening of exactly the property the fix adds.
+      Currently controlled, which is why this is Minor rather than a gap: the `unplaced` assertion
+      is silent on the real book (so nothing today draws on a non-page image at all), and
+      test_the_glyph_the_one_site_draws_is_found_and_accounted_for compares
+      `sorted(found) == sorted(declared)` including the page number, so a misattribution on the
+      honest book reds a test. The residual risk is a future renderer that draws onto a scratch
+      image.
+      Noted also because the comment at 2866-2869 presents the id() route as forced ("the site is
+      handed a draw object and never a page number"), which is true of the site but not of the
+      harness: the spy could count renders instead.
+    suggestion: >-
+      Hold the page in a nonlocal counter the `banded`/page loop advances, or key on the image
+      object itself in a dict with the page list keeping it alive (`{page: number}` is not
+      hashable for PIL images, but an `enumerate` over a list of `(image, number)` and an
+      identity scan is three lines and has no reuse failure mode). Either removes the hazard the
+      assertion cannot reach.
+    confidence: medium
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-205
+    severity: low
+    category: tech-debt
+    type: bug
+    file: tests/test_book_difficulty_dots.py
+    line: 3263
+    title: "\"interior page 1\" is page index 0, and the page index is now a value the test reports"
+    description: |
+      The AC-2 class docstring places the closest mark "on interior page 1". Measured, it is on
+      page index 0 — the first interior page — and cycle 1's own report wrote "page 0". That was
+      harmless prose before this delta; it is less so now, because the delta makes the page number
+      a first-class part of `Mark` and `BookInk.found`, numbered from 0 by `enumerate(pages)`
+      (line 2898). A reader cross-checking the docstring against a failure message now reads two
+      different numbering conventions for the same page.
+    suggestion: "\"on the first interior page (page index 0, as BookInk.found numbers it)\"."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-010
+    severity: info
+    category: enabler
+    type: question
+    file: meta/architecture/trace.yml
+    line: 1733
+    title: "[carried from cycle 1, info, not a gate] trace.yml's FR-033/FR-043 rows still not updated"
+    description: >-
+      Confirmed still open and honestly recorded: `git status --porcelain meta/architecture/trace.yml`
+      is empty, and cycle 1's YAML carries status: open with the architect-station disposition.
+      Not re-litigated; the reasoning (both new rules carry live check refs, so there is no
+      verification gap to close) is unchanged by the delta.
+    suggestion: "Architect station, as cycle 1 recorded."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-011
+    severity: info
+    category: ops
+    type: gap
+    file: meta/profiling/card-241-render-check-cost.md
+    line: 71
+    title: "[carried from cycle 1, info, out of scope] RENDER_HEAVY_SNAPSHOT is one file short, by decision"
+    description: >-
+      Confirmed honestly recorded and the disposition is unchanged: the note states the file
+      belongs in the set on cost grounds, states why it is not added (RENDER_API_PATTERN does not
+      match `interior_pages`), and cites CARD-228's F-204 precedent for refusing a meta/ re-freeze
+      from an implementation card. No frozen artefact was touched (G-5 re-verified).
+    suggestion: "Next profiling run, as cycle 1 recorded."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-012
+    severity: info
+    category: enabler
+    type: question
+    file: meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md
+    line: 84
+    title: "[carried from cycle 1, info, out of scope] ADR-0036/R4's home is acknowledged as wrong-but-cheap by the delta itself"
+    description: >-
+      Confirmed honestly recorded. The History entry states the alternative (a new ADR, or a CON in
+      requirements.yml) and says it was "rejected only as the more expensive move from an
+      implementation card, not as the worse home", with the note that nothing depends on the
+      address because both rules name their own checks. Architect's call; not re-raised.
+    suggestion: "Architect station, as cycle 1 recorded."
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+verification:
+  mutation_check: >-
+    8f-mutation: RUN (10 mutants, 10 killed, 0 survivors). Targeted per the brief on the two
+    tolerances, the region decomposition and the new darkness control, plus one per fixed finding.
+    Every mutant was applied to a lean copy of the worktree under the session scratchpad
+    (/private/tmp/.../scratchpad/rev2: src + tests + pyproject.toml, 13 MB) and restored from a
+    pristine byte copy after each run; the real worktree was never edited and its three code files
+    hash identically to my pre-review capture (3faae02... / e32b7f6... / 40630457...).
+    Baseline: `-k RoundMarkOnThePage` 33 passed, 88 deselected.
+      M-1  _distance_from_round x 0.9                       KILLED  assert 1.697329174291799 >= 1.8 (+ the aspect-gap test) — this is what raising the floor 1.5 -> 1.8 bought
+      M-2  ROUND_ASPECT_TOLERANCE 0.2 -> 0.02 (card's M15d)  KILLED  1 failed by test_the_aspect_tolerance_sits_in_a_measured_gap (survives the PassesOnTheRealBook class alone — F-203)
+      M-3  ROUND_FILL_TOLERANCE 0.12 -> 0.06                 KILLED  4 failed, incl. the margin, floor-table and fill-gap tests
+      M-4  INK_LEVEL 128 -> 200                              KILLED  the darkness control's premise assertion fires
+      M-5  region overlap `<` -> `<=` (8-connected)          KILLED  test_a_diagonal_touch_is_not_a_merge, assert 1 == 2
+      M-6  DISC_VERDICT table: 6 px recorded as round        KILLED  test_the_metrics_own_size_floor_is_where_the_raster_puts_it
+      M-7  _unaccounted matches box alone (page dropped)     KILLED  test_the_accounting_is_an_exact_multiset, per-page assertion
+      M-8  BookInk.closest -> farthest region (card's M15e)  KILLED  the carried-by-fill assertion, floor assertion still green
+      M-9  finally stops restoring _set_band                 KILLED  test_reverting_the_plant_leaves_the_book_clean
+      M-10 ink_mask widens to `< 255`, INK_LEVEL untouched   KILLED  test_a_mark_lighter_than_the_ink_level_is_not_measured_at_all — the faithful reach-widening mutant for the new bound
+  baseline_acceptance: "8g-baseline: N/A — no web UI in the delta; no screenshots, runtime log, a11y log or visual diff provided."
+  what_reproduced:
+    - "margin 1.885921; closest (144,1266,242,1359), 99x94, aspect 1.0532, fill 1.2263, ink 8963, page index 0; next family the letter stem at 2.2727 — exact, through _book_ink(None) and again through an independent re-render + ranking."
+    - "the floor table 1..11: 1 no ink, 2 F 1.2732, 3 F 0.7074, 4 T 0.9549, 5 T 1.0695, 6 F 0.8488, 7 T 0.9614, 8 T 1.0345, 9 T 0.9589, 10 T 0.9677, 11 T 1.0207 — non-monotone below 7, exactly as recorded; aspect exactly 1.0000 at every diameter with ink."
+    - "the corrected disc-fill range: 0.961426 (d=14) .. 1.007620 (d=21) over the asserted sweep 12..142 — the docstring's 0.961..1.008 is right and the retired 0.968..1.004 was stale."
+    - "the 33-page figure: baseline 13 pages / 3222 regions, picture corpus 20 pages / 4236 regions."
+    - "AC-6's page arithmetic, by instrumentation rather than derivation: {'interiors': 12, 'pages': 163} over the selection run — the note's own figures."
+    - "the timing correction: 4.69/4.73/4.81 s for the 33-test selection (claimed 4.70-4.91), 121 tests at 6.09/6.42 s for the whole file (claimed 6.18-6.48), peak RSS 837,386,240 B (claimed 835-851 MB)."
+    - "the memory split: +455 MB for interior_pages (35.0 MB/page), +46 MB for measuring 3222 regions — inside the recorded +398..455 / +38..92 ranges; the 8.4 MB figure is retired."
+    - "`-k reverting` alone passes (1 passed), so F-008's order-dependence is gone."
+    - "_dark has exactly 4 call sites (page_ink.py:255, two_up_ink.py:66/79/99) and gained none; the retirement condition is documented at page_ink.py:141-146."
+    - "G-3's case count did not shrink behind the new sweep filter: 129 diameters >= MIN_DOT_PX against DISC_SWEEP_MIN_CASES = 120, the same 129 the pre-delta sweep produced."
+    - "the static-walk region is byte-identical apart from two import names; the R3 check-test region shasums identically on both sides."
+  what_did_not_reproduce:
+    - "the card's M15d verdict: recorded SURVIVED, measured KILLED at the selection scope the table's sibling rows use (F-203)."
+  the_next_mutant:
+    description: >-
+      Where the seventh bound will be, given the generalisation: the instrument reads the binary
+      mask of ONE rendered surface, so beyond darkness/colour/opacity the open dimension is
+      composition — a round mark assembled from two marks that are each not round and whose union
+      is (two half-discs drawn as separate polygons on the same pixels merge into one region and
+      WOULD be caught; two half-discs separated by a one-pixel paper gap would not, since
+      4-connectivity keeps them apart and neither half is round alone). That is a silhouette
+      property, so it is inside the metric's declared dimension rather than outside it, and the
+      card's generalisation does not claim it closed. Worth a line in the bound list on the card
+      that next widens this instrument, not a finding here.
+  worktree_state: >-
+    unchanged and byte-identical. `git status --porcelain` shows the same five modified and two
+    untracked paths as at the start of this review (plus this report); tests/test_book_difficulty_dots.py,
+    tests/helpers/round_ink.py and tests/helpers/page_ink.py hash exactly as captured before any
+    probe. All ten mutants and all measurement probes ran in
+    /private/tmp/claude-501/-Users-omelnikova-PycharmProjects-PythonProject4/e6396d39-0b74-4498-9018-df045632a00c/scratchpad/rev2.

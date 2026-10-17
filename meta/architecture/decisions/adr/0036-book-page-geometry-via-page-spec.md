@@ -74,6 +74,33 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
 
 ## History
 
+- 2026-10-17: **Rules added (R3, R4), decision unchanged** — CARD-241, which owns the same
+  subject as CARD-228 and was asked to decide this. CARD-228 introduced two standing
+  constraints on the whole of `src/nonogram/**` and declared both *only inside a test file*:
+  exactly one function may put a round mark on a page, and no string literal anywhere in the
+  package (docstrings included) may hold a geometric-shape codepoint. Both bind every module,
+  the second cannot absorb a drawing module through its one exemption, and neither was visible
+  to a reader of the model. They are written down here as R3 and R4.
+  **Why here, and the alternative that was rejected:** this ADR is about who owns page
+  geometry (R2 already says the admin panel does not place marks itself), so "the page's round
+  mark is drawn in exactly one place" is the same decision one level down, and CARD-241's
+  Architecture context names this ADR as the candidate. The honest alternative — a new ADR, or
+  a CON in `requirements.yml`, on the grounds that a package-wide literal ban is not a
+  *geometry* decision — was rejected only as the more expensive move from an implementation
+  card, not as the worse home. If the architect station prefers to relocate R4, nothing depends
+  on its address: both rules name their own checks.
+  **Reach, stated rather than implied** (ADR-0039/R1): R3 is held by two instruments that do
+  not contain each other. The static `ast` walk reads every module on disk, including code no
+  test renders, and sees four spellings of a round mark; CARD-241's render check reads the ink
+  on the pages the book actually renders and is blind to spelling altogether. What is open to
+  both is a round mark spelled in one of CARD-228's six recorded ways **and** drawn either on a
+  surface nobody renders **or** in ink lighter than the render check's own threshold: that
+  check discriminates on *silhouette* alone, so darkness, colour and opacity are open to it by
+  construction, and the package already draws the solved grid at grey 160 against a threshold
+  of 128. Both halves of that residue are stated in the rule's comment and carry a control;
+  closing the grey route is a follow-up card's, not this one's. R4 is about string *literals*:
+  a computed string (`chr(0x25CF)`) is
+  not one, and is closed by R3's render check instead, because a typed dot is still ink.
 - 2026-09-22: Created — book geometry is an optional `PageSpec` on `compute_layout`, defaulting to today's A4; layout.py's "no second paper size" guardrail (G-1) retired.
 - 2026-09-22: Clarified (owner, same session; FR-040) — two-up pages come from a pair-aware COMP-007 call with one shared cell; the book lays out with its stored gutter margin and finalise checks it against KDP's page-count minimum. Decision unchanged.
 - 2026-09-22: Clarified (owner) — margins are mirrored by page parity and the drawing is centred across the usable width. Decision unchanged.
@@ -98,5 +125,53 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
     itself.
   scope: {contexts: [CTX-001], code: ["src/nonogram/admin/**"]}
   check: {kind: review-lens}
+  severity: mandatory
+- id: ADR-0036/R3
+  statement: >-
+    Exactly one function in src/nonogram/** puts a round mark on a page. A
+    second one is a defect whatever Pillow call it is written with: four cards
+    print the same difficulty glyph, and four slightly different dots cannot be
+    fixed once a book is on paper.
+  scope: {contexts: [CTX-001], code: ["src/nonogram/**"]}
+  check: {kind: test, ref: test_the_books_own_pages_carry_no_undeclared_round_mark}
+  # tests/test_book_difficulty_dots.py (CARD-241). Two instruments, neither
+  # inside the other, and the rule is only as wide as their union:
+  #   * the ast walk (TestDifficultyDots_HasExactlyOneDrawingSite) reads every
+  #     module on disk -- code no test renders included -- and sees four
+  #     spellings: an ellipse-family call, an unrecognised draw receiver, an
+  #     unrecognised .Draw(...) binding form, a dingbat literal;
+  #   * the render check (the TestRoundMarkOnThePage_* classes, named above)
+  #     renders the book's interior and asserts every round region on it was
+  #     declared by the one drawing site. Blind to spelling, and bounded by
+  #     SILHOUETTE: it discriminates on a region's shape alone, so every
+  #     non-silhouette property of ink -- darkness, colour, opacity -- is open
+  #     to it by construction. Concretely: bounded by the pages it renders, by
+  #     a near-square footprint, by a filled mark, by a mark of at least 7 px
+  #     across, and by DARKNESS -- grey 128 (page_ink.py's INK_LEVEL) is where
+  #     ink begins, and the package draws the solved grid at grey 160, so a dot
+  #     in the book's own grey leaves this check green (measured; control
+  #     test_a_mark_lighter_than_the_ink_level_is_not_measured_at_all).
+  # Open to BOTH: a round mark in one of CARD-228's six recorded spellings,
+  # drawn either on a surface nobody renders or in ink lighter than INK_LEVEL.
+  # Stated, not implied (ADR-0039/R1).
+  severity: mandatory
+- id: ADR-0036/R4
+  statement: >-
+    No string literal anywhere in src/nonogram/** -- docstrings included --
+    holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is
+    drawn, never typed: the cheapest way to print a difficulty dot is to append
+    a bullet to a header string, and that route bypasses the one drawing site
+    and CON-020's type floor at once.
+  scope: {contexts: [CTX-001], code: ["src/nonogram/**"]}
+  check: {kind: test, ref: test_no_module_types_a_round_mark_as_a_character}
+  # tests/test_book_difficulty_dots.py (CARD-228). One earned exemption
+  # (admin/pdf_generator.py's prose bullets) held to an equality against the
+  # modules that carry such a codepoint today, plus a second assertion that the
+  # exempt module makes no draw-object call -- so it cannot grow to cover a
+  # drawing module (ADR-0039/R3, whose own check is that exemption's control).
+  # Reach: string LITERALS. A computed string -- chr(0x25CF), a decoded bytes
+  # literal, unicodedata.lookup -- is not one and is left to R3's render check,
+  # which measures the ink a typed dot leaves and does not care how the string
+  # was made. Non-.py assets are outside both.
   severity: mandatory
 ```
