@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-222 (the frame these rules are measured inside)
-**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_card227.json
+**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf.py, tests/fixtures/book_baseline_card227.json, src/nonogram/admin/book_page_spec.py, src/nonogram/admin/book_proof.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -117,3 +117,4 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   300 dpi is 1.25 px. Rounding decides whether two weights are distinguishable at all, which
   is why AC-5 and AC-6 exist: the figures are only meaningful if they survive the smallest
   cell and both resolutions.
+- [Pre-dispatch defect, found at the 2026-10-17 widening pass] ⚠ **This card contradicts a rule in its own `## System contract`, and will gate on it.** ADR-0037/R2 states: "every thin grid rule is at least 0.25 mm and **every heavy rule is twice the thin rule**". Verified in `meta/architecture/decisions/adr/0037-book-puzzle-page-band-and-strokes.md:77`. This card's figures are **0.3 / 0.8 / 1.3 pt** — 0.8 is **2.67x** the thin rule and 1.3 is **4.33x**, and there is no two-weight reading of a three-weight hierarchy that satisfies R2. The card already records that an **FR-033** amendment is owed at the architect station; **ADR-0037/R2 is a second amendment it does not mention.** Settle it at the architect station before this card dispatches, or it gates on cycle 1 against a claim it cannot satisfy — the CARD-172 shape, and the same shape as CARD-224's AC-6 caught earlier this wave.

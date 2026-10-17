@@ -26,4 +26,18 @@ conflicts:
     rebase and is the reason the later recoveries named the six files individually.
     Structural fix: delete the worktree copies immediately after syncing, or sync only
     at `done` time. Until then, name files explicitly — never glob meta/review/.
-
+- wave: 44
+  pair: [CARD-222, CARD-243]
+  files: [tests/test_book_difficulty_dots.py, tests/helpers/page_ink.py]
+  predicted: false
+  reason: >-
+    The dispatcher recorded the pair as disjoint and ran them concurrently, because
+    CARD-222's Touches listed neither file. CARD-222 in fact rewrote figures in
+    test_book_difficulty_dots.py and fixed a latent defect in page_ink.py's rule
+    threshold, while CARD-243 restructured both. The rebase onto CARD-243's merge
+    conflicted on one hunk, semantically: CARD-243 had made the assertion loop over
+    both measured thresholds, CARD-222 had lowered the region floor for its narrower
+    usable area. Both were right; the merged tree's figure (3209) matched neither
+    card's measurement (3222 / 2640).
+  resolved: manual
+  at: 2026-10-17

@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-229 (the spread and its two-column frame)
-**Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_guide_page.py, tests/test_book_finalise_guide_preview.py, tests/test_book_finalise_guide_preview_layout.py, tests/fixtures/book_baseline_card230.json
+**Touches:** src/nonogram/admin/book_pdf_generator.py, tests/test_book_guide_page.py, tests/test_book_finalise_guide_preview.py, tests/test_book_finalise_guide_preview_layout.py, tests/fixtures/book_baseline_card230.json, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
 **Closed:** —
@@ -108,3 +108,4 @@ _52 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 - [AC-2 is the one that makes this a lesson rather than four pictures] "Each with one line
   saying what changed" is only true if something changed. Asserting the grids differ is cheap
   and it is the only assertion here that tests the teaching rather than the layout.
+- [Pre-dispatch defect, found at the 2026-10-17 widening pass] ⚠ **This card's "current behaviour" is factually wrong, and the error makes the card look bigger than it is.** It states that the worked example is today "a single figure under `GUIDE_EXAMPLE_HEADING`". Verified against the source: `WORKED_EXAMPLE_STEPS` (`src/nonogram/admin/book_pdf_generator.py:735`) already holds **four** `ExampleStep` entries with captions, `:3666` already draws one per step, `:2410`'s own comment calls them "the four original worked-example steps", and the Finalise preview already renders them step by step (`app.py:4716` exposes `guide_steps`; `book_finalize.html:151-161` renders an `<ol class="guide-steps">` with `.guide-step-caption` styled in `admin.css:333-335`). So **AC-1, AC-3 and AC-7 look like they pass against shipped code**, and the genuine delta is the callout at the foot of page 2 plus the fit at the shortest trim. This is the "an AC can be true, green and evidence nothing, when an earlier card already delivered its outcome" pattern the board already tracks (CARD-221's AC-2). Re-cut the ACs at the decompose station before dispatch, so the card evidences what it actually changes; its `Touches` was widened only 5 → 10 for this reason.

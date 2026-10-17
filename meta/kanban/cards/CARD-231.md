@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-222 (the frame), CARD-228 (the dots)
-**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_divider_page.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card231.json
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_divider_page.py, tests/test_book_page_numbers.py, tests/test_book_toc.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card231.json, meta/profiling/rank_durations.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
 **Closed:** —

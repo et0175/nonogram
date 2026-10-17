@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-206 (the title page that makes page 1, so the guide can start on page 2 and face page 3), CARD-222 (the frame it borrows), CARD-228 (the dots its key strip teaches)
-**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_finalise_guide_preview.py, tests/test_book_page_numbers.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card229.json
+**Touches:** src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_guide_page.py, tests/test_book_guide_page_type.py, tests/test_book_finalise_guide_preview.py, tests/test_book_page_numbers.py, tests/property/test_book_export_interior.py, tests/fixtures/book_baseline_card229.json, src/nonogram/admin/app.py, src/nonogram/admin/templates/book_finalize.html, src/nonogram/admin/static/admin.css, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
 **Closed:** —

@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-222 (the area), CARD-223 (the QR must be out of the gutter strip before the strip stops existing)
-**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card224.json
+**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_puzzle_frame.py, tests/test_book_pdf.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card224.json, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
 **Closed:** —

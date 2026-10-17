@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-232 (the tiles), CARD-228 (the dots)
-**Touches:** src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/test_book_solved_answer_key.py, tests/test_book_answer_key.py, tests/fixtures/book_baseline_card233.json
+**Touches:** src/nonogram/admin/book_answer_key.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_solved_page.py, tests/test_book_solved_answer_key.py, tests/test_book_answer_key.py, tests/fixtures/book_baseline_card233.json, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
 **Closed:** —

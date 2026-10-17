@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** —
 **Depends on:** CARD-224 (centring), CARD-225 (the shared cell size), CARD-223 (each slot's own QR corner)
-**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_two_up.py, tests/test_book_page_numbers.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card226.json
+**Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_two_up.py, tests/test_book_page_numbers.py, tests/property/test_book_pdf_geometry.py, tests/fixtures/book_baseline_card226.json, tests/helpers/two_up_ink.py, meta/profiling/rank_durations.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
 **Started:** —
 **Closed:** —
