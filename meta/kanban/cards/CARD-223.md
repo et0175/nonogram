@@ -1,6 +1,6 @@
 # CARD-223: The QR code moves into the footer's outer corner, with a caption and a typed link
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/223-qr-in-the-footer
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-223
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — issue 1 ("The QR square moves around... because it goes to the gutter side, it sits near the spine, where the page curves and a phone struggles to scan it") and "The rules behind it": QR code
 **Idea:** —
-**Wave:** —
+**Wave:** 45
 **Depends on:** CARD-222 (the footer this card puts the QR into)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf.py, tests/test_book_puzzle_frame.py, tests/test_book_qr_slot.py, tests/fixtures/book_baseline_card223.json, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-18T00:00:00Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

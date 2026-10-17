@@ -1,9 +1,21 @@
-wave: 44
+wave: 45
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
+active:
+  - id: CARD-244
+    phase: implementation
+    branch: card/244-per-worktree-test-database
+    worktree: ../PythonProject4-card-244
+    started: 2026-10-18T00:00:00Z
+    note: "Owner's wave-45 decision: harden before resuming the interior chain. P1, architectural because it owns a DROP SCHEMA public CASCADE path and a name-derivation bug could reach nonogram_poc, which is the LIVE admin panel's database. Briefed to set TEST_DATABASE_URL to its own derived database from the first command, so it dogfoods the fix and cannot corrupt CARD-223's runs while building it."
+  - id: CARD-223
+    phase: implementation
+    branch: card/223-qr-in-the-footer
+    worktree: ../PythonProject4-card-223
+    started: 2026-10-18T00:00:00Z
+    note: "P1, head of what remains of the interior chain: CARD-224 waits on it and CARD-226 waits on 224+225. Disjoint from CARD-244 on files. Briefed NOT to run DB selections while CARD-244 is active, because until CARD-244 lands both trees still share nonogram_test."
 escalated: []
 wave_44_complete:
   at: 2026-10-17T19:20:43Z
@@ -69,4 +81,14 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-17T19:20:43Z
+last_updated: 2026-10-18T00:00:00Z
+
+wave_45:
+  dispatched: 2026-10-18T00:00:00Z
+  concurrency: 2
+  cards: [CARD-244, CARD-223]
+  owner_decision: "Asked at the wave boundary (mode: interactive) with four options; owner chose 'Fix the DB hazard first', slot 1 the new hardening card and slot 2 CARD-223. Recorded because the alternative chosen against is informative: starting the interior chain's CARD-223 alone was the recommendation, and the owner preferred gate integrity first."
+  conflict_edges:
+    - pair: [CARD-244, CARD-223]
+      reason: "DISJOINT ON FILES (CARD-244: tests/conftest.py, the DB fixture's own tests, scripts/*.sh; CARD-223: export/layout.py, book_pdf_generator.py, the book test files) -- so no serialization on Touches. BUT a RUNTIME edge exists until CARD-244 lands: both trees still share nonogram_test, which is the very defect CARD-244 removes. Mitigated rather than ignored: CARD-244 isolates itself onto its own derived database from its first command, CARD-223 is told not to run DB selections, and full-suite gates are serialized by the orchestrator as always. This is the first conflict edge on this board that is about shared RUNTIME STATE rather than shared files -- the predictor models only the latter, which is why wave 44's CARD-222/CARD-243 collision was unpredicted too."
+  note: "Does NOT unlock parallelism for CARD-224..CARD-233 -- those collide on export/layout.py and book_pdf_generator.py and serialise regardless. What it buys is gate integrity: wave 44 proved a concurrent sibling can manufacture both failures and skip counts, which cost one fix-agent attempt and produced a false finding that reached the owner."
