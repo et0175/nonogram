@@ -1,6 +1,6 @@
 # CARD-222: Every interior page gets one frame — new margins, a header rule and a footer rule
 
-**Status:** review
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/222-interior-page-frame
-**Worktree:** ../PythonProject4-card-222
+**Worktree:** — (removed at merge)
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 (https://claude.ai/artifact/Wp4iGB27cyBAV62da5ACMP) — "The rules behind it": Margins, Header, Puzzle area, Footer
 **Idea:** —
 **Wave:** 44
 **Depends on:** CARD-221 (re-records the interior baselines and owns the same drawing code; racing it would make two cards re-record the same fixtures)
 **Touches:** src/nonogram/admin/book_page_spec.py, src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_spec.py, tests/test_book_puzzle_frame.py, tests/test_book_page_numbers.py, tests/test_book_finalise_gutter.py, tests/fixtures/book_baseline_card222.json
-**Review score:** —
+**Review score:** 9.0 (cycle 2/3)
 **Started:** 2026-10-17T13:48:43Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-17T19:00:18Z
+**Actual:** 0.6d
+**Merge commit:** 40a93dd
 **Blocked by:** —
 
 ## What to implement
@@ -178,6 +178,25 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 - **Trace:** `meta/architecture/trace.yml` — not updated by this card.
 
 ## Worktree notes
+
+- **[Merged] `40a93dd`, merge gate PASSED on the final commit `e352368`.** `7873 passed,
+  9 skipped, 0 failed` in 924.53s. 7873 + 9 = 7882, reconciling with the tree's collect-only
+  count. **`git diff e352368 HEAD -- src/ tests/ migrations/ pyproject.toml` is empty**, so
+  main's code tree is byte-identical to the gated tree and the gate result transfers rather
+  than being assumed. Worktree removed; `PycharmProjects` is back to one sibling (CARD-236).
+  Actual **0.6d against a 1d estimate** (0.65x), 5.19 h wall from 13:48:43Z.
+  No merge conflict occurred, so **nothing is written to `conflict-history.yml`** — the
+  predicted ADR-0036 collision did not fire and that file records observations, not guesses.
+
+- **[One thing caught at cleanup, worth the habit]** `git worktree remove` refused because of
+  two untracked files, and inspecting them rather than reaching for `--force` showed the
+  cycle-1 review YAML in the worktree **differed from the copy I had already taken into
+  `meta/review/`**: the fix agent had since flipped F-001/F-002/F-003 from `status: open` to
+  `status: fixed`. My copy was the pre-fix version. Re-copied before removing, verified
+  identical with `cmp`. **The lesson is procedural, not about this card:** the review YAML is
+  copied one-way out of a worktree that is then deleted, so a copy taken *before* the fix
+  station runs is stale by construction. Copy again at the merge gate, not only at the review
+  sync — otherwise the retrospective reads every finding as unfixed.
 
 - **[Review 2/3] Score 9.0 — ✓ threshold reached. 0 Critical, 0 Important, 2 Minor.** Risk LOW,
   lane FAST. System contract 8/8 ✓ holds, 0 unchecked, 0 violated. F-001, F-002 and F-003 all

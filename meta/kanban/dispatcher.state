@@ -10,13 +10,24 @@ active:
     worktree: ../PythonProject4-card-236
     started: 2026-10-17T15:52:00Z
     note: "Owner instruction 15:52Z: swapped in for CARD-216, which was abandoned before its agent wrote anything and returned to ready (its DB-skip warning kept on the card for whoever starts it next). Acts on CARD-217's measurement: the admin-local script trio is 117.16s / 12.73% of suite wall-clock. Briefed that this is a cost card, not a coverage card -- every changed test must be shown still failing on the mutant it was there to catch."
-  - id: CARD-222
-    phase: implementation
-    branch: card/222-interior-page-frame
-    worktree: ../PythonProject4-card-222
-    started: 2026-10-17T12:40:00Z
-    note: "P1, architectural, TDD inherited false. Head of the interior-redesign chain; 11 cards measure themselves against the frame it lays. Unblocked by the 2026-10-17 architect pass (91609aa) — CON-018 now states exactly what this card builds."
 escalated: []
+merged_this_wave:
+  - id: CARD-222
+    merge_commit: 40a93dd
+    at: 2026-10-17T19:00:18Z
+    review_score: 9.0
+    cycles: "2/3 (✓ threshold reached)"
+    actual: 0.6d
+    estimate: 1d
+    accuracy: 0.65x
+    gate: "7873 passed, 9 skipped, 0 failed in 924.53s; code tree byte-identical to the gated commit e352368"
+    note: "Head of the interior-redesign chain — this merge unblocks 11 cards. Build gate needed 2 fix attempts: attempt 1 died on a migration-head assertion doing its job (015 made '014 is the only head' false) and on a phantom 48-skip regression that did not exist. Review found one Important, caused by the orchestrator's own same-day ADR-0037/R2 amendment landing under the card. Two Minors routed out rather than absorbed: F-005 to CARD-225 (FLOOR_MM's lower pin is a 0.22 mm straddle, and the missing pin IS AC-370, already declared owed to that card), O-1 to CARD-227 (stale registry test: pointers, not missing coverage)."
+refill_deferred:
+  freed_by: "CARD-222 merged 40a93dd"
+  slot: 1
+  reason: "NOT refilled yet, deliberately. CARD-236 is at its own merge gate running a full suite, and this board's rule is that merges run sequentially and never alongside concurrent full suites. Starting a third agent now would also re-create the exact hazard that cost CARD-222 a fix attempt: conftest's db_session TRUNCATEs the shared nonogram_test before every test, so a new card's DB selections would corrupt the gate in flight. Refill once CARD-236 lands."
+  eligible_when_refilled: "CARD-222's dependents whose conflict edges were only to it — CARD-206, CARD-207 (book_pdf_generator.py), CARD-208, CARD-209, CARD-215 (export/layout.py), CARD-220 (tests/**), plus CARD-223..CARD-227 and CARD-229..CARD-233 by dependency. Note CARD-227 and CARD-230 are now pre-dispatch clean (their contradictions and mis-cut ACs were settled this wave), while CARD-225 has newly inherited AC-370 as a blocking obligation."
+
 refilled:
   - at: 2026-10-17T15:45:00Z
     freed_by: "CARD-243 merged 1280085 (0.2d against 1d)"
@@ -44,4 +55,4 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-17T15:53:00Z
+last_updated: 2026-10-17T19:05:00Z
