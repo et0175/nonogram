@@ -1,6 +1,6 @@
 # CARD-243: The round-mark check sees the greys the book actually prints
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** true
-**Branch:** —
-**Worktree:** —
+**Branch:** card/243-round-mark-sees-greys
+**Worktree:** ../PythonProject4-card-243
 **Source:** CARD-241's review cycle 1 (2026-10-17), finding F-001 — measured there and confirmed independently by the orchestrator, then narrowed rather than closed by owner decision the same day, so CARD-241 could land with its promise matching its measurement
 **Idea:** —
-**Wave:** —
+**Wave:** 44
 **Depends on:** CARD-241 (it owns the instrument, the bound list and ADR-0036/R3's comment this card widens)
 **Touches:** tests/helpers/round_ink.py, tests/helpers/page_ink.py, tests/test_book_difficulty_dots.py, meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-17T13:48:43Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -177,3 +177,4 @@ _Assembled 2026-10-17 by `system_rules.py --card CARD-243 --root meta/architectu
   whose *stated* reach exceeds what it measures. This card widens the reach, which means every sentence
   about it has to be re-derived — the bound list, R3's comment, the AC-2 class docstring and the
   profiling note all state the black-ink-only reach today.
+- [Env] forge 2026.8.17 (no meta/.skills.yml — no min_version comparison)

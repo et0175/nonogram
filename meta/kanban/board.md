@@ -39,6 +39,7 @@ _Updated: 2026-10-17 UTC_  ·  <!-- forge:run wave=42 mode=interactive concurren
 | 41 | CARD-238 P1 | ✓ **1/1 merged** — CARD-238 ✓ 6c511a4, SOLO, scores 6.0 → 7.5 → 7.5 → 6.5 → **8.0** (cycle 5/3, two owner escalations), 5 fix cycles · **2.7d against 0.5d** · ⚑ the deliverable is the fix; the *result* is the rule it produced — a set a guard consults needs a completeness test written BEFORE the set, and a claim about coverage needs a control that can fail. Five passes each fixed the named instances and minted a new unfalsifiable claim; what broke the loop was deriving the enumeration from `dir(os)` et al, which named four spellings five hand-written passes had missed. Bounds shipped as recorded controls → **CARD-239** |
 | 42 | CARD-228 P1, CARD-213 P2 | ✓ **done — 4/4 merged** — CARD-213 ✓ cbd5a8e (9.0 cycle 1, AC/EC/G 21/21, **0.2d** against 0.5d) · CARD-240 ✓ 9f0ab10 (9.0 c1, **0.1d**) · CARD-228 ✓ 08eecf3 (3 cycles + escalation; AC-4 narrowed, → **CARD-241**; 0.5d) · CARD-239 ✓ c0ab383 (2 cycles + escalation resolved as a split; → **CARD-242**; 0.6d against 1d) — ✓ **wave 42 complete, 4/4 merged, 2 escalations both resolved by owner decision rather than by another cycle.** The wave's through-line: **twice, the presence or absence of a derivable authority predicted whether a guard converged** — CARD-228's method half (`dir(ImageDraw)`) and CARD-239's stdlib surface (`dir(os)`) were sound from their first pass; their sibling halves, which had no authority to derive from, took three cycles and two cycles respectively. Smoke test satisfied by CARD-239's merge gate (7727/0) on a byte-identical code tree |
 | 43 | CARD-241 P1, CARD-242 P2 | ✓ **done — 2/2 merged** · CARD-242 ✓ `b194e3e` (7.0 → 8.5, **0.5d** against 0.5d) · CARD-241 ✓ `099864b` (7.5 → 9.0, **0.6d** against 1d) — **both cards' gating findings came from ONE root cause and it was the same one: a coverage claim stated wider than its mechanism.** The wave's through-line is which station caught it: review caught it on CARD-241 (3 findings, 1 cause) and half-caught it on CARD-242 (1 of 2 confirmed, 1 refuted by measurement), while **the AC/EC/G gate caught what two review cycles and a mutation pass had passed** — CARD-242's residue list claiming completeness it did not have, which was the third instance of that shape inside that one card. Smoke test satisfied by CARD-241's merge gate (7814/0) on a byte-identical tree | — dispatched 2026-10-17T05:05Z at concurrency 2, the two cards wave 42's escalations produced. Both carry `TDD: true`, both come pre-measured (CARD-228's and CARD-239's own review reports), and their `Touches` are disjoint — no conflict edge, so they genuinely run in parallel rather than queueing on `book_pdf_generator.py` like every other eligible card |
+| 44 | CARD-222 P1, CARD-243 P2 | ▶ **active** — dispatched 2026-10-17T12:40Z at concurrency 2. CARD-222 is the head of the interior-redesign chain, unblocked by the same day's architect pass (`91609aa`); **11 cards measure themselves against the frame it lays**. CARD-243 was picked over the mechanically-next CARD-216 by owner decision: CARD-216 is a migration card and this board's DB-mode tests skip silently without a `nonogram_test` database, so its AC evidence could pass vacuously — CARD-243 is pure test-tree work with the freshest context. Verified disjoint, no conflict edge |
 | 27 | CARD-129 P2, CARD-143 P2, CARD-146 P2, CARD-147 P2, CARD-148 P1, CARD-149 P2 | ✅ 6/6 merged · closes Increment 15 |
 
 _Note (2026-09-22): all 111 cards of waves 1–19 (CARD-001..CARD-112) are `done`. Waves 20–27 are the book generator (handoff Increments 13–16, CARD-113..CARD-135; CARD-133/CARD-134, the answer key, added by the 2026-09-22 (c) delta), numbered after the finished waves so `waves.yml` attribution cannot collide with them. The 2026-09-22 (d) delta added CARD-135 (interior PDF without the cover, cover as its own file; wave 20, before CARD-116's page parity) and folded the answer-key details into CARD-133/CARD-134/CARD-128; no wave was renumbered. Checkpoints per wave: [meta/kanban/waves.yml](waves.yml). The CON-019 golden-A4 tripwire (CARD-113) must stay green at the end of every book wave._
@@ -119,33 +120,16 @@ _CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were c
 - **CARD-216** A puzzle's given cells are stored with it, and the player shows them as locked marks · P2 · 1d · standard · depends CARD-214
 
 ## In Progress
+_Wave 44, dispatched 2026-10-17T12:40Z at concurrency 2 (owner's standing cap; `config.yml` allows 5).
+Cycle check PASS over 243 cards; 10 cards were eligible, 7 serialized behind CARD-222 on the
+`book_pdf_generator.py` / `export/layout.py` hotspots and on CARD-220's `tests/**`._
 
-_(none)_ — **wave 43 closed 2026-10-17, 2/2 merged, no escalations.** Both worktrees removed;
-`git worktree list` shows only `main`. Next dispatch is **wave 44**.
+- **CARD-222** Every interior page gets one frame — new margins, a header rule and a footer rule · **P1** · 1d · **architectural** · `card/222-interior-page-frame` · worktree `../PythonProject4-card-222` · ⛑ the registry now **states** its spec rather than owing it: CON-018 carries outer 0.5 / top 0.55 / bottom 0.47 in with the gutter deliberately left at KDP's 0.5 in · ⛑ briefed that **a parity assertion on Book 1 is now an identity, not evidence** (gutter == outside == 12.700 mm), so proving mirroring needs a book with unequal stored margins · ⛑ two tensions it must read rather than discover: ADR-0037/R1's "band carries number + tier only", and `page_frame` living outside COMP-007 against ADR-0036/R2's letter
+- **CARD-243** The round-mark check sees the greys the book actually prints · P2 · 1d · standard · **TDD** · `card/243-round-mark-sees-greys` · worktree `../PythonProject4-card-243` · ⛑ closes the route CARD-241 narrowed rather than fixed: ink thresholds at 128 while the solved grid draws at grey **160**, so a grey disc yields **0 ink regions** where the identical black disc yields 1 · ⛑ the real work is what moves when the threshold does — grey cells become ink, and CARD-241's closest legitimate mark is already only **1.8859 fill-tolerances** clear of round · ⛑ briefed that a `[BLOCKER]` is a real possible outcome here if the re-measured margin makes AC-2 unsatisfiable
 
-_✅ **The architect debt that blocked the interior-redesign lane is CLEARED** (2026-10-17, `91609aa`):
-CON-018's margins, NFR-008's floor (4.8 → **4.75 mm**, owner's decision) and its per-grid-size rule,
-INV-013/FR-043 as one statement covering both claimants, and CARD-204's FR-032 amendment **cancelled
-rather than applied** because CARD-224 reverses it. **CARD-222 and the chain behind it are eligible now.**_
-
-_⚠ Still owed, and deliberately NOT cleared on their cards: **CARD-227**'s FR-033 rule weights and
-**CARD-231**'s section-opener ACs — both were outside the 2026-10-17 scope, so their "amendment owed"
-notes stand. Also flagged, not carded: ADR-0037/R1 needs re-reading against CARD-228's dots, and the
-ADRs still state the floor as 4.8 mm (an `adr-writer` pass — an ADR is amended by revision, not edited)._
-
-_⛑ Two consequences written onto the cards whose reviewers need them: **mirrored margins are now a
-geometric no-op on Book 1** (gutter == outside == 12.700 mm), so a passing parity assertion there is an
-identity rather than evidence; and the "4.76 mm still lands under the floor" claim **CARD-222 and
-CARD-225 both carried is now false** — at a 4.75 floor that case measures 4.7625 mm, 0.012 mm ABOVE it,
-so FR-031's below-floor flag no longer fires. CARD-225's AC-6 rested on it and now states an open
-question instead._
-
-_⛑ **System contracts on the book cards were curated, by owner decision**, from the lens's 60-odd rules
-down to 6–14 each: a rule scoped `src/nonogram/**` matches every card and narrows to nothing, and this
-board measured what a ~53-rule contract actually yields — 45–48 rules marked `⚠ unchecked` and 6–12 real
-verdict lines (CARD-200/203/204), against full coverage on CARD-241's 13 and CARD-242's 10. Each card
-declares how many rules were dropped and why; the upstream fix (scope the rules to their components) is
-in `backlog.md`._
+_Serialized behind CARD-222, draining through slot refill as it merges: CARD-206/207 (`book_pdf_generator.py`),
+CARD-208/209/215 (`export/layout.py`), CARD-220 (`tests/**` covers every sibling's test files). CARD-216 and
+CARD-236 are free of CARD-222 but beyond the concurrency cap._
 
 ## Review
 

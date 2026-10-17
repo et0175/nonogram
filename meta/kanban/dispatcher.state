@@ -1,0 +1,41 @@
+wave: 44
+mode: interactive
+# Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
+# SEQUENTIALLY and never with concurrent full suites.
+max_concurrent_override: 2
+active:
+  - id: CARD-222
+    phase: implementation
+    branch: card/222-interior-page-frame
+    worktree: ../PythonProject4-card-222
+    started: 2026-10-17T12:40:00Z
+    note: "P1, architectural, TDD inherited false. Head of the interior-redesign chain; 11 cards measure themselves against the frame it lays. Unblocked by the 2026-10-17 architect pass (91609aa) — CON-018 now states exactly what this card builds."
+  - id: CARD-243
+    phase: implementation
+    branch: card/243-round-mark-sees-greys
+    worktree: ../PythonProject4-card-243
+    started: 2026-10-17T12:40:00Z
+    note: "P2, standard, TDD true. Owner picked it over the mechanical CARD-216 because CARD-216 is a migration card and this board's DB-mode tests skip silently without a nonogram_test database, so its AC evidence could pass vacuously. CARD-243 is pure test-tree work with the freshest context (CARD-241 merged this session)."
+escalated: []
+conflict_edges:
+  - pair: [CARD-222, CARD-243]
+    reason: "none — verified disjoint: CARD-222 is src/nonogram/{admin,export} + its own test files; CARD-243 is tests/helpers + test_book_difficulty_dots.py + the ADR. No hotspot shared."
+  # Serialized behind CARD-222, draining through slot refill as it merges:
+  - pair: [CARD-222, CARD-206]
+    reason: "predicted: hotspot src/nonogram/admin/book_pdf_generator.py"
+  - pair: [CARD-222, CARD-207]
+    reason: "predicted: hotspot src/nonogram/admin/book_pdf_generator.py"
+  - pair: [CARD-222, CARD-208]
+    reason: "predicted: hotspot src/nonogram/export/layout.py"
+  - pair: [CARD-222, CARD-209]
+    reason: "predicted: hotspot src/nonogram/export/layout.py"
+  - pair: [CARD-222, CARD-215]
+    reason: "predicted: hotspot src/nonogram/export/layout.py"
+  - pair: [CARD-222, CARD-220]
+    reason: "predicted: overlap 1.00 — CARD-220's tests/** covers every sibling's test files"
+previously_escalated:
+  - id: CARD-228
+    resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
+  - id: CARD-239
+    resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
+last_updated: 2026-10-17T12:40:00Z

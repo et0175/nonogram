@@ -1,6 +1,6 @@
 # CARD-222: Every interior page gets one frame — new margins, a header rule and a footer rule
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/222-interior-page-frame
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-222
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 (https://claude.ai/artifact/Wp4iGB27cyBAV62da5ACMP) — "The rules behind it": Margins, Header, Puzzle area, Footer
 **Idea:** —
-**Wave:** —
+**Wave:** 44
 **Depends on:** CARD-221 (re-records the interior baselines and owns the same drawing code; racing it would make two cards re-record the same fixtures)
 **Touches:** src/nonogram/admin/book_page_spec.py, src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, src/nonogram/admin/book_kdp.py, tests/test_book_page_spec.py, tests/test_book_puzzle_frame.py, tests/test_book_page_numbers.py, tests/test_book_finalise_gutter.py, tests/fixtures/book_baseline_card222.json
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-17T13:48:43Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -250,3 +250,4 @@ re-measured the geometry, not the corpus: re-measure the corpus before claiming 
 **So CON-018's gutter clause is NOT amended** — only its outer, top and bottom values. That
 also keeps CON-018's own KDP reasoning intact (0.375 in up to 150 pages, 0.5 in for 151-300,
 and Book 1 straddles 150), which the 0.75 in gutter would have left stranded.
+- [Env] forge 2026.8.17 (no meta/.skills.yml — no min_version comparison)
