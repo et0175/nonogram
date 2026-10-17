@@ -73,6 +73,7 @@ from nonogram import clues
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_pdf_generator import (
     _MIN_BAND_FONT_RATIO,
+    _SOLVED_GRID_GRAY,
     BookPDFGenerator,
     _band_font,
     _draw_difficulty_dots,
@@ -98,6 +99,7 @@ from nonogram.export.layout import (
 from nonogram.export.png import BACKGROUND, INK
 from tests.helpers.book_corpus import BASELINE_PAGE_COUNT, baseline_puzzles, corpus_book
 from tests.helpers.round_ink import (
+    INK_LEVEL,
     ROUND_ASPECT_TOLERANCE,
     ROUND_FILL_TOLERANCE,
     InkRegion,
@@ -1437,9 +1439,13 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     renders, and sees four spellings of a round mark; the render check sees any
     spelling at all, on the pages it renders and nowhere else. What is open to
     *both* is a round mark spelled in one of the six ways above **and** drawn
-    on a surface nobody renders — which is the honest residue of the pair, and
-    is stated with the rest of the render check's bounds on
-    :class:`TestRoundMarkOnThePage_TheBoundaryIsMeasured`.
+    either on a surface nobody renders **or** in ink lighter than the render
+    check's own threshold — the second disjunct is not optional: the render
+    check discriminates on the ink mask alone, so a pasted mask in the grey the
+    solved grid already uses (160 against a threshold of 128) is open to both
+    instruments *on a page the book really prints*. That pair of routes is the
+    honest residue, and both are stated with the rest of the render check's
+    bounds on :class:`TestRoundMarkOnThePage_TheBoundaryIsMeasured`.
     """
 
     def test_the_method_classification_covers_every_pillow_draw_method(self) -> None:
@@ -2734,6 +2740,12 @@ def _distance_from_round(region: InkRegion) -> float:
     )
 
 
+#: Where one round mark is: its page number and its box. Both halves are
+#: carried everywhere a mark is, because the accounting matches on both — see
+#: :func:`_unaccounted`.
+Mark = tuple[int, tuple[int, int, int, int]]
+
+
 @dataclass(frozen=True)
 class BookInk:
     """What one rendered interior's ink measures.
@@ -2743,33 +2755,40 @@ class BookInk:
         regions: How many connected ink regions they carry in all — the
             denominator that keeps "no round mark" from being a statement about
             a blank book.
-        found: Every round mark's box, over all pages.
-        declared: Every **filled** dot box the one drawing site reported
-            drawing, over all pages. An outlined dot is not here: it is a ring,
-            and a ring is not round to this instrument (a stated bound).
-        unaccounted: The round marks no declared dot accounts for — the
-            guard's verdict. Empty is a pass.
+        found: Every round mark as a :data:`Mark` — its page number and its
+            box — over all pages.
+        declared: Every **filled** dot the one drawing site reported drawing,
+            as a :data:`Mark`, over all pages. An outlined dot is not here: it
+            is a ring, and a ring is not round to this instrument (a stated
+            bound).
+        unaccounted: The round marks no declared dot on *their own page*
+            accounts for — the guard's verdict. Empty is a pass.
         plants: How many times the plant hook fired. Zero on an unplanted
             book, and asserted non-zero wherever a plant is the evidence, so a
             plant that silently failed to land cannot read as a pass.
         margin: :func:`_distance_from_round` for the closest region that is
             *not* round.
+        closest: That region itself. Carried so that a claim about **which**
+            of the two tolerances the margin rests on is asserted rather than
+            written down in a docstring (cycle 1, F-003). ``None`` only for an
+            interior with no non-round region at all.
     """
 
     pages: int
     regions: int
-    found: tuple[tuple[int, int, int, int], ...]
-    declared: tuple[tuple[int, int, int, int], ...]
-    unaccounted: tuple[tuple[int, int, int, int], ...]
+    found: tuple[Mark, ...]
+    declared: tuple[Mark, ...]
+    unaccounted: tuple[Mark, ...]
     plants: int
     margin: float
+    closest: InkRegion | None
 
 
 def _unaccounted(
-    found: Sequence[tuple[int, int, int, int]],
-    declared: Sequence[tuple[int, int, int, int]],
-) -> tuple[tuple[int, int, int, int], ...]:
-    """The round marks ``declared`` does not pay for, matched box for box.
+    found: Sequence[Mark],
+    declared: Sequence[Mark],
+) -> tuple[Mark, ...]:
+    """The round marks ``declared`` does not pay for, matched page and box.
 
     A multiset, not a set: two round marks at one declared box are one mark
     more than was declared. Matched **exactly**, because a dot stroked by
@@ -2777,15 +2796,30 @@ def _unaccounted(
     :meth:`TestRoundMarkOnThePage_PassesOnTheRealBook.test_the_glyph_the_one_site_draws_is_found_and_accounted_for`),
     so a tolerance here would only buy a rogue mark room to hide beside a
     declared one.
+
+    And matched **per page**, which is the same argument one level up. Every
+    page's band geometry is identical, so a declared box on page 4 is a box on
+    page 11 as well; dropping the page would let a rogue mark on one page be
+    paid for by a declared dot on another whose own mark was not found — it
+    touched other ink, or it was outlined. The page is carried from
+    :func:`_interior_ink`, so that trade cannot be made (cycle 1, F-009).
     """
     remaining = Counter(declared)
-    missing: list[tuple[int, int, int, int]] = []
-    for box in found:
-        if remaining[box] > 0:
-            remaining[box] -= 1
+    missing: list[Mark] = []
+    for mark in found:
+        if remaining[mark] > 0:
+            remaining[mark] -= 1
         else:
-            missing.append(box)
+            missing.append(mark)
     return tuple(missing)
+
+
+#: The two module attributes :func:`_interior_ink` hooks, captured at import —
+#: before any test has run — so "the plant was reverted" can be an identity
+#: check against the real originals rather than against whatever happens to be
+#: bound at the time (cycle 1, F-008).
+_UNHOOKED_SITE = book_pdf_generator._draw_difficulty_dots
+_UNHOOKED_SET_BAND = book_pdf_generator._set_band
 
 
 def _interior_ink(
@@ -2816,13 +2850,15 @@ def _interior_ink(
     * :func:`~nonogram.admin.book_pdf_generator._draw_difficulty_dots` is
       wrapped in a spy, so whatever the **one drawing site** draws is
       *declared*. It is the site's own return value that is recorded, not a
-      guess at its geometry.
+      guess at its geometry — and it is recorded with the page it landed on,
+      because the accounting matches page and box rather than box alone
+      (:func:`_unaccounted`).
     * ``_set_band`` is wrapped so ``plant`` draws into each band after the
       header is set. That is the realistic site: a puzzle page's band is where
       CARD-207's dots will go, and it is reached on a real page of a real book
       rather than on a canvas invented for the test.
     """
-    declared: list[tuple[int, int, int, int]] = []
+    drawn_on: list[tuple[int, tuple[int, int, int, int]]] = []
     plants = 0
     site = book_pdf_generator._draw_difficulty_dots
     set_band = book_pdf_generator._set_band
@@ -2830,8 +2866,15 @@ def _interior_ink(
     def spy(draw, stored_tier, left, top, right, bottom):
         dots = site(draw, stored_tier, left, top, right, bottom)
         if dots is not None:
-            declared.extend(
-                dot for index, dot in enumerate(dots.dots) if dots.is_filled(index)
+            # Recorded with the *page* it was drawn on, because the accounting
+            # is per page (:func:`_unaccounted`). The site is handed a draw
+            # object and never a page number, so the page is taken from the
+            # identity of the image that draw object holds and turned into a
+            # page number below, once the pages exist.
+            drawn_on.extend(
+                (id(draw._image), dot)
+                for index, dot in enumerate(dots.dots)
+                if dots.is_filled(index)
             )
         return dots
 
@@ -2856,16 +2899,27 @@ def _interior_ink(
         book_pdf_generator._draw_difficulty_dots = site
         book_pdf_generator._set_band = set_band
 
-    found: list[tuple[int, int, int, int]] = []
+    number_of = {id(page): number for number, page in enumerate(pages)}
+    unplaced = sorted({key for key, _ in drawn_on if key not in number_of})
+    assert not unplaced, (
+        "the one drawing site drew onto an image that is not one of the pages "
+        "being measured, so its dots cannot be accounted for by page"
+    )
+    declared = [(number_of[key], box) for key, box in drawn_on]
+
+    found: list[tuple[int, tuple[int, int, int, int]]] = []
     regions = 0
     margin = float("inf")
-    for page in pages:
+    closest: InkRegion | None = None
+    for number, page in enumerate(pages):
         for region in ink_regions(page):
             regions += 1
             if region.is_round:
-                found.append(region.box)
+                found.append((number, region.box))
             else:
-                margin = min(margin, _distance_from_round(region))
+                distance = _distance_from_round(region)
+                if distance < margin:
+                    margin, closest = distance, region
     return BookInk(
         pages=len(pages),
         regions=regions,
@@ -2874,6 +2928,7 @@ def _interior_ink(
         unaccounted=_unaccounted(found, declared),
         plants=plants,
         margin=margin,
+        closest=closest,
     )
 
 
@@ -3059,9 +3114,10 @@ class TestRoundMarkOnThePage_CatchesWhatTheWalkCannotSee:
 
     **Planted and reverted, in the same process.** :func:`_interior_ink`
     restores both module attributes in a ``finally``, and
-    :meth:`test_reverting_the_plant_leaves_the_book_clean` measures the
-    unplanted book afterwards — so "the plant is what the guard saw" is
-    checked rather than asserted.
+    :meth:`test_reverting_the_plant_leaves_the_book_clean` plants, asserts both
+    attributes are the originals again, and only then measures the unplanted
+    book — in that order inside the test itself, not by declaration order — so
+    "the plant is what the guard saw" is checked rather than asserted.
 
     What makes this a pairing and not a single-sided claim: every route here
     comes back with **no complaint** from CARD-228's own walk
@@ -3098,9 +3154,34 @@ class TestRoundMarkOnThePage_CatchesWhatTheWalkCannotSee:
         assert _static_walk_complaints(PLANTS[route]) == []
 
     def test_reverting_the_plant_leaves_the_book_clean(self) -> None:
-        """The revert half of plant-and-revert: the book itself carries nothing."""
-        ink = _book_ink(None)
-        assert ink.plants == 0
+        """The revert half of plant-and-revert: the book itself carries nothing.
+
+        The order is part of the property, so this test plants **first** and
+        measures the clean book afterwards, here, rather than relying on
+        :data:`_MEASURED` being warm and on pytest's declaration order: run
+        alone with ``-k reverting``, the first version of this test measured a
+        book that had never been planted (cycle 1, F-008). The clean
+        measurement is taken fresh for the same reason.
+
+        The restore is asserted too, against the attributes captured at
+        import. A ``finally`` that stopped firing would leave ``_set_band``
+        wrapped, and that is what makes ``found == ()`` below more than a
+        tautology — the old ``plants == 0`` was one, since an unplanted render
+        never wraps ``_set_band`` at all.
+        """
+        planted = _book_ink("ellipse")
+        assert planted.plants >= 6, (
+            f"the plant never landed ({planted.plants} bands drawn), so there "
+            "is nothing here for the revert to have undone"
+        )
+        assert planted.unaccounted, "and the guard did report it"
+        assert book_pdf_generator._set_band is _UNHOOKED_SET_BAND, (
+            "the plant's hook on _set_band was not restored"
+        )
+        assert book_pdf_generator._draw_difficulty_dots is _UNHOOKED_SITE, (
+            "the declaring spy on the one drawing site was not restored"
+        )
+        ink = _interior_ink()
         assert ink.found == ()
         assert ink.unaccounted == ()
 
@@ -3178,13 +3259,25 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
     pages, and a solved page's filled answer cells — and not one of them
     measures round.
 
-    **With a measured margin, not by luck.** The closest any region on those
-    pages comes to being round is reported as
-    :attr:`BookInk.margin`, in units of the tolerance: it is over 2, so both
-    tolerances could double and the book would still pass. That number is
-    asserted, so a future page whose ink drifts towards roundness reds a test
-    *before* it reds the guard, and the threshold's justification stays
-    measurable rather than historical.
+    **With a measured margin, not by luck — and the margin is one number, not
+    two.** The closest any region on those pages comes to being round is
+    reported as :attr:`BookInk.margin`, in units of the tolerance that binds
+    it: **1.8859**, measured on this head, and carried by ``fill`` **alone**.
+    The closest mark is a 99 x 94 px nearly square filled block at
+    ``(144, 1266, 242, 1359)`` on interior page 1 — ``aspect`` 1.0532, which is
+    *already inside* :data:`ROUND_ASPECT_TOLERANCE`, and ``fill`` 1.2263. So
+    :data:`ROUND_FILL_TOLERANCE` could rise from 0.12 to 0.226 before the book
+    reds, while the aspect tolerance has no room left on that block at all:
+    doubling **both** tolerances makes that block round and this class fails.
+
+    The 2.27 this docstring used to quote is the letter-stem family
+    (``aspect`` 0.5455, ``fill`` 0.9067) — the closest mark *carrying a disc's
+    fill*, which is what ``round_ink.py``'s aspect justification is about, and
+    not the closest mark on the page (cycle 1, F-003). Both the number and
+    *which* tolerance carries it are asserted in
+    :meth:`test_the_closest_the_book_comes_to_a_round_mark_is_measured`, with
+    the floor just under the measured value, so a future page whose ink drifts
+    towards roundness reds a test *before* it reds the guard.
     """
 
     def test_the_books_own_pages_carry_no_undeclared_round_mark(self) -> None:
@@ -3197,11 +3290,37 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         assert ink.unaccounted == ()
 
     def test_the_closest_the_book_comes_to_a_round_mark_is_measured(self) -> None:
+        """The margin, and **which** tolerance carries it — both measured.
+
+        1.8859 on this head, with the floor at 1.8 just under it: a floor at
+        1.5 would have let the margin fall by a fifth in silence, which is how
+        the old 2.27 survived green (cycle 1, F-003). The second half is the
+        part a number alone hides: the closest mark's footprint is already
+        inside :data:`ROUND_ASPECT_TOLERANCE`, so the book's whole margin is
+        ``fill``'s. The day that stops being true this test says so, and the
+        class docstring above has to be rewritten.
+        """
         ink = _book_ink(None)
-        assert ink.margin >= 1.5, (
-            f"the roundest mark on the book's pages is now {ink.margin:.2f} "
-            "tolerances from round; it was 2.27 when the tolerances were set, "
-            "and under 1.0 it would be a false positive"
+        assert ink.margin >= 1.8, (
+            f"the roundest mark on the book's pages is now {ink.margin:.4f} "
+            "tolerances from round; it was 1.8859 when the tolerances were "
+            "set, and under 1.0 it would be a false positive"
+        )
+        closest = ink.closest
+        assert closest is not None, "a book with no region at all to measure"
+        assert abs(closest.fill - 1.0) / ROUND_FILL_TOLERANCE == pytest.approx(
+            ink.margin
+        ), (
+            "the margin is no longer carried by fill: the closest mark is "
+            f"{closest.box}, aspect {closest.aspect:.4f}, fill "
+            f"{closest.fill:.4f}"
+        )
+        assert abs(closest.aspect - 1.0) <= ROUND_ASPECT_TOLERANCE, (
+            "the closest mark used to be a near-square filled block whose "
+            "footprint is already inside the aspect tolerance; it is now "
+            f"{closest.box} at aspect {closest.aspect:.4f}, so the margin is "
+            "shared between the two tolerances and the docstring's account of "
+            "it is stale"
         )
 
     def test_the_glyph_the_one_site_draws_is_found_and_accounted_for(self) -> None:
@@ -3209,7 +3328,7 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
 
         The one drawing site draws the same glyph in the same places as every
         rogue route of AC-1, and the guard finds exactly the same round marks —
-        and then accounts for every one of them, box for box, against what the
+        and then accounts for every one of them, page and box, against what the
         site itself said it drew. So the guard separates *declared* from
         *undeclared*, which is the only thing it claims, rather than separating
         "plant" from "no plant".
@@ -3219,31 +3338,42 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         assert len(ink.declared) == ink.plants * _rank(PLANTED_TIER)
         assert len(ink.found) == len(ink.declared)
         assert sorted(ink.found) == sorted(ink.declared), (
-            "the ink a stroked dot leaves is exactly its declared box, which is "
-            "what lets the accounting match exactly rather than within a "
-            "tolerance a rogue mark could hide in"
+            "the ink a stroked dot leaves is exactly its declared box, on the "
+            "page it was declared on, which is what lets the accounting match "
+            "exactly rather than within a tolerance — or across pages — a "
+            "rogue mark could hide in"
         )
         assert ink.unaccounted == ()
 
     def test_the_accounting_is_an_exact_multiset(self) -> None:
-        """The two properties :func:`_unaccounted` claims, on their own.
+        """The three properties :func:`_unaccounted` claims, on their own.
 
-        Measured on the function rather than through a render, because both are
-        about what a *rogue* mark could hide behind and neither is exercised by
-        the honest book (where every declared box is distinct and every found
-        box matches one exactly):
+        Measured on the function rather than through a render, because each is
+        about what a *rogue* mark could hide behind and none is exercised by
+        the honest book (where every declared dot is distinct and every found
+        mark matches one exactly):
 
         * a **multiset**: a second round mark at a declared box is one mark
           more than was declared, so it is reported;
         * **exact**: a mark one pixel off a declared box is reported, so a
-          tolerance cannot be borrowed to sit beside a declared dot.
+          tolerance cannot be borrowed to sit beside a declared dot;
+        * **per page**: a mark at a declared box on *another* page is reported.
+          Every page's band geometry is identical, so without this the guard
+          would let a rogue mark on page 11 be paid for by a declared dot on
+          page 4 whose own mark was not found (cycle 1, F-009).
         """
-        dot = (10, 10, 51, 51)
+        dot = (4, (10, 10, 51, 51))
         assert _unaccounted([dot], [dot]) == ()
         assert _unaccounted([dot, dot], [dot]) == (dot,)
-        beside = (11, 11, 52, 52)
+        beside = (4, (11, 11, 52, 52))
         assert _unaccounted([beside], [dot]) == (beside,)
         assert _unaccounted([], [dot]) == ()
+        elsewhere = (11, (10, 10, 51, 51))
+        assert _unaccounted([elsewhere], [dot]) == (elsewhere,), (
+            "the same box on another page is another mark, and nothing on "
+            "page 4 pays for it"
+        )
+        assert _unaccounted([elsewhere], [elsewhere]) == ()
 
     def test_a_seeded_corpus_of_pictures_draws_no_round_mark(self) -> None:
         """The answer pages' own risk: a filled picture that is round-ish.
@@ -3297,14 +3427,15 @@ class TestRoundMarkOnThePage_SameVerdictForEverySpelling:
 
         The fan and the point loop step round their dot's centre in integers
         while ``ellipse`` and ``polygon`` take the box, so a dot can come out a
-        pixel narrower. The *instrument* does not vary: the boxes it reports
-        agree to a pixel on every edge.
+        pixel narrower. The *instrument* does not vary: the pages it reports
+        are the same pages, and the boxes agree to a pixel on every edge.
         """
-        boxes = {route: sorted(_book_ink(route).unaccounted) for route in SPELLINGS}
-        reference = boxes[SPELLINGS[0]]
-        for route, found in boxes.items():
+        marks = {route: sorted(_book_ink(route).unaccounted) for route in SPELLINGS}
+        reference = marks[SPELLINGS[0]]
+        for route, found in marks.items():
             assert len(found) == len(reference), (route, len(found), len(reference))
-            for mine, theirs in zip(found, reference):
+            for (my_page, mine), (their_page, theirs) in zip(found, reference):
+                assert my_page == their_page, (route, my_page, their_page)
                 assert all(abs(a - b) <= 1 for a, b in zip(mine, theirs)), (
                     route,
                     mine,
@@ -3330,8 +3461,8 @@ class TestRoundMarkOnThePage_SameVerdictForEverySpelling:
         ink = _book_ink("D1 typed dingbat")
         assert ink.unaccounted, "a typed dot is a round mark and must be caught"
         stroked = _book_ink("ellipse")
-        widths = {box[2] - box[0] + 1 for box in ink.unaccounted}
-        expected = {box[2] - box[0] + 1 for box in stroked.unaccounted}
+        widths = {box[2] - box[0] + 1 for _, box in ink.unaccounted}
+        expected = {box[2] - box[0] + 1 for _, box in stroked.unaccounted}
         assert max(widths) - min(expected) <= 4 and min(widths) - max(expected) >= -4, (
             f"a typed dot measured {sorted(widths)} px across against the "
             f"stroked dot's {sorted(expected)}"
@@ -3342,11 +3473,39 @@ class TestRoundMarkOnThePage_SameVerdictForEverySpelling:
 # AC-4 — the metric's own boundary, measured and stated
 # ==========================================================================
 
-#: The diameters AC-4 sweeps a disc over: every one from the smallest dot the
-#: geometry will draw (:data:`MIN_DOT_PX`) to a dot as tall as a book page's
-#: whole band, and the minimum the sweep must hold so it cannot shrink.
+#: The diameters AC-4 sweeps a disc over: every one from a single pixel to a
+#: dot as tall as a book page's whole band, and the minimum the sweep must hold
+#: so it cannot shrink. It starts at **1** and not at :data:`MIN_DOT_PX` on
+#: purpose: the region below the glyph's own smallest dot is exactly where the
+#: metric's own resolution floor lives, and a sweep that began above it could
+#: not fail there (cycle 1, F-002).
 DISC_SWEEP_SEED = 241
 DISC_SWEEP_MIN_CASES = 120
+
+#: What a filled disc measures at each diameter *below* :data:`MIN_DOT_PX`:
+#: ``True`` round, ``False`` not round, ``None`` no ink at all. Recorded from
+#: the measurement so the metric's floor is asserted rather than incidental
+#: (:meth:`TestRoundMarkOnThePage_TheBoundaryIsMeasured.test_the_metrics_own_size_floor_is_where_the_raster_puts_it`).
+#: The shape of the table is the finding: the verdict is **not** monotone in
+#: the diameter below 7 px, so "too small to be seen" is not something one
+#: number describes.
+DISC_VERDICT_BELOW_THE_SMALLEST_DOT: Mapping[int, bool | None] = {
+    1: None,
+    2: False,
+    3: False,
+    4: True,
+    5: True,
+    6: False,
+    7: True,
+    8: True,
+    9: True,
+    10: True,
+    11: True,
+}
+
+#: The diameter from which a filled disc measures round at every diameter
+#: measured, up to the 142 px band.
+DISC_FLOOR_PX = 7
 
 
 def _disc_sweep() -> list[int]:
@@ -3354,10 +3513,11 @@ def _disc_sweep() -> list[int]:
 
     Stdlib :class:`random.Random`, no ``hypothesis`` (CLAUDE.md). The dense
     head is where a disc is least circular — at 12 px a circle is a hundred
-    pixels of staircase — and the seeded tail reaches the 142 px band.
+    pixels of staircase, and under 7 px it stops reading as a circle at all —
+    and the seeded tail reaches the 142 px band.
     """
     rng = random.Random(DISC_SWEEP_SEED)
-    diameters = list(range(MIN_DOT_PX, 61))
+    diameters = list(range(1, 61))
     diameters += [rng.randrange(61, 143) for _ in range(80)]
     return diameters
 
@@ -3372,6 +3532,11 @@ class TestRoundMarkOnThePage_TheBoundaryIsMeasured:
     shape                        ``fill``         verdict
     ===========================  ===============  =========
     disc, any diameter 12..142   0.96 .. 1.01     round
+    disc, 7..11 px               0.96 .. 1.03     round
+    disc, 4 and 5 px             0.95 / 1.07      round
+    disc, 2, 3 and 6 px          1.27/0.71/0.85   **not** round
+    disc, 1 px                   no ink at all    not measured
+    disc in grey 160, any size   no ink at all    not measured
     typed ``chr(0x25CF)``        0.99 .. 1.01     round
     pasted circular mask         1.04             round
     regular 16-gon               0.96 .. 0.98     round
@@ -3391,13 +3556,27 @@ class TestRoundMarkOnThePage_TheBoundaryIsMeasured:
     of 15 px on a 41 px square** — the radius at which it has as little ink as
     a disc — and not below it.
 
-    The four bounds this instrument has, each with its own control here: a
-    hollow mark, a mark that touches other ink, a footprint that is not nearly
-    square, and a surface nobody renders.
+    The **six** bounds this instrument has, each with its own control here: a
+    mark lighter than :data:`~tests.helpers.round_ink.INK_LEVEL`, a hollow
+    mark, a mark that touches other ink, a footprint that is not nearly square,
+    a mark under :data:`DISC_FLOOR_PX` across, and a surface nobody renders.
+    They are six readings of one sentence: this instrument discriminates on
+    **silhouette** only, so every non-silhouette property of ink — darkness,
+    colour, opacity — is open to it by construction, which is what predicts
+    where the seventh bound will be found.
     """
 
     def test_a_disc_measures_round_at_every_diameter_it_can_be_drawn(self) -> None:
-        diameters = _disc_sweep()
+        """Every diameter the glyph itself can draw: :data:`MIN_DOT_PX` and up.
+
+        The sweep reaches below that too; what it measures there is the
+        raster's verdict rather than the shape's, and is asserted against a
+        recorded table in
+        :meth:`test_the_metrics_own_size_floor_is_where_the_raster_puts_it`.
+        """
+        diameters = [
+            diameter for diameter in _disc_sweep() if diameter >= MIN_DOT_PX
+        ]
         assert len(diameters) >= DISC_SWEEP_MIN_CASES, len(diameters)
         fills = []
         for diameter in diameters:
@@ -3406,6 +3585,57 @@ class TestRoundMarkOnThePage_TheBoundaryIsMeasured:
             assert region.is_round, (diameter, region.fill)
             fills.append(region.fill)
         assert 0.95 <= min(fills) and max(fills) <= 1.01, (min(fills), max(fills))
+
+    def test_the_metrics_own_size_floor_is_where_the_raster_puts_it(self) -> None:
+        """A stated bound: under 7 px the verdict is the raster's, not the shape's.
+
+        No size floor is imposed by hand — the reason is recorded in
+        ``tests/helpers/round_ink.py`` and still holds — but ``fill`` has a
+        resolution of its own, and *that* is a floor. It is measured here
+        rather than claimed: every diameter the sweep reaches below the glyph's
+        own smallest dot is compared against
+        :data:`DISC_VERDICT_BELOW_THE_SMALLEST_DOT`, recorded once from this
+        measurement.
+
+        The table is **not monotone**, which is the whole finding: a 4 px disc
+        is round, a 6 px disc is not, and a 1 px ellipse inks nothing at all.
+        So a mark under :data:`DISC_FLOOR_PX` may or may not be seen, and no
+        single number says which — a bound this instrument has and the first
+        version of its docstring denied (cycle 1, F-002).
+        """
+        below = sorted(
+            diameter for diameter in _disc_sweep() if diameter < MIN_DOT_PX
+        )
+        assert below == sorted(DISC_VERDICT_BELOW_THE_SMALLEST_DOT), (
+            "the sweep no longer reaches every diameter the table records, so "
+            f"the floor would stop being asserted: {below}"
+        )
+        measured: dict[int, bool | None] = {}
+        for diameter in below:
+            regions = ink_regions(
+                _rendered(_disc(diameter), canvas=diameter + 2 * _SHAPE_MARGIN)
+            )
+            if not regions:
+                measured[diameter] = None
+                continue
+            region = max(regions, key=lambda region: region.ink)
+            assert region.aspect == 1.0, (diameter, region.aspect)
+            measured[diameter] = region.is_round
+        assert measured == dict(DISC_VERDICT_BELOW_THE_SMALLEST_DOT), measured
+        # The two halves of the bound as assertions rather than as prose: from
+        # DISC_FLOOR_PX up the verdict is round, and below it the verdict is
+        # not monotone in the diameter, so no single floor describes it.
+        assert all(
+            verdict is True
+            for diameter, verdict in measured.items()
+            if diameter >= DISC_FLOOR_PX
+        ), measured
+        assert measured[DISC_FLOOR_PX - 1] is False, measured
+        assert any(
+            verdict is True
+            for diameter, verdict in measured.items()
+            if diameter < DISC_FLOOR_PX - 1
+        ), measured
 
     def test_the_fill_tolerance_sits_in_a_measured_gap(self) -> None:
         """Below it a pentagon, above it a nearly square box — both measured."""
@@ -3429,8 +3659,13 @@ class TestRoundMarkOnThePage_TheBoundaryIsMeasured:
         oval = _shape(_regular_polygon(32, 40, stretch=0.6))
         assert oval.aspect > 1 + ROUND_ASPECT_TOLERANCE, oval.aspect
         assert not oval.is_round
-        # And the gap on the real book's own pages, in units of the tolerance.
-        assert _book_ink(None).margin >= 1.5
+        # And the gap on the real book's own pages, in units of the tolerance
+        # that binds the closest mark there — which is `fill`, not this one.
+        # The closest region on those pages is a near-square filled block
+        # whose footprint is already inside this tolerance (cycle 1, F-003);
+        # the aspect gap proper is the letter-stem family at 0.5455, 2.27
+        # tolerances out.
+        assert _book_ink(None).margin >= 1.8
 
     def test_the_rounded_rectangle_boundary_is_where_the_measurement_puts_it(self) -> None:
         middle = _SHAPE_CANVAS // 2
@@ -3471,6 +3706,45 @@ class TestRoundMarkOnThePage_TheBoundaryIsMeasured:
         assert not ring.is_round
         solid = _shape(lambda draw, page: draw.ellipse(box, fill=INK))
         assert solid.is_round, "the control: the same silhouette, filled, is round"
+
+    def test_a_mark_lighter_than_the_ink_level_is_not_measured_at_all(self) -> None:
+        """The widest stated bound: this metric reads darkness before shape.
+
+        :data:`~tests.helpers.round_ink.INK_LEVEL` is a hard threshold, so a
+        mark lighter than it is not ink, has no region, and is neither round
+        nor not-round — it is absent. That is not hypothetical: the package
+        draws a solved page's grid in ``_SOLVED_GRID_GRAY``, grey 160, which is
+        *lighter* than the threshold. A difficulty dot stroked in the book's
+        own grey therefore leaves ADR-0036/R3's declared check green with the
+        dot on the page, where a reader of the printed book would see it
+        (cycle 1, F-001; closing that route is a follow-up card's).
+
+        The control is the pairing: the same disc, the same silhouette, in
+        ``INK`` is found. This instrument discriminates on silhouette only, so
+        darkness — like colour and opacity — is open to it by construction, and
+        closing one of those takes a second measurement rather than a wider
+        tolerance.
+        """
+        assert min(_SOLVED_GRID_GRAY) > INK_LEVEL, (
+            "this bound is about a colour the package really draws and the "
+            f"metric cannot see: {_SOLVED_GRID_GRAY} against INK_LEVEL "
+            f"{INK_LEVEL}"
+        )
+        middle = _SHAPE_CANVAS // 2
+        box = (middle - 20, middle - 20, middle + 20, middle + 20)
+        grey = _rendered(
+            lambda draw, page: draw.ellipse(box, fill=_SOLVED_GRID_GRAY)
+        )
+        assert ink_regions(grey) == [], (
+            "a grey-160 disc is not ink at all, so there is no region to "
+            f"measure: {[region.box for region in ink_regions(grey)]}"
+        )
+        assert round_marks(grey) == []
+        dark = _rendered(lambda draw, page: draw.ellipse(box, fill=INK))
+        assert [mark.box for mark in round_marks(dark)] == [box], (
+            "the control: the same disc in INK is one round mark, so what the "
+            "metric missed above is the darkness and not the silhouette"
+        )
 
     def test_a_mark_that_touches_other_ink_is_not_measured_as_round(self) -> None:
         """A stated bound: regions are connected, so a dot on a rule is one region.

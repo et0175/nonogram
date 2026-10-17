@@ -138,6 +138,12 @@ def ink_mask(page: Image.Image) -> np.ndarray:
     return np.asarray(page.convert("L")) < INK_LEVEL
 
 
+# Kept as an alias only because four call sites already import this name (one
+# below and three in ``tests/helpers/two_up_ink.py``), and renaming them is
+# outside the footprint of the card that promoted the body to the public
+# :func:`ink_mask` (CARD-241, cycle 1 F-007). One concept wants one name: new
+# code calls ``ink_mask``, and whoever next edits ``two_up_ink.py`` should
+# retire this alias rather than add a fifth caller to it.
 def _dark(page: Image.Image) -> np.ndarray:
     return ink_mask(page)
 
