@@ -160,14 +160,21 @@ def _check_log_invocations(source: str) -> list[str]:
     :data:`NOT_A_CHECK_LOG_INVOCATION`:
 
     * an argument of ``add_argument(...)``, which registers the option;
-    * an argument of ``error(...)`` on a receiver that registers arguments
-      somewhere in the same source. The parser that defines the option is
-      allowed to name it in its own usage message, which
-      ``meta/profiling/rank_durations.py`` does (``parser.error("give an
-      artefact to rank, or --check-log PATH")``). Not borrowable without
-      actually building a parser that registers arguments, and the same
-      call on a receiver that registers none **is** reported -- its control
-      is in :data:`CHECK_LOG_INVOCATIONS`, not here;
+    * an argument of ``error(...)`` on a receiver whose unparsed text
+      also receives an ``add_argument(...)`` call somewhere in the same
+      source. The parser that defines the option is allowed to name it in
+      its own usage message, which ``meta/profiling/rank_durations.py``
+      does, and the same call on a receiver that registers nothing **is**
+      reported -- that control is in :data:`CHECK_LOG_INVOCATIONS`, not
+      here. What this exemption is **not**, and review cycle 2 measured
+      both halves of it: it is not a check that a parser exists. It is
+      keyed on two method *names* and on receiver text, so a
+      ``maker().add_argument(...)`` beside a ``maker().error("<the option
+      inside a command line>")`` is exempt with no ``ArgumentParser``
+      anywhere in the source, and an ``error`` that shells out what it is
+      handed is exempt too -- "the exempt shape executes nothing" is a
+      property of ``argparse.ArgumentParser``, not of this rule. The bound
+      is recorded with a control in :data:`MEASURED_CHECK_LOG_MISSES`;
     * a module-scope binding to a constant (``CHECK_LOG_OPTION =
       "--check-log"``, which is how this module holds it) and a bare string
       expression, i.e. a docstring. Prose about the option is not an
@@ -304,6 +311,69 @@ NOT_A_CHECK_LOG_INVOCATION: tuple[tuple[str, str], ...] = tuple(
             "a docstring that documents how to run it by hand",
             '"""Run rank_durations.py %s PATH when you want to."""\n'
             "import os\n",
+        ),
+    )
+)
+
+#: And what this rule is measured **not** to see, named rather than left
+#: inside the emptiness of its baseline. The same shape
+#: :data:`MEASURED_MODULE_SCOPE_MISSES` has, for the reason review cycle 2
+#: of this card stated in one sentence and this module had not applied to
+#: its own exemptions: *an exemption is a claim, and it needs the same
+#: control a set member needs -- caught WITH it, missed WITHOUT it, and the
+#: residue recorded as a bound.* Each entry is asserted to still return
+#: ``[]`` (``test_the_disclosed_check_log_misses_are_still_misses``), so a
+#: route closed without its entry being struck is a failing test.
+#:
+#: Both are measured against the deployed rule on 2026-10-17, and the first
+#: is **carded as CARD-242**, which is where the discriminator that closes
+#: it belongs rather than in a further pass here: the sibling rule
+#: ``_live_log_references`` in the other module already answers "does this
+#: bound name ever reach an executor?" with its taint step, and this rule
+#: reimplemented the shape without that half.
+#:
+#: The bound is **measured non-vacuous**, not merely asserted: the deployed
+#: rule returns ``[]`` for the first entry, while the same rule with its
+#: module-scope exemption narrowed to value equality -- one of the two
+#: closures CARD-242 can take -- returns that constant's whole line. So the
+#: day the route closes, the test below is red and this entry is the thing
+#: to strike.
+MEASURED_CHECK_LOG_MISSES: tuple[tuple[str, str], ...] = tuple(
+    (name, template % CHECK_LOG_OPTION)
+    for name, template in (
+        (
+            # F-201. The module-scope binding exemption is keyed on the
+            # constant's immediate parent and not on its value, so the
+            # shell string that IS caught inline (the third entry of
+            # :data:`CHECK_LOG_INVOCATIONS`) becomes invisible the moment
+            # it is hoisted into a constant -- the most idiomatic spelling
+            # in this repository. Measured end to end, each mutant in its
+            # own fresh process: the inline form planted in a guarded
+            # module is RED, the hoisted form SURVIVED at 854 passed, rc=0.
+            # Open, and CARD-242's to close.
+            "the command line hoisted into a module-scope constant",
+            "import os\n"
+            'CMD = "python meta/profiling/rank_durations.py %s PATH"\n'
+            "def _never_called() -> None:\n"
+            "    os.system(CMD)\n",
+        ),
+        (
+            # F-203, and the real bound of the `error(...)` exemption: two
+            # method NAMES and a receiver's unparsed text, with no parser
+            # required and nothing stopping the exempt `error` from
+            # executing what it is given. Narrow in practice -- it takes an
+            # object with an `add_argument`-named method -- and recorded
+            # because a bound stated wider than it is, is this card's own
+            # subject.
+            "an error() on any receiver that an add_argument() names too",
+            "import os\n"
+            "class Reporter:\n"
+            "    def add_argument(self, *names: str) -> None: ...\n"
+            "    def error(self, command: str) -> None:\n"
+            "        os.system(command)\n"
+            "r = Reporter()\n"
+            'r.add_argument("--z")\n'
+            'r.error("python r.py %s PATH")\n',
         ),
     )
 )
@@ -465,12 +535,28 @@ def _pytest_silencers() -> frozenset[str]:
     )
 
 
-#: The module-scope silencing routes that are **not** pytest's, so no
-#: ``dir()`` is an authority for them: explicit members, each with the reason
-#: it is one and each measured on 2026-10-17 in a real pytest module, not
-#: reasoned about. Every one has a control in
+#: The module-scope silencing routes that are **not** pytest's: explicit
+#: members, each with the reason it is one and each measured on 2026-10-17
+#: in a real pytest module, not reasoned about. Every one has a control in
 #: :data:`MODULE_SCOPE_SILENCES` that is caught WITH the member and missed
 #: WITHOUT it (``test_the_control_for_each_silencer_depends_on_the_set``).
+#:
+#: Why these two are hand-enumerated is **two** reasons and not one, and
+#: review cycle 2 of this card measured the difference rather than letting
+#: one sentence cover both. Under the same two filters this module applies
+#: everywhere (public, callable): ``"_exit" in`` public-callable
+#: ``dir(os)`` is ``False``, so ``os._exit`` is genuinely nobody's
+#: projection -- but ``"SkipTest" in`` public-callable ``dir(unittest)`` is
+#: ``True``, so ``dir(unittest)`` is as much an authority for
+#: ``unittest.SkipTest`` as ``dir(pytest)`` is for ``pytest.skip``, and the
+#: projection-plus-audit shape one function above was available for it.
+#: ``SkipTest`` is a hand-enumerated member **by choice**, not by
+#: necessity: one name in one namespace, where a second projection would
+#: buy a whole classification table over a module whose other silencing
+#: names (``skip``, ``skipIf``, ``skipUnless``) are decorators and whose
+#: ``main()`` raises ``SystemExit`` loudly. The cost of that choice is that
+#: the unittest half carries no completeness audit, and that is the claim
+#: -- not "no ``dir()`` could ever supply one".
 #:
 #: Matching is on the call's **last name component**, so ``exit`` above
 #: covers ``sys.exit`` and a bare ``exit()`` as well as ``pytest.exit``.
@@ -496,6 +582,24 @@ _MODULE_SCOPE_SILENCING_BINDINGS: dict[str, str] = {
                       "not collected, nothing reports it, and the rule "
                       "returned [] for it until review cycle 1",
     "collect_ignore_glob": "the same by pattern rather than by name",
+    "__test__": "pytest's own module-level opt-out, and the quietest route "
+                "of the four. Measured 2026-10-17 on pytest 9.1.1: a module "
+                "carrying `__test__ = False` and two failing guards collects "
+                "as `collected 0 items`, `no tests ran`, rc=5 on its own, "
+                "and beside one other module as `1 passed in 0.10s`, rc=0 "
+                "-- both failures gone and the session green. Planted in a "
+                "guarded module of 386 tests it took the run from 854 passed "
+                "to 468 with both guard modules green. Quieter than "
+                "`collect_ignore`, which only works in a conftest, and "
+                "quieter than `raise unittest.SkipTest`, which at least "
+                "prints `1 skipped`. Reported on ANY binding of the name, "
+                "not only a falsy one: every member of this set is "
+                "value-blind, and a value test here would be a fourth "
+                "exemption in a module whose review history is about "
+                "exemptions. No `__test__` binding exists anywhere in the "
+                "guarded tree today, so this is a hole closed before it is "
+                "a violation -- the same standing `importorskip` and "
+                "`xfail` are reported under. Review cycle 2's F-202",
 }
 
 #: The call-shaped silencers the rule consults: pytest's own, derived, plus
@@ -519,6 +623,10 @@ MEASURED_MODULE_SCOPE_MISSES: tuple[tuple[str, str], ...] = (
         # not see. Closing it means either resolving the call (a module-local
         # call graph) or reporting every module-scope call, which in a test
         # module reports everything.
+        #
+        # This is the **local** half only, and saying so is review cycle 2's
+        # F-206: the entry below is the same shape through an import, and
+        # its reason is a different and wider one.
         "a module-scope call into a local helper that skips",
         "import pytest\n"
         "def _bail() -> None:\n"
@@ -536,6 +644,52 @@ MEASURED_MODULE_SCOPE_MISSES: tuple[tuple[str, str], ...] = (
         "import pytest\n"
         "quiet = pytest.skip\n"
         'quiet("no log here", allow_module_level=True)\n'
+        "def test_x() -> None:\n    pass\n",
+    ),
+    (
+        # The helper indirection one import away -- and a **different**,
+        # wider reason than the local form above: the body is in another
+        # file, so this one would still be missed by a rule that did
+        # descend into the bodies it can see. The rule cannot read a body
+        # it cannot see. Review cycle 2's F-206.
+        "a module-scope call into an imported helper that skips",
+        "from tests.helpers.bail import bail\n"
+        "bail()\n"
+        "def test_x() -> None:\n    pass\n",
+    ),
+    (
+        # The binding half written through the namespace dict. The
+        # assignment's target is a Subscript and not a Name, so the binding
+        # branch never looks at it, and the only call in the statement is
+        # `globals()`. Quiet and exotic; measured, not reasoned.
+        "a silencing binding written through globals()[...]",
+        "import pytest\n"
+        'globals()["pytestmark"] = pytest.mark.skipif(True, reason="x")\n'
+        "def test_x() -> None:\n    pass\n",
+    ),
+    (
+        # The call half fetched by name at run time: the function of the
+        # call is itself a call, so there is no last name component for the
+        # rule to match. Same family as the alias entry above, resolved one
+        # step later.
+        "a silencer fetched with getattr and called immediately",
+        "import pytest\n"
+        'getattr(pytest, "skip")("no log here", allow_module_level=True)\n'
+        "def test_x() -> None:\n    pass\n",
+    ),
+    (
+        # The one that is an exact alias of an enumerated member: the rule
+        # reports `sys.exit(0)` and calls that the loudest version of the
+        # hole this module exists to close, and `raise SystemExit(0)` is
+        # that same statement spelled as the exception it raises -- the
+        # only call is `SystemExit`, which is in no silencer set. Recorded
+        # rather than closed because its verdict is the loud one: measured
+        # 2026-10-17 as a real pytest module beside a passing one,
+        # `INTERNALERROR> SystemExit: 0`, `no tests ran`, rc=3. Nothing
+        # about that run reads as green.
+        "raise SystemExit(0), the exit spelled as its exception",
+        "if not LOG.exists():\n"
+        "    raise SystemExit(0)\n"
         "def test_x() -> None:\n    pass\n",
     ),
 )
@@ -567,7 +721,7 @@ def _module_scope_silences(
       without ``allow_module_level``;
     * any binding of a name in ``bindings``
       (:data:`_MODULE_SCOPE_SILENCING_BINDINGS`) -- ``pytestmark``,
-      ``collect_ignore``, ``collect_ignore_glob``.
+      ``collect_ignore``, ``collect_ignore_glob``, ``__test__``.
 
     Not reported: the same calls inside a function or a class body, which is
     where a test legitimately skips itself and is the other detector's
@@ -712,9 +866,13 @@ MODULE_SCOPE_SILENCES: tuple[tuple[str, str], ...] = (
         "def test_x() -> None:\n    pass\n",
     ),
     (
-        # Not a spelling anyone in this tree writes, and reported anyway:
-        # that is what default-deny means. A module that cannot import its
-        # subject does not get to report green.
+        # Not a spelling anyone in this tree writes, and reported
+        # anyway: an enumerated rule reports what it enumerates, whoever
+        # does or does not write it. (This comment said "that is what
+        # default-deny means" until review cycle 2; the sentence it leaned
+        # on was falsified in cycle 1 and corrected everywhere but here.)
+        # A module that cannot import its subject does not get to report
+        # green.
         "pytest.importorskip at module scope",
         "import pytest\n"
         'mod = pytest.importorskip("nonogram.not_here")\n'
@@ -795,6 +953,17 @@ MODULE_SCOPE_SILENCES: tuple[tuple[str, str], ...] = (
     (
         "the same by pattern",
         'collect_ignore_glob = ["test_suite_*.py"]\n',
+    ),
+    (
+        # Review cycle 2's F-202, and the quietest control in this tuple:
+        # a module that binds `__test__` falsy is collected as *nothing*.
+        # Measured beside one other module: `1 passed`, rc=0, with these
+        # two failing guards simply absent -- no skip, no error, no line of
+        # output naming the file.
+        "pytest's module-level __test__ opt-out",
+        "__test__ = False\n"
+        "def test_x() -> None:\n    assert False\n"
+        "def test_y() -> None:\n    assert False\n",
     ),
 )
 
@@ -1428,6 +1597,22 @@ class TestCheckLog_TheDeliberateReader:
         # not. Without this side the rule could be satisfied by reporting
         # nothing; without the other it could be satisfied by exempting the
         # ranker by name.
+        assert _check_log_invocations(source) == [], source
+
+    @pytest.mark.parametrize(
+        "source", [source for _, source in MEASURED_CHECK_LOG_MISSES],
+        ids=[name for name, _ in MEASURED_CHECK_LOG_MISSES],
+    )
+    def test_the_disclosed_check_log_misses_are_still_misses(
+        self, source: str
+    ) -> None:
+        # The third side, and the one review cycle 2 found missing: the
+        # exemptions' controls above measure what they are *meant* to
+        # exempt, and nothing measured what they must not **absorb**. These
+        # are the two shapes they do absorb, recorded rather than fixed --
+        # the first is CARD-242's, and striking an entry here is how either
+        # route gets closed, because closing one without striking it turns
+        # this red.
         assert _check_log_invocations(source) == [], source
 
     def test_the_invocation_rule_is_the_one_the_guard_runs(self) -> None:
