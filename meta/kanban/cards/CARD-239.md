@@ -1,6 +1,6 @@
 # CARD-239: The timing-log guards' remaining bounds, and the one place that reads the log on purpose
 
-**Status:** blocked
+**Status:** review
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -20,7 +20,7 @@
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
-**Blocked by:** escalated — architect/owner: family regression. Cycle 1 found two claims wider than their mechanism; cycle 2 closed both by mechanism and minted two more in the same family, one of them re-opening the exact route cycle 1 was about through the exemption added to fix it.
+**Blocked by:** — (escalation resolved 2026-10-17 by owner decision: split — fix F-202, record F-201, card the taint step as CARD-242)
 
 ## What to implement
 
@@ -632,3 +632,8 @@ floor is a number somebody will have to edit, and it is labelled as one.
   deliberate `--check-log` reader, the version floor (including the third statement nobody had
   noticed), and the struck host-state silences. What is unmet is the *completeness of the new
   module's own exemptions*.
+- [Escalation resolved] 2026-10-17, **owner decision: SPLIT.** One bounded pass doing **only F-202**,
+  whose control comes free from the existing parametrised pair and which closes the quietest hole in
+  the suite; **F-201 recorded as a measured bound with a control**; the taint step carded as
+  **CARD-242**. No cycle 3 — the reviewer's objection stands that a third cycle would be the loop
+  auditing the exemptions it just wrote, which is how CARD-238 reached five.
