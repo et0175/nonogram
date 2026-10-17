@@ -210,6 +210,12 @@
 #       NOT surfaced. Likewise the 7.5 mm cap, 4.8 mm floor, KDP margins and
 #       portrait-only rule (CON-018, NFR-008, FR-032) are owner decisions
 #       already in the requirements — constraints, not DECs.
+#       [2026-10-17: the floor is now 4.75 mm, not 4.8 (owner amendment to
+#       NFR-008), and CON-018's margins moved too. The figures above are left
+#       as the record of what this surfacing pass saw on its own date; the
+#       CLASSIFICATION is what this line asserts and that is unchanged — they
+#       are still constraints rather than DECs. Read NFR-008 and CON-018 for
+#       the current numbers, never this comment.]
 #     * _meta open questions classified as DETAILS, not DECs (no architectural
 #       effect, or one sensible option):
 #         - FR-034 rounding when count x split is fractional: largest-remainder
