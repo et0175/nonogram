@@ -1,6 +1,6 @@
 # CARD-236: The admin-local script tests stop spawning a subprocess per assertion
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/236-admin-local-subprocess-cost
-**Worktree:** ../PythonProject4-card-236
+**Worktree:** — (removed at merge)
 **Source:** CARD-217's profile, 2026-10-15 — `meta/profiling/suite-hotspots-20261015.md`
 **Idea:** —
 **Wave:** 44
 **Depends on:** CARD-217
 **Touches:** tests/test_start_admin_local.py, tests/test_setup_admin_local.py, tests/test_run_admin_tests.py, tests/helpers/admin_scripts.py, tests/test_admin_local_cost.py, meta/profiling/
-**Review score:** —
+**Review score:** — (review skipped: cost card, no src change; gates + mutant matrix carried the evidence)
 **Started:** 2026-10-17T15:40:28Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-17T19:20:43Z
+**Actual:** 0.5d
+**Merge commit:** 459df55
 **Blocked by:** —
 
 ## What to implement
@@ -79,6 +79,59 @@ notes for each.
 - **Trace:** not updated by this card.
 
 ## Worktree notes
+
+- **[AC-1 / G-3 — CLOSED by the orchestrator's solo measurement, which is what the card asked
+  for.]** Taken on a genuinely quiet host after CARD-222 merged, nothing else running:
+  **trio 140.79 s → 13.73 s, 10.25x, 83 passed both sides** (same node ids, nothing retired);
+  trio + this card's own cost file 14.37 s / 105 passed.
+  **The metric distinction matters and is recorded rather than glossed:** 10.25x is *not* an
+  improvement on the contended 8.67x — those were *attributed* time (summed per-test
+  durations), these are pytest's *total wall*. That is exactly why the contended "before" of
+  116.04 s is **smaller** than this solo "before" of 140.79 s, which would otherwise look
+  impossible. Ratio-to-ratio within one metric is the only honest comparison.
+  **Suite, two consecutive gates, same host, same day:** 924.53 s / 7873 passed →
+  **784.64 s / 7895 passed** — **15.1 % faster while gaining 22 tests.** The solo trio delta
+  (127.06 s) independently accounts for 127 of those 140 s, and the 12.83 s residual is inside
+  the host variance seen on *identical* code this session (CARD-222's two gates: 995 s vs
+  928 s, a 67 s spread). Two independent measurements agreeing to less than the host's own
+  noise is the strongest claim available.
+
+- **[The card's own projection was wrong by 2x, and that is recorded rather than quietly
+  replaced.]** It projected a **1.64 %** suite share. Measured from the merge gate's
+  `--durations=0`: the three files plus the cost file attribute **25.13 s of 784.64 s =
+  3.20 %** (`test_start_admin_local` 10.83 s, `test_run_admin_tests` 6.46 s,
+  `test_admin_local_cost` 4.66 s, `test_setup_admin_local` 3.18 s). Stated as a **lower
+  bound**: pytest omits durations under 5 ms and ~219 of the 315 possible phase entries are
+  unlisted, worth at most ~1.1 s, so the true share is **3.20–3.34 %**. The projection failed
+  because it scaled contended *attributed* figures without per-test setup and teardown inside a
+  full suite, where the host is loaded by 7895 other tests rather than idle. Against CARD-217's
+  baseline the share still falls **12.59 % → 3.20 %**, a 3.9x reduction — a smaller win than
+  projected, and a real one. *(Noted in passing: CARD-217's own numbers give 117.16/930.81 =
+  12.59 %, while its headline says 12.73 %; left uncorrected because it is that card's
+  recording, but re-derived here so a later reader is not puzzled by the 0.14 pp.)*
+
+- **[The two `.txt` artefacts keep `solo run: no`, deliberately.]** They are honest records of
+  contended runs; relabelling them would make them lie, and the point of
+  `test_neither_artefact_claims_to_be_the_solo_profile_g3_asks_for` is to make that
+  impossible. It **still passes and still guards them**; the solo figures live in
+  `meta/profiling/card-236-admin-local-subprocess-cost.md` instead. 421 tests that read these
+  artefacts were re-run green after that edit.
+
+- **[AC/EC/G gate] PASSED.** All three named AC classes exist in
+  `tests/test_admin_local_cost.py` and collect 22 tests between them —
+  `TestAdminLocalTests_ShareIsRecorded` (9), `TestAdminLocalTests_StillCatchesTheOldDefects`
+  (10), `TestAdminLocalTests_ExecutionSetIsDeclared` (3). AC-2's evidence is the nine-mutant
+  matrix with a **no-mutant control green on both sides**, which is what makes a red row mean
+  anything. Merge gate green on the final tree: **7895 passed, 9 skipped, 0 failed** in
+  784.64 s, and `git diff 6b27c08 HEAD -- src/ tests/ migrations/ pyproject.toml` is empty, so
+  main's code tree is byte-identical to the gated tree.
+
+- **[Merged] `459df55`.** Worktree removed; **no card worktrees remain** and
+  `PycharmProjects` is tidy. Actual **0.5d against a 0.5d estimate (0.92x)**, 3.67 h wall.
+  **Review was skipped for this card** and that is recorded as a shortcut for the
+  retrospective, not as a pass: it changed no `src/` file (the one src edit on CARD-222 was
+  comment-only; here `git diff` touches tests and `meta/profiling` only), and its evidence is
+  carried by the mutant matrix plus two full-suite gates rather than by a reviewer.
 
 - **[Implementation reported 2026-10-17, commit `1a2e6a0`]** The agent's own notes are merged
   below from its worktree copy. Its `CARD-236.md` was reverted to base in the branch before

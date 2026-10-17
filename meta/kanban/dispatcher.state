@@ -3,14 +3,19 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active:
-  - id: CARD-236
-    phase: implementation
-    branch: card/236-admin-local-subprocess-cost
-    worktree: ../PythonProject4-card-236
-    started: 2026-10-17T15:52:00Z
-    note: "Owner instruction 15:52Z: swapped in for CARD-216, which was abandoned before its agent wrote anything and returned to ready (its DB-skip warning kept on the card for whoever starts it next). Acts on CARD-217's measurement: the admin-local script trio is 117.16s / 12.73% of suite wall-clock. Briefed that this is a cost card, not a coverage card -- every changed test must be shown still failing on the mutant it was there to catch."
+active: []
 escalated: []
+wave_44_complete:
+  at: 2026-10-17T19:20:43Z
+  cards: [CARD-243, CARD-222, CARD-236]
+  merged: 3
+  escalations: 0
+  smoke_test: "SATISFIED by CARD-236's merge gate without a separate run: 7895 passed, 9 skipped, 0 failed in 784.64s, and `git diff 6b27c08 HEAD -- src/ tests/ migrations/ pyproject.toml` is empty, so main's code tree is byte-identical to the gated tree. Same reasoning as wave 43's."
+  note: "3/3 merged, 0 escalations. The suite ENDED THE WAVE FASTER THAN IT STARTED -- 913s at CARD-243's gate to 784.64s at CARD-236's -- while gaining 52 tests (7843 -> 7895), because CARD-236 was a cost card. Two process defects dominated the wave and both are backlog items now: the shared nonogram_test database has no lock (db_session TRUNCATEs it per test, so concurrent cards corrupt each other -- it cost CARD-222 a whole fix attempt chasing a 48-skip regression that did not exist), and an architect amendment landing mid-card invalidated an exemption claim the card had written correctly against the pre-amendment rule."
+refill_deferred_resolved:
+  freed_by: "CARD-222 merged 40a93dd"
+  outcome: "Never refilled, and correctly so: CARD-236 merged 20 minutes later, which completed the wave. A refill would have started a card into a wave that was about to close, and into the DB hazard above."
+
 merged_this_wave:
   - id: CARD-222
     merge_commit: 40a93dd
@@ -22,6 +27,15 @@ merged_this_wave:
     accuracy: 0.65x
     gate: "7873 passed, 9 skipped, 0 failed in 924.53s; code tree byte-identical to the gated commit e352368"
     note: "Head of the interior-redesign chain — this merge unblocks 11 cards. Build gate needed 2 fix attempts: attempt 1 died on a migration-head assertion doing its job (015 made '014 is the only head' false) and on a phantom 48-skip regression that did not exist. Review found one Important, caused by the orchestrator's own same-day ADR-0037/R2 amendment landing under the card. Two Minors routed out rather than absorbed: F-005 to CARD-225 (FLOOR_MM's lower pin is a 0.22 mm straddle, and the missing pin IS AC-370, already declared owed to that card), O-1 to CARD-227 (stale registry test: pointers, not missing coverage)."
+  - id: CARD-236
+    merge_commit: 459df55
+    at: 2026-10-17T19:20:43Z
+    review_score: "— (review skipped; cost card, no src change)"
+    actual: 0.5d
+    estimate: 0.5d
+    accuracy: 0.92x
+    gate: "7895 passed, 9 skipped, 0 failed in 784.64s; code tree byte-identical to the gated commit 6b27c08"
+    note: "The card's PREMISE was wrong and that is the deliverable: the trio's 117s is the first execve of a newly CREATED executable under Defender real-time protection, not subprocess spawning. Solo measurement at the merge gate settled AC-1/G-3: trio 140.79s -> 13.73s (10.25x), suite 924.53s -> 784.64s (-15.1%) while gaining 22 tests. Its own projected 1.64% share measured 3.20% -- optimistic by 2x, recorded rather than replaced. Nine mutants replayed against both test sets with a no-mutant control green on BOTH sides."
 refill_deferred:
   freed_by: "CARD-222 merged 40a93dd"
   slot: 1
@@ -55,4 +69,4 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-17T19:05:00Z
+last_updated: 2026-10-17T19:20:43Z
