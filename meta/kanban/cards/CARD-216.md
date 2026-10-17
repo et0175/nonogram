@@ -1,6 +1,6 @@
 # CARD-216: A puzzle's given cells are stored with it, and the player shows them as locked marks
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/216-given-cells-player
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-216
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("## Puzzle generator — include black\\white cells in the puzzle grid to make it uniquely solvable"; "## Infrastructure — make for now solver under the admin panel (when we click on the puzzle) and add to generator an option … as POC"); owner decision 2026-10-13 via AskUserQuestion — "Cut them now as POC cards" (the option covered the algorithm, the rendering **and** the player)
 **Idea:** —
-**Wave:** —
+**Wave:** 44
 **Depends on:** CARD-214
 **Touches:** src/nonogram/db/models.py, migrations/versions/, src/nonogram/admin/app.py, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_givens.py, tests/test_puzzle_solver_page.py, tests/test_admin_import_consistency.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-17T15:36:29Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -173,4 +173,5 @@ _44 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 **DB-mode tests skip silently.** Without a `nonogram_test` database the
 DB-mode tests skip green — use `sqlite_session_scope` for the regression tests
 of the new column so they actually run in this environment.
-
+- [Env] forge 2026.8.17 (no meta/.skills.yml — no min_version comparison)
+- [Dispatch] Slot refill, wave 44, 2026-10-17T15:45Z — freed by CARD-243 merging (`1280085`, 0.2d against 1d). Chosen by priority order among the cards with no conflict edge to CARD-222 (CARD-216, CARD-236; both P2, lower number wins). ⚠ **Passed over at the wave's dispatch for a reason that still applies**: this is a migration card, and this board's DB-mode tests **skip green** when no `nonogram_test` database exists, so its AC evidence can pass vacuously. Briefed explicitly rather than ignored — the implementation must evidence its ACs on a path that cannot silently skip.

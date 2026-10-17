@@ -1,0 +1,182 @@
+version: 1
+generated_at: "2026-10-17T15:03:01Z"
+target: "card/243-round-mark-sees-greys @ 9014b5d (base main @ 721fda8) — CARD-243 cycle 1"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/helpers/round_ink.py
+    - tests/helpers/page_ink.py
+    - tests/test_book_difficulty_dots.py
+    - meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md
+    - meta/profiling/card-243-two-threshold-cost.md
+    - meta/profiling/card-241-render-check-cost.md
+    - meta/kanban/cards/CARD-243.md
+    - src/nonogram/admin/book_pdf_generator.py (colour constants only)
+  not_reached:
+    - tests/test_book_pdf_ink_mode.py (its own local ink_mask, pre-existing)
+    - tests/test_guard_integrity.py and tests/test_suite_profile.py bodies (named green by the build gate, not re-read)
+    - the 20-page picture-corpus render (re-derived on the 13-page baseline only)
+  confidence: high
+metrics:
+  diff: { files: 5, added: 1590, removed: 242 }
+  max_fan_in: { symbol: "tests.helpers.page_ink.ink_mask", callers: 2 }
+  tests_cover_change: true
+  hotspots: ["tests/test_book_difficulty_dots.py"]
+  cochange_missing: []
+  unmeasured:
+    cochange_missing: "no_eligible_fact — the 12-month co-change set for the touched files is the two touched files themselves plus meta/ paths; no absent peer exists"
+
+system_contract:
+  rules_checked: 15
+  holds: 12
+  unchecked: 3
+  violated: 0
+  verdicts:
+    - "ADR-0006/R1 ✓ holds — git diff --numstat 721fda8..HEAD lists no pyproject.toml; the only import the diff adds is `from tests.helpers import round_ink`; no hypothesis/scipy (round_ink reimplements connected-component labelling natively for this reason). check test TestDependencyBaseline_IsExactlyPillowAndNumpy (tests/test_export_pdf.py) green in the build-gate full suite on this head"
+    - "ADR-0036/R1 ✓ holds — no src/** path in the diff at all, so compute_layout's default PageSpec is untouched; check test TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (tests/test_layout_page_spec.py) green in the build-gate full suite on this head"
+    - "ADR-0036/R2 ✓ holds — the diff computes no page geometry: pages come from BookPDFGenerator.interior_pages / create_cover_page (tests/test_book_difficulty_dots.py:3047, :4565) and the new constants (_BOUND_BOX, _SHAPE_CANVAS) are probe-canvas geometry, not page geometry"
+    - "ADR-0036/R3 ✓ holds — the rule's own check test (test_the_books_own_pages_carry_no_undeclared_round_mark) now asserts found == () at BOTH thresholds with a 3000-region and a 50 000-widened-pixel non-vacuity floor; I re-derived the reading independently (own script, baseline 13 pages): 3222 regions and 0 round marks at grey 128 AND at grey 208, widened_pixels 76347. The rule's reach statement in the ADR was re-written in the same diff and is held to the deployed constants by test_the_adr_rule_states_the_reach_it_now_has (killed by mutant M-a, MARK_LEVEL 208->161)"
+    - "ADR-0036/R4 ✓ holds — no src/** change; the added chr(0x25CF) occurrences are all in tests/ (rule scope is src/nonogram/**); check test test_no_module_types_a_round_mark_as_a_character is byte-identical to 721fda8 (AST source-segment compare) and green in the build-gate full suite"
+    - "ADR-0038/R7 ✓ holds — the diff adds no browser test and no playwright import (diff grep of added import lines returns one line, tests.helpers.round_ink); pyproject.toml is not in the diff, so the dev-only extra is unchanged"
+    - "ADR-0038/R8 ✓ holds — same evidence: no Chromium-dependent test is added or retargeted by this diff; the 150 tests of the touched file are pure Pillow/NumPy renders"
+    - "ADR-0039/R1 ✓ holds — every row of MEASURED_MARK_BOUNDS carries a control asserted True and a probe asserted against its declared verdict (test_every_bound_is_measured_and_not_declared, 8 parametrised cases); I killed mutant M-c (lightness control weakened to equal its probe) -> FAILED test_every_bound_is_measured_and_not_declared[lightness]. The card's own pairing claim is measured, not asserted: the same render is read at both thresholds (test_the_black_ink_only_instrument_misses_the_same_plant)"
+    - "ADR-0039/R2 ✓ holds — MARK_LEVEL is derived from an enumerable authority: _flat_tones walks src/nonogram/** for module-level flat tone triples and test_the_mark_level_is_the_midpoint_of_the_palette_the_package_draws recomputes 208 = ceil((160+255)/2) from it, reddening if the palette changes; the walk's exclusion of (3,2,1) is itself controlled (mutant M-d, equal-components filter dropped, KILLED). Partial-enumeration residue filed as F-002 (Minor)"
+    - "ADR-0039/R3 ✓ holds — the dingbat exemption's check test is byte-identical to 721fda8 (G-5, verified by AST source-segment compare), and the one new exclusion this card adds (unequal triples are not colours) is held to an equality with a measured control in both directions (test_the_tone_walk_reads_colours_and_not_every_triple). The struck bound is held to the closed route in both directions by test_the_struck_bound_and_the_closed_route_agree"
+    - "CON-005 ⚠ unchecked — no_eligible_fact: the diff contains no src/** change and nothing touching the uniqueness solver; its check test PropertyTest_Solver_NeverFalsePositiveUniqueness exists (tests/property/test_solver_uniqueness.py) and was green in the build-gate full suite on this head"
+    - "CON-009 ⚠ unchecked — no_eligible_fact: no web-server code or binding is touched; check test TestWebServer_BindsLoopbackOnlyByDefault exists and was green in the build-gate full suite"
+    - "CON-010 ⚠ unchecked — no_eligible_fact: no HTTP request handling is touched; check test PropertyTest_WebServer_RejectsAnyCrossOriginOrForeignAuthorityRequest exists and was green in the build-gate full suite"
+    - "CON-011 ✓ holds — the only grids the diff's assertions construct are the picture corpus's (sides 10, 12, 15 — tests/test_book_difficulty_dots.py:3687-3692), inside 10..30; no size limit is read or re-stated anywhere in the diff; check test PropertyTest_GridDimensions_EverySourceModeRejectsSideOutside10To30 green in the build-gate full suite"
+    - "CON-012 ✓ holds — no image-sourced generation path and no aspect guard is touched; the corpus grids are square and built in-process, never through an uploaded image; check test PropertyTest_AspectGuard_AcceptsExactlyThoseRequestsRetainingHalfOrMore green in the build-gate full suite"
+
+root_causes:
+  - id: RC-1
+    title: "the binding margin measurement moved from a hard-edged block to a quantised letter-stem raster"
+    finding_ids: [F-001, F-003]
+
+findings:
+  - id: F-001
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 3836
+    title: "The widened margin's box assertion pins one member of a 16-way tie"
+    description: |
+      `assert widened.closest.box == (2181, 477, 2187, 487)` identifies the
+      region that sets the 1.8182 margin, but that region is not unique. I
+      re-derived the whole distance distribution over the baseline interior at
+      grey 208 independently: sixteen regions, all 7x11 letter stems, sit at
+      exactly 1.8181818..., and `_interior_ink` keeps the first one it meets
+      (`if distance < here[key][0]`), so which box wins is page-and-region
+      iteration order. The asserted box is indeed the first (page 0), so the
+      test is green and deterministic today — but any text added or moved ahead
+      of that stem on page 0 changes the winner while the margin, the binding
+      tolerance and every claim the test makes stay identical. The failure then
+      arrives with the message "the widened threshold's margin is no longer
+      carried by aspect", which is not what happened.
+      The margin value, the binding-tolerance assertions and both headroom
+      assertions are unaffected: those are tie-independent.
+    suggestion: |
+      Assert the tie class rather than one member: `widened.closest.width,
+      widened.closest.height == (7, 11)` (plus the existing aspect/fill
+      assertions), or `widened.closest.box in <the measured set>`, or record the
+      tie explicitly (`sum(1 for r in ... if dist(r) == margin) == 16`). The
+      black threshold's box assertion needs no change — 1.8859 is a singleton
+      there (next value 2.2727).
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-002
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_difficulty_dots.py
+    line: 3391
+    title: "The palette enumeration cannot see two classes of tone the bound list claims the package does not draw"
+    description: |
+      `_flat_tones` collects only module-level assignments of three EQUAL ints,
+      and that enumeration is what both bound lists lean on when they say
+      "nothing the package draws is on the far side of it" (tests/helpers/round_ink.py
+      lightness bullet) and "none of them is a tone the package draws"
+      (ADR-0036/R3's comment, and the ADR History paragraph). Two classes are
+      provably outside the walk: a module-level UNEQUAL triple (e.g.
+      `(230, 225, 235)`, luminance 227 — lighter than MARK_LEVEL and so
+      invisible to the guard) and a tone that is not a module-level constant —
+      the walk's own control at line 3610 asserts that `LOCAL = (90, 90, 90)`
+      inside a function is NOT found, i.e. the blindness is pinned as intended
+      behaviour rather than recorded as residue.
+      The claim is TRUE on this head — I grepped every 3-int literal in
+      src/nonogram and the only colour constants are INK (0,0,0), BACKGROUND
+      (255,255,255) and _SOLVED_GRID_GRAY (160,160,160); the unequal triples
+      (GUIDE_BASIC_RULE_CLUE, book_plan's splits) are not colours — and the
+      open route is itself declared as the `colour` bound with a control. So
+      this is not a false claim, it is a true claim whose guard would not
+      notice it becoming false in the same shape F-001 of CARD-241 did one
+      class narrower (ADR-0039/R2's default-deny).
+    suggestion: |
+      Extend the walk's sibling assertion rather than the walk: collect
+      module-level unequal int-triples too and assert each is either a declared,
+      controlled non-colour (GUIDE_BASIC_RULE_CLUE and book_plan's splits are
+      the current set) or has ITU luminance < MARK_LEVEL. That makes the
+      "nothing lighter is drawn" half mechanical for the class it currently
+      asserts by inspection, at the cost of one more AST pass over sources the
+      file already parses.
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_book_difficulty_dots.py
+    line: 3808
+    title: "The 1.8 floor now has 1% headroom against a quantised measurement, so the next type-raster change reds it"
+    description: |
+      Judged as asked rather than taken on the card's word. The floor is still
+      the right number: the false-positive boundary is 1.0, the measured margin
+      is 1.8182, and the book's population is EMPTY between 1.0 and 1.8182 (I
+      measured the histogram at grey 208: 1.8182 x16, 1.8859 x1, then 2.1749 x84,
+      2.2770 x878), so 1.8 sits in a gap, not on a cliff. The hand-change is
+      understood, not incidental, and I re-derived both sides: the stem that set
+      `aspect_headroom` at grey 128 is 6x11 (aspect 0.5455, off-aspect 2.2727,
+      fill inside tolerance); at grey 208 it is 7x11 (aspect 0.6364 -> 1.8182,
+      fill 0.8599 -> off-fill 1.1675, outside), so it stops setting the aspect
+      room and starts setting the margin, while the 99x94 block is literally
+      unmoved (fill room 1.8859 at both).
+      The residual risk is not erosion of an existing region — the quantities
+      are quantised — it is a NEW raster: one more pixel of stem width (8x11 ->
+      1.364, 8x12 -> 1.667) lands below the floor with the guard still 36% clear
+      of a false positive. With the interior redesign's amendments already on
+      main (91609aa), the next card touching page type will very likely red this
+      floor and have to re-derive it.
+    suggestion: |
+      Keep 1.8 (lowering it is what AC-2 exists to prevent), but make the
+      expected failure mode legible: say in the assertion message that a drop
+      towards ~1.3-1.7 on a letter-stem family is a type-raster change to be
+      re-derived, and that only a drop towards 1.0 is a guard problem. Pairing
+      this with F-001's tie-class assertion removes the misleading first failure.
+    confidence: low
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Behaviour change flagged by review that is exactly what the card's acceptance criterion asked for."
+      dismissed_count: 2

@@ -4,19 +4,24 @@ mode: interactive
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
 active:
+  - id: CARD-216
+    phase: implementation
+    branch: card/216-given-cells-player
+    worktree: ../PythonProject4-card-216
+    started: 2026-10-17T15:45:00Z
+    note: "Slot refill after CARD-243 merged. Migration + player card. Briefed explicitly on the silent-skip trap: DB-mode tests skip green without a nonogram_test database, so AC evidence must run on a path that cannot skip (sqlite_session_scope)."
   - id: CARD-222
     phase: implementation
     branch: card/222-interior-page-frame
     worktree: ../PythonProject4-card-222
     started: 2026-10-17T12:40:00Z
     note: "P1, architectural, TDD inherited false. Head of the interior-redesign chain; 11 cards measure themselves against the frame it lays. Unblocked by the 2026-10-17 architect pass (91609aa) — CON-018 now states exactly what this card builds."
-  - id: CARD-243
-    phase: implementation
-    branch: card/243-round-mark-sees-greys
-    worktree: ../PythonProject4-card-243
-    started: 2026-10-17T12:40:00Z
-    note: "P2, standard, TDD true. Owner picked it over the mechanical CARD-216 because CARD-216 is a migration card and this board's DB-mode tests skip silently without a nonogram_test database, so its AC evidence could pass vacuously. CARD-243 is pure test-tree work with the freshest context (CARD-241 merged this session)."
 escalated: []
+refilled:
+  - at: 2026-10-17T15:45:00Z
+    freed_by: "CARD-243 merged 1280085 (0.2d against 1d)"
+    started: CARD-216
+    reason: "priority order among the cards with no conflict edge to CARD-222 (CARD-216, CARD-236); both P2, lower card number wins. CARD-216 was passed over at dispatch for a reason that still applies and is briefed rather than ignored: it is a migration card, and this board's DB-mode tests skip green when no nonogram_test database exists, so its AC evidence can pass vacuously."
 conflict_edges:
   - pair: [CARD-222, CARD-243]
     reason: "none — verified disjoint: CARD-222 is src/nonogram/{admin,export} + its own test files; CARD-243 is tests/helpers + test_book_difficulty_dots.py + the ADR. No hotspot shared."
@@ -38,4 +43,4 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-17T12:40:00Z
+last_updated: 2026-10-17T15:45:00Z
