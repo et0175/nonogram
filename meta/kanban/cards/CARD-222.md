@@ -179,6 +179,24 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 
 ## Worktree notes
 
+- **[Predicted conflict at the merge gate — recorded so it cannot be forgotten]** `main` moved
+  under this worktree while its fix agent was running. `db04c23` (the architect-station pass:
+  FR-033 closed, ADR-0037/R2 amended, the 4.75 floor propagated to the ADRs) edits
+  `meta/architecture/decisions/adr/0036-book-page-geometry-via-page-spec.md`, and so does this
+  card's working tree. The two hunks are **adjacent but disjoint**, and **both must survive**:
+  * `main`'s: the Context's FR-031 floor reference and the Consequences' band, 4.8 → 4.75 mm,
+    plus a **new History entry inserted at the top of `## History`** — immediately above the
+    2026-10-17 CARD-243 entry.
+  * this card's: inside that CARD-243 entry, the `fill` room re-measured 1.8859 → 1.8855
+    because CON-018's amended margins print the block one row taller — a fourth-decimal move
+    with no change of hands.
+  Resolution is "keep both". The agent was told **not** to rebase mid-fix on attempt 2 of 2.
+  This is logged as a *prediction*, not an observation, so it does **not** go in
+  `conflict-history.yml` unless it actually fires — that file calibrates the predictor and
+  must not be fed its own guesses. Worth noting for the retrospective that the predictor would
+  not have caught this one either: it scores card-vs-card `Touches`, and this is
+  card-vs-orchestrator, a class it does not model at all.
+
 - [Why this is the first card of the set] Every other card cut from the owner's artifact
   places something *inside* this frame. Cutting the frame first means the margin change is
   measured once, with one baseline re-recording, instead of each later card discovering that
