@@ -173,4 +173,17 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   furniture only, and was verified green under a simulation of your 2 px thin rule. If you find
   a test that compares the two, it is a defect you inherited, not one you caused.
 
+- [Fourth item, from CARD-222's review cycle 2 — a stale registry *pointer*, not missing
+  coverage] AC-238 and AC-239's `test:` entries point at `tests/test_layout_page_spec.py`, whose
+  fixtures still build the **retired** CON-018 sheet (`outside/top/bottom = 9.525`,
+  `BOOK1_USABLE_WIDTH_MM = 193.675`) and assert 4.97 / 4.61 — while the registry re-measured
+  those criteria to **4.885 / 4.536**. **Read this correctly before acting:** it is *not* an
+  unverified AC. Both amended figures **are** asserted, at `tests/test_book_page_spec.py:249`
+  and `:473`. What is stale is the registry's pointer plus two fixture docstrings claiming
+  "CON-018's Book 1 profile" and "FR-030's usable width". About **12 export-layer fixtures share
+  that retired geometry**, so this is a propagation decision rather than a one-line fix — the
+  same class as the four 0.25 mm lines above, which is why both are parked here. Decide
+  deliberately: repoint the registry at the tests that actually assert the amended figures, or
+  migrate the fixtures. Do **not** edit twelve fixtures by reflex; say which you chose and why.
+
 - [Residue, recorded not waved past] The three weights are **absolute points**, so they no longer scale with the cell — this supersedes COMP-007's proportional `cell / 30` rule under the book spec only. At NFR-008's 4.75 mm floor a 0.48 pt rule is 3.6 % of the cell; at the 7.5 mm cap 2.3 %. Large puzzles therefore get a *relatively* heavier grid than small ones, the opposite of the proportional rule's behaviour. ADR-0037's Consequences note about "about 5%" describes the superseded two-weight scheme. Whether this reads well is a proof-page question, and a proof page is already required before a book is finalised.

@@ -1,0 +1,367 @@
+version: 1
+generated_at: "2026-10-17T21:45:00Z"
+target: "CARD-222, cycle 2 of 3 (confirmation cycle) — branch card/222-interior-page-frame @ 8b375fa, fix delta bc81f7b..8b375fa, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-222"
+overall_score: 9.0
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - "git show 8b375fa (full diff, all 4 files)"
+    - "src/nonogram/export/layout.py — INTERIOR_FOOTER_RULE_PT docstring (full), interior_frame (full body), _rule_widths, _mm_to_px_at_least, _usable_box_px"
+    - "tests/test_book_page_frame.py — retargeted control (full), _rules_in/_holds/_header_window/_page_whose_drawing_is_narrow/interior fixture"
+    - "tests/test_book_guide_page_type.py — assert_bottom_fits_or_is_the_known_bare_level_2_gap, test_the_whole_corpus_of_trims_and_counts_fits (full), corpus builder, the 5-level fallback ladder in book_pdf_generator.py"
+    - "tests/test_book_select_floor_tiles.py:50-60 (the edited sentence) + BELOW_FLOOR/ABOVE_FLOOR_WIDE fixtures"
+    - "src/nonogram/admin/book_page_spec.py — FLOOR_MM docstring, PrintProfile, BOOK1_PROFILE (full)"
+    - "meta/architecture/decisions/adr/0037-*.md — full Decision, both 2026-10-17 History entries, both Rules (amended R2 verbatim)"
+    - "meta/architecture/requirements.yml — NFR-008 scope note, AC-186, AC-238, AC-239, AC-369..AC-371"
+    - "tests/test_batch_requested_tier.py — test_014_revises_013 + test_the_chain_is_one_linear_run_from_base_to_a_single_head (full)"
+    - "tests/test_layout_page_spec.py — BOOK1_ODD, BOOK1_USABLE_WIDTH_MM, AC-238/AC-239 classes, file header"
+    - "tests/test_book_floor.py:488-503 (the straddle pin), tests/property/test_layout_cell_size.py:295-312"
+  not_reached:
+    - "tests/test_book_pdf_memory.py — exercised (baseline + M1 kill) but body not read"
+    - "the 47 card-diff files outside the fix delta — carried from cycle 1 rather than re-read (confirmation mode)"
+    - "tests/test_book_toc.py, test_book_proof_pages.py, test_book_guide_page.py sibling residue controls — carried from cycle 1"
+  confidence: high
+
+metrics:
+  diff: { files: 4, added: 159, removed: 32 }
+  card_diff: { files: 51, added: 3526, removed: 553 }
+  max_fan_in:
+    symbol: "nonogram.admin.book_page_spec.FLOOR_MM"
+    callers: 12
+    note: "carried from cycle 1; unchanged by the fix delta"
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/export/layout.py (22 commits/12mo, 10 fix-shaped) — the only src file in the fix delta, and comment-only"
+  cochange_missing: []
+  cochange_note: >-
+    The fix delta's three test files have no co-change peer absent from it:
+    test_book_page_frame.py and layout.py co-change (both present);
+    test_book_guide_page_type.py's peer test_book_guide_page.py was already
+    carried in the card diff. tests/test_layout_page_spec.py is NOT a co-change
+    peer of the delta but is raised as an out-of-scope propagation note (O-1).
+  unmeasured:
+    build_gate: >-
+      not_applicable — full suite deliberately not re-run at the orchestrator's
+      instruction (green on bc81f7b: 7873 passed / 9 skipped / 0 failed / 989s
+      under the repo lock; 8b375fa adds comment-only src changes plus test
+      edits). Targeted runs only; the merge gate is the authoritative run.
+  executed_runs:
+    - "BASELINE A: test_book_page_frame.py + test_book_select_floor_tiles.py -> 69 passed (4.0s)"
+    - "BASELINE B: test_book_guide_page_type.py -> 17 passed (2.5s)"
+    - "BASELINE C: test_book_page_frame + test_book_pdf_memory + test_book_proof_pages + test_book_pdf_levels + test_book_pdf_band -> 230 passed, 1 skipped (35.0s)"
+    - "BASELINE D: test_book_select_floor_tiles + property/test_book_membership_floor + test_book_answer_key + property/test_layout_cell_size + test_book_page_spec -> 146 passed (11.4s)"
+    - "BASELINE E (DB, isolated): test_book_floor.py -> 77 passed (1.8s)"
+    - "BASELINE F (DB, isolated): test_batch_requested_tier.py -k 'chain or revises' -> 2 passed"
+    - "11 mutants, each restored from a byte copy and verified with `git diff --quiet` on the mutated file; final whole-diff check: HEAD 8b375fa, no tracked modifications, only the untracked cycle-1 report"
+    - "2 independent measurement scripts (overflow table; superseded-vs-retargeted counterfactual) — read-only, outside the repo"
+
+mutation_ladder:
+  deferred_from: "cycle 1 (deferred(cost)) — run here, as the stable cycle"
+  mutants_run: 11
+  killed: 8
+  survived: 3
+  dbsafe_note: >-
+    Every DB-touching selection (test_book_floor.py, test_batch_requested_tier.py)
+    was run alone and serially; no two selections ever overlapped.
+  entries:
+    - id: M1
+      target: "src/nonogram/export/layout.py interior_frame — footer_y = bottom - _mm_to_px(INTERIOR_FOOTER_MM) + 1"
+      intent: "frame geometry: shift the footer rule 1 px"
+      narrow_result: "SURVIVED on tests/test_book_page_frame.py (28 passed) — the frame and the renderer move together, so the AC tests' self-consistency check (_holds) cannot see it"
+      result: "KILLED on the full interior_frame covering set — 2 FAILED, both in tests/test_book_pdf_memory.py::TestBookPdfMemory_PagesAreUnchanged (pixel-identity + interior file length)"
+      reverted: true
+    - id: M2
+      target: "src/nonogram/export/layout.py INTERIOR_FOOTER_RULE_PT 0.4 -> 0.8"
+      intent: "AC-critical: the hairline heavier than the floor"
+      result: "KILLED — 2 FAILED: TestBookPageFrame_TheHairlineSitsOnTheFloorUnderTheHeaderRule::test_the_hairline_is_at_the_floor_and_the_header_rule_is_heavier (the retargeted F-001 control) + TestBookPageFrame_FooterCarriesSizeAndFolio::test_a_hairline_spans_the_text_width_lighter_than_the_header_rule"
+      reverted: true
+    - id: M3
+      target: "src/nonogram/export/layout.py INTERIOR_HEADER_RULE_PT 0.6 -> 0.4"
+      intent: "AC-critical: heading and hairline collapse to one weight"
+      result: "KILLED — 5 FAILED, including the retargeted control's `heading > hairline`"
+      reverted: true
+    - id: M4
+      target: "src/nonogram/export/layout.py INTERIOR_FOOTER_RULE_PT 0.4 -> 0.2 (1 px dropout)"
+      intent: "invariant-critical: the 2 px print floor ADR-0037 exists to answer"
+      result: "KILLED — 2 FAILED, the retargeted control's `hairline == FURNITURE_FLOOR_PX` among them"
+      reverted: true
+    - id: M5
+      target: "src/nonogram/admin/book_page_spec.py BOOK1_PROFILE.min_thin_rule_mm 0.25 -> 0.1693"
+      intent: "CARD-227 simulation: does the retargeted control survive the 2 px grid floor?"
+      result: "SURVIVED BY DESIGN — tests/test_book_page_frame.py 28 passed, 0 failed. Confirms the fix agent's central claim. Cross-checked by an independent counterfactual: under the same simulation the SUPERSEDED control's A1 (`hairline < thin_rule`: 2 < 2) and A2 (`thin_rule mm >= 0.25`: 0.1693 >= 0.25) both evaluate False, exactly as cycle 1 predicted, while the retargeted assertion is True."
+      reverted: true
+    - id: M6
+      target: "src/nonogram/admin/book_page_spec.py FLOOR_MM 4.75 -> 4.77 (tighten)"
+      intent: "FLOOR_MM's upper pin"
+      result: "KILLED — 1 FAILED: tests/test_book_select_floor_tiles.py::TestBookCell_TwelveDeepBandFallsBelowFloor::test_a_shallower_band_on_the_same_extent_clears_it"
+      reverted: true
+    - id: M7
+      target: "src/nonogram/admin/book_page_spec.py FLOOR_MM 4.75 -> 4.64 (loosen)"
+      intent: "FLOOR_MM's lower pin"
+      result: "SURVIVED — 146 passed on the non-DB floor set, 0 FAILED"
+      reverted: true
+    - id: M7b
+      target: "same mutant, DB floor suite in isolation"
+      intent: "FLOOR_MM's lower pin, second selection"
+      result: "SURVIVED — tests/test_book_floor.py 77 passed, 0 FAILED. Finding F-005."
+      reverted: true
+    - id: M7c
+      target: "src/nonogram/admin/book_page_spec.py FLOOR_MM 4.75 -> 4.53 (bound probe)"
+      intent: "bound the unguarded loosening range"
+      result: "KILLED — 35 FAILED in tests/test_book_floor.py. So the floor is pinned to the interval (4.54, 4.76]: 0.01 mm of slack above, 0.21 mm below."
+      reverted: true
+    - id: M8
+      target: "migrations/versions/015_book_outside_margin_default.py revision '015' -> '15'"
+      intent: "migration chain guard, the one failure shape cycle 1 did not mutate (a version file off the chain / id-filename drift)"
+      result: "KILLED — 1 FAILED: test_the_chain_is_one_linear_run_from_base_to_a_single_head, on its on-disk-set assertion alone (single head and linearity still hold). All three shapes the guard's docstring names now have a mutant: two-head and non-linear merge (cycle 1), id drift (here)."
+      reverted: true
+    - id: M9
+      target: "bottom_in 0.47 -> 0.48 (M9a), then + KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM 12.5 -> 40.0 (M9b)"
+      intent: "the exact path F-002's count bound claims to guard — lift the ceiling to absorb a new overflow"
+      result: "BOTH SURVIVED — 17 passed each. The frame shift produces no new overflow (the fallback ladder fits content to the frame, so every tall case stays flush), so lifting the ceiling absorbs nothing and the count bound never sees a seventh. Finding F-006."
+      reverted: true
+    - id: M10
+      target: "src/nonogram/admin/book_pdf_generator.py GUIDE_BODY_PT 11.0 -> 12.5, then -> 16.0 with a direct measurement"
+      intent: "content pressure — can the structural overflow threshold be moved at all?"
+      result: "SURVIVED. Measured directly at 16.0 pt (+45% body type): the overflowing set is still exactly the same six trims, the tallest overflowing trim is still 12.44 cm, and the overflow saturates at 140 px. bare_level 2 is the bottom of the ladder, so the set is determined by trim height alone."
+      reverted: true
+    - id: M11
+      target: "tests/test_book_guide_page_type.py CORPUS_CASES 48 -> 96"
+      intent: "the reachable widening path for the count bound"
+      result: "KILLED — the count bound itself fires: `AssertionError: 15 of the corpus's 96 cases now overflow the bottom margin against the measured 6`. The bound is a real control; corpus growth is the path it detects, and it is the one path the docstring does not name."
+      reverted: true
+
+system_contract:
+  rules_checked: 8
+  holds: 8
+  unchecked: 0
+  violated: 0
+  note: >-
+    Same 8-rule set as cycle 1 (the card's curated 7 plus ADR-0039/R3). The fix
+    delta touches src/nonogram/export/layout.py, so every rule scoped to that
+    file was re-verified rather than carried; only ADR-0037/R1 and CON-020,
+    whose scopes the delta does not intersect, are carried. ADR-0037/R2's check
+    is `review-lens` by the ADR's own declaration, so its verdict here is a
+    manual read, which is the rule's declared mode.
+  verdicts:
+    - "ADR-0036/R1 ✓ holds — the fix delta's src change is comment-only: `git show 8b375fa -- src/` touches only the INTERIOR_FOOTER_RULE_PT docstring block (layout.py:1283-1311), no executable line. interior_frame's body re-read in full on this head and byte-for-byte unchanged from cycle 1's reading; the golden controls (TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden, PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry) remain absent from the card diff. Re-derivably: tests/test_book_pdf_memory.py's pixel-identity test is green on this head (BASELINE C, 230 passed) and reds on a 1 px frame shift (M1)."
+    - "ADR-0036/R2 ✓ holds — re-read interior_frame in full on this head: every coordinate and both weights are computed there and read off the InteriorFrame by the renderer; the delta adds no arithmetic anywhere. test_the_frames_geometry_reads_names_and_never_a_number is green in BASELINE A (69 passed)."
+    - "ADR-0036/R3 ✓ holds — the delta adds no round mark and no drawing; test_the_books_own_pages_carry_no_undeclared_round_mark green in BASELINE C."
+    - "ADR-0036/R4 ✓ holds — the delta adds no string literal to src/ at all (comment-only); test_no_module_types_a_round_mark_as_a_character green in BASELINE C."
+    - "ADR-0037/R1 ✓ holds — carried(cycle 1, delta-clean): the rule's scope is src/nonogram/admin/book_pdf_generator.py, which the fix delta does not touch (verified against `git show --stat 8b375fa`: 4 files, none of them that one)."
+    - "ADR-0037/R2 ✓ holds — and the card's statement ABOUT it is now correct, which is what cycle 1's F-001 was filed against. Read the amended rule verbatim in the ADR's Rules block: it binds 'the puzzle grid', so page furniture was never in scope. Measured independently on this head: BOOK1_PROFILE's thin grid rule is 3 px and the hairline 2 px; neither is changed by the delta (min_thin_rule_mm and INTERIOR_FOOTER_RULE_PT both untouched). The retargeted control reads no grid rule and no retired figure."
+    - "CON-020 ✓ holds — carried(cycle 1, delta-clean): the delta adds no face; the grid-size label at SIZE_LABEL_PT is unchanged and TestInteriorType_EveryFaceHoldsTheFloor is not in the delta."
+    - "ADR-0039/R3 ✓ holds — cycle 1's two control gaps are closed, with measured teeth. (a) The ADR-0037/R2 'exemption' is gone: no exemption is claimed, and the retargeted control is killed by three mutants (M2 heavier than the floor, M3 collapsed into the header rule, M4 under the floor) and survives the CARD-227 simulation (M5). (b) The bare_level-2 residue now bounds its COUNT (KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES = 6) and its page reach (KNOWN_BARE_LEVEL_2_LAST_PAGE = 2), and the count bound is killed by M11. The caveat is a claim defect, not a missing control — see F-006."
+
+root_causes:
+  - id: RC-1
+    title: "A control's prose states a reach wider than the control can demonstrate"
+    finding_ids: [F-006]
+    note: >-
+      Thematically continuous with cycle 1's F-001/F-002 (claims about controls
+      overstating what they demonstrate), but strictly weaker: cycle 1's claim
+      was factually wrong against a retired registry threshold; this one is a
+      sound claim whose two named scenarios are not demonstrably reachable
+      while the reachable one goes unnamed. The controls the fix wrote are
+      correct and have measured teeth, so this is convergence, not regeneration.
+
+findings:
+  - id: F-005
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: src/nonogram/admin/book_page_spec.py
+    line: 144
+    title: "FLOOR_MM is pinned tightly from above and loosely from below — it can drop 0.21 mm with every floor test green"
+    description: |
+      FLOOR_MM = 4.75 (the value this card lowers from 4.8) is pinned to the
+      interval (4.54, 4.76], measured by mutation:
+
+        * 4.75 -> 4.77 reds (M6): one FAILED in
+          tests/test_book_select_floor_tiles.py::TestBookCell_TwelveDeepBandFallsBelowFloor::test_a_shallower_band_on_the_same_extent_clears_it
+          — so the upper pin has 0.01 mm of slack.
+        * 4.75 -> 4.64 is GREEN (M7, M7b): 146 passed on the non-DB floor set
+          AND 77 passed on tests/test_book_floor.py run in isolation. Zero
+          FAILED lines in either.
+        * 4.75 -> 4.53 reds hard (M7c): 35 FAILED in tests/test_book_floor.py.
+
+      The lower pin therefore comes from tests/test_book_floor.py:499's
+      `assert cells[below] < FLOOR_MM <= cells[above]`, whose fixtures are
+      BELOW_FLOOR's 4.54 mm and ABOVE_FLOOR's 4.76 mm — a straddle 0.22 mm
+      wide, not a boundary.
+
+      Concrete failure scenario: a later change (or a bad merge) sets
+      FLOOR_MM = 4.60. Every test in the floor suite stays green, and the admin
+      panel then admits 30-wide puzzles at cells the owner explicitly rejected
+      — the registry records the owner's words as "4.8-4.9 is fine, 4.6 is too
+      small" (requirements.yml, NFR-008's 2026-09-22 note). The direction that
+      is unguarded is exactly the direction that degrades print quality, which
+      is the complaint NFR-008 and ADR-0037 both exist to answer.
+
+      Why it is Minor and does not gate: the missing pin is already DECLARED in
+      the model. requirements.yml's NFR-008 scope note says, verbatim, "None of
+      AC-369..AC-371's tests exist yet: AC-369 and AC-371 name CARD-225's own
+      planned tests, and AC-370's TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedFloor
+      is a test this amendment newly owes CARD-225 — it is named on no card, so
+      whoever picks that card up must write it rather than assume it exists."
+      AC-370 is the 4.762 mm case — the one depth step the 4.75 mm floor buys,
+      and precisely the lower-side pin that is missing. Confirmed absent:
+      grepping tests/ for TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedFloor
+      returns nothing. So this is a visible, assigned gap, not a hidden one.
+    suggestion: |
+      Either write AC-370's named test on this card (a 30x30 at clue depth 10
+      asserting cell == 4.762 mm AND that it is admitted, plus the depth-11
+      case at 4.646 mm asserting it is refused — the two-sided pin FLOOR_MM's
+      own docstring already describes), or record on CARD-222 that the lower
+      pin is CARD-225's and carry the measured slack (4.75 -> 4.55 is green)
+      into that card so whoever writes AC-370's test knows what it has to
+      close. The docstring at book_page_spec.py:138-143 already states both
+      figures; it is the only place in the repo that does.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-006
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_guide_page_type.py
+    line: 611
+    title: "The new count bound's docstring names two failure paths it cannot demonstrate, and omits the one it can"
+    description: |
+      The count bound added for cycle 1's F-002 is a real control — confirmed
+      killed by M11. What is wrong is the reach its prose claims. Both
+      KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES' docstring
+      (tests/test_book_guide_page_type.py:611-619) and the test's own docstring
+      (:807-812) name the same two scenarios:
+
+        "A seventh case overflowing -- a clean case starting to, or the ceiling
+         being lifted so that a taller case falls under the lenient branch --
+         fails rather than passing green."
+
+      The first was already conceded unreachable by the fix agent and I confirm
+      it: of the 48 corpus cases, 6 sit below the 12.5 cm ceiling and ALL SIX
+      already overflow, so there is no clean sub-ceiling case left to start.
+      (Measured independently: 19.86x12.44 +6 px, 10.79x11.79 +82, 22.37x10.81
+      +127, 10.00x10.00 +140, 29.31x11.29 +140, 26.91x11.12 +140 — which also
+      confirms the docstring's "six ... by 6 to 140 px" exactly.)
+
+      The second is the one the commit message rests the control's value on,
+      and it does not fire either:
+
+        * M9b: KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM lifted 12.5 -> 40.0 cm,
+          with bottom_in raised 0.47 -> 0.48 in to shift the frame — 17 passed,
+          zero FAILED. Lifting the ceiling absorbs nothing, because the frame
+          shift creates no new overflow: the 5-level fallback ladder fits
+          content TO the frame, so every tall case stays flush (measured: the
+          six nearest-to-overflow cases above the ceiling all sit at exactly
+          1 px of slack, by construction).
+        * M10: GUIDE_BODY_PT raised 11.0 -> 16.0 pt (+45% body type) and the
+          overflow table measured directly — the overflowing set is STILL
+          exactly those same six trims, the tallest overflowing trim is still
+          12.44 cm, and the overflow saturates at 140 px. bare_level 2 is the
+          bottom of the ladder, so the set is a function of trim height alone
+          and content pressure cannot move the threshold.
+
+      The path that DOES red it is corpus growth, which neither docstring
+      mentions: M11 raised CORPUS_CASES 48 -> 96 and the bound fired with its
+      own message, "AssertionError: 15 of the corpus's 96 cases now overflow
+      the bottom margin against the measured 6".
+
+      Concrete failure scenario for the claim (not for the code): an engineer
+      reads the docstring, believes a ceiling lift is guarded, and lifts
+      KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM to absorb a tall page's new
+      overflow. Measured above: the suite stays green and no bound reds —
+      the exact silent-widening the bound was added to refuse. The claim is
+      logically sound (if a taller case did overflow, the count would reach 7)
+      but is not demonstrable from any input probed, so it should not be the
+      stated justification.
+    suggestion: |
+      Restate the reach to what the mutants show. Two lines:
+        * name the corpus-growth path, which is demonstrated — "a seventh case
+          arriving because the corpus grew (CORPUS_CASES, its seed, or its trim
+          range) reds here; measured at CORPUS_CASES=96, 15 against 6";
+        * say that the set is structural — every corpus case below ~12.5 cm
+          overflows and none above does, at any content size (measured at
+          GUIDE_BODY_PT 16 pt: the same six, saturating at 140 px) — so the
+          ceiling-lift path is a safeguard against a change to the ladder
+          itself, not something today's inputs can drive.
+      No code change is needed; the control is correct.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: O-1
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_layout_page_spec.py
+    line: 55
+    title: "[out of scope] AC-238/AC-239's named tests still construct the retired CON-018 geometry"
+    description: |
+      Out-of-scope observation, same class as the four retired-0.25 mm lines
+      already assigned to CARD-227 — recorded so it is visible, not raised as a
+      gate.
+
+      tests/test_layout_page_spec.py's BOOK1_ODD is still the PRE-amendment
+      Book 1 sheet (top_mm/bottom_mm/outside_mm all 9.525 = 0.375 in), and
+      BOOK1_USABLE_WIDTH_MM is still the retired 193.675. BOOK1_PROFILE in
+      src/nonogram/admin/book_page_spec.py is now outside 0.5 in, top 0.55 in,
+      bottom 0.47 in — a 190.5 mm usable width (verified independently:
+      8.5 - 0.5 - 0.5 in = 7.5 in = 190.5 mm). Two docstrings therefore make
+      claims that are no longer true: "CON-018's Book 1 profile" (:52) and
+      "FR-030's usable width on the Book 1 trim" (:70).
+
+      The two classes requirements.yml names as AC-238's and AC-239's tests sit
+      on that fixture and assert the retired figures —
+      TestBookCell_ThirtyByThirtyNineDeepAboveFloor asserts `cell >= 4.8` and
+      `round(cell, 2) == 4.97`, TestBookCell_TwelveDeepBandFallsBelowFloor
+      asserts `cell < 4.8` and `round(cell, 2) == 4.61` — while the ACs were
+      re-measured on 2026-10-17 to "4.885 mm on the amended margins" and
+      "4.536 mm on the amended margins" (both verified: 190.5/39 = 4.8846,
+      190.5/42 = 4.5357).
+
+      Why this is NOT an unverified AC, which is why it does not gate: both
+      amended figures ARE asserted, at tests/test_book_page_spec.py:249
+      (`approx(4.885, abs=0.05)`, with the comment "190.5 mm usable width /
+      (30 + 9) cells") and :473 (`approx(4.536, abs=0.005)`). The AC substance
+      is covered on the admin-side spec builder. What is stale is the
+      registry's `test:` pointer and the export-layer fixture's labelling —
+      and the export tests are deliberately decoupled from nonogram.admin
+      (the file header: "export tests never import nonogram.admin"), so the
+      arithmetic they assert is still a true property of compute_layout on the
+      spec they pass. The same retired geometry appears in roughly a dozen
+      other export-layer test fixtures (grep: outside_mm=9.525 or 193.675 in
+      test_book_puzzle_frame, test_layout_two_up, test_book_pdf_two_up,
+      test_answer_page_layout, test_layout_answer_tiles and five property
+      files), so this is a propagation decision, not a one-line fix.
+    suggestion: |
+      Fold into CARD-227's existing propagation obligation (it already owns the
+      four retired-0.25 mm lines): repoint requirements.yml's AC-238/AC-239
+      `test:` fields at tests/test_book_page_spec.py's amended-margin
+      assertions, and reword tests/test_layout_page_spec.py's two docstrings to
+      say the spec is a HISTORICAL Book 1 sheet held as a layout fixture rather
+      than "CON-018's Book 1 profile".
+    confidence: high
+    source: model
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

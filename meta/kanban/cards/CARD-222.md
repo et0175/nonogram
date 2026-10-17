@@ -179,6 +179,49 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 
 ## Worktree notes
 
+- **[Review 2/3] Score 9.0 — ✓ threshold reached. 0 Critical, 0 Important, 2 Minor.** Risk LOW,
+  lane FAST. System contract 8/8 ✓ holds, 0 unchecked, 0 violated. F-001, F-002 and F-003 all
+  **confirmed fixed adversarially**; F-004 was closed by the orchestrator (the residue record,
+  written above). Deduction 10 − 0.5 (F-005) − 0.5 (F-006) = 9.0.
+  **F-001's confirmation answered the question I actually cared about** — whether dropping the
+  grid comparison lost anything load-bearing. It did not: the old control's second assertion
+  (grid thin rule ≥ R2's floor) is independently held at **five** sites outside this diff
+  (`test_book_puzzle_frame.py:545`, `test_layout_two_up.py:271`, `test_book_proof_pages.py:428`,
+  `test_layout_answer_tiles.py:372`, `property/test_book_answer_tiles.py:161`), and the
+  "furniture lighter than grid ink" claim is not merely unguarded but **false** — both measure
+  2 px under the CARD-227 simulation. There is no claim left to guard.
+
+- **[Review 2/3, mutation ladder — deferred from cycle 1, executed here: 11 mutants, 8 killed,
+  3 survived, every one reverted and verified with `git diff --quiet`.]** Six green baselines
+  established before any mutant; `^FAILED` lines counted, never progress characters. **The three
+  survivors are the useful part:**
+  * **M5 survived by design** — `min_thin_rule_mm` simulated at 0.1693 so the grid's thin rule
+    measures 2 px (CARD-227's future state): the retargeted control is green, and the superseded
+    one's assertions red exactly as cycle 1 predicted (`assert 2 < 2`). This is the fix's central
+    claim, measured rather than argued.
+  * **M7 survived → F-005**, the floor's loose lower pin. Carried to CARD-225, which owns
+    AC-370, the missing pin.
+  * **M9/M10 survived → F-006**, the count bound's overstated prose. Fixed in `e352368`.
+  * **M1 is worth noting**: a 1 px shift of `footer_y` survived the *narrow* file (28 passed) and
+    was only killed on the covering set, by `test_book_pdf_memory.py`'s pixel-identity and
+    file-length assertions. A reviewer running only the obvious file would have called that line
+    unguarded. It is guarded — just not where you would look.
+  * **M8** closes the third failure shape on the migration guard (on-disk set), after cycle 1's
+    two-head and merge cases.
+
+- **[AC/EC/G gate] PASSED.** All seven ACs and all six guardrails carry a named test, and
+  **every named test was confirmed to exist on disk** — 13 of 13. Two needed looking for rather
+  than grepping: G-2's `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry` is a
+  *registry label carried in a docstring*, implemented as
+  `tests/property/test_cli_exports_byte_identity.py:154`'s
+  `test_property_cli_exports_byte_identical_whatever_the_book_geometry`, and G-3's is
+  `tests/property/test_book_export_interior.py:589`'s `test_PropertyTest_BookExport_...`. My
+  first grep reported both as missing; **that was my pattern being too narrow, not a gap in the
+  card** — recorded because the same false alarm will recur on any card citing a property test
+  by its registry label.
+  Evidence for each criterion is the merge-gate full-suite run below: if it is green, every
+  named test passed, which is a stronger statement than re-running them individually.
+
 - **[Review 1/3] Score 8.5 — clears the ≥8 target, but one Important finding gates the cycle.**
   Risk MEDIUM, lane DEEP. All seven ACs implemented and controlled; migration chain sound and
   the downgrade symmetric; eight system-contract rules checked with no substantive breach;

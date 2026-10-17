@@ -135,6 +135,29 @@ _52 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 
 ## Worktree notes
 
+- **[Inherited obligation, measured by CARD-222's review cycle 2 — land the floor's missing
+  lower pin before you change anything about cell sizing]** ⚠ `FLOOR_MM` is pinned **tightly
+  above and loosely below**. Measured by mutation on the merged-candidate tree, the interval in
+  which the constant can be changed with the suite still fully green is **(4.54, 4.76]**:
+  * `FLOOR_MM = 4.77` → reds (`TestBookCell_TwelveDeepBandFallsBelowFloor`), so the upper side
+    is a real boundary;
+  * `FLOOR_MM = 4.64` → **fully green**, on the non-DB floor set *and* on `test_book_floor.py`
+    run in isolation;
+  * `FLOOR_MM = 4.53` → reds hard (35 failures), which bounds the slack from below.
+  The only thing holding the lower side is `tests/test_book_floor.py:499`'s straddle
+  `4.54 < FLOOR_MM <= 4.76` — **a 0.22 mm straddle, not a boundary.**
+  **Concrete failure scenario:** `FLOOR_MM = 4.60` ships green and admits cells the owner
+  explicitly rejected — NFR-008's own note records "4.6 is too small".
+  **Why this is yours and why it did not gate CARD-222.** The gap is the *absence* of a test,
+  not a defect CARD-222 introduced, and it is already declared: `requirements.yml` states that
+  AC-370's `TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedFloor` "is a test this amendment
+  newly owes CARD-225 — it is named on no card". **AC-370 is exactly the 4.762 mm lower-side
+  pin**, and it is confirmed absent from `tests/`. So it was visible and assigned rather than
+  hidden — but **you are the card that moves cell sizing**, so the pin has to exist *before*
+  your changes land, or your own regression surface is a 0.22 mm straddle. Write AC-370's test
+  first; the measured interval above is the control you are closing.
+
+
 - [Why this is P1 and architectural] It is the only card of the set that changes what the
   reader *solves* rather than where it sits: a smaller cell is a harder puzzle to mark by
   hand. NFR-008's band exists for that reason, and this card moves a figure inside it for
