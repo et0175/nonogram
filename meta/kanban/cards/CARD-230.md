@@ -26,55 +26,141 @@
 
 Two changes to the guide's content layout, both inside the spread CARD-229 builds.
 
-1. **The worked example becomes four small steps**, each with **one line saying what changed**.
-   Today the worked example is a single figure under `GUIDE_EXAMPLE_HEADING` (CARD-167 added it,
-   CARD-201 turned the guide into two pages). Four steps means four small grids in sequence,
-   each with its own one-line caption — and the captions are the teaching, so they are content
-   constants, not drawing-code strings.
+> **CORRECTED 2026-10-17 at the decompose station — half of item 1 is already shipped.** This
+> section claimed "today the worked example is a single figure under `GUIDE_EXAMPLE_HEADING`".
+> That is **false, and has been since CARD-167**: `WORKED_EXAMPLE_STEPS`
+> (`book_pdf_generator.py:735`) has held **exactly four** `ExampleStep` entries, each pairing a
+> caption with its own grid, since commit `205c5e1` — verified by counting the entries at
+> `205c5e1` (CARD-167), `5bd85c6` (CARD-201) and `HEAD`: **four at all three**. CARD-201 did not
+> change the count. The likely cause of the error is CARD-167's own title, "guide page becomes
+> 'How to Solve Nonograms' **with a worked example**" — singular, which reads like one figure
+> and is not. The card was written from the title rather than the code.
+>
+> This matters because it moved four of seven acceptance criteria from "the card's deliverable"
+> to "already true" — see the re-cut note under **Acceptance criteria**.
+
+1. **The four steps are already there; this card RE-LAYS them inside CARD-229's two-column
+   spread.** What is genuinely yours: their position and reading order within page 2's column,
+   that each caption still sits beneath its own grid after the re-layout, and that all four fit
+   the shortest trim under CON-018's amended (narrower) margins. **Do not rewrite
+   `WORKED_EXAMPLE_STEPS`, do not renumber the steps, and do not re-author the captions** —
+   they are shipped teaching copy and G-6..G-8 assert they survive you.
 2. **The rows/columns tip moves to the foot of page 2 as a callout** — a distinct block, not a
-   paragraph in the flow.
+   paragraph in the flow. **This is the card's real new work.** Today the tip is
+   `GUIDE_SWITCHING_HEADING` (:909) and it is **page 1's closing item, text only, no diagram**
+   — CARD-201's own comment says exactly that. Moving it and setting it apart is unshipped.
 
 **Where the copy comes from.** The owner's instruction for the whole spread is "your current
-text, lightly tightened". The four step captions are new sentences, so they are new constants
-with the existing `GUIDE_*` naming, and the callout's text is the existing tip moved, not
-rewritten. Say in the notes which strings are new and which moved, so a reviewer can tell
-tightening from invention.
+text, lightly tightened". **Correction to this paragraph as originally written:** it said "the
+four step captions are new sentences, so they are new constants". They are not new — they are
+shipped constants, and inventing replacements would both lose the teaching copy and quietly
+break G-7. The callout's text is likewise the existing tip **moved, not rewritten**. So on this
+card, *every* string should be a move or a tightening and **none should be an invention**; if
+you find yourself writing a new sentence, say which and why in the notes, because the default
+expectation here is now zero.
+
+**On the estimate.** It stays at 1d and is deliberately not cut, even though item 1 turned out
+largely shipped: the re-layout inside a spread that does not exist yet, the callout, and the
+fit-at-shortest-trim measurement under narrower margins are the bulk of the risk, and the four
+constants were never the expensive part. Flagged here so the retrospective can see the scope
+moved without the estimate moving, rather than inferring a mis-estimate.
 
 ## Acceptance criteria
 
-- **AC-1** (happy, four steps): *Given* the guide, *then* the worked example is drawn as four
-  grids in reading order, each with exactly one caption line beneath it.
-  (test: `TestGuideWorkedExample_RunsAsFourSteps`)
-- **AC-2** (happy, each step changes something): *Given* consecutive steps, *then* each step's
-  grid differs from its predecessor, and the difference is non-empty — a step that changes
-  nothing is a defect in the lesson, and this is the assertion that catches it.
-  (test: `TestGuideWorkedExample_EveryStepChangesTheGrid`)
-- **AC-3** (happy, the caption describes its own step): *Given* each step, *then* its caption
-  comes from a constant paired with that step, so steps and captions cannot drift apart.
-  (test: `TestGuideWorkedExample_CaptionsArePairedWithSteps`)
-- **AC-4** (happy, the callout): *Given* page 2, *then* the rows/columns tip is drawn as a
+> **RE-CUT 2026-10-17 at the decompose station, before dispatch — read this before writing a
+> test.** As originally written, **four of this card's seven acceptance criteria described
+> behaviour that is already shipped**, and would have gone green on cycle 1 without the card
+> changing anything. That is not evidence of this card's work; it is fake coverage, the exact
+> shape ADR-0039/R1 exists to forbid (*a coverage claim needs a control that can fail*), and it
+> is what the wave-43 retrospective found every gating finding reduced to.
+>
+> **What is actually on disk today**, verified by reading
+> `src/nonogram/admin/book_pdf_generator.py` rather than inferred:
+> * `WORKED_EXAMPLE_STEPS` (:735) already holds **exactly four** `ExampleStep` entries, each
+>   pairing a caption with its own grid, and the grids already progress — filled
+>   `{}` → `{1,2}` → `{1,2,3}` → `{1,2,3,5}`, crossed `{}` → `{}` → `{0,4}` → `{0,4}`, so
+>   every consecutive pair already differs. The old AC-1, AC-2 and AC-3 were therefore true
+>   before the card began.
+> * the generator already draws one line per step (:3666) and the Finalise preview already
+>   `zip`s the same constants (:3850) — the old AC-7 was true too, and even cited an
+>   *existing* test (`test_book_finalise_guide_preview.py:403`) as its evidence.
+> * **the callout is the genuinely new work.** The rows/columns tip exists as
+>   `GUIDE_SWITCHING_HEADING` (:909) but is **page 1's closing item, text only, no diagram**
+>   (CARD-201's comment says so in those words). Moving it to the foot of page 2 and setting
+>   it apart is real, unshipped work.
+>
+> So the four steps are **not** this card's deliverable. What this card actually does is
+> **re-lay that shipped content inside the two-column spread CARD-229 builds, and move the
+> tip**. The shipped properties are still worth protecting — CARD-229 rewrites the page under
+> them — but they are **guardrails against regression, not acceptance criteria**, and they are
+> written below as G-6..G-8 instead.
+>
+> **One thing I did not verify and you must**: whether the *rendering* puts exactly one caption
+> beneath each grid is a layout question I did not measure, only the constants. Measure it;
+> do not inherit this note's word for it.
+>
+> **Every AC below must be shown red before it is green, against a mutant of _your_ diff** —
+> not of the shipped code. An AC that cannot be made to fail by breaking something this card
+> wrote is misfiled as a guardrail.
+
+- **AC-1** (happy, the steps survive the re-layout in reading order): *Given* the guide's page 2
+  as CARD-229's two-column spread lays it out, *then* the four shipped steps are drawn **in
+  reading order within the column**, each with exactly one caption line beneath it, and none
+  overlapping another. The claim is about **position in the new layout**, which is new; the
+  existence of four steps is not.
+  (test: `TestGuideWorkedExample_RunsAsFourStepsInTheSpread`)
+- **AC-2** (happy, the callout): *Given* page 2, *then* the rows/columns tip is drawn as a
   callout at the foot — below the last technique, visually set apart (its own rule or panel),
   and not inside a technique's column. (test: `TestGuideCallout_SitsAtTheFootOfPageTwo`)
-- **AC-5** (guard, the copy moved rather than changed): *Given* the callout's text, *then* it
-  is the existing tip's constant. (test: `TestGuideCallout_UsesTheExistingTipText`)
-- **AC-6** (edge, the four steps fit): *Given* the shortest trim the profile lays out, *then*
+- **AC-3** (negative, it left page 1): *Given* the guide's page 1, *then* the rows/columns tip
+  is **no longer** drawn there — the tip moved, it was not duplicated. Without this, a card
+  that draws the callout on page 2 and leaves the original in place passes AC-2 while shipping
+  the text twice. (test: `TestGuideCallout_NoLongerOnPageOne`)
+- **AC-4** (guard, the copy moved rather than changed): *Given* the callout's text, *then* it is
+  the existing `GUIDE_SWITCHING_HEADING` constant, read and not retyped.
+  (test: `TestGuideCallout_UsesTheExistingTipText`)
+- **AC-5** (edge, the four steps fit): *Given* the shortest trim the profile lays out, *then*
   the four steps and their captions fit inside page 2's column without crossing the callout or
-  the footer rule. (test: `TestGuideWorkedExample_FitsTheShortestTrim`)
-- **AC-7** (guard, the preview agrees): *Given* the Finalise screen's guide preview, *then* it
-  shows the same four steps in the same order, because it reads the generator's own text.
-  (test: `TestFinaliseGuidePreview_ShowsTheWorkedExampleStepByStep`,
-  `tests/test_book_finalise_guide_preview.py:403`)
+  the footer rule. **State the trim you measured**, and say what the margin is — "it fits" with
+  no figure is not evidence, and CON-018's amended margins (CARD-222) make the column narrower
+  than the shipped page's.
+  (test: `TestGuideWorkedExample_FitsTheShortestTrim`)
 
 ## Guardrails
 
 - G-1: CON-020's floor holds for the step captions and the callout (test:
   `TestInteriorType_EveryFaceHoldsTheFloor`).
 - G-2: The guide stays two pages. Four steps must fit the spread; they do not earn a third page
-  (test: AC-6's class plus `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`).
+  (test: **AC-5's** class plus `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`).
+  _(Renumbered by the 2026-10-17 re-cut: this said "AC-6's class", and AC-6 no longer exists.)_
 - G-3: The example grids are drawn with the same primitives as the puzzle pages' grids, at the
   spread's single example cell size (CARD-229's AC-5).
 - G-4: Out of scope — the spread, the key strip and the two-column frame (CARD-229).
 - G-5: Baselines re-recorded with provenance; no earlier fixture regenerated or deleted.
+
+**G-6..G-8 are the three claims demoted from the acceptance criteria by the 2026-10-17 re-cut.**
+They are shipped properties, so they prove nothing about this card's diff and cannot be
+acceptance criteria. They are still worth asserting, because **CARD-229 rewrites the page
+underneath them and this card re-lays its content** — so each is a live regression risk, and
+each must be red if the re-layout drops it. If you find one of these cannot be made to fail by
+breaking your own diff, say so in the notes rather than claiming it as evidence.
+
+- G-6: The worked example still has **exactly four** steps after the re-layout, and each
+  consecutive grid still differs from its predecessor by a non-empty change — a step that
+  changes nothing is a defect in the lesson. Shipped as `WORKED_EXAMPLE_STEPS`
+  (`book_pdf_generator.py:735`), filled `{}` → `{1,2}` → `{1,2,3}` → `{1,2,3,5}`
+  (test: `TestGuideWorkedExample_EveryStepChangesTheGrid`).
+- G-7: Each caption still comes from the constant **paired with its own step**, so steps and
+  captions cannot drift apart. Shipped via the `ExampleStep` dataclass (:714), which is what
+  makes the pairing structural rather than positional — do not replace it with two parallel
+  sequences (test: `TestGuideWorkedExample_CaptionsArePairedWithSteps`).
+- G-8: The Finalise screen's guide preview still shows the same four steps in the same order,
+  because it reads the generator's own constants rather than its own copy. Shipped at
+  `book_pdf_generator.py:3850` (`zip(WORKED_EXAMPLE_STEPS, worked_example_images)`), and
+  already covered by `tests/test_book_finalise_guide_preview.py:403` — **so the existing test
+  is the control here, and the honest move is to check it still passes rather than to write a
+  new test that claims the credit** (test:
+  `TestFinaliseGuidePreview_ShowsTheWorkedExampleStepByStep`).
 
 ## System contract
 
