@@ -1,6 +1,6 @@
 """CARD-123 — the cell on every tile, the floor flag, and the finalise count.
 
-    AC-182  a 30 x 25 puzzle with a 12-deep row-clue gutter shows 4.61 mm on
+    AC-182  a 30 x 25 puzzle with a 12-deep row-clue gutter shows 4.54 mm on
             its selection tile, with a below-floor flag and an override control
     AC-241  a 25 x 12 puzzle above the floor carries no flag at all — neither a
             below-floor flag nor a wide-grid one (FR-032 amended; AC-191/192
@@ -8,7 +8,7 @@
     AC-187  a book of 150 puzzles, 2 of them admitted below the floor with
             overrides, reports 2 below the floor on the finalise summary
     AC-188  the same summary is **recomputed on the book's current trim** every
-            render: a 20 x 20 puzzle at 6.92 mm on 8.5 x 11 in becomes 4.65 mm
+            render: a 20 x 20 puzzle at 6.80 mm on 8.5 x 11 in becomes 4.54 mm
             when the trim is changed to 6 x 9 in, and the count goes 0 -> 1
     AC-239  (NFR-008) the flag half — a 12-deep band on a 30-wide grid falls
             below the floor and is flagged there
@@ -18,7 +18,7 @@ server-rendered screens and this project has no browser harness, so each drives
 the real route and reads the real HTML that came back — the reading
 ``tests/test_book_floor.py`` and ``tests/test_book_select_tabs.py`` make.
 
-The expected cell figures are the **card's** (4.61 mm, 6.92 mm, 4.65 mm) and
+The expected cell figures are the **card's** (4.54 mm, 6.80 mm, 4.54 mm) and
 the grids here are built by hand to hit them; they are not re-derived from
 ``book_cell_mm``, which would only prove the code agrees with itself. What must
 come from ``book_cell_mm`` is the number the product shows (G-1, EC-021), and
@@ -43,22 +43,22 @@ from nonogram.admin.book_page_spec import FLOOR_MM, book_cell_mm, book_page_spec
 from tests.test_book_floor import Panel, clues_of, dotted_grid, text_of
 
 #: AC-182/AC-239: 30 wide x 25 tall, row-clue gutter 12 deep, column-clue
-#: gutter 8 — 42 cells across the sheet, 4.61 mm on the Book 1 profile. The
+#: gutter 8 — 42 cells across the sheet, 4.54 mm on the Book 1 profile. The
 #: same fixture CARD-121's ACs use, so the tile and the refusal are about one
 #: puzzle. Its tab is the 26-30 one.
-BELOW_FLOOR = (30, 25, 12, 8, 4.61, "26-30")
+BELOW_FLOOR = (30, 25, 12, 8, 4.54, "26-30")
 
 #: AC-241: 25 wide x 12 tall — a *wide* grid, comfortably above the floor.
 #: The card states "6.0 mm"; that exact figure is not reachable at this extent
 #: on the Book 1 profile (the sheet's 193.675 mm of usable width divided by a
-#: whole number of cells lands on 6.05 or 5.87, never 6.00), so the nearest
+#: whole number of cells lands on 5.95 or 5.87, never 6.00), so the nearest
 #: grid is taken and the criterion's substance — a wide grid above the floor
 #: carries no flag — is what is asserted. Its tab is the 21-25 one.
-ABOVE_FLOOR_WIDE = (25, 12, 7, 4, 6.05, "21-25")
+ABOVE_FLOOR_WIDE = (25, 12, 7, 4, 5.95, "21-25")
 
-#: AC-188: 20 x 20 with 8-deep gutters — 6.92 mm on 8.5 x 11 in, 4.65 mm once
+#: AC-188: 20 x 20 with 8-deep gutters — 6.80 mm on 8.5 x 11 in, 4.54 mm once
 #: the trim becomes 6 x 9 in. Its tab is the 16-20 one.
-TRIM_SENSITIVE = (20, 20, 8, 8, 6.92, 4.65)
+TRIM_SENSITIVE = (20, 20, 8, 8, 6.80, 4.54)
 
 #: A tiny grid that clears the floor on any supported trim: filler for AC-187's
 #: 150-puzzle book.
@@ -164,7 +164,7 @@ def cell_of(shape, book) -> float:
 
 
 class TestBookSelect_TileShowsCellAndBelowFloorFlag:
-    """A 4.61 mm puzzle's tile says 4.61 mm and says it is under the floor."""
+    """A 4.54 mm puzzle's tile says 4.54 mm and says it is under the floor."""
 
     def test_the_tile_shows_the_cell_to_two_decimals(self, panel) -> None:
         width, height, row_gutter, column_gutter, cell, bucket = BELOW_FLOOR
@@ -177,7 +177,7 @@ class TestBookSelect_TileShowsCellAndBelowFloorFlag:
             f"the tile must show the puzzle's cell on this book ({cell:.2f} mm); "
             f"it showed: {text_of(tile)}"
         )
-        # One decimal is too coarse beside a 4.8 mm floor, so the markup's own
+        # One decimal is too coarse beside a 4.75 mm floor, so the markup's own
         # figure is pinned at two as well.
         assert f'data-book-cell-mm="{cell:.2f}"' in tile
 
@@ -445,7 +445,7 @@ class TestBookFinalize_SummaryRecountsBelowFloorAfterTrimChange:
 
 
 class TestBookCell_TwelveDeepBandFallsBelowFloor:
-    """The 4.61 mm cell itself is CARD-114's; this is that it is *flagged*."""
+    """The 4.54 mm cell itself is CARD-114's; this is that it is *flagged*."""
 
     def test_the_computed_cell_is_under_the_floor(self, panel) -> None:
         book_id = panel.book()
@@ -476,7 +476,7 @@ class TestBookCell_TwelveDeepBandFallsBelowFloor:
         assert f"Below the {FLOOR_MM:g} mm floor" in text_of(tile)
 
     def test_a_shallower_band_on_the_same_extent_clears_it(self, panel) -> None:
-        """The band is what does it, not the 30 cells: AC-186's 4.84 mm grid."""
+        """The band is what does it, not the 30 cells: AC-186's 4.76 mm grid."""
         book_id = panel.book()
 
         assert cell_of((30, 20, 10, 8), panel.books.get_book(book_id)) >= FLOOR_MM
@@ -732,7 +732,7 @@ class TestBookSelectTile_CellLookupIsKeyedLikeTheRouteFilesIt:
         assert "not measurable" not in text_of(tile)
 
     def test_a_non_string_id_above_the_floor_is_not_flagged(self, panel) -> None:
-        """The wrong verdict the miss produces: a 6.05 mm puzzle flagged."""
+        """The wrong verdict the miss produces: a 5.95 mm puzzle flagged."""
         raw_id = self._with_a_uuid_id(panel, ABOVE_FLOOR_WIDE)
         book_id = panel.book()
 

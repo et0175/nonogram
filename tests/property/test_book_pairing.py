@@ -64,11 +64,15 @@ BAND_MM = 12.0
 #: CON-018's Book 1 profile in millimetres, stated in inches here rather than
 #: imported, and a 6 x 9 in book beside it — a trim on which far fewer pairs
 #: fit, so the corpus is not one sheet's arithmetic.
-BOOK1 = (8.5 * 25.4, 11 * 25.4, 0.5 * 25.4, 0.375 * 25.4)
-SIX_BY_NINE = (6 * 25.4, 9 * 25.4, 0.5 * 25.4, 0.375 * 25.4)
+#: The amended profile (2026-10-17, CARD-222): the outside margin moved
+#: 0.375 -> 0.5 in, the top to 0.55 in and the bottom to 0.47 in, and the
+#: gutter deliberately stayed at KDP's 0.5 in.
+BOOK1 = (8.5 * 25.4, 11 * 25.4, 0.5 * 25.4, 0.5 * 25.4)
+SIX_BY_NINE = (6 * 25.4, 9 * 25.4, 0.5 * 25.4, 0.5 * 25.4)
 
 #: Top and bottom have no stored column and always come from the profile.
-TOP_MM = BOTTOM_MM = 0.375 * 25.4
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 
 #: Every stored spelling of a tier this project can meet, mapped to the tier of
 #: record it means — written out rather than derived, so the expected verdict
@@ -597,38 +601,45 @@ def _filler(tier: str) -> Puzzle:
     return Puzzle(10, 10, blank, blank, tier)
 
 
-#: A pair comfortably clear of the 7.0 mm floor even after Fix 4's fixed
-#: reserve is subtracted: 24 columns x 6 rows, row- and column-clue depth 2
-#: (``across`` = 26). Hand-verified here (``compute_pair_layout`` run
-#: directly against this exact geometry before this test was written, the
-#: same independent check cycle-1/2's reviews made) rather than re-derived
-#: from this module's own ``Sheet.shared_cell_mm``, which already shares
-#: production's formula and so cannot catch a regression in it by agreeing
-#: with itself: the geometry-only cell is ``193.675 / 26 ==
-#: 7.449038461538461...`` mm.
+#: A pair clear of the 7.0 mm floor even after Fix 4's fixed reserve is
+#: subtracted: **23** columns x 6 rows, row- and column-clue depth 2
+#: (``across`` = 25). Hand-verified here (``compute_pair_layout`` run
+#: directly against this exact geometry, the same independent check
+#: cycle-1/2's reviews made) rather than re-derived from this module's own
+#: ``Sheet.shared_cell_mm``, which already shares production's formula and so
+#: cannot catch a regression in it by agreeing with itself.
+#:
+#: **Re-chosen for CARD-222, and the window it sits in has closed.** It was
+#: 24 columns (``across`` = 26) on CON-018's retired margins, where the
+#: geometry-only cell was ``193.675 / 26 == 7.449`` mm and the reserved one
+#: ``(193.675 - 9.144) / 26 == 7.097`` mm — both strictly between the 7.0 mm
+#: floor and the 7.5 mm cap, so the reserve's whole effect was visible in the
+#: pair's own cell. On the amended margins (usable width 190.5 mm) **no
+#: ``across`` can do that any more**: the cap needs ``across >= 26``
+#: (190.5 / 26 = 7.33) and the floor-with-reserve needs ``across <= 25``
+#: ((190.5 - 9.144) / 25 = 7.25). The reserve is 9.144 mm — 4.8% of the
+#: usable width — and the cap-to-floor window is 7% wide, so the two no
+#: longer leave room for each other. This pair therefore sits at ``across``
+#: 25, where the **cap** binds the unreserved cell (7.5 mm) and the reserve
+#: still shows in the reserved one (7.254 mm), which is all the property
+#: below needs: the same verdict and the same cell wherever the pair lands.
 _BORDERLINE_ROW_CLUES = tuple((1, 1) for _ in range(6))
-_BORDERLINE_COLUMN_CLUES = tuple((1, 1) for _ in range(24))
+_BORDERLINE_COLUMN_CLUES = tuple((1, 1) for _ in range(23))
 
-#: The pair's geometry-only shared cell (FR-040's own formula, hand-derived
-#: independently of ``Sheet.shared_cell_mm`` and of ``compute_pair_layout``
-#: — CLAUDE.md's "independent second implementation" — then cross-checked
-#: directly against ``compute_pair_layout`` before this test was written):
-#: with BOOK1's usable width 193.675 mm, the pair's own ``across`` of 26
-#: cells (depth 2 + 24 columns) gives ``193.675 / 26 ==
-#: 7.449038461538461...``, below the 7.5 mm cap and above the 7.0 mm floor.
-_BORDERLINE_CELL_MM = 7.449038461538461
+#: The pair's shared cell with no reserve: NFR-008's flat 7.5 mm cap, which
+#: binds at this ``across`` (190.5 / 25 = 7.62 mm of page fit, above the cap).
+_BORDERLINE_CELL_MM = 7.5
 
 #: The same pair's cell **with** Fix 4's fixed reserve subtracted —
 #: hand-derived independently (not imported from ``compute_pair_layout`` or
 #: ``book_pdf_generator``), then cross-checked directly against
-#: ``compute_pair_layout`` before this test was written. ``_folio_reserve_px``
-#: measures 108 px at 300 DPI (27 px per digit, the font's own widest digit,
-#: times ``FOLIO_RESERVE_DIGITS`` = 4) == ``108 * 25.4 / 300 == 9.144`` mm;
-#: ``(193.675 - 9.144) / 26 == 7.0973461538461535...`` mm — smaller than the
-#: unreserved cell above by exactly the reserve, and still comfortably above
-#: the 7.0 mm floor.
+#: ``compute_pair_layout``. ``_folio_reserve_px`` measures 108 px at 300 DPI
+#: (27 px per digit, the font's own widest digit, times
+#: ``FOLIO_RESERVE_DIGITS`` = 4) == ``108 * 25.4 / 300 == 9.144`` mm;
+#: ``(190.5 - 9.144) / 25 == 7.254239999999999...`` mm — below the cap, so the
+#: reserve really is what decides this cell, and still above the 7.0 mm floor.
 _RESERVE_PX = 108
-_BORDERLINE_CELL_WITH_RESERVE_MM = 7.0973461538461535
+_BORDERLINE_CELL_WITH_RESERVE_MM = 7.25424
 
 #: The OLD (CARD-204 Fix 1/Fix 2/Fix 3 investigation's own) tightest pair —
 #: 25 columns, ``across`` = 27, geometry-only cell ``193.675 / 27 ==
@@ -643,8 +654,8 @@ _TIGHT_COLUMN_CLUES = tuple((1, 1) for _ in range(25))
 
 
 def _borderline_pair(tier: str = "easy") -> tuple[Puzzle, Puzzle]:
-    first = Puzzle(24, 6, _BORDERLINE_ROW_CLUES, _BORDERLINE_COLUMN_CLUES, tier)
-    second = Puzzle(24, 6, _BORDERLINE_ROW_CLUES, _BORDERLINE_COLUMN_CLUES, tier)
+    first = Puzzle(23, 6, _BORDERLINE_ROW_CLUES, _BORDERLINE_COLUMN_CLUES, tier)
+    second = Puzzle(23, 6, _BORDERLINE_ROW_CLUES, _BORDERLINE_COLUMN_CLUES, tier)
     return first, second
 
 

@@ -1585,24 +1585,63 @@ class TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity:
         assert pdf_page_count(export) == interior_page_count(6, 6, 6, 3)
 
     def test_every_pages_parity_still_equals_its_own_position(self, pages):
-        """A right-hand (odd) page's drawing sits right of the trim's middle
-        by half the gutter/outside difference, a left-hand (even) one left
-        of it — read off puzzle AND answer pages alike, since CARD-198 both
-        carry the same 20x20-style drawing shape this corpus's puzzles give.
+        """A right-hand (odd) page's drawing sits right of the trim's middle,
+        a left-hand (even) one left of it — read off puzzle AND answer pages
+        alike, since CARD-198 both carry the same 20x20-style drawing shape
+        this corpus's puzzles give.
+
+        **What the sign is, since CON-018's margins were amended** (CARD-222).
+        It used to be half the gutter/outside difference: the drawing was
+        centred across the usable area, so an odd page's own centre sat that
+        far right of the trim's. Two things have happened since. CARD-204
+        made the drawing flush with the *outer* margin, so the offset became
+        half the drawing's own horizontal spare, signed by parity; and the
+        2026-10-17 amendment made the gutter and the outside margin equal, so
+        the margin difference — the term this test was originally written
+        about — is now zero and contributes nothing. The spare does, on every
+        page that has one, which is what this test now says.
+
+        **A page whose drawing fills the text width has no spare and no side
+        to be off**, and after the amendment some do: the usable width is
+        3.175 mm narrower, so a drawing that had a few pixels of slack can now
+        be width-bound to within a rounding pixel. Such a page is skipped
+        rather than asserted either way — and the skipped set is bounded, so
+        the test cannot quietly become vacuous.
         """
         checked = 0
+        flush = []
         for number, page in enumerate(pages, start=1):
             try:
                 drawing = drawing_of(page)
             except ValueError:
                 continue
             offset = (drawing.left + drawing.grid_right) / 2 - page.width / 2
+            if abs(offset) <= 2:
+                # Width-bound: the drawing's spare is zero to within the one
+                # rounding pixel each of its edges can move by.
+                flush.append((number, offset))
+                continue
             assert (offset > 0) == (number % 2 == 1), (
                 f"interior page {number} is centred {offset:.1f} px off the "
                 f"middle, the wrong side for {'an odd' if number % 2 else 'an even'} page"
             )
             checked += 1
         assert checked >= 6, f"only {checked} pages carried a measurable drawing"
+        # Measured: six of this corpus's pages are width-bound on the
+        # amended margins (9, 10, 12, 17, 18, 19 — the 20x20-style drawings,
+        # each 1 px off the middle, which is the rounding and not a side).
+        # The bound is that measurement, so a seventh fails here.
+        assert len(flush) <= 6, (
+            f"these pages' drawings fill the text width and so carry no "
+            f"parity evidence at all: {flush}. Six is the amended margins' "
+            "own cost, measured; more than that and this test is measuring "
+            "almost nothing"
+        )
+        assert checked >= len(flush), (
+            f"only {checked} pages carried parity evidence against "
+            f"{len(flush)} that carried none — the corpus has stopped being "
+            "mostly measurable"
+        )
 
 
 # --------------------------------------------------------------------------

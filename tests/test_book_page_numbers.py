@@ -6,16 +6,25 @@
     AC-9  TestBookPageNumbers_ParityHoldsWithTheTocInserted
 
 **What a "folio" is, and how this file finds one.** ``_draw_folio``
-(``book_pdf_generator.py``) is the *only* ``draw.text`` call anywhere in this
-module that passes Pillow's ``"rb"``/``"lb"`` anchor — every other mark this
-module draws (a title, a band, a caption, a TOC entry's own label or its
-right-aligned page number) uses a different anchor or none at all (see that
-module's own call sites: the caption is ``"rm"`` (CARD-203: right-aligned
-with the grid, was ``"mm"``), the band is ``"lm"``, a TOC
-entry's page number is ``"ra"``, a TOC entry's label and every guide/divider
-mark use the default). So a ``draw.text`` call recorded with anchor ``"rb"``
-or ``"lb"`` is unambiguously the folio, and its own ``text`` is checked
-against the exact page number it was drawn for — this file never greps
+(``book_pdf_generator.py``) is the only ``draw.text`` call in that module
+that puts a **bottom-anchored run of digits** on a page. Every other mark it
+draws (a title, a band, a caption, a TOC entry's own label or its
+right-aligned page number) uses a different anchor or none at all (the
+caption is ``"rm"`` — CARD-203: right-aligned with the grid, was ``"mm"``;
+the band is ``"lm"``; a TOC entry's page number is ``"ra"``; a TOC entry's
+label and every guide/divider mark use the default).
+
+**Since CARD-222 the anchor alone is not enough**, and the premise is
+restated rather than inherited: the frame's footer line carries a *second*
+bottom-anchored mark beside the folio — the grid-size label, ``"20 x 20"``,
+set ``"lb"`` or ``"rb"`` against the inner margin — and the folio itself is
+set ``"mb"`` at the footer line's centre when the page's own content leaves
+the footer strip free, falling back to CARD-200's ``"rb"``/``"lb"`` corner
+when it does not. A folio here is therefore a bottom-anchored call **whose
+text is a plain run of digits**: the label always carries an ``x`` and can
+never satisfy it, so the discriminator is the same thing every assertion
+below already makes (the text is the page's own number) and it tightens the
+identification rather than loosening it. This file still never greps
 rendered pixels for a digit the way ``test_book_guide_page.py``'s ``probe``/
 ``occurrences`` do, which is a second, independent way of finding the same
 mark (CLAUDE.md's "prefer an independent second implementation" — the spy
@@ -48,8 +57,15 @@ from nonogram.difficulty import Tier
 from nonogram.export.layout import compute_pair_layout
 from tests.helpers.book_corpus import baseline_puzzles, corpus_book, puzzle
 
-#: The two anchors ``_draw_folio`` uses, and only it (see module docstring).
-_FOLIO_ANCHORS = {"rb", "lb"}
+#: The anchors ``_draw_folio`` uses: ``"mb"`` for the footer line's centred
+#: folio (CARD-222) and CARD-200's two corner anchors for the fallback. The
+#: grid-size label shares the corner anchors, which is why :func:`_folios`
+#: also requires the text to be a plain run of digits (see module docstring).
+_FOLIO_ANCHORS = {"mb", "rb", "lb"}
+
+#: The two corner anchors alone: a folio drawn at one of them is CARD-200's
+#: fallback, which is the only form that says which side of the page it is on.
+_CORNER_ANCHORS = {"rb", "lb"}
 
 #: The smallest trim a book may be stored with
 #: (``book_page_spec.MIN_TRIM_CM``), written out rather than imported — the
@@ -123,14 +139,39 @@ def _spy_interior(
     return calls, drawn
 
 
+def _is_folio(call: _TextCall) -> bool:
+    """Whether ``call`` is a folio: bottom-anchored, and nothing but digits."""
+    return call.anchor in _FOLIO_ANCHORS and call.text.isdigit()
+
+
 def _folios(calls: List[_TextCall]) -> dict:
     """``{page: folio text}`` — the one ``_draw_folio`` call per page, if any."""
     found: dict = {}
     for call in calls:
-        if call.anchor in _FOLIO_ANCHORS:
+        if _is_folio(call):
             assert call.page not in found, f"page {call.page} drew two folios"
             found[call.page] = call.text
     return found
+
+
+def _folios_by_page(calls: List[_TextCall]) -> dict:
+    """``{page: the folio's own call}`` — its anchor included."""
+    return {call.page: call for call in calls if _is_folio(call)}
+
+
+def _size_labels_by_page(calls: List[_TextCall]) -> dict:
+    """``{page: the frame's grid-size label call}`` (CARD-222).
+
+    A bottom-anchored call that is *not* a run of digits: the footer line's
+    only other mark. Its anchor says which side of the page it was set
+    against, which is what carries the parity evidence on a page whose folio
+    is centred.
+    """
+    return {
+        call.page: call
+        for call in calls
+        if call.anchor in _CORNER_ANCHORS and not call.text.isdigit()
+    }
 
 
 # --------------------------------------------------------------------------
@@ -342,6 +383,46 @@ class TestBookPageNumbers_FoliosMatchInteriorStreamsOwnArithmetic:
 # --------------------------------------------------------------------------
 
 
+def _check_every_folios_side(folios: dict, by_page: dict, labels: dict) -> int:
+    """Assert every folio's page says which hand it is on, and count them.
+
+    **Two forms, since CARD-222, and the parity evidence differs.** A folio
+    at CARD-200's corner carries the parity in its own anchor: ``"rb"`` on a
+    right-hand page, ``"lb"`` on a left-hand one. A folio on the frame's
+    footer line is **centred** (``"mb"``) and says nothing about the hand by
+    itself — so on that page the evidence is the frame's other footer mark,
+    the grid-size label, which is set against the **inner** (gutter) margin:
+    the left on a right-hand page, the right on a left-hand one. Either way
+    the page carries a mark whose side is wrong if parity is wrong, which is
+    what AC-9 is about; what no longer carries it is the folio's own x, and
+    that is stated here rather than quietly dropped.
+    """
+    checked = 0
+    for page in folios:
+        call = by_page[page]
+        right_hand = page_is_right_hand(page)
+        if call.anchor in _CORNER_ANCHORS:
+            expected = "rb" if right_hand else "lb"
+            assert call.anchor == expected, (
+                f"page {page} is {'right' if right_hand else 'left'}-hand but its "
+                f"folio anchored {call.anchor!r}"
+            )
+        else:
+            assert call.anchor == "mb", f"page {page}'s folio anchored {call.anchor!r}"
+            label = labels.get(page)
+            assert label is not None, (
+                f"page {page} drew a centred folio and no grid-size label, so "
+                "nothing on it says which hand it is on"
+            )
+            expected = "lb" if right_hand else "rb"
+            assert label.anchor == expected, (
+                f"page {page} is {'right' if right_hand else 'left'}-hand but its "
+                f"grid size is set {label.anchor!r}, not against the inner margin"
+            )
+        checked += 1
+    return checked
+
+
 class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
     """Page 1 is still right-hand; every page's parity is still its position."""
 
@@ -349,19 +430,11 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         generator = BookPDFGenerator(corpus_book())
         calls, drawn = _spy_interior(generator, baseline_puzzles(), monkeypatch)
         folios = _folios(calls)
-        by_page = {call.page: call.anchor for call in calls if call.anchor in _FOLIO_ANCHORS}
+        by_page = _folios_by_page(calls)
+        labels = _size_labels_by_page(calls)
 
         assert page_is_right_hand(1), "interior page 1 (the guide) is right-hand (FR-043)"
-        checked = 0
-        for page in folios:
-            anchor = by_page[page]
-            expected = "rb" if page_is_right_hand(page) else "lb"
-            assert anchor == expected, (
-                f"page {page} is "
-                f"{'right' if page_is_right_hand(page) else 'left'}-hand but its "
-                f"folio anchored {anchor!r}"
-            )
-            checked += 1
+        checked = _check_every_folios_side(folios, by_page, labels)
         assert checked == len(folios) >= drawn - 1, "almost every page carried a checkable folio"
 
     def test_parity_holds_on_a_larger_book_across_the_toc_insertion(
@@ -392,7 +465,8 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         ]
         calls, drawn = _spy_interior(generator, puzzles, monkeypatch)
         folios = _folios(calls)
-        by_page = {call.page: call.anchor for call in calls if call.anchor in _FOLIO_ANCHORS}
+        by_page = _folios_by_page(calls)
+        labels = _size_labels_by_page(calls)
 
         from nonogram.admin.book_pdf_generator import GUIDE_PAGE_COUNT
 
@@ -409,9 +483,14 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
             "a 60-puzzle book should still print well over a hundred pages, "
             "or parity has nowhere to go wrong"
         )
-        for page in folios:
-            expected = "rb" if page_is_right_hand(page) else "lb"
-            assert by_page[page] == expected
+        assert _check_every_folios_side(folios, by_page, labels) == len(folios)
+        # Both hands really are exercised on this book, so neither branch of
+        # the check above is reached vacuously.
+        hands = {page_is_right_hand(page) for page in folios}
+        assert hands == {True, False}
+        centred = {page for page, call in by_page.items() if call.anchor == "mb"}
+        assert centred, "no page carried the frame's centred folio"
+        assert set(labels) >= centred, "a centred folio with no label beside it"
 
 
 # --------------------------------------------------------------------------

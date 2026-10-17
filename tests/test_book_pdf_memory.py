@@ -144,6 +144,7 @@ import weakref
 from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple
 
 import numpy as np
@@ -165,7 +166,12 @@ from nonogram.admin.book_pdf_generator import (
     page_frame,
     type_px,
 )
-from nonogram.export.layout import compute_layout, compute_pair_layout, qr_slot
+from nonogram.export.layout import (
+    compute_layout,
+    compute_pair_layout,
+    interior_frame,
+    qr_slot,
+)
 from tests.helpers.book_corpus import (
     BASELINE_PAGE_COUNT,
     BASELINE_SHAPE,
@@ -2314,24 +2320,47 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
 
     @pytest.fixture(scope="class")
     @classmethod
+    def card222_baseline(cls) -> Dict[str, Any]:
+        """CARD-222's own recording — the forward baseline every live
+        comparison in this class now rests on.
+
+        That card lands CON-018's amendment of 2026-10-17: three of the four
+        margins move, so **every** page of the interior moves with them (its
+        own ``changed_pages`` is all thirteen, the only recording in this
+        chain for which that is true). The per-page attributions below are
+        unchanged in kind — each still names the card that last moved its page
+        and asserts the move against that card's stored fixture — but the
+        card they name for the live page is this one, and the fixture that
+        used to hold the live page is now asserted to *differ* from it. It is
+        loaded by name, like every other fixture here, so each claim still
+        says which recording it rests on.
+        """
+        fixtures_dir = Path(__file__).resolve().parent / "fixtures"
+        with (fixtures_dir / "book_baseline_card222.json").open(encoding="utf-8") as handle:
+            return json.load(handle)
+
+    @pytest.fixture(scope="class")
+    @classmethod
     def exported(cls) -> List[Image.Image]:
         return pdf_pages(export_of(BookPDFGenerator(corpus_book()), baseline_puzzles()))
 
-    def test_every_divider_still_matches_the_card221_baseline(
-        self, baseline, card221_baseline, exported
+    def test_every_divider_still_matches_the_card222_baseline(
+        self, baseline, card221_baseline, card222_baseline, exported
     ) -> None:
         """A divider carries one word and nothing else, so only a card that
         changes that word or the face it is set in may move it.
 
-        **CARD-221 is such a card, and it is the reference now** — it letters
-        the divider in the packaged face instead of the host's Arial. So the
-        live comparison is against CARD-221's recording, and the attribution
-        is asserted beside it rather than written down: each divider differs
-        from the CARD-200 recording (the face moved it) and is identical to
-        CARD-221's (nothing has moved it since). Before that card these pages
-        owed their byte-identity to CARD-200 and the comparison skipped them
-        wherever the host's face differed from the fixture's; it is
-        unconditional now.
+        **CARD-221 was such a card, and CARD-222 is another** — the first
+        lettered the divider in the packaged face instead of the host's Arial,
+        the second moved three of CON-018's four margins (2026-10-17), which
+        moves the one word this page carries along with the text block it is
+        centred in. So the live comparison is against CARD-222's recording and
+        the attribution is asserted beside it rather than written down: each
+        divider differs from the CARD-200 recording (the face moved it), then
+        from CARD-221's (the margins moved it), and is identical to CARD-222's
+        (nothing has moved it since). Before CARD-221 these pages owed their
+        byte-identity to CARD-200 and the comparison skipped them wherever the
+        host's face differed from the fixture's; it is unconditional now.
         """
         assert set(self.NON_DRAWING_PAGES) | set(self.DRAWING_PAGES) == set(
             range(1, BASELINE_PAGE_COUNT + 1)
@@ -2353,18 +2382,24 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "recording, so the packaged face never reached this divider "
                 "— CARD-221's own change did not happen here"
             )
-            assert now[number - 1] == card221_baseline["pages"][number - 1], (
+            assert now[number - 1] != card221_baseline["pages"][number - 1], (
+                f"interior page {number} still matches the CARD-221 "
+                "recording, so CON-018's amended margins never reached this "
+                "divider — CARD-222's own change did not happen here"
+            )
+            assert now[number - 1] == card222_baseline["pages"][number - 1], (
                 f"interior page {number} is a level or SOLUTIONS divider — it "
-                "carries one word and nothing else, so nothing after CARD-221 "
+                "carries one word and nothing else, so nothing after CARD-222 "
                 "may move it off that card's baseline"
             )
             compared += 1
         assert compared == len(self.STRICTLY_UNCHANGED_PAGES), compared
 
-    def test_the_toc_page_matches_the_card221_baseline(
-        self, card205_baseline, card221_baseline, exported
+    def test_the_toc_page_matches_the_card222_baseline(
+        self, card205_baseline, card221_baseline, card222_baseline, exported
     ) -> None:
-        """The TOC's rows are CARD-205's wording and CARD-221's face.
+        """The TOC's rows are CARD-205's wording, CARD-221's face and CARD-222's
+        text block.
 
         Compared exactly as strictly as the dividers above, against the
         recording that holds both, rather than dropped from the comparison:
@@ -2372,9 +2407,10 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
         exists to produce evidence per page. The reference moved forward
         from CARD-205's recording to CARD-221's because that card re-set
         every row in the packaged face (the rows are 49 px tall on it
-        against Arial's 48), and the two-fixture attribution below says so
-        rather than leaving the move unexplained. Face-gated until that
-        card; unconditional now.
+        against Arial's 48), and forward again to CARD-222's because
+        CON-018's amended margins move the frame every row is set inside. The
+        three-fixture attribution below says so rather than leaving either
+        move unexplained. Face-gated until CARD-221; unconditional now.
         """
         now = page_digests(exported)
         for number in self.CARD205_TOC_PAGE:
@@ -2383,15 +2419,22 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "recording — the packaged face never reached the table of "
                 "contents, and CARD-221's own change did not happen here"
             )
-            assert now[number - 1] == card221_baseline["pages"][number - 1], (
+            assert now[number - 1] != card221_baseline["pages"][number - 1], (
+                f"interior page {number} still matches the CARD-221 "
+                "recording — CON-018's amended margins never reached the "
+                "table of contents, and CARD-222's own change did not happen "
+                "here"
+            )
+            assert now[number - 1] == card222_baseline["pages"][number - 1], (
                 f"interior page {number} is the table of contents: CARD-205 "
-                "rewrote its rows, CARD-221 re-set them in the packaged face "
-                "and nothing since has, so it must be byte-identical to the "
-                "CARD-221 baseline"
+                "rewrote its rows, CARD-221 re-set them in the packaged face, "
+                "CARD-222 moved the frame they sit in and nothing since has, "
+                "so it must be byte-identical to the CARD-222 baseline"
             )
 
     def test_the_toc_page_moved_under_card205_not_card204(
-        self, baseline, card204_baseline, card205_baseline, card221_baseline, exported
+        self, baseline, card204_baseline, card205_baseline, card221_baseline,
+        card222_baseline, exported
     ) -> None:
         """The attribution, measured rather than written down — the same
         shape :meth:`test_the_three_answer_pages_moved_under_card203_not_this_card`
@@ -2450,15 +2493,30 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
                 "what re-set the table of contents, and the live comparison "
                 "below is measured against the wrong fixture"
             )
-            assert now[number - 1] == card221_page
+            card222_page = card222_baseline["pages"][number - 1]
+            assert card222_page != card221_page, (
+                f"interior page {number} is identical in the CARD-221 and "
+                "CARD-222 recordings — CON-018's amended margins are then not "
+                "what moved the table of contents, and the live comparison "
+                "below is measured against the wrong fixture"
+            )
+            assert now[number - 1] == card222_page
+            assert now[number - 1] != card221_page
             assert now[number - 1] != card205_page
             assert now[number - 1] != card200_page
 
-    def test_the_three_answer_pages_still_match_the_card203_baseline(
-        self, card203_baseline, exported
+    def test_the_three_answer_pages_still_match_the_card222_baseline(
+        self, card203_baseline, card222_baseline, exported
     ) -> None:
         """CARD-204 Fix 7 — the same strict claim as the test above, against
-        the fixture that legitimately holds the caption move.
+        the fixture that legitimately holds the last move.
+
+        **CARD-222 is that fixture now.** CARD-203 moved these three pages'
+        captions and nothing between it and CARD-222 moved them again; then
+        CON-018's amended margins (2026-10-17) moved the text block every
+        answer tile is laid out in, so all three moved with it. Both halves
+        are asserted: each page differs from CARD-203's recording and is
+        identical to CARD-222's.
 
         None of these three is machine-lettered (the fixture's own
         ``font_dependent_pages`` is 1, 2, 3, 4, 6, 8, 10 — a packed slot's
@@ -2472,10 +2530,16 @@ class TestBookPdfMemory_NonDrawingPagesAreByteIdentical:
             self.CARD203_CAPTION_PAGES
         ), "an answer page became machine-lettered; this comparison now needs a face gate"
         for number in self.CARD203_CAPTION_PAGES:
-            assert now[number - 1] == recorded[number - 1], (
+            assert now[number - 1] != recorded[number - 1], (
+                f"interior page {number} still matches the CARD-203 "
+                "recording, so CON-018's amended margins never reached this "
+                "answer page — CARD-222's own change did not happen here"
+            )
+            assert now[number - 1] == card222_baseline["pages"][number - 1], (
                 f"interior page {number} is an answer page: CARD-203 moved its "
-                "caption and CARD-204 moves nothing on it, so it must be "
-                "byte-identical to the CARD-203 baseline"
+                "caption, CARD-222 moved the text block it sits in and nothing "
+                "since has, so it must be byte-identical to the CARD-222 "
+                "baseline"
             )
 
     def test_the_three_answer_pages_moved_under_card203_not_this_card(
@@ -2847,8 +2911,10 @@ def _footer_band_height(dpi: int) -> int:
 def _above_footer(image: Image.Image, cutoff: int) -> Image.Image:
     """``image``, with every row at or below ``cutoff`` dropped (CARD-200).
 
-    ``cutoff`` is a page's own usable-bottom minus one folio line
-    (:func:`_footer_band_height`) — the same for every interior page of one
+    ``cutoff`` is the first row of the page's footer band — since CARD-222
+    the frame's own footer rule, where it was a folio line above the usable
+    bottom before (:func:`_footer_band_height`; see the ``cutoff`` fixture for
+    why it moved). It is the same for every interior page of one
     book, because a book page's top/bottom margins (unlike its left/right
     ones) never move with parity (verified against
     ``book_page_spec.book_page_spec``'s own body, not assumed: only
@@ -2922,8 +2988,29 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
     @pytest.fixture(scope="class")
     @classmethod
     def cutoff(cls, generator) -> int:
-        frame = page_frame(generator.page_spec(1))
-        return frame.bottom - _footer_band_height(generator.dpi)
+        """The first row of the page's footer, which this class drops.
+
+        **CARD-222 widens it from one folio line to the frame's own footer
+        band.** CARD-200's footer was one line — the folio alone — so a line's
+        height was the whole band. The frame the owner's artifact asks for
+        gives that band three rows (the hairline, the grid-size label beside
+        the folio, and the QR icon's reserved row), and the label's side flips
+        with parity: it is set against the *inner* margin, which is the left of
+        a right-hand page and the right of a left-hand one. This class
+        compares a page with its opposite-parity twin and allows only a
+        translation between them, so a mark that changes sides is not
+        something it can absorb — and it is not something it is about either
+        (AC-8 is the marks *above* the footer). The band's own top is
+        ``interior_frame``'s footer rule, so that is the cut.
+        """
+        spec = generator.page_spec(1)
+        band = interior_frame(spec).footer_rule.y
+        line = page_frame(spec).bottom - _footer_band_height(generator.dpi)
+        assert band < line, (
+            "the frame's footer band must be deeper than CARD-200's one folio "
+            f"line, or this cut is the wrong one: {band} against {line}"
+        )
+        return band
 
     def _reference(self, generator, plan, entry):
         """CARD-201's own trick, backed up one card further: at the position
@@ -2992,6 +3079,33 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             if icon is not None
         ]
 
+    def _frame_boxes(self, generator, page_number):
+        """CARD-222: the frame's header rule, as a box to mask.
+
+        The rule runs the page's whole text width, so it pins the ink bounding
+        box ``_ink_bbox_crop`` normalises by to the usable area's own edges on
+        **both** sides. The drawing underneath is flush with the outer margin
+        and mirrors with parity, and its own half-rule overhang rounds to a
+        different pixel on the two sides — measured: a 1 px difference in the
+        crop's width, which is not a translation and so not something this
+        comparison can absorb. Masked for the same reason the QR icon above
+        is, and like it the rule has its own, direct evidence elsewhere
+        (``tests/test_book_page_frame.py``'s AC-2: one y, one weight, on every
+        puzzle page).
+
+        The footer's own marks need no mask: the ``cutoff`` fixture drops the
+        whole footer band before this comparison sees it.
+        """
+        rule = interior_frame(generator.page_spec(page_number)).header_rule
+        return [
+            SimpleNamespace(
+                left=rule.left,
+                top=rule.y - rule.width,
+                right=rule.right,
+                bottom=rule.y + rule.width,
+            )
+        ]
+
     @staticmethod
     def _masked(image: Image.Image, boxes) -> Image.Image:
         if not boxes:
@@ -3042,11 +3156,13 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             old_number = entry.page_number - plan.toc_page_count
             new_page = self._masked(
                 exported[entry.page_number - 1],
-                self._qr_boxes(generator, plan, entry, entry.page_number),
+                self._qr_boxes(generator, plan, entry, entry.page_number)
+                + self._frame_boxes(generator, entry.page_number),
             )
             reference = self._masked(
                 self._reference(generator, plan, entry),
-                self._qr_boxes(generator, plan, entry, old_number),
+                self._qr_boxes(generator, plan, entry, old_number)
+                + self._frame_boxes(generator, old_number),
             )
             new_above = _above_footer(new_page, cutoff)
             reference_above = _above_footer(reference, cutoff)
@@ -3303,17 +3419,21 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
 
         Parity counts from interior page 1 — the guide's own first page,
         which is right-hand — and the cover file is never numbered (FR-043,
-        INV-013, G-2). On Book 1 the binding-side gutter is 0.5 in and the
-        outside margin 0.375 in, so a right-hand page's usable area starts
-        150 px from the left and a left-hand page's 112.5 px.
+        INV-013, G-2). On Book 1 the binding-side gutter is 0.5 in and, since
+        CON-018's amendment of 2026-10-17 (CARD-222), the outside margin is
+        **0.5 in too** — so a page's usable area starts 150 px from the left
+        whichever hand it is, where a left-hand page's used to start at
+        112.5 px. The *width* of the two margins no longer tells the two
+        parities apart (CON-018's own note on this); which side each mark
+        sits on still does, and that is what the gaps below read.
 
         **CARD-204 (SCOPE+): the "centred, +-18.75 px off the middle" measure
         is gone with centring itself.** Under right-alignment a right-hand
         page's drawing is flush with the outer (right) margin — its grid's
-        right edge sits 112.5 px (0.375 in, the outside margin) in from the
-        trim's own right edge, whatever the puzzle's own width — so parity
-        is read off *that* fixed gap instead of a now-meaningless "near the
-        middle" window.
+        right edge sits 150 px (0.5 in, the amended outside margin; 112.5 px
+        before 2026-10-17) in from the trim's own right edge, whatever the
+        puzzle's own width — so parity is read off *that* fixed gap instead of
+        a now-meaningless "near the middle" window.
 
         **CARD-201 note (SCOPE+): this moved.** The baseline book's two
         single-puzzle pages are interior 6 and interior 8 now (up from 5 and
@@ -3343,10 +3463,10 @@ class TestBookPdfMemory_InteriorAndCoverStillSeparate:
             page = interior[number - 1]
             drawing = drawing_of(page)
             right_gap = page.width - drawing.grid_right
-            assert abs(right_gap - 112.5) < 3, (
+            assert abs(right_gap - 150) < 3, (
                 f"interior page {number}'s drawing is not flush with the "
-                f"112.5 px outside margin (CARD-204, right-hand page); gap "
-                f"was {right_gap:.1f} px"
+                f"150 px outside margin (CARD-204, right-hand page, on "
+                f"CON-018's amended 0.5 in); gap was {right_gap:.1f} px"
             )
 
         # And page 1 itself: the guide page's text starts at the gutter

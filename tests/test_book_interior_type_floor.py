@@ -90,6 +90,12 @@ BAND_SETTERS = frozenset(
     }
 )
 
+#: CARD-222's footer line: the grid-size label, the one face the frame adds.
+#: It is set at ``SIZE_LABEL_PT``, which reads COMP-007's own
+#: ``INTERIOR_FOOTER_LINE_PT`` — the floor again — and the folio beside it is
+#: CARD-200's, drawn by ``_draw_folio`` and already covered.
+FOOTER_LABEL_SETTER = ("nonogram.admin.book_pdf_generator", "_draw_page_frame")
+
 #: CARD-198 note: FR-042's level headings are gone (the packed key that
 #: drew them no longer exists), so there is no "answer heading" kind any
 #: longer — only the caption :meth:`BookPDFGenerator.solved_puzzle_page`
@@ -188,6 +194,8 @@ class TextCall:
             return "divider"
         if self.caller in BAND_SETTERS:
             return "band"
+        if self.caller == FOOTER_LABEL_SETTER:
+            return "footer label"
         if self.caller[1] in ("solved_puzzle_page", "_draw_solved_slot"):
             return "answer caption"
         return "other"
@@ -350,6 +358,11 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         """
         kinds = {call.kind for call in recording(book, arial=True)}
         required = {"guide", "divider", "band"}
+        if book != "min-trim":
+            # CARD-222's footer line. Not on ``min-trim``: no page of that
+            # book frees its footer strip (that file's own measurement), so
+            # the group — label included — is omitted there.
+            required.add("footer label")
         if book != "min-trim":
             required.add("answer caption")
         assert required <= kinds

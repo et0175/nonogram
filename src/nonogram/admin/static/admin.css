@@ -287,8 +287,8 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
 .info-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-1); }
 .info-label { color: var(--color-text-secondary); }
 .info-value { font-family: var(--font-num); font-weight: 600; }
-/* The 4.8 mm printed-cell floor on a tile (CARD-123, FR-031/NFR-008). The flag
-   is a sentence first and a tint second: the words "Below the 4.8 mm floor"
+/* The 4.75 mm printed-cell floor on a tile (CARD-123, FR-031/NFR-008). The flag
+   is a sentence first and a tint second: the words "Below the 4.75 mm floor"
    carry it for a viewer who cannot tell the colours apart and for a
    forced-colors mode that discards them (the .tab-over precedent above). */
 .puzzle-tile[data-below-floor="true"] { border-color: var(--color-warning); }

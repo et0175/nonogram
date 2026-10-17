@@ -17,8 +17,10 @@ The standing properties (parity moves margins, never the usable size; empty
 margins build the CON-018 sheet) are in ``tests/property/test_book_page_spec.py``.
 
 Expected numbers are CON-018's own, in millimetres, written as literals
-(8.5 in = 215.9 mm, 0.5 in = 12.7 mm, 0.375 in = 9.525 mm) and never read
-back from ``BOOK1_PROFILE``.
+(8.5 in = 215.9 mm, 0.5 in = 12.7 mm, 0.55 in = 13.97 mm, 0.47 in =
+11.938 mm) and never read back from ``BOOK1_PROFILE``. They moved with the
+2026-10-17 amendment (CARD-222), which took the outside margin out from
+0.375 in = 9.525 mm and gave the top and bottom their own figures.
 """
 
 from __future__ import annotations
@@ -47,22 +49,29 @@ from tests.helpers.db import sqlite_session_scope
 
 MODES = ("memory", "db")
 
-#: CON-018 as the stored columns (AC-181's numbers).
+#: CON-018 as the stored columns (AC-181's numbers), as amended 2026-10-17
+#: (CARD-222): the outside margin moved 0.375 -> 0.5 in, which is the same
+#: 1.27 cm the gutter stores. **The two being equal is deliberate** (the
+#: owner's 2026-10-14 decision to keep KDP's 0.5 in gutter rather than the
+#: artifact's 0.75 in), so every assertion below names both columns rather
+#: than one twice: a parity assertion about the usable area's *width* on this
+#: profile is now an identity, not evidence (CON-018's own note).
 CON018_COLUMNS = {
     "trim_width_cm": "21.59",
     "trim_height_cm": "27.94",
     "gutter_margin_cm": "1.27",
-    "outside_margin_cm": "0.95",
+    "outside_margin_cm": "1.27",
 }
 
-#: CON-018 as a sheet, literal millimetres, for an odd (right-hand) page.
+#: CON-018 as a sheet, literal millimetres, for an odd (right-hand) page
+#: (amended 2026-10-17: outside 12.7, top 13.97, bottom 11.938 mm).
 CON018_ODD = PageSpec(
     width_mm=215.9,
     height_mm=279.4,
-    top_mm=9.525,
-    bottom_mm=9.525,
+    top_mm=13.97,
+    bottom_mm=11.938,
     gutter_mm=12.7,
-    outside_mm=9.525,
+    outside_mm=12.7,
     band_mm=12.0,
     orientation=OrientationPolicy.PORTRAIT_ONLY,
     cell_cap=7.5,
@@ -182,7 +191,7 @@ class TestBookCreate_StoresBook1PrintProfile:
 
     def test_empty_margin_fields_take_the_profile_but_entered_ones_are_kept(self) -> None:
         spec, _ = PrintSpecValidator.create_spec(gutter_margin_cm="", outside_margin_cm=None)
-        assert (spec.gutter_margin_cm, spec.outside_margin_cm) == ("1.27", "0.95")
+        assert (spec.gutter_margin_cm, spec.outside_margin_cm) == ("1.27", "1.27")
         spec, _ = PrintSpecValidator.create_spec(gutter_margin_cm="1.60", outside_margin_cm="1.00")
         assert (spec.gutter_margin_cm, spec.outside_margin_cm) == ("1.60", "1.00")
 
@@ -231,12 +240,14 @@ class TestBookPageSpec_EmptyMarginsFallBackToBook1Profile:
         assert (book.gutter_margin_cm, book.outside_margin_cm) == (None, None)
         assert book_page_spec(book) == CON018_ODD
 
-    def test_thirty_by_thirty_nine_deep_cell_is_4_97_mm(self) -> None:
+    def test_thirty_by_thirty_nine_deep_cell_is_4_885_mm(self) -> None:
         spec = book_page_spec(_book(trim_width_cm="21.59", trim_height_cm="27.94"))
         clues = _clues(30, 9)
-        # FR-030: 193.675 mm usable width / (30 + 9) cells = 4.966 mm.
-        assert book_cell_mm(spec, clues, clues) == pytest.approx(4.97, abs=0.05)
-        assert book_cell_mm(spec, clues, clues) == pytest.approx(193.675 / 39, abs=1e-9)
+        # FR-030 as re-measured on the amended CON-018 margins (AC-175):
+        # 190.5 mm usable width / (30 + 9) cells = 4.885 mm, where the
+        # 0.375 in outside margin gave 193.675 / 39 = 4.966 mm.
+        assert book_cell_mm(spec, clues, clues) == pytest.approx(4.885, abs=0.05)
+        assert book_cell_mm(spec, clues, clues) == pytest.approx(190.5 / 39, abs=1e-9)
 
 
 # --------------------------------------------------------------------------
@@ -250,17 +261,22 @@ def _usable_span_mm(page_number: int) -> tuple[float, float, PageSpec]:
 
 
 class TestBookPageSpec_OddPageGutterOnLeft:
-    def test_page_3_usable_area_spans_12_7_to_206_375_mm(self) -> None:
+    def test_page_3_usable_area_spans_12_7_to_203_2_mm(self) -> None:
         left, right, spec = _usable_span_mm(3)
         assert spec.parity is PageParity.ODD
+        # AC-272 as re-measured on the amended margins: the gutter is on the
+        # left of an odd page and is 12.7 mm, and the outside margin on the
+        # right is **also** 12.7 mm, so the span ends at 203.2 mm. Both
+        # margins are named by their own figure below, not one twice.
         assert left == pytest.approx(12.7, abs=1e-9)
-        assert right == pytest.approx(206.375, abs=1e-9)
+        assert right == pytest.approx(203.2, abs=1e-9)
+        assert (spec.gutter_mm, spec.outside_mm) == (12.7, 12.7)
 
     def test_placed_page_puts_the_usable_area_there(self) -> None:
         _, _, spec = _usable_span_mm(3)
         page = compute_layout(_clues(20, 5), _clues(20, 5), page_spec=spec).page
         assert _px_to_mm(page.usable_left) == pytest.approx(12.7, abs=HALF_PX_MM)
-        assert _px_to_mm(page.usable_right) == pytest.approx(206.375, abs=HALF_PX_MM)
+        assert _px_to_mm(page.usable_right) == pytest.approx(203.2, abs=HALF_PX_MM)
 
     def test_interior_page_1_the_guide_page_is_right_hand(self) -> None:
         assert book_page_spec(_book(**CON018_COLUMNS), 1).parity is PageParity.ODD
@@ -268,22 +284,102 @@ class TestBookPageSpec_OddPageGutterOnLeft:
 
 
 class TestBookPageSpec_EvenPageGutterOnRight:
-    def test_page_4_usable_area_spans_9_525_to_203_2_mm(self) -> None:
+    def test_page_4_usable_area_spans_12_7_to_203_2_mm(self) -> None:
         left, right, spec = _usable_span_mm(4)
         assert spec.parity is PageParity.EVEN
-        assert left == pytest.approx(9.525, abs=1e-9)
+        # AC-273 as re-measured: the outside margin is on the left of an even
+        # page. On the amended profile it is 12.7 mm, the same as the gutter,
+        # so this span is **identical** to the odd page's above — an identity,
+        # not evidence that the margins mirror. What still has teeth is which
+        # *side* each margin is on, asserted here by name.
+        assert left == pytest.approx(12.7, abs=1e-9)
         assert right == pytest.approx(203.2, abs=1e-9)
+        assert (spec.left_margin_mm, spec.right_margin_mm) == (spec.outside_mm, spec.gutter_mm)
 
     def test_placed_page_puts_the_usable_area_there(self) -> None:
         _, _, spec = _usable_span_mm(4)
         page = compute_layout(_clues(20, 5), _clues(20, 5), page_spec=spec).page
-        assert _px_to_mm(page.usable_left) == pytest.approx(9.525, abs=HALF_PX_MM)
+        assert _px_to_mm(page.usable_left) == pytest.approx(12.7, abs=HALF_PX_MM)
         assert _px_to_mm(page.usable_right) == pytest.approx(203.2, abs=HALF_PX_MM)
 
     @pytest.mark.parametrize("page_number", [0, -1, 1.0, True, "2", None])
     def test_page_number_must_be_a_whole_number_from_one(self, page_number) -> None:
         with pytest.raises(ValueError, match="page_number"):
             book_page_spec(_book(**CON018_COLUMNS), page_number)
+
+
+# --------------------------------------------------------------------------
+# CARD-222 AC-1 / G-4 — the amended profile, and a stored margin winning
+# --------------------------------------------------------------------------
+
+
+class TestBookPageSpec_CarriesTheNewProfileMargins:
+    """AC-1 — CON-018 as amended 2026-10-17, all four margins by name.
+
+    Every figure is asserted **by its own name**: the gutter and the outside
+    margin are both 0.5 in and the constraint says so deliberately, so a test
+    that asserted one of them twice would pass with the other one wrong. The
+    swap between a left-hand and a right-hand page is asserted through
+    ``left_margin_mm``/``right_margin_mm``, which name *which margin is on
+    which side* — the only thing about mirroring that is still observable on
+    a profile whose two side margins are equal (CON-018's own note; the width
+    claim is proved on a book with unequal margins in
+    ``tests/test_book_page_frame.py``).
+    """
+
+    def test_the_four_margins_are_each_what_con018_says(self) -> None:
+        spec = book_page_spec(_book(trim_width_cm="21.59", trim_height_cm="27.94"))
+        assert spec.gutter_mm == pytest.approx(12.7, abs=1e-9)  # 0.5 in, unchanged
+        assert spec.outside_mm == pytest.approx(12.7, abs=1e-9)  # 0.5 in, was 0.375
+        assert spec.top_mm == pytest.approx(13.97, abs=1e-9)  # 0.55 in
+        assert spec.bottom_mm == pytest.approx(11.938, abs=1e-9)  # 0.47 in
+        assert spec.width_mm == pytest.approx(215.9, abs=1e-9)
+        assert spec.height_mm == pytest.approx(279.4, abs=1e-9)
+
+    def test_the_gutter_and_the_outside_margin_are_two_figures_not_one(self) -> None:
+        """They are equal today; the builder must still read them separately."""
+        unequal = book_page_spec(_book(**{**CON018_COLUMNS, "outside_margin_cm": "0.70"}))
+        assert (unequal.gutter_mm, unequal.outside_mm) == (12.7, 7.0)
+
+    def test_the_gutter_and_the_outer_margin_swap_between_the_two_hands(self) -> None:
+        odd = book_page_spec(_book(**CON018_COLUMNS), 3)
+        even = book_page_spec(_book(**CON018_COLUMNS), 4)
+        assert (odd.left_margin_mm, odd.right_margin_mm) == (odd.gutter_mm, odd.outside_mm)
+        assert (even.left_margin_mm, even.right_margin_mm) == (even.gutter_mm, even.outside_mm)[::-1]
+
+    def test_the_usable_area_the_amendment_measured(self) -> None:
+        """CON-018's own recorded consequence, re-measured here."""
+        spec = book_page_spec(_book(**CON018_COLUMNS))
+        assert spec.usable_width_mm == pytest.approx(190.5, abs=1e-9)
+        assert spec.height_mm - spec.top_mm - spec.bottom_mm == pytest.approx(253.492, abs=1e-9)
+        assert spec.usable_height_mm == pytest.approx(241.492, abs=1e-9)
+
+
+class TestBookPageSpec_StoredMarginsWin:
+    """G-4 — the profile is a default, not a rule (CON-018's last sentence)."""
+
+    @pytest.mark.parametrize(
+        "stored,expected",
+        [
+            ({"gutter_margin_cm": "1.90", "outside_margin_cm": "0.70"}, (19.0, 7.0)),
+            ({"gutter_margin_cm": "2.54", "outside_margin_cm": "2.54"}, (25.4, 25.4)),
+            # The retired profile's own storage form: a book created before the
+            # amendment keeps the margin it was laid out on.
+            ({"gutter_margin_cm": "1.27", "outside_margin_cm": "0.95"}, (12.7, 9.5)),
+        ],
+    )
+    def test_a_stored_margin_is_never_replaced_by_the_amended_profile(self, stored, expected) -> None:
+        spec = book_page_spec(_book(**{**CON018_COLUMNS, **stored}))
+        assert (spec.gutter_mm, spec.outside_mm) == expected
+        # Top and bottom have no columns, so they are the profile's either way.
+        assert (spec.top_mm, spec.bottom_mm) == (13.97, 11.938)
+
+    def test_a_stored_trim_wins_too_and_the_margins_still_do(self) -> None:
+        spec = book_page_spec(
+            _book(trim_width_cm="15.24", trim_height_cm="22.86", gutter_margin_cm="1.90", outside_margin_cm="0.70")
+        )
+        assert (spec.width_mm, spec.height_mm) == (152.4, 228.6)
+        assert (spec.gutter_mm, spec.outside_mm) == (19.0, 7.0)
 
 
 # --------------------------------------------------------------------------
@@ -297,7 +393,7 @@ class TestBookPageSpec_FlatStandardCellCap:
         assert spec.orientation is OrientationPolicy.PORTRAIT_ONLY
         assert spec.cell_cap == 7.5
         assert spec.min_thin_rule_mm == 0.25
-        assert (spec.top_mm, spec.bottom_mm, spec.band_mm) == (9.525, 9.525, 12.0)
+        assert (spec.top_mm, spec.bottom_mm, spec.band_mm) == (13.97, 11.938, 12.0)
 
     def test_small_grid_is_held_at_7_5_mm_not_the_comfort_curve(self) -> None:
         # A 10x10 with 1-deep gutters would get 9.0 mm on NFR-005's curve and
@@ -365,14 +461,17 @@ class TestBookPageSpec_RefusesBadStoredTrimNamingTheColumn:
 
 class TestBookCellMm_OnlyReadsComputeLayout:
     def test_is_the_placed_page_cell_mm_not_the_pixel_cell(self) -> None:
-        # CARD-114 handover: a 30-wide grid under a 12-deep band is 4.61 mm
-        # exactly; converting the pixel cell would give 4.57 mm.
+        # CARD-114 handover: a 30-wide grid under a 12-deep band is 4.536 mm
+        # exactly on the amended CON-018 margins (4.61 mm on the retired
+        # ones); converting the pixel cell would give 4.49 mm. The point of
+        # the test is the gap between the two, which the margin change moves
+        # but does not close.
         spec = book_page_spec(_book(**CON018_COLUMNS))
         clues = _clues(30, 12)
         layout = compute_layout(clues, clues, page_spec=spec)
         assert book_cell_mm(spec, clues, clues) == layout.page.cell_mm
-        assert book_cell_mm(spec, clues, clues) == pytest.approx(4.61, abs=0.005)
-        assert _px_to_mm(layout.cell) == pytest.approx(4.57, abs=0.01)
+        assert book_cell_mm(spec, clues, clues) == pytest.approx(4.536, abs=0.005)
+        assert _px_to_mm(layout.cell) == pytest.approx(4.49, abs=0.01)
 
     def test_calls_compute_layout_with_the_spec(self, monkeypatch) -> None:
         import nonogram.admin.book_page_spec as module
@@ -479,8 +578,21 @@ class TestMigration011:
                 db.close()
 
         books = BookManager(session_factory=migrated_scope)
-        for book in books.get_all_books():
-            assert book_page_spec(book) == CON018_ODD
+        by_title = {book.metadata.title: book for book in books.get_all_books()}
+        # The legacy row (margins never written) still builds the CON-018
+        # sheet through the fallback — and now through the **amended** profile,
+        # which is what CON-018's "an empty margin falls back to this profile"
+        # means after 2026-10-17 (CARD-222).
+        assert book_page_spec(by_title["Legacy"]) == CON018_ODD
+        # The row inserted under 011's own default still stores "0.95", and
+        # migration 015 deliberately does not rewrite it (no backfill, exactly
+        # as 011). "0.95" is no longer the profile's storage form, so it is
+        # read as the 9.5 mm that column says rather than as the retired
+        # profile's 9.525 mm — the one observable consequence of the
+        # amendment for an existing row, asserted here rather than left to be
+        # discovered.
+        assert book_page_spec(by_title["New"]).outside_mm == 9.5
+        assert book_page_spec(by_title["New"]).gutter_mm == 12.7
 
         command.downgrade(config, "010")
         insert("After downgrade")
@@ -491,4 +603,66 @@ class TestMigration011:
         }
         command.upgrade(config, "011")  # up -> down -> up
         assert margins()["New"] == ("1.27", "0.95")
+        engine.dispose()
+
+
+class TestMigration015:
+    """CARD-222 — 015 moves the outside-margin default to the amended 0.5 in."""
+
+    def test_revision_follows_014(self) -> None:
+        import importlib.util
+
+        path = (
+            Path(__file__).resolve().parent.parent
+            / "migrations"
+            / "versions"
+            / "015_book_outside_margin_default.py"
+        )
+        spec = importlib.util.spec_from_file_location("migration_015", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        assert (module.revision, module.down_revision) == ("015", "014")
+
+    def test_the_default_moves_and_no_stored_margin_is_rewritten(self, tmp_path, monkeypatch) -> None:
+        import sqlalchemy as sa
+
+        url = f"sqlite:///{tmp_path / 'migrate-015.db'}"
+        command, config = _alembic(url, monkeypatch)
+        command.upgrade(config, "014")
+        engine = sa.create_engine(url)
+
+        def insert(title):
+            with engine.begin() as conn:
+                conn.execute(
+                    sa.text(
+                        "INSERT INTO books (id, title, puzzle_ids, puzzle_titles, book_metadata, status)"
+                        " VALUES (:id, :title, '[]', '{}', '{}', 'draft')"
+                    ),
+                    {"id": uuid.uuid4().hex, "title": title},
+                )
+
+        def margins():
+            with engine.connect() as conn:
+                return {
+                    title: (gutter, outside)
+                    for title, gutter, outside in conn.execute(
+                        sa.text("SELECT title, gutter_margin_cm, outside_margin_cm FROM books")
+                    )
+                }
+
+        insert("Under 011")
+        assert margins() == {"Under 011": ("1.27", "0.95")}
+        command.upgrade(config, "015")
+        # No backfill: the row laid out on the retired margin keeps it.
+        assert margins() == {"Under 011": ("1.27", "0.95")}
+        insert("Under 015")
+        assert margins()["Under 015"] == ("1.27", "1.27")
+        assert margins()["Under 011"] == ("1.27", "0.95")
+
+        command.downgrade(config, "014")
+        insert("After downgrade")
+        assert margins()["After downgrade"] == ("1.27", "0.95")
+        command.upgrade(config, "015")  # up -> down -> up
+        insert("Up again")
+        assert margins()["Up again"] == ("1.27", "1.27")
         engine.dispose()

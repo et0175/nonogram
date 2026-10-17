@@ -121,15 +121,21 @@ _NO_SLACK_SHAPE = (23, 10)
 #: either comparison).
 _CAP_BOUND_SHAPE = (10, 10)
 
-#: CARD-203 AC-4's boundary shape: the one 29x23 checkerboard found sweeping
-#: every 10..30 row/column combination of a checkerboard grid against the
-#: Book 1 profile whose slack (58 px) sits inside
+#: CARD-203 AC-4's boundary shape: a 24x19 checkerboard found sweeping every
+#: 10..30 row/column combination of a checkerboard grid against the Book 1
+#: profile, whose slack (59 px) sits inside
 #: ``[line_height, gap_px + line_height)`` = ``[49, 73)`` at this page's own
 #: DPI — enough room for the caption's own line under the OLD guard
 #: (``slack >= line_height``), not enough once the new gap is added
 #: (``slack >= gap_px + line_height``). The same kind of hand-recorded sweep
 #: result as ``_NO_SLACK_SHAPE`` above, not re-swept on every run.
-_NARROW_GAP_SHAPE = (29, 23)
+#:
+#: **Re-swept for CARD-222**: the shape that sat in this window on CON-018's
+#: retired margins (29x23, 58 px) has 24 px of slack on the amended ones, so
+#: it no longer demonstrates anything. Only two shapes of the 441 land in the
+#: window now — 24x19 at 59 px and 27x22 at 57 — and the nearer of the two to
+#: the retired figure is taken.
+_NARROW_GAP_SHAPE = (24, 19)
 
 #: CARD-203 review cycle 1, F-003: a right-hand (odd) page number, used
 #: alongside the right-alignment/closer-gap tests that previously only ever
@@ -137,9 +143,9 @@ _NARROW_GAP_SHAPE = (29, 23)
 #: ``page_is_right_hand`` (``book_pdf_generator.py``).
 _RIGHT_HAND_PAGE_NUMBER = 3
 
-#: CARD-203 review cycle 1, F-001's own reproduction shape: a 30x24
+#: CARD-203 review cycle 1, F-001's own reproduction shape: a 26x21
 #: checkerboard on ``_RIGHT_HAND_PAGE_NUMBER`` yields zero horizontal margin
-#: (``drawing_right == usable_right``) and 74 px of vertical slack — inside
+#: (``drawing_right == usable_right``) and 110 px of vertical slack — inside
 #: the window where the caption's own omission guard
 #: (``slack >= gap_px + line_height``, 73 px) and the pre-fix folio's "is
 #: there room" bar (``line_height`` alone, 49 px) were BOTH satisfied, so
@@ -147,9 +153,13 @@ _RIGHT_HAND_PAGE_NUMBER = 3
 #: right-hand page. Found by the same kind of hand-recorded sweep as
 #: ``_NO_SLACK_SHAPE``/``_NARROW_GAP_SHAPE`` above, not re-swept on every run
 #: (swept against every 10..30 row/column checkerboard for margin <= 5 px and
-#: slack in [60, 130] px; 30x24 is the shape with the greatest margin-0 slack
-#: inside that window and the one the review's own reproduction used).
-_RIGHT_HAND_COLLISION_SHAPE = (30, 24)
+#: slack inside the window; 26x21 is the shape with the greatest margin-0
+#: slack in it).
+#:
+#: **Re-swept for CARD-222**: the review's own shape (30x24) had 74 px of
+#: slack on CON-018's retired margins and has 40 px on the amended ones,
+#: which is under the caption's own guard — the window moved, not the defect.
+_RIGHT_HAND_COLLISION_SHAPE = (26, 21)
 
 
 def _checkerboard(rows: int, columns: int) -> list[list[bool]]:
@@ -957,11 +967,16 @@ class TestBookSolvedPage_CaptionWiderThanItsGridStaysInsideTheMargin:
         arr, layout, generator = self._render(page_number, getattr(self, title_name))
         placement = layout.page
         columns = self._caption_ink_columns(arr, placement, generator)
-        # A glyph's own leftmost ink sits a few px inside its advance box
-        # (side bearing), so the left edge is "at usable_left" within the
-        # same handful of pixels the right-alignment tests above allow at
-        # the other end.
-        bearing = 8
+        # Two things keep the leftmost ink a little inside ``usable_left``: a
+        # glyph's own left side bearing, and — for the clipped title — the
+        # clip's own granularity, which is a whole character. The clipped
+        # caption stops at the last character that still fits the measure, so
+        # its ink can fall short of the margin by up to one character's
+        # advance. Measured on CON-018's amended margins (CARD-222): 36 px for
+        # the clipped title on this page, where the retired margins happened
+        # to put the clip within 8 px. 48 px is one em of this face at 10 pt
+        # plus the bearing, which is the real bound on both regimes.
+        bearing = 48
         assert placement.usable_left <= columns.min() <= placement.usable_left + bearing
 
     def test_a_right_hand_page_absorbs_the_same_overhang_without_a_clamp(self):
@@ -1052,9 +1067,9 @@ class TestBookSolvedPage_CaptionDoesNotCollideWithTheFolio:
     bar (``line_height`` alone — narrower, since it did not yet know about
     the caption) were BOTH satisfied drew the two marks overlapping.
 
-    ``_RIGHT_HAND_COLLISION_SHAPE`` (30x24) is the review's own reproduction
-    shape: margin 0 (``drawing_right == usable_right``) and 74 px of slack,
-    squarely inside that window at this page's DPI.
+    ``_RIGHT_HAND_COLLISION_SHAPE`` (26x21 since CARD-222 re-swept it) is
+    that reproduction: margin 0 (``drawing_right == usable_right``) and 110 px
+    of slack, squarely inside that window at this page's DPI.
     """
 
     _PUZZLE_NUMBER = 7

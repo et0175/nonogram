@@ -48,17 +48,23 @@ HALF_PIXEL_MM = 0.5 / PX_PER_MM
 
 #: CON-018's profile, in millimetres. Top and bottom have no stored column and
 #: always come from it; the band is TERM-028's 12 mm and the cap NFR-008's
-#: standard cell.
-TOP_MM = BOTTOM_MM = 0.375 * 25.4
+#: standard cell. The two moved with the 2026-10-17 amendment (CARD-222):
+#: top 0.375 -> 0.55 in, bottom 0.375 -> 0.47 in.
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 BAND_MM = 12.0
 STANDARD_CELL_MM = 7.5
 #: The cell-size floor COMP-007 keeps even when the sheet cannot hold it.
 MIN_CELL_MM = 2.0
 
 #: The stored forms that mean "the profile's own value" to the builder
-#: (``book_page_spec``: ``"0.95"`` is 0.375 in, not 9.5 mm). A random case
-#: never draws one, so a case's millimetres are exactly what its strings say.
-_PROFILE_FORMS = {"21.59", "27.94", "1.27", "0.95"}
+#: (``book_page_spec``: a stored string equal to the profile's own two-decimal
+#: form is read as the profile's exact value). Since the 2026-10-17 amendment
+#: both side margins are 0.5 in = exactly "1.27", so "0.95" is no longer one
+#: of them: a book storing it gets the 9.5 mm it says. A random case never
+#: draws one of these, so a case's millimetres are exactly what its strings
+#: say either way.
+_PROFILE_FORMS = {"21.59", "27.94", "1.27"}
 
 
 def _book(width_cm: str, height_cm: str, gutter_cm: str, outside_cm: str) -> Book:

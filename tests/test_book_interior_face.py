@@ -430,8 +430,10 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
         ``structural_toc_entry_count`` rather than written as a literal.
 
         The non-vacuity assertions are the point of the case: on the
-        packaged face this frame really must hold 9 rows and really must
-        split ten of them onto two pages. If a later change moves that
+        packaged face this frame really must hold 8 rows (9 until CON-018's
+        margins were amended on 2026-10-17 — the same 81 px of height that
+        shows up everywhere else, CARD-222) and really must split ten of them
+        onto two pages, which it still does with one row less of capacity. If a later change moves that
         capacity, this stops being a witness, and the test says so rather
         than passing because nothing spills any more. They are checked
         after the agreement, not before it, so that the two failures read
@@ -483,8 +485,8 @@ class TestBookInterior_GeometryIsIdenticalWithAndWithoutHostFonts:
         # the comparison because an agreement that is true for the wrong
         # reason — nothing spilling at all — is the one way the assertion
         # above could pass vacuously, and these are what say so.
-        assert on_host[0] == 9, (
-            f"the 10.00 cm frame holds {on_host[0]} TOC rows, not the 9 this "
+        assert on_host[0] == 8, (
+            f"the 10.00 cm frame holds {on_host[0]} TOC rows, not the 8 this "
             "case needs to be a witness: ten rows no longer spill here, and "
             "the comparison above has nothing face-dependent left to catch"
         )

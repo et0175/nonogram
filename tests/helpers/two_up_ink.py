@@ -70,17 +70,52 @@ from tests.helpers.page_ink import Drawing, _dark, _groups, _longest_runs, drawi
 _SLOT_RULE_SHARE = 0.25
 
 
+#: How far above or below a rule a column of ink must continue for that rule
+#: to belong to a drawing, in pixels. Every horizontal rule of a drawing is
+#: crossed by the verticals, which run the whole height of that drawing, so
+#: ink continues from it by far more than this; a frame's rule (CARD-222) has
+#: white on both sides of it for millimetres. Eight pixels is 0.68 mm at
+#: 300 DPI — longer than the heaviest rule the book strokes (6 px) so a rule
+#: cannot clear it against its own thickness, and far shorter than a cell.
+_CROSSING_REACH = 8
+
+
+def _crosses_a_drawing(dark: np.ndarray, group: list[int]) -> bool:
+    """Whether ink continues above or below the rule ``group`` occupies.
+
+    What tells a drawing's rule from a page's own furniture (CARD-222). An
+    interior page carries a rule under its header and a hairline above its
+    footer, each running the full text width — wide enough to pass
+    :data:`_SLOT_RULE_SHARE` and so to be offered as a slot boundary, which
+    would cut a one-puzzle page in two somewhere below its grid. Neither is
+    crossed by anything: a drawing's rules are, by the verticals that run its
+    whole height.
+    """
+    first, last = group[0], group[-1]
+    above = dark[max(0, first - _CROSSING_REACH) : first]
+    below = dark[last + 1 : last + 1 + _CROSSING_REACH]
+    return bool(
+        (above.size and above.all(axis=0).any()) or (below.size and below.all(axis=0).any())
+    )
+
+
 def rule_rows(page: Image.Image) -> list[int]:
     """The first pixel row of every horizontal grid rule on ``page``.
+
+    Page furniture is left out (:func:`_crosses_a_drawing`): what this returns
+    is the rules of the drawings, which is what a slot boundary is measured
+    between.
 
     Raises:
         ValueError: the page carries no ink at all.
     """
-    longest = _longest_runs(_dark(page))
+    dark = _dark(page)
+    longest = _longest_runs(dark)
     peak = longest.max()
     if peak == 0:
         raise ValueError("the page carries no ink at all")
-    return [group[0] for group in _groups(np.flatnonzero(longest >= _SLOT_RULE_SHARE * peak))]
+    groups = _groups(np.flatnonzero(longest >= _SLOT_RULE_SHARE * peak))
+    return [group[0] for group in groups if _crosses_a_drawing(dark, group)]
 
 
 def split_row(page: Image.Image) -> int | None:

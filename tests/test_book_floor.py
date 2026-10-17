@@ -1,13 +1,13 @@
-"""CARD-121 — the 4.8 mm floor at the book store (FR-031, NFR-008, INV-006).
+"""CARD-121 — the 4.75 mm floor at the book store (FR-031, NFR-008, INV-006).
 
-    AC-183  a 4.61 mm puzzle submitted from the selection step with no
-            override is not added, and the response names 4.61 mm against
-            the 4.8 mm floor
+    AC-183  a 4.54 mm puzzle submitted from the selection step with no
+            override is not added, and the response names 4.54 mm against
+            the 4.75 mm floor
     AC-184  the same puzzle, submitted with an override for its id, becomes a
             member and the override is stored for that id
     AC-185  the same puzzle pasted into the detail page's add-puzzles form is
             not added either — the floor holds on that route too
-    AC-186  a 4.84 mm puzzle is added with no flag: at or above the floor
+    AC-186  a 4.76 mm puzzle is added with no flag: at or above the floor
 
 and the postures the invariant needs to be worth anything — what happens to a
 puzzle whose cell cannot be computed, to a book whose trim cannot be read, to
@@ -18,7 +18,7 @@ criteria on a server-rendered screen and this project has no browser harness,
 so each drives the real POST route with real form fields and reads the real
 HTML that came back — the same reading CARD-122's tests make.
 
-The expected cell figures (4.61 mm, 4.84 mm) are the *card's*, stated in
+The expected cell figures (4.54 mm, 4.76 mm) are the *card's*, stated in
 FR-031's acceptance criteria, and the grids here are built by hand to hit
 them. They are not re-derived from ``book_cell_mm``: that would only prove the
 code agrees with itself. What must come from ``book_cell_mm`` is the cell the
@@ -48,8 +48,8 @@ from tests.helpers.db import sqlite_session_scope
 #: The two fixtures FR-031 names, as (width, height, row-clue gutter depth,
 #: column-clue gutter depth, the cell the card says they get on the Book 1
 #: profile). AC-182/183/184/185 are all about the first; AC-186 is the second.
-BELOW_FLOOR = (30, 25, 12, 8, 4.61)
-ABOVE_FLOOR = (30, 20, 10, 8, 4.84)
+BELOW_FLOOR = (30, 25, 12, 8, 4.54)
+ABOVE_FLOOR = (30, 20, 10, 8, 4.76)
 
 
 # --------------------------------------------------------------------------
@@ -255,7 +255,7 @@ def body(response) -> str:
 
 
 class TestBookAddPuzzles_RefusesBelowFloorWithoutOverride:
-    """A 4.61 mm puzzle with no override does not join, and the owner is told why."""
+    """A 4.54 mm puzzle with no override does not join, and the owner is told why."""
 
     def test_the_selection_step_does_not_add_it_and_names_both_figures(self, panel) -> None:
         width, height, row_gutter, column_gutter, cell = BELOW_FLOOR
@@ -444,12 +444,12 @@ class TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride:
 
 
 # --------------------------------------------------------------------------
-# AC-186 — 4.84 mm is at or above the floor
+# AC-186 — 4.76 mm is at or above the floor
 # --------------------------------------------------------------------------
 
 
 class TestBookAddPuzzles_AcceptsCellJustAboveFloor:
-    """A 40-cells-across puzzle gets 4.84 mm and joins with nothing flagged."""
+    """A 40-cells-across puzzle gets 4.76 mm and joins with nothing flagged."""
 
     def test_it_joins_from_the_selection_step_with_no_override(self, panel) -> None:
         puzzle_id = panel.puzzle(*ABOVE_FLOOR[:4])
@@ -921,7 +921,7 @@ class TestBookAddPuzzles_VerdictAndWriteAreOneDecision:
     ) -> None:
         """The cell is a fact about the *stored* trim, so a new trim is a new verdict."""
         shelf = Shelf("db", tmp_path)
-        # 4.84 mm on the Book 1 trim; 2.62 mm once the trim narrows to 12.70 cm.
+        # 4.76 mm on the Book 1 trim; 2.62 mm once the trim narrows to 12.70 cm.
         puzzle_id = shelf.puzzle(*ABOVE_FLOOR[:4])
         book_id = shelf.book()
         _interleave(
@@ -1110,7 +1110,7 @@ class TestBookFloor_ALargeBucketPuzzleNeedsAnOverride:
     clue pair, so its 30x30 puzzles measure as a 1x1 picture and clear the
     floor easily. That keeps the gate's own suite about the gate — but it
     hides a real interaction between INV-006 and INV-007, and this is it: a
-    consistent 30x30 clue set with a 12-deep row gutter gets 4.61 mm on the
+    consistent 30x30 clue set with a 12-deep row gutter gets 4.54 mm on the
     Book 1 profile, so a book whose plan calls for large puzzles may not be
     able to reach its planned counts in that bucket without overrides.
     """
@@ -1134,7 +1134,7 @@ class TestBookFloor_ALargeBucketPuzzleNeedsAnOverride:
 
         assert cell < FLOOR_MM
         assert cell == pytest.approx(BELOW_FLOOR[4], abs=0.005), (
-            "a consistent 30x30 clue set draws the same 4.61 mm cell AC-182 names"
+            "a consistent 30x30 clue set draws the same 4.54 mm cell AC-182 names"
         )
 
     def test_so_it_joins_a_planned_book_only_with_an_override(self, shelf) -> None:

@@ -1292,17 +1292,27 @@ class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio:
     ``content_bottom`` regardless of side made the folio disappear from a
     left-hand packed page with genuine, ample slack.
 
-    ``_COLLISION_WIDTH``/``_COLLISION_HEIGHT``/``_COLLISION_DEPTH`` (14x6,
-    depth 1) at capacity 4 on :func:`_kdp_min_book` is a shape/trim pair
-    found by direct measurement (not swept): both the left-hand
+    ``_COLLISION_WIDTH``/``_COLLISION_HEIGHT``/``_COLLISION_DEPTH`` (14x4,
+    depth 1 since CARD-222 re-measured it — 14x6 until then) at capacity 4 on
+    :func:`_kdp_min_book` is a shape/trim pair found by direct measurement
+    (not swept): both the left-hand
     (``_LEFT_HAND_PAGE_NUMBER``, 8) and right-hand (``_RIGHT_HAND_PAGE_NUMBER``,
     9) corner tiles land with zero horizontal margin (``drawing_right ==
     usable_right`` on the right-hand side, ``drawing_left == usable_left`` on
     the left-hand one — :func:`_kdp_min_book`'s gutter and outside margins
     are equal, so the two page sides are geometrically mirror-symmetric) and
-    84 px of vertical slack below the grid — comfortably above both the
+    108 px of vertical slack below the grid — comfortably above both the
     caption's own omission guard (``gap_px + line_height`` = 73 px) and the
     folio's plain "is there room" bar (``line_height`` alone, 49 px).
+
+    **Re-measured for CARD-222.** CON-018's amended top and bottom margins
+    (0.55 in and 0.47 in, where the retired profile had 0.375 in on every
+    side) take 16 mm of height off this trim, and this book stores no top or
+    bottom margin of its own, so it gets the amended ones: the 14x6 shape's
+    slack fell from 84 px to 43 px — under the caption's own guard, where the
+    class's premise needs it above. Two rows shallower restores a shape in
+    the same window (108 px) at the same width and depth; the alternatives
+    measured in the window are 15x4 (119 px) and 16x5 (99 px).
 
     Each test renders the real page and an independently rendered reference
     built by monkeypatching the module-level ``_draw_folio`` to a no-op for
@@ -1314,7 +1324,7 @@ class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio:
     """
 
     _COLLISION_WIDTH = 14
-    _COLLISION_HEIGHT = 6
+    _COLLISION_HEIGHT = 4
     _COLLISION_DEPTH = 1
     _LEFT_HAND_PAGE_NUMBER = 8
     _RIGHT_HAND_PAGE_NUMBER = 9
@@ -1436,9 +1446,23 @@ class TestBookSolvedAnswerKey_PackedCaptionDoesNotCollideWithTheFolio:
     # ink. Each of those four conditions is asserted below rather than
     # assumed, so a future geometry change that moves this shape out of the
     # danger window fails loudly instead of passing vacuously.
+    #
+    # **CARD-222 is such a change, and the assertions did fail loudly.**
+    # CON-018's amended top and bottom margins (0.55 in and 0.47 in, against
+    # 0.375 in on every side before) take 6.86 mm of usable height off this
+    # trim, which is enough that the corner tile's caption is omitted for
+    # lack of slack and the window is empty. The trim height alone is moved,
+    # 9.0 -> 9.4 in, which is the height that restores all four conditions
+    # at the same width, side and capacity (re-swept over 8.6..10.0 in x
+    # sides 10..13; 8.8/9.0 in at side 10 and 9.8/10.0 in at side 12 also
+    # land in the window). ``drawing_right`` is 2383 again, the folio's box
+    # starts at 2447 again, and the caption's real right edge is 2456 rather
+    # than 2462 — 9 px inside the folio's box instead of 20. The pre-fix
+    # shared-ink count is not re-measured: the fix it describes is shipped
+    # and the behaviour it described cannot be produced any more.
 
     _CLAMPED_TRIM_WIDTH_MM = 8.5 * 25.4
-    _CLAMPED_TRIM_HEIGHT_MM = 9.0 * 25.4
+    _CLAMPED_TRIM_HEIGHT_MM = 9.4 * 25.4
     _CLAMPED_SIDE = 11
     _CLAMPED_CAPACITY = 4
     _CLAMPED_TITLE = (

@@ -6,8 +6,15 @@ pairing — builds its sheet here and measures a puzzle's cell with
 :func:`book_cell_mm`, so that "the cell a puzzle gets in this book" is one
 computation (EC-021).
 
-* :data:`BOOK1_PROFILE` is CON-018: trim 8.5 x 11 in, gutter 0.5 in, outside,
-  top and bottom 0.375 in, no bleed, the 12 mm title band (TERM-028). It is
+* :data:`BOOK1_PROFILE` is CON-018 **as amended 2026-10-17** (CARD-222): trim
+  8.5 x 11 in, gutter 0.5 in, outside 0.5 in, top 0.55 in, bottom 0.47 in, no
+  bleed, the 12 mm title band (TERM-028). Three sides moved out from 0.375 in
+  and the gutter deliberately did not (the owner's decision of 2026-10-14 to
+  keep KDP's required 0.5 in rather than the artifact's 0.75 in), so the
+  gutter and the outside margin are now **equal** and the mirrored margins of
+  FR-030 are a geometric no-op on this profile — the rule still holds and its
+  difference is simply zero, and it still bites on a book that stores unequal
+  margins. It is
   stated once, in inches, and both forms callers need are derived from that:
   the exact millimetres a :class:`PageSpec` takes, and the two-decimal
   centimetre strings the ``books`` table stores.
@@ -23,16 +30,22 @@ computation (EC-021).
   computes in millimetres; re-deriving it from the pixel ``Layout.cell`` would
   round it (4.57 mm instead of 4.61 mm for a 12-deep 30-wide grid).
 * :data:`FLOOR_MM` is NFR-008's other end of the same band (TERM-024): the
-  4.8 mm below which a puzzle joins a book only with a stored override
+  4.75 mm below which a puzzle joins a book only with a stored override
   (FR-031, INV-006 — enforced in ``BookManager``, which is where membership
   is written).
 
-**The profile's stored form.** 0.375 in is 0.9525 cm, which a two-decimal
-column stores as ``"0.95"``. A stored value that *is* the profile's own storage
-form therefore means the profile's exact value (9.525 mm), not 9.5 mm; any
-other stored value is read as the centimetres it says. That keeps "a book
-created on the profile" and "a legacy book whose margins are empty" the same
-sheet to the last micrometre (AC-178, AC-272, AC-273).
+**The profile's stored form.** A stored value that *is* the profile's own
+storage form means the profile's exact value, not the two decimals it rounds
+to; any other stored value is read as the centimetres it says. That keeps "a
+book created on the profile" and "a legacy book whose margins are empty" the
+same sheet to the last micrometre (AC-178, AC-272, AC-273). Since the
+2026-10-17 amendment both side margins are 0.5 in = 1.27 cm, which a
+two-decimal column stores exactly, so on *this* profile the two readings
+coincide and the rescue is invisible. It is kept because it is the profile's
+contract and not this profile's arithmetic: 0.375 in was 0.9525 cm, stored as
+``"0.95"``, and a book created before the amendment still carries that string
+— which, no longer being the profile's own form, is now read as the 9.5 mm
+that column actually states rather than as 9.525 mm.
 
 How the interior is printed (CARD-147)
 --------------------------------------
@@ -114,16 +127,27 @@ MAX_TRIM_HEIGHT_CM = 48.0
 #: to :class:`PageSpec` and changes the geometry ``compute_layout`` produces,
 #: so a profile that printed at a different standard cell would carry a
 #: different cap. The floor is a **verdict** the book store then makes about
-#: the cell that came back, it is the same 4.8 mm for every trim, every margin
+#: the cell that came back, it is the same 4.75 mm for every trim, every margin
 #: and every profile, and nothing downstream of it is laid out differently
 #: because of it. One statement, in one place: the tile (CARD-123), the add
 #: refusal and the finalise count all read this name (EC-021).
-FLOOR_MM = 4.8
+#:
+#: **4.8 -> 4.75 mm, NFR-008 as amended 2026-10-17** (CARD-222, the same pass
+#: that moved CON-018's three margins out): the owner lowered the floor so that
+#: the margin change costs no grid a clue-depth step — the figure is chosen to
+#: restore exactly the breach point the old margins had at the old floor, not
+#: to admit a smaller cell than the book ever admitted. Measured with
+#: ``compute_layout`` on the amended margins: a 30-wide grid at clue depth 10
+#: lands at 4.7625 mm, 0.012 mm **above** this floor, where the retired 4.8 mm
+#: would have refused it (AC-370); a 30-wide grid first falls under this floor
+#: at clue depth 11 (4.6463 mm).
+FLOOR_MM = 4.75
 
 #: The narrowest side margin a book sheet may have: KDP's 0.25 in minimum for
-#: the outside margin (CON-018: "0.375 in outside leaves room for trim variance
-#: above KDP's 0.25 in minimum"), applied to both side margins. A stored
-#: margin below it is refused, naming the column.
+#: the outside margin (CON-018 as amended 2026-10-17: "the 0.5 in outside
+#: margin leaves room for trim variance well above KDP's 0.25 in minimum"),
+#: applied to both side margins. A stored margin below it is refused, naming
+#: the column.
 MIN_SIDE_MARGIN_MM = 6.35
 
 
@@ -209,9 +233,9 @@ BOOK1_PROFILE = PrintProfile(
     trim_width_in=Decimal("8.5"),
     trim_height_in=Decimal("11"),
     gutter_in=Decimal("0.5"),
-    outside_in=Decimal("0.375"),
-    top_in=Decimal("0.375"),
-    bottom_in=Decimal("0.375"),
+    outside_in=Decimal("0.5"),
+    top_in=Decimal("0.55"),
+    bottom_in=Decimal("0.47"),
     band_mm=12.0,
     cell_cap_mm=7.5,
     min_thin_rule_mm=0.25,

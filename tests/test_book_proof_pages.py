@@ -81,7 +81,12 @@ import nonogram.admin.book_manager as book_manager_module
 import nonogram.admin.book_proof as book_proof_module
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, _draw_folio, page_frame
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    _draw_page_frame,
+    grid_size_label,
+    page_frame,
+)
 from nonogram.admin.print_specs import PrintSpec
 from nonogram.admin.book_proof import (
     PROOF_PUZZLES,
@@ -89,7 +94,7 @@ from nonogram.admin.book_proof import (
     proof_pages,
     render_proof_pdf,
 )
-from nonogram.export.layout import compute_layout, qr_slot
+from nonogram.export.layout import compute_layout, interior_frame, qr_slot
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
@@ -105,8 +110,11 @@ BOOK1_HEIGHT_MM = 11 * 25.4
 SIX_BY_NINE_WIDTH_MM = 6 * 25.4
 SIX_BY_NINE_HEIGHT_MM = 9 * 25.4
 GUTTER_MM = 0.5 * 25.4
-OUTSIDE_MM = 0.375 * 25.4
-TOP_MM = BOTTOM_MM = 0.375 * 25.4
+# CON-018 as amended 2026-10-17 (CARD-222): outside 0.5 in, top 0.55 in,
+# bottom 0.47 in, the gutter unchanged at 0.5 in.
+OUTSIDE_MM = 0.5 * 25.4
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 
 #: The title band above each puzzle (TERM-028).
 BAND_MM = 12.0
@@ -123,8 +131,10 @@ MIN_THIN_RULE_MM = 0.25
 MIN_THIN_RULE_PX = 3
 
 #: The checkpoint's two cells (CARD-118, ADR-0037): the 30x30 with 9-deep
-#: gutters and the 15x15 with 7-deep ones, on the Book 1 profile.
-LARGE_CELL_MM = 4.97
+#: gutters and the 15x15 with 7-deep ones, on the Book 1 profile. The large
+#: one was 4.885 mm until CON-018's margins were amended (2026-10-17,
+#: CARD-222): 190.5 mm of usable width over 39 cells.
+LARGE_CELL_MM = 4.885
 SMALL_CELL_MM = 7.5
 CELL_TOLERANCE_MM = 0.05
 
@@ -298,7 +308,7 @@ def _measured(page: Image.Image) -> dict[str, float]:
 
 
 class TestBookProof_TwoTrimSizedPagesAtExpectedCells:
-    """CK-1 — the Book 1 profile: 2 pages, 2550 x 3300 px, 4.97 mm and 7.5 mm."""
+    """CK-1 — the Book 1 profile: 2 pages, 2550 x 3300 px, 4.885 mm and 7.5 mm."""
 
     TRIM_PX = (2550, 3300)
     #: 8.5 x 11 in in PDF points, which is what a printer trims to.
@@ -317,7 +327,7 @@ class TestBookProof_TwoTrimSizedPagesAtExpectedCells:
     def test_page_one_is_the_thirty_by_thirty_at_the_books_smallest_cell(
         self, book1_pdf: bytes
     ) -> None:
-        """The 30x30 with 9-deep gutters: 4.97 mm (+/- 0.05), measured on the page."""
+        """The 30x30 with 9-deep gutters: 4.885 mm (+/- 0.05), on the page."""
         drawing = drawing_of(pdf_pages(book1_pdf)[0])
         assert (drawing.columns, drawing.rows) == (MAX_SIZE, MAX_SIZE)
         assert drawing.cell / PX_PER_MM == pytest.approx(
@@ -339,9 +349,10 @@ class TestBookProof_TwoTrimSizedPagesAtExpectedCells:
         30x30 fills the usable width, so its drawing starts at the gutter
         margin regardless of alignment; page 2's 15x15 is narrower and
         (CARD-204, reading (b)) is flush with the *outside* margin on this
-        even page — exactly at it, 9.525 mm from the trim edge, not centred
-        in the usable area the way Increment 13's checkpoint (23.875 mm)
-        measured under the old rule.
+        even page — exactly at it, 12.7 mm from the trim edge since CON-018's
+        margins were amended (9.525 mm before), not centred in the usable area
+        the way Increment 13's checkpoint (23.875 mm) measured under the old
+        rule.
         """
         odd, even = (drawing_of(page) for page in pdf_pages(book1_pdf))
         assert odd.left / PX_PER_MM == pytest.approx(GUTTER_MM, abs=0.1)
@@ -461,7 +472,7 @@ class TestBookProof_StrokesMeetBookMinimum:
 
 
 class TestBookProof_FixturesAreTheDepthsTheMeasurementsAssume:
-    """4.97 mm and 7.5 mm are claims about *these* extents at *these* depths.
+    """4.885 mm and 7.5 mm are claims about *these* extents at *these* depths.
 
     A fixture edited to a different gutter depth would change the printed cell
     and silently retire the checkpoint's numbers, so the depths are pinned in
@@ -680,14 +691,21 @@ class TestBookProof_AnnotationIsProofOnly:
         reach the book" is asserted as behaviour rather than as an intention.
 
         **CARD-200 (SCOPE+): the foot strip is no longer bare.** Every
-        interior page but the cover now carries a bottom-outer-corner folio
-        (``_draw_folio``), which — like a proof note once did — lands inside
-        ``_foot_strip``'s own crop (below the drawing, full width). So this
-        no longer asserts the strip is *ink-free*; it asserts the strip
-        carries *exactly* the folio's own known ink and nothing else, by
-        building the same ``_draw_folio`` call onto ``expected`` and
-        comparing bytes — the same rigor as before, aimed at the one mark
-        that is now legitimately there instead of at "no mark at all".
+        interior page but the cover now carries a folio, which — like a proof
+        note once did — lands inside ``_foot_strip``'s own crop (below the
+        drawing, full width). So this no longer asserts the strip is
+        *ink-free*; it asserts the strip carries *exactly* the marks a book
+        page legitimately puts there and nothing else, by building the same
+        call onto ``expected`` and comparing bytes — the same rigor as before,
+        aimed at the marks that are now legitimately there instead of at "no
+        mark at all".
+
+        **CARD-222: those marks are the whole frame now** — the footer's
+        hairline, the grid-size label and the centred folio, plus the header
+        rule higher up the page. ``expected`` is built through
+        ``_draw_page_frame`` with ``_blank_page``'s own arguments, so the
+        comparison still reproduces the book page rather than reimplementing
+        it, and what it rules out is still a proof annotation.
         """
         book = _book()
         puzzle = PROOF_PUZZLES[0]
@@ -710,15 +728,15 @@ class TestBookProof_AnnotationIsProofOnly:
         expected, _ = render_pages(
             puzzle.payload("Puzzle 1 · Hard"), page_spec=book_page_spec(book, 5)
         )
-        frame = page_frame(book_page_spec(book, 5))
-        _draw_folio(
+        spec = book_page_spec(book, 5)
+        layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
+        _draw_page_frame(
             ImageDraw.Draw(expected),
-            frame.left,
-            frame.top,
-            frame.right,
-            frame.bottom,
+            interior_frame(spec),
             5,
             generator.dpi,
+            size_label=grid_size_label(layout.columns, layout.rows),
+            content_bottom=None if layout.page is None else layout.page.drawing_bottom,
         )
         assert _foot_strip(page).tobytes() == _foot_strip(expected).tobytes()
         assert page.tobytes() == expected.tobytes()
@@ -878,24 +896,48 @@ CORPUS_TRIMS_CM: tuple[tuple[str, str], ...] = (
 #: reaches the bottom margin, so the note moves to the outer side strip or the
 #: 30 x 30's blank clue corner.
 FALLBACK_TRIMS_CM: tuple[tuple[str, str], ...] = (
-    ("20.96", "20.96"),  # 8.25 x 8.25 in
     ("21.59", "21.59"),  # 8.5 x 8.5 in
     ("20.96", "15.24"),  # 8.25 x 6 in (KDP landscape)
     ("27.94", "21.59"),  # 11 x 8.5 in
 )
 
+#: Trims that carry a 30 x 30 proof page at all, but **no note anywhere on
+#: it**, so :func:`proof_pages` refuses them with the measured reason
+#: (``book_proof``'s own refusal, already covered by
+#: ``TestBookProof_BandAndAnnotation.test_a_trim_with_no_room_for_the_note_is_refused_and_says_so``
+#: for a small square).
+#:
+#: **8.25 x 8.25 in moved into this list with CON-018's amended margins**
+#: (2026-10-17, CARD-222). It was a fallback trim: the note did not fit the
+#: foot, and the blank clue corner held it. The amendment takes 6.86 mm of
+#: height off every page, which is more than the 4.86 mm of foot that trim had
+#: — measured, the page now has **-2.0 mm** clear below the drawing against a
+#: note needing 4.4 mm, and neither the outer side strip nor the clue corner
+#: holds it at CON-020's 10 pt either. So the owner cannot proof a book stored
+#: at that trim until something gives it room back. Recorded here, and
+#: asserted by ``test_the_eight_and_a_quarter_inch_square_can_no_longer_be_proofed``
+#: below, so a card that buys the room back reds this list rather than
+#: silently re-admitting the trim. Book 1 (8.5 x 11 in) is unaffected.
+REFUSED_TRIMS_CM: tuple[tuple[str, str], ...] = (("20.96", "20.96"),)
+
 #: Side margins the corpus draws from, stored the same way: KDP's 0.25 in
 #: floor (``MIN_SIDE_MARGIN_MM``) upwards.
 CORPUS_MARGINS_CM: tuple[str, str, str, str] = ("0.64", "0.95", "1.27", "1.91")
+# "0.95" is kept in the corpus deliberately: since CON-018's 2026-10-17
+# amendment it is an ordinary stored margin (9.5 mm) rather than the profile's
+# own form, which is exactly the case PROFILE_STORED_MM below is about.
 
 #: The two-decimal centimetre strings CON-018's profile itself stores, and the
 #: exact millimetres they stand for. ``book_page_spec`` reads a stored value
 #: that *is* the profile's own storage form as the profile's exact number —
-#: 0.375 in is 9.525 mm and stores as "0.95" — so a book created on the
-#: profile and a legacy book with empty columns are the same sheet to the
-#: micrometre. Restated here rather than imported: the corpus has to know what
-#: it stored, and this is the rule, not the function that applies it.
-PROFILE_STORED_MM = {"21.59": 215.9, "27.94": 279.4, "1.27": 12.7, "0.95": 9.525}
+#: both side margins are 0.5 in = exactly "1.27" since the 2026-10-17
+#: amendment — so a book created on the profile and a legacy book with empty
+#: columns are the same sheet to the micrometre, and the rescue is invisible on
+#: this profile. Restated here rather than imported: the corpus has to know
+#: what it stored, and this is the rule, not the function that applies it.
+#: "0.95" is **no longer** one of these forms: it is read as the 9.5 mm it
+#: says.
+PROFILE_STORED_MM = {"21.59": 215.9, "27.94": 279.4, "1.27": 12.7}
 
 
 def _stored_mm(centimetres: str) -> float:
@@ -1031,7 +1073,10 @@ def test_PropertyTest_BookProof_EveryStoredPrintSpecPrintsItsOwnSheet() -> None:
 
 #: CON-018's Book 1 margins as the ``books`` columns store them.
 BOOK1_GUTTER_CM = "1.27"
-BOOK1_OUTSIDE_CM = "0.95"
+# CON-018's amended outside margin (2026-10-17): 0.5 in, which a two-decimal
+# column stores exactly. "0.95" — the retired 0.375 in — is no longer the
+# profile's own storage form, so a book storing it now gets the 9.5 mm it says.
+BOOK1_OUTSIDE_CM = "1.27"
 
 #: The clear air CARD-172 asks the fallback note to keep from the drawing's
 #: rules, and what it is in whole pixels at 300 DPI, rounded down so a note
@@ -1045,7 +1090,9 @@ FLOOR_PT = 10
 DEJAVU_CAP_HEIGHT_RATIO = 1493 / 2048
 FLOOR_CAP_PX = FLOOR_PT * 300 / 72 * DEJAVU_CAP_HEIGHT_RATIO
 
-SQUARE_TRIMS_CM = (("20.96", "20.96"), ("21.59", "21.59"))
+# 8.25 in square is REFUSED_TRIMS_CM's now (CARD-222), so the square witness
+# is 8.5 in alone.
+SQUARE_TRIMS_CM = (("21.59", "21.59"),)
 LANDSCAPE_TRIMS_CM = (("20.96", "15.24"), ("27.94", "21.59"))
 
 #: The pages whose foot strip cannot hold the note, so it falls back: the
@@ -1054,7 +1101,6 @@ LANDSCAPE_TRIMS_CM = (("20.96", "15.24"), ("27.94", "21.59"))
 #: 11 x 8.5 in the 15 x 15 leaves 13.5 to 19.9 mm of foot, so its note stays
 #: at the foot (CARD-172 Worktree notes).
 FALLBACK_PAGES = (
-    ("20.96", "20.96", 0),
     ("21.59", "21.59", 0),
     ("20.96", "15.24", 0),
     ("20.96", "15.24", 1),
@@ -1302,7 +1348,17 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     The digests were recorded from main (b05c443) before CARD-172 changed
     ``book_proof.py``; the fixture says how.
 
-    **CARD-204 (SCOPE+):** the fixture this class reads against is now
+    **CARD-222:** the fixture this class reads against is now
+    ``proof_baseline_card222.json``. CON-018's amendment of 2026-10-17 moves
+    three of the four margins — the top and the bottom move every mark on
+    every one of these nine trims and shorten the drawing, the outside margin
+    moves the right-aligned drawing sideways — so all nine trims differ from
+    CARD-204's recording, which that fixture's own ``moved_from_card204``
+    records. The side margins it stores moved with the profile too
+    (``outside_margin_cm`` '0.95' -> '1.27'), so the trims are proofed on the
+    margins a book created today really holds. Both superseded fixtures stay.
+
+    **CARD-204 (SCOPE+):** the fixture this class read against before that was
     ``proof_baseline_card204.json``, not ``proof_baseline_card172.json``.
     CARD-204 reverses FR-032's centred horizontal placement to
     right-aligned (mirrored by parity) and reserves/draws a placeholder QR
@@ -1316,10 +1372,28 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     """
 
     BASELINE = json.loads(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card222.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    CARD204_BASELINE = json.loads(
         (Path(__file__).parent / "fixtures" / "proof_baseline_card204.json").read_text(
             encoding="utf-8"
         )
     )
+
+    def test_every_trim_moved_off_the_card204_recording(self) -> None:
+        """The attribution, measured rather than written down.
+
+        CON-018's amended margins must have moved every one of these trims —
+        if one of them still matched CARD-204's recording, the amendment never
+        reached that trim and this class's new reference would be pinning the
+        wrong thing.
+        """
+        assert set(self.BASELINE["moved_from_card204"]) == set(self.BASELINE["digests"])
+        for key, digests in self.BASELINE["digests"].items():
+            assert digests != self.CARD204_BASELINE["digests"][key], key
 
     def test_the_baseline_covers_every_portrait_corpus_trim(self) -> None:
         assert set(self.BASELINE["digests"]) == {f"{w}x{h}" for w, h in CORPUS_TRIMS_CM}
@@ -1550,8 +1624,9 @@ class TestBookProof_FallbackLeadingTightensOnlyWhenNeeded:
     with a digit, so single steps wobble; the median does not).
     """
 
+    # 8.25 in square is REFUSED_TRIMS_CM's since CARD-222 (it carries no note
+    # at all now), so the tight pitch is pinned on the 8.5 in square alone.
     PITCHES = (
-        ("20.96", "20.96", 0, TIGHT_PITCH_PX),
         ("21.59", "21.59", 0, TIGHT_PITCH_PX),
         ("20.96", "15.24", 0, NORMAL_PITCH_PX),
         ("20.96", "15.24", 1, NORMAL_PITCH_PX),
@@ -1610,3 +1685,40 @@ class TestBookProof_FallbackLeadingTightensOnlyWhenNeeded:
         short = book_proof_module._Spot("short", 0, 0, width, count * TIGHT_PITCH_PX - 1)
         monkeypatch.setattr(book_proof_module, "_fallback_spots", lambda *_: (short,))
         assert book_proof_module._fallback_note(lines, layout, frame) is None
+
+
+# --------------------------------------------------------------------------
+# CARD-222 — the trim CON-018's amended margins put out of proof range
+# --------------------------------------------------------------------------
+
+
+class TestBookProof_RefusedTrims:
+    """A trim that carried its note until the margins moved, and now cannot.
+
+    The refusal itself is ``book_proof``'s own, already covered for a small
+    square by
+    ``TestBookProof_BandAndAnnotation.test_a_trim_with_no_room_for_the_note_is_refused_and_says_so``.
+    What this class records is **which** trims fall into it after CON-018's
+    amendment of 2026-10-17 (:data:`REFUSED_TRIMS_CM` carries the
+    measurement).
+    """
+
+    @pytest.mark.parametrize("width_cm,height_cm", REFUSED_TRIMS_CM)
+    def test_the_eight_and_a_quarter_inch_square_can_no_longer_be_proofed(
+        self, width_cm: str, height_cm: str
+    ) -> None:
+        """CARD-222: CON-018's amended margins took this trim's last spot.
+
+        It was a fallback trim — the note sat in the 30 x 30's blank clue
+        corner — and the amendment of 2026-10-17 takes 6.86 mm of height off
+        every page, more than the 4.86 mm of foot it had. Measured on the
+        refusal's own message: -2.0 mm clear below the drawing against a note
+        needing 4.4 mm, and neither the outer side strip nor the clue corner
+        holds it at 10 pt.
+
+        Asserted rather than dropped from the corpus (:data:`REFUSED_TRIMS_CM`
+        carries the reasoning): the owner cannot proof a book at this trim
+        today, and a card that buys the room back fails here and has to say so.
+        """
+        with pytest.raises(ValueError, match="no room for the proof note"):
+            proof_pages(_book1_margins(width_cm, height_cm))

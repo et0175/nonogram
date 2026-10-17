@@ -116,7 +116,7 @@ class TestPrintSpecValidator:
         assert spec_dict["trim_height_cm"] == "27.94"
         # CARD-115: an empty margin defaults to CON-018's Book 1 profile.
         assert spec_dict["gutter_margin_cm"] == "1.27"
-        assert spec_dict["outside_margin_cm"] == "0.95"
+        assert spec_dict["outside_margin_cm"] == "1.27"  # CON-018 amended 2026-10-17
 
 
 class TestBookScaffoldingFlow:

@@ -1321,29 +1321,53 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         # as well as by 6 and the next card to add a row or a gap should be
         # told what it is spending. Ungated since CARD-221: these are the
         # packaged face's metrics, which every host now letters in.
-        assert short == [], (
+        # **CARD-222: the seven shortest trims no longer clear it.** CON-018's
+        # amended top and bottom margins (0.55 in and 0.47 in, where every
+        # side was 0.375 in) take 81 px of height off every page, and the
+        # headroom this sweep measures was 55 px at its worst. So the trims
+        # from 10.00 to 10.60 cm now leave the last TOC row less than the
+        # folio's own 49 px line and that page prints without a page number;
+        # from 10.70 cm up every trim still clears it, Book 1's 27.94 cm with
+        # 1133 px to spare. The set is asserted exactly, not as an inequality,
+        # so a card that costs one more trim its folio fails here by name.
+        # Recorded as a measured consequence and surfaced for an owner
+        # decision (CARD-222's Worktree notes): the two ways to buy the 75 px
+        # back are a smaller ``TOC_GROUP_GAP_PT`` — the owner's own precedent,
+        # 8.5 -> 8.0 pt on 2026-10-14, but this would need 3.5 pt — or
+        # counting the group gaps into ``_toc_entries_per_page``'s capacity,
+        # which costs the shortest trims a second TOC page instead.
+        assert [height for height, _ in short] == [
+            "10.00",
+            "10.10",
+            "10.20",
+            "10.30",
+            "10.40",
+            "10.50",
+            "10.60",
+        ], (
             f"these trims leave the folio less than its own {folio_line} px "
             f"line: {short}. The group gaps have eaten the reservation "
             "`_toc_entries_per_page` makes for it (G-1) — at the 8.5 pt this "
             "constant carried into CARD-221, on this face, that list was "
             "exactly [('10.00', 47)] and the owner moved the gap to 8.0 to "
-            "empty it"
+            "empty it; CON-018's amended margins (CARD-222) refilled it with "
+            "the seven heights above"
         )
-        assert worst[0] == 55, (
-            f"the worst-case headroom is {worst[0]} px, recorded as 55 "
-            "(CARD-221 fix 1, 10.00 cm trim on the packaged face: 187 px "
-            "under eight rows less four 33 px gaps; it was 47 px at 8.5 pt, "
-            "2 px inside the folio's own line, and 59 px on the Arial those "
-            "8.5 pt were chosen against). It must not drift towards the "
-            f"folio's {folio_line} px without the move being deliberate"
+        assert worst[0] == -26, (
+            f"the worst-case headroom is {worst[0]} px, recorded as -26 "
+            "(the 10.00 cm trim on the packaged face, CON-018's amended "
+            "margins: 55 px before them at the same 8.0 pt gap, 47 px at the "
+            "8.5 pt CARD-221 inherited, 59 px on the Arial those 8.5 pt were "
+            "chosen against). It must not drift further without the move "
+            "being deliberate"
         )
-        assert worst[0] - folio_line == 6, (
-            "and the margin the owner chose 8.0 pt for (2026-10-14) over "
-            "the maximal 8.2 pt is 6 px: a fifth gap, or a ninth row, has "
-            "to be measured here rather than assumed"
+        assert folio_line - worst[0] == 75, (
+            "and what the margin amendment cost this page is 75 px: the "
+            "figure any fix has to buy back, measured here rather than "
+            "assumed"
         )
 
-    def test_the_shortest_storable_trim_leaves_its_folio_a_line_too(self) -> None:
+    def test_the_shortest_storable_trim_no_longer_leaves_its_folio_a_line(self) -> None:
         """The sweep's worst case, on its own, as its own arithmetic.
 
         **This test was an expected failure for one cycle.** CARD-221 split
@@ -1391,11 +1415,18 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         frame = _toc_frame_for(SimpleNamespace(trim_height_cm="10.00"))
         room = (frame.bottom - frame.top) - needed
 
-        assert room >= folio_ascent + folio_descent, (
+        # **CARD-222: this is the claim the margin amendment broke.** The
+        # 10.00 cm trim's eight rows and four gaps leave -26 px where the
+        # folio's own line needs 49, so that page prints unnumbered. Asserted
+        # as the measured deficit rather than deleted, and as an equality, so
+        # that the fix the owner chooses (see the sweep above) reds this test
+        # and has to restate it.
+        assert room == -26, (
             f"the 10.00 cm trim's eight rows and four gaps leave {room} px "
-            f"under the last row, and the folio's own line needs "
-            f"{folio_ascent + folio_descent} px"
+            f"under the last row, recorded as -26 against the folio's own "
+            f"{folio_ascent + folio_descent} px line"
         )
+        assert room < folio_ascent + folio_descent
 
     def test_the_shortest_trim_still_prints_its_folio_with_the_gaps_in_place(
         self, monkeypatch
@@ -1458,14 +1489,30 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         generator.create_toc_page(entries, 3)
         monkeypatch.setattr(ImageDraw.ImageDraw, "text", original)
 
-        assert folios == ["3"], (
-            "the shortest trim's TOC page must still carry its folio with "
-            f"the group gaps in place, and drew {folios}"
+        # **CARD-222**: on CON-018's amended margins this page loses its
+        # folio again — the rendered half of the -26 px the sweep above
+        # measures. Asserted as the omission it is: ``_draw_folio`` returns
+        # without drawing rather than printing over the last row, which is the
+        # behaviour that keeps the page readable while the headroom is
+        # negative. The positive, drawing-level guard moved to the shortest
+        # trim that still numbers its page (10.70 cm, the test below).
+        assert folios == [], (
+            "the shortest trim's TOC page has no room for a folio on the "
+            "amended margins and must omit it rather than overprint the last "
+            f"row, and drew {folios}"
         )
         font = _guide_face(entry_px)
         ascent, descent = font.getmetrics()
         headroom = frame.bottom - (max(rows) + ascent + descent)
-        assert headroom >= 0, "the last row's own ink must stay inside the frame"
+        # Negative on the amended margins: the last row's own ink reaches
+        # below the frame on this trim, which is the same -26 px the sweep
+        # measures and the reason the folio is omitted above. Asserted so the
+        # page's real state is on the record rather than implied by the
+        # omission alone.
+        assert headroom == -26, (
+            f"the drawn page leaves {headroom} px under its last row, "
+            "recorded as -26 (CON-018's amended margins, CARD-222)"
+        )
         # The recorded worst case, read off the real drawing instead of off
         # this file's own arithmetic, is asserted in the test below rather
         # than here (CARD-221): this test is expected to fail, and a pinned
@@ -1475,20 +1522,24 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
     def test_the_shortest_trim_the_shipped_gap_numbers_prints_its_folio(
         self, monkeypatch
     ) -> None:
-        """The rendered guard, on the second-tightest storable trim.
+        """The rendered guard, on the tightest trim that still numbers its page.
 
-        10.10 cm: the next height a book can store above ``MIN_TRIM_CM``.
-        Added by CARD-221 while the 10.00 cm test above was an expected
-        failure — at the then-shipped 8.5 pt that page lost its folio and
-        this one kept it (58 px against 47), so without this the
+        Added by CARD-221 at 10.10 cm while the 10.00 cm test above was an
+        expected failure — at the then-shipped 8.5 pt that page lost its folio
+        and this one kept it (58 px against 47), so without this the
         drawing-level half of the guard would have gone from green to
-        expected-failure with nothing left asserting it. The owner's move to
-        8.0 pt numbers both, and both are kept: these are the two heights
-        where a face or a row that costs a few pixels shows up first, and
-        the pair pins 66 px here against 55 px there.
+        expected-failure with nothing left asserting it.
+
+        **Retargeted to 10.70 cm by CARD-222**, for exactly that reason and by
+        exactly that precedent: CON-018's amended margins take 81 px of height
+        off every page, so the seven heights from 10.00 to 10.60 cm now lose
+        their TOC folio (the sweep above asserts that set) and 10.70 cm is the
+        shortest that keeps it. The positive claim still has a trim it can
+        hold, and it is held at the tightest one, which is where a face or a
+        row that costs a few pixels shows up first.
         """
         book = _book("card-221-tightest-numbered-trim")
-        book.trim_height_cm = "10.10"
+        book.trim_height_cm = "10.70"
         generator = BookPDFGenerator(book)
         entries = _structural_shape(
             ("Easy", "Puzzles 1–60", 5),
@@ -1504,8 +1555,8 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         shortest.trim_height_cm = "10.00"
         shortest_frame = page_frame(BookPDFGenerator(shortest).page_spec(3))
         assert (shortest_frame.bottom - shortest_frame.top) < (frame.bottom - frame.top), (
-            "this test's premise: 10.10 cm is the tighter-but-one trim, so "
-            "only the 10.00 cm page above is expected to lose its folio"
+            "this test's premise: 10.00 cm is tighter than this trim, so the "
+            "page above is the one expected to lose its folio"
         )
 
         original = ImageDraw.ImageDraw.text
@@ -1531,10 +1582,12 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         )
         ascent, descent = _guide_face(entry_px).getmetrics()
         headroom = frame.bottom - (max(rows) + ascent + descent)
-        assert headroom == 66, (
+        assert headroom == 57, (
             f"the drawn page leaves {headroom} px under its last row, "
-            "recorded as 66 — 11 px more than the 10.00 cm trim's 55, which "
-            "is the 0.10 cm of extra height"
+            "recorded as 57 — 83 px more than the 10.00 cm trim's -26, which "
+            "is the 0.70 cm of extra height (CARD-222 retargeted this test "
+            "from 10.10 cm, where the figure was 66 px before CON-018's "
+            "margins were amended and is now negative)"
         )
 
         # And the worst case's own figure, off the drawing rather than off
@@ -1558,12 +1611,13 @@ class TestBookToc_GroupsAreSetOffFromWhatPrecedesThem:
         shortest_headroom = shortest_frame.bottom - (
             max(shortest_rows) + ascent + descent
         )
-        assert shortest_headroom == 55, (
+        assert shortest_headroom == -26, (
             f"the 10.00 cm trim's drawn page leaves {shortest_headroom} px "
-            "under its last row, recorded as 55 — the sweep's own worst "
+            "under its last row, recorded as -26 — the sweep's own worst "
             "case, measured here through `create_toc_page` rather than "
-            f"computed, and 6 px clear of the {sum(_band_font(entry_px).getmetrics())} "
-            "px the folio's line needs"
+            f"computed, and {sum(_band_font(entry_px).getmetrics())} px short "
+            "of the folio's own line (55 px clear of it before CON-018's "
+            "margins were amended; CARD-222)"
         )
 
 

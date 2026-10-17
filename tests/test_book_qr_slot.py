@@ -57,7 +57,13 @@ QR_SLOT_PX = round(QR_SLOT_MM / 25.4 * DPI)
 BOOK1_WIDTH_MM = 8.5 * 25.4
 BOOK1_HEIGHT_MM = 11 * 25.4
 GUTTER_MM = 0.5 * 25.4
-OUTSIDE_MM = TOP_MM = BOTTOM_MM = 0.375 * 25.4
+# CON-018's margins as amended 2026-10-17 (CARD-222): the outside margin
+# moved 0.375 -> 0.5 in, the top to 0.55 in and the bottom to 0.47 in, and the
+# gutter deliberately stayed at KDP's 0.5 in. Written out here, as this file
+# writes every other figure out, rather than imported.
+OUTSIDE_MM = 0.5 * 25.4
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 BAND_MM = 12.0
 STANDARD_CELL_MM = 7.5
 MIN_THIN_RULE_MM = 0.25

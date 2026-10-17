@@ -64,13 +64,19 @@ from tests.helpers.page_ink import drawing_of, pdf_page_boxes
 from tests.helpers.pdf_pages import pdf_pages
 
 #: CON-018's Book 1 profile, in millimetres, written out here rather than
-#: imported: 8.5 x 11 in, 0.5 in gutter, 0.375 in outside/top/bottom, the
+#: imported: 8.5 x 11 in, 0.5 in gutter, 0.5 in outside, 0.55 in top,
+#: 0.47 in bottom (CON-018 as amended 2026-10-17), the
 #: 12 mm title band (TERM-028) and NFR-008's 7.5 mm standard cell.
 BOOK1_WIDTH_MM = 8.5 * 25.4
 BOOK1_HEIGHT_MM = 11 * 25.4
 GUTTER_MM = 0.5 * 25.4
-OUTSIDE_MM = 0.375 * 25.4
-TOP_MM = BOTTOM_MM = 0.375 * 25.4
+# CON-018's margins as amended 2026-10-17 (CARD-222): the outside margin
+# moved 0.375 -> 0.5 in, the top to 0.55 in and the bottom to 0.47 in, and the
+# gutter deliberately stayed at KDP's 0.5 in. Written out here, as this file
+# writes every other figure out, rather than imported.
+OUTSIDE_MM = 0.5 * 25.4
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 BAND_MM = 12.0
 STANDARD_CELL_MM = 7.5
 
@@ -252,7 +258,12 @@ def _interior(book: Book, puzzles: list[dict]) -> list:
 
 
 class TestBookPdf_CellSizedForBookTrimNotA4:
-    """AC-175 — a 30x30 with 9-deep gutters draws a 4.97 mm cell on Book 1."""
+    """AC-175 — a 30x30 with 9-deep gutters draws a 4.885 mm cell on Book 1.
+
+    Re-measured on CON-018's amended margins (2026-10-17): 190.5 mm of usable
+    width over 39 cells, where the retired 0.375 in outside margin gave
+    193.675 / 39 = 4.966 mm.
+    """
 
     PUZZLE = (30, 30, 9)
 
@@ -263,22 +274,24 @@ class TestBookPdf_CellSizedForBookTrimNotA4:
 
         drawn_mm = _mm(drawing_of(page).cell)
 
-        assert abs(drawn_mm - 4.9660) < CELL_TOLERANCE_MM, drawn_mm
+        assert abs(drawn_mm - 4.8853) < CELL_TOLERANCE_MM, drawn_mm
         expected = _expected_cell_mm(*self.PUZZLE)
         assert abs(drawn_mm - expected) < CELL_TOLERANCE_MM, (drawn_mm, expected)
 
     def test_it_is_not_the_cell_the_a4_layout_used_to_give_it(self):
-        """The defect this AC pins: 193.675 mm over 39 cells, not A4's 186 mm."""
+        """The defect this AC pins: 190.5 mm over 39 cells, not A4's 186 mm."""
         book = _book()
         page = _interior(book, [_puzzle(*self.PUZZLE)])[4]
 
         a4_cell_mm = (210.0 - 2 * 12.0) / 39
         assert abs(a4_cell_mm - 4.7692) < 1e-3  # what the A4 sheet gave it
-        assert _mm(drawing_of(page).cell) - a4_cell_mm > 0.15
+        # 4.885 against A4's 4.769: the gap narrowed with the amended
+        # margins (it was 4.966) and the book's cell is still the larger.
+        assert _mm(drawing_of(page).cell) - a4_cell_mm > 0.1
 
 
 class TestBookPdf_CellFollowsStoredTrim:
-    """AC-176 — the same 15x15 draws 5.92 mm on a 6 x 9 in book, 7.5 mm on 8.5 x 11.
+    """AC-176 — the same 15x15 draws 5.77 mm on a 6 x 9 in book, 7.5 mm on 8.5 x 11.
 
     Both books are set up through Print setup (CARD-136), so the criterion is
     about the trim the owner chose and the product stored.
@@ -293,7 +306,9 @@ class TestBookPdf_CellFollowsStoredTrim:
 
         drawn_mm = _mm(drawing_of(page).cell)
 
-        assert abs(drawn_mm - 5.9170) < CELL_TOLERANCE_MM, drawn_mm
+        # 127.0 mm of usable width over 22 cells on the amended margins
+        # (130.175 / 22 = 5.917 mm on the retired ones).
+        assert abs(drawn_mm - 5.7743) < CELL_TOLERANCE_MM, drawn_mm
         expected = _expected_cell_mm(
             *self.PUZZLE, width_mm=width_mm, height_mm=height_mm
         )
@@ -391,7 +406,7 @@ class TestBookPdf_EmptyMarginsFallBackToBook1Profile:
 
         drawn_mm = _mm(drawing_of(page).cell)
 
-        assert abs(drawn_mm - 4.9660) < CELL_TOLERANCE_MM, drawn_mm
+        assert abs(drawn_mm - 4.8853) < CELL_TOLERANCE_MM, drawn_mm
         assert abs(drawn_mm - _expected_cell_mm(*self.PUZZLE)) < CELL_TOLERANCE_MM
 
     def test_the_page_is_the_profile_trim(self):
@@ -493,7 +508,7 @@ def _mirrored_pages():
 
 
 class TestBookPdf_DrawingCentredOnRightHandPage:
-    """AC-274 — on interior page 5 the drawing's left edge is 41.375 mm in.
+    """AC-274 — on interior page 5 the drawing's left edge is 38.2 mm in.
 
     **CARD-204 (reading (b)) changed the actual number; this class's own
     name and AC-274's text still say "centred" because retiring/rewording
@@ -501,17 +516,18 @@ class TestBookPdf_DrawingCentredOnRightHandPage:
     its own Worktree notes) — the test below asserts what FR-032 actually
     requires today (flush right, mirrored by parity), not what AC-274's
     stale prose still says.** 15x15, depth 7: drawing width 22 x 7.5 mm =
-    165 mm; usable width 193.675 mm; spare 28.675 mm, now entirely on the
-    gutter (left) side rather than split in half — gutter margin 12.7 mm
-    plus the whole spare = 41.375 mm, not 12.7 + half of it.
+    165 mm; usable width 190.5 mm (CON-018 as amended 2026-10-17); spare
+    25.5 mm, now entirely on the gutter (left) side rather than split in half
+    — gutter margin 12.7 mm plus the whole spare = 38.2 mm, not 12.7 + half
+    of it.
     """
 
-    def test_the_drawing_sits_27_05_mm_from_the_left_trim_edge(self):
+    def test_the_drawing_sits_38_2_mm_from_the_left_trim_edge(self):
         page = _mirrored_pages()[4]  # interior page 5, right-hand
 
         left_mm = _mm(drawing_of(page).left)
 
-        assert abs(left_mm - 41.375) < EDGE_TOLERANCE_MM, left_mm
+        assert abs(left_mm - 38.2) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_left(self):
         page = _mirrored_pages()[4]
@@ -520,13 +536,13 @@ class TestBookPdf_DrawingCentredOnRightHandPage:
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
-        # 28.675 mm of slack, all of it on the gutter side (CARD-204): the
+        # 25.5 mm of slack, all of it on the gutter side (CARD-204): the
         # drawing is flush with the outer (right) edge of the usable area.
-        assert abs((left_mm - GUTTER_MM) - 28.675) < EDGE_TOLERANCE_MM
+        assert abs((left_mm - GUTTER_MM) - 25.5) < EDGE_TOLERANCE_MM
 
 
 class TestBookPdf_DrawingCentredOnLeftHandPage:
-    """AC-275 — on interior page 6 the same drawing's left edge is 9.525 mm in.
+    """AC-275 — on interior page 6 the same drawing's left edge is 12.7 mm in.
 
     CARD-200 (SCOPE+): the TOC's own one page moved this card's illustrative
     page from 4 to 6 (and its parity's own illustration from the second
@@ -534,17 +550,18 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
     see `_MIRRORED_PUZZLE`'s own note) — the AC's claim (a left-hand puzzle
     page's drawing sits at a fixed offset) is unchanged in *kind*, only which
     page demonstrates it and (CARD-204, reading (b)) what that offset is: now
-    exactly the outside margin (9.525 mm), not 23.875 mm — see this class's
+    exactly the outside margin (12.7 mm since the 2026-10-17 amendment,
+    9.525 mm before it), not 23.875 mm — see this class's
     own docstring note on ``TestBookPdf_DrawingCentredOnRightHandPage``,
     which applies here too.
     """
 
-    def test_the_drawing_sits_23_875_mm_from_the_left_trim_edge(self):
+    def test_the_drawing_sits_12_7_mm_from_the_left_trim_edge(self):
         page = _mirrored_pages()[5]  # interior page 6, left-hand
 
         left_mm = _mm(drawing_of(page).left)
 
-        assert abs(left_mm - 9.525) < EDGE_TOLERANCE_MM, left_mm
+        assert abs(left_mm - 12.7) < EDGE_TOLERANCE_MM, left_mm
 
     def test_that_is_the_usable_width_centred_with_the_gutter_on_the_right(self):
         page = _mirrored_pages()[5]
@@ -562,13 +579,20 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
         centring's own invariant, where the spare split evenly cancelled out
         of the subtraction. Flush-right and flush-left anchor at *different*
         edges, so the difference is ``(gutter - outside) + spare`` instead;
-        pinned here at this puzzle's own known spare (28.675 mm) rather than
-        silently dropped."""
+        pinned here at this puzzle's own known spare (25.5 mm on CON-018's
+        amended margins, 28.675 mm before them) rather than silently dropped.
+
+        **Since the 2026-10-17 amendment ``gutter - outside`` is zero** — both
+        side margins are 0.5 in — so the difference below is the spare alone.
+        The term is kept in the expression rather than dropped: the formula is
+        the rule (EC-032) and it still bites on a book storing unequal
+        margins, which is where ``tests/test_book_page_frame.py`` proves it.
+        """
         pages = _mirrored_pages()
 
         right_hand = drawing_of(pages[4]).left
         left_hand = drawing_of(pages[5]).left
-        spare_mm = 28.675
+        spare_mm = 25.5
 
         assert abs(_mm(right_hand - left_hand) - ((GUTTER_MM - OUTSIDE_MM) + spare_mm)) < EDGE_TOLERANCE_MM
 
@@ -685,7 +709,7 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE, name=f"P{n}") for n in range(3)])
 
         lefts = [_mm(drawing_of(page).left) for page in pages[4:7]]
-        spare_mm = 28.675
+        spare_mm = 25.5
 
         assert abs(lefts[0] - lefts[2]) < EDGE_TOLERANCE_MM
         assert abs(lefts[0] - lefts[1] - ((GUTTER_MM - OUTSIDE_MM) + spare_mm)) < EDGE_TOLERANCE_MM
@@ -807,8 +831,8 @@ class TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage:
         # CARD-204: flush-right vs flush-left no longer differ by a
         # cell-independent gutter - outside (see the docstring note on
         # TestBookPdf_DrawingCentredOnLeftHandPage's own equivalent test) —
-        # this puzzle's known spare (28.675 mm) is added too.
-        spare_mm = 28.675
+        # this puzzle's known spare (25.5 mm) is added too.
+        spare_mm = 25.5
 
         assert abs(second_mm - first_mm) > EDGE_TOLERANCE_MM
         assert abs(first_mm - second_mm - ((GUTTER_MM - OUTSIDE_MM) + spare_mm)) < EDGE_TOLERANCE_MM

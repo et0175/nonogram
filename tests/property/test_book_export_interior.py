@@ -74,7 +74,14 @@ FINALISE_CASES = CASES - CASES // len(ROUTES)
 #: written out rather than imported, so the expected edge below is a second
 #: implementation of FR-030/FR-032 and not a re-derivation.
 GUTTER_MM = 0.5 * 25.4
-OUTSIDE_MM = TOP_MM = BOTTOM_MM = 0.375 * 25.4
+# CON-018 as amended 2026-10-17 (CARD-222): outside 0.5 in, top 0.55 in,
+# bottom 0.47 in, the gutter unchanged at 0.5 in — so the gutter and the
+# outside margin are now equal and the mirrored-margin difference below is
+# zero. The *side* each margin is on still differs by parity, which is what
+# ``_expected_drawing_left_mm`` reads.
+OUTSIDE_MM = 0.5 * 25.4
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 USABLE_WIDTH_MM = 8.5 * 25.4 - GUTTER_MM - OUTSIDE_MM
 USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 12.0
 STANDARD_CELL_MM = 7.5

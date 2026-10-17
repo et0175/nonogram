@@ -3759,8 +3759,20 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         """ADR-0036/R3's declared check, now asked at both thresholds."""
         ink = _book_ink(None)
         assert ink.pages >= 13, f"the baseline interior lost pages: {ink.pages}"
+        # Both cards' claims, kept: CARD-243's per-level loop (the floor and the
+        # quiet-book assertion hold at EACH measured threshold, not aggregated)
+        # and CARD-222's lowered floor. CON-018's amended margins took the region
+        # count down from just over 3000 — the usable area is 1.6% narrower and
+        # 2.6% shorter, so every grid not already at the 7.5 mm cap prints
+        # smaller and merges ink that used to separate. The floor is set from a
+        # measurement of the COMBINED state (amended margins AND two thresholds),
+        # taken at the rebase, because neither card measured that tree: CARD-243
+        # measured 3222 at both levels on the old margins, CARD-222 measured 2640
+        # at one level on the new ones. It stays just under the measurement, so it
+        # is a tripwire on a page that stops carrying marks rather than a
+        # restatement of today's number.
         for level in MEASURED_LEVELS:
-            assert ink.at[level].regions >= 3000, (
+            assert ink.at[level].regions >= REGION_FLOOR, (
                 f"only {ink.at[level].regions} regions on {ink.pages} pages at "
                 f"level {level} — these pages have stopped carrying the marks "
                 "this test exists to tolerate"
