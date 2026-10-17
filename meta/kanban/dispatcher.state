@@ -7,16 +7,7 @@ mode: interactive
 # in the main repo (it is tracked, and the wave-37 state was uncommitted). Rebuilt here
 # from the session record and committed.
 max_concurrent_override: 2
-active:
-  - id: CARD-239
-    branch: card/239-timing-guard-bounds
-    worktree: ../PythonProject4-card-239
-    phase: fix
-    review_cycle: 2
-    score: 7.5
-    head: e9f0e8f
-    note: "escalation RESOLVED by owner decision 2026-10-17: SPLIT. Final bounded pass - F-202 only, F-201 recorded as a bound, CARD-242 carries the taint step. No cycle 3."
-
+active: []   # wave 42 complete, 4/4 merged
 previously_escalated:
   - id: CARD-238
     reason: "family regression occurrence 2 + max_cycles reached: a guard's stated coverage exceeded its mechanism in all 3 cycles; MUT-L (os.listdir of meta/kanban + host-state skip + live-log read = the original defect verbatim) survives all guards at rc=0 because _LISTERS tests the receiver and os.listdir takes an argument"
@@ -232,4 +223,41 @@ conflict_edges:
 #     for CARD-228's method half) the guard converges; where none does, default-deny - make
 #     anything the guard cannot parse a FAILURE - is the pattern that converges, and even that
 #     moves the frontier rather than closing it (CARD-228 cycle 3).
-last_updated: '2026-10-16T20:45:00Z'
+# NOTE 2026-10-17T01:25Z: WAVE 42 COMPLETE - 4 of 4 merged, 2 escalations both resolved by
+# owner decision rather than by another review cycle.
+#   CARD-213 ✓ cbd5a8e  9.0 c1, AC/EC/G 21/21, 0.2d against 0.5d
+#   CARD-240 ✓ 9f0ab10  9.0 c1, 0.1d against 0.25d
+#   CARD-228 ✓ 08eecf3  8.0/8.5/8.0, 3 cycles + escalation, 0.5d against 0.5d -> CARD-241
+#   CARD-239 ✓ c0ab383  8.0/7.5, 2 cycles + escalation (split), 0.6d against 1d -> CARD-242
+# Wave smoke test: satisfied by CARD-239's merge gate (7727 passed, 9 skipped, 826s), which ran on
+# a tree containing all four cards' code and is byte-identical to main's code tree
+# (git diff 9665673 HEAD -- . ':(exclude)meta' empty). waves.yml declares no wave-42 checkpoint.
+# THE WAVE'S THROUGH-LINE, and the thing for the retrospective's promotion pass: TWICE, the presence
+# or absence of a DERIVABLE AUTHORITY predicted whether a guard converged. CARD-228's method half
+# (dir(ImageDraw.ImageDraw)) and CARD-239's stdlib surface (dir(os) and friends) were sound from
+# their first pass and survived adversarial probing untouched. Their sibling halves - vertex shapes,
+# receiver spellings, module-scope silencing - had no authority to derive from, and took three
+# cycles and two cycles respectively, each closing the named routes and reopening one level down.
+# Three successively sharper statements of one family came out of waves 41-42:
+#   CARD-238: a set a guard consults needs a completeness test written BEFORE the set, and a claim
+#             about coverage needs a control that can fail.
+#   CARD-228: a completeness test over hand-enumerated SYNTACTIC SHAPES is not a completeness test,
+#             because no authority enumerates the shapes. Where none exists, default-deny converges
+#             best - and even that moves the frontier rather than closing it.
+#   CARD-239: AN EXEMPTION IS A CLAIM, and it needs the same control a set member needs - caught
+#             WITH it, missed WITHOUT it, residue recorded as a bound. Names the exemption itself,
+#             which both earlier cards reached for as the honest escape hatch.
+# ALSO FOR THE RETROSPECTIVE:
+#  - Mutation verdicts from a BATCHED run are not trustworthy (false KILLED verdicts from one parent
+#    process). Found in the REVIEW station's own instrument. Any "all N mutants caught" record from a
+#    batched run is worth re-deriving - CARD-234's six and CARD-228's own ten included.
+#  - `dismissed` vs `deferred` on a review finding is load-bearing: `dismissed` feeds the
+#    cross-project review_false_positives signal. A real finding deferred to a follow-up card must be
+#    `deferred`, or every future review on every project learns not to flag it. Drawn correctly on
+#    CARD-239 c1 and CARD-228 c3, regressed once on CARD-239's final pass, corrected at this station.
+#  - FIVE figures were corrected by downstream agents after I relayed them from reports without
+#    re-deriving them. That is a pattern about this station, not about the agents.
+# NEXT: owner chose close-wave-and-retrospective. Lane A is unblocked but FIVE architect-station
+# amendments are owed before it runs clean; CARD-241 (P1, what four cards lean on) and CARD-242 are
+# both Ready.
+last_updated: '2026-10-17T01:25:00Z'

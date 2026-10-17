@@ -1,6 +1,6 @@
 # CARD-239: The timing-log guards' remaining bounds, and the one place that reads the log on purpose
 
-**Status:** review
+**Status:** done
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,7 +9,7 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/239-timing-guard-bounds
-**Worktree:** ../PythonProject4-card-239
+**Worktree:** — (removed at merge)
 **Source:** CARD-238's five review cycles, 2026-10-15/16 — every item below was measured there and deliberately deferred rather than discovered here
 **Idea:** —
 **Wave:** 42
@@ -17,9 +17,9 @@
 **Touches:** tests/test_suite_profile.py, meta/profiling/rank_durations.py, .gitignore, pyproject.toml
 **Review score:** 8.0 (c1) → **7.5** (c2/3) — below min_score 8, min_improvement missed, trajectory DOWN
 **Started:** 2026-10-16T20:45:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-17T01:24:56Z
+**Actual:** 0.6d
+**Merge commit:** c0ab383
 **Blocked by:** — (escalation resolved 2026-10-17 by owner decision: split — fix F-202, record F-201, card the taint step as CARD-242)
 
 ## What to implement
@@ -837,3 +837,25 @@ controls spell their destination `PATH` and the one that shells out does so insi
   that main's corrected cycle-2 YAML — the `dismissed` → `deferred` fix — is untouched, since the branch
   does not carry that file. The agent had warned about exactly this shape for the cycle-2 YAML and
   avoided it; I created it for the sweep file.
+- [Merge gate] **7727 passed, 9 skipped, exit 0 in 826.21s** on the rebased branch, run alone.
+- [Closed] merged **c0ab383**, actual **0.6d against 1d**. 2 review cycles (8.0, 7.5), 3 fix passes,
+  1 owner escalation resolved as a split, 1 follow-up card (CARD-242). **G-1 held end to end**: the
+  owner's `meta/kanban/suite-timing.log` is md5 `be3dfae8a428d62aec0087926c89b44d` — the same value it
+  carried before this card started, verified again after the merge.
+- [Wave gate] **The wave-42 smoke test is satisfied by this merge gate, recorded as a decision rather
+  than skipped.** Evidence, not assumption: the gate ran on the branch rebased onto main at `dfdaabb`,
+  which already contained CARD-213, CARD-240 and CARD-228 — so all four of the wave's cards' code was
+  in that tree, which is exactly the integration the wave smoke test exists to check. And
+  `git diff 9665673 HEAD -- . ':(exclude)meta'` is **empty**: main's code tree is byte-identical to the
+  gated tree. The only difference is `meta/kanban/cards/CARD-239.md`, and I checked that no test reads
+  card files — every `kanban/cards` hit under `tests/` is a docstring or a synthetic control string in
+  the audit's own fixtures. Re-running would have burned 14 minutes on a provably identical tree.
+  `waves.yml` declares no wave-42 checkpoint, so that step skips per the procedure.
+- [Retrospective material] the card's own shape is the lesson: **0.6d against 1d of estimate, yet two
+  review cycles and three fix passes** — and the work it was cut to do was never in doubt. What cost
+  the cycles was the *second* guard module, which had to make a claim about completeness over a surface
+  (module-scope silencing) that has **no authority to derive from**. The first module, which does have
+  one (`dir(os)` and friends), was sound from its first pass and survived two cycles of adversarial
+  probing untouched. That is the same split CARD-228 found between its method half (`dir(ImageDraw)`,
+  sound from cycle 1) and its vertex/receiver halves (three cycles, three route families). **Twice in
+  one wave, the presence or absence of a derivable authority predicted whether a guard converged.**
