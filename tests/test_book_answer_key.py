@@ -133,8 +133,20 @@ def _ink(page: Image.Image) -> np.ndarray:
 ANSWER_FLOOR_MM = 3.19
 
 #: The first square answer whose six-up cell falls under that floor on the
-#: Book 1 profile. INV-011 refuses it a six-up page.
+#: Book 1 profile, on a page with no level heading. INV-011 refuses it a
+#: six-up page.
+#:
+#: **The two regimes now part**, since CON-018's margins were amended
+#: (2026-10-17, CARD-222): the narrower usable width moves the headed page's
+#: first breach one side earlier than the bare page's, where both used to be
+#: 25. Measured: bare, 24 gives 3.215 mm (clear) and 25 gives 3.087 mm (under);
+#: with a heading, 24 already gives 3.104 mm. Each test below names the
+#: constant of its own regime instead of one standing for both. 20 on the
+#: longest side — INV-011's own threshold — is clear in both.
 FIRST_SIX_UP_BREACH = 25
+
+#: The same, on a page that carries a level heading: one side earlier.
+FIRST_SIX_UP_BREACH_HEADED = 24
 
 
 class TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor:
@@ -162,22 +174,34 @@ class TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor:
     def test_the_largest_answer_left_six_up_clears_the_floor(
         self, heading: Optional[str]
     ) -> None:
-        """20 on the longest side, six-up: 3.97 mm bare, 3.84 mm under a heading."""
+        """20 on the longest side, six-up: 3.86 mm bare, 3.72 mm under a heading."""
         assert self._cell_mm(SIX_UP_LONGEST_SIDE, SIX_UP, heading) >= ANSWER_FLOOR_MM
 
-    @pytest.mark.parametrize("heading", [None, "Easy"])
+    @pytest.mark.parametrize(
+        "heading,side",
+        [(None, FIRST_SIX_UP_BREACH), ("Easy", FIRST_SIX_UP_BREACH_HEADED)],
+    )
     def test_an_answer_the_rule_refuses_six_up_would_have_broken_the_floor(
-        self, heading: Optional[str]
+        self, heading: Optional[str], side: int
     ) -> None:
-        """25x25 six-up: 3.18 mm bare, 3.07 mm headed — and nothing raises."""
-        assert self._cell_mm(FIRST_SIX_UP_BREACH, SIX_UP, heading) < ANSWER_FLOOR_MM
+        """25x25 six-up: 3.09 mm bare; a headed page breaks it at 24 (3.10 mm).
 
-    @pytest.mark.parametrize("heading", [None, "Easy"])
+        Each regime is asked about its own first breach (see
+        ``FIRST_SIX_UP_BREACH``): the margin amendment of 2026-10-17 moved the
+        headed page's one side earlier, and asking both about 25 would have
+        left the headed case asserting something a side too late.
+        """
+        assert self._cell_mm(side, SIX_UP, heading) < ANSWER_FLOOR_MM
+
+    @pytest.mark.parametrize(
+        "heading,side",
+        [(None, FIRST_SIX_UP_BREACH), ("Easy", FIRST_SIX_UP_BREACH_HEADED)],
+    )
     def test_the_four_up_page_the_rule_gives_it_instead_clears_the_floor(
-        self, heading: Optional[str]
+        self, heading: Optional[str], side: int
     ) -> None:
         """And the page INV-011 does give that answer is above the floor."""
-        assert self._cell_mm(FIRST_SIX_UP_BREACH, FOUR_UP, heading) >= ANSWER_FLOOR_MM
+        assert self._cell_mm(side, FOUR_UP, heading) >= ANSWER_FLOOR_MM
 
     def test_the_threshold_is_conservative_and_this_is_by_how_much(self) -> None:
         """20 is not the tight bound, and the rationale must not read as one."""
@@ -187,7 +211,7 @@ class TestBookAnswerKey_SixUpRuleKeepsTheAnswerCellAboveTheFloor:
             if self._cell_mm(side, SIX_UP, "Easy") < ANSWER_FLOOR_MM
         ]
         assert breaches, "no square answer in range breaks the floor six-up"
-        assert breaches[0] == FIRST_SIX_UP_BREACH
+        assert breaches[0] == FIRST_SIX_UP_BREACH_HEADED
         assert SIX_UP_LONGEST_SIDE < breaches[0]
 
 

@@ -95,9 +95,18 @@ A bound book puts the gutter margin on the binding side: on the left of right-ha
   struck from the rule's comment in the same diff that closed the route
   (`test_the_struck_bound_and_the_closed_route_agree`, red in both directions).
   **What that cost, measured rather than assumed:** the book's own margin to the closest
-  legitimate mark falls from 1.8859 tolerances to 1.8182 and changes hands from `fill` to
+  legitimate mark falls from 1.8855 tolerances to 1.8182 and changes hands from `fill` to
   `aspect`; both tolerances keep their values, because the re-measurement against the wider
-  population says so (`fill`'s own room on the book is unchanged at 1.8859). Reading the pages
+  population says so (`fill`'s own room on the book is unchanged at 1.8855 — it was 1.8859 at
+  both thresholds until CON-018's amended margins printed the block that sets it one row
+  taller, which is a fourth-decimal move and no change of hands). `aspect`'s own room moved
+  under those margins too, at the widened threshold only: 47.1809 → **46.5789**, because the
+  guide-page rule that sets it is 980 x 95 on the narrowed text block rather than 981 x 94;
+  at the black threshold it is **unchanged at 2.2727**, set by a 6 x 11 stem whose ratio the
+  page width cannot touch. **Neither tolerance's own value was altered to keep any of this
+  green** — `ROUND_FILL_TOLERANCE` is still 0.12 and `ROUND_ASPECT_TOLERANCE` still 0.2 —
+  and all four figures are re-derived on the amended margins by
+  `test_each_tolerances_own_room_on_the_book_is_measured`. Reading the pages
   at two thresholds rather than one is recorded in `meta/profiling/card-243-two-threshold-cost.md`.
   **What is left open** is one half of a sentence rather than two: a round mark in one of
   CARD-228's six recorded spellings, drawn on a surface nobody renders. Three narrower bounds

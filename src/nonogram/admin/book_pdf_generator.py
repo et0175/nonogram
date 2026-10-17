@@ -26,7 +26,12 @@ page (FR-032) — which is COMP-007's arithmetic, not this module's.
 number it uses is read off :func:`~nonogram.export.layout.compute_layout`
 called with the book's spec: the trim and the usable area through
 :func:`page_frame`, the placed drawing through
-:func:`~nonogram.export.pdf.render_pages`. The only thing positioned here is
+:func:`~nonogram.export.pdf.render_pages`, and — since CARD-222 — a puzzle
+page's **frame** through :func:`~nonogram.export.layout.interior_frame`: the
+two rules' rows and weights, the puzzle area between them, the inner side the
+grid-size label is set against and the centre the folio is set at. This module
+strokes those and places nothing (:func:`_draw_page_frame`, :func:`_draw_rule`,
+:func:`grid_size_label`). The only thing positioned here is
 text the layout knows nothing about — the guide page's lines and the divider's
 word — and it is positioned against the usable area the layout reported. The
 guide page's worked example (CARD-167) is laid out by ``compute_layout`` on the
@@ -376,9 +381,12 @@ from nonogram.export.layout import (
     ANSWER_TEXT_FONT_MM,
     ANSWER_TILE_GAP_MM,
     DPI,
+    INTERIOR_FOOTER_LINE_PT,
     DifficultyDots,
     HeaderBand,
+    InteriorFrame,
     Layout,
+    PageRule,
     PageSpec,
     PairLayout,
     QrSlot,
@@ -388,6 +396,7 @@ from nonogram.export.layout import (
     compute_pair_layout,
     difficulty_dots,
     header_band,
+    interior_frame,
     qr_slot,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
@@ -507,6 +516,28 @@ GUIDE_PAGE_COUNT = 2
 #: equivalent) — a page number needs no more emphasis than the caption it
 #: shares a corner with, and no setting below the floor is ever added.
 FOLIO_PT = 10.0
+
+#: The grid-size label's own type, in points (CARD-222) — CON-020's floor, the
+#: same size and the same reasoning as :data:`FOLIO_PT`, which it shares the
+#: footer line with: a page's two smallest marks are set alike so the line
+#: reads as one line. Read from COMP-007's
+#: :data:`~nonogram.export.layout.INTERIOR_FOOTER_LINE_PT` rather than
+#: restated, because that is the figure the footer band's own depth is
+#: measured from: a label set larger than the band was built for would print
+#: into the QR icon's row (G-1).
+SIZE_LABEL_PT = INTERIOR_FOOTER_LINE_PT
+
+#: What stands between a puzzle's width and its height in the footer's
+#: grid-size label (CARD-222): a lower-case ``x`` with a space either side,
+#: ``"20 x 20"``, exactly as this card's AC-3 spells it.
+#:
+#: **ASCII, deliberately.** The owner's artifact draws a multiplication sign
+#: (U+00D7) and DejaVu Sans covers it, but the interior's whole character
+#: repertoire is recorded and asserted glyph by glyph
+#: (``tests/test_book_interior_face.py``), and an extra glyph in it is a
+#: standing commitment for every future face. The AC spells the ASCII form, so
+#: no glyph is added for a mark the AC does not ask for.
+SIZE_LABEL_SEPARATOR = " x "
 
 #: How many digits of a page number :func:`_folio_reserve_px` plans room for
 #: on a two-up page's lower slot (CARD-204 Fix 4, owner decision 2026-10-12,
@@ -1685,8 +1716,24 @@ def _draw_folio(
     content_bottom: Optional[int] = None,
     content_right: Optional[int] = None,
     content_left: Optional[int] = None,
+    centred_x: Optional[int] = None,
 ) -> None:
     """Draw ``page_number``'s plain-decimal folio at the bottom-outer corner (CARD-200).
+
+    **Or at the bottom centre, when the caller passes ``centred_x``**
+    (CARD-222). The frame the owner's artifact asks for puts the QR icon in
+    the footer's outer corner (CARD-223), which is where this folio has sat
+    since CARD-200, so on a page that carries the frame the page number moves
+    to the footer line's centre —
+    :attr:`~nonogram.export.layout.InteriorFrame.folio_x`, the trim's own
+    centre, so it lands in the same place on every page of the book whichever
+    side of the spread it is on. The room check below is **not** made in that
+    case and no argument of it is read: a caller passing ``centred_x`` has
+    already established that the footer strip is clear of its own content
+    (:func:`_draw_page_frame` is the one caller that does, and it omits the
+    whole footer group together rather than this mark alone). One
+    ``draw.text`` call either way, so there is still exactly one place in this
+    module that draws a folio.
 
     ``left``/``top``/``right``/``bottom`` are one page's usable area in
     device pixels — read off a :class:`PageFrame` (guide, divider, TOC) or a
@@ -1780,6 +1827,9 @@ def _draw_folio(
     ascent, descent = font.getmetrics()
     line_height = ascent + descent
     text = str(page_number)
+    if centred_x is not None:
+        draw.text((centred_x, bottom), text, font=font, fill=INK, anchor="mb")
+        return
     right_hand = page_is_right_hand(page_number)
     if content_bottom is not None and bottom - content_bottom < line_height:
         text_width = font.getlength(text)
@@ -1796,6 +1846,126 @@ def _draw_folio(
     x = right if right_hand else left
     anchor = "rb" if right_hand else "lb"
     draw.text((x, bottom), text, font=font, fill=INK, anchor=anchor)
+
+
+def grid_size_label(columns: int, rows: int) -> str:
+    """One puzzle's grid size as the footer prints it: ``"20 x 25"`` (CARD-222).
+
+    Width first, then height, which is how every other surface in this
+    project names an extent (the panel's filters, the export filename,
+    ``book_arrange``'s size column) and how the owner's artifact draws it.
+    """
+    return f"{columns}{SIZE_LABEL_SEPARATOR}{rows}"
+
+
+def _draw_rule(draw: ImageDraw.ImageDraw, rule: PageRule) -> None:
+    """Stroke one of the frame's ruled lines (CARD-222).
+
+    The one place a frame rule is stroked, so "the header rule and the footer
+    rule are the weights COMP-007 measured" is a property of this function
+    rather than of each caller (ADR-0036/R2: the renderer strokes the line and
+    does not pick it). Pure black, like every other rule on a book page
+    (ADR-0037/R2's colour clause), and centred on its own row the way the
+    drawing's rules are (:class:`~nonogram.export.layout.PuzzleFrame`).
+    """
+    draw.line(
+        [(rule.left, rule.y), (rule.right, rule.y)], fill=INK, width=rule.width
+    )
+
+
+def _draw_page_frame(
+    draw: ImageDraw.ImageDraw,
+    frame: InteriorFrame,
+    page_number: int,
+    dpi: int,
+    *,
+    size_label: Optional[str] = None,
+    content_bottom: Optional[int] = None,
+    content_right: Optional[int] = None,
+    content_left: Optional[int] = None,
+) -> bool:
+    """Draw one puzzle page's frame: the two rules, the size label, the folio.
+
+    The owner's artifact of 2026-10-14, "The rules behind it" (CARD-222): the
+    header rule runs the full text width under the header, the footer's
+    hairline runs it again above a line that carries the puzzle's grid size on
+    the **inner** side and the page number at its centre. Every coordinate and
+    both weights come from ``frame``
+    (:func:`~nonogram.export.layout.interior_frame`); nothing is measured here.
+
+    **The header rule is unconditional. The footer group is all-or-nothing.**
+    A drawing fitted flush to the bottom margin — which a two-up page's lower
+    slot is by construction (:class:`~nonogram.export.layout.PairLayout`: "its
+    drawing's bottom edge is the bottom margin"), and which a page-fit-bound
+    single puzzle can be — would be crossed by the hairline and overprinted by
+    a centred folio. Where ``content_bottom`` reaches below the footer rule the
+    rule, the label and the centred folio are therefore **all** omitted and the
+    page keeps CARD-200's bottom-outer-corner folio instead, which is the
+    corner :func:`_folio_reserve_px` already reserves room in. One condition,
+    one place, all three marks: a half-drawn footer (a rule with no number
+    under it, or a number sitting on a grid) is worse than the corner this card
+    inherited.
+
+    Args:
+        draw: The page's draw object.
+        frame: The page's frame, from ``interior_frame(page_spec)``.
+        page_number: The page's 1-based interior position (FR-043).
+        dpi: The page's resolution, for the two type sizes.
+        size_label: The grid size the footer prints
+            (:func:`grid_size_label`), or ``None`` for a page that has no one
+            grid size to name — a two-up page, whose two slots carry two
+            (CARD-226 gives each slot its own).
+        content_bottom: The lowest pixel this page's own content reaches, or
+            ``None`` for a page nothing competes with the footer for. Read
+            exactly as :func:`_draw_folio` reads it.
+        content_right: Passed to :func:`_draw_folio` for the corner fallback.
+        content_left: Passed to :func:`_draw_folio` for the corner fallback.
+
+    Returns:
+        Whether the footer group was drawn. ``False`` means this page fell
+        back to the corner folio — the verdict is returned rather than
+        re-derived by a caller that wants to assert it.
+    """
+    _draw_rule(draw, frame.header_rule)
+    footer_is_clear = content_bottom is None or content_bottom <= frame.footer_rule.y
+    if not footer_is_clear:
+        # CARD-200's corner, untouched: on the bottom margin
+        # (``page_bottom``), which is the row ``_folio_reserve_px`` keeps
+        # horizontal room in on a two-up page's lower slot — never the footer
+        # line, which this page's own content is standing on.
+        _draw_folio(
+            draw,
+            frame.header_rule.left,
+            frame.header_rule.y,
+            frame.header_rule.right,
+            frame.page_bottom,
+            page_number,
+            dpi,
+            content_bottom=content_bottom,
+            content_right=content_right,
+            content_left=content_left,
+        )
+        return False
+    _draw_rule(draw, frame.footer_rule)
+    if size_label is not None:
+        draw.text(
+            (frame.label_x, frame.baseline),
+            size_label,
+            font=_band_font(type_px(SIZE_LABEL_PT, dpi)),
+            fill=INK,
+            anchor="rb" if frame.label_right_aligned else "lb",
+        )
+    _draw_folio(
+        draw,
+        frame.header_rule.left,
+        frame.header_rule.y,
+        frame.header_rule.right,
+        frame.baseline,
+        page_number,
+        dpi,
+        centred_x=frame.folio_x,
+    )
+    return True
 
 
 def _guide_rule_width(spec: PageSpec) -> int:
@@ -4405,34 +4575,41 @@ class BookPDFGenerator:
         here independently (:func:`~nonogram.export.layout.compute_layout`
         is pure and total, so the second call is the same answer, not a
         second implementation) rather than threaded out of ``render_pages``,
-        which returns only the two rendered images. :func:`page_frame` still
-        gives the usable-area corners to anchor at (unaffected by which
-        puzzle's clues are drawn, since the usable area is the spec's own
-        margins, not the grid), the same reuse :meth:`create_guide_page`/
-        :meth:`create_divider_page` already rely on (G-1); only the
-        vertical-room check is new. No horizontal check is needed here
-        (unlike :meth:`_two_up_page`'s lower slot): nothing about a single
-        puzzle page's own cell fitting makes its vertical slack read zero on
-        *every* call the way a two-up page's lower slot does, so the simple
+        which returns only the two rendered images.
+        :func:`~nonogram.export.layout.interior_frame` gives every coordinate
+        the furniture sits on (unaffected by which puzzle's clues are drawn,
+        since the frame is the spec's own margins and band, not the grid), the
+        same reuse :meth:`create_guide_page`/:meth:`create_divider_page`
+        already rely on for :func:`page_frame` (G-1); only the vertical-room
+        check is new. No horizontal check is needed here (unlike
+        :meth:`_two_up_page`'s lower slot): nothing about a single puzzle
+        page's own cell fitting makes its vertical slack read zero on *every*
+        call the way a two-up page's lower slot does, so the simple
         vertical-only check :meth:`solved_puzzle_page` already uses is
         enough — see :func:`_draw_folio`'s own docstring.
+
+        **Since CARD-222 the page carries the whole frame**, not the folio
+        alone: :func:`_draw_page_frame` strokes the header rule, the footer's
+        hairline, the grid-size label on the inner side and the folio at the
+        footer line's centre. The same ``content_bottom`` the folio's own room
+        check was added for now decides the *footer group* — a page-fit-bound
+        grid (the 30-wide, column-clue-depth-10 case named above) keeps
+        CARD-200's corner folio and gets no footer rule, because a hairline
+        across its bottom row is the collision this check exists to avoid.
         """
         page_spec = self.page_spec(puzzle_page)
         blank, _ = render_pages(
             self._puzzle_payload(payload, puzzle_number),
             page_spec=page_spec,
         )
-        frame = page_frame(page_spec)
         layout = compute_layout(payload.row_clues, payload.column_clues, page_spec)
         placement = layout.page
-        _draw_folio(
+        _draw_page_frame(
             ImageDraw.Draw(blank),
-            frame.left,
-            frame.top,
-            frame.right,
-            frame.bottom,
+            interior_frame(page_spec),
             puzzle_page,
             self.dpi,
+            size_label=grid_size_label(layout.columns, layout.rows),
             content_bottom=None if placement is None else placement.drawing_bottom,
         )
         return blank
@@ -4552,6 +4729,18 @@ class BookPDFGenerator:
         construction, and this method's own call below needs no edit at
         all: it already read the slot's *actual* (not assumed) geometry,
         which now simply has room in it.
+
+        **CARD-222: the frame, and what a two-up page gets of it.** The call
+        below now goes through :func:`_draw_page_frame`, so this page carries
+        the header rule on the same baseline as every other puzzle page
+        (AC-2). It carries **no footer group**, and not by an exception made
+        for it: the lower slot's drawing bottom *is* the bottom margin on
+        every two-up page (the algebraic identity above), so the frame's own
+        all-or-nothing footer condition refuses the strip and the page keeps
+        exactly the corner folio and the reserve Fix 4 built for it (CARD-226
+        AC-5 requires that reserve unchanged). ``size_label=None`` for the
+        same reason it would be wrong even with room: two slots carry two grid
+        sizes, and CARD-226 gives each slot its own.
         """
         pair = plan.pair
         if pair is None:  # pragma: no cover - the walk only sends two-up plans here
@@ -4583,14 +4772,12 @@ class BookPDFGenerator:
             if icon is not None:
                 _draw_qr_placeholder(draw, icon)
         footer_area = pair.lower.page
-        _draw_folio(
+        _draw_page_frame(
             draw,
-            footer_area.usable_left,
-            footer_area.usable_top,
-            footer_area.usable_right,
-            footer_area.usable_bottom,
+            interior_frame(self.page_spec(plan.page_number)),
             plan.page_number,
             self.dpi,
+            size_label=None,
             content_bottom=footer_area.drawing_bottom,
             content_right=footer_area.drawing_right,
             content_left=footer_area.drawing_left,

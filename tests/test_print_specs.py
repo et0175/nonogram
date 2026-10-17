@@ -217,10 +217,12 @@ class TestMarginValidation_RefusesNonFiniteValues:
         """G-1: the defaults and an explicit finite margin come through as before."""
         spec, error = PrintSpecValidator.create_spec()
         assert error is None
-        assert (spec.gutter_margin_cm, spec.outside_margin_cm) == ("1.27", "0.95")
+        # CON-018 as amended 2026-10-17 (CARD-222): both side margins 0.5 in.
+        assert (spec.gutter_margin_cm, spec.outside_margin_cm) == ("1.27", "1.27")
         spec, error = PrintSpecValidator.create_spec(gutter_margin_cm="", outside_margin_cm=None)
         assert error is None
-        assert (spec.gutter_margin_cm, spec.outside_margin_cm) == ("1.27", "0.95")
+        # CON-018 as amended 2026-10-17 (CARD-222): both side margins 0.5 in.
+        assert (spec.gutter_margin_cm, spec.outside_margin_cm) == ("1.27", "1.27")
         spec, error = PrintSpecValidator.create_spec(
             gutter_margin_cm="1.60", outside_margin_cm="1.00", outside_margin_bleed_cm="1.30"
         )

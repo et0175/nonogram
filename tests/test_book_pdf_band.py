@@ -65,10 +65,11 @@ from nonogram.admin.book_pdf_generator import (
     DPI,
     BookPDFGenerator,
     band_identity,
-    _draw_folio,
-    page_frame,
+    _draw_page_frame,
+    grid_size_label,
 )
 from nonogram.export import ExportPayload
+from nonogram.export.layout import compute_layout, interior_frame
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE, MIN_SIZE
 from tests.helpers.page_ink import drawing_of
@@ -82,8 +83,13 @@ from tests.helpers.pdf_pages import pdf_pages
 BOOK1_WIDTH_MM = 8.5 * 25.4
 BOOK1_HEIGHT_MM = 11 * 25.4
 GUTTER_MM = 0.5 * 25.4
-OUTSIDE_MM = 0.375 * 25.4
-TOP_MM = BOTTOM_MM = 0.375 * 25.4
+# CON-018's margins as amended 2026-10-17 (CARD-222): the outside margin
+# moved 0.375 -> 0.5 in, the top to 0.55 in and the bottom to 0.47 in, and the
+# gutter deliberately stayed at KDP's 0.5 in. Written out here, as this file
+# writes every other figure out, rather than imported.
+OUTSIDE_MM = 0.5 * 25.4
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 
 #: The title band above each puzzle (TERM-028).
 BAND_MM = 12.0
@@ -325,10 +331,15 @@ def _pages_with_band(
     page), which this helper's own ``render_pages`` call — the lower-level
     primitive ``_blank_page`` wraps, used here directly so the comparison is
     about the band and nothing else — does not draw. Added here, via the
-    same ``_draw_folio``/``page_frame`` call ``_blank_page`` itself makes, so
-    the two pages this function is compared against stay byte-identical
-    where the band comparison says they should be, rather than always
-    differing by the one legitimate new mark.
+    same call ``_blank_page`` itself makes, so the two pages this function is
+    compared against stay byte-identical where the band comparison says they
+    should be, rather than always differing by a legitimate new mark.
+
+    **Since CARD-222 that call draws the whole frame**, not the folio alone:
+    the header rule, the footer's hairline, the grid-size label and the folio.
+    It is still ``_blank_page``'s own one call, with ``_blank_page``'s own
+    arguments, so this helper reproduces the page and does not reimplement
+    it.
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -343,15 +354,14 @@ def _pages_with_band(
     )
     spec = book_page_spec(book if book is not None else _book(), page_number)
     blank, solved = render_pages(payload, page_spec=spec)
-    frame = page_frame(spec)
-    _draw_folio(
+    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
+    _draw_page_frame(
         ImageDraw.Draw(blank),
-        frame.left,
-        frame.top,
-        frame.right,
-        frame.bottom,
+        interior_frame(spec),
         page_number,
         DPI,
+        size_label=grid_size_label(layout.columns, layout.rows),
+        content_bottom=None if layout.page is None else layout.page.drawing_bottom,
     )
     return blank, solved
 
@@ -653,9 +663,10 @@ class TestBookPdf_EveryFifthGridLineWider:
     the generator produced.
     """
 
-    #: The 30x30 with 9-deep clue gutters AC-175 measures at 4.97 mm on Book 1.
+    #: The 30x30 with 9-deep clue gutters AC-175 measures at 4.885 mm on Book 1
+    #: (4.97 mm before CON-018's 2026-10-17 margin amendment).
     PUZZLE = (MAX_SIZE, MAX_SIZE, 9)
-    CELL_MM = 4.97
+    CELL_MM = 4.885
     CELL_TOLERANCE_MM = 0.05
 
     #: Heavy rules: the borders and every 5th line of a 30-cell grid.

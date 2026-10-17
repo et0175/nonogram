@@ -111,7 +111,13 @@ from tests.helpers.two_up_ink import drawings_of
 BOOK1_WIDTH_MM = 8.5 * 25.4
 BOOK1_HEIGHT_MM = 11 * 25.4
 GUTTER_MM = 0.5 * 25.4
-OUTSIDE_MM = TOP_MM = BOTTOM_MM = 0.375 * 25.4
+# CON-018's margins as amended 2026-10-17 (CARD-222): the outside margin
+# moved 0.375 -> 0.5 in, the top to 0.55 in and the bottom to 0.47 in, and the
+# gutter deliberately stayed at KDP's 0.5 in. Written out here, as this file
+# writes every other figure out, rather than imported.
+OUTSIDE_MM = 0.5 * 25.4
+TOP_MM = 0.55 * 25.4
+BOTTOM_MM = 0.47 * 25.4
 
 #: A 6 x 9 in trim, the other one the owner prints — CARD-144 asks the frame to
 #: sit correctly on any stored trim, not only on Book 1's.
@@ -466,12 +472,14 @@ class TestPuzzleFrame_DefaultPageSpecIsUnchanged:
 class TestPuzzleFrame_GeometryIsUnmovedByTheFrame:
     """The frame adds ink and moves nothing — CARD-116's figures stay put."""
 
-    def test_the_thirty_by_thirty_with_nine_deep_clues_still_prints_at_4_97_mm(self) -> None:
+    def test_the_thirty_by_thirty_with_nine_deep_clues_still_prints_at_4_885_mm(self) -> None:
         spec = _spec()
         layout = compute_layout(*_clue_sets(30, 30, 9, 9), spec)
 
         assert layout.frame is not None
-        assert layout.page.cell_mm == pytest.approx(4.97, abs=0.005)
+        # 4.97 mm until CON-018's margins were amended on 2026-10-17
+        # (CARD-222): 190.5 mm of usable width over 39 cells.
+        assert layout.page.cell_mm == pytest.approx(4.8846, abs=0.005)
 
     def test_the_fifteen_by_fifteen_still_prints_at_the_standard_cell(self) -> None:
         spec = _spec()
@@ -917,7 +925,15 @@ def _runs_down(dark: np.ndarray, column: int, lo: int, hi: int) -> list[list[int
 #: heavy rule is well under this at any cell a book prints, and a window this
 #: wide cannot reach the next rule (the smallest cell FR-040 will pair at is
 #: 7.0 mm, which is 82 px).
-_RULE_WINDOW_PX = 20
+#:
+#: **12 since CARD-222**, down from 20. The frame's header rule is drawn
+#: inside the title band, an eighth of its depth above the band's foot — 18 px
+#: on Book 1's 12 mm band at 300 DPI — and the band's foot is where a puzzle
+#: page's drawing begins (FR-032). A 20 px window above the drawing's top edge
+#: therefore reached that rule and read it as the frame's own top side.
+#: Measured, not guessed: the heaviest rule the book strokes is 6 px, so 12 px
+#: is twice the widest a rule can be and still 6 px clear of the header rule.
+_RULE_WINDOW_PX = 12
 
 #: How lopsided a stroke centred on its boundary may still measure, in device
 #: pixels, once two unavoidable whole-pixel steps are spent:

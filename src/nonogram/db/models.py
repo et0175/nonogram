@@ -134,7 +134,7 @@ class Book(Base):
     # plan_to_json(plan), as BookManager.save_plan does.
     distribution_plan = Column(MutableDict.as_mutable(JSON), nullable=True)
     # CARD-121 (FR-031, INV-006, migration 012): the ids admitted below
-    # NFR-008's 4.8 mm floor, as a flat JSON list of puzzle-id strings — the
+    # NFR-008's 4.75 mm floor, as a flat JSON list of puzzle-id strings — the
     # "explicit per-puzzle override stored with the book" (TERM-025). A list,
     # not a dict: the only fact stored is membership of the overridden set, and
     # JSON has no set type. NULL for a book created before migration 012 (no
@@ -151,12 +151,14 @@ class Book(Base):
     # Print specifications (Step 1)
     trim_width_cm = Column(String, nullable=True, default='21.59')  # stored as string for precision; 8.5 × 11 in
     trim_height_cm = Column(String, nullable=True, default='27.94')
-    # Margins default to CON-018's Book 1 profile (0.5 in / 0.375 in), mirroring
-    # migration 011's server defaults. Still nullable: a row from before 011
-    # keeps its empty margins (no backfill), and book_page_spec falls back to
-    # the profile for them (CARD-115).
+    # Margins default to CON-018's Book 1 profile (0.5 in / 0.5 in since the
+    # 2026-10-17 amendment moved the outside margin out from 0.375 in —
+    # CARD-222), mirroring migration 015's server defaults (011 set the first
+    # pair). Still nullable: a row from before 011 keeps its empty margins (no
+    # backfill), and book_page_spec falls back to the profile for them
+    # (CARD-115).
     gutter_margin_cm = Column(String, nullable=True, default='1.27', server_default='1.27')  # inside margin
-    outside_margin_cm = Column(String, nullable=True, default='0.95', server_default='0.95')
+    outside_margin_cm = Column(String, nullable=True, default='1.27', server_default='1.27')
     outside_margin_bleed_cm = Column(String, nullable=True)
     # CARD-147 (owner intake, meta/architecture/inputs/raw-requirements.md,
     # 2026-09-25; migration 013): how the book's **interior** is printed —

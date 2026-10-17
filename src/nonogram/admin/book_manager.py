@@ -98,7 +98,7 @@ class Book:
     # ``book_ink_mode`` and not off this field, so the default is applied in
     # one place.
     interior_ink_mode: Optional[str] = None
-    # CARD-121 (FR-031, INV-006): the ids this book admitted below the 4.8 mm
+    # CARD-121 (FR-031, INV-006): the ids this book admitted below the 4.75 mm
     # floor (TERM-025). Read it through :meth:`BookManager.floor_overrides`
     # rather than off the book, so both storage modes answer the same way.
     floor_overrides: List[str] = field(default_factory=list)
@@ -267,7 +267,7 @@ def ready_refusal(plan: Optional[DistributionPlan], puzzles) -> Optional[str]:
 
 
 # --------------------------------------------------------------------------
-# The 4.8 mm printed-cell floor (CARD-121; FR-031, NFR-008, INV-006, EC-021)
+# The 4.75 mm printed-cell floor (CARD-121; FR-031, NFR-008, INV-006, EC-021)
 # --------------------------------------------------------------------------
 #
 # A puzzle whose cell on the book's trim falls below FLOOR_MM joins the book
@@ -1139,7 +1139,7 @@ class BookManager:
     def add_puzzles_to_book(
         self, book_id: str, puzzle_ids: List[str], overrides=(), confirmed: bool = False
     ) -> bool:
-        """Add puzzles to a book, holding the 4.8 mm floor (FR-031, INV-006).
+        """Add puzzles to a book, holding the 4.75 mm floor (FR-031, INV-006).
 
         :meth:`add_puzzles_reporting_refusals` — the whole rule is there — read
         as the yes/no every caller but the add routes wants.
@@ -1175,7 +1175,7 @@ class BookManager:
         overrides=(),
         confirmed: bool = False,
     ) -> Optional[AddOutcome]:
-        """Add puzzles to a book, holding the 4.8 mm floor (FR-031, INV-006).
+        """Add puzzles to a book, holding the 4.75 mm floor (FR-031, INV-006).
 
         The floor is enforced here rather than at either route, because this is
         where membership is written and EC-021 covers "any future route ending

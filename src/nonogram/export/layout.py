@@ -226,7 +226,15 @@ __all__ = [
     "DPI",
     "HEADER_BAND_MM",
     "HEADER_FONT_MM",
+    "INTERIOR_FOOTER_GAP_PT",
+    "INTERIOR_FOOTER_LINE_MM",
+    "INTERIOR_FOOTER_LINE_PT",
+    "INTERIOR_FOOTER_MM",
+    "INTERIOR_FOOTER_RULE_PT",
+    "INTERIOR_HEADER_RULE_LIFT",
+    "INTERIOR_HEADER_RULE_PT",
     "MAX_CELL_MM",
+    "MM_PER_POINT",
     "MIN_CELL_MM",
     "MIN_DIFFICULTY_DOT_MM",
     "MAJOR_RULE_EVERY",
@@ -246,11 +254,13 @@ __all__ = [
     "DifficultyDots",
     "GridLine",
     "HeaderBand",
+    "InteriorFrame",
     "Layout",
     "Orientation",
     "OrientationPolicy",
     "PackedSolvedLayout",
     "PageParity",
+    "PageRule",
     "PagePlacement",
     "PageSpec",
     "PairLayout",
@@ -264,6 +274,7 @@ __all__ = [
     "compute_pair_layout",
     "difficulty_dots",
     "header_band",
+    "interior_frame",
     "qr_slot",
 ]
 
@@ -1233,6 +1244,299 @@ def caption_slot(layout: Layout, text_width: int) -> CaptionSlot | None:
 
 
 # --------------------------------------------------------------------------
+# The interior page's frame (CARD-222)
+# --------------------------------------------------------------------------
+
+#: A point in millimetres (1/72 in). The owner's "Puzzle page layout" artifact
+#: of 2026-10-14 states the two frame rules in points, which is how a printer
+#: states a rule, so they are kept in points here and converted once.
+MM_PER_POINT = 25.4 / 72
+
+#: Where the header rule sits inside the title band, as a share of the band's
+#: own depth measured up from its foot (CARD-222).
+#:
+#: **Not on the band's foot, and the reason is measured.** The band's foot is
+#: exactly where a puzzle page's drawing begins (FR-032 pins the top edge at
+#: top margin + band), so a rule drawn there is drawn on the drawing's own top
+#: edge: on a page whose drawing fills the text width it fuses with the grid's
+#: heavy top border into one 6 px line, and on a framed page (CARD-144) it
+#: fuses with the frame's top side. One eighth of the band lifts it clear —
+#: 1.5 mm on the 12 mm band — and the white either side of it is real:
+#: measured on rendered Book 1 puzzle pages, the deepest band caption's lowest
+#: ink (a two-up page's, whose own descender reaches furthest) is 3.3 mm above
+#: the band's foot, so the rule has 1.8 mm of white above it and 1.5 mm below.
+#: A share rather than a millimetre figure, so a book with a deeper band keeps
+#: the proportion rather than the gap.
+INTERIOR_HEADER_RULE_LIFT = 1 / 8
+
+#: The weight of the rule under a puzzle page's header, in points (CARD-222,
+#: the owner's artifact: ``stroke-width="0.6"`` under the header line). At
+#: :data:`DPI` that is 2.52 px, drawn at **3 px** (0.72 pt) because a rule is
+#: rounded *up* to whole pixels (:func:`_mm_to_px_at_least`): a rule asked for
+#: at 0.6 pt and printed at 0.48 pt is the faint-line complaint ADR-0037
+#: exists to answer, so the error is spent on the safe side.
+INTERIOR_HEADER_RULE_PT = 0.6
+
+#: The weight of the footer's **hairline**, in points (CARD-222, the owner's
+#: artifact: ``stroke-width="0.4"`` above the footer line) — 2 px at
+#: :data:`DPI` (0.48 pt), one pixel lighter than the header's, which is what
+#: makes the two read as a heading rule and a hairline rather than as two
+#: rules of the same weight.
+#:
+#: **Two device pixels is the floor, and this rule sits on it — no exemption
+#: is claimed or needed.** A line that has to print at all cannot be asked
+#: for less than 2 px at :data:`DPI`: the step below is a one-pixel line,
+#: which is the dropout ADR-0037 exists to answer, so this hairline is held
+#: at the floor for the dropout reason **directly**. Not through
+#: ADR-0037/R2, which binds the puzzle **grid**'s weights and does not reach
+#: page furniture — a header rule, a hairline or a divider was never a grid
+#: rule under R2's wording or its superseded one (R2's scope note, clarified
+#: 2026-10-17).
+#:
+#: What is load-bearing is therefore the **pair**, and that is what the
+#: control asserts: the header rule is heavier than this hairline (3 px
+#: against 2 px), which is what makes them read as a heading rule and a
+#: hairline rather than as two rules of one weight, and this hairline is
+#: *at* the 2 px floor rather than under it.
+#: ``tests/test_book_page_frame.py``'s
+#: ``TestBookPageFrame_TheHairlineSitsOnTheFloorUnderTheHeaderRule``
+#: measures both off the rendered frame (ADR-0039/R3). It compares furniture
+#: with furniture, never with grid ink: once CARD-227 lands R2's three
+#: weights the grid's thinnest cell line is 2 px too, so a claim of the form
+#: "lighter than the grid rule" would then be unsatisfiable, and the
+#: furniture/grid distinction rests on **tone** rather than width (ADR-0037's
+#: 2026-10-17 History).
+INTERIOR_FOOTER_RULE_PT = 0.4
+
+#: The white the footer band keeps between its own rows, in points — the
+#: owner's artifact's own measure (the rule at ``y=692.31`` over a QR icon
+#: whose box starts at ``y=701.31``, 9 pt lower).
+INTERIOR_FOOTER_GAP_PT = 9.0
+
+#: The footer line's own type, in points: CON-020's 10 pt floor, which is
+#: where every interior listing face is set (``FOLIO_PT``, ``TOC_ENTRY_PT``,
+#: :data:`ANSWER_TEXT_FONT_MM`'s own point equivalent) — a grid size and a
+#: page number need to be read, not to draw the eye. One figure for the depth
+#: of the band's line and for the size the label in it is set at:
+#: ``book_pdf_generator.SIZE_LABEL_PT`` reads this name rather than restating
+#: the floor, so a band sized for 10 pt type cannot end up carrying 12 pt.
+INTERIOR_FOOTER_LINE_PT = 10.0
+
+#: That line's depth, in millimetres.
+INTERIOR_FOOTER_LINE_MM = INTERIOR_FOOTER_LINE_PT * MM_PER_POINT
+
+#: The strip the footer takes out of the bottom of the usable area, in
+#: millimetres: from the footer rule down to the bottom margin, where the
+#: grid-size label, the folio and (CARD-223) the QR icon are set.
+#:
+#: **Three rows, measured bottom-up from what each has to hold**: the QR
+#: icon's own row at the band's foot (:data:`QR_SLOT_MM`, 2 cm — the icon is
+#: CARD-223's to place, the row it needs is the frame's to reserve), the
+#: footer line above it (:data:`INTERIOR_FOOTER_LINE_MM`, the grid-size label
+#: and the folio), and :data:`INTERIOR_FOOTER_GAP_PT` of white twice: once
+#: under the rule and once between the line and the icon. 29.878 mm in all.
+#: Every term is derived from the constant that states it rather than
+#: restated, so the icon and the row it has to fit in cannot drift apart (G-1).
+#:
+#: **Why the line sits above the icon's row and not beside it.** The owner's
+#: artifact sets the label on the band's bottom line, *beside* a QR icon in
+#: the band's **outer** corner. The icon does not live there yet: until
+#: CARD-223 moves it, :func:`qr_slot`'s existing fallback puts it in the
+#: band's **gutter-side** bottom corner — which is the inner side, where this
+#: card's grid-size label is set. Measured, not assumed: on the 150-puzzle
+#: corpus that fallback is taken on **150 of 150** puzzle pages, so a label on
+#: the bottom line would be set in black over the icon's own black
+#: checkerboard on every page of the book. Giving the line its own row above
+#: the icon's keeps both marks legible without moving a mark this card does
+#: not own (G-6). When CARD-223 takes the icon to the outer corner, the line
+#: can drop onto the icon's row and this band becomes the artifact's own
+#: 23.175 mm.
+#:
+#: Measured consequence of the figure: on the Book 1 profile the band takes
+#: 353 px of the usable area's 2994 px of height, leaving the puzzle area
+#: 2517 px (213.1 mm) deep between the two rules; on the shortest trim
+#: ``book_page_spec`` admits (10.00 cm) it leaves 398 px (33.7 mm) — positive,
+#: which is AC-7's claim.
+INTERIOR_FOOTER_MM = (
+    QR_SLOT_MM + INTERIOR_FOOTER_LINE_MM + 2 * INTERIOR_FOOTER_GAP_PT * MM_PER_POINT
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PageRule:
+    """One ruled line of page furniture, in device pixels (CARD-222).
+
+    A horizontal rule across the page's text width. Only
+    :func:`interior_frame` constructs one, and it exists for the same reason
+    :class:`QrSlot` and :class:`CaptionSlot` do: the renderer strokes the
+    line, but it does not get to pick where the line is or how heavy it is
+    (ADR-0036/R2).
+
+    Attributes:
+        left: The rule's left end — the usable area's own left edge.
+        right: Its right end — the usable area's own right edge.
+        y: The row it is stroked on. Pillow spreads the stroke about this
+            row — exactly about it for an odd width, one row further down
+            than up for an even one (measured; ``tests/test_book_page_frame``
+            reads a rule back as the run that *covers* this row rather than
+            as a computed centre for that reason), the same way every other
+            rule in the drawing sits on its own boundary
+            (see :class:`PuzzleFrame`).
+        width: How heavy to stroke it, in whole device pixels.
+    """
+
+    left: int
+    right: int
+    y: int
+    width: int
+
+
+@dataclass(frozen=True, slots=True)
+class InteriorFrame:
+    """One interior page's frame: the two rules, the puzzle area between them,
+    and where the footer's two marks sit (CARD-222, the owner's artifact of
+    2026-10-14).
+
+    A property of the **sheet**, not of what is drawn on it: every field below
+    comes from the :class:`PageSpec` alone, so the frame of page 7 and the
+    frame of page 150 of one book are the same object, and a page kind that
+    draws nothing in the puzzle area reads the same region as one that fills
+    it (AC-4). Nothing here is measured from a drawing — which is what makes
+    "the header rule is on the same baseline on every puzzle page" true by
+    construction rather than by coincidence (AC-2).
+
+    The puzzle area is :attr:`area_top` to :attr:`area_bottom`: everything
+    between the two rules. Where a grid sits *inside* it is CARD-224's, how
+    two of them share it is CARD-226's, and both measure against this one
+    region instead of re-deriving it.
+
+    Attributes:
+        header_rule: The rule under the header, inside the title band and
+            :data:`INTERIOR_HEADER_RULE_LIFT` of the band's depth above its
+            foot — clear of the drawing's own top edge, which FR-032 pins to
+            that foot (see that constant for the measurement).
+        footer_rule: The hairline above the footer line.
+        label_x: Where the grid-size label is set: the usable area's **inner**
+            edge — the gutter side, so the left edge on an ODD (right-hand)
+            page and the right edge on an EVEN (left-hand) one. The outer
+            corner is left for the QR (CARD-223).
+        label_right_aligned: Whether the label's ink runs leftward from
+            :attr:`label_x` (an EVEN page) or rightward from it (an ODD page).
+            A bool rather than a Pillow anchor string: this module does not
+            know what draws it.
+        folio_x: Where the folio is centred — the **trim's** own centre, not
+            the usable area's, so the page number lands in the same place on
+            every page of the book whichever side of the spread it is on
+            (the artifact's own ``x="297"`` on a 612 pt page).
+        baseline: The row the footer line's type sits on — one gap above the
+            QR icon's own row, so the label and the folio are legible beside
+            an icon that is still in the band's inner corner (see
+            :data:`INTERIOR_FOOTER_MM`). Both marks are set bottom-anchored
+            there, so neither crosses into the icon's row.
+        page_bottom: The bottom margin — the usable area's own bottom edge,
+            and **not** where this frame's own marks go. It is carried because
+            a page that cannot use the footer group falls back to CARD-200's
+            bottom-outer-corner folio, which sits exactly here and nowhere
+            else: the reserve a two-up page's lower slot keeps
+            (``_folio_reserve_px``) is at this row.
+
+    Raises:
+        ValueError: the band and the footer strip together leave no puzzle
+            area (``area_bottom <= area_top``). Refused rather than handed
+            back inverted — see :func:`interior_frame`.
+    """
+
+    header_rule: PageRule
+    footer_rule: PageRule
+    label_x: int
+    label_right_aligned: bool
+    folio_x: int
+    baseline: int
+    page_bottom: int
+
+    def __post_init__(self) -> None:
+        if self.area_bottom <= self.area_top:
+            raise ValueError(
+                "this sheet's band and footer strip leave no puzzle area: "
+                f"the header rule is at y={self.area_top} and the footer rule "
+                f"at y={self.area_bottom}"
+            )
+
+    @property
+    def area_top(self) -> int:
+        """The puzzle area's top edge: the header rule's own row."""
+        return self.header_rule.y
+
+    @property
+    def area_bottom(self) -> int:
+        """The puzzle area's bottom edge: the footer rule's own row."""
+        return self.footer_rule.y
+
+    @property
+    def area_height(self) -> int:
+        """How deep the puzzle area is, in device pixels."""
+        return self.area_bottom - self.area_top
+
+
+def _pt_to_px_at_least(points: float) -> int:
+    """A rule weight in points as the fewest whole pixels that measure at least it."""
+    return _mm_to_px_at_least(points * MM_PER_POINT)
+
+
+def interior_frame(page_spec: PageSpec) -> InteriorFrame:
+    """The frame of one interior page laid out on ``page_spec`` (CARD-222).
+
+    A fourth measurement laid on the sheet, beside :func:`header_band`,
+    :func:`qr_slot` and :func:`caption_slot` — and the only one of the four
+    that takes the **spec** rather than a computed :class:`Layout`. That is
+    deliberate and is the whole point of the region: a frame read off a
+    drawing would move with the drawing, and a two-up slot's own
+    :class:`PagePlacement` reports *its slot's* share of the usable height
+    (see :class:`PairLayout`), so a frame measured from one would be the
+    slot's, not the page's.
+
+    Args:
+        page_spec: The book page's sheet — one with a parity, as
+            ``book_page_spec`` builds it.
+
+    Returns:
+        The page's frame.
+
+    Raises:
+        ValueError: ``page_spec`` carries no parity, so it lays out a
+            drawing-sized image rather than a book page and has no frame; or
+            the sheet is too short to hold one (:class:`InteriorFrame`).
+    """
+    if page_spec.parity is None:
+        raise ValueError(
+            "an interior frame needs a PageSpec with a parity: build it with book_page_spec"
+        )
+    left, top, right, bottom = _usable_box_px(page_spec)
+    header_y = _round_px(
+        _exact_px(page_spec.top_mm)
+        + _exact_px(page_spec.band_mm) * (1 - INTERIOR_HEADER_RULE_LIFT)
+    )
+    footer_y = bottom - _mm_to_px(INTERIOR_FOOTER_MM)
+    # The footer line sits one gap above the QR icon's own row at the band's
+    # foot, not on the bottom margin (:data:`INTERIOR_FOOTER_MM`).
+    baseline = bottom - _mm_to_px(QR_SLOT_MM + INTERIOR_FOOTER_GAP_PT * MM_PER_POINT)
+    gutter_on_left = page_spec.parity is PageParity.ODD
+    return InteriorFrame(
+        header_rule=PageRule(
+            left=left, right=right, y=header_y, width=_pt_to_px_at_least(INTERIOR_HEADER_RULE_PT)
+        ),
+        footer_rule=PageRule(
+            left=left, right=right, y=footer_y, width=_pt_to_px_at_least(INTERIOR_FOOTER_RULE_PT)
+        ),
+        label_x=left if gutter_on_left else right,
+        label_right_aligned=not gutter_on_left,
+        folio_x=_round_px(_exact_px(page_spec.width_mm)) // 2,
+        baseline=baseline,
+        page_bottom=bottom,
+    )
+
+
+# --------------------------------------------------------------------------
 # The difficulty glyph (CARD-228)
 # --------------------------------------------------------------------------
 
@@ -1522,6 +1826,33 @@ def _gutter_depth(clue_set: ClueSet) -> int:
     and a gutter of zero would leave a puzzle's clues nowhere to go.
     """
     return max((len(clue) for clue in clue_set), default=1)
+
+
+def _usable_box_px(page_spec: PageSpec) -> tuple[int, int, int, int]:
+    """A placed page's usable area as whole device pixels: left, top, right, bottom.
+
+    The one statement of where a book page's text block is. Both
+    :func:`compute_layout`'s placed branch (which fills a
+    :class:`PagePlacement`'s four ``usable_*`` fields from it) and
+    :func:`interior_frame` read it, so the frame cannot land a pixel off the
+    area the drawing is placed in (G-1).
+
+    The margins are mirrored by parity through :attr:`PageSpec.left_margin_mm`,
+    and each edge is rounded once, from exact pixels, exactly as every boundary
+    in this module is (:func:`_round_px`).
+    """
+    left_px = _exact_px(page_spec.left_margin_mm)
+    width_px = (
+        _exact_px(page_spec.width_mm)
+        - _exact_px(page_spec.gutter_mm)
+        - _exact_px(page_spec.outside_mm)
+    )
+    return (
+        _round_px(left_px),
+        _round_px(_exact_px(page_spec.top_mm)),
+        _round_px(left_px + width_px),
+        _round_px(_exact_px(page_spec.height_mm) - _exact_px(page_spec.bottom_mm)),
+    )
 
 
 def _mm_to_px_at_least(millimetres: float) -> int:
@@ -2110,10 +2441,7 @@ def compute_layout(
         top = _exact_px(spec.top_mm) + _exact_px(spec.band_mm)
         page_width = _round_px(_exact_px(spec.width_mm))
         page_height = _round_px(_exact_px(spec.height_mm))
-        usable_left = _round_px(usable_left_px)
-        usable_right = _round_px(usable_left_px + usable_width_px)
-        usable_top = _round_px(_exact_px(spec.top_mm))
-        usable_bottom = _round_px(_exact_px(spec.height_mm) - _exact_px(spec.bottom_mm))
+        usable_left, usable_top, usable_right, usable_bottom = _usable_box_px(spec)
         margin = usable_top
 
     xs = _boundaries(left, pitch, drawing_columns)
@@ -2189,8 +2517,9 @@ def compute_layout(
 # ---------------------------------------------------------------------------
 
 #: FR-040's two-up minimum, in millimetres: two puzzles share a book page only
-#: at a shared cell of at least this much. It sits inside NFR-008's 4.8..7.5 mm
-#: book range, so a two-up page never uses the 4.8 mm floor or its override;
+#: at a shared cell of at least this much. It sits inside NFR-008's 4.75..7.5 mm
+#: book range (4.8..7.5 until the 2026-10-17 amendment lowered the floor), so a
+#: two-up page never uses the 4.75 mm floor or its override;
 #: the spec's flat cap (the 7.5 mm standard cell) still caps the shared cell.
 #: A named constant rather than a :class:`PageSpec` field: it is the owner's
 #: rule for every book, not a property of a trim.

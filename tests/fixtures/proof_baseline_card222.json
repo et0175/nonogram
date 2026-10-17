@@ -1,0 +1,59 @@
+{
+  "card": "CARD-222",
+  "supersedes": "tests/fixtures/proof_baseline_card204.json",
+  "source_commit": "card/222-interior-page-frame (implementation commit), branched from main at 721fda8",
+  "produced_by": "proof_pages(book) on this card's own src/, for each CORPUS_TRIMS_CM trim stored as-is with the Book 1 margins stored as gutter_margin_cm='1.27', outside_margin_cm='1.27' \u2014 CON-018's amended outside margin (0.5 in), where CARD-204's recording stored the retired '0.95' (0.375 in).",
+  "why_a_new_baseline": "CON-018 was amended on 2026-10-17 (CARD-222): outside 0.375 -> 0.5 in, top -> 0.55 in, bottom -> 0.47 in, the gutter unchanged at 0.5 in. A proof page is the book's own sheet, so all three moves reach it: the top and bottom margins move every mark down and shorten the drawing on every one of these nine trims, and the stored outside margin moves the right-aligned drawing sideways. Every trim's pages therefore differ from CARD-204's recording, which is what this file records. The 8.25 in square trim is absent from this corpus and is now refused outright (tests/test_book_proof_pages.py's REFUSED_TRIMS_CM carries that measurement).",
+  "warning": "Never regenerated to make a test pass. A proof page that stops matching this file is either a deliberate change \u2014 which earns its own successor, with its own note \u2014 or a regression.",
+  "gutter_margin_cm": "1.27",
+  "outside_margin_cm": "1.27",
+  "moved_from_card204": [
+    "12.70x20.32",
+    "13.34x20.32",
+    "13.97x21.59",
+    "15.24x22.86",
+    "15.60x23.39",
+    "17.78x25.40",
+    "19.05x23.50",
+    "20.32x25.40",
+    "21.59x27.94"
+  ],
+  "digests": {
+    "12.70x20.32": [
+      "e0a08ac8b31d6b8c1edf93288ad313dbf630eaa663d9d7b9bb174809c8bf0278",
+      "1a67fcbdf6e07af6f90d3a2a3a9bd7bb42c35e29d88c0cd26ee4f545bbd22167"
+    ],
+    "13.34x20.32": [
+      "d202283bfa8ff06dcd614ec894b9e1a805d29fe2acc855e01c03750254eda5be",
+      "ca66694c501efe568a292d9f66dd12bb3376111c7662937a05412577f709dc60"
+    ],
+    "13.97x21.59": [
+      "4722c5b6bf804a564354b361a847a805bd5a711751e57607838722228cb7fb79",
+      "7deb5a1cf4e780bb516dfbbf0fc9b450b55974bc63c5d0c905c073202191d2d2"
+    ],
+    "15.24x22.86": [
+      "58108913a936b6e68e8e96a2c0ea10659a8569247a9c96098fac75e956a12e8b",
+      "869a56cb506e1365875dc757112a58af61aaa25d0e1a056c48a645db24d9872b"
+    ],
+    "15.60x23.39": [
+      "ed6a0093db0f10cd9c4e6cd0d4b99f78d2ff786f7825455c05196c3d60f45357",
+      "74518c43c9ee8f9900dbbfc71616f2dddec3d965a67280e740f3601d0cae59fc"
+    ],
+    "17.78x25.40": [
+      "ae3076e42622f59f57b8a0cc195895c86f56b2a5484c4020ebd78f640f1800af",
+      "8cbec9a9fa75a07e6b2df69eabd45cf8ca8e487fb6ebdefc70d3300c5d10eeea"
+    ],
+    "19.05x23.50": [
+      "818e020a0f526680469d42b1a4e647f235aa26c8fd90bfcf969eff9144392f12",
+      "155db98b5f0f4aca5cd94de9f1f347806b4b619fb0d583bd382d79a4ee31b7cc"
+    ],
+    "20.32x25.40": [
+      "67d113a461a47ddb4c49d8e28ee016dc05ac49d8158003bf9ea8c2247498c00a",
+      "48dca47dfa4e3435bf70042caa0b0ac7b0154efb18f556fb7d4a721894435bcf"
+    ],
+    "21.59x27.94": [
+      "65b119e8db657b4891f4dc47d6dca1bc34cb3390961b53b6cf88d1d9694ea405",
+      "1e7b36299f99c07769f25f87a126b4986af5c1d475eb40a3a7c4656a97244e01"
+    ]
+  }
+}

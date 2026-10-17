@@ -92,8 +92,9 @@ class PrintSpecValidator:
     MAX_TRIM_HEIGHT_CM = MAX_TRIM_HEIGHT_CM
 
     # Defaults (cm): CON-018's Book 1 print profile (CARD-115) — US Letter,
-    # 8.5 × 11 in, gutter 0.5 in, outside 0.375 in. Read from BOOK1_PROFILE,
-    # never restated here.
+    # 8.5 × 11 in, gutter 0.5 in, outside 0.5 in (0.375 in until the
+    # 2026-10-17 amendment, CARD-222). Read from BOOK1_PROFILE, never
+    # restated here.
     DEFAULT_TRIM_WIDTH_CM = BOOK1_PROFILE.trim_width_cm
     DEFAULT_TRIM_HEIGHT_CM = BOOK1_PROFILE.trim_height_cm
     DEFAULT_GUTTER_MARGIN_CM = BOOK1_PROFILE.gutter_margin_cm
@@ -364,7 +365,7 @@ class PrintSpecValidator:
             width_cm: Trim width in cm (defaults to 8.5 in, 21.59 cm)
             height_cm: Trim height in cm (defaults to 11 in, 27.94 cm)
             gutter_margin_cm: Inside gutter margin in cm (defaults to 0.5 in, 1.27 cm)
-            outside_margin_cm: Outside margin in cm (defaults to 0.375 in, 0.95 cm)
+            outside_margin_cm: Outside margin in cm (defaults to 0.5 in, 1.27 cm)
             outside_margin_bleed_cm: Outside margin with bleed in cm (optional)
             interior_ink_mode: How the interior is printed (CARD-147) —
                 ``'bw'`` or ``'colour'``; defaults to black-and-white, which is

@@ -71,7 +71,13 @@ from PIL import Image, ImageDraw
 from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_page_spec import book_page_spec
-from nonogram.admin.book_pdf_generator import DPI, BookPDFGenerator, _draw_folio, page_frame
+from nonogram.admin.book_pdf_generator import (
+    DPI,
+    BookPDFGenerator,
+    _draw_page_frame,
+    grid_size_label,
+)
+from nonogram.export.layout import compute_layout, interior_frame
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 
@@ -189,13 +195,15 @@ def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str)
     page asserts the puzzle, its print number, its tier label and its parity
     together.
 
-    **Since CARD-200, one more mark: the folio**
-    (:func:`~nonogram.admin.book_pdf_generator._draw_folio`), drawn here the
-    same way :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._blank_page`
-    now draws it onto the real interior page — unconditionally, since
-    nothing else on a one-up puzzle page competes for its bottom-outer
-    corner. Without this, every comparison in this module would fail at the
-    folio's own pixels, not because the puzzle or its band moved.
+    **Since CARD-200, one more mark: the folio** — and since CARD-222 the
+    whole page frame it belongs to
+    (:func:`~nonogram.admin.book_pdf_generator._draw_page_frame`: the header
+    rule, the footer's hairline, the grid-size label and the folio), drawn
+    here the same way
+    :meth:`~nonogram.admin.book_pdf_generator.BookPDFGenerator._blank_page`
+    draws it onto the real interior page, with that method's own arguments.
+    Without this, every comparison in this module would fail at the frame's
+    own pixels, not because the puzzle or its band moved.
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -210,15 +218,14 @@ def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str)
     )
     spec = book_page_spec(_book(), page_number)
     blank, _ = render_pages(payload, page_spec=spec)
-    frame = page_frame(spec)
-    _draw_folio(
+    layout = compute_layout(payload.row_clues, payload.column_clues, spec)
+    _draw_page_frame(
         ImageDraw.Draw(blank),
-        frame.left,
-        frame.top,
-        frame.right,
-        frame.bottom,
+        interior_frame(spec),
         page_number,
         DPI,
+        size_label=grid_size_label(layout.columns, layout.rows),
+        content_bottom=None if layout.page is None else layout.page.drawing_bottom,
     )
     return blank
 

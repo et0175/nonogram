@@ -20,8 +20,11 @@ functions that called it; and the interior page it was drawn for. A size in
 points is ``size * 72 / generator.dpi``. An unsized face always fails.
 
 **The one exemption.** A puzzle page's clue digits are bound to their cell
-(``_CLUE_FONT_RATIO``), and INV-006's 4.8 mm cell floor puts them at 8.4 pt, so
-no setting reaches 10 pt there without breaking the cell floor. They are
+(``_CLUE_FONT_RATIO``), and INV-006's cell floor puts them at 8.4 pt, so
+no setting reaches 10 pt there without breaking the cell floor. The floor
+is **4.75 mm since NFR-008's amendment of 2026-10-17** (CARD-222) and was
+4.8 mm before it; the 8.4 pt is unchanged by that move, because at 300 dpi
+both floors round ``pitch * _CLUE_FONT_RATIO`` to the same 35 px. They are
 exempt **by the function that draws them**: ``png._draw_clues`` and
 ``book_pdf_generator._write_clues``. The guide page's worked example draws its
 clue digits through ``_write_clues`` too, from inside ``draw_example_line``;
@@ -89,6 +92,12 @@ BAND_SETTERS = frozenset(
         ("nonogram.export.pdf", "_draw_header"),
     }
 )
+
+#: CARD-222's footer line: the grid-size label, the one face the frame adds.
+#: It is set at ``SIZE_LABEL_PT``, which reads COMP-007's own
+#: ``INTERIOR_FOOTER_LINE_PT`` — the floor again — and the folio beside it is
+#: CARD-200's, drawn by ``_draw_folio`` and already covered.
+FOOTER_LABEL_SETTER = ("nonogram.admin.book_pdf_generator", "_draw_page_frame")
 
 #: CARD-198 note: FR-042's level headings are gone (the packed key that
 #: drew them no longer exists), so there is no "answer heading" kind any
@@ -188,6 +197,8 @@ class TextCall:
             return "divider"
         if self.caller in BAND_SETTERS:
             return "band"
+        if self.caller == FOOTER_LABEL_SETTER:
+            return "footer label"
         if self.caller[1] in ("solved_puzzle_page", "_draw_solved_slot"):
             return "answer caption"
         return "other"
@@ -350,6 +361,11 @@ class TestInteriorType_EveryFaceHoldsTheFloor:
         """
         kinds = {call.kind for call in recording(book, arial=True)}
         required = {"guide", "divider", "band"}
+        if book != "min-trim":
+            # CARD-222's footer line. Not on ``min-trim``: no page of that
+            # book frees its footer strip (that file's own measurement), so
+            # the group — label included — is omitted there.
+            required.add("footer label")
         if book != "min-trim":
             required.add("answer caption")
         assert required <= kinds

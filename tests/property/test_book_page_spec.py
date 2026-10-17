@@ -71,9 +71,14 @@ def test_PropertyTest_BookPageSpec_EmptyMarginsBuildTheCon018Sheet() -> None:
         trim = {k: v for k, v in _random_stored(rng).items() if k.startswith("trim")}
         page = rng.randint(1, 400)
         profile_sheet = book_page_spec(
-            SimpleNamespace(**trim, gutter_margin_cm="1.27", outside_margin_cm="0.95"), page
+            SimpleNamespace(**trim, gutter_margin_cm="1.27", outside_margin_cm="1.27"), page
         )
-        assert (profile_sheet.gutter_mm, profile_sheet.outside_mm) == (12.7, 9.525)
+        # CON-018 as amended 2026-10-17 (CARD-222): both side margins are
+        # 0.5 in = 12.7 mm, which a two-decimal column stores exactly. Each is
+        # named by its own attribute rather than one twice — the two figures
+        # being equal is the amendment's deliberate outcome, not a licence to
+        # assert one of them.
+        assert (profile_sheet.gutter_mm, profile_sheet.outside_mm) == (12.7, 12.7)
         for empty in empties:
             assert book_page_spec(SimpleNamespace(**trim, **empty), page) == profile_sheet
             cases += 1

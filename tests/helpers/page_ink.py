@@ -15,6 +15,20 @@ is"): a horizontal rule runs from the drawing's left edge to the grid's right
 edge, and a vertical rule from the drawing's top edge to the grid's bottom.
 So:
 
+Since CARD-222 an interior page also carries **furniture**: a rule under the
+header and a hairline above the footer, each running the full text width,
+which is wider than the rules of any drawing narrower than the text block. The
+horizontal axis is therefore measured inside the drawing's own **box** — the
+row span and the column span its vertical rules give, which no furniture
+reaches — see :func:`_rule_groups`, :func:`_drawing_rows` and
+:func:`_drawing_columns`. The column span also closes a fragility that
+predates this card: the QR icon's box is drawn with its top edge on the
+drawing's own top row and its far edge on the usable area's, so that one row's
+ink runs further than any rule the grid draws, and a page-wide peak taken from
+it hid every rule on a page measured here. Nothing else about the measurement
+changed, and on a page carrying nothing but its drawing the box contains every
+rule there is, so the answer is the same one as before.
+
 * a pixel column crossing a vertical rule holds one **unbroken** run of ink
   the whole height of the drawing, which no other column does: a clue digit's
   ink is broken by the white of its own box every cell. So a column is a rule
@@ -204,11 +218,75 @@ def _longest_runs(lines: np.ndarray) -> np.ndarray:
     return longest
 
 
-def _rule_groups(longest: np.ndarray) -> list[list[int]]:
+def _rule_groups(longest: np.ndarray, rows: slice | None = None) -> list[list[int]]:
+    """The rule groups of one axis, optionally measured within ``rows`` only.
+
+    ``rows`` is how :func:`drawing_of` keeps **page furniture** out of the
+    horizontal axis (CARD-222). An interior page's frame rules run the full
+    text width, which is wider than the rules of any drawing narrower than the
+    text block, so a page-wide peak would put every grid rule under
+    :data:`_RULE_SHARE` of it and the page would read as carrying no grid at
+    all. The drawing's own row span is measured independently, off the vertical
+    axis, which no page furniture reaches (:func:`_drawing_rows`); both the
+    peak and the groups are then taken inside that span, so a rule above or
+    below the drawing cannot be mistaken for one of its own and cannot change
+    the threshold the drawing's rules are judged by either.
+    """
+    if rows is not None:
+        inside = np.zeros_like(longest)
+        inside[rows] = longest[rows]
+        longest = inside
     peak = longest.max()
     if peak == 0:
         raise ValueError("the page carries no ink at all")
     return _groups(np.flatnonzero(longest >= _RULE_SHARE * peak))
+
+
+#: How far **above** its own top edge a drawing's first rule can reach, in
+#: pixels. Every rule is centred on its boundary, so half of it falls outside
+#: the box it closes (:class:`~nonogram.export.layout.PuzzleFrame`'s own
+#: docstring): the heaviest rule the book strokes is 6 px, so 3 px is the
+#: overhang, exactly.
+#:
+#: **Only upwards, and only this far.** The top end needs it: a framed page's
+#: top side is a heavy rule centred on the drawing's top edge, and a rule read
+#: at half its thickness would not match the border beside it
+#: (:func:`_outer_rule_is_a_frames` compares the two). The bottom end does not
+#: — nothing below the drawing is read, and the group at the grid's bottom
+#: border is identified by its first row either way — while extending the span
+#: downwards would reach the footer's hairline on a page whose drawing stops
+#: just above it (CARD-222) and count it as one of the grid's own rules.
+_EDGE_OVERHANG = 3
+
+
+def _drawing_columns(vertical: list[list[int]]) -> slice:
+    """The columns the drawing itself occupies, from its own vertical rules.
+
+    The first vertical rule is the drawing's leftmost ruled line and the last
+    its grid's right border, so every horizontal rule the drawing draws lies
+    inside this span — and anything drawn beside the drawing does not.
+    """
+    return slice(vertical[0][0], vertical[-1][-1] + 1)
+
+
+def _drawing_rows(dark: np.ndarray, vertical: list[list[int]]) -> slice:
+    """The rows the drawing itself occupies, read off its vertical rules.
+
+    A vertical rule is one unbroken run of ink from the drawing's top edge to
+    the grid's bottom one, and nothing a page's frame draws makes a run
+    anywhere near that long down a column — so the first vertical rule's own
+    longest run *is* the drawing's row span, measured without reference to any
+    horizontal ink. :data:`_EDGE_OVERHANG` is added at the top, and only
+    there, so that a rule centred on the drawing's top edge is counted whole
+    — see that constant for why the bottom end is left exactly where the
+    drawing's own ink ends.
+    """
+    column = dark[:, vertical[0][0]]
+    runs = _groups(np.flatnonzero(column))
+    if not runs:
+        raise ValueError("no ink on this line")
+    longest = max(runs, key=len)
+    return slice(max(0, longest[0] - _EDGE_OVERHANG), longest[-1] + 1)
 
 
 def _outer_rule_is_a_frames(rules: list[list[int]], edge: int) -> bool:
@@ -265,8 +343,17 @@ def drawing_of(page: Image.Image) -> Drawing:
             is not a puzzle page).
     """
     dark = _dark(page)
-    horizontal = _rule_groups(_longest_runs(dark))
     vertical = _rule_groups(_longest_runs(dark.T.copy()))
+    # Inside the drawing's own box on both axes, which the vertical rules give
+    # independently of any horizontal ink (:func:`_drawing_rows`,
+    # :func:`_drawing_columns`): page furniture above or below the drawing is
+    # out of the row span, and a mark beside it — the QR icon, whose own box
+    # edge is drawn on the drawing's top row and runs on to the usable area's
+    # far edge — is out of the column span. Either would otherwise lengthen a
+    # row's run past every rule the grid draws and take the threshold with it.
+    rows = _drawing_rows(dark, vertical)
+    columns = _drawing_columns(vertical)
+    horizontal = _rule_groups(_longest_runs(dark[:, columns].copy()), rows=rows)
     if len(horizontal) < 2 or len(vertical) < 2:
         raise ValueError("this page does not carry a ruled grid")
 

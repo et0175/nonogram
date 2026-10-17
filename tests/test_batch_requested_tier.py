@@ -287,13 +287,64 @@ class TestBatchRequestedTier_Migration014IsReversible:
         assert "requested_tier" in columns
         assert again["requested_tier"] is None
 
-    def test_014_revises_013_and_is_the_only_head(self):
+    def test_014_revises_013(self):
+        """This card's own link in the chain, which no later card may re-point."""
         from alembic.script import ScriptDirectory
 
         script = ScriptDirectory.from_config(self._config("sqlite://"))
-        revision = script.get_revision("014")
-        assert revision.down_revision == "013"
-        assert script.get_heads() == ["014"]
+        assert script.get_revision("014").down_revision == "013"
+
+    def test_the_chain_is_one_linear_run_from_base_to_a_single_head(self):
+        """The chain property itself, read off the scripts rather than named.
+
+        This used to assert ``get_heads() == ["014"]``, which was true only
+        until the next migration was written: CARD-222's 015 broke it, and
+        hardcoding ``["015"]`` would have handed the same breakage to 016. So
+        what is asserted here is the *property* 014 was standing in for —
+        exactly one head, every revision pointing at the one below it, nothing
+        on disk left out of the run — each term derived from the scripts
+        directory on this run. A second head, a ``down_revision`` pointing at
+        the wrong revision, or a version file orphaned off the chain each fail
+        a different one of these assertions.
+        """
+        from alembic.script import ScriptDirectory
+
+        script = ScriptDirectory.from_config(self._config("sqlite://"))
+
+        heads = script.get_heads()
+        assert len(heads) == 1, (
+            f"the migration chain must have exactly one head, found {heads} — "
+            "two heads mean two migrations claim the same predecessor and "
+            "`alembic upgrade head` can no longer name one"
+        )
+
+        # Newest first, down to the base.
+        links = [(r.revision, r.down_revision) for r in script.walk_revisions()]
+        assert links[0][0] == heads[0]
+        assert links[-1][1] is None, (
+            f"the chain's oldest revision must revise nothing, not {links[-1][1]!r}"
+        )
+        for (upper, revises), (lower, _) in zip(links, links[1:]):
+            assert revises == lower, (
+                f"migration {upper} revises {revises!r}, but the revision "
+                f"below it in the chain is {lower} — the chain is broken there"
+            )
+
+        # Every version file on disk is in that run. An orphan would not show
+        # up as a second head (alembic only walks what is reachable), so it
+        # needs its own assertion.
+        on_disk = {
+            path.name.split("_", 1)[0]
+            for path in (REPO_ROOT / "migrations" / "versions").glob("[0-9]*_*.py")
+        }
+        assert {revision for revision, _ in links} == on_disk, (
+            "these version files are not on the chain alembic walks: "
+            f"{on_disk.symmetric_difference({r for r, _ in links})}"
+        )
+
+        # The revisions are numbered, so the head is the highest number. This
+        # is the one term the next migration moves, and it moves it by itself.
+        assert heads == [max(on_disk, key=int)]
 
 
 # --------------------------------------------------------------------------

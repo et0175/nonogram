@@ -3824,7 +3824,7 @@ def create_app(debug=None):
                 flash("No puzzles selected. Please select at least one puzzle.", "info")
             else:
                 try:
-                    # FR-031/INV-006: the 4.8 mm floor. The overrides ticked on
+                    # FR-031/INV-006: the 4.75 mm floor. The overrides ticked on
                     # this submission travel with the add; the *store* decides
                     # what may join (CARD-121) and hands back the refusals it
                     # enforced, so the tiles are named with the cell that was

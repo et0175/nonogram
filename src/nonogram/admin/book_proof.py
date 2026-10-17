@@ -4,7 +4,7 @@ ADR-0037 fixes the band's wording and the book's stroke minimum — thin rule
 at least 0.25 mm, heavy rule twice that, in pure black — and then says the
 numbers become final **only after the owner has seen them on printed proof
 pages**. That step cannot be automated: a ruler on paper is the measurement,
-and a 0.25 mm rule on a 4.97 mm cell is either comfortable or too dense by
+and a 0.25 mm rule on a 4.885 mm cell is either comfortable or too dense by
 eye. This module is the export that produces the paper.
 
 What it renders (CARD-118)
@@ -13,8 +13,8 @@ Two pages on the book's own :class:`~nonogram.export.layout.PageSpec`:
 
 * **Puzzle 1** — a 30 x 30 whose row *and* column clue gutters are exactly 9
   entries deep, which is the deepest-gutter case at CON-011's largest extent
-  and the one that gets the book's **smallest** cell (4.97 mm on CON-018's
-  Book 1 profile, which is where NFR-008's 4.8 mm floor is nearly met and
+  and the one that gets the book's **smallest** cell (4.885 mm on CON-018's
+  Book 1 profile, which is where NFR-008's 4.75 mm floor is nearly met and
   where a faint rule would hurt most);
 * **Puzzle 2** — a 15 x 15 with 7-deep gutters, which is comfortably inside
   the sheet and so takes NFR-008's flat 7.5 mm **cap** on the Book 1 profile.
@@ -24,7 +24,7 @@ answers ADR-0037's question at both ends of it.
 
 The two puzzles are **fixed fixtures** (:data:`PROOF_PUZZLES`), written out
 below as literal grids. They are not drawn from the database on purpose: the
-measurements ADR-0037's checkpoint states — 4.97 mm and 7.5 mm — hold only for
+measurements ADR-0037's checkpoint states — 4.885 mm and 7.5 mm — hold only for
 those extents at those gutter depths, so a proof set that changed with the
 panel's contents would stop being a proof of anything. The grids were drawn
 once from a seeded, transpose-symmetric random source at a density that puts
@@ -164,7 +164,7 @@ _NOTE_SEPARATOR = " · "
 #: The 30 x 30 of :data:`PROOF_PUZZLES`, drawn once and frozen (see the module
 #: docstring). Its deepest row clue and its deepest column clue are both 9
 #: entries, which is what makes the drawing 39 x 39 cells and the printed cell
-#: 4.97 mm on the Book 1 profile. ``#`` is a filled cell.
+#: 4.885 mm on the Book 1 profile. ``#`` is a filled cell.
 _PROOF_LARGE_ROWS: tuple[str, ...] = (
     ".##.###.....###......##.......",
     "##.#..####.#.#.#.....#.....##.",
@@ -308,7 +308,7 @@ class ProofPuzzle:
         """How many clue boxes deep the left gutter is — the longest row clue.
 
         With :attr:`column_gutter_depth` and the extent, this is what decides
-        the printed cell, which is why the checkpoint's 4.97 mm and 7.5 mm are
+        the printed cell, which is why the checkpoint's 4.885 mm and 7.5 mm are
         claims about *these* depths and are pinned by a test.
         """
         return max(len(clue) for clue in self.row_clues)

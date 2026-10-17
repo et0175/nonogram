@@ -97,11 +97,16 @@ from nonogram import clues
 from nonogram.admin.book_manager import Book, BookMetadata
 
 #: CON-018's Book 1 profile in millimetres, written out here rather than
-#: imported, exactly as ``tests/test_book_pdf.py`` writes it out.
+#: imported, exactly as ``tests/test_book_pdf.py`` writes it out. The outside
+#: margin moved 0.375 -> 0.5 in with the 2026-10-17 amendment (CARD-222), which
+#: makes it equal to the gutter: the corpus book stores both, so a parity
+#: assertion made on *this* book is an identity and not evidence that mirroring
+#: works (CON-018's own note; `tests/test_book_page_frame.py` proves the
+#: mirroring on a book with unequal stored margins instead).
 BOOK1_WIDTH_MM = 8.5 * 25.4
 BOOK1_HEIGHT_MM = 11 * 25.4
 GUTTER_MM = 0.5 * 25.4
-OUTSIDE_MM = 0.375 * 25.4
+OUTSIDE_MM = 0.5 * 25.4
 
 #: Where the recorded per-page evidence of the interior's pages lives.
 #:
@@ -462,11 +467,26 @@ OUTSIDE_MM = 0.375 * 25.4
 #:   and nothing else does; both strict ``xfail`` markers that carried the
 #:   blocks are converted back to ordinary passing tests.
 #:
-#: All sixteen files carry the reasoning; this constant names the current one
-#: (sixteen since CARD-221's own recording joined the fifteen CARD-205 had
+#: * ``book_baseline_card222.json`` — CARD-222 lands CON-018's amendment of
+#:   2026-10-17 (outside 0.375 -> 0.5 in, top -> 0.55 in, bottom -> 0.47 in,
+#:   the gutter deliberately unchanged at KDP's 0.5 in) and gives each puzzle
+#:   page the owner's frame: a 0.6 pt rule inside the title band, a 0.4 pt
+#:   hairline above the footer, the grid size on the footer's inner side and
+#:   the folio at its centre. **Every one of the thirteen pages moves** — the
+#:   text block itself is narrower (193.675 -> 190.5 mm) and shorter (260.35
+#:   -> 253.492 mm), so every mark on every page sits at a new y and every
+#:   fitted cell not already at the 7.5 mm cap is about 1.6% smaller.
+#:   ``interior_bytes`` 3464123 -> 3313912. ``changed_pages`` is therefore all
+#:   thirteen, which is the one recording in this chain where a page that did
+#:   *not* move would be the surprise. This book's page count does not change
+#:   (still thirteen) and neither does the 150-puzzle corpus's (still 307):
+#:   measured before and after, in that card's Worktree notes.
+#:
+#: All seventeen files carry the reasoning; this constant names the current one
+#: (seventeen since CARD-222's own recording joined the sixteen CARD-221 had
 #: brought the chain to; the stale counts this line used to carry,
 #: "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card221.json"
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card222.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until

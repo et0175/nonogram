@@ -3650,6 +3650,21 @@ class TestRoundMarkOnThePage_SeesTheGreysTheBookPrints:
 # AC-2 — and it passes on the book the project really prints
 # ==========================================================================
 
+#: How many connected ink regions the baseline interior's 13 pages must still
+#: carry, at **each** measured threshold — the denominator that keeps "no round
+#: mark on these pages" from being a statement about a blank book.
+#:
+#: 2600, just under the 2640 measured on this tree at both grey 128 and grey
+#: 208. What moved it is CON-018's amendment: the amended interior margins
+#: leave the usable area 1.6 % narrower and 2.6 % shorter, so every grid not
+#: already at the 7.5 mm cell cap prints smaller and merges ink that used to
+#: separate. Re-derived on the merged tree rather than inherited from either
+#: card of wave 44, and corroborated by measuring ``main`` at ``c2b0646``
+#: beside this branch through the same ``_book_ink(None)``: 3222 regions and
+#: margin 1.885921 there, 2640 and 1.885525 here, so the whole difference is
+#: the margin amendment and nothing else.
+REGION_FLOOR = 2600
+
 #: The seeded picture corpus AC-2 sweeps, and the two floors it must clear
 #: (CLAUDE.md: no ``hypothesis``, a corpus with its minimum asserted inside the
 #: test so it cannot silently shrink). The second floor is the load-bearing
@@ -3659,7 +3674,8 @@ PICTURE_MIN_PAGES = 18
 PICTURE_MIN_CELLS = 400
 
 #: And CARD-243's third floor: how many pixels of this corpus are paper to
-#: :data:`INK_LEVEL` and a mark to :data:`MARK_LEVEL`. 265 543 when measured,
+#: :data:`INK_LEVEL` and a mark to :data:`MARK_LEVEL`. 245 710 when measured
+#: on CON-018's amended margins (265 543 before them),
 #: nearly all of it the solved pages' grey grid — the one place in the suite
 #: where the widened threshold meets the production grey in bulk rather than
 #: in a plant.
@@ -3738,18 +3754,33 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
     **With a measured margin, not by luck — and it moved when the threshold
     did.** The closest any region comes to being round is
     :attr:`LevelInk.margin`, in units of the tolerance that binds it:
-    **1.8859** at the black threshold, carried by ``fill`` alone on a 99 x 94
-    filled block at ``(144, 1266, 242, 1359)`` (``aspect`` 1.0532 — already
-    inside :data:`ROUND_ASPECT_TOLERANCE`); **1.8182** at the widened one,
-    carried by ``aspect`` on a 7 x 11 letter stem at
-    ``(2181, 477, 2187, 487)`` (``fill`` 0.8599, outside its tolerance too).
-    Both numbers, both boxes and *which* tolerance carries each are asserted
-    in :meth:`test_the_closest_the_book_comes_to_a_round_mark_is_measured`,
-    and each tolerance's own room is measured separately in
+    **1.8855** at the black threshold, carried by ``fill`` alone on a 99 x 95
+    filled block (``aspect`` 1.0421 — already inside
+    :data:`ROUND_ASPECT_TOLERANCE`); **1.8182** at the widened one, carried by
+    ``aspect`` on a 7 x 11 letter stem (``fill`` 0.8599, outside its tolerance
+    too). Both numbers, each mark's **footprint**, and *which* tolerance
+    carries each are asserted in
+    :meth:`test_the_closest_the_book_comes_to_a_round_mark_is_measured`, and
+    each tolerance's own room is measured separately in
     :meth:`test_each_tolerances_own_room_on_the_book_is_measured` — because
     the margin is whichever binds first and that hides the other (CARD-241
     cycle 1, F-003, where the 2.27 quoted here was the letter-stem family's
     aspect room and not the closest mark at all).
+
+    **The footprint rather than the box** (CARD-243 review, F-001). Pinning
+    ``closest.box`` pins one member of a tie: at the widened threshold eleven
+    7 x 11 stems sit at exactly 1.8182 and which of them is reported is page
+    and region iteration order, so any geometry change flips the box while the
+    margin and the binding tolerance are untouched — and the failure then
+    reads "the margin is no longer carried by aspect", which is not what
+    happened. CON-018's amended margins did precisely that: every figure below
+    was re-derived on this tree, and the only ones that *moved* were the two
+    the fall in region size touches (the margin's fourth decimal and
+    ``aspect``'s own room). So what is asserted is ``(width, height)`` — the
+    shape the claim is about — and, for the block that sets ``fill``'s room,
+    that the **same region** sets it at both thresholds. Position is
+    deliberately not pinned: it is the one thing a page-layout change is
+    *allowed* to move.
 
     Every floor sits just under its measured value, so a future page whose ink
     drifts towards roundness reds a test *before* it reds the guard.
@@ -3759,8 +3790,13 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         """ADR-0036/R3's declared check, now asked at both thresholds."""
         ink = _book_ink(None)
         assert ink.pages >= 13, f"the baseline interior lost pages: {ink.pages}"
+        # Both cards' claims, kept: CARD-243's per-level loop (the floor and the
+        # quiet-book assertion hold at EACH measured threshold, not aggregated)
+        # and CARD-222's lowered floor, :data:`REGION_FLOOR` — see there for the
+        # measurement it is set from and for the two readings of `main` and this
+        # branch that attribute the whole fall to CON-018's amended margins.
         for level in MEASURED_LEVELS:
-            assert ink.at[level].regions >= 3000, (
+            assert ink.at[level].regions >= REGION_FLOOR, (
                 f"only {ink.at[level].regions} regions on {ink.pages} pages at "
                 f"level {level} — these pages have stopped carrying the marks "
                 "this test exists to tolerate"
@@ -3773,7 +3809,8 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         assert ink.widened_pixels >= 50_000, (
             "the baseline interior has nearly no pixels between the two "
             "thresholds, so passing at the wider one says nothing about a wider "
-            f"population: {ink.widened_pixels} (76347 when measured)"
+            f"population: {ink.widened_pixels} (58424 when measured; 76347 "
+            "before CON-018's amended margins shrank the usable area)"
         )
 
     def test_the_closest_the_book_comes_to_a_round_mark_is_measured(self) -> None:
@@ -3783,22 +3820,34 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         threshold brings the book's own greys and every glyph's anti-aliased
         edge into the population the margin is taken over. What it comes to:
 
-        * at :data:`INK_LEVEL`, **1.8859** on the 99 x 94 filled block at
-          ``(144, 1266, 242, 1359)``, ``aspect`` 1.0532 and ``fill`` 1.2263 —
-          CARD-241's figure, to four places, on this head. The widening does
-          not move it, which is the point of keeping the reading;
+        * at :data:`INK_LEVEL`, **1.8855** on a 99 x 95 filled block,
+          ``aspect`` 1.0421 and ``fill`` 1.2263 — the single nearest region on
+          the pages, no tie. The widening does not move it, which is the point
+          of keeping the reading;
         * at :data:`MARK_LEVEL`, **1.8182**, and the closest mark is a
-          *different* one: a 7 x 11 letter stem at ``(2181, 477, 2187, 487)``,
-          ``aspect`` 0.6364, ``fill`` 0.8599. It is the same stem family that
-          was 6 x 11 at the black threshold, one pixel wider for its own grey
-          edge — and at that width its ``fill`` leaves the fill tolerance, so
-          the number is now carried by ``aspect``.
+          *different* one: a 7 x 11 letter stem, ``aspect`` 0.6364, ``fill``
+          0.8599, one of eleven at exactly that distance. It is the same stem
+          family that is 6 x 11 at the black threshold, one pixel wider for
+          its own grey edge — and at that width its ``fill`` leaves the fill
+          tolerance, so the number is now carried by ``aspect``.
+
+        **What CON-018's amended margins did to these two readings, measured
+        rather than assumed.** Both were 1.8859 / 1.8182 on the old margins
+        (re-measured on ``main`` at ``c2b0646``: closest at grey 128 a 99 x 94
+        block, ``aspect`` 1.0532, ``fill`` 1.2263, ink 8963). The amended
+        margins print the guide page's blocks one row taller and one pixel of
+        ink lighter — 99 x 95, ink 9058, ``fill`` 1.2263 to four places still —
+        so the black margin falls by 0.0004 to **1.8855**, and the widened
+        reading does not move at all: its stem is 7 x 11 on both trees, and
+        ``aspect`` on a 7 x 11 box is 7/11 whatever the page around it does.
+        So the margin did **not** change hands under this card, and the
+        quantity that did change is the one the fourth decimal records.
 
         Both halves matter and neither is a conclusion drawn from the other:
-        the margin *moved* (down 0.068, by 3.6 %) and *changed hands*. The
-        floor stays at 1.8, just under the measured 1.8182, for the reason
-        CARD-241 set it there: a floor at 1.5 would let the margin fall by a
-        fifth in silence (cycle 1, F-003).
+        between the thresholds the margin *moves* (down 0.067, by 3.6 %) and
+        *changes hands*. The floor stays at 1.8, just under the measured
+        1.8182, for the reason CARD-241 set it there: a floor at 1.5 would let
+        the margin fall by a fifth in silence (cycle 1, F-003).
         """
         ink = _book_ink(None)
         black, widened = ink.at[INK_LEVEL], ink.at[MARK_LEVEL]
@@ -3806,14 +3855,16 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
             assert level.margin >= 1.8, (
                 f"the roundest mark on the book's pages at level {level.level} "
                 f"is now {level.margin:.4f} tolerances from round; it was "
-                "1.8859 at the black threshold and 1.8182 at the widened one "
+                "1.8855 at the black threshold and 1.8182 at the widened one "
                 "when they were set, and under 1.0 it would be a false positive"
             )
             assert level.closest is not None, "a book with no region to measure"
         # CARD-241's reading, unchanged by the widening: the same block, the
-        # same number, still carried by `fill` alone.
-        assert black.closest.box == (144, 1266, 242, 1359), black.closest
-        assert black.margin == pytest.approx(1.8859, abs=5e-4), black.margin
+        # same number, still carried by `fill` alone. Its FOOTPRINT is pinned
+        # and its position is not — see the class docstring's "the footprint
+        # rather than the box" for why (CARD-243 review, F-001).
+        assert (black.closest.width, black.closest.height) == (99, 95), black.closest
+        assert black.margin == pytest.approx(1.8855, abs=5e-4), black.margin
         assert abs(black.closest.fill - 1.0) / ROUND_FILL_TOLERANCE == pytest.approx(
             black.margin
         ), (
@@ -3828,7 +3879,13 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         )
         # And the widened reading, which is the guard's own: a different mark,
         # a smaller margin, and the other tolerance carrying it.
-        assert widened.closest.box == (2181, 477, 2187, 487), widened.closest
+        # One of eleven 7 x 11 stems at exactly this distance, so the footprint
+        # is the claim and the box is not: which member is reported is page and
+        # region iteration order (CARD-243 review, F-001).
+        assert (widened.closest.width, widened.closest.height) == (
+            7,
+            11,
+        ), widened.closest
         assert widened.margin == pytest.approx(1.8182, abs=5e-4), widened.margin
         assert widened.margin < black.margin, (
             "the widened threshold is supposed to bring more ink into the "
@@ -3860,27 +3917,51 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         ======================  ==========  ============  ==============
         tolerance               at 128      at 208        set by
         ======================  ==========  ============  ==============
-        ``ROUND_FILL``          1.8859      1.8859        the 99 x 94 block
-        ``ROUND_ASPECT``        2.2727      47.1809       a letter stem / a rule
+        ``ROUND_FILL``          1.8855      1.8855        the 99 x 95 block
+        ``ROUND_ASPECT``        2.2727      46.5789       a letter stem / a rule
         ======================  ==========  ============  ==============
 
-        So the widening leaves ``fill``'s room on the book **exactly where
-        CARD-241 measured it** — the 99 x 94 filled block is a hard-edged
-        rectangle and has no grey edge to grow by — and it *widens*
-        ``aspect``'s, from 2.27 to 47.18, because the letter stem that used to
-        sit 2.27 tolerances out with a disc's ``fill`` grew a grey pixel and
-        left the fill tolerance altogether. Both tolerances therefore keep
-        their values because the measurement says so, which is the outcome
-        AC-3 allows; what moved is recorded here rather than in a docstring.
+        So the widening leaves ``fill``'s room on the book **exactly where it
+        reads at the black threshold** — the 99 x 95 filled block is a
+        hard-edged rectangle and has no grey edge to grow by, and it is
+        literally the same region at both, which is asserted rather than said
+        — and it *widens* ``aspect``'s, from 2.27 to 46.58, because the letter
+        stem that used to sit 2.27 tolerances out with a disc's ``fill`` grew a
+        grey pixel and left the fill tolerance altogether. Both tolerances
+        therefore keep their values because the measurement says so, which is
+        the outcome AC-3 allows; what moved is recorded here rather than in a
+        docstring.
+
+        **And CON-018's amended margins moved two of the four**, re-derived on
+        this tree against ``main`` at ``c2b0646``: ``fill``'s room falls
+        1.8859 → **1.8855** at both thresholds (the block it is set on is
+        99 x 95 now, not 99 x 94), and ``aspect``'s room at grey 208 falls
+        47.1809 → **46.5789**, because the guide-page rule that sets it is
+        980 x 95 on the narrowed text block rather than 981 x 94. ``aspect``'s
+        room at grey 128 is **unchanged at 2.2727**: it is set by a 6 x 11
+        stem, and 6/11 does not care how wide the page is. No tolerance was
+        touched to keep any of this green.
         """
         ink = _book_ink(None)
         black, widened = ink.at[INK_LEVEL], ink.at[MARK_LEVEL]
-        assert black.fill_headroom == pytest.approx(1.8859, abs=5e-4), black
-        assert widened.fill_headroom == pytest.approx(1.8859, abs=5e-4), widened
-        assert black.fill_closest.box == (144, 1266, 242, 1359), black.fill_closest
-        assert widened.fill_closest.box == (144, 1266, 242, 1359), widened.fill_closest
+        assert black.fill_headroom == pytest.approx(1.8855, abs=5e-4), black
+        assert widened.fill_headroom == pytest.approx(1.8855, abs=5e-4), widened
+        # The footprint, not the position (CARD-243 review, F-001) — and then
+        # the claim the two readings share: it is the SAME region that sets
+        # `fill`'s room at both thresholds, which is what "the block has no
+        # grey edge to grow by" means and what a pair of equal numbers alone
+        # would not show.
+        assert (black.fill_closest.width, black.fill_closest.height) == (
+            99,
+            95,
+        ), black.fill_closest
+        assert widened.fill_closest.box == black.fill_closest.box, (
+            "`fill`'s room is set by a hard-edged block with no grey edge, so "
+            "the widened threshold must find the very same region; it now "
+            f"finds {widened.fill_closest.box} against {black.fill_closest.box}"
+        )
         assert black.aspect_headroom == pytest.approx(2.2727, abs=5e-4), black
-        assert widened.aspect_headroom == pytest.approx(47.1809, abs=5e-4), widened
+        assert widened.aspect_headroom == pytest.approx(46.5789, abs=5e-4), widened
         assert widened.aspect_headroom > black.aspect_headroom, (
             "the aspect tolerance's room on the book is measured to WIDEN at "
             "the lighter threshold, because the letter stem that set it grows "
@@ -3956,7 +4037,8 @@ class TestRoundMarkOnThePage_PassesOnTheRealBook:
         :data:`~tests.helpers.round_ink.MARK_LEVEL` that is no longer true —
         the grey rules *are* a mark, so a picture's filled cells and the whole
         grid's lattice merge, and the corpus comes back with **fewer** regions
-        than before (4236 at the black threshold, 4087 at the widened one). It
+        than before (3689 at the black threshold, 3540 at the widened one;
+        4236 and 4087 before CON-018's amended margins). It
         still comes back clean, and for a different reason: what the cells merge
         into is the grid's whole square lattice, far too sparse to read as a
         disc. Both readings are asserted, so the day either stops holding a
