@@ -2560,7 +2560,14 @@ def _first_solve_unique(default: str | None) -> set[str]:
     return unique
 
 
-@pytest.mark.skipif(not PICTURES.is_dir(), reason="the owner's corpus is absent")
+# No skip on `PICTURES.is_dir()`. CARD-239, AC-5: the 25 pictures are
+# committed (`git ls-files pictures` lists 25), so the directory is present in
+# every checkout and the skip could only ever fire on a corpus somebody had
+# deleted -- which is the case this test most needs to report. It is the shape
+# CARD-238 removed from its own module and recorded here as a measured
+# silence: a verdict that depends on what the host happens to hold. The
+# corpus claim is asserted inside the body instead, unconditionally, where a
+# missing picture fails loudly.
 def test_binarize_threshold_corpus_needs_no_more_nudges_than_dither() -> None:
     """AC-127(a): the shipped conversion converts at least as many pictures
     uniquely on the first solve as dithering everything did.
@@ -2657,12 +2664,16 @@ def test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_for_line
     solvable *by being nearly empty*, so before the guard it counted as four of
     the seven conversions the threshold path "gained".
 
-    Skipped when the owner's corpus is absent, like every other test that
-    reads it.
+    The picture is committed, so its absence is a failure and not a reason to
+    go quiet (CARD-239, AC-5): this used to skip on ``picture.is_file()``,
+    which is a verdict about the host rather than about the conversion, and
+    on a checkout that had lost the file it reported green.
     """
     picture = PICTURES / "cat_Mouse.png"
-    if not picture.is_file():
-        pytest.skip("the owner's corpus is absent")
+    assert picture.is_file(), (
+        f"{picture.name} is one of the 25 committed pictures and is missing; "
+        "restore it rather than letting this test go quiet"
+    )
 
     greyscale = image.load_greyscale(picture)
     cropped = greyscale.crop(image.ink_bounding_box(greyscale))

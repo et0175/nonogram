@@ -15,10 +15,17 @@ at the foot of this module keep it that way.
 
 These tests parse text and none of them renders anything, but they are not
 free, and the claim that they "shell out exactly once" stopped being true
-when CARD-238 added the sandbox comparison. The real baseline, measured on
-the owner's host on 2026-10-16: **331 tests, 16.5-16.7s** over three runs on
-a host whose 1-minute load average moved between 5.3 and 8.9, in ten
-subprocesses of its own -- two ranker runs in
+when CARD-238 added the sandbox comparison. **No test count is given here.**
+The sentence that stood in this paragraph said "331 tests" over a module
+that collected 341, and CARD-238's own claim sweep asserted that sentence had
+been corrected -- the one sweep row the review found wrong on measurement, in
+the cycle whose subject was false counts. A count in a docstring cannot go
+red when it stops being true, and this module adds tests every time it is
+opened, so the number is deleted rather than updated: ``--collect-only -q``
+answers it in a second and cannot be stale. The cost, measured on the owner's
+host on 2026-10-16: **16.5-16.7s** over three runs on a host whose 1-minute
+load average moved between 5.3 and 8.9, in ten subprocesses of its own --
+two ranker runs in
 ``test_rerunning_the_script_is_byte_identical``, six ``git ls-files``
 listings behind :func:`_files_under_guard`, and two whole-module pytest
 sessions in ``test_the_outcomes_are_identical_with_and_without_the_log``
@@ -26,9 +33,11 @@ sessions in ``test_the_outcomes_are_identical_with_and_without_the_log``
 total; the two AST scans over both guarded territories are 1.3s each, one
 per guard class, since review cycle 3's F-301 put the silence detector over
 the same guarded sources as the path guard; and building a sandbox to check
-what resolves outside it is 0.1s. The earlier figures in this paragraph --
-168 tests, 16.5-19.8s at load 7.3-12.4 (cycle 4), and 148 tests,
-10.7-12.8s at load 3.7-4.0 (cycle 3) -- are not comparable across loads.
+what resolves outside it is 0.1s. The earlier figures -- 16.5-19.8s at load
+7.3-12.4 (cycle 4) and 10.7-12.8s at load 3.7-4.0 (cycle 3) -- are not
+comparable across loads. CARD-239 measured 16.1-17.2s at load 2-4, with the
+stdlib construction probe adding a call per surface spelling and no
+subprocess.
 Review cycle 5's added tests are the stdlib-surface audit and the controls
 generated from the sets it audits; they add no subprocess and no second
 scan, and the two scans' own costs came out at 1.3s each, inside cycle 4's
@@ -64,6 +73,7 @@ from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from types import ModuleType
+from typing import NamedTuple
 
 import pytest
 
@@ -738,6 +748,17 @@ def _looks_like_an_entry(line: str) -> bool:
         <ISO ts> wave-<N> <label> <seconds>s|--- <PASS|FAIL> (<notes>)
         optionally followed by a single ` [<N>ms/test]` and nothing else.
 
+    That grammar understates what this actually accepts, and CARD-239's
+    claim sweep measured the difference rather than leaving the sentence
+    standing: the note's span is taken to the LAST ``)`` in the line, so a
+    parenthesised note *after* the rate bracket -- the shape review cycle 1
+    established is legal and in use -- is swallowed into the note and
+    accepted. The two implementations therefore agree on it, by two
+    different routes, which is what
+    ``test_the_parser_agrees_with_an_independent_validator`` measures over
+    the whole corpus. A *bare* trailing note is still rejected here, because
+    the text after the last ``)`` must be empty or exactly one rate bracket.
+
     One deliberate difference: ``strptime`` also rejects an impossible date
     (``2026-13-45T99:99:99Z``), which ``TIMING_LOG_LINE``'s two-digit
     groups accept. No case in the corpus below exercises that, because no writer
@@ -970,9 +991,18 @@ class TestSuiteTimingLog_FormatUnchanged:
         # Writer, so the next author does not repeat it: the forge:kanban
         # dispatcher's merge-gate "SUITE TIMING" append step
         # (skills/kanban/references/cmd-run.md), which documents the line as
-        # `<ISO date> wave-<N> <label> <seconds>s <PASS|FAIL>` and carries no
-        # trailing-prose form; tests/README.md's "Logging the run" shows the
-        # same. Put the gate's commentary inside the notes parentheses.
+        # `<ISO date> wave-<N> <label> <seconds>s <PASS|FAIL>` and carries
+        # neither the trailing-prose form nor the legal parenthesised one.
+        # Put the gate's commentary inside parentheses.
+        #
+        # tests/README.md used to understate the format the same way and no
+        # longer does (CARD-239): its "Logging the run" section now shows
+        # the parenthesised post-bracket note as legal and this line as
+        # rejected, with the writer named. `cmd-run.md` lives in the owner's
+        # forge skills, outside this repository, so it is raised rather than
+        # edited -- and it is the one the dispatcher actually reads at a
+        # merge gate, so the drift that produced this line is still open
+        # there.
         assert ranker.parse_timing_line(self.CARD_217_GATE_LINE) is None
         assert ranker.malformed_timing_lines(self.CARD_217_GATE_LINE + "\n") == [
             self.CARD_217_GATE_LINE
@@ -1132,61 +1162,11 @@ LIVE_LOG_STEM = "suite-timing"
 # name is the same coupling by a different route.
 _LOG_UNDER_KANBAN = re.compile(r"meta[/\\]kanban[/\\][^\s]*\.log")
 
-_GLOBBERS = frozenset({"glob", "rglob", "iglob", "glob0", "glob1"})
-
-# Listing that directory is the same coupling without a filename at all: what
-# comes back depends on what the host happens to have put there.
-#
-# Both sets mix two call shapes on purpose, and until review cycle 3 (F-301,
-# F-304) the rule below could only fire on one of them. ``p.iterdir()`` and
-# ``d.glob(...)`` carry the directory as the call's RECEIVER; ``os.listdir``,
-# ``os.scandir`` and ``glob.iglob`` are module functions that carry it as an
-# ARGUMENT -- positionally or by keyword (``os.listdir(path=...)``, review
-# cycle 4's F-402) -- and there is no ``Path.listdir`` or ``Path.scandir``.
-# The rule tests receiver and arguments alike now.
-#
-# Membership is no longer a judgement: both sets are exactly
-# :data:`STDLIB_DIRECTORY_SURFACE`'s projection, and that table is audited
-# against the library itself. ``walk`` and ``fwalk`` are here because review
-# cycle 4's Critical found ``os.walk`` -- the most-written directory
-# enumerator in the library -- missing from a set four cycles had edited by
-# hand; ``glob0``/``glob1`` are here because the audit asked what they were
-# and no reason to exclude them survived the asking. Every member also has a
-# positive control the guard is measured to catch
-# (``test_every_listing_and_globbing_spelling_has_a_control``) and that
-# control has to DEPEND on the membership -- caught with the spelling in the
-# set and missed without it
-# (``test_the_control_for_each_spelling_depends_on_the_set``). Both are
-# separate claims from completeness and neither substitutes for it.
-_LISTERS = frozenset({"iterdir", "scandir", "listdir", "walk", "fwalk"})
-
-# The wrappers a directory can arrive in without becoming a different
-# directory, in both shapes they are written: a one-argument call
-# (``str(REPO_ROOT / "meta" / "kanban")``) and a no-argument method on the
-# directory itself (``KANBAN.resolve()``). Peeled before the listing rules
-# judge what is inside.
-#
-# Review cycle 4's claim sweep narrowed this set to three on the grounds that
-# ``PosixPath`` and ``WindowsPath`` are "spellings nobody writes", and wrote
-# ``test_every_path_wrapper_is_seen_through`` to justify the narrowing --
-# which cycle 4's F-403 then showed cannot fail for any bare name, because it
-# generates its source from the set it is testing. Both halves of that are
-# corrected here. The membership question is settled by the audit, not by a
-# judgement about what people write: the set is exactly
-# :data:`STDLIB_DIRECTORY_SURFACE`'s KIND_WRAPPER projection, so a member
-# added or removed is red, and the narrowness is pinned from the other side
-# by :data:`NOT_A_PATH_WRAPPER`, whose shapes stop being misses the moment a
-# name that denotes a *different* directory is let in. The generated control
-# stays, with its claim corrected to what it can actually hold: that the peel
-# works for each member, in both shapes.
-_PATH_WRAPPERS = frozenset(
-    {
-        "str", "Path", "PosixPath", "WindowsPath", "PurePath", "PurePosixPath",
-        "PureWindowsPath", "fspath", "fsdecode", "fsencode", "abspath",
-        "realpath", "normpath", "normcase", "relpath", "expanduser",
-        "expandvars", "resolve", "absolute", "as_posix",
-    }
-)
+# The four sets the rules below consult -- the listers, the globbers, the
+# joiners and the path wrappers -- are no longer written here. They are
+# derived from the audited classification table, immediately after
+# :func:`_classified`, which is the earliest point at which they can be. The
+# prose that used to stand here moved with them.
 
 
 # --------------------------------------------------------------------------
@@ -1230,10 +1210,14 @@ _PATH_WRAPPERS = frozenset(
 KIND_LISTER = "lister"
 KIND_GLOBBER = "globber"
 KIND_WRAPPER = "wrapper"
+KIND_JOINER = "joiner"
 KIND_PROBE = "probe"
 KIND_NEITHER = "neither"
 _ALL_KINDS = frozenset(
-    {KIND_LISTER, KIND_GLOBBER, KIND_WRAPPER, KIND_PROBE, KIND_NEITHER}
+    {
+        KIND_LISTER, KIND_GLOBBER, KIND_WRAPPER, KIND_JOINER, KIND_PROBE,
+        KIND_NEITHER,
+    }
 )
 
 #: The namespaces the surface is read out of. ``os`` and ``os.path`` because
@@ -1316,6 +1300,23 @@ _SURFACE_CLASSIFICATION: tuple[tuple[str, str, tuple[str, ...]], ...] = (
             "normpath", "realpath", "relpath", "resolve", "str"
         ),
     ),
+    # -- the joiners: they ASSEMBLE the directory out of the components the
+    # call names, which is the half review cycle 5 left unpoliced (F-501).
+    # Membership is not a judgement either: every name here is *measured* to
+    # build ``meta/kanban`` out of two component strings, and every other
+    # path-algebra name is measured not to
+    # (``test_every_construction_spelling_is_classified``). The path
+    # constructors do it too (``Path(ROOT, "meta", "kanban")``) and stay
+    # KIND_WRAPPER, because with one argument they re-spell rather than
+    # assemble; the rule reads the two kinds as one union, so a constructor
+    # is covered either way and no name is classified twice.
+    (
+        KIND_JOINER,
+        "assembles a directory out of the components the call names",
+        (
+            "join", "joinpath", "with_segments"
+        ),
+    ),
     # -- the host-state probes: a skip keyed on one of these answers is keyed
     # on the host, which is the defect this card removes
     (
@@ -1365,7 +1366,27 @@ _SURFACE_CLASSIFICATION: tuple[tuple[str, str, tuple[str, ...]], ...] = (
             "sched_setparam", "sched_setscheduler", "sched_yield", "setpgid",
             "setpgrp", "setpriority", "setsid", "spawnl", "spawnle", "spawnlp",
             "spawnlpe", "spawnv", "spawnve", "spawnvp", "spawnvpe", "strerror",
-            "system", "times", "uname", "urandom"
+            "times", "uname", "urandom"
+        ),
+    ),
+    (
+        # Review cycle 5's third Minor, corrected rather than restated. These
+        # two sat under "it names no directory" and "not the filesystem", and
+        # ``os.popen("ls " + str(KANBAN))`` is both -- a plausible-sounding
+        # reason that is simply false. The honest reason is that these rules
+        # do not read shell command text at all, and the same is true of
+        # ``subprocess``, which is outside :data:`_SURFACE_NAMESPACES`
+        # entirely and is **this module's own idiom** (``git ls-files``).
+        #
+        # So the exclusion is stated as what it is -- a non-claim -- and the
+        # non-claim is pinned from the other side: the shell-out forms are
+        # entries in :data:`MEASURED_STRUCTURAL_MISSES`, so "we do not read
+        # shell text" goes red the day a rule here starts to.
+        KIND_NEITHER,
+        "runs a command whose text these rules do not read; shelling out to "
+        "list a directory is a measured, recorded miss and not a claim",
+        (
+            "popen", "system"
         ),
     ),
     (
@@ -1399,13 +1420,13 @@ _SURFACE_CLASSIFICATION: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ),
     (
         KIND_NEITHER,
-        "pure path-string arithmetic; it consults no filesystem",
+        "pure path-string arithmetic; it consults no filesystem and it "
+        "assembles no directory out of components",
         (
             "basename", "commonpath", "commonprefix", "dirname", "full_match",
-            "is_absolute", "is_relative_to", "is_reserved", "isabs", "join",
-            "joinpath", "match", "relative_to", "split", "splitdrive",
-            "splitext", "splitroot", "with_name", "with_segments", "with_stem",
-            "with_suffix"
+            "is_absolute", "is_relative_to", "is_reserved", "isabs", "match",
+            "relative_to", "split", "splitdrive", "splitext", "splitroot",
+            "with_name", "with_stem", "with_suffix"
         ),
     ),
     (
@@ -1446,7 +1467,7 @@ _SURFACE_CLASSIFICATION: tuple[tuple[str, str, tuple[str, ...]], ...] = (
             "dup3", "eventfd", "eventfd_read", "eventfd_write", "fdopen",
             "get_blocking", "get_inheritable", "get_terminal_size", "grantpt",
             "isatty", "login_tty", "lseek", "memfd_create", "openpty", "pipe",
-            "pipe2", "popen", "posix_openpt", "ptsname", "set_blocking",
+            "pipe2", "posix_openpt", "ptsname", "set_blocking",
             "set_inheritable", "tcgetpgrp", "tcsetpgrp", "timerfd_create",
             "timerfd_gettime", "timerfd_gettime_ns", "timerfd_settime",
             "timerfd_settime_ns", "ttyname", "unlockpt"
@@ -1494,6 +1515,335 @@ def _classified(*kinds: str) -> frozenset[str]:
     )
 
 
+def _guard_set(*kinds: str) -> frozenset[str]:
+    """The classified spellings of ``kinds`` that this interpreter offers.
+
+    The intersection is the whole point and it is review cycle 5's F-502.
+    Until CARD-239 the four sets were hand-written frozensets, so a member
+    the running interpreter does not have -- ``glob0`` and ``glob1``, which
+    CPython deprecates, or ``is_junction``/``isjunction``/``isdevdrive``,
+    which arrived in 3.12/3.13 -- was a *typo-shaped* entry that
+    ``test_a_spelling_the_guards_use_is_a_real_stdlib_name`` reported as a
+    phantom: the module went red on an interpreter lacking any of the five
+    (measured by deleting exactly those five attributes in a plugin: 1
+    failed, 340 passed).
+
+    Intersecting with the live surface settles it in the direction that
+    cannot leave a hole: **a spelling nobody can write cannot be missed**.
+    If ``glob.glob0`` does not exist on this interpreter, no source on this
+    interpreter can call it, so dropping it from the globbers costs nothing;
+    if it does exist, the audit puts it in. The table keeps the entry either
+    way, because the table is the record of the decision and is read on
+    every host.
+
+    What it does NOT do is excuse a typo: a classified name absent from this
+    host is still reported, now against
+    :data:`PLATFORM_GATED_SPELLINGS` -- the names recorded as genuinely
+    version- or platform-gated -- so an invented ``listdirs`` is red while a
+    3.9 run is green.
+    """
+    return _classified(*kinds) & frozenset(_stdlib_directory_surface())
+
+
+#: The classified spellings this host does not offer, with the reason each
+#: one is absent rather than misspelled. A **subset** claim, not an equality:
+#: on the interpreter that has all five the left side is empty, and no static
+#: list can be equal to it on every host. So the falsifiable half is the only
+#: half there is -- a non-KIND_NEITHER name missing from the surface and
+#: missing from here is red
+#: (``test_a_spelling_the_guards_use_is_a_real_stdlib_name``), which is what
+#: catches a typo. The benign direction is stated rather than claimed: an
+#: entry here that stops being gated is not detected, and nothing pretends
+#: otherwise.
+PLATFORM_GATED_SPELLINGS: dict[str, str] = {
+    "glob0": "a private-by-convention glob helper CPython deprecates; gone "
+             "in a future version",
+    "glob1": "the same, and the same",
+    "is_junction": "pathlib.Path.is_junction, added in 3.12",
+    "isjunction": "os.path.isjunction, added in 3.12",
+    "isdevdrive": "os.path.isdevdrive, added in 3.13",
+    "listdrives": "Windows only (os.listdrives, 3.12)",
+    "listmounts": "Windows only",
+    "listvolumes": "Windows only",
+    "with_segments": "pathlib.PurePath.with_segments, added in 3.12",
+    "full_match": "pathlib.PurePath.full_match, added in 3.13",
+    "copy": "pathlib.Path.copy, added in 3.14",
+    "copy_into": "pathlib.Path.copy_into, added in 3.14",
+    "move": "pathlib.Path.move, added in 3.14",
+    "move_into": "pathlib.Path.move_into, added in 3.14",
+}
+
+
+# --------------------------------------------------------------------------
+# The four sets the rules consult, each one the audited table's projection.
+# --------------------------------------------------------------------------
+# These used to be hand-written frozensets several hundred lines above, which
+# is why they are here now: review cycle 5 could audit them only by comparing
+# two independently maintained things, and CARD-239 makes the table the one
+# source. A member cannot be dropped by hand any more, and a member added to
+# the table without a reason is red
+# (``test_every_classification_carries_a_reason``). The structural half of
+# that is pinned too: ``test_the_guard_sets_are_derived_and_not_hand_written``
+# reads this module's own source and fails if any of the five assignments
+# below becomes a literal again.
+
+#: The globbers: the directory's contents, filtered by a pattern the call
+#: names.
+_GLOBBERS = _guard_set(KIND_GLOBBER)
+
+#: The listers: the directory's contents, with no filename at all -- what
+#: comes back depends on what the host happens to have put there.
+#:
+#: The set mixes two call shapes on purpose, and until review cycle 3 (F-301,
+#: F-304) the rule could only fire on one of them. ``p.iterdir()`` and
+#: ``d.glob(...)`` carry the directory as the call's RECEIVER; ``os.listdir``,
+#: ``os.scandir`` and ``glob.iglob`` are module functions that carry it as an
+#: ARGUMENT -- positionally or by keyword (``os.listdir(path=...)``, review
+#: cycle 4's F-402) -- and there is no ``Path.listdir`` or ``Path.scandir``.
+#: The rule tests receiver and arguments alike.
+#:
+#: ``walk`` and ``fwalk`` are in the table because review cycle 4's Critical
+#: found ``os.walk`` -- the most-written directory enumerator in the library
+#: -- missing from a set four cycles had edited by hand; ``glob0``/``glob1``
+#: because the audit asked what they were and no reason to exclude them
+#: survived the asking. Every member also has a positive control the guard is
+#: measured to catch (``test_every_listing_and_globbing_spelling_has_a_control``)
+#: and that control has to DEPEND on the membership -- caught with the
+#: spelling in the set and missed without it
+#: (``test_the_control_for_each_spelling_depends_on_the_set``). Both are
+#: separate claims from completeness and neither substitutes for it.
+_LISTERS = _guard_set(KIND_LISTER)
+
+#: The joiners: the spellings that BUILD the directory rather than read it,
+#: which is review cycle 5's F-501 and the half nothing policed. The audit
+#: that derived the reading surface from ``dir(os)`` left the construction
+#: surface a judgement, and three spellings sat in the "pure path-string
+#: arithmetic" exclusion with a reason that was true of their *return type*
+#: and false of their use: ``os.listdir(os.path.join(REPO_ROOT, "meta",
+#: "kanban"))`` reads the owner's directory and returned ``[]`` from the
+#: guard, as did the hoisted form, ``REPO_ROOT.joinpath("meta",
+#: "kanban").iterdir()`` and the ``os.getcwd()`` variant -- while the ``/``
+#: and ``Path.cwd() / ...`` spellings were caught. Compounded with the
+#: except-handler bound, a mutant in that shape survived the whole module at
+#: 250 passed.
+#:
+#: Membership here is MEASURED, not judged: see
+#: ``test_every_construction_spelling_is_classified``, which calls every
+#: path-algebra spelling the library offers on two component strings and
+#: requires every one that comes back denoting ``meta/kanban`` to be a joiner
+#: or a wrapper. That is how ``with_segments`` got here -- nobody had thought
+#: of it, exactly as nobody had thought of ``fwalk``.
+_JOINERS = _guard_set(KIND_JOINER)
+
+#: The joiners the library offers as a path METHOD rather than as a module
+#: function, so that such a call's RECEIVER is the base its components hang
+#: off: ``ROOT.joinpath("meta", "kanban")`` starts at ``ROOT``, while
+#: ``os.path.join(ROOT, "meta", "kanban")`` starts at its first argument and
+#: ``os.sep.join([...])``'s receiver is a separator and no part of the path
+#: at all. Derived from the same namespaces the surface is, because it is the
+#: same question: ``dir(pathlib.Path)`` offers ``joinpath`` and
+#: ``with_segments``, ``dir(os.path)`` offers ``join``. Getting this wrong in
+#: the lenient direction was measured, not reasoned -- treating every
+#: attribute joiner's receiver as a component made ``os.path`` itself a path
+#: component and the glob control in :data:`REINTRODUCTIONS` went red.
+_PATH_METHOD_JOINERS = frozenset(
+    name
+    for name, labels in _stdlib_directory_surface().items()
+    if name in _JOINERS and labels == frozenset({"pathlib.Path"})
+)
+
+#: The wrappers a directory can arrive in without becoming a different
+#: directory, in both shapes they are written: a one-argument call
+#: (``str(REPO_ROOT / "meta" / "kanban")``) and a no-argument method on the
+#: directory itself (``KANBAN.resolve()``). Peeled before the listing rules
+#: judge what is inside.
+#:
+#: Review cycle 4's claim sweep narrowed this set to three on the grounds
+#: that ``PosixPath`` and ``WindowsPath`` are "spellings nobody writes", and
+#: wrote ``test_every_path_wrapper_is_seen_through`` to justify the narrowing
+#: -- which cycle 4's F-403 then showed cannot fail for any bare name,
+#: because it generates its source from the set it is testing. Both halves of
+#: that are corrected: the membership question is settled by the audit, not
+#: by a judgement about what people write, and the narrowness is pinned from
+#: the other side by :data:`NOT_A_PATH_WRAPPER`, whose shapes stop being
+#: misses the moment a name that denotes a *different* directory is let in.
+#:
+#: The path constructors are in here rather than in the joiners although they
+#: assemble a path from several arguments, because with one argument they
+#: re-spell one -- and the rules read ``_JOINERS | _PATH_WRAPPERS`` as the
+#: component-bearing union, so ``Path(ROOT, "meta", "kanban")`` is covered by
+#: the membership it already had. No name is classified twice
+#: (``test_no_spelling_is_classified_twice``).
+_PATH_WRAPPERS = _guard_set(KIND_WRAPPER)
+
+
+class Spellings(NamedTuple):
+    """The sets a walk of one source consults, passed rather than read.
+
+    Review cycle 5's meta-guard -- the most valuable test on CARD-238, by
+    the reviewer's own reading -- narrowed a set by ``setattr`` on this
+    module and restored it in a ``finally``. Correct today, and the reason
+    for changing it is **reasoned rather than measured**, which is said
+    plainly because this card's subject is claims that cannot fail: neither
+    ``pytest-xdist`` nor ``pytest-randomly`` is in this project's dependency
+    baseline, so the interleaving that would expose it cannot be
+    demonstrated here. What *is* demonstrable is the shape -- a module
+    global mutated inside a test, read by a function several other tests
+    call -- and the fix costs one defaulted parameter. The sets are that
+    parameter now, defaulted to :data:`SPELLINGS`, so narrowing one is a
+    local value and the meta-guard has no global to restore.
+    """
+
+    listers: frozenset[str]
+    globbers: frozenset[str]
+    joiners: frozenset[str]
+    wrappers: frozenset[str]
+
+    def without(self, spelling: str) -> Spellings:
+        """The same sets with ``spelling`` removed from every one of them."""
+        return Spellings(
+            *(frozenset(field - {spelling}) for field in self)
+        )
+
+    @property
+    def component_bearing(self) -> frozenset[str]:
+        """The calls whose arguments spell out path components."""
+        return self.joiners | self.wrappers
+
+
+#: The default the rules are measured against: the audited projections above.
+SPELLINGS = Spellings(
+    listers=_LISTERS,
+    globbers=_GLOBBERS,
+    joiners=_JOINERS,
+    wrappers=_PATH_WRAPPERS,
+)
+
+
+#: The two components the construction probe assembles, and the directory it
+#: looks for. Relative on purpose: every argument the probe passes is a
+#: relative string, so anything a probed call manages to create lands under
+#: the temporary working directory the test moves into, and no probed call
+#: can name a path outside it.
+_PROBE_BASE = "base"
+_PROBE_COMPONENTS = ("meta", "kanban")
+
+#: The namespaces :func:`_measured_path_builders` is allowed to CALL into.
+#: Every namespace the surface is read out of except the top-level ``os``,
+#: which was excluded by measurement: see that function's docstring, and the
+#: non-claim it states.
+_PROBED_NAMESPACES = frozenset(
+    {label for label, _ in _SURFACE_NAMESPACES} | {"pathlib", "builtins"}
+) - {"os"}
+
+
+def _denotes_the_kanban_directory(value: object) -> bool:
+    """Does this value, read as a path, end at ``meta/kanban``?"""
+    try:
+        text = os.fspath(value)  # type: ignore[arg-type]
+    except TypeError:
+        return False
+    return isinstance(text, str) and text.endswith(
+        os.sep.join(_PROBE_COMPONENTS)
+    )
+
+
+def _measured_path_builders() -> dict[str, list[str]]:
+    """``name -> shapes`` for every surface spelling that ASSEMBLES a directory.
+
+    The authority for "which spellings build a path" is the library's own
+    behaviour, so this asks it: every public callable
+    :func:`_stdlib_directory_surface` offers in a namespace this is allowed
+    to call into (:data:`_PROBED_NAMESPACES`) is called with a base and two
+    components, in the three shapes a path assembly is written -- a module
+    function over the components, the same with the components in a list
+    (``os.sep.join([...])``), and a method on the base -- and whatever comes
+    back denoting ``meta/kanban`` is a builder. Measured on 2026-10-17: seven
+    of them, the four path constructors plus ``join``, ``joinpath`` and
+    ``with_segments``.
+
+    This is review cycle 5's F-501 answered the way cycle 5 answered the
+    reading half: nobody enumerates the construction spellings, so the
+    enumeration is the thing to get rid of. It named ``with_segments``, which
+    no cycle of CARD-238 and no line of its follow-up card had thought of,
+    exactly as ``dir(os)`` named ``fwalk``.
+
+    Safety, and the bound that comes with it. Every argument is a
+    *relative* string and the caller runs this with the working directory
+    inside a ``tmp_path``, so a call that creates something creates it in
+    there. That is not enough on its own: probing the top-level ``os``
+    namespace was measured first in an isolated subprocess and
+    ``os.popen("base", "meta", "kanban")`` **forked a shell**
+    (``DeprecationWarning: This process is multi-threaded, use of fork()``),
+    so :data:`_PROBED_NAMESPACES` excludes it -- by measurement, not by
+    taste. The remaining namespaces are the path-algebra ones: ``os.path``
+    is ``posixpath``, ``glob`` is pattern text, and ``pathlib`` is paths.
+
+    So the **stated non-claim**: a builder living only in the top-level
+    ``os`` namespace would not be found here. It would still have to be
+    classified with a reason, because
+    ``test_every_spelling_the_stdlib_offers_is_classified`` is red on an
+    unclassified name whatever namespace it is in -- what is lost is the
+    behavioural second opinion on that classification, and the two
+    construction spellings ``os`` does offer (``fsdecode``, ``fspath``) are
+    single-argument wrappers already in a set. This paragraph is a non-claim
+    and not a promise; the measured result is pinned by
+    ``test_every_construction_spelling_is_classified``'s non-vacuity
+    assertions.
+
+    ``BaseException`` is deliberately **not** caught: if some future call
+    does escape with one, this must fail loudly rather than report a
+    silently shorter list.
+    """
+    namespaces: dict[str, object] = {
+        label: namespace for label, namespace in _SURFACE_NAMESPACES
+    }
+    namespaces["pathlib"] = pathlib
+    builders: dict[str, list[str]] = {}
+    for name, labels in _stdlib_directory_surface().items():
+        for label in sorted(labels & _PROBED_NAMESPACES):
+            shapes: list[tuple[str, Callable[[], object]]] = []
+            if label == "pathlib.Path":
+                shapes.append(
+                    (
+                        f"base.{name}(*components)",
+                        lambda n=name: getattr(Path(_PROBE_BASE), n)(
+                            *_PROBE_COMPONENTS
+                        ),
+                    )
+                )
+            else:
+                function = (
+                    getattr(namespaces[label], name, None)
+                    if label in namespaces
+                    else globals()["__builtins__"].get(name)
+                    if isinstance(globals()["__builtins__"], dict)
+                    else getattr(globals()["__builtins__"], name, None)
+                )
+                if function is None or not callable(function):
+                    continue
+                shapes.append(
+                    (
+                        f"{label}.{name}(base, *components)",
+                        lambda f=function: f(_PROBE_BASE, *_PROBE_COMPONENTS),
+                    )
+                )
+                shapes.append(
+                    (
+                        f"{label}.{name}([base, *components])",
+                        lambda f=function: f([_PROBE_BASE, *_PROBE_COMPONENTS]),
+                    )
+                )
+            for shape, call in shapes:
+                try:
+                    produced = call()
+                except Exception:
+                    continue
+                if _denotes_the_kanban_directory(produced):
+                    builders.setdefault(name, []).append(shape)
+    return builders
+
+
 def _is_pathish(value: str) -> bool:
     """Could this string be a filename or a path fragment?
 
@@ -1520,13 +1870,28 @@ def _is_pathish(value: str) -> bool:
     return bool(value) and len(value) <= 120 and not any(c.isspace() for c in value)
 
 
-def _string_values(node: ast.AST, env: dict[str, list[str]]) -> list[str]:
+def _string_values(
+    node: ast.AST,
+    env: dict[str, list[str]],
+    spellings: Spellings = SPELLINGS,
+) -> list[str]:
     """Every string ``node`` could evaluate to, as far as one module can tell.
 
     Deliberately over-approximate: a ``%``-format or a ``+`` is reported both
     folded and in parts, a slice reports the string it slices, and a lookup
     reports every value its container holds. The question this answers is
     "could the log's name be in here", so guessing wide is the safe direction.
+
+    One call shape is **not** folded, which is review cycle 1's F-004: a
+    path joiner's arguments are separate path *components*, so concatenating
+    them yields a string no filesystem has.
+    ``glob.glob(os.path.join(ROOT, "meta", "kanban", "*.log"))`` reported two
+    references for one call site -- ``glob('*.log') under meta/kanban`` and
+    ``glob('metakanban*.log') under meta/kanban`` -- and the second named
+    nothing real. Detection was unaffected either way; the message a future
+    reader acts on was not. The fold is kept where it means something: a
+    ``str.join`` written on a string literal (``"".join(parts)``) *is*
+    concatenation, and its receiver says so.
     """
     if isinstance(node, ast.Constant):
         return [node.value] if isinstance(node.value, str) else []
@@ -1536,21 +1901,25 @@ def _string_values(node: ast.AST, env: dict[str, list[str]]) -> list[str]:
             if isinstance(part, ast.Constant) and isinstance(part.value, str):
                 out += part.value
             elif isinstance(part, ast.FormattedValue):
-                resolved = _string_values(part.value, env)
+                resolved = _string_values(part.value, env, spellings)
                 out += resolved[0] if resolved else ""
         return [out]
     if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
-        return [value for elt in node.elts for value in _string_values(elt, env)]
+        return [
+            value
+            for elt in node.elts
+            for value in _string_values(elt, env, spellings)
+        ]
     if isinstance(node, ast.Dict):
         return [
             value
             for item in node.values
             if item is not None
-            for value in _string_values(item, env)
+            for value in _string_values(item, env, spellings)
         ]
     if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Mod)):
-        left = _string_values(node.left, env)
-        right = _string_values(node.right, env)
+        left = _string_values(node.left, env, spellings)
+        right = _string_values(node.right, env, spellings)
         folded = [a + b for a in left or [""] for b in right or [""]]
         return [*left, *right, *folded]
     if isinstance(node, ast.Name):
@@ -1562,29 +1931,62 @@ def _string_values(node: ast.AST, env: dict[str, list[str]]) -> list[str]:
         # the stem. The walrus is review cycle 2, F-105 -- one wrapper node
         # was enough to make a literal written straight into the join
         # invisible.
-        return _string_values(node.value, env)
+        return _string_values(node.value, env, spellings)
     if isinstance(node, ast.IfExp):
         # A ternary, which is the same lesson one cycle later (review cycle
         # 3, F-303): either arm is a string the path could be built from.
-        return [*_string_values(node.body, env), *_string_values(node.orelse, env)]
+        return [
+            *_string_values(node.body, env, spellings),
+            *_string_values(node.orelse, env, spellings),
+        ]
     if isinstance(node, (ast.ListComp, ast.SetComp, ast.GeneratorExp)):
         # What is comprehended over is where the strings come from; the
         # element expression renames them at most.
         return [
             value
             for generator in node.generators
-            for value in _string_values(generator.iter, env)
+            for value in _string_values(generator.iter, env, spellings)
         ]
     if isinstance(node, ast.Call):
         # ``"...{}...".format(x)``, ``"".join(parts)``, ``str(p)``: what the
         # call is made of is what matters, not what it is called.
         parts: list[str] = []
         if isinstance(node.func, ast.Attribute):
-            parts.extend(_string_values(node.func.value, env))
+            parts.extend(_string_values(node.func.value, env, spellings))
         for argument in [*node.args, *(kw.value for kw in node.keywords)]:
-            parts.extend(_string_values(argument, env))
+            parts.extend(_string_values(argument, env, spellings))
+        if _assembles_path_components(node, spellings):
+            return parts
         return [*parts, "".join(parts)]
     return []
+
+
+def _assembles_path_components(node: ast.Call, spellings: Spellings) -> bool:
+    """Does this call take its arguments as separate path COMPONENTS?
+
+    Review cycle 1's F-004. ``os.path.join``, ``os.sep.join([...])``,
+    ``p.joinpath(...)`` and ``p.with_segments(...)`` are handed components,
+    so folding them into one string invents a name no filesystem has
+    (``"metakanban*.log"``) -- and that invented name was being *reported*,
+    beside the real one, for a glob under a joined directory.
+
+    Which names those are is the audited joiner projection
+    (:data:`_JOINERS`, through ``spellings``), not a judgement made here --
+    the same source :func:`_component_arguments` reads.
+
+    The one exception is the shape that is genuinely concatenation:
+    ``"".join(parts)`` and its siblings, where the separator is a string
+    literal the call names. Those keep the fold, so the taint chain that
+    resolves ``"suite" + "-timing.log"`` is untouched.
+    """
+    name = _call_name(node)
+    if name is None or name not in spellings.joiners:
+        return False
+    return not (
+        isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Constant)
+        and isinstance(node.func.value.value, str)
+    )
 
 
 def _tainted_names(tree: ast.Module) -> dict[str, list[str]]:
@@ -1654,7 +2056,57 @@ def _tainted_names(tree: ast.Module) -> dict[str, list[str]]:
     return env
 
 
-def _joined_components(node: ast.AST) -> list[str]:
+def _call_name(node: ast.Call) -> str | None:
+    """The bare name of the function a call names, however it is reached."""
+    if isinstance(node.func, ast.Attribute):
+        return node.func.attr
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    return None
+
+
+def _component_arguments(
+    node: ast.Call, spellings: Spellings = SPELLINGS
+) -> list[ast.AST] | None:
+    """The components a construction call spells out, left to right, or ``None``.
+
+    ``None`` means "not a construction call", which is not the same answer as
+    ``[]`` (a construction call that names nothing).
+
+    The two shapes, which is review cycle 5's F-501: a module function taking
+    the whole path (``os.path.join(ROOT, "meta", "kanban")``, and the
+    constructors ``Path(ROOT, "meta", "kanban")``) and a method on the base
+    (``ROOT.joinpath("meta", "kanban")``, ``ROOT.with_segments(...)``), where
+    the receiver is the first component. A single list or tuple argument is
+    unpacked, because ``os.sep.join(["meta", "kanban"])`` is the same call
+    with its components in a container -- the separator receiver is dropped
+    on purpose, since it is not a path component.
+
+    Which NAMES count is :data:`Spellings.component_bearing` -- the audited
+    joiner and wrapper projections, not a judgement made here. The wrappers
+    are in it because a path constructor given several arguments assembles
+    rather than re-spells, and the audit classifies it by its one-argument
+    behaviour; which of the two kinds a name is does not change what its
+    arguments mean.
+    """
+    name = _call_name(node)
+    if name is None or name not in spellings.component_bearing:
+        return None
+    arguments = [*node.args, *(keyword.value for keyword in node.keywords)]
+    if len(arguments) == 1 and isinstance(arguments[0], (ast.List, ast.Tuple)):
+        arguments = list(arguments[0].elts)
+    elif (
+        isinstance(node.func, ast.Attribute)
+        and name in spellings.joiners
+        and name in _PATH_METHOD_JOINERS
+    ):
+        arguments = [node.func.value, *arguments]
+    return arguments
+
+
+def _joined_components(
+    node: ast.AST, spellings: Spellings = SPELLINGS
+) -> list[str]:
     """The path components a receiver expression spells out, left to right.
 
     Only the literal ones: a ``/`` operand that is not a string contributes
@@ -1662,14 +2114,44 @@ def _joined_components(node: ast.AST) -> list[str]:
     string argument) contributes nothing, because it *is* the root. So
     ``REPO_ROOT / "meta" / "kanban"`` and ``Path("meta/kanban")`` both come
     back as ``["meta", "kanban"]``.
+
+    Since CARD-239 a *construction* call is read the same way as a ``/``
+    chain, which is F-501: ``os.path.join(REPO_ROOT, "meta", "kanban")``,
+    its hoisted and ``os.getcwd()`` variants, ``REPO_ROOT.joinpath("meta",
+    "kanban")``, ``REPO_ROOT.with_segments(...)``, ``Path(ROOT, "meta",
+    "kanban")`` and ``os.sep.join([...])`` all come back as
+    ``["meta", "kanban"]`` too, where every one of them used to come back
+    empty. Which spellings those are is :func:`_component_arguments`, over
+    the audited sets.
     """
     parts: list[str] = []
-    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
-        if isinstance(node.right, ast.Constant) and isinstance(node.right.value, str):
-            parts.append(node.right.value)
-        else:
-            parts.append("?")
-        node = node.left
+    while True:
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+            if isinstance(node.right, ast.Constant) and isinstance(
+                node.right.value, str
+            ):
+                parts.append(node.right.value)
+            else:
+                parts.append("?")
+            node = node.left
+            continue
+        if isinstance(node, ast.Call):
+            arguments = _component_arguments(node, spellings)
+            if arguments is not None and len(arguments) > 1:
+                # Every argument but the first is a component; the first one
+                # is the base, and recursing into it is what makes a nested
+                # construction (`os.path.join(str(ROOT), "meta", "kanban")`)
+                # read as one chain.
+                for argument in reversed(arguments[1:]):
+                    if isinstance(argument, ast.Constant) and isinstance(
+                        argument.value, str
+                    ):
+                        parts.append(argument.value)
+                    else:
+                        parts.append("?")
+                node = arguments[0]
+                continue
+        break
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         parts.append(node.value)
     elif (
@@ -1688,7 +2170,9 @@ def _joined_components(node: ast.AST) -> list[str]:
     ]
 
 
-def _is_the_kanban_directory(node: ast.AST) -> bool:
+def _is_the_kanban_directory(
+    node: ast.AST, spellings: Spellings = SPELLINGS
+) -> bool:
     """Does this expression name ``meta/kanban`` itself, and nothing below it?
 
     Review cycle 2, F-104: the listing rule used to fire on any receiver whose
@@ -1698,10 +2182,10 @@ def _is_the_kanban_directory(node: ast.AST) -> bool:
     the log coupling with no filename at all; listing a directory under it is
     not, and the ``cards`` listing in :data:`INNOCENT_MENTIONS` pins the line.
     """
-    return _joined_components(node)[-2:] == ["meta", "kanban"]
+    return _joined_components(node, spellings)[-2:] == ["meta", "kanban"]
 
 
-def _unwrapped(node: ast.AST) -> ast.AST:
+def _unwrapped(node: ast.AST, spellings: Spellings = SPELLINGS) -> ast.AST:
     """``node`` with the :data:`_PATH_WRAPPERS` peeled off, if any.
 
     Two shapes, because the same wrapper is written both ways and only one
@@ -1717,7 +2201,7 @@ def _unwrapped(node: ast.AST) -> ast.AST:
             isinstance(node, ast.Call)
             and len(node.args) == 1
             and not node.keywords
-            and ast.unparse(node.func).rsplit(".", 1)[-1] in _PATH_WRAPPERS
+            and ast.unparse(node.func).rsplit(".", 1)[-1] in spellings.wrappers
         ):
             node = node.args[0]
         elif (
@@ -1725,23 +2209,35 @@ def _unwrapped(node: ast.AST) -> ast.AST:
             and not node.args
             and not node.keywords
             and isinstance(node.func, ast.Attribute)
-            and node.func.attr in _PATH_WRAPPERS
+            and node.func.attr in spellings.wrappers
         ):
             node = node.func.value
         else:
             return node
 
 
-def _leftmost(node: ast.AST) -> ast.AST:
-    """The expression a ``/`` join or a ``+`` concatenation starts from."""
-    node = _unwrapped(node)
-    while isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Div, ast.Add)):
-        node = _unwrapped(node.left)
-    return node
+def _leftmost(node: ast.AST, spellings: Spellings = SPELLINGS) -> ast.AST:
+    """The expression a join or a ``+`` concatenation starts from.
+
+    A construction call's base counts as its left operand since CARD-239, so
+    the hoisted ``os.path.join(KANBAN, "*.log")`` spelling of the globbing
+    rule starts where the ``/`` spelling of it does.
+    """
+    node = _unwrapped(node, spellings)
+    while True:
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Div, ast.Add)):
+            node = _unwrapped(node.left, spellings)
+            continue
+        if isinstance(node, ast.Call):
+            arguments = _component_arguments(node, spellings)
+            if arguments is not None and len(arguments) > 1:
+                node = _unwrapped(arguments[0], spellings)
+                continue
+        return node
 
 
 def _is_the_kanban_directory_or_a_name_for_it(
-    node: ast.AST, known: frozenset[str]
+    node: ast.AST, known: frozenset[str], spellings: Spellings = SPELLINGS
 ) -> bool:
     """Does this expression denote ``meta/kanban`` itself, however spelled?
 
@@ -1752,13 +2248,15 @@ def _is_the_kanban_directory_or_a_name_for_it(
     as much as to the inline one, and both are pinned in
     :data:`INNOCENT_MENTIONS`.
     """
-    node = _unwrapped(node)
-    if _is_the_kanban_directory(node):
+    node = _unwrapped(node, spellings)
+    if _is_the_kanban_directory(node, spellings):
         return True
     return isinstance(node, (ast.Name, ast.Attribute)) and ast.unparse(node) in known
 
 
-def _starts_at_the_kanban_directory(node: ast.AST, known: frozenset[str]) -> bool:
+def _starts_at_the_kanban_directory(
+    node: ast.AST, known: frozenset[str], spellings: Spellings = SPELLINGS
+) -> bool:
     """The loose test, for the globbing rule: does this start from that directory?
 
     A glob names its own ``.log`` filter, so the directory end of it may be
@@ -1770,11 +2268,13 @@ def _starts_at_the_kanban_directory(node: ast.AST, known: frozenset[str]) -> boo
     text = ast.unparse(node)
     if "meta" in text and "kanban" in text:
         return True
-    base = _leftmost(node)
+    base = _leftmost(node, spellings)
     return isinstance(base, (ast.Name, ast.Attribute)) and ast.unparse(base) in known
 
 
-def _kanban_directories(tree: ast.Module) -> frozenset[str]:
+def _kanban_directories(
+    tree: ast.Module, spellings: Spellings = SPELLINGS
+) -> frozenset[str]:
     """Names bound, anywhere in ``tree``, to the kanban directory itself.
 
     The listing rules need this and the taint tracker cannot supply it:
@@ -1809,7 +2309,7 @@ def _kanban_directories(tree: ast.Module) -> frozenset[str]:
             else:
                 continue
             if not _is_the_kanban_directory_or_a_name_for_it(
-                value, frozenset(known)
+                value, frozenset(known), spellings
             ):
                 continue
             owner = class_of.get(id(node))
@@ -1835,7 +2335,9 @@ def _caller_supplied(node: ast.FunctionDef | ast.AsyncFunctionDef) -> frozenset[
     return frozenset(argument.arg for argument in [*required, *keyword_only])
 
 
-def _live_log_references(source: str) -> list[str]:
+def _live_log_references(
+    source: str, spellings: Spellings = SPELLINGS
+) -> list[str]:
     """Places in ``source`` that would reach the live log, by any spelling.
 
     Takes source text rather than walking the disk itself, so the rule can be
@@ -1849,11 +2351,28 @@ def _live_log_references(source: str) -> list[str]:
     and ``skipif(..., reason="...log is absent")``, which is the same
     coupling wearing a different hat), the pattern of a ``glob`` over a
     ``meta/kanban`` directory, or a listing of that directory by any
-    spelling :data:`STDLIB_DIRECTORY_SURFACE` classifies as one.
+    spelling :data:`STDLIB_DIRECTORY_SURFACE` classifies as one -- where
+    "that directory" is any spelling the table classifies as *assembling*
+    one (:data:`_JOINERS`) as much as the ``/`` chain.
 
-    That qualifier is the point, and it replaces four cycles of "at all".
-    Which spellings count is not a judgement made here any more: the sets
-    are the projection of a table that is audited against ``dir(os)``,
+    Until CARD-239 that last clause read "a listing of that directory by
+    any spelling the table classifies as one", full stop, which was true of
+    the spellings that READ a directory and false of the ones that BUILD
+    one: ``os.listdir(os.path.join(REPO_ROOT, "meta", "kanban"))``, its
+    hoisted form, the ``os.getcwd()`` variant and
+    ``REPO_ROOT.joinpath("meta", "kanban").iterdir()`` all returned ``[]``
+    while the ``/`` and ``Path.cwd() / ...`` spellings were caught --
+    review cycle 5's F-501, which compounded with the except-handler bound
+    below into a mutant that survived the whole module at 250 passed. The
+    construction spellings are an audited projection now, and the audit is
+    behavioural: ``test_every_construction_spelling_is_classified`` calls
+    every path-algebra spelling the library offers on two components and
+    requires each one that comes back denoting the directory to sit in a
+    guard set or in an exclusion carrying a reason.
+
+    Both qualifiers are the point, and they replace four cycles of "at
+    all". Which spellings count is not a judgement made here any more: the
+    sets are the projection of a table that is audited against ``dir(os)``,
     ``dir(os.path)``, ``dir(glob)`` and ``dir(pathlib.Path)``, so a library
     spelling nobody has judged is a failing test rather than a hole --
     review cycle 4's Critical was ``os.walk``, absent from a set four cycles
@@ -2040,7 +2559,7 @@ def _live_log_references(source: str) -> list[str]:
 
     def directories() -> frozenset[str]:
         if not resolved:
-            resolved.append(_kanban_directories(tree))
+            resolved.append(_kanban_directories(tree, spellings))
         return resolved[0]
 
     def names_the_log(value: str) -> bool:
@@ -2073,7 +2592,7 @@ def _live_log_references(source: str) -> list[str]:
                 called, receiver = node.func.id, []
             else:
                 called, receiver = None, []
-            if called in (_GLOBBERS | _LISTERS):
+            if called in (spellings.globbers | spellings.listers):
                 # Where the directory can sit: the receiver for the bound-method
                 # spellings, an argument for the module-function ones. Review
                 # cycle 3, F-301/F-304: only the first was tested, so
@@ -2097,19 +2616,25 @@ def _live_log_references(source: str) -> list[str]:
                         *(keyword.value for keyword in node.keywords),
                     ]
                     if not (
-                        isinstance(base := _leftmost(candidate), ast.Name)
+                        isinstance(
+                            base := _leftmost(candidate, spellings), ast.Name
+                        )
                         and base.id in roots
                     )
                 ]
-                if called in _LISTERS and any(
-                    _is_the_kanban_directory_or_a_name_for_it(candidate, directories())
+                if called in spellings.listers and any(
+                    _is_the_kanban_directory_or_a_name_for_it(
+                        candidate, directories(), spellings
+                    )
                     for candidate in where
                 ):
                     # No filename needed, so no filter -- but the directory has
                     # to BE that directory, not merely mention it (F-104).
                     found.add(f"{called}() of meta/kanban")
-                if called in _GLOBBERS and any(
-                    _starts_at_the_kanban_directory(candidate, directories())
+                if called in spellings.globbers and any(
+                    _starts_at_the_kanban_directory(
+                        candidate, directories(), spellings
+                    )
                     for candidate in where
                 ):
                     # A glob names its own filter, so the looser test stays
@@ -2118,12 +2643,14 @@ def _live_log_references(source: str) -> list[str]:
                     found.update(
                         f"{called}({pattern!r}) under meta/kanban"
                         for argument in node.args
-                        for pattern in _string_values(argument, env)
+                        for pattern in _string_values(argument, env, spellings)
                         if pattern.endswith(".log")
                     )
         for operand in operands:
             found.update(
-                value for value in _string_values(operand, env) if names_the_log(value)
+                value
+                for value in _string_values(operand, env, spellings)
+                if names_the_log(value)
             )
         for child in ast.iter_child_nodes(node):
             visit(child, roots)
@@ -2142,25 +2669,7 @@ def _live_log_references(source: str) -> list[str]:
 # :data:`STDLIB_DIRECTORY_SURFACE`'s projection and nothing else --
 # everything that lists a directory, globs one, or answers what the host's
 # filesystem holds at a path.
-_HOST_STATE_PROBES = frozenset(
-    {
-        # Everything that lists a directory or globs one...
-        "iterdir", "listdir", "scandir", "walk", "fwalk",
-        "glob", "iglob", "rglob", "glob0", "glob1",
-        # ...and everything that answers what the filesystem holds at a path.
-        # Review cycle 4's F-404: the hand-written pattern named `os.listdir`
-        # and nine others, so a skip gated on `.iterdir()`, `os.scandir` or
-        # `os.walk` was reported by the path guard alone.
-        "exists", "lexists", "is_file", "is_dir", "is_symlink", "is_mount",
-        "is_block_device", "is_char_device", "is_fifo", "is_socket",
-        "is_junction", "isfile", "isdir", "islink", "ismount", "isjunction",
-        "isdevdrive", "access", "stat", "lstat", "fstat", "statvfs",
-        "fstatvfs", "getsize", "getatime", "getctime", "getmtime", "samefile",
-        "samestat", "sameopenfile", "readlink", "group", "owner", "read_text",
-        "read_bytes", "read", "readinto", "readv", "pread", "preadv",
-        "pathconf", "fpathconf",
-    }
-)
+_HOST_STATE_PROBES = _guard_set(KIND_LISTER, KIND_GLOBBER, KIND_PROBE)
 
 
 def _probe_pattern(names: frozenset[str]) -> re.Pattern[str]:
@@ -2729,6 +3238,109 @@ REINTRODUCTIONS: tuple[tuple[str, str], ...] = (
         'KANBAN = REPO_ROOT / "meta" / "kanban"\n'
         "NAMES = os.listdir(KANBAN.resolve())\n",
     ),
+    # Review cycle 5's F-501, and the half four audited cycles left alone:
+    # the audit derived the spellings that READ a directory and nothing
+    # derived the spellings that BUILD one, so only the `/` BinOp was
+    # recognised. Every source below returned `[]` from this guard before
+    # CARD-239, and NONE of them names a log -- deliberately, because the two
+    # `os.path.join`/`joinpath` entries that were already in this tuple were
+    # caught through their log *filename* and so measured nothing about the
+    # construction spelling (the F-403 shape again, one layer out).
+    # `test_the_control_for_each_spelling_depends_on_the_set` covers the
+    # joiners now and is what holds that line.
+    (
+        "os.path.join of the kanban directory, naming no log at all",
+        "import os\n"
+        'NAMES = os.listdir(os.path.join(str(REPO_ROOT), "meta", "kanban"))\n',
+    ),
+    (
+        # The measured shape from CARD-238's cycle-5 review, compounded with
+        # the except-handler bound into a mutant that survived at 250 passed.
+        "os.path.join hoisted to a name, then listed",
+        "import os\n"
+        'KANBAN = os.path.join(str(REPO_ROOT), "meta", "kanban")\n'
+        "NAMES = os.listdir(KANBAN)\n",
+    ),
+    (
+        "os.path.join rooted at the process's own directory",
+        "import os\n"
+        'NAMES = os.listdir(os.path.join(os.getcwd(), "meta", "kanban"))\n',
+    ),
+    (
+        "Path.joinpath of the directory, then iterdir",
+        'ENTRIES = list(REPO_ROOT.joinpath("meta", "kanban").iterdir())\n',
+    ),
+    (
+        # Nobody had thought of this one: the audit's behavioural probe
+        # named it, exactly as cycle 5's audit named `fwalk`, `glob0` and
+        # `glob1`. `PurePath.with_segments` builds a path out of segments
+        # and discards the receiver, so it reaches the directory from any
+        # base at all.
+        "Path.with_segments, which the audit named and nobody had written",
+        "import os\n"
+        'NAMES = os.listdir(REPO_ROOT.with_segments("meta", "kanban"))\n',
+    ),
+    (
+        # The constructor given several segments assembles rather than
+        # re-spells. It is KIND_WRAPPER, and the rule reads the joiner and
+        # wrapper projections as one union for exactly this reason.
+        "the path constructor given the components as separate arguments",
+        "import os\n"
+        'NAMES = os.listdir(Path(REPO_ROOT, "meta", "kanban"))\n',
+    ),
+    (
+        # `os.sep.join` is `str.join`, the same NAME the audit classifies,
+        # with its components in a list instead of in the argument list.
+        "the components joined through a separator string",
+        "import os\n"
+        'NAMES = os.listdir(os.sep.join([str(REPO_ROOT), "meta", "kanban"]))\n',
+    ),
+    (
+        # The globbing rule's end of the same hole: its directory test is
+        # the loose one, and the loose one went through `_leftmost`, which
+        # knew `/` and `+` and not a construction call.
+        "a glob under a kanban directory built by os.path.join",
+        "import glob\n"
+        "import os\n"
+        'KANBAN = os.path.join(str(REPO_ROOT), "meta", "kanban")\n'
+        'HITS = glob.glob(os.path.join(KANBAN, "*.log"))\n',
+    ),
+)
+
+
+def _needs_a_spelling_this_host_lacks(source: str) -> list[str]:
+    """Classified spellings ``source`` calls that this interpreter does not offer.
+
+    A control for ``glob.glob0`` cannot be caught on an interpreter without
+    ``glob0``: :func:`_guard_set` intersects with the live surface, so the
+    spelling has dropped out of the set the rule consults -- which is
+    F-502's fix working, not failing. Such a case is **not collected** on
+    that host rather than skipped there: a skip would be a verdict nobody
+    reads, and this card's whole subject is that a skip on host state is a
+    hole. The number of controls therefore varies with the interpreter, and
+    :data:`REINTRODUCTIONS` -- the full tuple -- stays the record of what
+    has been measured.
+    """
+    surface = frozenset(_stdlib_directory_surface())
+    return sorted(
+        {
+            name
+            for node in ast.walk(ast.parse(source))
+            if isinstance(node, ast.Call)
+            and (name := _call_name(node)) is not None
+            and STDLIB_DIRECTORY_SURFACE.get(name, (KIND_NEITHER, ""))[0]
+            != KIND_NEITHER
+            and name not in surface
+        }
+    )
+
+
+#: :data:`REINTRODUCTIONS` less the controls whose spelling this interpreter
+#: does not have. Equal to it on any host that offers the whole surface.
+REINTRODUCTIONS_ON_THIS_HOST: tuple[tuple[str, str], ...] = tuple(
+    (name, source)
+    for name, source in REINTRODUCTIONS
+    if not _needs_a_spelling_this_host_lacks(source)
 )
 
 
@@ -2785,6 +3397,50 @@ MEASURED_STRUCTURAL_MISSES: tuple[tuple[str, str], ...] = (
         "NAME = A + B\n"
         'LOG = REPO_ROOT / "meta" / "kanban" / NAME\n',
     ),
+    (
+        # Review cycle 5's third Minor, measured and recorded rather than
+        # fixed. `_unwrapped` peels a wrapper call of exactly ONE argument,
+        # so a two-argument wrapper is not seen through. The audit polices
+        # WHICH NAMES are wrappers; nothing polices which call SHAPES the
+        # peel accepts, and widening the peel to "the first argument of any
+        # arity" would hand `Path(ROOT, "meta", "kanban")` to the listing
+        # rule as `ROOT`. CARD-239 made the constructors a component chain
+        # instead (`_component_arguments`), which is the other half of the
+        # problem and not this one. Red the day the peel grows, which is the
+        # day the sentence describing the bound needs editing.
+        "a two-argument wrapper call, which the peel does not accept",
+        "import os\n"
+        'KANBAN = REPO_ROOT / "meta" / "kanban"\n'
+        "NAMES = os.listdir(os.path.relpath(KANBAN, REPO_ROOT))\n",
+    ),
+    (
+        # The non-claim `popen`/`system`'s classification now states, pinned
+        # from the other side. Their old exclusion reasons -- "it names no
+        # directory" and "not the filesystem" -- were both false of
+        # `os.popen("ls " + str(KANBAN))`, which is a directory listing by
+        # any reading. The honest reason is that these rules do not read
+        # command text, and this is the control that makes the reason
+        # measurable rather than plausible.
+        "a directory listed by shelling out through os.popen",
+        "import os\n"
+        'KANBAN = REPO_ROOT / "meta" / "kanban"\n'
+        'NAMES = os.popen("ls " + str(KANBAN)).read()\n',
+    ),
+    (
+        # And the same through `subprocess`, which is outside
+        # :data:`_SURFACE_NAMESPACES` entirely -- excluded by not being
+        # looked at. That matters because shelling out to list files is
+        # **this module's own idiom**: six `git ls-files` listings run
+        # behind :func:`_files_under_guard`. Auditing `dir(subprocess)`
+        # would put thirty names in the table whose classification nothing
+        # could measure either, so the namespace list stays as it is and
+        # the non-claim is stated here, where it goes red if a rule ever
+        # starts reading argv.
+        "a directory listed by shelling out through subprocess",
+        "import subprocess\n"
+        'KANBAN = REPO_ROOT / "meta" / "kanban"\n'
+        'OUT = subprocess.run(["ls", str(KANBAN)], capture_output=True)\n',
+    ),
 )
 
 # One listing source per :data:`_PATH_WRAPPERS` member, with the wrapper
@@ -2813,9 +3469,30 @@ WRAPPED_DIRECTORY_METHOD_SOURCE = (
 #: because peeling one that names a different directory is how
 #: ``os.listdir(dirname(KANBAN))`` would start being reported and how
 #: ``os.listdir(bogus(root) / "meta" / "kanban")`` would reach the
-#: caller-root exemption. Each of these is a measured miss *because* the
-#: name is classified KIND_NEITHER; let one into the set and the control
-#: goes red, which is the power the generated positive control cannot have.
+#: caller-root exemption.
+#:
+#: The sentence that stood here said "each of these is a measured miss
+#: *because* the name is classified KIND_NEITHER; let one into the set and
+#: the control goes red", and **it was false of two of the three** --
+#: CARD-239's claim sweep measured it, and it is false on CARD-238 as merged
+#: too, so it is a cycle-5 survivor rather than something this card broke.
+#: Only the ``dirname`` entry's verdict depends on the membership. The other
+#: two are misses for an unrelated reason: ``KANBAN.joinpath("cards")`` and
+#: ``KANBAN.with_name("profiling")`` are one-*argument* attribute calls, and
+#: the peel's one-argument branch takes the ARGUMENT -- the string
+#: ``"cards"`` -- while its no-argument branch does not apply, so letting
+#: either name into the set changes nothing at all. That is the F-403 shape
+#: one more layer out: a corpus whose comment claimed a discriminating power
+#: two thirds of it did not have.
+#:
+#: Both halves are corrected rather than deleted. The entries stay, because
+#: "a subdirectory and a sibling are not this directory" is a real claim and
+#: F-104's family; which of them the *set* decides is recorded as an
+#: equality in :data:`NON_WRAPPERS_THE_SET_DECIDES`, so it goes red if the
+#: peel grows; and the discriminating power the comment claimed is now
+#: supplied by a control generated from the table over every
+#: path-arithmetic name, in both wrapper shapes
+#: (``test_a_path_arithmetic_name_is_peeled_only_if_it_is_in_the_set``).
 NOT_A_PATH_WRAPPER: tuple[tuple[str, str], ...] = (
     (
         "dirname, which names the directory above",
@@ -2835,6 +3512,36 @@ NOT_A_PATH_WRAPPER: tuple[tuple[str, str], ...] = (
         'KANBAN = REPO_ROOT / "meta" / "kanban"\n'
         'NAMES = os.listdir(KANBAN.with_name("profiling"))\n',
     ),
+)
+
+#: Of :data:`NOT_A_PATH_WRAPPER`, the entries whose verdict actually depends
+#: on :data:`_PATH_WRAPPERS`: add the name and the control goes red. Measured
+#: 2026-10-17, one of three -- the figure the old comment on that corpus got
+#: wrong. An equality, not a sentence, so a peel that grows to accept a
+#: one-argument attribute call's receiver makes this red and the paragraph
+#: above the thing to edit.
+NON_WRAPPERS_THE_SET_DECIDES: tuple[str, ...] = ("dirname",)
+
+#: The exact reason text the table files pure path arithmetic under, so the
+#: generated non-wrapper controls can be parametrised from the table rather
+#: than from a list written here. Asserted to BE a reason in the table
+#: (``test_a_path_arithmetic_name_is_peeled_only_if_it_is_in_the_set``'s
+#: parametrisation would otherwise be empty, and the test asserts it is not).
+_PATH_ALGEBRA_REASON = (
+    "pure path-string arithmetic; it consults no filesystem and it "
+    "assembles no directory out of components"
+)
+
+#: Every name the table files under that reason. Generated controls below
+#: assert each one is NOT peeled and WOULD be if it were let into the
+#: wrappers -- the discriminating half the three hand-written entries above
+#: only had for one of themselves.
+PATH_ARITHMETIC_NAMES: tuple[str, ...] = tuple(
+    sorted(
+        name
+        for name, (_, reason) in STDLIB_DIRECTORY_SURFACE.items()
+        if reason == _PATH_ALGEBRA_REASON
+    )
 )
 
 # Mentions that are not reads. A grep-based guard would fail every one of
@@ -3084,9 +3791,18 @@ NOT_A_CONDITIONAL_SILENCE: tuple[tuple[str, str], ...] = (
 )
 
 
-#: Every host-state silence the detector reports in the guarded tree
-#: *outside this module*, measured 2026-10-16 by running
-#: :func:`_conditional_silences` over all of :func:`_guarded_sources`.
+#: Every silence the detector reports in the guarded tree *outside this
+#: module*, measured 2026-10-17 by running :func:`_conditional_silences` over
+#: all of :func:`_guarded_sources`.
+#:
+#: Not "every host-state silence", which is what this header said over four
+#: entries one of which it itself called "not filesystem state at all"
+#: (review cycle 5's F-405 -- the same false-claim habit in miniature, in the
+#: card whose subject was false claims). The detector is wider than host
+#: state in its mark half on purpose, and the baseline has to be a record of
+#: what it reports, not of what a sentence here wishes it reported. No count
+#: is written either, for the reason the module docstring no longer carries
+#: one: a number in prose is the smallest version of this card's defect.
 #:
 #: Review cycle 3 (F-301, F-307) measured the asymmetry this closes: the path
 #: guard judged every guarded source while the silence guard judged one
@@ -3094,33 +3810,25 @@ NOT_A_CONDITIONAL_SILENCE: tuple[tuple[str, str], ...] = (
 #: defence -- and the mutant that got through was a
 #: host-state skip in another one of them, which this detector reports
 #: correctly and nothing ran it against. It is run against all of them now,
-#: and what it finds has to equal this list exactly.
-#:
-#: These three are pre-existing and belong to other cards; CARD-238's G-4
-#: confines it to two files, so they are recorded here rather than fixed, and
-#: recorded as a frozen set rather than as a sentence: a new one anywhere in
+#: and what it finds has to equal this list exactly: a new one anywhere in
 #: the tree makes
 #: ``test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones``
-#: red, and so does fixing one of these without striking it off.
+#: red, and so does fixing one of these without striking it off. CARD-239
+#: struck two by fixing them, and the equality was red in that direction
+#: first -- measured, not assumed.
 MEASURED_SILENCES_ELSEWHERE: tuple[tuple[str, str, str], ...] = (
-    # Three filesystem silences in two modules: a design-system directory and
-    # a picture corpus that each exist on the owner's host and not in a fresh
-    # checkout -- the same shape as the defect this card removes, one module
-    # over.
+    # A design-system directory that exists on the owner's host and in every
+    # checkout, and is absent only from an installed wheel -- which is what
+    # its reason says. It belongs to forge:ui's card rather than to this one:
+    # the skip is a statement about packaging, and whether the admin panel's
+    # token mirror should be checked against a directory the package does not
+    # ship is that card's question, not a hole in this guard. Recorded, with
+    # the reason corrected: it is NOT the host-state shape the two entries
+    # CARD-239 struck were.
     (
         "tests/test_admin_design_tokens.py",
         "test_the_served_tokens_are_the_design_systems_tokens",
         "not _DESIGN.exists()",
-    ),
-    (
-        "tests/test_sourcing_image.py",
-        "test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_for_line_art",
-        "not picture.is_file()",
-    ),
-    (
-        "tests/test_sourcing_image.py",
-        "test_binarize_threshold_corpus_needs_no_more_nudges_than_dither",
-        "not PICTURES.is_dir()",
     ),
     # And one that is not filesystem state at all: a `skipif` mark is reported
     # whatever it is keyed on, which is the width review cycle 2 (F-106)
@@ -3131,6 +3839,35 @@ MEASURED_SILENCES_ELSEWHERE: tuple[tuple[str, str, str], ...] = (
         "tests/test_web_submission.py",
         "test_an_out_under_an_unwritable_directory_is_reported_as_a_failure_page",
         "hasattr(os, 'geteuid') and os.geteuid() == 0",
+    ),
+)
+
+#: The two entries CARD-239 struck from the baseline above by fixing them,
+#: kept as a record of what was fixed and why -- a struck entry leaves no
+#: trace otherwise, and the next reader of the baseline would have no way to
+#: tell a fixed silence from one that was never there.
+#:
+#: Both were in ``tests/test_sourcing_image.py`` and both were **this card's
+#: own defect one module over**: a skip keyed on the presence of the picture
+#: corpus, which is 25 *committed* files (``git ls-files pictures`` lists 25),
+#: so they could only ever fire on a checkout that had lost a tracked file --
+#: the one case the test most needs to report. The same module asserts the
+#: corpus is exactly those 25 files unconditionally a thousand lines above,
+#: so the skips contradicted their own module as well.
+#:
+#: Not a claim about anything in the tree; the claim is the equality above,
+#: which was verified red with these two fixed and unstruck before they were
+#: struck.
+SILENCES_FIXED_BY_CARD_239: tuple[tuple[str, str, str], ...] = (
+    (
+        "tests/test_sourcing_image.py",
+        "test_binarize_guard_sends_degenerate_threshold_conversion_to_dither_for_line_art",
+        "not picture.is_file()",
+    ),
+    (
+        "tests/test_sourcing_image.py",
+        "test_binarize_threshold_corpus_needs_no_more_nudges_than_dither",
+        "not PICTURES.is_dir()",
     ),
 )
 
@@ -3146,6 +3883,17 @@ GUARDED_DIRECTORIES = ("tests", "meta/profiling")
 #: rc=128 inside the sandbox -- it is not a checkout -- so before this the
 #: walk fallback was not a rare path but the one the behavioural guard always
 #: took, and the walk admits untracked files (review cycle 2, F-103).
+#:
+#: It is read at the sandbox root and **ignored at the real repository root**
+#: (review cycle 5's F-306): the file is gitignored, so a stray copy of it in
+#: a worktree is host state, and consulting it there would let an untracked
+#: file replace ``git ls-files`` as the set both guards judge -- the exact
+#: dependence this card removes, in the resolution order of the guard that
+#: removes it. :func:`_files_under_guard` takes the root it must not trust as
+#: a parameter so that the rule is measurable without writing anything into
+#: the repository, and
+#: ``test_a_manifest_at_the_repo_root_is_ignored`` measures it in both
+#: directions.
 SANDBOX_MANIFEST_NAME = ".card238-tracked"
 
 
@@ -3177,7 +3925,9 @@ def _tracked_under_guard(root: Path) -> list[str]:
     )
 
 
-def _files_under_guard(root: Path = REPO_ROOT) -> list[str]:
+def _files_under_guard(
+    root: Path = REPO_ROOT, untrusted_root: Path = REPO_ROOT
+) -> list[str]:
     """The file set both guards judge, repo-relative, in one resolution order.
 
     The manifest first, so that inside the sandbox the set is the parent's
@@ -3192,9 +3942,17 @@ def _files_under_guard(root: Path = REPO_ROOT) -> list[str]:
     difference: an untracked scratch file exists on one machine and not the
     next, so letting it decide a verdict would put the host dependence back
     inside the guard meant to remove it (cycle 1 F-008, cycle 2 F-103).
+
+    ``untrusted_root`` is the one root whose manifest is **not** read -- the
+    real repository, where the file is gitignored and so is host state
+    (review cycle 5's F-306). It is a parameter rather than a comparison
+    against :data:`REPO_ROOT` so that the rule can be measured by planting a
+    manifest in a ``tmp_path`` and naming that tmp_path untrusted, instead of
+    by writing a gitignored file into the owner's checkout to watch what
+    happens.
     """
     manifest = root / SANDBOX_MANIFEST_NAME
-    if manifest.is_file():
+    if manifest.is_file() and root.resolve() != untrusted_root.resolve():
         return [
             name
             for name in manifest.read_text(encoding="utf-8").split("\n")
@@ -3261,8 +4019,8 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         assert RANKER_PATH.resolve() in {path.resolve() for path in walked}
 
     @pytest.mark.parametrize(
-        "source", [source for _, source in REINTRODUCTIONS],
-        ids=[name for name, _ in REINTRODUCTIONS],
+        "source", [source for _, source in REINTRODUCTIONS_ON_THIS_HOST],
+        ids=[name for name, _ in REINTRODUCTIONS_ON_THIS_HOST],
     )
     def test_every_way_of_reintroducing_the_read_is_caught(self, source: str) -> None:
         assert _live_log_references(source) != []
@@ -3283,23 +4041,23 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         # wrong.
         caught = [
             source
-            for _, source in REINTRODUCTIONS
+            for _, source in REINTRODUCTIONS_ON_THIS_HOST
             if _live_log_references(source) != []
         ]
         uncontrolled = sorted(
             spelling
-            for spelling in _GLOBBERS | _LISTERS
+            for spelling in _GLOBBERS | _LISTERS | _JOINERS
             if not any(
                 re.search(rf"\b{spelling}\(", source) for source in caught
             )
         )
         assert uncontrolled == [], (
-            "a listing or globbing spelling is named in _LISTERS/_GLOBBERS "
-            "with no positive control that the guard actually catches it: "
-            f"{uncontrolled}"
+            "a listing, globbing or joining spelling is named in "
+            "_LISTERS/_GLOBBERS/_JOINERS with no positive control that the "
+            f"guard actually catches it: {uncontrolled}"
         )
 
-    @pytest.mark.parametrize("spelling", sorted(_GLOBBERS | _LISTERS))
+    @pytest.mark.parametrize("spelling", sorted(_GLOBBERS | _LISTERS | _JOINERS))
     def test_the_control_for_each_spelling_depends_on_the_set(
         self, spelling: str
     ) -> None:
@@ -3316,28 +4074,115 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         # :data:`_GLOBBERS` and the control proved nothing -- review cycle
         # 4's F-403 shape, in the pass that was fixing F-403. This test was
         # red at ``glob0`` before the control was changed to a pattern that
-        # names no log.
-        module = sys.modules[__name__]
-        set_name = "_LISTERS" if spelling in _LISTERS else "_GLOBBERS"
-        full = getattr(module, set_name)
-        narrowed = frozenset(full - {spelling})
+        # names no log. CARD-239 widened it to the joiners, where review
+        # cycle 5's F-501 was: the `os.path.join` and `joinpath` sources in
+        # :data:`REINTRODUCTIONS` were both caught through their log *name*,
+        # so they measured nothing about the construction spelling at all.
+        #
+        # The narrowed set is a VALUE now, not a `setattr` on this module
+        # restored in a `finally`. That rebinding was correct in a serial
+        # run and wrong in kind: under `pytest-xdist` or `pytest-randomly`
+        # another test calling `_live_log_references` inside the window
+        # would have consulted the narrowed set.
+        narrowed = SPELLINGS.without(spelling)
         discriminating = []
-        for name, source in REINTRODUCTIONS:
+        for name, source in REINTRODUCTIONS_ON_THIS_HOST:
             if _live_log_references(source) == []:
                 continue
-            setattr(module, set_name, narrowed)
-            try:
-                without = _live_log_references(source)
-            finally:
-                setattr(module, set_name, full)
-            if without == []:
+            if _live_log_references(source, spellings=narrowed) == []:
                 discriminating.append(name)
         assert discriminating != [], (
             f"every control that {spelling} is supposed to be caught by is "
             "caught just as well with it removed from the set, so none of "
             "them measures this spelling. Give it a source whose only route "
-            "to being reported is the listing rule -- no log name, no "
-            "`meta/kanban/*.log` string"
+            "to being reported is the listing, globbing or joining rule -- "
+            "no log name, no `meta/kanban/*.log` string"
+        )
+
+    def test_every_construction_spelling_is_classified(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # AC-1, and review cycle 5's F-501. The audit derived the spellings
+        # that READ a directory from `dir(os)`; nothing derived the ones that
+        # BUILD one, so `os.path.join`, `Path.joinpath` and
+        # `Path.with_segments` sat in the "pure path-string arithmetic"
+        # exclusion -- a reason true of what they return and false of what
+        # they do -- and every construction spelling but the `/` BinOp was
+        # invisible to the guard.
+        #
+        # The enumeration is not replaced by a longer enumeration. The
+        # library is asked which of its spellings assemble a directory out
+        # of components (:func:`_measured_path_builders`), and every answer
+        # has to be in a guard set; a name in neither a set nor an exclusion
+        # is impossible, because
+        # `test_every_spelling_the_stdlib_offers_is_classified` is red on
+        # one. That is how `with_segments` got in: the probe named it, and
+        # no cycle of CARD-238 had thought of it.
+        monkeypatch.chdir(tmp_path)
+        builders = _measured_path_builders()
+        # Non-vacuity first: a probe that caught every exception and found
+        # nothing would make the two assertions below hold trivially.
+        assert len(builders) >= 5, builders
+        assert "join" in builders and "joinpath" in builders, sorted(builders)
+        unaudited = sorted(
+            f"{name} ({'; '.join(shapes)})"
+            for name, shapes in builders.items()
+            if name not in _JOINERS | _PATH_WRAPPERS
+        )
+        assert unaudited == [], (
+            "the standard library offers a spelling that assembles "
+            "meta/kanban out of its components and no guard set knows about "
+            "it, so a listing of the directory built that way is invisible "
+            "to the path guard -- which is review cycle 5's F-501 verbatim. "
+            "Classify it KIND_JOINER (or KIND_WRAPPER, if with one argument "
+            f"it re-spells rather than assembles): {unaudited}"
+        )
+        # And the other direction, so the joiners cannot carry a member that
+        # builds nothing -- the F-403 failure mode, where a set declared a
+        # width no control could fail on.
+        idle = sorted(name for name in _JOINERS if name not in builders)
+        assert idle == [], (
+            "a KIND_JOINER member does not actually assemble a directory "
+            f"out of components on this interpreter: {idle}"
+        )
+
+    def test_the_guard_sets_are_derived_and_not_hand_written(self) -> None:
+        # The claim that makes the equality above worth anything: on this
+        # host `_LISTERS == _guard_set(KIND_LISTER)` holds by construction,
+        # so that test can no longer fail while the sets are derived at all
+        # -- and a test that cannot fail is this card's family. What CAN
+        # fail is the derivation itself, so it is read out of this module's
+        # own source: hand-write any of the five sets back into a literal
+        # and this goes red.
+        #
+        # Review cycles 1-5 each hand-edited one of them, which is how five
+        # spellings went missing. This is the line that stops the sixth
+        # edit.
+        tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+        derived = {
+            node.targets[0].id: ast.unparse(node.value)
+            for node in tree.body
+            if isinstance(node, ast.Assign)
+            and len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id in {
+                "_LISTERS", "_GLOBBERS", "_JOINERS", "_PATH_WRAPPERS",
+                "_HOST_STATE_PROBES",
+            }
+        }
+        assert sorted(derived) == [
+            "_GLOBBERS", "_HOST_STATE_PROBES", "_JOINERS", "_LISTERS",
+            "_PATH_WRAPPERS",
+        ], sorted(derived)
+        hand_written = sorted(
+            f"{name} = {value}"
+            for name, value in derived.items()
+            if not value.startswith("_guard_set(")
+        )
+        assert hand_written == [], (
+            "a set the guards consult is written out by hand again instead "
+            "of being the audited table's projection, so the audit cannot "
+            f"police it: {hand_written}"
         )
 
     def test_every_spelling_the_stdlib_offers_is_classified(self) -> None:
@@ -3371,12 +4216,14 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         declared = {
             "_LISTERS": sorted(_LISTERS),
             "_GLOBBERS": sorted(_GLOBBERS),
+            "_JOINERS": sorted(_JOINERS),
             "_PATH_WRAPPERS": sorted(_PATH_WRAPPERS),
         }
         audited = {
-            "_LISTERS": sorted(_classified(KIND_LISTER)),
-            "_GLOBBERS": sorted(_classified(KIND_GLOBBER)),
-            "_PATH_WRAPPERS": sorted(_classified(KIND_WRAPPER)),
+            "_LISTERS": sorted(_guard_set(KIND_LISTER)),
+            "_GLOBBERS": sorted(_guard_set(KIND_GLOBBER)),
+            "_JOINERS": sorted(_guard_set(KIND_JOINER)),
+            "_PATH_WRAPPERS": sorted(_guard_set(KIND_WRAPPER)),
         }
         assert declared == audited, (
             "a listing set and its classification in "
@@ -3385,6 +4232,14 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
             "does not -- and the table is the one audited against the "
             "standard library"
         )
+        # The projection is against the live surface, so on an interpreter
+        # lacking `glob0` the globbers are smaller -- which is F-502's fix
+        # and is why this compares `_guard_set` and not `_classified`. It
+        # therefore cannot fail while the sets are derived at all, and the
+        # claim that they ARE derived is the one that can:
+        # `test_the_guard_sets_are_derived_and_not_hand_written` reads this
+        # module's source and is red if any of them becomes a literal again.
+        assert _JOINERS, "the joiners cannot be empty on any host"
 
     def test_a_spelling_the_guards_use_is_a_real_stdlib_name(self) -> None:
         # The third side of the triangle: a classification that is not
@@ -3396,12 +4251,36 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         phantom = sorted(
             name
             for name, (kind, _) in STDLIB_DIRECTORY_SURFACE.items()
-            if kind != KIND_NEITHER and name not in surface
+            if kind != KIND_NEITHER
+            and name not in surface
+            and name not in PLATFORM_GATED_SPELLINGS
         )
         assert phantom == [], (
             "a spelling classified into one of the guards is not a public "
-            f"callable of os, os.path, glob or pathlib on this host: {phantom}"
+            f"callable of os, os.path, glob or pathlib on this host: "
+            f"{phantom}. Either it is a typo, or it is version- or "
+            "platform-gated and belongs in PLATFORM_GATED_SPELLINGS with "
+            "the reason it is absent"
         )
+        # Review cycle 5's F-502: before the gated names were recorded, this
+        # test WAS the defect -- five members (`glob0`, `glob1`,
+        # `is_junction`, `isjunction`, `isdevdrive`) made the module red on
+        # an interpreter that simply does not have them, measured by
+        # deleting exactly those five in a plugin: 1 failed, 340 passed. The
+        # sets no longer care (`_guard_set` intersects with the surface), so
+        # what is left to catch is a typo, and that is what this now says.
+        #
+        # The other direction is NOT claimed and cannot be: a name recorded
+        # as gated that is present here is simply present, and no assertion
+        # can tell "recorded for an older interpreter" from "misrecorded".
+        # What IS asserted is that the record is not a dumping ground: every
+        # entry carries a reason, and no entry is for a name the table does
+        # not classify at all.
+        assert sorted(PLATFORM_GATED_SPELLINGS) == sorted(
+            name
+            for name, reason in PLATFORM_GATED_SPELLINGS.items()
+            if reason.strip() and name in STDLIB_DIRECTORY_SURFACE
+        ), sorted(PLATFORM_GATED_SPELLINGS)
 
     def test_no_spelling_is_classified_twice(self) -> None:
         # The table is grouped by reason, so a name written into two groups
@@ -3470,6 +4349,70 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         # asserted in a comment.
         assert _live_log_references(source) == [], source
 
+    @pytest.mark.parametrize(
+        "template",
+        [WRAPPED_DIRECTORY_SOURCE, WRAPPED_DIRECTORY_METHOD_SOURCE],
+        ids=["as a call", "as a method"],
+    )
+    @pytest.mark.parametrize("name", PATH_ARITHMETIC_NAMES)
+    def test_a_path_arithmetic_name_is_peeled_only_if_it_is_in_the_set(
+        self, name: str, template: str
+    ) -> None:
+        # The discriminating control the hand-written NOT_A_PATH_WRAPPER
+        # corpus claimed to be and was for one of its three entries. Both
+        # directions, for every name the table files as path arithmetic, in
+        # both shapes a wrapper is written:
+        #
+        #   * out of the set, the hoisted directory inside it is NOT reached
+        #     -- so a name that re-spells a DIFFERENT directory cannot make
+        #     the guard report a listing of this one;
+        #   * in the set, it IS reached -- so the verdict depends on the
+        #     membership and the control measures the set rather than the
+        #     rest of the rule.
+        #
+        # Generated from the table, so a name moved into or out of the
+        # path-arithmetic group is exercised on the next run rather than
+        # taken on trust.
+        source = template.format(wrapper=name)
+        assert _live_log_references(source) == [], source
+        wider = Spellings(
+            listers=_LISTERS,
+            globbers=_GLOBBERS,
+            joiners=_JOINERS,
+            wrappers=frozenset(_PATH_WRAPPERS | {name}),
+        )
+        assert _live_log_references(source, spellings=wider) != [], source
+
+    def test_the_path_arithmetic_group_is_not_empty(self) -> None:
+        # Non-vacuity of the parametrisation above: a reason string edited
+        # in one place and not the other would silently collect nothing.
+        assert len(PATH_ARITHMETIC_NAMES) >= 10, PATH_ARITHMETIC_NAMES
+        assert "dirname" in PATH_ARITHMETIC_NAMES
+
+    def test_which_non_wrapper_controls_the_set_decides_is_the_measured_set(
+        self,
+    ) -> None:
+        # The corrected version of a sentence that was false for two of the
+        # three entries in :data:`NOT_A_PATH_WRAPPER`, on this revision and
+        # on CARD-238 as merged. Held as an equality rather than as prose:
+        # red if the peel grows to accept a one-argument attribute call's
+        # receiver (which would make the `joinpath` and `with_name` entries
+        # discriminating), and red if `dirname` stops being so.
+        decides = []
+        for entry, (_, source) in zip(
+            NOT_A_PATH_WRAPPER, NOT_A_PATH_WRAPPER, strict=True
+        ):
+            name = entry[0].split(",")[0]
+            wider = Spellings(
+                listers=_LISTERS,
+                globbers=_GLOBBERS,
+                joiners=_JOINERS,
+                wrappers=frozenset(_PATH_WRAPPERS | {name}),
+            )
+            if _live_log_references(source, spellings=wider) != []:
+                decides.append(name)
+        assert tuple(decides) == NON_WRAPPERS_THE_SET_DECIDES, decides
+
     def test_the_sandbox_exemption_turns_off_when_the_root_is_a_constant(
         self,
     ) -> None:
@@ -3499,6 +4442,38 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         # describing the bound is the thing to edit.
         assert _live_log_references(source) == []
 
+    def test_a_joined_directory_contributes_one_reference_it_can_name(
+        self,
+    ) -> None:
+        # Review cycle 1's F-004. The report is what a future reader acts
+        # on, and for a glob under a directory joined inline this guard
+        # named two references for one call site -- the second of them
+        # `glob('metakanban*.log') under meta/kanban`, the path's components
+        # folded without a separator, so a pattern no filesystem has.
+        # Detection was never affected; the message was.
+        #
+        # Both directions, because narrowing a report is also a way to stop
+        # reporting: exactly one reference, and it is the pattern the source
+        # actually writes.
+        inline = (
+            "import glob\n"
+            "import os\n"
+            "HITS = glob.glob(\n"
+            '    os.path.join(REPO_ROOT, "meta", "kanban", "*.log")\n'
+            ")\n"
+        )
+        assert _live_log_references(inline) == [
+            "glob('*.log') under meta/kanban"
+        ]
+        # And the fold is kept where it is concatenation rather than path
+        # assembly, which is what `_assembles_path_components` turns on: a
+        # `str.join` written on a string literal still folds, so a stem
+        # built that way is still resolved.
+        concatenated = ast.parse(
+            'NAME = "".join(["suite", "-timing.log"])\n'
+        ).body[0]
+        assert "suite-timing.log" in _string_values(concatenated.value, {})
+
     def test_an_untracked_file_cannot_decide_the_verdict(
         self, tmp_path: Path
     ) -> None:
@@ -3520,6 +4495,38 @@ class TestSuiteTiming_NoTestReadsTheLiveLog:
         listed = _guarded_sources(tmp_path)
         assert listed == [tracked], listed
         assert stray not in listed
+
+    def test_a_manifest_at_the_repo_root_is_ignored(self, tmp_path: Path) -> None:
+        # Review cycle 5's F-306. The manifest is gitignored, so a copy of
+        # it in a worktree is host state -- and it was consulted at ANY
+        # root, including the real repository's, where it would silently
+        # replace `git ls-files` as the file set both guards judge. A
+        # one-line manifest naming one harmless module would have left the
+        # path guard reading one file and reporting nothing, with 357 tests
+        # green.
+        #
+        # Measured in both directions against a planted manifest, on a root
+        # this test owns -- the repository's own root is never written to,
+        # which is why the untrusted root is a parameter.
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "meta" / "profiling").mkdir(parents=True)
+        for name in ("test_one.py", "test_two.py"):
+            (tmp_path / "tests" / name).write_text(
+                "def test_x() -> None:\n    assert True\n", encoding="utf-8"
+            )
+        (tmp_path / SANDBOX_MANIFEST_NAME).write_text(
+            "tests/test_one.py\n", encoding="utf-8"
+        )
+        # Trusted root: the manifest decides, which is what the sandbox needs.
+        assert _files_under_guard(tmp_path, untrusted_root=REPO_ROOT) == [
+            "tests/test_one.py"
+        ]
+        # Untrusted root: it is ignored, and the fallbacks answer instead --
+        # here the walk, since a tmp_path is no checkout. Both files come
+        # back, so the stray manifest cannot narrow what is judged.
+        assert sorted(
+            _files_under_guard(tmp_path, untrusted_root=tmp_path)
+        ) == ["tests/test_one.py", "tests/test_two.py"]
 
 
 class TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog:
@@ -3596,6 +4603,30 @@ class TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog:
             f"and should be struck off MEASURED_SILENCES_ELSEWHERE: {found}"
         )
 
+    @pytest.mark.parametrize(
+        "condition", [condition for _, _, condition in SILENCES_FIXED_BY_CARD_239],
+        ids=[name for _, name, _ in SILENCES_FIXED_BY_CARD_239],
+    )
+    def test_a_silence_this_card_fixed_is_still_one_the_detector_would_report(
+        self, condition: str
+    ) -> None:
+        # The control that gives :data:`SILENCES_FIXED_BY_CARD_239` content.
+        # Striking an entry off the baseline is only honest if the detector
+        # would still report the shape when it comes back, and after a fix
+        # nothing in the tree exercises that shape any more -- so the shape
+        # is exercised here, fabricated, in the in-body form where the
+        # CONDITION has to be recognised as host state rather than being
+        # reported for being a mark. Drop `is_file` or `is_dir` from the
+        # probes and this goes red.
+        source = (
+            "import pytest\n"
+            "def test_x() -> None:\n"
+            f"    if {condition}:\n"
+            '        pytest.skip("absent")\n'
+            "    assert True\n"
+        )
+        assert _conditional_silences(source) != [], source
+
     def test_the_host_state_probe_is_exactly_the_classified_spellings(
         self,
     ) -> None:
@@ -3606,7 +4637,7 @@ class TestSuiteTiming_CollectsTheSameWithAndWithoutTheLog:
         # globs one, or answers what the filesystem holds at a path is a
         # probe: a skip keyed on any of those answers is keyed on the host.
         declared = sorted(_HOST_STATE_PROBES)
-        audited = sorted(_classified(KIND_LISTER, KIND_GLOBBER, KIND_PROBE))
+        audited = sorted(_guard_set(KIND_LISTER, KIND_GLOBBER, KIND_PROBE))
         assert declared == audited, (
             "_HOST_STATE_PROBES and STDLIB_DIRECTORY_SURFACE disagree, so a "
             "skip keyed on a filesystem answer this table calls a probe "
