@@ -118,74 +118,54 @@ why. If you keep staging, say where the staged state lives and what happens when
 - G-5: capability modules never import laterally; `tests/test_cli.py` has an `ast` guard.
 - G-6: no test retired without a named survivor (CARD-220's rule).
 
-## Open question for the architect station — do not guess this one
+## SETTLED 2026-10-18 (owner) — `quality_score` is kept, and a `manually_edited_at` stamp makes keeping it honest
 
-**`quality_score` and `recognizability` measure fidelity against the *source image*
-(`measure_quality(original_image, puzzle.grid)`, CARD-050). A hand-edited grid makes both stale,
-and this card has no honest value to recompute them to** — the owner's edit is a deliberate
-departure from the picture, so "fidelity to the source" is no longer a meaningful score.
+The open question this card carried is **closed**. The owner asked whether to leave the original
+score or add a "manually edited" label; the answer is **both**, because they are complements
+rather than alternatives — the label is what licenses leaving the score.
 
-Three candidate answers, all defensible, none obviously right: keep the old values and record
-that they describe the pre-edit grid; null them and let the list show "—" for a hand-edited
-puzzle; or re-measure against the source image and accept that a good edit may score worse.
-**Settle this with the owner before implementing**, and whichever is chosen, a hand-edited
-puzzle should be distinguishable from a generated one in the store — otherwise the two scores
-silently mean different things for different rows.
+**Nulling was ruled out on evidence, and it was the option neither of us had named as dangerous.**
+A null `quality_score` **already means "unmeasured"** on this board — it is what random mode
+stores since CARD-050 — and `puzzle_review.py:890` records the consequence: a null is **excluded**
+from any `quality_min` filter, because "an unmeasured puzzle cannot satisfy a minimum" and SQL's
+`NULL >= n` is false. So nulling after an edit would make a hand-edited puzzle **disappear from
+every quality-filtered view**, i.e. the owner improves a puzzle and it vanishes from the list they
+pick book puzzles from. It would also overload one value with two meanings, "never measured" and
+"measured but stale", which is the same defect as the stale score itself.
 
-## System contract
+**What to implement:**
 
-_Assembled 2026-10-18 by `system_rules.py --card CARD-245 --root meta/architecture` (58 rules returned, `card_scope: touches`). A projection — fix the source artifact, never this list._
+- **`quality_score` and `recognizability` are kept unchanged across an edit.** They are *stale,
+  not meaningless*: the grid still derives from the source picture, so fidelity becomes imprecise
+  rather than false, and `quality_min` keeps working. Do **not** recompute them — re-measuring
+  against the source image would punish a deliberate departure from it, which is exactly what an
+  edit is.
+- **Add `manually_edited_at` (nullable timestamp)** to `Puzzle`, set on every successful edit.
+  **A timestamp, not a boolean** — non-null *is* the flag, so it does everything
+  `manually_edited` would, and it additionally answers *how stale the score is* rather than only
+  *that* it is stale. Same migration cost, and it matches the existing `created_at` pattern.
+- It needs **migration 016** (015 is CARD-222's, already merged). Nullable with no backfill, so
+  every existing row reads "never hand-edited", which is true.
+- Surface it where the score is shown — the puzzle card and the list — so a reader seeing a
+  quality figure can tell whether it predates an edit.
 
-**Curated to 11; 47 dropped and declared.** The projection returned **58**, of which **47** are scoped `src/nonogram/**` — package-wide, so they match every card in the project and narrow to nothing. Owner decision 2026-10-17: ship the curated form (6–14 rules, kept where the rule's scope names a file this card touches or the card names the rule's artifact) with the dropped count stated. This is not a judgement that the dropped rules do not apply — it is that a ~57-rule contract measurably produces **fake** coverage on this board: reviews emitted a count line claiming all rules checked while marking 45–48 of 53 `⚠ unchecked` and writing 6–12 verdict lines, where 10- and 13-rule contracts produced full coverage. The root cause is the package-wide scoping and is tracked in `meta/kanban/backlog.md`.
+**Deliberately out of scope here**: a *filter* on "hand-edited" ("show me the ones I tuned"). It
+is an obvious next want and a cheap follow-up, but adding a filter field is scope this card did
+not ask for. Note it in the notes rather than building it.
 
-- **ADR-0006/R1** — The runtime dependency set is exactly stdlib + Pillow + NumPy. No third-party
-  package joins the installed dependencies without revising this ADR. Non-executable static assets
-  (fonts and similar data files) may ship as package data instead, and doing so is not a dependency
-  change. (check: test: TestDependencyBaseline_IsExactlyPillowAndNumpy)
-- **ADR-0029/R1** — The difficulty of a line-solvable puzzle is derived from the rung of the hardest
-  technique its verifying solve required (simple_overlap < line_dp < probe_contradiction) and the
-  share of cells settled at that rung; each rung is the fixed point of its technique, so the rung of
-  a cell is a function of the clue set alon… (check: test:
-  TestScoreDifficulty_DeeperLineReasoningScoresHigher)
-- **ADR-0029/R2** — Technique classification and the strategies list are computed inside the one
-  verifying solve, never by re-solving; the ordered rung list the solver reports IS the puzzle's
-  strategies list, and the tier is derived from that same list — no second derivation, no second
-  solver entry. The ladder's fixed points are phases… (check: test:
-  TestGenerate_StrategiesRecordedFromTheOneVerifyingSolve)
-- **ADR-0029/R3** — No clock reading — elapsed_seconds or any other — and no size or density term
-  enters the difficulty score, the tier decision or the strategies list; the score is a pure
-  function of the rung tags of the solve and branch_nodes, identical on every machine. (check: test:
-  PropertyTest_ScoreDifficulty_IndependentOfElapsedTime)
-- **ADR-0029/R4** — The overlap masks that define the simple_overlap rung are computed relative to
-  the line's already-known cells (the leftmost and rightmost placements consistent with them,
-  intersected), and are re-derived natively inside the solver package; the solver never imports
-  clues.py or any other capability module for the purp… (check: test:
-  test_every_import_in_the_package_points_inward)
-- **ADR-0029/R5** — Rung attribution is reported only for a clue set with exactly one solution; a
-  clue set with 0 or >= 2 solutions is not a puzzle, has no grade, and carries no attribution at all
-  (empty or None per-cell tags, an all-zero per-rung histogram, an empty rung list). For uniquely-
-  solvable clue sets, rung attribution is inva… (check: test:
-  PropertyTest_SolveStrategies_RungsInvariantUnderTransposition)
-- **ADR-0031/R2** — A solve that branched is reported as the `guess` strategy
-  (solver.STRATEGY_GUESS) in FR-029's strategies list, never as a tier. (check: test:
-  TestTiers_BranchingIsAStrategyNotATier)
-- **ADR-0039/R1** — A set a guard consults needs a completeness test written before the set, and any
-  claim the guard makes about what it catches needs a control that can fail: caught WITH the set
-  member present, missed WITHOUT it. A claim whose control cannot fail is narrative, not coverage,
-  and must be narrowed to what is measured or … (check: test:
-  test_the_control_for_each_spelling_depends_on_the_set)
-- **ADR-0039/R2** — A guard's set is derived from an authority the runtime can enumerate, not hand-
-  written. Where no such authority exists, the guard defaults to deny: a shape it cannot analyse is
-  a FAILURE, never a silent pass, and the unanalysable sites become named exemptions under
-  ADR-0039/R3. (check: test: test_the_guard_sets_are_derived_and_not_hand_written)
-- **ADR-0039/R3** — An exemption is a claim. Every exemption a guard grants carries a control for
-  what it must NOT absorb — caught with the exemption removed, missed with it in place — is held to
-  an equality against the sites that exist today, and records whatever it still cannot see as a
-  measured bound with its own failing control. (check: test:
-  test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw)
-- **INV-002** — A puzzle is only marked ready for export after its uniqueness check has confirmed
-  exactly one solution (US-005, FR-011). (check: test: TestExport_RejectsUnverifiedPuzzle,
-  TestExport_RejectsUnverifiedPuzzleForPDF, TestRecovery_RecoveredGridIsReverifiedBySolver)
+**Acceptance criteria this adds** (numbered on from the seven above):
+
+- **AC-8** (happy, the stamp is set and the score survives): *Given* a successful edit, *then*
+  `manually_edited_at` is set and `quality_score` / `recognizability` are **unchanged**.
+  (test: `TestPuzzleEdit_StampsTheEditAndKeepsTheQualityScore`)
+- **AC-9** (negative, a refused edit stamps nothing): *Given* an edit refused for non-uniqueness,
+  *then* `manually_edited_at` is **not** set — the stamp records a stored edit, not an attempt.
+  (test: `TestPuzzleEdit_ARefusedEditLeavesNoStamp`)
+- **AC-10** (guard, the quality filter still includes the puzzle): *Given* a hand-edited puzzle
+  whose score is above a `quality_min`, *then* it still appears in that filtered list — the
+  regression nulling would have caused, asserted so nobody reintroduces it.
+  (test: `TestPuzzleEdit_AnEditedPuzzleStillPassesTheQualityFilter`)
+
 ## Worktree notes
 
 - **[Why this is architectural and P1]** It opens the first write path to `Puzzle.grid` since

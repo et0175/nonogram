@@ -429,7 +429,18 @@ nothing today. Owner decision, 2026-10-17.
   keep them and record that they describe the pre-edit grid; null them so a hand-edited puzzle shows
   "—"; or re-measure and accept that a good edit may score worse. Whichever is chosen, a hand-edited
   puzzle should become **distinguishable** from a generated one in the store, or the two scores silently
-  mean different things for different rows. Owner decision needed; recorded on CARD-245.
+  mean different things for different rows.
+  **SETTLED 2026-10-18 (owner): keep the score, and add a `manually_edited_at` stamp — both, because
+  the label is what licenses keeping the score.** Nulling was ruled out on evidence: a null
+  `quality_score` **already means "unmeasured"** (what random mode stores since CARD-050), and
+  `puzzle_review.py:890` excludes a null from any `quality_min` filter because "an unmeasured puzzle
+  cannot satisfy a minimum". So nulling would make a hand-edited puzzle vanish from every
+  quality-filtered view — improve a puzzle and it drops out of the list used to pick book puzzles —
+  and would overload one value with "never measured" and "measured but stale". Re-measuring was also
+  rejected: it would punish a deliberate departure from the source picture, which is what an edit is.
+  A **timestamp rather than a boolean**, because non-null already *is* the flag while also answering
+  how stale the score is. Needs migration 016, nullable, no backfill. A *filter* on hand-edited
+  puzzles is a deliberate follow-up, not part of CARD-245.
 - **Editing a puzzle that is already in a book.** The approve, reject and delete routes all call
   `in_a_book()` first (`app.py:2392`, `:2415`, `:5554`) and refuse. Editing must follow that precedent —
   changing the grid of a puzzle a finalised book prints would re-paginate that book underneath its
