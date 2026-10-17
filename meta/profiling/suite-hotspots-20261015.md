@@ -27,24 +27,36 @@ third family the card did not consider is larger than both combined.
 | group | time | share | tests | ms/test |
 |---|---|---|---|---|
 | **Chromium-driven admin player tests** (`tests/test_puzzle_solver_*.py`, 12 files) | **366.19 s** | **39.78 %** | 422 | **868** |
-| render-heavy files (the 29-path frozen set) | 195.42 s | 21.23 % | 1079 | 181 |
+| render-heavy files (the frozen set) | 195.42 s | 21.23 % | 1091 | 179 |
 | `tests/property/*` (the seeded corpora) | 140.19 s | 15.23 % | 184 | 762 |
 | — of which counted in *both* rows above | 70.75 s | 7.68 % | | |
 | render ∪ property (the card's two hypotheses together) | 264.86 s | 28.77 % | | |
 | admin-local script tests (`test_start_admin_local`, `test_run_admin_tests`, `test_setup_admin_local`) | 117.16 s | 12.73 % | 83 | 1412 |
 
 Derived, not hand-counted — this is `rank_durations.py`'s own
-cost-families block, quoted verbatim:
+cost-families block, quoted verbatim.
+
+**Two cells in the render row have been restated since this recording**
+(CARD-223, 2026-10-18), and no other figure has: the frozen set gained
+`tests/test_book_qr_slot.py`, a file that *was* in this recording, so its
+tests join the row's count (1079 → 1091, and with it the derived ms/test
+181 → 179, and the same two moves in the `property OR render` row). The
+measured seconds and every share are untouched — that file's tests all
+recorded 0.00 s here — and the artefact this document cites is the same file
+with the same sha256. The path count the row's label used to carry is dropped
+rather than restated: the set's size has moved twice since this recording and
+is not a property of it.
+
 
 ```
 (the deciding table)
 
 family                                   total   share  tests  ms/test
 browser family (Chromium)              366.19s  39.78%    422      868
-render-heavy frozen set                195.42s  21.23%   1079      181
+render-heavy frozen set                195.42s  21.23%   1091      179
 property corpora                       140.19s  15.23%    184      762
 property AND render                     70.75s   7.68%     11     6432
-property OR render                     264.86s  28.77%   1252      212
+property OR render                     264.86s  28.77%   1264      210
 admin-local script trio                117.16s  12.73%     83     1412
 everything but the browser family      554.44s  60.22%   6660       83
 ```

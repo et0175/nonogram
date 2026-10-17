@@ -482,11 +482,24 @@ OUTSIDE_MM = 0.5 * 25.4
 #:   (still thirteen) and neither does the 150-puzzle corpus's (still 307):
 #:   measured before and after, in that card's Worktree notes.
 #:
-#: All seventeen files carry the reasoning; this constant names the current one
-#: (seventeen since CARD-222's own recording joined the sixteen CARD-221 had
+#: * ``book_baseline_card223.json`` — CARD-223 takes the placeholder QR icon
+#:   out of the gutter-side strip CARD-204 reserved for it and puts it in the
+#:   footer's **outer** bottom corner, with two new lines beside it ("Solve it
+#:   online" over a placeholder typed link, both at CON-020's floor). The
+#:   owner's complaint is functional: a code printed towards the spine sits
+#:   where the sheet curves and a phone cannot read it. ``changed_pages`` is
+#:   **5, 7 and 9 and nothing else** — the two-up page and the two single
+#:   puzzle pages, which are the only pages that have ever carried an icon;
+#:   the guide, the TOC, the dividers and the answer pages are byte-identical
+#:   to CARD-222's recording, which is this recording's own control.
+#:   ``interior_bytes`` 3313912 -> 3337825. Measured on that page set, not
+#:   argued from the change's intent.
+#:
+#: All eighteen files carry the reasoning; this constant names the current one
+#: (eighteen since CARD-223's own recording joined the seventeen CARD-222 had
 #: brought the chain to; the stale counts this line used to carry,
 #: "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card222.json"
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card223.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until

@@ -67,6 +67,25 @@ RENDER_API_PATTERN = (
 # artefact, in which this file does not appear at all (it contributes 0 s), so
 # the render-heavy set's 21.23 % of attributed time is the same number over the
 # same recording. A later recording will attribute its own time to it.
+#
+# **Restated a second time, deliberately** (CARD-223, 2026-10-18): 31 paths,
+# with ``tests/test_book_qr_slot.py`` added. That card moves the placeholder
+# QR icon into the footer's outer corner and sets two lines beside it, and
+# its own test file exports the baseline book's interior through
+# ``interior_stream`` to read the two lines back off the real ``draw.text``
+# calls a book makes — the same end-to-end evidence CARD-222's file takes.
+# **Added rather than dodged**: the call could have been spelled through a
+# sibling API the grep does not match, which would have kept this list short
+# while the cost stayed exactly the same — the silent divergence the frozen
+# set exists to prevent.
+#
+# Unlike CARD-222's addition, this one **is** in the 2026-10-15 recording
+# (CARD-204 wrote the file; this card rewrote it), so although it contributes
+# 0 s there, its tests join the render row's *count*: 1079 → 1091, and with it
+# the derived ms/test 181 → 179, in ``suite-hotspots-20261015.md``'s deciding
+# table. Those two cells are restated there and nothing else is — every
+# measured second and every share below is the same number over the same
+# artefact, which is still cited by the same sha256.
 RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/helpers/book_corpus.py",
     "tests/helpers/pdf_pages.py",
@@ -92,6 +111,7 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_pdf_packed_degrade.py",
     "tests/test_book_pdf_two_up.py",
     "tests/test_book_proof_pages.py",
+    "tests/test_book_qr_slot.py",
     "tests/test_book_scaffolding.py",
     "tests/test_book_solved_answer_key.py",
     "tests/test_book_solved_page.py",

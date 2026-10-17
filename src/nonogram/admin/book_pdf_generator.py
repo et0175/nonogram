@@ -389,6 +389,7 @@ from nonogram.export.layout import (
     PageRule,
     PageSpec,
     PairLayout,
+    QrCaption,
     QrSlot,
     caption_slot,
     compute_layout,
@@ -397,6 +398,7 @@ from nonogram.export.layout import (
     difficulty_dots,
     header_band,
     interior_frame,
+    qr_caption,
     qr_slot,
 )
 from nonogram.export.pdf import FONT_PACKAGE, FONT_RESOURCE, render_pages
@@ -538,6 +540,31 @@ SIZE_LABEL_PT = INTERIOR_FOOTER_LINE_PT
 #: standing commitment for every future face. The AC spells the ASCII form, so
 #: no glyph is added for a mark the AC does not ask for.
 SIZE_LABEL_SEPARATOR = " x "
+
+#: The invitation set on the first of the QR icon's two footer lines
+#: (CARD-223, the owner's artifact of 2026-10-14). Plain ASCII, for the reason
+#: :data:`SIZE_LABEL_SEPARATOR` is: the interior's character repertoire is
+#: asserted glyph by glyph (``tests/test_book_interior_face.py``) and no glyph
+#: is added for a mark the artifact does not ask for.
+QR_CAPTION_TEXT = "Solve it online"
+
+#: The typed link set on the second line — **the one line CARD-210 edits.**
+#:
+#: Still a placeholder, and deliberately: the owner's artifact writes
+#: ``nonogram.example/p/052`` and calls it a stand-in "until the online solver
+#: has a real address", and CON-021 refuses a printed link that points at a
+#: dead or admin-only URL. ``.example`` is one of the names RFC 2606 reserves
+#: precisely so that it can never resolve, so this text cannot become a live
+#: address by accident — the same inertness
+#: :func:`_draw_qr_placeholder`'s checkerboard has, stated for the words
+#: instead of for the glyph.
+#:
+#: Per **puzzle**, not per page: the number interpolated is the puzzle's own
+#: position in the book, so a two-up page's two slots print two different
+#: links, and the three-digit padding is the artifact's own (``052``). One
+#: template in one module, read only by :func:`qr_link`, so the whole of
+#: CARD-210's edit to the printed link is this string.
+QR_LINK_TEMPLATE = "nonogram.example/p/{number:03d}"
 
 #: How many digits of a page number :func:`_folio_reserve_px` plans room for
 #: on a two-up page's lower slot (CARD-204 Fix 4, owner decision 2026-10-12,
@@ -1674,6 +1701,46 @@ def _draw_qr_placeholder(draw: ImageDraw.ImageDraw, icon: QrSlot) -> None:
             )
 
 
+def qr_link(puzzle_number: int) -> str:
+    """The typed link the footer prints for puzzle ``puzzle_number`` (CARD-223).
+
+    The one reader of :data:`QR_LINK_TEMPLATE`, so "the link comes from one
+    constant" (AC-3) is a property of this module rather than of each page
+    kind that prints it, exactly as :func:`grid_size_label` is for the footer's
+    other label. Still a placeholder address until CARD-210 — see that
+    constant for why it cannot resolve.
+    """
+    return QR_LINK_TEMPLATE.format(number=puzzle_number)
+
+
+def _draw_qr_caption(
+    draw: ImageDraw.ImageDraw, caption: QrCaption, puzzle_number: int, dpi: int
+) -> None:
+    """Set the QR icon's two footer lines beside it (CARD-223).
+
+    The invitation over the typed link, both at
+    :data:`~nonogram.export.layout.INTERIOR_FOOTER_LINE_PT` — CON-020's 10 pt
+    floor, the same size and the same face the footer's grid-size label and
+    folio are set in, because the three are one line of small print and a
+    reader should not be told which of them matters more.
+
+    Every coordinate comes off ``caption``
+    (:func:`~nonogram.export.layout.qr_caption`) and nothing is measured
+    here (ADR-0036/R2); the only choice this function makes is the Pillow
+    anchor that turns ``right_aligned`` into a direction, the same
+    translation :func:`_draw_page_frame` makes for the grid-size label. The
+    bottom-of-bbox anchors (``rb``/``lb``) keep both glyph boxes above their
+    own baselines, so neither line can descend past the icon's row.
+    """
+    font = _band_font(type_px(INTERIOR_FOOTER_LINE_PT, dpi))
+    anchor = "rb" if caption.right_aligned else "lb"
+    for text, baseline in (
+        (QR_CAPTION_TEXT, caption.caption_baseline),
+        (qr_link(puzzle_number), caption.link_baseline),
+    ):
+        draw.text((caption.x, baseline), text, font=font, fill=INK, anchor=anchor)
+
+
 def _folio_reserve_px(dpi: int) -> int:
     """The fixed pixel reserve CARD-200's folio gets on a two-up page's lower slot.
 
@@ -1905,6 +1972,16 @@ def _draw_page_frame(
     one place, all three marks: a half-drawn footer (a rule with no number
     under it, or a number sitting on a grid) is worse than the corner this card
     inherited.
+
+    **The footer's other two marks are drawn by this function's callers**
+    (CARD-223: the QR icon and its two lines, at the footer's outer corner),
+    and they are gated by the *same* condition rather than by this function's
+    return value — :func:`~nonogram.export.layout.qr_slot` makes the identical
+    test on the identical figure, which ``tests/test_book_qr_slot.py`` pins as
+    an equivalence over a seeded corpus. They are not drawn here because the
+    icon is a **per-drawing** mark and this frame is a property of the
+    *sheet*: a two-up page has one footer and two icons, so a frame-level
+    drawer would have to be handed the slots it refuses to know about.
 
     Args:
         draw: The page's draw object.
@@ -4596,6 +4673,16 @@ class BookPDFGenerator:
         grid (the 30-wide, column-clue-depth-10 case named above) keeps
         CARD-200's corner folio and gets no footer rule, because a hairline
         across its bottom row is the collision this check exists to avoid.
+
+        **Since CARD-223 the footer also carries the QR icon's two lines.**
+        The glyph itself is drawn by ``render_pages`` above, which reads the
+        same :func:`~nonogram.export.layout.qr_slot` this method's
+        :func:`~nonogram.export.layout.qr_caption` call reads — one pure
+        function, so the words are set beside an icon that is really there
+        and are omitted on exactly the pages that have no icon (AC-5). The
+        link needs the **puzzle's** number, not the page's: a reader typing
+        it is after this puzzle, and the two differ on every page of the
+        book.
         """
         page_spec = self.page_spec(puzzle_page)
         blank, _ = render_pages(
@@ -4604,14 +4691,18 @@ class BookPDFGenerator:
         )
         layout = compute_layout(payload.row_clues, payload.column_clues, page_spec)
         placement = layout.page
+        draw = ImageDraw.Draw(blank)
         _draw_page_frame(
-            ImageDraw.Draw(blank),
+            draw,
             interior_frame(page_spec),
             puzzle_page,
             self.dpi,
             size_label=grid_size_label(layout.columns, layout.rows),
             content_bottom=None if placement is None else placement.drawing_bottom,
         )
+        caption = qr_caption(layout)
+        if caption is not None:
+            _draw_qr_caption(draw, caption, puzzle_number, self.dpi)
         return blank
 
     def custom_titles(self) -> Dict[str, str]:
@@ -4768,9 +4859,18 @@ class BookPDFGenerator:
             # slot, exactly as a single puzzle page does (qr_slot() reads
             # this slot's own Placement; the two slots never compete for the
             # same pixels since each reserves from its own usable area).
+            # CARD-223: at this slot's own bottom-**outer** corner now, with
+            # the two footer lines beside it and this slot's own puzzle
+            # number in the link. The *lower* slot gets neither: its drawing
+            # reaches the bottom margin on every two-up page, which is both
+            # no room and the corner this page's fallback folio is printed
+            # in (see qr_slot()).
             icon = qr_slot(slot)
             if icon is not None:
                 _draw_qr_placeholder(draw, icon)
+            caption = qr_caption(slot)
+            if caption is not None:
+                _draw_qr_caption(draw, caption, number, self.dpi)
         footer_area = pair.lower.page
         _draw_page_frame(
             draw,

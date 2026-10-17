@@ -84,6 +84,7 @@ from nonogram.admin.book_page_spec import book_page_spec
 from nonogram.admin.book_pdf_generator import (
     BookPDFGenerator,
     _draw_page_frame,
+    _draw_qr_caption,
     grid_size_label,
     page_frame,
 )
@@ -94,7 +95,7 @@ from nonogram.admin.book_proof import (
     proof_pages,
     render_proof_pdf,
 )
-from nonogram.export.layout import compute_layout, interior_frame, qr_slot
+from nonogram.export.layout import compute_layout, interior_frame, qr_caption, qr_slot
 from nonogram.export.pdf import render_pages
 from nonogram.limits import MAX_SIZE
 from tests.helpers.page_ink import drawing_of, pdf_page_boxes
@@ -730,14 +731,23 @@ class TestBookProof_AnnotationIsProofOnly:
         )
         spec = book_page_spec(book, 5)
         layout = compute_layout(puzzle.row_clues, puzzle.column_clues, spec)
+        draw = ImageDraw.Draw(expected)
         _draw_page_frame(
-            ImageDraw.Draw(expected),
+            draw,
             interior_frame(spec),
             5,
             generator.dpi,
             size_label=grid_size_label(layout.columns, layout.rows),
             content_bottom=None if layout.page is None else layout.page.drawing_bottom,
         )
+        # CARD-223: the footer's fourth and fifth marks, the QR icon's two
+        # lines. Built through the generator's own drawer with ``_blank_page``'s
+        # own arguments, for the same reason the frame above is: what this
+        # asserts is still "no proof annotation reaches a book page", not a
+        # reimplementation of the footer.
+        caption = qr_caption(layout)
+        assert caption is not None, "this fixture's page carries a QR icon to caption"
+        _draw_qr_caption(draw, caption, 1, generator.dpi)
         assert _foot_strip(page).tobytes() == _foot_strip(expected).tobytes()
         assert page.tobytes() == expected.tobytes()
 
@@ -1348,7 +1358,17 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     The digests were recorded from main (b05c443) before CARD-172 changed
     ``book_proof.py``; the fixture says how.
 
-    **CARD-222:** the fixture this class reads against is now
+    **CARD-223:** the fixture this class reads against is now
+    ``proof_baseline_card223.json``. That card moves the placeholder QR icon
+    from the gutter-side strip to the footer's **outer** bottom corner, and
+    tightens its room check from two centimetres of slack below the drawing
+    to a whole footer strip of it, so the icon moves (or goes) on every one
+    of these nine trims. ``book_proof.py`` itself is untouched by that card:
+    what changed under this page is COMP-007's answer to ``qr_slot``, which
+    is exactly the kind of move this comparison exists to make visible.
+    All superseded fixtures stay.
+
+    **CARD-222:** the fixture before that was
     ``proof_baseline_card222.json``. CON-018's amendment of 2026-10-17 moves
     three of the four margins — the top and the bottom move every mark on
     every one of these nine trims and shorten the drawing, the outside margin
@@ -1372,6 +1392,12 @@ class TestBookProof_PortraitProofsAreByteIdentical:
     """
 
     BASELINE = json.loads(
+        (Path(__file__).parent / "fixtures" / "proof_baseline_card223.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    CARD222_BASELINE = json.loads(
         (Path(__file__).parent / "fixtures" / "proof_baseline_card222.json").read_text(
             encoding="utf-8"
         )
@@ -1383,15 +1409,22 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         )
     )
 
-    def test_every_trim_moved_off_the_card204_recording(self) -> None:
-        """The attribution, measured rather than written down.
+    def test_every_trim_moved_off_the_card222_recording(self) -> None:
+        """The attribution, measured rather than written down (CARD-223).
 
-        CON-018's amended margins must have moved every one of these trims —
-        if one of them still matched CARD-204's recording, the amendment never
-        reached that trim and this class's new reference would be pinning the
-        wrong thing.
+        Moving the QR icon to the outer corner must have moved every one of
+        these trims — if one of them still matched CARD-222's recording, the
+        move never reached that trim and this class's new reference would be
+        pinning the wrong thing.
         """
-        assert set(self.BASELINE["moved_from_card204"]) == set(self.BASELINE["digests"])
+        assert set(self.BASELINE["moved_from_card222"]) == set(self.BASELINE["digests"])
+        for key, digests in self.BASELINE["digests"].items():
+            assert digests != self.CARD222_BASELINE["digests"][key], key
+
+    def test_every_trim_also_differs_from_the_card204_recording(self) -> None:
+        """The older link in the chain, kept: CON-018's amended margins moved
+        every trim off CARD-204's recording and nothing since has moved one
+        back onto it."""
         for key, digests in self.BASELINE["digests"].items():
             assert digests != self.CARD204_BASELINE["digests"][key], key
 

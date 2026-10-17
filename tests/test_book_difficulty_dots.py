@@ -810,7 +810,18 @@ DRAW_BINDING_FORMS = frozenset({"assignment", "annotated assignment", "walrus"})
 
 #: Every ``.Draw(...)`` call in the package that is **not** bound to a name, as
 #: ``(module, enclosing function, form)`` — an equality, not a pattern, so a
-#: fifth one is a failure that has to be looked at.
+#: fourth one is a failure that has to be looked at.
+#:
+#: **Three since CARD-223, down from four.** ``_blank_page`` built its draw
+#: object inline and handed it to ``_draw_page_frame``; that card gives the
+#: same page a second mark to draw (the QR icon's two footer lines), so the
+#: object is now bound once, as ``draw``, and the site leaves this table by
+#: satisfying the rule rather than by being excused from it. The entry is
+#: **removed, not kept "just in case"**: this is an equality, and a name left
+#: in it after its site has gone is a licence for whatever takes that name
+#: next (ADR-0039/R3, the same reasoning
+#: ``test_every_exemption_is_a_constant_that_really_exists`` applies in
+#: ``test_book_page_frame.py``).
 #:
 #: * ``receiver`` — ``ImageDraw.Draw(probe).text(...)``, the one-shot text
 #:   metric in ``book_pdf_generator``. It *is* a draw object and
@@ -821,8 +832,8 @@ DRAW_BINDING_FORMS = frozenset({"assignment", "annotated assignment", "walrus"})
 #:   (:func:`_unrecognised_draw_receivers`) covers it whatever it is called.
 #:   The two mechanisms compose; neither is trusted alone.
 #:
-#: **Why one of these four names is written in two halves.** Cycle 2 reduced
-#: this table to a per-module-and-form *count* because one of the four sites
+#: **Why one of these names is written in two halves.** Cycle 2 reduced
+#: this table to a per-module-and-form *count* because one of the sites
 #: sits in a function whose name is matched by ``meta/profiling``'s frozen
 #: ``RENDER_API_PATTERN``, and that pattern is applied to the raw *text* of
 #: every file under ``tests/`` (``rank_durations.regrep_render_set``): spelling
@@ -847,7 +858,6 @@ DRAW_BINDING_FORMS = frozenset({"assignment", "annotated assignment", "walrus"})
 #: which is the composition this table leans on — but the equality alone does
 #: not see it. CARD-241.
 DRAW_OBJECT_UNBOUND_SITES = (
-    ("nonogram.admin.book_pdf_generator", "_blank_page", "argument"),
     ("nonogram.admin.book_pdf_generator", "sample", "receiver"),
     ("nonogram.export.pdf", "_titled", "argument"),
     ("nonogram.export.pdf", "render" + "_pages", "argument"),
