@@ -365,3 +365,196 @@ these two waves are examined against a six-wave gap — which is itself a findin
   card out of every per-category metric.
 - Consider promoting `merge-gate-not-rerun-on-identical-tree` to a rule (now 4 clean waves), with
   the expiry condition CARD-237 recorded: the reasoning lapses the moment main gains a code commit.
+
+## Wave 42 — 2026-10-17
+
+### Cards
+
+| Card | Title | Est | Actual | Accuracy | Cycles | Score | Signal |
+|------|-------|-----|--------|----------|--------|-------|--------|
+| CARD-213 | A clue number unique in its line gets circled | 0.5d | 0.2d | 0.40× | 1 | 9.0 | overestimated (actual) |
+| CARD-228 | Difficulty becomes three dots, filled by tier | 0.5d | 0.5d | 1.00× | 3 | 8.0 | accurate (actual), escalated |
+| CARD-239 | The timing-log guards' remaining bounds | 1d | 0.6d | 0.60× | 2 | 7.5 | overestimated (actual), escalated |
+| CARD-240 | FR-044's examples AC names rule C | 0.25d | 0.1d | 0.40× | 1 | 9.0 | overestimated (actual) |
+
+### Metrics
+
+- cards: 4, escalated: 2 (both resolved by owner decision, not by another cycle), split: 0, actual_time: 4
+- total_estimate: 2.25d, total_actual: 1.4d
+- avg_accuracy: 0.60× — **and this wave is the proof that the figure is not measuring cost**; see Calibration
+- avg_cycles: 1.0 (non-escalated) · 1.75 (all four)
+- avg_final_score: 8.375 (↓ −0.375 vs waves 40–41's 8.75)
+- score_improvement: **−0.125** (initial 8.50 → final 8.375) — **negative for the first time in this
+  journal.** Both multi-cycle cards ended at or below their opening score: CARD-228 8.0 → 8.5 → 8.0,
+  CARD-239 8.0 → 7.5. Cycles stopped buying quality on these two cards, which is the escalation
+  condition arriving as a number rather than as a verdict.
+- test_cost: **6 full suites, 5290s ≈ 1.47h machine time, gate_full_share 100%** (config pins
+  `review.test_scope: full`; no pytest-testmon, so the python-pro recipe refuses to narrow)
+- suite: 826s. **The suite got faster while growing**: wave 39's 963s / 7156 tests at 135ms/test →
+  826s / 7727 tests at 106ms/test — **+8% tests in −14% wall-clock, a −21% per-test rate**. That is
+  CARD-235's one-line `poll_interval` fix compounding across two waves of added tests.
+- complexity: 3 standard, 1 trivial, 0 architectural → model-upgrade verdict stays
+  `(insufficient data — accumulating: 1 architectural card incl. history)`
+
+### Calibration signals
+
+- **python-pro feature: 0.70× over 2 cards → calibrated (at the boundary), no change.**
+- **python-pro tech-debt: 0.50× over 2 cards → merges to 1.20× over 9 cards.**
+- ⚑ **Do not calibrate the effort scale from this wave, and the reason is the wave's own data.**
+  Waves 40–41 corrected their own ×2.6 suggestion to ×1.4 with the note "the real signal is cycles,
+  not accuracy". Wave 42 is the clean experiment for that claim, and it comes out stronger than
+  stated: **accuracy and convergence are anti-correlated here.** The card with a *perfect* 1.00×
+  (CARD-228) took three review cycles and an escalation; the two cards at **0.40×** — the worst
+  accuracy ratios in the wave — both converged in one cycle with 9.0. A scale fitted to wall-clock
+  would have *lengthened* the estimates of the two cleanest cards in the wave.
+  The mechanism is visible in the field's definition: `Actual` is calendar time from `start` to
+  merge. On this board the cards' review cycles run in background agents while the orchestrator works
+  on other cards, so calendar time measures **orchestrator latency**, not the work. CARD-239 spent
+  two review cycles, three fix passes, an escalation, 14 agent dispatches and six full suites — and
+  records **0.6d against 1d**, i.e. "overestimated".
+- ⚑ The merged 1.20× hides a **trimodal** distribution now: 4 historical cards near 0.48×, 3 at
+  1.10/1.40/5.40×, 2 at 0.60/0.40×. Waves 40–41 flagged this as bimodal; one more wave has not made
+  the mean more meaningful.
+
+### Finding families
+
+- **a guard's stated coverage is wider than the mechanism that enforces it** — **10 gating findings,
+  2 cards, 5 review cycles**: CARD-228 c1 (F-001, F-002), c2 (F-101), c3 (F-201, F-202, F-203);
+  CARD-239 c1 (F-001, F-002), c2 (F-201, F-202). Both cards escalated. Far over both promotion
+  thresholds.
+  **ALREADY OWNER-APPROVED FOR PROMOTION ON 2026-10-16 — AND THE PROMOTION NEVER LANDED.** Waves
+  40–41 diagnosed this family, diagnosed *why* its first promotion failed (it lived in the pipeline
+  brief, so it carried no `check:` and nothing executed it, and its wording was satisfiable while the
+  defect persisted), and the owner approved promoting it to a model rule **with a check**, routed to
+  `/forge:architect-adr-writer`. Verified at this retro: no ADR rule in `meta/architecture/` states
+  it, and `git log --since=2026-10-16 -- meta/architecture/decisions/` is **empty**. So the family
+  was paid for in full a second consecutive wave, across the two most expensive cards in it.
+  **The bottleneck is the promotion mechanism, not the diagnosis.** Two waves running, the analysis
+  was right and nothing executed it.
+- Within that family, two genuinely **new** sentences emerged — not restatements, and each sharper
+  than the last. Recorded in full because the sequence is the transferable artefact:
+  1. **CARD-238 (wave 41):** a set a guard consults needs a completeness test written *before* the
+     set, and a claim about coverage needs a control that can fail.
+  2. **CARD-228 (wave 42):** a completeness test over hand-enumerated **syntactic shapes** is not a
+     completeness test, **because no authority enumerates the shapes.** Where an authority exists the
+     guard converges; where none does, **default-deny** (make what the guard cannot parse a *failure*)
+     converges best — and even that moves the frontier rather than closing it.
+  3. **CARD-239 (wave 42):** **an exemption is a claim**, and it needs the same control a set member
+     needs — caught WITH it, missed WITHOUT it, residue recorded as a bound. This one names the
+     *exemption* — the construct both earlier cards reached for as the honest escape hatch — as
+     itself needing a falsifier.
+- **The authority test predicted convergence twice, within single cards.** CARD-228's *method* half
+  derives from `dir(ImageDraw.ImageDraw)` and was sound from cycle 1, surviving three cycles of
+  adversarial probing untouched; its vertex and receiver halves had no authority and took three
+  cycles and three route families. CARD-239's stdlib surface derives from `dir(os)` and friends and
+  was sound from its first pass; its module-scope-silencing half had no authority and took two cycles.
+  Same card, same author, same wave — **the presence of a derivable authority is the discriminator**,
+  and it is cheap to check before writing a guard.
+- **fix-induced share: 4 of 6 gating findings after cycle 1 ≈ 67%** (down from waves 40–41's 89%),
+  counting a finding as fix-induced when its own description names the fix cycle's declarations as the
+  thing that is false. ⚑ **A literal phrase-match ("introduced by this delta", "the F-NNN fix",
+  "regressed from") gives 1 of 6 ≈ 17%** — only CARD-239's F-201 says "re-opens … the exemption added
+  to fix it". The other three say it in their own words instead ("the mechanism **the fix cycle
+  declares** true by mechanism", "the receiver rule's **stated reach** overshoots its implementation",
+  "the fix is a real widening — two of its four limits are false").
+  So **this retrospective's own fix-induced metric has the wave's defect**: a quantified claim whose
+  mechanism is a regex over prose, with no control. Fix: have reviewers set an explicit
+  `fix_induced: true|false` field per finding, and the number stops depending on phrasing.
+- **orchestrator-station pattern, counted: six figures I relayed without re-deriving them were wrong,**
+  and every one was caught by someone or something else rather than by me. The `polygon`/`point`
+  "it is free" premise (inherited from a review report and passed into a fix brief unchecked — the
+  fix agent refused it with evidence); the `draw.text`-literal form I specified, which would not have
+  caught CARD-207 at all; item 6's "moved or replaced" wording, whose two halves are mutually
+  exclusive once the first is done; "the file now collects more than 341" in CARD-239's dispatch
+  brief (it collects exactly 341 — CARD-228 added its tests elsewhere); the carried-over "250 passed"
+  for a mutant that in fact survives at 341; and "6 clean waves" above. The briefs' standing
+  instruction to *refuse with evidence rather than comply* is what caught four of the six, which
+  means that instruction is carrying weight my own verification should. **Suggestion: when a figure
+  comes out of a report rather than out of a command I ran, either re-derive it or mark it as
+  unverified in the brief** — the agents handle an explicit "unverified, check this" correctly, and
+  silently inherit a stated one.
+- **watch, below threshold:** `dismissed` vs `deferred` on a review finding is load-bearing, and was
+  got right twice and wrong once. `dismissed` is what Step 7.5e mines into the cross-project
+  `review_false_positives` signal, which `forge:review` then consults to avoid re-flagging
+  known-dismissed patterns. A real finding deferred to a follow-up card must be `deferred`, or every
+  future review **on every project** learns not to flag it. Drawn correctly on CARD-239 c1 and
+  CARD-228 c3; regressed on CARD-239's final pass (F-201 written `dismissed` for a finding carded as
+  CARD-242) and corrected at the orchestrator station before export.
+
+### Process shortcuts
+
+- `other:merge-gate-not-rerun-on-identical-tree` → clean, **twice** this wave, both recorded with
+  their expiry condition and both verified by measurement rather than assumed. CARD-240: the full
+  suite carries zero information for a one-line `requirements.yml` prose change, because all five test
+  references to that file are **docstrings, not parses** — checked, not assumed — so coverage was
+  deferred to the wave gate and then **discharged**, verified with
+  `git merge-base --is-ancestor`. Wave 42's smoke test: CARD-239's merge gate ran on a tree containing
+  all four cards' code, and `git diff <gated-tree> HEAD -- . ':(exclude)meta'` is empty.
+  **Now 5 clean waves** (the signal library holds `waves_taken: 4` before this one — I first wrote
+  "6" here from memory and the library corrected it, which is the sixth time this wave a figure of
+  mine needed re-deriving). Wave 33 and waves 40–41 both suggested promoting it to a rule.
+- `other:ac-ec-g-gate-run-by-orchestrator` (CARD-240) → clean. A one-line prose card's gate items were
+  all file-level facts an agent would only have re-run; the review itself was still dispatched rather
+  than skipped, on the grounds that skipping a configured gate because it looks cheap is the shortcut
+  this board's history argues against.
+
+### Merge conflicts
+
+- No card-pair conflicts. The predicted edges held: CARD-239 was **held back deliberately** until
+  CARD-228 merged, because it edits `tests/test_suite_profile.py` while CARD-228's final pass was
+  changing the file that test's frozen render-set grep scans. CARD-228 landed at 0 matches so the
+  collision never materialised — unknowable in advance, and ~20 minutes bought certainty.
+- ⚑ **The review-report sync friction recurred, twice — occurrences 4 and 5.** Waves 40–41 recorded
+  it three times and wrote the structural fix into their own Suggestions: *"delete a worktree's
+  review-report copies right after syncing them to main."* **It was not applied, and it cost the same
+  two things again**: an add/add rebase conflict on CARD-239 (main had started tracking the sweep file
+  the branch also creates), and a careless `rm -f meta/review/*.yml` that hit all **251** tracked
+  reports (restored by `git checkout -- .`; free only because they were tracked — the identical
+  mistake waves 40–41 recorded at 236 files). A recorded structural fix that nobody executes is the
+  same failure as a promoted rule that nobody executes, one layer down.
+
+### Suggestions
+
+- **EXECUTE the waves-40–41 rule promotion before dispatching wave 43.** It is owner-approved, it
+  did not land, and this wave paid for the family across its two most expensive cards. It should carry
+  all three sentences (CARD-238's, CARD-228's and CARD-239's) with a `check:`, and its provenance note
+  should name the cards and cycles: CARD-238 c1–c5, CARD-228 c1–c3, CARD-239 c1–c2 — 19 gating
+  findings across three cards and ten review cycles.
+- **Add the authority test to the card brief**, as the cheap front-end of that rule: *before writing a
+  guard that claims completeness over a set, name the authority the set derives from. If there is
+  none, say so and make the guard default-deny.* It predicted convergence twice within single cards
+  this wave, which is a stronger validation than a promoted rule usually gets before promotion.
+- **Apply waves 40–41's own un-executed suggestion:** delete a worktree's review-report copies
+  immediately after syncing them to main. 5 occurrences now.
+- **No effort calibration from this wave.** See Calibration signals — a wall-clock-fitted scale would
+  have lengthened the two cleanest cards' estimates. The standing ×0.4 for `feature` stays; the
+  tech-debt entry merges to 1.20× for the record but should not be applied as a scale.
+- **Reviewers should set `fix_induced: true|false` per finding**, so the fix-induced share stops being
+  a regex over prose.
+- `suite-timing.log` per gate: **applied this wave** — 3 entries where waves 40–41 had zero. Keep it.
+  One near-miss worth the note: the first line written was malformed (no time component, prose where
+  the parser wants the counts) and was caught by validating it against `TIMING_LOG_LINE` in
+  `rank_durations.py` rather than by eye. Validating costs one command.
+- Promote `merge-gate-not-rerun-on-identical-tree` to a rule — **5 clean waves**, with CARD-237's
+  expiry condition (the reasoning lapses the moment main gains a code commit) and this wave's addition:
+  state the tree-identity check that discharges it (`git diff <gated> HEAD -- . ':(exclude)meta'`).
+
+### Signals exported → ~/.forge/retro-signals.yml
+
+- `effort_calibration`: python-pro/feature 0.41× n=12 → **0.451× n=14** (improving);
+  python-pro/tech-debt 1.40× n=7 → **1.20× n=9** (improving). ⚑ Both "improving" labels are the
+  mechanical rule reading a mean that is trimodal — recorded, **not to be applied as a scale** (see
+  Calibration signals).
+- `review_quality`: python-pro n=31 → **n=35**, init 8.53, final 9.14, cycles 1.64.
+- `process_shortcuts`: `merge-gate-not-rerun-on-identical-tree` → 5 waves / 0 rework;
+  `smoke-on-merge-gate-tree` → 2 / 0; `ac-ec-g-gate-run-by-orchestrator` → **new**, 1 / 0.
+- `review_false_positives`: **1 new entry** — a documented path or example inside a guarded tree, in
+  a file kind the guard does not walk (both guards filter to `*.py`). From CARD-239 c1's F-005.
+- `testing_impact`: **skipped** — 1 card per group (CARD-239 `TDD: true`, CARD-240 `false`), the
+  floor is 2. Worth noting for the next wave: this board's TDD cards are also its escalating ones, so
+  the eventual delta will need the cycles/accuracy caveat above or it will read TDD as harmful.
+- `capacity_drift`: no `capacity:` block in `meta/.skills.yml` (the file does not exist on this
+  project), so no drift signal — as in every previous wave.
+- `value_calibration`, `hypothesis_outcomes`, `risk_calibration`: no `meta/business/` ledgers with
+  due MET entries, no unexported terminal ASM/MET/BCON, and no `meta/risk-register.yml` — all skipped
+  silently, as in previous waves.
