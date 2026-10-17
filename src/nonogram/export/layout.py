@@ -1360,8 +1360,13 @@ class PageRule:
     Attributes:
         left: The rule's left end — the usable area's own left edge.
         right: Its right end — the usable area's own right edge.
-        y: The row it is stroked on, centred on the stroke the way every
-            other rule in the drawing is (see :class:`PuzzleFrame`).
+        y: The row it is stroked on. Pillow spreads the stroke about this
+            row — exactly about it for an odd width, one row further down
+            than up for an even one (measured; ``tests/test_book_page_frame``
+            reads a rule back as the run that *covers* this row rather than
+            as a computed centre for that reason), the same way every other
+            rule in the drawing sits on its own boundary
+            (see :class:`PuzzleFrame`).
         width: How heavy to stroke it, in whole device pixels.
     """
 
