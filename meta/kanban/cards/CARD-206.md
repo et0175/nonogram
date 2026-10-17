@@ -34,9 +34,13 @@
 - Every downstream page number is derived from that start:
   `section_plan`'s `first_page`, `interior_page_count`'s terms
   (`:2111`), and `book_kdp.unpaired_interior_page_count` (`book_kdp.py:484`).
-- `INV-013` states the interior "**starts at the guide page as a right-hand
-  page 1**" and `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`
-  asserts it. The cover stays a separate file (FR-043) and is unaffected.
+- `INV-013` **no longer** says the interior starts at the guide page: it and
+  FR-043 were amended on 2026-10-17 (commit `91609aa`) to say page 1 is the
+  book's blank title / copyright page with the guide following on pages 2 and 3.
+  The shipped code and
+  `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` still
+  encode the old statement, so they are what this card brings up to the
+  registry. The cover stays a separate file (FR-043) and is unaffected.
 
 **What changes.** One blank page is inserted as interior page 1, so the front
 matter reads: title/copyright (blank) → How to Solve (2 pages) → TOC → EASY
@@ -60,14 +64,20 @@ divider → ….
 4. The page is reserved by the page plan, so the exported PDF gains exactly one
    page and the KDP gutter table is consulted with that count.
 
-**Architecture delta this card requires (flag, do not edit).** INV-013 and
-FR-043 both say the interior *starts at the guide page*. After this card the
-interior starts at the title page, and the property test named above encodes
-the old statement. The card must: implement the behaviour the owner asked for,
-update that property test to the new statement, and record in its Worktree
-notes that `INV-013`/`FR-043` need an architect-station amendment ("starts at
-the title page as right-hand page 1; the guide follows"). Kanban cards only read
-`meta/architecture/**` — the same posture CARD-198/202 took for FR-042/INV-011.
+**The architecture delta this card flagged has LANDED (2026-10-17, commit
+`91609aa`) — nothing is owed at the architect station.** INV-013 and FR-043 were
+amended as **one statement covering both claimants**, this card and CARD-229:
+interior page 1 is the book's title / copyright page, a right-hand page carrying
+no folio and no ink at all, and the guide follows as a facing spread on pages 2
+(verso) and 3 (recto). The parity mechanism and the page count finalise checks
+against KDP are unchanged. The card must therefore: implement that behaviour,
+and update
+`PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` — which
+still encodes the retired statement — to the amended one. Build against AC-283
+(page 1 blank, no ink of any kind), AC-286, AC-287 (re-measured: the first
+puzzle page is now interior page 6, a left-hand page), AC-289 and EC-034.
+Kanban cards only read `meta/architecture/**` — the same posture CARD-198/202
+took for FR-042/INV-011.
 
 ## Acceptance criteria
 
@@ -113,15 +123,29 @@ the title page as right-hand page 1; the guide follows"). Kanban cards only read
 
 ## System contract
 
-- INV-013 — interior holds no cover page; parity is the 1-based interior
-  position (check: `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`
-  — **this card amends the statement; see the delta note above**)
-- CON-020 — 10 pt floor for reader-facing interior text (vacuous on a blank
-  page, but the card must not introduce sub-floor text; check:
-  `TestInteriorType_EveryFaceHoldsTheFloor`)
-- CON-019 — book geometry never changes CLI/web exports (check:
-  `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`)
-- ADR-0036/R2 — layout functions own page geometry (check: review-lens)
+_Assembled 2026-10-17 by `system_rules.py --card CARD-206 --root meta/architecture` (58 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+
+**Carried notes on these rules** (recorded context, not derivable from the registry):
+
+- **INV-013 / FR-043 — the amendment this card flagged LANDED** on 2026-10-17 (commit
+  `91609aa`), jointly with CARD-229 and as one statement covering both claimants: interior
+  page 1 is now the book's blank title / copyright page (no folio, no ink) and the guide
+  follows as a facing spread on pages 2 (verso) and 3 (recto). **Nothing is owed at the
+  architect station for this card** — the registry now states what this card builds. Build
+  against AC-283 (page 1 is the title page, no ink of any kind), AC-286, AC-287 (re-measured:
+  the first puzzle page moves to interior page 6, a left-hand page), AC-289 and EC-034.
+  AC-283's test name is this card's own `TestBookExport_InteriorOpensWithABlankTitlePage`, a
+  planned name — it does not exist yet, so write it rather than assume it.
+
+- ADR-0035/R1 — No book leaves draft (to any other status) unless it has a stored plan and every longest-side x tier cell's count, divided by the planned total, is within +/-3 perc… (check: test: TestBookStatus_EveryExitFromDraftIsGatedOnThePlan)
+- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
+- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
+- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
+- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
+- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
+- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+
+_51 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
 
 ## Architecture context
 
@@ -144,11 +168,14 @@ page 1 — which is this card. So:
 
 - This card is no longer only a nicety; **CARD-229 depends on it structurally.** "Facing" is a
   claim about parity, and two pages face only when the first of them is a verso.
-- The **INV-013 amendment this card already flags is now owed jointly with CARD-229** (INV-013
-  says the interior starts at the guide page as right-hand page 1). One amendment at the
-  architect station should cover both claimants; do not let two cards each propose their own.
+- The **INV-013 amendment this card flagged LANDED on 2026-10-17** (commit `91609aa`), and
+  landed the way this bullet asked for it: **as one statement covering both claimants**, this
+  card and CARD-229 — interior page 1 is the blank title page, the guide is the facing spread on
+  pages 2 (verso) and 3 (recto). Nothing is owed at the architect station any more.
 - The page this card adds shifts every interior page number by one, which moves the TOC's rows,
   the KDP band and therefore the printed gutter. CARD-205 left a three-caller page-count
   cross-check in place (`TestBookToc_KdpAgreesWithTheExportedCount`,
   `tests/test_book_toc.py:595`) — that is the test which must stay green.
-- Still blocked in substance until the architect pass makes the INV-013 / FR-043 amendment.
+- ~~Still blocked in substance until the architect pass makes the INV-013 / FR-043
+  amendment.~~ **Unblocked 2026-10-17:** that amendment landed in commit `91609aa`. The card is
+  ready to start on the registry as it now stands.

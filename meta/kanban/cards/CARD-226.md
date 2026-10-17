@@ -82,14 +82,37 @@ real region.
 
 ## System contract
 
-- FR-040 — two-up pairing, including the "and only when" clause already owed an amendment
-  (check: the pairing tests)
-- FR-043 — every interior page carries its folio (check:
-  `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber`)
-- CON-020 (check: `TestInteriorType_EveryFaceHoldsTheFloor`)
-- ADR-0036/R2 (check: review-lens)
-- INV-013 — parity, which "outer" is defined against (check:
-  `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`)
+_Assembled 2026-10-17 by `system_rules.py --card CARD-226 --root meta/architecture` (60 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+
+**Carried notes on these rules** (recorded context, not derivable from the registry):
+
+- **FR-040 — still owed.** Its "and only when" clause already needed an amendment at the
+  architect station and **still does**: the 2026-10-17 delta carried CON-018, NFR-008, FR-030,
+  FR-031, FR-032, FR-043 and INV-013 only, and did not touch FR-040.
+- **Mirrored margins are now a geometric no-op on Book 1** (gutter == outside == 12.700 mm,
+  CON-018 as amended 2026-10-17). FR-030's AC-272 and AC-273 now hold the same span
+  (12.700..203.200 mm) and FR-032's AC-274/AC-275 the same left edge (25.45 mm), so on the
+  default profile **a passing parity assertion about the usable area or a margin width is an
+  identity, not evidence** that mirroring works. The mirroring rule (FR-030's last sentence,
+  TERM-034) and EC-032's "gutter minus outside" formula stay true with a zero difference and
+  still bite on any book storing **unequal** margins — the only configuration in which
+  mirroring is actually under test. Owner decision 2026-10-17: record this, do not restore the
+  asymmetry by changing a margin. An assertion about *which side* something sits on (left vs
+  right by parity) still has teeth; one about *how wide* the margin is does not.
+  For this card that lands on **AC-4**: "no QR ink in the gutter half of the page at either
+  parity" is a claim about which *side* the slot's QR sits on, so it keeps its teeth — the
+  identity only removes the margin-width half of a parity assertion, not the left/right half.
+  Any slot-geometry assertion phrased as "the usable area moves with parity" is the identity.
+
+- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
+- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
+- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
+- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
+- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
+- ADR-0037/R2 — Under the book PageSpec every thin grid rule is at least 0.25 mm and every heavy rule is twice the thin rule, in pure black; the default PageSpec's strokes are unch… (check: review-lens)
+- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+
+_53 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
 
 ## Architecture context
 

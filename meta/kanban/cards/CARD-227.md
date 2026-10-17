@@ -35,8 +35,11 @@ so it is resolution-independent:
 (threshold unstated — open question)" — the threshold was left open in the architecture and
 this card is the answer to it. So this is not a new rule but the **closing of a stated open
 question**, which means the figures belong in FR-033's acceptance criteria and an amendment is
-owed at the architect station. Read FR-033 before implementing and say in the notes whether
-the shipped behaviour already has one of these weights.
+**still owed at the architect station**. The registry delta of 2026-10-17 (commit `91609aa`)
+did **not** touch FR-033 — it carried CON-018, NFR-008, FR-030, FR-031, FR-032, FR-043 and
+INV-013 only, and this card's amendment was explicitly out of its scope. Do not read that
+delta as having settled the rule weights. Read FR-033 before implementing and say in the notes
+whether the shipped behaviour already has one of these weights.
 
 **One figure the artifact gives that belongs to another card:** "Clue areas shaded 5% grey,
 with each number in its own box (CARD-208)" — the shading and the boxes are CARD-208's, which
@@ -57,7 +60,8 @@ has been amended to carry them. This card owns the three line weights only.
   the last band is short and the border is still 1.3 pt — no half-weight line at the edge.
   (test: `TestBookGridRules_RaggedLastBand`)
 - **AC-5** (edge, the smallest cell): *Given* the smallest cell the book admits (NFR-008's
-  4.8 mm floor), *then* the three weights are still distinguishable — each is at least one
+  floor, **4.75 mm** since the 2026-10-17 amendment), *then* the three weights are still
+  distinguishable — each is at least one
   pixel and no two round to the same width. (test: `TestBookGridRules_WeightsSurviveTheFloor`)
 - **AC-6** (guard, resolution independence): *Given* two resolutions, *then* each weight
   scales with the page's dpi and the ordering holds at both.
@@ -76,11 +80,28 @@ has been amended to carry them. This card owns the three line weights only.
 
 ## System contract
 
-- **FR-033** — titles only in the answer key, bolder 5th lines, **dark lines (threshold
-  unstated — open question)**. This card closes that open question with the owner's three
-  figures; the amendment and its ACs are owed at the architect station (check: review-lens)
-- CON-020 — the clue digits' floor exemption (check: `TestInteriorType_EveryFaceHoldsTheFloor`)
-- ADR-0036/R2 (check: review-lens)
+_Assembled 2026-10-17 by `system_rules.py --card CARD-227 --root meta/architecture` (60 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+
+**Carried notes on these rules** (recorded context, not derivable from the registry):
+
+- **FR-033 — STILL OWED, and explicitly out of scope of the 2026-10-17 delta.** That pass
+  carried CON-018, NFR-008, FR-030, FR-031, FR-032, FR-043 and INV-013 — **not** FR-033. Its
+  "dark lines (threshold unstated — open question)" is therefore still open, this card is still
+  the answer to it, and its three figures (0.3 pt cell lines in grey, 0.8 pt every fifth line,
+  1.3 pt outer border) **still need FR-033 acceptance criteria written at the architect
+  station**. Do not read the 2026-10-17 amendments as having settled this one: nothing about
+  rule weights was decided that day. Read FR-033 before implementing and say in the notes
+  whether the shipped behaviour already has one of these weights.
+
+- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
+- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
+- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
+- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
+- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
+- ADR-0037/R2 — Under the book PageSpec every thin grid rule is at least 0.25 mm and every heavy rule is twice the thin rule, in pure black; the default PageSpec's strokes are unch… (check: review-lens)
+- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+
+_53 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
 
 ## Architecture context
 

@@ -31,9 +31,11 @@ It changes the page's margins and gives the page a header rule and a footer rule
 **Current behaviour (verified by reading the code).**
 
 - `book_page_spec.py:215` carries the Book 1 profile: trim 21.59 x 27.94 cm, **gutter 1.27 cm
-  (0.5 in), outside/top/bottom 0.95 cm (0.375 in)**, `band_mm=12.0`. CON-018 states those
-  values and its reasoning (KDP needs 0.375 in up to 150 pages and 0.5 in for 151-300, and
-  Book 1 straddles 150).
+  (0.5 in), outside/top/bottom 0.95 cm (0.375 in)**, `band_mm=12.0`. **CON-018 no longer states
+  those values:** it was amended on 2026-10-17 (commit `91609aa`) to the four margins below, so
+  the shipped code is now the thing that disagrees with the registry and this card is what
+  closes that gap. CON-018's KDP reasoning is unchanged and still explains the gutter (KDP needs
+  0.375 in up to 150 pages and 0.5 in for 151-300, and Book 1 straddles 150).
 - A titled page reserves `HEADER_BAND_MM = 12.0` (`export/layout.py:345`) above the drawing
   and draws **one centred caption** into it — `f"Puzzle {n}{BAND_SEPARATOR}{tier.label}"`
   (`book_pdf_generator.py:1150`). There is **no rule** under it.
@@ -47,9 +49,12 @@ It changes the page's margins and gives the page a header rule and a footer rule
    mirrored on left and right pages. Note the gutter: the artifact draws 0.75 in, and the owner
    decided on 2026-10-14 to keep KDP's required 0.5 in instead — see the measurement and the
    decision at the foot of this card, and take the figures from there, not from the artifact.
-   CON-018 states the outer/top/bottom values, so this is a
-   **CON-018 amendment owed at the architect station** (its gutter clause is untouched) — this card does not edit
-   `meta/architecture/**`; it flags the delta here, the shape CARD-198/202/205 used.
+   **The CON-018 amendment this card flagged has LANDED** (2026-10-17, commit `91609aa`):
+   CON-018 now reads outside 0.5 in (1.27 cm), top 0.55 in (1.397 cm), bottom 0.47 in
+   (1.1938 cm), with its gutter clause deliberately untouched at 0.5 in. **Nothing is owed at
+   the architect station** — read CON-018 as the spec for this card, and note that the registry
+   already carries the measured consequence (usable width 193.675 → 190.500 mm, -1.64%; usable
+   height 260.35 → 253.492 mm, -2.63%). This card still does not edit `meta/architecture/**`.
    Record the consequence rather than discovering it later: every margin grows, so the
    usable area shrinks, so **every fitted cell size can only get smaller** and the page
    count can move. Measure the corpus's page count before and after and state it.
@@ -118,24 +123,53 @@ It changes the page's margins and gives the page a header rule and a footer rule
 
 ## System contract
 
-- CON-018 — the Book 1 profile this card amends (check: review-lens; the amendment is owed at
-  the architect station)
-- CON-020 — no reader-facing interior text below 10 pt except clue digits (check:
-  `TestInteriorType_EveryFaceHoldsTheFloor`)
-- CON-019 — book geometry never changes CLI/web exports (check:
-  `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`)
-- INV-013 — no cover page in the interior; parity from the first interior page (check:
-  `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`)
-- ADR-0036/R2 — page geometry comes from COMP-007's layout functions (check: review-lens).
-  Note the standing tension already logged in `backlog.md`: `page_frame` lives in
-  `book_pdf_generator.py`, not in COMP-007. This card adds a region to that same place; say
-  so in the notes rather than quietly widening the breach.
+_Assembled 2026-10-17 by `system_rules.py --card CARD-222 --root meta/architecture` (60 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+
+**Carried notes on these rules** (recorded context, not derivable from the registry):
+
+- **CON-018 — the amendment this card flagged LANDED** on 2026-10-17 (commit `91609aa`):
+  outside 0.375 → **0.5 in (1.27 cm)**, top → **0.55 in (1.397 cm)**, bottom → **0.47 in
+  (1.1938 cm)**, and the **gutter clause deliberately untouched at 0.5 in** (the owner's
+  2026-10-14 decision, which also keeps CON-018's own KDP reasoning intact). Measured
+  consequence recorded in the entry: usable width 193.675 → 190.500 mm (-1.64%), usable height
+  260.35 → 253.492 mm (-2.63%). **Nothing is owed at the architect station** — CON-018 now
+  states exactly what this card builds, and the implementation agent should read it as the
+  spec, not as the old profile.
+- **Mirrored margins are now a geometric no-op on Book 1** (gutter == outside == 12.700 mm,
+  CON-018 as amended 2026-10-17). FR-030's AC-272 and AC-273 now hold the same span
+  (12.700..203.200 mm) and FR-032's AC-274/AC-275 the same left edge (25.45 mm), so on the
+  default profile **a passing parity assertion about the usable area or a margin width is an
+  identity, not evidence** that mirroring works. The mirroring rule (FR-030's last sentence,
+  TERM-034) and EC-032's "gutter minus outside" formula stay true with a zero difference and
+  still bite on any book storing **unequal** margins — the only configuration in which
+  mirroring is actually under test. Owner decision 2026-10-17: record this, do not restore the
+  asymmetry by changing a margin. An assertion about *which side* something sits on (left vs
+  right by parity) still has teeth; one about *how wide* the margin is does not.
+  For this card that lands on **AC-1**: the gutter/outer *swap* is unobservable on the default
+  profile because the two values are equal, which is why AC-1 already requires asserting both
+  margins by name rather than one twice. A test that wants to prove the swap needs a book
+  storing unequal margins.
+- **ADR-0036/R2** — the standing tension already logged in `backlog.md`: `page_frame` lives in
+  `book_pdf_generator.py`, not in COMP-007. This card adds a region to that same place; say so
+  in the notes rather than quietly widening the breach.
+
+- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
+- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
+- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
+- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
+- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
+- ADR-0037/R2 — Under the book PageSpec every thin grid rule is at least 0.25 mm and every heavy rule is twice the thin rule, in pure black; the default PageSpec's strokes are unch… (check: review-lens)
+- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+
+_53 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
 
 ## Architecture context
 
 - **FR:** FR-032 (the puzzle page's placement — see CARD-224, which reverses CARD-204's
-  amendment of it), FR-043 (folios and the interior's pages).
-- **CON:** **CON-018 (amendment owed: all four margins)**, CON-019, CON-020.
+  placement; the amendment CARD-204 had logged against FR-032's "centred" clause was CANCELLED,
+  not applied, on 2026-10-17), FR-043 (folios and the interior's pages).
+- **CON:** **CON-018 (amended 2026-10-17, commit `91609aa` — outside 0.5 in, top 0.55 in,
+  bottom 0.47 in, gutter unchanged at 0.5 in; nothing owed)**, CON-019, CON-020.
 - **ADR:** ADR-0036/R2, ADR-0037/R1 (a puzzle page's band carries number + tier only — the
   rule and the footer label are new furniture around it, so R1 needs re-reading at the
   architect station too).
@@ -164,13 +198,15 @@ admits, so **every cell that is not already at the 7.5 mm cap loses exactly 4.9%
 | 20x20 | deep | 7.45 | 7.08 |
 | 25x25 | deep | 5.87 | 5.58 |
 | 30x30 | shallow | 5.53 | 5.26 |
-| **30x30** | **deep** | **4.84** | **4.60 — below NFR-008's 4.8 mm floor** |
+| **30x30** | **deep** | **4.84** | **4.60 — below NFR-008's floor (4.75 mm since the 2026-10-17 amendment; 4.8 mm when this was measured — 4.60 is under both)** |
 | **30x12** | **deep** | **4.84** | **4.60 — below the floor** |
 
 Small grids are unaffected because they are already at the cap. The cost falls entirely on the
 large, deeply-clued puzzles — which are the hard ones, printed for the readers most likely to
-mark cells by hand. A deeply-clued 30x30 sits 0.04 mm above the floor today and crosses it at
-the new margins, which raises FR-031's below-floor flag.
+mark cells by hand. A deeply-clued 30x30 sits just above the floor today and crosses it at the
+artifact's four margins, which raises FR-031's below-floor flag. (Figures as measured on
+2026-10-14; the floor itself moved to 4.75 mm on 2026-10-17 — see the correction at the foot of
+this card.)
 
 **This compounds with CARD-225.** Under a book-wide size per grid size, the deepest-clued
 member decides for every puzzle of that size, so one deep 30x30 drags every 30x30 in the book
@@ -193,12 +229,23 @@ artifact's 0.75 in. Re-measured against `_placed_cell_mm` with the shipped spec:
 The cost falls from 4.9% to **1.6%**, uniformly, on every cell not already at the 7.5 mm cap.
 Usable height goes 248.35 -> 241.49 mm.
 
-**Stated honestly, because it is still true:** a deeply-clued 30x30 or 30x12 still lands at
-4.76 mm, under NFR-008's 4.8 mm floor, so FR-031's below-floor flag still fires for that case —
-0.04 mm under instead of 0.20 mm under. The owner accepted that with the reasoning that the
-gutter is where the page curves anyway, so width spent there is the least useful width on the
-page. CARD-225 must therefore still handle a grid size whose shared size is under the floor
-(its AC-6), and that AC is not hypothetical: it has a real case in the corpus.
+**Stated as it was presented to the owner on 2026-10-14:** a deeply-clued 30x30 or 30x12 lands
+at 4.76 mm, which was then 0.04 mm under NFR-008's 4.8 mm floor, so FR-031's below-floor flag
+fired for that case. The owner accepted that with the reasoning that the gutter is where the
+page curves anyway, so width spent there is the least useful width on the page.
+
+**Corrected 2026-10-17 (registry delta, commit `91609aa`) — that case is no longer under the
+floor.** NFR-008's floor moved to **4.75 mm**, chosen precisely so the margin change costs no
+grid a clue-depth step, and the case above re-measures to **4.7625 mm** on the amended margins
+with the repo's own `_placed_cell_mm` — **0.012 mm above the floor, so the flag does not fire
+for it.** The registry states exactly this as AC-370, "where the retired 4.8 mm floor would
+have refused it". The residue moves one depth step deeper and is still real: on the amended
+margins a 30x30 falls under 4.75 mm from **clue depth 11 (4.6463 mm)**, depth 12 gives
+4.5357 mm, and random 30x30 grids at density 0.5 reach **depth 13 (4.4302 mm)** (NFR-008's own
+sweep, reproduced here with `_placed_cell_mm`). So CARD-225 must still handle a grid size whose
+shared size is under the floor (its AC-6) — but the example that makes it non-hypothetical is
+now a depth-11-or-deeper 30x30, **not** the depth-10 case tabled above. This correction
+re-measured the geometry, not the corpus: re-measure the corpus before claiming either way.
 
 **So CON-018's gutter clause is NOT amended** — only its outer, top and bottom values. That
 also keeps CON-018's own KDP reasoning intact (0.375 in up to 150 pages, 0.5 in for 151-300,

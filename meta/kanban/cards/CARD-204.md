@@ -370,6 +370,26 @@ merges first.
   used for its old-packed/new-solved renders, so the owner is judging real pixels, not
   a verbal description of "right-aligned."
 
+## Follow-up required (2026-10-17) — the FR-032 amendment this card logged was CANCELLED, not applied
+
+This card's review logged an amendment against **FR-032**: its "the drawing is centred across the
+usable width" clause had become false, because this card placed the grid flush by page parity. That
+amendment was **cancelled rather than written** at the 2026-10-17 architect pass, and the reason is
+not an oversight — **CARD-224 reverses this card's placement**. The grid goes back to centred, so
+FR-032's original clause is correct again and writing the logged amendment would have made the
+registry wrong in the opposite direction. The owner's note explains the reversal: the flush
+alignment existed to free the gutter strip for the QR code, and once the QR has its own footer
+(CARD-223), centring is the calmer choice.
+
+What *was* amended in FR-032 is the **other** clause — the drawing no longer sits at a fixed top
+edge but floats at **42% of the puzzle area's spare height** (AC-190 retired; AC-366/AC-367 added;
+EC-022 restated as the ratio).
+
+**No action is required on this card's shipped code**, which is why `Revision pending` is left
+`false`: CARD-224 owns the reversal. This section exists so that a future reader looking for the
+amendment this card's review promised finds the cancellation and its reason instead of a gap.
+Recorded also in `meta/kanban/backlog.md` and in FR-032's own notes. Cancellation commit: `91609aa`.
+
 ## Worktree notes
 
 - [Origin] Owner's Google Doc "Nonograms - Print layout1", 2026-10-08, item 3. Drafted

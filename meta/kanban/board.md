@@ -123,9 +123,29 @@ _CARD-217 profiled the suite solo and neither hypothesis CARD-218/219/220 were c
 _(none)_ — **wave 43 closed 2026-10-17, 2/2 merged, no escalations.** Both worktrees removed;
 `git worktree list` shows only `main`. Next dispatch is **wave 44**.
 
-_Owed at the architect station before the interior-redesign lane (CARD-222 → 11 cards) can run:
-CARD-222's CON-018, CARD-225's NFR-008, CARD-206's INV-013/FR-043, and CARD-224 cancelling
-CARD-204's pending FR-032 amendment. One `/forge:architect` session, not a card._
+_✅ **The architect debt that blocked the interior-redesign lane is CLEARED** (2026-10-17, `91609aa`):
+CON-018's margins, NFR-008's floor (4.8 → **4.75 mm**, owner's decision) and its per-grid-size rule,
+INV-013/FR-043 as one statement covering both claimants, and CARD-204's FR-032 amendment **cancelled
+rather than applied** because CARD-224 reverses it. **CARD-222 and the chain behind it are eligible now.**_
+
+_⚠ Still owed, and deliberately NOT cleared on their cards: **CARD-227**'s FR-033 rule weights and
+**CARD-231**'s section-opener ACs — both were outside the 2026-10-17 scope, so their "amendment owed"
+notes stand. Also flagged, not carded: ADR-0037/R1 needs re-reading against CARD-228's dots, and the
+ADRs still state the floor as 4.8 mm (an `adr-writer` pass — an ADR is amended by revision, not edited)._
+
+_⛑ Two consequences written onto the cards whose reviewers need them: **mirrored margins are now a
+geometric no-op on Book 1** (gutter == outside == 12.700 mm), so a passing parity assertion there is an
+identity rather than evidence; and the "4.76 mm still lands under the floor" claim **CARD-222 and
+CARD-225 both carried is now false** — at a 4.75 floor that case measures 4.7625 mm, 0.012 mm ABOVE it,
+so FR-031's below-floor flag no longer fires. CARD-225's AC-6 rested on it and now states an open
+question instead._
+
+_⛑ **System contracts on the book cards were curated, by owner decision**, from the lens's 60-odd rules
+down to 6–14 each: a rule scoped `src/nonogram/**` matches every card and narrows to nothing, and this
+board measured what a ~53-rule contract actually yields — 45–48 rules marked `⚠ unchecked` and 6–12 real
+verdict lines (CARD-200/203/204), against full coverage on CARD-241's 13 and CARD-242's 10. Each card
+declares how many rules were dropped and why; the upstream fix (scope the rules to their components) is
+in `backlog.md`._
 
 ## Review
 

@@ -85,18 +85,39 @@ small word in the middle of an empty page" on pp. 8, 73, 124 and 167.
 
 ## System contract
 
-- FR-043 — the interior's pages, folios and TOC (check:
-  `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber`)
-- INV-013 — parity is the 1-based interior position, which "right-hand page" is defined
-  against (check: `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`)
-- INV-009 — grouped by tier (check: `PropertyTest_BookOrder_GroupedByTierUnderAnyEditSequence`)
-- CON-020 (check: `TestInteriorType_EveryFaceHoldsTheFloor`)
-- ADR-0036/R2 (check: review-lens)
+_Assembled 2026-10-17 by `system_rules.py --card CARD-231 --root meta/architecture` (58 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+
+**Carried notes on these rules** (recorded context, not derivable from the registry):
+
+- **FR-043 — the section-opener behaviour this card needs is STILL OWED, and was explicitly out
+  of scope of the 2026-10-17 delta.** FR-043 *was* amended that day (commit `91609aa`) — but
+  only for the **front matter**: interior page 1 becomes the blank title / copyright page and
+  the guide moves to a facing spread on pages 2–3. **That amendment does not touch this card's
+  rule.** "Openers always start on a right-hand page", and the inserted blank page that follows
+  from it — which moves the interior's page count, the KDP band and therefore the printed
+  gutter — still has **no acceptance criterion in the registry** and did not acquire one. Do
+  not read the FR-043 amendment as satisfying it; AC-3 and AC-4 are still this card's own
+  claims, gated against nothing in the registry until the architect station writes them.
+
+- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
+- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
+- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
+- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
+- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
+- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+
+_52 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
 
 ## Architecture context
 
 - **FR:** FR-043. The inserted-blank rule is new behaviour with a page-count consequence and
-  needs its own acceptance criteria in the registry — **owed at the architect station**.
+  needs its own acceptance criteria in the registry — **still owed at the architect station**.
+  FR-043 *was* amended on 2026-10-17 (commit `91609aa`), but only for the front matter (page 1
+  becomes the blank title page, the guide moves to a facing spread on pages 2–3). **That
+  amendment does not cover this card:** "openers always start on a right-hand page" and the
+  blank page it inserts — which moves the interior's page count, the KDP band and therefore the
+  printed gutter — acquired no acceptance criterion, and this card's own section-opener
+  behaviour was explicitly out of that delta's scope.
 - **INV:** INV-013 (parity), INV-009 (tier grouping).
 - **CON:** CON-018, CON-020.
 - **ADR:** ADR-0036/R2.

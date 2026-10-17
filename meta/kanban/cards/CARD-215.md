@@ -118,18 +118,18 @@
 
 ## System contract
 
-- ADR-0023/R1 — export metadata records width and height separately; no scalar
-  "size" field, no decoder reconstructing extent from one (check: review-lens)
-- ADR-0036/R1 — the default PageSpec's layout is byte-identical to the A4
-  golden (check: `TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden`)
-- ADR-0036/R2 — only COMP-007's layout functions place things (check:
-  review-lens)
-- CON-019 — book geometry never changes CLI/web exports (check:
-  `PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry`)
-- INV-001 — clues always equal the run-length encoding of the solution grid
-  (check: review-lens — a given reveals a cell, it never changes the grid)
-- ADR-0006/R1 — runtime dependencies are exactly stdlib + Pillow + NumPy
-  (check: `TestDependencyBaseline_IsExactlyPillowAndNumpy`)
+_Assembled 2026-10-17 by `system_rules.py --card CARD-215 --root meta/architecture` (55 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+
+- ADR-0023/R1 — Export metadata records a grid's extent as separate width and height fields. No export format writes a scalar "size" field, and no decoder reconstructs a grid's dim… (check: review-lens)
+- ADR-0023/R2 — A decoder accepts only its own SCHEMA_VERSION, by exact comparison, and raises an error naming both the file's version and its own. It never attempts a best-effort … (check: test: TestExport_RejectsSupersededSchemaVersion)
+- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
+- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
+- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
+- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
+- ADR-0037/R2 — Under the book PageSpec every thin grid rule is at least 0.25 mm and every heavy rule is twice the thin rule, in pure black; the default PageSpec's strokes are unch… (check: review-lens)
+- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+
+_47 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
 
 ## Architecture context
 

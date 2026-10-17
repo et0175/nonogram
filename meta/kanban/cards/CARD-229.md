@@ -39,10 +39,15 @@ example on the right."*
 - Its content constants are already named and tested: `GUIDE_INTRO`,
   `GUIDE_CELL_STATES_HEADING` + `GUIDE_CELL_STATES` (the three marks, **as a vertical list**),
   `GUIDE_EXAMPLE_HEADING`, `GUIDE_CLOSING_HEADING`, `GUIDE_CLOSING`, `GUIDE_BASIC_RULE_TEXT`.
-- **INV-013 says the interior starts at the guide page as right-hand page 1.** Pages 2 and 3
-  can only face each other if something else is page 1 — which is exactly CARD-206's blank
-  title page. That is why this card depends on it, and why **INV-013's amendment is owed at
-  the architect station** (CARD-206 already flags it; this card is the second claimant).
+- **INV-013 used to say the interior starts at the guide page as right-hand page 1.** Pages 2
+  and 3 can only face each other if something else is page 1 — which is exactly CARD-206's
+  blank title page, and why this card depends on it. **That amendment LANDED on 2026-10-17**
+  (commit `91609aa`), as one statement covering both claimants: INV-013 and FR-043 now say
+  page 1 is the blank title / copyright page with the guide following as a facing spread on
+  pages 2 (verso) and 3 (recto), and **AC-368** is the registry's criterion for the spread.
+  Nothing is owed at the architect station; the shipped code and
+  `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage` are what still encode
+  the retired statement.
 
 **What changes.**
 
@@ -107,19 +112,34 @@ callout at the foot of page 2 — CARD-230, so that this card's diff is the spre
 
 ## System contract
 
-- **INV-013** — the interior holds no cover page and **starts at the guide page as right-hand
-  page 1**. This card and CARD-206 both contradict that clause; the amendment is owed at the
-  architect station and should be made once, for both (check:
-  `PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage`)
-- FR-041 — the guide page's content, including CARD-201's deferred clause (check: the guide
-  tests)
-- CON-020 (check: `TestInteriorType_EveryFaceHoldsTheFloor`)
-- ADR-0036/R2 (check: review-lens)
+_Assembled 2026-10-17 by `system_rules.py --card CARD-229 --root meta/architecture` (58 rules, `card_scope: touches`) for the registry delta of the same day. A projection — fix the source artifact, never this list._
+
+**Carried notes on these rules** (recorded context, not derivable from the registry):
+
+- **INV-013 / FR-043 — the amendment this card flagged LANDED** on 2026-10-17 (commit
+  `91609aa`), as **one statement covering both claimants** (this card and CARD-206), which is
+  what the two cards asked for: interior page 1 is the blank title / copyright page and the
+  guide is the facing spread on pages **2 (verso) and 3 (recto)**. **Nothing is owed at the
+  architect station.** The registry's criterion for the spread is **AC-368**, which names this
+  card's own planned test `TestGuideSpread_SitsOnPagesTwoAndThree` (it does not exist yet);
+  AC-283/AC-286/AC-289 and EC-034 were reworded for the title page, and AC-287 was re-measured
+  — the first puzzle page moves to interior page 6. The parity mechanism and the KDP
+  page-count check are unchanged.
+
+- ADR-0036/R1 — compute_layout called without a PageSpec produces exactly today's A4 geometry; CLI and web output are byte-for-byte unchanged by any book-only PageSpec field. (check: test: TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden)
+- ADR-0036/R2 — Book page geometry is computed only by COMP-007's layout functions (compute_layout, and the pair-aware call for two-up pages) with the book's PageSpec; the admin pa… (check: review-lens)
+- ADR-0036/R3 — Exactly one function in src/nonogram/** puts a round mark on a page. A second one is a defect whatever Pillow call it is written with: four cards print the same dif… (check: test: test_the_books_own_pages_carry_no_undeclared_round_mark)
+- ADR-0036/R4 — No string literal anywhere in src/nonogram/** -- docstrings included -- holds a codepoint in U+25A0..U+25FF, U+2022 or U+2219. A round mark is drawn, never typed: t… (check: test: test_no_module_types_a_round_mark_as_a_character)
+- ADR-0037/R1 — A book puzzle page never prints the picture's title; its band shows the puzzle number and the solver's tier only. (check: review-lens)
+- CON-020 — No text the book's interior prints for the reader is set below 10 pt at the page's own resolution, except the clue digits drawn inside a puzzle page's clue cells, w… (check: test: TestInteriorType_EveryFaceHoldsTheFloor)
+
+_52 further rules the lens returned are scoped `src/nonogram/**` (package-wide), so they match every card in the project and narrow to nothing. They are deliberately NOT listed: measured on this board, a ~53-rule contract produced 6-12 real verdict lines out of 53 (CARD-200/203/204), while the 10- and 13-rule contracts of CARD-242/CARD-241 produced 10 and 13 — full coverage. Owner decision 2026-10-17: ship the curated form. The package-wide scoping is the root cause and is recorded in `meta/kanban/backlog.md`._
 
 ## Architecture context
 
 - **FR:** FR-041 (the guide), FR-043 (folios, the TOC's rows).
-- **INV:** **INV-013 (amendment owed, jointly with CARD-206)**.
+- **INV:** **INV-013 (amended 2026-10-17, commit `91609aa`, jointly with CARD-206 as one
+  statement — guide on interior pages 2 and 3; nothing owed)**.
 - **CON:** CON-018, CON-020.
 - **ADR:** ADR-0036/R2.
 - **Components:** COMP-009.
