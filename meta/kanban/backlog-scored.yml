@@ -1,4 +1,4 @@
-generated: '2026-10-05'
+generated: '2026-10-17'
 source: meta/kanban/backlog.md
 config:
   stage: pre-launch
@@ -18,16 +18,16 @@ config:
   interest_weights: null
   screens:
     min_score: null
-  calibration_note: 'retro (waves 28-31): python-pro estimates ~0.55x actual; 0.5d cards merge in ~0.2-0.3d; job
-    sizes are relative Fibonacci and lean small'
+  calibration_note: 'retro (waves 28-31): python-pro estimates ~0.55x actual; 0.5d cards merge in ~0.2-0.3d;
+    job sizes are relative Fibonacci and lean small'
   assumptions:
-  - 'ASM-0001 (unvalidated, non-fatal): solvers accept 40x40-50x50 at ~3.7 mm cells - lean down ideas resting on
-    large grids'
-  status_note: Step 3 output; screens and scores are PROPOSED pending owner review (Step 4). wave/rank assigned
-    in Step 5.
+  - 'ASM-0001 (unvalidated, non-fatal): solvers accept 40x40-50x50 at ~3.7 mm cells - lean down ideas
+    resting on large grids'
+  status_note: Step 3 output; screens and scores are PROPOSED pending owner review (Step 4). wave/rank
+    assigned in Step 5.
   day_calibration:
-    note: '2026-10-04 re-plan after the wave-32 retro: WSJF job size → card days halved (1→0.125 … 20→3); cards
-      merged in 0.1–0.3 d wall-clock (retro: 0.24× wave 32, ~0.45× over 17 cards)'
+    note: '2026-10-04 re-plan after the wave-32 retro: WSJF job size → card days halved (1→0.125 … 20→3);
+      cards merged in 0.1–0.3 d wall-clock (retro: 0.24× wave 32, ~0.45× over 17 cards)'
     map:
       1: 0.125
       2: 0.25
@@ -40,10 +40,10 @@ config:
 ideas:
 - id: IDEA-001
   title: Fixture superseded_by back-pointers (CARD-147 F-007)
-  raw: '- [ ] CARD-147 F-007 (three cards old): should the baseline chain''s fixtures get `superseded_by` back-pointers?
-    Each fixture''s `warning` ends "…and says so here", and its prohibition covers regenerating digests, which an
-    additive key is not. Only card145 and card128 have one; card144, card149 and card146 don''t. card146 matters
-    most, because it''s still live evidence (hardcoded as `PRE_CARD_BASELINE`)   @tech-debt'
+  raw: '- [ ] CARD-147 F-007 (three cards old): should the baseline chain''s fixtures get `superseded_by`
+    back-pointers? Each fixture''s `warning` ends "…and says so here", and its prohibition covers regenerating
+    digests, which an additive key is not. Only card145 and card128 have one; card144, card149 and card146
+    don''t. card146 matters most, because it''s still live evidence (hardcoded as `PRE_CARD_BASELINE`)   @tech-debt'
   category: tech-debt
   intent: null
   status: rejected
@@ -67,10 +67,10 @@ ideas:
   reason: 'Owner 2026-10-05: leave the baseline fixtures as they are'
 - id: IDEA-002
   title: 'Per-directory READMEs: adopt or drop the docs step'
-  raw: '- [ ] Per-directory READMEs: no directory under `src/` has one, so every book card skips the docs step,
-    and `tests/README.md` is still titled "Admin Panel Test Suite - Wave 1" (about 20 waves stale, names no book
-    test file). Either make "no per-directory READMEs" the convention and drop the step, or create them once and
-    rewrite `tests/README.md`   @tech-debt'
+  raw: '- [ ] Per-directory READMEs: no directory under `src/` has one, so every book card skips the docs
+    step, and `tests/README.md` is still titled "Admin Panel Test Suite - Wave 1" (about 20 waves stale,
+    names no book test file). Either make "no per-directory READMEs" the convention and drop the step,
+    or create them once and rewrite `tests/README.md`   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -93,11 +93,11 @@ ideas:
   rank: 72
 - id: IDEA-003
   title: 'Render: adopt Blueprint or record dashboard settings'
-  raw: '- [ ] DEPLOYMENT (found 2026-09-23, cost four redeploys): the Render service is managed in the dashboard,
-    so `render.yaml` is ignored (buildCommand, startCommand, env vars). Production ran `flask run` on python3.14
-    while `render.yaml` pins 3.11, which bypassed CARD-086''s gunicorn decision. Either adopt the Render Blueprint
-    so `render.yaml` governs, or mark the file as not authoritative and record the dashboard settings somewhere
-    they can be drift-checked   @ops'
+  raw: '- [ ] DEPLOYMENT (found 2026-09-23, cost four redeploys): the Render service is managed in the
+    dashboard, so `render.yaml` is ignored (buildCommand, startCommand, env vars). Production ran `flask
+    run` on python3.14 while `render.yaml` pins 3.11, which bypassed CARD-086''s gunicorn decision. Either
+    adopt the Render Blueprint so `render.yaml` governs, or mark the file as not authoritative and record
+    the dashboard settings somewhere they can be drift-checked   @ops'
   category: ops
   intent: null
   status: done
@@ -113,12 +113,13 @@ ideas:
   owner_decision: dashboard stays authoritative; document it (2026-10-04)
 - id: IDEA-004
   title: 'Fix dead check: refs on mandatory rules (CON-005, INV-*)'
-  raw: '- [ ] Dead `check:` refs on mandatory rules. These name tests that exist nowhere under `tests/`, only inside
-    comments: ADR-0006/R1 `TestDependencyBaseline_IsExactlyPillowAndNumpy` (the real test is `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`,
-    per CARD-161 F-007), **CON-005** `PropertyTest_Solver_NeverFalsePositiveUniqueness` (the one mandatory correctness
-    property), INV-001 `TestComputeClues_MatchesGridExactly`, INV-002 `TestExport_RejectsUnverifiedPuzzle`, INV-008
-    (three checks), INV-012 (six checks), ADR-0029/R2, INV-009..INV-011. Step 8h has been reporting some of them
-    as covered. Fix each ref (write the test, or re-type the check as `review-lens`)   @tech-debt'
+  raw: '- [ ] Dead `check:` refs on mandatory rules. These name tests that exist nowhere under `tests/`,
+    only inside comments: ADR-0006/R1 `TestDependencyBaseline_IsExactlyPillowAndNumpy` (the real test
+    is `tests/test_export_pdf.py::test_the_dependency_baseline_is_still_closed`, per CARD-161 F-007),
+    **CON-005** `PropertyTest_Solver_NeverFalsePositiveUniqueness` (the one mandatory correctness property),
+    INV-001 `TestComputeClues_MatchesGridExactly`, INV-002 `TestExport_RejectsUnverifiedPuzzle`, INV-008
+    (three checks), INV-012 (six checks), ADR-0029/R2, INV-009..INV-011. Step 8h has been reporting some
+    of them as covered. Fix each ref (write the test, or re-type the check as `review-lens`)   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -140,18 +141,19 @@ ideas:
   rank: 15
 - id: IDEA-005
   title: system_rules.py --verify-refs resolves node ids
-  raw: '- [ ] `system_rules.py --verify-refs` matches text, so a name inside a comment counts as "found": it reports
-    `dead_check_ref: []` with `check_refs_verified: true` while the refs above are dead. Make it resolve a collectible
-    pytest node id, and make `adr_integrity` fail on a dead ref instead of warning (lives in forge_1, outside this
-    repo)   @tech-debt'
+  raw: '- [ ] `system_rules.py --verify-refs` matches text, so a name inside a comment counts as "found":
+    it reports `dead_check_ref: []` with `check_refs_verified: true` while the refs above are dead. Make
+    it resolve a collectible pytest node id, and make `adr_integrity` fail on a dead ref instead of warning
+    (lives in forge_1, outside this repo)   @tech-debt'
   category: tech-debt
   intent: null
   status: screened
   rejection_class: out-of-scope
   screen_ref: forge_1 repo
-  revival_trigger: forge_1 accepts the fix (a forge bug report against system_rules.py/adr_integrity is filed and
-    lands)
-  reason: The matcher and adr_integrity live in forge_1; the text itself says 'lives in forge_1, outside this repo'
+  revival_trigger: forge_1 accepts the fix (a forge bug report against system_rules.py/adr_integrity is
+    filed and lands)
+  reason: The matcher and adr_integrity live in forge_1; the text itself says 'lives in forge_1, outside
+    this repo'
   sunk_cost: null
   what_changed_since: null
   rejected_at: '2026-10-04'
@@ -160,9 +162,9 @@ ideas:
   source_line: 15
 - id: IDEA-006
   title: ADR-0029/R4 check can't test its rule (overlap masks)
-  raw: '- [ ] ADR-0029/R4''s ref `test_every_import_in_the_package_points_inward` exists but tests the import graph,
-    not the rule (overlap masks relative to a line''s known cells). No dead-ref check can catch a check that can''t
-    test its rule   @tech-debt'
+  raw: '- [ ] ADR-0029/R4''s ref `test_every_import_in_the_package_points_inward` exists but tests the
+    import graph, not the rule (overlap masks relative to a line''s known cells). No dead-ref check can
+    catch a check that can''t test its rule   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -184,8 +186,8 @@ ideas:
   rank: 18
 - id: IDEA-007
   title: 'Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession'
-  raw: '- [ ] Validator ERROR, pre-existing on main: `ADR-0025 circular supersession: ADR-0025 → ADR-0031 → ADR-0025`.
-    The guess-tier ADR chain cannot be resolved   @tech-debt'
+  raw: '- [ ] Validator ERROR, pre-existing on main: `ADR-0025 circular supersession: ADR-0025 → ADR-0031
+    → ADR-0025`. The guess-tier ADR chain cannot be resolved   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -208,12 +210,12 @@ ideas:
   rank: 8
 - id: IDEA-008
   title: 'CON-020: test 10 pt floor on every interior face'
-  raw: '- [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor (CARD-149''s
-    three tests cover the guide page only). A test enumerating every `truetype`/`load_default` call on an interior
-    page would make it `covered`   @tech-debt'
+  raw: '- [ ] CON-020 is `status: partial`: no test walks every interior face and asserts the 10 pt floor
+    (CARD-149''s three tests cover the guide page only). A test enumerating every `truetype`/`load_default`
+    call on an interior page would make it `covered`   @tech-debt'
   category: tech-debt
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 5
@@ -233,8 +235,8 @@ ideas:
   card: CARD-184
 - id: IDEA-009
   title: NFR + check for the deployed panel's 512 MB memory limit
-  raw: '- [ ] The deployed panel''s 512 MB memory limit is not an NFR anywhere (CARD-145). The export could break
-    it through five waves with every gate green. Needs an NFR with a check   @tech-debt'
+  raw: '- [ ] The deployed panel''s 512 MB memory limit is not an NFR anywhere (CARD-145). The export
+    could break it through five waves with every gate green. Needs an NFR with a check   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -256,10 +258,11 @@ ideas:
   rank: 25
 - id: IDEA-010
   title: Formalise wave-30 card-only behaviours as ACs (FR-043)
-  raw: '- [ ] Wave-30 goal-check (lean b, requirements incomplete): behaviours shipped by CARD-158/159 exist only
-    as card ACs, not in requirements.yml: inches trims reachable on Print setup, the stored trim on the book page
-    ("Not set"/"Cannot be read"), step prose agreeing with the stepper, /book/create keeping typed input, two download
-    buttons per page, lost-cover handling (FR-043 has no AC for it). Formalise as ACs   @tech-debt'
+  raw: '- [ ] Wave-30 goal-check (lean b, requirements incomplete): behaviours shipped by CARD-158/159
+    exist only as card ACs, not in requirements.yml: inches trims reachable on Print setup, the stored
+    trim on the book page ("Not set"/"Cannot be read"), step prose agreeing with the stepper, /book/create
+    keeping typed input, two download buttons per page, lost-cover handling (FR-043 has no AC for it).
+    Formalise as ACs   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -281,8 +284,8 @@ ideas:
   rank: 41
 - id: IDEA-011
   title: Hand-edit mark not released on revert (CARD-120 F-007)
-  raw: '- [ ] CARD-120 F-007: typing an edited cell back to its current prefill value doesn''t release the hand-edit
-    mark; a count change judges edits against the old prefill. Site: `book_manager.py` (`revise_plan`)   @tech-debt'
+  raw: '- [ ] CARD-120 F-007: typing an edited cell back to its current prefill value doesn''t release
+    the hand-edit mark; a count change judges edits against the old prefill. Site: `book_manager.py` (`revise_plan`)   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -304,8 +307,8 @@ ideas:
   rank: 26
 - id: IDEA-012
   title: Refusal page Planned row reads stored plan (CARD-120 F-008)
-  raw: '- [ ] CARD-120 F-008: the refusal page''s Planned row is read from the stored plan, not the submitted one.
-    Site: `app.py` (setup-print)   @tech-debt'
+  raw: '- [ ] CARD-120 F-008: the refusal page''s Planned row is read from the stored plan, not the submitted
+    one. Site: `app.py` (setup-print)   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -327,8 +330,8 @@ ideas:
   rank: 43
 - id: IDEA-013
   title: Empty ?status= disables approved-only default
-  raw: '- [ ] A hand-typed empty `?status=` turns off the approved-only default on the book-selection and puzzle-list
-    routes (`request.values.get("status", "approved")` defaults only when the key is absent)   @ops'
+  raw: '- [ ] A hand-typed empty `?status=` turns off the approved-only default on the book-selection
+    and puzzle-list routes (`request.values.get("status", "approved")` defaults only when the key is absent)   @ops'
   category: ops
   intent: null
   status: done
@@ -343,8 +346,9 @@ ideas:
   card: CARD-166
 - id: IDEA-014
   title: Memory mode get_book returns live Book (CARD-136)
-  raw: '- [ ] CARD-136 (owner-accepted 2026-09-23): in memory-only mode `get_book` returns the live `Book`, so a
-    caller can write an invalid trim past `set_print_spec`''s validation. Fix by having memory mode return a copy   @tech-debt'
+  raw: '- [ ] CARD-136 (owner-accepted 2026-09-23): in memory-only mode `get_book` returns the live `Book`,
+    so a caller can write an invalid trim past `set_print_spec`''s validation. Fix by having memory mode
+    return a copy   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -366,9 +370,9 @@ ideas:
   rank: 29
 - id: IDEA-015
   title: 'CARD-118 minors: exc text flash, referrer redirect, utcnow'
-  raw: '- [ ] CARD-118 reviewer minors: the proof route''s broad `except Exception` flashes raw exception text;
-    `redirect(request.referrer or ...)` takes its target from the caller; a new `datetime.utcnow()` deprecation;
-    the `ast` importer guard matches on bare filename, not relative path   @tech-debt'
+  raw: '- [ ] CARD-118 reviewer minors: the proof route''s broad `except Exception` flashes raw exception
+    text; `redirect(request.referrer or ...)` takes its target from the caller; a new `datetime.utcnow()`
+    deprecation; the `ast` importer guard matches on bare filename, not relative path   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -390,8 +394,9 @@ ideas:
   rank: 44
 - id: IDEA-016
   title: _scheme_of echoes credentials in RuntimeError (CARD-148)
-  raw: '- [ ] CARD-148 F-001: `db/session.py`''s `_scheme_of` echoes anything before the first `://`, so `postgresql:hunter2://h/db`
-    puts the whole string in the RuntimeError, contradicting its own docstring. One-line fix (`scheme.partition(":")[0]`)   @tech-debt'
+  raw: '- [ ] CARD-148 F-001: `db/session.py`''s `_scheme_of` echoes anything before the first `://`,
+    so `postgresql:hunter2://h/db` puts the whole string in the RuntimeError, contradicting its own docstring.
+    One-line fix (`scheme.partition(":")[0]`)   @tech-debt'
   category: tech-debt
   intent: null
   status: done
@@ -414,8 +419,9 @@ ideas:
   card: CARD-176
 - id: IDEA-017
   title: Pin migrations/env.py URL-not-logged by assertion (CARD-148)
-  raw: '- [ ] CARD-148 F-003: `migrations/env.py`''s plaintext URL is kept out of logs only by configuration (`logger_sqlalchemy
-    = WARNING`, no `echo`), not by an assertion. About 2 lines to pin, using the existing subprocess''s stderr   @tech-debt'
+  raw: '- [ ] CARD-148 F-003: `migrations/env.py`''s plaintext URL is kept out of logs only by configuration
+    (`logger_sqlalchemy = WARNING`, no `echo`), not by an assertion. About 2 lines to pin, using the existing
+    subprocess''s stderr   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -437,10 +443,10 @@ ideas:
   rank: 19
 - id: IDEA-018
   title: CARD-150 script-test precision (F-003/4/5/7)
-  raw: '- [ ] CARD-150 F-003/F-004/F-005/F-007: the 14-of-18 figure is an artifact of `--check-only` not existing
-    on the old script; the README tests'' `returncode != 0` precondition is met by any failure; the two Docker branches
-    match on database name only, dropping host, port and credentials, with no runtime coverage; nothing asserts
-    G-3''s launch target though the stub logs it   @tech-debt'
+  raw: '- [ ] CARD-150 F-003/F-004/F-005/F-007: the 14-of-18 figure is an artifact of `--check-only` not
+    existing on the old script; the README tests'' `returncode != 0` precondition is met by any failure;
+    the two Docker branches match on database name only, dropping host, port and credentials, with no
+    runtime coverage; nothing asserts G-3''s launch target though the stub logs it   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -462,9 +468,9 @@ ideas:
   rank: 79
 - id: IDEA-019
   title: 'CARD-147 dead code: guard, redundant UPDATE, mode default'
-  raw: '- [ ] CARD-147 F-002/F-003/F-005: `_write_pdf`''s unreachable ValueError guard; the migration''s confirmed-redundant
-    UPDATE backfill; `_write_page`''s `mode: str = "RGB"` default one layer below the required keyword (dead today,
-    but exactly the failure the keyword prevents)   @tech-debt'
+  raw: '- [ ] CARD-147 F-002/F-003/F-005: `_write_pdf`''s unreachable ValueError guard; the migration''s
+    confirmed-redundant UPDATE backfill; `_write_page`''s `mode: str = "RGB"` default one layer below
+    the required keyword (dead today, but exactly the failure the keyword prevents)   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -486,8 +492,9 @@ ideas:
   rank: 73
 - id: IDEA-020
   title: 'CARD-147 F-006: split the welded digest/colour-space claim'
-  raw: '- [ ] CARD-147 F-006: the card''s sentence welds two claims the digests can''t both carry. The unmoved digests
-    evidence the ink, not the colour space (the fixture''s `interior_colorspace_note` already says so)   @tech-debt'
+  raw: '- [ ] CARD-147 F-006: the card''s sentence welds two claims the digests can''t both carry. The
+    unmoved digests evidence the ink, not the colour space (the fixture''s `interior_colorspace_note`
+    already says so)   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -509,8 +516,8 @@ ideas:
   rank: 45
 - id: IDEA-021
   title: book_proof.render_proof_pdf still writes DeviceRGB
-  raw: '- [ ] CARD-147 F-008: `book_proof.render_proof_pdf` still writes DeviceRGB. It''s now the one interior-like
-    path that does   @tech-debt'
+  raw: '- [ ] CARD-147 F-008: `book_proof.render_proof_pdf` still writes DeviceRGB. It''s now the one
+    interior-like path that does   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -522,7 +529,8 @@ ideas:
     job_size: 2
   reasoning:
     user_business_value: Proof PDF should print like the interior
-    time_criticality: Owner is measuring printed proofs for Book 1 now; RGB proof may not match grayscale interior
+    time_criticality: Owner is measuring printed proofs for Book 1 now; RGB proof may not match grayscale
+      interior
     risk_reduction: Last interior-like path off the colour-space decision
     job_size: Switch mode + digest/test update
   priority_score: 6.5
@@ -532,9 +540,9 @@ ideas:
   rank: 16
 - id: IDEA-022
   title: 'Arrange labels keyed by id(row): add count check (CARD-140)'
-  raw: '- [ ] CARD-140 F-005: the arrange screen''s page labels are keyed by `id(row)`. Safe today, but fails silently
-    if that ever stops holding. Agreed remedy: keep the key and add a count check (labelled rows vs `len(plan.printed)`)
-    that flips `page_plan_failed`   @tech-debt'
+  raw: '- [ ] CARD-140 F-005: the arrange screen''s page labels are keyed by `id(row)`. Safe today, but
+    fails silently if that ever stops holding. Agreed remedy: keep the key and add a count check (labelled
+    rows vs `len(plan.printed)`) that flips `page_plan_failed`   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -556,8 +564,9 @@ ideas:
   rank: 64
 - id: IDEA-023
   title: puzzle_section ValueError lands with no traceback (CARD-140)
-  raw: '- [ ] CARD-140 F-006: `puzzle_section`''s `ValueError("ids must be parallel to payloads")` is a caller precondition
-    but lands in the arrange route''s WARNING clause with no traceback. Unreachable today   @tech-debt'
+  raw: '- [ ] CARD-140 F-006: `puzzle_section`''s `ValueError("ids must be parallel to payloads")` is
+    a caller precondition but lands in the arrange route''s WARNING clause with no traceback. Unreachable
+    today   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -579,8 +588,8 @@ ideas:
   rank: 46
 - id: IDEA-024
   title: Undrawable row shown between page labels w/o marker
-  raw: '- [ ] CARD-140 F-007: a row the interior can''t draw renders between the "page 3" and "page 4" labels with
-    no marker, so the screen implies it prints on page 3   @tech-debt'
+  raw: '- [ ] CARD-140 F-007: a row the interior can''t draw renders between the "page 3" and "page 4"
+    labels with no marker, so the screen implies it prints on page 3   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -602,8 +611,8 @@ ideas:
   rank: 27
 - id: IDEA-025
   title: 'CARD-145 minors: byte-length assertion, cover RGBA memory'
-  raw: '- [ ] CARD-145 minors: a same-length byte change would still pass the interior byte-length assertion; the
-    uploaded cover''s RGBA path is not measured for memory   @tech-debt'
+  raw: '- [ ] CARD-145 minors: a same-length byte change would still pass the interior byte-length assertion;
+    the uploaded cover''s RGBA path is not measured for memory   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -625,7 +634,8 @@ ideas:
   rank: 65
 - id: IDEA-026
   title: export_book docstring claims every route uses it
-  raw: '- [ ] CARD-135 F-008: `export_book`''s docstring still claims every route goes through it. Site: `book_pdf_generator.py`   @tech-debt'
+  raw: '- [ ] CARD-135 F-008: `export_book`''s docstring still claims every route goes through it. Site:
+    `book_pdf_generator.py`   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -670,8 +680,8 @@ ideas:
   rank: 48
 - id: IDEA-028
   title: Image-mode difficulty sweep vs the 90.0 cutoff
-  raw: '- [ ] Image-mode difficulty sweep: re-run `scripts/measure_difficulty_cutoff.py` over image-derived puzzles
-    and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt'
+  raw: '- [ ] Image-mode difficulty sweep: re-run `scripts/measure_difficulty_cutoff.py` over image-derived
+    puzzles and check the 90.0 cutoff against that distribution (owner deferred it after CARD-137)   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -694,7 +704,8 @@ ideas:
 - id: IDEA-029
   title: Stale 'four members' enum_note + ADR-0025 test narrative
   raw: '- [ ] CARD-155 out of scope: `meta/architecture/requirements.yml:1834` enum_note still says `difficulty.Tier`
-    has "four members"; older ADR-0025 narrative remains in `tests/test_difficulty_tiers.py` around lines 148-204   @tech-debt'
+    has "four members"; older ADR-0025 narrative remains in `tests/test_difficulty_tiers.py` around lines
+    148-204   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -716,8 +727,8 @@ ideas:
   rank: 30
 - id: IDEA-030
   title: Docstring regression regex misses lowercase guess
-  raw: '- [ ] CARD-155 F-005 (minor): the docstring regression test''s regex catches only uppercase `GUESS` and
-    the phrase "or Guess"   @tech-debt'
+  raw: '- [ ] CARD-155 F-005 (minor): the docstring regression test''s regex catches only uppercase `GUESS`
+    and the phrase "or Guess"   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -739,9 +750,9 @@ ideas:
   rank: 49
 - id: IDEA-031
   title: Concurrent runs share nonogram_test; DROP SCHEMA races
-  raw: '- [ ] CARD-156 F-005: two test runs at once share `nonogram_test`, and the per-session `DROP SCHEMA public`
-    wipes the other run''s schema mid-flight. Only the full-suite lock prevents it today. Per-run databases or a
-    session-level advisory lock would make it safe   @tech-debt'
+  raw: '- [ ] CARD-156 F-005: two test runs at once share `nonogram_test`, and the per-session `DROP SCHEMA
+    public` wipes the other run''s schema mid-flight. Only the full-suite lock prevents it today. Per-run
+    databases or a session-level advisory lock would make it safe   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -763,8 +774,9 @@ ideas:
   rank: 28
 - id: IDEA-032
   title: Schema-once test fails when run alone (CARD-156 F-006)
-  raw: '- [ ] CARD-156 F-006 (minor): the second `TestDbFixture_SchemaIsBuiltOncePerSession` test fails by design
-    when run alone (`-k`, node id, `--lf`), because it compares against state recorded by the first   @tech-debt'
+  raw: '- [ ] CARD-156 F-006 (minor): the second `TestDbFixture_SchemaIsBuiltOncePerSession` test fails
+    by design when run alone (`-k`, node id, `--lf`), because it compares against state recorded by the
+    first   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -786,8 +798,8 @@ ideas:
   rank: 66
 - id: IDEA-033
   title: DROP SCHEMA needs public ownership; grants lost (CARD-156)
-  raw: '- [ ] CARD-156 F-007 (minor): `DROP SCHEMA public` needs the test role to own `public`, and the recreated
-    schema loses its default grants. Documented in tests/README.md, not handled in code   @tech-debt'
+  raw: '- [ ] CARD-156 F-007 (minor): `DROP SCHEMA public` needs the test role to own `public`, and the
+    recreated schema loses its default grants. Documented in tests/README.md, not handled in code   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -809,8 +821,8 @@ ideas:
   rank: 74
 - id: IDEA-034
   title: db_required hook pings DATABASE_URL before _test guard
-  raw: '- [ ] CARD-156 note: the CARD-097 `db_required` reachability hook still sends a read-only `SELECT 1` to
-    whatever `DATABASE_URL` names, before the `_test` guard applies   @tech-debt'
+  raw: '- [ ] CARD-156 note: the CARD-097 `db_required` reachability hook still sends a read-only `SELECT
+    1` to whatever `DATABASE_URL` names, before the `_test` guard applies   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -832,8 +844,8 @@ ideas:
   rank: 20
 - id: IDEA-035
   title: diagnose_postgres.sh hardcodes nonogram_poc
-  raw: '- [ ] CARD-152 out of scope: `scripts/diagnose_postgres.sh:90` still hardcodes `nonogram_poc`, the same
-    defect CARD-150..152 removed from the other three scripts   @tech-debt'
+  raw: '- [ ] CARD-152 out of scope: `scripts/diagnose_postgres.sh:90` still hardcodes `nonogram_poc`,
+    the same defect CARD-150..152 removed from the other three scripts   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -855,9 +867,9 @@ ideas:
   rank: 31
 - id: IDEA-036
   title: run_admin_tests.sh default DB name vs test guard
-  raw: '- [ ] CARD-152 (owner decision): `run_admin_tests.sh`''s default database `nonogram_poc` passes the runner''s
-    own check but pytest''s `tests/database_guard.py` refuses any name without "test". Pre-existing; the README''s
-    examples export a `nonogram_test` URL. Change the default?   @ops'
+  raw: '- [ ] CARD-152 (owner decision): `run_admin_tests.sh`''s default database `nonogram_poc` passes
+    the runner''s own check but pytest''s `tests/database_guard.py` refuses any name without "test". Pre-existing;
+    the README''s examples export a `nonogram_test` URL. Change the default?   @ops'
   category: ops
   intent: null
   status: done
@@ -873,8 +885,8 @@ ideas:
   owner_decision: default to nonogram_test (2026-10-04)
 - id: IDEA-037
   title: '''Not reachable'' message names only two causes'
-  raw: '- [ ] CARD-152 F-006 (minor): the "not reachable" message names only two causes (server down, database missing),
-    not a wrong host, port or credentials; same wording in all three scripts   @tech-debt'
+  raw: '- [ ] CARD-152 F-006 (minor): the "not reachable" message names only two causes (server down,
+    database missing), not a wrong host, port or credentials; same wording in all three scripts   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -896,8 +908,9 @@ ideas:
   rank: 50
 - id: IDEA-038
   title: admin_scripts helper imports private test names
-  raw: '- [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from `tests/test_start_admin_local.py`
-    (`_DOCKER_STUB`, `_PSQL_MODEL`, `_all_pairs`, `_plain`); renaming one breaks both new suites   @tech-debt'
+  raw: '- [ ] CARD-152 F-005 (minor): `tests/helpers/admin_scripts.py` imports four private names from
+    `tests/test_start_admin_local.py` (`_DOCKER_STUB`, `_PSQL_MODEL`, `_all_pairs`, `_plain`); renaming
+    one breaks both new suites   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -919,8 +932,8 @@ ideas:
   rank: 32
 - id: IDEA-039
   title: Stale 'Python 3.11+' and docstring (CARD-152 F-007)
-  raw: '- [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14); stale docstring
-    at `tests/test_start_admin_local.py:533`   @tech-debt'
+  raw: '- [ ] CARD-152 F-007 / stale text: scripts/README.md says "Python 3.11+" (pyproject needs 3.14);
+    stale docstring at `tests/test_start_admin_local.py:533`   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -942,8 +955,8 @@ ideas:
   rank: 51
 - id: IDEA-040
   title: finalize_book outer except never logs (CARD-153 F-010)
-  raw: '- [ ] CARD-153 F-010 (pre-existing): `finalize_book`''s outer `except Exception` only flashes, so a transient
-    non-plan error on any Finalise POST action is never logged   @tech-debt'
+  raw: '- [ ] CARD-153 F-010 (pre-existing): `finalize_book`''s outer `except Exception` only flashes,
+    so a transient non-plan error on any Finalise POST action is never logged   @tech-debt'
   category: tech-debt
   intent: null
   status: done
@@ -966,8 +979,8 @@ ideas:
   card: CARD-171
 - id: IDEA-041
   title: Name page-plan error on GET Finalise (500 handler)
-  raw: '- [ ] CARD-153 F-006: the global 500 handler shows Flask''s generic text, so a page-plan error on GET Finalise
-    isn''t named on screen   @feature'
+  raw: '- [ ] CARD-153 F-006: the global 500 handler shows Flask''s generic text, so a page-plan error
+    on GET Finalise isn''t named on screen   @feature'
   category: feature
   intent: null
   status: done
@@ -1013,8 +1026,9 @@ ideas:
   rank: 75
 - id: IDEA-043
   title: Double-logged plan tripwire; spy scope (CARD-153 minors)
-  raw: '- [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper + Flask); the
-    G-1 "never laid out again" spy only sees layouts through `BookPDFGenerator` (the only path today, per ADR-0036/R2)   @tech-debt'
+  raw: '- [ ] CARD-153 F-009/F-011 (minor): a plan tripwire on GET Finalise is logged twice (helper +
+    Flask); the G-1 "never laid out again" spy only sees layouts through `BookPDFGenerator` (the only
+    path today, per ADR-0036/R2)   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1036,9 +1050,10 @@ ideas:
   rank: 52
 - id: IDEA-044
   title: validate_margins accepts below 0.635 cm minimum
-  raw: '- [ ] Wave-29 goal-check: `PrintSpecValidator.validate_margins` (CARD-154) refuses nan/inf but not a margin
-    below the 0.635 cm minimum (accepts "0.5"). Unreachable today (no margin field on Print setup, `set_print_spec`
-    writes no margins); a stored small margin makes Finalise fall back to "about N"   @tech-debt'
+  raw: '- [ ] Wave-29 goal-check: `PrintSpecValidator.validate_margins` (CARD-154) refuses nan/inf but
+    not a margin below the 0.635 cm minimum (accepts "0.5"). Unreachable today (no margin field on Print
+    setup, `set_print_spec` writes no margins); a stored small margin makes Finalise fall back to "about
+    N"   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1060,8 +1075,8 @@ ideas:
   rank: 21
 - id: IDEA-045
   title: Remaining one-session-per-puzzle loops (CARD-157 F-004)
-  raw: '- [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the /books list,
-    app.py) and the floor-check loop (`book_manager.py` ~:1050). Both can use `PuzzleReviewService.get_puzzles`   @tech-debt'
+  raw: '- [ ] CARD-157 F-004: two more one-session-per-puzzle loops remain: `_book_member_records` (the
+    /books list, app.py) and the floor-check loop (`book_manager.py` ~:1050). Both can use `PuzzleReviewService.get_puzzles`   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1083,7 +1098,8 @@ ideas:
   rank: 67
 - id: IDEA-046
   title: 'Book page # column shows list order, not printed number'
-  raw: '- [ ] CARD-158 F-004 (pre-existing): the book page''s # column is list order, not the printed puzzle number   @feature'
+  raw: '- [ ] CARD-158 F-004 (pre-existing): the book page''s # column is list order, not the printed
+    puzzle number   @feature'
   category: feature
   intent: null
   status: done
@@ -1130,8 +1146,9 @@ ideas:
   card: CARD-175
 - id: IDEA-048
   title: Limits box '18.90 in' exceeds the real 18.89 in max
-  raw: '- [ ] CARD-159 F-001: Print setup''s Limits box says "Maximum height 48 cm (18.90 in)"; 18.90 in is 48.006
-    cm, which the server refuses (18.89 in is the real maximum). Now the page''s only statement of the inch limits   @tech-debt'
+  raw: '- [ ] CARD-159 F-001: Print setup''s Limits box says "Maximum height 48 cm (18.90 in)"; 18.90
+    in is 48.006 cm, which the server refuses (18.89 in is the real maximum). Now the page''s only statement
+    of the inch limits   @tech-debt'
   category: tech-debt
   intent: null
   status: done
@@ -1154,8 +1171,8 @@ ideas:
   card: CARD-174
 - id: IDEA-049
   title: Trim refusals worded in cm after inches submission
-  raw: '- [ ] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it means editing
-    `print_specs.py`   @feature'
+  raw: '- [ ] CARD-159 F-005: trim refusals are worded in cm even after an inches submission; fixing it
+    means editing `print_specs.py`   @feature'
   category: feature
   intent: null
   status: done
@@ -1178,9 +1195,9 @@ ideas:
   card: CARD-174
 - id: IDEA-050
   title: Route tests for below-min trims; wrong alert on New book
-  raw: '- [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims now the browser
-    min is gone (the server refuses them); a refused New book shows the edit-mode alert ("General info not saved…
-    Nothing stored was changed")   @tech-debt'
+  raw: '- [ ] CARD-159 F-002/F-003 (minor): no route-level test for below-minimum/zero/negative trims
+    now the browser min is gone (the server refuses them); a refused New book shows the edit-mode alert
+    ("General info not saved… Nothing stored was changed")   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1202,9 +1219,9 @@ ideas:
   rank: 53
 - id: IDEA-051
   title: CARD-159 owner look + plan inputs clip '20' at 390 px
-  raw: '- [ ] CARD-159 owner check pending: G-3, the owner''s look at ~/Documents/nonogram-reviews/CARD-159/ renders
-    (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the plan-table inputs
-    clip "20" to "2("   @feature'
+  raw: '- [ ] CARD-159 owner check pending: G-3, the owner''s look at ~/Documents/nonogram-reviews/CARD-159/
+    renders (merged on pipeline evidence by owner choice). Also seen there, pre-existing: at 390 px the
+    plan-table inputs clip "20" to "2("   @feature'
   category: feature
   intent: null
   status: done
@@ -1228,8 +1245,8 @@ ideas:
   card: CARD-166
 - id: IDEA-052
   title: 'No-puzzle book: /books offers download /book disables'
-  raw: '- [ ] Wave-30 goal-check: on a book with no puzzles, /books offers the interior download (returns a 200
-    PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt'
+  raw: '- [ ] Wave-30 goal-check: on a book with no puzzles, /books offers the interior download (returns
+    a 200 PDF) while /book/<id> disables the same button (book_detail.html ~:90-96). No AC covers either   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1251,8 +1268,8 @@ ideas:
   rank: 69
 - id: IDEA-053
   title: Player cell bounds to tokens.css (CARD-160 F-004)
-  raw: '- [ ] CARD-160 F-004 (minor): the player''s cell bounds (14px/28px) and thin-rule color-mix live as local
-    custom properties in admin.css; promote them to tokens.css   @tech-debt'
+  raw: '- [ ] CARD-160 F-004 (minor): the player''s cell bounds (14px/28px) and thin-rule color-mix live
+    as local custom properties in admin.css; promote them to tokens.css   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1297,8 +1314,8 @@ ideas:
   rank: 33
 - id: IDEA-055
   title: isBoard reads value.cells (mutant survived)
-  raw: '- [ ] CARD-160 F-012 (minor): `isBoard` reads `value.cells` instead of own data (mutant survived); outside
-    the trusted-in-page scope the owner set, still refused before painting   @tech-debt'
+  raw: '- [ ] CARD-160 F-012 (minor): `isBoard` reads `value.cells` instead of own data (mutant survived);
+    outside the trusted-in-page scope the owner set, still refused before painting   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1320,9 +1337,10 @@ ideas:
   rank: 34
 - id: IDEA-056
   title: 'CARD-161 minors: hint visibility, comments, old test'
-  raw: '- [ ] CARD-161 F-008/F-009/F-010 (minor): the usage hint is never asserted visible (mutant survived); solver.js
-    header says drags use "the selected tool" (it''s the tool at pointerdown) and the isZ comment says "non-Latin"
-    where it means any non a-z key; the older scripted-focus keyboard test is superseded by the parametrized ones   @tech-debt'
+  raw: '- [ ] CARD-161 F-008/F-009/F-010 (minor): the usage hint is never asserted visible (mutant survived);
+    solver.js header says drags use "the selected tool" (it''s the tool at pointerdown) and the isZ comment
+    says "non-Latin" where it means any non a-z key; the older scripted-focus keyboard test is superseded
+    by the parametrized ones   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1344,11 +1362,11 @@ ideas:
   rank: 76
 - id: IDEA-057
   title: Player cells ~18 px at 390 px (tap target)
-  raw: '- [ ] CARD-161 F-006: player cells are ~18 px at 390 px width, a small tap target for phones (CARD-160 cell
-    sizing)   @feature'
+  raw: '- [ ] CARD-161 F-006: player cells are ~18 px at 390 px width, a small tap target for phones (CARD-160
+    cell sizing)   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -1368,8 +1386,8 @@ ideas:
   card: CARD-182
 - id: IDEA-058
   title: Keyboard marking of player cells
-  raw: '- [ ] Puzzle player: cells cannot be marked from the keyboard (no AC asks for it; controls are keyboard-reachable).
-    Needs its own card if wanted   @feature'
+  raw: '- [ ] Puzzle player: cells cannot be marked from the keyboard (no AC asks for it; controls are
+    keyboard-reachable). Needs its own card if wanted   @feature'
   category: feature
   intent: null
   status: backlog
@@ -1415,8 +1433,9 @@ ideas:
   rank: 42
 - id: IDEA-060
   title: 'CARD-163 minors: header comment, Redo aria-disabled'
-  raw: '- [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…" no longer
-    clearly refers to the banner; the redo-button-noop case doesn''t assert Redo is aria-disabled before the click   @tech-debt'
+  raw: '- [ ] CARD-163 F-001/F-003 (minor): puzzle_solve.html header comment — "Its text is announced…"
+    no longer clearly refers to the banner; the redo-button-noop case doesn''t assert Redo is aria-disabled
+    before the click   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1438,8 +1457,8 @@ ideas:
   rank: 55
 - id: IDEA-061
   title: Player size '25x15' vs '×' (owner call)
-  raw: '- [ ] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323''s literal) where
-    the rest of the admin uses "×"   @feature'
+  raw: '- [ ] CARD-163 F-002 (owner call): the player shows the size as ASCII "25x15" (AC-323''s literal)
+    where the rest of the admin uses "×"   @feature'
   category: feature
   intent: null
   status: done
@@ -1463,8 +1482,8 @@ ideas:
   owner_decision: use × (2026-10-04)
 - id: IDEA-062
   title: Player shows tier 'MEDIUM' upper-case
-  raw: '- [ ] Wave-31 goal-check: the player passes `tier.value.upper()` (app.py ~:5332), so its header badge and
-    tab title say "MEDIUM" where every other screen shows the stored "medium"   @tech-debt'
+  raw: '- [ ] Wave-31 goal-check: the player passes `tier.value.upper()` (app.py ~:5332), so its header
+    badge and tab title say "MEDIUM" where every other screen shows the stored "medium"   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1486,17 +1505,17 @@ ideas:
   rank: 35
 - id: IDEA-063
   title: Picture name in player page source before solve
-  raw: '- [ ] Wave-31 goal-check: the picture name is in the player''s page source before solve (hidden solved banner,
-    puzzle_solve.html ~:55) — not visible, AC-322 holds, and CON-021 already ships the solution in the page; matters
-    only for a public player   @feature'
+  raw: '- [ ] Wave-31 goal-check: the picture name is in the player''s page source before solve (hidden
+    solved banner, puzzle_solve.html ~:55) — not visible, AC-322 holds, and CON-021 already ships the
+    solution in the page; matters only for a public player   @feature'
   category: feature
   intent: null
   status: screened
   rejection_class: duplicate
   screen_ref: IDEA-075
   revival_trigger: a public player is confirmed separately from IDEA-075's public phase
-  reason: Matters only for a public player; IDEA-075 already requires the public solver not to ship the solution
-    in the page (the name is the same leak class)
+  reason: Matters only for a public player; IDEA-075 already requires the public solver not to ship the
+    solution in the page (the name is the same leak class)
   sunk_cost: null
   what_changed_since: null
   rejected_at: '2026-10-04'
@@ -1505,10 +1524,10 @@ ideas:
   source_line: 75
 - id: IDEA-064
   title: Formalise FR-044 drag-axis and pointer-only cell rules
-  raw: '- [ ] Wave-31 goal-check (requirements incomplete): FR-044 leaves two player rules unstated — a drag follows
-    the line of its FIRST move away from the start cell (a drag that slips down first follows the column), and board
-    cells are pointer-only (the statement says "every control" is keyboard-reachable; AC-310 covers only tools/undo/redo/reset).
-    Formalise at /forge:architect   @tech-debt'
+  raw: '- [ ] Wave-31 goal-check (requirements incomplete): FR-044 leaves two player rules unstated —
+    a drag follows the line of its FIRST move away from the start cell (a drag that slips down first follows
+    the column), and board cells are pointer-only (the statement says "every control" is keyboard-reachable;
+    AC-310 covers only tools/undo/redo/reset). Formalise at /forge:architect   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1571,8 +1590,8 @@ ideas:
   card: CARD-164
 - id: IDEA-067
   title: Stale assertion test_wave3_e2e:366 ('New batch')
-  raw: '- [ ] Stale assertion: `tests/test_wave3_e2e.py:366` expects "Create Batch from Images"; f773015 (2026-09-14)
-    renamed the heading "New batch". The page is fine, the test isn''t   @tech-debt'
+  raw: '- [ ] Stale assertion: `tests/test_wave3_e2e.py:366` expects "Create Batch from Images"; f773015
+    (2026-09-14) renamed the heading "New batch". The page is fine, the test isn''t   @tech-debt'
   category: tech-debt
   intent: null
   status: done
@@ -1595,7 +1614,8 @@ ideas:
   card: CARD-164
 - id: IDEA-068
   title: Vacuous trim assertion in DB mode (CARD-120 F-009)
-  raw: '- [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB mode   @tech-debt'
+  raw: '- [ ] CARD-120 F-009: the trim assertion in `tests/test_book_plan_storage.py` is vacuous in DB
+    mode   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1617,8 +1637,8 @@ ideas:
   rank: 36
 - id: IDEA-069
   title: Upload tests glob shared temp dir (parallel interference)
-  raw: '- [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system temp dir
-    for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt'
+  raw: '- [ ] Test isolation: `test_card_037_upload_retry` and `test_web_upload` glob the shared system
+    temp dir for `nonogram-upload-*`, so two full suites running at once interfere   @tech-debt'
   category: tech-debt
   intent: null
   status: backlog
@@ -1640,9 +1660,9 @@ ideas:
   rank: 17
 - id: IDEA-070
   title: 'Square/landscape trims: no room for proof foot note'
-  raw: '- [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5, real KDP
-    sizes) leaves no room for the proof foot note, so `proof_pages` raises. Portrait trims all render. **Revisit
-    when the page layout is finalised**   @feature'
+  raw: '- [ ] CARD-118 known gap (tested, deliberate): a square or landscape trim (8.25x8.25, 8.5x8.5,
+    real KDP sizes) leaves no room for the proof foot note, so `proof_pages` raises. Portrait trims all
+    render. **Revisit when the page layout is finalised**   @feature'
   category: feature
   intent: null
   status: done
@@ -1665,8 +1685,8 @@ ideas:
   card: CARD-172
 - id: IDEA-071
   title: 'Guide page: worked-example rows and title wording'
-  raw: '- [ ] Guide page: worked-example rows and the title wording. Both touch `create_guide_page` (same method
-    as CARD-149)   @feature'
+  raw: '- [ ] Guide page: worked-example rows and the title wording. Both touch `create_guide_page` (same
+    method as CARD-149)   @feature'
   category: feature
   intent: null
   status: done
@@ -1690,8 +1710,8 @@ ideas:
   owner_decision: small fix now, full tutorial later (2026-10-04)
 - id: IDEA-072
   title: 'Unreadable stored print spec: name the remedy'
-  raw: '- [ ] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with an override
-    that can''t succeed, and never names the remedy. Fails closed, but unhelpful   @feature'
+  raw: '- [ ] An unreadable stored print spec degrades into N per-tile "cannot be measured" messages with
+    an override that can''t succeed, and never names the remedy. Fails closed, but unhelpful   @feature'
   category: feature
   intent: null
   status: done
@@ -1714,11 +1734,11 @@ ideas:
   card: CARD-173
 - id: IDEA-073
   title: Store a targeted batch's requested tier (column+migration)
-  raw: '- [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column), so
-    the panel can''t show what a batch was aiming at. Needs a column and a migration   @feature'
+  raw: '- [ ] CARD-138: a targeted batch stores no record of the tier it asked for (`batches` has no column),
+    so the panel can''t show what a batch was aiming at. Needs a column and a migration   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 3
@@ -1741,7 +1761,7 @@ ideas:
   raw: '- [ ] Online solver: a hint button (the owner''s doc makes it optional; left out of CARD-160..162)   @feature'
   category: feature
   intent: null
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -1758,14 +1778,14 @@ ideas:
   source_line: 90
   wave: 1
   rank: 7
-  owner_decision: '2026-10-05: reveal one cell — an unknown cell line-logic could deduce now, set to its correct
-    state, counted as a hint, undoable'
+  owner_decision: '2026-10-05: reveal one cell — an unknown cell line-logic could deduce now, set to its
+    correct state, counted as a hint, undoable'
   card: CARD-183
 - id: IDEA-075
   title: 'Online solver public phase: hosting, QR URLs, no solution'
-  raw: '- [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the persisted
-    puzzle-number mapping (raw-requirements Delta 2026-09-24 (a)); the admin POC ships the solution inside the page,
-    which a public solver must not   @feature'
+  raw: '- [ ] Online solver, public phase: hosting, the URL namespace for per-puzzle QR codes, and the
+    persisted puzzle-number mapping (raw-requirements Delta 2026-09-24 (a)); the admin POC ships the solution
+    inside the page, which a public solver must not   @feature'
   category: feature
   intent: null
   status: backlog
@@ -1789,9 +1809,10 @@ ideas:
   bucket_overflow: true
 - id: IDEA-076
   title: Card-text defects for decompose (process)
-  raw: '- [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of" (a Jinja
-    template can''t import); CARD-126 G-4 names a test a later card (CARD-131) creates, so it was unverifiable before
-    then; forge:commit''s no-Co-Authored-By rule contradicts the required attribution line   @tech-debt'
+  raw: '- [ ] Card-text defects for decompose: CARD-122 G-1 says "the template imports book_plan.bucket_of"
+    (a Jinja template can''t import); CARD-126 G-4 names a test a later card (CARD-131) creates, so it
+    was unverifiable before then; forge:commit''s no-Co-Authored-By rule contradicts the required attribution
+    line   @tech-debt'
   category: tech-debt
   intent: null
   status: screened
@@ -1807,9 +1828,9 @@ ideas:
   source_line: 94
 - id: IDEA-077
   title: 'Gate hazard: diff against merge base (process)'
-  raw: '- [ ] Gate hazard (CARD-138): from an older wave branch, `git diff main` reports main''s newer files as
-    deletions, including ones matching guardrail globs like `book_*.py`. Every scope and guardrail verdict must
-    be taken against the merge base   @tech-debt'
+  raw: '- [ ] Gate hazard (CARD-138): from an older wave branch, `git diff main` reports main''s newer
+    files as deletions, including ones matching guardrail globs like `book_*.py`. Every scope and guardrail
+    verdict must be taken against the merge base   @tech-debt'
   category: tech-debt
   intent: null
   status: screened
@@ -1826,14 +1847,15 @@ ideas:
 - id: IDEA-078
   title: Two full-suite lock conventions (process)
   raw: '- [ ] Two full-suite lock conventions: cmd-start-review documents a `mkdir` lock on `meta/kanban/.full-suite.lock`,
-    but the dispatcher takes it with `exec 9>` + `flock`, which creates a regular file the `mkdir` form can never
-    acquire. Pick one   @tech-debt'
+    but the dispatcher takes it with `exec 9>` + `flock`, which creates a regular file the `mkdir` form
+    can never acquire. Pick one   @tech-debt'
   category: tech-debt
   intent: null
   status: screened
   rejection_class: out-of-scope
   screen_ref: forge_1 repo
-  revival_trigger: a forge bug report is filed against cmd-start-review/dispatcher and forge_1 accepts it
+  revival_trigger: a forge bug report is filed against cmd-start-review/dispatcher and forge_1 accepts
+    it
   reason: cmd-start-review and dispatcher are forge machinery
   sunk_cost: null
   what_changed_since: null
@@ -1843,9 +1865,9 @@ ideas:
   source_line: 96
 - id: IDEA-079
   title: Forbid concurrent mutation skeptics on one file (process)
-  raw: '- [ ] Near miss (2026-09-24): two mutation skeptics ran concurrently on the same file. The failure mode
-    is a silently contaminated verdict. The card brief should forbid concurrent mutation skeptics on one file without
-    a lock   @tech-debt'
+  raw: '- [ ] Near miss (2026-09-24): two mutation skeptics ran concurrently on the same file. The failure
+    mode is a silently contaminated verdict. The card brief should forbid concurrent mutation skeptics
+    on one file without a lock   @tech-debt'
   category: tech-debt
   intent: null
   status: screened
@@ -1861,8 +1883,8 @@ ideas:
   source_line: 97
 - id: IDEA-080
   title: Fill render.md TODO(owner) rows from the Render dashboard
-  raw: '- [ ] CARD-168 owner action: fill the TODO(owner) rows in docs/deploy/render.md from the Render dashboard
-    (service type, Python version, Build/Start Command, env var names, migrations on deploy)   @ops'
+  raw: '- [ ] CARD-168 owner action: fill the TODO(owner) rows in docs/deploy/render.md from the Render
+    dashboard (service type, Python version, Build/Start Command, env var names, migrations on deploy)   @ops'
   category: ops
   status: backlog
   method: fifo
@@ -1877,9 +1899,10 @@ ideas:
   rank: 13
 - id: IDEA-081
   title: scripts/README Manual Commands run pytest against nonogram_poc
-  raw: '- [ ] CARD-168 F-002 (pre-existing): scripts/README.md "Manual Commands" still runs bare `pytest` with DATABASE_URL
-    defaulting to nonogram_poc, which the test guard refuses; F-001: render.md''s env table omits PYTHONUNBUFFERED
-    (set in render.yaml); F-003: the 2026-09-23 incident evidence render.md cites is recorded nowhere in the repo   @tech-debt'
+  raw: '- [ ] CARD-168 F-002 (pre-existing): scripts/README.md "Manual Commands" still runs bare `pytest`
+    with DATABASE_URL defaulting to nonogram_poc, which the test guard refuses; F-001: render.md''s env
+    table omits PYTHONUNBUFFERED (set in render.yaml); F-003: the 2026-09-23 incident evidence render.md
+    cites is recorded nowhere in the repo   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -1901,8 +1924,9 @@ ideas:
 - id: IDEA-082
   title: Five hollow e2e tests post the dead `images` field
   raw: '- [ ] CARD-164 F-002: five sibling tests in tests/e2e/test_admin_workflow.py (test_tc_001, test_preview_page_displays_original_image,
-    test_metadata_shown_on_preview, test_tc_002, test_tc_003 — lines ~86/100/112/130/170) still post the dead `images`
-    field and pass on the "No images selected" redirect — hollow the same way test_size_configuration_applied was   @tech-debt'
+    test_metadata_shown_on_preview, test_tc_002, test_tc_003 — lines ~86/100/112/130/170) still post the
+    dead `images` field and pass on the "No images selected" redirect — hollow the same way test_size_configuration_applied
+    was   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -1923,9 +1947,9 @@ ideas:
   rank: 14
 - id: IDEA-083
   title: Size test not tied to the form's field names (mutant M8)
-  raw: '- [ ] CARD-164 F-001 (minor): test_size_configuration_applied posts field names straight to the route, so
-    renaming the step-1 form''s `default_size` select leaves it green (mutant M8) — GET /batch/create and assert
-    the field names, or narrow the docstring   @tech-debt'
+  raw: '- [ ] CARD-164 F-001 (minor): test_size_configuration_applied posts field names straight to the
+    route, so renaming the step-1 form''s `default_size` select leaves it green (mutant M8) — GET /batch/create
+    and assert the field names, or narrow the docstring   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -1946,9 +1970,9 @@ ideas:
   rank: 22
 - id: IDEA-084
   title: Printed-number test minors (two-up fixture, banner text, fallback dup)
-  raw: '- [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the single-puzzle-page
-    path (no shared two-up fixture); the no-plan banner points to Finalise even when the cause is a code bug; the
-    stored-order fallback with a repeated id is untested (mutant survived)   @tech-debt'
+  raw: '- [ ] CARD-165 F-001/F-002/F-003 (minor): the printed-number test reads the band only via the
+    single-puzzle-page path (no shared two-up fixture); the no-plan banner points to Finalise even when
+    the cause is a code bug; the stored-order fallback with a repeated id is untested (mutant survived)   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -1969,8 +1993,8 @@ ideas:
   rank: 70
 - id: IDEA-085
   title: Finalise guide preview still shows the old "How to use this book" text
-  raw: '- [ ] CARD-167 follow-up: the Finalise screen''s guide preview (book_finalize.html) still says "How to use
-    this book" with the old instructions — make it match the new guide page   @feature'
+  raw: '- [ ] CARD-167 follow-up: the Finalise screen''s guide preview (book_finalize.html) still says
+    "How to use this book" with the old instructions — make it match the new guide page   @feature'
   category: feature
   status: done
   method: wsjf
@@ -1992,9 +2016,9 @@ ideas:
   card: CARD-169
 - id: IDEA-086
   title: Guide 10 pt test measures top-to-baseline; spacing untested; stale docstrings
-  raw: '- [ ] CARD-167 F-101/F-103 (minor): the 10 pt floor test measures top-to-baseline, so wrapped lines without
-    capitals under-read (~8.4 pt for 11 pt type; at 11x17 cm "way." wraps alone); the spacing after each example
-    drawing is untested; CARD-149''s type-test docstrings quote the old guide text   @tech-debt'
+  raw: '- [ ] CARD-167 F-101/F-103 (minor): the 10 pt floor test measures top-to-baseline, so wrapped
+    lines without capitals under-read (~8.4 pt for 11 pt type; at 11x17 cm "way." wraps alone); the spacing
+    after each example drawing is untested; CARD-149''s type-test docstrings quote the old guide text   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2015,10 +2039,10 @@ ideas:
   rank: 77
 - id: IDEA-087
   title: Divider and cover pages set type in px, not pt (CON-020)
-  raw: '- [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020 is checked
-    in pt elsewhere)   @tech-debt'
+  raw: '- [ ] CARD-167 spot-check: divider and cover pages set their type in pixels, not points (CON-020
+    is checked in pt elsewhere)   @tech-debt'
   category: tech-debt
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -2030,6 +2054,10 @@ ideas:
     time_criticality: 'Moderate: Book 1 layout is being finalised'
     risk_reduction: Makes CON-020's 10 pt floor checkable on dividers/cover
     job_size: Convert sizes + tests
+    status: 'Shipped by CARD-184: the divider''s size is now stated in points (`#: The divider''s size,
+      in points (AC-4): the 60 px it was at 300 DPI`) and lettering goes through `type_px(FOLIO_PT, dpi)`;
+      `test_book_interior_type_floor.py` records every kind of interior lettering, divider and cover included.
+      Verified in the source, not inferred from the card title.'
   priority_score: 5.0
   depends_on: []
   scored_at: '2026-10-04'
@@ -2039,10 +2067,10 @@ ideas:
   note: divider half folded into CARD-184; cover half stays (cover is not interior, INV-013)
 - id: IDEA-088
   title: '`?status=all` on book selection shows no puzzles (owner call)'
-  raw: '- [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles (pre-existing,
-    pinned by CARD-166''s G-2) — should "all" list every status there, or be removed?   @feature'
+  raw: '- [ ] CARD-166 observation (owner call): `?status=all` on the book-selection page shows NO puzzles
+    (pre-existing, pinned by CARD-166''s G-2) — should "all" list every status there, or be removed?   @feature'
   category: feature
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -2064,9 +2092,9 @@ ideas:
   card: CARD-180
 - id: IDEA-089
   title: Plan-input CSS comment accuracy; shared test fixtures to conftest/helpers
-  raw: '- [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap''s literal .5rem
-    padding (equal by value only); both new test files import private helpers and browser fixtures from tests/test_puzzle_solver_page.py
-    — move shared fixtures to conftest/helpers   @tech-debt'
+  raw: '- [ ] CARD-166 F-001/F-002 (minor): the plan-input CSS comment ties --space-2 to Bootstrap''s
+    literal .5rem padding (equal by value only); both new test files import private helpers and browser
+    fixtures from tests/test_puzzle_solver_page.py — move shared fixtures to conftest/helpers   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2087,9 +2115,9 @@ ideas:
   rank: 78
 - id: IDEA-090
   title: 'Check: answer-key band drawn twice in an export (printed duplicate?)'
-  raw: '- [ ] Wave-32 goal-check: a recording PDF canvas saw the highest-tier answer-key band ("Puzzle 5 · Hard")
-    drawn twice during an export — likely the fitting loop measuring before drawing, not a printed duplicate; confirm
-    visually on a rendered answer page (book_pdf_generator answer-key path)   @tech-debt'
+  raw: '- [ ] Wave-32 goal-check: a recording PDF canvas saw the highest-tier answer-key band ("Puzzle
+    5 · Hard") drawn twice during an export — likely the fitting loop measuring before drawing, not a
+    printed duplicate; confirm visually on a rendered answer page (book_pdf_generator answer-key path)   @tech-debt'
   category: tech-debt
   status: done
   method: wsjf
@@ -2111,11 +2139,11 @@ ideas:
   card: CARD-170
 - id: IDEA-091
   title: Finalise flash echoes str(e) — DB error text on a public panel
-  raw: '- [ ] CARD-171 drafting (pre-existing): Finalise''s outer handler flashes `str(e)`, so a DB error''s text
-    (possibly connection details) can reach the screen on a panel the public can reach (ADR-0030). Flash a generic
-    message, log the detail   @compliance'
+  raw: '- [ ] CARD-171 drafting (pre-existing): Finalise''s outer handler flashes `str(e)`, so a DB error''s
+    text (possibly connection details) can reach the screen on a panel the public can reach (ADR-0030).
+    Flash a generic message, log the detail   @compliance'
   category: compliance
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -2135,9 +2163,9 @@ ideas:
   card: CARD-177
 - id: IDEA-092
   title: Lone puzzles render a discarded solved page (COMP-007 render_pages)
-  raw: '- [ ] CARD-170 drafting: a puzzle printed alone goes through `_blank_page` → COMP-007 `render_pages`, which
-    also renders the solved page that `_blank_page` throws away: one wasted full-size page image per lone puzzle
-    (memory/time). Needs a `render_pages` change in COMP-007   @tech-debt'
+  raw: '- [ ] CARD-170 drafting: a puzzle printed alone goes through `_blank_page` → COMP-007 `render_pages`,
+    which also renders the solved page that `_blank_page` throws away: one wasted full-size page image
+    per lone puzzle (memory/time). Needs a `render_pages` change in COMP-007   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2158,8 +2186,8 @@ ideas:
   rank: 57
 - id: IDEA-093
   title: 'CARD-176 minors: pin bare-token echo row; AC-1 echo check per case'
-  raw: '- [ ] CARD-176 F-001/F-002 (minor): no test row pins the documented echo of a bare leading token (`hunter2://`);
-    AC-1''s echo check accepts any corpus scheme rather than the one drawn for that case   @tech-debt'
+  raw: '- [ ] CARD-176 F-001/F-002 (minor): no test row pins the documented echo of a bare leading token
+    (`hunter2://`); AC-1''s echo check accepts any corpus scheme rather than the one drawn for that case   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2180,8 +2208,8 @@ ideas:
   rank: 38
 - id: IDEA-094
   title: Leading-whitespace DATABASE_URL gets <malformed scheme>
-  raw: '- [ ] CARD-176 F-003: a URL with leading whitespace (`'' postgresql://…''`) now gets `<malformed scheme>`
-    — a weaker operator hint than before; consider stripping before the grammar check   @tech-debt'
+  raw: '- [ ] CARD-176 F-003: a URL with leading whitespace (`'' postgresql://…''`) now gets `<malformed
+    scheme>` — a weaker operator hint than before; consider stripping before the grammar check   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2202,8 +2230,8 @@ ideas:
   rank: 58
 - id: IDEA-095
   title: 'Guide strip --strip-cell local value: token or record as local'
-  raw: '- [ ] CARD-169 F-002 (minor): the guide strip''s cell size `--strip-cell: 1.5rem` is a local value in admin.css
-    — promote it to a design token or record it as a deliberate local value   @tech-debt'
+  raw: '- [ ] CARD-169 F-002 (minor): the guide strip''s cell size `--strip-cell: 1.5rem` is a local value
+    in admin.css — promote it to a design token or record it as a deliberate local value   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2237,9 +2265,9 @@ ideas:
   rejected_at: '2026-10-05'
 - id: IDEA-097
   title: 'CARD-172 minors: cap-height comment source; square page-2 docstring claim'
-  raw: '- [ ] CARD-172 F-001/F-002 (minor): a test comment credits the 1493/2048 cap-height ratio to an OS/2 field
-    the bundled font lacks (value correct); `_annotate`''s docstring claims square page 2 keeps its foot note but
-    only 11×8.5 is asserted   @tech-debt'
+  raw: '- [ ] CARD-172 F-001/F-002 (minor): a test comment credits the 1493/2048 cap-height ratio to an
+    OS/2 field the bundled font lacks (value correct); `_annotate`''s docstring claims square page 2 keeps
+    its foot note but only 11×8.5 is asserted   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2260,9 +2288,9 @@ ideas:
   rank: 39
 - id: IDEA-098
   title: 'Proof note: narrow side strip beats a corner that fits'
-  raw: '- [ ] CARD-172 F-003: `_annotate` takes a narrow outer side strip before a clue corner that fits — on e.g.
-    an 8.5×8 trim with a small outside margin the note becomes 30+ one-word lines. Not reached on the card''s trims;
-    prefer the corner when the strip is narrower than N mm   @tech-debt'
+  raw: '- [ ] CARD-172 F-003: `_annotate` takes a narrow outer side strip before a clue corner that fits
+    — on e.g. an 8.5×8 trim with a small outside margin the note becomes 30+ one-word lines. Not reached
+    on the card''s trims; prefer the corner when the strip is narrower than N mm   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2283,10 +2311,10 @@ ideas:
   rank: 71
 - id: IDEA-099
   title: Proof-note wrap splits "4.58 / mm" and starts lines with ×
-  raw: '- [ ] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start a line
-    with "×" — keep units and × with their numbers (owner accepted the current renders)   @feature'
+  raw: '- [ ] CARD-172 F-004: proof-note wrapping can split a number from its unit ("4.58 / mm") and start
+    a line with "×" — keep units and × with their numbers (owner accepted the current renders)   @feature'
   category: feature
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -2306,9 +2334,9 @@ ideas:
   card: CARD-179
 - id: IDEA-100
   title: 'CARD-175 minors: summary focus ring token; test comments'
-  raw: '- [ ] CARD-175 F-001/F-002/F-004 (minor): the plan-hints summary uses the browser''s default focus ring,
-    not the `--color-focus` ring; plural-test comments name per-cell hints the test doesn''t assert; a test comment
-    still says ~176 px (now ~169 px)   @tech-debt'
+  raw: '- [ ] CARD-175 F-001/F-002/F-004 (minor): the plan-hints summary uses the browser''s default focus
+    ring, not the `--color-focus` ring; plural-test comments name per-cell hints the test doesn''t assert;
+    a test comment still says ~176 px (now ~169 px)   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2329,9 +2357,9 @@ ideas:
   rank: 23
 - id: IDEA-101
   title: set_book_status refusals other than the plan gate go unlogged
-  raw: '- [ ] CARD-171 note: catching ValueError around `set_book_status` in Finalise sends its other refusals ("published",
-    "no puzzles", "invalid status") to a flash with no log line (never logged before either; only the plan-gate
-    case is tested) — decide whether they are owner refusals or errors   @tech-debt'
+  raw: '- [ ] CARD-171 note: catching ValueError around `set_book_status` in Finalise sends its other
+    refusals ("published", "no puzzles", "invalid status") to a flash with no log line (never logged before
+    either; only the plan-gate case is tested) — decide whether they are owner refusals or errors   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2352,8 +2380,8 @@ ideas:
   rank: 40
 - id: IDEA-102
   title: Band test class docstring states the detection rule loosely
-  raw: '- [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other ink within
-    about a line''s height sideways" rule loosely; no measured case is misdescribed   @tech-debt'
+  raw: '- [ ] CARD-170 F-007 (minor): tests/test_book_pdf_band.py class docstring states the "no other
+    ink within about a line''s height sideways" rule loosely; no measured case is misdescribed   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2374,10 +2402,10 @@ ideas:
   rank: 60
 - id: IDEA-103
   title: 48.0 cm book reopens in inches as 18.90 (> 18.89 max)
-  raw: '- [ ] CARD-174 F-003: a book stored at 48.0 cm reopens in inches showing 18.90 next to the stated 18.89
-    in maximum — the reopen conversion should round inward like the limits   @feature'
+  raw: '- [ ] CARD-174 F-003: a book stored at 48.0 cm reopens in inches showing 18.90 next to the stated
+    18.89 in maximum — the reopen conversion should round inward like the limits   @feature'
   category: feature
-  status: in_kanban
+  status: done
   method: wsjf
   scores:
     user_business_value: 2
@@ -2397,9 +2425,9 @@ ideas:
   card: CARD-178
 - id: IDEA-104
   title: 'CARD-174 minors: 47.9999 comment; "on both sides" wording'
-  raw: '- [ ] CARD-174 F-004 (minor): tests/test_print_specs.py:524 comment says 18.8976 × 2.54 = 48.0 (it is 47.999904;
-    the assertion is right). Also owner wording check: the inch minimum refusal says "on both sides" where the cm
-    one says "in both dimensions"   @tech-debt'
+  raw: '- [ ] CARD-174 F-004 (minor): tests/test_print_specs.py:524 comment says 18.8976 × 2.54 = 48.0
+    (it is 47.999904; the assertion is right). Also owner wording check: the inch minimum refusal says
+    "on both sides" where the cm one says "in both dimensions"   @tech-debt'
   category: tech-debt
   status: backlog
   method: wsjf
@@ -2421,8 +2449,8 @@ ideas:
   rank: 62
 - id: IDEA-105
   title: Finalise guide preview needs changes after the owner look (owner to specify)
-  raw: '- [ ] CARD-169 owner look (2026-10-05): the deferred visual check found the Finalise guide preview needs
-    changes — owner to say what   @feature'
+  raw: '- [ ] CARD-169 owner look (2026-10-05): the deferred visual check found the Finalise guide preview
+    needs changes — owner to say what   @feature'
   category: feature
   status: backlog
   method: wsjf
@@ -2443,3 +2471,148 @@ ideas:
   wave: 1
   rank: 1
   held: owner to describe the change (2026-10-05)
+- id: IDEA-106
+  title: 'ADR-0039''s repo-wide guard audit: make R1-R3 reach a guard written tomorrow'
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 8
+    time_criticality: 8
+    risk_reduction: 13
+    job_size: 5
+  reasoning:
+    user_business_value: Every future guard card is judged against R1-R3; today the checks are point tests
+      over named guards in one file.
+    time_criticality: Third instance. Wave 43's two cards both violated a mandatory rule squarely inside
+      its scope; each wave it stays unpromoted costs a card.
+    risk_reduction: It is the mechanism behind the wave's single root cause (a coverage claim wider than
+      its control) - the highest-leverage item on the board.
+    job_size: A derived or render-based completeness check plus re-pointing three check refs.
+  priority_score: 5.8
+  depends_on: []
+  source: wave 43 retrospective - finding families
+- id: IDEA-107
+  title: 'Install pytest-testmon so review.test_scope: impact stops falling back to full'
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 5
+    time_criticality: 5
+    risk_reduction: 3
+    job_size: 2
+  reasoning:
+    user_business_value: config.yml names it as the precondition in its own comment; the inner loop is
+      100% full-suite today.
+    time_criticality: Wave 43's cost per card rose 2.3x (1322s -> 3098s) purely from running the stable
+      suite three times per card.
+    risk_reduction: Narrowing is the one lever that does not trade away a gate.
+    job_size: A dev-extra dependency plus flipping one config key.
+  priority_score: 6.5
+  depends_on: []
+  source: wave 43 retrospective - suggestions
+- id: IDEA-108
+  title: test_web_upload.py sweeps the machine-wide temp dir and reds on concurrent worktrees
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 3
+    time_criticality: 5
+    risk_reduction: 5
+    job_size: 1
+  reasoning:
+    user_business_value: A test whose verdict depends on another worktree is not a test.
+    time_criticality: VERIFIED STILL LIVE (`gettempdir` present). The board dispatches at concurrency
+      2, so the collision is the normal case, not the edge.
+    risk_reduction: Removes a whole class of false red; it already cost CARD-211 a failed run in wave
+      37.
+    job_size: Scope the sweep to tmp_path or filter by the pid prefix the test created.
+  priority_score: 13.0
+  depends_on: []
+  source: wave 37 retrospective, re-verified wave 43
+- id: IDEA-109
+  title: Re-measure "superseded baselines cost no runtime" before CARD-220 starts
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 3
+    time_criticality: 8
+    risk_reduction: 8
+    job_size: 1
+  reasoning:
+    user_business_value: A recorded correction that is no longer true is worse than a missing one.
+    time_criticality: 'VERIFIED FALSE: the superseded baselines are loaded at runtime in 12 places in
+      tests/test_book_pdf_memory.py. CARD-220 is ELIGIBLE NOW and its whole premise is that these fixtures
+      are inert.'
+    risk_reduction: Stops a ready card starting from a false premise - the cheapest possible intervention
+      point.
+    job_size: One measurement and one correction to the card.
+  priority_score: 19.0
+  depends_on: []
+  source: wave 37 retrospective, re-verified wave 43
+- id: IDEA-110
+  title: 'Resolve every card''s backticked test:/check: name against tests/ at the decompose station'
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 5
+    time_criticality: 3
+    risk_reduction: 8
+    job_size: 1
+  reasoning:
+    user_business_value: A fabricated test name reached four cards in two waves before anyone noticed.
+    time_criticality: Mitigated by hand in wave 43 (both cards' names were resolved before dispatch) but
+      not mechanised, so it depends on the orchestrator remembering.
+    risk_reduction: A review scores the diff, so it structurally cannot notice that a guardrail's name
+      resolves to nothing.
+    job_size: A grep over backticked names in meta/kanban/cards/, at decompose or as a pre-commit hook.
+  priority_score: 16.0
+  depends_on: []
+  source: wave 37 retrospective, applied manually in wave 43
+- id: IDEA-111
+  title: Review reports disagree with themselves on severity (markdown Important vs YAML medium)
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 3
+    time_criticality: 2
+    risk_reduction: 5
+    job_size: 1
+  reasoning:
+    user_business_value: The severity gate parses the markdown; the retrospective's family analysis reads
+      the YAML. When they disagree, a finding that blocks a merge is invisible to the learning loop.
+    time_criticality: Found in wave 43 (CARD-241 F-003). One instance so far.
+    risk_reduction: Protects the learning loop's input, which is otherwise silently lossy.
+    job_size: Align the writer, or have the gate read the YAML.
+  priority_score: 10.0
+  depends_on: []
+  source: wave 43 retrospective - process defects
+- id: IDEA-112
+  title: Promote the remaining wave-37 discipline rules into the model (one architect pass)
+  category: tech-debt
+  status: backlog
+  method: wsjf
+  scores:
+    user_business_value: 5
+    time_criticality: 3
+    risk_reduction: 8
+    job_size: 3
+  reasoning:
+    user_business_value: 'Seven sentences the pipeline keeps re-learning one card at a time: the two-consumer
+      return value, re-deriving a guardrail''s mechanism clause, a host gate hiding its own evidence,
+      edit-one-claim-at-a-time, impossibility claims needing scepticism, an AC that evidences nothing,
+      and lru_cache blinding a determinism harness.'
+    time_criticality: They have survived six waves as prose in briefs. Wave 43 is evidence the pattern
+      repeats until a rule is promoted.
+    risk_reduction: Same mechanism as ADR-0039 - a rule in the model is checked, a rule in a brief is
+      remembered.
+    job_size: One architect pass over seven candidate rules; several may collapse into one.
+  priority_score: 5.33
+  depends_on:
+  - IDEA-106
+  source: wave 37 retrospective, unpromoted

@@ -1,217 +1,107 @@
 # Product Roadmap
 
-_Generated: 2026-10-05 (re-plan after roadmap wave 1 shipped as kanban wave 33) · from meta/kanban/backlog-scored.yml_
-_Stage: pre-launch (Book 1 not yet on KDP) · Methodology: WSJF for every non-ops category (owner choice 2026-10-04), FIFO for ops_
+_Generated: 2026-10-17 (after wave 43)_
+_Stage: growth · Methodology: hybrid (RICE for feature, WSJF for enabler/tech-debt/compliance, FIFO for ops)_
+_Config source: defaults — this project has no `meta/.skills.yml`_
 
-## Shipped since the last plan
+## The critical path is not a backlog idea
 
-Roadmap wave 1 → kanban wave 33 (tag `wave-33`, suite exit 0, 6270 passed): IDEA-085 → CARD-169 · IDEA-090 → CARD-170 (not a defect) · IDEA-041/040 → CARD-171 · IDEA-070 → CARD-172 · IDEA-072 → CARD-173 · IDEA-049/048 → CARD-174 · IDEA-047 → CARD-175 · IDEA-016 → CARD-176.
+**23 cards are `ready` and 11 of them cannot start.** CARD-222 heads the interior-redesign chain
+(CARD-223 → 224/225 → 226/227/229..233) and is blocked on registry amendments that are one
+`/forge:architect` session, not a card: **CON-018** (margins — outer 0.5 / top 0.55 / bottom 0.47,
+gutter stays at KDP's 0.5 in per the owner's 2026-10-14 decision), **NFR-008** (one cell size per grid
+size, capped 7.5 mm), **INV-013/FR-043** (CARD-206's title page ahead of the guide), and **cancelling**
+CARD-204's pending **FR-032** amendment, which CARD-224 reverses rather than applies.
 
-## Capacity Allocation
+That session has been owed since wave 42 and is logged in two retrospectives as `defer_nfr_adr`.
+No backlog score outranks it, because nothing it competes with can start.
 
-Wave budget **3 days** of card work. Day calibration halved after the wave-32 retro and confirmed by wave 33 (clean cards 0.39×; cross-project python-pro/feature 0.41× over 12): WSJF job size → days 1→0.125 · 2→0.25 · 3→0.375 · 5→0.75 · 8→1.25 · 13→2 · 20→3.
+**Capacity note (owner decision, 2026-10-17):** this wave is planned **unblock-first** rather than by
+the `growth` percentages. The stage defaults (feature 55 / enabler 20 / tech-debt 15 / compliance 5 /
+ops 5) remain the standing default for later waves — they were not changed. Applying them here would
+have scheduled a feature bucket that cannot execute.
 
-| Category | % | Per wave (days) | Note |
-|---|--:|--:|---|
-| feature | 60 | 1.80 |  |
-| enabler | 15 | 0.45 | no ideas — rolls over to tech-debt |
-| tech-debt | 5 | 0.15 | own 5% + roll-over |
-| compliance | 15 | 0.45 | no ideas — rolls over to ops |
-| ops | 5 | 0.15 |  |
+## Wave 1 (next iteration) — unblock, then the cheap measurements
 
-⚑ Effort signal (cross-project, medium confidence): python-pro feature cards run 0.41× of estimate (12 cards) — feature job sizes may be high.
+### Architect station (not a card, not scored)
+1. **One `/forge:architect` session** — CON-018, NFR-008, INV-013/FR-043, cancel FR-032.
+   Releases CARD-222 and the 11 cards behind it. **Do this first.**
 
-Scored 2026-10-05: the 15 wave-33 leftovers as IDEA-091..105 (IDEA-096 screened as a duplicate of IDEA-105).
+### tech-debt (WSJF) — ~1d total, all three are one-pointers
+1. **IDEA-109** Re-measure "superseded baselines cost no runtime" (WSJF **19.0**) — **must land before
+   CARD-220 starts.** Measured 2026-10-17: those baselines are loaded at runtime in **12 places** in
+   `tests/test_book_pdf_memory.py`, and CARD-220's premise is that they are inert. CARD-220 is eligible
+   now, so this is the cheapest intervention point on the board.
+2. **IDEA-110** Resolve card `test:`/`check:` names against `tests/` at the decompose station
+   (WSJF **16.0**) — a fabricated name reached four cards in two waves. Done by hand in wave 43 for
+   both cards; not mechanised, so it depends on the orchestrator remembering.
+3. **IDEA-108** Scope `test_web_upload.py`'s temp sweep to the test's own files (WSJF **13.0**) —
+   verified still live (`gettempdir` present), and the board dispatches at concurrency 2, so the
+   collision is the normal case. Cost CARD-211 a false red in wave 37.
 
-⚑ Carried from the last plan uncarded: IDEA-007 and IDEA-065 need an `/forge:architect` session (cards cannot commit under meta/); IDEA-088 waits on your call; IDEA-080 is your Render-dashboard action.
+### Then, in the same wave if capacity allows
+4. **IDEA-106** ADR-0039's repo-wide guard audit (WSJF 5.8) — **the formula under-ranks this one and
+   the ranking should not be followed blindly.** WSJF divides by job size, so a 5-point mechanism loses
+   to three one-pointers; its raw factors (UBV 8 / TC 8 / RR 13) are the highest on the board. It is
+   the mechanism behind wave 43's single root cause: two cards violated a mandatory rule squarely
+   inside its scope, because R1–R3's checks are point tests over named guards in one file and cannot
+   see a claim written elsewhere. ADR-0039 says this about itself and names the audit as deferred work.
+   Third instance; a fourth would make it the most expensive unpromoted mechanism on the board.
+5. **IDEA-107** Install `pytest-testmon` (WSJF 6.5) — `config.yml` names it as the precondition in its
+   own comment. Wave 43's cost per card rose **2.3×** (1322s → 3098s) purely from running a stable
+   suite three times per card at 100% full-suite share.
 
-⚑ Owner decisions / actions inside the plan: IDEA-001, IDEA-002, IDEA-080, IDEA-088, IDEA-104, IDEA-105 (IDEA-080 is yours to do in the Render dashboard; it is not card work).
+## Wave 2
 
-## Wave 1 (next iteration) — 2.75 d
+- **CARD-243** (already carded) — the round-mark check sees the greys the book prints. Depends CARD-241 ✓.
+- **IDEA-112** Promote the remaining wave-37 discipline rules into the model (WSJF 5.33, depends
+  IDEA-106) — seven sentences the pipeline keeps re-learning one card at a time.
+- **IDEA-111** Align review-report severity between the markdown and the YAML (WSJF 10.0) — small, but
+  it protects the learning loop's own input, which is otherwise silently lossy.
+- The interior-redesign chain, once the architect session lands: CARD-222 → 223 → 224/225 →
+  226/227/229..233, plus CARD-206..209 and CARD-215/216/220/236.
 
-### feature  (1.62 d)
-1. **IDEA-105** Finalise guide preview needs changes after the owner look (owner to specify) (WSJF 9.0) — 0.125 d · ⚑ owner
-2. **IDEA-103** 48.0 cm book reopens in inches as 18.90 (> 18.89 max) (WSJF 6.0) — 0.125 d
-3. **IDEA-099** Proof-note wrap splits "4.58 / mm" and starts lines with × (WSJF 5.0) — 0.125 d
-4. **IDEA-088** `?status=all` on book selection shows no puzzles (owner call) (WSJF 4.0) — 0.125 d · ⚑ owner
-5. **IDEA-073** Store a targeted batch's requested tier (column+migration) (WSJF 1.67) — 0.375 d
-6. **IDEA-057** Player cells ~18 px at 390 px (tap target) (WSJF 1.33) — 0.375 d
-7. **IDEA-074** Online solver hint button (WSJF 1.33) — 0.375 d
+## Waiting on the owner (review time, not engineering capacity — not scored)
 
-### tech-debt  (0.75 d)
-1. **IDEA-007** Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession (WSJF 8.0) — 0.25 d
-2. **IDEA-008** CON-020: test 10 pt floor on every interior face (WSJF 7.0) — 0.375 d
-3. **IDEA-001** Fixture superseded_by back-pointers (CARD-147 F-007) (WSJF 5.0) — 0.125 d · ⚑ owner
+Six merged cards' renders have never been eyeballed; all are in `~/Documents/nonogram-reviews/`:
 
-### compliance  (0.12 d)
-1. **IDEA-091** Finalise flash echoes str(e) — DB error text on a public panel (WSJF 13.0) — 0.125 d
+| Card | What to look at | Merged |
+|------|-----------------|--------|
+| CARD-187 | Progress counter renders | wave 34 |
+| CARD-189 | Click-sequence renders + the help line | wave 34 |
+| CARD-190 | Review-page longest-side renders | wave 34 |
+| CARD-191 | Sort-by-size button, confirm text, before/after | wave 34 |
+| CARD-192 | Band filter, left/over renders | wave 35 |
+| CARD-196 | Clue-number renders | wave 36 |
 
-### ops  (0.25 d)
-1. **IDEA-065** CI step 'playwright install chromium' (ADR-0038/R8) (FIFO) — 0.125 d
-2. **IDEA-080** Fill render.md TODO(owner) rows from the Render dashboard (FIFO) — 0.125 d · ⚑ owner
+Deliberately outside the capacity buckets: scoring them as work would double-count your time as
+engineering capacity. They are, however, the only record that those renders were never checked.
 
-## Wave 2 — 2.38 d
+## Deferred by owner decision (V1 scope, 2026-10-13 — blockers already named)
 
-### tech-debt  (2.38 d)
-1. **IDEA-082** Five hollow e2e tests post the dead `images` field (WSJF 7.0) — 0.25 d
-2. **IDEA-004** Fix dead check: refs on mandatory rules (CON-005, INV-*) (WSJF 6.6) — 0.75 d
-3. **IDEA-021** book_proof.render_proof_pdf still writes DeviceRGB (WSJF 6.5) — 0.25 d
-4. **IDEA-069** Upload tests glob shared temp dir (parallel interference) (WSJF 6.5) — 0.25 d
-5. **IDEA-006** ADR-0029/R4 check can't test its rule (overlap masks) (WSJF 5.0) — 0.25 d
-6. **IDEA-017** Pin migrations/env.py URL-not-logged by assertion (CARD-148) (WSJF 5.0) — 0.125 d
-7. **IDEA-034** db_required hook pings DATABASE_URL before _test guard (WSJF 5.0) — 0.125 d
-8. **IDEA-044** validate_margins accepts below 0.635 cm minimum (WSJF 5.0) — 0.125 d
-9. **IDEA-083** Size test not tied to the form's field names (mutant M8) (WSJF 5.0) — 0.125 d
-10. **IDEA-100** CARD-175 minors: summary focus ring token; test comments (WSJF 5.0) — 0.125 d
+| Idea | Revival trigger |
+|------|-----------------|
+| A public online solver | the public phase opens (blocks CARD-210) |
+| A stable per-puzzle URL namespace | decided once, before any book ships printed codes (blocks CARD-210) |
+| "Generate your own puzzle" second QR | the public generator surface exists |
+| Persist user-generated puzzles | the public phase, plus a user/ownership notion and a retention rule |
 
-## Wave 3 — 2.38 d
+## Ledger state
 
-### tech-debt  (2.38 d)
-1. **IDEA-087** Divider and cover pages set type in px, not pt (CON-020) (WSJF 5.0) — 0.25 d
-2. **IDEA-009** NFR + check for the deployed panel's 512 MB memory limit (WSJF 4.67) — 0.375 d
-3. **IDEA-011** Hand-edit mark not released on revert (CARD-120 F-007) (WSJF 4.5) — 0.25 d
-4. **IDEA-024** Undrawable row shown between page labels w/o marker (WSJF 4.5) — 0.25 d
-5. **IDEA-031** Concurrent runs share nonogram_test; DROP SCHEMA races (WSJF 4.33) — 0.375 d
-6. **IDEA-014** Memory mode get_book returns live Book (CARD-136) (WSJF 4.0) — 0.25 d
-7. **IDEA-029** Stale 'four members' enum_note + ADR-0025 test narrative (WSJF 4.0) — 0.125 d
-8. **IDEA-035** diagnose_postgres.sh hardcodes nonogram_poc (WSJF 4.0) — 0.125 d
-9. **IDEA-038** admin_scripts helper imports private test names (WSJF 4.0) — 0.125 d
-10. **IDEA-054** Public read instead of _as_readable_grid (CARD-160 F-006) (WSJF 4.0) — 0.125 d
-11. **IDEA-055** isBoard reads value.cells (mutant survived) (WSJF 4.0) — 0.125 d
+- 112 ideas: **28 done** (+9 this run: 8 by authoritative `Idea:` backlink, 1 verified in source),
+  69 backlog, 7 screened, 1 rejected, **0 stale `in_kanban`**
+- No fuzzy ship candidates above 0.62 similarity — no backlog idea quietly shipped under a
+  differently-titled card
+- Calibration applied: none needed. `python-pro` ran 0.80× this wave (within band); the cross-project
+  entry for python-pro/tech-debt now reads 1.18× over 10 cards
 
-## Later waves (summary)
+## Not available for this project
 
-| Wave | Ideas | Days |
-|--:|---|--:|
-| 4 | IDEA-062, IDEA-068, IDEA-081, IDEA-093, IDEA-097, IDEA-101, IDEA-010, IDEA-059, IDEA-012, IDEA-015, IDEA-020 | 2.38 |
-| 5 | IDEA-023, IDEA-026, IDEA-027, IDEA-030, IDEA-037, IDEA-039, IDEA-043, IDEA-050, IDEA-053, IDEA-060, IDEA-064, IDEA-092, IDEA-094, IDEA-095, IDEA-102 | 2.38 |
-| 6 | IDEA-058, IDEA-104, IDEA-028, IDEA-022, IDEA-025, IDEA-032, IDEA-045 | 2.25 |
-| 7 | IDEA-075, IDEA-052, IDEA-084 | 3.50 |
-| 8 | IDEA-098, IDEA-002, IDEA-019, IDEA-033, IDEA-042, IDEA-056, IDEA-086, IDEA-089 | 2.12 |
-| 9 | IDEA-018 | 0.38 |
-
-⚠ IDEA-075 (online solver, public phase, ~3 d) overflows its bucket and sits late only because QR in Book 1 is undecided. If QR is confirmed it jumps to the top and needs a /forge:architect delta first.
-
-## All ranked ideas
-
-| Rank | Wave | ID | Idea | Cat | Score | Depends |
-|--:|--:|---|---|---|--:|---|
-| 1 | 1 | IDEA-105 | Finalise guide preview needs changes after the owner look (owner to specify) | feature | 9.0 | — |
-| 2 | 1 | IDEA-103 | 48.0 cm book reopens in inches as 18.90 (> 18.89 max) | feature | 6.0 | — |
-| 3 | 1 | IDEA-099 | Proof-note wrap splits "4.58 / mm" and starts lines with × | feature | 5.0 | — |
-| 4 | 1 | IDEA-088 | `?status=all` on book selection shows no puzzles (owner call) | feature | 4.0 | — |
-| 5 | 1 | IDEA-073 | Store a targeted batch's requested tier (column+migration) | feature | 1.67 | — |
-| 6 | 1 | IDEA-057 | Player cells ~18 px at 390 px (tap target) | feature | 1.33 | — |
-| 7 | 1 | IDEA-074 | Online solver hint button | feature | 1.33 | — |
-| 8 | 1 | IDEA-007 | Validator ERROR: ADR-0025 <-> ADR-0031 circular supersession | tech-debt | 8.0 | — |
-| 9 | 1 | IDEA-008 | CON-020: test 10 pt floor on every interior face | tech-debt | 7.0 | — |
-| 10 | 1 | IDEA-001 | Fixture superseded_by back-pointers (CARD-147 F-007) | tech-debt | 5.0 | — |
-| 11 | 1 | IDEA-091 | Finalise flash echoes str(e) — DB error text on a public panel | compliance | 13.0 | — |
-| 12 | 1 | IDEA-065 | CI step 'playwright install chromium' (ADR-0038/R8) | ops | FIFO | — |
-| 13 | 1 | IDEA-080 | Fill render.md TODO(owner) rows from the Render dashboard | ops | FIFO | — |
-| 14 | 2 | IDEA-082 | Five hollow e2e tests post the dead `images` field | tech-debt | 7.0 | — |
-| 15 | 2 | IDEA-004 | Fix dead check: refs on mandatory rules (CON-005, INV-*) | tech-debt | 6.6 | — |
-| 16 | 2 | IDEA-021 | book_proof.render_proof_pdf still writes DeviceRGB | tech-debt | 6.5 | — |
-| 17 | 2 | IDEA-069 | Upload tests glob shared temp dir (parallel interference) | tech-debt | 6.5 | — |
-| 18 | 2 | IDEA-006 | ADR-0029/R4 check can't test its rule (overlap masks) | tech-debt | 5.0 | — |
-| 19 | 2 | IDEA-017 | Pin migrations/env.py URL-not-logged by assertion (CARD-148) | tech-debt | 5.0 | — |
-| 20 | 2 | IDEA-034 | db_required hook pings DATABASE_URL before _test guard | tech-debt | 5.0 | — |
-| 21 | 2 | IDEA-044 | validate_margins accepts below 0.635 cm minimum | tech-debt | 5.0 | — |
-| 22 | 2 | IDEA-083 | Size test not tied to the form's field names (mutant M8) | tech-debt | 5.0 | — |
-| 23 | 2 | IDEA-100 | CARD-175 minors: summary focus ring token; test comments | tech-debt | 5.0 | — |
-| 24 | 3 | IDEA-087 | Divider and cover pages set type in px, not pt (CON-020) | tech-debt | 5.0 | — |
-| 25 | 3 | IDEA-009 | NFR + check for the deployed panel's 512 MB memory limit | tech-debt | 4.67 | — |
-| 26 | 3 | IDEA-011 | Hand-edit mark not released on revert (CARD-120 F-007) | tech-debt | 4.5 | — |
-| 27 | 3 | IDEA-024 | Undrawable row shown between page labels w/o marker | tech-debt | 4.5 | — |
-| 28 | 3 | IDEA-031 | Concurrent runs share nonogram_test; DROP SCHEMA races | tech-debt | 4.33 | — |
-| 29 | 3 | IDEA-014 | Memory mode get_book returns live Book (CARD-136) | tech-debt | 4.0 | — |
-| 30 | 3 | IDEA-029 | Stale 'four members' enum_note + ADR-0025 test narrative | tech-debt | 4.0 | — |
-| 31 | 3 | IDEA-035 | diagnose_postgres.sh hardcodes nonogram_poc | tech-debt | 4.0 | — |
-| 32 | 3 | IDEA-038 | admin_scripts helper imports private test names | tech-debt | 4.0 | — |
-| 33 | 3 | IDEA-054 | Public read instead of _as_readable_grid (CARD-160 F-006) | tech-debt | 4.0 | — |
-| 34 | 3 | IDEA-055 | isBoard reads value.cells (mutant survived) | tech-debt | 4.0 | — |
-| 35 | 4 | IDEA-062 | Player shows tier 'MEDIUM' upper-case | tech-debt | 4.0 | — |
-| 36 | 4 | IDEA-068 | Vacuous trim assertion in DB mode (CARD-120 F-009) | tech-debt | 4.0 | — |
-| 37 | 4 | IDEA-081 | scripts/README Manual Commands run pytest against nonogram_poc | tech-debt | 4.0 | — |
-| 38 | 4 | IDEA-093 | CARD-176 minors: pin bare-token echo row; AC-1 echo check per case | tech-debt | 4.0 | — |
-| 39 | 4 | IDEA-097 | CARD-172 minors: cap-height comment source; square page-2 docstring claim | tech-debt | 4.0 | — |
-| 40 | 4 | IDEA-101 | set_book_status refusals other than the plan gate go unlogged | tech-debt | 4.0 | — |
-| 41 | 4 | IDEA-010 | Formalise wave-30 card-only behaviours as ACs (FR-043) | tech-debt | 3.33 | — |
-| 42 | 4 | IDEA-059 | Investigate flake: save_plan_returns_the_book_to_draft[db] | tech-debt | 3.33 | — |
-| 43 | 4 | IDEA-012 | Refusal page Planned row reads stored plan (CARD-120 F-008) | tech-debt | 3.0 | — |
-| 44 | 4 | IDEA-015 | CARD-118 minors: exc text flash, referrer redirect, utcnow | tech-debt | 3.0 | — |
-| 45 | 4 | IDEA-020 | CARD-147 F-006: split the welded digest/colour-space claim | tech-debt | 3.0 | — |
-| 46 | 5 | IDEA-023 | puzzle_section ValueError lands with no traceback (CARD-140) | tech-debt | 3.0 | — |
-| 47 | 5 | IDEA-026 | export_book docstring claims every route uses it | tech-debt | 3.0 | — |
-| 48 | 5 | IDEA-027 | Rename answer_page_number() test helper (CARD-134) | tech-debt | 3.0 | — |
-| 49 | 5 | IDEA-030 | Docstring regression regex misses lowercase guess | tech-debt | 3.0 | — |
-| 50 | 5 | IDEA-037 | 'Not reachable' message names only two causes | tech-debt | 3.0 | — |
-| 51 | 5 | IDEA-039 | Stale 'Python 3.11+' and docstring (CARD-152 F-007) | tech-debt | 3.0 | — |
-| 52 | 5 | IDEA-043 | Double-logged plan tripwire; spy scope (CARD-153 minors) | tech-debt | 3.0 | — |
-| 53 | 5 | IDEA-050 | Route tests for below-min trims; wrong alert on New book | tech-debt | 3.0 | — |
-| 54 | 5 | IDEA-053 | Player cell bounds to tokens.css (CARD-160 F-004) | tech-debt | 3.0 | — |
-| 55 | 5 | IDEA-060 | CARD-163 minors: header comment, Redo aria-disabled | tech-debt | 3.0 | — |
-| 56 | 5 | IDEA-064 | Formalise FR-044 drag-axis and pointer-only cell rules | tech-debt | 3.0 | — |
-| 57 | 5 | IDEA-092 | Lone puzzles render a discarded solved page (COMP-007 render_pages) | tech-debt | 3.0 | — |
-| 58 | 5 | IDEA-094 | Leading-whitespace DATABASE_URL gets <malformed scheme> | tech-debt | 3.0 | — |
-| 59 | 5 | IDEA-095 | Guide strip --strip-cell local value: token or record as local | tech-debt | 3.0 | — |
-| 60 | 5 | IDEA-102 | Band test class docstring states the detection rule loosely | tech-debt | 3.0 | — |
-| 61 | 6 | IDEA-058 | Keyboard marking of player cells | feature | 0.8 | IDEA-064 |
-| 62 | 6 | IDEA-104 | CARD-174 minors: 47.9999 comment; "on both sides" wording | tech-debt | 3.0 | — |
-| 63 | 6 | IDEA-028 | Image-mode difficulty sweep vs the 90.0 cutoff | tech-debt | 2.67 | — |
-| 64 | 6 | IDEA-022 | Arrange labels keyed by id(row): add count check (CARD-140) | tech-debt | 2.5 | — |
-| 65 | 6 | IDEA-025 | CARD-145 minors: byte-length assertion, cover RGBA memory | tech-debt | 2.5 | — |
-| 66 | 6 | IDEA-032 | Schema-once test fails when run alone (CARD-156 F-006) | tech-debt | 2.5 | — |
-| 67 | 6 | IDEA-045 | Remaining one-session-per-puzzle loops (CARD-157 F-004) | tech-debt | 2.5 | — |
-| 68 | 7 | IDEA-075 | Online solver public phase: hosting, QR URLs, no solution | feature | 0.8 | — |
-| 69 | 7 | IDEA-052 | No-puzzle book: /books offers download /book disables | tech-debt | 2.5 | — |
-| 70 | 7 | IDEA-084 | Printed-number test minors (two-up fixture, banner text, fallback dup) | tech-debt | 2.5 | — |
-| 71 | 8 | IDEA-098 | Proof note: narrow side strip beats a corner that fits | tech-debt | 2.5 | — |
-| 72 | 8 | IDEA-002 | Per-directory READMEs: adopt or drop the docs step | tech-debt | 2.33 | — |
-| 73 | 8 | IDEA-019 | CARD-147 dead code: guard, redundant UPDATE, mode default | tech-debt | 2.0 | — |
-| 74 | 8 | IDEA-033 | DROP SCHEMA needs public ownership; grants lost (CARD-156) | tech-debt | 2.0 | — |
-| 75 | 8 | IDEA-042 | Public read-only gate instead of private BookManager call | tech-debt | 2.0 | — |
-| 76 | 8 | IDEA-056 | CARD-161 minors: hint visibility, comments, old test | tech-debt | 2.0 | — |
-| 77 | 8 | IDEA-086 | Guide 10 pt test measures top-to-baseline; spacing untested; stale docstrings | tech-debt | 2.0 | — |
-| 78 | 8 | IDEA-089 | Plan-input CSS comment accuracy; shared test fixtures to conftest/helpers | tech-debt | 2.0 | — |
-| 79 | 9 | IDEA-018 | CARD-150 script-test precision (F-003/4/5/7) | tech-debt | 1.67 | — |
-
-## Done / in flight
-
-| ID | Idea | Card | Status |
-|---|---|---|---|
-| IDEA-003 | Render: adopt Blueprint or record dashboard settings | CARD-168 | done |
-| IDEA-013 | Empty ?status= disables approved-only default | CARD-166 | done |
-| IDEA-016 | _scheme_of echoes credentials in RuntimeError (CARD-148) | CARD-176 | done |
-| IDEA-036 | run_admin_tests.sh default DB name vs test guard | CARD-168 | done |
-| IDEA-040 | finalize_book outer except never logs (CARD-153 F-010) | CARD-171 | done |
-| IDEA-041 | Name page-plan error on GET Finalise (500 handler) | CARD-171 | done |
-| IDEA-046 | Book page # column shows list order, not printed number | CARD-165 | done |
-| IDEA-047 | /books rows ~650 px tall at 390 px | CARD-175 | done |
-| IDEA-048 | Limits box '18.90 in' exceeds the real 18.89 in max | CARD-174 | done |
-| IDEA-049 | Trim refusals worded in cm after inches submission | CARD-174 | done |
-| IDEA-051 | CARD-159 owner look + plan inputs clip '20' at 390 px | CARD-166 | done |
-| IDEA-061 | Player size '25x15' vs '×' (owner call) | CARD-166 | done |
-| IDEA-066 | Red on main: test_size_configuration_applied | CARD-164 | done |
-| IDEA-067 | Stale assertion test_wave3_e2e:366 ('New batch') | CARD-164 | done |
-| IDEA-070 | Square/landscape trims: no room for proof foot note | CARD-172 | done |
-| IDEA-071 | Guide page: worked-example rows and title wording | CARD-167 | done |
-| IDEA-072 | Unreadable stored print spec: name the remedy | CARD-173 | done |
-| IDEA-085 | Finalise guide preview still shows the old "How to use this book" text | CARD-169 | done |
-| IDEA-090 | Check: answer-key band drawn twice in an export (printed duplicate?) | CARD-170 | done |
-
-## Screened (kept on record, not ranked)
-
-| ID | Idea | Class | Ref | Revival trigger |
-|---|---|---|---|---|
-| IDEA-005 | system_rules.py --verify-refs resolves node ids | out-of-scope | forge_1 repo | forge_1 accepts the fix (a forge bug report against system_rules.py/adr_integrity is filed and lands) |
-| IDEA-063 | Picture name in player page source before solve | duplicate | IDEA-075 | a public player is confirmed separately from IDEA-075's public phase |
-| IDEA-076 | Card-text defects for decompose (process) | out-of-scope | forge_1 repo | a forge bug report is filed against decompose/forge:commit and forge_1 accepts it |
-| IDEA-077 | Gate hazard: diff against merge base (process) | out-of-scope | forge_1 repo | a forge bug report is filed against the kanban gate and forge_1 accepts it |
-| IDEA-078 | Two full-suite lock conventions (process) | out-of-scope | forge_1 repo | a forge bug report is filed against cmd-start-review/dispatcher and forge_1 accepts it |
-| IDEA-079 | Forbid concurrent mutation skeptics on one file (process) | out-of-scope | forge_1 repo | a forge bug report is filed against the card brief template and forge_1 accepts it |
-| IDEA-096 | CARD-169 owner check pending (superseded by the owner look item) | duplicate | IDEA-105 |  |
+- **Velocity forecast** — no `waves.duration` configured, so no sprint cadence to forecast against
+- **Capacity drift** — no `meta/.skills.yml`, so no plan to measure actual spend against
+- **Risk register, business ledger, intents/weights** — absent, so the constraint, interest-weight,
+  unvalidated-assumption and value-calibration screens do not apply
 
 ## Next step
 
-Card the next wave directly; model items (IDEA-007 ADR-0025/0031 validator ERROR; IDEA-004/006/029 dead or mismatched check refs) belong to one `/forge:architect` session — cards cannot commit under meta/.
+Run `/forge:architect` for the four owed amendments. It is the only item that unblocks other work.
