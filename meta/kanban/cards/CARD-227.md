@@ -150,4 +150,27 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   1. **Upgrade ADR-0037/R2's `check`.** It is `{kind: review-lens}`, which cannot fail a build. It was left that way deliberately: naming `TestBookGridRules_HasThreeWeights` before you write it would be a dead check-ref, the exact defect a premature `meta/` carry produced earlier this wave. When your test exists, change R2's check to it. ADR-0039/R1 — a coverage claim needs a control that can fail — and the wave-43 retrospective's headline was precisely that this rule "existed and did not bite".
   2. **`min_thin_rule_mm` in the code still says 0.25.** `src/nonogram/admin/book_page_spec.py:217` sets `min_thin_rule_mm=0.25` on `BOOK1_PROFILE`, and its docstring at :144 cites "ADR-0037/R2's thinnest thin grid rule". Both are now wrong. Prefer expressing the minimum in device pixels over a millimetre literal, since the decision was made in pixels and the mm figure is a consequence of 300 DPI. Note `src/nonogram/admin/book_page_spec.py` was added to R2's `scope.code` for this reason.
 
+- [Third obligation at landing, found by CARD-222's review cycle 2026-10-17] ⚠ **Four lines
+  still restate the retired 0.25 mm thin minimum**, and they are yours because they are claims
+  about the rule you are changing: `tests/test_book_pdf_band.py:710`,
+  `src/nonogram/export/layout.py:1861` and `:2166`, and
+  `src/nonogram/admin/book_page_spec.py:25`. CARD-222's review scoped them out as pre-existing
+  and its fix deliberately did not widen into them. Judge each: a line recording what the rule
+  *used to* say is audit trail and stays (annotate it), a line stating the current minimum is
+  wrong and must be restated. **Do not blanket-replace 0.25 with 0.169** — the two are not
+  interchangeable: 0.25 mm was a millimetre literal and the amended floor is *2 device pixels*,
+  which is 0.1693 mm only at 300 DPI. Prefer the pixel form, since that is how the decision was
+  made.
+
+- [What CARD-222 already settled for you — do not re-derive it] ADR-0037/R2 **binds the puzzle
+  grid, not page furniture.** CARD-222 wrote its footer hairline a formal exemption from R2 and
+  a control for it; both were unnecessary, and the episode is recorded in ADR-0037's History.
+  The consequence that reaches your card: after your three weights land, the grid's thinnest
+  cell line is 2 px and **the footer hairline is also 2 px** — the same width. Furniture can no
+  longer be lighter than grid ink by width, because width has hit the device floor and 1 px is
+  the dropout risk your own figures were scaled up to avoid. **Expect no test to assert
+  `furniture < grid ink`**; CARD-222's retargeted control deliberately compares furniture with
+  furniture only, and was verified green under a simulation of your 2 px thin rule. If you find
+  a test that compares the two, it is a defect you inherited, not one you caused.
+
 - [Residue, recorded not waved past] The three weights are **absolute points**, so they no longer scale with the cell — this supersedes COMP-007's proportional `cell / 30` rule under the book spec only. At NFR-008's 4.75 mm floor a 0.48 pt rule is 3.6 % of the cell; at the 7.5 mm cap 2.3 %. Large puzzles therefore get a *relatively* heavier grid than small ones, the opposite of the proportional rule's behaviour. ADR-0037's Consequences note about "about 5%" describes the superseded two-weight scheme. Whether this reads well is a proof-page question, and a proof page is already required before a book is finalised.
