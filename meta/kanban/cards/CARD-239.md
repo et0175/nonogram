@@ -800,3 +800,40 @@ controls spell their destination `PATH` and the one that shells out does so insi
 - [Fix 3] **I corrected one thing the pass got wrong, and it matters beyond this card.** F-201's status was written as `dismissed`; I changed it to `deferred` with a `status_note`. `dismissed` is what forge:retrospective's review-learning export mines into the cross-project `review_false_positives` signal, which forge:review then consults to avoid re-flagging known-dismissed patterns. F-201 is a real, measured finding deferred to CARD-242 by owner decision, not a false positive — recording it as dismissed would teach **every future review on every project** not to flag an exemption that absorbs what it guards, which is the exact opposite of this card's lesson. The same distinction was drawn correctly on this card's cycle 1 and on CARD-228's cycle 3; this pass regressed it.
 - [Fix 3] it also declined to commit the cycle-2 YAML on the branch, because main already tracks it at `473cc70` and committing it there would create an add/add conflict at merge — correct, and it told me to sync the statuses instead, which I did.
 - [AC/EC/G gate] dispatched. AC-7 is the item it was told to weigh hardest: two cycles found four claims that failed its test, so the question is not whether the sweep exists but whether it is TRUE NOW. It was also told that recorded bounds are a legitimate outcome here by owner decision, and that what to check is that each is measured, **non-vacuous**, and disclosed rather than implied — with F-201's self-policing bound called out as the one worth verifying.
+- [AC/EC/G gate] **PASS — every AC (1-7) and every guardrail (G-1..G-6) demonstrated**, no `unverified`,
+  no `violated`. 14 mutants, each in its own fresh process, each restored from a byte copy with md5
+  re-verified; final restoration audit clean. Four results worth keeping:
+  * **G-2 was re-derived, not relayed** — the gate measured 341 on `main` itself (the figure my dispatch
+    brief got wrong) → 399 at HEAD, `ast` name diff 87 → 95 with **0 removed**, and then swept the 87
+    shared functions at **body level**, finding exactly one with fewer statements:
+    `test_the_control_for_each_spelling_depends_on_the_set`, which lost the `setattr`/`finally` global
+    rebinding (that was F-10's fix) while keeping its assert and gaining the joiner parametrisation.
+  * **G-3 by construction, not by inspection** — `TIMING_LOG_LINE` AST-identical to main, and a full
+    top-level comparison of `rank_durations.py` with docstrings stripped: two things added
+    (`_RATE_BRACKET`, `check_log_report`), **nothing removed**, and only `main`'s argparse wiring
+    changed. No parsing function was touched, so the 40,214-line identity is preserved by construction.
+  * **G-4 the strengthening direction only** — a per-name diff of `_SURFACE_CLASSIFICATION` against main:
+    membership identical, three names moved **out of** `KIND_NEITHER` into the new `KIND_JOINER`, two
+    reasons corrected, and **nothing moved into `KIND_NEITHER`**. So the audit was not weakened to fit
+    a member, measured rather than asserted.
+  * **AC-6 exercised for real** — it ran `--check-log` by hand on three logs it constructed: well-formed
+    → rc=0; **CARD-217's bare-trailing-note line → `malformed: 1`, rc=1**; the parenthesised note →
+    clean. And the md5 of all three was unchanged after each run, so the reader really only reads.
+- [AC/EC/G gate] it declined to round up two things, and both are the right call:
+  * **the recorded bounds are real holes, and one is idiomatic** — F-201's survivor is
+    `NAME = "<command line>"` at module scope then executed, the most ordinary spelling in this repo,
+    and it survives at 476 passed today. So **CARD-242 is load-bearing, not bookkeeping.**
+  * **one blemish inside AC-7's own artefact**, which I then fixed: sweep row **E-8** read PINNED while
+    its own text carried "not borrowable without actually building a parser" — the sentence row E-10 two
+    lines below records as FOUND FALSE, and E-9 records E-8's third exemption as false too. The sweep's
+    own precedent settles it: D-6 and E-3 were **demoted** from PINNED when falsified. E-8 is now
+    demoted the same way, naming E-9 and E-10, with the false clause struck in place and a pointer
+    rather than deleted. `9665673`. A reader sampling E-8 alone would have taken a falsified claim as
+    holding — the defect the sweep exists to prevent, committed inside the sweep.
+- [Merge gate] rebased onto main `dfdaabb`. **The rebase hit an add/add conflict and it was my fault**:
+  I had copied `meta/review/CARD-239-claim-sweep.md` into the main repo and committed it while the
+  branch also creates it. Resolved to the commit being applied at each step (`--theirs` is the applied
+  commit during a rebase, not the upstream) and verified afterwards that the E-8 demotion survived and
+  that main's corrected cycle-2 YAML — the `dismissed` → `deferred` fix — is untouched, since the branch
+  does not carry that file. The agent had warned about exactly this shape for the cycle-2 YAML and
+  avoided it; I created it for the sweep file.
