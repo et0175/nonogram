@@ -60,6 +60,32 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
 
 ## History
 
+- 2026-10-17: **R2's scope clarified — it binds the puzzle grid, not page furniture — and a
+  consequence of the amendment above is recorded.** No decision changed. CARD-222's review
+  surfaced that the card had read R2 as binding the interior footer's hairline and had written
+  it a formal **exemption** with an ADR-0039/R3 control. R2 does not bind it: the superseded
+  wording said "every thin **grid** rule" and the amended wording says "the puzzle **grid** has
+  exactly three rule weights". A footer hairline is furniture. The exemption was unnecessary
+  under the old rule and is **vacuous** under the new one — measured: the hairline is 0.4 pt =
+  1.667 px → **2 px = 0.1693 mm**, which is *exactly* the amended minimum, not under it. The
+  card's claim "at 0.169 mm it is deliberately under that minimum" was true against the retired
+  0.25 mm and is false against the amendment, which landed the same day from the same pass.
+  **The consequence worth recording, because it is a real loss of room and not a bookkeeping
+  fix:** once CARD-227 implements the three weights, the grid's thinnest cell line is 0.48 pt =
+  **2 px**, and the footer hairline is also **2 px**. They become *the same width*. Furniture
+  can no longer be made lighter than grid ink by width, because **width has reached the device
+  floor** — and the step below, 1 px, is precisely the dropout risk the amendment above rejected
+  for the grid. So the furniture/grid distinction now rests on **tone**, not weight, which the
+  design already supports: the grid's cell lines are grey while its fifths and border are dark.
+  Anything that wants to read lighter than a cell line must be lighter in *ink*, and there is
+  no room left underneath in width. Stated here so the next card reaches for tone rather than
+  rediscovering the floor.
+  **What this obliges of CARD-222** (recorded on that card): drop the false exemption claim and
+  retarget its control onto what is actually load-bearing and falsifiable — the hairline sits at
+  the 2 px dropout floor, and the header rule is heavier than it (3 px against 2 px), which is
+  what makes the pair read as a heading rule and a hairline. As written, two of that control's
+  three assertions go red when CARD-227 lands, and the red would read as a CARD-227 regression
+  while actually asserting a property the amendment makes unsatisfiable.
 - 2026-10-17: **R2 amended — the grid gets three weights, the cell lines go grey, and the thin
   minimum drops 0.25 → 0.169 mm (owner decision, CARD-227).** The Decision's two-weight stroke
   minimum is superseded; everything else in this ADR stands.
@@ -140,6 +166,13 @@ For example "12 · 25×20 · Medium", with current strokes. Rejected: the size i
   # rather than 0.25 mm. Under the book spec the weights are ABSOLUTE POINTS,
   # which supersedes COMP-007's proportional cell/30 rule quoted in the
   # Context above — that rule still governs the default spec.
+  # SCOPE, clarified 2026-10-17 after CARD-222's review read it the other way:
+  # R2 binds the **puzzle grid's** rules and nothing else. Page furniture --
+  # the interior header rule, the footer hairline, a divider -- is NOT a grid
+  # rule and never was, under this wording or the superseded one ("every thin
+  # *grid* rule"). Furniture that must not drop out on press is held to the
+  # same 2-device-pixel floor, but for the dropout reason directly and not
+  # through R2, so it needs no exemption from R2 and must not claim one.
   # The check is `review-lens` only until CARD-227 lands the measuring test;
   # naming TestBookGridRules_HasThreeWeights before it exists would be a dead
   # check-ref. CARD-227 upgrades this check to that test as part of its

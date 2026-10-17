@@ -1,0 +1,268 @@
+version: 1
+generated_at: "2026-10-17T18:09:13Z"
+target: "CARD-222, cycle 1 of 3 — branch card/222-interior-page-frame @ 9a4d430, diff main(0c18cab)...HEAD, worktree /Users/omelnikova/PycharmProjects/PythonProject4-card-222"
+overall_score: 8.5
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - "migrations/versions/015_book_outside_margin_default.py (full)"
+    - "src/nonogram/export/layout.py (full diff + compute_layout placed branch + px helpers)"
+    - "src/nonogram/admin/book_page_spec.py (full diff)"
+    - "src/nonogram/admin/book_pdf_generator.py (full diff + _draw_folio body)"
+    - "src/nonogram/db/models.py, admin/{app,book_manager,book_proof,print_specs}.py, admin.css, 2 templates (full diffs)"
+    - "tests/test_book_page_frame.py (structure + fixtures, AC-7, F-2/F-3/F-4, G-1 guard, hairline, mirroring)"
+    - "tests/test_batch_requested_tier.py chain guard (full, plus 2 executed mutants)"
+    - "tests/test_book_page_spec.py, test_book_toc.py, test_book_guide_page{,_type}.py, test_book_proof_pages.py, test_book_floor.py, test_book_select_floor_tiles.py, test_book_page_numbers.py, test_book_interior_type_floor.py (diffs)"
+    - "tests/property/{test_book_export_interior,test_book_page_spec,test_book_pairing,test_book_pdf_geometry}.py (diffs)"
+    - "tests/helpers/{page_ink,round_ink,book_corpus}.py (diffs)"
+    - "meta/architecture/decisions/adr/0036 (diff), 0037 (Rules + History), 0039/R3; requirements.yml FR-043 + folio/page-number greps"
+  not_reached:
+    - "tests/test_book_pdf_memory.py (216 lines changed) — not read"
+    - "tests/test_book_answer_key.py, test_book_arrange_page_breaks.py, test_book_pdf_levels.py, test_book_solved_page.py, test_book_solved_answer_key.py, test_book_qr_slot.py, test_book_scaffolding.py, test_print_specs.py, test_book_pdf_band.py, test_book_pdf_ink_mode.py — diffs not read"
+    - "tests/helpers/two_up_ink.py — diff not read"
+    - "tests/fixtures/book_baseline_card222.json, proof_baseline_card222.json — metadata read, digest bodies not verified"
+    - "tests/test_book_difficulty_dots.py — only the REGION_FLOOR derivation read, not the 172-line diff"
+  confidence: high
+
+metrics:
+  diff: { files: 51, added: 3526, removed: 553 }
+  max_fan_in:
+    symbol: "nonogram.admin.book_page_spec.FLOOR_MM"
+    callers: 12
+    note: "5 src modules + 7 test files; interior_frame 2 src + 5 tests; _draw_page_frame 1 src + 5 tests; tests/helpers/page_ink.drawing_of 14 consuming test files"
+  tests_cover_change: true
+  hotspots:
+    - "src/nonogram/admin/book_pdf_generator.py (67 commits/12mo, 38 fix-shaped — highest defect density in the diff)"
+    - "src/nonogram/export/layout.py (22 commits/12mo, 10 fix-shaped)"
+    - "tests/helpers/page_ink.py (shared measurement helper, 14 consumers, no self-tests, algorithm changed here)"
+  cochange_missing: []
+  cochange_note: >-
+    Top co-change peers of the three src files absent from this diff are
+    src/nonogram/admin/templates/book_finalize.html (10 co-changes) and
+    tests/test_book_export_interior_cover.py (9). Both checked: neither carries a
+    retired margin, usable-width or 4.8 mm figure (book_finalize.html renders the
+    floor through {{ floor_mm }}), so neither is a missing change.
+  unmeasured:
+    build_gate: >-
+      not_applicable — full suite deliberately not re-run (orchestrator's gate on
+      this exact HEAD: 7873 passed / 9 skipped / 0 failed in 989.07s, reconciling
+      with the tree's 7882 collect-only count). Targeted runs only.
+  executed_runs:
+    - "tests/test_batch_requested_tier.py -k 'chain or revises' — baseline 2 passed (0.69s)"
+    - "same selection with a two-head mutant — 1 FAILED, 1 passed"
+    - "same selection with a merge-revision mutant (single head, non-linear chain) — 1 FAILED, 1 passed"
+    - "same selection after restore — 2 passed; git status clean"
+
+system_contract:
+  rules_checked: 8
+  holds: 7
+  unchecked: 0
+  violated: 0
+  note: >-
+    The card's curated `## System contract` lists 7 rules (53 package-wide rules
+    deliberately omitted per the owner's 2026-10-17 decision). ADR-0039/R3 added
+    as an 8th because the card's residue discipline and the orchestrator's brief
+    both lean on it. F-001 is filed against ADR-0039/R3's control requirement,
+    not as a substantive violation of ADR-0037/R2 — R2 itself holds.
+  verdicts:
+    - "ADR-0036/R1 ✓ holds — only compute_layout's placed (PageSpec) branch changed: four inline usable_* assignments were hoisted into _usable_box_px with identical arithmetic (verified line by line against the deleted lines at layout.py:2426-2429); the drawing-sized branch is untouched and interior_frame raises on a parity-less spec (TestBookPageFrame_RefusesASheetThatIsNotABookPage). TestLayout_DefaultPageSpecIsByteIdenticalToA4Golden (tests/test_layout_page_spec.py, tests/test_export_a4_golden.py) and PropertyTest_CliExports_ByteIdenticalWhateverTheBookGeometry (tests/property/test_cli_exports_byte_identity.py) are absent from the diff's file list, so both controls are unmodified and green in the orchestrator's full run."
+    - "ADR-0036/R2 ✓ holds, and narrows the standing breach rather than widening it — the new geometry function interior_frame lives in src/nonogram/export/layout.py (COMP-007), not in book_pdf_generator.py where page_frame sits; book_pdf_generator's _draw_page_frame/_draw_rule compute nothing (read both bodies: every coordinate and both weights are read off the InteriorFrame), and test_the_frames_geometry_reads_names_and_never_a_number asserts interior_frame's only numeric literals are {1, 2}. The card's System-contract note predicted the opposite ('this card adds a region to that same place'); the implementation did better than the prediction."
+    - "ADR-0036/R3 ✓ holds — test_the_books_own_pages_carry_no_undeclared_round_mark present and re-measured at both thresholds; REGION_FLOOR = 2600 against 2640 measured on this tree, cross-measured against main at c2b0646 (3222), so the round-mark denominator is not a statement about a blank book."
+    - "ADR-0036/R4 ✓ holds — the diff adds exactly one new string literal to src/: SIZE_LABEL_SEPARATOR = \" x \" (book_pdf_generator.py:540), ASCII with the U+00D7 alternative explicitly rejected in its docstring; test_no_module_types_a_round_mark_as_a_character is present and untouched."
+    - "ADR-0037/R1 ✓ holds — the band's caption (f\"Puzzle {n}{BAND_SEPARATOR}{tier.label}\") is not in the diff; the header rule is page furniture drawn inside the band, 1/8 of the band's depth above its foot, and R1 constrains what the band *prints as text* (no picture title; number and tier only). Note, not a violation: the card flagged R1 for an architect re-read and recorded that reading nowhere in the tree — declared, not resolved (see M-3's record gap)."
+    - "ADR-0037/R2 ✓ holds — the diff changes no grid rule weight: measured on this tree, BOOK1_PROFILE's thin/heavy grid rules are 3 px / 6 px, unchanged, and the new footer hairline is page furniture outside R2's 'thin grid rule' scope. What is wrong is the card's own *statement about* R2 — filed as F-001 against the docstring and its control, not against R2's substance."
+    - "CON-020 ✓ holds — the one face the frame adds is the grid-size label at SIZE_LABEL_PT, which reads COMP-007's INTERIOR_FOOTER_LINE_PT = 10.0 rather than restating the floor; registered as a new face kind in TestInteriorType_EveryFaceHoldsTheFloor via FOOTER_LABEL_SETTER (tests/test_book_interior_type_floor.py:96) and required on every book but min-trim, where the measurement shows no page frees its footer strip."
+    - "ADR-0039/R3 ✗ control defect, not a substantive violation — four of the card's five exemptions carry a control with a measured bound that reds when the residue widens: the refused 8.25 in square is *asserted refused* (pytest.raises(ValueError, match='no room for the proof note'), tests/test_book_proof_pages.py), the TOC-folio loss is an exact asserted set ['10.00'..'10.60'] plus an equality on the -26 px deficit, the guide-page parity loss bounds its own set (len(flush) <= 6), and the G-1 figure guard holds its allow-list to an equality against today's sites with a second control that no exempt name is read by the frame. Two gaps: the ADR-0037/R2 'exemption' has a control built on a retired threshold (F-001), and the bare_level-2 exemption records its count in prose only (M-1)."
+
+root_causes:
+  - id: RC-1
+    title: "The 2026-10-17 registry delta was propagated for NFR-008's floor but not for ADR-0037/R2's stroke minimum"
+    finding_ids: [F-001]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: src/nonogram/export/layout.py
+    line: 1287
+    title: "The footer hairline's new exemption and its control are written against a retired ADR-0037/R2"
+    description: |
+      ADR-0037/R2 was amended on `main` on 2026-10-17 (commit db04c23, the same
+      architect-station pass that lowered NFR-008's floor to 4.75 mm — which this
+      card does propagate). The amended rule sets the thin minimum at **2 device
+      pixels = 0.1693 mm**, not 0.25 mm (meta/architecture/decisions/adr/0037-*.md,
+      `## Rules` and the 2026-10-17 History entry: "0.48 / 1.28 / 2.08 pt =
+      0.1693 / 0.4516 / 0.7338 mm, rendering 2 / 5 / 9 px").
+
+      The card's new `INTERIOR_FOOTER_RULE_PT` docstring (layout.py:1281-1295) states
+      the retired figure as live and derives an exemption from it:
+
+        "R2 binds 'every thin *grid* rule' to at least 0.25 mm (3 px); this is page
+         furniture, not a grid rule, and at 0.169 mm it is deliberately under that
+         minimum. The exemption is held by a control: ... TestBookPageFrame_
+         TheHairlineIsNotAGridRule asserts both halves."
+
+      Measured on this tree (independent computation, not re-derived from the
+      function under test): the hairline is `_pt_to_px_at_least(0.4)` = **2 px =
+      0.1693 mm**, which is *exactly* the amended minimum, not under it. So the
+      exemption the docstring declares does not exist, and the control that ADR-0039/R3
+      requires for it is guarding a threshold the registry retired.
+
+      The control itself (tests/test_book_page_frame.py:957-965) asserts:
+
+        assert frame.footer_rule.width < layout.thin_rule        # 2 < 3 today
+        assert layout.thin_rule / DPI * 25.4 >= 0.25             # 0.254 >= 0.25 today
+        assert frame.footer_rule.width / DPI * 25.4 < 0.25       # 0.1693 < 0.25
+
+      It passes today only because `BOOK1_PROFILE.min_thin_rule_mm` is still the
+      retired 0.25 (measured: thin = 3 px = 0.254 mm). Concrete failure scenario:
+      when amended R2 is implemented — the three-weight grid at 0.48/1.28/2.08 pt →
+      2/5/9 px — `layout.thin_rule` becomes 2 px and **two of the three assertions
+      red**: `2 < 2` is false and `0.1693 >= 0.25` is false. Worse than the red
+      itself, the test is framed as R2's exemption control, so it will read as a
+      regression in CARD-227's work while actually asserting a property amended R2
+      makes unsatisfiable: a hairline lighter than a grid rule that is itself at the
+      2 px floor.
+
+      Scope note, because this is the obvious dismissal: the two lines carrying the
+      retired figure (layout.py:1287, 1292) are **added by this diff**, verified with
+      `git diff -U0`. The pre-existing restatements (layout.py:467/739/1846/2151,
+      book_page_spec.py:25, book_proof.py:4,7) are the same known backlog class as
+      the 4.8 mm test-file naming and are listed separately as out-of-scope.
+    suggestion: |
+      Two edits, both local:
+      1. layout.py:1281-1295 — restate against amended R2: the hairline is 2 px,
+         which is R2's own thin minimum, so it needs no exemption at all. What it
+         *is* is lighter than the book's **current** thin grid rule (3 px, because
+         min_thin_rule_mm is still 0.25) — a property of today's profile, not of R2.
+      2. tests/test_book_page_frame.py:957-965 — either retarget the control to
+         amended R2 (`frame.footer_rule.width >= 2` and the grid's thin rule
+         >= 2 px), or keep the "lighter than the grid rule" claim and mark it
+         explicitly as a property of the un-amended profile that CARD-227's landing
+         is expected to change, so the future red is not read as a regression.
+      Either way the exemption framing should go: there is nothing to exempt.
+    confidence: high
+    source: model
+    violates: ADR-0039/R3
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: medium
+    category: tech-debt
+    type: gap
+    file: tests/test_book_guide_page_type.py
+    line: 605
+    title: "The bare_level-2 exemption lost its page gate and bounds its magnitude but not its count"
+    description: |
+      `assert_bottom_fits_or_is_the_known_bare_level_2_gap` changed its predicate from
+      `page_number == 1 and height_cm < CEILING` to `height_cm < CEILING`, and both
+      bounds widened: ceiling 12.0 → 12.5 cm, overflow 130 → 150 px. The disclosure
+      is thorough and the magnitude is bounded. What is **not** asserted is the set:
+      the docstring states "six of this corpus's 48 cases overflow now rather than
+      four, by between 6 and 140 px" and no assertion counts them.
+
+      Concrete failure scenario: a later change that makes the 10 cm trim's page 2
+      overflow 56 → 149 px, or that makes one of the currently-clean sub-12.5 cm
+      corpus cases overflow by 100 px, passes green. The sibling residue control
+      added in this same diff does bound its set
+      (tests/test_book_guide_page.py: `assert len(flush) <= 6` with "a seventh fails
+      here"), so the asymmetry is within the card's own standard.
+
+      Reach, measured rather than assumed: the helper has exactly two call sites
+      (lines 715 and 776) and they pass page 1 and page 2 only, so dropping the page
+      gate widens the exemption to page 2 of the min trim and nothing else. Corpus
+      heights are `uniform(10.0, 48.0)` rounded to 2 dp over 47 random cases plus one
+      pinned 10×10, so roughly four cases sit below the 12.5 cm ceiling. That is why
+      this is a control gap rather than a live defect, and why it is Minor.
+    suggestion: |
+      Add a count bound alongside the magnitude bound, in the shape the guide-page
+      test uses: collect the overflowing cases in
+      `test_the_whole_corpus_of_trims_and_counts_fits` and assert the set (or its
+      size) equals today's measured six, with the message naming what a seventh
+      means. Optionally keep a page-level bound too: assert no page above 2 ever
+      takes the exemption, so the dropped `page_number == 1` gate cannot silently
+      cover a third page kind if a caller is added.
+    confidence: high
+    source: static
+    violates: ADR-0039/R3
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_book_select_floor_tiles.py
+    line: 53
+    title: "An edited sentence derives new values from the retired usable width"
+    description: |
+      The card changed this docstring's derived figures to the amended margins
+      ("6.05 or 5.87" → "5.95 or 5.87", and ABOVE_FLOOR_WIDE's 6.05 → 5.95) but left
+      the width they are derived from on the context line above at the retired
+      `193.675 mm`. Verified arithmetically: 193.675/32 = 6.052 (the old value),
+      190.5/32 = 5.953 (the new one), so the sentence now states the new result with
+      the old premise. Every other 193.675 on an added line in this diff is correctly
+      framed as historical ("-> 190.5", "was", "gave", "before it") — checked with
+      `git diff -U0 | grep '^+.*193\.67'`.
+    suggestion: "193.675 → 190.5 on tests/test_book_select_floor_tiles.py:52."
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-222.md
+    line: 180
+    title: "Three code comments cite residue records that CARD-222.md does not carry"
+    description: |
+      The five measured residues are recorded in code and test docstrings, and each
+      has a control in tests — but none is on the card, and three of those docstrings
+      point at the card for the record:
+        * tests/helpers/book_corpus.py:479 — "measured before and after, in that
+          card's Worktree notes" (the 13-page and 307-page corpus counts, which is
+          also the card's own "measure the corpus's page count before and after and
+          state it" obligation);
+        * tests/test_book_toc.py:1332 — "surfaced for an owner decision (CARD-222's
+          Worktree notes)" for the 10.00–10.60 cm TOC-folio loss, with the two ways
+          to buy the 75 px back;
+        * tests/fixtures/proof_baseline_card222.json's `why_a_new_baseline` — the
+          8.25 in square refusal.
+      Verified: grepping the card for "residue", "10.70" and "8.25" returns one
+      unrelated hit, and its `## Worktree notes` end at the build-gate entries.
+      The measured bounds themselves are all asserted in tests, so ADR-0039/R3's
+      control requirement is met; what is missing is the owner-facing record the
+      comments promise. This is the orchestrator's to record, not the branch's (the
+      card was deliberately reverted out of the branch), so it is filed as a record
+      gap rather than against the code.
+    suggestion: |
+      Record on the card, in `## Worktree notes`: the five residues with their
+      measured bounds and the test that holds each, the corpus page counts before
+      and after (13 unchanged / 307 unchanged, interior_bytes 3464123 → 3313912),
+      and the TOC-folio owner decision with its two options and the 75 px price.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null

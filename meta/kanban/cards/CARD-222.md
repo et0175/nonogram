@@ -179,6 +179,65 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 
 ## Worktree notes
 
+- **[Review 1/3] Score 8.5 — clears the ≥8 target, but one Important finding gates the cycle.**
+  Risk MEDIUM, lane DEEP. All seven ACs implemented and controlled; migration chain sound and
+  the downgrade symmetric; eight system-contract rules checked with no substantive breach;
+  G-1..G-6 hold. Step 8f's mutation ladder correctly emitted `deferred(cost)` — the tests it
+  would certify are about to change with the fix. Report copied to `meta/review/`.
+  Independently re-derived by the reviewer and confirmed: usable 190.5 × 253.492 mm, the cell
+  at clue depth 10 = 4.7625 mm (0.0125 above the floor, admitted) and depth 11 = 4.6463 (below
+  it), `INTERIOR_FOOTER_MM` 29.8778, the Book 1 frame's 2517 px drawing area and the 10 cm
+  trim's 398 px, and the two-up frame identical on both parities so CARD-226/CARD-200 are
+  untouched.
+
+- **[Review 1/3, F-001 Important — CONFIRMED by the orchestrator, and caused by the
+  orchestrator's own commit]** The footer hairline's new exemption and its ADR-0039/R3 control
+  are written against a **retired** ADR-0037/R2. `db04c23` amended R2 the same day, from the
+  same architect pass that lowered the floor this card does propagate — so the card was correct
+  when written and was invalidated underneath it. Verified by direct measurement rather than
+  accepted: `INTERIOR_FOOTER_RULE_PT = 0.4` is 1.667 px → **2 px = 0.1693 mm**, and amended R2's
+  minimum is **2 device pixels = 0.1693 mm**. The hairline is *exactly at* the minimum, so the
+  docstring's "at 0.169 mm it is deliberately under that minimum" is false and **the exemption
+  does not exist**. The control passes today only because `min_thin_rule_mm` is still the
+  retired 0.25 (thin rule 3 px): measured, `2 < 3 → True` and `0.254 >= 0.25 → True`, but once
+  CARD-227 lands they become `2 < 2 → False` and `0.1693 >= 0.25 → False`. **Two of three
+  assertions red, and the red would read as a CARD-227 regression** while actually asserting a
+  property the amendment makes unsatisfiable.
+  **Settled at the architect station rather than left to the fix agent** (ADR-0037 History,
+  2026-10-17): R2 binds the **puzzle grid**, not page furniture — both the superseded wording
+  ("every thin *grid* rule") and the amended one say grid. A footer hairline never needed an
+  exemption. Furniture is held to the same 2 px floor for the **dropout** reason directly, not
+  through R2.
+  **The real loss, recorded because it is not bookkeeping:** after CARD-227 the grid's thinnest
+  cell line is also 2 px, so hairline and cell line are **the same width**, and furniture can no
+  longer be lighter than grid ink *by width* — width has hit the device floor, and 1 px is the
+  dropout risk the amendment rejected. The distinction now rests on **tone**, which the design
+  already supports (grey cells, dark fifths and border).
+
+- **[Review 1/3, F-004 — recorded here by the orchestrator, which is what the finding asked
+  for.]** The five residues all carry controls in tests (R3's requirement is met — the reviewer
+  checked each), but they were not written down anywhere an owner would look; three code
+  comments point at this card's notes for them. They are:
+  1. **The guide page drops caption lines on Book 1.** Bounded by its own asserted set —
+     `len(flush) <= 6`, with the docstring stating "a seventh fails here", so a widening reds.
+  2. **Seven trims below 10.70 cm print their TOC page without a folio** — asserted as the
+     *exact* set `['10.00' … '10.60']`, not a range, plus equalities on the 26 px deficit and
+     the 75 px price. 10.70 cm is named as the boundary trim that still numbers its page.
+  3. **A book at 8.25 × 8.25 in can no longer be proofed at all.** Moved into
+     `REFUSED_TRIMS_CM` and **asserted refused** — `pytest.raises(ValueError, match="no room
+     for the proof note")`, parametrised — so a later card that buys the room back reds the
+     list instead of silently re-admitting the trim. This is the one I most wanted asserted
+     rather than merely absent from a corpus, and it is.
+  4. **The pairing window closes earlier**, with the borderline cell re-derived independently
+     as `(190.5 − 9.144) / 25 = 7.25424`.
+  5. **The bare_level-2 corpus gap widened** — magnitude and height bounded, **count not**;
+     that is F-002 below and is going to the fix.
+  **Reading of the set as a whole:** four of five are the amended margins taking room away at
+  the small-trim end, and each is a *refusal or a degradation that is asserted*, not a test
+  that stopped running — which is the distinction the earlier phantom-skip episode was really
+  about. The owner validates renders after a merge; residues 1 and 2 are the two worth an
+  eyeball on a small trim.
+
 - **[Build gate] PASSED (full, 995s) — fix attempt 2/2, rebased onto `main`.**
   `7873 passed, 9 skipped, 0 failed` in 989.07s, run by the orchestrator under
   `meta/kanban/.full-suite.lock` on a quiet host. **7873 + 9 = 7882, which is exactly the
