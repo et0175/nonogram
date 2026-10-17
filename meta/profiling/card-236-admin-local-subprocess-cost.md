@@ -49,6 +49,77 @@ The settled figure is the orchestrator's quiet full-suite profile at the merge
 gate. What it should show: the trio at **~13 s**, the suite's attributed time
 down from 920.63 s to **~816 s**.
 
+## The settled measurement — the orchestrator's solo run at the merge gate
+
+Everything in the sections above was recorded **under contention** and says so. This section
+is the solo measurement G-3 asked for, taken by the orchestrator on a quiet host after
+CARD-222 had merged and with no agent, sibling worktree or other suite running.
+
+**The trio alone, both halves measured solo and consecutively** (`pytest -q` total, three files,
+no other process):
+
+| | wall | tests |
+|---|---|---|
+| before, on `main` | **140.79 s** | 83 passed |
+| after, this card | **13.73 s** | 83 passed |
+| ratio | **10.25x** | same 83 node ids |
+| trio + this card's own `test_admin_local_cost.py` | 14.37 s | 105 passed |
+
+**Read the metric, not just the number.** 10.25x is *not* an improvement on the contended
+8.67x reported above: the two are different measurements. The contended figures are
+**attributed** time (pytest's summed per-test durations); these are pytest's **total wall**
+for the same three files, which includes collection and fixture setup outside per-test
+attribution. That is why the contended "before" of 116.04 s is *smaller* than this solo
+"before" of 140.79 s, which would otherwise look impossible. The honest comparison is
+ratio-to-ratio within one metric, and both metrics agree that the cost is gone.
+
+**The suite, measured across two consecutive full-suite gates on the same host, same day:**
+
+| | suite wall | tests |
+|---|---|---|
+| CARD-222's merge gate (before this card) | 924.53 s | 7873 passed, 9 skipped |
+| CARD-236's merge gate (this card) | **784.64 s** | **7895 passed, 9 skipped** |
+| delta | **-139.89 s (-15.1 %)** | **+22 tests** |
+
+The suite got 15 % faster *while gaining 22 tests*. The solo trio delta
+(140.79 - 13.73 = 127.06 s) independently accounts for 127 s of that 140 s, and the residual
+12.83 s sits well inside the host variance already observed on **identical code** in this same
+session: CARD-222's two gates measured 995 s and 928 s, a 67 s spread. Two independent
+measurements agreeing to less than the host's own noise is the strongest claim available here.
+
+**The trio's share of the suite, and a correction to this card's own projection.** Measured
+from the merge gate's `--durations=0` output, the three files plus the new cost file attribute
+**25.13 s of 784.64 s = 3.20 %**:
+
+| file | attributed | duration lines |
+|---|---|---|
+| `test_start_admin_local.py` | 10.83 s | 36 |
+| `test_run_admin_tests.py` | 6.46 s | 26 |
+| `test_admin_local_cost.py` | 4.66 s | 12 |
+| `test_setup_admin_local.py` | 3.18 s | 22 |
+| **total** | **25.13 s** | 96 |
+
+That is a **lower bound**: pytest omits durations under 5 ms, and about 219 of the 315 possible
+phase entries for these 105 tests are not listed, worth at most ~1.1 s in total. So the true
+share is **3.20-3.34 %**.
+
+**This card projected 1.64 % and the measured figure is 3.20 % - the projection was optimistic
+by a factor of 2, and that is recorded rather than quietly replaced.** The projection was
+derived by scaling the contended attributed figures; it did not account for per-test setup and
+teardown inside a full-suite run, where the host is loaded by 7895 other tests rather than idle.
+Against CARD-217's recorded baseline the share still falls from **12.59 %** to **3.20 %**, a
+3.9x reduction - a smaller win than projected, and a real one.
+
+*(One small discrepancy noted in passing, not corrected here because it is CARD-217's
+recording and this document only reads it: CARD-217's own figures give
+117.16 / 930.81 = 12.59 %, while the number quoted as its headline is 12.73 %. The
+re-derivation is stated here so a later reader is not puzzled by the 0.14 pp.)*
+
+**Status of G-3 after this section: met.** The two `.txt` artefacts keep their
+`solo run: no` headers, because they are honest records of contended runs and relabelling them
+would make them lie; `test_neither_artefact_claims_to_be_the_solo_profile_g3_asks_for`
+therefore still passes and still guards them. The solo measurement lives here instead.
+
 ## The measurement the diagnosis rests on
 
 Three columns, each 5–6 runs of one `--check-only` run of
