@@ -143,7 +143,7 @@ capabilities:
       without confirmation; marking the book ready only when its mix
       matches the plan; tracking actual-vs-plan progress in the books list;
       and generating the book PDF with every puzzle page portrait, sized
-      for the book's own trim under the 7.5 mm standard cell and 4.8 mm
+      for the book's own trim under the 7.5 mm standard cell and 4.75 mm
       floor, titles only in the answer key. Puzzles are referenced, never
       modified; book geometry never leaks into CAP-005's exports (CON-019).
       Since 2026-09-22 (b): every puzzle prints upright (never rotated),

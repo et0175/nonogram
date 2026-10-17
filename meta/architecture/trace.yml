@@ -1676,7 +1676,7 @@ links:
   status: partial
 
 - req: FR-031
-  description: "A puzzle whose book cell is below the 4.8 mm floor is flagged on its tile and joins a book only with a stored per-puzzle override, on every add route; finalise counts below-floor puzzles on the current trim"
+  description: "A puzzle whose book cell is below the cell floor (TERM-024, NFR-008: 4.75 mm) is flagged on its tile and joins a book only with a stored per-puzzle override, on every add route; finalise counts below-floor puzzles on the current trim"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-009, COMP-007, COMP-010]
@@ -1703,7 +1703,7 @@ links:
   status: partial
 
 - req: FR-032
-  description: "Every book puzzle page is portrait and every puzzle prints upright (never rotated); the drawing's top edge is fixed below the top margin and band (upper slot on a two-up page)"
+  description: "Every book puzzle page is portrait and every puzzle prints upright (never rotated); the drawing is centred horizontally and floats at 42% of the puzzle area's spare height (upper slot on a two-up page)"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-007, COMP-009]
@@ -1719,6 +1719,14 @@ links:
   - TestBookPdf_ParityNeverMovesTopEdge
   - PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
   notes: >-
+    Amended 2026-10-17 (CARD-224, owner's artifact 2026-10-14): the fixed top
+    edge becomes a 42% float of the puzzle area's spare height (AC-190 retired,
+    AC-366/AC-367 added, EC-022 restated); the amendment CARD-204 had logged
+    against the "centred" clause is CANCELLED, not applied, because CARD-224
+    reverses CARD-204's flush-by-parity placement. AC-274/AC-275 re-measured on
+    CON-018's amended margins (both 25.45 mm). The test name
+    PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent still encodes
+    the retired rule and is CARD-224's to rename.
     Amended 2026-09-22 (d): parity counted from interior page 1 (FR-043);
     AC-274/AC-275 reworded to "interior page", test names unchanged.
     Amended 2026-09-22 (c): the drawing is centred across the usable width of
@@ -2017,7 +2025,7 @@ links:
   status: partial
 
 - req: FR-043
-  description: "Book export produces the interior PDF without the cover (page 1 = the guide page, right-hand; parity and page count from it) and the front cover as a separate trim-size file, on every export route"
+  description: "Book export produces the interior PDF without the cover (page 1 = the blank title page, right-hand, the guide facing on pages 2-3; parity and page count from it) and the front cover as a separate trim-size file, on every export route"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-009, COMP-007]
@@ -2036,6 +2044,11 @@ links:
   - TestBookPdfDownload_ErrorIsGenericAndLogged
   - PropertyTest_AdminErrors_RawExceptionTextNeverReachesTheScreen
   notes: >-
+    Amended 2026-10-17 (CARD-206 + CARD-229, one amendment for both claimants
+    of the statement, this FR and INV-013): interior page 1 is the blank title
+    page and the guide follows as a facing spread on pages 2-3. The parity
+    mechanism and the interior page count are unchanged; every page number
+    after page 1 shifts by one (AC-287 re-measured to interior page 6).
     New 2026-09-22 (d). Story US-023; INV-013, EC-034; owner decision BK-9
     (not a DEC). COMP-009 (book_pdf_generator.py and the three export routes)
     stops putting the cover on page 1, starts the interior at the guide page
@@ -2182,7 +2195,7 @@ links:
   status: partial
 
 - req: NFR-008
-  description: "Every puzzle printed in a book has 4.8 mm <= cell <= 7.5 mm on the book's own trim and real clue depth; below 4.8 mm only by explicit override"
+  description: "Every puzzle printed in a book has 4.75 mm <= cell <= 7.5 mm, chosen per grid size per book on the book's own trim and fitted to the deepest-clued member of that size; below 4.75 mm only by explicit override"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-007, COMP-009]
@@ -2193,6 +2206,16 @@ links:
   - TestBookCell_ThirtyByThirtyNineDeepAboveFloor
   - TestBookCell_TwelveDeepBandFallsBelowFloor
   notes: >-
+    Amended 2026-10-17 (CARD-225, owner 2026-10-17): floor 4.8 -> 4.75 mm and
+    the figure chosen per grid size per book, fitted to the deepest-clued
+    member. The 4.75 mm floor restores exactly today's breach point under
+    CON-018's amended margins; it does NOT clear the residue — a 30x30 grid
+    breaches from clue depth 11 (4.646 mm) and random 30x30 grids at density
+    0.5 reach depth 13 (4.430 mm), so those puzzles are admitted by FR-031's
+    per-puzzle override. PROPAGATED 2026-10-17 (second pass): FR-031 (state-
+    ment and EC-021 by reference, AC-182..AC-188 re-measured), TERM-024,
+    INV-006, CAP-006, FR-032's AC-241 and this file's FR-031 description all
+    follow the 4.75 mm floor; NFR-008 is the single site that owns the number.
     Book-only (NFR-005 still governs CLI/web). The 7.5 mm flat cap is the book
     PageSpec's cell-cap policy in COMP-007; the floor is enforced at membership
     by COMP-009 (FR-031). The two-up 7.0 mm minimum (FR-040) sits inside this
@@ -2200,7 +2223,7 @@ links:
   status: partial
 
 - req: CON-018
-  description: "The Book 1 print profile is every book's default: trim 8.5x11 in, gutter 0.5 in, outside/top/bottom 0.375 in, no bleed, 12 mm title band; an empty margin falls back to it"
+  description: "The Book 1 print profile is every book's default: trim 8.5x11 in, gutter 0.5 in, outside 0.5 in, top 0.55 in, bottom 0.47 in, no bleed, 12 mm title band; an empty margin falls back to it"
   capabilities: [CAP-006, CAP-005]
   contexts: [CTX-001]
   components: [COMP-009, COMP-010, COMP-007]
@@ -2209,6 +2232,14 @@ links:
   - TestBookCreate_StoresBook1PrintProfile
   - TestBookPdf_EmptyMarginsFallBackToBook1Profile
   notes: >-
+    Amended 2026-10-17 (CARD-222, owner's artifact 2026-10-14 + the owner's
+    gutter decision the same day): outer/top/bottom become 0.5 / 0.55 / 0.47 in
+    and the GUTTER STAYS 0.5 in (the artifact drew 0.75 in; KDP's requirement
+    and this entry's own KDP reasoning are unchanged). Usable width
+    193.67 -> 190.50 mm, usable height 260.35 -> 253.49 mm, so every cell under
+    the 7.5 mm cap loses about 1.6%. FR-030's AC-175/AC-178/AC-181/AC-272/
+    AC-273 and FR-031's AC-182..AC-188 still carry old-margin figures (out of
+    scope 2026-10-17; backlog.md).
     NOT covered by design yet: migration 008 ships the trim default but
     gutter/outside margins have no default and top/bottom have no column
     (models.py:121-125), so the profile lives partly in COMP-009's PageSpec

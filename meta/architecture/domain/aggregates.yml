@@ -60,9 +60,10 @@ aggregates:
           counts (FR-034).
       - id: INV-006
         statement: >-
-          A puzzle whose cell on the book's trim is below the 4.8 mm floor
-          is a member of the book only together with an explicit override
-          stored for that puzzle id (FR-031, NFR-008).
+          A puzzle whose cell on the book's trim is below the cell floor
+          (TERM-024, 4.75 mm since 2026-10-17) is a member of the book only
+          together with an explicit override stored for that puzzle id
+          (FR-031, NFR-008).
       - id: INV-007
         statement: >-
           A book reaches the ready status only when every longest-side x
@@ -105,13 +106,25 @@ aggregates:
       # New 2026-09-22 (d) (delta — interior PDF without the cover; owner
       # decision BK-9). A rule on the files CMD-019 produces, not stored
       # state.
+      # AMENDED 2026-10-17 (raw-requirements.md "## Delta 2026-10-17",
+      # bullet 3; owner's "Puzzle page layout" artifact 2026-10-14;
+      # CARD-206 + CARD-229). ONE amendment covers both claimants of this
+      # statement — this invariant and FR-043, amended in the same pass,
+      # because two cards contradict it jointly: CARD-206's blank title /
+      # copyright page ahead of the guide and CARD-229's guide moved to a
+      # facing spread on interior pages 2 and 3. What changes is the CONTENT
+      # of interior page 1; the parity mechanism (each page's parity is its
+      # 1-based position in the interior) and the page count the book is
+      # measured by (the interior's, FR-030 AC-179) are unchanged. See
+      # FR-043's amendment note for the full reasoning.
       - id: INV-013
         statement: >-
           The book's interior PDF holds no cover page and starts at the
-          guide page as a right-hand page 1; each page's parity is its
-          1-based position in the interior, and the book's page count is
-          the interior's; the cover is produced as a separate file
-          (FR-043).
+          book's title / copyright page as a right-hand page 1 — no folio,
+          no ink — with the guide following as a facing spread on pages 2
+          (verso) and 3 (recto); each page's parity is its 1-based position
+          in the interior, and the book's page count is the interior's; the
+          cover is produced as a separate file (FR-043).
       - id: INV-012
         statement: >-
           A book outside draft holds exactly the puzzle membership that last

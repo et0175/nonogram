@@ -256,10 +256,11 @@ terms:
   - id: TERM-024
     term: Cell floor
     definition: >-
-      The 4.8 mm minimum book cell size; a puzzle whose cell would print
-      smaller is flagged and needs a floor override to enter a book.
+      The minimum book cell size NFR-008 sets, 4.75 mm since 2026-10-17
+      (4.8 mm before it); a puzzle whose cell would print smaller is
+      flagged and needs a floor override to enter a book.
     context: CTX-001
-    aliases: [floor, 4.8 mm floor]
+    aliases: [floor, cell floor]
     source: [US-023, FR-031, NFR-008]
   - id: TERM-025
     term: Floor override

@@ -343,3 +343,65 @@ Source: owner design document "I have several thoughts about print layout and mo
 
 - The book PDF generator gains TWO INTERIOR MODES, black-and-white and colour, chosen per book: Book 1 is black-and-white, and colour is held for Book 2 or later, because a colour interior costs more to print. Measured state of the code, 2026-09-25: the interior's CONTENT is already pure black on white — `export/png.py` draws `INK = (0, 0, 0)` on `BACKGROUND = (255, 255, 255)` and a grep for any other RGB triple across the export and book pipeline returns nothing, so no divider, guide, band, frame or answer page introduces a colour. What is not black-and-white is the FILE: every page is composed as a Pillow "RGB" image, JPEG-encoded in RGB, and written with `ColorSpace=DeviceRGB` (`book_pdf_generator.py:2158`). So the work is not removing colour from Book 1 — there is none — but letting the book declare what it is and making the interior match, which also cuts a page bitmap to a third of its bytes and widens the memory envelope CARD-145 fixed. The COVER is a separate file (CARD-135) and stays exempt: a colour cover on a black-and-white interior is the ordinary case. The mode is PER-BOOK (owner's decision, 2026-09-25), stored beside the book's trim and margins and defaulting to black-and-white for any book with none stored — not a global default with a per-book override. Carded as CARD-147. Source: owner, 2026-09-25; code state verified by this session the same day.
 - NOT YET FORMALISED, and this is the second such item: neither the book page FRAME (CARD-144, intake above at 2026-09-23) nor the ink mode has an FR, AC or EC in requirements.yml. CARD-144's review found the frame cited to FR-041 — the level-divider requirement — at some fifteen sites, i.e. untraced scope wearing another card's id, which is worse than an honest blank. Both need the architect station before more cards cite them. Source: CARD-144 review cycle 1 finding F-002, 2026-09-24.
+
+## Delta 2026-10-17 — The interior redesign's registry amendments (owner's "Puzzle page layout" artifact, 2026-10-14)
+
+Scope of this intake: the FOUR amendments that block CARD-222 and the eleven cards behind it. The other
+eleven owed amendments (FR-033's rule weights, ADR-0006/R1's unbounded Pillow pin, CON-018's minimum
+storable trim, ADR-0037/R1, and wave 37's six) stay recorded in `meta/kanban/backlog.md` — they block
+nothing today. Owner decision, 2026-10-17.
+
+# processed: 2026-10-17 → CON-018 (statement amended; measured consequence recorded); trace.yml CON-018
+- **CON-018 — the margins change on three sides, and the gutter deliberately does not.** Outer, top and
+  bottom are 0.375 in each today; they become **outer 0.5 in, top 0.55 in, bottom 0.47 in**. The gutter
+  clause is **NOT amended**: the artifact draws 0.75 in, and the owner decided on 2026-10-14 to keep
+  KDP's required **0.5 in**, which also keeps CON-018's own KDP reasoning intact (0.375 in up to 150
+  pages, 0.5 in for 151–300, Book 1 straddling 150). Measured consequence to record with the amendment,
+  computed with `nonogram.export.layout.compute_layout` on an 8.5 x 11 in trim, ODD parity, 12 mm band,
+  7.5 mm cap: usable width 193.67 → **190.50 mm (−1.64%)**, usable height 260.35 → **253.49 mm
+  (−2.63%)**, so every cell not already at the 7.5 mm cap loses about 1.6%. Source: owner's artifact
+  2026-10-14 + owner's gutter decision the same day; figures measured 2026-10-17.
+
+# processed: 2026-10-17 → NFR-008 (threshold, condition and rationale amended; AC-238/AC-239 re-measured; AC-369..AC-371 added); trace.yml NFR-008
+- **NFR-008 — the floor moves to 4.75 mm, and HOW the figure is chosen changes.** Two separate changes
+  in one amendment. (a) The band `4.8 <= cell <= 7.5` becomes **`4.75 <= cell <= 7.5`**. The owner chose
+  4.75 on 2026-10-17 after seeing the measurement below, with the stated goal that the CON-018 amendment
+  must not make the book worse than it is today: 4.75 restores exactly today's breach point. (b) Per
+  CARD-225, "per puzzle on its real clue depth" becomes **per grid size per book, fitted to the
+  deepest-clued member of that size** — the band is unchanged by (b), only how the figure is chosen.
+  **The 4.8 rationale must be restated, not carried over:** it reads "below 4.8 mm a cell is too small to
+  mark by hand (standard squared paper is 5 mm)", and that sentence does not justify 4.75.
+  **Measured residue that MUST be recorded with the amendment, because the new number does not remove
+  it** (30x30 grid, clue depth swept, `page.cell_mm`): the 4.8 floor is **already breached today** at
+  clue depth 11 (old margins 4.724 mm) — the amendment does not create that, it moves the breach from
+  depth 11 to depth 10 (new margins 4.762 mm at depth 10). At 4.75 the new-margin breach returns to
+  depth 11 (4.646 mm), i.e. the lower floor buys exactly one depth step. Deeper clues breach every
+  candidate value under both old and new margins: depth 12 → 4.536 mm, depth 13 → 4.430 mm, depth 15
+  (the geometric maximum on 30 cells) → 4.233 mm. Random 30x30 grids at density 0.5 reach clue depth
+  **13**. So deeply-clued 30-wide puzzles are admitted by **FR-031's explicit per-puzzle override**,
+  which NFR-008 already names as its sole escape — this amendment must say so out loud instead of
+  implying that every admissible puzzle meets the band by page fit. Source: owner 2026-10-17; all
+  figures measured the same day with the project's own layout function.
+
+# processed: 2026-10-17 → INV-013 (domain/aggregates.yml, AGG-002) + FR-043 (statement amended; AC-283/AC-286/AC-287/AC-289 and EC-034 amended; AC-368 added) — ONE amendment, both claimants; trace.yml FR-043
+- **INV-013 and FR-043 — one amendment for both claimants, not two.** Both state that the interior PDF
+  starts at the guide page as right-hand page 1. Two cards contradict that jointly: **CARD-206** puts a
+  blank title / copyright page ahead of the guide, and **CARD-229** moves "How to Solve" to a facing
+  spread on pages **2–3**. So interior page 1 becomes the title page and the guide no longer owns page 1.
+  Everything the parity rule derives from the 1-based position in the interior PDF is unchanged in
+  mechanism and changed in content, including the page count finalise checks against KDP's gutter
+  minimum (FR-030, AC-179). One amendment must cover both claimants: two cards each writing their own is
+  how the registry ended up with two statements of what a book's TOC is. Source: CARD-206 + CARD-229,
+  owner's artifact 2026-10-14.
+
+# processed: 2026-10-17 → FR-032 (CARD-204's logged amendment CANCELLED, centred clause stands; fixed-top-edge clause amended to the 42% float; AC-190 retired, AC-366/AC-367 added, AC-274/AC-275 re-measured, EC-022 restated); trace.yml FR-032; meta/kanban/backlog.md (cancellation recorded)
+- **FR-032 — one clause becomes correct again and the other breaks; CARD-204's pending amendment is
+  CANCELLED, not applied.** FR-032's "horizontally the drawing is centred across the usable width"
+  statement was made false by CARD-204's flush-by-parity placement, and an amendment was logged against
+  it. CARD-224 reverses that placement — the grid goes back to centred — so **the logged amendment must
+  be cancelled rather than written**: applying it would make the registry wrong in the opposite
+  direction. What actually breaks is FR-032's other clause, "the top edge of the puzzle drawing sits at
+  the same position on every puzzle page ... rather than being centred vertically": the grid now floats
+  at **42% of the puzzle area's spare height**. The owner's note explains the reversal: the flush
+  alignment existed to free the gutter strip for the QR code, and once the QR has its own footer
+  (CARD-223), centring is the calmer choice. Source: owner's artifact 2026-10-14; CARD-224 vs CARD-204.

@@ -1,3 +1,4 @@
+<!-- stale: delta 2026-10-17 — CON-018, NFR-008, FR-030, FR-031, FR-032, FR-043, INV-013 (interior redesign amendments + floor propagation 4.8 → 4.75 mm); re-run /forge:kanban decompose -->
 <!-- decomposed: 2026-10-03 (a) — delta carded: online solver / admin puzzle player FR-044 (US-028, CAP-007; AC-296..AC-321, EC-035..EC-037), CON-021 superseding CON-002, ADR-0038 (DEC-040/041) → CARD-160 (page + clues + pyproject packaging/dev extra), CARD-161 (marking, undo/redo), CARD-162 (error count, solved state); wave 31. Small-tier delta, carded directly; no new increment section. -->
 <!-- decomposed: 2026-09-22 — Increments 13..16 (book generator) → CARD-113..CARD-132 (waves 20–27) -->
 <!-- decomposed: 2026-09-22 (c) — delta carded: answer key FR-042 (Increment 15) → new CARD-133 (wave 22) + CARD-134 (wave 25), CARD-128/CARD-129 now depend on CARD-134, AC-271 on CARD-129; mirrored margins FR-030/FR-032 (Increment 13) → CARD-114, CARD-115, CARD-116; back to draft FR-037/FR-038 (Increment 16) → CARD-131 (CARD-124 stance updated) -->
@@ -378,7 +379,7 @@ non-additive edit is the margin-default migration, which has a downgrade;
 book rows written in the meantime keep valid values under the old code, which
 ignored them.
 
-### Increment 14: The plan, selection by longest-side tab, the 4.8 mm floor, and the readiness gate
+### Increment 14: The plan, selection by longest-side tab, the 4.75 mm floor, and the readiness gate
 
 Print setup stores a distribution plan with the book (FR-034): count, an
 easy/medium/hard split summing to 100% (INV-005), and a per-bucket plan
@@ -389,7 +390,7 @@ cells survive with a disagreement warning. A new book starts at 150 at 40/40/20
 with planned-vs-selected headers and a whole-book summary (FR-036); one
 bucketing function serves the plan, the tabs and the gate (EC-024). Every tile
 shows the puzzle's cell on the book's trim from Increment 13's call, and a
-puzzle below 4.8 mm joins the book only with a stored per-puzzle override, on
+puzzle below 4.75 mm joins the book only with a stored per-puzzle override, on
 both add routes (FR-031, INV-006, EC-021). Leaving draft — to *any* status — is
 refused unless a plan is stored and every longest-side × tier cell's count over
 the **planned** total is within ±3 pp of its planned share (FR-037, INV-007,

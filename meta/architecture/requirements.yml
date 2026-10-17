@@ -2044,15 +2044,15 @@ functional:
       evidence: ["src/nonogram/admin/book_pdf_generator.py:52-54", "src/nonogram/admin/book_pdf_generator.py:148-167", "src/nonogram/export/layout.py:170-183", "src/nonogram/export/layout.py:506", "src/nonogram/export/layout.py:516-526", "src/nonogram/export/layout.py:564-633", "migrations/versions/004_add_print_specs_to_books.py", "migrations/versions/008_default_trim_letter.py", "src/nonogram/db/models.py:121-125", "docs/book_generation_req/book_generation_admin_panel.md#3"]
     acceptance:
       - id: AC-175
-        given: a book on the Book 1 profile (trim 21.59 x 27.94 cm, gutter 1.27 cm, outside/top/bottom 0.95 cm) holding a 30x30 puzzle whose row-clue and column-clue gutters are each 9 entries deep
+        given: a book on the Book 1 profile (trim 21.59 x 27.94 cm, gutter 1.27 cm, outside 1.27 cm, top 1.397 cm, bottom 1.1938 cm) holding a 30x30 puzzle whose row-clue and column-clue gutters are each 9 entries deep
         when: the book PDF is generated
-        then: that puzzle's page draws a 4.97 mm cell (+/- 0.05 mm; 193.7 mm usable width over 39 cells) — not the 4.77 mm the A4 layout gives it today
+        then: that puzzle's page draws a 4.885 mm cell (+/- 0.05 mm; 190.5 mm usable width over 39 cells) — not the 4.77 mm the A4 layout gives it today
         kind: happy
         test: TestBookPdf_CellSizedForBookTrimNotA4
       - id: AC-176
         given: a 6 x 9 in book (trim 15.24 x 22.86 cm, Book 1 margins) holding a 15x15 puzzle whose row-clue gutter is 7 entries deep and column-clue gutter 7 deep
         when: the book PDF is generated
-        then: that puzzle's page draws a 5.92 mm cell (+/- 0.05 mm; 130.2 mm usable width over 22 cells), where the same puzzle on the 8.5 x 11 trim draws 7.5 mm
+        then: that puzzle's page draws a 5.773 mm cell (+/- 0.05 mm; 127.0 mm usable width over 22 cells), where the same puzzle on the 8.5 x 11 trim draws 7.5 mm
         kind: boundary
         test: TestBookPdf_CellFollowsStoredTrim
       - id: AC-177
@@ -2064,7 +2064,7 @@ functional:
       - id: AC-178
         given: a book row created before print margins were set, whose gutter_margin_cm and outside_margin_cm are empty, holding a 30x30 puzzle with 9-deep clue gutters
         when: the book PDF is generated
-        then: the cell equals the one computed on the CON-018 margins (4.97 mm on the 8.5 x 11 trim)
+        then: the cell equals the one computed on the CON-018 margins (4.885 mm on the 8.5 x 11 trim)
         kind: boundary
         test: TestBookPdf_EmptyMarginsFallBackToBook1Profile
       # AMENDED 2026-09-22 (owner answer, recorded in FR-040 and the ADR-0036
@@ -2089,22 +2089,36 @@ functional:
       - id: AC-181
         given: a new book created in the admin panel with no print-setup values entered
         when: its stored print specification is read
-        then: it holds the CON-018 profile — trim 21.59 x 27.94 cm, gutter 1.27 cm, outside 0.95 cm
+        then: it holds the CON-018 profile — trim 21.59 x 27.94 cm, gutter 1.27 cm, outside 1.27 cm
         kind: happy
         test: TestBookCreate_StoresBook1PrintProfile
       # New 2026-09-22 (c) — mirrored margins (BK-1 placement).
       # REWORDED 2026-09-22 (d): "PDF page 3/4" -> "interior page 3/4"
       # (FR-043: parity counts from interior page 1, the guide page).
+      # RE-MEASURED 2026-10-17 (propagation pass) on the amended CON-018
+      # margins, with nonogram.export.layout.PageSpec's left_margin_mm /
+      # right_margin_mm on the 8.5 x 11 in trim: AC-272 12.7..206.375 ->
+      # 12.700..203.200 mm, AC-273 9.525..203.2 -> 12.700..203.200 mm.
+      # THE TWO RANGES ARE NOW IDENTICAL, and a reviewer of CARD-222 /
+      # CARD-224 / CARD-226 must not misread that: with outside == gutter ==
+      # 0.5 in the Book 1 usable area no longer moves with page parity, so
+      # these two criteria passing is an IDENTITY on the default profile, NOT
+      # evidence that mirroring works. The mirroring rule (this FR's last
+      # sentence, TERM-034) and EC-032's "gutter minus outside" formula stay
+      # TRUE — the difference is simply zero here — and both still bite on
+      # any book storing unequal margins, which is the only configuration in
+      # which mirroring is actually under test. Owner decision 2026-10-17:
+      # RECORD this, do not restore the asymmetry by changing a margin.
       - id: AC-272
-        given: a Book 1 profile book (gutter 1.27 cm, outside 0.95 cm)
+        given: a Book 1 profile book (gutter 1.27 cm, outside 1.27 cm)
         when: the usable area of its interior page 3 (a right-hand page) is computed
-        then: it spans 12.7 mm to 206.375 mm from the page's left trim edge — the gutter margin on the left
+        then: it spans 12.700 mm to 203.200 mm from the page's left trim edge — the gutter margin on the left
         kind: happy
         test: TestBookPageSpec_OddPageGutterOnLeft
       - id: AC-273
         given: the same Book 1 profile book
         when: the usable area of its interior page 4 (a left-hand page) is computed
-        then: it spans 9.525 mm to 203.2 mm from the page's left trim edge — the gutter margin on the right
+        then: it spans 12.700 mm to 203.200 mm from the page's left trim edge — the gutter margin on the right, the same span as the odd page because this profile's gutter and outside margins are equal
         kind: boundary
         test: TestBookPageSpec_EvenPageGutterOnRight
     engineering_constraints:
@@ -2139,7 +2153,8 @@ functional:
     # BookManager.add_puzzles_to_book — the floor holds on both (EC-021).
     statement: >-
       A puzzle whose cell on the book's trim (FR-030's computation, the same
-      value the PDF would print) falls below the 4.8 mm floor (TERM-024) is
+      value the PDF would print) falls below the cell floor (TERM-024, whose
+      figure NFR-008 owns) is
       flagged on its puzzle-selection tile with its computed cell size, and
       cannot become a member of the book, by any add route, without an
       explicit per-puzzle override (TERM-025) that is stored with the book.
@@ -2153,16 +2168,19 @@ functional:
       evidence: ["src/nonogram/admin/book_manager.py:244-309", "src/nonogram/admin/app.py:2004", "src/nonogram/admin/app.py:2330", "src/nonogram/admin/templates/book_select_puzzles.html", "src/nonogram/admin/templates/book_finalize.html", "src/nonogram/export/layout.py:230"]
       open_note: "Where the per-puzzle override is stored has no column today (migration needed; implementation detail, not a decision)."
     acceptance:
+      # RE-MEASURED 2026-10-17 (propagation pass) on the amended CON-018
+      # margins: 4.611 -> 4.536 mm. Below both the retired 4.8 mm floor and
+      # the amended 4.75 mm one, so the flag and the refusal are unchanged.
       - id: AC-182
-        given: a Book 1 profile book and a 30-wide x 25-tall puzzle whose row-clue gutter is 12 entries deep and column-clue gutter 8 deep (42 cells across, 4.61 mm on the trim)
+        given: a Book 1 profile book and a 30-wide x 25-tall puzzle whose row-clue gutter is 12 entries deep and column-clue gutter 8 deep (42 cells across, 4.536 mm on the trim)
         when: the puzzle-selection step lists it
-        then: its tile shows a 4.61 mm cell with a below-floor flag
+        then: its tile shows a 4.536 mm cell with a below-floor flag
         kind: happy
         test: TestBookSelect_TileShowsCellAndBelowFloorFlag
       - id: AC-183
-        given: the same Book 1 profile book and the same 4.61 mm puzzle, with no override given
+        given: the same Book 1 profile book and the same 4.536 mm puzzle, with no override given
         when: the puzzle is submitted from the selection step
-        then: the puzzle is not added — the book's puzzle list is unchanged and the response names 4.61 mm against the 4.8 mm floor
+        then: the puzzle is not added — the book's puzzle list is unchanged and the response names 4.536 mm against the 4.75 mm floor
         kind: negative
         invariant: INV-006
         test: TestBookAddPuzzles_RefusesBelowFloorWithoutOverride
@@ -2180,22 +2198,31 @@ functional:
         kind: negative
         invariant: INV-006
         test: TestBookAddPuzzlesByIds_RefusesBelowFloorWithoutOverride
+      # RE-MEASURED 2026-10-17 (propagation pass): 4.842 -> 4.762 mm, against
+      # a floor that moved 4.8 -> 4.75 mm. The criterion's direction is
+      # unchanged but its margin is now 0.012 mm, not 0.042 — this is the
+      # same geometry as NFR-008's AC-370 (40 cells across 190.5 mm), the one
+      # depth step the amended floor buys, so the two must move together.
       - id: AC-186
-        given: a Book 1 profile book holding a 30-wide x 20-tall puzzle whose row-clue gutter is 10 entries deep and column-clue gutter 8 deep (40 cells across, 4.84 mm)
+        given: a Book 1 profile book holding a 30-wide x 20-tall puzzle whose row-clue gutter is 10 entries deep and column-clue gutter 8 deep (40 cells across, 4.762 mm)
         when: it is submitted without an override
-        then: the puzzle is added with no flag — 4.84 mm is at or above the floor
+        then: the puzzle is added with no flag — 4.762 mm is at or above the 4.75 mm floor
         kind: boundary
         test: TestBookAddPuzzles_AcceptsCellJustAboveFloor
       - id: AC-187
         given: a book holding 150 puzzles, 2 of them added below the floor with overrides
         when: the finalise step renders its summary
-        then: the summary reports 2 puzzles below the 4.8 mm floor
+        then: the summary reports 2 puzzles below the 4.75 mm floor
         kind: happy
         test: TestBookFinalize_SummaryCountsPuzzlesBelowFloor
+      # RE-MEASURED 2026-10-17 (propagation pass) on the amended CON-018
+      # margins: 6.917 -> 6.804 mm on 8.5 x 11, and 4.649 -> 4.536 mm once
+      # the trim becomes 6 x 9 in (usable width 130.175 -> 127.0 mm). Both
+      # sides of the criterion keep their direction.
       - id: AC-188
-        given: a Book 1 profile book holding a 20x20 puzzle with 8-deep row- and column-clue gutters (6.92 mm on 8.5 x 11), no puzzle below the floor
+        given: a Book 1 profile book holding a 20x20 puzzle with 8-deep row- and column-clue gutters (6.804 mm on 8.5 x 11), no puzzle below the floor
         when: its trim is changed to 6 x 9 in and the finalise summary is rendered
-        then: the summary reports 1 puzzle below the floor (4.65 mm on the new trim)
+        then: the summary reports 1 puzzle below the floor (4.536 mm on the new trim)
         kind: boundary
         test: TestBookFinalize_SummaryRecountsBelowFloorAfterTrimChange
     engineering_constraints:
@@ -2203,7 +2230,8 @@ functional:
         statement: >-
           For any puzzle, any stored trim and margins and every add route
           (selection step, paste-IDs form, any future route ending in the
-          book store), a puzzle whose book cell is below 4.8 mm becomes a
+          book store), a puzzle whose book cell is below the cell floor
+          (TERM-024, NFR-008) becomes a
           member only together with a stored override for its id; and the
           tile's cell, the add refusal and the finalise count all come from
           the one computation FR-030's PDF uses, so no two of them can
@@ -2214,6 +2242,59 @@ functional:
         test: PropertyTest_BookMembership_BelowFloorOnlyWithStoredOverride
 
   - id: FR-032
+    # AMENDED 2026-10-17 (raw-requirements.md "## Delta 2026-10-17", bullet 4;
+    # owner's "Puzzle page layout" artifact 2026-10-14; CARD-224 vs CARD-204).
+    # TWO CLAUSES PULL OPPOSITE WAYS AND ONLY ONE OF THEM MOVES:
+    #
+    #  (1) CANCELLED, NOT APPLIED — the amendment logged against the
+    #      "horizontally the drawing is centred across the usable width"
+    #      clause. CARD-204 (merged 2026-10-14) had made that clause false by
+    #      placing the drawing flush to the page's outer edge, mirrored by
+    #      parity, and an amendment to that effect was logged in
+    #      meta/kanban/backlog.md ("FR-032 (CARD-204): still states puzzle
+    #      grids are centred. They are right-aligned, mirrored by parity, by
+    #      the owner's confirmed decision"). CARD-224 REVERSES that placement
+    #      — the grid goes back to centred — so the logged amendment is
+    #      CANCELLED and the centred clause stands as originally written.
+    #      Writing it would have made the registry wrong in the opposite
+    #      direction. Owner's reason (artifact 2026-10-14): "This reverses the
+    #      flush-right and flush-left placement from CARD-204 back to
+    #      centring. That alignment was what freed the gutter-side strip for
+    #      the QR. Once the QR has its own footer, centring is the calmer
+    #      choice" — the QR's own footer is CARD-223. The cancellation is
+    #      recorded against the logged request in meta/kanban/backlog.md.
+    #
+    #  (2) AMENDED — the "fixed top edge" clause, which is what CARD-224
+    #      actually breaks. The drawing no longer sits at one fixed offset
+    #      below the top margin and the title band: it FLOATS at 42% of the
+    #      puzzle area's spare height (gap above = 0.42 x spare, gap below =
+    #      0.58 x spare), measured off the drawn ink. 42% is the artifact's
+    #      optical figure — "which looks centred once the header sits above
+    #      it" — not an arithmetic one. The puzzle area it is measured
+    #      against is the strip CARD-222's page frame draws between the header
+    #      rule and the footer rule; that frame still has no requirement of
+    #      its own (logged in meta/kanban/backlog.md), so this entry NAMES it
+    #      and does not define it. AC-190 is RETIRED — two differently-sized
+    #      drawings no longer share a top edge — and replaced by AC-366 and
+    #      AC-367; EC-022's "one fixed offset ... never varies between puzzle
+    #      pages" is restated as the 42% rule. AC-276 and EC-032 are
+    #      UNCHANGED and still true: parity moves the drawing sideways only,
+    #      never vertically.
+    #
+    # CLOSED 2026-10-17 (propagation pass, same day): the split (a) describes
+    # is gone — FR-031, TERM-024, INV-006, CAP-006 and trace.yml were all
+    # propagated to 4.75 mm (or to the reference form this statement already
+    # uses), so the registry no longer states the floor two ways.
+    # Also in this pass, both consequences of CON-018's amendment of the same
+    # day: (a) the statement's "4.8 mm floor check" drops its literal number
+    # and refers to the floor by reference (FR-031, NFR-008), because NFR-008's
+    # floor moved to 4.75 mm while FR-031 and TERM-024 were out of scope and
+    # still read 4.8 mm; (b) AC-274 / AC-275 re-measured — both left edges are
+    # now 25.45 mm, because outside == gutter == 0.5 in makes the Book 1
+    # profile's mirrored margins geometrically symmetric, so AC-275 stops
+    # differing from AC-274 on THIS profile (the mirroring rule and EC-032's
+    # "gutter minus outside" formula are unchanged, and still bite on a book
+    # storing unequal margins).
     # AMENDED 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line
     # 1; BK-9, book rule 15; owner decision). A page's parity is its 1-based
     # position in the INTERIOR PDF (FR-043; interior page 1 is the guide
@@ -2263,20 +2344,27 @@ functional:
       its rows down it, whatever its shape. The book never turns a page to
       landscape (NFR-006 governs CLI and web exports only). A wide grid
       (width greater than height) prints at the cell its width allows and
-      carries no flag of its own; only the 4.8 mm floor check (FR-031)
-      applies to it. The top edge of the puzzle drawing sits at the same
-      position on every puzzle page — below the top margin and the title
-      band — rather than being centred vertically; on a two-up page
-      (FR-040) that position is the upper puzzle's. Horizontally the
-      drawing is centred across the usable width of its page — between
-      the gutter and outside margins as mirrored for the page's parity
-      (FR-030), counted from interior page 1 (FR-043) — so its left edge
-      moves with the parity and its top edge does not.
+      carries no flag of its own; only the printed-cell floor check
+      (FR-031, NFR-008) applies to it. Horizontally the drawing is centred
+      across the usable width of its page — between the gutter and outside
+      margins as mirrored for the page's parity (FR-030), counted from
+      interior page 1 (FR-043) — so its left edge moves with the parity
+      only as far as those two margins differ, which on the amended Book 1
+      profile is not at all (CON-018). Vertically the drawing FLOATS rather
+      than sitting at a fixed offset: the gap between the top of the puzzle
+      area and the top of the drawing is 42% of that area's spare height
+      (the area's height minus the drawing's), the gap below it the
+      remaining 58%, measured off the drawn ink; on a two-up page (FR-040)
+      the pair's combined drawing is placed by that same rule. The 42% is
+      an optical figure, not an arithmetic one — it reads as centred once
+      the page header sits above it — so the top edge is NOT at one fixed
+      offset from the trim, and two differently-sized drawings do not share
+      a top edge; the same drawing does, on either parity.
     source: [US-023]
     _meta:
       source: authored
-      amended: "2026-09-22 (b) — upright pictures, no wide-grid flag (BK-3 amended)"
-      retired_criteria: [AC-191, AC-192]
+      amended: "2026-10-17 — CARD-204's logged amendment CANCELLED (the centred clause stands); the fixed-top-edge clause amended to the 42% float (CARD-224). Earlier: 2026-09-22 (b) — upright pictures, no wide-grid flag (BK-3 amended)"
+      retired_criteria: [AC-190, AC-191, AC-192]
       evidence: ["src/nonogram/export/layout.py:635-716", "docs/book_generation_req/book_generation_admin_panel.md#2", "docs/book_generation_req/book_generation_admin_panel.md#3"]
     acceptance:
       - id: AC-189
@@ -2285,12 +2373,30 @@ functional:
         then: that puzzle's page is portrait, 2550 px wide by 3300 px tall
         kind: happy
         test: TestBookPdf_WideGridPrintsOnPortraitPage
+      # RETIRED 2026-10-17 — the fixed top edge is gone (CARD-224: the
+      # drawing floats at 42% of the puzzle area's spare height, which differs
+      # with the drawing's own height). Kept as the record, with its test,
+      # which CARD-224 replaces; AC-366 and AC-367 state the new truth.
       - id: AC-190
         given: a Book 1 profile book holding a 15x15 puzzle and a 30x30 puzzle
         when: the book PDF is generated
         then: the top edge of the puzzle drawing is on the same pixel row on both pages
         kind: boundary
         test: TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage
+      # New 2026-10-17 — the 42% float (CARD-224). Test names are the card's
+      # planned names; no test exists for them yet.
+      - id: AC-366
+        given: a Book 1 profile puzzle page whose puzzle area has 60 mm of spare height above and below the drawing taken together
+        when: the page is drawn
+        then: the gap above the drawing is 25.2 mm (0.42 of the spare) and the gap below it 34.8 mm, measured off the drawn ink
+        kind: happy
+        test: TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare
+      - id: AC-367
+        given: a Book 1 profile book holding a 15x15 puzzle whose drawing is 165.0 mm tall (22 cells at 7.5 mm) and a 30x30 puzzle whose drawing is 190.5 mm tall (39 cells at 4.885 mm)
+        when: the book PDF is generated
+        then: the 15x15 drawing's top edge sits 10.71 mm lower than the 30x30 drawing's — 0.42 of the 25.5 mm difference in drawing height, so the two pages no longer share a top edge
+        kind: boundary
+        test: TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare
       # RETIRED 2026-09-22 (b) unimplemented — the wide-grid flag is dropped
       # (BK-3 amended); replaced by AC-241. Kept as the record.
       - id: AC-191
@@ -2315,23 +2421,26 @@ functional:
         kind: happy
         test: TestBookPdf_WideGridPrintsUprightNeverRotated
       - id: AC-241
-        given: a Book 1 profile book and a 25-wide x 12-tall puzzle whose book cell is 6.0 mm (above the 4.8 mm floor)
+        given: a Book 1 profile book and a 25-wide x 12-tall puzzle whose book cell is 6.0 mm (above the 4.75 mm floor)
         when: the puzzle-selection step lists it
         then: its tile carries no flag — neither a wide-grid flag nor a below-floor flag
         kind: negative
         test: TestBookSelect_WideGridAboveFloorCarriesNoFlag
       # New 2026-09-22 (c) — horizontal centring by parity (BK-1 placement).
       # REWORDED 2026-09-22 (d): "PDF page" -> "interior page" (FR-043).
+      # RE-MEASURED 2026-10-17 on the amended CON-018 margins (outside and
+      # gutter are both 0.5 in now, so the two figures coincide; the centring
+      # rule and the mirroring rule are both unchanged).
       - id: AC-274
         given: a Book 1 profile book whose interior page 3 (right-hand) holds a 15x15 puzzle with 7-deep row- and column-clue gutters (22 cells x 7.5 mm = 165 mm drawing width)
         when: the book PDF is generated
-        then: the drawing's left edge is 27.05 mm (+/- 0.1 mm) from the page's left trim edge — 14.35 mm inside each side of the usable width
+        then: the drawing's left edge is 25.45 mm (+/- 0.1 mm) from the page's left trim edge — 12.75 mm inside each side of the 190.5 mm usable width
         kind: happy
         test: TestBookPdf_DrawingCentredOnRightHandPage
       - id: AC-275
         given: the same puzzle printed on interior page 4 (left-hand) of the same book
         when: the book PDF is generated
-        then: the drawing's left edge is 23.875 mm (+/- 0.1 mm) from the page's left trim edge
+        then: the drawing's left edge is 25.45 mm (+/- 0.1 mm) from the page's left trim edge — the same figure as on the right-hand page, because the amended profile's gutter and outside margins are equal
         kind: boundary
         test: TestBookPdf_DrawingCentredOnLeftHandPage
       - id: AC-276
@@ -2343,18 +2452,37 @@ functional:
     engineering_constraints:
       # AMENDED 2026-09-22 (b): "and the grid is drawn unrotated" added and
       # AC-240 joined the instances (BK-3 amended). Otherwise unchanged.
+      # AMENDED 2026-10-17 (CARD-224): the fixed-offset clause is restated as
+      # the 42% float. The property is still a consistency one — what is
+      # invariant is now the RATIO, not the offset.
       - id: EC-022
         statement: >-
           For any puzzle extent of 10..30 per side and any clue depth, the
           book's puzzle page is portrait, the grid is drawn unrotated
-          (width across the page, height down it), and the drawing's top
-          edge — the upper puzzle's on a two-up page — lies at one fixed
-          offset (top margin plus title band) from the top of the trim, so
-          that offset never varies between puzzle pages of a book.
+          (width across the page, height down it), and the gap between the
+          top of the puzzle area and the top of the drawing — the upper
+          puzzle's on a two-up page — is 42% of that area's spare height,
+          with the remaining 58% below, so no drawing or clue ink crosses
+          the frame's header or footer rule for any extent; where the
+          tallest admissible drawing leaves too little spare for the ratio,
+          it is placed as low as it fits rather than past the footer rule.
         kind: consistency
-        instances: [AC-189, AC-190, AC-240]
+        instances: [AC-189, AC-240, AC-366, AC-367]
         test: PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
       # New 2026-09-22 (c) — mirrored margins, centred drawing.
+      # NOTE 2026-10-17 (propagation pass): this property is UNCHANGED and
+      # still true, but on the amended CON-018 profile its "gutter margin
+      # minus outside margin" term is ZERO (both are 0.5 in), so on Book 1
+      # the odd and even left edges coincide (AC-274 == AC-275 == 25.45 mm)
+      # and the usable area does not move with parity at all (AC-272 ==
+      # AC-273 == 12.700..203.200 mm). A reviewer of CARD-222 / CARD-224 /
+      # CARD-226 must therefore NOT read a passing parity assertion on Book 1
+      # as evidence that mirroring works — on that profile it is an identity.
+      # The property test named below has teeth only if its generated cases
+      # include a book storing UNEQUAL gutter and outside margins, which the
+      # "any stored trim and margins" quantifier already requires of it.
+      # Owner decision 2026-10-17: record this; do not change a margin to
+      # restore the asymmetry.
       - id: EC-032
         statement: >-
           For any puzzle extent of 10..30 per side, any clue depth, any
@@ -2963,8 +3091,8 @@ functional:
     # a DEC EXPECTED. Today every book page holds exactly one puzzle
     # (book_pdf_generator.py loops one render_pages call per puzzle).
     # Relations:
-    #  - NFR-008: the 7.0 mm two-up minimum sits INSIDE NFR-008's 4.8..7.5
-    #    mm range; a two-up page never uses the 4.8 mm floor or a floor
+    #  - NFR-008: the 7.0 mm two-up minimum sits INSIDE NFR-008's 4.75..7.5
+    #    mm range; a two-up page never uses the 4.75 mm floor or a floor
     #    override, and the 7.5 mm standard cell still caps the shared cell.
     #  - ADR-0036: the pair is laid out through compute_layout with the
     #    book's PageSpec treated as two slots (ADR-0036/R2 — the admin panel
@@ -3323,7 +3451,7 @@ functional:
     #    here is also level order; the owner's "small level headings" in
     #    the answer key (FR-041 owner answer) are NOT placed by this FR —
     #    see _meta.open_question.
-    #  - NFR-008 (4.8..7.5 mm) governs puzzle cells only; an answer cell is
+    #  - NFR-008 (4.75..7.5 mm) governs puzzle cells only; an answer cell is
     #    a reference drawing and is bounded by EC-031 (>= 3.19 mm on the
     #    Book 1 profile), not by NFR-008.
     # GEOMETRY ASSUMED (Book 1 profile, CON-018): usable area 193.7 mm wide
@@ -3546,6 +3674,30 @@ functional:
         test: PropertyTest_BookAnswerKey_CellAtLeast319AndTilesInsideUsableArea
 
   - id: FR-043
+    # AMENDED 2026-10-17 (raw-requirements.md "## Delta 2026-10-17", bullet 3;
+    # owner's "Puzzle page layout" artifact 2026-10-14; CARD-206 + CARD-229).
+    # ONE AMENDMENT FOR BOTH CLAIMANTS — this entry and INV-013 (AGG-002,
+    # domain/aggregates.yml) both said the interior starts at the guide page as
+    # right-hand page 1, and both are amended in this one pass. Two cards
+    # contradict that statement JOINTLY: CARD-206 puts a blank title /
+    # copyright page ahead of the guide, and CARD-229 moves "How to Solve" to a
+    # facing spread on interior pages 2 and 3 (which is only possible because
+    # something else occupies page 1). Letting each card propose its own
+    # amendment is how the registry ended up holding two contradicting
+    # statements of what a book's TOC is (meta/kanban/backlog.md), so there is
+    # exactly one amendment here.
+    # WHAT CHANGES: the CONTENT of interior page 1 — the title page, carrying
+    # no folio and no ink at all (CARD-206's owner decision: no imprint, no
+    # ISBN, no author line), with the guide following on pages 2 (verso) and 3
+    # (recto). WHAT DOES NOT CHANGE: the parity mechanism — each page's parity
+    # is still its 1-based position in the interior PDF, page 1 still being a
+    # right-hand page — and the page count finalise checks against KDP's
+    # gutter minimum (FR-030, AC-179) is still the interior's own count. Every
+    # interior page number after page 1 shifts by one, which is what moves the
+    # TOC's rows and each puzzle page's gutter side; AC-287 re-measured for it.
+    # AC-283, AC-286, AC-289 and EC-034 reworded; AC-368 added for the facing
+    # spread (CARD-229's planned test name, not a test that exists yet).
+    # AC-284, AC-285 and AC-288 are unchanged and still true.
     # OWNER ANSWER 2026-09-22: sections (level dividers, the SOLUTIONS page)
     # flow on — no blank page is ever inserted to force a right-hand start.
     # New 2026-09-22 (d) (raw-requirements.md "## 2026-09-22 (d)", line 1;
@@ -3574,10 +3726,13 @@ functional:
     statement: >-
       The book export produces two separate files: the interior PDF
       (TERM-035) and the cover file (TERM-036). The interior PDF holds no
-      cover page: its page 1 is the guide page, and it is a right-hand
-      page; every later page's parity (odd = right-hand, even = left-hand)
-      is its 1-based position in the interior PDF, which is the parity the
-      mirrored margins use (FR-030, FR-032). Every page count of the book —
+      cover page: its page 1 is the book's own title / copyright page — a
+      right-hand page carrying no folio and no ink at all — and the guide
+      "How to Solve Nonograms" follows it as a facing spread on interior
+      pages 2 (verso) and 3 (recto); every later page's parity
+      (odd = right-hand, even = left-hand) is its 1-based position in the
+      interior PDF, which is the parity the mirrored margins use (FR-030,
+      FR-032). Every page count of the book —
       including the one finalise checks against KDP's gutter minimum
       (FR-030, AC-179) — is the interior PDF's page count; the cover file
       is not counted. The cover file is a single-page PDF at the book's
@@ -3594,13 +3749,24 @@ functional:
       assumptions: "The cover file's format (a single-page PDF at the trim size, front cover only, the generated title cover when no image is uploaded) and 'both files offered for download' are stated by this FR; the owner said only 'the cover as a separate file'. The KDP cover-wrap sizing (spine width from page count, bleed) belongs to the deferred cover-wrap feature."
       evidence: ["src/nonogram/admin/book_pdf_generator.py:56-89", "src/nonogram/admin/book_pdf_generator.py:148-236", "src/nonogram/admin/app.py:2185", "src/nonogram/admin/app.py:2238-2297", "src/nonogram/admin/app.py:2384-2420", "docs/book_generation_req/book_generation_admin_panel.md#3"]
     acceptance:
+      # REWORDED 2026-10-17 (CARD-206): page 1 is the title page, not the
+      # guide page. The existing test asserts the retired statement and is
+      # replaced by the card's own; the name below is its planned name.
       - id: AC-283
         given: a Book 1 profile book with an uploaded cover image and 3 easy 20x20 puzzles
         when: the book is exported
-        then: the interior PDF's page 1 is the guide page
+        then: the interior PDF's page 1 is the book's title page — no folio, no title text, no rule, no ink of any kind
         kind: happy
         invariant: INV-013
-        test: TestBookExport_InteriorStartsAtGuidePage
+        test: TestBookExport_InteriorOpensWithABlankTitlePage
+      # New 2026-10-17 (CARD-229): the guide owns the facing spread, not page 1.
+      - id: AC-368
+        given: the book of AC-283
+        when: the book is exported
+        then: the guide occupies interior pages 2 (a verso) and 3 (a recto), so the two pages face each other
+        kind: happy
+        invariant: INV-013
+        test: TestGuideSpread_SitsOnPagesTwoAndThree
       - id: AC-284
         given: the book of AC-283
         when: every page of its interior PDF is inspected
@@ -3614,17 +3780,23 @@ functional:
         then: a separate cover file is produced — a 1-page PDF of 2550 x 3300 px (the 8.5 x 11 in trim at 300 DPI) holding the uploaded cover image
         kind: happy
         test: TestBookExport_CoverIsSeparateSinglePageFile
+      # REWORDED 2026-10-17 (CARD-206): "the guide page" -> "the title page".
       - id: AC-286
         given: a Book 1 profile book with no uploaded cover image
         when: the book is exported
-        then: the cover file holds the generated title cover and the interior PDF's page 1 is still the guide page
+        then: the cover file holds the generated title cover while the interior PDF's page 1 is still the blank title page
         kind: boundary
         invariant: INV-013
         test: TestBookExport_NoUploadedCoverStillSeparatesGeneratedCover
+      # RE-MEASURED 2026-10-17 (CARD-206 + CARD-229): the front matter is now
+      # title page, the guide's two pages, then the contents, so the first
+      # puzzle page moves from interior page 3 to interior page 6 — and with
+      # it, its parity and therefore its gutter side. The mechanism asserted
+      # is the same one: parity is the 1-based interior position.
       - id: AC-287
-        given: a Book 1 profile book whose interior runs guide page, "Easy" divider, then its first puzzle page
+        given: a Book 1 profile book whose interior runs title page, the guide's pages 2 and 3, a one-page contents, the "Easy" divider, then its first puzzle page
         when: the book is exported
-        then: the first puzzle page is interior page 3, a right-hand page, whose usable area starts 12.7 mm from its left trim edge (gutter on the left) — with the cover as page 1 it would have been a left-hand page 4
+        then: the first puzzle page is interior page 6, a left-hand page whose gutter margin is on its right — parity counted from interior page 1, the title page
         kind: boundary
         invariant: INV-013
         test: TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1
@@ -3637,23 +3809,28 @@ functional:
       - id: AC-289
         given: the book of AC-283 exported through each of the Finalise download, POST /book/<id>/download-pdf and POST /book/<id>/generate-pdf
         when: the three exports are compared
-        then: each yields an interior PDF whose page 1 is the guide page plus a separate cover file
+        then: each yields an interior PDF whose page 1 is the blank title page plus a separate cover file
         kind: negative
         invariant: INV-013
         test: TestBookExport_EveryRouteSeparatesInteriorAndCover
     engineering_constraints:
+      # AMENDED 2026-10-17 (CARD-206 + CARD-229): "its page 1 is the guide
+      # page" becomes the title page with the guide on pages 2-3. Every other
+      # clause — no cover page, parity from the 1-based interior position, the
+      # page count, the one cover file — is unchanged.
       - id: EC-034
         statement: >-
           For any book (any members, levels, pairing, answer-key layout and
           cover or no cover) and every export route, the interior PDF holds
-          no cover page, its page 1 is the guide page, each page's parity is
-          its 1-based position in the interior (page 1 odd, right-hand),
-          the page count finalise checks equals the interior's page count,
-          and exactly one cover file of one trim-size page is produced
-          beside it — for every book, not only the measured examples.
+          no cover page, its page 1 is the blank title page with the guide
+          following on pages 2 and 3, each page's parity is its 1-based
+          position in the interior (page 1 odd, right-hand), the page count
+          finalise checks equals the interior's page count, and exactly one
+          cover file of one trim-size page is produced beside it — for every
+          book, not only the measured examples.
         kind: consistency
         invariant: INV-013
-        instances: [AC-283, AC-284, AC-287, AC-288, AC-289]
+        instances: [AC-283, AC-284, AC-287, AC-288, AC-289, AC-368]
         test: PropertyTest_BookExport_InteriorWithoutCoverAndParityFromGuidePage
   - id: FR-044
     # RESOLVED 2026-10-03 by ADR-0038 (DEC-040 + DEC-041, one ADR): the
@@ -4924,6 +5101,67 @@ non_functional:
         test: PropertyTest_ScoreDifficulty_IndependentOfElapsedTime
 
   - id: NFR-008
+    # AMENDED 2026-10-17 (raw-requirements.md "## Delta 2026-10-17", bullet 2;
+    # owner 2026-10-17; CARD-225). TWO CHANGES AND A RESTATED REASON:
+    #  (a) the band 4.8 <= cell <= 7.5 becomes 4.75 <= cell <= 7.5;
+    #  (b) the `condition` changes from "per puzzle ... with the puzzle's real
+    #      row- and column-clue depth" to PER GRID SIZE PER BOOK, fitted to
+    #      the deepest-clued member of that grid size. The band is unchanged
+    #      by (b) — only how the figure is chosen. The real clue depth still
+    #      drives the fit; it is now the deepest member's depth that drives it
+    #      for every member of its grid size, so one grid size prints at one
+    #      cell throughout a book.
+    #  (c) the `rationale` is RESTATED, not carried: it read "below 4.8 mm a
+    #      cell is too small to mark by hand (standard squared paper is 5 mm)",
+    #      which argues for 4.8 and cannot be stretched to 4.75. The honest
+    #      reason is the owner's own, recorded 2026-10-17: the CON-018 margin
+    #      amendment must not make the printed book worse than it is today,
+    #      and 4.75 mm restores exactly today's breach point.
+    #
+    # MEASURED RESIDUE — recorded because 4.75 does NOT remove it. Measured
+    # 2026-10-17 with nonogram.export.layout.compute_layout (30x30, clue depth
+    # swept, ODD parity, 12 mm band, 7.5 mm cap, reading page.cell_mm):
+    #   depth   old margins   new margins
+    #      9      4.966         4.885
+    #     10      4.842         4.762
+    #     11      4.724         4.646
+    #     12      4.611         4.536
+    #     13      4.504         4.430
+    #     15      4.304         4.233   (the geometric maximum on 30 cells)
+    #  - the 4.8 mm floor is ALREADY BREACHED TODAY at clue depth 11 (old
+    #    margins, 4.724 mm). The CON-018 amendment does not create that
+    #    breach; it moves it one step earlier, from depth 11 to depth 10
+    #    (new margins, 4.762 mm at depth 10 against the old 4.8 floor).
+    #  - at a 4.75 mm floor the new-margin breach returns to depth 11
+    #    (4.646 mm): the lower floor buys exactly one depth step, which is
+    #    the whole of what it buys.
+    #  - deeper clues breach EVERY candidate value under both margin sets
+    #    (depth 12, 13, 15 above), and random 30x30 grids at density 0.5 reach
+    #    clue depth 13.
+    # THEREFORE: deeply-clued 30-wide puzzles are admitted by FR-031's
+    # explicit per-puzzle override, which this NFR already names as its sole
+    # escape. This amendment says so OUT LOUD (threshold, rationale, AC-371)
+    # instead of implying that every admissible puzzle meets the band by page
+    # fit — it does not, and did not before the amendment either.
+    #
+    # Scope note (owner, 2026-10-17): the floor's NUMBER was duplicated outside
+    # this entry — FR-031's statement, AC-182..AC-188 and EC-021, FR-032's
+    # statement (number dropped there in the same pass), TERM-024, INV-006,
+    # CAP-006 and trace.yml all named 4.8 mm. PROPAGATED 2026-10-17 (second
+    # pass, owner decision of the same day): FR-031's statement and EC-021 now
+    # state the floor BY REFERENCE (TERM-024/NFR-008) rather than by literal,
+    # AC-183/AC-186/AC-187 and FR-032's AC-241 carry 4.75 mm, TERM-024, INV-006
+    # and CAP-006 are propagated, and trace.yml's FR-031 description follows.
+    # This entry is the single site that OWNS the number. Historical comment
+    # blocks elsewhere that record the pre-amendment state (this block, FR-032's
+    # and FR-040's dated notes, FR-042's relations note, CON-020's, the file
+    # header's 2026-09-22 log, ADR-0036/ADR-0037, decisions/open.yml) keep their
+    # 4.8 mm as audit trail and are deliberately NOT rewritten.
+    # None of AC-369..AC-371's tests exist yet:
+    # AC-369 and AC-371 name CARD-225's own planned tests, and AC-370's
+    # TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedFloor is a test this
+    # amendment newly owes CARD-225 — it is named on no card, so whoever picks
+    # that card up must write it rather than assume it exists.
     # New 2026-09-22 (BK-1, BK-2; raw-requirements.md 2026-09-22 line 4).
     # Owner decisions recorded in book_generation_admin_panel.md §2: the 7.5
     # mm standard cell (commits 561694f, c193a86) and the 4.8 mm floor
@@ -4933,26 +5171,44 @@ non_functional:
     # per puzzle on its REAL clue depth, because the 1.3x bucket model hides
     # a 12-entry band that takes a 30-wide grid to 4.61 mm.
     # NOTE 2026-09-22 (b) (FR-040, BK-6): a two-up page's shared cell has
-    # its own 7.0 mm minimum, which sits INSIDE this range (4.8 <= 7.0 <=
+    # its own 7.0 mm minimum, which sits INSIDE this range (4.75 <= 7.0 <=
     # 7.5); the threshold below is unchanged and still caps the shared cell
     # at 7.5 mm. EC-028 carries `nfr: NFR-008`.
     category: usability
     metric: book_printed_cell_mm
     threshold: >-
-      4.8 mm <= cell <= 7.5 mm — every puzzle printed in a book has a cell
-      of at most the 7.5 mm standard cell and at least the 4.8 mm floor;
-      a puzzle below 4.8 mm is admitted only by an explicit per-puzzle
-      override (FR-031)
+      4.75 mm <= cell <= 7.5 mm — every puzzle printed in a book has a cell
+      of at most the 7.5 mm standard cell and at least the 4.75 mm floor;
+      a puzzle below 4.75 mm is admitted only by an explicit per-puzzle
+      override (FR-031), and deeply-clued 30-wide puzzles DO need that
+      override: on the amended CON-018 margins a 30x30 grid falls below
+      4.75 mm from clue depth 11 (4.646 mm) and random 30x30 grids at
+      density 0.5 reach depth 13 (4.430 mm), so the band is not something
+      every admissible puzzle meets by page fit
     condition: >-
-      per puzzle, computed on the book's own trim and margins (FR-030) with
-      the puzzle's real row- and column-clue depth, for every grid of
-      10..30 cells per side; applies to the admin panel's book PDF only,
-      not to CLI or web exports (NFR-005)
+      per GRID SIZE per book, computed on the book's own trim and margins
+      (FR-030) and fitted to the deepest-clued member of that grid size —
+      its real row- and column-clue depth — so every member of one grid
+      size in one book prints at one cell; for every grid of 10..30 cells
+      per side; applies to the admin panel's book PDF only, not to CLI or
+      web exports (NFR-005)
     rationale: >-
       Owner decisions on the printed book: 7.5 mm keeps about 70% of Book 1
       at one consistent cell size instead of jumping from 9.9 to 7.4 mm
-      between pages; below 4.8 mm a cell is too small to mark by hand
-      (standard squared paper is 5 mm). Source:
+      between pages. The floor is 4.75 mm for one reason, the owner's own,
+      recorded 2026-10-17: the CON-018 margin amendment must not make the
+      printed book worse than it is today, and 4.75 mm is exactly the figure
+      that restores today's breach point — on the old margins a 30x30 grid
+      first fell under the then 4.8 mm floor at clue depth 11 (4.724 mm),
+      and on the new margins it first falls under 4.75 mm at that same depth
+      11 (4.646 mm), so no grid loses a depth step to the margins. This is
+      NOT the hand-marking argument that justified 4.8 mm ("below 4.8 mm a
+      cell is too small to mark by hand, standard squared paper being 5 mm",
+      the reason recorded until this amendment): that sentence argues for
+      4.8 and does not justify 4.75, so it is retired as this threshold's
+      reason rather than carried over. Hand-markability below the floor is
+      now carried by FR-031's per-puzzle override being a deliberate,
+      stored, per-puzzle act. Source: owner 2026-10-17; the earlier figures
       docs/book_generation_req/book_generation_admin_panel.md §2,
       docs/research/book-format-research.md (2026-09-15).
     acceptance:
@@ -4966,16 +5222,45 @@ non_functional:
         when: it is laid out in a Book 1 profile book
         then: cell == 7.5 mm (the book cap wins over NFR-005's curve)
         test: TestBookCell_BookCapOverridesCliComfortCurve
+      # RE-MEASURED 2026-10-17 on the amended CON-018 margins (the assertions
+      # are unchanged in direction; only the figures and the chosen-per-grid-
+      # size wording move). AC-238: 4.966 -> 4.885 mm, still above the floor.
       - id: AC-238
-        given: a Book 1 profile book holding a 30x30 puzzle with 9-deep row- and column-clue gutters
-        when: its book cell is computed
-        then: cell >= 4.8 mm (4.97 mm)
+        given: a Book 1 profile book whose deepest-clued 30x30 member has 9-deep row- and column-clue gutters
+        when: the book's cell for the 30x30 grid size is computed
+        then: cell >= 4.75 mm (4.885 mm on the amended margins; it was 4.966 mm on the old ones)
         test: TestBookCell_ThirtyByThirtyNineDeepAboveFloor
+      # RE-MEASURED 2026-10-17: 4.611 -> 4.536 mm, below both the old 4.8 mm
+      # floor and the amended 4.75 mm one, so the flag is unchanged.
       - id: AC-239
-        given: a Book 1 profile book holding a 30-wide x 25-tall puzzle with a 12-deep row-clue gutter
-        when: its book cell is computed
-        then: cell < 4.8 mm (4.61 mm) and the puzzle is flagged below the floor (FR-031)
+        given: a Book 1 profile book whose deepest-clued 30-wide x 25-tall member has a 12-deep row-clue gutter
+        when: the book's cell for that grid size is computed
+        then: cell < 4.75 mm (4.536 mm on the amended margins; it was 4.611 mm on the old ones)
         test: TestBookCell_TwelveDeepBandFallsBelowFloor
+      # New 2026-10-17 — change (b), the figure chosen per grid size per book.
+      - id: AC-369
+        given: a Book 1 profile book holding two 30x30 puzzles, one with 5-deep row- and column-clue gutters and one with 9-deep
+        when: the book PDF is generated
+        then: both puzzles print at 4.885 mm — the cell the 9-deep member fits at
+        kind: happy
+        test: TestBookCellSize_FitsTheDeepestMember
+      # New 2026-10-17 — the one depth step the 4.75 mm floor buys, which is
+      # the measured justification for the number (see the amendment note).
+      - id: AC-370
+        given: a Book 1 profile book whose deepest-clued 30x30 member has 10-deep row- and column-clue gutters
+        when: the book's cell for the 30x30 grid size is computed
+        then: cell == 4.762 mm, at or above the 4.75 mm floor — where the retired 4.8 mm floor would have refused it
+        kind: boundary
+        test: TestBookCell_ThirtyByThirtyDepthTenHoldsTheAmendedFloor
+      # New 2026-10-17 — the residue the lower floor does NOT remove: the band
+      # is not met by page fit for deeply-clued 30-wide puzzles, and FR-031's
+      # per-puzzle override is how they are admitted.
+      - id: AC-371
+        given: a Book 1 profile book and a 30x30 puzzle of clue depth 13 (the depth random 30x30 grids at density 0.5 reach)
+        when: it is submitted to the book with no per-puzzle override
+        then: the puzzle is not added — 4.430 mm is below the 4.75 mm floor, and FR-031's stored override is the only way in
+        kind: negative
+        test: TestBookCellSize_BelowFloorFlagFollowsTheSharedSize
 
 
 constraints:
@@ -5260,6 +5545,54 @@ constraints:
       Non-goals). Surface split follows ADR-0030, which retired NFR-003's
       no-authentication clause for the admin surface only.
   - id: CON-018
+    # AMENDED 2026-10-17 (raw-requirements.md "## Delta 2026-10-17", bullet 1;
+    # owner's "Puzzle page layout" artifact 2026-10-14 plus the owner's gutter
+    # decision of the same day; CARD-222). THREE SIDES MOVE AND THE GUTTER
+    # DELIBERATELY DOES NOT: outside 0.375 -> 0.5 in (1.27 cm), top 0.375 ->
+    # 0.55 in (1.397 cm), bottom 0.375 -> 0.47 in (1.1938 cm). The GUTTER
+    # CLAUSE IS NOT AMENDED — the artifact draws 0.75 in and the owner decided
+    # on 2026-10-14 to keep KDP's required 0.5 in, which is also what keeps
+    # this entry's own KDP reasoning intact and still explanatory (0.375 in up
+    # to 150 pages, 0.5 in for 151-300, Book 1 straddling 150). That sentence
+    # is untouched; only its trailing half-clause about the 0.375 in outside
+    # margin is restated for 0.5 in.
+    #
+    # Measured consequence, 2026-10-17, with
+    # nonogram.export.layout.compute_layout on the 8.5 x 11 in trim, ODD
+    # parity, 12 mm band, 7.5 mm cap:
+    #   usable width  193.67 -> 190.50 mm  (-1.64%)
+    #   usable height 260.35 -> 253.49 mm  (-2.63%)  [trim minus top and
+    #     bottom margins; the 12 mm title band is reserved out of it, so the
+    #     drawing's own height goes 248.35 -> 241.49 mm]
+    # so every cell not already at the 7.5 mm cap loses about 1.6%: a 30x30
+    # grid with 9-deep clue gutters goes 4.966 -> 4.885 mm. NFR-008's floor
+    # moves to 4.75 mm in the same pass; its amendment carries the full
+    # clue-depth sweep and the residue the lower floor does not remove.
+    #
+    # Two consequences recorded here because they are easy to miss:
+    #  - With outside == gutter == 0.5 in, the Book 1 profile's MIRRORED
+    #    margins (FR-030, TERM-034) become geometrically symmetric: the usable
+    #    area no longer moves with page parity on THIS profile. FR-030's
+    #    AC-272 and AC-273 now hold the SAME range (12.700..203.200 mm) and
+    #    FR-032's AC-274/AC-275 the same left edge (25.45 mm), so on the
+    #    default profile a passing parity assertion is an IDENTITY and must
+    #    not be read as evidence that mirroring works. The mirroring rule
+    #    itself and EC-032's "gutter minus outside" formula are unchanged and
+    #    still TRUE (the difference is now zero), and both still bite on any
+    #    book storing unequal margins — the only configuration in which
+    #    mirroring is actually under test. Owner decision 2026-10-17: RECORD
+    #    this, do not change a margin to restore the asymmetry.
+    #  - Out of scope in the FIRST pass of 2026-10-17, and CLOSED by the
+    #    propagation pass of the same day (owner decision): the figures
+    #    measured on the OLD margins in FR-030 (AC-175, AC-176, AC-178,
+    #    AC-181, AC-272, AC-273) and FR-031 (AC-182, AC-183, AC-186, AC-188)
+    #    are re-measured with compute_layout on the amended margins; each
+    #    carries its own dated RE-MEASURED comment with the old -> new pair.
+    #    AC-176 was missed by the first pass's own stale list and by
+    #    backlog.md's: its 6 x 9 in usable width went 130.175 -> 127.0 mm.
+    # NOT AMENDED here, deliberately: the minimum storable trim stays 10.00 cm
+    # (the owner declined 10.10 cm on 2026-10-14; backlog.md keeps the record).
+    #
     # New 2026-09-22 (raw-requirements.md 2026-09-22 line 3, "CON / defaults";
     # BK-1, book_generation_admin_panel.md §1). The trim half already ships
     # (migration 008 server defaults 21.59/27.94); the margins have NO
@@ -5269,13 +5602,14 @@ constraints:
     type: technical
     statement: >-
       The Book 1 print profile is the default for every book: trim 8.5 x 11
-      in (21.59 x 27.94 cm), gutter margin 0.5 in (1.27 cm), outside, top
-      and bottom margins 0.375 in (0.95 cm), no bleed, and a 12 mm title
-      band above each puzzle. The gutter is fixed at 0.5 in because KDP
-      requires 0.375 in up to 150 pages and 0.5 in for 151-300, and Book 1
-      straddles 150 pages; 0.375 in outside leaves room for trim variance
-      above KDP's 0.25 in minimum. A book may store other values; an empty
-      margin falls back to this profile.
+      in (21.59 x 27.94 cm), gutter margin 0.5 in (1.27 cm), outside margin
+      0.5 in (1.27 cm), top margin 0.55 in (1.397 cm), bottom margin 0.47 in
+      (1.1938 cm), no bleed, and a 12 mm title band above each puzzle. The
+      gutter is fixed at 0.5 in because KDP requires 0.375 in up to 150
+      pages and 0.5 in for 151-300, and Book 1 straddles 150 pages; the
+      0.5 in outside margin leaves room for trim variance well above KDP's
+      0.25 in minimum. A book may store other values; an empty margin falls
+      back to this profile.
     source: >-
       docs/book_generation_req/book_generation_admin_panel.md §1 (BK-1),
       raw-requirements.md 2026-09-22; migration 008 (trim default)
@@ -5324,7 +5658,7 @@ constraints:
     # AMENDED 2026-10-06 (a) (raw-requirements.md "## Delta 2026-10-06 (a)",
     # bullet 7; OWNER DECISION 2026-10-06): (1) clue digits drawn inside a
     # puzzle page's clue cells are EXEMPT from the 10 pt floor — their size
-    # follows the cell, whose own floor is CON-018 / INV-006 (4.8 mm); the
+    # follows the cell, whose own floor is CON-018 / INV-006 (4.75 mm); the
     # exemption is exactly png._draw_clues and book_pdf_generator._write_clues
     # (CARD-184 AC-3), and a worked-example clue digit on the guide page is
     # NOT exempt. (2) check flipped from review-lens to the test CARD-184
