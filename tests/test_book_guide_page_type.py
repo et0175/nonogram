@@ -614,9 +614,25 @@ KNOWN_BARE_LEVEL_2_LAST_PAGE = 2
 #: height by :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM`; this bounds the
 #: **count**, the same way the sibling residue control in
 #: ``tests/test_book_guide_page.py`` bounds its own width-bound set
-#: (``assert len(flush) <= 6``). A seventh case overflowing -- a clean case
-#: starting to, or the ceiling being lifted so that a taller case falls under
-#: the lenient branch -- fails rather than passing green.
+#: (``assert len(flush) <= 6``). A seventh case overflowing fails rather than
+#: passing green.
+#:
+#: **What actually drives this bound up, measured rather than assumed**
+#: (CARD-222 review cycle 2): **corpus growth**. Doubling
+#: :data:`CORPUS_CASES` from 48 to 96 takes the overflowing set from 6 to 15
+#: and reds this assertion by name. That is the path to keep in mind when
+#: widening the corpus -- the new cases have to be looked at, not absorbed.
+#:
+#: Two paths were probed and are **not** reachable from this corpus, so they
+#: are recorded rather than claimed: a *clean* sub-ceiling case starting to
+#: overflow cannot happen, because **zero** sub-ceiling cases are clean -- all
+#: six already overflow; and *lifting the ceiling* does not do it either --
+#: raised to 40.0 cm with the frame shifted, the suite stayed green, and body
+#: type raised 45 % left the set as the same six, saturating at 140 px. The
+#: reason is structural: ``bare_level 2`` is the bottom of the fallback
+#: ladder, which re-flows content *to* the frame, so every tall case sits at
+#: exactly 1 px of slack by construction and the set is a function of trim
+#: height alone.
 KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES = 6
 
 
@@ -783,10 +799,15 @@ class TestGuidePage_TextFitsTheUsableFrame:
         (ADR-0039/R3, and the shape this diff's sibling residue control in
         `tests/test_book_guide_page.py` uses): the overflowing cases are
         collected and counted against
-        :data:`KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES`, so a seventh — a clean
-        case starting to overflow, or the ceiling being lifted until a taller
-        case falls under the lenient branch — reds rather than passing green
-        inside the disclosed magnitude.
+        :data:`KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES`, so a seventh reds rather
+        than passing green inside the disclosed magnitude.
+
+        The reachable path is **corpus growth**, measured: 48 cases → 96 takes
+        the set from 6 to 15 and reds this assertion. Lifting the height
+        ceiling and raising body type were both probed and do *not* drive it
+        up -- see the constant's own comment for why (the fallback ladder
+        re-flows to the frame, so the set follows trim height alone). Stated
+        here because a bound is only as honest as the path it names.
         """
         corpus = count_and_trim_corpus()
         # Both bounds are load-bearing: the builder sizes the corpus from
