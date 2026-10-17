@@ -70,7 +70,17 @@ def test_app_instantiates_with_db_services(app):
 
 @pytest.mark.db_required
 def test_db_session_fixture_works(db_session):
-    """Verify db_session fixture properly sets up and tears down."""
+    """Verify db_session fixture properly sets up and tears down.
+
+    CARD-244 also runs *this* test, by node id, inside a pytest subprocess
+    pointed at a database that does not exist yet — see
+    ``tests/test_db_isolation.py::TestTestDbSetup_CreatesTheDatabaseWhenAbsent``.
+    It is the smallest real test that goes all the way through both places a
+    missing database had to be created: the ``db_required`` gate (which runs
+    before any fixture) and the destructive session fixture. Renaming or
+    moving it breaks that test — point it at the replacement rather than
+    dropping the coupling.
+    """
     from nonogram.db import SessionLocal
     from nonogram.db.models import Batch, Puzzle
 

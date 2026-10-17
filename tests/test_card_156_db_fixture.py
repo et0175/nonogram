@@ -112,6 +112,24 @@ class TestDbFixture_RefusesANonTestDatabase:
         _refuse_unless_test_database("postgresql://u:p@192.0.2.1:5432/nonogram_test")
         _refuse_unless_test_database("postgresql://u:p@192.0.2.1/nonogram_test?sslmode=require")
 
+    def test_a_per_worktree_derived_name_is_allowed_unchanged(self):
+        """CARD-244's derived names pass *this* rule, not a widened one.
+
+        That card sketched ``nonogram_test_<slug>``, which would have meant
+        admitting a prefix here and retiring the ``nonogram_test_backup`` case
+        above — widening the one guard that stands between this fixture's
+        ``DROP SCHEMA`` and the live panel's ``nonogram_poc``. The names are
+        spelled ``nonogram_<slug>_test`` instead, so this guard is
+        byte-for-byte the guard CARD-156 shipped and every name it refused it
+        still refuses. This test keeps the two in step: a derivation that
+        drifted off the ``_test`` suffix fails here, not at the next card's
+        first database run.
+        """
+        from tests.db_name import default_test_database_url
+
+        for root in (REPO, "/Users/omelnikova/PycharmProjects/PythonProject4", "/"):
+            _refuse_unless_test_database(default_test_database_url(root))
+
 
 @pytest.fixture
 def per_test_sql():

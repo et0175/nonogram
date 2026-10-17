@@ -2,6 +2,7 @@
 
 import pytest
 import os
+import re
 import sqlite3 as _sqlite3
 from pathlib import Path
 from sqlalchemy import event as _sqlalchemy_event, text
@@ -12,6 +13,7 @@ from nonogram.admin.app import create_app
 from nonogram.admin.puzzle_review import get_puzzle_review_service, PuzzleReviewService
 from nonogram.admin.batch_generator import get_batch_generator, BatchGenerator
 
+from tests import db_name
 from tests.helpers.mock_generator import MockGenerator
 
 
@@ -149,11 +151,15 @@ def pytest_report_header(config):
 
 @pytest.fixture(scope="session")
 def test_db_url():
-    """Get test database URL from env or use default."""
-    return os.getenv(
-        "TEST_DATABASE_URL",
-        "postgresql://postgres:postgres@localhost:5432/nonogram_test"
-    )
+    """The database the destructive fixtures below act on.
+
+    An exported ``TEST_DATABASE_URL`` wins, verbatim. Otherwise the name is
+    derived from this repo root (CARD-244, :mod:`tests.db_name`), so two
+    worktrees running at once cannot erase each other's schema — which is
+    what the single hardcoded ``nonogram_test`` default used to guarantee they
+    would.
+    """
+    return db_name.resolve_test_database_url(os.environ, db_name.REPO_ROOT)
 
 
 def pytest_runtest_setup(item):
@@ -169,7 +175,24 @@ def pytest_runtest_setup(item):
         database_url = os.getenv("DATABASE_URL")
         if not database_url:
             pytest.skip("Database not reachable: DATABASE_URL is not set")
-        reason = _unreachable_reason(database_url)
+        # [CARD-244] When DATABASE_URL is the very database the destructive
+        # fixtures resolved for this worktree, it may simply never have
+        # existed: the name is derived from the repo root now, so a fresh
+        # checkout's database is new. This hook runs before any fixture, so
+        # without creating it here every db_required test in a new worktree
+        # would skip — green, having tested nothing, which is the exact
+        # failure this card exists to remove (AC-2, ADR-0038/R8).
+        #
+        # Narrow on purpose. It creates *only* the database the suite itself
+        # resolved, and only one the refusal allows; any other DATABASE_URL —
+        # the panel's own, say, under CARD-109's opt-out — is probed exactly
+        # as before and never created. Nothing here can fail a test that
+        # would have skipped (G-2): :func:`_unusable_reason` returns reasons.
+        resolved = db_name.resolve_test_database_url(os.environ, db_name.REPO_ROOT)
+        if database_url == resolved and _refusal_reason(database_url) is None:
+            reason = _unusable_reason(database_url)
+        else:
+            reason = _unreachable_reason(database_url)
         if reason:
             pytest.skip(f"Database not reachable: {reason}")
 
@@ -209,6 +232,27 @@ def _refuse_unless_test_database(database_url: str) -> None:
     A failure, not a skip: a skip is green, and a green run is exactly how
     "DB mode passes" came to mean "DB mode skipped". Pointing the fixture at a
     database it must not erase is a configuration mistake somebody has to see.
+
+    [CARD-244] The decision itself moved into :func:`_refusal_reason`, which
+    returns the message instead of raising it, so that the ``db_required``
+    gate can ask the same question without turning a skip into a failure
+    (G-2). This function is the only thing that raises, and it raises exactly
+    the messages it raised before.
+    """
+    reason = _refusal_reason(database_url)
+    if reason is not None:
+        pytest.fail(reason, pytrace=False)
+
+
+def _refusal_reason(database_url: str):
+    """Why the destructive fixtures must not touch ``database_url``, or ``None``.
+
+    The pure half of :func:`_refuse_unless_test_database`: same two checks,
+    same wording, no raising and — as before — no connection. Split out by
+    CARD-244 for two callers that must not raise: the ``db_required`` gate,
+    which decides whether it may create a missing database, and
+    :func:`_ensure_test_database`, which must be able to say "not this one"
+    without failing a run that would otherwise have skipped.
     """
     from sqlalchemy.engine import make_url
 
@@ -217,35 +261,173 @@ def _refuse_unless_test_database(database_url: str) -> None:
     except Exception:  # noqa: BLE001 - the message must not carry the URL
         url = None
     if url is None:
-        pytest.fail(
+        return (
             "Refusing to set up the test database: TEST_DATABASE_URL is not a "
             "URL SQLAlchemy can parse, and the db_session fixture erases the "
-            "database it is given.",
-            pytrace=False,
+            "database it is given."
         )
 
     name = url.database or ""
     if not name.endswith("_test"):
-        pytest.fail(
+        return (
             f"Refusing to set up the test database: TEST_DATABASE_URL names "
             f"{name!r}, and the db_session fixture erases the database it is "
             f"given. Point TEST_DATABASE_URL at a database whose name ends in "
-            f"'_test'.",
-            pytrace=False,
+            f"'_test'."
         )
 
     overrides = sorted(
         key for key in url.query if key.lower() in _DATABASE_OVERRIDE_PARAMETERS
     )
     if overrides:
-        pytest.fail(
+        return (
             f"Refusing to set up the test database: TEST_DATABASE_URL names "
             f"{name!r} but its query parameter(s) {', '.join(overrides)} can make "
             f"the driver connect to a different database, and the db_session "
             f"fixture erases the database it connects to. Remove "
-            f"{', '.join(overrides)} from the URL.",
-            pytrace=False,
+            f"{', '.join(overrides)} from the URL."
         )
+
+    return None
+
+
+#: The database a ``CREATE DATABASE`` is issued through. PostgreSQL cannot
+#: create a database without being connected to another one, and ``postgres``
+#: is the one every installation has. Nothing is read from it and nothing is
+#: written to it; it is a doorway.
+_MAINTENANCE_DATABASE = "postgres"
+
+#: What a database name may contain for this fixture to create it: exactly the
+#: characters :func:`tests.db_name.derive_test_database_name` produces.
+#:
+#: ADR-0039/R2 — default to deny. A derived name is always inside this set; an
+#: *overridden* name need not be, and a name this cannot classify is not
+#: guessed at. ``CREATE DATABASE`` takes no bind parameters, so the name has to
+#: be interpolated into the statement; it is both quoted by the dialect's own
+#: preparer *and* restricted to this set, because one of those two can be the
+#: one that is wrong.
+_CREATABLE_NAME = re.compile(r"[a-z0-9_]+\Z")
+
+#: One creation attempt per URL per session, with the reason it failed — the
+#: same reasoning as :data:`_DATABASE_VERDICTS`. ``db_session`` is
+#: function-scoped and asks on every test.
+_DATABASE_CREATION_ATTEMPTS: dict = {}
+
+
+def _ensure_test_database(database_url: str):
+    """Create the database ``database_url`` names, if it is absent.
+
+    CARD-244. Deriving the name per worktree (:mod:`tests.db_name`) means the
+    database a fresh checkout wants has never existed, and "it does not exist"
+    reaches the suite as a *skip* — a green run that tested nothing, which is
+    precisely the failure mode CARD-152 and ADR-0038/R8 are about. So the
+    fixtures create it and carry on (AC-2).
+
+    Returns ``None`` when the database is there (or has just been made),
+    otherwise the reason it is not. The caller folds that reason into its skip
+    message rather than discarding it: a creation that failed for any reason
+    other than "Postgres is not running" is something somebody has to see, and
+    an exception swallowed here would be invisible.
+
+    Existence is asked of ``pg_database`` — the authority the runtime can
+    enumerate (ADR-0039/R2) — not inferred from a failed connection, so an
+    unreachable *server* and an absent *database* stay distinguishable.
+
+    G-1, twice over. Every caller asks :func:`_refusal_reason` first, and this
+    asks it again, because this is the function that issues DDL. Then the name
+    must also match :data:`_CREATABLE_NAME`; anything else is left alone,
+    uncreated, with a reason — never guessed at. Both refusals come back as a
+    *reason*, not an exception: the callers that can only skip must be able to
+    ask "may I create this?" without failing a run (G-2), and the one caller
+    that must fail — :func:`_refuse_unless_test_database`, which every
+    destructive fixture still runs first — does so on its own.
+
+    Non-PostgreSQL URLs (SQLite, in the legacy paths) return ``None``
+    untouched: there is nothing to create, and ``CREATE DATABASE`` is not a
+    thing there.
+    """
+    if database_url in _DATABASE_CREATION_ATTEMPTS:
+        return _DATABASE_CREATION_ATTEMPTS[database_url]
+
+    # Belt and braces: every caller asks this first, and this is the one
+    # function here that can bring a database into existence — "the caller
+    # surely checked" is not a thing to find out about from ``nonogram_poc``.
+    refused = _refusal_reason(database_url)
+    if refused is not None:
+        _DATABASE_CREATION_ATTEMPTS[database_url] = refused
+        return refused
+
+    from sqlalchemy import create_engine
+
+    from nonogram.db import session as db_session
+
+    url = db_session.normalized_url(database_url)
+    if not url.get_backend_name().startswith("postgres"):
+        _DATABASE_CREATION_ATTEMPTS[database_url] = None
+        return None
+
+    name = url.database or ""
+    if not _CREATABLE_NAME.match(name):
+        # Not refused — an existing database of that name is still perfectly
+        # usable, and AC-3 says an explicit override is honoured as given. It
+        # is simply not *created*, and the reason travels with the skip if it
+        # turns out not to exist.
+        reason = (
+            f"the database {name!r} does not exist and this fixture will not "
+            f"create a name outside [a-z0-9_]; create it yourself, or point "
+            f"TEST_DATABASE_URL at a name it can"
+        )
+        _DATABASE_CREATION_ATTEMPTS[database_url] = reason
+        return reason
+
+    reason = None
+    # AUTOCOMMIT because CREATE DATABASE cannot run inside a transaction
+    # block, which is what SQLAlchemy would otherwise open.
+    engine = create_engine(
+        url.set(database=_MAINTENANCE_DATABASE),
+        isolation_level="AUTOCOMMIT",
+        **db_session._engine_options(database_url),
+    )
+    try:
+        with engine.connect() as connection:
+            exists = connection.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"),
+                {"name": name},
+            ).scalar()
+            if not exists:
+                quoted = engine.dialect.identifier_preparer.quote(name)
+                connection.execute(text(f"CREATE DATABASE {quoted}"))
+    except Exception as error:  # noqa: BLE001 - any failure is reported, not raised
+        # Not raised, because "Postgres is not running" must stay a skip and
+        # not become a failure (G-2); not swallowed, because the text is the
+        # only explanation of a creation that failed for some other reason.
+        reason = f"could not create {name!r}: {error}"
+    finally:
+        engine.dispose()
+
+    _DATABASE_CREATION_ATTEMPTS[database_url] = reason
+    return reason
+
+
+def _unusable_reason(database_url: str):
+    """Why the destructive fixtures cannot use ``database_url``, or ``None``.
+
+    Creation first, then reachability: a database that does not exist yet is
+    made (CARD-244 AC-2), and only then is the server asked whether it
+    answers. Reversing the two would cache an "unreachable" verdict for a
+    database the fixture was about to create.
+
+    When both steps fail, both reasons are reported. The skip gets longer, not
+    quieter — ADR-0038/R8's principle, applied to a database rather than a
+    browser.
+    """
+    creation = _ensure_test_database(database_url)
+    reachability = _unreachable_reason(database_url)
+    if reachability is None:
+        return None
+    if creation:
+        return f"{reachability} ({creation})"
+    return reachability
 
 
 @pytest.fixture(scope="session")
@@ -276,7 +458,7 @@ def _test_database_tables(test_db_url):
     however the fixture exits — including a DROP or migration that fails.
     """
     _refuse_unless_test_database(test_db_url)
-    reason = _unreachable_reason(test_db_url)
+    reason = _unusable_reason(test_db_url)
     if reason:
         pytest.skip(f"Could not set up test database: {reason}")
 
@@ -343,7 +525,7 @@ def db_session(test_db_url, request, monkeypatch):
     # far as a connection, and an unreachable one must cost one cached deadline
     # for the whole run, not one per test (CARD-097).
     _refuse_unless_test_database(test_db_url)
-    reason = _unreachable_reason(test_db_url)
+    reason = _unusable_reason(test_db_url)
     if reason:
         pytest.skip(f"Could not set up test database: {reason}")
     engine, tables = request.getfixturevalue("_test_database_tables")

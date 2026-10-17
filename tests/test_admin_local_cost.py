@@ -472,7 +472,7 @@ class TestAdminLocalTests_ExecutionSetIsDeclared:
     def test_every_test_that_is_not_declared_text_only_executes_a_script(
         self,
     ) -> None:
-        """The reason execution is the claim, stated once for all 63 of them.
+        """The reason execution is the claim, stated once for all 66 of them.
 
         Each of these tests asserts on something only a run produces: the
         script's exit code, the argument list psql was handed (read back
@@ -489,10 +489,12 @@ class TestAdminLocalTests_ExecutionSetIsDeclared:
             "newly text-only": sorted(text_only - set(TEXT_ONLY_TESTS)),
             "no longer text-only": sorted(set(TEXT_ONLY_TESTS) - text_only),
         }
-        assert len(executing) == 63, len(executing)
-        assert len(executing) + len(text_only) == 69, (
-            "the four sources no longer define 69 tests. The trio collects 83: "
-            "the 55 defined in the three test files, plus the 14 the two "
+        # 63 before CARD-244, which added three to tests/test_run_admin_tests.py
+        # for the TEST_DATABASE_URL the script now exports.
+        assert len(executing) == 66, len(executing)
+        assert len(executing) + len(text_only) == 72, (
+            "the four sources no longer define 72 tests. The trio collects 86: "
+            "the 58 defined in the three test files, plus the 14 the two "
             "contract mixins define in the helper, collected once per sibling "
             "script"
         )
