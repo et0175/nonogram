@@ -914,7 +914,11 @@ def ec1_books(seed: int = 147) -> List[Dict[str, Any]]:
     """
     rng = random.Random(seed)
     trims = [
-        ("21.59", "27.94", "1.27", "0.95"),  # CON-018's Book 1 profile
+        # CON-018's Book 1 profile, whose outside margin became 0.5 in on
+        # 2026-10-17 (CARD-222); the three "0.95" below are kept as what they
+        # now are — an ordinary stored margin of 9.5 mm — because the point of
+        # this corpus is sheets that differ from each other, not the profile.
+        ("21.59", "27.94", "1.27", "1.27"),  # CON-018's Book 1 profile
         ("15.24", "22.86", "1.27", "0.95"),  # 6 x 9 in
         ("20.32", "25.40", "1.59", "0.95"),  # 8 x 10 in, a wider gutter
         ("21.00", "29.70", "1.27", "0.64"),  # A4, the narrowest legal outside
