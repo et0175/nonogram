@@ -58,8 +58,18 @@ does not scan.
 ## Acceptance criteria
 
 - **AC-1** (happy, the outer corner): *Given* a left-hand page and a right-hand page, *when*
-  each is drawn, *then* the QR's box lies in the footer at the **outer** edge — right on a
-  left-hand page, left on a right-hand one — and its outer edge is inside the usable area.
+  each is drawn, *then* the QR's box lies in the footer at the **outer** edge — **right on a
+  right-hand (odd) page, left on a left-hand (even) page** — and its outer edge is inside the
+  usable area.
+  _[CORRECTED 2026-10-18. As written this parenthetical was **inverted** and named the
+  **gutter** — the very thing this card exists to move the QR away from — and so contradicted
+  its own AC-2 ("never the spine"). ADR-0036 is explicit: the gutter sits "on the left of
+  right-hand (odd) pages and on the right of left-hand (even) pages", and the codebase follows
+  it (`_draw_folio`: an ODD right-hand page lands `drawing_right` on `usable_right`;
+  `InteriorFrame.label_x` puts the gutter left on ODD). Caught by the implementation agent,
+  which checked the convention instead of following the AC literally and implemented **outer**;
+  had it obeyed the AC, this card would have shipped the owner's complaint back to them. The
+  implementation is correct and this wording now matches it.]_
   (test: `TestBookQrSlot_SitsAtTheOuterBottomCorner`)
 - **AC-2** (guard, never the spine): *Given* every page kind that carries a QR (single, each
   slot of a two-up, every parity), *when* it is drawn, *then* **no QR pixel** lies in the
@@ -113,6 +123,77 @@ _52 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 - **Trace:** not updated by this card.
 
 ## Worktree notes
+
+- **⚠ [AC-1's own wording was INVERTED, and following it would have shipped the owner's complaint
+  back to them.]** AC-1's parenthetical read "right on a left-hand page, left on a right-hand one".
+  That names the **gutter**, not the outer edge — the precise thing this card exists to move the QR
+  away from — and it contradicted its own AC-2 ("never the spine"). Verified against the model, not
+  argued: ADR-0036 states the gutter sits "on the left of right-hand (odd) pages and on the right of
+  left-hand (even) pages", and the code follows it (`_draw_folio`: an ODD right-hand page lands
+  `drawing_right` on `usable_right`; `InteriorFrame.label_x` puts the gutter left on ODD). **The
+  implementation agent caught it by checking the convention instead of obeying the AC, implemented
+  *outer* (ODD→right, EVEN→left), and flagged the AC rather than editing the card.** Exactly the
+  right division of labour. AC-1 is corrected above with the defect recorded in place.
+  **Worth carrying:** this is the second card this wave whose own stated criterion contradicted its
+  purpose (CARD-224's AC-6 vs AC-2 is the other, still open). Both came from the same owner artifact
+  and both invert a left/right or above/below relation — a decompose-station check for parity and
+  ordering claims would have caught them on paper.
+
+- **[Implemented; mirroring proved where it is observable]** On `_unequal_spec()` — Book 1's trim with
+  **gutter 19.0 mm, outside 7.0 mm**, differing by 12 mm (142 px, far more than the 20 mm icon). ODD:
+  `trim - icon.right == outside_px` **and** `!= gutter_px`; EVEN: `icon.left == outside_px` **and**
+  `!= gutter_px`; plus a true mirror (`odd.left == trim - even.right`). A sibling test records
+  explicitly that on the default profile `_px(GUTTER_MM) == _px(OUTSIDE_MM)`, so the *distance* claim
+  there is an identity and only the *side* claim has teeth — the CARD-222 pattern, reused as briefed.
+  AC-2 is additionally proved on **measured ink**: `_qr_ink()` diffs a page against the same page with
+  the placeholder suppressed, so the mask is the glyph's own pixels, and a control asserts the retired
+  gutter-side box really does land in the forbidden half, so the claim can fail.
+
+- **[The behaviour change to carry to CARD-226]** A two-up page's **lower slot now carries no QR at
+  all** (it had one before, in the gutter margin). Its drawing's bottom edge *is* the bottom margin on
+  every two-up page, so there is no room, and that corner is exactly where the page's fallback folio
+  prints. The baseline book now prints **3 links for 4 puzzles**, and the test derives the missing one
+  from the page plan rather than hardcoding it. The card anticipated this, but it is a **loss of
+  coverage**, so CARD-226 owns deciding whether a lower slot should get one. The 10×10 cm minimum trim
+  also carries no QR now (it used to use the side margin); **no KDP trim is affected** — the full
+  sweep 12.70×20.32 / 13.97×21.59 / 15.24×22.86 / 21.59×27.94 cm × sides 10..30 keeps the icon
+  everywhere, recorded as tests.
+
+- **[Deliberately NOT taken]** `INTERIOR_FOOTER_MM` keeps its three rows. CARD-222's docstring said
+  that once the icon moved the footer line "can drop onto the icon's row and this band becomes the
+  artifact's own 23.175 mm" — doing that would shorten the band, move `area_bottom`, and therefore
+  move **every grid on every page**. That is CARD-224's subject, and the docstring now says so. Right
+  restraint: this card is the QR's position, not the band's height.
+
+- **[Outside `Touches`, flagged not assumed]** `meta/profiling/rank_durations.py` (the frozen
+  render-set guard went red because `test_book_qr_slot.py` now calls `interior_stream`; path added,
+  31 now, with a dated note — direct precedent, CARD-222's own `88c93b5`). The agent explicitly
+  **did not** dodge the grep by spelling the call through a sibling API, which is the silent divergence
+  that guard exists to catch. And `meta/profiling/suite-hotspots-20261015.md`, where — unlike
+  CARD-222's case — this file *is* in the 2026-10-15 recording, so the render row's **test count**
+  moves 1079→1091 and the derived ms/test 181→179. **Every measured second and every share is
+  unchanged** (that file's tests all recorded 0.00 s), the durations artefact is untouched and its
+  sha256 citation still valid.
+
+- **[Dead code this card creates, for a follow-up]** `src/nonogram/admin/book_proof.py` was correctly
+  left unedited (outside `Touches`), but its CARD-204 comment and the
+  `if icon.top == placement.drawing_top` branch in `_fallback_spots` are now **unreachable** — no icon
+  anchors at the drawing's top any more. Its tests pass. Needs a follow-up to delete the branch and the
+  comment rather than leaving a live-looking branch nothing can enter.
+
+- **[The DB caveat, and the fix proving itself]** In one intermediate combined run the agent included
+  `tests/test_book_floor.py`, which carries `[db]`-parameterised tests, against my instruction not to
+  run DB selections while a sibling was active. It passed, and **no harm was possible** — because
+  CARD-244 had already isolated itself onto its own derived database. So the hardening card prevented
+  a real collision *during its own development*, which is the most direct evidence available that it
+  works. Three DB-mode render-heavy files (`test_book_scaffolding.py`,
+  `test_book_export_interior_cover.py`, `test_book_finalise_gutter.py`) were deliberately not run;
+  statically none reconstructs a page frame, references the QR, or asserts a pixel digest, and the
+  merge gate covers them.
+
+- **[Still owed at the architect station]** FR-040's "and only when" amendment, which should now be
+  written against the **outer-corner** placement and against the fact that a two-up lower slot no
+  longer carries the slot at all.
 
 - [This is the card that frees CARD-224] The owner's own note says it: the flush-right and
   flush-left placement "was what freed the gutter-side strip for the QR. Once the QR has its

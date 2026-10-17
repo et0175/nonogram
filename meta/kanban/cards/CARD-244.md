@@ -171,6 +171,64 @@ _Assembled 2026-10-18 by `system_rules.py --card CARD-244 --root meta/architectu
 - **ADR-0038/R7 bounds the fix.** `pytest-playwright` lives in a dev-only extra and must not reach `project.dependencies`; G-4 says the same for anything you reach for here. Database creation goes through the driver already present.
 ## Worktree notes
 
+- **[Implemented `c4ac4d6`, and it overruled the card's own naming sketch — correctly.]** The card
+  sketched `nonogram_test_<slug>`. Shipped: **`nonogram_<slug>_test`**. I verified the reason rather
+  than accepting it: `conftest.py:271` is `if not name.endswith("_test")`, and
+  `test_card_156_db_fixture.py` pins **`nonogram_test_backup`** among the names it refuses precisely
+  because "starts with `nonogram_test`" is not good enough. So the prefix spelling would have required
+  **widening the one guard standing between `DROP SCHEMA` and `nonogram_poc`** and retiring that case;
+  the suffix spelling needs no change to that guard at all. My suggested `nonogram_test_card244` would
+  itself have been *refused* by today's code. Good pushback on a brief — the card's wording is the
+  sketch, the guard is the constraint.
+
+- **[Verified independently before committing, not taken on report]** The suffix rule above; the three
+  derived names (`…41B` for the repo, 50B for this worktree, 50B for CARD-223's — all distinct, all
+  legal, all under 63); and **51 passed / 0 skipped in 34.75 s** against a live Postgres, matching the
+  agent's own 51/32 s.
+
+- **⚠ [The finding that matters beyond this card: THE MERGE GATE CANNOT EVIDENCE THIS CARD'S CENTRAL
+  ACs.]** The board's documented gate condition is `nonogram_test` reachable with **`DATABASE_URL`
+  unset**, which is what produces 8 of the suite's 9 normal skips. Measured here: with `DATABASE_URL`
+  unset, `tests/test_db_isolation.py` runs **48 passed, 3 skipped** in 0.14 s — and the 3 skipped are
+  **AC-2 (create-if-absent) and AC-6 (the concurrent-isolation proof with its counterfactual)**, i.e.
+  the two criteria the card exists for. With `DATABASE_URL` set they are 51 passed in 34.75 s.
+  **So the full-suite gate is not the evidence for AC-2 and AC-6; the separate run above is**, and the
+  card's AC/EC/G gate records that run rather than pointing at the suite.
+  **Generalised, because it is not about this card:** *any* acceptance criterion on this board whose
+  named test is `db_required` is **never exercised by the merge gate**. That is a systemic evidence
+  hole, it sits beside the 20 vacuous TODO-stub DB tests already in the backlog, and it is the reason
+  "the gate is green" has to stop being treated as coverage for DB-dependent claims. Opened as a
+  backlog item.
+
+- **[Leftover databases to drop at merge]** `nonogram_card244_test` (created by hand for the agent's
+  own isolation, on my instruction) and `nonogram_pythonproject4_card_244_d541cdce17d1_test` (this
+  tree's derived database, created by a real run). Every database the tests themselves create is
+  dropped in a `finally`, through a `_drop_database` that asserts the name's shape and refuses
+  `nonogram_poc` / `nonogram_dev` / `nonogram_test` outright. **`nonogram_poc` was never connected to
+  at any point** — the only live-database contact was `SELECT datname FROM pg_database` against the
+  `postgres` maintenance database.
+
+- **[Outside `Touches`, flagged by the agent rather than assumed — all four accepted]**
+  `tests/db_name.py` (new; the derivation has to be importable without dragging in `nonogram.admin`,
+  precedent `tests/database_guard.py` and `tests/hang_guard.py`), `tests/helpers/admin_scripts.py`
+  (`TEST_DATABASE_URL` added to the stripped environment, for the same reason `DATABASE_URL` already
+  is — otherwise the agent's own exported value decided the outcome), `tests/test_admin_local_cost.py`
+  (its declared execution-set equality 63→66 and 69→72, for three tests added to
+  `test_run_admin_tests.py`), and `tests/README.md` (its `db_session` description said "default
+  `…/nonogram_test`", now false).
+  **`scripts/setup_admin_local.sh` is in `Touches` and was deliberately NOT changed**: its default URL
+  is `nonogram_poc` and no AC needs it, so editing the script that migrates the live panel's database
+  was the highest-risk edit available on this card for no benefit. Correct call.
+
+- **[A known limit, stated rather than hidden]** A bare `./scripts/run_admin_tests.sh` does **not** get
+  per-tree isolation — its harness runs the script alone in a throwaway root where `tests/db_name.py`
+  cannot exist, so deriving there would mean duplicating the derivation in bash. Not done, judged not
+  worth the risk; that path stays the explicit-override path (export `DATABASE_URL` per tree, or run
+  `pytest`). The script did gain one line of behaviour, `export TEST_DATABASE_URL="${TEST_DATABASE_URL:-$DATABASE_URL}"`,
+  without which it would check and print one database and then watch the suite `DROP SCHEMA` on
+  another — and if the derived one were unreachable, every DB test would skip while the script still
+  said "Tests completed!", which is the green-for-nothing run CARD-152 added the check to prevent.
+
 - **[Why this is P1 and why the owner put it ahead of the interior chain]** It does **not**
   unlock parallelism for CARD-223..CARD-233 — those collide on `export/layout.py` and
   `book_pdf_generator.py` and will serialise regardless. What it buys is **gate integrity**:
