@@ -548,6 +548,119 @@ parser's `error` is exempt — the half that matters is measured from the other 
 module-scope routes stay open as recorded misses with controls (G-8, G-9). The emptied-module
 floor is a number somebody will have to edit, and it is labelled as one.
 
+### Final pass — the owner's split applied (2026-10-17)
+
+No cycle 3. One bounded pass on the closed list the split names: **F-202 closed by
+mechanism**, **F-201 recorded as a bound and carded as CARD-242**, and the four Minors
+corrected. Nothing else in either module was touched, and no exemption was widened or
+narrowed — `_check_log_invocations`' logic is byte-identical to `e9f0e8f`. The one change
+that would have re-opened the loop, giving that rule the sibling's taint step, is
+deliberately **not** here; it is CARD-242's, and the bound below is what stops that card
+closing the route quietly.
+
+**Closed by mechanism — F-202, `__test__ = False`.** `__test__` is a member of
+`_MODULE_SCOPE_SILENCING_BINDINGS` now, carrying the measurement as its reason, with a
+control in `MODULE_SCOPE_SILENCES`. Re-measured here rather than relayed, pytest 9.1.1:
+the victim module alone is `collected 0 items` / `no tests ran`, **rc=5**; beside one
+other module it is **`1 passed in 0.10s`, rc=0** — two failing guards gone and the
+session green. The reviewer's note that the control then comes free was **verified, not
+assumed**: `test_every_binding_it_names_has_a_control` and
+`test_the_control_for_each_binding_depends_on_the_set` both parametrise from the set, so
+the new member brought its own two cases and needed no new machinery — but it does need
+the control itself, since the first of those tests is red on a member with none. Measured
+both ways through the deployed rule: the control is reported **WITH** the member
+(`[('__test__', '')]`) and `[]` **WITHOUT** it. Reported on *any* binding of the name
+rather than only a falsy one, on purpose: every member of this set is value-blind, and a
+value test would be a fourth exemption in the module whose review history is about
+exemptions.
+
+**The mutant, re-run.** `__test__ = False` planted in `tests/test_clues.py` immediately
+after `from __future__ import annotations` (the position cycle 2 recorded a false start
+at), in its own fresh `pytest` process:
+`test_no_guarded_module_silences_itself_at_module_scope` is **RED**, naming
+`(('tests/test_clues.py', '__test__', ''),)` against `MEASURED_MODULE_SCOPE_SILENCES`'s
+empty tuple — **1 failed, 76 passed in 1.90s**. Cycle 2 measured the same plant as
+SURVIVED at 468 passed with both guard modules green. Restored from a byte copy, md5
+`942627df2b6df5a003bf52775ab1d398` re-verified, `git diff -- tests meta/review
+meta/profiling pyproject.toml` back to the two intended files.
+
+**Recorded as a bound — F-201, and it is CARD-242's.** New `MEASURED_CHECK_LOG_MISSES`,
+the shape `MEASURED_MODULE_SCOPE_MISSES` already had, asserted `== []` by
+`test_the_disclosed_check_log_misses_are_still_misses`. First entry: the command line
+hoisted into a module-scope constant and executed — cycle 2's M2, `SURVIVED at 854
+passed` where the inline M3 was KILLED. Both the constant and the sweep rows (**E-9**,
+**G-16**) name CARD-242, and the bound is **measured non-vacuous**: the deployed rule
+returns `[]` for that entry, while the same rule with its module-scope exemption narrowed
+to value equality — one of the two closures CARD-242 can take — returns
+`["CMD = 'python meta/profiling/rank_durations.py <the option> PATH'"]`. So that card
+cannot close the route without this test going red and this entry being struck, which is
+the whole point of recording it rather than leaving it in a report.
+
+**Recorded as a bound — F-203's real bound.** Second entry of the same constant: an
+`error(...)` on any receiver that an `add_argument(...)` call names too. Measured `[]`
+against the deployed rule with **no `ArgumentParser` anywhere**, and the exempt `error`
+executing what it was handed. The mechanism is *not* narrowed — that is the same
+exemption F-201 is about, and therefore CARD-242's.
+
+**Recorded as bounds — F-206's four routes.** `MEASURED_MODULE_SCOPE_MISSES` goes from
+two entries to six, each measured `[]` against the deployed rule and each under the
+existing parametrised bound: a call into an **imported** helper that skips (a different
+and wider reason than the local one — the rule cannot read a body that is not in the
+file); `globals()["pytestmark"] = …` (the target is a Subscript, not a Name);
+`getattr(pytest, "skip")(…)` (the call's function is itself a call, so there is no last
+name component); and `raise SystemExit(0)`, an exact alias of the enumerated `exit`,
+recorded rather than closed because its verdict is the loud one — measured here as a real
+pytest module, `INTERNALERROR> SystemExit: 0`, `no tests ran`, **rc=3**. Non-claims
+**G-8** (rewritten: local *or imported*, two different reasons), **G-13**, **G-14**,
+**G-15**.
+
+**The corrected wordings.** Each was false as stated, and each is replaced by what holds:
+
+- **F-203.** The card's cycle-2 sentence *"not borrowable without building a real
+  parser"* and the rule's docstring *"Not borrowable without actually building a parser
+  that registers arguments"* are **false**: `maker().add_argument("--z")` beside
+  `maker().error("… the option …")` is exempt with no parser built and the two calls not
+  even on the same object, because the match is on the receiver's *unparsed text*. And
+  *"the exempt shape executes nothing"* is a property of `argparse.ArgumentParser`, not of
+  the exemption, which is keyed on two method **names**: a class with an
+  `add_argument`-named method and an `error` that calls `os.system(c)` is exempt and
+  executes. The docstring and sweep row **G-11** now say that; this card's cycle-2
+  sentence is superseded by sweep row **E-10**.
+- **F-205.** *"No `dir()` is an authority for them"* is **false of `SkipTest`**:
+  `"SkipTest" in` public-callable `dir(unittest)` → **True** under this module's own two
+  filters, so `dir(unittest)` is as much an authority for it as `dir(pytest)` is for
+  `pytest.skip`. It holds for `_exit` (fails the public filter) and for the four bindings
+  (not callables at all). The comment is split: `SkipTest` is a member **by choice** —
+  one name in one namespace against a whole second classification table — and the cost of
+  the choice, that the unittest half carries no completeness audit, is the claim that
+  replaces the false one. No measurable miss follows (unittest's other silencing names are
+  decorators; `unittest.main()` raises `SystemExit` loudly). Sweep row **D-15**.
+- **F-204.** The sweep's header counts are now what they are: **hand-maintained, counted
+  mechanically**, with the `grep` that reproduces every number written beside them, the
+  three overlapping rows (**B-4**, **D-4**, **F-7**) named, and the buckets stated as
+  **not a partition**. The reviewer's figure is confirmed — PINNED was 32 against a
+  declared 37 — and the two count lines deliberately differ (13 rows carry the token,
+  15 are found false, because **B-4** and **D-2** state their falsification in their own
+  words). Not derived, and that is said to be a decision: deriving needs one canonical
+  verdict token per row, and three rows honestly carry two. Sweep row **F-14**.
+- **The out-of-scope leftover**, closed while here: the `MODULE_SCOPE_SILENCES` comment at
+  the `importorskip` control still asserted *"that is what default-deny means"* in the
+  present tense — the last standing copy of the sentence cycle 1 falsified. It now says
+  what the rule does (an enumerated rule reports what it enumerates), and says that it
+  said the other thing until this pass. Lines 54/344/769 already referred to it in the
+  past tense and are untouched.
+
+**Counts and guardrails.** `tests/test_guard_integrity.py` **69 → 77** collected, so the
+loop is **468 → 476 passed** in 18.8s and nothing was removed (**G-2**): +1 binding
+discrimination case, +4 module-scope misses, +2 check-log misses, +1 positive control.
+`tests/test_suite_profile.py` is **not touched at all** this pass; `meta/profiling/` is
+not touched, so **G-3** holds by construction and `TIMING_LOG_LINE` is still
+byte-identical to `main`. **G-1 HELD** — the main repository's log is md5
+`be3dfae8a428d62aec0087926c89b44d` before and after, re-checked after the mutant; the new
+controls spell their destination `PATH` and the one that shells out does so inside a
+`def` that nothing calls. **G-6 HELD** — no `src/**`, no new import of any kind,
+`cmd-run.md` untouched. The full suite is **not** run here; it is the merge gate's.
+
 ### Orchestrator log
 
 - [Why TDD is true on this card] Every AC here is of the form "a test exists that fails when X
@@ -637,3 +750,53 @@ floor is a number somebody will have to edit, and it is labelled as one.
   the suite; **F-201 recorded as a measured bound with a control**; the taint step carded as
   **CARD-242**. No cycle 3 — the reviewer's objection stands that a third cycle would be the loop
   auditing the exemptions it just wrote, which is how CARD-238 reached five.
+
+### Orchestrator log
+
+- [Why TDD is true on this card] Every AC here is of the form "a test exists that fails when X
+- [The one thing that would make this card fail the way CARD-238 nearly did] Closing these bounds
+- [Measured figures carried over, so nothing here needs re-deriving] the join forms return `[]`; the
+- [Why TDD is true on this card] Every AC here is of the form "a test exists that fails when X
+- [The one thing that would make this card fail the way CARD-238 nearly did] Closing these bounds
+- [Measured figures carried over, so nothing here needs re-deriving] the join forms return `[]`; the
+- [Why TDD is true on this card] Every AC here is of the form "a test exists that fails when X
+- [The one thing that would make this card fail the way CARD-238 nearly did] Closing these bounds
+- [Measured figures carried over, so nothing here needs re-deriving] the join forms return `[]`; the
+- [Env] forge unknown (no resolvable plugin manifest; no meta/.skills.yml)
+- [Dispatch] started 2026-10-16T20:45Z, after CARD-228 merged rather than beside it. **The owner
+- [Scope] 8 files, THREE beyond the card's `Touches:` — and each is required by an AC the card itself writes: `tests/test_guard_integrity.py` (new; AC-4 says a second module is the ONLY route, because one module cannot judge its own module-level skip), `tests/test_sourcing_image.py` (AC-5: "fixed in their own modules"), `tests/README.md` (part 5). My read, passed to the reviewer to agree or not: this is an **under-specified `Touches:` at decompose time**, not scope growth — the card's own body prescribes all three — and the agent recorded it rather than letting it read as excess. `[Touches drift]` recalibration, not a contract violation. Note the known overlap with CARD-236 on `meta/profiling/`: CARD-236 is not started, so no live conflict, but it will rebase.
+- [Build gate] 341 → **398** in tests/test_suite_profile.py, **zero test functions removed** (the agent `ast`-diffed names against `git show HEAD:`), plus a new 42-test module. Its own build gate over the files it touched: 728 passed. Verified by me independently: 341 on main, 398 here.
+- [Guard] **G-1 verified by md5, and the agent's caveat is the right one.** The main repo's `suite-timing.log` stands at `be3dfae8a428d62aec0087926c89b44d`, 3016 bytes — matching what the agent reported, and consistent with the two well-formed entries I appended at this wave's merge gates. It said plainly that it holds no earlier md5 of its own, so its claim is "unchanged since I started" and not "unchanged ever". That is the honest form of that claim.
+- [Correction to MY OWN dispatch brief] I told the agent "the file now collects more than 341 — CARD-228 merged since. Measure, do not trust the number." **The instruction was right and my premise was wrong**: `tests/test_suite_profile.py` collects exactly **341** on `436717e`. CARD-228 added its tests to `test_book_difficulty_dots.py` and `test_book_interior_type_floor.py`, not here. I verified 341 on main myself after the agent said so. It also corrected a second carried figure: the compound mutant survives at **341 passed, not 250** — 341 is what that module collects, so it survived *every* test in it; 250 was presumably a narrower selection in CARD-238's cycle-5 worktree. Same conclusion, better number. **That is the fourth and fifth time today a downstream agent corrected a figure I passed on**, which is now a pattern about me and not about them: I have been relaying measurements from reports without re-deriving them.
+- [AC-7 working as designed] the sweep found **five claims false on measurement, and two were the agent's OWN, written in this pass and caught by controls this card wrote** — `PLATFORM_GATED_SPELLINGS` carried `info` (a property, not on the surface), and `_MODULE_SCOPE_SILENCERS` carried `skip_module` (**which does not exist in pytest**) and `fail` (errors loudly, so not a silencer). That is the F-403 shape twice inside the pass meant to end it — and the sweep caught both before review did. If this holds up under review it is the strongest evidence yet that CARD-238's 2.7 days bought a real mechanism rather than a habit.
+- [Found in passing] a **third** version-floor statement nobody had noticed: the PyPI classifier said `Python :: 3.9+`. So two of three statements agreed with each other and not with the interpreter anyone runs. `pyproject.toml` is now authoritative at `>=3.14`, CLAUDE.md already agreed, and all three are pinned by `TestTheInterpreterFloor`.
+- [Review 1/3] dispatched with AC-7's sweep audit as priority 1, on the grounds that if the sweep is decorative the card has reproduced the CARD-238 defect one level of abstraction higher — which is the only way this card can fail quietly. Also asked to judge the one gap the agent named itself (three argparse lines no test executes, asserted structurally only because AC-6 forbids invoking the subcommand) and the one claim it labelled **reasoned, not measured** (the xdist/randomly interleaving, undemonstrable because neither is in the dependency baseline).
+- [Raised for the owner, G-5] `cmd-run.md` in `~/MyProjects/forge_1` is **not** edited, correctly. But it is the one file the dispatcher reads at a merge gate, and it documents neither the legal parenthesised post-bracket note nor the illegality of a bare one — **so it is still where the next malformed timing line will come from.** `tests/README.md` now documents both, with the writer named and the `--check-log` invocation shown. I nearly wrote such a line myself today and caught it only by running it through the committed regex.
+- [Review 1/3] **8.0, severity gate FAILS** on 2 Important, 0 Critical. Risk MEDIUM, lane DEEP.
+- [Review 1/3] **the sweep is NOT decorative — 31 of 33 PINNED rows held the sample, and every one of
+- [Review 1/3] it also **confirmed the two claims the sweep caught in its own pass are real** — M5
+- [Review 1/3] **F-001 (Important): `_MODULE_SCOPE_SILENCERS` is swept as default-deny and is not.**
+- [Review 1/3] **F-002 (Important): AC-6's no-invocation guard misses a shell string, and its control
+- [Fix 2] dispatched. On F-001 I told the agent **not** to attempt the reviewer's first option as
+- [Fix 2] `098a19c` + `e9f0e8f`. **Both Important findings closed by MECHANISM, not by narrowing** — and I verified the two decisive mutants myself on disk rather than relaying them, each planted and reverted with `tests/test_clues.py` restored to md5 `942627df2b6df5a003bf52775ab1d398`: the `os.system(... --check-log meta/kanban/suite-timing.log)` shell string is now **RED** at `test_no_guarded_source_invokes_the_check_log_subcommand`, and a module-scope `raise unittest.SkipTest(...)` under a host-state `if` (planted after `from __future__`, so it is legal and truly at module scope) is now **RED** at `test_no_guarded_module_silences_itself_at_module_scope`. Both survived cycle 1.
+- [Fix 2] F-001's three halves, which is the shape my brief prescribed and the agent implemented: **derived** where an authority exists — `_pytest_surface()` over `dir(pytest)` under the same public+callable filters the first module uses (88 public, 84 callable on pytest 9.1.1, all 84 classified with grouped reasons), red on an unclassified name, a phantom, or the set reverting to a literal; **explicit members with reasons and discriminating controls** where no `dir()` could ever supply them (`SkipTest`, `os._exit`, and the three *bindings* `pytestmark`/`collect_ignore`/`collect_ignore_glob` — a binding is not a call, so no surface enumerates it); and **recorded misses** for what remains (helper indirection, and a silencer aliased then called). Closed by mechanism: `unittest.SkipTest`, `os._exit`, `collect_ignore`, `collect_ignore_glob`.
+- [Fix 2] F-002 closed at the root cause first: the rule is now ONE function (`_check_log_invocations`) that all three tests call, with the **substring** predicate, and `test_the_invocation_rule_is_the_one_the_guard_runs` reads this module's own source and goes red if any test in the class walks `ast` itself again — which is the defect cycle 1 found (a control certifying a copy of the predicate) made structurally impossible rather than merely fixed.
+- [Fix 2] **two things the agent flagged rather than hid, both honest and both passed to the reviewer to judge rather than accepted by me**: the emptied-module floor is 90 and NOT derived — it declined to derive it from `git show main:…` because that would put a git/`main`-ref dependency, and a possible skip, into the module whose entire subject is removing host dependence from verdicts (that reasoning looks right to me, and it is paired with a derived equality so the floor is the weaker half of a two-part check); and the `error(...)` exemption trusts a *shape*, with the discriminating half measured (`error` on a non-parser IS reported). It also flagged that it hand-counted the sweep's new totals and asked for a re-tally.
+- [Fix 2] a near-miss it reported rather than quietly fixing, and the right call: its first shell-string control carried the literal `meta/kanban/suite-timing.log`, and **the other module's AC-1 guard immediately reported it** — that guard working exactly as designed, on this card's own author. The committed control spells the destination `PATH`. It also recorded a false start (a plant above `from __future__` produced a collection error, not a skip) instead of dropping it.
+- [Review 2/3] dispatched in **confirmation mode**, as cycle 1's reviewer judged appropriate: the delta is confined to two test files and the sweep, and `rank_durations.py` was not touched this cycle. Priority 1 is whether closing the two findings minted a third claim wider than its mechanism — the card's own subject, and the fix added three new mechanisms and seven new sweep rows. It was told to try to BORROW the `error(...)` exemption, to re-tally the hand-counted sweep, and to check that nothing hid behind `test_the_definition_shape_is_not_an_invocation` keeping its name while widening from one control to four.
+- [Review 2/3] **7.5** — below `min_score: 8`, `min_improvement` missed, trajectory **DOWN** from 8.0.
+- [Review 2/3] **F-201: the module-scope-binding exemption absorbs a real invocation — and it
+- [Review 2/3] **F-202: `__test__ = False` silences a guarded module with a green session, and it is
+- [Review 2/3] **what cycle 2 DID hold, re-derived rather than trusted**: `_pytest_surface()` is exact
+- [Review 2/3] it **agreed with both flagged bounds**: the undrived floor of 90 is the correct
+- [Review 2/3] **the generalisable rule it extracted, which is the most valuable thing in this report
+- [Escalated] 2026-10-17T00:30Z — **score below min_score, min_improvement missed, trajectory down,
+- [Escalated] **neither finding is a live violation today** — no `__test__` exists anywhere in the
+- [Escalation resolved] 2026-10-17, **owner decision: SPLIT.** One bounded pass doing **only F-202**,
+- [Fix 3, the owner's split] `5d1ee06`, loop **468 → 476 passed**, nothing removed. **Its hardest instruction was to leave F-201 alone, and it did** — I verified that rather than trusting it, by AST-comparing `_check_log_invocations` between `e9f0e8f` and HEAD with docstrings stripped: **identical**. `tests/test_suite_profile.py` was not touched by this pass at all; the delta is the guard module and the sweep. A pass that does less is what ends a loop, and this one did.
+- [Fix 3] F-202 closed by mechanism, and the agent **corrected the reviewer's "the control comes free" claim rather than relying on it**: half true — both binding tests do parametrise from the set, so the member needs no new machinery, but `test_every_binding_it_names_has_a_control` is red on a member with no control, so the control had to be added explicitly. Measured through the deployed rule: reported WITH the member, `[]` WITHOUT it. The `__test__` mutant that SURVIVED in cycle 2 at 468 passed is now **RED at 1 failed / 76 passed**. It also re-measured the verdict itself: alone `rc=5`, beside one other module **`1 passed`, rc=0**.
+- [Fix 3] it **declined a fourth exemption on purpose and said why**: `__test__` is reported on any binding of the name, not only a falsy one, because every member of that set is value-blind and a value test would have been a fourth exemption in the module whose entire review history is about exemptions. That is the new rule being applied rather than cited.
+- [Fix 3] **F-201's recorded bound is measured NON-VACUOUS, which is the cleverest thing in the card**: the deployed rule returns `[]`, while the same rule with its module-scope exemption narrowed to value equality — one of CARD-242's two candidate closures — returns the hoisted command line. So **CARD-242 cannot close the route without this test going red**, which is exactly CARD-242's own AC-5. The bound polices its own successor.
+- [Fix 3] **I corrected one thing the pass got wrong, and it matters beyond this card.** F-201's status was written as `dismissed`; I changed it to `deferred` with a `status_note`. `dismissed` is what forge:retrospective's review-learning export mines into the cross-project `review_false_positives` signal, which forge:review then consults to avoid re-flagging known-dismissed patterns. F-201 is a real, measured finding deferred to CARD-242 by owner decision, not a false positive — recording it as dismissed would teach **every future review on every project** not to flag an exemption that absorbs what it guards, which is the exact opposite of this card's lesson. The same distinction was drawn correctly on this card's cycle 1 and on CARD-228's cycle 3; this pass regressed it.
+- [Fix 3] it also declined to commit the cycle-2 YAML on the branch, because main already tracks it at `473cc70` and committing it there would create an add/add conflict at merge — correct, and it told me to sync the statuses instead, which I did.
+- [AC/EC/G gate] dispatched. AC-7 is the item it was told to weigh hardest: two cycles found four claims that failed its test, so the question is not whether the sweep exists but whether it is TRUE NOW. It was also told that recorded bounds are a legitimate outcome here by owner decision, and that what to check is that each is measured, **non-vacuous**, and disclosed rather than implied — with F-201's self-policing bound called out as the one worth verifying.

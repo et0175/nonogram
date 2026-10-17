@@ -127,11 +127,30 @@ findings:
     source: static
     violates: "AC-6"
     root_cause: RC-1
-    status: open
+    status: deferred
     fixed_in: null
-    dismissed_reason: null
+    dismissed_reason: |
+      Owner decision on the 2026-10-17 escalation: SPLIT, no cycle 3. The
+      discriminator this needs is the sibling rule's taint step, and
+      reimplementing it here is carded as CARD-242 - giving
+      _check_log_invocations a taint step in this pass is the one change that
+      would turn a bounded pass back into the loop the escalation ended.
+      NOT fixed, and RECORDED instead, in the shape this card already uses
+      for a bound: MEASURED_CHECK_LOG_MISSES' first entry (the command line
+      hoisted into a module-scope constant), asserted == [] by
+      test_the_disclosed_check_log_misses_are_still_misses, plus sweep rows
+      E-9 and G-16, both naming CARD-242. The bound goes red if the route is
+      closed without the entry being struck, so CARD-242 cannot close it
+      silently.
     learned_pattern: null
-
+    status_note: "Changed from `dismissed` to `deferred` at the orchestrator station.
+      F-201 is a real, measured finding deferred to CARD-242 by owner decision, NOT a false
+      positive. `dismissed` is what forge:retrospective's review-learning export mines into
+      the cross-project `review_false_positives` signal, which forge:review then consults to
+      avoid re-flagging known-dismissed patterns — so recording it as dismissed would teach
+      every future review on every project not to flag an exemption that absorbs what it
+      guards. That is the opposite of this card's whole lesson. The same distinction was drawn
+      correctly on this card's cycle 1 and on CARD-228's cycle 3; this pass regressed it."
   - id: F-202
     severity: high
     category: tech-debt
@@ -188,7 +207,8 @@ findings:
     source: static
     violates: "AC-4"
     root_cause: RC-2
-    status: open
+    status: fixed
+    fixed_in: null
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -238,7 +258,8 @@ findings:
     source: static
     violates: "AC-7"
     root_cause: RC-1
-    status: open
+    status: fixed
+    fixed_in: null
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -283,7 +304,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
+    fixed_in: null
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -320,7 +342,8 @@ findings:
     source: static
     violates: null
     root_cause: null
-    status: open
+    status: fixed
+    fixed_in: null
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
@@ -362,7 +385,8 @@ findings:
     source: static
     violates: null
     root_cause: RC-2
-    status: open
+    status: fixed
+    fixed_in: null
     fixed_in: null
     dismissed_reason: null
     learned_pattern: null
