@@ -190,3 +190,12 @@ resolved:
     resolved_by: ADR-0038
     resolution_label: pytest_playwright_dev_extra
     date: 2026-10-03
+  - id: DEC-042
+    question: >
+      Which standing rule(s) of the model should carry the finding family "a guard's
+      stated coverage is wider than the mechanism that enforces it", and what should
+      check them — after the same family's 2026-10-05 promotion into the kanban
+      implementation brief carried no check and did not bite?
+    resolved_by: ADR-0039
+    resolution_label: three_rules_with_executing_checks
+    date: 2026-10-17

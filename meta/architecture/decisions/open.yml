@@ -374,3 +374,7 @@ open:
   # DEC-041 resolved 2026-10-03 by ADR-0038 (pytest_playwright_dev_extra —
   # pytest-playwright + Chromium declared as a dev-only extra; browser tests
   # skip loudly when Chromium is missing) — moved to resolved.yml.
+  # DEC-042 — RESOLVED 2026-10-17 by ADR-0039 (three_rules_with_executing_checks).
+  # Entry removed from open.yml per this project's convention (the validator errors on a
+  # DEC present in both files); the question, alternatives and resolution live in
+  # decisions/resolved.yml and in ADR-0039's Context/Alternatives sections.
