@@ -1739,7 +1739,7 @@ links:
   status: partial
 
 - req: FR-033
-  description: "In a book the picture title appears only on the answer-key page; the grid prints with dark lines and every 5th line bolder"
+  description: "In a book the picture title appears only on the answer-key page; the grid prints in three rule weights — 0.48 pt grey cell lines, 1.28 pt every fifth line, 2.08 pt outer border, each at least 2 device pixels"
   capabilities: [CAP-006]
   contexts: [CTX-001]
   components: [COMP-009, COMP-007]
@@ -1760,6 +1760,34 @@ links:
     AMENDED 2026-10-06 (a) (wave-34 catch-up): CARD-179's proof-page tests
     added — the wrapped proof note keeps each number with its unit and never
     starts a line with the multiplication sign.
+    AMENDED 2026-10-17 (b) (owner decision, CARD-227): the requirement's
+    LONG-STANDING OPEN QUESTION is CLOSED. 'Dark grid lines' and 'clearly
+    bolder' had carried no measurable threshold since 2026-09-22; they are now
+    0.48 pt grey cell lines, 1.28 pt every fifth line on both axes and 2.08 pt
+    outer border, each at least 2 device pixels at the render resolution, with
+    the cell lines LIGHTER in ink than the other two. AC-372..AC-375 written.
+    R2 above is SUPERSEDED: it is no longer 'thin >= 0.25 mm, heavy = 2x thin,
+    pure black' but three weights, grey cells, and a 2-device-pixel minimum
+    (0.169 mm at 300 DPI). The owner's artifact said 0.3 / 0.8 / 1.3 pt; the
+    ratios are kept exactly (1 : 2.667 : 4.333) and scaled by 1.6, because
+    0.3 pt is 0.1058 mm = ONE device pixel and thinner than the 0.17 mm
+    ADR-0037 had itself rejected as the cause of the faint-line complaint in
+    7 of 17 reviews. Under the book spec these absolute points supersede
+    COMP-007's proportional cell/30 rule.
+    OWED, deliberately not listed in `tests:` yet: the four measuring tests
+    (TestBookGridRules_HasThreeWeights, _CellLinesAreLighterThanTheFifths,
+    _WeightsSurviveTheFloor, _PointsNotPixels) do not exist until CARD-227
+    lands, and naming them here would be a dead test-ref — the exact defect a
+    premature meta/ carry produced in wave 44. CARD-227 adds them, and upgrades
+    ADR-0037/R2's own `check` from review-lens to the first of them, as part of
+    landing. Until then R2 is held only by a review-lens, which cannot fail a
+    build (ADR-0039/R1).
+    ALSO OWED: AC-195's `given` says 'printed at 4.97 mm', which predates
+    CON-018's amended margins and is stale; the honest figure cannot be
+    measured until CARD-222 merges, so it was annotated rather than guessed.
+    AC-195 itself SURVIVES the amendment — indices 0 and 30 are now the border
+    and 5/10/15/20/25 the fifths, and both are still wider than the cell lines
+    between them.
   status: partial
 
 - req: FR-034
