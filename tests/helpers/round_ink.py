@@ -1,4 +1,4 @@
-"""Find a page's round marks by measuring its ink (CARD-241).
+"""Find a page's round marks by measuring its ink (CARD-241, CARD-243).
 
 Why this exists, and what it replaces
 -------------------------------------
@@ -12,12 +12,25 @@ a complete second three-dot glyph through a new family one level down —
 receiver, then binding form, then call shape, ink accumulated across calls and
 a stored bound method.
 
-This module is the other instrument: **render a page, find the ink, measure it
-for roundness.** It is blind to spelling altogether, because it never looks at
-source code. A disc drawn by ``draw.ellipse``, by a fan of ``draw.line`` rays,
-by a loop of ``draw.point`` calls, through ``getattr(draw, "ellipse")``, as a
-``chr(0x25CF)`` typed into ``draw.text`` or pasted in as an ``Image`` mask all
-land the same ink, so they all measure the same.
+This module is the other instrument: **render a page, find the marks, measure
+them for roundness.** It is blind to spelling altogether, because it never
+looks at source code. A disc drawn by ``draw.ellipse``, by a fan of
+``draw.line`` rays, by a loop of ``draw.point`` calls, through ``getattr(draw,
+"ellipse")``, as a ``chr(0x25CF)`` typed into ``draw.text`` or pasted in as an
+``Image`` mask all land the same ink, so they all measure the same.
+
+It is also blind to **which tone** the mark is printed in, within the range the
+package prints at (CARD-243). CARD-241 read ink at one hard threshold, grey 128,
+and the package draws its solved grid at grey 160 — lighter than that, so a
+difficulty dot stroked in the book's own grey had no region, no ``aspect`` and
+no ``fill``, and ADR-0036/R3's declared check passed green with eighteen of them
+printed on the pages. :data:`MARK_LEVEL` is where a **mark** begins instead:
+grey 208, the midpoint of the gap between the lightest tone the package draws
+and paper. Both readings are kept, because they answer different questions —
+:func:`ink_regions` is still *what ink is on this page*, which is what every
+geometry measurement in ``tests/helpers/page_ink.py`` asks and what CARD-241's
+recorded figures are figures of, and :func:`mark_regions` is *what a reader of
+the printed page would see*.
 
 Nothing here imports ``nonogram`` at all: it takes a Pillow image and answers
 with numbers, which is what keeps it an independent second measurement
@@ -73,6 +86,33 @@ so they cannot quietly close:
   that is measured, and asserted, in
   ``test_the_closest_the_book_comes_to_a_round_mark_is_measured``.
 
+**Both tolerances were re-measured against the wider ink population**
+(CARD-243) and **both keep their values, because the measurement says so.**
+Widening the threshold brings the book's own grey and every glyph's
+anti-aliased edge into the population, and the canvas shapes above do not move
+at all — ``polygon``, ``ellipse`` and ``rounded_rectangle`` do not anti-alias,
+so a pentagon still reads 0.870, a hexagon 0.958, and the rounded rectangle
+still flips between a 14 px corner radius and a 15 px one. What moves is the
+book's own figures, measured over the same 13 pages at each threshold:
+
+======================  ============  ============  ======================
+measurement             at grey 128   at grey 208   set by
+======================  ============  ============  ======================
+margin (either          1.8859        **1.8182**    a 99 x 94 block /
+tolerance, whichever                                a 7 x 11 letter stem
+binds)
+``ROUND_FILL`` room     1.8859        1.8859        the same 99 x 94 block
+``ROUND_ASPECT`` room   2.2727        **47.1809**   a letter stem / a rule
+======================  ============  ============  ======================
+
+So the margin falls by 3.6 % and **changes hands** — at grey 208 it is carried
+by ``aspect``, because the letter stem that sets it grows a pixel of its own
+grey edge and leaves the fill tolerance — while ``fill``'s own room on the book
+is untouched, the 99 x 94 block being a hard-edged rectangle with no grey edge
+to grow. Each figure is asserted in
+``test_the_closest_the_book_comes_to_a_round_mark_is_measured`` and
+``test_each_tolerances_own_room_on_the_book_is_measured``.
+
 **No size floor is imposed by hand — and the metric has one of its own.** None
 is needed to keep the guard quiet: measured over 33 real pages (the baseline
 book's 13, carrying 3222 ink regions, and a seeded picture-corpus book's 20,
@@ -96,51 +136,67 @@ Measured diameter by diameter, and asserted against a recorded table in
 So a mark under 7 px may or may not be measured as round, and which it is
 depends on the diameter — a bound, not a claim, and it is in the list below.
 
-What this instrument does **not** see (each with a control that fails if the
-reach ever widens, in the test class named above)
--------------------------------------------------
-**It discriminates on silhouette only.** Every bound below is a corollary of
-that one sentence, and so is the next gap anybody finds here: a region's shape
-is all this metric has, so every *non-silhouette* property of ink — its
-darkness, its colour, its opacity — is open by construction, and closing one
-of them takes a different measurement rather than a wider tolerance.
+What this instrument does **not** see
+------------------------------------
+**It discriminates on silhouette, within a range of tones.** Each bound below
+carries its ``BOUND:`` marker, and the markers are not decoration: they are
+read back by ``test_each_bound_list_carries_exactly_the_open_bounds``, which
+holds this list to a table whose every verdict is derived by execution and
+whose every row has a control that fails if the reach widens
+(``MEASURED_MARK_BOUNDS`` in
+``tests/test_book_difficulty_dots.py``). A bound is struck from this list only
+in the diff that closes it, and
+``test_the_struck_bound_and_the_closed_route_agree`` is red in both directions
+if the two ever come apart.
 
-* **a mark lighter than the ink it measures.** :data:`INK_LEVEL` is a hard
-  threshold at grey 128 (``tests/helpers/page_ink.py``): a pixel lighter than
-  that is paper, so a lighter mark has no region at all — no silhouette, no
-  ``aspect``, no ``fill``, nothing to measure. The package already draws
-  *above* that threshold: ``book_pdf_generator._SOLVED_GRID_GRAY`` is grey
-  160, the colour a solved page rules its answer cells in. A difficulty dot
-  stroked in the book's own grey is therefore invisible to this instrument,
-  and ADR-0036/R3's declared check passes green with it on the page, where a
-  reader of the printed book would see it. Measured: a grey-160 disc yields
-  **0 ink regions and 0 round marks**, and the same disc in ``INK`` yields
-  **1 of each**
-  (``test_a_mark_lighter_than_the_ink_level_is_not_measured_at_all``).
-* **a hollow mark.** An outlined circle with paper inside reads ``fill`` 0.15
-  to 0.28 and is not round to this metric. The glyph's own outlined dots are in
-  that class, and so is a typed ``chr(0x25CB)``. It is not a hole in the guard
-  for the glyph's sake — ``DifficultyDots`` cannot express a row with no filled
-  dot — but a mark drawn *only* as rings escapes, and that is a bound, not a
-  claim.
-* **a mark that touches other ink.** Ink is measured in connected regions, so a
-  dot stroked across a rule is one region with the rule and is not round. A
-  rogue mark deliberately placed on top of existing ink is outside the reach of
-  anything that measures silhouettes.
-* **a footprint that is not nearly square.** An oval beyond
+**One bound was struck.** CARD-241's widest bound — *darkness*, a mark lighter
+than grey 128 — is closed: the metric reads at :data:`MARK_LEVEL` now, so the
+book's own grey 160 is a mark, and a glyph stroked in it is found on the real
+pages it is planted on (``TestRoundMarkOnThePage_SeesTheGreysTheBookPrints``).
+What replaced it is the first three bullets below: a threshold is not gone, it
+has moved, and the three ways a mark can reach the lighter side of the new one
+are each measured with the darker control beside it.
+
+* **a mark lighter than the threshold itself** (BOUND: lightness). A flat tone
+  at :data:`MARK_LEVEL` exactly is paper again; one level darker is found. The
+  crossing is one grey level wide, which makes it the tightest control in this
+  list — and nothing the package draws is on the far side of it, which is the
+  difference between this bound and the one that was struck.
+* **a light luminance in a colour nobody would call light** (BOUND: colour).
+  The metric reads ``convert("L")``, so it reads luminance and not colour. Pure
+  yellow is luminance 226 and is **not** measured at all, while pure red is 76
+  and is. A reader of a colour proof would see both.
+* **ink composited thin enough to land above the threshold** (BOUND: opacity).
+  A black disc pasted through a flat alpha mask at 40 composites to tone 215
+  and is not measured; at 64 it composites to 191 and is. So the bound is the
+  tone the compositing comes to, and the crossing sits between those two.
+* **a hollow mark** (BOUND: hollow). An outlined circle with paper inside reads
+  ``fill`` 0.15 to 0.28 and is not round to this metric. The glyph's own
+  outlined dots are in that class, and so is a typed ``chr(0x25CB)``. It is not
+  a hole in the guard for the glyph's sake — ``DifficultyDots`` cannot express
+  a row with no filled dot — but a mark drawn *only* as rings escapes, and that
+  is a bound, not a claim.
+* **a mark that touches other ink** (BOUND: touching). Marks are measured in
+  connected regions, so a dot stroked across a rule is one region with the rule
+  and is not round. A rogue mark deliberately placed on top of existing ink is
+  outside the reach of anything that measures silhouettes.
+* **a footprint that is not nearly square** (BOUND: footprint). An oval beyond
   :data:`ROUND_ASPECT_TOLERANCE` is not measured as round. The tolerance is
   where the measured gap puts it; a deliberately squashed dot escapes.
-* **a mark too small for ``fill`` to resolve.** Under 7 px across the verdict
-  is the raster's accident rather than the shape's (the table above): a 6 px
-  disc is not round, a 4 px one is. That floor is not imposed — it is what the
-  metric's own resolution comes to — and its control is the same recorded
-  table, so the day that resolution moves, a test says so.
-* **a surface this guard does not render.** It measures the pages it is given.
-  A round mark drawn somewhere nobody renders is invisible to it. This is one
-  of **two** respects in which CARD-228's static walk — which reads every
-  module on disk, and reads an ``ellipse`` call whatever colour it paints in —
-  is still the wider instrument; the grey above is the other. That is why both
-  are kept.
+* **a mark too small for ``fill`` to resolve** (BOUND: resolution). Under 7 px
+  across the verdict is the raster's accident rather than the shape's (the
+  table above): a 6 px disc is not round, a 4 px one is. That floor is not
+  imposed — it is what the metric's own resolution comes to — and its control
+  is the same recorded table, so the day that resolution moves, a test says so.
+  The table is unchanged at the wider threshold, because ``draw.ellipse`` does
+  not anti-alias.
+* **a surface this guard does not render** (BOUND: unrendered). It measures the
+  pages it is given. A round mark drawn somewhere nobody renders is invisible
+  to it — the metric finds a disc on a cover page perfectly well, and the cover
+  is not an interior page. This is now the **only** respect in which CARD-228's
+  static walk, which reads every module on disk, is the wider instrument; the
+  grey that used to be the other is closed. That is still why both are kept
+  (CARD-243 G-1).
 """
 
 from __future__ import annotations
@@ -155,12 +211,39 @@ from tests.helpers.page_ink import INK_LEVEL, ink_mask
 
 __all__ = [
     "INK_LEVEL",
+    "MARK_LEVEL",
+    "MEASURED_LEVELS",
     "ROUND_ASPECT_TOLERANCE",
     "ROUND_FILL_TOLERANCE",
     "InkRegion",
     "ink_regions",
+    "mark_regions",
     "round_marks",
 ]
+
+#: Where a **mark** begins, as against where ink begins: a pixel darker than
+#: this (0..255 grey) is something a reader of the printed page would see,
+#: whatever tone it is printed in. 208 — the midpoint of the measured gap
+#: between the lightest tone the package draws (grey 160,
+#: ``book_pdf_generator._SOLVED_GRID_GRAY``) and paper (grey 255), rounded up,
+#: so the darker side of that gap is a mark and paper is not.
+#:
+#: Derived rather than chosen: the package's whole palette is three flat tones
+#: (``INK`` 0, ``_SOLVED_GRID_GRAY`` 160, ``BACKGROUND`` 255), and
+#: ``tests/test_book_difficulty_dots.py``'s
+#: ``test_the_mark_level_is_the_midpoint_of_the_palette_the_package_draws``
+#: enumerates them off the package on disk and recomputes this number, so a
+#: production module that starts drawing in a lighter tone reds a test rather
+#: than quietly escaping the measurement.
+MARK_LEVEL = 208
+
+#: The two thresholds a page is read at, darkest first. :data:`INK_LEVEL` is
+#: CARD-241's — the reading every *geometry* measurement in
+#: ``tests/helpers/page_ink.py`` uses, and the one whose numbers on the book's
+#: own pages are recorded and asserted; :data:`MARK_LEVEL` is CARD-243's, the
+#: reading :func:`round_marks` answers at. Both are kept because they measure
+#: different things and neither contains the other's recorded figures.
+MEASURED_LEVELS = (INK_LEVEL, MARK_LEVEL)
 
 #: How far a region's bounding box may be from square and still be round.
 #: 0.2 — the midpoint of the measured gap between a disc (aspect exactly 1.000
@@ -257,8 +340,8 @@ def _ink_runs(mask: np.ndarray) -> tuple[list[int], list[int], list[int]]:
     return row.tolist(), (starts - offset).tolist(), (ends - offset).tolist()
 
 
-def ink_regions(page: Image.Image) -> list[InkRegion]:
-    """Every connected region of ink on ``page``.
+def ink_regions(page: Image.Image, level: int = INK_LEVEL) -> list[InkRegion]:
+    """Every connected region of ``page``'s pixels darker than ``level``.
 
     **4-connected**, and merged by union-find over the page's horizontal runs:
     two runs on adjacent rows belong to the same region when their columns
@@ -271,8 +354,19 @@ def ink_regions(page: Image.Image) -> list[InkRegion]:
     corner is reported as two regions rather than one, so the measurement never
     merges unrelated marks into a shape neither of them has. A filled disc is
     solid and is therefore never split by it.
+
+    ``level`` defaults to :data:`INK_LEVEL`, so this call still answers
+    CARD-241's question — *what ink is on this page* — unchanged, and the
+    figures recorded against it (3222 regions on the baseline interior's 13
+    pages, a margin of 1.8859) still reproduce. :func:`mark_regions` is the
+    same question asked at :data:`MARK_LEVEL`.
+
+    Args:
+        page: The page to measure.
+        level: A pixel strictly darker than this (0..255 grey) belongs to a
+            region.
     """
-    rows, starts, ends = _ink_runs(ink_mask(page))
+    rows, starts, ends = _ink_runs(ink_mask(page, level))
     count = len(rows)
     if count == 0:
         return []
@@ -327,10 +421,32 @@ def ink_regions(page: Image.Image) -> list[InkRegion]:
     return regions
 
 
-def round_marks(page: Image.Image) -> list[InkRegion]:
-    """Every region of ``page``'s ink that measures as a round mark.
+def mark_regions(page: Image.Image) -> list[InkRegion]:
+    """Every connected region of ``page``'s **marks** — ink or lighter tone.
+
+    :func:`ink_regions` at :data:`MARK_LEVEL`: the reading that includes every
+    tone the package draws, not only the ones darker than grey 128. Separate
+    from :func:`ink_regions` rather than a changed default, so the two
+    thresholds are two named calls and CARD-241's recorded figures stay
+    readable off the call that produced them.
+    """
+    return ink_regions(page, MARK_LEVEL)
+
+
+def round_marks(page: Image.Image, level: int = MARK_LEVEL) -> list[InkRegion]:
+    """Every region of ``page`` that measures as a round mark.
 
     The whole instrument, in one call: what a printed page carries that a
-    reader would see as a dot, however it was drawn.
+    reader would see as a dot, however it was drawn **and in whatever tone the
+    book prints it**. ``level`` defaults to :data:`MARK_LEVEL` rather than to
+    :data:`INK_LEVEL` because a reader does not read a threshold: a dot in the
+    book's own grey 160 is a dot on the paper, and before CARD-243 this call
+    answered that it was not there at all. Pass :data:`INK_LEVEL` to ask
+    CARD-241's narrower question — the black-ink control does, which is how
+    "the widened reading is what catches the grey" stays a measurement.
+
+    Args:
+        page: The page to measure.
+        level: The darkness threshold a region must reach to be measured.
     """
-    return [region for region in ink_regions(page) if region.is_round]
+    return [region for region in ink_regions(page, level) if region.is_round]
