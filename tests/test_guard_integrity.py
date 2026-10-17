@@ -354,6 +354,15 @@ _CHECK_LOG_EXECUTOR_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "names it",
         ("main",),
     ),
+    (
+        "runs a FILE as a program, by path rather than by import, and in "
+        "this process -- the recorded bound G-19 of CARD-239's sweep until "
+        "review cycle 2 of CARD-242 closed it, which took one member and "
+        "its reason. The control comes from the generated source in "
+        "``test_the_control_for_each_executor_depends_on_the_set``, and the "
+        "entry that recorded the bound was struck in the same diff",
+        ("run_path",),
+    ),
 )
 
 #: The flattened set, with every member's reason reachable from it.
@@ -373,6 +382,10 @@ def _bound_keys(target: ast.AST) -> list[str]:
     :func:`_tainted_names` uses -- and tuple unpacking deliberately
     over-approximately, every element of it, because the question is "could
     this name carry the command line".
+
+    A parameter (:class:`ast.arg`) by its own identifier, because a
+    parameter default is a binding :func:`_bindings` walks and the name it
+    binds is the parameter's.
     """
     if isinstance(target, ast.Starred):
         return _bound_keys(target.value)
@@ -380,6 +393,8 @@ def _bound_keys(target: ast.AST) -> list[str]:
         return [key for element in target.elts for key in _bound_keys(element)]
     if isinstance(target, (ast.Name, ast.Attribute)):
         return [ast.unparse(target)]
+    if isinstance(target, ast.arg):
+        return [target.arg]
     return []
 
 
@@ -394,9 +409,77 @@ def _names_within(node: ast.AST) -> set[str]:
     return found
 
 
+def _bindings(node: ast.AST) -> list[tuple[list[ast.AST], ast.AST]]:
+    """The ``(targets, value)`` pairs ``node`` binds, for the settling loop.
+
+    **The family statement of the taint step, and the whole of it.** The
+    settling loop follows a name backwards only through a node that holds
+    BOTH the name it binds and the expression that name takes its value
+    from: an assignment (``Assign``, ``AnnAssign``, ``AugAssign``, a walrus
+    ``NamedExpr``), a ``for`` or ``async for`` target over the iterable it
+    is drawn from, a comprehension's target over its iterable, a ``with
+    ... as`` name over its context expression, and a parameter over its
+    default. Those node types are enumerated here and each one carries a
+    positive control in :data:`CHECK_LOG_INVOCATIONS`.
+
+    Every other way a name can acquire the option's value is a route this
+    step does not follow, and the ones measured are recorded in
+    :data:`MEASURED_CHECK_LOG_MISSES`: a parameter filled at the CALL site
+    rather than from a default, a value returned by a call, an ``except
+    ... as`` alias (what it binds comes from the ``raise``, not from the
+    handler, so the value is not in this node at all), and a name bound in
+    another module. Review cycle 3 of CARD-242's gate found three blind
+    routes recorded nowhere -- a parameter default, an augmented
+    assignment, and the twin of the ``registration`` exemption. The first
+    two are binding forms, so they are walked here; the third is a
+    receiver's method name and is recorded. Enumerating the binding nodes
+    rather than those instances found two further forms nobody had measured
+    (a ``for``/comprehension target and a ``with ... as`` name), which is
+    why this reads as a node-type enumeration and not as a list of the
+    instances someone happened to notice.
+
+    Over-approximate in the same direction the rest of the step is: a
+    ``for`` target takes the taint of the whole iterable, not of one
+    element, and a parameter default taints by the parameter's bare name
+    module-wide, so a default on any ``def`` whose parameter shares a name
+    with an executed one counts. Guessing wide is the safe direction for a
+    rule whose job is to report.
+    """
+    if isinstance(node, ast.Assign):
+        return [(node.targets, node.value)]
+    if isinstance(node, (ast.AnnAssign, ast.NamedExpr, ast.AugAssign)):
+        # `AnnAssign` is the one of the three that can be a bare
+        # declaration (`CMD: str`) with no value to follow.
+        if node.value is None:
+            return []
+        return [([node.target], node.value)]
+    if isinstance(node, (ast.For, ast.AsyncFor, ast.comprehension)):
+        return [([node.target], node.iter)]
+    if isinstance(node, ast.withitem):
+        if node.optional_vars is None:
+            return []
+        return [([node.optional_vars], node.context_expr)]
+    if isinstance(node, ast.arguments):
+        # Positional defaults align with the TAIL of the positional
+        # parameters, and keyword-only defaults elementwise with the
+        # keyword-only ones, where a `None` means "no default".
+        positional = [*node.posonlyargs, *node.args]
+        return [
+            ([parameter], default)
+            for parameter, default in (
+                *zip(positional[len(positional) - len(node.defaults):],
+                     node.defaults),
+                *zip(node.kwonlyargs, node.kw_defaults),
+            )
+            if default is not None
+        ]
+    return []
+
+
 def _executed_names(
     tree: ast.Module,
     executors: frozenset[str] = _CHECK_LOG_EXECUTOR_NAMES,
+    passes: int | None = None,
 ) -> frozenset[str]:
     """Names in ``tree`` that reach something which **executes** them.
 
@@ -418,11 +501,44 @@ def _executed_names(
     ``os.system(" ".join([SH, CMD]))`` taints both. Guessing wide is the
     safe direction for a rule whose job is to report.
 
-    Three passes, so a chain settles backwards from the executor:
-    ``CMD = "<the command line>"``, ``ARGV = ["sh", "-c", CMD]``,
-    ``subprocess.run(ARGV)`` -- ``ARGV`` is executed by the call, and
-    ``CMD`` by being what ``ARGV`` is built from. The same three the
-    sibling's forward chain uses.
+    Which bindings the settling loop follows -- and which it does not, so
+    the rest is recorded rather than implied -- is :func:`_bindings`, and
+    that function's docstring is this step's family statement. Review cycle
+    3 of CARD-242 is why it reads as a node-type enumeration: the loop
+    walked ``Assign`` / ``AnnAssign`` / ``NamedExpr``, which was neither
+    stated nor bounded anywhere, and four more binding forms laundered a
+    hoisted command line straight past it.
+
+    The settling loop runs to a **fixpoint**: it re-walks the tree until
+    ``executed`` stops growing, so a chain settles backwards from the
+    executor however long it is -- ``CMD = "<the command line>"``,
+    ``ARGV = ["sh", "-c", CMD]``, ``subprocess.run(ARGV)`` has ``ARGV``
+    executed by the call and ``CMD`` by being what ``ARGV`` is built from,
+    and that one settles in a single walk. The loop terminates because
+    ``executed`` only grows and every member is a name the module mentions,
+    so the number of walks is bounded by that finite set.
+
+    A fixed count of passes is what this step shipped with first
+    (``range(3)``), and review cycle 2 of CARD-242 measured what the number
+    meant rather than what its comment claimed. The inner walk visits
+    bindings in **source order**, so a binding already passed in this walk
+    is not revisited when ``executed`` grows later in the same walk. A chain
+    declared in the idiomatic order -- the command line first, the executor
+    last -- therefore settles one link per pass and was reached exactly
+    three links deep and no further, while the same chain declared
+    executor-first settles in one pass at any depth. The literal ``3`` was
+    an undisclosed depth bound on the idiomatic declaration order, and
+    nothing in the repository told ``1`` from ``3``: the whole file passed
+    at ``range(1)``, ``range(2)``, ``range(3)`` and ``range(4)`` alike, and
+    only ``range(0)`` was red. Both halves of that measurement are now a
+    control --
+    ``test_the_settling_loop_runs_to_a_fixpoint_and_not_to_a_count`` -- and
+    the number is gone rather than raised.
+
+    ``passes`` is that control's knob and not the rule's: an integer bounds
+    the settling to that many walks, which is exactly what the step did
+    before, so a control can measure the fixpoint against the mechanism it
+    replaced. The default settles.
 
     Matching is on the call's **last name component**
     (:data:`_CHECK_LOG_EXECUTORS`), the convention
@@ -441,19 +557,19 @@ def _executed_names(
             *node.args, *(keyword.value for keyword in node.keywords)
         ]:
             executed |= _names_within(argument)
-    for _ in range(3):
+    walked = 0
+    while passes is None or walked < passes:
+        walked += 1
+        before = len(executed)
         for node in ast.walk(tree):
-            if isinstance(node, ast.Assign):
-                targets, value = node.targets, node.value
-            elif isinstance(node, (ast.AnnAssign, ast.NamedExpr)):
-                if node.value is None:
-                    continue
-                targets, value = [node.target], node.value
-            else:
-                continue
-            bound = {key for target in targets for key in _bound_keys(target)}
-            if bound & executed:
-                executed |= _names_within(value)
+            for targets, value in _bindings(node):
+                bound = {
+                    key for target in targets for key in _bound_keys(target)
+                }
+                if bound & executed:
+                    executed |= _names_within(value)
+        if len(executed) == before:
+            break
     return frozenset(executed)
 
 
@@ -461,6 +577,7 @@ def _check_log_invocations(
     source: str,
     exemptions: frozenset[str] = _CHECK_LOG_EXEMPTIONS,
     executors: frozenset[str] = _CHECK_LOG_EXECUTOR_NAMES,
+    passes: int | None = None,
 ) -> list[str]:
     """Every place in ``source`` this rule SEES passing :data:`CHECK_LOG_OPTION` on.
 
@@ -538,6 +655,12 @@ def _check_log_invocations(
     What the widened rule still cannot see is in
     :data:`MEASURED_CHECK_LOG_MISSES` with a control each, rather than
     inside the emptiness of the baseline.
+
+    ``passes`` is handed straight to :func:`_executed_names` and exists for
+    the same reason ``exemptions`` and ``executors`` do: so a control can
+    measure one half of the rule against the mechanism it replaced, here
+    the settling fixpoint against the fixed three passes CARD-242 first
+    shipped. The deployed rule passes it on unset, and no guard sets it.
     """
     tree = ast.parse(source)
     #: Receivers that register arguments: the parser that defines the option.
@@ -554,7 +677,7 @@ def _check_log_invocations(
     # apart from `SANDBOX_CONTROL_MODULE = "<a module's source>"`.
     exempt: set[int] = set()
     if EXEMPT_DEFINITION in exemptions:
-        executed = _executed_names(tree, executors)
+        executed = _executed_names(tree, executors, passes)
         exempt |= {
             id(node.value)
             for node in tree.body
@@ -618,6 +741,14 @@ def _check_log_invocations(
 #: The third and fourth entries are review cycle 1's surviving mutant: the
 #: shell-string forms, which the deployed rule missed while a control
 #: certified a copy of it.
+#: The two four-deep chains below, named once so the fixpoint control can
+#: fetch its two sources out of this corpus rather than holding a second
+#: copy of them: the sources a control measures have to be the sources the
+#: corpus asserts are reported, or the two can drift apart.
+CHAIN_SECOND_CONSTANT = "a hoisted command line reached through a second constant"
+DEEP_CHAIN_FORWARD = "a four-deep chain declared forwards, the idiomatic order"
+DEEP_CHAIN_REVERSE = "the same four-deep chain declared executor-first"
+
 CHECK_LOG_INVOCATIONS: tuple[tuple[str, str], ...] = tuple(
     (name, template % CHECK_LOG_OPTION)
     for name, template in (
@@ -699,17 +830,131 @@ CHECK_LOG_INVOCATIONS: tuple[tuple[str, str], ...] = tuple(
             '    main([OPTION, "x"])\n',
         ),
         (
-            # The chain, which is what the taint step's three passes are
-            # for: the executor is handed `ARGV`, and `CMD` is only what
-            # `ARGV` is built from. Measured: with the passes removed this
-            # entry is the one that goes red, which is the control the
-            # fixpoint would otherwise not have.
-            "a hoisted command line reached through a second constant",
+            # The chain, and the control for the settling loop existing at
+            # all: the executor is handed `ARGV`, and `CMD` is only what
+            # `ARGV` is built from. Measured, this entry is the single
+            # failure when the loop is taken away altogether (CARD-242's
+            # mutant M-C, `range(3)` -> `range(0)`). What it is NOT is a
+            # control for the number of passes: it is reported at one pass
+            # exactly as at three, because `ARGV` is bound after `CMD` and
+            # one walk in source order reaches both. The control for the
+            # loop running to a **fixpoint** is the four-deep forward chain
+            # below -- review cycle 2's F-001.
+            CHAIN_SECOND_CONSTANT,
             "import subprocess\n"
             'CMD = "python r.py %s PATH"\n'
             'ARGV = ["sh", "-c", CMD]\n'
             "def _never_called() -> None:\n"
             "    subprocess.run(ARGV)\n",
+        ),
+        (
+            # CARD-242 review cycle 2: the route recorded as bound G-19,
+            # closed by one member. The source is the one the struck entry
+            # of :data:`MEASURED_CHECK_LOG_MISSES` held, unchanged, so the
+            # strike and the closure are the same two lines read twice.
+            "an executor the set now enumerates, by path",
+            "import runpy\n"
+            'CMD = "python r.py %s PATH"\n'
+            "def _never_called() -> None:\n"
+            "    runpy.run_path(CMD)\n",
+        ),
+        (
+            # ------------------------------------------------------------
+            # CARD-242 review cycle 2, F-001. The settling loop's depth,
+            # in the declaration order every module is actually written
+            # in: the command line first, the executor last. Four links,
+            # so three passes reach `C1` and stop one short of the
+            # constant -- measured, and the asymmetry measured with it in
+            # `test_the_settling_loop_runs_to_a_fixpoint_and_not_to_a_count`.
+            # ------------------------------------------------------------
+            DEEP_CHAIN_FORWARD,
+            "import subprocess\n"
+            'C0 = "python r.py %s PATH"\n'
+            "C1 = [C0]\n"
+            "C2 = [C1]\n"
+            "C3 = [C2]\n"
+            "ARGV = [C3]\n"
+            "def _never_called() -> None:\n"
+            "    subprocess.run(ARGV)\n",
+        ),
+        (
+            # The same chain, same depth, declared the other way round:
+            # one walk in source order follows it end to end, so a fixed
+            # pass count never bit this order and the fixed count's bound
+            # was a property of the *idiomatic* one. Both are reported now.
+            DEEP_CHAIN_REVERSE,
+            "import subprocess\n"
+            "ARGV = [C3]\n"
+            "C3 = [C2]\n"
+            "C2 = [C1]\n"
+            "C1 = [C0]\n"
+            'C0 = "python r.py %s PATH"\n'
+            "def _never_called() -> None:\n"
+            "    subprocess.run(ARGV)\n",
+        ),
+        # ------------------------------------------------------------------
+        # CARD-242 review cycle 3. One control per binding node
+        # :func:`_bindings` walks, because the settling loop followed
+        # ``Assign`` / ``AnnAssign`` / ``NamedExpr`` only and every other
+        # way a name acquires the command line was a route nothing saw and
+        # nothing recorded -- the same statement-of-completeness defect as
+        # F-001 and the sweep's G-16, one table further in. Each of the six
+        # below was measured ``[]`` against the deployed rule before the
+        # loop learned its node type, and the node types are enumerated in
+        # :func:`_bindings` rather than listed as these instances.
+        # ------------------------------------------------------------------
+        (
+            "a hoisted command line reached through a parameter default",
+            "import os\n"
+            'CMD = "python r.py %s PATH"\n'
+            "def _never_called(command: str = CMD) -> None:\n"
+            "    os.system(command)\n",
+        ),
+        (
+            "a hoisted command line built up by an augmented assignment",
+            "import os\n"
+            'CMD = "python r.py %s PATH"\n'
+            'ARGV = ""\n'
+            "ARGV += CMD\n"
+            "def _never_called() -> None:\n"
+            "    os.system(ARGV)\n",
+        ),
+        (
+            "a hoisted command line drawn from a for-loop target",
+            "import os\n"
+            'CMD = "python r.py %s PATH"\n'
+            "def _never_called() -> None:\n"
+            "    for command in [CMD]:\n"
+            "        os.system(command)\n",
+        ),
+        (
+            # The same node type's async spelling, controlled rather than
+            # assumed: `ast.AsyncFor` shares `_bindings`' branch with
+            # `ast.For`, and a branch covering a node type no control
+            # exercises is a coverage claim with no failing control --
+            # ADR-0039/R1, which is the rule this card applies.
+            "a hoisted command line drawn from an async for target",
+            "import os\n"
+            'CMD = "python r.py %s PATH"\n'
+            "async def _never_called() -> None:\n"
+            "    async for command in _stream(CMD):\n"
+            "        os.system(command)\n",
+        ),
+        (
+            "a hoisted command line drawn from a comprehension target",
+            "import os\n"
+            'CMD = "python r.py %s PATH"\n'
+            "def _never_called() -> None:\n"
+            "    [os.system(command) for command in [CMD]]\n",
+        ),
+        (
+            "a hoisted command line bound by a with ... as name",
+            "import os\n"
+            "import contextlib\n"
+            'CMD = "python r.py %s PATH"\n'
+            "def _never_called() -> None:\n"
+            "    with contextlib.nullcontext(CMD) as command:\n"
+            "        os.system(command)\n",
         ),
     )
 )
@@ -725,20 +970,50 @@ CHECK_LOG_INVOCATIONS: tuple[tuple[str, str], ...] = tuple(
 #: ``[]`` (``test_the_disclosed_check_log_misses_are_still_misses``), so a
 #: route closed without its entry being struck is a failing test.
 #:
-#: Every entry is measured against the deployed rule, the first two on
-#: 2026-10-17 by CARD-239 and the rest on 2026-10-17 by CARD-242, which
-#: struck the entry CARD-239 recorded here -- *the command line hoisted
-#: into a module-scope constant*, review cycle 2's F-201 and mutant M2.
-#: That route is closed by :func:`_executed_names`, it is a positive
-#: control in :data:`CHECK_LOG_INVOCATIONS` in four shapes, and the bound
-#: came out in the same diff (``test_the_struck_bound_and_the_closed_route_agree``
-#: holds the two to each other, and to the sweep row that recorded it).
+#: Every entry is measured against the deployed rule. The **first** of them
+#: is CARD-239's -- the ``error(...)`` receiver, sweep row G-11 -- and
+#: **every entry after it** is CARD-242's: six its build pass added and
+#: three its review cycle 3 measured, all 2026-10-17. No total is written
+#: out, because the table is the enumeration and each entry's own comment
+#: names the cycle that measured it -- an earlier wording here said two
+#: where the table held one, and the card's AC-6 line said six where it
+#: held seven. CARD-239's
+#: other entry, *the command line hoisted into a module-scope constant*
+#: (review cycle 2's F-201 and mutant M2), is **struck**: that is why its
+#: share of this table is one row and not the two an earlier wording of
+#: this comment claimed. That route is closed by :func:`_executed_names`,
+#: it is a positive control in :data:`CHECK_LOG_INVOCATIONS` in four
+#: shapes, and the bound came out in the same diff
+#: (``test_the_struck_bound_and_the_closed_route_agree`` holds the two to
+#: each other, and to the sweep row that recorded it).
 #:
-#: What is left is the taint step's own residue, and it is the same family
-#: the sibling rule's bounds are in: the step follows names, so a route
-#: that does not go through a name it can see is one it cannot see. Each
-#: entry below was measured by calling the deployed rule on exactly the
-#: source it holds.
+#: Review cycle 2 of CARD-242 moved one more and added none. ``runpy.run_path``
+#: is now a member of :data:`_CHECK_LOG_EXECUTORS`, so the instance that
+#: recorded "an executor this set does not enumerate" is closed and sits in
+#: the positive controls; the **family** is not closed with it, and the
+#: entry keeps an instance measured still missed (``pty.spawn``). What that
+#: cycle did NOT have to record is a depth: the settling loop runs to a
+#: fixpoint, so a chain of any length in either declaration order settles,
+#: and the bound the old fixed pass count left is gone rather than
+#: disclosed (``test_the_settling_loop_runs_to_a_fixpoint_and_not_to_a_count``).
+#:
+#: Review cycle 3 added three, and found them by enumerating the binding
+#: nodes the settling loop walks instead of the routes anyone had thought
+#: of: the loop followed ``Assign`` / ``AnnAssign`` / ``NamedExpr`` only,
+#: so a parameter default, an augmented assignment, a ``for`` or
+#: comprehension target and a ``with ... as`` name each laundered a hoisted
+#: command line past it, measured ``[]`` and recorded nowhere. Those are
+#: **closed**, with a control each; what the enumeration left over is here.
+#:
+#: **The family, in one sentence:** the step follows a name backwards only
+#: through a node that holds both the name and the expression it takes its
+#: value from (:func:`_bindings` enumerates them), so every other way a
+#: name can acquire the command line is a route it cannot see -- a
+#: parameter filled at the call site, a value returned by a call, an
+#: ``except ... as`` alias, a name bound in another module, or an executor
+#: or receiver reached under a name the step cannot resolve. Each entry
+#: below is one of those, measured by calling the deployed rule on exactly
+#: the source it holds.
 MEASURED_CHECK_LOG_MISSES: tuple[tuple[str, str], ...] = tuple(
     # Through :func:`_with_option` rather than a ``%`` application, because
     # the last entry holds the option in two halves on purpose and a
@@ -791,15 +1066,21 @@ MEASURED_CHECK_LOG_MISSES: tuple[tuple[str, str], ...] = tuple(
         (
             # An executor the enumerated set does not hold. The set is
             # enumerated and says so, so this is its bound rather than a
-            # defect: `runpy.run_path` is `run_path`, not `run`. Closing it
-            # is adding a member with a reason, which is one line, and the
-            # control for that member comes from the generated source in
-            # ``test_the_control_for_each_executor_depends_on_the_set``.
+            # defect, and closing one instance of it is adding a member
+            # with a reason -- which is what review cycle 2 of CARD-242 did
+            # to the instance this entry used to hold (`runpy.run_path`,
+            # sweep row G-19, now a member and a positive control below).
+            # The FAMILY is unchanged by that, so it keeps an instance that
+            # is measured still missed: `pty.spawn` hands what it is given
+            # to `execlp`, and `spawn` is not one of the set's `spawnv` /
+            # `spawnl` / `posix_spawn`. Recorded rather than closed,
+            # because a set closed around the instance someone happened to
+            # record is the F-001 mistake one table across.
             "an executor this set does not enumerate",
-            "import runpy\n"
+            "import pty\n"
             'CMD = "python r.py %s PATH"\n'
             "def _never_called() -> None:\n"
-            "    runpy.run_path(CMD)\n",
+            "    pty.spawn(CMD)\n",
         ),
         (
             # The executor one function call away. The step does not
@@ -836,7 +1117,77 @@ MEASURED_CHECK_LOG_MISSES: tuple[tuple[str, str], ...] = tuple(
             "import os\n"
             'os.system("python r.py --check" + "-log PATH")\n',
         ),
+        (
+            # CARD-242 review cycle 3. The `registration` exemption's twin
+            # of the `error(...)` bound above, and the same shape: the row
+            # is keyed on a method NAME, and nothing stops the exempt
+            # method from executing what it is handed. It needs strictly
+            # less than the `error(...)` entry -- no second method and one
+            # call -- so it is its own instance rather than that one
+            # re-measured. RECORDED and not closed: seeing it would mean
+            # teaching the taint step about a call's receiver and what the
+            # receiver's own class does with the argument, which is the
+            # method-resolution work the alias (G-17) and `getattr` (G-18)
+            # bounds are also waiting on, not one more binding node.
+            "an add_argument() whose own method executes what it is given",
+            "import os\n"
+            "class Registrar:\n"
+            "    def add_argument(self, command: str) -> None:\n"
+            "        os.system(command)\n"
+            "r = Registrar()\n"
+            'r.add_argument("python r.py %s PATH")\n',
+        ),
+        (
+            # The binding-form family's own edge, measured while
+            # enumerating what :func:`_bindings` walks: an `except ... as`
+            # alias binds a name, but what it binds comes from the `raise`
+            # and not from the handler, so the value is not in the binding
+            # node at all and there is nothing for the loop to follow. The
+            # node types it does walk all hold the target and the
+            # expression together; this one does not, which is the line
+            # between what review cycle 3 closed and what it recorded.
+            "an except ... as alias carrying what the raise was given",
+            "import os\n"
+            'CMD = "python r.py %s PATH"\n'
+            "def _never_called() -> None:\n"
+            "    try:\n"
+            "        raise ValueError(CMD)\n"
+            "    except ValueError as command:\n"
+            "        os.system(command)\n",
+        ),
+        (
+            # And the return direction of the bound G-20 records forwards:
+            # the step resolves no module-local call graph, in EITHER
+            # direction -- it does not follow what a local function does
+            # with what it is handed, and it does not follow what a local
+            # function hands back. One family, two directions, recorded as
+            # two sources because each is measured on its own.
+            "a command line handed back by a local function's return",
+            "import os\n"
+            'CMD = "python r.py %s PATH"\n'
+            "def _command() -> str:\n"
+            "    return CMD\n"
+            "def _never_called() -> None:\n"
+            "    os.system(_command())\n",
+        ),
     )
+)
+
+
+#: The module-scope bindings the real tree holds that mention the option,
+#: as ``(file, bound name)`` pairs: what the ``definition`` exemption
+#: absorbs **in the tree it is deployed over**, measured on 2026-10-17.
+#:
+#: An EQUALITY and not a floor, which is review cycle 2's F-003: ADR-0039/R3
+#: asks that an exemption state what it absorbs exactly, the way the sibling
+#: module's ``test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones``
+#: does, because ``>= 2`` lets a third absorbed site appear unnoticed -- and
+#: an exemption that quietly grows a site is the shape of F-201. Two files
+#: and two names, so the test measures the tree's idiom rather than one
+#: module's.
+MODULE_SCOPE_OPTION_BINDINGS: tuple[tuple[str, str], ...] = (
+    ("tests/test_guard_integrity.py", "CHECK_LOG_OPTION"),
+    ("tests/test_suite_profile.py", "SANDBOX_CONTROL_MODULE"),
 )
 
 
@@ -2055,14 +2406,21 @@ class TestCheckLog_TheDeliberateReader:
             and CHECK_LOG_OPTION in ast.unparse(node.value)
             for target in node.targets
         )
-        assert len(bindings) >= 2, (
-            "the guarded tree no longer holds two module-scope bindings "
-            "that mention the option, so nothing here measures the "
-            f"definition exemption against the real tree: {bindings}"
-        )
-        assert len({path for path, _ in bindings}) >= 2, (
-            "both of them are in one file, so this measures one module's "
-            f"idiom rather than the tree's: {bindings}"
+        # Pinned as an equality, which is review cycle 2's F-003: two
+        # bindings in two files is what makes this measure the exemption
+        # against the real tree rather than one module's idiom, and `>= 2`
+        # would let a THIRD absorbed module-scope site appear here
+        # unnoticed. ADR-0039/R3 asks an exemption to state what it
+        # absorbs exactly, and the sibling's
+        # `test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones`
+        # is the same shape one module across.
+        assert bindings == sorted(MODULE_SCOPE_OPTION_BINDINGS), (
+            "the module-scope bindings that mention the option are no "
+            "longer the two measured ones -- there have to be at least two "
+            "of them, in at least two files, or nothing here measures the "
+            "definition exemption against the real tree, and a third one "
+            "is a decision rather than something that may arrive quietly: "
+            f"{bindings} against {sorted(MODULE_SCOPE_OPTION_BINDINGS)}"
         )
         reported = {
             path: invocations
@@ -2188,6 +2546,43 @@ class TestCheckLog_TheDeliberateReader:
             "executor set, so what catches it is not the taint step and "
             "this control measures something else"
         )
+
+    def test_the_settling_loop_runs_to_a_fixpoint_and_not_to_a_count(
+        self,
+    ) -> None:
+        # Review cycle 2's F-001, and the control the literal `3` never
+        # had. The number this card first shipped is measured here rather
+        # than narrated: the same chain, four links long, is reported when
+        # the loop settles and silent when it is bounded to three passes --
+        # caught WITH the fixpoint, missed WITHOUT it, which is the shape
+        # ADR-0039/R1 asks of any claim a guard makes.
+        sources = dict(CHECK_LOG_INVOCATIONS)
+        forward = sources[DEEP_CHAIN_FORWARD]
+        assert _check_log_invocations(forward) != [], forward
+        assert _check_log_invocations(forward, passes=3) == [], (
+            "the four-deep forward chain is reported at three passes too, "
+            "so nothing here measures a depth and the fixpoint claims "
+            "nothing the fixed count did not already do"
+        )
+        assert _check_log_invocations(forward, passes=4) != [], forward
+        # And the asymmetry that number carried, which is why raising it
+        # was not the fix either: the inner walk visits bindings in source
+        # order, so ONE pass follows a chain declared executor-first
+        # however deep it is, while a chain declared in the order a module
+        # is actually written in -- the command line first -- settles one
+        # link per pass. A fixed count is a depth bound on the idiomatic
+        # order alone, which is the half nothing disclosed.
+        reverse = sources[DEEP_CHAIN_REVERSE]
+        assert _check_log_invocations(reverse, passes=1) != [], reverse
+        assert _check_log_invocations(forward, passes=1) == [], forward
+        # The loop existing at all is a different claim from it settling,
+        # and the plain two-link chain is the control for that one: it is
+        # reported at a single pass and silent only with no walk at all,
+        # which is mutant M-C. So M-C kills the loop's existence while the
+        # four-deep forward chain above kills the count.
+        chain = sources[CHAIN_SECOND_CONSTANT]
+        assert _check_log_invocations(chain, passes=1) != [], chain
+        assert _check_log_invocations(chain, passes=0) == [], chain
 
     @pytest.mark.parametrize("executor", sorted(_CHECK_LOG_EXECUTOR_NAMES))
     def test_the_control_for_each_executor_depends_on_the_set(
@@ -2345,7 +2740,39 @@ class TestCheckLog_TheDeliberateReader:
         )
         deployed = ast.unparse(rule)
         assert "_executed_names" in deployed, deployed[:200]
-        helpers = {"_executed_names", "_names_within", "_bound_keys"}
+        # And the binding enumeration is the one the taint step runs, which
+        # is review cycle 3's claim: `_bindings` is where the family
+        # statement lives -- which binding forms the settling loop follows
+        # and which it does not -- so a copy of that enumeration inside
+        # `_executed_names` would leave the statement describing a function
+        # nothing calls. Same defect as F-002, one level further in.
+        #
+        # Read as a CALL and not as a substring, which is measured rather
+        # than preferred: mutant M-N12 inlines an `Assign`-only copy of the
+        # enumeration back into the step, and `"_bindings" in
+        # ast.unparse(step)` stays true because the step's own docstring
+        # names the function. The six binding controls kill that mutant; it
+        # is this assertion that must not be the thing claiming to.
+        step = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "_executed_names"
+        )
+        enumerators = [
+            ast.unparse(call.func)
+            for call in ast.walk(step)
+            if isinstance(call, ast.Call)
+            and ast.unparse(call.func) == "_bindings"
+        ]
+        assert enumerators != [], (
+            "the taint step does not call _bindings, so the binding forms "
+            "the settling loop follows are enumerated somewhere other than "
+            "the function whose docstring states them"
+        )
+        helpers = {
+            "_executed_names", "_names_within", "_bound_keys", "_bindings",
+        }
         borrowers = sorted(
             method.name
             for method in own_class.body
