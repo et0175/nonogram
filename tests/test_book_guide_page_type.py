@@ -601,6 +601,24 @@ FRAME_BLEED_PX = 10
 KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM = 12.5
 KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX = 150
 
+#: The last page the exemption was measured on. CARD-222 dropped the
+#: ``page_number == 1`` gate because page 2 of the 10 cm minimum trim now
+#: overflows too (measured: 56 px), and the exemption's two call sites draw
+#: pages 1 and 2 only. This holds the gate to that measurement, so a third
+#: page kind cannot arrive under it unmeasured.
+KNOWN_BARE_LEVEL_2_LAST_PAGE = 2
+
+#: How many of the 48 corpus cases take the exemption, measured on CON-018's
+#: amended margins (CARD-222): **six**, by between 6 and 140 px. The
+#: magnitude is bounded by :data:`KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX` and the
+#: height by :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM`; this bounds the
+#: **count**, the same way the sibling residue control in
+#: ``tests/test_book_guide_page.py`` bounds its own width-bound set
+#: (``assert len(flush) <= 6``). A seventh case overflowing -- a clean case
+#: starting to, or the ceiling being lifted so that a taller case falls under
+#: the lenient branch -- fails rather than passing green.
+KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES = 6
+
 
 def assert_bottom_fits_or_is_the_known_bare_level_2_gap(
     bottom: int, frame, *, page_number: int, height_cm: float, where: str
@@ -628,6 +646,16 @@ def assert_bottom_fits_or_is_the_known_bare_level_2_gap(
     """
     overflow = bottom - frame.bottom
     if height_cm < KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM:
+        # The exemption reaches pages 1 and 2 of a short trim and no further:
+        # those are the only pages the two call sites draw (measured, not
+        # assumed), so a third page kind arriving under this gate would be a
+        # widening nobody measured.
+        assert page_number <= KNOWN_BARE_LEVEL_2_LAST_PAGE, (
+            f"{where}: page {page_number} is asking for the bare_level-2 "
+            f"exemption, which was measured on pages 1 and 2 of a short trim "
+            f"only; a page past {KNOWN_BARE_LEVEL_2_LAST_PAGE} has to be "
+            "measured before it can be covered"
+        )
         assert overflow <= KNOWN_BARE_LEVEL_2_MAX_OVERFLOW_PX, (
             f"{where}: ink reaches y={bottom}, {overflow} px past "
             f"frame.bottom={frame.bottom} — past even the known, disclosed "
@@ -740,14 +768,25 @@ class TestGuidePage_TextFitsTheUsableFrame:
         **Review cycle 3's own, separate, owner-accepted exception**, on
         page 1 (the only page this test checks): restoring F-21's three
         cell-state heading lines costs roughly 3 lines of room at
-        `bare_level 2`, which 4 of this corpus's own 48 cases — every one
-        with trim height below 11.3 cm, none of them cured by extra width —
-        no longer clear by between 56 and 112 px. Bounded and disclosed via
+        `bare_level 2`, which some of this corpus's own 48 cases — every one
+        a short trim, none of them cured by extra width — no longer clear.
+        Re-measured on CON-018's amended margins (CARD-222): **six** cases,
+        by 6 to 140 px, where before the amendment it was four by 56 to
+        112 px. Bounded and disclosed via
         :func:`assert_bottom_fits_or_is_the_known_bare_level_2_gap` (see
         :data:`KNOWN_BARE_LEVEL_2_HEIGHT_CEILING_CM`'s own docstring for the
         measurements and the owner's decision), the same page-1 exception
         `test_it_fits_the_smallest_trim_a_book_may_be_stored_at` uses above
         — not a blanket loosening of this test's own tolerance.
+
+        **The set is bounded here too, not only each case's magnitude**
+        (ADR-0039/R3, and the shape this diff's sibling residue control in
+        `tests/test_book_guide_page.py` uses): the overflowing cases are
+        collected and counted against
+        :data:`KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES`, so a seventh — a clean
+        case starting to overflow, or the ceiling being lifted until a taller
+        case falls under the lenient branch — reds rather than passing green
+        inside the disclosed magnitude.
         """
         corpus = count_and_trim_corpus()
         # Both bounds are load-bearing: the builder sizes the corpus from
@@ -759,6 +798,7 @@ class TestGuidePage_TextFitsTheUsableFrame:
             f"the corpus is {len(corpus)} cases at CORPUS_CASES={CORPUS_CASES} "
             f"and must be at least 48"
         )
+        overflowing: List[Tuple[float, float, int]] = []
         for case in corpus:
             generator = BookPDFGenerator(
                 book_on(float(case["width_cm"]), float(case["height_cm"]))
@@ -773,9 +813,26 @@ class TestGuidePage_TextFitsTheUsableFrame:
             assert left >= frame.left - FRAME_BLEED_PX, f"{where}: ink at x={left} < {frame.left}"
             assert right <= frame.right + FRAME_BLEED_PX, f"{where}: ink at x={right} > {frame.right}"
             assert top >= frame.top, f"{where}: ink at y={top} < {frame.top}"
+            if bottom > frame.bottom:
+                overflowing.append(
+                    (float(case["width_cm"]), float(case["height_cm"]), bottom - frame.bottom)
+                )
             assert_bottom_fits_or_is_the_known_bare_level_2_gap(
                 bottom, frame, page_number=1, height_cm=float(case["height_cm"]), where=where,
             )
+        # The set, not only each member's magnitude. Measured on the amended
+        # margins: six cases overflow, every one of them below the ceiling, by
+        # 6 px (19.86x12.44) to 140 px (the pinned 10x10 minimum trim, plus
+        # 26.91x11.12 and 29.31x11.29). Every case below the ceiling is in
+        # that six, so a seventh can only come from the exemption widening --
+        # which is what this bound refuses.
+        assert len(overflowing) <= KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES, (
+            f"{len(overflowing)} of the corpus's {len(corpus)} cases now "
+            f"overflow the bottom margin against the measured "
+            f"{KNOWN_BARE_LEVEL_2_OVERFLOWING_CASES}: {overflowing}. Each is "
+            "inside the disclosed bare_level-2 gap's magnitude, but the gap "
+            "has grown to cover a case it was never measured on"
+        )
 
     # ----------------------------------------------------------------------
     # CARD-201 review cycle 2, F-11 — the pipeline diagram and the

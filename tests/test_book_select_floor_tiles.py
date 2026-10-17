@@ -50,10 +50,11 @@ BELOW_FLOOR = (30, 25, 12, 8, 4.54, "26-30")
 
 #: AC-241: 25 wide x 12 tall — a *wide* grid, comfortably above the floor.
 #: The card states "6.0 mm"; that exact figure is not reachable at this extent
-#: on the Book 1 profile (the sheet's 193.675 mm of usable width divided by a
-#: whole number of cells lands on 5.95 or 5.87, never 6.00), so the nearest
-#: grid is taken and the criterion's substance — a wide grid above the floor
-#: carries no flag — is what is asserted. Its tab is the 21-25 one.
+#: on the Book 1 profile (the sheet's 190.5 mm of usable width divided by a
+#: whole number of cells lands on 6.15 at 31 cells across or 5.95 at 32,
+#: never 6.00), so the nearest grid is taken and the criterion's substance —
+#: a wide grid above the floor carries no flag — is what is asserted. Its
+#: tab is the 21-25 one.
 ABOVE_FLOOR_WIDE = (25, 12, 7, 4, 5.95, "21-25")
 
 #: AC-188: 20 x 20 with 8-deep gutters — 6.80 mm on 8.5 x 11 in, 4.54 mm once

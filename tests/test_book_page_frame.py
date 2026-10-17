@@ -9,7 +9,7 @@
     F-4   TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt
           TestBookPageFrame_TwoUpKeepsItsOuterFolio   (the exemption's control)
     G-1   TestBookPageFrame_EachFigureIsDeclaredOnce
-          TestBookPageFrame_TheHairlineIsNotAGridRule (ADR-0037/R2's exemption)
+          TestBookPageFrame_TheHairlineSitsOnTheFloorUnderTheHeaderRule
           TestBookPageFrame_MirroringBitesOnUnequalMargins
 
 **Why a book with unequal margins appears below.** CON-018 as amended
@@ -944,24 +944,78 @@ class TestBookPageFrame_EachFigureIsDeclaredOnce:
         )
 
 
-class TestBookPageFrame_TheHairlineIsNotAGridRule:
-    """The ADR-0037/R2 exemption's control.
+#: The floor a line that has to print is held to: **2 device pixels** at
+#: :data:`DPI`, and the same floor in millimetres, written out as a literal so
+#: the assertion below is not the same arithmetic on both sides. The step
+#: below it is a one-pixel line, which is the dropout ADR-0037 exists to
+#: answer; furniture is held here for that reason directly and not through
+#: ADR-0037/R2, which binds the puzzle grid only.
+FURNITURE_FLOOR_PX = 2
+FURNITURE_FLOOR_MM = 0.1693
 
-    The footer hairline is page furniture, deliberately lighter than R2's
-    0.25 mm minimum for a **grid** rule. Both halves are asserted, so the
-    exemption cannot grow to cover the grid: the hairline is lighter than the
-    thin grid rule, and the thin grid rule on the same page is still at or
-    above 0.25 mm.
+
+class TestBookPageFrame_TheHairlineSitsOnTheFloorUnderTheHeaderRule:
+    """The frame's two furniture rules, as a pair (ADR-0039/R3).
+
+    No exemption is claimed here, because none is needed: ADR-0037/R2 binds
+    the puzzle **grid**'s rules and does not reach page furniture, under its
+    amended wording or its superseded one (R2's scope note, clarified
+    2026-10-17). What is load-bearing is the pair. The header rule is heavier
+    than the hairline, which is what makes the two read as a heading rule and
+    a hairline rather than as two rules of one weight; and the hairline is
+    *at* :data:`FURNITURE_FLOOR_PX`, not under it.
+
+    **Furniture against furniture, never against grid ink.** The superseded
+    form of this control compared the hairline against the grid's own thinnest
+    rule, and against a minimum the registry has since retired. Once CARD-227
+    lands R2's three weights the grid's thinnest cell line is 2 px as well, so
+    a "lighter than the grid's rule" claim becomes unsatisfiable and its red
+    would read as a regression in that card while asserting a property the
+    amendment removed; from there the furniture/grid distinction rests on
+    **tone**, not width (ADR-0037's 2026-10-17 History). Nothing below reads a
+    grid rule or a retired figure.
+
+    Both weights are measured off the rendered page, per this module's own
+    "How a rule is found" — not read back off the constants that set them.
     """
 
-    def test_the_hairline_is_lighter_than_the_grid_rule_which_still_holds_r2(self) -> None:
-        spec = book_page_spec(corpus_book(), 1)
-        frame = interior_frame(spec)
-        clues = tuple((1,) * 6 for _ in range(30))
-        layout = compute_layout(clues, clues, spec)
-        assert frame.footer_rule.width < layout.thin_rule
-        assert layout.thin_rule / DPI * 25.4 >= 0.25
-        assert frame.footer_rule.width / DPI * 25.4 < 0.25
+    def test_the_hairline_is_at_the_floor_and_the_header_rule_is_heavier(self, interior) -> None:
+        number = _page_whose_drawing_is_narrow(interior)
+        page = interior.pages[number]
+        frame = interior.frame(number)
+        header = _rules_in(
+            page,
+            frame.header_rule.left,
+            frame.header_rule.right,
+            *_header_window(frame),
+        )
+        footer = _rules_in(
+            page,
+            frame.footer_rule.left,
+            frame.footer_rule.right,
+            frame.footer_rule.y - 30,
+            frame.footer_rule.y + 30,
+        )
+        assert len(header) == 1, f"page {number} drew {len(header)} header rules"
+        assert len(footer) == 1, f"page {number} drew {len(footer)} footer rules"
+        assert _holds(header[0], frame.header_rule.y)
+        assert _holds(footer[0], frame.footer_rule.y)
+        heading, hairline = header[0][1], footer[0][1]
+        # The pair: a heading rule over a hairline, not two rules of one
+        # weight. Measured ink on both sides, and the frame agrees with it.
+        assert heading > hairline, (
+            f"page {number}: the header rule measures {heading} px against the "
+            f"hairline's {hairline} px — the two no longer read as a heading "
+            "rule and a hairline"
+        )
+        assert (heading, hairline) == (frame.header_rule.width, frame.footer_rule.width)
+        # On the floor, not under it. 1 px is the dropout the floor exists to
+        # keep off the press.
+        assert hairline == FURNITURE_FLOOR_PX, (
+            f"page {number}: the hairline measures {hairline} px against the "
+            f"{FURNITURE_FLOOR_PX} px floor a line that has to print is held to"
+        )
+        assert hairline / DPI * 25.4 == pytest.approx(FURNITURE_FLOOR_MM, abs=0.0005)
 
 
 class TestBookPageFrame_MirroringBitesOnUnequalMargins:

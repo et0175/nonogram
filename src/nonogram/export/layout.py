@@ -1283,14 +1283,29 @@ INTERIOR_HEADER_RULE_PT = 0.6
 #: makes the two read as a heading rule and a hairline rather than as two
 #: rules of the same weight.
 #:
-#: **Not an ADR-0037/R2 figure, and stated so.** R2 binds "every thin *grid*
-#: rule" to at least 0.25 mm (3 px); this is page furniture, not a grid rule,
-#: and at 0.169 mm it is deliberately under that minimum. The exemption is
-#: held by a control: ``tests/test_book_page_frame.py``'s
-#: ``TestBookPageFrame_TheHairlineIsNotAGridRule`` asserts both halves — that
-#: this rule is lighter than the thin grid rule, and that the thin grid rule
-#: on the same page is still at or above R2's 0.25 mm — so the exemption
-#: cannot grow to cover the grid (ADR-0039/R3).
+#: **Two device pixels is the floor, and this rule sits on it — no exemption
+#: is claimed or needed.** A line that has to print at all cannot be asked
+#: for less than 2 px at :data:`DPI`: the step below is a one-pixel line,
+#: which is the dropout ADR-0037 exists to answer, so this hairline is held
+#: at the floor for the dropout reason **directly**. Not through
+#: ADR-0037/R2, which binds the puzzle **grid**'s weights and does not reach
+#: page furniture — a header rule, a hairline or a divider was never a grid
+#: rule under R2's wording or its superseded one (R2's scope note, clarified
+#: 2026-10-17).
+#:
+#: What is load-bearing is therefore the **pair**, and that is what the
+#: control asserts: the header rule is heavier than this hairline (3 px
+#: against 2 px), which is what makes them read as a heading rule and a
+#: hairline rather than as two rules of one weight, and this hairline is
+#: *at* the 2 px floor rather than under it.
+#: ``tests/test_book_page_frame.py``'s
+#: ``TestBookPageFrame_TheHairlineSitsOnTheFloorUnderTheHeaderRule``
+#: measures both off the rendered frame (ADR-0039/R3). It compares furniture
+#: with furniture, never with grid ink: once CARD-227 lands R2's three
+#: weights the grid's thinnest cell line is 2 px too, so a claim of the form
+#: "lighter than the grid rule" would then be unsatisfiable, and the
+#: furniture/grid distinction rests on **tone** rather than width (ADR-0037's
+#: 2026-10-17 History).
 INTERIOR_FOOTER_RULE_PT = 0.4
 
 #: The white the footer band keeps between its own rows, in points — the
