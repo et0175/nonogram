@@ -20,8 +20,11 @@ functions that called it; and the interior page it was drawn for. A size in
 points is ``size * 72 / generator.dpi``. An unsized face always fails.
 
 **The one exemption.** A puzzle page's clue digits are bound to their cell
-(``_CLUE_FONT_RATIO``), and INV-006's 4.8 mm cell floor puts them at 8.4 pt, so
-no setting reaches 10 pt there without breaking the cell floor. They are
+(``_CLUE_FONT_RATIO``), and INV-006's cell floor puts them at 8.4 pt, so
+no setting reaches 10 pt there without breaking the cell floor. The floor
+is **4.75 mm since NFR-008's amendment of 2026-10-17** (CARD-222) and was
+4.8 mm before it; the 8.4 pt is unchanged by that move, because at 300 dpi
+both floors round ``pitch * _CLUE_FONT_RATIO`` to the same 35 px. They are
 exempt **by the function that draws them**: ``png._draw_clues`` and
 ``book_pdf_generator._write_clues``. The guide page's worked example draws its
 clue digits through ``_write_clues`` too, from inside ``draw_example_line``;

@@ -74,13 +74,13 @@ so they cannot quietly close:
 * :data:`ROUND_ASPECT_TOLERANCE` = 0.2, i.e. ``aspect`` in 0.8..1.2. Every disc
   reads 1.000. The nearest mark on the book's own 13 interior pages that gets
   anywhere near a disc's ``fill`` is a letter stem at ``aspect`` 0.545 and a
-  filled rule at 10.436, so 0.2 sits in a gap with 0.255 of margin to the
+  filled rule at 10.316, so 0.2 sits in a gap with 0.255 of margin to the
   closer of the two. Chosen *loose* rather than tight on purpose: at 0.08 a
   hexagon (1.083..1.167) would escape, and at 0.2 it does not.
 
   Read that qualifier as written: it is the nearest mark *carrying a disc's*
   ``fill``. The nearest mark on those pages **overall** is nearer and of
-  another kind — a 99 x 94 px filled block at ``aspect`` 1.053, which is
+  another kind — a 99 x 95 px filled block at ``aspect`` 1.042, which is
   already *inside* this tolerance — and what keeps it out is ``fill`` alone
   (1.226). So the book's whole margin rests on ``fill``, not on both numbers;
   that is measured, and asserted, in
@@ -98,25 +98,26 @@ book's own figures, measured over the same 13 pages at each threshold:
 ======================  ============  ============  ======================
 measurement             at grey 128   at grey 208   set by
 ======================  ============  ============  ======================
-margin (either          1.8859        **1.8182**    a 99 x 94 block /
+margin (either          1.8855        **1.8182**    a 99 x 95 block /
 tolerance, whichever                                a 7 x 11 letter stem
 binds)
-``ROUND_FILL`` room     1.8859        1.8859        the same 99 x 94 block
-``ROUND_ASPECT`` room   2.2727        **47.1809**   a letter stem / a rule
+``ROUND_FILL`` room     1.8855        1.8855        the same 99 x 95 block
+``ROUND_ASPECT`` room   2.2727        **46.5789**   a letter stem / a rule
 ======================  ============  ============  ======================
 
 So the margin falls by 3.6 % and **changes hands** — at grey 208 it is carried
 by ``aspect``, because the letter stem that sets it grows a pixel of its own
 grey edge and leaves the fill tolerance — while ``fill``'s own room on the book
-is untouched, the 99 x 94 block being a hard-edged rectangle with no grey edge
+is untouched, the 99 x 95 block being a hard-edged rectangle with no grey edge
 to grow. Each figure is asserted in
 ``test_the_closest_the_book_comes_to_a_round_mark_is_measured`` and
 ``test_each_tolerances_own_room_on_the_book_is_measured``.
 
 **No size floor is imposed by hand — and the metric has one of its own.** None
-is needed to keep the guard quiet: measured over 33 real pages (the baseline
-book's 13, carrying 3222 ink regions, and a seeded picture-corpus book's 20,
-carrying 4236) not one ink region of any size passes the metric. And a floor
+is needed to keep the guard quiet: measured over 34 real pages (the baseline
+book's 13, carrying 2640 ink regions, and a seeded picture-corpus book's 21,
+carrying 3689 — 33 pages, 3222 and 4236, before CON-018's amended margins
+shrank the usable area) not one ink region of any size passes the metric. And a floor
 at the glyph's own smallest dot (12 px at 300 DPI) would have hidden a rogue
 mark smaller than the glyph itself can draw. That argument is why none was
 written by hand, and it still holds.
@@ -357,8 +358,8 @@ def ink_regions(page: Image.Image, level: int = INK_LEVEL) -> list[InkRegion]:
 
     ``level`` defaults to :data:`INK_LEVEL`, so this call still answers
     CARD-241's question — *what ink is on this page* — unchanged, and the
-    figures recorded against it (3222 regions on the baseline interior's 13
-    pages, a margin of 1.8859) still reproduce. :func:`mark_regions` is the
+    figures recorded against it (2640 regions on the baseline interior's 13
+    pages, a margin of 1.8855) still reproduce. :func:`mark_regions` is the
     same question asked at :data:`MARK_LEVEL`.
 
     Args:
