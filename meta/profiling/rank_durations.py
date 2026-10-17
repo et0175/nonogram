@@ -57,6 +57,16 @@ RENDER_API_PATTERN = (
 # (tests/helpers/book_corpus.py, tests/helpers/pdf_pages.py). The helpers carry
 # no tests of their own, so they contribute no durations and are kept in the
 # list only so the set matches the grep exactly.
+#
+# **Restated once since, deliberately** (CARD-222, 2026-10-17), as
+# ``tests/test_suite_profile.py``'s own frozen-set test asks: 30 paths now,
+# with ``tests/test_book_page_frame.py`` added — that card's own test file,
+# which exports the baseline book's interior through ``interior_stream`` to
+# measure the page frame off the rendered pixels. The recorded shares below
+# are unchanged by it: they are properties of the 2026-10-15 durations
+# artefact, in which this file does not appear at all (it contributes 0 s), so
+# the render-heavy set's 21.23 % of attributed time is the same number over the
+# same recording. A later recording will attribute its own time to it.
 RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/helpers/book_corpus.py",
     "tests/helpers/pdf_pages.py",
@@ -72,6 +82,7 @@ RENDER_HEAVY_SNAPSHOT: tuple[str, ...] = (
     "tests/test_book_guide_page_type.py",
     "tests/test_book_interior_face.py",
     "tests/test_book_interior_type_floor.py",
+    "tests/test_book_page_frame.py",
     "tests/test_book_page_numbers.py",
     "tests/test_book_pdf.py",
     "tests/test_book_pdf_band.py",

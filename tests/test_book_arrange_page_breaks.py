@@ -415,7 +415,7 @@ def _clue_sets(row: Dict[str, Any]) -> Tuple[tuple, tuple]:
 def _folio_reserve_px() -> int:
     """CARD-204's fixed folio reserve, reimplemented here (CARD-222).
 
-    **The pairing verdict depends on it.** ``BookPDFGenerator.puzzle_pages``
+    **The pairing verdict depends on it.** The generator's own pairing walk
     passes this many pixels into every
     :func:`~nonogram.export.layout.compute_pair_layout` call it makes, so a
     pair's accept/refuse verdict is taken *with* the reserve in hand (the
