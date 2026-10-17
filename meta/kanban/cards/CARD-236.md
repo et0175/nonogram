@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 44
 **Depends on:** CARD-217
-**Touches:** tests/test_start_admin_local.py and its two siblings, meta/profiling/
+**Touches:** tests/test_start_admin_local.py, tests/test_setup_admin_local.py, tests/test_run_admin_tests.py, tests/helpers/admin_scripts.py, tests/test_admin_local_cost.py, meta/profiling/
 **Review score:** —
 **Started:** 2026-10-17T15:40:28Z
 **Closed:** —
@@ -79,6 +79,102 @@ notes for each.
 - **Trace:** not updated by this card.
 
 ## Worktree notes
+
+- **[Implementation reported 2026-10-17, commit `1a2e6a0`]** The agent's own notes are merged
+  below from its worktree copy. Its `CARD-236.md` was reverted to base in the branch before
+  the commit, so the branch carries no card file and cannot revert these stamps at merge
+  (the CARD-243 / CARD-222 lesson, twice this wave).
+
+- **[The card's premise was wrong, and that is the deliverable.]** CARD-217 attributed the
+  trio's 117.16 s to "pure subprocess spawning". Measured here, it is the **first `execve` of a
+  newly *created* executable**, on a host with Microsoft Defender real-time protection enabled
+  (`mdatp health --field real_time_protection_enabled` -> true). The harness wrote five fresh
+  tool stubs into every test's own `tmp_path` and then ran them:
+
+  | one `--check-only` run of `start_admin_local.sh` | per run |
+  |---|---|
+  | stubs written fresh per test (pre-card) | 1.097-1.381 s |
+  | stubs reused from a directory already executed | 0.074-0.120 s |
+  | writing the five stub files and **not** running them | 0.003-0.006 s |
+
+  Controls: `bash -c ':'` is 4 ms on this host and a fresh interpreter 18 ms, so a *repeated*
+  spawn is cheap; the before run spent `user 5.05s, sys 5.74s` over 117.83 s of wall clock --
+  **9 % of one core**, i.e. blocked, not computing. This is worth carrying past the card: every
+  future "the tests are slow because they spawn processes" diagnosis on this host should check
+  stub creation before it blames spawning, and the same shape will be hiding in any other
+  harness that writes an executable per test.
+
+- **[The fix, and what was deliberately not shared]** One function, `tool_dir()` in
+  `tests/test_start_admin_local.py` (`@cache` + `mkdtemp` + `atexit`), keyed on the stub
+  *bodies* -- so the siblings' set and the `without_psql` set each get their own directory and
+  no test can silently acquire a tool it was written without. `tests/helpers/admin_scripts.py`
+  gained `_real_tools_dir()` for the two symlinks `without_psql` needs. **The throwaway project
+  root stays per-test on purpose**: the script copy, the no-op `.venv/bin/activate` and the call
+  log are per-test, so every test still copies and executes the real script and still reads back
+  only its own calls.
+
+- **[Nothing was converted to parsing, and that is a finding rather than a shortcut.]** A
+  structural check cannot see the defects these tests exist for. CARD-151's two defects were a
+  script that *named* the right database and handed psql a string psql cannot parse -- the only
+  evidence is the psql model's `connect` log, which exists only if the script ran. CARD-150's
+  F-001 is a stream distinction (the indented quote on the script's *own* stdout), a property of
+  a run. So the parsing-for-execution trade gives up exactly the defect class the trio was
+  written for, and this card pays nothing to keep it. Six tests already asserted on text alone
+  and always did; `TestAdminLocalTests_ExecutionSetIsDeclared` pins that set at exactly those
+  six with a recorded reason each, derived from the tree with `ast`, and a mutant shows the walk
+  moves a test between sets when its only run is deleted.
+
+- **[Mutant matrix -- AC-2 and AC-4, with the control that makes it mean anything]** Each
+  original defect put back **one at a time**, the whole trio run twice: once with the four test
+  files restored byte for byte from `HEAD` (verified with `cmp`), once with this card's tests.
+  Scripts restored from byte copies after every mutant and verified with `filecmp.cmp`.
+  Identical failing *sets*, not merely identical counts:
+
+  | # | defect | script | pre-card red | this card red | same set |
+  |---|---|---|---|---|---|
+  | M1 | CARD-150 bare `psql -c "SELECT 1"` on the local branch | start | 15 | 15 | yes |
+  | M2 | CARD-150 hardcoded export over the caller's URL | start | 3 | 3 | yes |
+  | M3 | CARD-150 failed migration warns and continues | start | 3 | 3 | yes |
+  | M4 | CARD-150 F-001 `2>&1` dropped, alembic's words lost | start | 1 | 1 | yes |
+  | M5 | CARD-151 `+driver` not stripped for psql | start | 8 | 8 | yes |
+  | M6 | CARD-151 a URL naming no database accepted | start | 6 | 6 | yes |
+  | M7 | CARD-152 bare `psql -c "SELECT 1"` | setup | 10 | 10 | yes |
+  | M8 | CARD-152 hardcoded export over the caller's URL | run | 13 | 13 | yes |
+  | M9 | CARD-168 test runner defaults to `nonogram_poc` | run | 5 | 5 | yes |
+  | -- | **control, no mutant** | -- | **0** | **0** | yes |
+
+  I had warned this agent that a mutant reding the same tests as a *red* baseline proves
+  nothing -- the session had already lost two diagnoses to an unsound harness. The control row
+  is the answer: **0 red with no mutant on both sides**, so every row above is caused by its
+  mutant and not by the harness.
+
+- **[Per-test before/after]** 83 tests, none added, none removed, none converted, no assertion
+  changed, same node ids (asserted against CARD-217's frozen artefact, so a test lost before
+  both halves cannot hide -- CARD-220's no-silent-retirement rule). 116.04 s -> 13.38 s;
+  **1398 ms/test -> 161 ms/test**. Three pairs: 8.67x / 10.65x / 10.56x.
+
+- **[Scope gate: PASSED, with Touches widened by the orchestrator]** The diff is six files, all
+  in the test tree and `meta/profiling/` -- **no `src/` change at all**, and `git diff --
+  scripts/` is empty, so G-1 holds (the ` M scripts/setup_admin_local.sh` I saw mid-flight was
+  M7's mutation in its `finally`, since restored and verified). The agent flagged two paths
+  outside the declared slice rather than committing a silent widening:
+  `tests/helpers/admin_scripts.py` (the two siblings' shared harness -- it *is* their
+  `run_script`) and the new `tests/test_admin_local_cost.py` (the ACs name three classes that
+  had nowhere to live). Both accepted. `Touches` was prose ("and its two siblings") and is now
+  explicit paths, which is what the conflict predictor actually reads.
+
+- **[AC-1 / G-3: OPEN at the orchestrator, not at the agent]** The agent recorded 116.04 s ->
+  13.38 s but **refused to call it settled**: every run was taken while CARD-222's fix agent held
+  the full-suite lock in a sibling worktree, and that pytest was still at 100 % CPU when it
+  re-checked. Both artefacts record `solo run: no` with the evidence, and
+  `TestAdminLocalTests_ShareIsRecorded::test_neither_artefact_claims_to_be_the_solo_profile_g3_asks_for`
+  fails if a header is edited to `yes` without a fresh measurement -- a floor that cannot be
+  talked around. **This is the right call and the measurement is mine to take**: the ratios
+  (8.67x, four times CARD-217's +/-20 % band) survive a host slow for both halves, but the
+  absolute figure does not. I take the solo trio measurement when I hold the lock for this
+  card's build gate, and update both artefacts' headers then.
+  **Projected for that run:** trio ~13 s, suite attributed 920.63 -> ~816 s, trio share
+  12.73 % -> ~1.64 % (derived by `projected_share_pct`, stated in the document).
 
 - [The trap this card must avoid] CARD-150 and CARD-152 both fixed real launcher defects that
   these tests now guard. The point of the card is to pay less for that guard, not to weaken it,
