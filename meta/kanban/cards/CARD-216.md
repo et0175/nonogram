@@ -1,6 +1,6 @@
 # CARD-216: A puzzle's given cells are stored with it, and the player shows them as locked marks
 
-**Status:** in_progress
+**Status:** ready
 **Priority:** P2
 **Category:** feature
 **Estimate:** 1d
@@ -8,15 +8,15 @@
 **Revision pending:** false
 **Skill:** python-pro
 **TDD:** —
-**Branch:** card/216-given-cells-player
-**Worktree:** ../PythonProject4-card-216
+**Branch:** —
+**Worktree:** —
 **Source:** owner's Google Doc "Nonograms - Print layout", 2026-10-13 ("## Puzzle generator — include black\\white cells in the puzzle grid to make it uniquely solvable"; "## Infrastructure — make for now solver under the admin panel (when we click on the puzzle) and add to generator an option … as POC"); owner decision 2026-10-13 via AskUserQuestion — "Cut them now as POC cards" (the option covered the algorithm, the rendering **and** the player)
 **Idea:** —
-**Wave:** 44
+**Wave:** —
 **Depends on:** CARD-214
 **Touches:** src/nonogram/db/models.py, migrations/versions/, src/nonogram/admin/app.py, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, tests/test_puzzle_solver_givens.py, tests/test_puzzle_solver_page.py, tests/test_admin_import_consistency.py
 **Review score:** —
-**Started:** 2026-10-17T15:36:29Z
+**Started:** —
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -174,4 +174,5 @@ _44 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 DB-mode tests skip green — use `sqlite_session_scope` for the regression tests
 of the new column so they actually run in this environment.
 - [Env] forge 2026.8.17 (no meta/.skills.yml — no min_version comparison)
-- [Dispatch] Slot refill, wave 44, 2026-10-17T15:45Z — freed by CARD-243 merging (`1280085`, 0.2d against 1d). Chosen by priority order among the cards with no conflict edge to CARD-222 (CARD-216, CARD-236; both P2, lower number wins). ⚠ **Passed over at the wave's dispatch for a reason that still applies**: this is a migration card, and this board's DB-mode tests **skip green** when no `nonogram_test` database exists, so its AC evidence can pass vacuously. Briefed explicitly rather than ignored — the implementation must evidence its ACs on a path that cannot silently skip.
+- [Abandoned] Started on wave 44's slot refill at 15:45Z and **abandoned at 15:52Z on owner instruction** ("swap 216 for 236"), before the implementation agent wrote anything — no commits, no uncommitted changes, worktree and branch removed, card returned to `ready`. Nothing was lost.
+- [Standing warning for whoever starts this card] ⚠ **This board's DB-mode tests skip GREEN when no `nonogram_test` database exists** — they do not fail, the run exits 0 and the suite looks clean. This card adds a `givens` column plus a migration, so the natural place to evidence its ACs is exactly the path that can silently prove nothing. Each AC must be evidenced on a path that cannot skip (`sqlite_session_scope` is the project's answer), and where a test must gate on host state, **the position of the skip is the claim**: every assertion above a `pytest.skip` must be host-independent and every one below must genuinely read that host. This is why the card was passed over twice in wave 44 — at dispatch and again on refill — and it is a briefing requirement, not a reason to avoid the card.

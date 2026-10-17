@@ -1,6 +1,6 @@
 # CARD-236: The admin-local script tests stop spawning a subprocess per assertion
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P2
 **Category:** tech-debt
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/236-admin-local-subprocess-cost
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-236
 **Source:** CARD-217's profile, 2026-10-15 — `meta/profiling/suite-hotspots-20261015.md`
 **Idea:** —
-**Wave:** —
+**Wave:** 44
 **Depends on:** CARD-217
 **Touches:** tests/test_start_admin_local.py and its two siblings, meta/profiling/
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-17T15:40:28Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
@@ -83,3 +83,5 @@ notes for each.
 - [The trap this card must avoid] CARD-150 and CARD-152 both fixed real launcher defects that
   these tests now guard. The point of the card is to pay less for that guard, not to weaken it,
   and AC-4 is the assertion that tells the difference.
+- [Env] forge 2026.8.17 (no meta/.skills.yml — no min_version comparison)
+- [Dispatch] Wave 44 slot, 2026-10-17T15:52Z — **owner instruction, swapped in for CARD-216** ("swap 216 for 236"), which was abandoned before its agent wrote anything and returned to `ready`. Footprint verified disjoint from CARD-222's (page-geometry code in `src/nonogram/{admin,export}` plus its own test files), so the two run concurrently with no conflict edge. Dependency CARD-217 is done — its solo profiling run is the measurement this card acts on.

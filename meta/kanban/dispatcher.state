@@ -4,12 +4,12 @@ mode: interactive
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
 active:
-  - id: CARD-216
+  - id: CARD-236
     phase: implementation
-    branch: card/216-given-cells-player
-    worktree: ../PythonProject4-card-216
-    started: 2026-10-17T15:45:00Z
-    note: "Slot refill after CARD-243 merged. Migration + player card. Briefed explicitly on the silent-skip trap: DB-mode tests skip green without a nonogram_test database, so AC evidence must run on a path that cannot skip (sqlite_session_scope)."
+    branch: card/236-admin-local-subprocess-cost
+    worktree: ../PythonProject4-card-236
+    started: 2026-10-17T15:52:00Z
+    note: "Owner instruction 15:52Z: swapped in for CARD-216, which was abandoned before its agent wrote anything and returned to ready (its DB-skip warning kept on the card for whoever starts it next). Acts on CARD-217's measurement: the admin-local script trio is 117.16s / 12.73% of suite wall-clock. Briefed that this is a cost card, not a coverage card -- every changed test must be shown still failing on the mutant it was there to catch."
   - id: CARD-222
     phase: implementation
     branch: card/222-interior-page-frame
@@ -21,6 +21,7 @@ refilled:
   - at: 2026-10-17T15:45:00Z
     freed_by: "CARD-243 merged 1280085 (0.2d against 1d)"
     started: CARD-216
+    superseded: "abandoned 15:52Z on owner instruction before any work; replaced by CARD-236"
     reason: "priority order among the cards with no conflict edge to CARD-222 (CARD-216, CARD-236); both P2, lower card number wins. CARD-216 was passed over at dispatch for a reason that still applies and is briefed rather than ignored: it is a migration card, and this board's DB-mode tests skip green when no nonogram_test database exists, so its AC evidence can pass vacuously."
 conflict_edges:
   - pair: [CARD-222, CARD-243]
@@ -43,4 +44,4 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-17T15:45:00Z
+last_updated: 2026-10-17T15:53:00Z
