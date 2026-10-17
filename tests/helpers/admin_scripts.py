@@ -32,25 +32,27 @@ them with its own script, so every URL-handling branch is pinned in both.
 
 from __future__ import annotations
 
+import atexit
 import os
-import shlex
 import shutil
 import subprocess
-import sys
+import tempfile
 from dataclasses import dataclass
+from functools import cache
 from itertools import combinations
 from pathlib import Path
 
-# These four are private names of tests/test_start_admin_local.py, which this
-# card must leave unmodified (CARD-152 Touches). Renaming or moving any of them
-# there breaks tests/test_setup_admin_local.py and tests/test_run_admin_tests.py
-# with an ImportError -- move them here, or to their own tests/helpers/ module,
-# when that file is next open.
+# These are private names of tests/test_start_admin_local.py, which CARD-152
+# had to leave unmodified (its Touches). Renaming or moving any of them there
+# breaks tests/test_setup_admin_local.py and tests/test_run_admin_tests.py
+# with an ImportError -- move them here, or to their own tests/helpers/
+# module, when that file is next open (backlog: CARD-152 F-005).
 from tests.test_start_admin_local import (
     _DOCKER_STUB,
-    _PSQL_MODEL,
+    _PSQL_SHIM,
     _all_pairs,
     _plain,
+    tool_dir,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -87,6 +89,38 @@ fi
 echo "1 passed"
 exit 0
 """
+
+#: The stub programs the two sibling scripts need. ``psql`` is first so that
+#: ``SIBLING_TOOLS[1:]`` is the ``without_psql`` set, and the two sets are one
+#: slice apart rather than two lists that could drift.
+SIBLING_TOOLS: tuple[tuple[str, str], ...] = (
+    ("psql", _PSQL_SHIM),
+    ("docker", _DOCKER_STUB),
+    ("docker-compose", _DOCKER_STUB),
+    ("alembic", _ALEMBIC_STUB),
+    ("pytest", _PYTEST_STUB),
+)
+
+#: The real programs the scripts reach for before their own psql lookup. Only
+#: ``without_psql`` needs them, because only it replaces PATH wholesale.
+PRE_PSQL_PROGRAMS = ("dirname", "python3")
+
+
+@cache
+def _real_tools_dir() -> Path:
+    """Links to :data:`PRE_PSQL_PROGRAMS`, built once per process.
+
+    Shared for the same reason the stub directory is (CARD-236), though the
+    saving here is small: these are the system's own binaries, already known
+    to the host, so it is the symlinks and not their targets that are new.
+    """
+    directory = Path(tempfile.mkdtemp(prefix="admin-script-tools-"))
+    atexit.register(shutil.rmtree, directory, ignore_errors=True)
+    for program in PRE_PSQL_PROGRAMS:
+        found = shutil.which(program)
+        assert found, f"{program} is needed to run the script"
+        (directory / program).symlink_to(found)
+    return directory
 
 
 @dataclass(frozen=True)
@@ -125,43 +159,39 @@ def run_script(
     alembic_message: str = "",
     pytest_fails: bool = False,
     without_psql: bool = False,
+    script_text: str | None = None,
 ) -> Run:
     """Run the real ``scripts/<script_name>`` in a throwaway root, tools stubbed.
 
-    ``without_psql`` leaves psql off ``PATH`` altogether: no stub is written,
-    and the developer's ``PATH`` (which may hold a real psql) is replaced by the
-    stub directory plus a directory of links to the few programs the scripts
-    need before their psql lookup -- ``dirname`` and ``python3``.
+    ``script_text`` runs that text in the real script's place, for the one
+    purpose of showing that a defect reintroduced into the script is still
+    visible here (``tests/test_admin_local_cost.py``). Every other caller
+    leaves it alone and gets ``scripts/<script_name>`` itself.
+
+    ``without_psql`` leaves psql off ``PATH`` altogether: it asks for a stub
+    directory that has none, and the developer's ``PATH`` (which may hold a
+    real psql) is replaced by that directory plus a directory of links to the
+    few programs the scripts need before their psql lookup --
+    :data:`PRE_PSQL_PROGRAMS`.
     """
     root = tmp_path / "project"
     (root / "scripts").mkdir(parents=True)
     script = root / "scripts" / script_name
-    shutil.copyfile(SCRIPTS / script_name, script)
+    if script_text is None:
+        shutil.copyfile(SCRIPTS / script_name, script)
+    else:
+        script.write_text(script_text)
     script.chmod(0o755)
 
     activate = root / ".venv" / "bin" / "activate"
     activate.parent.mkdir(parents=True)
     activate.write_text(":\n")
 
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    model = tmp_path / "psql_model.py"
-    model.write_text(_PSQL_MODEL)
-    psql_shim = (
-        "#!/bin/bash\n"
-        f"exec {shlex.quote(sys.executable)} {shlex.quote(str(model))} \"$@\"\n"
-    )
-    stubs = [] if without_psql else [("psql", psql_shim)]
-    for name, body in (
-        *stubs,
-        ("docker", _DOCKER_STUB),
-        ("docker-compose", _DOCKER_STUB),
-        ("alembic", _ALEMBIC_STUB),
-        ("pytest", _PYTEST_STUB),
-    ):
-        stub = bin_dir / name
-        stub.write_text(body)
-        stub.chmod(0o755)
+    # Built once per process per stub set, not once per test (CARD-236 --
+    # ``tool_dir``'s docstring has the measurement). ``without_psql`` differs
+    # in the set it asks for, so it gets a directory of its own and cannot
+    # pick up a psql it was written without.
+    bin_dir = tool_dir(SIBLING_TOOLS[1:] if without_psql else SIBLING_TOOLS)
 
     log = tmp_path / "calls.log"
     log.write_text("")
@@ -172,13 +202,7 @@ def run_script(
         if k not in ("DATABASE_URL", "VIRTUAL_ENV") and not k.startswith("PG")
     }
     if without_psql:
-        tools = tmp_path / "tools"
-        tools.mkdir()
-        for program in ("dirname", "python3"):
-            found = shutil.which(program)
-            assert found, f"{program} is needed to run the script"
-            (tools / program).symlink_to(found)
-        env["PATH"] = f"{bin_dir}{os.pathsep}{tools}"
+        env["PATH"] = f"{bin_dir}{os.pathsep}{_real_tools_dir()}"
     else:
         env["PATH"] = f"{bin_dir}{os.pathsep}{env.get('PATH', '')}"
     env["STUB_LOG"] = str(log)

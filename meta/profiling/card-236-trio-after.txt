@@ -1,0 +1,282 @@
+# CARD-236 -- the admin-local script trio, AFTER (the stub directory built once per process)
+#
+# commit: 1f7f965acdd350ce4b9b5ba1b94caca727abb7e4
+# tree: git worktree card/236-admin-local-subprocess-cost with this card's
+#   change in place -- tests/test_start_admin_local.tool_dir, and the two
+#   run_script harnesses asking it for a stub directory instead of writing one
+#   into each test's tmp_path. Nothing else differs from the before run.
+# host: Mac15,6 Apple M3 Pro, 11 cores, 18GB, macOS 26.7.1 (Darwin 25.6.0 arm64)
+# python: 3.14.3
+# pytest: 9.1.1
+# command: ./.venv/bin/python -m pytest --durations=0 --durations-min=0 -p no:cacheprovider tests/test_start_admin_local.py tests/test_run_admin_tests.py tests/test_setup_admin_local.py
+#   (run from the worktree root; pyproject's addopts adds -q, and this card's
+#   own -q is NOT passed, so the quiet level stays at -q)
+# started: 2026-10-17T19:06Z
+# wall clock: 14.72s
+#   measured by /usr/bin/time -p: real 14.72
+# result: 83 passed, 0 skipped, 0 failed
+# solo run: no
+#
+# NOT a solo run, and this artefact may not be read as G-3's measurement.
+# Taken in the same window and under the same conditions as
+# card-236-trio-before.txt, immediately after it, with the same worktree and
+# the same command -- which is what makes the pair comparable even though
+# neither half is admissible on its own. The 1-minute load average at the
+# start was 4.78. CARD-222's fix agent was running the full suite under
+# meta/kanban/.full-suite.lock in a sibling worktree in this window.
+#
+# Two further pairs were taken the same way and are recorded in
+# card-236-admin-local-subprocess-cost.md: 116.97s/12.42s and 112.20s/11.64s
+# in wall clock, 114.73s/10.77s and 110.54s/10.47s attributed. This pair is
+# the conservative one -- the largest "after" of the three against a mid
+# "before".
+#
+1.59s call     tests/test_start_admin_local.py::test_the_harness_reaches_the_end_of_the_script
+1.29s call     tests/test_start_admin_local.py::test_the_decision_over_an_enumerated_corpus_of_url_shapes
+1.20s call     tests/test_run_admin_tests.py::test_the_harness_reaches_the_end_of_the_script
+1.11s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_decision_over_a_pairwise_corpus_of_url_shapes
+0.80s call     tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_each_test_type_and_option_reaches_pytest
+0.67s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_decision_over_a_pairwise_corpus_of_url_shapes
+0.46s call     tests/test_setup_admin_local.py::test_the_harness_reaches_the_end_of_the_script
+0.30s call     tests/test_run_admin_tests.py::TestRunAdminTests_NeedsPsqlForEveryTestType::test_without_psql_it_stops_before_any_test
+0.27s call     tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_other_drivers_are_accepted_too
+0.24s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_driver_is_stripped_for_psql_only
+0.23s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_driver_is_stripped_for_psql_only
+0.21s call     tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_documents_every_flag_the_script_accepts
+0.18s call     tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.14s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_dbname_in_the_query_overrides_the_path
+0.14s call     tests/test_start_admin_local.py::TestStartAdminLocal_StillChecksTheTargetDatabase::test_the_check_carries_the_urls_host_port_and_credentials
+0.14s call     tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_dbname_in_the_query_is_the_database_named_and_checked
+0.12s call     tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_an_exported_url_is_used_and_attributed_to_the_caller
+0.12s call     tests/test_start_admin_local.py::TestStartAdminLocal_StillChecksTheTargetDatabase::test_it_still_fails_when_the_database_is_absent
+0.12s call     tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_an_exported_url_is_used_and_attributed_to_the_caller
+0.10s call     tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_with_nothing_exported_it_checks_and_uses_nonogram_test
+0.10s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_check_targets_the_urls_database_on_every_branch
+0.10s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_exits_non_zero_naming_the_database
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_a_missing_database_stops_the_script
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_a_failed_migration_stops_the_script
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_uses_an_exported_url_and_says_so
+0.09s call     tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_with_nothing_exported_it_says_it_used_the_project_default
+0.09s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_an_absent_database_is_refused_while_the_servers_default_answers
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_psql_is_handed_a_url_it_parses
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_the_panel_still_gets_the_url_as_exported
+0.09s call     tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_a_failing_suite_still_fails_the_script
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_an_exported_url_survives_into_the_environment
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_the_check_succeeds_against_a_reachable_database
+0.09s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_check_carries_the_urls_query
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_falls_back_to_the_project_default
+0.09s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_refuses_before_starting_anything
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_a_different_database_is_unaffected
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_query_keywords_override_the_urls_parts_through_a_driver_url
+0.08s call     tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_with_nothing_exported_the_panels_database_is_not_enough
+0.08s call     tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_a_driver_qualified_url_reaches_the_consumer_as_exported
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_exits_non_zero
+0.08s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_dbname_in_the_query_overrides_the_path
+0.08s call     tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_an_exported_url_still_wins_and_is_named_as_the_source
+0.08s call     tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_a_driver_qualified_url_reaches_the_consumer_as_exported
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_a_successful_migration_still_continues
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_the_local_branch_checks_the_target_database
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_the_last_dbname_in_the_query_wins
+0.08s call     tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_with_nothing_exported_it_says_it_used_the_project_default
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_names_the_database_the_script_defaults_to
+0.08s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAValueThatIsNotAUrl::test_each_is_refused_before_any_psql_runs
+0.08s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_check_targets_the_urls_database_on_every_branch
+0.07s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_alembics_own_message_reaches_the_output
+0.07s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.07s call     tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_server_named_only_in_the_query_is_the_one_checked
+0.07s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_no_migrate_is_the_explicit_way_past_it
+0.07s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_it_quotes_alembics_own_message
+0.07s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_check_carries_the_urls_query
+0.07s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_last_dbname_in_the_query_wins
+0.07s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_it_exits_non_zero_and_never_claims_completion
+0.06s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_an_absent_database_is_refused_while_the_servers_default_answers
+0.06s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_a_silent_failure_still_stops_and_says_so
+0.06s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_last_dbname_in_the_query_wins
+0.06s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.06s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_a_successful_migration_still_completes
+0.06s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_old_bare_check_would_have_passed_here
+0.05s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_value_that_is_not_a_url_is_refused_under_its_own_message
+0.05s call     tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_an_empty_dbname_in_the_query_still_names_no_database
+0.05s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_url_that_names_no_database_is_refused_before_psql
+0.04s call     tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_an_empty_dbname_in_the_query_names_no_database
+0.04s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_url_that_names_no_database_is_refused_before_psql
+0.04s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_value_that_is_not_a_url_is_refused_under_its_own_message
+0.03s call     tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_help_answers_without_a_database
+0.03s call     tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_an_unknown_option_is_refused_without_a_database
+0.03s call     tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_an_empty_dbname_in_the_query_names_no_database
+0.03s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_when_a_database_named_after_the_user_exists
+0.02s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_when_no_database_named_after_the_user_exists
+0.02s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_before_any_psql_runs
+0.02s call     tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_the_message_names_the_url_its_source_and_creates_nothing
+0.01s setup    tests/test_start_admin_local.py::test_the_harness_reaches_the_end_of_the_script
+0.00s setup    tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_an_exported_url_is_used_and_attributed_to_the_caller
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_with_nothing_exported_it_checks_and_uses_nonogram_test
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_a_missing_database_stops_the_script
+0.00s call     tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_a_claim_about_the_scripts_names_the_script_it_holds_for
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_check_targets_the_urls_database_on_every_branch
+0.00s setup    tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_a_driver_qualified_url_reaches_the_consumer_as_exported
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_exits_non_zero_naming_the_database
+0.00s setup    tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_an_exported_url_is_used_and_attributed_to_the_caller
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_driver_is_stripped_for_psql_only
+0.00s setup    tests/test_run_admin_tests.py::test_the_harness_reaches_the_end_of_the_script
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_check_carries_the_urls_query
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_driver_is_stripped_for_psql_only
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_the_panel_still_gets_the_url_as_exported
+0.00s setup    tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_with_nothing_exported_it_says_it_used_the_project_default
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_dbname_in_the_query_overrides_the_path
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_NeedsPsqlForEveryTestType::test_without_psql_it_stops_before_any_test
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_an_absent_database_is_refused_while_the_servers_default_answers
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_an_exported_url_still_wins_and_is_named_as_the_source
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_with_nothing_exported_the_panels_database_is_not_enough
+0.00s setup    tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_with_nothing_exported_it_says_it_used_the_project_default
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_other_drivers_are_accepted_too
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_a_successful_migration_still_completes
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_an_unknown_option_is_refused_without_a_database
+0.00s setup    tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_a_driver_qualified_url_reaches_the_consumer_as_exported
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_each_test_type_and_option_reaches_pytest
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_help_answers_without_a_database
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_an_empty_dbname_in_the_query_names_no_database
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAValueThatIsNotAUrl::test_each_is_refused_before_any_psql_runs
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_url_that_names_no_database_is_refused_before_psql
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_it_quotes_alembics_own_message
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_an_absent_database_is_refused_while_the_servers_default_answers
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_psql_is_handed_a_url_it_parses
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_falls_back_to_the_project_default
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_check_targets_the_urls_database_on_every_branch
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_a_different_database_is_unaffected
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_no_longer_states_a_database_as_a_bare_prerequisite
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_dbname_in_the_query_is_the_database_named_and_checked
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_exits_non_zero
+0.00s setup    tests/test_start_admin_local.py::test_the_decision_over_an_enumerated_corpus_of_url_shapes
+0.00s setup    tests/test_setup_admin_local.py::test_the_harness_reaches_the_end_of_the_script
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_dbname_in_the_query_overrides_the_path
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_the_local_branch_checks_the_target_database
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_uses_an_exported_url_and_says_so
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_an_empty_dbname_in_the_query_still_names_no_database
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_an_exported_url_survives_into_the_environment
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_names_the_database_the_script_defaults_to
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_a_successful_migration_still_continues
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_it_exits_non_zero_and_never_claims_completion
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_a_silent_failure_still_stops_and_says_so
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_documents_every_flag_the_script_accepts
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_value_that_is_not_a_url_is_refused_under_its_own_message
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_when_a_database_named_after_the_user_exists
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_StillChecksTheTargetDatabase::test_it_still_fails_when_the_database_is_absent
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_query_keywords_override_the_urls_parts_through_a_driver_url
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_no_migrate_is_the_explicit_way_past_it
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_StillChecksTheTargetDatabase::test_the_check_carries_the_urls_host_port_and_credentials
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_old_bare_check_would_have_passed_here
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_value_that_is_not_a_url_is_refused_under_its_own_message
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_decision_over_a_pairwise_corpus_of_url_shapes
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_the_last_dbname_in_the_query_wins
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_check_carries_the_urls_query
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_decision_over_a_pairwise_corpus_of_url_shapes
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_before_any_psql_runs
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_when_no_database_named_after_the_user_exists
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_last_dbname_in_the_query_wins
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_server_named_only_in_the_query_is_the_one_checked
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_the_check_succeeds_against_a_reachable_database
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_an_empty_dbname_in_the_query_names_no_database
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_a_failing_suite_still_fails_the_script
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_a_failed_migration_stops_the_script
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.00s setup    tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_last_dbname_in_the_query_wins
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_alembics_own_message_reaches_the_output
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_refuses_before_starting_anything
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_the_message_names_the_url_its_source_and_creates_nothing
+0.00s setup    tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_url_that_names_no_database_is_refused_before_psql
+0.00s call     tests/test_setup_admin_local.py::test_the_three_copies_of_the_url_resolution_are_identical
+0.00s teardown tests/test_start_admin_local.py::test_the_harness_reaches_the_end_of_the_script
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_an_exported_database_url_wins
+0.00s teardown tests/test_run_admin_tests.py::test_the_harness_reaches_the_end_of_the_script
+0.00s teardown tests/test_setup_admin_local.py::test_the_harness_reaches_the_end_of_the_script
+0.00s call     tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_an_exported_database_url_wins
+0.00s call     tests/test_setup_admin_local.py::test_the_readme_no_longer_says_the_siblings_ignore_an_exported_url
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_an_absent_database_is_refused_while_the_servers_default_answers
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_dbname_in_the_query_overrides_the_path
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_NeedsPsqlForEveryTestType::test_without_psql_it_stops_before_any_test
+0.00s teardown tests/test_start_admin_local.py::test_the_decision_over_an_enumerated_corpus_of_url_shapes
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_documents_every_flag_the_script_accepts
+0.00s setup    tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_a_claim_about_the_scripts_names_the_script_it_holds_for
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_the_local_branch_checks_the_target_database
+0.00s call     tests/test_setup_admin_local.py::test_each_script_defaults_to_its_own_database
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_help_answers_without_a_database
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_an_absent_database_is_refused_while_the_servers_default_answers
+0.00s teardown tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_with_nothing_exported_it_says_it_used_the_project_default
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAValueThatIsNotAUrl::test_each_is_refused_before_any_psql_runs
+0.00s setup    tests/test_setup_admin_local.py::test_the_readme_no_longer_says_the_siblings_ignore_an_exported_url
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_check_targets_the_urls_database_on_every_branch
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_psql_is_handed_a_url_it_parses
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_an_unknown_option_is_refused_without_a_database
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_the_check_succeeds_against_a_reachable_database
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_the_last_dbname_in_the_query_wins
+0.00s teardown tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_an_exported_url_is_used_and_attributed_to_the_caller
+0.00s teardown tests/test_setup_admin_local.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_a_driver_qualified_url_reaches_the_consumer_as_exported
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_decision_over_a_pairwise_corpus_of_url_shapes
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_with_nothing_exported_it_checks_and_uses_nonogram_test
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_the_panel_still_gets_the_url_as_exported
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_check_targets_the_urls_database_on_every_branch
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_refuses_before_starting_anything
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_an_exported_url_survives_into_the_environment
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_exits_non_zero_naming_the_database
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_check_carries_the_urls_query
+0.00s teardown tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_with_nothing_exported_it_says_it_used_the_project_default
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.00s teardown tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_an_exported_url_is_used_and_attributed_to_the_caller
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_last_dbname_in_the_query_wins
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_uses_an_exported_url_and_says_so
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_an_empty_dbname_in_the_query_names_no_database
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_with_nothing_exported_the_panels_database_is_not_enough
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_exits_non_zero
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_before_any_psql_runs
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_each_test_type_and_option_reaches_pytest
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_driver_is_stripped_for_psql_only
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_no_migrate_is_the_explicit_way_past_it
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_url_that_names_no_database_is_refused_before_psql
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_AcceptsADriverQualifiedUrl::test_other_drivers_are_accepted_too
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_a_failed_migration_stops_the_script
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_the_message_names_the_url_its_source_and_creates_nothing
+0.00s teardown tests/test_setup_admin_local.py::test_each_script_defaults_to_its_own_database
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_a_successful_migration_still_continues
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_when_no_database_named_after_the_user_exists
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_dbname_in_the_query_is_the_database_named_and_checked
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAUrlThatNamesNoDatabase::test_refuses_when_a_database_named_after_the_user_exists
+0.00s teardown tests/test_run_admin_tests.py::TestSiblingScripts_ExportedDatabaseUrlWins::test_a_driver_qualified_url_reaches_the_consumer_as_exported
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAMissingDatabase::test_a_different_database_is_unaffected
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_DefaultsToTheTestDatabase::test_an_exported_url_still_wins_and_is_named_as_the_source
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RefusesAndReportsAFailedMigration::test_alembics_own_message_reaches_the_output
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_RespectsAnExportedDatabaseUrl::test_falls_back_to_the_project_default
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_KeepsItsArguments::test_a_failing_suite_still_fails_the_script
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_old_bare_check_would_have_passed_here
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_an_empty_dbname_in_the_query_still_names_no_database
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_StillChecksTheTargetDatabase::test_the_check_carries_the_urls_host_port_and_credentials
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_query_keywords_override_the_urls_parts_through_a_driver_url
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_a_missing_database_stops_the_script
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_dbname_in_the_query_overrides_the_path
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_StillChecksTheTargetDatabase::test_it_still_fails_when_the_database_is_absent
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_names_the_database_the_script_defaults_to
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_last_dbname_in_the_query_wins
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_it_exits_non_zero_and_never_claims_completion
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_a_silent_failure_still_stops_and_says_so
+0.00s call     tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_no_longer_states_a_database_as_a_bare_prerequisite
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_server_named_only_in_the_query_is_the_one_checked
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_a_successful_migration_still_completes
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_CarriesTheUrlsQuery::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_the_check_carries_the_urls_query
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_value_that_is_not_a_url_is_refused_under_its_own_message
+0.00s teardown tests/test_run_admin_tests.py::TestRunAdminTests_ChecksTheTargetDatabase::test_a_driver_is_stripped_for_psql_only
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_StopsOnAFailedMigration::test_it_quotes_alembics_own_message
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_url_naming_its_database_only_in_the_query_is_accepted
+0.00s setup    tests/test_setup_admin_local.py::test_the_three_copies_of_the_url_resolution_are_identical
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_the_decision_over_a_pairwise_corpus_of_url_shapes
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_value_that_is_not_a_url_is_refused_under_its_own_message
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_an_empty_dbname_in_the_query_names_no_database
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_says_an_exported_database_url_wins
+0.00s teardown tests/test_setup_admin_local.py::TestSetupAdminLocal_ChecksTheTargetDatabase::test_a_url_that_names_no_database_is_refused_before_psql
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_a_claim_about_the_scripts_names_the_script_it_holds_for
+0.00s setup    tests/test_setup_admin_local.py::test_each_script_defaults_to_its_own_database
+0.00s teardown tests/test_start_admin_local.py::TestStartAdminLocal_ReadmeMatchesTheScript::test_it_no_longer_states_a_database_as_a_bare_prerequisite
+0.00s teardown tests/test_setup_admin_local.py::test_the_three_copies_of_the_url_resolution_are_identical
+0.00s teardown tests/test_setup_admin_local.py::test_the_readme_no_longer_says_the_siblings_ignore_an_exported_url

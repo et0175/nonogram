@@ -36,13 +36,16 @@ behaviours and logs what it would have connected to.
 
 from __future__ import annotations
 
+import atexit
 import os
 import re
 import shutil
 import shlex
 import subprocess
 import sys
+import tempfile
 from dataclasses import dataclass
+from functools import cache
 from itertools import combinations, product
 from pathlib import Path
 
@@ -188,6 +191,73 @@ exit 0
 DEFAULT_DB = "nonogram_poc"
 STUB_USER = "stub_owner"
 
+# psql is the Python model above, behind a bash shim. ``python`` itself is
+# stubbed on PATH, so the shim names this interpreter by absolute path; the
+# model's own path is filled in by :func:`tool_dir`, which is what decides
+# where the pair lives.
+_MODEL_PATH = "@PSQL_MODEL@"
+_PSQL_SHIM = (
+    "#!/bin/bash\n"
+    f"exec {shlex.quote(sys.executable)} {_MODEL_PATH} \"$@\"\n"
+)
+
+#: The stub programs ``start_admin_local.sh`` needs, in the order they are
+#: written. ``python`` covers the editable-install probe (CARD-139) and would
+#: also catch a ``flask run`` that should never happen.
+START_ADMIN_LOCAL_TOOLS: tuple[tuple[str, str], ...] = (
+    ("psql", _PSQL_SHIM),
+    ("docker", _DOCKER_STUB),
+    ("docker-compose", _DOCKER_STUB),
+    ("alembic", _ALEMBIC_STUB),
+    ("python", _PYTHON_STUB),
+)
+
+
+@cache
+def tool_dir(stubs: tuple[tuple[str, str], ...]) -> Path:
+    """A directory of stub programs, built **once per process** per stub set.
+
+    CARD-236, and the only change that card makes to how the trio's 83 tests
+    run: this used to be built inside each test's own ``tmp_path``, so every
+    run of a script executed five never-before-seen executables. On this host that is what the suite
+    was paying for -- and it is not the price of spawning a process. Measured
+    (``meta/profiling/card-236-admin-local-subprocess-cost.md``):
+
+    * one ``--check-only`` run of ``start_admin_local.sh`` with freshly
+      written stubs: **1.10--1.38 s**;
+    * the same run against a stub directory a previous run had already
+      executed: **0.07--0.12 s**;
+    * writing the five files at all: **0.003--0.006 s**, so the cost is in
+      ``execve`` and not in the build.
+
+    The host runs Microsoft Defender with real-time protection
+    (``wdavdaemon privileged``), which scans an executable synchronously the
+    first time it is run; the trio burned 11 s of CPU across 118 s of wall
+    clock, i.e. it was blocked, not computing. Keying the cache on the stub
+    *bodies* means a different stub set (the siblings' ``pytest`` in place of
+    ``python``, or psql left off PATH altogether) gets its own directory
+    automatically, so no test silently acquires a tool it was written without.
+
+    What this deliberately does **not** share is the throwaway project root:
+    the script, the no-op ``.venv/bin/activate`` and the call log stay inside
+    each test's ``tmp_path``, so every test still copies and executes the real
+    script and still reads back only its own calls. Nothing stopped executing.
+
+    The stubs hold no state between runs -- they are told what to do through
+    the environment (``STUB_LOG``, ``STUB_EXISTING_DBS``, ``STUB_MISSING_DB``,
+    ``STUB_ALEMBIC_FAIL``, ``STUB_PYTEST_FAIL``) and append to the log named
+    there -- which is what makes one copy safe to share.
+    """
+    directory = Path(tempfile.mkdtemp(prefix="admin-script-stubs-"))
+    atexit.register(shutil.rmtree, directory, ignore_errors=True)
+    model = directory / "psql_model.py"
+    model.write_text(_PSQL_MODEL)
+    for name, body in stubs:
+        stub = directory / name
+        stub.write_text(body.replace(_MODEL_PATH, shlex.quote(str(model))))
+        stub.chmod(0o755)
+    return directory
+
 
 @dataclass(frozen=True)
 class Run:
@@ -215,12 +285,22 @@ def run_script(
     alembic_fails: bool = False,
     alembic_message: str = "",
     existing_dbs: list[str] | None = None,
+    script_text: str | None = None,
 ) -> Run:
-    """Run the real script inside a throwaway root, with stubbed tools."""
+    """Run the real script inside a throwaway root, with stubbed tools.
+
+    ``script_text`` runs that text in the real script's place, for the one
+    purpose of showing that a defect reintroduced into the script is still
+    visible here (``tests/test_admin_local_cost.py``). Every other caller
+    leaves it alone and gets ``scripts/start_admin_local.sh`` itself.
+    """
     root = tmp_path / "project"
     (root / "scripts").mkdir(parents=True)
     script = root / "scripts" / SCRIPT.name
-    shutil.copyfile(SCRIPT, script)
+    if script_text is None:
+        shutil.copyfile(SCRIPT, script)
+    else:
+        script.write_text(script_text)
     script.chmod(0o755)
 
     # The script sources this and then probes the editable install; a no-op
@@ -229,26 +309,10 @@ def run_script(
     activate.parent.mkdir(parents=True)
     activate.write_text(":\n")
 
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    # psql is the Python model above, behind a bash shim: ``python`` itself is
-    # stubbed on PATH, so the shim names this interpreter by absolute path.
-    model = tmp_path / "psql_model.py"
-    model.write_text(_PSQL_MODEL)
-    psql_shim = (
-        "#!/bin/bash\n"
-        f"exec {shlex.quote(sys.executable)} {shlex.quote(str(model))} \"$@\"\n"
-    )
-    for name, body in (
-        ("psql", psql_shim),
-        ("docker", _DOCKER_STUB),
-        ("docker-compose", _DOCKER_STUB),
-        ("alembic", _ALEMBIC_STUB),
-        ("python", _PYTHON_STUB),
-    ):
-        stub = bin_dir / name
-        stub.write_text(body)
-        stub.chmod(0o755)
+    # Shared across the whole process, and the one thing this test file does
+    # not rebuild per test: see :func:`tool_dir` for what that costs and what
+    # it does not give up.
+    bin_dir = tool_dir(START_ADMIN_LOCAL_TOOLS)
 
     log = tmp_path / "calls.log"
     log.write_text("")
