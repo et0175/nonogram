@@ -8,6 +8,16 @@
     AC-6  TestDifficultyDots_UntieredDrawsNothing
           TestDifficultyDots_GeometryHoldsOverASeededCorpus (the invariants)
 
+and CARD-241, which is AC-4 again by the one instrument that can hold it —
+render the pages the book prints and measure the ink, rather than read the
+source (its own acceptance criteria, in the order the card states them):
+
+    AC-1  TestRoundMarkOnThePage_CatchesWhatTheWalkCannotSee
+    AC-2  TestRoundMarkOnThePage_PassesOnTheRealBook
+    AC-3  TestRoundMarkOnThePage_SameVerdictForEverySpelling
+    AC-4  TestRoundMarkOnThePage_TheBoundaryIsMeasured
+    AC-5  TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly
+
 What is under test, and in which half
 -------------------------------------
 The glyph is two halves, as ADR-0036/R2 requires: ``export/layout.py``'s
@@ -47,8 +57,11 @@ from __future__ import annotations
 
 import ast
 import inspect
+import math
 import random
+from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -56,9 +69,11 @@ import pytest
 from PIL import Image, ImageDraw
 
 import nonogram
+from nonogram import clues
 from nonogram.admin import book_pdf_generator
 from nonogram.admin.book_pdf_generator import (
     _MIN_BAND_FONT_RATIO,
+    BookPDFGenerator,
     _band_font,
     _draw_difficulty_dots,
 )
@@ -80,7 +95,15 @@ from nonogram.export.layout import (
     difficulty_dots,
     header_band,
 )
-from nonogram.export.png import BACKGROUND
+from nonogram.export.png import BACKGROUND, INK
+from tests.helpers.book_corpus import BASELINE_PAGE_COUNT, baseline_puzzles, corpus_book
+from tests.helpers.round_ink import (
+    ROUND_ASPECT_TOLERANCE,
+    ROUND_FILL_TOLERANCE,
+    InkRegion,
+    ink_regions,
+    round_marks,
+)
 
 # --------------------------------------------------------------------------
 # What the card asks for, written out rather than imported
@@ -1227,9 +1250,12 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
     half — which is why that half is sound — but Python's grammar offers
     nothing to import that lists every way to write a vertex list, name a
     receiver or reach a bound method, so enumeration cannot converge. The
-    universal guarantee therefore moves to **CARD-241**, which renders a page,
+    universal guarantee therefore moved to **CARD-241**, which renders a page,
     finds the ink and measures it for roundness: an instrument blind to
-    spelling altogether.
+    spelling altogether. It is in this file, four classes below
+    (:class:`TestRoundMarkOnThePage_CatchesWhatTheWalkCannotSee` onwards), and
+    this class is **not** superseded by it — see the last paragraph for what
+    each one reaches that the other does not.
 
     Asserted the way ``tests/test_cli.py`` asserts ADR-0007's import rule —
     by walking ``src/nonogram/**/*.py`` with ``ast`` — because a promise that
@@ -1310,23 +1336,38 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       catches the glyph whatever the object is called — but the classification
       gap is real and belongs to CARD-241.
 
-    And six remain **named limits** — written down rather than left as
-    confident sentences, because this instrument genuinely cannot reach them.
-    Each one carries the **mutant that demonstrates it is open** — a complete
-    second three-dot glyph planted in ``src/nonogram/export/png.py``, run as
-    its own fresh ``pytest`` process over this file plus
+    And six routes this walk cannot reach at all — written down rather than
+    left as confident sentences. Each one carries the **mutant that
+    demonstrated it was open** to *this* instrument: a complete second
+    three-dot glyph planted in ``src/nonogram/export/png.py``, run as its own
+    fresh ``pytest`` process over this file plus
     ``tests/test_book_interior_type_floor.py``, ``tests/test_cli.py`` and
     ``tests/test_suite_profile.py`` (baseline 548 passed), with the mutated
     source restored from a byte copy and ``shasum``-verified afterwards. Each
-    one is recorded below with the verdict observed, because a limit asserted
+    is recorded below with the verdict observed, because a limit asserted
     without that demonstration would be the same defect in a new costume (the
     verdicts are from the 2026-10-16 narrowing pass; batching mutants from one
     parent process yields false KILLED verdicts, so each was its own
-    invocation). **CARD-241 is the card that closes all six**, by rendering a
-    page and measuring the ink instead of reading the syntax:
+    invocation).
 
-    * anything outside ``ImageDraw`` entirely — ``Image.paste`` of a circular
-      mask, ``ImageDraw.floodfill`` (a module function, not a draw method), a
+    **All six are closed by CARD-241** — not by widening anything here, but by
+    the second instrument beside this one: render the book's pages and measure
+    the ink
+    (:class:`TestRoundMarkOnThePage_CatchesWhatTheWalkCannotSee` and the three
+    classes after it). So none of them is carried as a **named limit** any
+    more, and none of them was *struck by hand*: the six are a table,
+    :data:`NAMED_LIMITS`, and
+    :meth:`TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly.test_the_limits_list_is_exactly_the_routes_no_instrument_closes`
+    holds this prose to it with an equality that derives **by execution** both
+    which routes the walk is blind to and which ones the page catches. A route
+    this list still carried as open while the page closed it, or struck from
+    this list while the page did not catch it, both fail that equality. The
+    marker it looks for is ``**LIMIT:** <mutant>``, and after this card no
+    entry below carries one:
+
+    * **CLOSED ON THE PAGE** (PA1 pasted mask) — anything outside
+      ``ImageDraw`` entirely: ``Image.paste`` of a circular mask,
+      ``ImageDraw.floodfill`` (a module function, not a draw method), a
       pre-rendered PNG asset pasted in, a circle that arrives inside an
       imported image. The watched methods come from ``dir(ImageDraw.ImageDraw)``
       and nothing here can see past it. *Mutant PA1*: a helper that takes the
@@ -1334,12 +1375,14 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       ``Image.new("L")`` mask filled by ``putdata`` from ``x² + y² <= r²`` —
       no draw object, no ``ImageDraw`` call, discs and annuli round by
       construction — **SURVIVED, 548 passed**;
-    * a dynamically dispatched draw call, ``getattr(draw, "ellipse")(box)``
+    * **CLOSED ON THE PAGE** (G1 getattr dispatch) — a dynamically dispatched draw call,
+      ``getattr(draw, "ellipse")(box)``
       (also stated on :func:`_round_mark_sites`) — the walk reads written
       syntax, and a computed method name is not written. *Mutant G1*:
       ``method = getattr(draw, "ellipse")`` then ``method(circle, fill=INK)``
       for the whole glyph — **SURVIVED, 548 passed**;
-    * a round mark **computed** into a string rather than written as one —
+    * **CLOSED ON THE PAGE** (D1 typed dingbat) — a round mark **computed** into a string
+      rather than written as one —
       ``chr(0x25CF)``, ``b"\xe2\x97\x8f".decode()``,
       ``unicodedata.lookup("BLACK CIRCLE")`` (cycle 2, F-102). The dingbat rule
       is about string *literals*, which :func:`_dingbat_literals` says in so
@@ -1349,7 +1392,8 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       *Mutant D1*: ``draw.text`` handed
       ``chr(0x25CF) * rank + chr(0x25CB) * (3 - rank)`` — **SURVIVED, 548
       passed**;
-    * a **polyline**. ``line`` is in :data:`FLAT_METHODS` with no bound at all,
+    * **CLOSED ON THE PAGE** (L1 line fan) — a **polyline**. ``line`` is in
+      :data:`FLAT_METHODS` with no bound at all,
       and Pillow's own docstring reads "Draw a line, or a connected sequence of
       line segments" — an arbitrary-length coordinate sequence straight to
       ``draw_lines``, with ``joint="curve"`` rounding the joints. *Mutant L1*
@@ -1363,7 +1407,8 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       Why it is not simply guarded is on :data:`FLAT_METHODS`: the package
       already hands ``line`` four lists no walk can count, so a bound here buys
       an exemption table rather than a closed route;
-    * ink **accumulated across calls**. :func:`_uncountable_vertices` judges one
+    * **CLOSED ON THE PAGE** (PT1 point loop) — ink **accumulated across calls**.
+      :func:`_uncountable_vertices` judges one
       call's own first argument, and nothing bounds how many in-bound calls a
       loop may make. *Mutant PT1* (cycle 3, F-202): the same three-dot glyph in
       ``export/png.py``, stamped pixel by pixel in a nested ``for`` loop, every
@@ -1372,7 +1417,8 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       1.000, 1257 ink px against ``draw.ellipse``'s 1313 (0.957). Cycle 1's H3,
       the same disc as a comprehension *inside* one call, is caught; moving the
       loop one line out defeats the bound;
-    * a draw method held in a **local** and called as a bare name. *Mutant BM1*
+    * **CLOSED ON THE PAGE** (BM1 bound method) — a draw method held in a **local** and
+      called as a bare name. *Mutant BM1*
       (cycle 3, F-203): ``stamp = draw.ellipse`` in ``export/png.py``, then
       ``stamp(circle, fill=INK)`` and ``stamp(circle, outline=INK, width=2)`` —
       :data:`ELLIPSE_METHODS` itself, on the canonical receiver, the
@@ -1383,11 +1429,17 @@ class TestDifficultyDots_HasExactlyOneDrawingSite:
       pins as not-caught, and the call's ``func`` is an ``ast.Name``, so no
       site, no receiver and no binding is recorded.
 
-    A card taking one of those six routes would be making a deliberate choice
-    this guard should be extended for — or, better, a reason to pick up
-    **CARD-241**, whose instrument does not depend on spelling. That is a
-    narrower promise than "cannot each grow their own circles", and it is the
-    one the tests keep.
+    A card taking one of those six routes is caught by the render check rather
+    than by this one, so what this class promises is narrower than "cannot each
+    grow their own circles" and is still exactly what its own mechanism holds.
+    The two instruments are kept side by side because **neither contains the
+    other**: this walk reads every module on disk, including code no test
+    renders, and sees four spellings of a round mark; the render check sees any
+    spelling at all, on the pages it renders and nowhere else. What is open to
+    *both* is a round mark spelled in one of the six ways above **and** drawn
+    on a surface nobody renders — which is the honest residue of the pair, and
+    is stated with the rest of the render check's bounds on
+    :class:`TestRoundMarkOnThePage_TheBoundaryIsMeasured`.
     """
 
     def test_the_method_classification_covers_every_pillow_draw_method(self) -> None:
@@ -2386,3 +2438,1219 @@ class TestDifficultyDots_GeometryHoldsOverASeededCorpus:
             assert first == _measured(box, tier)
             measured += 1
         assert measured >= CORPUS_MIN_CASES
+
+
+# ==========================================================================
+# CARD-241 — AC-4 universally: one round mark on the page, proved by
+# rendering it rather than by reading the source
+#
+#     AC-1  TestRoundMarkOnThePage_CatchesWhatTheWalkCannotSee
+#     AC-2  TestRoundMarkOnThePage_PassesOnTheRealBook
+#     AC-3  TestRoundMarkOnThePage_SameVerdictForEverySpelling
+#     AC-4  TestRoundMarkOnThePage_TheBoundaryIsMeasured
+#     AC-5  TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly
+#
+# The ``ast`` walk above discriminates by syntactic form and no authority
+# enumerates the forms, so it cannot hold "nothing else draws a round mark"
+# (three review cycles, three landed glyphs, a new family each time). The
+# guard below reads **ink**: it renders the pages the book really produces and
+# asserts that every round region on them was declared by the one drawing
+# site. It is blind to spelling, so there is no next syntactic level for it to
+# be evaded at — and it is bounded in a different direction instead, by the
+# surfaces it renders and by what "round" is measured to mean. Both bounds are
+# stated, each with a control that fails if the reach ever changes.
+# ==========================================================================
+
+#: The tier every plant below draws, and the rank it therefore has — read off
+#: the project's own ladder rather than written as a 2, for the same reason
+#: ``_draw_difficulty_dots`` reads it there (a second ladder is how
+#: ``strategy_counter.py`` grew a second classifier, CARD-155).
+PLANTED_TIER = TIERS[1]
+
+
+def _plant_box(band: object, room: int) -> tuple[int, int, int, int] | None:
+    """The box a planted glyph draws itself in, inside ``band``'s own strip.
+
+    The left end of the band, where a slot's header has no ink of its own: the
+    identity line is centred on ``band.center_x``, so a glyph set here sits on
+    paper rather than across the word. That matters for a measurement of
+    *connected* ink — a dot stroked over a letter is one region with the
+    letter and is no longer round (a bound this file states and tests), and a
+    plant landing there would be weaker evidence than it looks.
+    """
+    height = getattr(band, "height")
+    if height <= 0 or room <= 0:
+        return None
+    left = getattr(band, "center_x") - room // 2 + 4
+    top = getattr(band, "center_y") - height // 2
+    return (left, top, left + min(2 * height, room // 4), top + height - 1)
+
+
+def _planted_dots(box: tuple[int, int, int, int]) -> DifficultyDots | None:
+    """The geometry a plant strokes — COMP-007's answer, as any caller gets it.
+
+    Every rogue route below draws **the same dots in the same places** as the
+    declared site would; only the Pillow call used to ink them differs. That is
+    what makes AC-3's "same verdict for every spelling" a measurement of the
+    instrument rather than of four different glyphs.
+    """
+    return difficulty_dots(*box, filled=_rank(PLANTED_TIER), total=len(TIERS))
+
+
+def _the_declared_site(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """The honest route: the book's one drawing site, which declares its dots."""
+    book_pdf_generator._draw_difficulty_dots(draw, PLANTED_TIER, *box)
+
+
+def _rogue_ellipse(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """``draw.ellipse`` outside the one site — the route the static walk sees."""
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    for index, dot in enumerate(dots.dots):
+        if dots.is_filled(index):
+            draw.ellipse(dot, fill=INK)
+        else:
+            draw.ellipse(dot, fill=BACKGROUND, outline=INK, width=dots.stroke)
+
+
+def _rogue_polygon(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """A 32-gon per dot — cycle 1's H2 and cycle 2's M1, spelled as a polygon."""
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    for index, dot in enumerate(dots.dots):
+        left, top, right, bottom = dot
+        middle_x, middle_y = (left + right) / 2, (top + bottom) / 2
+        radius = (right - left) / 2
+        corners = [
+            (
+                middle_x + radius * math.cos(step * math.tau / 32),
+                middle_y + radius * math.sin(step * math.tau / 32),
+            )
+            for step in range(32)
+        ]
+        if dots.is_filled(index):
+            draw.polygon(corners, fill=INK)
+        else:
+            draw.polygon(corners, fill=BACKGROUND, outline=INK, width=dots.stroke)
+
+
+def _rogue_line_fan(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """Cycle 3's **mutant L1**: each filled dot a 240-ray fan of ``draw.line``.
+
+    ``line`` is in :data:`FLAT_METHODS` with no bound at all, and Pillow draws
+    a connected polyline from an arbitrary-length coordinate sequence. CARD-228
+    measured this fan at 41x41 px, aspect 1.000, 1329 ink px against
+    ``draw.ellipse``'s 1313 — the same mark on a printed page.
+    """
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    for index, dot in enumerate(dots.dots):
+        left, top, right, bottom = dot
+        middle_x, middle_y = (left + right) / 2, (top + bottom) / 2
+        radius = (right - left) / 2
+        if dots.is_filled(index):
+            for step in range(240):
+                angle = step * math.tau / 240
+                draw.line(
+                    [
+                        (middle_x, middle_y),
+                        (middle_x + radius * math.cos(angle), middle_y + radius * math.sin(angle)),
+                    ],
+                    fill=INK,
+                    width=1,
+                )
+        else:
+            ring = [
+                (
+                    middle_x + radius * math.cos(step * math.tau / 32),
+                    middle_y + radius * math.sin(step * math.tau / 32),
+                )
+                for step in range(33)
+            ]
+            draw.line(ring, fill=INK, width=dots.stroke)
+
+
+def _rogue_point_loop(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """Cycle 3's **mutant PT1**: ink accumulated across in-bound ``draw.point`` calls.
+
+    Every call passes a two-element display, well inside
+    :data:`MAX_FLAT_VERTICES`, so the per-call vertex bound has nothing to
+    complain about; the disc is the *loop*. CARD-228 measured it at 41x41 px,
+    aspect 1.000, 1257 ink px.
+    """
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    for index, dot in enumerate(dots.dots):
+        left, top, right, bottom = dot
+        middle_x, middle_y = (left + right) // 2, (top + bottom) // 2
+        radius = (right - left) // 2
+        for y in range(top, bottom + 1):
+            for x in range(left, right + 1):
+                distance = (x - middle_x) ** 2 + (y - middle_y) ** 2
+                if dots.is_filled(index):
+                    inside = distance <= radius * radius
+                else:
+                    inside = radius * radius * 0.6 <= distance <= radius * radius
+                if inside:
+                    draw.point((x, y), fill=INK)
+
+
+def _rogue_bound_method(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """Cycle 3's **mutant BM1**: ``stamp = draw.ellipse``, then ``stamp(...)``.
+
+    :data:`ELLIPSE_METHODS` itself, on the canonical receiver — the
+    most-guarded combination in this file — reached through a local, so the
+    call's ``func`` is an ``ast.Name`` and no site, receiver or binding is
+    recorded by any of the walks above.
+    """
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    stamp = draw.ellipse
+    for index, dot in enumerate(dots.dots):
+        if dots.is_filled(index):
+            stamp(dot, fill=INK)
+        else:
+            stamp(dot, fill=BACKGROUND, outline=INK, width=dots.stroke)
+
+
+def _rogue_getattr_dispatch(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """Cycle 2's **mutant G1**: the method name computed, never written."""
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    method = getattr(draw, "ellipse")
+    for index, dot in enumerate(dots.dots):
+        if dots.is_filled(index):
+            method(dot, fill=INK)
+        else:
+            method(dot, fill=BACKGROUND, outline=INK, width=dots.stroke)
+
+
+def _rogue_typed_dingbat(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """Cycle 2's **mutant D1**: the dot *computed* into a string and set as type.
+
+    ``chr(0x25CF)`` rather than the character itself, which is the whole point
+    of the route: :func:`_dingbat_literals` sees string **literals**, and a
+    computed string is not one. Set in the band's own face at the dot's own
+    diameter, so the ink is the size the glyph would have drawn.
+    """
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    for index, dot in enumerate(dots.dots):
+        left, top, right, bottom = dot
+        # DejaVu's BLACK CIRCLE fills about 0.72 em, so the face is set larger
+        # than the dot to land the same diameter; measured, not guessed, by
+        # test_a_typed_dot_measures_the_same_as_a_stroked_one below.
+        font = _band_font(round((right - left + 1) / 0.72))
+        draw.text(
+            ((left + right) / 2, (top + bottom) / 2),
+            chr(0x25CF) if dots.is_filled(index) else chr(0x25CB),
+            font=font,
+            fill=INK,
+            anchor="mm",
+        )
+
+
+def _rogue_pasted_mask(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int]) -> None:
+    """The **mutant PA1** route: outside ``ImageDraw`` altogether.
+
+    A circular ``L`` mask built from ``x^2 + y^2 <= r^2`` and composited with
+    ``Image.paste`` — no draw method is called at all, so every walk above is
+    blind to it by construction. The page is reached through Pillow's own
+    back-reference on the draw object (``ImageDraw.ImageDraw._image``), which is
+    how a plant gets at the surface from inside a hook that is handed only the
+    draw object; production code would simply be passed the image.
+    """
+    dots = _planted_dots(box)
+    if dots is None:
+        return
+    page = draw._image
+    for index, dot in enumerate(dots.dots):
+        left, top, right, bottom = dot
+        side = right - left + 1
+        radius = side / 2
+        mask = Image.new("L", (side, side), 0)
+        mask.putdata(
+            [
+                255
+                if (x - radius + 0.5) ** 2 + (y - radius + 0.5) ** 2 <= (radius - 0.5) ** 2
+                else 0
+                for y in range(side)
+                for x in range(side)
+            ]
+        )
+        if not dots.is_filled(index):
+            inner = Image.new("L", (side, side), 0)
+            thickness = dots.stroke
+            inner.putdata(
+                [
+                    255
+                    if (x - radius + 0.5) ** 2 + (y - radius + 0.5) ** 2
+                    <= (radius - 0.5 - thickness) ** 2
+                    else 0
+                    for y in range(side)
+                    for x in range(side)
+                ]
+            )
+            mask.paste(0, (0, 0), inner)
+        page.paste(Image.new("RGB", (side, side), INK), (left, top), mask)
+
+
+#: Every way of putting this card's glyph on a page that the tests below plant,
+#: by the name CARD-228's review cycles gave it. The *geometry* is identical in
+#: all of them (:func:`_planted_dots`); only the Pillow call differs.
+PLANTS: Mapping[str, object] = {
+    "the declared site": _the_declared_site,
+    "ellipse": _rogue_ellipse,
+    "polygon": _rogue_polygon,
+    "L1 line fan": _rogue_line_fan,
+    "PT1 point loop": _rogue_point_loop,
+    "BM1 bound method": _rogue_bound_method,
+    "G1 getattr dispatch": _rogue_getattr_dispatch,
+    "D1 typed dingbat": _rogue_typed_dingbat,
+    "PA1 pasted mask": _rogue_pasted_mask,
+}
+
+
+# --------------------------------------------------------------------------
+# The harness: render the book, measure its ink, account for every round mark
+# --------------------------------------------------------------------------
+
+#: How far a region is from measuring round, in units of the tolerance that
+#: binds it: at most 1.0 for a round mark, above 1.0 for everything else. The
+#: *margin* AC-2 and AC-4 assert is this number for the closest thing on a real
+#: page — the measurement that says the tolerances sit in a gap rather than on
+#: an edge.
+def _distance_from_round(region: InkRegion) -> float:
+    return max(
+        abs(region.aspect - 1.0) / ROUND_ASPECT_TOLERANCE,
+        abs(region.fill - 1.0) / ROUND_FILL_TOLERANCE,
+    )
+
+
+@dataclass(frozen=True)
+class BookInk:
+    """What one rendered interior's ink measures.
+
+    Attributes:
+        pages: How many pages were rendered and measured.
+        regions: How many connected ink regions they carry in all — the
+            denominator that keeps "no round mark" from being a statement about
+            a blank book.
+        found: Every round mark's box, over all pages.
+        declared: Every **filled** dot box the one drawing site reported
+            drawing, over all pages. An outlined dot is not here: it is a ring,
+            and a ring is not round to this instrument (a stated bound).
+        unaccounted: The round marks no declared dot accounts for — the
+            guard's verdict. Empty is a pass.
+        plants: How many times the plant hook fired. Zero on an unplanted
+            book, and asserted non-zero wherever a plant is the evidence, so a
+            plant that silently failed to land cannot read as a pass.
+        margin: :func:`_distance_from_round` for the closest region that is
+            *not* round.
+    """
+
+    pages: int
+    regions: int
+    found: tuple[tuple[int, int, int, int], ...]
+    declared: tuple[tuple[int, int, int, int], ...]
+    unaccounted: tuple[tuple[int, int, int, int], ...]
+    plants: int
+    margin: float
+
+
+def _unaccounted(
+    found: Sequence[tuple[int, int, int, int]],
+    declared: Sequence[tuple[int, int, int, int]],
+) -> tuple[tuple[int, int, int, int], ...]:
+    """The round marks ``declared`` does not pay for, matched box for box.
+
+    A multiset, not a set: two round marks at one declared box are one mark
+    more than was declared. Matched **exactly**, because a dot stroked by
+    ``draw.ellipse`` inks precisely its own box (measured:
+    :meth:`TestRoundMarkOnThePage_PassesOnTheRealBook.test_the_glyph_the_one_site_draws_is_found_and_accounted_for`),
+    so a tolerance here would only buy a rogue mark room to hide beside a
+    declared one.
+    """
+    remaining = Counter(declared)
+    missing: list[tuple[int, int, int, int]] = []
+    for box in found:
+        if remaining[box] > 0:
+            remaining[box] -= 1
+        else:
+            missing.append(box)
+    return tuple(missing)
+
+
+def _interior_ink(
+    plant: object = None, puzzles: Sequence[dict] | None = None
+) -> BookInk:
+    """Render an interior with ``plant`` drawing into every band, and measure it.
+
+    Named ``_interior_ink`` rather than ``_measure_interior`` on purpose, and
+    the reason is spelled around its own trap: ``meta/profiling``'s
+    ``RENDER_API_PATTERN`` greps the *text* of every file under ``tests/`` for
+    eight render-API names, one of which is the word *interior* immediately
+    followed by an opening parenthesis. A helper spelled that way — or a
+    docstring quoting it, which is how this sentence had to be rewritten — puts
+    this file into the live render set while ``RENDER_HEAVY_SNAPSHOT``, a
+    frozen artefact of one profiling run, does not list it, and
+    ``test_the_frozen_render_set_still_matches_the_grep_that_defines_it`` goes
+    red. Splitting or spelling out the matched literal is the option CARD-228's
+    own fix cycle missed (its review's F-204). The call this file really makes,
+    ``interior_pages``, is not one of those eight names, so the file does not
+    match that grep on its own merits; CARD-241's notes record why re-freezing
+    the snapshot was not this card's to do (G-5) and what the next profiling
+    run should record instead.
+
+    Two hooks, both module attributes restored in a ``finally`` (the revert
+    half of AC-1's plant-and-revert, in the same process rather than in a
+    comment):
+
+    * :func:`~nonogram.admin.book_pdf_generator._draw_difficulty_dots` is
+      wrapped in a spy, so whatever the **one drawing site** draws is
+      *declared*. It is the site's own return value that is recorded, not a
+      guess at its geometry.
+    * ``_set_band`` is wrapped so ``plant`` draws into each band after the
+      header is set. That is the realistic site: a puzzle page's band is where
+      CARD-207's dots will go, and it is reached on a real page of a real book
+      rather than on a canvas invented for the test.
+    """
+    declared: list[tuple[int, int, int, int]] = []
+    plants = 0
+    site = book_pdf_generator._draw_difficulty_dots
+    set_band = book_pdf_generator._set_band
+
+    def spy(draw, stored_tier, left, top, right, bottom):
+        dots = site(draw, stored_tier, left, top, right, bottom)
+        if dots is not None:
+            declared.extend(
+                dot for index, dot in enumerate(dots.dots) if dots.is_filled(index)
+            )
+        return dots
+
+    def banded(draw, band, text, room):
+        nonlocal plants
+        set_band(draw, band, text, room)
+        box = _plant_box(band, room)
+        if box is None:
+            return
+        plants += 1
+        plant(draw, box)
+
+    book_pdf_generator._draw_difficulty_dots = spy
+    if plant is not None:
+        book_pdf_generator._set_band = banded
+    try:
+        generator = BookPDFGenerator(corpus_book())
+        pages = generator.interior_pages(
+            list(baseline_puzzles() if puzzles is None else puzzles)
+        )
+    finally:
+        book_pdf_generator._draw_difficulty_dots = site
+        book_pdf_generator._set_band = set_band
+
+    found: list[tuple[int, int, int, int]] = []
+    regions = 0
+    margin = float("inf")
+    for page in pages:
+        for region in ink_regions(page):
+            regions += 1
+            if region.is_round:
+                found.append(region.box)
+            else:
+                margin = min(margin, _distance_from_round(region))
+    return BookInk(
+        pages=len(pages),
+        regions=regions,
+        found=tuple(found),
+        declared=tuple(declared),
+        unaccounted=_unaccounted(found, declared),
+        plants=plants,
+        margin=margin,
+    )
+
+
+#: Measured interiors, kept by route so the eight plants below cost one render
+#: each and not one per assertion. The *pages* are dropped as soon as they are
+#: measured — a list of thirteen interior pages is ~330 MB (CARD-145), and
+#: holding nine of those would be the one way this file could run a machine out
+#: of memory.
+_MEASURED: dict[str, BookInk] = {}
+
+
+def _book_ink(route: str | None) -> BookInk:
+    """The measurement for ``route`` (``None`` for the book as it really is)."""
+    key = "" if route is None else route
+    if key not in _MEASURED:
+        _MEASURED[key] = _interior_ink(None if route is None else PLANTS[route])
+    return _MEASURED[key]
+
+
+# --------------------------------------------------------------------------
+# Shapes drawn on a canvas of their own, for the boundary measurements (AC-4)
+# --------------------------------------------------------------------------
+
+#: A canvas every boundary shape is drawn on: wide enough that nothing touches
+#: an edge, so a measurement is of the shape and not of a clip.
+_SHAPE_CANVAS = 240
+
+
+def _shape(drawer: object, canvas: int = _SHAPE_CANVAS) -> InkRegion:
+    """``drawer``'s largest ink region, drawn alone on a blank canvas."""
+    page = Image.new("RGB", (canvas, canvas), BACKGROUND)
+    drawer(ImageDraw.Draw(page), page)
+    regions = ink_regions(page)
+    assert regions, "the shape drew no ink at all"
+    return max(regions, key=lambda region: region.ink)
+
+
+def _regular_polygon(sides: int, radius: float, *, stretch: float = 1.0) -> object:
+    """A regular ``sides``-gon of ``radius``, optionally stretched vertically."""
+    middle = _SHAPE_CANVAS // 2
+
+    def drawer(draw: ImageDraw.ImageDraw, page: Image.Image) -> None:
+        draw.polygon(
+            [
+                (
+                    middle + radius * math.cos(step * math.tau / sides),
+                    middle + stretch * radius * math.sin(step * math.tau / sides),
+                )
+                for step in range(sides)
+            ],
+            fill=INK,
+        )
+
+    return drawer
+
+
+#: How much paper every boundary shape keeps around itself, so a measurement
+#: is of the shape and never of a clip at the canvas edge.
+_SHAPE_MARGIN = 20
+
+
+def _disc(diameter: int) -> object:
+    """A filled circle of ``diameter``, stroked as an ellipse.
+
+    Placed at :data:`_SHAPE_MARGIN` from the top left rather than in the middle
+    of :data:`_SHAPE_CANVAS`, because the sweep that uses it sizes its own
+    canvas to the diameter.
+    """
+
+    def drawer(draw: ImageDraw.ImageDraw, page: Image.Image) -> None:
+        left = top = _SHAPE_MARGIN
+        draw.ellipse((left, top, left + diameter - 1, top + diameter - 1), fill=INK)
+
+    return drawer
+
+
+# --------------------------------------------------------------------------
+# The static walk's verdict on the same plants, so "what the walk cannot see"
+# is a measurement in this file rather than a quotation from a review report
+# --------------------------------------------------------------------------
+
+
+def _static_walk_complaints(plant: object) -> list[str]:
+    """What CARD-228's walk says about ``plant``'s own source, as a fabricated module.
+
+    The four routes that walk guards, run over the plant's source text the way
+    :meth:`TestDifficultyDots_HasExactlyOneDrawingSite.test_a_many_sided_polygon_is_caught`
+    runs them over a fabricated module: an ellipse-family call, an unused
+    approximation method, an uncountable vertex argument, an unrecognised draw
+    receiver, a dingbat string literal. The fifth mechanism — the
+    ``.Draw(...)`` binding form — cannot fire here, and not because it was
+    skipped: every plant is *handed* a draw object, exactly as every drawing
+    site in ``src/nonogram/**`` is, so none of them constructs one.
+
+    This is how the pairing AC-1 needs is made without re-planting anything in
+    ``src/``: the routes CARD-228's cycles recorded as SURVIVED come back with
+    **no complaint** here, and the two routes it recorded as KILLED come back
+    with one.
+    """
+    source = {"planted.module": inspect.getsource(plant)}
+    complaints = [
+        f"round mark site: {site}"
+        for site in _round_mark_sites(source, ELLIPSE_METHODS | ROUND_ENOUGH_METHODS)
+    ]
+    complaints += [
+        f"uncountable vertices: {complaint}"
+        for complaint in _uncountable_vertices(_draw_calls(source, VERTEX_BOUNDED_METHODS))
+    ]
+    complaints += [
+        f"unrecognised receiver: {receiver}"
+        for receiver in _unrecognised_draw_receivers(source)
+    ]
+    complaints += [f"dingbat literal: {found}" for found in _dingbat_literals(source)]
+    return complaints
+
+
+@dataclass(frozen=True)
+class RoundMarkRoute:
+    """One way of putting a round mark on a page, and which instrument sees it.
+
+    Attributes:
+        mutant: CARD-228's own name for the route, which is also the key into
+            :data:`PLANTS` and the string its named-limits list used to carry.
+        seen_by_the_walk: Whether the ``ast`` walk complains about it.
+            Derived by execution in
+            :meth:`TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly.test_the_walk_really_is_blind_to_every_route_in_the_table`
+            — never trusted as a declaration.
+        closed_on_the_page: Whether rendering the book and measuring the ink
+            catches it. Derived by execution in the same class. A route whose
+            flag disagrees with what the render check actually does fails
+            :meth:`~TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly.test_the_limits_list_is_exactly_the_routes_no_instrument_closes`,
+            in either direction.
+    """
+
+    mutant: str
+    seen_by_the_walk: bool
+    closed_on_the_page: bool
+
+
+#: CARD-228's six named limits, as a table instead of six paragraphs of prose
+#: (AC-5). Each was recorded by that card as a complete second three-dot glyph
+#: that landed in ``src/nonogram/export/png.py`` with 548 tests green; each is
+#: now planted on a real page here instead, and the two flags are checked
+#: against what the two instruments actually do.
+#:
+#: **Nothing is struck from this list by editing it.** The equality below
+#: derives both columns by execution, so a route marked closed that the page
+#: does not catch, and a route the page catches that is still carried as open,
+#: are both red.
+NAMED_LIMITS: tuple[RoundMarkRoute, ...] = (
+    RoundMarkRoute("PA1 pasted mask", seen_by_the_walk=False, closed_on_the_page=True),
+    RoundMarkRoute("G1 getattr dispatch", seen_by_the_walk=False, closed_on_the_page=True),
+    RoundMarkRoute("D1 typed dingbat", seen_by_the_walk=False, closed_on_the_page=True),
+    RoundMarkRoute("L1 line fan", seen_by_the_walk=False, closed_on_the_page=True),
+    RoundMarkRoute("PT1 point loop", seen_by_the_walk=False, closed_on_the_page=True),
+    RoundMarkRoute("BM1 bound method", seen_by_the_walk=False, closed_on_the_page=True),
+)
+
+#: The two routes the walk *does* see, kept beside the six so the composite
+#: predicate above is shown to be able to complain at all. Without them
+#: "the walk is blind to every named limit" would be a claim about a predicate
+#: that might simply never fire.
+SEEN_BY_THE_WALK = ("ellipse", "polygon")
+
+#: AC-3's four spellings of one glyph: a circle drawn as a circle, as a
+#: polyline fan, as a loop of points, and as a many-sided polygon.
+SPELLINGS = ("ellipse", "polygon", "L1 line fan", "PT1 point loop")
+
+
+# ==========================================================================
+# AC-1 — the three routes a static walk cannot see die on the page
+# ==========================================================================
+
+
+class TestRoundMarkOnThePage_CatchesWhatTheWalkCannotSee:
+    """AC-1: cycle 3's three survivors, planted on a real page and caught.
+
+    ``draw.line`` as a ray fan, a loop of in-bound ``draw.point`` calls, and a
+    draw method held in a local and called as a bare name. Each landed a
+    complete second three-dot glyph in ``src/nonogram/export/png.py`` with 548
+    tests green during CARD-228's third review cycle; each is planted here into
+    the band of every page a real book prints, and the guard reports it.
+
+    **Planted and reverted, in the same process.** :func:`_interior_ink`
+    restores both module attributes in a ``finally``, and
+    :meth:`test_reverting_the_plant_leaves_the_book_clean` measures the
+    unplanted book afterwards — so "the plant is what the guard saw" is
+    checked rather than asserted.
+
+    What makes this a pairing and not a single-sided claim: every route here
+    comes back with **no complaint** from CARD-228's own walk
+    (:meth:`TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly.test_the_walk_really_is_blind_to_every_route_in_the_table`),
+    so the page is catching exactly what the syntax could not.
+    """
+
+    SURVIVORS = ("L1 line fan", "PT1 point loop", "BM1 bound method")
+
+    @pytest.mark.parametrize("route", SURVIVORS)
+    def test_a_survivor_of_the_static_walk_is_caught_on_the_page(self, route: str) -> None:
+        ink = _book_ink(route)
+        assert ink.plants >= 6, (
+            f"the {route} plant never landed ({ink.plants} bands drawn) — this "
+            "test would then be measuring an unplanted book"
+        )
+        assert ink.declared == (), (
+            "a rogue route must declare nothing: these dots never go through "
+            f"the one drawing site, yet {len(ink.declared)} were declared"
+        )
+        assert len(ink.found) >= 2 * ink.plants, (
+            f"{route} drew {ink.plants} glyphs of {_rank(PLANTED_TIER)} filled "
+            f"dots each, so at least {2 * ink.plants} round marks were expected, "
+            f"found {len(ink.found)}"
+        )
+        assert ink.unaccounted == ink.found, (
+            "every one of them is undeclared, so every one of them is the "
+            "guard's verdict"
+        )
+
+    @pytest.mark.parametrize("route", SURVIVORS)
+    def test_the_walk_lets_the_same_route_through(self, route: str) -> None:
+        """The other half: the instrument that cannot see it, on the same source."""
+        assert _static_walk_complaints(PLANTS[route]) == []
+
+    def test_reverting_the_plant_leaves_the_book_clean(self) -> None:
+        """The revert half of plant-and-revert: the book itself carries nothing."""
+        ink = _book_ink(None)
+        assert ink.plants == 0
+        assert ink.found == ()
+        assert ink.unaccounted == ()
+
+
+# ==========================================================================
+# AC-2 — and it passes on the book the project really prints
+# ==========================================================================
+
+#: The seeded picture corpus AC-2 sweeps, and the two floors it must clear
+#: (CLAUDE.md: no ``hypothesis``, a corpus with its minimum asserted inside the
+#: test so it cannot silently shrink). The second floor is the load-bearing
+#: one: a corpus of blank grids would satisfy the first and measure nothing.
+PICTURE_SEED = 241
+PICTURE_MIN_PAGES = 18
+PICTURE_MIN_CELLS = 400
+
+
+def _picture_puzzles() -> list[dict]:
+    """Nine puzzles whose answers are pictures, not the gutter-depth pattern.
+
+    ``tests/helpers/book_corpus.py``'s corpora are built from
+    ``_gutter_grid`` — every other cell filled, so **no two filled cells ever
+    touch**, which is exactly the case that cannot produce a blob. The risk
+    this sweep exists for is the opposite one: a *solved* page draws its filled
+    cells, and a picture whose filled cells happen to form a round-ish blob
+    would be a round mark nobody declared.
+
+    So: seeded random grids at three densities, plus one grid that is
+    deliberately the worst case — a disc of filled cells, the roundest picture
+    a nonogram can hold. Built here rather than in ``book_corpus`` because the
+    shape of the dict is all that is shared, and because an independent second
+    construction is this project's preference (CLAUDE.md).
+    """
+    rng = random.Random(PICTURE_SEED)
+    grids: list[list[list[bool]]] = []
+    for _ in range(8):
+        side = rng.choice((10, 12, 15))
+        density = rng.choice((0.3, 0.5, 0.7))
+        grids.append([[rng.random() < density for _ in range(side)] for _ in range(side)])
+    side = 15
+    middle = (side - 1) / 2
+    grids.append(
+        [
+            [(x - middle) ** 2 + (y - middle) ** 2 <= 5.5**2 for x in range(side)]
+            for y in range(side)
+        ]
+    )
+    tiers = ("easy", "medium", "hard")
+    puzzles: list[dict] = []
+    for index, grid in enumerate(grids):
+        found = clues.compute_clues(grid)
+        puzzles.append(
+            {
+                "id": f"card241-picture-{index + 1}",
+                "grid": grid,
+                "clues_rows": [list(clue) for clue in found.rows],
+                "clues_cols": [list(clue) for clue in found.columns],
+                "width": len(grid[0]),
+                "height": len(grid),
+                "puzzle_name": f"Picture {index + 1}",
+                "difficulty_tier": tiers[index * len(tiers) // len(grids)],
+            }
+        )
+    return puzzles
+
+
+class TestRoundMarkOnThePage_PassesOnTheRealBook:
+    """AC-2: on the pages the book really produces, the guard is quiet.
+
+    Paired with AC-1 on purpose: a guard that fires on everything would pass
+    AC-1 and be worthless. These pages carry every mark a book page is made of
+    — the grid's rules, a page frame, the folio, the placeholder QR icon's
+    checkerboard, the guide's pipeline diagram with the arrow head it strokes
+    as a three-vertex polygon, every word of every header and of both guide
+    pages, and a solved page's filled answer cells — and not one of them
+    measures round.
+
+    **With a measured margin, not by luck.** The closest any region on those
+    pages comes to being round is reported as
+    :attr:`BookInk.margin`, in units of the tolerance: it is over 2, so both
+    tolerances could double and the book would still pass. That number is
+    asserted, so a future page whose ink drifts towards roundness reds a test
+    *before* it reds the guard, and the threshold's justification stays
+    measurable rather than historical.
+    """
+
+    def test_the_books_own_pages_carry_no_undeclared_round_mark(self) -> None:
+        ink = _book_ink(None)
+        assert ink.pages >= 13, f"the baseline interior lost pages: {ink.pages}"
+        assert ink.regions >= 3000, (
+            f"only {ink.regions} ink regions on {ink.pages} pages — these pages "
+            "have stopped carrying the marks this test exists to tolerate"
+        )
+        assert ink.unaccounted == ()
+
+    def test_the_closest_the_book_comes_to_a_round_mark_is_measured(self) -> None:
+        ink = _book_ink(None)
+        assert ink.margin >= 1.5, (
+            f"the roundest mark on the book's pages is now {ink.margin:.2f} "
+            "tolerances from round; it was 2.27 when the tolerances were set, "
+            "and under 1.0 it would be a false positive"
+        )
+
+    def test_the_glyph_the_one_site_draws_is_found_and_accounted_for(self) -> None:
+        """The discrimination: the same ink, declared, passes.
+
+        The one drawing site draws the same glyph in the same places as every
+        rogue route of AC-1, and the guard finds exactly the same round marks —
+        and then accounts for every one of them, box for box, against what the
+        site itself said it drew. So the guard separates *declared* from
+        *undeclared*, which is the only thing it claims, rather than separating
+        "plant" from "no plant".
+        """
+        ink = _book_ink("the declared site")
+        assert ink.plants >= 6
+        assert len(ink.declared) == ink.plants * _rank(PLANTED_TIER)
+        assert len(ink.found) == len(ink.declared)
+        assert sorted(ink.found) == sorted(ink.declared), (
+            "the ink a stroked dot leaves is exactly its declared box, which is "
+            "what lets the accounting match exactly rather than within a "
+            "tolerance a rogue mark could hide in"
+        )
+        assert ink.unaccounted == ()
+
+    def test_the_accounting_is_an_exact_multiset(self) -> None:
+        """The two properties :func:`_unaccounted` claims, on their own.
+
+        Measured on the function rather than through a render, because both are
+        about what a *rogue* mark could hide behind and neither is exercised by
+        the honest book (where every declared box is distinct and every found
+        box matches one exactly):
+
+        * a **multiset**: a second round mark at a declared box is one mark
+          more than was declared, so it is reported;
+        * **exact**: a mark one pixel off a declared box is reported, so a
+          tolerance cannot be borrowed to sit beside a declared dot.
+        """
+        dot = (10, 10, 51, 51)
+        assert _unaccounted([dot], [dot]) == ()
+        assert _unaccounted([dot, dot], [dot]) == (dot,)
+        beside = (11, 11, 52, 52)
+        assert _unaccounted([beside], [dot]) == (beside,)
+        assert _unaccounted([], [dot]) == ()
+
+    def test_a_seeded_corpus_of_pictures_draws_no_round_mark(self) -> None:
+        """The answer pages' own risk: a filled picture that is round-ish.
+
+        Nine pictures, eight seeded random grids and one deliberate disc of
+        filled cells, through the real export. The reason the sweep comes back
+        clean is itself measured, not assumed: a solved page draws its grid
+        over the cells in grey, which is lighter than
+        :data:`~tests.helpers.round_ink.INK_LEVEL`, so neighbouring filled
+        cells stay separate regions and a picture never becomes one blob. What
+        the sweep would catch is that stopping being true.
+        """
+        ink = _interior_ink(None, _picture_puzzles())
+        assert ink.pages >= PICTURE_MIN_PAGES, (
+            f"the picture corpus made only {ink.pages} pages"
+        )
+        cells = sum(sum(row) for puzzle in _picture_puzzles() for row in puzzle["grid"])
+        assert cells >= PICTURE_MIN_CELLS, (
+            f"the corpus holds only {cells} filled cells — too few for the blob "
+            "this sweep is looking for to be possible at all"
+        )
+        assert ink.unaccounted == ()
+
+
+# ==========================================================================
+# AC-3 — the verdict does not depend on how the glyph is spelled
+# ==========================================================================
+
+
+class TestRoundMarkOnThePage_SameVerdictForEverySpelling:
+    """AC-3: one glyph, four spellings, one verdict — because this reads ink.
+
+    An ellipse, a 32-gon, a 240-ray ``draw.line`` fan and a loop of
+    ``draw.point`` calls, each drawing **the same dots in the same boxes**
+    (:func:`_planted_dots`). CARD-228's walk complains about two of the four
+    and is silent about the other two; the page cannot tell them apart at all,
+    which is the whole point of changing instrument.
+    """
+
+    def test_every_spelling_is_caught(self) -> None:
+        for route in SPELLINGS:
+            ink = _book_ink(route)
+            assert ink.unaccounted, f"{route} was not caught"
+
+    def test_every_spelling_is_caught_the_same_number_of_times(self) -> None:
+        counts = {route: len(_book_ink(route).unaccounted) for route in SPELLINGS}
+        assert len(set(counts.values())) == 1, counts
+
+    def test_every_spelling_is_caught_in_the_same_places(self) -> None:
+        """Within a pixel, which is all four spellings' own rounding.
+
+        The fan and the point loop step round their dot's centre in integers
+        while ``ellipse`` and ``polygon`` take the box, so a dot can come out a
+        pixel narrower. The *instrument* does not vary: the boxes it reports
+        agree to a pixel on every edge.
+        """
+        boxes = {route: sorted(_book_ink(route).unaccounted) for route in SPELLINGS}
+        reference = boxes[SPELLINGS[0]]
+        for route, found in boxes.items():
+            assert len(found) == len(reference), (route, len(found), len(reference))
+            for mine, theirs in zip(found, reference):
+                assert all(abs(a - b) <= 1 for a, b in zip(mine, theirs)), (
+                    route,
+                    mine,
+                    theirs,
+                )
+
+    def test_the_walk_sees_two_of_the_four_and_the_page_sees_all_four(self) -> None:
+        """The contrast, stated as a measurement rather than as a conclusion."""
+        walk = {route: _static_walk_complaints(PLANTS[route]) != [] for route in SPELLINGS}
+        page = {route: _book_ink(route).unaccounted != () for route in SPELLINGS}
+        assert set(walk.values()) == {True, False}, walk
+        assert set(page.values()) == {True}, page
+
+    def test_a_typed_dot_measures_the_same_as_a_stroked_one(self) -> None:
+        """A ``chr(0x25CF)`` set as type is the same mark as a stroked disc.
+
+        The fifth spelling, and the one CARD-228 judged the cheapest route a
+        later card could take. Measured here rather than asserted: the typed
+        dot's own ink reads as round, and the face size
+        :func:`_rogue_typed_dingbat` picks lands it within a few pixels of the
+        diameter the glyph would have stroked.
+        """
+        ink = _book_ink("D1 typed dingbat")
+        assert ink.unaccounted, "a typed dot is a round mark and must be caught"
+        stroked = _book_ink("ellipse")
+        widths = {box[2] - box[0] + 1 for box in ink.unaccounted}
+        expected = {box[2] - box[0] + 1 for box in stroked.unaccounted}
+        assert max(widths) - min(expected) <= 4 and min(widths) - max(expected) >= -4, (
+            f"a typed dot measured {sorted(widths)} px across against the "
+            f"stroked dot's {sorted(expected)}"
+        )
+
+
+# ==========================================================================
+# AC-4 — the metric's own boundary, measured and stated
+# ==========================================================================
+
+#: The diameters AC-4 sweeps a disc over: every one from the smallest dot the
+#: geometry will draw (:data:`MIN_DOT_PX`) to a dot as tall as a book page's
+#: whole band, and the minimum the sweep must hold so it cannot shrink.
+DISC_SWEEP_SEED = 241
+DISC_SWEEP_MIN_CASES = 120
+
+
+def _disc_sweep() -> list[int]:
+    """Diameters to measure a disc at: every pixel to 60, then seeded samples.
+
+    Stdlib :class:`random.Random`, no ``hypothesis`` (CLAUDE.md). The dense
+    head is where a disc is least circular — at 12 px a circle is a hundred
+    pixels of staircase — and the seeded tail reaches the 142 px band.
+    """
+    rng = random.Random(DISC_SWEEP_SEED)
+    diameters = list(range(MIN_DOT_PX, 61))
+    diameters += [rng.randrange(61, 143) for _ in range(80)]
+    return diameters
+
+
+class TestRoundMarkOnThePage_TheBoundaryIsMeasured:
+    """AC-4: where "round" stops, stated as a verdict and justified by a measurement.
+
+    Both tolerances are the midpoint of a **measured gap**, and every number
+    below comes out of a rendered shape rather than out of a constant:
+
+    ===========================  ===============  =========
+    shape                        ``fill``         verdict
+    ===========================  ===============  =========
+    disc, any diameter 12..142   0.96 .. 1.01     round
+    typed ``chr(0x25CF)``        0.99 .. 1.01     round
+    pasted circular mask         1.04             round
+    regular 16-gon               0.96 .. 0.98     round
+    regular octagon              0.90 .. 0.92     round
+    regular hexagon              0.93 .. 0.96     round
+    regular pentagon             0.82 .. 0.87     **not** round
+    square, any rotation         0.64 / 1.27      **not** round
+    41 px square, 15 px corners  1.11             round
+    41 px square, 14 px corners  1.13             **not** round
+    ring (an outlined circle)    0.15 .. 0.28     **not** round
+    ===========================  ===============  =========
+
+    The near-round cases AC-4 names are therefore answered rather than left to
+    chance: a **hexagon is caught** (it is as round as an octagon and only its
+    footprint is off square, which the aspect tolerance is deliberately loose
+    enough to admit), and a **rounded rectangle is caught from a corner radius
+    of 15 px on a 41 px square** — the radius at which it has as little ink as
+    a disc — and not below it.
+
+    The four bounds this instrument has, each with its own control here: a
+    hollow mark, a mark that touches other ink, a footprint that is not nearly
+    square, and a surface nobody renders.
+    """
+
+    def test_a_disc_measures_round_at_every_diameter_it_can_be_drawn(self) -> None:
+        diameters = _disc_sweep()
+        assert len(diameters) >= DISC_SWEEP_MIN_CASES, len(diameters)
+        fills = []
+        for diameter in diameters:
+            region = _shape(_disc(diameter), canvas=diameter + 2 * _SHAPE_MARGIN)
+            assert region.aspect == 1.0, (diameter, region.aspect)
+            assert region.is_round, (diameter, region.fill)
+            fills.append(region.fill)
+        assert 0.95 <= min(fills) and max(fills) <= 1.01, (min(fills), max(fills))
+
+    def test_the_fill_tolerance_sits_in_a_measured_gap(self) -> None:
+        """Below it a pentagon, above it a nearly square box — both measured."""
+        pentagon = _shape(_regular_polygon(5, 40))
+        octagon = _shape(_regular_polygon(8, 40))
+        disc = _shape(_disc(81))
+        assert pentagon.fill < 1 - ROUND_FILL_TOLERANCE, pentagon.fill
+        assert not pentagon.is_round
+        assert octagon.fill > 1 - ROUND_FILL_TOLERANCE, octagon.fill
+        assert octagon.is_round
+        assert abs(disc.fill - 1) < ROUND_FILL_TOLERANCE / 2, disc.fill
+        # The gap the tolerance sits in, as one assertion: a disc is nearer to
+        # the tolerance's edge than the pentagon is, by a factor of two.
+        assert (1 - pentagon.fill) > 2 * abs(1 - disc.fill)
+
+    def test_the_aspect_tolerance_sits_in_a_measured_gap(self) -> None:
+        """Loose on purpose: at 0.08 a hexagon escapes, and at 0.2 it does not."""
+        hexagon = _shape(_regular_polygon(6, 40))
+        assert 1.08 <= hexagon.aspect <= 1.2, hexagon.aspect
+        assert hexagon.is_round
+        oval = _shape(_regular_polygon(32, 40, stretch=0.6))
+        assert oval.aspect > 1 + ROUND_ASPECT_TOLERANCE, oval.aspect
+        assert not oval.is_round
+        # And the gap on the real book's own pages, in units of the tolerance.
+        assert _book_ink(None).margin >= 1.5
+
+    def test_the_rounded_rectangle_boundary_is_where_the_measurement_puts_it(self) -> None:
+        middle = _SHAPE_CANVAS // 2
+        box = (middle, middle, middle + 40, middle + 40)
+
+        def rounded(radius: int) -> object:
+            def drawer(draw: ImageDraw.ImageDraw, page: Image.Image) -> None:
+                draw.rounded_rectangle(box, radius=radius, fill=INK)
+
+            return drawer
+
+        verdicts = {radius: _shape(rounded(radius)).is_round for radius in range(21)}
+        assert verdicts[14] is False, _shape(rounded(14)).fill
+        assert verdicts[15] is True, _shape(rounded(15)).fill
+        assert verdicts[0] is False and verdicts[20] is True
+        # One crossing, not a band of noise: the verdict flips exactly once as
+        # the corners are rounded off.
+        flips = sum(
+            1 for radius in range(1, 21) if verdicts[radius] != verdicts[radius - 1]
+        )
+        assert flips == 1, verdicts
+
+    def test_a_hollow_mark_is_not_measured_as_round(self) -> None:
+        """A stated bound: this metric measures ink, and a ring is mostly paper.
+
+        The glyph's own outlined dots are in this class, which is why the
+        accounting is over the **filled** dots the site declares. A rogue mark
+        drawn only as rings escapes — recorded here as a bound with a control,
+        not left for a review cycle to find.
+        """
+        middle = _SHAPE_CANVAS // 2
+        box = (middle - 20, middle - 20, middle + 20, middle + 20)
+        ring = _shape(
+            lambda draw, page: draw.ellipse(box, fill=BACKGROUND, outline=INK, width=2)
+        )
+        assert ring.aspect == 1.0
+        assert ring.fill < 0.3, ring.fill
+        assert not ring.is_round
+        solid = _shape(lambda draw, page: draw.ellipse(box, fill=INK))
+        assert solid.is_round, "the control: the same silhouette, filled, is round"
+
+    def test_a_mark_that_touches_other_ink_is_not_measured_as_round(self) -> None:
+        """A stated bound: regions are connected, so a dot on a rule is one region.
+
+        The second half is the control: the same disc one pixel clear of the
+        rule is round again, so the bound is about *touching* and not about the
+        rule being on the page at all.
+        """
+        middle = _SHAPE_CANVAS // 2
+        box = (middle - 20, middle - 20, middle + 20, middle + 20)
+
+        def with_rule(gap: int) -> object:
+            def drawer(draw: ImageDraw.ImageDraw, page: Image.Image) -> None:
+                draw.ellipse(box, fill=INK)
+                draw.line(
+                    [(0, middle + 21 + gap), (_SHAPE_CANVAS, middle + 21 + gap)],
+                    fill=INK,
+                    width=3,
+                )
+
+            return drawer
+
+        touching = _shape(with_rule(0))
+        assert not touching.is_round, touching
+        clear = max(
+            (
+                region
+                for region in ink_regions(_rendered(with_rule(2)))
+                if region.width < _SHAPE_CANVAS
+            ),
+            key=lambda region: region.ink,
+        )
+        assert clear.is_round, clear
+
+    def test_a_diagonal_touch_is_not_a_merge(self) -> None:
+        """The control for 4-connectivity, which is a decision and not a detail.
+
+        Ink that touches a mark only at a corner is a second region, so the
+        mark keeps its own silhouette and is still found. Under an 8-connected
+        reading the two would be one region whose box spans both, far from
+        square, and the guard would report **neither** — so this is the test
+        that makes the connectivity claim cost something: it fails if the
+        overlap test in :func:`~tests.helpers.round_ink.ink_regions` is ever
+        relaxed to count a corner.
+        """
+        middle = _SHAPE_CANVAS // 2
+        box = (middle - 20, middle - 20, middle + 20, middle + 20)
+        page = Image.new("RGB", (_SHAPE_CANVAS, _SHAPE_CANVAS), BACKGROUND)
+        draw = ImageDraw.Draw(page)
+        draw.ellipse(box, fill=INK)
+        mask = np.asarray(page.convert("L")) < 128
+        corner = None
+        for y in range(1, _SHAPE_CANVAS - 1):
+            for x in range(1, box[0]):
+                if mask[y, x]:
+                    continue
+                diagonal = any(
+                    mask[y + dy, x + dx] for dy in (-1, 1) for dx in (-1, 1)
+                )
+                orthogonal = any(
+                    mask[y + dy, x + dx] for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1))
+                )
+                if diagonal and not orthogonal:
+                    corner = (x, y)
+                    break
+            if corner is not None:
+                break
+        assert corner is not None, "no pixel touches this disc only at a corner"
+        draw.line([(4, corner[1]), corner], fill=INK, width=1)
+        regions = ink_regions(page)
+        assert len(regions) == 2, [region.box for region in regions]
+        marks = round_marks(page)
+        assert [mark.box for mark in marks] == [box], (
+            "the disc is still its own region, and still round, with ink "
+            f"touching it at a corner: {[mark.box for mark in marks]}"
+        )
+
+    def test_the_guard_only_measures_the_surfaces_it_renders(self) -> None:
+        """A stated bound: it is the interior's pages, and the cover is not one.
+
+        The metric would find a dot on a cover, a proof sheet or a CLI PNG
+        export — it is the *page set* that bounds this guard, not the
+        measurement. CARD-228's walk reads every module on disk and is the
+        wider instrument in exactly this one respect, which is why both are
+        kept (G-1).
+        """
+        cover = BookPDFGenerator(corpus_book()).create_cover_page("Winter Pictures")
+        before = len(round_marks(cover))
+        draw = ImageDraw.Draw(cover)
+        middle = cover.width // 2
+        draw.ellipse((middle - 20, 40, middle + 20, 80), fill=INK)
+        assert len(round_marks(cover)) == before + 1, (
+            "the metric does find a dot on a cover — the bound is the page set"
+        )
+        assert _book_ink(None).pages == BASELINE_PAGE_COUNT, (
+            "and the page set is the interior's own pages, which never include "
+            "the cover"
+        )
+
+
+def _rendered(drawer: object, canvas: int = _SHAPE_CANVAS) -> Image.Image:
+    """``drawer``'s own canvas, for the few assertions that need every region."""
+    page = Image.new("RGB", (canvas, canvas), BACKGROUND)
+    drawer(ImageDraw.Draw(page), page)
+    return page
+
+
+# ==========================================================================
+# AC-5 — the static guard's named-limits list shrinks, and only honestly
+# ==========================================================================
+
+
+def _limits_carried_by(doc: str) -> set[str]:
+    """The routes ``doc`` still carries as named limits of the static walk.
+
+    The marker is ``**LIMIT:** <mutant>``, one per route, so a route can be
+    *mentioned* in that docstring's history as often as it likes without being
+    counted as an open limit. :meth:`...test_the_marker_can_fire` is the
+    control that this extractor is capable of finding one.
+    """
+    return {route.mutant for route in NAMED_LIMITS if f"**LIMIT:** {route.mutant}" in doc}
+
+
+class TestRoundMarkOnThePage_TheNamedLimitsListShrinksHonestly:
+    """AC-5: exactly the routes this card closes are struck, and no others.
+
+    CARD-228's named-limits list was six paragraphs of prose, each carrying
+    the mutant that demonstrated the route was open. This card closes all six
+    — on the pages the book renders — so all six are struck from that list and
+    moved into :data:`NAMED_LIMITS`, where both columns are derived by
+    execution:
+
+    * **seen by the walk**: CARD-228's own four mechanisms, run over the
+      plant's own source as a fabricated module. All six come back silent, and
+      :data:`SEEN_BY_THE_WALK` proves the predicate can fire at all.
+    * **closed on the page**: the plant is drawn into every band of a real
+      book, the interior is rendered, and the guard's verdict is read.
+
+    The equality below is red in **both** directions, which is the property
+    AC-5 asks for: a route struck from the prose that the page does not catch,
+    and a route the page catches that the prose still carries as open, both
+    fail it. Striking a limit is therefore not an edit anyone can make by
+    hand.
+    """
+
+    def test_the_table_is_the_six_routes_cycle_3_left_open(self) -> None:
+        assert len(NAMED_LIMITS) == 6
+        assert len({route.mutant for route in NAMED_LIMITS}) == 6
+        assert {route.mutant for route in NAMED_LIMITS} <= set(PLANTS)
+        assert set(SEEN_BY_THE_WALK) <= set(PLANTS)
+
+    def test_the_walk_really_is_blind_to_every_route_in_the_table(self) -> None:
+        for route in NAMED_LIMITS:
+            complaints = _static_walk_complaints(PLANTS[route.mutant])
+            assert (complaints != []) == route.seen_by_the_walk, (route, complaints)
+
+    def test_the_walks_own_predicate_can_fire(self) -> None:
+        """Without this, "the walk is blind to all six" is a claim about nothing."""
+        for route in SEEN_BY_THE_WALK:
+            assert _static_walk_complaints(PLANTS[route]) != [], route
+
+    def test_every_route_the_table_says_is_closed_is_caught_on_the_page(self) -> None:
+        for route in NAMED_LIMITS:
+            caught = _book_ink(route.mutant).unaccounted != ()
+            assert caught == route.closed_on_the_page, (route, caught)
+
+    def test_the_marker_can_fire(self) -> None:
+        """Control for the extractor the equality below depends on."""
+        assert _limits_carried_by("nothing here") == set()
+        assert _limits_carried_by("* **LIMIT:** L1 line fan — open") == {"L1 line fan"}
+
+    def test_the_limits_list_is_exactly_the_routes_no_instrument_closes(self) -> None:
+        carried = _limits_carried_by(
+            inspect.getdoc(TestDifficultyDots_HasExactlyOneDrawingSite) or ""
+        )
+        closed = {
+            route.mutant for route in NAMED_LIMITS if _book_ink(route.mutant).unaccounted
+        }
+        assert carried == {route.mutant for route in NAMED_LIMITS} - closed, (
+            "the static guard's named-limits list and what the render check "
+            f"really closes disagree: it carries {sorted(carried)} while the "
+            f"page closes {sorted(closed)}"
+        )

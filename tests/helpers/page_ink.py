@@ -127,8 +127,19 @@ def pdf_page_boxes(data: bytes) -> list[tuple[float, float, float, float]]:
         parser.close()
 
 
-def _dark(page: Image.Image) -> np.ndarray:
+def ink_mask(page: Image.Image) -> np.ndarray:
+    """``page``'s ink as a boolean mask, ``True`` where a pixel is darker than
+    :data:`INK_LEVEL`.
+
+    Public because a second measurement of the same pages needs the same
+    reading of what ink *is* (CARD-241's ``tests/helpers/round_ink.py``): two
+    helpers disagreeing about the threshold would be two different pages.
+    """
     return np.asarray(page.convert("L")) < INK_LEVEL
+
+
+def _dark(page: Image.Image) -> np.ndarray:
+    return ink_mask(page)
 
 
 def _groups(indices: np.ndarray) -> list[list[int]]:
