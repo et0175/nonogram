@@ -1,0 +1,282 @@
+version: 1
+generated_at: "2026-10-17T08:33:21Z"
+target: "branch card/242-check-log-taint-step @ 3668c70 + uncommitted; CONFIRMATION MODE cycle 2 over the fix delta: tests/test_guard_integrity.py (+220/-35), meta/review/CARD-239-claim-sweep.md (+56/-10, uncommitted), meta/kanban/cards/CARD-242.md (+130/-0, orchestrator-edited ledger)"
+overall_score: 8.5
+risk_level: low
+review_lane: fast
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+mode: confirmation
+
+coverage:
+  read:
+    - tests/test_guard_integrity.py
+    - meta/review/CARD-239-claim-sweep.md
+    - meta/kanban/cards/CARD-242.md
+    - meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+    - meta/architecture/decisions/adr/0038 (Rules block only, for R7/R8 scope globs)
+    - meta/architecture/requirements.yml (CON-005, CON-009..CON-012 entries only)
+    - meta/review/20261017T055554Z-CARD-242-cycle1.yml
+  not_reached:
+    - the cycle-1 state of the two uncommitted meta files (unrecoverable - the main-repo copy of the
+      sweep equals HEAD, so the fix's share of the +56/-10 cannot be isolated; the phrase "the last
+      five" that the fix claims to correct exists in no reachable revision)
+    - the rest of tests/test_suite_profile.py beyond the five guards re-run green
+  confidence: high
+metrics:
+  diff: { files: 3, added: 406, removed: 45 }
+  max_fan_in: { symbol: "_check_log_invocations", callers: 29 }
+  tests_cover_change: true
+  hotspots: ["tests/test_guard_integrity.py"]
+  cochange_missing: []
+  collected: { before_fix: 117, after_fix: 122 }
+  unmeasured:
+    cochange_missing: "no_eligible_fact - the only co-change peer of tests/test_guard_integrity.py in
+      the 12-month window is itself (4 commits); the file was created inside that window by CARD-239,
+      so there is no peer set in which a member could be missing"
+
+system_contract:
+  rules_checked: 10
+  holds: 2
+  unchecked: 7
+  violated: 1
+  verdicts:
+    - "ADR-0038/R7 (pytest-playwright/Chromium declared only in a dev-only extra) UNCHECKED - no_eligible_fact. NOT carried: R7's scope glob is {pyproject.toml, tests/**} and the fix delta edits tests/test_guard_integrity.py, so the intersection is non-empty and the carry rule fails closed. Re-verified fresh: `git diff main...HEAD --stat -- pyproject.toml` is empty, `git diff --numstat` names no pyproject.toml, and the delta adds no playwright import, fixture, marker or browser test."
+    - "ADR-0038/R8 (browser tests fail or skip loudly without Chromium) UNCHECKED - no_eligible_fact. NOT carried for the same reason (scope {tests/**} intersects the delta). Re-verified fresh: the delta's only new test is `test_the_settling_loop_runs_to_a_fixpoint_and_not_to_a_count`, a pure in-process ast test with no skip marker and no browser dependency; no skip/xfail was added or weakened anywhere in the +220 lines."
+    - "ADR-0039/R1 (a claim about what a guard catches needs a control that can fail) HOLDS - re-derived at full depth, not carried, in the worktree-identical shadow tree at /private/tmp/.../scratchpad/shadow (122 passed baseline). The literal `range(3)` is gone; the loop settles to a fixpoint. Independent depth sweep: a forward-declared chain (constant first, executor last) is CAUGHT at depths 1-9 with the default and MISSED from depth 4 at passes=3, while the reverse-declared chain of the same depth is caught at passes=1 - so the claim now has the asymmetric control it lacked. Mutants, each a one-line edit with the file restored and re-compared: M-N1 (default reverted to 3 passes) RED on 2 tests; range(1) and range(2) - cycle 1's two SURVIVORS at 117 passed - now RED on the same 2 tests; M-N5 (loop removed) RED on 4; M-N2 (`run_path` dropped from the executor set) RED on its generated control; M-H (`main` dropped) RED on the `main([...])` control; M-Y (definition exemption branch disabled) RED on 10. Termination: `executed` only grows and its members are names the tree mentions, so the growth check fires; removing that check (M-X) makes the run HANG (60s timeout), i.e. the termination property is load-bearing and fails loudly rather than silently."
+    - "ADR-0039/R2 (a guard's set is derived from an enumerable authority, else default-deny with named exemptions) VIOLATED on the letter - tests/test_guard_integrity.py:328-365. `_CHECK_LOG_EXECUTOR_GROUPS` is still a hand-enumerated set, now 19 names (`run_path` added by the fix), and an unrecognised call is still a silent pass rather than a failure. NOT carried (the delta edits the set). Filed as an Out-of-scope follow-up and NOT as a gating finding, because both shapes the rule prescribes are measured worse here, and I measured them myself rather than accepting the drop: (a) a dir()-derived projection cannot contain `main` - mutant M-H, `main` removed, is RED on AC-1's `main([...])` control, so the projection loses an AC; (b) deny-by-default forces the two real-tree sites into exemptions keyed on the binding's NAME, and a name-keyed exemption absorbs whatever is bound under that name - which re-opens the hoisted-command-line route this card exists to close (the R3 defect, i.e. the fix for R2 would commit CARD-239's F-201 one table across). The docstring at :318-327 states the choice and its reason, the residue is recorded as sweep row G-19 with a measured instance, and that instance's control is real (M-N4, `pty.spawn` -> `runpy.run_path`, is RED on the disclosed-misses test). The honest remedy is ADR-0039's own deferred item - the repo-wide guard audit, recorded in its Alternatives and Consequences - not a block on this merge."
+    - "ADR-0039/R3 (an exemption carries a control for what it must not absorb, is held to an equality against today's sites, and records its residue as a measured bound) HOLDS - re-derived, not carried (the delta edits both the exemption table and the equality test). All three clauses now met. Both controls per row: 4 rows, 8 controls, green, and non-vacuous - M-Y (the `definition` branch disabled) reds the absorbed control, the real-tree guard, 5 disclosed-miss controls and the taint-step control. Equality: `test_the_prose_the_real_tree_holds_is_present_and_still_silent` now asserts `bindings == sorted(MODULE_SCOPE_OPTION_BINDINGS)` where cycle 1 found `>= 2`; measured discriminating by planting a THIRD module-scope binding that mentions the option in a guarded file (mutant M-Z) - the test goes RED, which is exactly what the floor allowed through. Measured bound for the residue: 7 entries in MEASURED_CHECK_LOG_MISSES, each asserted `== []`, with G-19's instance moved from `runpy.run_path` to `pty.spawn` (verified still missed: `spawn` is not in the 19-name set) and the move's bookkeeping landed in the same diff - AC-5's three-way equality goes RED in both directions (sweep markers reverted to open -> RED; the struck bound recorded again while the route is closed -> RED)."
+    - "CON-005 (the uniqueness check must never produce a false positive) UNCHECKED - no_eligible_fact. The CON entries carry no `scope:` key, so scope is unresolvable and the carry rule fails closed; re-verified fresh instead: `git diff main --stat` names no path under src/, and the delta contains no solver code, no solver test and no reference to nonogram.solver."
+    - "CON-009 (the web UI's HTTP server binds loopback only) UNCHECKED - no_eligible_fact. Fresh (scope unresolvable, see CON-005): the delta is one test module about guard integrity plus two meta documents; no server, socket, bind or request-handling code."
+    - "CON-010 (the web UI refuses any request the browser marks cross-site) UNCHECKED - no_eligible_fact. Fresh: as CON-009, nothing in the delta touches request handling or origin checks."
+    - "CON-011 (each grid side is 10..30 inclusive, every source mode) UNCHECKED - no_eligible_fact. Fresh: no sourcing, limits or grid-dimension code in the delta; `limits.py` is not imported or referenced."
+    - "CON-012 (the aspect guard accepts exactly those requests retaining half or more) UNCHECKED - no_eligible_fact. Fresh: no aspect-guard, crop or geometry code in the delta."
+
+root_causes:
+  - id: RC-1
+    title: "figures narrated in prose next to the measurements they are supposed to summarise: the fix pass corrected two and left four stale"
+    finding_ids: [F-021, F-022]
+
+findings:
+  - id: F-021
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/review/CARD-239-claim-sweep.md
+    line: 105
+    title: "the sweep's reproducible-grep block still prints 83 where the table and the grep both say 84"
+    description: |
+      The counts table was correctly moved to `rows, all sections | 84 |` and the new paragraph
+      states "rows 83 -> 84". The code block three lines below - the one the document introduces
+      with "every number is reproducible from the repository root" - still carries
+      `# 83` as the expected output of
+
+          grep -cE '^\| [A-G]-[0-9]+ \|' meta/review/CARD-239-claim-sweep.md
+
+      Re-derived in the worktree: that grep returns **84**. The `[A-F]` line (61) and the
+      verdict-token line (33 8 9 14) are all correct, so this is the one figure in the block
+      that disagrees with its own command.
+
+      This is cycle 1's F-004 family recurring inside the pass that fixed it: a figure stated in
+      prose beside the mechanism that would produce it, with nothing asserting the two agree.
+      Nothing in the test tree reads the counts table (`CLAIM_SWEEP` is read only for rows E-9
+      and G-16 by `test_the_struck_bound_and_the_closed_route_agree`), so only a reader catches it.
+    suggestion: |
+      Change `# 83` to `# 84` in the code block. If this keeps recurring, the cheap mechanical
+      close is to extend the existing CLAIM_SWEEP reader: the counts table's `rows, all sections`
+      cell and the `# N` comment in the block below are both re-derivable from the same grep the
+      block documents, so one assertion pins all three to each other.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-022
+    severity: low
+    category: tech-debt
+    type: gap
+    file: meta/kanban/cards/CARD-242.md
+    line: 175
+    title: "three figures in the card's notes were superseded by the fix pass and not moved with it"
+    description: |
+      The fix pass corrected the G-2 constants figure (+16, re-derived below as correct) and the
+      mutant ledger, and left three statements in the same notes describing the pre-fix state in
+      the present tense:
+
+      * `:175` AC-6 - "an executor the set does **not enumerate** (`runpy.run_path`)". `run_path`
+        is now a member of `_CHECK_LOG_EXECUTORS` (19 names, measured) and the recorded instance
+        of that bound is `pty.spawn`. The sentence now names as a miss the very route the fix
+        closed, which is the shape AC-5 exists to prevent one document across.
+      * `:216` - "the seven positive controls are unchanged with five added". Measured:
+        `CHECK_LOG_INVOCATIONS` holds **15** entries, i.e. eight added, not five - the fix pass
+        added the `run_path` control and the two four-deep chains.
+      * `:241` SCOPE+ - "rows 77 -> 83, non-claim G rows 16 -> 22". The sweep now stands at 84
+        and 23 (measured), and the sweep's own new paragraph says so ("rows 83 -> 84, non-claim
+        G rows 22 -> 23"), so the card and the artefact it edits disagree.
+
+      Re-derived in support, and all three of the orchestrator's corrected figures CONFIRMED
+      exactly, by `ast` name diff against `main` (module-scope Assign/AnnAssign Name targets,
+      module-level FunctionDef names, test FunctionDef names): constants **+16/-0**, tests
+      **+8/-0**, module-level helpers **+4/-0**, nothing removed in any category. Collected count
+      117 (HEAD) -> 122, and the +5 decomposes exactly: 3 new corpus entries, 1 new executor
+      member in the per-member control, 1 new test.
+    suggestion: |
+      Update the three sentences. They are notes rather than asserted claims, so none of them
+      gates anything - but this card's subject is a claim stated wider than its mechanism, and the
+      notes are what the next reader trusts.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: RC-1
+    status: fixed
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-023
+    severity: low
+    category: tech-debt
+    type: risk
+    file: tests/test_guard_integrity.py
+    line: 409
+    title: "the `passes` knob's claim that no guard sets it has no control, and setting it at a guard call site would silently restore the bound F-001 removed"
+    description: |
+      The docstrings state the knob's reach twice: ":409 `passes` is that control's knob and not
+      the rule's" and ":504 The deployed rule passes it on unset, and no guard sets it."
+
+      Re-derived: true today. `grep -n "passes=" tests/test_guard_integrity.py` returns exactly
+      six hits, all inside `test_the_settling_loop_runs_to_a_fixpoint_and_not_to_a_count`; the
+      deployed rule's own call is `_executed_names(tree, executors, passes)` with `passes=None`.
+
+      What has no control is the claim's persistence. A guard call site that later passed
+      `passes=3` - `test_no_guarded_source_invokes_the_check_log_subcommand`, the real-tree
+      exemption test - would narrow the deployed rule back to the exact depth bound this cycle
+      removed, and every control in the file would stay green: the fixpoint test calls the
+      function with its own explicit arguments, so it measures the mechanism rather than the
+      configuration the guard runs it under. The file already has the machinery to pin this -
+      `test_the_invocation_rule_is_the_one_the_guard_runs` reads this module's own `ast` to pin
+      three adjacent claims of exactly this shape (the taint step runs inside the rule, no test
+      calls the helpers directly, every declared `EXEMPT_*` key is branched on).
+
+      This is the third instance of one exposure rather than a new one: `exemptions=` and
+      `executors=` have carried it since 3668c70 and cycle 1 did not raise it, which is why this
+      is Minor and not a re-opening of F-001.
+    suggestion: |
+      One assertion in the existing AC-4 pin: in `TestCheckLog_TheDeliberateReader`, no call to
+      `_check_log_invocations` outside the per-knob control tests may pass a keyword argument -
+      so narrowing a width at a guard call site is a failing test rather than a silent narrowing.
+      Alternatively record it as a sweep G row, which is this board's other legal answer.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-024
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_guard_integrity.py
+    line: 328
+    title: "[out of scope] ADR-0039/R2's letter stays unmet for the executor set; the ADR's own deferred repo-wide guard audit is the route"
+    description: |
+      Recorded so the gap stays visible, explicitly NOT as a gating finding - see the
+      ADR-0039/R2 verdict line for the measurements. The set is hand-enumerated (19 names) with
+      no enumerable authority and the default on an unrecognised call is a silent pass. Both
+      remedies the rule prescribes are measured worse here: the dir()-projection loses AC-1
+      (M-H, `main` removed, is RED on the `main([...])` control), and deny-by-default forces
+      name-keyed exemptions that re-open the hoisted-command-line route this card closes.
+      The choice is disclosed at :318-327 with its reason, every member carries a discriminating
+      control, and the residue is a recorded bound with a failing control (M-N4 RED).
+
+      ADR-0039 records the conformant answer itself, in Alternatives ("Defer, and build a
+      repo-wide guard audit first ... Recorded as follow-up work instead, with these rules in
+      force meanwhile") and in Consequences ("a guard written tomorrow is covered by judgement
+      rather than by mechanism until the deferred audit exists"). A follow-up card for that
+      audit is the honest close; re-prescribing either refuted remedy on this card is not.
+    suggestion: |
+      Open the deferred repo-wide guard audit as its own card and point ADR-0039/R1-R3's checks
+      at it when it exists (which the ADR's Neutral section already asks for). Nothing to change
+      on this card.
+    confidence: medium
+    source: model
+    violates: ADR-0039/R2
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern:
+      pattern_summary: "Real finding outside the card's declared scope / deferred to a backlog follow-up rather than wrong."
+      dismissed_count: 3
+
+  - id: F-025
+    severity: info
+    category: tech-debt
+    type: question
+    file: tests/test_guard_integrity.py
+    line: 492
+    title: "[out of scope] removing the fixpoint's growth check is a hang, not a red test"
+    description: |
+      Measured: with `if len(executed) == before: break` disabled, `while passes is None or
+      walked < passes` never terminates and the targeted run times out (60s) instead of failing.
+      The docstring's termination argument is correct and a hang is a loud failure, so this is an
+      observation rather than a finding - noted because a stalled CI job is a more expensive
+      failure mode to diagnose than a red assertion, and a `walked <= len(_names_within(tree))`
+      ceiling would convert it into one at no cost to the fixpoint.
+    suggestion: |
+      Optional: bound the loop by the finite set the docstring already names, so the mechanism's
+      own stated bound is in the code rather than only in the argument for it.
+    confidence: high
+    source: static
+    violates: null
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+confirmation:
+  cycle: 2
+  previous_report: meta/review/20261017T055554Z-CARD-242-cycle1.yml
+  previous_findings:
+    - id: F-001
+      rule: ADR-0039/R1
+      disposition: fixed
+      evidence: "re-derived at full depth; the literal is gone, the loop settles, and cycle 1's two surviving mutants (range(1), range(2)) plus M-N1 (range(3)) are now each RED on 2 tests"
+    - id: F-002
+      rule: ADR-0039/R2
+      disposition: dropped_on_measurement
+      evidence: "not re-raised in its cycle-1 form; both prescriptions independently re-measured and refuted (M-H red on `main` removal; name-keyed deny exemptions reopen the hoist). The retained half landed: `run_path` is a member, its control is discriminating (M-N2 red), G-19's instance moved to `pty.spawn` (still missed - `spawn` is not in the set) in the same diff, and AC-5's equality is red in both directions. Recorded as F-024, Out-of-scope."
+    - id: F-003
+      rule: ADR-0039/R3
+      disposition: fixed
+      evidence: "`>= 2` replaced by `bindings == sorted(MODULE_SCOPE_OPTION_BINDINGS)`; measured discriminating - a third module-scope option binding planted in a guarded file (M-Z) reds the test"
+    - id: F-004
+      rule: G-2
+      disposition: fixed
+      evidence: "re-derived against main by ast name diff: constants +16/-0, tests +8/-0, helpers +4/-0, nothing removed - the orchestrator's corrected figures confirmed exactly, and the method is now stated in the notes so it is reproducible"
+  carried_verdicts: []
+  new_gating_findings: 0
+  next_cycle_mode: "not required - no new Critical/Important finding; if a cycle 3 happens it may remain a confirmation cycle"
+
+guardrails:
+  - "G-1 (do not touch the timing log) HOLDS - the worktree has no meta/kanban/suite-timing.log (verified absent), the delta adds no write_text/open/shutil call, every new corpus destination is spelled `PATH`, and all new executor calls sit inside `def _never_called()` bodies that are only ever parsed. The main repo's log md5 has moved since the sweep's G-1 row recorded it, which is the concurrent sibling card's runs, not this delta."
+  - "G-2 (coverage up, not down) HOLDS and re-measured - 117 -> 122 collected, ast name diff against main +16 constants / +8 tests / +4 helpers, zero removals."
+  - "G-3 (tests/test_suite_profile.py untouched; reimplement, do not import) HOLDS - `git diff --numstat` names only tests/test_guard_integrity.py under tests/; the taint step is native. Its four tree-walking guards plus the host-state guard re-run green (4 passed)."
+  - "G-4 (no src/** change, no new runtime dependency) HOLDS - `git diff main --stat` lists three paths, none under src/; no import added by the delta."
+  - "G-5 (no meta/profiling artefact read, re-measured or regenerated) HOLDS - the delta touches no file under meta/profiling/."
+
+step_8f:
+  mutation_check: run
+  mutants: 10
+  killed: 9
+  survived: 0
+  inconclusive: 1
+  note: "Targeted and capped, on the AC-critical lines the brief named - the fixpoint loop, the exemption table's `definition` row, and the executor set's new member. Every mutant was applied to a copy of the worktree in a symlinked shadow tree (/private/tmp/.../scratchpad/shadow), never to the worktree; each was reverted and byte-compared, and `git diff --numstat` in the worktree is unchanged at 130/0, 56/10, 220/35. KILLED: M-N1 (default 3 passes), M-C1b (default 1 pass - cycle 1's survivor), M-C2b (default 2 passes - cycle 1's survivor), M-N5 (loop removed), M-N2 (`run_path` dropped), M-H (`main` dropped), M-Y (`definition` branch disabled), M-Z (a third module-scope option binding in the guarded tree), M-N4 (`pty.spawn` -> `runpy.run_path`), plus AC-5 in both directions (sweep markers reverted; struck bound re-recorded). INCONCLUSIVE: M-X (growth check removed) hangs rather than failing - see F-025; it is not a survivor, since nothing passes."

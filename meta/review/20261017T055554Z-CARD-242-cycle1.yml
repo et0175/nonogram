@@ -1,0 +1,250 @@
+version: 1
+generated_at: "2026-10-17T05:55:54Z"
+target: "branch card/242-check-log-taint-step @ 3668c70 (base main @ b894e00); file scope: tests/test_guard_integrity.py, meta/review/CARD-239-claim-sweep.md (uncommitted)"
+overall_score: 7.0
+risk_level: medium
+review_lane: deep
+reviewer: forge:review
+reviewer_version: "2026.8.17"
+
+coverage:
+  read:
+    - tests/test_guard_integrity.py
+    - meta/review/CARD-239-claim-sweep.md
+    - meta/kanban/cards/CARD-242.md
+    - meta/architecture/decisions/adr/0039-guard-coverage-claims-need-controls.md
+    - tests/test_suite_profile.py (read-only, lines 1570-1625 and 4149-4215, for the R2 precedent)
+  not_reached:
+    - meta/review/20261016T222918Z-CARD-239-cycle2.yml (background; its measurements were re-derived directly instead)
+    - meta/review/20261016T214029Z-CARD-239-cycle1.yml
+    - the rest of tests/test_suite_profile.py
+  confidence: high
+metrics:
+  diff:
+    files: 2
+    added: 833
+    removed: 92
+  max_fan_in:
+    symbol: "_check_log_invocations"
+    callers: 22
+  tests_cover_change: true
+  hotspots: []
+  cochange_missing: []
+  unmeasured:
+    hotspots: "no_eligible_fact - 7 commits in 12 months on the two touched paths, 0 matching fix/bug/hotfix; no file in scope qualifies as a churn or defect-density hotspot"
+    cochange_missing: "no_eligible_fact - the only co-change peer of tests/test_guard_integrity.py in the 12-month window is itself (4 commits); the file was created inside that window by CARD-239, so there is no peer set to find a missing member in"
+
+system_contract:
+  rules_checked: 10
+  holds: 0
+  unchecked: 7
+  violated: 3
+  verdicts:
+    - "ADR-0038/R7 (browser tests declared only in a dev-only extra) UNCHECKED - no_eligible_fact: the diff touches no pyproject.toml, no project.dependencies, no admin extra and no browser test; git diff main...HEAD --stat -- pyproject.toml is empty."
+    - "ADR-0038/R8 (browser tests fail or skip loudly without Chromium) UNCHECKED - no_eligible_fact: no pytest-playwright test, fixture or skip marker is added, changed or referenced anywhere in the diff."
+    - "ADR-0039/R1 (a coverage claim needs a control that can fail) VIOLATED - tests/test_guard_integrity.py:444 + :434-440. The docstring's three-settling-passes claim has no control that can fail short of range(0). Measured in-process against the deployed module: range(3)->range(1) and range(3)->range(2) leave every assertion in the file green (12 positive controls, 4 negative, 7 disclosed misses, 8 exemption controls, 18 executor controls, the taint-step pin and the real-tree walk). Only the implementer's own range(0) mutant is killed. Finding F-001. Check ref test_the_control_for_each_spelling_depends_on_the_set itself runs green (tests/test_suite_profile.py), but its stated reach is the sibling guard, not this one - Step 8h is the mechanism for a guard written today, per the ADR's own note."
+    - "ADR-0039/R2 (a guard's set is derived from an enumerable authority; otherwise deny by default) VIOLATED - tests/test_guard_integrity.py:328-365. _CHECK_LOG_EXECUTOR_GROUPS is a hand-written set of 18 names, 17 of which an authority the runtime can enumerate does offer (dir(os), dir(subprocess)); the card's own disclosed miss G-19, runpy.run_path, is a name dir(runpy) offers. The polarity on a call the set does not hold is a silent PASS, not a FAILURE. Measured: with the executor test removed (deny polarity) the real tree yields exactly two sites, CHECK_LOG_OPTION and SANDBOX_CONTROL_MODULE, so R2's prescribed shape - deny plus two named exemptions under R3 - is feasible here. Finding F-002. Check ref test_the_guard_sets_are_derived_and_not_hand_written runs green but pins only test_suite_profile.py's five projected sets and does not reach this one."
+    - "ADR-0039/R3 (an exemption is a claim: both controls, an equality against today's sites, a measured bound for the residue) VIOLATED - tests/test_guard_integrity.py:197-297 and :742-838. Both controls per row: HOLDS, four rows and eight controls, re-derived in-process (every absorbed source is [] with its key on and non-[] with that one key removed; every rejected source is non-[] with all four on). Measured bound for the residue: NOT met - the taint step's pass-count residue is undisclosed (a forward-declared chain of four re-bindings is missed and is in neither MEASURED_CHECK_LOG_MISSES nor sweep rows G-17..G-22), finding F-001. Equality against today's sites: NOT met - the real-tree test asserts len(bindings) >= 2 in >= 2 files rather than an equality, finding F-003. Check ref test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw runs green (1 passed)."
+    - "CON-005 (the uniqueness check must never produce a false positive) UNCHECKED - no_eligible_fact: no src/** change (git diff main...HEAD -- src/ is empty), no solver code or solver test in the diff."
+    - "CON-009 (the web UI's HTTP server binds loopback only) UNCHECKED - no_eligible_fact: no web, server or socket code in scope; the diff is one test module and one meta document."
+    - "CON-010 (the web UI refuses any request the browser marks cross-site) UNCHECKED - no_eligible_fact: as CON-009, nothing in the diff touches request handling."
+    - "CON-011 (each grid side is 10..30 inclusive, every source mode) UNCHECKED - no_eligible_fact: no sourcing, limits or grid-dimension code in the diff."
+    - "CON-012 (the aspect guard accepts exactly those requests retaining half or more) UNCHECKED - no_eligible_fact: no aspect-guard code in the diff."
+
+root_causes:
+  - id: RC-1
+    title: "the new taint step's reach rests on two hand-chosen width parameters - the settling-pass count and the executor set - and no control measures either width"
+    finding_ids: [F-001, F-002]
+
+findings:
+  - id: F-001
+    severity: high
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 444
+    title: "the three settling passes are a reach claim with no control that can fail, and their residue is undisclosed"
+    description: |
+      _executed_names settles the taint relation with a fixed `for _ in range(3)` and the
+      docstring states that as the step's reach ("Three passes, so a chain settles backwards
+      from the executor").
+
+      Measured in-process against the deployed module (no file on disk was edited): mutating
+      `range(3)` to `range(1)` or `range(2)` leaves EVERY assertion in the file green - all 12
+      entries of CHECK_LOG_INVOCATIONS still reported, all 4 of NOT_A_CHECK_LOG_INVOCATION
+      still silent, all 7 of MEASURED_CHECK_LOG_MISSES still [], all 8 exemption controls, all
+      18 executor controls, the taint-step pin and the real-tree walk. Only the implementer's
+      own M-C (`range(0)`) is killed, which is the weakest mutant in the family. So the number
+      3 is narrative: nothing distinguishes it from 1.
+
+      The residue the number leaves is also undisclosed. Because the step runs BACKWARDS from
+      the executor, a chain declared in Python's normal define-before-use order propagates one
+      link per pass, so four links exceed the budget and are missed:
+
+          import subprocess
+          C0 = "python r.py --check-log PATH"
+          C1 = [C0]
+          C2 = [C1]
+          C3 = [C2]
+          C4 = [C3]
+          def _never_called() -> None:
+              subprocess.run(C4)
+
+      _check_log_invocations returns [] on that source (measured; depths 1-4 are reported,
+      depth 5 and beyond are not). It is not an entry in MEASURED_CHECK_LOG_MISSES and not a
+      sweep row G-17..G-22, so AC-6 ("whatever it still cannot see is recorded as a measured
+      miss with a control") is not met for this route.
+
+      The direction choice makes it worse rather than neutral. The implementation notes justify
+      running backwards on the grounds that "the option-bearing end was already answered by the
+      substring predicate", which is sound as to WHICH question to ask - but reverse-declared
+      chains settle in one pass at any depth (measured: depths 1-6 all reported), while
+      forward-declared chains cost one pass per link. The budget therefore bites exactly the
+      ordering idiomatic Python uses, and the notes do not say so.
+    suggestion: |
+      Make it an actual fixpoint and delete the number: loop `while` the `executed` set keeps
+      growing. The set is bounded by the names the module binds, so it terminates, and the
+      claim then matches the mechanism with no residue to disclose and no magic constant for a
+      later "optimisation" to shrink silently.
+
+      If the bounded form is kept deliberately, it needs both halves R1 asks for: a positive
+      control that is caught at range(3) and MISSED at range(2) (a three-link forward chain),
+      and an entry in MEASURED_CHECK_LOG_MISSES plus a sweep G row for the four-link forward
+      chain above, with the define-before-use asymmetry stated in the docstring.
+    confidence: high
+    source: static
+    violates: ADR-0039/R1
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-002
+    severity: high
+    category: tech-debt
+    type: risk
+    file: tests/test_guard_integrity.py
+    line: 328
+    title: "the executor set is hand-written where an enumerable authority exists, and its default on an unrecognised call is a silent pass"
+    description: |
+      _CHECK_LOG_EXECUTOR_GROUPS enumerates 18 names by hand. ADR-0039/R2 is mandatory and has
+      two clauses, and the diff meets neither:
+
+      1. "derived from an authority the runtime can enumerate, not hand-written". 17 of the 18
+         names are offered by an authority that is enumerable at runtime - `system`, `popen`,
+         `execv*`, `spawn*`, `posix_spawn` by dir(os); `run`, `call`, `check_call`,
+         `check_output`, `Popen`, `getoutput`, `getstatusoutput` by dir(subprocess). Only `main`
+         has no authority, and that is precisely the case R2 routes to a named exemption under
+         R3. The rule's own docstring argues against a dir() PROJECTION ("dir(os) offers 300-odd
+         names of which these few execute") - which is an argument against an unclassified
+         projection, not against the classification table the sibling module already uses for a
+         surface of 88 (PYTEST_SURFACE) and 300-odd (STDLIB_DIRECTORY_SURFACE). The measured
+         cost of skipping it is the card's own disclosed miss G-19: `runpy.run_path`, a name
+         dir(runpy) offers and no classification table would have let through unjudged.
+
+      2. "Where no such authority exists the guard defaults to DENY: a shape it cannot analyse
+         is a FAILURE, never a silent pass." The polarity here is the opposite. A module-scope
+         binding whose name reaches a call the set does not hold stays exempt and the guard is
+         silent - which is exactly what G-17 (alias), G-18 (getattr), G-19 (unenumerated) and
+         G-20 (local wrapper) record. Four of the six residues this card declares exist only
+         because of the polarity, not because the question is unanswerable.
+
+      The R2-conformant shape is feasible here, measured rather than asserted: with the
+      executor test removed from _executed_names entirely (any call taints), the real tree
+      yields exactly two sites - `CHECK_LOG_OPTION` in tests/test_guard_integrity.py and
+      `SANDBOX_CONTROL_MODULE` in tests/test_suite_profile.py. That is two named exemptions
+      held to an equality under R3, which is the pattern ADR-0039/R3's own check ref
+      (test_the_dingbat_exemption_is_only_for_a_module_that_cannot_draw) implements.
+
+      This is a new set introduced by this diff - CARD-239's rule had no executor set at all -
+      so it is in scope, and R2's own note says a guard written today is reached by
+      forge:review Step 8h rather than by the existing check ref.
+    suggestion: |
+      Either derive the set the way the sibling does - a classification table over
+      dir(os) | dir(subprocess) | dir(runpy) with every name judged as an executor or as
+      KIND_NEITHER with a reason, the set being that table's projection, plus the existing
+      per-member discriminating control - or flip the polarity to R2's deny default: taint on
+      any call, and carry `CHECK_LOG_OPTION` and `SANDBOX_CONTROL_MODULE` as two named
+      exemptions with a control each and an equality against the sites that exist today. The
+      second is the smaller change and the measurement above says it costs exactly two
+      exemptions.
+
+      If neither is taken, the honest minimum is to narrow the claim: say in the docstring that
+      the set is hand-enumerated with no authority behind it, that the guard's default on an
+      unrecognised call is a PASS, and record that polarity choice as a decision rather than
+      leaving four of its consequences as separate bounds.
+    confidence: medium
+    source: model
+    violates: ADR-0039/R2
+    root_cause: RC-1
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-003
+    severity: low
+    category: tech-debt
+    type: gap
+    file: tests/test_guard_integrity.py
+    line: 2058
+    title: "the real-tree exemption test asserts a lower bound where ADR-0039/R3 asks for an equality"
+    description: |
+      test_the_prose_the_real_tree_holds_is_present_and_still_silent asserts
+      `len(bindings) >= 2` and `len({path for path, _ in bindings}) >= 2`, then that the rule is
+      silent on those files. ADR-0039/R3 asks for an exemption to be "held to an equality
+      against the sites that exist today", and the rule's own check ref does exactly that (the
+      dingbat exemption pins the modules carrying the codepoint today), as does the sibling's
+      test_the_host_state_silences_elsewhere_are_exactly_the_measured_ones.
+
+      With a lower bound, a third module-scope site mentioning the option can appear and be
+      absorbed with no test noticing. The cost is smaller than it would be for an unconditional
+      exemption - a new site is absorbed only while it reaches no executor, which is the
+      intended semantics - which is why this is Minor rather than part of F-001.
+    suggestion: |
+      Assert the set of (file, target) pairs equals the two that exist today -
+      ("tests/test_guard_integrity.py", "CHECK_LOG_OPTION") and
+      ("tests/test_suite_profile.py", "SANDBOX_CONTROL_MODULE") - so a third absorbed site is a
+      failing test that has to be judged, and keep the >= 2 assertions as the message.
+    confidence: high
+    source: model
+    violates: ADR-0039/R3
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
+
+  - id: F-004
+    severity: low
+    category: tech-debt
+    type: question
+    file: meta/kanban/cards/CARD-242.md
+    line: 202
+    title: "the G-2 coverage figure for module-level constants is not reproducible"
+    description: |
+      The implementation notes claim an `ast` name diff against HEAD of "tests +7/-0,
+      module-level helpers +4/-0, module-level constants +7/-0". Re-derived against
+      HEAD~1:tests/test_guard_integrity.py: tests +7/-0 CONFIRMED, helpers +4/-0 CONFIRMED
+      (_with_option, _bound_keys, _names_within, _executed_names), but module-level constants
+      are +12/-0, not +7 - CHECK_LOG_EXEMPTIONS, _CHECK_LOG_EXEMPTIONS, CLAIM_SWEEP,
+      SWEEP_BOUND_ROWS, SWEEP_CLOSED_MARKER, the four EXEMPT_* keys,
+      _CHECK_LOG_EXECUTOR_GROUPS, _CHECK_LOG_EXECUTORS, _CHECK_LOG_EXECUTOR_NAMES. No reading I
+      could find yields 7 (plain-Assign targets only: 10; public names only: 8).
+
+      G-2's substance holds either way - nothing CARD-239 left was removed, in any of the three
+      categories - so this is a figure that cannot be reproduced rather than a guardrail
+      breach. Flagged because this board's standing rule is that a claim is only as good as its
+      measurement, and the notes present this one as measured.
+    suggestion: |
+      Correct the figure to the count the stated method produces, or state the method precisely
+      (e.g. "public module-level Assign targets") so the number is reproducible.
+    confidence: high
+    source: static
+    violates: G-2
+    root_cause: null
+    status: open
+    fixed_in: null
+    dismissed_reason: null
+    learned_pattern: null
