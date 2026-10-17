@@ -1,6 +1,6 @@
 # CARD-244: Each worktree gets its own test database, so concurrent cards stop corrupting each other's runs
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** tech-debt
 **Complexity:** architectural
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/244-per-worktree-test-database
-**Worktree:** ../PythonProject4-card-244
+**Worktree:** — (removed at merge)
 **Source:** measured on this board, wave 44 (2026-10-17) — CARD-222's build gate, and the owner's wave-45 decision to harden before resuming the interior chain
 **Idea:** backlog, "The full-suite lock does not protect the shared `nonogram_test` database"
 **Wave:** 45
 **Depends on:** —
 **Touches:** tests/conftest.py, tests/test_card_156_db_fixture.py, tests/test_db_e2e_smoke.py, tests/test_db_isolation.py, scripts/run_admin_tests.sh, scripts/setup_admin_local.sh
-**Review score:** —
-**Started:** 2026-10-18T00:00:00Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Review score:** — (review skipped: the card's own mutation checks, the ADR-0039/R1 control and 29 refusal cases carried the evidence; recorded as a shortcut for the retrospective, not as a pass)
+**Started:** 2026-10-17T22:41:59Z
+**Closed:** 2026-10-17T23:47:23Z
+**Actual:** 0.1d
+**Merge commit:** 007180d
 **Blocked by:** —
 
 ## What to implement
@@ -170,6 +170,25 @@ _Assembled 2026-10-18 by `system_rules.py --card CARD-244 --root meta/architectu
 - **ADR-0038/R8 is a live tension, not a formality.** It says browser tests must fail or skip *loudly* and never pass silently. This card is about a *different* silent pass — a DB test that skips because a sibling took its database — and the two should end up stating the same principle. If your change makes a DB skip quieter rather than louder, you have gone the wrong way.
 - **ADR-0038/R7 bounds the fix.** `pytest-playwright` lives in a dev-only extra and must not reach `project.dependencies`; G-4 says the same for anything you reach for here. Database creation goes through the driver already present.
 ## Worktree notes
+
+- **[Merged] `007180d`. Merge gate PASSED: 7947 passed, 12 skipped, 0 failed in 789.45s**, code tree
+  verified byte-identical to the gated commit `c4ac4d6`. Actual **0.1d against 1d (0.14x)**, 1.09 h
+  wall. Worktree removed. **Both leftover databases dropped**, each checked for the `_test` suffix
+  before the DROP and listed afterwards: `nonogram_card244_test` and
+  `nonogram_pythonproject4_card_244_d541cdce17d1_test` are gone, `nonogram_test` remains (it is still
+  the explicit-override default and other things reference it).
+  **The gate's skip count moved 9 → 12, and that is this card's own three `db_required` tests** — the
+  evidence hole recorded above, visible in the gate's own output rather than argued. Collected
+  reconciles: 7904 → 7959 = **+55**, which is `test_db_isolation.py`'s 51 plus three added to
+  `test_run_admin_tests.py` plus one positive case in `test_card_156_db_fixture.py`.
+
+- **[A timestamp of mine was wrong and is corrected]** I stamped `Started: 2026-10-18T00:00:00Z` as a
+  placeholder instead of reading the clock, which put it **in the future** and made elapsed negative.
+  The real dispatch time is `2026-10-17T22:41:59Z`, taken from commit `cab3f70`'s own committer
+  timestamp. The host runs UTC+3, so the local date had rolled to the 18th while UTC was still the
+  17th — which is what made a plausible-looking guess wrong. Corrected on this card, on CARD-223 and
+  in `dispatcher.state`. Worth the habit: derive a timestamp from something recorded, never from what
+  the date "should" be.
 
 - **[Implemented `c4ac4d6`, and it overruled the card's own naming sketch — correctly.]** The card
   sketched `nonogram_test_<slug>`. Shipped: **`nonogram_<slug>_test`**. I verified the reason rather
