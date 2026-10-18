@@ -1,0 +1,616 @@
+card: CARD-224
+cycle: 2
+of_max: 3
+reviewed:
+  worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-224
+  branch: card/224-grid-centred-again
+  base: cc4430b
+  commits: [199b2f5, 6460766, e1cbb35, 85b6e45]
+  fix_commit: 85b6e45 (8 files, +681/-87)
+registry_basis: >
+  Judged against the amended registry on main (AC-252 retired with AC-190, AC-378/AC-379
+  added, EC-022's scope corrected), not the worktree's meta/architecture/**, which still
+  carries AC-252 unmarked and holds no AC-378/AC-379 (see F2-009).
+build_gate: >
+  not re-run (the orchestrator runs it under the repo lock at the merge gate). Targeted
+  selections only, all green on the unmutated tree: the five CARD-224 frame classes +
+  TestPairLayout_UpperSlotSitsAtItsOwnBandFoot (15 passed), the AC-287 and AC-276 classes
+  in tests/test_book_pdf.py (7 passed), tests/test_layout_two_up.py +
+  tests/test_layout_page_spec.py + tests/property/test_book_layout.py +
+  tests/property/test_book_pdf_geometry.py (183 passed). No absolute timings claimed.
+
+previous_score: 7.5
+score: 8.5
+verdict: PASS
+improvement: +1.0
+
+summary: >
+  Both of cycle 1's importants are closed, and F-001 is closed in substance and not only in
+  prose: measured over the FULL admissible space (extents 5..40 on both axes, every clue
+  depth, 11,028 placements per parity) the worst clearance between the drawing's outermost
+  ink and the header rule's outermost ink rose from cycle 1's 0.659 px to 3 px, and the
+  cell_cap=18.0 mm defect class is gone (my own scan: 8 violating (trim, extent) pairs
+  under the retired condition, 0 under the shipped one). The production-geometry change is
+  characterised exactly: I reproduced 55,140 placements, 28 disagreements, spare
+  12.405..14.143 px, 12-13 px of downward move, and qr_slot(...) is None on all 28 with no
+  exceptions. The one new important is the other side of the same coin: the threshold moved
+  outward, so the `band_mm` window in which a degraded page keeps a drawn footer rule grew
+  from < 8.13 mm to < 9.68 mm, and at band_mm 8.5/9.0 mm the shipped condition produces
+  pages whose ink crosses a footer rule that IS stroked where the retired condition produced
+  none. Unreachable through the only stored PrintProfile - exactly the reachability status
+  the fix used to justify F-001's own correction, which is why it is reported rather than
+  waved past.
+
+findings:
+
+  - id: F2-001
+    severity: important
+    file: src/nonogram/export/layout.py
+    line: 2575
+    claim: >
+      The fix's own account of the risk it introduced: "the fix states its own change
+      narrows the band_mm coupling margin from 5.7 px to 3.4 px of headroom (17.72 px lift
+      against a 14.29 px threshold)", and
+      test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer's docstring:
+      "below about 9.7 mm the inequality flips ... No stored profile is near it, so the
+      coupling is pinned here rather than designed away." book_pdf_generator._draw_page_frame
+      still states the placement and the renderer "agree by construction, which is what makes
+      'no drawing ink crosses a rule that is drawn' true of every page".
+    evidence: >
+      The arithmetic checks out (lift = band_px/8 = 17.717 px at 12 mm; clearance = 6;
+      threshold = 6/0.42 = 14.286; headroom 3.431 px, against 5.717 px under the retired
+      12 px threshold), but the consequence is understated. The flip point for band_mm moved
+      OUTWARD with the threshold, from 8.128 mm to 9.676 mm, so the fix did not merely narrow
+      a margin - it enlarged the unsafe band_mm range by 1.55 mm, and that new strip is
+      populated. Demonstrated, and independently re-run by me from the fix's own modules:
+      PageSpec(width_mm=215.9, height_mm=160.0, top_mm=13.97, bottom_mm=11.938,
+      gutter_mm=outside_mm=12.7, band_mm=9.0, cell_cap=7.5, min_thin_rule_mm=0.25,
+      parity=ODD) with a 23x9 grid behind 5-deep gutters gives, on the shipped condition,
+      vertical_bound="footer", drawing held at the band foot (row 271), drawing_bottom =
+      1396 == area_bottom = 1396, so qr_slot(layout) is NOT None and the whole footer group
+      is drawn - while the drawing's ink_bottom is 1399, three rows past the footer rule's
+      own row. EC-022's "no drawing or clue ink crosses either rule" is violated on a page
+      that strokes the rule. The retired condition on the same page returns "ratio" with
+      drawing_bottom 1388 / ink_bottom 1391, five rows clear: no violation.
+      Counted over five trim heights (160/200/240/279.4/300 mm) x extents 5..40 x two depth
+      patterns: at band_mm 8.5 the shipped condition yields 2 such pages and the retired one
+      0; at 9.0 it yields 17 and the retired one 0. Below ~8.13 mm the class is pre-existing
+      (7 vs 2 at 8.0 mm). At 9.5 mm and above neither yields any.
+      Two consequences for the claims as written:
+      (a) "_draw_page_frame ... they agree by construction" is false for band_mm < 9.68 mm.
+      What makes them agree is the value of a PrintProfile field, not the construction - the
+      renderer decides from a pixel and the placement from a verdict, and this is precisely
+      the case where the two disagree. The fix added the coupling sentence to that docstring
+      and left "by construction" standing next to it.
+      (b) Nothing in the suite can catch it. The new coupling test asserts lift > threshold
+      on one sheet whose band_mm is the test module's own literal 12.0 (tests/
+      test_book_puzzle_frame.py's BAND_MM), not BOOK1_PROFILE.band_mm; the AC-3 sweep's four
+      sheets all carry band_mm 12.0; the only module that varies band_mm at all,
+      tests/property/test_book_layout.py, asserts drawing_top's row and never qr_slot or the
+      footer rule. An owner lowering BOOK1_PROFILE.band_mm to 9 mm would red exactly one
+      test - tests/test_book_page_spec.py:396, which pins the constant - and would be told
+      nothing about the footer rule.
+    suggested_fix: >
+      Make the degraded placement safe rather than coincidentally safe: hold the drawing at
+      max(band_bottom, area_bottom - drawing_height + 1) so the degraded row is never ABOVE
+      the footer rule while the footer group is drawn, or refuse the ratio only down to the
+      lift and return the third verdict below it. Failing that, replace "agree by
+      construction" with the inequality it actually rests on, and add one shallow-band sheet
+      (band_mm 9.0) to the AC-3 sweep so the footer branch is swept where the coupling bites
+      - the sweep's two footer-branch assertions are exactly the two that fail on the case
+      above.
+
+  - id: F2-002
+    severity: minor
+    file: tests/test_book_puzzle_frame.py
+    line: 2230
+    claim: >
+      AC-3's claim, narrowed per the reviewer's instruction: "the sweep below covers extents
+      10..30 in steps of 2 on both axes at two clue-depth patterns on four sheets, which is
+      484 cases and not the admissible space."
+    evidence: >
+      The narrowing is otherwise accurate (CON-011 does admit 5..40; the odd extents and
+      every other stored trim really are unswept), but the case count is wrong by a factor
+      of two and the module says so itself: the loop's own guard is
+      `assert checked >= 4 * 11 * 11 * 2`, i.e. 968, and I instrumented the loop - it runs
+      exactly 968 cases (579 ratio, 389 footer). 484 is 4 x 11 x 11, the count with the
+      depth dimension dropped. The same docstring also says "one of them cannot be afforded
+      441 times" (= 21 x 21, a third figure for the same corpus) and line 2535 repeats "the
+      predicate the sweep above applies 484 times". A claim rewritten in this cycle
+      specifically to state its own corpus honestly states it three ways, none of them the
+      true one.
+    suggested_fix: 968 in all three places, or state it as "4 sheets x 121 extents x 2 depths".
+
+  - id: F2-003
+    severity: minor
+    file: tests/test_book_puzzle_frame.py
+    line: 2288
+    claim: >
+      `_clears` - "whether a drawing whose ink runs ink_top_mm..ink_bottom_mm touches
+      neither rule of the puzzle area", "the one predicate the sweep and its control both
+      use"; and the class docstring: "The drawing's ink, not its boundary, is what clears:
+      every rule in it is stroked centred on its boundary, so the box grows by half a heavy
+      rule at each end, and the furniture rules spread about their own rows the same way."
+    evidence: >
+      `_clears` compares the drawing's ink against `_puzzle_area_mm`'s two values, which are
+      the furniture rules' own ROWS, not their ink extents. The header rule is 3 px and
+      stroked centred on its row, so its ink reaches one row below area_top: a drawing whose
+      ink sits on the rule's ink still satisfies `area_top < ink_top_mm`. The sweep therefore
+      cannot see a one-pixel violation in either direction, which is exactly what cycle 1's
+      0.555/0.659 px measurements were - the fix says this in its report and is right.
+      Measured on the shipped tree over the swept corpus: worst ink-vs-ROW margin (what
+      `_clears` checks) 3.984 px, worst ink-vs-INK margin (what AC-3 claims) 3.000 px - a
+      1 px blind spot. Leaving `_clears` alone is the right call now, because the new
+      condition makes the ink-vs-ink margin >= 1 px by arithmetic
+      (gap_above >= ceil(thick/2) + ceil(furniture/2) + 1 > ceil(thick/2) + furniture//2),
+      and the threshold test pins that arithmetic. What is wrong is that neither the
+      predicate's docstring nor the class's says so, and the class's sentence about the
+      furniture rules spreading "the same way" asserts the opposite - a reader is told the
+      comparison accounts for a spread it does not account for. The control test's docstring
+      ("rejects a drawing whose ink reaches either rule") repeats it.
+    suggested_fix: >
+      One sentence on `_clears` naming the row-vs-ink distinction, why it is tolerable
+      (the arithmetic now guarantees >= 1 px, pinned by the threshold test) and what it
+      cannot see; and strike the misleading half of the class docstring's sentence.
+
+  - id: F2-004
+    severity: minor
+    file: src/nonogram/export/layout.py
+    line: 1567
+    claim: >
+      The fix swept src/, tests/ and docs/ for the claims AC-252's and AC-190's retirement
+      left dangling (F-004/F-005/F-010..F-013).
+    evidence: >
+      Two residuals of the retired fixed-top-edge clause survive in the present tense, one
+      of them in production code. `INTERIOR_HEADER_RULE_LIFT`'s docstring:
+      "**Not on the band's foot, and the reason is measured.** The band's foot is exactly
+      where a puzzle page's drawing begins (FR-032 pins the top edge at top margin + band),
+      so a rule drawn there is drawn on the drawing's own top edge". After this card the
+      drawing begins there only in the degraded regime, so the stated rationale for the 1/8
+      lift - the constant this card's own band_mm coupling (F2-001) is built on - describes
+      geometry the card retired. `tests/test_book_puzzle_frame.py:1034` carries the same
+      claim for `_RULE_WINDOW_PX` ("and the band's foot is where a puzzle page's drawing
+      begins (FR-032)"), in the very file whose module docstring was corrected for exactly
+      this. Everything else matching "fixed top edge" / "one band below the top margin" is
+      correctly historical, and F-004, F-005, F-010 and F-013's content are closed.
+    suggested_fix: >
+      Restate both as the degraded case ("the band's foot is where a drawing begins when the
+      area cannot hold it clear of both rules, and where every drawing began before
+      CARD-224"), and keep the measured white-space reason, which is unaffected.
+
+  - id: F2-005
+    severity: minor
+    file: tests/test_book_puzzle_frame.py
+    line: 1939
+    claim: F-012 - the modules that discuss the retirement cite AC-378/AC-379 in their indexes.
+    evidence: >
+      Three of the four do: tests/test_layout_two_up.py:9-12, tests/test_book_pdf_two_up.py:13
+      and tests/property/test_book_pdf_geometry.py:10-13. tests/test_book_puzzle_frame.py does
+      not: AC-378/AC-379 appear only inside one test body's docstring (:1450, :1453), while
+      both of this module's indexes - the file header (:3-11) and the CARD-224 block
+      (:1939-1946, which the fix commit edited) - name AC-1..AC-4, AC-6, AC-366/AC-367 and
+      EC-022 and no new AC id. A reader arriving from the amended registry still cannot find
+      this module from an AC id. The sweep reached the file and not the row.
+    suggested_fix: Add the AC-378 row to the CARD-224 index block.
+
+  - id: F2-006
+    severity: minor
+    file: src/nonogram/export/layout.py
+    line: 2575
+    claim: >
+      The clearance's third term is "the pixel that makes 'clear' strict", and the threshold
+      test is the boundary's one oracle.
+    evidence: >
+      Mutation. `if gap_above < clearance` -> `if gap_above <= clearance` SURVIVED the whole
+      selection (15 passed): whether a gap of exactly one clearance floats or is refused is
+      unpinned, because the test's closing assertion (floated[3] == clearance) reads an
+      integer gap that rounds to the same 6 under either reading. The strict pixel is
+      therefore asserted as a value and not as a boundary. Two further mutants survived but
+      are provably equivalent rather than untested: dropping the `gap_below < clearance`
+      disjunct, and spelling `gap_below = spare` instead of `spare - gap_above`. Both are
+      no-ops while GRID_SPARE_ABOVE < 1/2, since gap_above binds at 2.381 clearances and
+      gap_below only at 1.724 - the gap_below test is unreachable defensive code. The
+      docstring presents the two tests as jointly load-bearing ("Each of the two gaps ... is
+      tested against that clearance separately"); only one of them can ever fire.
+    suggested_fix: >
+      Either say in the docstring that gap_below is the defensive half that the 42/58 split
+      makes unreachable, or make the straddle scan step small enough in spare for the
+      gap_above == clearance case to be isolated, and assert which side of it floats.
+
+  - id: F2-007
+    severity: nit
+    file: src/nonogram/export/layout.py
+    line: 2487
+    claim: >
+      Case (iii) "is reachable on every sheet (47 of the extents Book 1 admits reach it at
+      some clue depth)" - repeated in the card's Implementation notes.
+    evidence: >
+      47 is the number of (extent, clue-depth) PLACEMENTS, not of extents. Enumerated:
+      Book 1 odd and even each have 47 such placements spread over 29 distinct extents
+      (six-by-nine 58/52, the 100 mm trim 40/40, the 160 mm trim 35/35). The claim as worded
+      overstates the extent count by 1.6x.
+    suggested_fix: '"47 of the (extent, clue-depth) placements Book 1 admits, over 29 extents".'
+
+  - id: F2-008
+    severity: nit
+    file: tests/test_layout_two_up.py
+    line: 51
+    claim: >
+      F-007's correction: the pinned gap is "113 px on this module's own profile", and the
+      module's own header calls BOOK1_ODD "CON-018's Book 1 profile (the same literal as
+      tests/test_layout_page_spec.py)".
+    evidence: >
+      113 px is right for what the test measures (verified: the test passes, and I measured
+      the gap on that spec at 113 px), but the spec is CON-018 as it was BEFORE the
+      2026-10-17 amendment: top_mm = bottom_mm = outside_mm = 9.525 (0.375 in) where the
+      amended profile stores 13.97 / 11.938 / 12.7. On the genuinely amended profile the same
+      construction gives a 94 px gap - which is the figure the PDF-level sibling
+      (tests/test_book_pdf_two_up.py's ROW_GAP_PX) pins - and 0.42 x spare there is 112.14 px,
+      which is where the retired docstring's "112 px on Book 1's amended profile" came from:
+      it had conflated the float with the inter-row gap. The pre-amendment literal is
+      pre-existing (present at cc4430b, and in nine other export-side modules), so this is
+      not the card's drift; what the card could have done, having touched the sentence, is
+      say that this profile is not the amended one, so that a reader does not read 113 and 94
+      as a contradiction.
+    suggested_fix: >
+      One clause: "on this module's pre-amendment CON-018 literal; the amended profile's own
+      figure is the 94 px tests/test_book_pdf_two_up.py pins".
+
+  - id: F2-009
+    severity: nit
+    file: meta/architecture/trace.yml
+    line: 1713
+    claim: G-5 / trace hygiene at the merge gate.
+    evidence: >
+      FR-032's live `tests:` list still names TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage,
+      a class this branch deletes (grep for `class TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage`
+      under tests/ returns nothing). The row is identical on main, so the branch does not
+      introduce the text - it introduces the dangling-ness, and forge:ci's trace<->code drift
+      lens runs at the merge gate. requirements.yml's own mention is fine: it is under an
+      explicit RETIRED 2026-10-17 marker. Separately, this worktree's
+      meta/architecture/requirements.yml has no AC-378/AC-379 and carries AC-252 unmarked,
+      while main has all three settled - worth confirming the merge does not regress main's
+      registry.
+    suggested_fix: Retire the trace row with AC-190, or point it at AC-366/AC-367's tests.
+
+  - id: F2-010
+    severity: nit
+    file: meta/kanban/cards/CARD-224.md
+    line: 207
+    claim: F-013 - the card's "### Implementation notes" describe the delivered work.
+    evidence: >
+      The content is now correct and thorough (the clearance term, its threshold as
+      clearance / 0.42 = 14.29 px, the third vertical_bound case, the band_mm coupling at
+      17.72 px vs 14.29 px, AC-252 retired rather than owed, no surviving xfail), and every
+      hit for "owed at the architect station" is now a negation. The notes are still
+      uncommitted: `git status --porcelain` shows ` M meta/kanban/cards/CARD-224.md`,
+      79 insertions outside all four commits. One figure in them inherits F2-007's wording.
+    suggested_fix: Commit them with the fix, or with the merge.
+
+settled_from_cycle_1:
+
+  - id: F-001
+    status: closed
+    how: >
+      The condition now tests each gap. Substance verified three ways, none of them a rerun
+      of the implementer's own script.
+      (1) Full admissible space, not the swept corner: extents 5..40 x 5..40, every clue
+      depth 1..(min+1)//2, Book 1 at both parities - 11,028 placements each. Zero violations
+      of either rule's INK, and the worst header ink margin is 3 px (at 18x21 depth 9),
+      against cycle 1's 0.659 px at 39x35. Worst footer ink margin 7 px. Every non-ratio
+      placement has qr_slot(...) is None.
+      (2) The cell_cap=18.0 mm class cycle 1 named: Book 1's width, trim heights 100..300 mm,
+      extents 5..15, all depths (11,658 cases). Reimplementing the retired condition
+      alongside the shipped one, 8 (trim, extent) pairs put ratio-branch ink on the header
+      rule's ink under `spare < 2 * clearance` and 0 do under the shipped condition - at a
+      heavy rule of 14 px the shipped worst margin is still 3 px.
+      (3) Mutation: cycle 1's surviving M5 is dead. `spare < 2 * clearance`,
+      `gap_below < clearance` alone, `spare <= 0` and `clearance ... + 0` are all killed, each
+      by test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare.
+      The test itself is sound rather than lucky: the straddle grid is width-bound (the cell
+      is 193.675/28 = 6.917 mm, below the 7.5 mm cap), so the drawing's height is constant
+      across the 41 trim heights and the spare is strictly monotone in height - exactly one
+      flip is guaranteed if the boundary is interior, and the test asserts >= 15 cases of each
+      verdict and that both verdicts occur, so a degenerate sweep cannot satisfy it. The
+      clearance is derived in the test from 0.6 pt / 0.4 pt written out plus the layout's own
+      committed thick_rule, not imported. The positive-spare assertion on the refused case is
+      real (it is what kills the `spare <= 0` mutant).
+      Residuals: the strictness pixel is unpinned (F2-006) and the gap_below disjunct is
+      unreachable (F2-006); the new threshold's far side is F2-001.
+
+  - id: F-002
+    status: closed
+    how: >
+      The class now carries WIDE_GUTTER_MM 20.0 / NARROW_OUTSIDE_MM 10.0 with its own
+      _unequal_pages/_unequal_expected_left_mm, the inequality is restored in
+      test_it_is_not_the_left_hand_page_a_miscount_would_give_it on that book, each of the two
+      moved tests asserts its own premise (the two readings are 10 mm apart) before the
+      refutation, and the Book 1 identity moved to
+      test_on_book_1_the_miscount_is_invisible_in_the_drawing where it is the subject.
+      Red-check reproduced independently, not taken on report: mutating
+      src/nonogram/admin/book_page_spec.py::_parity from `page_number % 2` to
+      `(page_number + 1) % 2` - the exact miscount the class is named for - gives
+      "3 failed, 3 passed" in that class (the three parity tests fail; the usable-area,
+      divider and Book 1 identity tests pass, correctly). The same mutant run against the
+      PRE-fix version of the file (85b6e45~1, collected under a temporary name) gives
+      "7 passed": every test in both re-aimed classes survived the miscount before this fix.
+      book_page_spec.py is in none of the four commits (`git show --name-only 85b6e45` and
+      `git diff --name-only cc4430b..HEAD`), and the file was restored from a pre-mutation
+      copy with `git status` clean.
+      Bonus: F-006's new premise kills the same mutant
+      (TestBookPdf_ParityNeverMovesTopEdge::test_the_two_drawings_share_a_top_pixel_row
+      failed, as did test_book_pdf_memory's parity test), so the two findings close together.
+
+  - id: F-003
+    status: closed
+    how: >
+      The saturation is now an assertion that can fail (`ink_bottom == round(area_bottom *
+      PX_PER_MM)`) rather than a premise riding on it, and the depth is taken from the layout
+      with a 25 mm floor. Measured on that fixture: (drawing_bottom + overhang) / PX_PER_MM is
+      30.161 mm below area_bottom, so the floor has 5.2 mm of headroom and is not satisfiable
+      by rounding. Vacuity gone.
+
+  - id: F-006
+    status: closed
+    how: >
+      The premise is now read off the 20 mm footer icon's end of the strip, asserted in the
+      test itself (odd_right > 4 * odd_left on page 5, even_left > 4 * even_right on page 6)
+      before the shared top row, with the equal-margin identity recorded rather than used as
+      evidence. Real premise, not a new identity: under the _parity mutant above the test goes
+      red.
+
+  - id: F-007
+    status: closed
+    how: >
+      The figure is asserted (gap == 113) and derived a second way from interior_frame's own
+      two rule rows with 1 px of slack for _boundaries' rounding - a derivation that does not
+      call the placement. A bare inequality would no longer hold: mutant
+      GRID_SPARE_ABOVE 42/100 -> 43/100 is killed by this test at both parities. See F2-008
+      for the profile the 113 is measured on.
+
+  - id: F-008
+    status: closed
+    how: >
+      Case (iii) is named in the docstring with its coupling, and pinned by
+      test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer on a real case
+      (Book 1, 23x27 behind 11-deep gutters, spare = 3 px, verdict "footer", drawing_top ==
+      band_bottom, drawing shallower than the area, qr_slot None). I reproduced the spare and
+      the verdict. The coupling assertion has teeth: mutant INTERIOR_HEADER_RULE_LIFT
+      1/8 -> 1/16 is killed (11 failures across the frame classes). What the finding's own
+      suggested fix asked for and did not get is a shallow-band sheet in the AC-3 sweep -
+      which is why F2-001 is reportable.
+
+  - id: F-009
+    status: closed-with-limits
+    how: >
+      unmoved_control_page_px records each sheet's device-pixel size, checked against the
+      recorder's own pages and against the trim arithmetic restated in the test, with a note
+      explaining why no digest in this recording can be unmoved. It is a real control: mutant
+      DPI 300 -> 299 kills test_the_recording_carries_a_control_that_did_not_move. Its limit
+      should be read honestly - any recorder drift that changes a page's size changes every
+      digest too, so the control is attributive ("the digests moved because the placement
+      moved, not because the sheet did") rather than independently falsifying, and it is blind
+      to recorder drift that preserves size. The note says as much.
+
+  - ids: [F-004, F-005, F-010]
+    status: closed
+    how: >
+      All 20 AC-252 occurrences across src/, tests/, docs/ and the card now read as
+      retirement or explicit history; no occurrence says "still asserts" or "owed at the
+      architect station" except as a negation; no xfail marker related to AC-252/CARD-224
+      exists in the tree; tests/test_layout_two_up.py's AC index names
+      TestPairLayout_UpperSlotSitsAtItsOwnBandFoot (which exists) with the old name as
+      history; book_pdf_generator's spliced sentence and stray "the" are gone.
+  - id: F-011
+    status: partially-closed
+    how: see F2-004 - the named docstring is fixed, two present-tense siblings are not.
+  - id: F-012
+    status: partially-closed
+    how: see F2-005 - three of four modules closed, tests/test_book_puzzle_frame.py's indexes not.
+  - id: F-013
+    status: closed-on-content-still-uncommitted
+    how: see F2-010.
+
+production_geometry_change:
+  verdict: >
+    Characterised correctly and, within the stored and reachable geometry, safe. The one
+    unsafe direction is F2-001.
+  a_no_stored_page_moves:
+    status: confirmed-but-near-vacuous
+    how: >
+      Enumerated through the real recorders with _placed_drawing_top instrumented: the
+      baseline book makes exactly 33 placement calls and the proof recording 81 (9 placed
+      drawings on each of the 9 trims, not 9 in total). 0 of 114 differ in verdict or row
+      between the shipped and the retired condition, which is why neither fixture was
+      re-recorded - and book_baseline_card224.json is indeed absent from the fix commit while
+      proof_baseline_card224.json is +39/-0.
+      The corpus is not representative of the change, and the statement should not be read as
+      evidence of safety: all 114 stored placements are in the "ratio" branch, none within
+      10x of the threshold for the book (min spare 267 px, 19x the 14.29 px threshold) and
+      none within 2x for the proof sheets (min spare 43 px, 3x). "No stored page moves" would
+      have held for almost any threshold the fix could have picked, and the two fixtures give
+      the degraded branch zero coverage.
+  b_all_28_omit_their_footer_group:
+    status: confirmed-exactly
+    how: >
+      Reproduced independently: five sheets (the AC-3 sweep's four plus the 160 mm trim
+      AC-4 uses) x 11,028 placements = 55,140; 28 disagreements, every one of them ratio ->
+      footer; spare 12.405..14.143 px; move +12 or +13 px; vertical_bound "footer" on all 28;
+      qr_slot(layout) is None on all 28, 0 exceptions; drawing_bottom exceeds area_bottom by
+      4-5 px on all 28, which is what makes the renderer's all-or-nothing footer condition
+      refuse the group. Per sheet: six-by-nine 9, the 100 mm trim 7, the 160 mm trim 12,
+      Book 1 at both parities 0.
+      Caveat on the framing: 28 is the count for those five sheets, not a bound on the
+      admissible space. A 216 x 180 mm sheet alone yields 90 disagreements (216x240 yields 14,
+      216x200 yields 6); qr_slot is None on every one of those too, so the property holds,
+      but "28 placements" should not be quoted as the size of the change.
+  c_interactions:
+    caption_slot: >
+      No interaction. The guard is _draw_solved_slot's slack >= gap_px + line_height = 73 px;
+      over all 28 moved placements the smallest slack is 348 px, and 0 captions are newly
+      omitted. caption_slot itself is horizontal-only.
+    two_up_and_packed: >
+      Unreachable. _placed_drawing_top has exactly one call site in layout.py (inside
+      compute_layout); _slot_layout and _packed_tile_layout pass vertical_bound="slot" as a
+      literal. Pairing verdicts and the committed cell cannot change.
+    proof_pages: 0 of 81 placements change.
+    direction_of_move: >
+      The fix's "down 12-13 px" is right and worth recording, because it is counter-intuitive:
+      on a 12-14 px spare, 42% of it is only 5.3-5.9 px while the band's lift is ~17.7 px, so
+      the band's foot is the LOWER of the two rows and refusing the ratio pushes the drawing
+      DOWN past the footer rule. The docstring says exactly this ("in (iii) the band's foot is
+      the lower of the two rows"). Measured: old_top 294/295 -> new_top 307 == band_bottom.
+  d_band_mm_margin:
+    status: not-acceptable-as-left
+    how: >
+      Every figure the fix states is right (lift 17.717 px, threshold 14.286 px, headroom
+      3.431 px against 5.717 px before, flip at 9.676 mm against 8.128 mm). The judgement is
+      that 3.4 px is not the whole story: the flip point moved outward, so the fix enlarged
+      the unsafe range and populated it - 19 new defective pages at band_mm 8.5/9.0 mm where
+      the retired condition had none. The new assertion that pins the coupling is sound as far
+      as it goes (it kills the 1/16 lift mutant) but it pins one sheet at band_mm 12.0 taken
+      from the test module's own literal, so it is a tripwire on an arithmetic claim and not on
+      the property. See F2-001.
+
+figure_corrections_adjudicated:
+  - id: 1
+    subject: F-007's 112 px vs the fix's 113 px
+    ruling: the fix is right, and the review was repeating an unverified docstring
+    how: >
+      Measured: on tests/test_layout_two_up.py's own BOOK1_ODD the gap between the single
+      page's drawing_top and the upper slot's is 113 px, and the test asserting it passes. The
+      retired docstring's 112 was two errors at once: it was the FLOAT (0.42 x spare = 112.14
+      px), not the inter-row gap, and it was computed on CON-018 as amended - a profile that
+      module does not use. On the amended profile the gap is 94 px, which is what the PDF-level
+      sibling pins. Cycle 1's substantive point (the figure was promised and not measured) was
+      correct; its number was not. Residual: F2-008.
+  - id: 2
+    subject: F-008's "8.1 mm" - whose bound it is
+    ruling: the fix is right on both counts
+    how: >
+      Derived independently. The sweep's footer-branch predicate is ink_bottom > area_bottom,
+      which includes the drawing's own ceil(thick/2) = 3 px overhang, so it survives while
+      lift + 3 > threshold; qr_slot's predicate is drawing_bottom > area_bottom and has no
+      overhang, so it needs lift > threshold. With threshold 12 px (retired) that is band_mm >
+      6.096 mm and > 8.128 mm; with 14.286 px (shipped) it is > 7.65 mm and > 9.676 mm. The
+      binding one - the first to break as the band shrinks - is qr_slot's. So cycle 1's "at a
+      band under 8.1 mm ... both fail" was wrong about "both": between 6.1 and 8.13 mm only
+      qr_slot's assertion failed. The fix's retired pair (6.1 / 8.13) and new pair
+      (7.65 / 9.68) both reproduce.
+  - id: 3
+    subject: the "126 (trim, extent) pairs" count
+    ruling: no one is reproducibly right; the phenomenon is, and that is what matters
+    how: >
+      My own scan (Book 1's width, heights 100..300 mm in 1 mm steps, extents 5..15, every
+      depth, cell_cap=18.0) finds 8 violating (trim, extent) pairs under the retired condition
+      and 0 under the shipped one. The fix's coarser scan found 4; cycle 1 claimed 126. All
+      three are different search spaces and none of the three published its parameters fully
+      enough to reproduce, so the count is not a fact about the code - the direction is, and
+      all three agree on it. The fix's handling (flag its own 4, decline to doubt the 126) is
+      the right call; cycle 1's 126 should not be carried forward as a figure.
+  - id: 4
+    subject: the fix's addition - the AC-3 sweep's _clears could not have seen cycle 1's margins
+    ruling: the fix is right, and leaving _clears alone is the right call, but not silently
+    how: >
+      Confirmed by reading the predicate and by measurement: _clears compares against the
+      rules' rows, and the worst ink-vs-ROW margin over the swept corpus is 3.984 px against a
+      worst ink-vs-INK margin of 3.000 px, so the sweep has a 1 px blind spot and cycle 1's
+      0.555 px was never in its reach. Leaving it is defensible because the new condition makes
+      the ink-vs-ink margin >= 1 px by arithmetic and the threshold test pins the arithmetic -
+      I verified the inequality holds over the whole admissible space. What is not defensible is
+      that the blind spot is undocumented at the site and that the class docstring asserts the
+      opposite. See F2-003.
+
+mutation:
+  policy: >
+    10 mutants aimed at what this cycle changed, run in a copy of the tree under the
+    scratchpad so the worktree was never mutated (the one worktree mutation, _parity for
+    F-002's red-check, was restored from a pre-mutation copy and git status confirmed clean).
+    Selections: the five CARD-224 frame classes; tests/test_layout_two_up.py +
+    tests/test_layout_page_spec.py; tests/property/test_book_layout.py +
+    tests/property/test_book_pdf_geometry.py; one proof class for M9.
+  results:
+    - id: M1
+      mutant: 'the new two-gap condition -> the retired `spare < 2 * clearance`'
+      result: killed
+      by: test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare (1 failed, 182 passed)
+      note: this is cycle 1's surviving M5. It is dead.
+    - id: M2
+      mutant: 'the condition -> `gap_below < clearance` alone (drop the binding disjunct)'
+      result: killed
+      by: test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare
+    - id: M3
+      mutant: 'the condition -> `gap_above < clearance` alone (drop gap_below)'
+      result: SURVIVED
+      detail: 183 passed. Provably equivalent - gap_below can never bind while the split is 42/58 (it binds at 1.724 clearances, gap_above at 2.381). Recorded in F2-006.
+    - id: M4
+      mutant: '`gap_below = spare - gap_above` -> `gap_below = spare`'
+      result: SURVIVED
+      detail: 183 passed. Equivalent for the same reason as M3.
+    - id: M5
+      mutant: '`gap_above < clearance` -> `gap_above <= clearance`'
+      result: SURVIVED
+      detail: 15 passed. The boundary's strictness is unpinned - the closing assertion reads an integer gap that rounds to 6 either way. F2-006.
+    - id: M6
+      mutant: 'the condition -> `spare <= 0`'
+      result: killed
+      by: 'the AC-3 sweep, the threshold test and the case-(iii) test (3 failed)'
+    - id: M7
+      mutant: 'INTERIOR_HEADER_RULE_LIFT 1/8 -> 1/16 (the F-008 coupling)'
+      result: killed
+      by: '11 failed - the AC-3 sweep, the threshold test, the real-book ink test and the two-up gap test'
+    - id: M8
+      mutant: 'GRID_SPARE_ABOVE Fraction(42, 100) -> Fraction(43, 100) (the F-007 figure)'
+      result: killed
+      by: test_the_single_page_now_sits_lower_than_the_upper_slot at both parities (2 failed)
+    - id: M9
+      mutant: 'DPI 300 -> 299 (the F-009 control)'
+      result: killed
+      by: test_the_recording_carries_a_control_that_did_not_move
+    - id: M10
+      mutant: 'clearance ... + 1 -> + 0 (the strict pixel)'
+      result: killed
+      by: test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare
+  score: 7 killed / 10, with 2 of the 3 survivors provably equivalent and 1 a real gap (M5)
+
+coverage_judgement:
+  genuinely_covered:
+    - AC-1 (unchanged from cycle 1; both halves)
+    - AC-2 (unchanged from cycle 1)
+    - AC-3 - the clearance term is now pinned by its own oracle, kills four mutants, and the
+      conclusion holds over the whole admissible space with a 3 px ink margin rather than a
+      sub-pixel one. The swept corpus is honestly narrowed (though mis-counted, F2-002) and the
+      generalisation argument is sound.
+    - AC-4 - the verdict, the band's-foot row, the omitted footer group, a control trim that
+      floats, the third case named and pinned, and the depth premise no longer saturated.
+    - AC-5 / G-3 (unchanged; and no caption is newly omitted by the 28 moved placements)
+    - AC-6 (unchanged)
+    - AC-287 - closed by F-002's fix; dies on the exact miscount it is named for.
+    - AC-276 - both halves now; the parity premise is in the test and dies on the miscount.
+    - AC-378 - the PDF-level 94 px and now the layout-level 113 px, the latter derived twice.
+    - G-1 (verdict and cell provably taken before any changed line; one call site confirmed)
+    - G-2, G-5 (unchanged from cycle 1; no fixture modified or deleted, proof recording +39/-0)
+  partially_covered:
+    - EC-022's footer half under a non-default band_mm - the property is asserted at band_mm
+      12.0 only and is false below 9.68 mm (F2-001).
+  covered_in_name_only: []
+  vacuous_controls_found: []
+  controls_spot_checked_and_sound:
+    - test_on_book_1_the_miscount_is_invisible_in_the_drawing (the identity, as the subject)
+    - the two premise assertions in the AC-287 class (the two readings 10 mm apart)
+    - test_the_recording_carries_a_control_that_did_not_move (killed by a DPI mutant)
+    - test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer (spare = 3 px measured)
+    - >
+      the straddle scan's "both regimes, >= 15 each, exactly one flip" guard
+      (non-degenerate - the straddle grid is width-bound, so spare is monotone
+      in trim height)
+
+process_notes:
+  - No full-suite run. Targeted selections only; no absolute timing claimed (CARD-246 builds concurrently).
+  - DATABASE_URL set to this worktree's own test database on every run; nonogram_poc untouched.
+  - The mutation pass ran in an rsync copy of src/tests/meta under the scratchpad, so
+    src/nonogram/export/layout.py in the worktree was never modified. The single worktree
+    mutation (book_page_spec.py::_parity, for F-002's red-check) was restored from a
+    pre-mutation copy; `git diff HEAD -- src tests` is empty and `git status --porcelain`
+    shows only the card's pre-existing uncommitted notes and this review's own files.
+  - Nothing committed. /Users/omelnikova/PycharmProjects/PythonProject4 not modified.

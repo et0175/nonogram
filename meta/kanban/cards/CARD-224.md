@@ -503,3 +503,104 @@ F-010..F-013, and **F-004/F-005 — the orchestrator's own incomplete pass** —
 refused because it "would put ink further past the footer rule than the alternative does", which
 is **false for case (iii)** — there the band's foot is the *lower* row and is taken anyway, to
 keep the **header** rule clean. Now stated as the trade it actually is.
+
+### [Review 2/3] Score: 8.5 — PASS (threshold 8, improvement +1.0 against a 0.5 floor)
+
+Report: `meta/review/20261018T121230Z-CARD-224-cycle2.yml`. Both thresholds met, so the card is
+**cleared to merge on score**. One new important, and a third cycle is being run anyway — the
+reason is below, and it is the same judgment as on CARD-245: a score that passes does not settle
+whether something should merge.
+
+**F-001 closed in substance, verified three ways none of which was a re-run of the fix's own
+script:** zero violations of either rule's ink across **11,028 placements per parity** on Book 1
+(extents 5..40 × 5..40, every clue depth), with the worst drawing-ink-to-header-ink margin now
+**3 px** against cycle 1's **0.659 px**; at the `cell_cap = 18.0` class cycle 1 named, **8**
+violating (trim, extent) pairs under the retired condition and **0** under the shipped one; and
+cycle 1's surviving mutant M5 is dead along with three others. "Exactly one flip" was judged
+non-degenerate on its merits — the straddle grid is width-bound so the drawing's height is
+constant across the 41 trim heights, spare is strictly monotone, and both verdicts are asserted
+to occur with ≥ 15 cases each.
+
+**F-002 closed, and the red-check was reproduced independently rather than taken on report:**
+post-fix `3 failed, 3 passed`; **pre-fix, the same mutant gave `7 passed`** — every test in both
+re-aimed classes survived the miscount before this fix. F-003, F-006, F-007, F-008 and F-009 all
+closed with their controls shown to bite. **Nothing is covered-in-name-only any more**; both of
+cycle 1's entries are gone and no vacuous control survives.
+
+**All three of the fix cycle's corrections to cycle 1's figures were judged right**, including
+that cycle 1's "112 px" was two errors at once — it was the *float* (0.42 × spare = 112.14 px),
+not the inter-row gap, and it was computed on a profile that module does not use. The lesson is
+recorded as a standing one: **a review that inherits a figure from the docstring it is auditing
+is auditing nothing.** The "126 pairs" figure is explicitly **not carried forward** — three
+scans produced 126, 8 and 4 over three unpublished search spaces; the direction is the fact.
+
+#### ⚑ F2-001 (important, new) — the fix created a defect class that did not exist before it
+
+**I reproduced this myself, and my numbers match the review's row-for-row.** On a 160 mm trim
+with a 23×9 grid behind depth-5 clue gutters:
+
+| `band_mm` | `vertical_bound` | `drawing_top` | `drawing_bottom` | ink | `footer_rule.y` | group drawn |
+|---|---|---|---|---|---|---|
+| 8.5 | ratio | 261 | 1386 | 1389 | 1396 | yes — clear |
+| **9.0** | **footer** | **271** | **1396** | **1399** | **1396** | **yes — ink 3 rows past a DRAWN rule** |
+| 9.676 | footer | 279 | 1404 | 1407 | 1396 | no — omitted, nothing to cross |
+| 12.0 (BOOK1) | footer | 307 | 1432 | 1435 | 1396 | no — clear |
+
+So the framing on the card was wrong, and that matters more than the count: this is **not** a
+"narrowed margin". The flip point **moved outward** from 8.128 mm to **9.676 mm**, and the newly
+crossed strip is **populated** — 17 defective pages at `band_mm = 9.0` and 2 at 8.5, against
+**zero** for the retired condition. Below ~8.13 mm the class is pre-existing and not this card's.
+
+Two consequences, and the second is why it cannot be left as a note:
+
+- `_draw_page_frame`'s *"they agree by construction, which is what makes 'no drawing ink crosses
+  a rule that is drawn' true of every page"* is now **false** below 9.68 mm. What makes them
+  agree is the value of a `PrintProfile` field. The coupling sentence was added **next to**
+  "by construction" without striking it.
+- **Nothing can catch it.** The new coupling test asserts `lift > threshold` on one sheet at the
+  *test module's own* `BAND_MM = 12.0`, not `BOOK1_PROFILE.band_mm`; all four AC-3 sweep sheets
+  are at 12 mm; and the only module that varies `band_mm` asserts `drawing_top`'s row and never
+  `qr_slot`. Lowering the profile to 9 mm would red **exactly one** test — the one pinning the
+  constant — and it says nothing about the footer rule.
+
+**Why it is being fixed rather than recorded.** It is unreachable through the only stored
+`PrintProfile` — but **that is the same reachability status the fix used to justify correcting
+F-001 in the first place**, so declining it on those grounds would be incoherent. And the
+scenario is ordinary: the owner shallows the title band from 12 mm to 9 mm on a small trim, and
+some pages print a footer hairline with the grid's heavy border stroked three rows past it. Net
+the cycle is still a clear improvement — it trades an unreachable hole for a larger unreachable
+one and buys a **4.5×** real-margin gain in the geometry that actually prints — but a card does
+not merge having *created* a class it could have closed.
+
+#### The two claims the review graded as "true but near-vacuous", which is the right grade
+
+- **"No stored page moves" is true and proves little.** Enumerated through the real recorders:
+  the baseline book makes **33** placement calls, the proof recording **81** (9 per trim, not 9
+  total), and **0 of 114** differ. But all 114 are in the `ratio` branch, the nearest **19×**
+  the threshold clear, so the claim would have held for almost any threshold the fix could have
+  picked — and **the two fixtures give the degraded branch zero coverage.** A fixture set that
+  cannot see the branch a change is about is not evidence about that change.
+- **"All 28 omit their footer group" is exact, 0 exceptions** — reproduced to the placement, with
+  `drawing_bottom` exceeding `area_bottom` by 4–5 px on all 28, which is *why* the renderer
+  refuses the group. One framing caveat: 28 is the count for those five sheets, **not a bound** —
+  a 216×180 mm sheet alone yields 90, all still with the group omitted.
+
+**Minors routed into the third cycle:** F2-002 (the docstring rewritten *this cycle specifically
+to state its own corpus honestly* states it **three ways and none is true** — 484 claimed, **968**
+actually run, "441" in the same paragraph), F2-003 (`_clears`'s row-vs-ink blind spot is
+undocumented and **actively contradicted** by the two docstrings around it), F2-004
+(`layout.py:1567` states the retired fixed top edge **in production prose, in the present tense**,
+as the live rationale for the very constant this card's `band_mm` coupling is built on), F2-005,
+F2-006 (two surviving mutants are **provably equivalent** — `gap_below` can never bind at a 42/58
+split — so the docstring must stop presenting both disjuncts as load-bearing; a third, `<` → `<=`,
+**is** a real gap), F2-007, F2-008.
+
+**F2-009 is the orchestrator's to fix at the merge, and it is sharper than reported.**
+`trace.yml:1713` names `TestBookPdf_PuzzleTopEdgeSamePositionOnEveryPage`, which this branch
+deletes as a class. I checked: the name survives in `tests/test_book_pdf.py` **only as prose**
+(two docstring references recording what replaced what), so **a name-grep trace lens would
+falsely pass** — the dangling row would not be caught by the check that exists to catch it. I
+also over-called this at first as two dangling names; the property test
+`PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent` **does** survive, as
+`test_PropertyTest_…`, so EC-022 keeps its control. Registry amendment owed at the merge, not
+now — removing the row while main still defines the class would make main the inconsistent one.
