@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 46
 **Depends on:** —
-**Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/db/models.py, migrations/versions/016_puzzle_manually_edited_at.py, src/nonogram/admin/templates/_puzzle_table.html, tests/test_puzzle_edit_store.py, tests/test_puzzle_edit_routes.py  <!-- amended 2026-10-18: the three middle entries are the owner's SETTLED section (the column, migration 016, surfacing the stamp) and were missing from the field; tests/test_admin_review.py was listed and not needed. See [Touches drift] below. -->
+**Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/db/models.py, migrations/versions/016_puzzle_manually_edited_at.py, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, start.sh, tests/test_puzzle_edit_store.py, tests/test_puzzle_edit_routes.py  <!-- amended 2026-10-18: the three middle entries are the owner's SETTLED section (the column, migration 016, surfacing the stamp) and were missing from the field; tests/test_admin_review.py was listed and not needed. See [Touches drift] below. -->
 **Review score:** —
 **Started:** 2026-10-18T05:09:31Z
 **Closed:** —
@@ -524,3 +524,86 @@ covered elsewhere — and AC-4's legacy **status-only** arm was not covered at a
 tautology was hiding a coverage hole, not a weak assertion. Both corrections are the kind this
 board wants recorded, since an agent correcting a reviewer is the cheapest place to catch a
 review error.
+
+### [Review 2/3] Score: 8.5 — PASS (threshold 8, improvement +1.5 against a 0.5 floor)
+
+Report: `meta/review/20261018T074254Z-CARD-245-cycle2.yml`. Both thresholds met, so the card is
+**cleared to merge on score**. One new important, and a second fix cycle is being run anyway —
+the reason is recorded below, because merging on the score would have been defensible and was
+the wrong call.
+
+**All three cycle-1 importants and all five minors re-judged, with the controls checked rather
+than counted:** F-001 **closed** (the premise — same bits, different extents — is itself
+asserted so a later edit cannot make the class vacuous; the reshaped save raises from **the
+gate**, not the pairing; the solver-entry count is asserted to *rise* and the same-extent
+control asserts it does *not*, so the rise is the reshape and not "every save re-solves"; the
+cycle-1 mutant now **fails 7** where it survived all 161). F-003 **closed**. F-004, F-005,
+F-007, F-011, F-012 **all closed, every control biting** — F-011's structural pin was judged
+"a pin on a trap, not an untestable claim", because a mutant *does* separate the two versions
+structurally even though behaviour cannot.
+
+**F-002's inversion was verified on every axis and holds**: 33 derived read-only symbols
+against a 10-entry hand list (so the list is not a snapshot of today's methods), module scope
+so a module-level writer is reported in its own right, all nine cycle-1 shapes caught as
+controls, the exemption checks genuinely biting, and **the read-only fixpoint sound** — two
+methods cannot excuse each other, mutual-recursion writers come out ungated, and `_accounted_for`
+only promotes symbols with no mutations of their own.
+
+#### ⚑ F-101 (important, new) — the alias pass hides real writes, and the next card is the one that would hit it
+
+A **fresh container holding references to durable rows** is treated as not-durable-state. Three
+real grid writes with no call to the gate leave the whole G-1 class **green, 21 passed**:
+
+```
+batch = list(self.puzzles.values()); batch[0]["grid"] = grid
+rows = {} ... populate with self.puzzles[pid] ... for row in rows.values(): row["grid"] = grid
+row = {} ... row = self.puzzles[pid]; row["grid"] = grid     # one fresh binding anywhere marks the name fresh for the whole body
+```
+
+In legacy mode `self.puzzles.values()` yields the **live** row dicts — the card's own test
+harness deep-copies for exactly that reason — so all three durably corrupt the store. The tell
+that this is a spelling accident and not a judgment: the *same* write spelled
+`for row in batch: row["grid"] = grid` **is** caught.
+
+**Why this was fixed instead of recorded as a residue, when the score already passed.** The
+hole is in **G-1**, the guardrail this card itself calls "the one that matters", and the
+reviewer's failure scenario names **CARD-246** — the card that depends on this one and is next
+in line — adding a batch repair that gathers rows into a local first, which is a natural thing
+to do for pagination or ordering. **A hole whose concrete failure scenario is "the next card
+does a natural thing" is a trap set for that card, not a residue to inherit.** Merging on 8.5
+would have handed CARD-246 a green guard over an open write path.
+
+**The honest-bound judgment is the transferable part.** The fix cycle had documented a bound
+naming imported helpers and mutators outside `MUTATORS`. This hole is **neither** — and
+`_fresh_locals`' docstring positively *asserts* the premise that hides it ("a slot of a fresh
+container is still not durable state"), which is false for a container of references. So it was
+**claimed sound rather than declared out of scope**, which is the one thing a default-deny guard
+must not do. The *declared* half of the bound — reflection (`object.__setattr__`,
+`operator.setitem`, `functools.partial`, `exec`, computed `getattr`) — was judged **acceptable**:
+those are evasions, not accidents, and a `.py`-AST guard cannot see them. Property setters,
+dataclass `replace` and comprehension side effects are all already caught.
+
+**Also in the second fix cycle:** F-103 (nit) — `_remember_proof`'s stated justification for
+reading the memo dict directly is **false**: it claims the insert path needs the entry without
+the recency side effect, but the next lines call `move_to_end` unconditionally on both branches,
+so the accessor would be behaviour-identical. The real and sufficient reason is the one the test
+already encodes (it is one of the memo's own three methods) — **fix the sentence, not the code**.
+F-102 (minor) — `_reaches` is reachability, not ordering, and the class docstring promises more
+than the static half delivers; narrow the docstring and name where ordering is pinned
+behaviourally, rather than attempting static ordering analysis. F-104 (nit) — `_symbols` keys by
+`Class.method`, so a property getter/setter pair silently collapses; it fails safe today only
+because Python forces getter-then-setter.
+
+**Residue left deliberately:** F-105 — legacy mode stores the caller's grid list by reference.
+Unreachable from the routes, identical to `add_puzzle`, and production is Postgres.
+
+**Mutation pass, cycle 2: 9 mutants + 1 control + 3 alias probes.** N1..N8 killed, N9 survived
+(the declared reflection bound), N8a/b/c survived → F-101, N10 the comment-only control survived
+as intended. Two waves running, two mutation passes, and **every important finding on this card
+came from a surviving mutant.** That is the strongest evidence yet for keeping
+`mutation_check: true` on this board, and it is worth carrying to the retrospective.
+
+**Coverage verdict now:** AC-1..AC-10 all genuinely covered (AC-8's cycle-1 gap closed, AC-4's
+legacy arm now real, AC-6 gained an arm the card never asked for). G-2..G-6 genuinely covered.
+**G-1 is covered-with-a-gap** — no longer covered-in-name-only, which was the right verdict in
+cycle 1 and is not the right one now. **Nothing is covered-in-name-only after this cycle.**

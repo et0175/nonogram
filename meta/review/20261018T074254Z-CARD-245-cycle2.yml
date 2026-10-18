@@ -1,0 +1,245 @@
+card: CARD-245
+cycle: 2
+of_max: 3
+reviewer: reviewer-agent
+commit: 7958832
+base: cc4430b
+previous_commit: 9f3743d
+branch: card/245-edited-grid-verify-and-grade
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-245
+utc: 20261018T074254Z
+score: 8.5
+previous_score: 7
+verdict: PASS
+threshold: 8
+improvement_required: 0.5
+improvement_achieved: 1.5
+host_condition: "sibling card active on this machine; no absolute timings taken"
+targeted_run:
+  selection: "tests/test_puzzle_edit_store.py tests/test_puzzle_edit_routes.py"
+  result: "188 passed, 2 warnings"
+  exit: 0
+  database_url: set
+  previous_cycle_count: 161
+
+summary: >
+  Every fix the cycle claims is real, and every control it added bites: nine targeted mutants,
+  eight killed, and the one survivor is a shape the fix itself declares out of reach. F-001 is
+  closed by a genuine round trip (M2, which survived 161 tests in cycle 1, now fails 7). F-003
+  is closed. F-002's direction is now right and its residue is much narrower: the catalogue is
+  of writes rather than grid-writes, the parse is the module, all nine shapes cycle 1 probed are
+  caught and parametrised, the ten-entry exemption list is machine-checked (save_edited_grid is
+  refused on both counts, so it cannot be excused) and is dwarfed by the 33 methods derived out
+  read-only. What stops F-002 being fully closed is one unstated and incorrect premise in the
+  "freshly built local" alias pass: a fresh container holding references to durable rows is
+  treated as not-durable-state, so three real, ungated grid writes added to the production module
+  are classified read-only and the G-1 assertion stays green. That is one important rather than
+  three, it is test-only, and it needs a specific spelling (an intermediate `list(...)`/`{}`, or a
+  reused name) that the ordinary loop form does not have. Both disagreements the fix raises with
+  cycle 1 — F-012 "styled but indistinguishable, not unstyled" and F-005 "understated" — are
+  correct and I verified each against the source. Production movement is confined to what the
+  dispatcher listed; app.py, models.py, the migration and start.sh's default are untouched.
+
+findings:
+  - id: F-101
+    severity: important
+    file: tests/test_puzzle_edit_store.py
+    line: 1086
+    supersedes: F-002
+    claim: >
+      G-1's inversion is sound in direction but its "freshly built local" exemption is unsound:
+      a fresh container that holds *references* to durable rows is still treated as not durable
+      state, so a write through it is not a mutating shape at all and the method is classified
+      provably read-only — out of the candidate set entirely, never asked whether it reaches the
+      gate. Three real grid writes added to the production module pass the whole G-1 class.
+    evidence: >
+      Each body below was inserted into PuzzleReviewService as a new method that never calls the
+      gate, and `pytest tests/test_puzzle_edit_store.py::TestPuzzleEdit_EveryGridWriteGoesThroughTheOneRefusal`
+      reported 21 passed, exit 0:
+      (A) `batch = list(self.puzzles.values()); batch[0]["grid"] = grid`;
+      (B) `rows = {}` / `for pid in pids: rows[pid] = self.puzzles[pid]` / `for row in rows.values(): row["grid"] = grid`;
+      (C) `row = {}` / `row = self.puzzles[pid]` / `row["grid"] = grid` (a reused name: one
+      assignment anywhere in the body marks the name fresh for the whole body).
+      In legacy mode `self.puzzles.values()` yields the live row dicts - the test harness
+      deep-copies in `Harness.row` for exactly that reason - so all three durably corrupt the
+      store. The control (D), the same write spelled `for row in batch: row["grid"] = grid`,
+      IS caught (1 failed, test_every_candidate_writer_reaches_the_refusal_or_is_excused), which
+      shows the hole is a spelling accident rather than a drawn boundary. `_fresh_locals`'
+      docstring asserts the premise that makes it invisible - "a slot of a fresh container is
+      still not durable state" and "where such a local *goes* is a separate write and is seen on
+      its own" - and `_mutating_shapes`' stated bound names only imported helpers and mutators
+      outside MUTATORS, so this case is claimed sound rather than declared out of scope.
+    suggested_fix: >
+      Treat a fresh container as fresh only while nothing durable has been put into it: drop a
+      name from `_fresh_locals` when any value reaching it is rooted at `self` (or at a
+      parameter), and drop it entirely if the name is rebound to a non-fresh value anywhere in
+      the body. Then add (A), (B) and (C) as three more parametrised controls beside the nine, so
+      the next widening is itself asserted.
+
+  - id: F-102
+    severity: minor
+    file: tests/test_puzzle_edit_store.py
+    line: 1357
+    claim: >
+      `_reaches` checks *reachability* of the gate through call edges, not that the write happens
+      after it, so "goes through the one refusal" is asserted as "mentions the one refusal
+      somewhere". A writer that stores first and proves afterwards, or that proves only in a
+      branch that does not write, satisfies G-1.
+    evidence: >
+      `_analyse_source` on `def store_then_prove(self, row, grid): row.grid = grid;
+      self._refuse_unless_uniquely_solvable(grid)` returns ungated == []. So does
+      `if flag: return self._refuse_unless_uniquely_solvable(grid)` followed by
+      `row.grid = grid` on the other branch. Not a regression - cycle 1's version was reachability
+      too, and the real path's ordering is pinned behaviourally (AC-2, and mutant N1's 7
+      failures) - but the guard's own docstring says "must reach the gate", which is weaker than
+      what G-1 asks for and weaker than a reader of the class will assume.
+    suggested_fix: >
+      Either say in the class docstring that the static half proves the gate is *on the call
+      graph* and the behavioural half proves it is *in front of the write*, naming which tests do
+      the second; or require the gate call to dominate the write within the method body.
+
+  - id: F-103
+    severity: nit
+    file: src/nonogram/admin/puzzle_review.py
+    line: 602
+    claim: >
+      The open item the fix flagged is fine as code, but the reason given for it is not true.
+      `_remember_proof` reads `self._verifications.get(...)` directly, and the stated
+      justification is that the insert path needs the entry "without the recency side effect" -
+      yet the very next lines call `move_to_end(fingerprint)` unconditionally, so reading through
+      `_remembered_verification` would be behaviour-identical (one redundant `move_to_end`).
+    evidence: >
+      puzzle_review.py:604-610: `verification = self._verifications.get(fingerprint)` ... then
+      `self._verifications.move_to_end(fingerprint)` on both branches. The actual reason the
+      direct read is acceptable is the one the test encodes: `_remember_proof` is one of the
+      memo's own three methods (MEMO_OWNERS), and an owner reading its own structure is not the
+      F-011 hazard. Mutant N4 (reverting `_refuse_unless_verified` to the raw dict) is killed by
+      test_nothing_outside_the_memos_own_methods_touches_it, so the pin itself bites.
+    suggested_fix: >
+      Correct the sentence - "the memo's own insert path, which does its own `move_to_end`" - so
+      the next reader is not told a side effect is avoided that is not avoided.
+
+  - id: F-104
+    severity: nit
+    file: tests/test_puzzle_edit_store.py
+    line: 1065
+    claim: >
+      `_symbols` keys by `Class.method`, so two same-named functions in one class silently
+      overwrite each other. A property getter/setter pair collapses to whichever is written last.
+    evidence: >
+      `found[f"{node.name}.{member.name}"] = member`. Python's `@x.setter` must follow the
+      getter, so today the *setter* (the writer) is the one kept and the guard fails safe; the
+      reverse order, or an `@overload`/conditional redefinition, keeps the reader and hides the
+      writer. test_the_parsed_symbols_are_the_methods_the_store_runs asserts
+      `runtime <= parsed` by name, which a collapsed pair still satisfies.
+    suggested_fix: >
+      Key duplicates with a counter suffix, or assert that no `Class.method` key is written
+      twice, so a collapse is a failure rather than a silent loss.
+
+  - id: F-105
+    severity: nit
+    file: src/nonogram/admin/puzzle_review.py
+    line: 1030
+    claim: >
+      Legacy mode stores the caller's grid object by reference (`puzzle.update(derived)` with
+      `derived["grid"] = grid`), so a caller that keeps and mutates the list it passed mutates
+      stored state without re-verification.
+    evidence: >
+      No copy on either side; `Harness.row` deep-copies precisely because "memory mode hands out
+      the live dict". Unreachable from the routes (the grid is request JSON, discarded after the
+      response) and identical to `add_puzzle`'s existing behaviour, and production runs Postgres,
+      where the column is serialised. A shape note, not a defect.
+    suggested_fix: Deep-copy on the legacy write, or note the aliasing beside it.
+
+cycle_one_findings:
+  F-001: {status: closed, evidence: "TestPuzzleEdit_AProofDoesNotCrossGridExtents is a real round trip: the premise (same bits, different extents) is asserted so it cannot go vacuous; the two verdicts are measured separately; the reshaped save raises NotUniquelySolvable (the gate) with the row unchanged and the stamp null; the solver entry count is asserted to RISE, and the same-extent positive control asserts it does NOT rise, so the rise is the reshape and not every save. Mutant N1 (text = bits) fails 7 tests, where cycle 1's identical M2 survived all 161."}
+  F-002: {status: partially_closed, evidence: "Direction inverted and verified: candidates = symbols - provably_read_only, read-only is derived (33 symbols) and the hand list is 10, module-scope so a module-level writer is seen, all nine cycle-1 shapes are caught as parametrised controls, both exemption checks bite on save_edited_grid ('.update(<opaque>)' and names grid on the writing side) so it cannot be listed, and all ten entries are clean. Residue: the fresh-container alias pass is unsound - three demonstrated ungated grid writes (F-101) - and the stated honest bound does not name that case."}
+  F-003: {status: closed, evidence: "`== [\"016\"]` is gone; the assertion is `script.get_heads() == [max(on_disk, key=int)]`, derived from the version files on disk. Renamed to test_the_head_is_the_highest_numbered_migration_on_disk, which names the retired name and test_016_revises_015 as the legitimate named link, so G-6 is satisfied."}
+  F-004: {status: closed, evidence: "A `frozen_clock` contextmanager patches puzzle_review.datetime; two fixed instants are stored, each pinned by prefix so the clock is demonstrably what drove the value, and the assertion is `second > first`. Mutant N2 (stamp only when NULL) now fails 2; mutant N6 (stamp from a constant) also fails 2."}
+  F-005: {status: closed, evidence: "No skip, no tautology. Harness.set_the_legacy_in_book_status writes the status directly in both modes, the premise is asserted (status == in_book AND book_id is None), and both the save and the verify are asserted refused with the row unchanged. Mutant N5 (_holds_a_book drops the status arm) fails 2 - it would have survived cycle 1's version."}
+  F-006: {status: routed_out, note: "not re-raised; fails closed as cycle 1 said"}
+  F-007: {status: closed, evidence: "A 12-line note directly above --workers names /puzzle/<id>/edit/verify, the in-process proof and what raising the knob would need first. Pinned by TestPuzzleEdit_TheWorkerCountIsCoupledToTheTwoPhaseFlow, which asserts the note is within 900 characters of the flag and that the default is still ${WEB_CONCURRENCY:-1}."}
+  F-008: {status: routed_out, note: "owner decision, not re-raised"}
+  F-009: {status: routed_out}
+  F-010: {status: routed_out}
+  F-011: {status: closed, evidence: "One accessor, renamed, returning the _Verification; the save goes through it. Pinned structurally by a walk of every self._verifications touch against MEMO_OWNERS, and the structural pin bites - mutant N4 (raw dict read restored) fails exactly that test and nothing else, which is the fix's own claim that behaviour cannot separate the two versions, demonstrated. The accessor's own behaviour is separately asserted (hands back the verification, refreshes recency); mutant N3 (drop move_to_end) fails 2. The remaining direct read in _remember_proof is acceptable - see F-103 for the reason given being wrong rather than the arrangement."}
+  F-012: {status: closed, evidence: "The fix's correction is right: admin.css:141 is a base `.badge.rec` with no data-level, so the marker was a styled grey chip, not an unstyled one - cycle 1's 'will leave the new badge unstyled' was wrong, and the real defect was that it was identical to the recognisability chip two cells away. `badge edited` plus a `.badge.edited` warning-tinted rule using existing tokens (--color-warning, --color-warning-tint both exist in tokens.css:32-33). Asserted from both sides, and the negative half (`class=\"badge rec\"` not in the marker's neighbourhood, while the real rec chip is still keyed its own way) is what makes it non-vacuous. Mutant N7 (rule deleted) fails."}
+  F-013: {status: routed_out}
+
+disagreements_with_cycle_one:
+  F-012_not_invisible_but_indistinguishable:
+    verdict: correct
+    evidence: "admin.css:141 `.badge.rec { background: var(--color-surface-hover); border-color: transparent; }` is not keyed by data-level; :142 only adds a colour for data-level=\"high\". So the marker rendered, as a grey chip - the same chip the row's recognisability cell shows for 'low'/'none'. The fix's reframing is the sharper statement of the defect and the warning tint is the right answer to it."
+  F-005_understated:
+    verdict: correct
+    evidence: "mark_in_book writes BOTH status (:1955) and book_id (:1956) in legacy mode, and _holds_a_book (:1640) is `book_id is not None or status == IN_BOOK`. So the old test's refusal was satisfied by book_id and the status-only arm was never exercised at all - not merely weakly. Mutant N5 proves the new arm is now the thing covering it."
+
+mutation_check:
+  policy: "capped and targeted at what the fix cycle changed; the card's two test files only"
+  mutants:
+    - {id: N1, line: "_grid_fingerprint: text = f'{h}x{w}:{bits}' -> text = bits", intent: "cycle 1's surviving M2 - the extent leaves the digest", result: killed, detail: "7 failed, 181 passed"}
+    - {id: N2, line: "save_edited_grid: stamp written only when currently NULL (both modes)", intent: "cycle 1's surviving M7 - the stamp freezes at the first edit", result: killed, detail: "2 failed, 186 passed"}
+    - {id: N3, line: "_remembered_verification: drop move_to_end", intent: "the one accessor stops refreshing recency", result: killed, detail: "2 failed, 186 passed"}
+    - {id: N4, line: "_refuse_unless_verified: read self._verifications.get() again (revert F-011)", intent: "does the structural pin bite, given behaviour cannot?", result: killed, detail: "1 failed (test_nothing_outside_the_memos_own_methods_touches_it), 187 passed - the pin bites and nothing else notices, exactly as claimed"}
+    - {id: N5, line: "_holds_a_book: return book_id is not None (drop the legacy status arm)", intent: "AC-4's legacy arm, which cycle 1 found self-skipping", result: killed, detail: "2 failed, 186 passed"}
+    - {id: N6, line: "save_edited_grid: edited_at from a constant instead of datetime.now", intent: "the frozen-clock test must prove the clock drove the value", result: killed, detail: "2 failed, 186 passed"}
+    - {id: N7, line: "admin.css: the .badge.edited rule removed", intent: "F-012's stylesheet half", result: killed, detail: "1 failed, 187 passed"}
+    - {id: N8, line: "a new ungated grid writer: `for row in list(self.puzzles.values()): row['grid'] = grid`", intent: "slip a real grid write past the new default-deny guard", result: killed, detail: "1 failed - the loop form IS seen"}
+    - {id: N9, line: "a new ungated grid writer: `object.__setattr__(row, 'grid', grid)`", intent: "slip a real grid write past the new default-deny guard", result: SURVIVED, detail: "188 passed. Within the honest bound the fix states (a mutating shape outside MUTATORS); reported because the bound is now the guard's edge, not because it is undeclared."}
+    - {id: N10, line: "a comment added in _grid_fingerprint", intent: "control - should be a no-op", result: SURVIVED, detail: "188 passed, as intended"}
+    - {id: "N8a/b/c", line: "three new ungated grid writers through a fresh-container alias (indexed fresh list; fresh dict of gathered real rows; a reused name)", intent: "the alias pass", result: SURVIVED, detail: "21 passed in the G-1 class each time; see F-101. Counted separately from N8 because N8 is the same write in the spelling the guard does see."}
+  note: >
+    Every mutant was restored from a pre-mutation copy of puzzle_review.py and admin.css;
+    `git status --porcelain` after the pass matches the pre-pass baseline (only the implementer's
+    CARD-245.md edit and the untracked cycle-1 report). Nothing was committed.
+
+acceptance_criteria:
+  AC-1: {verdict: genuinely_covered}
+  AC-2: {verdict: genuinely_covered, note: "unchanged from cycle 1; the zero arm's unreachability is a true statement about the boundary and is now also recorded in the card"}
+  AC-3: {verdict: genuinely_covered, note: "and the extent class adds a second, independent entry-count measurement in both directions"}
+  AC-4: {verdict: genuinely_covered, note: "the legacy status arm is now real - F-005 closed, N5 killed"}
+  AC-5: {verdict: genuinely_covered}
+  AC-6: {verdict: genuinely_covered, note: "strengthened: the reshaped-grid round trip is an AC-6 arm the card never asked for and is the one the memo made possible"}
+  AC-7: {verdict: genuinely_covered}
+  AC-8: {verdict: genuinely_covered, note: "cycle 1's gap closed; strict movement on a held clock, both instants pinned, N2 and N6 killed"}
+  AC-9: {verdict: genuinely_covered}
+  AC-10: {verdict: genuinely_covered}
+
+guardrails:
+  G-1: {verdict: covered_with_a_gap, note: "No longer covered-in-name-only: default-deny in direction, module-scope, 9/9 cycle-1 shapes caught as controls, exemption list machine-checked and 10 against 33 derived. The gap is F-101 (three demonstrated writes invisible through the fresh-container alias pass) and F-102 (reachability, not ordering)."}
+  G-2: {verdict: genuinely_covered}
+  G-3: {verdict: genuinely_covered}
+  G-4: {verdict: genuinely_covered, note: "pyproject.toml untouched; the new test imports are ast, inspect, pathlib, contextlib, datetime - all stdlib"}
+  G-5: {verdict: genuinely_covered}
+  G-6: {verdict: genuinely_covered, note: "seven tests renamed/replaced, each with a stronger survivor in the same class; the count rose 161 -> 188 and no assertion was weakened. Only the migration rename names its predecessor in prose; the other six are described wholesale in the G-1 class docstring, which is enough to find them."}
+
+system_contract:
+  one_solve_two_answers_ADR0029_R2: pass
+  ADR0006_R1_dependency_baseline: pass
+  COMP004_clues_reencoded: pass
+  no_hypothesis_seeded_corpus_with_minimum: pass
+  live_database_nonogram_poc_untouched: pass
+  capability_module_lateral_imports: pass
+  migration_up_down_symmetry_and_sqlite_batch_parity: pass
+  no_test_retired_without_a_survivor: pass
+  production_blast_radius_confined: pass
+  start_sh_worker_default_unchanged: pass
+
+card_feedback:
+  - >
+    The worktree copy of CARD-245.md still carries the pre-amendment Touches line
+    (tests/test_admin_review.py, no models.py/migration/template); main's copy was amended in
+    24bebf4. Neither version lists src/nonogram/admin/static/admin.css or start.sh, which this
+    fix cycle touches. Reconcile at merge so the field matches the commits.
+  - >
+    G-1's wording was the hole cycle 1 named and the fix satisfied it by inverting. Worth
+    promoting into a standing rule rather than re-learning per card: a static guardrail must say
+    what defaults to deny AND that an exemption is machine-checked, because "derived from the
+    class" was satisfiable with a default-allow predicate underneath it, and "default-deny" is
+    still satisfiable with a positive catalogue of write shapes underneath that (F-101). The
+    durable form of the rule is: the exemption set is derived, every entry is checked, and the
+    *controls are the shapes the guard was not written from*.
+  - >
+    The card's AC-3 asks for solver entries to be counted. The extent round trip shows the same
+    counter answers a second, sharper question (was this save answered from another grid's
+    proof), which is worth a line in the card's notes as the pattern for the next memo.
