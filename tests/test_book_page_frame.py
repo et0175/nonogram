@@ -7,7 +7,8 @@
     F-2   TestBookPageFrame_RefusesASheetThatIsNotABookPage
     F-3   TestBookPageFrame_RefusesAnInvertedPuzzleArea
     F-4   TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt
-          TestBookPageFrame_TwoUpKeepsItsOuterFolio   (the exemption's control)
+          TestBookPageFrame_TwoUpCarriesTheWholeFrame (CARD-248: the
+                                                      exemption's removal)
     G-1   TestBookPageFrame_EachFigureIsDeclaredOnce
           TestBookPageFrame_TheHairlineSitsOnTheFloorUnderTheHeaderRule
           TestBookPageFrame_MirroringBitesOnUnequalMargins
@@ -738,17 +739,35 @@ class TestBookPageFrame_FooterIsOmittedWholeWhereContentReachesIt:
         )
 
 
-class TestBookPageFrame_TwoUpKeepsItsOuterFolio:
-    """The exemption's control (ADR-0039/R3).
+class TestBookPageFrame_TwoUpCarriesTheWholeFrame:
+    """**The exemption is gone, and that is the claim** (CARD-248, AC-7;
+    ADR-0039/R3).
 
-    A two-up page is exempt from the footer group — its lower slot's drawing
-    is the bottom margin by construction. The exemption is held to: the page
-    must still carry the header rule *and* the corner folio the lower slot
-    reserves room for, so "exempt" cannot quietly become "unframed and
-    unnumbered".
+    Until CARD-248 a two-up page was exempt from the footer group — its lower
+    slot's drawing *was* the bottom margin by construction, so the frame's
+    all-or-nothing footer condition refused the strip and the page kept
+    CARD-200's bottom-outer-corner folio. This class was that exemption's
+    control, asserting the header rule, **no** footer rule and a corner folio.
+
+    ``compute_pair_layout`` now reserves the strip
+    (``InteriorFrame.footer_depth``) before it fits the pair, so a two-up page
+    carries the same frame as every other puzzle page: header rule, footer
+    hairline and the folio on the footer line. The exemption's control becomes
+    the **removal's** control, which is the stronger statement — and the
+    narrower exemption that is left (the grid-size label, which two slots
+    cannot share) is asserted below in its own right.
+
+    The page kinds that still fall back to the corner folio — a page-fit-bound
+    single puzzle page — keep their own control in
+    ``tests/test_book_page_numbers.py``; what is gone is the *page kind* that
+    could never have a footer at all. ``tests/test_book_qr_slot.py``'s
+    ``TestTwoUpFooter_TwoUpPagesNowCarryTheirFolio`` is this claim's sibling,
+    made on the geometry and the drawer rather than on a rendered book.
     """
 
-    def test_a_two_up_page_has_the_header_rule_no_footer_rule_and_a_corner_folio(self, interior) -> None:
+    def test_a_two_up_page_has_both_rules_and_a_folio_on_the_footer_line(
+        self, interior
+    ) -> None:
         assert interior.two_up, "the baseline book printed no two-up page"
         for number in interior.two_up:
             frame = interior.frame(number)
@@ -762,23 +781,38 @@ class TestBookPageFrame_TwoUpKeepsItsOuterFolio:
                 )
             ) == 1
             assert (
-                _rules_in(
-                    page,
-                    frame.footer_rule.left,
-                    frame.footer_rule.right,
-                    frame.footer_rule.y - 5,
-                    frame.footer_rule.y + 5,
+                len(
+                    _rules_in(
+                        page,
+                        frame.footer_rule.left,
+                        frame.footer_rule.right,
+                        frame.footer_rule.y - 5,
+                        frame.footer_rule.y + 5,
+                    )
                 )
-                == []
-            )
+                == 1
+            ), f"page {number} drew no footer hairline"
             folio = [
                 call
                 for call in _text_calls(interior)
                 if call.page == number and call.text == str(number)
             ]
             assert len(folio) == 1, f"page {number} drew {len(folio)} folios"
-            assert folio[0].anchor in {"rb", "lb"}, "a two-up folio left CARD-200's corner"
-            assert folio[0].xy[1] == frame.page_bottom
+            assert folio[0].anchor == "mb", "a two-up folio is now centred on the footer line"
+            assert folio[0].xy == (frame.folio_x, frame.baseline)
+
+    def test_the_one_exemption_left_is_the_grid_size_label(self, interior) -> None:
+        """Narrowed, not dropped: a two-up page carries two grid sizes and so
+        prints neither (``size_label=None``; CARD-226 gives each slot its
+        own). Asserted as the residue of the exemption this card removed, so
+        it cannot drift into "the footer is optional on a pair"."""
+        for number in interior.two_up:
+            labels = [
+                call
+                for call in _text_calls(interior)
+                if call.page == number and " x " in call.text
+            ]
+            assert labels == [], (number, labels)
 
 
 # --------------------------------------------------------------------------

@@ -41,7 +41,11 @@ from __future__ import annotations
 import random
 
 from nonogram.admin.book_manager import Book, BookMetadata
-from nonogram.admin.book_pdf_generator import BookPDFGenerator, _folio_reserve_px
+from nonogram.admin.book_pdf_generator import (
+    BookPDFGenerator,
+    _folio_reserve_px,
+    _qr_group_line_px,
+)
 from nonogram.clues import compute_clues
 from nonogram.export import ExportPayload
 from nonogram.limits import MAX_SIZE, MIN_SIZE
@@ -60,6 +64,25 @@ DPI = 300
 
 #: The title band above each puzzle (TERM-028). A two-up page reserves two.
 BAND_MM = 12.0
+
+#: The footer strip a two-up page has reserved out of its height since
+#: CARD-248, in device pixels, and the 2 cm QR icon and 9 pt footer gap the
+#: two groups in it are built from — all written out here, as this module
+#: writes every other figure out, rather than imported from
+#: ``nonogram.export.layout``:
+#:
+#: * ``INTERIOR_FOOTER_MM`` 29.878 mm = **353 px** of height, kept free below
+#:   the lower slot's drawing so the page has a footer at all;
+#: * one group is the icon, a gap, its widest line and a gap again, and two
+#:   groups must fit the usable width or the pair is not paired.
+#:
+#: The widest line itself comes from :func:`_qr_group_line_px`, imported for
+#: the same reason :func:`_folio_reserve_px` is: it measures a face, which
+#: this module does not reimplement; FR-040's geometry below is still this
+#: module's own arithmetic.
+FOOTER_STRIP_PX = 353
+QR_SLOT_PX = 236
+FOOTER_GAP_PX = 38
 
 #: CON-018's Book 1 profile in millimetres, stated in inches here rather than
 #: imported, and a 6 x 9 in book beside it — a trim on which far fewer pairs
@@ -133,8 +156,39 @@ class Sheet:
 
     @property
     def pair_height_mm(self) -> float:
-        """The height left once a page reserves a band for each of two puzzles."""
-        return self.height_mm - TOP_MM - BOTTOM_MM - 2 * BAND_MM
+        """The height left once a page reserves a band for each of two puzzles
+        **and one footer strip** (CARD-248).
+
+        The strip carries both puzzles' QR groups and the page's own folio, so
+        it is taken out of the height before anything is fitted — 353 px of it,
+        converted to millimetres exactly as the production call converts the
+        reserve it is handed.
+        """
+        return (
+            self.height_mm
+            - TOP_MM
+            - BOTTOM_MM
+            - 2 * BAND_MM
+            - FOOTER_STRIP_PX * 25.4 / DPI
+        )
+
+    def footer_carries_two_groups(self) -> bool:
+        """Whether this sheet's footer strip is wide enough for two QR groups.
+
+        The walk's second gate since CARD-248: a page that could not carry
+        both puzzles' links is not a two-up page at all, so the pair prints on
+        two single pages instead (AC-6). ``2 x (icon + gap + line + gap)``
+        less the last group's trailing gap, against the usable width — and the
+        line is the widest the face can ever set for any puzzle number, never
+        this page's own, so the gate is a property of the trim and the face
+        (INV-010).
+
+        Measured: Book 1's 190.5 mm usable width carries two; a 6 x 9 in
+        book's 127.0 mm carries one, so **no pair on a 6 x 9 trim is a two-up
+        page any more**.
+        """
+        pitch = QR_SLOT_PX + 2 * FOOTER_GAP_PX + _qr_group_line_px(DPI)
+        return 2 * pitch - FOOTER_GAP_PX <= self.usable_width_mm * DPI / 25.4
 
     def shared_cell_mm(
         self, first: "Puzzle", second: "Puzzle", *, reserve: bool = False
@@ -387,7 +441,11 @@ def _expected_pages(
     while index < len(order):
         first = order[index]
         second = order[index + 1] if index + 1 < len(order) else None
-        if second is not None and first.tier_of_record is not None:
+        if (
+            second is not None
+            and first.tier_of_record is not None
+            and sheet.footer_carries_two_groups()
+        ):
             if first.tier_of_record == second.tier_of_record:
                 cell = sheet.shared_cell_mm(first, second, reserve=True)
                 if abs(cell - TWO_UP_MINIMUM_MM) < 1e-6:
@@ -408,9 +466,20 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
     rng = random.Random(20260923127)
     books = pages = paired = single = 0
     refused_on_tier = refused_on_fit = ungraded = odd_tail = near_threshold = 0
+    refused_on_footer = 0
     at_cap = below_cap = 0
 
-    for case in range(900):
+    # **3600 books since CARD-248, up from 900 — and the reason is the point.**
+    # That card reserves a footer strip out of every pair's height, and refuses
+    # a pair whose page cannot carry both puzzles' links at all; between them
+    # they cut this corpus's paired verdicts to **25** at 900 books, against
+    # the 100 this test's own minimum below asserted before them — too few to
+    # keep these counts meaningful. The corpus grew by the same factor rather
+    # than the minima shrinking, so what the property is checked over has not
+    # weakened; what shrank is the *share* of pairs that pair, which is this
+    # card's measured cost and is asserted as such by
+    # ``tests/test_book_qr_slot.py``'s ``TestTwoUpFooter_...`` classes.
+    for case in range(3600):
         sheet = Sheet(*(SIX_BY_NINE if case % 4 == 0 else BOOK1))
         order = [_puzzle(rng) for _ in range(rng.randint(1, 8))]
         expected = _expected_pages(sheet, order)
@@ -449,6 +518,10 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
                     ungraded += 1
                 elif members[0].tier_of_record != follower.tier_of_record:
                     refused_on_tier += 1
+                elif not sheet.footer_carries_two_groups():
+                    # CARD-248: this trim's footer strip holds one group, not
+                    # two, so no pair on it can carry both links.
+                    refused_on_footer += 1
                 else:
                     assert (
                         sheet.shared_cell_mm(members[0], follower, reserve=True)
@@ -478,13 +551,30 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
         pages += len(plan)
         books += 1
 
-    assert books >= 850, books
-    assert pages >= 3000, pages
+    # **Stated against the corpus that is actually built** (CARD-248 review,
+    # Fix 3): 3600 books and 15994 pages, measured on this seed. These two
+    # floors read ``850``/``3000`` until this fix — the figures from the 900
+    # books the loop above built before this card grew it — which was never a
+    # weakened guard (``paired >= 100`` and ``refused_on_footer >= 500`` both
+    # fail at 900 books) but did read as though the corpus were a quarter of
+    # its size. No minimum here is lowered.
+    #
+    # The book floor is 3600 less the ``near_threshold`` tolerance asserted at
+    # the foot of this test, which is the only way a case leaves the loop
+    # without counting. The page floor keeps about 6 % for a future geometry
+    # change that moves the pairing share (pairing fewer pairs prints *more*
+    # pages, so this floor is the safe direction). Both fail outright if the
+    # corpus is ever shrunk back towards 900 books, which printed about 4000.
+    assert books >= 3595, books
+    assert pages >= 15000, pages
     # Both verdicts, and every reason a pair is refused, are in the corpus.
     assert paired >= 100, paired
     assert single >= 2500, single
     assert refused_on_tier >= 1000, refused_on_tier
     assert refused_on_fit >= 350, refused_on_fit
+    # CARD-248's own refusal reason: this trim's footer carries one group, not
+    # two. Asserted so the 6 x 9 sheet is really exercising it.
+    assert refused_on_footer >= 500, refused_on_footer
     assert ungraded >= 400, ungraded
     assert odd_tail >= 600, odd_tail
     # Both regimes of the shared cell: held at the standard cell, and fitted below it.

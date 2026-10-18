@@ -135,6 +135,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import math
 import os
 import subprocess
 import sys
@@ -163,13 +164,18 @@ from nonogram.admin.book_pdf_generator import (
     _degrade_infeasible_packed_pages,
     _folio_reserve_px,
     _pairable_tier,
+    _qr_group_line_px,
     page_frame,
+    qr_group_caption,
+    qr_link,
     type_px,
 )
 from nonogram.export.layout import (
+    INTERIOR_FOOTER_LINE_PT,
     compute_layout,
     compute_pair_layout,
     interior_frame,
+    qr_group_insets,
     qr_slot,
 )
 from tests.helpers.book_corpus import (
@@ -284,6 +290,32 @@ BOOK_TITLE = "Winter Pictures"
 #: baseline's three answer pages hold 40,598, 34,972 and 30,621 such squares
 #: and its other five pages hold none at all.
 FILLED_CELL_PROBE = 20
+
+
+def _two_up_icon_boxes(pair, numbers, dpi) -> list:
+    """Every placeholder-QR box a two-up page draws, in order (CARD-248).
+
+    A two-up page's footer strip carries one group per puzzle, both measured
+    on the **lower** slot's extent (the one whose ``usable_bottom`` is the
+    sheet's bottom margin) at the insets
+    :func:`~nonogram.export.layout.qr_group_insets` returns. Until CARD-248
+    each *slot* was asked for a box of its own, which answered with the upper
+    slot's midline box and nothing at all for the lower.
+
+    The widest line is measured the way ``_two_up_page`` measures it — off
+    this page's own two numbers — so the boxes returned here are the boxes
+    that page really drew, which is what a mask has to be.
+    """
+    font = _band_font(type_px(INTERIOR_FOOTER_LINE_PT, dpi))
+    widest = max(
+        math.ceil(font.getlength(text))
+        for number in numbers
+        for text in (qr_group_caption(number), qr_link(number))
+    )
+    insets = qr_group_insets(pair.lower, widest, len(numbers))
+    if insets is None:  # pragma: no cover - the walk refuses such a pair
+        return []
+    return [qr_slot(pair.lower, inset_px=inset) for inset in insets]
 
 
 def solid_ink_blocks(page: Image.Image, side: int = FILLED_CELL_PROBE) -> int:
@@ -1985,11 +2017,7 @@ class TestBookPdfMemory_PagesAreUnchanged:
                     layout = compute_layout(payload.row_clues, payload.column_clues, spec)
                     icon = qr_slot(layout)
                     return [icon] if icon is not None else []
-                return [
-                    icon
-                    for icon in (qr_slot(entry.pair.upper), qr_slot(entry.pair.lower))
-                    if icon is not None
-                ]
+                return _two_up_icon_boxes(entry.pair, entry.numbers, generator.dpi)
             return []
 
         for number in (3, 4, 5, 6, 7, 8, 9, 10):
@@ -2803,6 +2831,13 @@ class TestBookPdfMemory_EveryPageAfterTheGuideIsByteIdenticalShiftedByOne:
             # below would be tolerating a real displacement instead of
             # checking the content.
             folio_reserve_px=_folio_reserve_px(generator.dpi),
+            # CARD-248: and the footer strip, for the same reason — without
+            # it the reference pair is fitted into 29.878 mm more height than
+            # production gives it, so every mark on it sits at a different y
+            # and at a different cell.
+            footer_reserve_px=interior_frame(
+                generator.page_spec(old_number)
+            ).footer_depth,
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -3037,6 +3072,13 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             # below would be tolerating a real displacement instead of
             # checking the content.
             folio_reserve_px=_folio_reserve_px(generator.dpi),
+            # CARD-248: and the footer strip, for the same reason — without
+            # it the reference pair is fitted into 29.878 mm more height than
+            # production gives it, so every mark on it sits at a different y
+            # and at a different cell.
+            footer_reserve_px=interior_frame(
+                generator.page_spec(old_number)
+            ).footer_depth,
         )
         old_entry = replace(entry, page_number=old_number, pair=old_pair)
         return generator._two_up_page(old_entry, payloads)
@@ -3071,13 +3113,12 @@ class TestBookPdfMemory_ContentAboveTheFooterBandIsUnchanged:
             # The same fixed reserve production pairs with (CARD-204
             # Fix 4) — the lower slot's icon box moves with its drawing.
             folio_reserve_px=_folio_reserve_px(generator.dpi),
+            # And CARD-248's footer strip, which is where both of a two-up
+            # page's icons now are.
+            footer_reserve_px=interior_frame(spec).footer_depth,
         )
         assert pair is not None
-        return [
-            icon
-            for icon in (qr_slot(pair.upper), qr_slot(pair.lower))
-            if icon is not None
-        ]
+        return _two_up_icon_boxes(pair, entry.numbers, generator.dpi)
 
     def _frame_boxes(self, generator, page_number):
         """CARD-222: the frame's header rule, as a box to mask.

@@ -99,9 +99,16 @@ PACKED_TILE_WIDTH_MM = (USABLE_WIDTH_MM - PACKED_GAP_MM) / 2
 PACKED_USABLE_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM
 
 #: FR-040's two-up minimum, and the usable height a page has left once it
-#: reserves a band for each of two puzzles rather than one.
+#: reserves a band for each of two puzzles rather than one **and one footer
+#: strip** (CARD-248: a two-up page carries one footer holding both puzzles'
+#: QR groups and its own folio, taken out of the height before anything is
+#: fitted — ``INTERIOR_FOOTER_MM`` as this page's own pixels, 353 px, written
+#: out here as this file writes every other figure out).
 TWO_UP_MINIMUM_MM = 7.0
-PAIR_HEIGHT_MM = 11 * 25.4 - TOP_MM - BOTTOM_MM - 2 * 12.0
+FOOTER_STRIP_PX = 353
+PAIR_HEIGHT_MM = (
+    11 * 25.4 - TOP_MM - BOTTOM_MM - 2 * 12.0 - FOOTER_STRIP_PX * 25.4 / 300
+)
 
 #: CARD-204 Fix 4's fixed, universal folio reserve, in millimetres — derived
 #: the same way :func:`_expected_drawing_left_mm` and ``Sheet.shared_cell_mm``

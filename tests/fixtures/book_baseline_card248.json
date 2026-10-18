@@ -1,0 +1,127 @@
+{
+  "card": "CARD-248",
+  "supersedes": "tests/fixtures/book_baseline_card223.json",
+  "recorded_from_commit": "card/248-two-up-shared-footer, branched from main at 8be1f8c (CARD-223 already merged at 26a6601). Recorded against this card's own implementation on its worktree, after the footer strip and its two QR groups were in place and before any assertion was written against the recording, exactly as CARD-221, CARD-222 and CARD-223 recorded theirs.",
+  "recorded_on": "2026-10-18 (CARD-248)",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1, as amended 2026-10-17)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages -- the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-248 gives a two-up page ONE footer strip carrying BOTH puzzles' links. CARD-223 had moved the QR group to the footer's outer corner and measured each extent on its own, which left a two-up page's upper slot with a box at the MIDLINE between the two drawings and its lower slot with none at all -- this book printed three links for its four puzzles, and the owner's decision of 2026-10-18 is that a puzzle's scannable link 'definitely should not be lost'. Three things therefore change on the two-up page. (1) compute_pair_layout now reserves INTERIOR_FOOTER_MM (29.878 mm, 353 px) of height below the lower slot before it fits the pair, so the page has a footer strip at all; on this book's own Duck+Owl pair the shared cell is unchanged at the 7.5 mm cap -- the strip is taken out of the gap that was idling BETWEEN the two slots -- but the lower slot's band and drawing move 353 px up the page. (2) The strip carries two QR groups side by side, packed inward from the outer margin, each with its own icon, its own 'Puzzle N - Solve it online' invitation and its own typed link; the upper slot's midline icon is gone. (3) The page now carries the frame's footer hairline and its folio on the footer line, where it had no footer group at all and fell back to CARD-200's bottom-outer-corner folio. Deliberate, reader-visible changes, which is why this file exists rather than CARD-223's being regenerated.",
+  "warning": "This is evidence of what the book PDF looks like with the QR icon in the footer's outer corner and its two lines beside it. It must NEVER be regenerated to make a test pass: a page that stops matching it is either a deliberate change -- which earns its own successor file, with its own note -- or a regression.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_dependent_pages": [],
+  "font_dependent_pages_note": "EMPTY, as CARD-221 left it and CARD-222/CARD-223 kept it: every reader-facing interior face is the packaged DejaVu Sans. CARD-248's two groups letter their invitation and their link in that same packaged face, at the same 10 pt the footer's grid-size label and folio already use (CON-020's floor).",
+  "interior_bytes": 3354646,
+  "page_count": 13,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "10e88ac0555067949fefe9defd4070946e4229b1551745a2d13a23b98d336910"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "f5dad4f6a659a2ee141076d3fda40aef952cc3e00cc2ad4e2300ad2eaae806b7"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "04c31f2e7502fc9bf0233cbdc4f7ab43044f70bb99cbddf0ee251c4d2fb2538c"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b7ca8115410f0d58cfe4117c88d0ca1840889eaf4e4914aa48b0d8408bbd4790"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "1f7dfcce3630a9202900ebd3de7197cdaf3afa242086d755425b8441cba6cc7e"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "48161617dbed6977bcf80742ce9840c75eb44bf7f14dcedb040a20444706bf88"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "fd80671644be1b3130d0ab79c942a9b42ab0a9c6a2a3f090cbe120ec403fce30"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "79f47b458d5a714ef2d8e54f142d2bbaa3676506aeb26c152e5c1168249eece5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "f114595642451bb2db04711e43758f7b567f4d8124651d859dce1424591a2096"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e5a347a9324da73af9f77dcc4a68749025e2ca29edf7a421b212cbb14db90fda"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "dfd7604f926d61a47ec2c037d484f88b24ca5d2d218dc324f9516e8f266f23e3"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "0070ab2217ac8bb5b4fb240e5d0c3cd1890d59820c37c50f03bb5ba24aa205a6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "7e7eecf0e88103a65116b60d5bbd33c684721ed6920639b6407bb9f05dd9b3ac"
+    }
+  ],
+  "changed_pages": [
+    5
+  ],
+  "interior_bytes_note": "The black-and-white interior of this book: 3354646 bytes, where CARD-223's recording held 3337825 (+16821, +0.50%). Recorded because it is what the file does, not because it was predicted: the direction is the JPEG encoder's and not a measure of how much ink the pages hold.",
+  "changed_pages_note": "1 of 13 pages, measured page by page against CARD-223's recording before this file was written, and every page it lists is explained. Page 5 is the two-up page: its lower slot's band and drawing move up by the 353 px the footer strip reserves, its footer strip gains two QR groups where the page carried one midline icon, and its folio moves from CARD-200's bottom-outer corner to the footer line's centre. NOTHING ELSE moves, and that is this recording's own control: pages 7 and 9 (the two single puzzle pages) are byte-identical because inset_px defaults to 0 and a single page's own call is unchanged to the pixel (G-3); the guide (1-2), the TOC (3), the three dividers (4, 6, 8), SOLUTIONS (10) and the three answer pages (11-13) never carried a QR group or a two-up footer at all. The page COUNT is unchanged at thirteen: this book's Duck+Owl pair still pairs, because 26 cells of combined drawing height still clear FR-040's 7.0 mm floor in the 199.605 mm the strip leaves. Pairs of 29 to 32 cells do not any more -- the cost this card measures, and the reason the suite's own two-up fixtures were re-chosen."
+}

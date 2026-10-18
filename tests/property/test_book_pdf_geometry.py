@@ -172,6 +172,42 @@ def _alternating(columns: int, rows: int) -> list[list[bool]]:
     return [[(row + column) % 2 == 0 for column in range(columns)] for row in range(rows)]
 
 
+def _shallow(columns: int, rows: int, depth: int) -> list[list[bool]]:
+    """A grid whose row **and** column clues are exactly ``depth`` deep.
+
+    The opposite end of :func:`_alternating`: one run of ``depth`` marks along
+    the first row and another down the first column, so the drawing is
+    ``depth + columns`` across by ``depth + rows`` down and nothing else about
+    the picture matters. Added by CARD-248 for the two-up property below —
+    see that test for why its corpus had to stop being deep-gutter.
+    """
+    grid = [[False] * columns for _ in range(rows)]
+    for step in range(depth):
+        grid[0][2 * step] = True
+        grid[2 * step][0] = True
+    return grid
+
+
+def _shallow_puzzle(columns: int, rows: int, depth: int, tier: str) -> dict:
+    """One shallow-gutter puzzle row of a given extent, with a stored tier."""
+    grid = _shallow(columns, rows, depth)
+    found = compute_clues(grid)
+    return {
+        "id": f"p{columns}x{rows}d{depth}",
+        "grid": grid,
+        "clues_rows": [list(c) for c in found.rows],
+        "clues_cols": [list(c) for c in found.columns],
+        "width": columns,
+        "height": rows,
+        "puzzle_name": "P",
+        "difficulty_tier": tier,
+        # The clue sets themselves, which :func:`_extent` reads to work out
+        # the drawing's own extent — the same two keys :func:`_puzzle` carries.
+        "_rows": found.rows,
+        "_columns": found.columns,
+    }
+
+
 def _clue_depths(rows, columns) -> tuple[int, int]:
     return max(len(c) for c in rows), max(len(c) for c in columns)
 
@@ -552,8 +588,20 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     predicted here (that walk is EC-027's own property,
     ``tests/property/test_book_pairing.py``), and this test only requires that
     two-up pages really did occur.
+
+    **Shallow gutters since CARD-248, and not as a convenience.** That card
+    reserves a 29.878 mm footer strip out of every pair's height so a two-up
+    page can carry both its puzzles' QR links, which leaves 199.605 mm for the
+    two drawings — at FR-040's 7.0 mm floor, 28 cells of combined drawing
+    height rather than 32. This corpus's puzzles were random-density grids,
+    whose clue gutters run 4 to 8 cells deep, and **not one pair of them fits
+    any more** (measured: ``two_up`` fell to 0). A property about where a
+    two-up page's upper drawing starts cannot be stated on a corpus with no
+    two-up pages in it, so the extents are unchanged and the pictures are
+    built with 2-deep gutters instead (:func:`_shallow_puzzle`). The cost of
+    the strip is CARD-248's own subject and is measured in
+    ``tests/test_book_qr_slot.py``; what is kept here is EC-022.
     """
-    rng = random.Random(1270022)
     extents = [
         (columns, rows)
         for columns in range(MIN_SIZE, 23, 2)
@@ -569,8 +617,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     # now inserts its own TOC pages between the guide and that divider, so
     # both numbers are shifted by the real ``toc_page_count`` for this book.
     puzzles = [
-        dict(_puzzle(rng, columns, rows), difficulty_tier="easy")
-        for columns, rows in extents
+        _shallow_puzzle(columns, rows, 2, "easy") for columns, rows in extents
     ]
     generator = BookPDFGenerator(sheet.book)
     toc_page_count = generator.section_plan(puzzles).toc_page_count

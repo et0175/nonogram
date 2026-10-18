@@ -191,6 +191,35 @@ def _size_labels_by_page(calls: List[_TextCall]) -> dict:
     }
 
 
+def _qr_links_by_page(calls: List[_TextCall]) -> dict:
+    """``{page: the footer QR group's typed-link call}`` (CARD-248).
+
+    The **third** mark whose side carries a page's parity, and the only one a
+    two-up page has: the QR group's two lines run *inward* from an icon flush
+    with the page's **outer** margin, so the link is set right-aligned
+    (``"rb"``) on a right-hand page and left-aligned (``"lb"``) on a left-hand
+    one — the opposite hand to the grid-size label, which is set against the
+    inner margin.
+
+    A two-up page draws two of these (one group per puzzle, CARD-248). Both
+    run inward from their own icon in the same direction, so either carries
+    the parity; that they **agree** is asserted here rather than assumed,
+    since two groups anchored opposite ways would be a page with one group
+    running toward the spine.
+    """
+    found: dict = {}
+    for call in calls:
+        if not call.text.startswith("nonogram.example/"):
+            continue
+        previous = found.get(call.page)
+        assert previous is None or previous.anchor == call.anchor, (
+            f"page {call.page}'s two QR groups are anchored "
+            f"{previous.anchor!r} and {call.anchor!r}"
+        )
+        found[call.page] = call
+    return found
+
+
 # --------------------------------------------------------------------------
 # AC-1
 # --------------------------------------------------------------------------
@@ -400,7 +429,9 @@ class TestBookPageNumbers_FoliosMatchInteriorStreamsOwnArithmetic:
 # --------------------------------------------------------------------------
 
 
-def _check_every_folios_side(folios: dict, by_page: dict, labels: dict) -> int:
+def _check_every_folios_side(
+    folios: dict, by_page: dict, labels: dict, links: dict
+) -> int:
     """Assert every folio's page says which hand it is on, and count them.
 
     **Two forms, since CARD-222, and the parity evidence differs.** A folio
@@ -413,6 +444,15 @@ def _check_every_folios_side(folios: dict, by_page: dict, labels: dict) -> int:
     the page carries a mark whose side is wrong if parity is wrong, which is
     what AC-9 is about; what no longer carries it is the folio's own x, and
     that is stated here rather than quietly dropped.
+
+    **A third form, since CARD-248.** A two-up page now carries the footer
+    group too — and so a centred folio — but it still prints *no* grid-size
+    label, because its two slots carry two grid sizes (CARD-226 gives each
+    slot its own). Its parity evidence is the QR group's own typed link, which
+    runs **inward** from an icon flush with the **outer** margin and so is
+    anchored the opposite hand to the label. A page with a centred folio must
+    carry one or the other; a page with neither is still a failure, which is
+    what keeps this from becoming "any mark will do".
     """
     checked = 0
     for page in folios:
@@ -427,15 +467,23 @@ def _check_every_folios_side(folios: dict, by_page: dict, labels: dict) -> int:
         else:
             assert call.anchor == "mb", f"page {page}'s folio anchored {call.anchor!r}"
             label = labels.get(page)
-            assert label is not None, (
-                f"page {page} drew a centred folio and no grid-size label, so "
-                "nothing on it says which hand it is on"
-            )
-            expected = "lb" if right_hand else "rb"
-            assert label.anchor == expected, (
-                f"page {page} is {'right' if right_hand else 'left'}-hand but its "
-                f"grid size is set {label.anchor!r}, not against the inner margin"
-            )
+            if label is not None:
+                expected = "lb" if right_hand else "rb"
+                assert label.anchor == expected, (
+                    f"page {page} is {'right' if right_hand else 'left'}-hand but its "
+                    f"grid size is set {label.anchor!r}, not against the inner margin"
+                )
+            else:
+                link = links.get(page)
+                assert link is not None, (
+                    f"page {page} drew a centred folio, no grid-size label and no "
+                    "QR link, so nothing on it says which hand it is on"
+                )
+                expected = "rb" if right_hand else "lb"
+                assert link.anchor == expected, (
+                    f"page {page} is {'right' if right_hand else 'left'}-hand but its "
+                    f"QR link is set {link.anchor!r}, not inward from the outer margin"
+                )
         checked += 1
     return checked
 
@@ -451,7 +499,8 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
         labels = _size_labels_by_page(calls)
 
         assert page_is_right_hand(1), "interior page 1 (the guide) is right-hand (FR-043)"
-        checked = _check_every_folios_side(folios, by_page, labels)
+        links = _qr_links_by_page(calls)
+        checked = _check_every_folios_side(folios, by_page, labels, links)
         assert checked == len(folios) >= drawn - 1, "almost every page carried a checkable folio"
 
     def test_parity_holds_on_a_larger_book_across_the_toc_insertion(
@@ -500,7 +549,9 @@ class TestBookPageNumbers_ParityHoldsWithTheTocInserted:
             "a 60-puzzle book should still print well over a hundred pages, "
             "or parity has nowhere to go wrong"
         )
-        assert _check_every_folios_side(folios, by_page, labels) == len(folios)
+        assert _check_every_folios_side(
+            folios, by_page, labels, _qr_links_by_page(calls)
+        ) == len(folios)
         # Both hands really are exercised on this book, so neither branch of
         # the check above is reached vacuously.
         hands = {page_is_right_hand(page) for page in folios}
