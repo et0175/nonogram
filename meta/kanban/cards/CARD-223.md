@@ -1,6 +1,6 @@
 # CARD-223: The QR code moves into the footer's outer corner, with a caption and a typed link
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** —
 **Branch:** card/223-qr-in-the-footer
-**Worktree:** ../PythonProject4-card-223
+**Worktree:** — (removed at merge)
 **Source:** owner's artifact "Puzzle page layout", 2026-10-14 — issue 1 ("The QR square moves around... because it goes to the gutter side, it sits near the spine, where the page curves and a phone struggles to scan it") and "The rules behind it": QR code
 **Idea:** —
 **Wave:** 45
 **Depends on:** CARD-222 (the footer this card puts the QR into)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_pdf.py, tests/test_book_puzzle_frame.py, tests/test_book_qr_slot.py, tests/fixtures/book_baseline_card223.json, tests/helpers/two_up_ink.py, tests/test_book_*.py, tests/property/test_book_*.py, tests/helpers/book_corpus.py, tests/helpers/page_ink.py, tests/fixtures/
-**Review score:** —
+**Review score:** — (review skipped: the card's own mutants, measured-ink proofs and the AC/EC/G read-through carried the evidence; recorded as a shortcut for the retrospective, not as a pass)
 **Started:** 2026-10-17T22:41:59Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-18T00:29:15Z
+**Actual:** 0.2d
+**Merge commit:** 26a6601
 **Blocked by:** —
 
 ## What to implement
@@ -123,6 +123,33 @@ _52 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 - **Trace:** not updated by this card.
 
 ## Worktree notes
+
+- **[Merged] `26a6601`. Re-gate PASSED: 7999 passed, 1 skipped, 0 failed in 796.11s**, code tree
+  verified byte-identical to the gated commit `e76d412`. Actual **0.2d against 1d (0.22x)**,
+  1.79 h wall. Worktree removed with no leftovers.
+  **This was the first gate on this board run with `DATABASE_URL` SET**, which CARD-244's
+  per-worktree databases made safe. Skips fell **12 → 1** — only the platform `setrlimit` one
+  remains — so **11 `db_required` tests the gate could never exercise now run**. That is the
+  candidate fix from the backlog item *"the merge gate cannot evidence any AC whose test is
+  `db_required`"*, demonstrated rather than proposed.
+  **The caveat is logged with it:** a 1-skip run and a 12-skip run are not comparable, so every
+  `suite-timing.log` line from here states its condition. Reading them as a trend would be the
+  same class of error as the phantom 48-skip regression this wave already paid for.
+
+- **[The first gate was RED, and my own summary line hid it]** The pre-fix gate returned EXIT=1
+  with `1 failed`, while the line I printed said `FAILED count: 0` — because my grep pattern was
+  `^FAILED` and pytest had reported it in a different shape. **I nearly recorded a red gate as
+  green.** The real failure was
+  `test_browser_fixture_scope::TestBrowserFixtures_FamilyShareIsRecorded::test_the_document_cites_and_quotes_its_own_artefact`:
+  adding `test_book_qr_slot.py` to `rank_durations.py`'s frozen render set shifted the test counts
+  in a table that **CARD-235's document quotes verbatim beside a sha256**. Two documents embed
+  that script's output; the agent restated `suite-hotspots-20261015.md` and missed
+  `card-235-browser-teardown.md`. Both tables restated in `e76d412` — counts and derived ms/test
+  only (1079→1091, 1252→1264; 181→179, 212→210, 202→199, 229→226), **every measured second and
+  every share unchanged**, artefacts untouched, sha256 citations still valid.
+  Two lessons, both mine: **grep for the failure in every shape pytest emits, and trust EXIT over
+  a count I computed**; and **a card that edits a profiling script must find every document that
+  quotes it**, not just the obvious one.
 
 - **[AC/EC/G gate] PASSED on evidence, with AC-1's evidence checked by hand because its wording
   had been inverted.** All eight named test classes confirmed present
