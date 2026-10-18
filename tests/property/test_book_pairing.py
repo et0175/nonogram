@@ -551,8 +551,22 @@ def test_PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly() -> None
         pages += len(plan)
         books += 1
 
-    assert books >= 850, books
-    assert pages >= 3000, pages
+    # **Stated against the corpus that is actually built** (CARD-248 review,
+    # Fix 3): 3600 books and 15994 pages, measured on this seed. These two
+    # floors read ``850``/``3000`` until this fix — the figures from the 900
+    # books the loop above built before this card grew it — which was never a
+    # weakened guard (``paired >= 100`` and ``refused_on_footer >= 500`` both
+    # fail at 900 books) but did read as though the corpus were a quarter of
+    # its size. No minimum here is lowered.
+    #
+    # The book floor is 3600 less the ``near_threshold`` tolerance asserted at
+    # the foot of this test, which is the only way a case leaves the loop
+    # without counting. The page floor keeps about 6 % for a future geometry
+    # change that moves the pairing share (pairing fewer pairs prints *more*
+    # pages, so this floor is the safe direction). Both fail outright if the
+    # corpus is ever shrunk back towards 900 books, which printed about 4000.
+    assert books >= 3595, books
+    assert pages >= 15000, pages
     # Both verdicts, and every reason a pair is refused, are in the corpus.
     assert paired >= 100, paired
     assert single >= 2500, single

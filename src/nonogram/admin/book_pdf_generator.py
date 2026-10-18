@@ -1733,10 +1733,40 @@ def qr_link(puzzle_number: int) -> str:
 def qr_group_caption(puzzle_number: int) -> str:
     """The invitation line of one footer QR group, with its puzzle named (CARD-248).
 
-    ``"Puzzle 12 · Solve it online"``: :func:`band_identity`'s own form for
-    naming a puzzle — the word, the number, :data:`BAND_SEPARATOR` — carrying
-    :data:`QR_CAPTION_TEXT` unchanged, so there is still exactly one copy of
-    the invitation's words and one mark that joins a number to what follows it.
+    ``"Puzzle 12 · Solve it online"``: the same *shape* :func:`band_identity`
+    prints — the word, the number, :data:`BAND_SEPARATOR` — with
+    :data:`QR_CAPTION_TEXT` where the band puts the tier.
+
+    **This function re-spells ``f"Puzzle {n}"``; it does not read
+    :func:`band_identity`'s form, and it is the fifth place in the package
+    that spells those seven characters** (:func:`band_identity`'s band,
+    ``book_answer_key.answer_caption``'s answer-key caption,
+    :func:`_puzzle_range_label`'s single-puzzle table-of-contents row, the
+    review PDF's own page header in ``admin.pdf_generator``, and this). Said
+    outright because an earlier draft of this docstring claimed the form was
+    *taken from* :func:`band_identity`, which it never was, and a docstring
+    that claims a coupling the code does not have is worse than the fifth
+    spelling it was covering for.
+
+    **Why it is not worth removing.** The only way to actually read that form
+    is ``band_identity(number, None)``, which leans on the "a row with no
+    tier of record prints 'Puzzle 12' and stops" branch — a branch that
+    exists to report a **missing grade**, not to compose a prefix. That
+    function's own docstring weighs printing "Unrated" there and rejects it;
+    were it ever re-decided, this caption would change with it, and a
+    baseline fixture pins this caption's rendered string. One real coupling
+    traded for one false one is no bargain, so the word stays spelled here
+    and the claim is corrected instead.
+
+    **What G-1 pins is the two strings, and those are reused rather than
+    retyped**: :data:`QR_CAPTION_TEXT`, the owner's own words, which exist
+    once in ``src/nonogram/**`` and are carried through unchanged, and
+    :data:`QR_LINK_TEMPLATE`, read only by :func:`qr_link` so that CARD-210
+    stays a one-line change — plus :data:`BAND_SEPARATOR` for the mark that
+    joins a number to what follows it.
+    ``TestTwoUpFooter_EachGroupNamesItsPuzzleNumber``'s
+    ``test_the_invitations_words_are_still_one_constant`` is the guard that
+    holds those, by reading this function's own source.
 
     **Why a two-up page's groups name their puzzle and a single page's does
     not.** A single puzzle page has one group, and the page's own band already

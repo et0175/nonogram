@@ -1137,6 +1137,33 @@ def _narrow_book() -> Book:
     )
 
 
+def _unequal_book() -> Book:
+    """:func:`_unequal_spec`'s sheet as a **stored book** (review Fix 2).
+
+    Book 1's trim with the gutter at 19.0 mm and the outside margin at 7.0 mm,
+    written into the ``books`` columns the renderer reads its own frame from
+    (``BookPDFGenerator.page_spec``). Needed because AC-4's measured-ink proof
+    renders a *real page*: without a book on this profile the ink is always
+    Book 1's, where the two margins are the same figure and "which margin the
+    footer row was anchored to" leaves no trace in the pixels at all.
+    """
+    return Book(
+        book_id="card248-unequal",
+        metadata=BookMetadata(
+            title="Unequal",
+            description="AC-4's asymmetric side margins.",
+            theme="generic",
+            target_audience="adults",
+            size="",
+            page_count=0,
+        ),
+        trim_width_cm=21.59,  # 8.5 in, Book 1's own trim
+        trim_height_cm=27.94,  # 11 in
+        gutter_margin_cm=UNEQUAL_GUTTER_MM / 10,
+        outside_margin_cm=UNEQUAL_OUTSIDE_MM / 10,
+    )
+
+
 # ==========================================================================
 # CARD-248 — a two-up page gets ONE footer strip carrying BOTH puzzles' links
 # ==========================================================================
@@ -1216,6 +1243,74 @@ MAX_PAIR_CELLS_UNRESERVED = 32
 MAX_PAIR_CELLS_RESERVED = 28
 NEWLY_REFUSED_PAIR_CELLS = frozenset({29, 30, 31, 32})
 
+#: **The horizontal refusal boundary, worked out by hand from the sheet's own
+#: figures** (review cycle 1, Fix 1). ``qr_group_insets`` refuses a row of
+#: ``count`` groups when the row measures **more** than the usable width, and
+#: the row measures ``count * pitch - gap``: one footer gap short of ``count``
+#: whole pitches, because the last group's lines are where the ink stops and
+#: nothing follows them. Every figure here is a literal, derived below rather
+#: than read back from the function under test, so this file reds if the
+#: geometry moves instead of silently following it:
+#:
+#:     icon   QR_SLOT_MM              20.0 mm x 300/25.4 = 236.22 px ->  236
+#:     gap    INTERIOR_FOOTER_GAP_PT   9.0 pt x MM_PER_POINT = 3.175 mm,
+#:                                                   = 37.5 px      ->   38
+#:     line   the widest line the footer's 10 pt face can EVER set --
+#:            ``_qr_group_line_px``'s four-digit ceiling, which is
+#:            qr_group_caption(9999) at 593.98 px, wider than
+#:            qr_link(9999) at 575.98 px                            ->  594
+#:     pitch  236 + 2 x 38 + 594                                    =  906
+#:
+#: and the rows that follow: 868 px for one group, 1774 px for two, 2680 px
+#: for three. ``GROUP_LINE_PX``/``GROUP_PITCH_PX`` above are the *drawn*
+#: figures for a 1- or 2-digit puzzle; these are the page-independent ceiling
+#: the pairing **verdict** is made on (``_qr_group_line_px``, INV-010), which
+#: is the one this boundary belongs to.
+GROUP_CEILING_LINE_PX = 594
+GROUP_CEILING_PITCH_PX = 906
+TWO_GROUP_ROW_PX = 1774
+
+#: One row of the boundary table per group count:
+#: ``(count, the row's own width in px, the trim whose usable width is exactly
+#: that, the trim one device pixel narrower)``.
+#:
+#: The trims are **synthetic in their width only** — Book 1's margins, band,
+#: height, cell cap and thin-rule floor, with a made-up trim width — because
+#: no real trim lands on an exact pixel count and an exact pixel count is what
+#: this predicate turns on (the same hand-built-spec licence this file's other
+#: odd geometry takes: ``_min_trim_spec``, and the tall narrow sheet in
+#: ``test_a_trim_too_narrow_for_two_groups_does_not_pair_either``). Each is
+#: the shortest 0.1 mm figure that rounds to the wanted usable width, since
+#: ``usable = round_half_up(trim_px - 12.700 mm) - round_half_up(12.700 mm)``:
+#:
+#:     1774 px wants a trim in [175.5563, 175.6410) mm -> 175.6
+#:     1773 px wants a trim in [175.4717, 175.5563) mm -> 175.5
+GROUP_ROW_BOUNDARIES = (
+    (1, 868, 98.9, 98.8),
+    (2, TWO_GROUP_ROW_PX, 175.6, 175.5),
+    (3, 2680, 252.3, 252.2),
+)
+
+#: The card's own horizontal threshold, which nothing pinned until review
+#: Fix 1: two groups need **150.2 mm** of usable width, i.e. a trim of
+#: **175.6 mm / 6.91 in** at Book 1's two 12.700 mm side margins. The card's
+#: body rounds that trim up to "about 176.2 mm / 6.94 in"; the looseness is
+#: 0.6 mm, and it is asserted *as* looseness below rather than copied as
+#: though it were the measurement.
+TWO_GROUP_ROW_MM = 150.2
+TWO_GROUP_TRIM_MM = 175.6
+CARD_BODY_TWO_GROUP_TRIM_MM = 176.2
+
+#: The narrowest KDP trim that keeps two-up pages at all (the card's own trim
+#: table), its usable width at Book 1's margins, and the headroom two groups
+#: have there: 7 in is 2100 px, less two 150 px margins is 1800 px, against
+#: the 1774 px the row needs. **26 px is the whole margin of safety the
+#: predicate has on a real sellable trim**, which is why Fix 1's boundary is
+#: pinned at the pixel rather than sampled near it.
+NARROWEST_PAIRING_TRIM_IN = 7.0
+NARROWEST_PAIRING_USABLE_PX = 1800
+NARROWEST_PAIRING_HEADROOM_PX = 26
+
 
 def _footer_reserve_px(spec: PageSpec) -> int:
     """The strip ``compute_pair_layout`` is told to keep, as production tells it."""
@@ -1249,11 +1344,79 @@ def _drawn_group_lines(numbers: Tuple[int, ...]) -> int:
     )
 
 
-def _two_up_render(spec_parity: PageParity, page_number: int, pair, numbers=(1, 2)):
-    """A real two-up page image, drawn by the production method."""
-    generator = BookPDFGenerator(corpus_book(f"card248-{spec_parity.name}-{page_number}"))
+def _two_up_render(
+    spec_parity: PageParity,
+    page_number: int,
+    pair,
+    numbers=(1, 2),
+    *,
+    book: Optional[Book] = None,
+):
+    """A real two-up page image, drawn by the production method.
+
+    ``book`` names the stored print specification the renderer reads its own
+    frame from; the default is Book 1's. Pass one when the pair was fitted on
+    some other profile, because the two have to be the same sheet
+    (:func:`_ink_render`).
+    """
+    generator = BookPDFGenerator(
+        book or corpus_book(f"card248-{spec_parity.name}-{page_number}")
+    )
     payloads = [_payload(10, 10, 3, 3), _payload(10, 10, 3, 3)]
     plan = PuzzlePagePlan(page_number, numbers, pair)
+    return generator, plan, payloads
+
+
+#: **AC-4's two side-margin profiles, by name** (review Fix 2). The
+#: measured-ink proof runs on both. Book 1 is where a *parity inversion*
+#: shows — both its margins are 12.700 mm, so which **side** the row is on has
+#: teeth there while how far in it sits does not — and the unequal sheet is
+#: the only place the **anchor** shows: its two margins differ by 12 mm, so a
+#: drawer that agreed with ``qr_slot``'s reported box but painted from the
+#: wrong edge would put the outer group one 19 mm gutter in from the wrong
+#: side of the page, which is the owner's original complaint, and would be
+#: caught here in ink rather than only in geometry.
+INK_PROFILES = ("book1", "unequal")
+
+#: ``(parity, page number)`` pairs whose parity is the page number's own.
+#: ``_two_up_page`` takes its frame from ``book_page_spec(book, page_number)``
+#: and its coordinates from the plan's pair, so a page number of the wrong
+#: parity measures two different sheets. On Book 1 that mismatch is invisible
+#: (symmetric margins); on the unequal profile it moves the frame 12 mm, which
+#: is why the control below takes a page number from here too and no longer
+#: renders both parities onto page 5.
+INK_PAGES = ((PageParity.ODD, 5), (PageParity.EVEN, 6))
+
+
+def _ink_spec(profile: str, parity: PageParity) -> PageSpec:
+    """One of :data:`INK_PROFILES` as a :class:`PageSpec`."""
+    return _unequal_spec(parity) if profile == "unequal" else _spec(parity=parity)
+
+
+def _ink_book(profile: str) -> Book:
+    """The same profile as a stored book, so a render of it is that sheet."""
+    return _unequal_book() if profile == "unequal" else corpus_book(f"card248-{profile}")
+
+
+def _ink_render(profile: str, parity: PageParity, page_number: int, pair, numbers=(1, 2)):
+    """A real two-up page on one of :data:`INK_PROFILES`, book and pair agreeing.
+
+    The agreement is **asserted**, not assumed: ``_two_up_page`` draws the
+    frame from the book's stored columns and everything else from the pair it
+    is handed, so rendering a pair fitted on the unequal sheet out of Book 1's
+    book would silently measure two sheets at once. On Book 1 such a mix-up
+    leaves no trace; on the asymmetric profile it is the whole claim.
+    """
+    generator, plan, payloads = _two_up_render(
+        parity, page_number, pair, numbers, book=_ink_book(profile)
+    )
+    drawn = interior_frame(generator.page_spec(page_number))
+    wanted = interior_frame(_ink_spec(profile, parity))
+    assert (drawn.header_rule.left, drawn.header_rule.right, drawn.footer_rule.y) == (
+        wanted.header_rule.left,
+        wanted.header_rule.right,
+        wanted.footer_rule.y,
+    ), f"the {profile} page must be rendered from the sheet its pair was fitted on"
     return generator, plan, payloads
 
 
@@ -1537,37 +1700,55 @@ class TestTwoUpFooter_NeverPlacesInkOnTheGutterSide:
     :meth:`test_the_gutter_half_cannot_be_kept_for_two_groups_and_here_is_why`.
     """
 
-    @pytest.mark.parametrize("parity,page_number", [(PageParity.ODD, 5), (PageParity.EVEN, 6)])
+    @pytest.mark.parametrize("profile", INK_PROFILES)
+    @pytest.mark.parametrize("parity,page_number", INK_PAGES)
     def test_no_footer_group_pixel_lands_in_the_retired_gutter_strip(
-        self, parity: PageParity, page_number: int, monkeypatch
+        self, profile: str, parity: PageParity, page_number: int, monkeypatch
     ) -> None:
-        """Measured ink, both parities: every pixel the two groups draw lies
-        outside the gutter margin and outside the icon-wide strip just inside
-        it — the placement the owner found unscannable."""
-        spec = _spec(parity=parity)
+        """Measured ink, both parities **and both side-margin profiles**: every
+        pixel the two groups draw lies outside the gutter margin and outside
+        the icon-wide strip just inside it — the placement the owner found
+        unscannable.
+
+        **Why the unequal profile is rendered and not only measured**
+        (review Fix 2). Parity inversion is caught on Book 1, but *which
+        margin the row is anchored to* was proved only as geometry, in
+        :meth:`test_unequal_margins_put_the_outer_group_one_outside_margin_in`.
+        A drawer-side translation that agreed with ``qr_slot``'s reported box
+        and painted somewhere else would put the outer group one 19 mm gutter
+        in from the wrong edge on an asymmetric sheet — the owner's original
+        complaint exactly — and no ink test could see it while the ink was
+        only ever taken on a sheet whose two margins are the same number.
+        """
+        spec = _ink_spec(profile, parity)
         pair = _two_up(spec)
         assert pair is not None
-        generator, plan, payloads = _two_up_render(parity, page_number, pair)
+        generator, plan, payloads = _ink_render(profile, parity, page_number, pair)
         mask = _footer_group_ink(generator, plan, payloads, monkeypatch)
         assert mask.any(), "the page drew no footer-group ink at all, so this proves nothing"
 
         left, right = _retired_gutter_strip(spec, pair.lower)
         assert not mask[:, left:right].any(), (
-            f"a {parity} two-up page put footer-group ink in columns {left}..{right}"
+            f"a {parity} {profile} two-up page put footer-group ink "
+            f"in columns {left}..{right}"
         )
 
-    @pytest.mark.parametrize("parity", [PageParity.ODD, PageParity.EVEN])
+    @pytest.mark.parametrize("profile", INK_PROFILES)
+    @pytest.mark.parametrize("parity,page_number", INK_PAGES)
     def test_the_control_the_retired_placement_would_have_failed_this(
-        self, parity: PageParity, monkeypatch
+        self, profile: str, parity: PageParity, page_number: int, monkeypatch
     ) -> None:
         """The claim above discriminates (ADR-0039/R1): draw one of the two
         groups' icons where CARD-204 put it — flush with the usable area's
         **gutter**-side edge — and the identical check catches it.
 
         The icon is drawn into the real page by the real drawer, so what is
-        under test is the check and not a hand-made mask.
+        under test is the check and not a hand-made mask. Run on **both**
+        profiles, because the claim it controls is now made on both: a
+        forbidden strip computed for the wrong sheet would be a strip the
+        retired placement escapes.
         """
-        spec = _spec(parity=parity)
+        spec = _ink_spec(profile, parity)
         pair = _two_up(spec)
         assert pair is not None
         placement = pair.lower.page
@@ -1585,7 +1766,7 @@ class TestTwoUpFooter_NeverPlacesInkOnTheGutterSide:
                 right=placement.usable_right,
                 bottom=placement.usable_bottom,
             )
-        generator, plan, payloads = _two_up_render(parity, 5, pair)
+        generator, plan, payloads = _ink_render(profile, parity, page_number, pair)
 
         real = generator_module._draw_qr_placeholder
 
@@ -1596,9 +1777,51 @@ class TestTwoUpFooter_NeverPlacesInkOnTheGutterSide:
         mask = _footer_group_ink(generator, plan, payloads, monkeypatch)
         left, right = _retired_gutter_strip(spec, pair.lower)
         assert mask[:, left:right].any(), (
-            "the gutter-side placement was not caught, so this file's notion of "
-            "the forbidden strip is wrong and the claim above is empty"
+            f"the gutter-side placement was not caught on the {profile} profile, "
+            "so this file's notion of the forbidden strip is wrong and the claim "
+            "above is empty"
         )
+
+    @pytest.mark.parametrize("parity,page_number", INK_PAGES)
+    def test_the_outermost_footer_ink_is_one_outside_margin_in_on_the_unequal_sheet(
+        self, parity: PageParity, page_number: int, monkeypatch
+    ) -> None:
+        """**The anchor itself, in measured ink** (review Fix 2).
+
+        The claim below is geometry: ``qr_slot`` *reports* a box one outside
+        margin in from the trim. This one is the same claim about the pixels a
+        real page carries, on the only profile where it can be made — the
+        extreme footer-group ink column is the outer trim edge less the
+        **outside** margin (83 px), not less the **gutter** (224 px). A drawer
+        that agreed with the reported box and painted from the other margin
+        would miss by 141 px and be caught here even where it stayed clear of
+        the retired gutter strip, which is the one hole parametrising the
+        strip test over both profiles does not close by itself.
+
+        Made on the unequal sheet only: on Book 1 the two margins are the same
+        figure, so "one outside margin in" and "one gutter in" are the same
+        assertion there (see
+        ``test_on_the_default_profile_the_same_distance_claim_is_an_identity``).
+        """
+        spec = _unequal_spec(parity)
+        pair = _two_up(spec)
+        assert pair is not None
+        generator, plan, payloads = _ink_render("unequal", parity, page_number, pair)
+        mask = _footer_group_ink(generator, plan, payloads, monkeypatch)
+        assert mask.any(), "the page drew no footer-group ink at all, so this proves nothing"
+
+        columns = np.flatnonzero(mask.any(axis=0))
+        outside_px, gutter_px = _px(UNEQUAL_OUTSIDE_MM), _px(UNEQUAL_GUTTER_MM)
+        assert outside_px != gutter_px, "the fixture must have unequal margins to prove anything"
+        trim = pair.lower.width
+        if parity is PageParity.ODD:
+            # Right-hand page: the row packs rightward, so its last ink column
+            # is the usable area's own right edge.
+            assert trim - int(columns[-1]) == outside_px, (trim, int(columns[-1]))
+            assert trim - int(columns[-1]) != gutter_px
+        else:
+            assert int(columns[0]) == outside_px, int(columns[0])
+            assert int(columns[0]) != gutter_px
 
     def test_unequal_margins_put_the_outer_group_one_outside_margin_in(self) -> None:
         """**The mirroring evidence** (AC-4), made where it is observable.
@@ -2013,6 +2236,131 @@ class TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages:
         assert qr_group_insets(pair.lower, _qr_group_line_px(DPI), 3) is None, (
             "three groups do not fit — recorded so the spare is known to be finite"
         )
+
+    @pytest.mark.parametrize("parity", [PageParity.ODD, PageParity.EVEN])
+    @pytest.mark.parametrize("count,row_px,exact_mm,narrower_mm", GROUP_ROW_BOUNDARIES)
+    def test_a_row_of_groups_fits_at_exactly_its_own_width_and_not_a_pixel_under(
+        self,
+        count: int,
+        row_px: int,
+        exact_mm: float,
+        narrower_mm: float,
+        parity: PageParity,
+    ) -> None:
+        """**The horizontal refusal boundary, pinned at the device pixel**
+        (review cycle 1, Fix 1).
+
+        The predicate is ``count * pitch - gap > usable``, and every other
+        case in this file stands far from it: Book 1 has 476 px of spare for
+        two groups and the narrow-trim corner above misses by hundreds. Two
+        mutants of it therefore survived the whole suite:
+
+        * **dropping the ``- gap`` term** (``count * pitch > usable``), which
+          is not harmless — a 7 x 10 in trim, the narrowest that keeps two-up
+          pages at all, has 26 px of headroom
+          (:meth:`test_the_narrowest_kdp_trim_that_pairs_has_26_px_of_headroom`),
+          so under it **every pair in every 7 x 10 book** stops pairing and
+          prints as two single pages, with the suite green;
+        * **``>`` widened to ``>=``**, which survived vacuously because
+          nothing in the suite sat exactly on the width.
+
+        At exactly the row's own width the first refuses (it reads one gap too
+        many) and the second refuses on the equality, while the real predicate
+        **fits**; one device pixel narrower, all three refuse. Both widths come
+        from :data:`GROUP_ROW_BOUNDARIES`, derived by hand from
+        :data:`QR_SLOT_MM`, :data:`INTERIOR_FOOTER_GAP_PT`,
+        :data:`MM_PER_POINT` and the face's own line measure — never from
+        :func:`qr_group_insets`, and never by re-deriving the pitch with the
+        function under test.
+
+        ``count=1`` and ``count=3`` ride along at their own boundaries; the
+        group-count mutant is already dead (the two assertions above), so
+        these are for completeness.
+        """
+        # The derivation, checked against the renderer's own measurement and
+        # against itself — not against qr_group_insets.
+        assert GROUP_CEILING_LINE_PX == _qr_group_line_px(DPI)
+        assert (
+            GROUP_CEILING_PITCH_PX
+            == QR_SLOT_PX + 2 * FOOTER_GAP_PX + GROUP_CEILING_LINE_PX
+        )
+        assert row_px == count * GROUP_CEILING_PITCH_PX - FOOTER_GAP_PX
+
+        row_clues, column_clues = _clue_sets(10, 10, 1, 1)
+        fits = compute_layout(row_clues, column_clues, _spec(parity=parity, width_mm=exact_mm))
+        refuses = compute_layout(
+            row_clues, column_clues, _spec(parity=parity, width_mm=narrower_mm)
+        )
+        assert fits.page.usable_right - fits.page.usable_left == row_px
+        assert refuses.page.usable_right - refuses.page.usable_left == row_px - 1
+        # Vacuity guard: both synthetic sheets have a footer strip at all, so
+        # the one refusal below is the width's and nothing else's.
+        assert qr_slot(fits) is not None and qr_slot(refuses) is not None
+
+        assert qr_group_insets(fits, GROUP_CEILING_LINE_PX, count) == tuple(
+            index * GROUP_CEILING_PITCH_PX for index in range(count)
+        )
+        assert qr_group_insets(refuses, GROUP_CEILING_LINE_PX, count) is None
+
+    def test_two_groups_need_the_cards_own_150_2_mm_of_usable_width(self) -> None:
+        """The card's own horizontal threshold, which nothing pinned (Fix 1).
+
+        The card states it as "two groups need ``2·pitch − gap`` = 1774 px =
+        **150.2 mm** of usable width, so a trim needs about **176.2 mm /
+        6.94 in** of width before a two-up page is possible at all". The
+        usable figure is exact; the trim figure is 0.6 mm loose — the real
+        threshold at Book 1's two 12.700 mm side margins is **175.6 mm /
+        6.91 in**, which is the figure
+        :meth:`test_a_row_of_groups_fits_at_exactly_its_own_width_and_not_a_pixel_under`
+        pins. Both are recorded here, the looseness as looseness, so that a
+        reader of the card can see which of the two is the measurement.
+        """
+        assert round(TWO_GROUP_ROW_PX / PX_PER_MM, 1) == TWO_GROUP_ROW_MM
+        # The trim follows from the row plus Book 1's two side margins, which
+        # are the same figure on this profile.
+        assert GUTTER_MM == OUTSIDE_MM
+        assert (
+            abs(TWO_GROUP_TRIM_MM - (TWO_GROUP_ROW_PX / PX_PER_MM + GUTTER_MM + OUTSIDE_MM))
+            < 0.05
+        )
+        assert round(TWO_GROUP_TRIM_MM / 25.4, 2) == 6.91
+        # The card's own figure: a safe upper bound, loose by under a
+        # millimetre, and a trim at it does carry the row.
+        assert round(CARD_BODY_TWO_GROUP_TRIM_MM / 25.4, 2) == 6.94
+        assert 0 < CARD_BODY_TWO_GROUP_TRIM_MM - TWO_GROUP_TRIM_MM < 0.7
+        at_the_cards_trim = compute_layout(
+            *_clue_sets(10, 10, 1, 1), _spec(width_mm=CARD_BODY_TWO_GROUP_TRIM_MM)
+        )
+        assert qr_group_insets(at_the_cards_trim, GROUP_CEILING_LINE_PX, 2) is not None
+
+    def test_the_narrowest_kdp_trim_that_pairs_has_26_px_of_headroom(self) -> None:
+        """Why that boundary is the boundary that matters, on a real trim.
+
+        7 x 10 in is the narrowest KDP trim in the card's own table that keeps
+        two-up pages at all. At Book 1's two 12.700 mm side margins its usable
+        width is **1800 px** — 7 in is 2100 px, less two 150 px margins —
+        against the **1774 px** two groups need: **26 px, 2.2 mm**. Dropping
+        the predicate's ``- gap`` term reads ``1812 > 1800`` here, so every
+        pair in every 7 x 10 book would stop pairing and print as two single
+        pages. Recorded as a real-trim figure beside the synthetic
+        pixel-exact one, because the synthetic sheet alone would read as a
+        hypothetical.
+        """
+        spec = _spec(
+            width_mm=NARROWEST_PAIRING_TRIM_IN * 25.4,
+            height_mm=10.0 * 25.4,
+        )
+        layout = compute_layout(*_clue_sets(10, 10, 1, 1), spec)
+        usable = layout.page.usable_right - layout.page.usable_left
+        assert usable == NARROWEST_PAIRING_USABLE_PX, usable
+        assert usable - TWO_GROUP_ROW_PX == NARROWEST_PAIRING_HEADROOM_PX
+        assert round(NARROWEST_PAIRING_HEADROOM_PX / PX_PER_MM, 1) == 2.2
+        assert qr_slot(layout) is not None
+        assert qr_group_insets(layout, GROUP_CEILING_LINE_PX, 2) == (
+            0,
+            GROUP_CEILING_PITCH_PX,
+        )
+        assert qr_group_insets(layout, GROUP_CEILING_LINE_PX, 3) is None
 
 
 # --------------------------------------------------------------------------
