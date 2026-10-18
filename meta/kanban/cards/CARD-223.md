@@ -124,6 +124,40 @@ _52 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
 
 ## Worktree notes
 
+- **[AC/EC/G gate] PASSED on evidence, with AC-1's evidence checked by hand because its wording
+  had been inverted.** All eight named test classes confirmed present
+  (`TestBookQrSlot_SitsAtTheOuterBottomCorner`, `_NeverPlacesInkOnTheGutterSide`,
+  `_CarriesItsCaptionAndLink`, `_IsTwoCentimetresSquare`, `_YieldsRatherThanCollide`,
+  `_IsStillThePlaceholderGlyph`, `_TheGutterSidePlacementIsGone` in `tests/test_book_qr_slot.py`,
+  plus `TestBookPageNumbers_EveryInteriorPageShowsItsOwnNumber`).
+  **I read AC-1's test rather than trusting the name**, because the criterion it answers to was
+  the one I had to correct. It holds up better than the AC did:
+  * it opens with `assert outside_px != gutter_px, "the fixture must have unequal margins to
+    prove anything"` — a precondition that reds if someone later makes the fixture symmetric and
+    quietly turns the proof back into an identity;
+  * it asserts **both** `trim - odd.right == outside_px` *and* `!= gutter_px` (and the mirror for
+    EVEN), so reading the wrong margin fails rather than coincidentally passing;
+  * it asserts a true reflection, `odd.left == trim - even.right`;
+  * and the sibling identity-recording test carries
+    `assert _px(GUTTER_MM) == _px(OUTSIDE_MM), "CON-018's amendment made these equal; if they ever
+    differ again, the Book 1 case becomes evidence and this test should say so"` — **a guard that
+    invalidates itself** when its own premise stops holding. That is the shape the rest of this
+    board's identity caveats should copy.
+
+- **[Owner decision 2026-10-18 — the two-up lower slot is NOT deferred]** Put to the owner as
+  four measured options; they chose a **shared footer strip carrying both puzzles' links**, carded
+  as **CARD-248** (P1, architectural, depends on this card). Two of my own assumptions died in the
+  measurement and are recorded there: `folio_reserve_px` reserves *horizontal* outer-margin room,
+  not vertical (at 0/108/236/353 px the lower slack stays **0** and the cell does not move), and
+  the vertical cost is far smaller than I implied when offering the option — the spare height
+  already exists as a gap *between* the slots (1090 / 1046 / 691 px against the 353 px needed),
+  so the strip is **free** for most pairs.
+  **Merge plan, owner-approved:** this card merges once re-gated, and CARD-248 is dispatched
+  immediately after. That leaves a short window in which `main` prints a two-up page with one
+  link rather than two, so **no book should be generated for KDP in that window** — stated plainly
+  rather than left implicit, because the owner's instruction was that the link "definitely should
+  not be lost".
+
 - **⚠ [AC-1's own wording was INVERTED, and following it would have shipped the owner's complaint
   back to them.]** AC-1's parenthetical read "right on a left-hand page, left on a right-hand one".
   That names the **gutter**, not the outer edge — the precise thing this card exists to move the QR
