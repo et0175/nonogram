@@ -86,6 +86,26 @@ TWO_UP_MINIMUM_MM = 7.0
 USABLE_WIDTH_MM = BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM
 PAIR_HEIGHT_MM = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
 
+#: The footer strip a two-up page reserves since CARD-248, in device pixels,
+#: and the height its two drawings are left with: a two-up page now carries
+#: **one** footer strip holding both puzzles' QR groups and the page's folio,
+#: so ``compute_pair_layout`` keeps ``INTERIOR_FOOTER_MM`` free below the
+#: lower slot before it fits anything. 29.878 mm = 353 px, written out here
+#: as this file writes every other figure out.
+FOOTER_STRIP_PX = 353
+RESERVED_PAIR_HEIGHT_MM = PAIR_HEIGHT_MM - FOOTER_STRIP_PX / (300 / 25.4)
+
+#: **Every fixture below was re-chosen for that figure, and the boundary ACs
+#: moved with it** — the same thing CARD-222 did to this file when CON-018's
+#: margins moved (see ``_FIFTEEN``'s own note). 229.492 mm at FR-040's 7.0 mm
+#: floor admitted at most 32 cells of combined drawing height; 199.605 mm
+#: admits at most **28**. So AC-242's pair is one cell of gutter shallower,
+#: AC-243's twelves are two cells shallower, and AC-244/AC-245's boundary
+#: pair is 28/29 cells where it was 32/33. FR-040's own AC-242..AC-246 carry
+#: the pre-CARD-248 figures and are owed a re-measurement at the architect
+#: station (recorded in CARD-248's notes — this card does not edit the
+#: registry), exactly as CARD-222 left AC-244/AC-245.
+
 #: Device pixels per millimetre at the 300 DPI every book page is drawn at.
 PX_PER_MM = 300 / 25.4
 
@@ -231,7 +251,7 @@ def _shared_cell_mm(first: dict, second: dict) -> float:
     return min(
         STANDARD_CELL_MM,
         USABLE_WIDTH_MM / max(_across(first), _across(second)),
-        PAIR_HEIGHT_MM / (_down(first) + _down(second)),
+        RESERVED_PAIR_HEIGHT_MM / (_down(first) + _down(second)),
     )
 
 
@@ -406,25 +426,33 @@ def _same_ink(first: Optional[_Ink], second: Optional[_Ink]) -> bool:
 # --------------------------------------------------------------------------
 
 #: The pair AC-242, AC-251 and AC-252 are all stated over: two easy 10x10
-#: puzzles with 4-deep gutters both ways, so each drawing is 14 cells square.
-_SMALL_PAIR = dict(columns=10, rows=10, depth=4)
+#: puzzles with **3**-deep gutters both ways, so each drawing is 13 cells
+#: square.
+#:
+#: **4-deep until CARD-248**, which reserves a footer strip out of the pair's
+#: height: 28 cells no longer clear NFR-008's standard cell (they are exactly
+#: the 7.13 mm AC-243 is about now), while 26 do — 199.605/26 = 7.68 mm, so
+#: the cap still binds and this AC still states what it is about.
+_SMALL_PAIR = dict(columns=10, rows=10, depth=3)
 
 
 class TestBookPdf_TwoSmallSameTierNeighboursShareAPage:
-    """AC-242 — two easy 10x10s with 4-deep gutters print on one page at 7.5 mm.
+    """AC-242 — two easy 10x10s with 3-deep gutters print on one page at 7.5 mm.
 
-    Their combined drawing height is 28 cells, which 229.492 mm of usable
-    height fits at 8.20 mm — above NFR-008's standard cell, so the cap binds
-    and the shared cell is 7.5 mm. (8.44 mm on the margins CON-018 carried
-    before 2026-10-17; the cap bound then too.)
+    Their combined drawing height is 26 cells, which the 199.605 mm a two-up
+    page has left under CARD-248's footer strip fits at 7.68 mm — above
+    NFR-008's standard cell, so the cap binds and the shared cell is 7.5 mm.
+    (The AC's own 4-deep pair is 28 cells: 8.20 mm of the 229.492 mm a pair
+    had before the strip, and 7.13 mm of what it has now — see
+    ``RESERVED_PAIR_HEIGHT_MM``.)
     """
 
     def test_the_page_fit_this_pair_asks_for_is_above_the_standard_cell(self):
         """The arithmetic the AC names, before any page is drawn."""
         first = _puzzle(**_SMALL_PAIR)
 
-        assert _down(first) == 14 and _across(first) == 14
-        assert abs(PAIR_HEIGHT_MM / 28 - 8.1961) < 1e-3
+        assert _down(first) == 13 and _across(first) == 13
+        assert abs(RESERVED_PAIR_HEIGHT_MM / 26 - 7.6771) < 1e-3
         assert abs(_shared_cell_mm(first, first) - STANDARD_CELL_MM) < 1e-9
 
     def test_both_puzzles_print_on_one_page(self):
@@ -474,13 +502,20 @@ class TestBookPdf_TwoSmallSameTierNeighboursShareAPage:
 
 
 class TestBookPdf_TwelvePairSharesPageBelowStandardCell:
-    """AC-243 — two easy 12x12s with 4-deep gutters share a page at 7.17 mm.
+    """AC-243 — two easy 12x12s with 2-deep gutters share a page at 7.13 mm.
 
-    32 cells of drawing height into 229.492 mm: the height fit binds, not the
-    cap, so the pair prints at a cell the standard one never reaches.
+    28 cells of drawing height into the 199.605 mm CARD-248's footer strip
+    leaves: the height fit binds, not the cap, so the pair prints at a cell
+    the standard one never reaches.
+
+    **4-deep until CARD-248.** That pair is 32 cells, which the strip puts at
+    6.24 mm — under FR-040's floor, so it no longer shares a page at all (it
+    is AC-246's case now, and ``TestTwoUpFooter_APairThatCannotFit...`` in
+    ``tests/test_book_qr_slot.py`` states the whole refused band). Two cells
+    shallower keeps this AC on the side of the boundary it is about.
     """
 
-    PAIR = dict(columns=12, rows=12, depth=4)
+    PAIR = dict(columns=12, rows=12, depth=2)
 
     def test_both_puzzles_print_on_one_page_at_the_fitted_cell(self):
         puzzles = [_puzzle(**self.PAIR, puzzle_id="a"), _puzzle(**self.PAIR, puzzle_id="b")]
@@ -491,16 +526,17 @@ class TestBookPdf_TwelvePairSharesPageBelowStandardCell:
         )
         assert _page_shapes(pages, 5, 1) == [[(12, 12), (12, 12)]]
         for slot in drawings_of(pages[4]):
-            assert abs(_mm(slot.cell) - 7.17) < CELL_TOLERANCE_MM, _mm(slot.cell)
+            assert abs(_mm(slot.cell) - 7.13) < CELL_TOLERANCE_MM, _mm(slot.cell)
 
-    def test_that_cell_is_the_229_492_mm_over_32_cells_the_ac_names(self):
+    def test_that_cell_is_the_199_605_mm_over_28_cells(self):
         first = _puzzle(**self.PAIR)
 
-        assert _down(first) == 16
+        assert _down(first) == 14
         assert abs(PAIR_HEIGHT_MM - 229.492) < 1e-9
+        assert abs(RESERVED_PAIR_HEIGHT_MM - 199.6047) < 1e-3
         expected = _shared_cell_mm(first, first)
-        assert abs(expected - 229.492 / 32) < 1e-9
-        assert abs(expected - 7.17) < CELL_TOLERANCE_MM
+        assert abs(expected - RESERVED_PAIR_HEIGHT_MM / 28) < 1e-9
+        assert abs(expected - 7.13) < CELL_TOLERANCE_MM
 
     def test_it_is_below_the_standard_cell_and_above_the_two_up_minimum(self):
         first = _puzzle(**self.PAIR)
@@ -513,28 +549,32 @@ class TestBookPdf_TwelvePairSharesPageBelowStandardCell:
 # AC-244 / AC-245 — the 7.0 mm boundary, one cell of clue gutter apart
 # --------------------------------------------------------------------------
 
-#: AC-244's pair: an easy 15x15 with a 5-deep column-clue gutter followed by an
-#: easy 10x10 with a **2**-deep one — 20 + 12 = 32 cells down, 7.17 mm.
+#: AC-244's pair: an easy 15x15 with a **1**-deep column-clue gutter followed
+#: by an easy 10x10 with a 2-deep one — 16 + 12 = 28 cells down, 7.13 mm.
 #:
-#: **The boundary moved with CON-018's margins** (2026-10-17, CARD-222). The
-#: AC's own pair is a 3-deep 10x10, 33 cells down, which was 7.16 mm on the
-#: old margins — just above FR-040's 7.0 mm — and is **6.95 mm** on the
-#: amended ones, just below it, so that pair no longer shares a page at all.
-#: What the AC is about is the boundary, so the pair is re-chosen one cell
-#: shallower to sit on the same side of it; the 33-cell pair is now AC-245's
-#: case and is asserted as such below. FR-040's AC-244/AC-245 carry the old
-#: figures and are owed a re-measurement at the architect station (recorded in
-#: CARD-222's Worktree notes — this card does not edit the registry).
-_FIFTEEN = dict(columns=15, rows=15, depth=5, column_depth=5)
+#: **The boundary has moved twice, for two recorded reasons.** CON-018's
+#: margins moved it first (2026-10-17, CARD-222): the AC's own pair is a
+#: 3-deep 10x10 beside a 5-deep 15x15, 33 cells down, 7.16 mm on the old
+#: margins and 6.95 mm on the amended ones, so that pair stopped sharing a
+#: page and the partner was re-chosen one cell shallower. CARD-248's footer
+#: strip has now moved it again: 229.492 mm admitted 32 cells at FR-040's
+#: 7.0 mm floor and 199.605 mm admits 28, so the 15x15's own column gutter
+#: comes down from 5 cells to 1 and the boundary pair is 28 cells against
+#: AC-245's 29. The ACs are about the boundary, so each fixture is re-chosen
+#: to sit on the side of it the AC names; FR-040's AC-244/AC-245 carry the
+#: original figures and are owed a re-measurement at the architect station
+#: (recorded in CARD-222's and now CARD-248's Worktree notes — neither card
+#: edits the registry).
+_FIFTEEN = dict(columns=15, rows=15, depth=5, column_depth=1)
 _TEN = dict(columns=10, rows=10, depth=3, column_depth=2)
 
-#: AC-245's: the same 15x15 with one more cell of column-clue gutter — 33 cells
-#: down, 6.95 mm, under the minimum.
-_FIFTEEN_DEEPER = dict(columns=15, rows=15, depth=5, column_depth=6)
+#: AC-245's: the same 15x15 with one more cell of column-clue gutter — 29 cells
+#: down, 6.88 mm, under the minimum.
+_FIFTEEN_DEEPER = dict(columns=15, rows=15, depth=5, column_depth=2)
 
 
 class TestBookPdf_PairJustAboveTwoUpMinimumShares:
-    """AC-244 — 32 cells of drawing height share a page at 7.17 mm."""
+    """AC-244 — 28 cells of drawing height share a page at 7.13 mm."""
 
     def test_the_pair_prints_on_one_page(self):
         puzzles = [_puzzle(**_FIFTEEN, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")]
@@ -545,28 +585,29 @@ class TestBookPdf_PairJustAboveTwoUpMinimumShares:
         )
         assert _page_shapes(pages, 5, 1) == [[(15, 15), (10, 10)]]
 
-    def test_both_slots_print_at_the_shared_7_17_mm_cell(self):
+    def test_both_slots_print_at_the_shared_7_13_mm_cell(self):
         pages = _interior([_puzzle(**_FIFTEEN, puzzle_id="a"), _puzzle(**_TEN, puzzle_id="b")])
 
         for slot in drawings_of(pages[4]):
-            assert abs(_mm(slot.cell) - 7.17) < CELL_TOLERANCE_MM, _mm(slot.cell)
+            assert abs(_mm(slot.cell) - 7.13) < CELL_TOLERANCE_MM, _mm(slot.cell)
 
-    def test_that_cell_is_32_cells_of_height_and_is_at_or_above_the_minimum(self):
+    def test_that_cell_is_28_cells_of_height_and_is_at_or_above_the_minimum(self):
         first, second = _puzzle(**_FIFTEEN), _puzzle(**_TEN)
 
-        assert (_down(first), _down(second)) == (20, 12)
+        assert (_down(first), _down(second)) == (16, 12)
         cell = _shared_cell_mm(first, second)
-        assert abs(cell - PAIR_HEIGHT_MM / 32) < 1e-9
-        assert abs(cell - 7.17) < CELL_TOLERANCE_MM
+        assert abs(cell - RESERVED_PAIR_HEIGHT_MM / 28) < 1e-9
+        assert abs(cell - 7.13) < CELL_TOLERANCE_MM
         assert cell >= TWO_UP_MINIMUM_MM
 
 
 class TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare:
-    """AC-245 — one more cell of column-clue gutter, 6.95 mm, and they separate.
+    """AC-245 — one more cell of column-clue gutter, 6.88 mm, and they separate.
 
-    One more than AC-244's own pair takes, which on CON-018's amended margins
-    (2026-10-17) is 33 cells rather than 34: the deeper 15x15 is unchanged and
-    its partner is the 2-deep 10x10 AC-244 now uses.
+    One more than AC-244's own pair takes, which under CARD-248's footer strip
+    is 29 cells rather than 33 (CON-018's amended margins had already taken it
+    from 34 to 33): the partner is still the 2-deep 10x10 AC-244 uses, and the
+    15x15's own column gutter is one cell deeper than AC-244's.
     """
 
     def test_the_two_puzzles_print_on_two_pages(self):
@@ -581,10 +622,10 @@ class TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare:
     def test_the_cell_that_pair_would_need_is_under_the_minimum(self):
         first, second = _puzzle(**_FIFTEEN_DEEPER), _puzzle(**_TEN)
 
-        assert (_down(first), _down(second)) == (21, 12)
+        assert (_down(first), _down(second)) == (17, 12)
         cell = _shared_cell_mm(first, second)
-        assert abs(cell - PAIR_HEIGHT_MM / 33) < 1e-9
-        assert abs(cell - 6.95) < CELL_TOLERANCE_MM
+        assert abs(cell - RESERVED_PAIR_HEIGHT_MM / 29) < 1e-9
+        assert abs(cell - 6.88) < CELL_TOLERANCE_MM
         assert cell < TWO_UP_MINIMUM_MM
 
     def test_one_cell_of_gutter_is_the_whole_difference(self):
@@ -601,7 +642,15 @@ class TestBookPdf_PairJustBelowTwoUpMinimumDoesNotShare:
 
 
 class TestBookPdf_FifteenPlusTwelveDoesNotPair:
-    """AC-246 — 36 cells of drawing height (6.57 mm) print on two pages."""
+    """AC-246 — 32 cells of drawing height (6.24 mm) print on two pages.
+
+    **The same two puzzles as before CARD-248**; it is the figures that move.
+    The 15x15's column gutter came down to 1 cell with AC-244's fixture (see
+    ``_FIFTEEN``), so the pair is 32 cells rather than 36, and the footer
+    strip puts 32 cells at 6.24 mm instead of the 6.37 mm the pre-strip
+    229.492 mm gave 36 — still well under FR-040's floor, which is what this
+    AC is about.
+    """
 
     TWELVE = dict(columns=12, rows=12, depth=4, column_depth=4)
 
@@ -614,12 +663,12 @@ class TestBookPdf_FifteenPlusTwelveDoesNotPair:
         )
         assert _page_shapes(pages, 5, 2) == [[(15, 15)], [(12, 12)]]
 
-    def test_the_cell_that_pair_would_need_is_6_37_mm(self):
+    def test_the_cell_that_pair_would_need_is_6_24_mm(self):
         first, second = _puzzle(**_FIFTEEN), _puzzle(**self.TWELVE)
 
-        assert _down(first) + _down(second) == 36
+        assert _down(first) + _down(second) == 32
         cell = _shared_cell_mm(first, second)
-        assert abs(cell - 6.37) < CELL_TOLERANCE_MM, cell
+        assert abs(cell - 6.24) < CELL_TOLERANCE_MM, cell
         assert cell < TWO_UP_MINIMUM_MM
 
 
@@ -653,8 +702,9 @@ class TestBookPdf_PairFailingWidthAtTwoUpMinimumDoesNotShare:
         assert _across(wide) == 28
         assert USABLE_WIDTH_MM / 28 < TWO_UP_MINIMUM_MM
         assert abs(USABLE_WIDTH_MM / 28 - 6.80) < CELL_TOLERANCE_MM
-        # The height term on its own would have allowed a 7.0 mm cell.
-        assert PAIR_HEIGHT_MM / (_down(wide) + _down(small)) > TWO_UP_MINIMUM_MM
+        # The height term on its own would have allowed a 7.0 mm cell — the
+        # footer strip included, so the width really is the only refusal.
+        assert RESERVED_PAIR_HEIGHT_MM / (_down(wide) + _down(small)) > TWO_UP_MINIMUM_MM
         assert _shared_cell_mm(wide, small) < TWO_UP_MINIMUM_MM
 
 
@@ -840,11 +890,19 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 
     #: Where each band starts, in millimetres down the trim. The upper band is
     #: where every single page's is, the top margin. The lower one is worked
-    #: out from the bottom up: the lower drawing's 14 cells at the 7.5 mm
-    #: shared cell end on the bottom margin, and its band is the 12 mm above
-    #: them — 279.4 − 11.938 − 105 − 12 = 150.462 mm.
+    #: out from the bottom up: the lower drawing's 13 cells at the 7.5 mm
+    #: shared cell end on the **footer rule** — one 29.878 mm strip above the
+    #: bottom margin since CARD-248, where they used to end on the margin
+    #: itself — and its band is the 12 mm above them:
+    #: 279.4 − 11.938 − 29.887 − 97.5 − 12 = 128.075 mm.
     UPPER_BAND_TOP_MM = TOP_MM
-    LOWER_BAND_TOP_MM = BOOK1_HEIGHT_MM - BOTTOM_MM - 14 * STANDARD_CELL_MM - BAND_MM
+    LOWER_BAND_TOP_MM = (
+        BOOK1_HEIGHT_MM
+        - BOTTOM_MM
+        - FOOTER_STRIP_PX / PX_PER_MM
+        - 13 * STANDARD_CELL_MM
+        - BAND_MM
+    )
 
     def _page(self):
         puzzles = [
@@ -859,7 +917,7 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 
     def test_the_lower_band_sits_where_the_pair_leaves_it(self):
         """The millimetres the crops below are taken at, stated before use."""
-        assert abs(self.LOWER_BAND_TOP_MM - 150.462) < 1e-9
+        assert abs(self.LOWER_BAND_TOP_MM - 128.075) < 1e-3
 
     def test_the_upper_band_reads_puzzle_one_and_the_lower_puzzle_two(self):
         page = self._page()

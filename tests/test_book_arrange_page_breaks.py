@@ -90,6 +90,16 @@ rule). Offered verdicts went 93 -> 96 and the flips 10 -> 7: fewer, because
 the reserve refuses some pairs whatever their clue depth, which is exactly a
 verdict the clues no longer decide.
 
+**Re-measured again for CARD-248**, which reserves a 29.878 mm footer strip
+out of every pair's height so that a two-up page can carry both its puzzles'
+QR links (:func:`_footer_reserve_px`, :func:`_footer_carries_two_groups` —
+both passed by the production walk, both part of the verdict). Offered
+verdicts went 96 -> 97 and the flips 7 -> **11**: the shallower pair height
+moves more pairs onto the boundary, so more of them are decided by the clue
+depth the rows store rather than by the extent alone. The corpus therefore
+discriminates more than it did, not less, which is the direction this
+measurement exists to watch.
+
 Seven is a small number and is the whole point: it is not zero, so this corpus
 discriminates between the plan the book makes and a plan fitted from extents
 alone instead of agreeing with both — an extent-only planner would have put ten
@@ -443,6 +453,48 @@ def _folio_reserve_px() -> int:
     return math.ceil(widest * 4)
 
 
+def _footer_reserve_px() -> int:
+    """CARD-248's footer strip, reimplemented here: 353 px at 300 DPI.
+
+    **The pairing verdict depends on this one too.** A two-up page now carries
+    one footer strip holding both puzzles' QR groups and the page's own folio,
+    so the generator's walk passes this many pixels of height into every
+    ``compute_pair_layout`` call and the pair is fitted into what is left. A
+    walk that omitted it would pair puzzles the book prints on two pages.
+
+    Reimplemented from the three rows the strip is built of, as this file
+    reimplements every other figure: the 2 cm icon, the 10 pt footer line, and
+    9 pt of white twice.
+    """
+    millimetres = 20.0 + 10.0 * 25.4 / 72.0 + 2 * (9.0 * 25.4 / 72.0)
+    return round(millimetres / 25.4 * DPI)
+
+
+def _footer_carries_two_groups(spec) -> bool:
+    """Whether this sheet's footer strip is wide enough for **two** QR groups.
+
+    The walk's second CARD-248 gate: a page that could not carry both
+    puzzles' links is not a two-up page at all, and the two puzzles print on
+    two single pages instead. One group is the 2 cm icon, 9 pt of white, its
+    widest line and 9 pt again; two of them, less the last group's trailing
+    white, must fit the usable width.
+
+    The *line's* own measure comes from ``_qr_group_line_px`` rather than
+    being reimplemented, for the reason :func:`_folio_reserve_px`'s digit
+    width is measured and not written down — it is a measurement of a face
+    and of the owner's own copy, not FR-040's geometry, and a second copy of
+    the printed link here would undo the one-literal promise CARD-223 made to
+    CARD-210. Everything else below is this file's own arithmetic.
+    """
+    from nonogram.admin.book_pdf_generator import _qr_group_line_px
+
+    icon = round(20.0 / 25.4 * DPI)
+    gap = round((9.0 * 25.4 / 72.0) / 25.4 * DPI)
+    pitch = icon + 2 * gap + _qr_group_line_px(DPI)
+    usable = round((spec.width_mm - spec.gutter_mm - spec.outside_mm) / 25.4 * DPI)
+    return 2 * pitch - gap <= usable
+
+
 def planned_by_hand(
     book,
     rows: List[Dict[str, Any]],
@@ -460,9 +512,12 @@ def planned_by_hand(
     * a named level opens with a divider page that carries no puzzle;
     * inside a level the walk is greedy and forward: puzzle *i* and *i+1* are
       offered to COMP-007 on the spec of the page they would share, **with
-      CARD-204's fixed folio reserve** (:func:`_folio_reserve_px`, which the
-      production walk also passes and which takes part in the verdict), and a
-      ``PairLayout`` back puts both on it. Otherwise *i* has the page to
+      CARD-204's fixed folio reserve and CARD-248's footer strip**
+      (:func:`_folio_reserve_px`, :func:`_footer_reserve_px`, both of which
+      the production walk passes and both of which take part in the verdict),
+      and a ``PairLayout`` back puts both on it — unless this sheet's footer
+      could not carry both puzzles' links, which refuses the pair outright
+      (:func:`_footer_carries_two_groups`). Otherwise *i* has the page to
       itself. A run with no readable tier never pairs.
 
     Args:
@@ -494,12 +549,14 @@ def planned_by_hand(
         while index < end:
             paired = False
             if level is not None and index + 1 < end:
-                paired = (
+                spec = book_page_spec(book, page)
+                paired = _footer_carries_two_groups(spec) and (
                     compute_pair_layout(
                         _clue_sets(ordered[index]),
                         _clue_sets(ordered[index + 1]),
-                        book_page_spec(book, page),
+                        spec,
                         folio_reserve_px=_folio_reserve_px(),
+                        footer_reserve_px=_footer_reserve_px(),
                     )
                     is not None
                 )
@@ -769,11 +826,15 @@ CORPUS_MEASURED = {
     "puzzles": 164,
     "same_tier_neighbours": 99,
     # 93 and 10/10 until CARD-222: CON-018's amended margins (2026-10-17) and
-    # CARD-204's folio reserve, which this walk had not been passing. See the
+    # CARD-204's folio reserve, which this walk had not been passing. 96 and
+    # 7/7 until CARD-248, whose footer strip (`_footer_reserve_px`) takes
+    # 29.878 mm out of every pair's height: one more verdict is offered and
+    # the flips go 7 -> 11, i.e. the corpus discriminates *more* between the
+    # book's own plan and one fitted from extents alone, not less. See the
     # module docstring.
-    "verdicts_offered": 96,
-    "flips_solid_grid": 7,
-    "flips_filled_count": 7,
+    "verdicts_offered": 97,
+    "flips_solid_grid": 11,
+    "flips_filled_count": 11,
 }
 
 

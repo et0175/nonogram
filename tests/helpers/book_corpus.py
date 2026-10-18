@@ -495,11 +495,34 @@ OUTSIDE_MM = 0.5 * 25.4
 #:   ``interior_bytes`` 3313912 -> 3337825. Measured on that page set, not
 #:   argued from the change's intent.
 #:
-#: All eighteen files carry the reasoning; this constant names the current one
-#: (eighteen since CARD-223's own recording joined the seventeen CARD-222 had
+#: * ``book_baseline_card248.json`` — CARD-248 gives a two-up page **one**
+#:   footer strip carrying **both** puzzles' links. CARD-223 had measured each
+#:   extent on its own, which left the upper slot with an icon at the
+#:   **midline** between the two drawings and the lower slot with none, so this
+#:   book printed three links for its four puzzles; the owner's decision of
+#:   2026-10-18 is that a puzzle's scannable link "definitely should not be
+#:   lost". ``compute_pair_layout`` now reserves ``INTERIOR_FOOTER_MM``
+#:   (29.878 mm, 353 px) of height below the lower slot before it fits the
+#:   pair, the strip carries two groups side by side — each with its own icon,
+#:   its own "Puzzle N · Solve it online" invitation and its own typed link —
+#:   and the page gains the footer hairline and a centred folio where it had no
+#:   footer group at all. ``changed_pages`` is **5 and nothing else**: the
+#:   two-up page. Pages 7 and 9 (the single puzzle pages) are byte-identical,
+#:   which is this recording's own control — a single page's group is measured
+#:   at ``inset_px=0``, unchanged to the pixel (G-3) — and no other page kind
+#:   has ever carried a QR group or a two-up footer. ``interior_bytes``
+#:   3337825 -> 3354646. The page count is still thirteen: this book's
+#:   Duck+Owl pair is 26 cells of combined drawing height, which still clears
+#:   FR-040's 7.0 mm floor in the 199.605 mm the strip leaves. **Pairs of 29 to
+#:   32 cells no longer pair at all** (they print as two single pages), which
+#:   is the cost this card measures and the reason the suite's own two-up
+#:   fixtures were re-chosen.
+#:
+#: All nineteen files carry the reasoning; this constant names the current one
+#: (nineteen since CARD-248's own recording joined the eighteen CARD-223 had
 #: brought the chain to; the stale counts this line used to carry,
 #: "thirteen" and "twelve", were both left behind by earlier cards).
-BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card223.json"
+BASELINE_FIXTURE = Path(__file__).resolve().parents[1] / "fixtures" / "book_baseline_card248.json"
 
 #: How many pages the baseline book's interior holds, asserted by the tests
 #: that use it so the corpus cannot silently shrink (CLAUDE.md). Eleven until

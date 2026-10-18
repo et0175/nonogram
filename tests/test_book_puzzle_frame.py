@@ -690,7 +690,19 @@ class TestPuzzleFrame_PairIsFramedPerPuzzle:
 #: each of **two** puzzles: 193.675 mm and 236.35 mm on Book 1. The same two
 #: figures ``tests/test_book_pdf_two_up.py`` states FR-040's shared cell from.
 USABLE_WIDTH_MM = BOOK1_WIDTH_MM - GUTTER_MM - OUTSIDE_MM
-PAIR_HEIGHT_MM = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
+
+#: The footer strip a two-up page reserves since CARD-248 (``INTERIOR_FOOTER_MM``
+#: as this page's own pixels: 353 px, 29.878 mm), and the height its two
+#: drawings are left with. The strip carries both puzzles' QR groups and the
+#: page's folio, so it comes out of the pair's height before anything is
+#: fitted — and the lower slot's drawing now stops on the footer rule rather
+#: than on the bottom margin. Written out here, as this file writes every
+#: other figure out.
+FOOTER_STRIP_PX = 353
+FOOTER_STRIP_MM = FOOTER_STRIP_PX / PX_PER_MM
+PAIR_HEIGHT_MM = (
+    BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM - FOOTER_STRIP_MM
+)
 
 #: The pair these criteria are read on, and the puzzle that prints alone after
 #: it so that a two-up slot and a single page can be compared **on one book**.
@@ -701,8 +713,15 @@ PAIR_HEIGHT_MM = BOOK1_HEIGHT_MM - TOP_MM - BOTTOM_MM - 2 * BAND_MM
 #: book order), so they share one packed answer page; SINGLE_PUZZLE (20x20)
 #: doesn't qualify and still gets its own full answer page — two answer
 #: pages total, not three.
+#: **LOWER's gutters are 2 cells deep, not 3, since CARD-248.** The footer
+#: strip that card reserves leaves a pair 199.605 mm rather than 229.492 mm,
+#: and 27 cells of combined drawing height no longer clear NFR-008's standard
+#: cell in it (7.39 mm): these criteria are read on a pair the **cap** binds,
+#: so that the boxes below are exact 7.5 mm arithmetic and not a fit. One cell
+#: shallower is 26 cells, 7.68 mm, capped at 7.5 — the same pair, measured
+#: the same way.
 UPPER_PUZZLE = dict(columns=10, rows=10, row_depth=2, column_depth=2)
-LOWER_PUZZLE = dict(columns=12, rows=12, row_depth=3, column_depth=3)
+LOWER_PUZZLE = dict(columns=12, rows=12, row_depth=2, column_depth=2)
 SINGLE_PUZZLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
 
 #: Which interior page is which, once the walk above has run. Asserted rather
@@ -832,9 +851,11 @@ def _expected_pair_boxes(
     reading (b)) — flush with the outer margin — across the usable width on
     the **shared** cell; the upper one's top edge is the fixed row every
     single puzzle page uses (top margin plus band, FR-032/EC-022) and the
-    lower one's bottom edge is the bottom margin, its own band in the 12 mm
-    above it — which is the placement ``tests/test_book_pdf_two_up.py``
-    states AC-251's lower band from.
+    lower one's bottom edge is the **footer rule** — one
+    :data:`FOOTER_STRIP_MM` above the bottom margin since CARD-248, where it
+    was the margin itself before — with its own band in the 12 mm above it,
+    which is the placement ``tests/test_book_pdf_two_up.py`` states AC-251's
+    lower band from.
 
     That rectangle **is** the frame: its left and top are the outer edges of
     the two clue gutters and its right and bottom the grid's own outer border.
@@ -872,7 +893,15 @@ def _expected_pair_boxes(
 
     return (
         box(upper, TOP_MM + BAND_MM),
-        box(lower, BOOK1_HEIGHT_MM - BOTTOM_MM - _down(lower) * cell, is_lower=True),
+        box(
+            lower,
+            # CARD-248: the lower drawing's bottom edge is the **footer rule**
+            # — one 29.878 mm strip above the bottom margin — not the margin
+            # itself, because the page now reserves a footer carrying both
+            # puzzles' QR groups and its own folio.
+            BOOK1_HEIGHT_MM - BOTTOM_MM - FOOTER_STRIP_MM - _down(lower) * cell,
+            is_lower=True,
+        ),
     )
 
 
