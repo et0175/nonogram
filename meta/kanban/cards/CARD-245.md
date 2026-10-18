@@ -401,3 +401,126 @@ read-only*, F-002 would have been hard to ship; and the card recommended a hash 
 **without specifying its domain**, which is the single most load-bearing line in the mechanism
 (F-001). That last pair is the transferable lesson: a card that mandates a derived guard must
 say what defaults to deny, and a card that recommends a hash must say what it covers.
+
+### Implementation notes (worktree, 2026-10-18)
+
+- **Two-phase save: the recommendation was taken, but moved.** "Solve once, stage the
+  result" is what shipped — with the staging *inside the one gate* rather than beside it.
+  `_refuse_unless_uniquely_solvable` now remembers the `SolveResult` it produced, keyed by a
+  SHA-256 fingerprint of the grid's extent and cells; `verify_replacement_grid` additionally
+  records which puzzle that grid's grade was *shown for*. The save calls the same gate (memo
+  hit, no second solve) and then refuses unless this grid is one that was shown for this
+  puzzle. Staging it *outside* the gate was tried on paper first and rejected: a save that
+  wrote on the strength of a staged hash match would not call the refusal at all, which is
+  precisely what G-1 forbids, and the G-1 test would then have had to be weakened to
+  accommodate the design. Keeping the memo inside the gate means the write path reaches the
+  one refusal **statically** (the guard walks `self.…` calls) and the flow still costs one
+  solve.
+- **Where staged state lives / what expiry does.** On the `PuzzleReviewService` instance, in
+  this process, bounded at `MAX_REMEMBERED_VERIFICATIONS = 16` (LRU). Same place and same
+  lifetime as the legacy mode's `self.puzzles`, and the panel runs one gunicorn worker
+  (`start.sh`, CARD-086 G-4). **There is deliberately no clock.** A proof is a pure function
+  of the grid and cannot go stale; the staleness that matters — the row being put in a book
+  between verify and approve — is re-checked against the row at save time. So a verification
+  is forgotten when 16 newer grids have been proved, or when the process restarts, and the
+  save then refuses with `EditNotVerified` ("verify it again"), which costs one solve and
+  cannot store anything ungraded. A verification is not consumed by a save, so a retried save
+  of the same grid does not buy a second solve.
+- **AC-2's zero-solution arm is unreachable from a grid payload, and the card does not say so.**
+  The clue set is re-derived *from the grid* (`_why_this_is_not_a_puzzle` refuses to trust a
+  caller's clues), and a grid always satisfies its own clues — the store's own comment records
+  the measurement (120 derived clue sets: 97 unique, 23 ambiguous, 0 unsolvable). The test
+  reaches it the only way it can, with the solver replaced, and pins the message; the 2-or-more
+  arm is driven by a real ambiguous grid.
+- **Deliberately out of scope**: the "hand-edited" *filter* (noted, not built, as the card
+  asks), the editor UI (CARD-246), and MIN_SIZE/MAX_SIZE on a write — the store has never
+  enforced the supported range on `add_puzzle` either, and this card does not change that.
+
+### Review cycle 1 fixes (worktree, 2026-10-18)
+
+Score 7/10 against a threshold of 8, build gate green, no critical findings.
+Everything below is evidence rather than behaviour except where marked.
+
+- **F-001 — the fingerprint's extent now has a round-trip test.**
+  `TestPuzzleEdit_AProofDoesNotCrossGridExtents` verifies a unique 1x4
+  (`[[T,F,F,T]]`) and then *saves* the 2x2 diagonal — the same four bits
+  `1001` in another extent, and a grid with two solutions. The save must raise
+  `NotUniquelySolvable` (not `EditNotVerified`: the gate must be what catches
+  it), the stored row must be unchanged, the stamp must stay null, and the
+  solver entry count must *rise*, because a memo hit is exactly how the
+  corrupt write happens. Mutant M2 (`text = bits`) now fails 7 tests.
+- **F-002 — G-1 is inverted to default-deny.** The write predicate was an
+  allow-list of four *grid-write* shapes, so an unrecognised shape was
+  classified "not a write". It is now a catalogue of *writes*: any store into
+  something that is not a freshly built local, any `setattr`/`del`, any `**`
+  splat, any mutating method call, a `{"grid": …}` payload handed to a call.
+  Anything it names is a **candidate grid writer** that must reach the gate or
+  sit on `WRITES_NO_GRID` (10 entries, each with its reason), and an entry
+  there is machine-checked for not naming a grid and not writing an unreadable
+  payload — so `save_edited_grid`, whose legacy branch is
+  `puzzle.update(derived)`, *cannot* be excused. The parse is the **module**,
+  not the one `ClassDef`, so a module-level writer is seen. All nine shapes
+  cycle 1 probed are caught and are parametrised controls.
+- **F-003 — `== ["016"]` dropped.** The test is renamed
+  `test_the_head_is_the_highest_numbered_migration_on_disk`, because the old
+  name made the claim the assertion must not make. `test_016_revises_015`
+  remains as this card's legitimate named link.
+- **F-004 — strict stamp movement on a frozen clock.** `frozen_clock` holds
+  `puzzle_review.datetime.now`, two fixed instants are stored and pinned by
+  prefix, and the assertion is `second > first`. Mutant M7 now fails.
+- **F-005 — the legacy `in_book` arm no longer skips itself.**
+  `Harness.set_the_legacy_in_book_status` writes the status directly (ORM in DB
+  mode, dict in memory), the premise is asserted (`status == "in_book"` with a
+  null `book_id`, so it really is the legacy arm), and both the save and the
+  verify are asserted refused unconditionally.
+- **F-007 — the coupling is stated at the knob.** A paragraph directly above
+  `--workers` in `start.sh` names the two-phase flow and says what raising it
+  would need; the default is unchanged and
+  `tests/test_admin_serving.py::test_one_worker_unless_this_was_revisited`
+  still owns that. Pinned by
+  `TestPuzzleEdit_TheWorkerCountIsCoupledToTheTwoPhaseFlow`.
+- **F-011 — one accessor.** `_remembered_proof` becomes
+  `_remembered_verification`, returns the `_Verification`, and is the only way
+  the memo is read outside its own methods. Pinned structurally and
+  deliberately so: behaviour cannot tell the two versions apart today, which
+  is precisely the trap.
+- **F-012 (production) — the marker has its own class.** It wore
+  `badge rec`, which is the *recognisability* chip's class keyed by
+  `data-level`, so it rendered as a second identical grey chip beside the real
+  one. It is now `badge edited` with its own `.badge.edited` rule in
+  `admin.css` (warning tint, tokens only). Two assertions, because either half
+  alone is vacuous: the template asks for the class, the stylesheet answers.
+- **Not in this cycle, by the dispatcher's instruction**: F-006 (gate before
+  the verification check — fails closed, recorded as residue), F-008
+  (`MIN_SIZE`/`MAX_SIZE` and `MAX_CONTENT_LENGTH` — routed to the owner as a
+  decision), F-009/F-010/F-013 (nits, routed).
+
+### Orchestrator: fix cycle 1 boundaries verified (2026-10-18)
+
+`7958832`, 6 files, +877/−153. Checked directly rather than on report: **`app.py`,
+`db/models.py` and migration 016 are untouched**, and `start.sh`'s `${WEB_CONCURRENCY:-1}`
+default is **unchanged** (the fix is a comment above the flag). So production movement is
+confined to `puzzle_review.py` (34 lines), one CSS rule and the template marker — which is
+what a cycle fixing *evidence* should look like.
+
+**The G-1 inversion is real, and in the right direction.** Verified by reading it: every
+function in the module — module-level **and** every class's methods — is now a *candidate grid
+writer* **unless provably read-only**, which is default-deny. `WRITES_NO_GRID` holds **10**
+entries, each with its justification inline and each **machine-checked** (it must not name
+`grid` on the writing side and must not contain an unreadable payload write). The sharpest
+test in the set is `test_save_edited_grid_could_not_be_excused_even_if_someone_listed_it` — the
+one method whose legacy branch writes through `.update()` **cannot be moved onto the list to
+silence a failure**. That is the finding closed at its root rather than at its instance.
+
+Also recorded: the fix agent **disagrees with the reviewer on F-012 and is right** —
+`admin.css:142` carries a base `.badge.rec` not keyed by `data-level`, so the marker rendered
+as a fully styled grey chip, not an invisible one. The real defect was that it was
+**indistinguishable from the recognisability chip two cells away in the same row**, i.e. it
+read as a duplicate rec badge rather than as a new kind of marker. A correct diagnosis of a
+real defect that the review had mis-mechanised; the fix addresses the semantics, not a missing
+rule. And on **F-005** the fix says the review *understated* it: `mark_in_book` sets **both**
+`status` and `book_id`, so the old test's refusal was being driven by `book_id` — already
+covered elsewhere — and AC-4's legacy **status-only** arm was not covered at all. The
+tautology was hiding a coverage hole, not a weak assertion. Both corrections are the kind this
+board wants recorded, since an agent correcting a reviewer is the cheapest place to catch a
+review error.

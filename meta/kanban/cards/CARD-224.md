@@ -169,3 +169,141 @@ _53 further rules the lens returned are scoped `src/nonogram/**` (package-wide),
   folio, two-up pages losing their folios). Those findings are *why* this reversal is cheap:
   the tests they left behind are the ones that will catch this card if it gets the geometry
   wrong. Reverting the placement is not reverting the card.
+
+## Implementation notes (worktree, CARD-224)
+
+- **The placement.** `compute_layout`'s placed branch is centred again
+  (`usable_left + max(spare, 0) / 2`) and its top edge comes from a new
+  `_placed_drawing_top(spec, band_bottom, drawing_height, thick_rule)`.
+  `GRID_SPARE_ABOVE = Fraction(42, 100)` is declared once, in
+  `export/layout.py`, with the owner's sentence ("which looks centred once the
+  header sits above it") as its docstring, and is read in exactly one place.
+- **One definition of the puzzle area.** `_puzzle_area_px(spec)` was extracted
+  from `interior_frame`, which now calls it; the placement reads the same
+  function, so the region a page *draws* and the region a drawing is *placed
+  in* cannot drift.
+- **Two new `PagePlacement` fields, all three constructors changed in the same
+  commit** (`compute_layout`, `_slot_layout`, `_packed_tile_layout`):
+  `band_bottom` (the band's foot, which `header_band` now reads instead of
+  `drawing_top` — otherwise the band's type would drift down the page with the
+  float, under the header rule) and `vertical_bound` (`"ratio"` / `"footer"` /
+  `"slot"`), which is how "the page says which rule bound it" (AC-4) is
+  answered.
+- **The named trap: `_draw_solved_slot`'s return value is unchanged.** Nothing
+  about the caption box `(caption_bottom, caption_right)` moved, so both
+  consumers (`solved_puzzle_page`, `_packed_answer_page`) are unchanged too.
+  What did change under them is where `compute_layout` puts the drawing the
+  caption hangs below; `caption_slot`'s clamp (G-3) is untouched and still
+  binds — centring restores half the page's spare, so the caption width at
+  which it fires moved, and `tests/test_book_solved_page.py` now carries a
+  title in each of the three regimes instead of one that had quietly stopped
+  reaching the margin.
+- **The two-up slot keeps its own vertical position** (its slot's band foot):
+  splitting the page's puzzle area between two slots is CARD-226's (G-4). Both
+  slots *are* centred horizontally, and `_slot_layout`'s `outer_reserve_px`
+  parameter is gone with the anchor it corrected; `folio_reserve_px` still
+  narrows `compute_pair_layout`'s *fit*, so FR-040's accept/refuse verdict and
+  committed cell are bit-for-bit CARD-204's (G-1).
+- **Owed at the architect station (not edited from this worktree): AC-252.**
+  "The upper puzzle's drawing on a two-up page starts on the same pixel row as
+  a 20x20 single puzzle's" is falsified by this card — the single page floats,
+  the slot does not. The 2026-10-17 propagation pass retired AC-190 and
+  restated EC-022 but did not reach AC-252. Its own test
+  (`TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge::test_the_upper_slot_and_the_single_page_share_a_top_pixel_row`)
+  is marked `xfail(strict=True)` with that reason, so it fails loudly if
+  anyone "fixes" it by pinning a single page's drawing back to the band's foot.
+  EC-022's own amended text also names "the upper puzzle's on a two-up page",
+  which stays unimplemented for the same reason (CARD-226).
+- **A measured, declared exception to AC-3.** A two-up page's *lower* slot has
+  its drawing's bottom edge exactly on the footer rule — CARD-248 reserves one
+  footer strip out of the pair's height, so the boundary and the hairline are
+  the same row. That is the pairing geometry's, not this card's, and
+  `TestBookPuzzleFrame_GridClearsBothRules` asserts the coincidence instead of
+  skipping the page.
+
+### Orchestrator: the scope gate, and the architect station (2026-10-18)
+
+**[Touches drift]** 20 files changed; three are not named by the `Touches` field, and none is
+scope growth:
+
+| file | verdict |
+|---|---|
+| `src/nonogram/admin/book_proof.py` | consequence of centring — its `_fallback_spots` side strip was a *forced* choice when the drawing was flush and is now a real choice (both sides carry spare), and half as wide, so the corner fallback wins on more trims. COMP-009, already in the card's slice via `book_pdf_generator.py`. |
+| `tests/test_layout_page_spec.py` | COMP-007's own tests, already in the slice via `export/layout.py`; the `Touches` globs covered `tests/test_book_*.py` but not `tests/test_layout_*.py`. |
+| `tests/test_layout_two_up.py` | same. |
+
+So **zero new components** beyond the slice — the scope gate's trigger (a diff growing ≥2
+components beyond its slice, or covering a ready sibling's `Touches`) is **not** met. The large
+overlap with CARD-225, CARD-226 and CARD-227 is not poaching: those cards were serialized
+behind this one by design at dispatch, for exactly these hotspots.
+
+### ⚑ Architect station: AC-252 retired, AC-378 added, AC-379 owed, EC-022's scope corrected
+
+The implementation agent reported that **AC-252** is falsified by this card and that nothing
+was owed at the architect station for it, and marked its test `xfail(strict=True)` rather than
+editing `meta/architecture/**` from a worktree. Both calls were right. Settled on main with
+**0 validator errors**; `requirements.yml` and `trace.yml` both amended.
+
+- **AC-252 RETIRED.** It is the *same* retired claim as AC-190 — the fixed top edge — seen
+  from the two-up page. **The cause is recorded, not just the retirement:** the 2026-10-17
+  propagation pass retired AC-190 and restated EC-022 under FR-032 but never reached AC-252,
+  because AC-252 lives under **FR-040**. A propagation pass that follows one requirement's
+  clause cannot see the same claim restated under another requirement, and this is the second
+  time on this board that a criterion survived a pass that should have taken it (the first was
+  AC-244's off-by-one, which CARD-222's deferral was hiding).
+  It also **cannot be rescued by CARD-226 floating the upper slot**: a slot's spare is not a
+  page's spare, so 42% of each still lands on different rows. The claim is **wrong, not merely
+  early** — which is why it is retired rather than deferred.
+- **AC-378 added** — the truth this card produces: the single page floats at 42% of its area's
+  spare while the upper slot is held at the foot of its own slot's band, so the two top rows
+  **differ by design and the difference is asserted rather than tolerated**. Test
+  `TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow`, which replaces the xfail —
+  **a card must not merge carrying a strict xfail that encodes a retired claim**, because a
+  strict xfail is *green* in a suite, so the gate would pass while the test still asserts the
+  old geometry. That is the CARD-172 shape exactly.
+- **AC-379 declared OWED to CARD-226** — each slot floats at 42% of its *own* spare once the
+  page is split. The agent's point 2 is now a criterion that card inherits instead of a
+  sentence in a docstring.
+
+**EC-022's scope was wrong, and the error was the orchestrator's, not the card's.** The
+2026-10-17 restatement read "the gap between the top of the puzzle area and the top of the
+drawing — **the upper puzzle's on a two-up page** — is 42% of that area's spare height". That
+clause claimed the two-up half **one card early**: this card's own G-4 defers the slot split to
+CARD-226, so no card in flight was ever going to deliver it. The tell was visible in the
+registry and nobody read it — **none of EC-022's four instances (AC-189, AC-240, AC-366,
+AC-367) was a two-up criterion**, so the clause stood with nothing instantiating it, which is
+an EC clause with no instance. EC-022 now states the single-page rule as the live one,
+attributes the two-up ratio to CARD-226 and AC-379, and names AC-378 as the control that the
+two are deliberately different today. The clause is **kept and attributed, not dropped** — the
+rule was right about where the design is going and wrong about when.
+
+This is wave 44's recorded defect with the sign flipped. There, an architect amendment landing
+mid-card invalidated an exemption a card had written correctly against the pre-amendment rule.
+Here the amendment was written *ahead* of the card that implements it, so the card could only
+satisfy it by doing a sibling's work. **Lesson for the next propagation pass: an amendment must
+name the card that will make it true, and if that card is not the one in flight, the clause is
+scoped to the future card from the moment it is written.**
+
+**Three residues the card records rather than absorbing** (all three stated by the agent, all
+three verified as genuine):
+
+- A two-up page's **lower slot sits exactly ON the footer rule** — its heavy border and the
+  hairline share a row. This is CARD-248's reserve, not this card's placement, and repacking
+  two slots is CARD-226's job. `TestBookPuzzleFrame_GridClearsBothRules` **asserts the
+  coincidence** rather than skipping the page, so it fails if it ever becomes a gap or an
+  overlap. This is the obligation CARD-226 already carried on this board and it is now pinned
+  by a test instead of a note.
+- `folio_reserve_px` is still taken out of `compute_pair_layout`'s **fit**, deliberately, so
+  FR-040's accept/refuse verdict and committed cell stay bit-for-bit CARD-204's (G-1). Centring
+  has subsumed its *purpose* — both sides now carry half the spare — but removing it from the
+  fit would move page counts and per-copy print cost. **This is the same reserve as the open
+  backlog question from CARD-248's render** (18 pairs refuse only because of it, including the
+  25×10). The two are now one question, and it is a pricing decision, not a geometry one.
+- **Guide pages 1–2 scatter again** by the known ≤1 px rounding of `example_line_layout`'s
+  borrowed pitch. CARD-204 recorded exactly this; eliminating it would give those helpers their
+  own placement arithmetic, which G-3 forbids. The existing bound test passes unmodified.
+
+**Independently confirmed, and worth recording because two agents found it separately:** this
+card's agent and CARD-245's both discovered that `pyproject.toml:89` sets `addopts = "-q"`, so
+adding `-q` yields `-qq` and pytest prints **no summary line at all**. Two independent
+discoveries in one wave is why this is filed as a board-level `@ops` item rather than a note.

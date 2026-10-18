@@ -1959,7 +1959,11 @@ links:
   - TestBookPdf_PairingNeverReordersToFindAPartner
   - TestBookPdf_OddPuzzleOutPrintsAlone
   - TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand
-  - TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge
+  # AC-252 RETIRED 2026-10-18 (CARD-224): the fixed top edge seen from the
+  # two-up page. Its test is kept and restated as the negative claim below,
+  # not deleted — AC-378 asserts the two rows differ by design, so nobody
+  # can "fix" it by pinning a single page back to the band's foot.
+  - TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow
   - TestTwoUpFooter_APairThatCannotFitSplitsIntoSinglePages
   - PropertyTest_BookPairing_InOrderSameTierFittingNeighboursOnly
   - PropertyTest_BookTwoUp_SharedCellInRangeAndDrawingsFitUsableArea

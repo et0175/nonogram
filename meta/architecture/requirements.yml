@@ -2459,15 +2459,27 @@ functional:
         statement: >-
           For any puzzle extent of 10..30 per side and any clue depth, the
           book's puzzle page is portrait, the grid is drawn unrotated
-          (width across the page, height down it), and the gap between the
-          top of the puzzle area and the top of the drawing — the upper
-          puzzle's on a two-up page — is 42% of that area's spare height,
-          with the remaining 58% below, so no drawing or clue ink crosses
-          the frame's header or footer rule for any extent; where the
-          tallest admissible drawing leaves too little spare for the ratio,
-          it is placed as low as it fits rather than past the footer rule.
+          (width across the page, height down it), and on a SINGLE-puzzle
+          page the gap between the top of the puzzle area and the top of the
+          drawing is 42% of that area's spare height, with the remaining 58%
+          below, so no drawing or clue ink crosses the frame's header or
+          footer rule for any extent; where the tallest admissible drawing
+          leaves too little spare for the ratio, it is placed as low as it
+          fits rather than past the footer rule. On a TWO-UP page each slot's
+          drawing is held at the foot of its own slot's band until CARD-226
+          splits the page into two slots with aligned bottoms, at which point
+          the same 42% ratio applies to each slot's own spare (AC-379); the
+          ratio is NOT claimed of a slot before that split, and AC-378 is the
+          control that the two are deliberately different today.
+          Scope corrected 2026-10-18: the 2026-10-17 restatement of this
+          constraint said "the upper puzzle's on a two-up page" and so
+          claimed the two-up half one card early — CARD-224's own G-4 defers
+          the slot split to CARD-226, and none of this constraint's instances
+          (AC-189, AC-240, AC-366, AC-367) was a two-up criterion, so the
+          clause stood with nothing instantiating it. The clause is kept and
+          attributed, not dropped.
         kind: consistency
-        instances: [AC-189, AC-240, AC-366, AC-367]
+        instances: [AC-189, AC-240, AC-366, AC-367, AC-378]
         test: PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent
       # New 2026-09-22 (c) — mirrored margins, centred drawing.
       # NOTE 2026-10-17 (propagation pass): this property is UNCHANGED and
@@ -3348,12 +3360,41 @@ functional:
         then: the upper band reads "Puzzle 1 · Easy" and the lower band reads "Puzzle 2 · Easy"
         kind: happy
         test: TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand
+      # RETIRED 2026-10-18 — the same retired claim as AC-190, in FR-040's
+      # section. This is the fixed top edge seen from the two-up page: once a
+      # single page's drawing floats at 42% of its own spare (AC-366/AC-367)
+      # and a two-up slot is held at the foot of its own slot's band, the two
+      # top rows cannot coincide except by accident. The 2026-10-17
+      # propagation pass retired AC-190 and restated EC-022 under FR-032 but
+      # did NOT reach this criterion, because it lives under FR-040 — the
+      # miss is recorded, not just the retirement. Kept as the record, with
+      # its test, which CARD-224 replaces; AC-378 states the new truth.
+      # Note it cannot be rescued by floating the upper slot too (CARD-226):
+      # a slot's spare is not a page's spare, so 42% of each still lands on
+      # different rows. The claim is wrong, not merely early.
       - id: AC-252
         given: a Book 1 profile book holding the two-up page of AC-242 and a single-puzzle page with a 20x20 puzzle
         when: the book PDF is generated
         then: the upper puzzle's drawing on the two-up page starts on the same pixel row as the 20x20 puzzle's drawing
         kind: boundary
         test: TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge
+      # New 2026-10-18 — the two-up half of the 42% float (CARD-224 for the
+      # negative claim, CARD-226 for the positive one; see EC-022).
+      - id: AC-378
+        given: a Book 1 profile book holding the two-up page of AC-242 and a single-puzzle page with a 20x20 puzzle
+        when: the book PDF is generated
+        then: the single page's drawing floats at 42% of its puzzle area's spare height while the upper slot's drawing is held at the foot of its own slot's band, so the two top pixel rows differ by design and the difference is asserted rather than tolerated
+        kind: boundary
+        test: TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow
+      # OWED by CARD-226, which splits the two-up page into two equal slots.
+      # Declared here rather than left implicit, so the card inherits a
+      # criterion instead of a sentence in a docstring.
+      - id: AC-379
+        given: a two-up page whose slots have been split and whose bottoms are aligned
+        when: each slot is drawn
+        then: each slot's drawing floats at 42% of that slot's own spare height, with 58% below, measured off the drawn ink
+        kind: happy
+        test: TestTwoUpSlots_EachSlotFloatsAtFortyTwoPercentOfItsOwnSpare
     engineering_constraints:
       - id: EC-027
         statement: >-
