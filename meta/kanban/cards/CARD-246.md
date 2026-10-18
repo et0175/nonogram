@@ -14,7 +14,7 @@
 **Idea:** —
 **Wave:** 46
 **Depends on:** CARD-245 (the verify-and-grade path this UI calls; without it there is nothing to approve)
-**Touches:** src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/puzzles.html, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_serving.py
+**Touches:** src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/puzzles.html, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/puzzle_edit.js, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_serving.py
 **Review score:** —
 **Started:** 2026-10-18T08:31:25Z
 **Closed:** —
@@ -166,3 +166,138 @@ _Assembled 2026-10-18 by `system_rules.py --card CARD-246 --root meta/architectu
 - **[Browser tests]** ADR-0038/R8: browser tests fail or skip **loudly** with a named reason and
   never pass silently, and `pytest-playwright` stays in the dev-only extra (ADR-0038/R7). If this
   card's UI claims need a browser, respect both.
+
+### Implementation notes (CARD-246, 2026-10-18)
+
+- **AC-6's rule: "the save is refused and names the undecided cells".** The
+  brushes are *also* narrowed to Black and White in the editor's menu, but
+  hiding them could not be the guarantee and the code says why:
+  `solver_state.js clickedState` makes a repeat click's third step **blank**
+  for Black and for White alike, and a confirmed Clear blanks every cell, so
+  an undecided cell stays reachable with two brushes on offer. The refusal
+  therefore lives in `static/puzzle_edit.js` (it names the cells, 1-based, up
+  to six of them, and sends **no request**), resting on
+  `solver_state.js answerOfBoard`, which returns `grid: null` whenever any
+  cell is neither filled nor empty — there is no coerced grid for a caller to
+  send. Both are asserted, and the mutant that puts all four brushes back
+  kills only the narrowing test while the six refusal tests still pass, which
+  is the evidence that the rule is the refusal.
+- **The mode flag (G-2).** One grid renderer. `GET /puzzle/<id>/editor`
+  serves the player's payload with `"mode": "edit"` added; `solver.js` reads
+  that one flag (its `EDIT MODE` section is the contract) and it changes three
+  things: the board starts on the stored grid (`boardOfGrid`), the browser
+  save is off (the player's save is keyed by the puzzle id, so sharing it
+  would overwrite the solve-in-progress of the puzzle being edited), and
+  `showProgress` returns at once — no counters, no banner, no solved lock
+  (the board opens *equal* to the solution, so the lock would fire before the
+  first stroke) and no clue circles. The editor's page leaves out the elements
+  that go with them; `actions.hint` became optional (`?.`) and nothing else in
+  the player's code moved.
+- **The page is at `/puzzle/<id>/editor`, not a GET of `/puzzle/<id>/edit`.**
+  CARD-245 pinned a GET of the save path as a 405
+  (`TestPuzzleEditRoutes_Refusals.test_a_get_is_not_allowed`), which is the
+  canary that says a write can never be reached by a GET. Serving a page there
+  would have retired that canary's spelling for nothing, so the editor took
+  its own path and CARD-245's suite is untouched (G-6: no test retired).
+- **An `EditNotVerified` (409) is reported as a step, not an error:** the
+  message says nothing was stored, relays the store's own words and asks the
+  owner to press Save again, which costs one re-verify and no work. An
+  eviction of the memo is the same outcome and is tested by clearing the
+  store's `_verifications`.
+- **What AC-2 already had**, per the CARD-230 warning: the board, the four
+  brushes, drag painting, undo/redo/reset, Region's `aria-pressed`, the
+  `role="status"` announce line and zoom are all CARD-160..CARD-212's and were
+  reused unchanged. What is new on the page is the two-brush menu, the save
+  bar and the absence of the solution-relative controls.
+- Out of scope, deliberately: no "hand-edited" filter on the list (CARD-245
+  declared it too), no live re-derivation of the clue gutters as the owner
+  paints (they are the stored puzzle's clues and the page says so; the clues
+  that get *stored* are the ones the save re-encodes), and no change to
+  `quality_score`/`recognizability`, which CARD-245 settled.
+
+### Orchestrator: the scope gate, and the two judgments the agent made against its brief (2026-10-18)
+
+`c7e2d7e` — 8 files, +1604/−6, of which **1033 lines are one new test file** (49 tests).
+
+**[Touches drift]** Two files changed that the field does not name, three named that did not change:
+
+| file | verdict |
+|---|---|
+| `src/nonogram/admin/static/puzzle_edit.js` | **new**, and genuinely missing from the field |
+| `src/nonogram/admin/templates/_puzzle_table.html` | the field says `puzzles.html`; the list **row** lives in the partial, not the page |
+| `templates/puzzle_solve.html` (named) | **not changed — that is G-1**, and the right outcome |
+| `tests/test_admin_serving.py` (named) | not changed; nothing here affects deployment |
+
+Zero new components (all COMP-009), so the scope gate's trigger is not met. The field is
+amended above.
+
+**One correction to the agent's own report:** it says the `Touches` list "misses
+`static/solver_state.js`". It does not — `solver_state.js` is listed. `puzzle_edit.js` is the
+only genuine omission. Recorded because an agent's account of a card is itself a claim.
+
+#### It overruled the orchestrator's lean on AC-6, and the reason is better than the lean
+
+I had leaned toward "hide the two brushes in edit mode" as the AC-6 rule. **The code disagrees
+and the agent was right to say so:** `solver_state.js clickedState` makes a repeat click's third
+step **blank** for Black *and* for White, and a confirmed Clear blanks every cell — so an
+undecided cell stays reachable with only two brushes on offer, and "those brushes are
+unavailable" **could never have been the guarantee.** It did both: the menu narrows to two
+brushes (asserted separately, as a narrowing) and **the refusal is the guarantee**, resting on
+`answerOfBoard` returning **`grid: null`** whenever any cell is neither filled nor empty — so
+there is no coerced grid for any caller to send, rather than a grid a caller must remember not
+to send. That is the ADR-0039/R2 shape (default-deny by construction) applied to a UI payload.
+
+**Mutant M10 is the evidence the choice was right, and it is the cleanest single result in this
+card:** putting all four brushes back **kills only the narrowing test while all six refusal tests
+still pass.** So the refusal does not depend on the narrowing — which is exactly what "the
+narrowing is a convenience, the refusal is the guarantee" has to mean to be true.
+
+#### It protected a CARD-245 test instead of retiring its spelling
+
+Its first cut served the editor page as a `GET` of `/puzzle/<id>/edit` — and that broke
+CARD-245's `TestPuzzleEditRoutes_Refusals::test_a_get_is_not_allowed[/puzzle/{}/edit]`, which
+pins a GET of the **save** path as 405. That assertion is a canary: **a write must never be
+reachable by a GET** (prefetch, crawler, a pasted link). Rather than retire its spelling to make
+room, the editor took its own path, `/puzzle/<id>/editor`. CARD-245's suite is untouched, G-6
+holds with no test retired, and the route docstring records why. This is the first time on this
+board that a card has **re-routed its own design to avoid weakening a sibling's guard**, and it
+is the behaviour the G-6 rule exists to produce.
+
+#### The flakes, and why they are not this card's
+
+The agent reported three player tests failing in one loaded run and did the right thing rather
+than the convenient thing: it **A/B-ed the implicated test by checking the three player-facing
+files out at the parent commit `6184545` and back — 3 passed at the parent, 3 passed at its own
+commit** — noted that the failing *parameter* moved between runs (`[phone]` then `[floor]` of the
+same ring-geometry test), that a 19-second re-run took over ten minutes under load, and that all
+three are load-sensitive measurements (a resize-debounce draw count and two pixel-fit
+measurements on a 30×30). With the machine quiet the two files ran **89 passed**. The build gate
+is where this is settled, and the lock note records the condition.
+
+**G-3's proof is the one worth copying.** Structural assertions that "the editor decides no
+uniqueness" are weak. Instead the verify route is **stubbed with a grade no local arithmetic
+could produce** (`score 7`, tier `fiendish`) and the page is asserted to show it **while `easy`
+is absent** — a page computing the difficulty itself would show 33/easy. That is a claim about
+where a number came from, tested by making the server's answer impossible to guess.
+
+### [Build gate] PASSED (full, 2026-10-18)
+
+`EXIT=0` · **8300 passed, 1 skipped, 0 failed** · pytest's own figure **1091.59s** · commit
+`c7e2d7e` · `DATABASE_URL` **SET** (this worktree's derived database) · under
+`meta/kanban/.full-suite.lock`, released after. **First-attempt green.**
+
+Collected 8252 → 8301 (**+49**), reconciling exactly with the new test file's 49 tests. The one
+skip is the platform `setrlimit` one, unrelated to this card and the same skip every gate since
+CARD-223 has reported.
+
+**The gate settles the flake question, which is why it was the right place to settle it.** The
+implementation agent reported three player tests failing in one loaded run and A/B-ed them clean
+at the parent commit; this gate ran **the whole player family inside the full suite and all of
+them passed**. So the A/B conclusion stands on gate evidence rather than on the agent's own
+re-runs, and nothing is owed here. Had they gone red, this board's operating rule would have
+applied — a single red test in a file the card does not touch is re-run before it is believed,
+and the re-run recorded — but it did not need to be invoked.
+
+Not written to `suite-timing.log`: that series is merge gates only, and this run shared the
+machine with CARD-224's review cycle 2. The verdict is unaffected (separate derived databases
+since CARD-244); the duration is not comparable.
