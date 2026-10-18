@@ -17,11 +17,41 @@
 //     "rows":     [[int, ...]] * H,   row clues, top to bottom
 //     "columns":  [[int, ...]] * W,   column clues, left to right
 //     "solution": [[bool] * W] * H    the solution grid (admin only — ADR-0038/R6)
+//     "mode":     "edit", optional      see EDIT MODE below
 //   }
 // "rows"/"columns" are compute_clues(stored grid) — the one encoder, never
 // re-derived here (ADR-0038/R3). A line with no filled cell is [0] and is shown
 // as the single number "0". A payload that is absent or not of this shape is
 // refused: an alert replaces the board and window.puzzlePlayer stays unset.
+//
+// EDIT MODE (CARD-246). The manual editor (templates/puzzle_edit.html,
+// static/puzzle_edit.js) is a SECOND CONSUMER of this board, not a second
+// board: there is one grid renderer in the panel and this is it (CARD-246
+// G-2, for the reason ADR-0036/R3 gives for round marks — two implementations
+// of one picture drift). The editor's page serves exactly the payload above
+// with "mode": "edit" added, and this file reads that one flag. Anything else
+// in `mode`, the key being absent included, is the player, unchanged.
+// What the flag changes, and nothing else:
+//   * the board STARTS on payload.solution (solver_state.js boardOfGrid:
+//     FILLED/EMPTY, never UNKNOWN) rather than blank — the owner opens the
+//     stored picture and paints on it;
+//   * the browser SAVE is off (no localStorage read, no write, nothing
+//     removed). The player's save is keyed by the puzzle's id, so an editor
+//     sharing it would overwrite the solve-in-progress of the very puzzle
+//     being edited — the player is not regressed (G-1), and this is the seam
+//     where it would have been;
+//   * the counters, the solved banner, the solved LOCK and the clue circles
+//     are off (showProgress returns at once). All four are statements about
+//     a board measured AGAINST payload.solution, and in edit mode the
+//     solution is the thing being changed: the board starts equal to it, so
+//     the lock would fire before the first stroke and the error count would
+//     count departures from the grid the owner is editing.
+// The editor's page leaves out the elements that go with them (the counters,
+// the banner and Hint); everything else — the brush menu, Region, undo, redo,
+// reset, zoom, the announce line — is the player's own markup and its own
+// code here. The grid still ships as `solution` under the same key: in edit
+// mode it is the stored grid the editor opens on, which is why it is also
+// still validated as a grid.
 //
 // THE LIVE PLAYER — window.puzzlePlayer, set once the board is drawn:
 //   payload            the parsed payload above
@@ -282,8 +312,24 @@ import { ZOOM_MAX, ZOOM_MIN, anchoredScroll, pinchZoom, stepZoom } from "./solve
 // above. The flag's transitions and the "does this drag paint?" rule are
 // pure (ADR-0038/R4); the button that shows the flag is this file's.
 import { gesturePaints, nextRegion } from "./solver_state.js";
+// Edit mode (CARD-246): see EDIT MODE above. Both are pure board arithmetic
+// (ADR-0038/R4); answerOfBoard is imported by static/puzzle_edit.js, not by
+// this file, which never asks a board for its answer.
+import { boardOfGrid } from "./solver_state.js";
 
 const MAJOR_EVERY = 5;
+
+// The one value of payload.mode that is not the player (CARD-246).
+const EDIT_MODE = "edit";
+
+// The save of a page that keeps nothing: edit mode's `save` (see EDIT MODE).
+// A read of null is what start()'s restore branch already treats as "no
+// saved board", so the flag needs no second test there.
+const NO_SAVE = Object.freeze({
+  read: () => null,
+  write: () => {},
+  forget: () => {},
+});
 
 // A board is "big" on an axis once that side is past BIG_SIDE. CARD-193 chose
 // 15 for the row axis (W > 15 mirrors the row clues on a phone) and had the
@@ -503,8 +549,12 @@ function start() {
     return;
   }
 
-  const save = browserSave(saveKey(payload.id));
-  let history = createHistory(createBoard(payload.width, payload.height));
+  // CARD-246's one flag (see EDIT MODE above). Read once, here, so every
+  // branch below names the same value.
+  const editing = payload.mode === EDIT_MODE;
+  const save = editing ? NO_SAVE : browserSave(saveKey(payload.id));
+  let history = createHistory(
+    editing ? boardOfGrid(payload.solution) : createBoard(payload.width, payload.height));
   const saved = save.read();
   if (saved !== null) {
     const restored = deserializeState(saved, payload);
@@ -584,6 +634,12 @@ function start() {
   // Error count, hint count, progress percent and solved state of the recorded history (see
   // PROGRESS); `hint` is the hintCell value just recorded, or null.
   function showProgress(hint) {
+    // CARD-246: in edit mode there is no solution to measure against — the
+    // board IS the answer being written — so there are no counters, no
+    // banner, no lock and no clue circles, and the page carries none of
+    // their elements. `solved` therefore stays false and the board never
+    // locks, which is what lets the owner keep painting.
+    if (editing) return;
     const errors = String(errorCount(history.board, payload.solution));
     // Rewriting the same text would make the live region announce it again.
     if (errorsOut.textContent !== errors) errorsOut.textContent = errors;
@@ -664,7 +720,11 @@ function start() {
   const marking = wireMarking(stage, {
     getHistory: () => history,
     locked: () => solved,
-    nextHint: () => hintCell(history.board, payload.rows, payload.columns, payload.solution),
+    // CARD-246: a hint reveals the solution, and in edit mode the solution
+    // is what the owner is rewriting — "revealing" it would push the board
+    // back to the stored grid. The editor's page ships no Hint button and
+    // this answers null for the guards that ask anyway.
+    nextHint: () => (editing ? null : hintCell(history.board, payload.rows, payload.columns, payload.solution)),
     show(next) {
       board = next;
       paint(cellElements, board);
@@ -1037,7 +1097,10 @@ function wireMarking(container, player) {
     actions.undo.setAttribute("aria-disabled", String(locked || done.length === 0));
     actions.redo.setAttribute("aria-disabled", String(locked || undone.length === 0));
     actions.reset.setAttribute("aria-disabled", String(current.cells.every((s) => s === UNKNOWN)));
-    actions.hint.setAttribute("aria-disabled", String(locked || gesture !== null || player.nextHint() === null));
+    // Optional since CARD-246: the editor's page has no Hint button (see
+    // EDIT MODE). `?.` rather than a mode flag of its own — this function
+    // reads the DOM it was given and nothing about why.
+    actions.hint?.setAttribute("aria-disabled", String(locked || gesture !== null || player.nextHint() === null));
   }
 
   function commit(next, hint = null) {
@@ -1255,7 +1318,7 @@ function wireMarking(container, player) {
   }
 
   // A hint is one recorded stroke (see MARKING "hint").
-  actions.hint.addEventListener("click", () => {
+  actions.hint?.addEventListener("click", () => {
     if (gesture || player.locked()) return;
     const hint = player.nextHint();
     if (hint === null) return;

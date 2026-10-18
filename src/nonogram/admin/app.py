@@ -2504,6 +2504,74 @@ def create_app(debug=None):
             {"ok": True, "message": "Puzzle grid updated", "puzzle": stored}
         ), 200
 
+    @app.route("/puzzle/<puzzle_id>/editor", methods=["GET"])
+    def puzzle_edit_page(puzzle_id):
+        """The page the owner paints a stored puzzle's grid on (CARD-246).
+
+        Its own path, and not a GET of ``/puzzle/<id>/edit`` beside the two
+        POST routes above, on purpose: CARD-245 pinned a GET of the save path
+        as a 405 (``TestPuzzleEditRoutes_Refusals.test_a_get_is_not_allowed``),
+        which is the canary that says a write can never be reached by a GET —
+        by a prefetch, a crawler or a pasted link. Serving a page there would
+        have cost that canary its spelling for nothing: the editor is a
+        different resource from the write it posts, and says so in its URL.
+
+        It only *reads* one puzzle, exactly as :func:`puzzle_solve` does, and
+        hands it to ``static/solver.js`` — the panel's one grid renderer —
+        with ``mode: "edit"`` added to the payload. Everything else on the
+        page is that same player board; the editor's own script
+        (``static/puzzle_edit.js``) draws no cell and only turns the board
+        into an answer for the two routes above. Nothing is written here.
+
+        A puzzle a book holds is refused with the same 409 and the same words
+        the POST routes use (CARD-246 AC-7): the list and the card leave the
+        Edit control out for such a puzzle, and a disabled control is not a
+        guard — the route has to refuse the URL typed by hand too.
+
+        The clues come from the stored grid through the one encoder
+        (``compute_clues``, ADR-0038/R3), so the gutters are the stored
+        puzzle's own clues; they go stale as the owner paints, which the
+        page's usage note says, and the clues that get STORED are the ones
+        the save re-encodes from the submitted grid (CARD-245).
+        """
+        try:
+            puzzle = puzzle_review.get_puzzle(puzzle_id)
+        except ValueError:
+            # DB mode parses the id as a UUID; one that does not parse names
+            # no puzzle, which is a 404 like any other unknown id.
+            puzzle = None
+        if puzzle is None:
+            abort(404)
+        if puzzle_review.in_a_book(puzzle_id):
+            abort(409, description="Cannot edit a puzzle that is in a book")
+
+        grid = PuzzleReviewService._as_readable_grid(puzzle.get("grid"))
+        if grid is None:
+            abort(500, description=f"Puzzle {puzzle_id} has no readable grid")
+
+        row_clues, column_clues = clues.compute_clues(grid)
+        tier = tier_of_record(puzzle.get("difficulty_tier"))
+        payload = {
+            "id": str(puzzle["id"]),
+            # The one flag CARD-246 adds to CARD-160's payload. The player's
+            # own payload is untouched and carries no "mode" at all (G-1).
+            "mode": "edit",
+            "width": len(grid[0]),
+            "height": len(grid),
+            "rows": row_clues,
+            "columns": column_clues,
+            # In edit mode this is the stored grid the editor OPENS on, not
+            # an answer the board is measured against (solver.js EDIT MODE).
+            "solution": grid,
+        }
+        return render_template(
+            "puzzle_edit.html",
+            puzzle_id=str(puzzle["id"]),
+            extent=(payload["width"], payload["height"]),
+            tier_label=tier.value.upper() if tier else None,
+            payload=payload,
+        )
+
     # ------------------------------------------------------------------
     # CARD-130 (FR-038): the book workflow is re-enterable. A book that
     # exists reaches every one of its five steps from every other, whatever
