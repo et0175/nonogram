@@ -1238,7 +1238,14 @@ class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
         assert abs(_mm(upper.top) - (TOP_MM + BAND_MM)) <= _mm(0.5) + 1e-9
 
     def test_the_two_pages_really_do_print_different_cells(self):
-        """The negative control: a shared top edge is not two identical pages."""
+        """The negative control: two rows differing is not two identical pages.
+
+        Written as "a shared top edge is not two identical pages" while
+        AC-252 claimed the rows coincided. AC-252 is retired (AC-378); the
+        control itself is unchanged and still earns its place -- the gap
+        assertion above would pass on two renderings of the SAME puzzle, so
+        something has to say the pages differ in their cells too.
+        """
         pages = self._pages()
 
         upper, _ = drawings_of(pages[4])

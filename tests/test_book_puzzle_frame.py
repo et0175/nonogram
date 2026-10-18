@@ -1428,7 +1428,7 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
         not. Both rows are still measured, and their *inequality* is asserted
         — so a build that moved either one onto the other fails here. AC-252
         itself is owed at the architect station; see
-        ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge``.
+        ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``.
         """
         upper, lower = drawings_of(pages[TWO_UP_PAGE - 1])
         alone = drawing_of(pages[SINGLE_PAGE - 1])

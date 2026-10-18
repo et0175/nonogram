@@ -673,7 +673,7 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     foot for a two-up page, the sheet's own 42% figure for a single one. The
     registry's AC-252 still asserts the two are *equal*; it is falsified by
     CARD-224 and is reported as owed at the architect station (see
-    ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge``,
+    ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``,
     whose strict xfail carries it).
 
     The corpus is one book of small same-tier neighbours, so the walk pairs
