@@ -34,6 +34,7 @@ could in principle agree with a wrong implementation).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
@@ -46,6 +47,7 @@ from nonogram.admin.book_manager import Book, BookMetadata
 from nonogram.admin.book_pdf_generator import (
     FOLIO_PT,
     FOLIO_RESERVE_DIGITS,
+    SIZE_LABEL_SEPARATOR,
     BookPDFGenerator,
     PuzzlePagePlan,
     _band_font,
@@ -159,18 +161,33 @@ def _folios_by_page(calls: List[_TextCall]) -> dict:
     return {call.page: call for call in calls if _is_folio(call)}
 
 
+#: What a grid-size label's text looks like, written out as a pattern rather
+#: than built with :func:`grid_size_label` itself: two runs of digits with
+#: CARD-222's separator between them. A second statement of the label's shape,
+#: so this file recognises the mark independently of the function that writes
+#: it (CLAUDE.md, "prefer an independent second implementation").
+_SIZE_LABEL = re.compile(r"\d+" + re.escape(SIZE_LABEL_SEPARATOR) + r"\d+")
+
+
 def _size_labels_by_page(calls: List[_TextCall]) -> dict:
     """``{page: the frame's grid-size label call}`` (CARD-222).
 
-    A bottom-anchored call that is *not* a run of digits: the footer line's
-    only other mark. Its anchor says which side of the page it was set
-    against, which is what carries the parity evidence on a page whose folio
-    is centred.
+    A bottom-anchored call whose text is a grid size. Its anchor says which
+    side of the page it was set against, which is what carries the parity
+    evidence on a page whose folio is centred.
+
+    **Matched on its text since CARD-223, not on "not a run of digits".**
+    That card sets two more bottom-anchored, non-numeric marks in the same
+    footer — the QR icon's invitation and its typed link — and both are drawn
+    *after* the frame, so the looser rule silently returned the link's call
+    for every puzzle page and read its own right-alignment as the label's.
+    The label is the only mark in the footer that names an extent, so that is
+    what is matched.
     """
     return {
         call.page: call
         for call in calls
-        if call.anchor in _CORNER_ANCHORS and not call.text.isdigit()
+        if call.anchor in _CORNER_ANCHORS and _SIZE_LABEL.fullmatch(call.text)
     }
 
 

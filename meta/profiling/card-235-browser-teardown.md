@@ -175,6 +175,23 @@ themselves by `TestBrowserFixtures_IsolationIsDeclaredPerFile`.
 
 ---
 
+> **Both tables below were RESTATED on 2026-10-18 by CARD-223, and only two cells moved in each.**
+> That card added `tests/test_book_qr_slot.py` to `rank_durations.py`'s frozen render set (it calls
+> `interior_stream`, so the guard's own grep claims it), which changes the **test counts** of the
+> `render-heavy frozen set` and `property OR render` rows and therefore the **derived** ms/test:
+> 1079 → 1091 and 1252 → 1264, with ms/test 181 → 179 and 212 → 210 in the before table, 202 → 199
+> and 229 → 226 in the after one.
+> **Every measured second and every share is unchanged** — the added file's tests all recorded
+> 0.00 s in these artefacts — the `.txt` artefacts themselves are untouched, and their sha256
+> citations remain valid. Regenerated from the script's own output rather than hand-edited, which is
+> why this is a restatement and not a re-measurement. Nothing about CARD-235's conclusion moves: the
+> −126.35 s teardown saving, the 0.660 → 0.424 family-to-rest ratio and the 0.327 → 0.028 s per-test
+> teardown are all untouched by a render-set membership change.
+>
+> Caught by `TestBrowserFixtures_FamilyShareIsRecorded::test_the_document_cites_and_quotes_its_own_artefact`
+> at CARD-223's merge gate — the test exists precisely so a stale quoted table cannot sit next to a
+> valid sha256, and it did its job.
+
 ## Before — the deciding table, verbatim from `rank_durations.py`
 
 ```
@@ -182,10 +199,10 @@ themselves by `TestBrowserFixtures_IsolationIsDeclaredPerFile`.
 
 family                                   total   share  tests  ms/test
 browser family (Chromium)              366.19s  39.78%    422      868
-render-heavy frozen set                195.42s  21.23%   1079      181
+render-heavy frozen set                195.42s  21.23%   1091      179
 property corpora                       140.19s  15.23%    184      762
 property AND render                     70.75s   7.68%     11     6432
-property OR render                     264.86s  28.77%   1252      212
+property OR render                     264.86s  28.77%   1264      210
 admin-local script trio                117.16s  12.73%     83     1412
 everything but the browser family      554.44s  60.22%   6660       83
 ```
@@ -197,10 +214,10 @@ everything but the browser family      554.44s  60.22%   6660       83
 
 family                                   total   share  tests  ms/test
 browser family (Chromium)              256.57s  29.78%    422      608
-render-heavy frozen set                217.65s  25.26%   1079      202
+render-heavy frozen set                217.65s  25.26%   1091      199
 property corpora                       141.55s  16.43%    184      769
 property AND render                     72.91s   8.46%     11     6628
-property OR render                     286.29s  33.23%   1252      229
+property OR render                     286.29s  33.23%   1264      226
 admin-local script trio                122.67s  14.24%     83     1478
 everything but the browser family      605.06s  70.22%   6757       90
 ```

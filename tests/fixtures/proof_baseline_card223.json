@@ -1,0 +1,60 @@
+{
+  "card": "CARD-223",
+  "supersedes": "tests/fixtures/proof_baseline_card222.json",
+  "source_commit": "card/223-qr-in-the-footer (implementation), branched from main at 7e6f56d with CARD-222 already merged at 40a93dd",
+  "produced_by": "proof_pages(book) on this card's own src/, for each CORPUS_TRIMS_CM trim stored as-is with the Book 1 margins stored as gutter_margin_cm='1.27', outside_margin_cm='1.27' \u2014 CON-018's amended outside margin (0.5 in), where CARD-204's recording stored the retired '0.95' (0.375 in).",
+  "why_a_new_baseline": "CARD-223 moves the placeholder QR icon from the gutter-side strip CARD-204 put it in to the footer's OUTER bottom corner, because a code printed towards the spine does not scan (the owner's artifact of 2026-10-14, issue 1). A proof page is the book's own sheet drawn through the same render_pages() call, so the icon moves on every trim that carries one, and the room check tightens from 'two centimetres of slack below the drawing' to 'a whole footer strip of it', which is what keeps the glyph off the corner CARD-200's fallback folio uses. The proof page's own annotation is untouched by this card: book_proof.py is not edited.",
+  "warning": "Never regenerated to make a test pass. A proof page that stops matching this file is either a deliberate change \u2014 which earns its own successor, with its own note \u2014 or a regression.",
+  "gutter_margin_cm": "1.27",
+  "outside_margin_cm": "1.27",
+  "moved_from_card222": [
+    "12.70x20.32",
+    "13.34x20.32",
+    "13.97x21.59",
+    "15.24x22.86",
+    "15.60x23.39",
+    "17.78x25.40",
+    "19.05x23.50",
+    "20.32x25.40",
+    "21.59x27.94"
+  ],
+  "moved_from_card222_note": "Measured page by page against CARD-222's recording before this file was written, not asserted from the change's intent.",
+  "digests": {
+    "12.70x20.32": [
+      "0aa7525aeef5fb66b87551eca4a92b594ccf323bb0d581a7235a7c048d11be12",
+      "3490fa8b4e21630495100d718e5d0e7344f1cae122779ab0d1cfa5543046eedf"
+    ],
+    "13.34x20.32": [
+      "b780bc95ca18486c04c6a4d4e9d2fa4f4ace817737108cd3fcfc5d8f59cd5058",
+      "100d5304d84c95ecc39523f41e05a01ae5fdb297111571a740cdc2d757610658"
+    ],
+    "13.97x21.59": [
+      "34f7205e295f335023766757f3e8c9154a71298259e9b1e03bd8821a44de74a8",
+      "2000f194bf5ba567f1b284280e3b9787d4c484e77dfa2a5fa0a5e8549847c1b6"
+    ],
+    "15.24x22.86": [
+      "36b6eefa01da92b87c54f6e5dd7f1e79b1b3ff4edbb59ddd101eff01d0f84ca2",
+      "8eb8c19ab8fffe317e3f8bf7b703a9486e500abbaaced942b141b662e0c04cc0"
+    ],
+    "15.60x23.39": [
+      "40acd8846715ef6197be658ac4804981de13d48c8ef2d288d38142fe711fdcc0",
+      "0b2c067befbd7579ff2559c09125f9aa226dc739b3a1c94dab858382088df2ed"
+    ],
+    "17.78x25.40": [
+      "ca7676807b0cfe0e7e2cb702f950e849640bb00afdd3ef5b92a4672ba6298ccf",
+      "821bef5c8a2a3ed8a84785325a16cf9f208a8e4569f76a69976f44317dc3571e"
+    ],
+    "19.05x23.50": [
+      "257cf61d63864fd6632e5b5b7bb23739467f624c14cff0eb384ff4377778a165",
+      "e13685c894568524a6d616509e5a660983bf14175828205165c22187f3dadcf6"
+    ],
+    "20.32x25.40": [
+      "dcb79e5b0037c367b1335956557010774452b977117b5d3759e6fb8299fa81c8",
+      "7f92e71aa92665d5b2dac74324fdd3af5290f6795481166f32d10c85774d7da9"
+    ],
+    "21.59x27.94": [
+      "6274b7c137d4fac7274213c3307b26a89e08343715b101ed65a7158199708c69",
+      "1cc06dfdba4f7ad4f5f58815cc27a33d6f7a896cc22570d948756e48391f8c65"
+    ]
+  }
+}

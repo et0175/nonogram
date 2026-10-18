@@ -1,0 +1,129 @@
+{
+  "card": "CARD-223",
+  "supersedes": "tests/fixtures/book_baseline_card222.json",
+  "recorded_from_commit": "card/223-qr-in-the-footer, branched from main at 7e6f56d (CARD-222 already merged at 40a93dd). Recorded against this card's own implementation on its worktree, after the QR icon and its two footer lines were in place and before any assertion was written against them, exactly as CARD-221 and CARD-222 recorded theirs.",
+  "recorded_on": "2026-10-18 (CARD-223)",
+  "book": "tests.helpers.book_corpus.baseline_puzzles on corpus_book (CON-018 Book 1, as amended 2026-10-17)",
+  "read_back_through": "tests.helpers.pdf_pages.pdf_pages -- the pages decoded out of the exported interior PDF, not the in-memory bitmaps",
+  "why_a_new_baseline": "CARD-223 moves the placeholder QR icon out of the gutter-side strip CARD-204 put it in and into the footer's OUTER bottom corner -- the owner's complaint of 2026-10-14 is functional, not cosmetic: a code printed towards the spine sits where the sheet curves and a phone cannot read it. The same card sets two new lines beside it, 'Solve it online' over a placeholder typed link (nonogram.example/p/NNN, still a stand-in until CARD-210), both at CON-020's 10 pt floor. Every single-puzzle page therefore loses ink at its gutter-side bottom corner and gains it at the outer one; a two-up page's upper slot moves the same way and its LOWER slot loses its icon outright, because that slot's drawing reaches the bottom margin on every two-up page (PairLayout) and that corner is where the page's fallback folio is printed. Deliberate, reader-visible changes, which is why this file exists rather than the previous one being regenerated.",
+  "warning": "This is evidence of what the book PDF looks like with the QR icon in the footer's outer corner and its two lines beside it. It must NEVER be regenerated to make a test pass: a page that stops matching it is either a deliberate change -- which earns its own successor file, with its own note -- or a regression.",
+  "interior_colorspace": "DeviceGray",
+  "interior_colorspace_note": "What every page of this interior declares (CARD-147's own fact, unaffected by CARD-201). NOT the same as each page entry's 'mode' below, which is 'RGB' and always will be: that field is what tests.helpers.pdf_pages.pdf_pages normalises every page to before digesting it, regardless of the file's own declared colour space.",
+  "font_dependent_pages": [],
+  "font_dependent_pages_note": "EMPTY, as CARD-221 left it and CARD-222 kept it: every reader-facing interior face is the packaged DejaVu Sans. CARD-223's two new footer lines are set in that same packaged face, at the same 10 pt the footer's grid-size label and folio already use.",
+  "interior_bytes": 3337825,
+  "page_count": 13,
+  "pages": [
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "10e88ac0555067949fefe9defd4070946e4229b1551745a2d13a23b98d336910"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "f5dad4f6a659a2ee141076d3fda40aef952cc3e00cc2ad4e2300ad2eaae806b7"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "04c31f2e7502fc9bf0233cbdc4f7ab43044f70bb99cbddf0ee251c4d2fb2538c"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "b7ca8115410f0d58cfe4117c88d0ca1840889eaf4e4914aa48b0d8408bbd4790"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "59636999b821f0787da76275cebde2998a90661a0e36ef5286189126caad7f1b"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "48161617dbed6977bcf80742ce9840c75eb44bf7f14dcedb040a20444706bf88"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "fd80671644be1b3130d0ab79c942a9b42ab0a9c6a2a3f090cbe120ec403fce30"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "79f47b458d5a714ef2d8e54f142d2bbaa3676506aeb26c152e5c1168249eece5"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "f114595642451bb2db04711e43758f7b567f4d8124651d859dce1424591a2096"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "e5a347a9324da73af9f77dcc4a68749025e2ca29edf7a421b212cbb14db90fda"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "dfd7604f926d61a47ec2c037d484f88b24ca5d2d218dc324f9516e8f266f23e3"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "0070ab2217ac8bb5b4fb240e5d0c3cd1890d59820c37c50f03bb5ba24aa205a6"
+    },
+    {
+      "size": [
+        2550,
+        3300
+      ],
+      "mode": "RGB",
+      "sha256": "7e7eecf0e88103a65116b60d5bbd33c684721ed6920639b6407bb9f05dd9b3ac"
+    }
+  ],
+  "changed_pages": [
+    5,
+    7,
+    9
+  ],
+  "interior_bytes_note": "The black-and-white interior of this book: 3337825 bytes, where CARD-222's recording held 3313912 (+23913, +0.72%). Recorded because it is what the file does, not because it was predicted: the direction is the JPEG encoder's and not a measure of how much ink the pages hold.",
+  "changed_pages_note": "3 of 13 pages, measured page by page against CARD-222's recording before this file was written. The pages expected to move are the three puzzle pages (two single, one two-up) -- the only pages that carry a QR icon -- and no others: the guide, the TOC, the dividers and the answer pages have never carried one, so a move on any of them would be the surprise."
+}

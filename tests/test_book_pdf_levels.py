@@ -75,9 +75,10 @@ from nonogram.admin.book_pdf_generator import (
     DPI,
     BookPDFGenerator,
     _draw_page_frame,
+    _draw_qr_caption,
     grid_size_label,
 )
-from nonogram.export.layout import compute_layout, interior_frame
+from nonogram.export.layout import compute_layout, interior_frame, qr_caption
 from nonogram.export import ExportPayload
 from nonogram.export.pdf import render_pages
 
@@ -204,6 +205,11 @@ def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str)
     draws it onto the real interior page, with that method's own arguments.
     Without this, every comparison in this module would fail at the frame's
     own pixels, not because the puzzle or its band moved.
+
+    **Since CARD-223 the footer carries two more marks**: the QR icon's
+    invitation and its typed link, which is this puzzle's own ``number`` —
+    the same ``number`` the band is written from, so the two cannot drift
+    apart here either.
     """
     payload = ExportPayload(
         grid=puzzle["grid"],
@@ -227,6 +233,9 @@ def expected_puzzle_page(puzzle: dict, page_number: int, number: int, tier: str)
         size_label=grid_size_label(layout.columns, layout.rows),
         content_bottom=None if layout.page is None else layout.page.drawing_bottom,
     )
+    caption = qr_caption(layout)
+    if caption is not None:
+        _draw_qr_caption(ImageDraw.Draw(blank), caption, number, DPI)
     return blank
 
 
