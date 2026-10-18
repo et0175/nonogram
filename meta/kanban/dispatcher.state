@@ -1,9 +1,9 @@
-wave: 45
+wave: 46
 mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: []
+active: [CARD-224, CARD-245]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-18T02:55:46Z
+last_updated: 2026-10-18T05:09:31Z
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -120,3 +120,34 @@ gate_condition_change:
   what: "Merge gates now run with DATABASE_URL SET, where the documented condition had it unset."
   why: "Unset was never a preference -- it was forced, because every worktree shared nonogram_test and a concurrent card would corrupt the run. CARD-244 gave each worktree its own derived database, so the reason is gone. Measured on CARD-223's gate: skips fall 12 -> 1 (only the platform setrlimit skip remains) and 7998 tests pass, i.e. 11 db_required tests that the gate could never exercise are now exercised. This is the candidate fix in the backlog item 'the merge gate cannot evidence any AC whose test is db_required', demonstrated rather than proposed."
   caveat: "The board's own documentation still describes the unset condition. Until that is updated, a gate line in suite-timing.log should say which condition it ran under -- a 1-skip run and a 12-skip run are not comparable, and reading them as a trend would be the same class of error as the phantom 48-skip regression."
+
+wave_45_complete:
+  at: 2026-10-18T02:55:46Z
+  cards: [CARD-244, CARD-223, CARD-248]
+  merged: 3
+  escalations: 0
+  smoke_test: "SATISFIED by CARD-248's merge gate without a separate run: 8054 passed, 1 skipped, 0 failed in 784.07s with DATABASE_URL SET, and `git diff ff50725 HEAD -- src/ tests/ migrations/ pyproject.toml` is empty, so main's code tree is byte-identical to the gated tree. Same reasoning as waves 43 and 44."
+  note: "3/3 merged, 0 escalations, every card far under estimate (0.1d, 0.2d, 0.3d against 1d each). The wave's real product is a GATE that can see more than it could: CARD-244 gave each worktree its own derived database, which let the gate condition change to DATABASE_URL SET, which cut skips 12 -> 1 and exercised 11 db_required tests the gate could never reach. The suite also ended the wave FASTER than it started while gaining 55 tests (100 -> 98 ms/test). Two costs are recorded rather than smoothed over: the new gate condition exposed a non-deterministic uuid.UUID(hex=inf) read (module-global engine surviving conftest's DROP SCHEMA, filed @ops), and the orchestrator's own tall-pair cost figure for CARD-248 was wrong by more than a factor of two in the worse direction -- see that card."
+
+wave_46:
+  dispatched: 2026-10-18T05:09:31Z
+  concurrency: 2
+  cards: [CARD-224, CARD-245]
+  owner_decision: "Owner said 'continue with the next wave' at the wave boundary (mode: interactive), without naming cards. Selected by priority order rather than asked back: CARD-224 and CARD-245 are the two P1 ready cards whose file sets are disjoint, so no option set was needed. The P1 that was NOT taken is CARD-225, and the reason is mechanical (below), not a judgment the owner needs to make."
+  selection_reasoning: "Four P1 cards are ready: CARD-224, CARD-225, CARD-245, CARD-246. CARD-246 depends on CARD-245, so it cannot start. CARD-225 shares THREE hotspots with CARD-224 (src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py) and would serialize behind it regardless of the cap. CARD-224 before CARD-225 by card number, both P1. CARD-245 fills slot 2 because it is the only ready P1 with no hotspot shared with CARD-224."
+  conflict_edges:
+    - pair: [CARD-224, CARD-245]
+      reason: "DISJOINT ON HOTSPOTS. CARD-224's hotspots are export/layout.py + admin/book_pdf_generator.py; CARD-245's are admin/app.py + migrations/** + db/**. No hotspot in common, and no file in common either (CARD-224 is book geometry and book tests; CARD-245 is puzzle_review.py, app.py's edit routes, migration 016 and puzzle-edit tests). The RUNTIME edge that constrained wave 45 is GONE: CARD-244 merged, so each worktree holds its own derived test database (nonogram_pythonproject4_card_224_4597f866300c_test and ..._card_245_2d9f5b42e149_test) and a DB-touching card no longer has to be serialized against a sibling. This is the first wave on this board where BOTH slots may run DB selections at once, and that is what wave 45 bought."
+    - pair: [CARD-225, CARD-224]
+      reason: "predicted: hotspots src/nonogram/export/layout.py AND src/nonogram/admin/book_pdf_generator.py, plus overlapping tests/test_book_*.py and tests/property/test_book_pdf_geometry.py. Serialized -- CARD-225 is the first refill candidate when a slot frees."
+    - pair: [CARD-225, CARD-245]
+      reason: "predicted: hotspot src/nonogram/admin/app.py (CARD-225 touches it for the select-puzzles and finalize templates' cell figures; CARD-245 adds the edit routes). Also relevant to refill order."
+  blocker_check:
+    CARD-224: "CLEAN. The AC-6 vs AC-2 contradiction this board was still carrying as open is ALREADY CLOSED on the card (corrected 2026-10-17 with the registry delta: AC-6 now states the 42/58 split and the 1.4x bound, because AC-2 deliberately puts the larger band BELOW). FR-032's registry work is done -- AC-190 retired, AC-366/AC-367 added, and CARD-204's logged amendment CANCELLED rather than applied, because this card restores the centring that made the original clause true. Nothing is owed at the architect station, and the agent is told not to re-apply it."
+    CARD-245: "CLEAN. Its one open question (what happens to quality_score across an edit) was SETTLED by the owner on 2026-10-18 -- keep the score, add a nullable manually_edited_at timestamp -- and three acceptance criteria were added for it (AC-8..AC-10). Its migration claim was VERIFIED before dispatch rather than taken on trust: 015_book_outside_margin_default.py is the current head, so down_revision = '015' and the new migration is 016."
+  briefed_risks:
+    - "CARD-224: the _draw_solved_slot two-consumer asymmetry (solved_puzzle_page and _packed_answer_page must change together, nothing enforces it) has produced FIVE gating defects across CARD-203 and CARD-204. Briefed by name."
+    - "CARD-224: on Book 1 gutter == outside == 12.700 mm, so a parity assertion about margin WIDTH or usable SPAN is an identity, not evidence. AC-1's mirroring half needs a book with unequal margins -- CARD-223 left a _unequal_spec helper for exactly that, and the agent is pointed at it instead of writing its own."
+    - "CARD-245: a new migration makes any 'only head' assertion false. That is precisely what killed CARD-222's first build-gate attempt, so the agent is told to expect it and fix the assertion rather than be surprised."
+    - "CARD-245: verify-then-re-solve-to-grade passes every functional test and shows up only as doubled latency plus an ADR-0029/R2 contradiction. AC-3 is briefed as a solver-ENTRY COUNT, not a code reading."
+  note: "Both agents are told not to run the full suite (the orchestrator runs it at the merge gate under the repo-level lock), not to commit meta/kanban/cards/*.md from a worktree, to stage explicit pathspecs only, and to treat pytest's own summary line AND the exit code as the authority -- the three failure modes this board has actually been bitten by."

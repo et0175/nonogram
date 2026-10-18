@@ -1,6 +1,6 @@
 # CARD-245: An edited grid is re-verified and re-graded by one solve, or it is not stored
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/245-edited-grid-verify-and-grade
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-245
 **Source:** owner's doc "Admin panel", 2026-10-18 — "after pressing 'save' - verify that it has a unique solution and calculate difficulty… Don't allow saving puzzles that don't have a unique solution"
 **Idea:** —
-**Wave:** —
+**Wave:** 46
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, tests/test_puzzle_edit_store.py, tests/test_puzzle_edit_routes.py, tests/test_admin_review.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-18T05:09:31Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
