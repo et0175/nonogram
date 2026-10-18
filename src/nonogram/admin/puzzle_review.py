@@ -3,9 +3,11 @@
 Handles filtering puzzles by various criteria and managing approval/rejection.
 """
 
+import hashlib
 import math
 import time
-from dataclasses import dataclass
+from collections import OrderedDict
+from dataclasses import dataclass, field
 from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
 from datetime import datetime, date, timezone
@@ -28,6 +30,60 @@ STRATEGY_NAMES: Tuple[str, ...] = (*RUNG_ORDER, STRATEGY_GUESS)
 
 #: The longest name a puzzle can be given from the review list.
 MAX_PUZZLE_NAME_LENGTH = 120
+
+#: How many proved grids the service remembers at once (CARD-245).
+#:
+#: This is the *whole* of what "a verification expires" means here, and it is
+#: deliberately not a clock. A remembered verification is two things at once:
+#: the :class:`~nonogram.solver.SolveResult` that proved a grid a puzzle — a
+#: pure function of that grid, which cannot go stale — and the fact that the
+#: owner has been *shown* that grid's grade for a particular puzzle. The first
+#: is what makes one solve serve both the uniqueness verdict and the grade
+#: (ADR-0029/R2); the second is what stops a save storing a grid whose grade
+#: nobody saw.
+#:
+#: A wall-clock TTL would add a clock, a seam to inject it through and a
+#: flaky-test surface, to guard a case that is not harmful: an approve of the
+#: *same* grid an hour later is still an approve of a grid this store proved.
+#: The staleness that does matter — the row moving underneath, by being put in
+#: a book — is re-checked at save time against the row itself, not against a
+#: timer. So a verification is forgotten when this many newer grids have been
+#: proved, or when the process restarts, and a save whose verification has
+#: been forgotten is **refused** (:class:`EditNotVerified`): the owner verifies
+#: again, which is one solve and cannot store anything ungraded.
+MAX_REMEMBERED_VERIFICATIONS = 16
+
+
+class EditNotVerified(ValueError):
+    """A replacement grid was saved without a live verification *of that grid*.
+
+    The two-phase save the owner asked for — show the difficulty, then
+    Cancel or Approve — means a grade is produced before anything is stored,
+    and that opens exactly one hole: an approve could carry a *different* grid
+    from the one whose grade was on screen, and be stored with the earlier
+    grade. This is that hole closed. A save is refused unless the grid it
+    carries is one this store proved and showed for this puzzle.
+
+    A ``ValueError`` subclass for the same reason as
+    ``book_manager.InvalidBookDetails``: the panel's routes already answer
+    ``ValueError`` from a store call, so no caller has to learn a new base to
+    keep working.
+    """
+
+
+@dataclass
+class _Verification:
+    """One proved grid: the proof, and who has been shown its grade.
+
+    ``shown_for`` is a set of puzzle ids rather than a single one because the
+    same grid may legitimately be verified for more than one puzzle, and the
+    proof is about the grid alone.
+    """
+
+    #: The :class:`~nonogram.solver.SolveResult` that proved this grid a puzzle.
+    proof: Any
+    #: Puzzle ids whose owner has been shown this grid's grade.
+    shown_for: set = field(default_factory=set)
 
 
 #: CARD-122 / AC-215: the order a book's longest-side tab is listed in — tier
@@ -256,6 +312,13 @@ class PuzzleReviewService:
         # In-memory puzzle storage (used only in legacy mode when session_factory is None)
         self.puzzles: Dict[str, Dict[str, Any]] = {}
         self._next_id = 1
+        # CARD-245: grids this service has proved, newest last, keyed by
+        # fingerprint and bounded by MAX_REMEMBERED_VERIFICATIONS. Per
+        # instance, in this process, and nowhere else: the panel runs one
+        # gunicorn worker (CARD-086 G-4, `start.sh`), and it is the same place
+        # the legacy mode already keeps `self.puzzles`. Losing it costs a
+        # re-verify, never a wrong write — see the constant's own note.
+        self._verifications: "OrderedDict[str, _Verification]" = OrderedDict()
 
     def _row_to_dict(self, puzzle_row) -> Dict[str, Any]:
         """Convert SQLAlchemy Puzzle ORM row to dict (matching legacy format).
@@ -285,6 +348,14 @@ class PuzzleReviewService:
             "puzzle_name": puzzle_row.puzzle_name,
             "book_id": str(puzzle_row.book_id) if puzzle_row.book_id else None,
             "created_at": puzzle_row.created_at.isoformat() if puzzle_row.created_at else None,
+            # CARD-245: when the grid was last replaced by hand, or None. Read
+            # beside `quality_score` everywhere the score is shown, because
+            # non-null means that number predates the edit.
+            "manually_edited_at": (
+                puzzle_row.manually_edited_at.isoformat()
+                if puzzle_row.manually_edited_at
+                else None
+            ),
         }
 
     @staticmethod
@@ -466,8 +537,24 @@ class PuzzleReviewService:
             NotUniquelySolvable: the grid is not a readable grid, its clue set
                 has 0 or >= 2 solutions, or the solve passed its deadline
                 (ADR-0011) without concluding.
+
+        **One solve, two answers** (CARD-245). A proof this method has already
+        produced for this exact grid is remembered
+        (:data:`MAX_REMEMBERED_VERIFICATIONS`) and handed back instead of being
+        bought again, so the two-phase manual edit — show the difficulty, then
+        Approve — enters the search *once* rather than once per phase. The
+        remembered answer is sound because it is the answer to a pure question:
+        the clue set is re-derived from the grid here, and the solve is
+        deterministic, so the verdict is a function of the grid's cells alone.
+        Only proofs are remembered — a timeout is a fact about one run's clock
+        and is never cached (ADR-0011).
         """
         self._refuse_unless_shaped_like_a_grid(grid)
+
+        fingerprint = self._grid_fingerprint(grid)
+        remembered = self._remembered_verification(fingerprint)
+        if remembered is not None:
+            return remembered.proof
 
         # ADR-0011's bound, not a caller's choice — which is why this takes no
         # budget argument. The audit's does, because raising the budget is how
@@ -478,7 +565,63 @@ class PuzzleReviewService:
         )
         if objection is not None:
             raise NotUniquelySolvable(f"refusing to store a grid: {objection}") from cause
+        self._remember_proof(fingerprint, result)
         return result
+
+    @staticmethod
+    def _grid_fingerprint(grid: List[List[bool]]) -> str:
+        """A short, stable name for one grid's cells — its SHA-256 digest.
+
+        Only ever called on a grid :meth:`_refuse_unless_shaped_like_a_grid`
+        has already accepted, so the cells really are booleans and the extent
+        really is rectangular. The extent is part of the digest rather than
+        implied by it: without it, two grids whose cells read the same in
+        row-major order (a 2x6 and a 3x4 of the same bits) would share a name.
+        """
+        bits = "".join("1" if cell else "0" for row in grid for cell in row)
+        text = f"{len(grid)}x{len(grid[0])}:{bits}"
+        return hashlib.sha256(text.encode("ascii")).hexdigest()
+
+    def _remembered_verification(self, fingerprint: str) -> Optional["_Verification"]:
+        """The verification remembered for ``fingerprint``, or ``None``.
+
+        The **one** way the memo is read. Reading through it marks the entry
+        as the most recently used, so the grid a flow is working on is not the
+        one evicted out from under it — and that refresh is why there is one
+        accessor rather than two call sites each doing their own ``get``
+        (review cycle 1, F-011: the save used to read ``self._verifications``
+        directly and so did not refresh recency, which was harmless only
+        because the gate immediately before it did).
+        """
+        verification = self._verifications.get(fingerprint)
+        if verification is None:
+            return None
+        self._verifications.move_to_end(fingerprint)
+        return verification
+
+    def _remember_proof(self, fingerprint: str, proof) -> "_Verification":
+        """Remember ``proof`` for ``fingerprint``, evicting the oldest if full.
+
+        Reads ``self._verifications`` directly rather than through
+        :meth:`_remembered_verification`, and the reason is simply that this
+        is one of the memo's own three methods — the F-011 rule is that
+        nothing *outside* them touches the structure, and
+        ``test_nothing_outside_the_memos_own_methods_touches_it`` is where
+        that is pinned. It is **not** that the accessor's recency refresh has
+        to be avoided here (review cycle 2, F-103): the ``move_to_end`` below
+        runs on both branches, so going through the accessor would behave
+        identically, with one redundant refresh on the hit.
+        """
+        verification = self._verifications.get(fingerprint)
+        if verification is None:
+            verification = _Verification(proof=proof)
+            self._verifications[fingerprint] = verification
+        else:
+            verification.proof = proof
+        self._verifications.move_to_end(fingerprint)
+        while len(self._verifications) > MAX_REMEMBERED_VERIFICATIONS:
+            self._verifications.popitem(last=False)
+        return verification
 
     @staticmethod
     def _strategies_of(result) -> List[str]:
@@ -665,6 +808,10 @@ class PuzzleReviewService:
                 "batch_id": batch_id,
                 "source_image": source_image,
                 "created_at": datetime.now(timezone.utc).isoformat(),
+                # CARD-245: a freshly generated puzzle has never been hand
+                # edited, and the key is present so both modes' rows have the
+                # same shape for every reader.
+                "manually_edited_at": None,
             }
             return puzzle_id
         else:
@@ -693,6 +840,239 @@ class PuzzleReviewService:
                 db.add(puzzle)
                 db.flush()  # get the auto-generated UUID
                 return str(puzzle.id)
+
+    # ------------------------------------------------------------------
+    # CARD-245 — manual editing: one solve answers both questions, and a
+    # grid that was not proved by it is not stored.
+    #
+    # Two methods, because the owner asked for the difficulty *before*
+    # committing: `verify_replacement_grid` grades without writing (Cancel
+    # loses nothing) and `save_edited_grid` writes what was graded. They are
+    # one solve between them, not two: the first proves the grid and the
+    # store remembers the proof, the second reads it back through the same
+    # gate (see `_refuse_unless_uniquely_solvable`).
+    #
+    # The editor UI is CARD-246. A *filter* on "hand-edited" is deliberately
+    # not here: it is an obvious next want and a cheap follow-up, but adding
+    # a filter field is scope this card did not ask for.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _stored_score(score: float) -> int:
+        """ADR-0029's float as the ``difficulty_score`` column's integer.
+
+        Rounded **up**, because the number left on disk has to classify as the
+        tier stored beside it: a band is ``(low, high]`` with whole-number
+        edges, so a ceiling stays inside the band its float came from while
+        ordinary rounding does not (33.08 rounds to 33, which reads back Easy
+        beside a stored tier of Medium).
+
+        A native reimplementation of ``regrade._stored_score`` for the same
+        reason as :meth:`_strategies_of`: that module imports SQLAlchemy and
+        this one must not require it. The two are pinned against each other
+        from the test tree, where importing it is legal.
+        """
+        return int(math.ceil(min(max(score, 0.0), 100.0)))
+
+    def _grade_of(self, proof) -> Dict[str, Any]:
+        """FR-026's three graded columns, read off one solve and nothing else.
+
+        No solver re-entry (ADR-0029/R2): ``proof`` is the
+        :class:`~nonogram.solver.SolveResult` the uniqueness gate already
+        produced, and :func:`~nonogram.difficulty.score_difficulty` grades its
+        signals.
+        """
+        score = score_difficulty(proof.signals)
+        return {
+            "difficulty_score": self._stored_score(score),
+            "difficulty_tier": classify(score).value,
+            "strategies_used": self._strategies_of(proof),
+        }
+
+    def _row_an_edit_may_touch(self, puzzle_id: str) -> Optional[Dict[str, Any]]:
+        """The stored row, or ``None`` if it may not be edited.
+
+        ``None`` for a puzzle that does not exist **and** for one a book holds
+        — the contract :meth:`_set_status` already set, so the routes tell the
+        two apart by asking :meth:`in_a_book` first and can say which it was.
+
+        A booked puzzle is refused for the reason approve, reject, restore and
+        delete already refuse one: editing a puzzle a finalised book prints
+        would change that book's pages underneath it.
+        """
+        puzzle = self.get_puzzle(puzzle_id)
+        if puzzle is None:
+            return None
+        if self._holds_a_book(puzzle.get("book_id"), puzzle.get("status")):
+            return None
+        return puzzle
+
+    def _refuse_unless_verified(self, puzzle_id: str, grid: List[List[bool]]) -> None:
+        """Refuse a save whose grid is not the grid whose grade was shown.
+
+        Raises:
+            EditNotVerified: no live verification of *this* grid for *this*
+                puzzle — because none was made, because the approve carries a
+                different grid than the verify did, or because the
+                verification has been forgotten
+                (:data:`MAX_REMEMBERED_VERIFICATIONS`).
+        """
+        verification = self._remembered_verification(self._grid_fingerprint(grid))
+        if verification is None or str(puzzle_id) not in verification.shown_for:
+            raise EditNotVerified(
+                "refusing to store an edit that was not verified: this grid's "
+                "difficulty has not been shown for this puzzle (verify it again)"
+            )
+
+    def verify_replacement_grid(
+        self, puzzle_id: str, grid: object
+    ) -> Optional[Dict[str, Any]]:
+        """Grade a replacement grid for ``puzzle_id`` without storing anything.
+
+        The first half of the owner's two-phase save: the difficulty is shown
+        with Cancel and Approve beside it, and Cancel must lose nothing — so
+        this writes no row, and a verified grid is remembered only as a proof
+        the save can read back.
+
+        Args:
+            puzzle_id: The puzzle the replacement is for.
+            grid: The replacement grid, ``list[list[bool]]`` (ADR-0012).
+
+        Returns:
+            What one solve says about the grid — ``difficulty_score``,
+            ``difficulty_tier``, ``strategies_used``, the re-encoded
+            ``clues_rows``/``clues_cols`` and the extent — or ``None`` if the
+            puzzle does not exist or a book holds it
+            (:meth:`_row_an_edit_may_touch`).
+
+        Raises:
+            NotUniquelySolvable: the grid is not a readable grid, or its clue
+                set does not have exactly one solution. The refusal names
+                which (FR-006, CON-005).
+        """
+        if self._row_an_edit_may_touch(puzzle_id) is None:
+            return None
+
+        # The one gate, for the one reason it exists: nothing is graded that
+        # has not been proved to be a puzzle first (G-1).
+        proof = self._refuse_unless_uniquely_solvable(grid)
+        fingerprint = self._grid_fingerprint(grid)
+        self._remember_proof(fingerprint, proof).shown_for.add(str(puzzle_id))
+
+        row_clues, column_clues = compute_clues(grid)
+        return {
+            "puzzle_id": str(puzzle_id),
+            "grid_hash": fingerprint,
+            "width": len(grid[0]),
+            "height": len(grid),
+            "clues_rows": [list(clue) for clue in row_clues],
+            "clues_cols": [list(clue) for clue in column_clues],
+            **self._grade_of(proof),
+        }
+
+    def save_edited_grid(
+        self, puzzle_id: str, grid: object
+    ) -> Optional[Dict[str, Any]]:
+        """Store a verified replacement grid, re-deriving everything derived.
+
+        The grid lands, and with it the five columns that are facts about the
+        grid rather than about the puzzle's history: ``clues_rows`` and
+        ``clues_cols`` re-encoded through COMP-004 (they are marked "display
+        only" on the model precisely because they are derived),
+        ``difficulty_score``, ``difficulty_tier`` and ``strategies_used`` read
+        off the one solve that proved the grid unique, and
+        ``manually_edited_at`` stamped now.
+
+        What does **not** move: ``id``, ``batch_id``, ``source_image``,
+        ``created_at``, ``status``, ``book_id``, ``puzzle_name``, ``theme`` —
+        and ``quality_score``/``recognizability``, which are stale rather than
+        meaningless after an edit and are what the new stamp exists to qualify
+        (see the model's own note on why nulling the score was refused).
+
+        Args:
+            puzzle_id: The puzzle whose grid is replaced.
+            grid: The replacement grid, ``list[list[bool]]`` (ADR-0012).
+
+        Returns:
+            The stored row as :meth:`get_puzzle` reads it back, or ``None`` if
+            the puzzle does not exist or a book holds it.
+
+        Raises:
+            NotUniquelySolvable: the grid is not a readable grid, or its clue
+                set does not have exactly one solution. Nothing is written.
+            EditNotVerified: the grid is not the one whose grade was shown for
+                this puzzle (AC-6). Nothing is written.
+
+        A verification is **not** consumed by a save. A retried save of the
+        same grid — a double click, a write that failed on the connection —
+        must not have to buy a second solve, and storing the same proved grid
+        twice differs only in the stamp. What a save never permits is a
+        *different* grid, which is the hole :class:`EditNotVerified` closes.
+
+        Order matters, and it is: *may this row be edited* (a cheap read),
+        *is this grid a puzzle* (the gate — so a grid that is not one is
+        refused for not being one, which is the stronger answer than "you did
+        not verify it"), *was this grid verified* (the two-phase flow's own
+        hole), then the write.
+        """
+        if self._row_an_edit_may_touch(puzzle_id) is None:
+            return None
+
+        proof = self._refuse_unless_uniquely_solvable(grid)
+        self._refuse_unless_verified(puzzle_id, grid)
+
+        row_clues, column_clues = compute_clues(grid)
+        derived = {
+            "grid": grid,
+            "clues_rows": [list(clue) for clue in row_clues],
+            "clues_cols": [list(clue) for clue in column_clues],
+            "width": len(grid[0]),
+            "height": len(grid),
+            **self._grade_of(proof),
+        }
+        edited_at = datetime.now(timezone.utc)
+
+        if self._session_factory is None:
+            puzzle = self.puzzles.get(puzzle_id)
+            if puzzle is None:  # pragma: no cover - re-read of a row just read
+                return None
+            puzzle.update(derived)
+            # Aware, like this mode's own `created_at`.
+            puzzle["manually_edited_at"] = edited_at.isoformat()
+            return self.get_puzzle(puzzle_id)
+
+        import uuid as uuid_module
+        from nonogram.db.models import Puzzle
+
+        try:
+            puzzle_uuid = uuid_module.UUID(puzzle_id) if isinstance(puzzle_id, str) else puzzle_id
+        except ValueError:  # pragma: no cover - screened by the read above
+            return None
+        with self._session_factory() as db:
+            row = db.query(Puzzle).filter(Puzzle.id == puzzle_uuid).first()
+            if row is None:  # pragma: no cover - re-read of a row just read
+                return None
+            # Column by column rather than through a loop over `derived`, so
+            # a reader can see which five columns an edit moves without
+            # holding `derived`'s keys in their head. It is no longer what
+            # keeps the write *visible to G-1*: the guard used to recognise
+            # grid writes by shape, which made this spelling load-bearing and
+            # the legacy branch's `puzzle.update(derived)` invisible (review
+            # cycle 1, F-002). The guard is now default-deny — any write at
+            # all makes a method a candidate that must reach the gate — so
+            # either spelling is seen, and this one is kept for the reader.
+            row.grid = derived["grid"]
+            row.clues_rows = derived["clues_rows"]
+            row.clues_cols = derived["clues_cols"]
+            row.width = derived["width"]
+            row.height = derived["height"]
+            row.difficulty_score = derived["difficulty_score"]
+            row.difficulty_tier = derived["difficulty_tier"]
+            row.strategies_used = derived["strategies_used"]
+            # Naive UTC, like the `DateTime` columns beside it (`created_at`
+            # is `func.now()` and carries no offset either).
+            row.manually_edited_at = edited_at.replace(tzinfo=None)
+        return self.get_puzzle(puzzle_id)
 
     def _parse_sort_string(self, sort_by: str) -> List[Tuple[str, str]]:
         """Parse sort_by string into list of (column, direction) tuples.
