@@ -1,0 +1,401 @@
+card: CARD-245
+cycle: 1
+of_max: 3
+reviewer: reviewer-agent
+commit: 9f3743d
+base: cc4430b
+branch: card/245-edited-grid-verify-and-grade
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-245
+utc: 20261018T071108Z
+score: 7
+verdict: FAIL
+threshold: 8
+host_condition: "sibling card CARD-224 implementing concurrently; no absolute timings taken"
+build_gate_reported: {exit: 0, passed: 8215, skipped: 1, failed: 0}
+targeted_run: {selection: "tests/test_puzzle_edit_store.py tests/test_puzzle_edit_routes.py", result: "161 passed, 0 skipped", database_url: set}
+
+summary: >
+  The gate itself holds. I found no reachable write to Puzzle.grid that does not pass
+  _refuse_unless_uniquely_solvable: save_edited_grid is the only writer, it calls the gate
+  unconditionally before the write, the memo is only ever populated from a solve whose verdict
+  was solution_count == 1 (timeouts and objections are never cached), the fingerprint is
+  unambiguous across extents, eviction and a missing verification both fail closed, and the DB
+  write is one session so a partial update is not reachable. The owner's settled decision is
+  implemented faithfully (quality_score and recognizability untouched, manually_edited_at only
+  on a stored edit) and the migration is symmetric and chain-correct. What is weak is the
+  evidence, not the behaviour: the single line that stops the new memoisation reusing a proof
+  across grid shapes is untested (demonstrated: with it removed a 2-solution grid is stored and
+  the audit reports the table corrupt), and G-1 - the guardrail the card calls "the one that
+  matters" - detects grid writes by an allow-list of four syntactic shapes, so it is
+  default-allow where ADR-0039/R2 requires default-deny.
+
+findings:
+  - id: F-001
+    severity: important
+    file: src/nonogram/admin/puzzle_review.py
+    line: 585
+    claim: >
+      The extent in the grid fingerprint is the one line stopping the new memo from handing a
+      proof of one grid to a differently-shaped grid with the same row-major bits, and no test
+      covers it. Mutant M2 (text = bits, extent dropped) survived the card's whole selection:
+      161 passed.
+    evidence: >
+      Demonstrated under M2 on the in-memory store: verify_replacement_grid(pid, [[T,F,F,T]])
+      (a unique 1x4) caches a proof under bits "1001"; save_edited_grid(pid, [[T,F],[F,T]])
+      (the 2x2 diagonal, 2 solutions, same bits) then gets a memo HIT, never enters the solver,
+      passes _refuse_unless_verified because the fingerprint and shown_for both match, and the
+      row is written. audit_uniqueness() afterwards returns
+      [('puzzle_000001', 'the clue set has 2 or more solutions ... (FR-006)')] - the exact
+      corruption the card exists to prevent. Production (extent present) correctly raises
+      NotUniquelySolvable. The docstring at _grid_fingerprint names this hazard explicitly
+      ("a 2x6 and a 3x4 of the same bits would share a name") but nothing asserts it.
+    suggested_fix: >
+      Add a test that two grids with identical row-major bits and different extents get
+      different fingerprints AND that a save of the reshaped grid is refused - e.g. verify a
+      unique 1x4 [[T,F,F,T]], then assert save_edited_grid of [[T,F],[F,T]] raises
+      NotUniquelySolvable (not EditNotVerified), and assert the stored row is unchanged.
+
+  - id: F-002
+    severity: important
+    file: tests/test_puzzle_edit_store.py
+    line: 816
+    claim: >
+      G-1's derived guard is default-ALLOW, not default-deny (ADR-0039/R2). The *method set* is
+      derived from the class, but the write *predicate* (_binds_a_grid) is a hand-written
+      allow-list of four syntactic shapes; a grid write in any other shape is classified as
+      "not a write" and silently exempted from the reachability check.
+    evidence: >
+      Probing _binds_a_grid directly with nine plausible writer bodies, eight are invisible:
+      db.query(Puzzle).filter(...).update({"grid": grid}) HIDDEN; Puzzle(**derived) HIDDEN;
+      for column, value in derived.items(): setattr(row, column, value) HIDDEN;
+      self.puzzles[pid].update(derived) HIDDEN; column = "grid"; setattr(row, column, grid)
+      HIDDEN; a module-level helper _apply(row, grid) HIDDEN (also outside _methods_of's scope,
+      which reads only PuzzleReviewService's own ClassDef body);
+      payload = {"grid": grid}; self.puzzles[pid] = payload HIDDEN; row.grid[0][0] = True
+      HIDDEN. Only target = row; target.grid = grid was CAUGHT. The hidden "dict update" shape
+      is the one the production code itself uses in legacy mode (puzzle.update(derived) in
+      save_edited_grid); save_edited_grid only enters the writer set because the DB branch in
+      the same method happens to spell row.grid = ... out. Mutant M8 proved it: rewriting that
+      DB branch as a behaviour-identical setattr loop made save_edited_grid drop out of the
+      derived writer set entirely, and
+      test_every_grid_writing_method_reaches_the_refusal still PASSED - the only test that went
+      red was test_the_two_known_writers_are_in_the_derived_set, which is a hand-listed floor,
+      i.e. exactly the snapshot-of-today's-methods the guardrail says must not be the mechanism.
+      Correspondingly, test_the_detector_catches_a_bypass_it_has_never_seen's five params are
+      one per branch of _binds_a_grid - they are the shapes it was written from, not shapes it
+      has never seen, so they certify the branches but prove nothing about completeness.
+    suggested_fix: >
+      Invert the predicate to default-deny on the write side rather than the read side: treat
+      every method that is not provably gated as a candidate and require it to reach the gate
+      unless it is on a short, justified read-only allow-list (_row_to_dict,
+      _all_rows_for_audit, audit_uniqueness, the filters) - or, cheaper and still honest, keep
+      the shape list but add the missing shapes (a Call to .update()/.bulk_update_mappings()
+      whose argument dict carries a "grid" key, setattr with a non-constant name, a Call with
+      **kwargs where a dict literal with a "grid" key flows in, and module-level functions in
+      the same file) and add a negative-control param per *new* shape so the list's growth is
+      itself asserted.
+
+  - id: F-003
+    severity: important
+    file: tests/test_puzzle_edit_store.py
+    line: 1205
+    claim: >
+      test_016_is_the_head hardcodes the head revision, reintroducing the exact brittleness a
+      previous card removed, and its docstring claims the opposite of what the assertion does.
+    evidence: >
+      The assertion is `script.get_heads() == [max(on_disk, key=int)] == ["016"]`. The trailing
+      `== ["016"]` pins today's head by name, so migration 017 turns this test red on an
+      unrelated card. tests/test_batch_requested_tier.py:300-302 records this as a mistake
+      already paid for once: "This used to assert get_heads() == ['014'], which was true only
+      until the next migration was written: CARD-222's 015 broke it, and hardcoding ['015']
+      would have handed the same breakage to 016." The new test's own docstring says "Derived,
+      not named ... the next migration moves it by itself", which the third term makes false.
+      (test_016_revises_015 is the correct, card-local link assertion and is fine.)
+    suggested_fix: >
+      Drop the trailing `== ["016"]`, leaving `assert script.get_heads() == [max(on_disk, key=int)]`,
+      which is the property the docstring describes and which 017 moves by itself.
+
+  - id: F-004
+    severity: minor
+    file: tests/test_puzzle_edit_store.py
+    line: 684
+    claim: >
+      test_a_second_edit_moves_the_stamp_forward cannot fail: `second >= first` is satisfied by
+      a stamp that never moved. Mutant M7 (write manually_edited_at only when it is currently
+      NULL) survived the whole selection: 161 passed.
+    evidence: >
+      With the stamp frozen after the first edit, the AC-8 class still passes because
+      test_the_stamp_is_set_and_the_quality_columns_are_untouched only asserts `is not None`
+      and this test only asserts `>=`. A puzzle hand-edited three times would then report the
+      staleness of the first edit, which is precisely the thing the timestamp-not-boolean
+      decision was chosen to answer.
+    suggested_fix: >
+      Assert strict movement with a controlled clock (freeze/inject `datetime.now`, or stamp
+      the first edit to a known past value before the second) so `second > first` is provable
+      without depending on wall-clock resolution.
+
+  - id: F-005
+    severity: minor
+    file: tests/test_puzzle_edit_store.py
+    line: 468
+    claim: >
+      test_a_legacy_in_book_status_refuses_it_as_well is self-skipping with a tautological
+      assertion, so the legacy `status == in_book` arm of AC-4 may be covered in name only.
+    evidence: >
+      `assert harness.store.mark_in_book(puzzle_id, harness.new_book_id()) in (True, False)`
+      is true for any bool return, and the following `if not in_a_book(...): pytest.skip(...)`
+      means a mode in which mark_in_book stops recording membership turns the test green by
+      skipping rather than red. The house rule the project already applies to DB-mode tests
+      ("DB tests skip silently" / assert a minimum case count) is the same hazard.
+    suggested_fix: >
+      Set the legacy status directly (memory: self.puzzles[pid]["status"] = "in_book"; sqlite:
+      UPDATE puzzles SET status='in_book') and assert the refusal unconditionally, with no skip.
+
+  - id: F-006
+    severity: minor
+    file: src/nonogram/admin/puzzle_review.py
+    line: 1005
+    claim: >
+      save_edited_grid runs the gate before the verification check, so an *unverified* save
+      buys a full solve and writes its proof into the 16-entry memo - evicting the owner's
+      pending verifications even though the save is then refused.
+    evidence: >
+      Order is `_row_an_edit_may_touch` -> `_refuse_unless_uniquely_solvable` (which calls
+      `_remember_proof` on a miss) -> `_refuse_unless_verified`. Sixteen POSTs to
+      /puzzle/<id>/edit carrying distinct well-formed grids and no prior verify therefore cost
+      sixteen solves and clear every remembered verification, forcing the owner to re-verify
+      (EditNotVerified) mid-flow. It fails closed, so nothing wrong is stored; the cost is
+      solver budget and a confusing refusal. The chosen order is defended in the docstring on
+      message-quality grounds, which is reasonable - the eviction side effect is the part that
+      is not reasoned about anywhere.
+    suggested_fix: >
+      Either check `_refuse_unless_verified` against the fingerprint before the gate and only
+      fall through to the gate for a verified grid (keeping the uniqueness message for the
+      verified-then-mutated case), or have the save read the memo without writing to it
+      (`_remembered_proof` only) and let a miss raise EditNotVerified before any solve.
+
+  - id: F-007
+    severity: minor
+    file: src/nonogram/admin/puzzle_review.py
+    line: 318
+    claim: >
+      The two-phase flow's correctness rests on one process holding the memo, but the worker
+      count is an operator-settable environment variable, not a constant.
+    evidence: >
+      start.sh:34 is `--workers "${WEB_CONCURRENCY:-1}"`. The implementation notes justify
+      instance-local staging with "the panel runs one gunicorn worker (CARD-086 G-4,
+      start.sh)". With WEB_CONCURRENCY=2 a verify served by worker A and the Approve routed to
+      worker B gives EditNotVerified roughly half the time. It fails closed (nothing wrong is
+      stored) but the owner sees "verify it again" intermittently with no explanation, and the
+      panel's deployment is dashboard-managed, so the variable is not under repo control.
+    suggested_fix: >
+      Note the dependency where it can be seen - a one-line assertion or boot-time warning when
+      WEB_CONCURRENCY resolves above 1, or a comment in start.sh next to the flag - so the
+      coupling is discoverable from the knob rather than only from this card's notes.
+
+  - id: F-008
+    severity: minor
+    file: src/nonogram/admin/app.py
+    line: 2466
+    claim: >
+      The new routes are the first to accept an unbounded, caller-chosen grid for CPU work, and
+      neither MIN_SIZE/MAX_SIZE nor a request body cap applies.
+    evidence: >
+      `_refuse_unless_shaped_like_a_grid` bounds shape but not size; there is no
+      MAX_CONTENT_LENGTH anywhere in src/nonogram; `_grid_fingerprint` materialises one char
+      per cell before the solve. The only brake is the solver's ADR-0011 deadline, which runs
+      after compute_clues and the digest. Authentication (the before_request gate at
+      app.py:1262) limits the blast radius to an authenticated operator, and the implementation
+      notes put MIN/MAX_SIZE deliberately out of scope on add_puzzle parity grounds - but
+      add_puzzle is not reachable with an attacker-chosen extent and these routes are.
+    suggested_fix: >
+      Either apply limits.MIN_SIZE/MAX_SIZE in the store's write path (one refusal, same place
+      as the others) or set app.config["MAX_CONTENT_LENGTH"]; record which, and why, in the
+      notes rather than leaving the asymmetry implicit.
+
+  - id: F-009
+    severity: nit
+    file: src/nonogram/admin/puzzle_review.py
+    line: 80
+    claim: _Verification.shown_for is unbounded while the memo itself is LRU-bounded at 16.
+    evidence: >
+      MAX_REMEMBERED_VERIFICATIONS caps the number of entries, not the size of one. Verifying
+      the same grid for every puzzle in the table accumulates one id string per puzzle in a
+      single entry's set. Bounded in practice by the row count (a verify requires an existing,
+      unbooked row), so this is a shape note rather than a leak.
+    suggested_fix: Cap or LRU-bound shown_for, or document that the row count is its bound.
+
+  - id: F-010
+    severity: nit
+    file: src/nonogram/admin/app.py
+    line: 2478
+    claim: >
+      A non-UUID <puzzle_id> reaches get_puzzle in DB mode and raises ValueError, so a JSON
+      route answers with the HTML 500 page.
+    evidence: >
+      get_puzzle (puzzle_review.py:1453) calls uuid.UUID(puzzle_id) unguarded;
+      _row_an_edit_may_touch calls it first. approve_puzzle/reject_puzzle have the same hole via
+      in_a_book, so this is parity rather than a regression - but those routes answer HTML, and
+      these two advertise JSON, so the editor script will get an unparseable body.
+    suggested_fix: >
+      Catch ValueError/TypeError in the two new routes and answer the existing 404 JSON body,
+      or screen the id in get_puzzle as get_puzzles already does.
+
+  - id: F-011
+    severity: nit
+    file: src/nonogram/admin/puzzle_review.py
+    line: 925
+    claim: >
+      _refuse_unless_verified reads self._verifications directly instead of through
+      _remembered_proof, so a save does not refresh the entry's LRU recency.
+    evidence: >
+      The gate call immediately before it does move_to_end, so the recency is refreshed on the
+      current path and nothing is wrong today; the asymmetry is a trap for whoever reorders the
+      two calls (see F-006).
+    suggested_fix: Read through one accessor, or say in a comment why this one does not.
+
+  - id: F-012
+    severity: nit
+    file: src/nonogram/admin/templates/_puzzle_table.html
+    line: 72
+    claim: >
+      The new marker reuses `class="badge rec"` with data-edited but no data-level, while every
+      other `badge rec` on the page is styled by data-level.
+    evidence: >
+      The recognizability cell on the next line is `<span class="badge rec" data-level="...">`.
+      A data-level-keyed rule set will leave the new badge unstyled. The route test asserts the
+      wording, which is the right thing to assert, so this is invisible to the suite - and the
+      owner validates visually.
+    suggested_fix: Give it its own class or a data-level value the stylesheet handles.
+
+  - id: F-013
+    severity: nit
+    file: src/nonogram/admin/puzzle_review.py
+    line: 931
+    claim: >
+      The verify/save pairing keys on str(puzzle_id) as given rather than a canonical UUID, so
+      a verify with one spelling and a save with another (uppercase vs lowercase hex) will not
+      pair.
+    evidence: >
+      shown_for.add(str(puzzle_id)) vs `str(puzzle_id) not in verification.shown_for`, while
+      get_puzzle resolves both spellings through uuid.UUID. Unreachable from the routes (both
+      take the id from the same URL), fails closed, so a note rather than a defect.
+    suggested_fix: Normalise once (str(uuid.UUID(puzzle_id)) when it parses) on both sides.
+
+mutation_check:
+  policy: "capped, targeted - the card's two test files only, never the full suite"
+  mutants:
+    - id: M1
+      line: "puzzle_review.py _why_this_is_not_a_puzzle: solution_count != 1 -> == 0"
+      intent: "a >=2-solution grid stops being an objection"
+      result: killed
+      detail: "13 failed, 148 passed (AC-2 store + route arms, AC-9, G-2 control)"
+    - id: M2
+      line: "puzzle_review.py _grid_fingerprint: text = f'{h}x{w}:{bits}' -> text = bits"
+      intent: "the extent leaves the digest, so same-bits different-shape grids share a proof"
+      result: SURVIVED
+      detail: "161 passed. See F-001; demonstrated to store a 2-solution grid."
+    - id: M3
+      line: "puzzle_review.py _refuse_unless_verified: drop the shown_for membership test"
+      intent: "a proof of a grid licenses a save for any puzzle"
+      result: killed
+      detail: "12 failed (AC-6 all arms, routes 409 arms)"
+    - id: M4
+      line: "puzzle_review.py save_edited_grid: do not call _refuse_unless_verified at all"
+      intent: "the two-phase pairing removed entirely"
+      result: killed
+      detail: "12 failed (AC-6, AC-9 unverified arm, route 409 arms)"
+    - id: M5
+      line: "puzzle_review.py _stored_score: math.ceil -> round"
+      intent: "the stored integer stops classifying as the stored tier"
+      result: killed
+      detail: "2 failed (TestStoredScore_MatchesRegrades, both the corpus and its control)"
+    - id: M6
+      line: "puzzle_review.py save_edited_grid: manually_edited_at never written (both modes)"
+      intent: "the stamp is dropped"
+      result: killed
+      detail: "10 failed (AC-8, AC-10 surfaces, route + Postgres arms)"
+    - id: M7
+      line: "puzzle_review.py save_edited_grid: stamp written only when currently NULL"
+      intent: "the stamp freezes at the first edit"
+      result: SURVIVED
+      detail: "161 passed. See F-004 - the 'moves forward' assertion is `>=`."
+    - id: M8
+      line: "puzzle_review.py save_edited_grid: DB branch rewritten as a setattr loop (behaviour identical)"
+      intent: "a real grid write that G-1's detector cannot see"
+      result: partially_killed
+      detail: >
+        1 failed - and only test_the_two_known_writers_are_in_the_derived_set, the hand-listed
+        floor. test_every_grid_writing_method_reaches_the_refusal passed with save_edited_grid
+        no longer in the derived writer set at all. See F-002.
+    - id: M9
+      line: "puzzle_review.py save_edited_grid: quality_score set to None on an edit"
+      intent: "the owner's settled decision inverted"
+      result: killed
+      detail: "5 failed (AC-10 sqlite arm, AC-8 route arm, Postgres arm) - AC-10 is a real guard"
+    - id: M10
+      line: "puzzle_review.py verify_replacement_grid: an extra wildcard id added to shown_for"
+      intent: "control - a change that should be a no-op"
+      result: SURVIVED
+      detail: "161 passed, as intended; not a defect, included to show the selection is not red-by-default"
+  note: >
+    Every mutant was reverted from a pre-mutation copy; `git diff --stat HEAD -- src/ tests/`
+    is empty afterwards. The only working-tree modification in the worktree is the implementer's
+    uncommitted meta/kanban/cards/CARD-245.md notes, which were already there.
+
+acceptance_criteria:
+  AC-1: {verdict: genuinely_covered, note: "expected clues/score/tier hand-written; seed carries deliberately wrong derived values; the complement-of-DERIVED_KEYS test is a real G-3 guard; both modes"}
+  AC-2: {verdict: genuinely_covered, note: "2-or-more arm driven by a real ambiguous grid; the 'can see a row that did change' control is sound (asserts after != before and which keys moved). The zero arm is reachable only with the solver replaced, which the test says plainly and which is a true statement about the boundary, not a dodge."}
+  AC-3: {verdict: genuinely_covered, note: "the counter wraps the module-level solve and delegates to the real solver; the seed's own entry is asserted as a baseline (==1) so the later ==2 is a measurement, not a coincidence; the 'can count past one' control genuinely reaches 2 with two distinct grids"}
+  AC-4: {verdict: genuinely_covered, note: "book_id arm solid in both modes and on Postgres, with an unbooked control. The legacy in_book-status arm is self-skipping with a tautological assert - see F-005."}
+  AC-5: {verdict: genuinely_covered}
+  AC-6: {verdict: genuinely_covered, note: "moved grid, no verification, another puzzle's verification, and eviction all asserted, each with a stored-row-unchanged check and a positive control; M3/M4 both killed"}
+  AC-7: {verdict: genuinely_covered, note: "the forbidden-solver control is real - solid_minus_corner() has never been proved by that store, so it does reach the solver and the AssertionError fires. The nine malformed params are all genuinely unshaped."}
+  AC-8: {verdict: covered_with_a_gap, note: "the stamp-is-set and score-survives halves are real; 'the stamp moves forward' is vacuous (`>=`), M7 survived - F-004"}
+  AC-9: {verdict: genuinely_covered}
+  AC-10: {verdict: genuinely_covered, note: "M9 killed by it; the exclusion control and the still-null-is-still-excluded test both earn their place"}
+
+guardrails:
+  G-1: {verdict: covered_in_name_only, note: "the method set is derived, the write predicate is a 4-shape allow-list; 8 of 9 plausible writer shapes invisible; M8 showed the derived assertion goes blind while only a hand-listed floor notices. See F-002. The five 'bypasses it has never seen' are one per branch of the detector - branch tests, not a completeness control."}
+  G-2: {verdict: genuinely_covered, note: "audit_uniqueness still reads through _why_this_is_not_a_puzzle, never populates the memo, and the 'can still see a row that is not a puzzle' control fires"}
+  G-3: {verdict: genuinely_covered, note: "named columns plus the complement-of-DERIVED_KEYS sweep, both modes and Postgres"}
+  G-4: {verdict: genuinely_covered, note: "pyproject.toml untouched; new imports are hashlib, collections.OrderedDict, dataclasses.field - all stdlib"}
+  G-5: {verdict: genuinely_covered, note: "no new cross-capability import; _stored_score and _strategies_of are native reimplementations pinned against regrade from the test tree, which is the house pattern"}
+  G-6: {verdict: genuinely_covered, note: "no test deleted or weakened; the diff's three deletions are two template lines and one import line"}
+
+system_contract:
+  one_solve_two_answers_ADR0029_R2: pass
+  ADR0006_R1_dependency_baseline: pass
+  COMP004_clues_reencoded: pass
+  no_hypothesis_seeded_corpus_with_minimum: pass
+  live_database_nonogram_poc_untouched: pass
+  refuse_unless_test_database_not_widened: pass
+  capability_module_lateral_imports: pass
+  migration_up_down_symmetry_and_sqlite_batch_parity: pass
+  no_test_retired_without_a_survivor: pass
+
+card_feedback:
+  - >
+    The card's Touches line names tests/test_admin_review.py, which the commit does not change.
+    Harmless, but the line is now wrong and a reader will look for an edit that is not there.
+  - >
+    The card assumed AC-2's zero-solution arm was reachable from a grid payload. It is not, for
+    the reason the store's own comment already records. The implementer caught this and said so
+    in the notes; the card text should be amended rather than leaving the next reader to
+    rediscover it.
+  - >
+    G-1's wording - "derived from the class rather than hand-listed (ADR-0039/R2: the set is
+    enumerated, and defaults to deny)" - specifies that the *method set* be derived, and the
+    implementation satisfies that literally while leaving the write predicate an allow-list.
+    The guardrail would have been harder to satisfy vacuously if it had said what must default
+    to deny: a method is presumed a grid writer unless it is on a justified read-only list.
+  - >
+    The card says nothing about enforcing MIN_SIZE/MAX_SIZE on the first HTTP-reachable grid
+    write in the system (F-008). The implementer declared it out of scope on add_puzzle parity
+    grounds, which is defensible, but the card should have decided it rather than leaving the
+    judgement to the notes.
+  - >
+    The card's recommended "stage the verified grid keyed by puzzle id and a hash of the grid"
+    does not mention that the staging store must distinguish grid *extents*, which turned out to
+    be the single most load-bearing line in the mechanism (F-001). A card that recommends a hash
+    should say what the hash must cover.

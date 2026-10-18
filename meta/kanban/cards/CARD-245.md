@@ -305,3 +305,99 @@ Not written to `suite-timing.log`: every line there is a **merge** gate, and mix
 gate — especially one measured under concurrent sibling load — into that series would make the
 ms/test trend read as a regression that is really a busy host. The merge gate's line will be
 written when it runs, with its own condition stated.
+
+### [Review 1/3] Score: 7.0 — FAIL (threshold 8)
+
+Report: `meta/review/20261018T071108Z-CARD-245-cycle1.yml` (copied from the worktree to main
+before the worktree is deleted). **No critical findings.** Three important, and the shape of
+the result is worth stating plainly: **the behaviour is sound and the evidence is not.**
+
+What the reviewer tried and could not break — stated because a gate's value is in what it
+rules out: no reachable write to `Puzzle.grid` skips `_refuse_unless_uniquely_solvable`;
+`save_edited_grid` is the only writer and calls the gate unconditionally; the memo is only ever
+populated after a verdict of `solution_count == 1`, so a timeout or an objection is never
+cached as a success; eviction and a missing verification both fail **closed**; the DB write is
+one session, so no partial update is reachable; the migration is symmetric and
+`batch_alter_table`-parity with 004..015, and nothing in the tree asserted a head or column set
+it invalidates; `pyproject.toml` is untouched; `nonogram_poc` is unreachable from the diff and
+`_refuse_unless_test_database` is neither widened nor bypassed. ADR-0029/R2's "exactly one
+solver entry" was judged **sound as a measurement**, not merely the right number.
+
+**Mutation pass ran (10 mutants, targeted, never the full suite), and it is what produced two
+of the three importants.** M1, M3, M4, M5, M6, M9 killed; **M2 and M7 survived**; M8 partially
+killed (only the hand-listed floor caught it); M10 the no-op control survived as intended,
+which is what shows the selection is not red-by-default. All reverted; `git diff --stat` empty
+afterwards.
+
+**The three importants, each verified by me directly rather than taken on report:**
+
+- **F-001 — the fingerprint's extent is load-bearing and untested.** Production is *correct*:
+  `_grid_fingerprint` digests `f"{len(grid)}x{len(grid[0])}:{bits}"`, and its own docstring
+  names the hazard verbatim ("a 2x6 and a 3x4 of the same bits would share a name"). **Nothing
+  asserts it**, and M2 — drop the extent, keep the bits — survived all 161 tests. The
+  demonstrated corruption: verify a unique 1×4 `[[T,F,F,T]]` (bits `1001`), then save the 2×2
+  diagonal (same bits, **2 solutions**) — memo hit, solver never entered, verification pairing
+  satisfied, **written**, and `audit_uniqueness` reports it afterwards. Exactly what this card
+  exists to prevent, one deleted digest component away.
+- **F-002 — G-1 is default-ALLOW, and the production code was shaped to satisfy it.** The
+  *method set* is derived from the class, which is what the card's G-1 wording literally asked
+  for; but the write *predicate* `_binds_a_grid` is a hand-written allow-list of four syntactic
+  shapes **returning `False` for everything else**. Eight of nine plausible writer shapes the
+  reviewer probed are invisible, including `.update({"grid": …})` and a `setattr` loop.
+  **I confirmed a sharper form of this than the review states.** `puzzle_review.py:1038-1043`
+  carries a comment saying the per-column longhand was chosen *because* a `setattr` loop
+  "writes the grid in a way no reader — and no static guard — can see it happen, and this is
+  the write G-1 exists to keep visible." So the production code was deliberately written to be
+  **legible to its own guard** — a sound instinct, honestly commented — which means the guard's
+  completeness rests on **discipline, not construction**. And three lines above, in the *same
+  method*, the legacy branch writes `puzzle.update(derived)`, which the predicate cannot see at
+  all: `save_edited_grid` enters the writer set only because the DB branch spells it out
+  longhand. M8 is the proof — rewriting that branch as a behaviour-identical `setattr` loop
+  dropped the method out of the derived set and `test_every_grid_writing_method_reaches_the_refusal`
+  **still passed**; the only red test was the hand-listed floor, i.e. precisely the
+  snapshot-of-today's-methods that G-1 names as the thing it must not be.
+- **F-003 — `test_016_is_the_head` reintroduces brittleness a prior card paid to remove.**
+  `assert get_heads() == [max(on_disk, key=int)] == ["016"]` — the trailing term pins the head
+  by **name**, so migration 017 on an unrelated card reds it. `test_batch_requested_tier.py:300-302`
+  records this exact history ("hardcoding `['015']` would have handed the same breakage to
+  016"), and the new test's own docstring claims "Derived, not named", which the third term
+  makes false.
+
+**Two minors promoted into the fix cycle rather than routed:**
+
+- **F-004** `second >= first` lets a **frozen** stamp pass — M7 survived. A non-strict
+  inequality is not a claim that something moved.
+- **F-012** the new marker is `class="badge rec" data-edited` with **no `data-level`**, while
+  every other `badge rec` is styled by `data-level`. So it is probably **invisible on the
+  page**, and no test can see that. The owner validates visually, so an invisible marker is a
+  defect, not a nit.
+- Plus **F-005** (a self-skipping AC-4 arm with a tautological `assert … in (True, False)`),
+  **F-007** (a comment at `start.sh`'s `WEB_CONCURRENCY` knob, which silently breaks the
+  two-phase flow at 2 — fails closed), and **F-011** (route the memo read through its accessor
+  so the LRU refresh is not a latent trap).
+
+**Residues routed, not absorbed** — recorded here so the next card inherits them rather than
+rediscovering them:
+
+- **F-006** the gate runs *before* the verification check, so an unverified save buys a full
+  solve and can evict pending verifications from the 16-entry memo. Fails closed. Left as is.
+- **F-008** `MIN_SIZE`/`MAX_SIZE` and `MAX_CONTENT_LENGTH` on the **first HTTP-reachable grid
+  write in the system**. The implementer declared this out of scope on `add_puzzle` parity
+  grounds, and the reviewer is right that the parity does not hold: `add_puzzle` is not
+  reachable with a caller-chosen extent and these routes are. **Routed to the owner as a
+  decision, not fixed** — a bound changes behaviour no AC asks for and could refuse a grid
+  CARD-246's editor presents.
+- **F-009** (`shown_for` unbounded per entry), **F-010** (a non-UUID `<puzzle_id>` answers a
+  JSON route with the HTML 500 page — parity with approve/reject, but those advertise HTML),
+  **F-013** (the pairing keys on `str(puzzle_id)` as given rather than a canonical UUID).
+
+**What the reviewer says the CARD got wrong, and I agree with three of four:** the `Touches`
+field named a file the commit does not change (already amended above); AC-2's zero-solution arm
+is unreachable from a grid payload (the implementer caught it; the card now says so);
+**G-1's wording specified the wrong thing** — "derived from the class rather than hand-listed"
+constrains the *method set*, which the implementation satisfies literally while leaving the
+predicate an allow-list, and had it said *a method is presumed a writer unless justified
+read-only*, F-002 would have been hard to ship; and the card recommended a hash "of the grid"
+**without specifying its domain**, which is the single most load-bearing line in the mechanism
+(F-001). That last pair is the transferable lesson: a card that mandates a derived guard must
+say what defaults to deny, and a card that recommends a hash must say what it covers.
