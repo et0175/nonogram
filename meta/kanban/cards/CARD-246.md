@@ -1,6 +1,6 @@
 # CARD-246: A generated puzzle can be edited by hand, from its card or the list, and approved on its new difficulty
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Complexity:** standard
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** false
 **Branch:** card/246-manual-puzzle-editor
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-246
 **Source:** owner's doc "Admin panel", 2026-10-18 — "start from a puzzle card or the list of puzzles, add a button - edit… Then show a message with difficulty and cancel/approve buttons"
 **Idea:** —
-**Wave:** —
+**Wave:** 46
 **Depends on:** CARD-245 (the verify-and-grade path this UI calls; without it there is nothing to approve)
 **Touches:** src/nonogram/admin/templates/puzzle_edit.html, src/nonogram/admin/templates/puzzles.html, src/nonogram/admin/templates/puzzle_solve.html, src/nonogram/admin/static/solver.js, src/nonogram/admin/static/solver_state.js, src/nonogram/admin/static/admin.css, src/nonogram/admin/app.py, tests/test_puzzle_editor_ui.py, tests/test_admin_serving.py
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-18T08:31:25Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —

@@ -1,6 +1,6 @@
 # CARD-245: An edited grid is re-verified and re-graded by one solve, or it is not stored
 
-**Status:** in_progress
+**Status:** done
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -9,17 +9,17 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/245-edited-grid-verify-and-grade
-**Worktree:** ../PythonProject4-card-245
+**Worktree:** — (removed at merge)
 **Source:** owner's doc "Admin panel", 2026-10-18 — "after pressing 'save' - verify that it has a unique solution and calculate difficulty… Don't allow saving puzzles that don't have a unique solution"
 **Idea:** —
 **Wave:** 46
 **Depends on:** —
 **Touches:** src/nonogram/admin/puzzle_review.py, src/nonogram/admin/app.py, src/nonogram/db/models.py, migrations/versions/016_puzzle_manually_edited_at.py, src/nonogram/admin/templates/_puzzle_table.html, src/nonogram/admin/static/admin.css, start.sh, tests/test_puzzle_edit_store.py, tests/test_puzzle_edit_routes.py  <!-- amended 2026-10-18: the three middle entries are the owner's SETTLED section (the column, migration 016, surfacing the stamp) and were missing from the field; tests/test_admin_review.py was listed and not needed. See [Touches drift] below. -->
-**Review score:** —
+**Review score:** 8.5 (cycle 2/3; 7.0 → 8.5, +1.5)
 **Started:** 2026-10-18T05:09:31Z
-**Closed:** —
-**Actual:** —
-**Merge commit:** —
+**Closed:** 2026-10-18T08:29:45Z
+**Actual:** 0.4d
+**Merge commit:** 6184545
 **Blocked by:** —
 
 ## What to implement

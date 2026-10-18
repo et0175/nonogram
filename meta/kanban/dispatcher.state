@@ -3,7 +3,7 @@ mode: interactive
 # Owner's standing cap: concurrency 2 (config max_concurrent is 5). Merges run
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
-active: [CARD-224, CARD-245]
+active: [CARD-224, CARD-246]
 escalated: []
 merged_wave_45:
   - id: CARD-248
@@ -97,7 +97,7 @@ previously_escalated:
     resolved: "wave 42 — owner chose (c) then (b); universal guarantee carded as CARD-241, merged wave 43"
   - id: CARD-239
     resolved: "wave 42 — owner chose SPLIT; taint step carded as CARD-242, merged wave 43"
-last_updated: 2026-10-18T05:09:31Z
+last_updated: 2026-10-18T08:31:25Z
 
 wave_45:
   dispatched: 2026-10-17T22:41:59Z
@@ -151,3 +151,87 @@ wave_46:
     - "CARD-245: a new migration makes any 'only head' assertion false. That is precisely what killed CARD-222's first build-gate attempt, so the agent is told to expect it and fix the assertion rather than be surprised."
     - "CARD-245: verify-then-re-solve-to-grade passes every functional test and shows up only as doubled latency plus an ADR-0029/R2 contradiction. AC-3 is briefed as a solver-ENTRY COUNT, not a code reading."
   note: "Both agents are told not to run the full suite (the orchestrator runs it at the merge gate under the repo-level lock), not to commit meta/kanban/cards/*.md from a worktree, to stage explicit pathspecs only, and to treat pytest's own summary line AND the exit code as the authority -- the three failure modes this board has actually been bitten by."
+
+merged_wave_46:
+  - id: CARD-245
+    merge_commit: 6184545
+    at: 2026-10-18T08:29:45Z
+    review_score: 8.5
+    cycles: "2/3 (7.0 -> 8.5, +1.5; threshold 8, improvement floor 0.5)"
+    actual: 0.4d
+    estimate: 1d
+    accuracy: 0.42x
+    gate: "8251 passed, 1 skipped, 0 failed in 1133.59s, DATABASE_URL SET; code tree byte-identical to the gated commit 39fb5b2 (git diff over src/ tests/ migrations/ pyproject.toml start.sh empty)"
+    opens: "The first write path to Puzzle.grid since the generation pipeline. CARD-080 documented reaching the store's uniqueness refusal as a BUG IN THE CALLER, because every caller came from orchestrator.generate, which enforces INV-002. This card makes the human the generator, so that backstop is a working gate for the first time -- and CARD-246, dispatched on this merge, is its UI."
+    note: >-
+      Both review cycles found their importants in the SAME place and by the SAME method: G-1,
+      the guardrail the card itself calls "the one that matters", and a surviving mutant.
+      Cycle 1 (7.0) found that G-1 was default-ALLOW -- the method set was derived from the
+      class as the card asked, but the write predicate was a four-shape allow-list returning
+      False for everything else, so 8 of 9 real write shapes were silently exempt. The sharper
+      form, which the orchestrator confirmed and the review had not stated: puzzle_review.py's
+      own comment said the per-column longhand was chosen SO THE STATIC GUARD COULD SEE THE
+      WRITE, i.e. the production code was shaped to be legible to its own guard, so the guard's
+      completeness rested on discipline rather than construction -- while the legacy branch
+      three lines above wrote through .update(), invisible to the predicate. Cycle 2 (8.5, PASS)
+      then found the inversion still had an alias hole: a fresh container holding REFERENCES to
+      durable rows counted as not-durable-state, so three real grid writes left the guard green.
+      THE CARD PASSED ON SCORE AT THAT POINT AND WAS FIXED ANYWAY, because the reviewer's
+      failure scenario named CARD-246 -- the dependent card next in line -- adding a batch
+      repair that gathers rows into a local first. A hole whose concrete failure scenario is
+      "the next card does a natural thing" is a trap set for that card, not a residue.
+      The fix cycle then REFUSED the suggested remedy and demonstrated why both ways: as stated
+      it is depth-1 and misses the same defect one level down (a FOURTH shape, found by the fix
+      and not the review); applied at any depth it turns a genuine reader into a grid writer.
+      What shipped grades expressions rather than names at three levels. False positives were
+      excluded three ways, including BYTE-IDENTICAL verdict sets on the real module
+      (33/20/50/0, zero symbols moved) and an assertion that over-tightening is a red suite.
+      G-1 grew 21 -> 30 tests; cycle 2's entire production change was ONE DOCSTRING.
+    card_defects_found: >-
+      Four, all recorded on the card rather than worked around. (1) G-1's wording specified the
+      wrong thing: "derived from the class rather than hand-listed" constrains the METHOD SET
+      and was satisfied literally by a default-allow predicate underneath. (2) The card
+      recommended staging "keyed by a hash of the grid" WITHOUT SPECIFYING THE HASH'S DOMAIN,
+      and the extent turned out to be the single most load-bearing line in the mechanism --
+      without it a unique 1x4 and the 2x2 diagonal share bits, so verifying one licenses saving
+      the other. (3) AC-2's zero-solution arm is UNREACHABLE from a grid payload, because the
+      clue set is re-derived from the grid and a grid always satisfies its own clues (the store's
+      own comment measures it: 120 derived clue sets, 97 unique, 23 ambiguous, 0 unsolvable).
+      (4) The Touches field predated the owner's settlement and named a file the commit never
+      changed while missing the column, the migration and the stamp's surfacing. All four are
+      now standing card-brief rules in memory.
+  # CARD-224 still in flight: build gate green first attempt on e1cbb35 (8088 passed,
+  # 1 skipped, 0 failed, 0 XFAILED), review cycle 1 running.
+
+refilled_wave_46:
+  - at: 2026-10-18T08:31:25Z
+    freed_by: "CARD-245 merged 6184545 (0.4d against 1d)"
+    started: CARD-246
+    reason: >-
+      Slot 2 freed and the cap is 2. CARD-246 became eligible on this very merge (it depends on
+      CARD-245 and on nothing else) and is P1. It is DISJOINT FROM CARD-224 on every file and
+      every hotspot -- CARD-246 is templates, solver.js/solver_state.js, admin.css, app.py and
+      its own tests; CARD-224 is export/layout.py, book_pdf_generator.py, book_proof.py and the
+      book tests. CARD-225 remains the other refill candidate and was passed over for the same
+      mechanical reason as at dispatch: it shares BOTH of CARD-224's hotspots plus app.py, so it
+      cannot run beside either card.
+    blocker_check: >-
+      CLEAN. The one judgment the card leaves open -- what Maybe and Undecided mean on the way
+      out, since Puzzle.grid is list[list[bool]] (ADR-0012) -- is DELEGATED BY DESIGN: AC-6
+      requires either "those brushes are unavailable in edit mode" or "the save is refused and
+      names the cells", and requires the test to state which. So it is a recorded choice, not a
+      blocker. The orchestrator stated a lean (hide the brushes, via the mode flag G-2 expressly
+      permits) and told the agent to overrule it if the code disagrees.
+    briefed_from_the_merge: >-
+      Four things CARD-245 established that the card predates and the agent would otherwise
+      rediscover: the two JSON routes and their 404/409/422 codes; that the verification is
+      memoised IN-PROCESS, LRU-bounded at 16 and keyed on the grid's extent and cells, so the
+      Approve must carry EXACTLY the verified grid and an eviction is a normal outcome the UI
+      must handle as "verify again" rather than as an error; that quality_score and
+      recognizability deliberately survive an edit; and that no client-side validation is needed
+      or permitted (G-3), because the server does the whole job in one solve.
+    branch_name_corrected: >-
+      The worktree was created on card/246-hand-edit-a-puzzle while the card declares
+      card/246-manual-puzzle-editor. The BRANCH was renamed to match the card rather than the
+      card edited to match the mistake -- the card is the source of truth, and a card whose
+      Branch field is wrong is how a later /kanban done looks in the wrong place.
