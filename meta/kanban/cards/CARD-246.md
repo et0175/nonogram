@@ -301,3 +301,97 @@ and the re-run recorded — but it did not need to be invoked.
 Not written to `suite-timing.log`: that series is merge gates only, and this run shared the
 machine with CARD-224's review cycle 2. The verdict is unaffected (separate derived databases
 since CARD-244); the duration is not comparable.
+
+### [Review 1/3] Score: 7.0 — FAIL (threshold 8)
+
+Report: `meta/review/20261018T170220Z-CARD-246-cycle1.yml`. **No criticals.** Five importants,
+every one demonstrated **in Chromium** rather than argued from the source, and every one in a
+single file (`static/puzzle_edit.js`). **None corrupts the store** — CARD-245's gate holds behind
+all of them — so this is a fix, not a redesign.
+
+**What held, and it is most of the card.** Every structural claim the review was told to attack
+survived: the `mode` flag is a sound seam, the player's path through all four of its branches is
+unchanged, its payload is still exactly CARD-160's six keys with `mode` not among them, and 161
+player tests ran green **with none re-run for flakes**. AC-1, AC-2, AC-4, AC-6, AC-7 (all three
+halves, separately pinned by three different mutants), G-1, G-3, G-5 and G-6 are **genuinely
+covered**. G-2 is covered in substance. 12 of the reviewer's 15 mutants died.
+
+**Two of the agent's own judgments were independently confirmed:**
+
+- **The AC-6 argument is "plainly true".** `COLOUR_ORDER` steps `FILLED→EMPTY→UNKNOWN→FILLED`,
+  so two White clicks on a filled cell land on `UNKNOWN` and a confirmed Clear blanks every cell
+  — **a blank cell is reachable with Black and White alone**, so brush-hiding could never have
+  been the guarantee and the agent was right to overrule the orchestrator's lean. The reviewer
+  added what neither of us had: it is closed **server-side** too, since a crafted POST of
+  non-booleans is a 422 at `_refuse_unless_shaped_like_a_grid`, covered by CARD-245's own suite.
+- **M10 reproduced exactly.** Restoring all four brushes fails **only** the narrowing test while
+  the other six AC-6 tests pass — so "the narrowing is a convenience, the refusal is the
+  guarantee" is measured, not asserted.
+- **G-3's proof was judged "as strong as it sounds"**: the verify route stubbed with `score 7`,
+  tier `fiendish` — a grade no local arithmetic could produce — with the page asserted to show it
+  while `easy` is absent. No uniqueness or difficulty decision leaks into the client.
+
+#### The five importants: the flow is right and its edges state falsehoods
+
+The common thread, and the reason this is briefed as **one invariant rather than five patches**:
+*the page must never offer Approve for a grid other than the one whose grade is on screen, and
+must never claim a store state it has not confirmed.* Three of the five **show the owner a false
+statement about what happened**, which is worse than an error message.
+
+- **F-001 — a refusal message standing beside a live Approve.** `onSave` withdraws a pending
+  Approve only at the *top* of the call; the refusal branch returns without withdrawing, and
+  nothing disables Save in flight. Demonstrated by racing two Saves: the valid response lands
+  first (grade shown, Approve offered), the invalid one lands second, and the message becomes
+  "This grid cannot be saved and nothing was stored…" **while Approve is still live and
+  `verified` is still set.** Pressing it stores a grid the owner is being told cannot be saved.
+- **F-002 — a stroke during the confirmation is silently dropped, and the page says the
+  opposite.** Save → grade → one White click → Approve: the store holds the **pre**-stroke grid,
+  the board shows the **post**-stroke grid, and the message reads "Saved. This grid is the stored
+  puzzle now…". **The owner's last stroke exists in no store and gets no warning.** The most
+  user-visible defect on the card, and the owner validates visually.
+- **F-003 — a dropped connection leaves the page silent with an uncaught rejection.** `fetch` is
+  unwrapped: the message stays "Checking this grid...", `Failed to fetch` reaches the console,
+  Save stays enabled. The tell that this was *meant* to be handled is that `refusalText`'s own
+  "The panel could not be reached" branch is **unreachable dead code**. On Approve it is worse —
+  the owner cannot tell whether it committed.
+- **F-004 — "Approve never re-reads the board" is pinned by nothing.** The mutant that makes
+  Approve re-read the board passes **49/49**. So the card's stated guarantee is today a property
+  of **CARD-245's** 409 and is asserted nowhere here. That is the same shape as CARD-245's own
+  G-1 finding: a guarantee resting on a neighbour's behaviour rather than on its own control.
+- **F-005 — the booked 409 is given the not-verified 409's advice**: "Cannot edit a puzzle that
+  is in a book. **Press Save to check this grid again.**" — an instruction that can never
+  succeed. The file's own comment records the conflation, and **CARD-245 distinguishes the two
+  409s in `_edit_refusal` precisely so a caller can**, so the information is already on the wire.
+
+#### Two findings about the card's own evidence, which are the ones worth learning from
+
+- **F-006 — a vacuous control of the agent's own making.** `test_the_editor_writes_nothing_into_
+  the_players_save` passes with `NO_SAVE` **removed entirely**, because `serializeState`
+  independently refuses a non-blank start. The claim survives only through its end-to-end
+  sibling. A control that cannot fail is the defect this board has paid for most often.
+- **F-007 — the `player-cell` glob is a literal guard, not the completeness guard G-2 claims.**
+  The reviewer added `static/editor_grid.js` with `createElement` and `class="editor-cell"` and
+  **it passed**. This is the third time in wave 46 that a guard claimed completeness it did not
+  have (after CARD-245's default-allow predicate and its alias hole), and the brief says the same
+  thing it said there: derive the guard from something that cannot be renamed around, or narrow
+  the claim to what it actually checks.
+
+**Minors and nits routed into the fix:** F-008 (after Approve the header tier badge still reads
+the **pre-edit** tier while the message says "with the difficulty shown above" — badge HARD,
+stored tier easy), F-009 (the flag is branched on in **four** places, not the three the notes
+claim; `nextHint` is a dead fourth), F-010 ("editable" is spelled three ways, so a falsy-but-
+present `book_id` would show a control the route 409s), F-011 (Approve's double-click safety is
+**accidental** — it works only because CARD-245 declines to consume a verification, recorded
+nowhere and untested), F-012 (the stale-clue disclosure is the last clause of an eight-sentence
+paragraph *below* the save bar, and the gutters themselves say nothing), F-013, F-014 (the 13th
+browser-test file sits outside `test_puzzle_solver_*.py`, so CARD-235's PAGE_ISOLATION
+declaration guard cannot see it), F-015.
+
+**F-016 is wrong and was not briefed as a fix.** It reports the card as `Status: ready`,
+`Started: —` — but it is reading the **worktree's** copy, which was branched from main *before*
+the dispatch stamp commit. Main's copy is correctly `in_progress`, wave 46, with `Started` and
+`Worktree` set. Verified both. Likewise its note that `Touches` "was never reconciled" is
+already closed — the field was amended in main at dispatch review, and the agent's own claim that
+`solver_state.js` was missing from it was recorded as wrong. **An agent reading a worktree's
+`meta/` is reading a snapshot, not the board**, and that is worth remembering for every future
+review brief.

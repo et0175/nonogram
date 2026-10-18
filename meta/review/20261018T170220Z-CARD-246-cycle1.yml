@@ -1,0 +1,387 @@
+card: CARD-246
+cycle: 1
+of_max: 3
+reviewer: reviewer-agent
+commit: c7e2d7e
+base: 6184545
+branch: card/246-manual-puzzle-editor
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-246
+utc: 20261018T170220Z
+score: 7
+verdict: FAIL
+threshold: 8
+host_condition: "sibling card CARD-224 in review on this machine; no absolute timings taken; full suite not re-run"
+build_gate_reported: {exit: 0, passed: 8300, skipped: 1, failed: 0}
+targeted_runs:
+  - {selection: "tests/test_puzzle_editor_ui.py", result: "49 passed, 1 warning in 18.11s", exit: 0}
+  - {selection: "tests/test_puzzle_edit_routes.py tests/test_puzzle_edit_store.py tests/test_admin_serving.py", result: "233 passed", exit: 0}
+  - {selection: "tests/test_puzzle_solver_marking.py tests/test_puzzle_solver_page.py tests/test_puzzle_solver_percent.py", result: "161 passed in 81.91s", exit: 0, note: "G-1 spot check; no red, nothing re-run"}
+  - {probes: "three temporary browser probes written, run and deleted; git status clean afterwards"}
+
+summary: >
+  The architecture of this card is right and the parts the brief asked me to attack hold up.
+  The mode flag really is read in exactly one place, the player's path through all four of its
+  branches is byte-identical to before, 161 player tests are green, and three of my mutants on
+  the flag's individual effects died for the right reasons. The AC-6 code-based argument that
+  overruled the orchestrator is TRUE (COLOUR_ORDER is FILLED->EMPTY->UNKNOWN, so White twice on
+  a filled cell yields a blank; a confirmed Clear blanks everything), the refusal does not
+  depend on the narrowing (M10 reproduced exactly: all four brushes restored kills only the
+  narrowing test), and no third state can reach the store by any path - answerOfBoard returns
+  no grid, and a crafted POST meets CARD-245's strict boolean gate, which its own suite covers.
+  AC-7's three refusals are independently pinned (three separate mutants, three separate
+  deaths). G-3 is proved, not asserted. CARD-245's suite is untouched and the editor took its
+  own URL rather than retiring the GET canary.
+  What is weak is the two-phase flow's behaviour at its edges, and all of it is in this card's
+  own 200-line script. I demonstrated three defects in a browser: a refusal message can be left
+  standing beside a live Approve button (AC-5's explicit "offers no Approve"), a stroke made
+  during the confirmation is silently left out of the store while the page announces "This grid
+  is the stored puzzle now", and a dropped connection leaves the page stuck on "Checking this
+  grid..." with an uncaught rejection and no word to the owner - with refusalText's
+  "could not be reached" branch sitting there unreachable as evidence that case was meant to be
+  handled. Two of my mutants survived, both on properties the card states as its headline
+  claims: Approve re-reading the board passes all 49 tests, and deleting the withdraw() that is
+  the whole mechanism behind "a refusal is never shown an Approve" passes all 49 too. One
+  control is vacuous: the editor's "writes nothing into the player's save" test passes with the
+  browser save switched fully back on, because serializeState independently refuses a non-blank
+  start - the claim survives only through its end-to-end sibling.
+
+findings:
+  - id: F-001
+    severity: important
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 164
+    claim: >
+      AC-5 is breached by a reachable interleaving: the page shows "This grid cannot be saved
+      and nothing was stored" with the Approve button still on offer, and that Approve stores a
+      grid. onSave withdraws a pending Approve only at the TOP of the call, and the refusal
+      branch (code !== 200) returns without withdrawing - so when two verifies are in flight
+      and the refusal lands last, the refusal text overwrites the grade while #puzzle-editor-
+      decide stays visible and `verified` stays set.
+    evidence: >
+      Demonstrated in Chromium (temporary probe, since deleted). Puzzle seeded solid 10x10;
+      verify_replacement_grid wrapped so the FIRST call sleeps 3s. Board set to
+      two_cell_diagonal (2 solutions) -> Save (request 1, slow) -> board set to EDITED
+      (uniquely solvable) -> Save (request 2, fast). Request 2 lands first: grade shown,
+      Approve offered. Request 1 then lands 422 and the message becomes "This grid cannot be
+      saved and nothing was stored. refusing to store a grid: the clue set has 2 or more
+      solutions ... press Save again." while _approve_offered(page) is still True. Pressing it
+      posts the EDITED grid - a grid the owner is at that moment being told cannot be saved.
+      The same hole is unpinned: mutant M6 (delete `withdraw();` from the top of onSave) left
+      49/49 green, because every tested refusal is reached with no Approve already on offer.
+      Nothing disables Save while a request is in flight, so the owner needs only to click
+      Save, paint, and click Save again on a board whose solve takes a second or more - which
+      the project's own notes say mid-density 40x40 does.
+    suggested_fix: >
+      Give each Save a sequence number (or an AbortController) and ignore any response that is
+      not the latest; disable Save while a verify is in flight; and call withdraw() on the
+      refusal branch as well, not only at the top of onSave. Add a test that reaches a refusal
+      WITH an Approve already on offer - that single test kills both this and M6.
+
+  - id: F-002
+    severity: important
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 182
+    claim: >
+      A stroke made while the confirmation is up is silently not stored, and the page then
+      states the opposite. Approve correctly posts `verified` (the graded grid), but nothing
+      compares it with the board the owner is now looking at, and the success message says
+      "Saved. This grid is the stored puzzle now" - while the board on screen is a different
+      grid, which the owner has every reason to believe they just saved.
+    evidence: >
+      Demonstrated in Chromium (probe, since deleted): open the editor, set the board to
+      EDITED, Save, wait for the grade, then White-click cell (9,9) and press Approve. The
+      store holds EDITED (the verified grid, correct per CARD-245) while the board shows
+      EDITED-minus-(9,9); the message reads "Saved. This grid is the stored puzzle now, with
+      the difficulty shown above. Go on editing and press Save again to change it further."
+      The owner's last stroke is in no store and no warning, and the sentence that would have
+      told them ("press Save again to change it further") reads as advice for FURTHER edits,
+      not as "the stroke you just made was not included".
+    suggested_fix: >
+      Compare the board against `verified` when Approve is pressed (answerOfBoard(getBoard())
+      deep-equal, or keep the verify response's grid_hash) and, when they differ, refuse with
+      "the board changed since you pressed Save - press Save again" instead of committing; or
+      make the success message name what was stored ("the grid you verified") rather than
+      "this grid".
+
+  - id: F-003
+    severity: important
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 105
+    claim: >
+      A dropped connection is not handled at all: `fetch` is not wrapped, so a network failure
+      rejects out of onSave/onApprove, the message stays on "Checking this grid..." forever and
+      the owner is told nothing. refusalText's own fallback branch ("The panel could not be
+      reached - try Save again.") can only be produced by an HTTP status that is not
+      200/404/409/422, so it is unreachable dead code - the case it was written for is exactly
+      the one that escapes.
+    evidence: >
+      Demonstrated in Chromium (probe, since deleted): page.route("**/edit/verify", abort) then
+      Save. The message is 'Checking this grid...' two seconds later, the page emitted an
+      uncaught 'Failed to fetch', and Save is still enabled. On Approve the same failure is
+      worse: the request may or may not have committed and the page says neither. AC-5's
+      standard is "stated in words the owner can act on, not an exception"; here it is an
+      exception in the console and silence on screen. No test in the new file installs a
+      pageerror listener, so an uncaught rejection on this page is invisible to the suite.
+    suggested_fix: >
+      try/catch around the await in post() (or in both handlers), returning {code: 0, body:
+      null} so the existing fallback text is reached; assert it with a route.abort() test, and
+      add a pageerror listener to the editor's browser fixtures.
+
+  - id: F-004
+    severity: important
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 176
+    claim: >
+      "Approve sends THIS value and never re-reads the board" is the card's central client-side
+      property and no test pins it. Mutant M4 replaced `const grid = verified;` with
+      `const grid = answerOfBoard(player.getBoard()).grid;` and all 49 tests passed.
+    evidence: >
+      M4 run on the whole file: 49 passed, 12.00s, exit 0. No test paints between Save and
+      Approve, so the two implementations are indistinguishable to the suite. Blast radius
+      today is bounded by CARD-245 (an unverified grid is a 409, so the mutant degrades to a
+      refusal rather than storing an unseen grade) - but that makes this card's own guarantee
+      a property of the OTHER card, asserted nowhere, and it is the same missing test as F-002.
+    suggested_fix: >
+      One test: Save, paint one cell, Approve; assert the store holds the verified grid and
+      that no POST carried the painted grid (the request listener the file already uses in
+      test_nothing_is_even_sent_for_a_board_that_is_not_an_answer).
+
+  - id: F-005
+    severity: important
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 94
+    claim: >
+      The two 409s are not told apart, and the booked one is given the not-verified one's
+      advice. A puzzle that enters a book while the editor is open answers "Cannot edit a
+      puzzle that is in a book", and the page wraps it in "Press Save to check this grid
+      again." - an instruction that can never succeed, for an owner who has an edit on screen
+      they cannot store.
+    evidence: >
+      Demonstrated in Chromium (probe, since deleted): open the editor, assign the puzzle to a
+      book server-side, Save. Message: "Nothing was stored. Cannot edit a puzzle that is in a
+      book. Press Save to check this grid again." The file's own comment at line 87 records
+      the conflation ("409 a conflict (not verified, or a book holds the puzzle)"). CARD-245
+      distinguishes them in `_edit_refusal` precisely so a caller can; this caller does not.
+    suggested_fix: >
+      Branch on the message (or ask CARD-245 for a machine-readable `reason`), and for the
+      booked case say the puzzle is now in a book and this edit cannot be stored - and stop
+      inviting a retry. Add it to the AC-7 class, which currently tests the booked POST only
+      from the server side.
+
+  - id: F-006
+    severity: minor
+    file: tests/test_puzzle_editor_ui.py
+    line: 963
+    claim: >
+      test_the_editor_writes_nothing_into_the_players_save is vacuous: it passes with edit
+      mode's NO_SAVE removed entirely. It cannot fail for the claim it is named after
+      (ADR-0039/R1).
+    evidence: >
+      Mutant M2 (`const save = browserSave(saveKey(payload.id));`, i.e. the player's save
+      restored in edit mode) run against that test alone: 1 passed, exit 0. The reason is
+      solver_state.js serializeState line 830 - it returns null unless the history's first
+      board is all-UNKNOWN, and an edit-mode history starts FILLED/EMPTY, so write(null) only
+      ever calls forget(). The G-1 claim does survive, through
+      test_a_solve_in_progress_survives_a_visit_to_the_editor, which M2 does kill (with the
+      save on, the editor restores the player's save, opens on the player's half-solved board
+      and then overwrites the entry on its first stroke). So the seam is covered - by the other
+      test, not by this one.
+    suggested_fix: >
+      Make the vacuous test meaningful by seeding a localStorage entry for this puzzle before
+      opening the editor and asserting it is byte-identical afterwards, or retire it with
+      test_a_solve_in_progress_survives_a_visit_to_the_editor named as the survivor (G-6).
+
+  - id: F-007
+    severity: minor
+    file: tests/test_puzzle_editor_ui.py
+    line: 320
+    claim: >
+      The `player-cell` glob is a literal guard, not the completeness guard G-2 is claimed to
+      have. It catches a fork of solver.js (the likely failure) but not a new renderer with new
+      class names, which is also a second renderer.
+    evidence: >
+      Mutant M8: added src/nonogram/admin/static/editor_grid.js, which builds a <table> of
+      <td class="editor-cell"> with document.createElement, and loaded it from
+      puzzle_edit.html. 49 passed, exit 0 - the glob looks only for "player-cell" and the
+      createElement check reads only puzzle_edit.js. (File deleted; git status clean.)
+    suggested_fix: >
+      Assert the editor page's script set is exactly {solver.js, puzzle_edit.js}, or glob
+      static/*.js for `createElement("td")`/`createElement('tr')` as well as the class literal.
+
+  - id: F-008
+    severity: minor
+    file: src/nonogram/admin/templates/puzzle_edit.html
+    line: 54
+    claim: >
+      The page's own difficulty claims go stale the moment Approve commits: the header tier
+      badge is server-rendered from the pre-edit row and never updated, and the success message
+      points the owner at it ("with the difficulty shown above") after having overwritten the
+      line that actually held the new grade.
+    evidence: >
+      Demonstrated in Chromium (probe, since deleted): puzzle seeded tier=hard, edited to a
+      grid CARD-245 grades easy/33, Approve. Badge before 'HARD', badge after 'HARD', stored
+      tier 'easy', message "Saved. ... with the difficulty shown above." The only difficulty
+      "above" on screen is the stale HARD badge.
+    suggested_fix: >
+      Either repeat the stored grade in the success message (the save response carries the
+      stored row) and update the badge from it, or drop the "shown above" clause.
+
+  - id: F-009
+    severity: minor
+    file: src/nonogram/admin/static/solver.js
+    line: 727
+    claim: >
+      The EDIT MODE contract says "What the flag changes, and nothing else:" and lists three
+      things; the flag is branched on in four places. nextHint is the fourth, and it is dead
+      code: `actions.hint?.setAttribute(..., player.nextHint() === null)` short-circuits its
+      own argument when the button is absent, so on the editor's page nextHint is never called.
+    evidence: >
+      `editing` is read at lines 555 (save), 557 (board start), 642 (showProgress) and 727
+      (nextHint). Optional chaining skips the argument list, and the editor's page ships no
+      [data-player-action="hint"], so the fourth branch cannot be reached today. Harmless for
+      G-1 (the player's path is unchanged in all four), but the claim as written is inaccurate
+      and the defensive branch means a Hint button added to an edit page would silently do
+      nothing instead of failing loudly.
+    suggested_fix: >
+      Either say four, or drop the nextHint branch and let a Hint button on an edit page be the
+      error it is.
+
+  - id: F-010
+    severity: minor
+    file: src/nonogram/admin/templates/_puzzle_table.html
+    line: 89
+    claim: >
+      The "is this puzzle editable" rule now exists twice with different spellings: the
+      template's `not puzzle.book_id` is truthiness, the store's `_holds_a_book` is
+      `book_id is not None`. A falsy-but-present book_id ("" or 0) would show an Edit control
+      the route then refuses with a 409.
+    evidence: >
+      Template line 89 vs puzzle_review.py:1651. Not reachable with today's writers (book_id
+      is a UUID string or None), so this is a drift risk, not a live defect; the same rule is
+      also spelled a third time in the modal's JavaScript (`!puzzle.book_id`).
+    suggested_fix: >
+      Have the row/detail payload carry an `editable` boolean computed by the service, so the
+      control and the route read one answer.
+
+  - id: F-011
+    severity: minor
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 174
+    claim: >
+      Double-click safety on Approve is real but accidental: two clicks before the first
+      response fire two POSTs (withdraw() runs only after the await), and both succeed only
+      because CARD-245 deliberately does not consume a verification. Nothing on this page
+      records that dependency, and no test covers a double Approve.
+    evidence: >
+      Read off the code against puzzle_review.save_edited_grid's docstring ("A verification is
+      not consumed by a save"). Two in-flight approvals also mean the two responses race to
+      write the message; with any future change that consumes the proof, the second would
+      report "Nothing was stored" after the first stored it.
+    suggested_fix: >
+      Disable Approve/Save for the duration of their request (which also fixes F-001's root
+      cause) and name the CARD-245 guarantee in a comment or a test.
+
+  - id: F-012
+    severity: minor
+    file: src/nonogram/admin/templates/puzzle_edit.html
+    line: 114
+    claim: >
+      The stale clue gutters are disclosed only in the last clause of an eight-sentence hint
+      paragraph that sits BELOW the board and the save bar, and the gutters themselves carry no
+      indication. A reader painting a new picture sees clue numbers that contradict it, and the
+      explanation is the least prominent text on the page.
+    evidence: >
+      Line 114 is the one disclosure ("The clues beside the board are the stored puzzle's -
+      Save recomputes them from what you painted"), inside #puzzle-player-hint. The
+      .editor-note paragraph ABOVE the board (line 57), which is where the flow is explained,
+      does not mention it. Screen-reader users read the gutters as table headers with no hint
+      that they are stale.
+    suggested_fix: >
+      Move one sentence into .editor-note above the board (no new renderer, no new logic), or
+      dim the gutters and give them an aria-description.
+
+  - id: F-013
+    severity: nit
+    file: tests/test_puzzle_editor_ui.py
+    line: 323
+    claim: >
+      test_the_editor_decides_no_uniqueness_and_no_difficulty is a weak file-text check: it
+      only asserts the identifiers "score_difficulty" and "classify" are absent, which no
+      hand-rolled client-side grader would be named. It is carried entirely by the stubbed-
+      grade browser test beside it.
+    evidence: Read off the test; the strong evidence for G-3 is test_the_difficulty_shown_is_the_servers_number_and_not_a_derived_one.
+    suggested_fix: Keep it as documentation, or drop it with the stub test named as the survivor.
+
+  - id: F-014
+    severity: nit
+    file: tests/test_puzzle_editor_ui.py
+    line: 1
+    claim: >
+      This is the panel's 13th browser-test file but it is not named test_puzzle_solver_*.py,
+      so CARD-235's PAGE_ISOLATION registry - whose own guard says "a new file in the family
+      must declare its page isolation" - does not see it. The file declares its tier in prose
+      instead.
+    evidence: >
+      tests/test_browser_fixture_scope.py:1094 compares PAGE_ISOLATION against
+      _family_files(), a glob over tests/test_puzzle_solver_*.py. The new file imports
+      browser_page/live from that family and is outside the glob. No functional problem
+      (browser_page is own-page), only a blind spot in a standing discipline.
+    suggested_fix: Widen the glob to every file importing the browser fixtures, or add an entry keyed by this file.
+
+  - id: F-015
+    severity: nit
+    file: src/nonogram/admin/app.py
+    line: 2540
+    claim: >
+      puzzle_edit_page duplicates puzzle_solve's read-and-validate block verbatim (try/except
+      ValueError -> 404, _as_readable_grid -> 500, compute_clues, tier_of_record, payload).
+      Two copies of the payload contract are what ADR-0036/R3's reasoning warns about one level
+      up from the renderer.
+    evidence: app.py:2540-2566 against app.py:5737-5766; identical but for the "mode" key and the title.
+    suggested_fix: One helper returning (puzzle, grid, payload) with the mode as an argument.
+
+  - id: F-016
+    severity: nit
+    file: meta/kanban/cards/CARD-246.md
+    line: 1
+    claim: >
+      The card's "### Implementation notes" section is in the working tree only - it is not in
+      c7e2d7e - and the card still reads "Status: ready", "Started: -", "Worktree: -".
+    evidence: "git status: ` M meta/kanban/cards/CARD-246.md`; git diff --stat shows 48 added lines on the card."
+    suggested_fix: Commit the card with the merge, as the board's other cards are.
+
+ac_coverage:
+  AC-1: covered - list row (server) and detail-modal card (browser), both reaching the editor of that very puzzle; a third test pins that the link opens the right id.
+  AC-2: covered - payload (server, incl. a 12-case seeded corpus where the row's width/height columns deliberately disagree with the grid) and drawn cells (browser). M1 killed.
+  AC-3: covered for the happy path, with a real control (test_the_unchanged_assertion_can_fail fails for the right reason - the grid comparison, not the stamp). NOT covered where the board moves between Save and Approve (F-002, F-004).
+  AC-4: covered - Cancel stores nothing, keeps the board, hides Approve, and the edit is then provably still usable (saved afterwards).
+  AC-5: covered-in-name-only at the edges. The sequential refusal is well covered (words, no Approve, store unchanged, and the owner can go on). The reachable interleaving leaves a refusal beside a live Approve (F-001), a dropped connection produces an exception and silence rather than words (F-003), and the booked 409 produces words the owner cannot act on (F-005).
+  AC-6: covered, and the rule is the one the AC demands. The refusal names the cells 1-based, sends no request, and rests on answerOfBoard returning grid:null (M5 killed by 4 tests). The narrowing is asserted separately and is provably not the guarantee (M10 reproduced). A crafted POST is closed by CARD-245's strict boolean gate, which CARD-245's own suite covers ([[1,0]] -> 422 on both routes).
+  AC-7: covered in all three halves, independently - control absent on the list (M3 killed), control absent on the card (browser), GET refused (M2 killed), both POSTs refused (M9 killed, only that test).
+guardrail_coverage:
+  G-1: genuinely covered. One read of payload.mode; the player's path through all four branches is unchanged; the player's payload is still exactly six keys; 161 player tests green here; the hint `?.` is a no-op where the button exists. One of its two localStorage tests is vacuous (F-006), the claim survives via the other.
+  G-2: covered in substance (the editor's page loads solver.js, puzzle_edit.js creates no element), but the glob is a literal guard rather than the completeness guard claimed (F-007).
+  G-3: genuinely covered, by the stubbed grade (score 7 / fiendish shown, easy absent) and a stubbed 422. The file-text test beside it is weak (F-013) but not load-bearing.
+  G-4: covered - role="status" aria-atomic always present and not display:none, buttons outside the region, accessible names contain the visible text (mutants on both the list link and the modal link died), whole flow driven from the keyboard including focus moves. No pageerror listener (F-003's evidence).
+  G-5: covered - no http(s) in the template, no new dependency, baseline test named as the survivor.
+  G-6: respected - no test file but the new one is touched; CARD-245's GET canary is intact and the page took its own URL.
+
+mutants:
+  - {id: M1, target: "solver.js:557 edit-mode board start removed", result: killed, by: "test_the_board_opens_showing_the_stored_grid (server payload test correctly still passed)"}
+  - {id: M2, target: "app.py:2545 in_a_book check in the editor page route disabled", result: killed, by: "test_the_editor_page_itself_refuses_and_says_why only"}
+  - {id: M3, target: "_puzzle_table.html:89 editable = True", result: killed, by: "test_the_list_row_offers_no_edit_control + test_an_unbooked_puzzle_of_the_same_page_is_still_editable"}
+  - {id: M4, target: "puzzle_edit.js:176 Approve re-reads the board instead of sending the verified grid", result: SURVIVED, note: "49/49 passed; see F-004"}
+  - {id: M5, target: "solver_state.js:200 answerOfBoard always returns the coerced grid (never null)", result: killed, by: "4 tests of the AC-6 class"}
+  - {id: M6, target: "puzzle_edit.js:153 withdraw() removed from the top of onSave", result: SURVIVED, note: "49/49 passed; see F-001"}
+  - {id: M7, target: "solver.js:642 showProgress sets the solved lock in edit mode (counters still off)", result: killed, by: "test_the_board_is_never_locked_as_solved_in_the_editor"}
+  - {id: M8, target: "a second renderer, static/editor_grid.js with createElement + class editor-cell, loaded by the editor page", result: SURVIVED, note: "49/49 passed; see F-007"}
+  - {id: M9, target: "puzzle_review.py:906 _row_an_edit_may_touch stops refusing booked puzzles", result: killed, by: "test_the_save_routes_refuse_it_too only"}
+  - {id: M10, target: "solver.js:555 NO_SAVE removed (browser save left on in edit mode)", result: killed, by: "test_a_solve_in_progress_survives_a_visit_to_the_editor ONLY - test_the_editor_writes_nothing_into_the_players_save passed; see F-006"}
+  - {id: M11, target: "_puzzle_table.html Edit link's visible text changed to 'Change' (accessible name no longer contains it, WCAG 2.5.3)", result: killed, by: "test_the_edit_control_says_which_puzzle_it_edits"}
+  - {id: M12, target: "_puzzle_table.html modal link aria-label reduced to 'Edit' (no puzzle name)", result: killed, by: "test_the_card_offers_an_edit_control_that_opens_the_editor"}
+  - {id: M13, target: "puzzle_edit.html message loses role=status and aria-atomic", result: killed, by: "test_the_message_is_a_live_region_that_is_always_present"}
+  - {id: M14, target: "puzzle_edit.js:178 withdraw() removed from onApprove", result: killed, by: "test_approve_commits_the_grid_that_was_graded + test_an_approval_of_a_grid_the_store_no_longer_remembers_asks_to_verify_again"}
+  - {id: M15, target: "puzzle_edit.html all four brushes restored (agent's M10)", result: "killed, narrowly", by: "test_the_editor_offers_only_the_two_brushes_an_answer_can_hold ONLY; the other 6 tests of the AC-6 class passed - the agent's claim reproduced exactly"}
+mutation_summary: {run: 15, killed: 12, survived: 3}
+
+restoration: "all mutated files restored from pre-mutation copies; probe test files and the mutant renderer deleted; git status shows only ` M meta/kanban/cards/CARD-246.md` (the agent's own uncommitted notes)"
