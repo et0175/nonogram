@@ -584,3 +584,91 @@ CARD-245's refusals (the alternative was matching the server's **prose** in Java
 not a wire contract), `puzzle_is_editable` plus `editable` in the details payload (the only way
 "one spelling" is true for a control the *client* draws), the shared `_board_page_payload` (the
 duplication was server-side), and dropping `tier_label` from the editor route. All additive.
+
+### [Review 2/3] Score: 8.5 — PASS (threshold 8, improvement +1.5 against a 0.5 floor)
+
+Report: `meta/review/20261018T175800Z-CARD-246-cycle2.yml`. Both thresholds met, so the card is
+**cleared to merge on score**. One new important, and a third cycle is being run anyway — the
+same judgment taken on CARD-245 and CARD-224 this wave: a score that passes does not settle
+whether something should merge.
+
+**All five of cycle 1's importants closed, with each leg separately pinned**, and **both** of
+cycle 1's surviving mutants now dead. 13 of 15 new mutants killed. The four server changes were
+judged **all four earned**, with two details worth keeping: CARD-245's route tests are *genuinely*
+untouched (the diff touches only this card's own test file on the test side, `reason` is additive,
+and no test anywhere asserts an exact body shape — the reviewer grepped), and **the player's
+payload is still exactly CARD-160's six keys *and in the same order*** — `mode` goes into a
+separate dict literal before the update, so with `mode=None` the embedded JSON is byte-identical,
+which is why 161 player tests never moved.
+
+**The three structural claims were confirmed on their own terms, not accepted:**
+
+- **`commit()` really is the single recording site.** `history` is assigned in exactly two places
+  — `start()`'s initialiser and `player.commit` — and `setBoard` routes through it, as do clicks,
+  drags, hint, undo, redo and the confirmed Clear. The reviewer probed Undo and Clear in Chromium
+  with a grade on offer: **both withdraw the offer with the right words.**
+- **`aria-disabled` plus a handler guard genuinely prevents a second request.** Both handlers run
+  their guard synchronously and reach it before the first `await`, so every later activation in
+  the same or a later task returns at the guard. Two mutants die on *two activations in one task*
+  — the real double click. The attribute is the announcement, the guard is the mechanism, and the
+  code says so.
+- **F-008's badge removal was judged an improvement**, with one residual loss named: the
+  *pre-edit* difficulty is now nowhere on the page, so a before/after comparison is gone. One
+  line if the owner misses it, and it belongs in a card that produces a render.
+
+#### ⚑ G-001 (important, new) — a save the page cannot read says "Nothing was stored" while the store HAS written
+
+**I verified this statically myself.** In `refusalText`, `storing` is read **only** inside
+`if (code === 0)`. Every other branch asserts "Nothing was stored" unconditionally — including
+the catch-all `"The panel answered with ${code}, which this page does not know how to act on"`.
+And **this card's own cycle-1 correction established that the catch-all is reachable** by any
+status outside 200/404/409/422: a panel 500, a proxy 502.
+
+Demonstrated end to end by the reviewer: it let the Approve reach the panel and replaced only the
+**answer** with a 200 carrying `text/html`. The werkzeug log shows `POST /puzzle/<id>/edit 200`,
+**the store holds the edited grid**, and the page reads *"Nothing was stored…"*. A 502 gives the
+same sentence, and no `pageerror` either time.
+
+**Why it is being fixed although the score passed.** The panel is deployed **behind a proxy**, so
+this is reachable in the configuration production actually runs: a gateway that times out *after*
+the app committed returns 502, the owner is told their edit was not stored, presses Save again,
+and buys a second solve and a second `manually_edited_at` stamp for a grid that was already in.
+And it is precisely what **THE INVARIANT in the card's own header forbids** — *may never state a
+store state it has not been told*. **Cycle 1's F-003 was this defect one branch over**: the fix
+threaded `{storing}` through and then read it in one place.
+
+**The distinction briefed to the fix** is an allow-list rather than a patch per branch: the
+knowable set is **CARD-245's own refusals** (`not_unique`, `not_verified`, `in_a_book`,
+`not_found`, and bare 404/409/422), because those never write; everything else on a save is
+unknowable and must not claim. That shape makes a **fifth** refusal reason added later fail safe
+instead of lying — which is the same lesson as CARD-245's default-deny guard, and it ties to
+G-007 below, since `EDIT_REFUSAL_REASONS` is currently read by no production code at all.
+
+#### The disclosure was one-sided, and the reviewer found the other half
+
+The fix had honestly disclosed that removing `onApprove`'s `inFlight` guard alone kills nothing.
+The reviewer removed **the other half** — making the offer survive the "Storing this grid…"
+sentence — and **that also passes 65/65**. So **neither mechanism is pinned alone and only the
+pair is**, and the rationale given ("the guard stays so a reader need not reason about `tell`'s
+side effect") leaves that side effect itself unasserted. Judged **sound defence-in-depth, not an
+unreachable disjunct** — both branches are taken on every Approve, and the guard is what makes
+the guarantee local to this file instead of borrowed from CARD-245, which was cycle 1's F-011
+complaint. So both stay; the unasserted one gets its assertion. **An honest disclosure is still
+only as good as its symmetry** — that is the transferable part.
+
+**Minors and nits routed into the third cycle:** G-003 (`getBoard()` sees the drag preview while
+`BOARD_CHANGE` fires from `commit()` — bounded by the gesture, and **it is also the window that
+makes the F-004 test pin a reachable property rather than an unreachable path**, a point the
+reviewer made in the card's favour), G-008 (`onCancel` is outside the turn discipline — not
+owner-reachable today, the reviewer verified both controls are `display:none` mid-flight), G-004
+(a div/`innerHTML` grid builder *inside* `puzzle_edit.js` survives the rebuilt G-2 guard, which is
+wider than the declared limit — **the third guard in this wave to claim completeness it did not
+have**), G-006 (F-012's relocation is unpinned, which is how it ended up below the save bar in
+the first place), G-007, G-010 (a backlog line for CARD-235's glob — the local declaration was
+judged **adequate** and the card does **not** owe the glob change, but nothing makes the *next*
+out-of-glob browser file declare anything).
+
+**G-009 is the worktree-snapshot artefact again** — the review reports the card as
+`Status: ready` with uncommitted notes because it reads the worktree's copy of `meta/`, branched
+before the dispatch stamp. Main's copy is correct. Second time this wave; the brief now says so
+explicitly so a reviewer does not spend a finding on it.

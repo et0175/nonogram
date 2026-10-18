@@ -1,0 +1,323 @@
+card: CARD-246
+cycle: 2
+of_max: 3
+reviewer: reviewer-agent
+commit: 7ad7bf8
+base: 6184545
+branch: card/246-manual-puzzle-editor
+worktree: /Users/omelnikova/PycharmProjects/PythonProject4-card-246
+utc: 20261018T175800Z
+score: 8.5
+previous_score: 7
+improvement: 1.5
+verdict: PASS
+threshold: 8
+host_condition: "a sibling card's merge gate was running under the repo lock; the full suite was NOT run; no absolute timings taken; no red needed a re-run (the one surprising mutation result, M11, was re-run clean in a fresh process and is reported from that run)"
+targeted_runs:
+  - {selection: "tests/test_puzzle_editor_ui.py", result: "65 passed, 1 warning in 24.64s", exit: 0}
+  - {selection: "tests/test_puzzle_edit_routes.py tests/test_puzzle_edit_store.py tests/test_admin_serving.py tests/test_browser_fixture_scope.py", result: "258 passed in 58.94s", exit: 0, note: "CARD-245's two files are byte-identical to 6184545; the `reason` key is additive and no test there asserts a body shape"}
+  - {selection: "tests/test_puzzle_solver_marking.py tests/test_puzzle_solver_page.py tests/test_puzzle_solver_percent.py", result: "161 passed in 85.44s", exit: 0, note: "G-1 spot check; no red, nothing re-run"}
+  - {probes: "one temporary browser probe file with five probes written, run and deleted; git status clean afterwards"}
+
+summary: >
+  The fix is real and it is structural rather than symptomatic. The invariant the card now
+  names is carried by mechanisms I could not get round: the turn's drop path, the
+  BOARD_CHANGE announcement and the single-flight guards each die to a mutant of their own
+  (M1, M2, M3, M6, M7), Approve's capture dies to cycle 1's surviving M4 (now M12), the
+  booked 409's wire reason dies to M9, `code: 0`'s save sentence dies to M8, edit mode's
+  NO_SAVE now dies to BOTH localStorage tests (M13, F-006 closed as asked), the EDIT MODE
+  contract's branch count dies to a sixth read (M15), one spelling of "editable" dies to
+  truthiness (M14), and the rebuilt G-2 guard dies to cycle 1's surviving second renderer
+  (M10). All five cycle-1 importants are closed, each with a test that fails when its
+  mechanism alone is removed. The four server changes are earned, CARD-245's suite is
+  untouched and still meaningful, and the player is not regressed (161 green, six-key
+  payload, byte-identical key order).
+  Two things keep this from a clean sweep. The first is a new important of exactly cycle
+  1's F-003 shape, one branch over: `{storing: true}` is threaded into `refusalText` but
+  consulted ONLY in the `code === 0` branch, so a save whose answer the page cannot read
+  states "Nothing was stored" while the store has in fact written. I demonstrated it — the
+  POST reached the panel, the werkzeug log shows 200, the store holds the edited grid, and
+  the page says "Nothing was stored. The panel answered with 200 ... press Save to try
+  again." A 502 says the same. That is the one claim the card's own invariant forbids.
+  The second is that the disclosed survivor is only half the story: removing `tell`'s
+  offer-clearing side effect (M4) ALSO survives all 65 tests, so the double-Approve
+  property rests on two mechanisms of which neither is pinned alone and only the pair is.
+  That is genuine defence in depth — both branches are taken on every Approve — but the
+  disclosure named one half and not the other, and one test that reads the bar while
+  "Storing this grid..." is up would close it.
+
+findings:
+  - id: G-001
+    severity: important
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 158
+    claim: >
+      A save whose answer the page cannot read makes the page say "Nothing was stored" when
+      the store has written. `refusalText` takes `{storing}` but reads it only inside the
+      `code === 0` branch; every other branch, the catch-all included, asserts "Nothing was
+      stored" unconditionally. On a save that is knowable for 404/409/422 (CARD-245's own
+      refusals never write) and NOT knowable for a 200 whose body will not parse or for any
+      5xx — the two cases the fix's own correction 2 says are reachable.
+    evidence: >
+      Demonstrated in Chromium (temporary probe, since deleted). The Approve request was let
+      through to the panel with `route.fetch()` and only its ANSWER replaced with a 200
+      carrying `text/html`; the werkzeug log shows `POST /puzzle/<id>/edit 200`, the store
+      holds the EDITED grid, and the message reads "Nothing was stored. The panel answered
+      with 200, which this page does not know how to act on - press Save to try again." With
+      the answer replaced by a 502 the message is the same sentence with 502 in it. No
+      pageerror either time. The store is not corrupted — this is words-only — but it is the
+      one thing THE INVARIANT says the page may never do ("never state a store state it has
+      not been told"), and the owner's next act on that sentence is to press Save again,
+      which costs a second solve and a second stamp.
+      Reachability is not hypothetical for a panel behind a proxy: a gateway that times out
+      after the app committed returns exactly a 5xx the page then narrates as "nothing was
+      stored".
+    suggested_fix: >
+      Make `storing` govern the claim rather than one branch: on a save, say "whether it was
+      stored is not known here - reload" for `code === 0`, for a 200/2xx whose body did not
+      parse, and for any code the page has no refusal for (>= 500 and the catch-all), and
+      keep the definite "nothing was stored" only for the three codes CARD-245 emits without
+      writing. Pin it with two route.fulfill tests (an unreadable 200 and a 502) asserting
+      "not known" and the absence of "Nothing was stored".
+
+  - id: G-002
+    severity: minor
+    file: tests/test_puzzle_editor_ui.py
+    line: 1456
+    claim: >
+      The double-Approve property is pinned only as a pair. The fix disclosed that removing
+      the single-flight guard from `onApprove` alone survives; removing the OTHER half — the
+      offer-clearing in `tell("Storing this grid...")` — also survives all 65 tests. So
+      neither mechanism is individually pinned, and the fix's stated reason for keeping the
+      guard ("so a reader need not reason about tell's side effect") leaves tell's side
+      effect itself unguarded by any test.
+    evidence: >
+      M4 (`tell("Storing this grid...")` -> `tell("Storing this grid...", grid)`, i.e. the
+      offer survives the sentence) : 65 passed, exit 0. M5 (the disclosed one: the
+      `inFlight !== null` term dropped from onApprove's guard) : 65 passed, exit 0. M6 (both
+      at once) : 1 failed — test_a_second_approve_pressed_in_flight_is_not_sent_either.
+      Mutants restored; git diff clean.
+      Not the sibling card's "unreachable disjunct" shape: both branches ARE taken on every
+      Approve, and the guard is what makes the guarantee local to this file rather than
+      borrowed from CARD-245's "a verification is not consumed by a save" (cycle 1's F-011).
+    suggested_fix: >
+      One assertion inside test_a_second_approve_pressed_in_flight_is_not_sent_either, using
+      the _WATCH_BAR observer already in the file: no recorded state whose text contains
+      "Storing this grid" has `offered` true. That kills M4 and leaves the guard as the only
+      unpinned half, which is the honest state for a redundancy kept for readers.
+
+  - id: G-003
+    severity: minor
+    file: src/nonogram/admin/static/solver.js
+    line: 757
+    claim: >
+      `getBoard()` returns the DISPLAYED board, which during an uncommitted drag is the
+      preview — and `BOARD_CHANGE` is dispatched from `commit()`, not from `show()`. So there
+      is a window in which the board on screen is not the grid whose grade is on offer and no
+      announcement has fired. Harmless as the code stands (Approve sends the captured grid,
+      and the drag's own commit announces at pointerup), but it is the one hole in "the board
+      announces its own changes", and it means Save pressed mid-drag verifies a grid that was
+      never recorded.
+    evidence: >
+      Read off the code: `show(next) { board = next; ... }` with `getBoard: () => board`,
+      against the dispatch sitting in `player.commit`. The two `player.show(...)` reverts
+      (beginPinch, pointerup/cancel) restore `history.board`, so the divergence is bounded by
+      the gesture. Reachable with two pointers on a touch device (one finger dragging, one
+      tapping Save or Approve).
+      This is also what makes F-004's capture-phase test pin a REAL property rather than an
+      unreachable path — see the adjudication in the prose report.
+    suggested_fix: >
+      Nothing in this card. Either document the window in BOARD CHANGE (it already documents
+      the deliberate silence of `show`, without noting that `getBoard` sees it), or have
+      `onSave`/`onApprove` read the recorded board. A line of documentation is enough.
+
+  - id: G-004
+    severity: nit
+    file: tests/test_puzzle_editor_ui.py
+    line: 90
+    claim: >
+      The rebuilt G-2 guard is a real completeness guard over the page's SCRIPT SET but not
+      over the page's own script's contents: a second renderer added inside `puzzle_edit.js`
+      that builds its grid from markup, with no table node and no `createElement`, is not
+      caught. The declared limit was only "a renderer no page loads".
+    evidence: >
+      M11: a `drawShadowGrid(host, grid)` added to puzzle_edit.js setting
+      `host.innerHTML` to a string of `<div class="shadow-cell">` cells. 65 passed, exit 0
+      (run twice — once as the single guard test, once as the whole file in a fresh process,
+      after a git-clean restore). `_BUILDS_A_GRID` matches `createElement` of a table node,
+      insertRow/insertCell, `<t...` markup and `player-cell`, none of which a div grid has.
+      The likelier failure — a new file — IS caught, by `loaded == ["puzzle_edit.js",
+      "solver.js"]`; M10 (cycle 1's surviving editor_grid.js with class `editor-cell`) now
+      dies on that assertion.
+    suggested_fix: >
+      Widen the "builds grid nodes" alternation with `innerHTML\s*=` or with a generic
+      `createElement` of any node plus a loop over the payload, or state the residual limit
+      beside the stated one. Cheap either way; the hole is narrow because this panel's CSS
+      keys cells on `td.player-cell`.
+
+  - id: G-005
+    severity: nit
+    file: tests/test_puzzle_editor_ui.py
+    line: 1342
+    claim: >
+      No shipped test withdraws the offer through a HISTORY control. Every withdrawal test
+      uses a cell click or `setBoard`, so the claim that `commit()` covers "undo, redo and a
+      confirmed Clear" without the editor keeping a list of controls is argued from the code
+      and not asserted. The code is right — I checked — which is why this is a nit.
+    evidence: >
+      Probe (since deleted): Save, grade on screen, then Undo — the message becomes "The
+      board has changed, so there is nothing checked to approve and nothing was stored.
+      Press Save to check the grid that is on the board now." and the offer is down. Same for
+      Clear -> Clear board. Both passed. No test in the file does either.
+    suggested_fix: >
+      One test, two lines of body, pressing Undo instead of clicking a cell in
+      test_a_stroke_after_the_grade_takes_the_approval_away_and_says_so's shape. It is the
+      assertion that makes "the single place a change is recorded" a measured claim.
+
+  - id: G-006
+    severity: nit
+    file: src/nonogram/admin/templates/puzzle_edit.html
+    line: 60
+    claim: >
+      F-012's relocation is unpinned. The stale-gutter disclosure is now in `.editor-note`
+      above the board and in bold, which is the right place, but no test mentions
+      `.editor-note`, the sentence or its position — so the only thing holding it above the
+      board is the diff. The previous location was equally unpinned, which is how it ended
+      up in the last clause of an eight-sentence paragraph below the save bar.
+    evidence: "grep of tests/test_puzzle_editor_ui.py for `editor-note`, `clue numbers`, `gutter`: no match."
+    suggested_fix: >
+      One assertion in test_the_editor_page_claims_no_difficulty_of_its_own's class: the
+      editor page's HTML has the sentence, and its index is before `id=\"puzzle-player\"`.
+
+  - id: G-007
+    severity: nit
+    file: src/nonogram/admin/app.py
+    line: 1184
+    claim: >
+      `EDIT_REFUSAL_REASONS` is a declared vocabulary no production code reads — only the
+      test imports it. It documents the wire contract and is checked against the four
+      refusals that exist, but nothing makes a fifth reason join the tuple: a new refusal
+      with `reason: "too_large"` would pass every test, because the test iterates the four
+      reasons it already knows rather than the tuple.
+    evidence: >
+      grep: the name appears in app.py:1184, tests/test_puzzle_editor_ui.py:499 and :522,
+      and in the card. No route reads it.
+    suggested_fix: >
+      Have the routes build their refusals through the vocabulary (a tiny helper, or at least
+      an assert at the one refusal site), or have the test collect every `"reason":` literal
+      in app.py's two edit routes and assert that set equals EDIT_REFUSAL_REASONS. The
+      second is three lines and makes the tuple load-bearing.
+
+  - id: G-008
+    severity: nit
+    file: src/nonogram/admin/static/puzzle_edit.js
+    line: 327
+    claim: >
+      `onCancel` is the one writer-caller outside the turn discipline: it neither checks
+      `inFlight` nor advances `turn`. It is unreachable while a request is in flight today
+      only because `#puzzle-editor-decide` is hidden (and `.editor-decide[hidden]` really
+      does `display: none`), so this is latent, not live — but it is the shape of cycle 1's
+      F-001, and the "one writer" mechanism does not cover it: a Cancel taken mid-flight is
+      silently undone by the answer that follows.
+    evidence: >
+      Probe (since deleted): mid-flight, `#puzzle-editor-decide` and `#puzzle-editor-cancel`
+      both report not visible, so a real owner cannot reach it. Forced with a scripted
+      `click()` during the verify, the message goes to CANCELLED and then, when the answer
+      lands, to "This grid is a puzzle. Difficulty: easy, score 33 of 100." with the offer
+      back up — because Cancel did not advance the turn.
+    suggested_fix: >
+      `turn += 1;` in onCancel (one line), which makes the cancel mean what it says whatever
+      a later change does to the button's visibility. Or a comment recording that Cancel's
+      safety is the pair's `hidden` attribute.
+
+  - id: G-009
+    severity: nit
+    file: meta/kanban/cards/CARD-246.md
+    line: 1
+    claim: >
+      Cycle 1's F-016, unchanged: the card's "### Implementation notes" and "### Review cycle
+      1 - fix notes" sections (96 added lines) are in the working tree only — neither is in
+      7ad7bf8 — and the committed card still reads "Status: ready", "Started: -",
+      "Worktree: -", "Review score: -". A merge-time action, so not a code defect.
+    evidence: "git status: ` M meta/kanban/cards/CARD-246.md`; `git show HEAD:...` greps 0 for both section headings."
+    suggested_fix: Commit the card with the merge, as the board's other cards are.
+
+  - id: G-010
+    severity: nit
+    file: tests/test_puzzle_editor_ui.py
+    line: 104
+    claim: >
+      F-014's local declaration is adequate and the deferral is justified — I verified the
+      stated cost — but the residual is not written down anywhere a future card will look:
+      nothing requires the NEXT browser-test file outside `test_puzzle_solver_*.py` to
+      declare its page isolation, and that follow-up is in this card's fix notes rather than
+      in the backlog.
+    evidence: >
+      tests/test_browser_fixture_scope.py:997 asserts
+      `{basename for f in _family_files()} == set(PAGE_ISOLATION)` and line 868 passes
+      `_family_files()` to `--collect-only` for the collection-drift baseline, so widening
+      the glob really does re-key CARD-235's baseline and its allowlist. The local
+      declaration checks the same four things CARD-235 checks (category vocabulary, reason
+      length, fixture scope == function, mechanisms grepped from the source).
+      grep of meta/kanban/backlog.md for CARD-235 / `_family_files` / "page isolation": no match.
+    suggested_fix: One backlog line: "CARD-235's PAGE_ISOLATION glob cannot see browser-test files outside tests/test_puzzle_solver_*.py (CARD-246 declared its own locally)."
+
+ac_coverage:
+  AC-1: covered - list row (server, with a control that can fail) and detail-modal card (browser), both reaching the editor of that very puzzle, plus the link's own id test. The card's control now reads the server's `editable` rather than re-deriving it.
+  AC-2: covered - payload at the stored extent, a 12-case seeded corpus, the drawn cells, and the clues re-encoded through the one encoder.
+  AC-3: covered, now including the edge cycle 1 found open. A stroke after the grade withdraws the offer and says so (M3 kills three tests), a stroke during the check drops the grade (M1, M2), and the next Save stores the stroke.
+  AC-4: covered - Cancel stores nothing, keeps the board, hides Approve, and the edit is provably still saveable afterwards. (Cancel mid-flight is latent only; G-008.)
+  AC-5: covered except one branch. The sequential refusal, the non-unique refusal arriving on top of a live Approve, the booked 409's own words, the undecided refusal and a dropped connection are all pinned in words with pageerror listeners installed. What is NOT right is a save whose answer cannot be read: the page says "Nothing was stored" when the store wrote (G-001).
+  AC-6: covered and unchanged - the refusal names the cells 1-based, sends nothing, rests on answerOfBoard returning grid null, and the narrowing is asserted separately as not being the guarantee.
+  AC-7: covered in four halves - control absent on the list, absent on the card, GET /editor refused 409, both POSTs refused - plus the falsy-but-present book_id case across control, payload and route (M14 kills it).
+guardrail_coverage:
+  G-1: genuinely covered, and stronger than cycle 1. Both localStorage tests now fail on M13 (F-006 closed); the player's payload is exactly six keys AND the same key order (`mode` is inserted into a separate literal before the update, so the embedded JSON is byte-identical); 161 player tests green; one read of payload.mode and five reads of `editing`, counted by a test that M15 kills.
+  G-2: covered in substance and the guard is now real over its declared domain - the page's script set is asserted exactly, "builds grid nodes" is asked of each script by three routes, and the predicate is asserted to match solver.js so a page that draws nothing cannot satisfy it. M10 (cycle 1's survivor) dies. Residual: a div/innerHTML renderer inside puzzle_edit.js survives (G-004).
+  G-3: genuinely covered by the stubbed grade and the stubbed 422; the file-text test beside them now names its survivor in its own docstring (F-013 closed as documentation, G-6 respected).
+  G-4: covered - role="status" always present, buttons outside the region, accessible names carry the visible text, the whole flow driven from the keyboard, Approve from the keyboard commits, and the in-flight state announced with aria-disabled rather than `disabled` (which would drop focus mid-flow). pageerror listeners are now installed in five tests, which is F-003's missing instrument.
+  G-5: covered - no http(s) and no inline style in the template, no new dependency, baseline test named as survivor.
+  G-6: respected - no test retired; the two weak tests cycle 1 flagged are kept with their survivors named in their docstrings.
+
+mutants:
+  - {id: M1, target: "puzzle_edit.js onSave: `if (mine !== turn) return;` deleted (the turn's drop path)", result: killed, by: "test_a_stroke_while_the_grid_is_being_checked_is_not_graded"}
+  - {id: M2, target: "puzzle_edit.js onBoardChange: `turn += 1` deleted (a change that does not spend the turn)", result: killed, by: "test_a_stroke_while_the_grid_is_being_checked_is_not_graded"}
+  - {id: M3, target: "solver.js commit(): the BOARD_CHANGE dispatch replaced by a no-op (the `editing` read kept, so F-009's count test does not confound)", result: killed, by: "test_a_stroke_while_the_grid_is_being_checked_is_not_graded + test_a_stroke_after_the_grade_takes_the_approval_away_and_says_so + test_and_that_stroke_is_what_the_next_save_stores"}
+  - {id: M4, target: "puzzle_edit.js onApprove: `tell(\"Storing this grid...\")` keeps the offer (tell's offer-clearing side effect removed)", result: SURVIVED, note: "65/65 passed; the half the fix did NOT disclose; see G-002"}
+  - {id: M5, target: "puzzle_edit.js onApprove: the `inFlight !== null` term dropped from the guard (the fix's disclosed survivor)", result: SURVIVED, note: "65/65 passed; reproduced exactly as disclosed; see G-002"}
+  - {id: M6, target: "M4 and M5 together (the fix's stated combined mutant)", result: killed, by: "test_a_second_approve_pressed_in_flight_is_not_sent_either"}
+  - {id: M7, target: "puzzle_edit.js onSave: the single-flight guard deleted", result: killed, by: "test_a_second_save_pressed_in_flight_is_not_sent"}
+  - {id: M8, target: "puzzle_edit.js refusalText: `code: 0` ignores `storing` (a dropped save claims nothing was stored)", result: killed, by: "test_a_dropped_connection_on_approve_claims_nothing_about_the_store"}
+  - {id: M9, target: "app.py _edit_refusal: `reason: in_a_book` dropped from the 409", result: killed, by: "test_every_refusal_carries_a_reason_the_editor_branches_on + test_a_puzzle_that_entered_a_book_says_this_edit_cannot_be_stored"}
+  - {id: M10, target: "a second renderer file (static/editor_grid.js, createElement of table nodes, class `editor-cell`) loaded by the editor page - cycle 1's surviving M8", result: killed, by: "test_the_editor_ships_no_second_grid_renderer (on the exact script-set assertion)"}
+  - {id: M11, target: "a div/innerHTML grid builder added INSIDE puzzle_edit.js (no table node, no createElement, no player-cell)", result: SURVIVED, note: "65/65 passed; re-run clean in a fresh process; see G-004"}
+  - {id: M12, target: "puzzle_edit.js onApprove: `const grid = verified` -> `answerOfBoard(player.getBoard()).grid` - cycle 1's surviving M4", result: killed, by: "test_approve_sends_the_graded_grid_and_never_re_reads_the_board"}
+  - {id: M13, target: "solver.js: the player's browser save left ON in edit mode (the `editing` read kept so F-009's count holds)", result: killed, by: "test_the_editor_writes_nothing_into_the_players_save AND test_a_solve_in_progress_survives_a_visit_to_the_editor - BOTH, which is F-006's claim"}
+  - {id: M14, target: "app.py puzzle_is_editable -> `not puzzle.get(\"book_id\")` (truthiness)", result: killed, by: "test_a_falsy_but_present_book_id_is_refused_by_control_and_route_alike"}
+  - {id: M15, target: "solver.js: a sixth read of `editing` added", result: killed, by: "test_the_edit_mode_contract_counts_its_own_branches"}
+mutation_summary: {run: 15, killed: 13, survived: 2}
+
+probes:
+  - {target: "Undo while a grade is on offer", result: "the offer is withdrawn with BOARD_MOVED - the commit() site really does cover the history controls, and no shipped test says so (G-005)"}
+  - {target: "Clear (confirmed) while a grade is on offer", result: "same - withdrawn"}
+  - {target: "a 200 with text/html on the save, request let through to the panel", result: "store holds the edited grid; the page says \"Nothing was stored\" (G-001)"}
+  - {target: "a 502 on the save", result: "the page says \"Nothing was stored. The panel answered with 502 ...\" (G-001)"}
+  - {target: "Cancel during a verify in flight", result: "not reachable by an owner (the pair and the button are both display:none); forced, the cancel is undone by the answer (G-008)"}
+
+server_changes:
+  reason_on_refusals: earned - the minimum the client needs to give the booked 409 words that can succeed; branching on prose is not a contract. CARD-245's two test files are byte-identical to the base and still meaningful (status + ok + message substrings, all additive-safe; no exact-body assertion anywhere). Pinned by M9.
+  puzzle_is_editable_and_editable: earned - F-010's own fix, one answer for three surfaces, pinned by M14 across control, payload and route with book_id "". Nit only: the template global reaches a private classmethod (`PuzzleReviewService._holds_a_book`) from the app layer, which matches the existing `_as_readable_grid` usage.
+  board_page_payload: earned - F-015's own fix, and it preserves the player's six keys AND their order, so the player page's embedded JSON is byte-identical.
+  tier_label_dropped_from_the_editor_route: earned - F-008's fix; the route never needed it once the page carries no badge.
+
+corrections_adjudicated:
+  f004_suggested_fix_not_implementable: "the fix is right, and more right than it claims - the suppressed state is reachable in production (getBoard() returns the drag PREVIEW, and BOARD_CHANGE fires from commit(), not show()), so the capture-phase test pins a real property rather than propping up an unreachable path. M12 kills."
+  f003_fallback_was_reachable: "the fix is right, and the correction matters more than it says: that reachable branch is exactly where G-001 lives."
+  f001_disable_save_is_the_wrong_mechanism: "the fix is right - `disabled` drops focus to the document mid-flow and leaves the button out of the tab order (G-4, CARD-211). The guard, not the attribute, prevents the second request, which M7 and M6 prove."
+  f010_three_spellings_of_two_questions: "partly right and the fix is still the better answer - the narrowing is fair (both page-side spellings also tested status != 'in_book'), but the demonstrated book_id=\"\" case stands and is now pinned. Cycle 1 overstated the breadth, not the defect."
+
+product_decisions:
+  f008_no_tier_badge: "right. A badge is a claim about a stored grid on the page where that grid is being rewritten; cycle 1 demonstrated it still reading HARD after an easy grid had been stored. The grade is now said twice where it is true - from the solve, then from the row the store wrote - and the save bar is where the owner's eyes already are, because they just pressed Save. Residual loss: the pre-edit difficulty is no longer visible anywhere on the page, so a before/after comparison is gone. That is one line if the owner misses it, and it belongs in a card with a render."
+  f012_gutters_not_dimmed: "the deferral is accepted - dimming a shared renderer's gutters is a visual change that wants an eyeball on a real board, which is the house rule. The relocation itself is unpinned (G-006)."
+  f014_local_declaration: "adequate, and the stated cost checks out (test_browser_fixture_scope.py:997 ties _family_files() to set(PAGE_ISOLATION), and line 868 feeds the same glob to the collection-drift baseline). Residual is a backlog line, not code (G-010)."
+
+restoration: "every mutated file restored from the pre-mutation copies (src/nonogram/admin/{static/puzzle_edit.js,static/solver.js,static/solver_state.js,app.py,templates/puzzle_edit.html,templates/_puzzle_table.html}); the mutant renderer static/editor_grid.js and the temporary probe file tests/test_zz_reviewer_probe_246.py deleted; git status shows only ` M meta/kanban/cards/CARD-246.md` (the agent's own uncommitted notes) and the untracked cycle-1 report. Nothing committed; /Users/omelnikova/PycharmProjects/PythonProject4 untouched."
