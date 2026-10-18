@@ -87,6 +87,25 @@ class Puzzle(Base):
         UUID(as_uuid=True), ForeignKey('books.id', ondelete='SET NULL'), nullable=True
     )
     created_at = Column(DateTime, default=func.now())
+    # CARD-245 (migration 016): when this puzzle's grid was last replaced by
+    # hand, or NULL if it never was. Non-null *is* the "hand-edited" flag, and
+    # it additionally says how stale `quality_score` is rather than only that
+    # it is stale.
+    #
+    # A timestamp rather than a boolean, and `quality_score` deliberately
+    # survives an edit unchanged (owner decision 2026-10-18). Nulling the score
+    # was the tempting alternative and it is the dangerous one: a null already
+    # means "unmeasured" here — what random mode stores since CARD-050 — and
+    # `puzzle_review.filter_puzzles` *excludes* a null from any `quality_min`
+    # filter, because SQL's `NULL >= n` is false. So nulling would make a
+    # hand-improved puzzle disappear from the quality-filtered list the owner
+    # picks book puzzles from. This column is what licenses leaving the number
+    # alone: a reader seeing a quality figure can tell whether it predates an
+    # edit.
+    #
+    # Nullable with no backfill, so every row written before 016 reads "never
+    # hand-edited" — which is true of all of them.
+    manually_edited_at = Column(DateTime, nullable=True)
 
     batch = relationship("Batch", back_populates="puzzles")
 

@@ -56,6 +56,7 @@ from nonogram.admin.batch_generator import (
 from nonogram.admin.puzzle_review import (
     get_puzzle_review_service,
     BOOK_TAB_SORT,
+    EditNotVerified,
     MAX_PUZZLE_NAME_LENGTH,
     PuzzleFilter,
     PuzzleReviewService,
@@ -2427,6 +2428,81 @@ def create_app(debug=None):
         if batch_id:
             return redirect(url_for("generated_puzzles", batch_id=batch_id))
         return _back_to_puzzles_list()
+
+    # ------------------------------------------------------------------
+    # CARD-245 — manual editing, server side. The editor page is CARD-246;
+    # these two routes are what it posts to.
+    #
+    # Two phases because the owner asked to *see* the difficulty with Cancel
+    # and Approve beside it: `/edit/verify` grades and stores nothing, `/edit`
+    # stores the grid that was graded. Between them they enter the solver
+    # once (ADR-0029/R2) — the store remembers the proof, which is also what
+    # makes "the grid moved since you verified it" a refusal rather than a
+    # silent store of a grade nobody saw.
+    #
+    # JSON in, JSON out: the caller is a script, not a form, and a grid is
+    # not something a form field can carry honestly.
+    # ------------------------------------------------------------------
+
+    def _submitted_grid():
+        """The ``grid`` of a JSON body, or ``None`` if there is not one.
+
+        No validation beyond "was a grid even sent" — what counts as a grid is
+        the store's question (ADR-0010's rule that domain validation lives
+        inward of the adapter), and it answers it with the same refusal that
+        guards every other write.
+        """
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return None
+        return payload.get("grid")
+
+    def _edit_refusal(puzzle_id):
+        """``(body, code)`` for a puzzle that may not be edited, or ``None``.
+
+        The two reasons are told apart, following approve and reject: a bare
+        "not found" would send the owner looking for a missing row when what
+        actually stopped them was a book built on this puzzle.
+        """
+        if puzzle_review.in_a_book(puzzle_id):
+            return (
+                jsonify({"ok": False, "message": "Cannot edit a puzzle that is in a book"}),
+                409,
+            )
+        return jsonify({"ok": False, "message": "Puzzle not found"}), 404
+
+    @app.route("/puzzle/<puzzle_id>/edit/verify", methods=["POST"])
+    def verify_puzzle_edit(puzzle_id):
+        """Grade a replacement grid for one puzzle. Stores nothing (AC-5)."""
+        try:
+            grade = puzzle_review.verify_replacement_grid(puzzle_id, _submitted_grid())
+        except NotUniquelySolvable as refusal:
+            # 422: the payload is a well-formed request about a grid that may
+            # not be stored — which is a statement about the grid, not about
+            # the route.
+            return jsonify({"ok": False, "message": str(refusal)}), 422
+        if grade is None:
+            return _edit_refusal(puzzle_id)
+        return jsonify({"ok": True, "grade": grade}), 200
+
+    @app.route("/puzzle/<puzzle_id>/edit", methods=["POST"])
+    def save_puzzle_edit(puzzle_id):
+        """Store a verified replacement grid and everything derived from it."""
+        try:
+            stored = puzzle_review.save_edited_grid(puzzle_id, _submitted_grid())
+        except NotUniquelySolvable as refusal:
+            return jsonify({"ok": False, "message": str(refusal)}), 422
+        except EditNotVerified as refusal:
+            # 409, like the other conflicts the panel reports: the request is
+            # fine and the grid may well be storable — it is just not the grid
+            # whose difficulty was shown, so approving it would store a grade
+            # nobody saw.
+            return jsonify({"ok": False, "message": str(refusal)}), 409
+        if stored is None:
+            return _edit_refusal(puzzle_id)
+        return jsonify(
+            {"ok": True, "message": "Puzzle grid updated", "puzzle": stored}
+        ), 200
 
     # ------------------------------------------------------------------
     # CARD-130 (FR-038): the book workflow is re-enterable. A book that

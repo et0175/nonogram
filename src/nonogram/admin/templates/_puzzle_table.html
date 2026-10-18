@@ -65,7 +65,11 @@
                 </td>
                 <td class="text-end num">{{ puzzle.width }}×{{ puzzle.height }}</td>
                 <td>{{ tier.badge(puzzle.difficulty_tier) }}</td>
-                <td class="text-end num"><strong>{{ puzzle.quality_score or 'N/A' }}</strong><span class="text-muted small">/100</span></td>
+                {#- CARD-245: a quality figure beside a hand-edited grid predates the
+                    edit. The score is deliberately kept rather than nulled — a null
+                    drops the row out of every `quality_min` filter — so the reader is
+                    told instead of being left to assume the number is current. -#}
+                <td class="text-end num"><strong>{{ puzzle.quality_score or 'N/A' }}</strong><span class="text-muted small">/100</span>{% if puzzle.manually_edited_at %} <span class="badge rec" data-edited="true" title="Hand-edited on {{ puzzle.manually_edited_at[:10] }} — this quality figure predates the edit">edited</span>{% endif %}</td>
                 <td><span class="badge rec" data-level="{{ puzzle.recognizability or 'none' }}">{{ puzzle.recognizability or 'N/A' }}</span></td>
                 <td><span class="badge" data-status="{{ puzzle.status }}">{{ puzzle.status }}</span></td>
                 <td class="text-end">
@@ -261,7 +265,7 @@ async function openPuzzleDetail(puzzleId) {
                         <dt>Size</dt><dd class="num">${puzzle.width}<span class="x">×</span>${puzzle.height}</dd>
                         <dt>Difficulty</dt><dd>${escapeHtml(puzzle.difficulty_tier || 'N/A')}</dd>
                         <dt>Strategies</dt><dd>${strategiesHtml(data.strategies)}</dd>
-                        <dt>Quality</dt><dd class="num">${escapeHtml(String(puzzle.quality_score || 'N/A'))}/100</dd>
+                        <dt>Quality</dt><dd class="num">${escapeHtml(String(puzzle.quality_score || 'N/A'))}/100${puzzle.manually_edited_at ? ` <span class="badge rec" data-edited="true" title="this quality figure predates the edit">edited ${escapeHtml(String(puzzle.manually_edited_at).slice(0, 10))}</span>` : ''}</dd>
                         <dt>Recognisable</dt><dd>${escapeHtml(puzzle.recognizability || 'N/A')}</dd>
                         <dt>Status</dt><dd><span class="badge" data-status="${escapeAttr(puzzle.status)}">${escapeHtml(puzzle.status)}</span></dd>
                         ${puzzle.source_image ? `<dt>Source</dt><dd>${escapeHtml(puzzle.source_image)}</dd>` : ''}
