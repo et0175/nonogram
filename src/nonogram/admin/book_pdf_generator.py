@@ -2122,10 +2122,18 @@ def _draw_page_frame(
     and holds the drawing at the band's foot. The two are not wired together
     (this function is handed a pixel, not a verdict, and keeps deciding from
     the pixel), but they agree by construction, which is what makes "no
-    drawing ink crosses a rule that is drawn" true of every page. Where ``content_bottom`` reaches below the footer rule the
-    rule, the label and the centred folio are therefore **all** omitted and the
-    page keeps CARD-200's bottom-outer-corner folio instead, which is the
-    corner :func:`_folio_reserve_px` already reserves room in. One condition,
+    drawing ink crosses a rule that is drawn" true of every page. That
+    agreement rests on one coupling worth naming: the degraded placement leaves
+    the drawing's bottom edge ``band_mm / 8 - spare`` below the footer rule, so
+    it holds while the band's own lift outruns the placement's clearance
+    threshold — 17.72 px against 14.29 px on Book 1's 12 mm band, pinned by
+    ``tests/test_book_puzzle_frame.py``'s
+    ``test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer``.
+
+    Where ``content_bottom`` reaches below the footer rule, the rule, the label
+    and the centred folio are therefore **all** omitted and the page keeps
+    CARD-200's bottom-outer-corner folio instead, which is the corner
+    :func:`_folio_reserve_px` already reserves room in. One condition,
     one place, all three marks: a half-drawn footer (a rule with no number
     under it, or a number sitting on a grid) is worse than the corner this card
     inherited.

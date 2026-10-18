@@ -616,7 +616,39 @@ class TestBookPdf_DrawingCentredOnLeftHandPage:
 
 
 class TestBookPdf_ParityNeverMovesTopEdge:
-    """AC-276 — parity moves the drawing sideways only."""
+    """AC-276 — parity moves the drawing sideways only.
+
+    **The premise this class needs, and where it now comes from (CARD-224
+    review cycle 1, F-006).** "Parity never moves the top edge" is only a
+    claim about parity if the two pages compared really are opposite parities.
+    Until CARD-222's amendment the drawing's own left edge said so; on the
+    amended profile the two side margins are both 0.5 in, so a centred drawing
+    lands on the same pixel column either way and that edge says nothing. The
+    premise is therefore read off the furniture that *does* mirror — CARD-223's
+    2 cm QR placeholder, which sits in the footer's **outer** bottom corner, so
+    it is at the right-hand end of a right-hand page and the left-hand end of a
+    left-hand one — the same signal
+    ``tests/test_book_pdf_memory.py::test_parity_still_counts_from_interior_page_1``
+    reads, asserted here rather than cross-referenced, because a premise in
+    another file cannot fail this test.
+    """
+
+    #: The QR placeholder's own box and the usable area's two edges in this
+    #: page's own pixels, written out rather than imported: a 20 mm icon and
+    #: 0.5 in margins on a 8.5 in trim at 300 DPI.
+    ICON_PX = round(20.0 / 25.4 * 300)
+    USABLE_LEFT_PX = round(GUTTER_MM / 25.4 * 300)
+    USABLE_RIGHT_PX = round((BOOK1_WIDTH_MM - OUTSIDE_MM) / 25.4 * 300)
+
+    @classmethod
+    def _footer_icon_ends(cls, page) -> tuple[int, int]:
+        """``(ink at the left end, ink at the right end)`` of this page's
+        footer strip — the two boxes the 2 cm icon could occupy."""
+        ink = np.asarray(page.convert("L")) < 128
+        strip = ink[-cls.ICON_PX :]
+        left = int(strip[:, cls.USABLE_LEFT_PX : cls.USABLE_LEFT_PX + cls.ICON_PX].sum())
+        right = int(strip[:, cls.USABLE_RIGHT_PX - cls.ICON_PX : cls.USABLE_RIGHT_PX].sum())
+        return left, right
 
     def test_the_two_drawings_share_a_top_pixel_row(self):
         pages = _mirrored_pages()
@@ -624,15 +656,30 @@ class TestBookPdf_ParityNeverMovesTopEdge:
         right_hand = drawing_of(pages[4])
         left_hand = drawing_of(pages[5])
 
+        # The premise: these two really are opposite parities, read off the
+        # footer icon's end of the strip (see the class docstring).
+        odd_left, odd_right = self._footer_icon_ends(pages[4])
+        even_left, even_right = self._footer_icon_ends(pages[5])
+        assert odd_right > 4 * odd_left, (
+            "interior page 5 is right-hand, so its footer icon belongs at the "
+            "right-hand end of the strip",
+            odd_left,
+            odd_right,
+        )
+        assert even_left > 4 * even_right, (
+            "interior page 6 is left-hand, so its footer icon belongs at the "
+            "left-hand end of the strip",
+            even_left,
+            even_right,
+        )
+
+        # The claim: parity moved the page's furniture and not the drawing's
+        # top row.
         assert right_hand.top == left_hand.top
-        # CARD-224: on the amended profile the two side margins are equal, so
-        # the centred drawing lands on the same x at both parities and
-        # "sideways only" has nothing left to move here. The two pages are
-        # still different pages — asserted through the furniture that does
-        # mirror (the footer's grid-size label and the QR group sit on the
-        # gutter/outer side, ``tests/test_book_qr_slot.py``) — so this
-        # assertion is kept as the vertical claim it is named for, and the
-        # horizontal difference is no longer asserted where it cannot exist.
+        # And on the amended profile the two side margins are equal, so a
+        # centred drawing lands on the same x at either parity — "sideways
+        # only" has nothing left to move here. Recorded, not read as evidence.
+        assert abs(GUTTER_MM - OUTSIDE_MM) < 1e-9
         assert right_hand.left == left_hand.left
 
     def test_they_are_the_same_drawing_at_the_same_cell(self):
@@ -668,15 +715,66 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
     the drawing is centred in the usable area, so on this right-hand page its
     left edge is the gutter margin plus *half* the spare. Between CARD-204 and
     this card it was the gutter plus the whole spare.
+
+    **Where the miscount is caught (CARD-224 review cycle 1, F-002).** On
+    CON-018 as amended both side margins are 0.5 in, so a centred drawing sits
+    on the same pixel column at either parity and *every* left-edge comparison
+    on Book 1 is an identity — including the one that is supposed to exclude
+    the miscounted, left-hand reading of this page. The exclusion is therefore
+    made on an **unequal-margin book** (:attr:`WIDE_GUTTER_MM` /
+    :attr:`NARROW_OUTSIDE_MM`), exactly as
+    :class:`TestBookPdf_UnbuildablePuzzleNeverShiftsALaterPage` and
+    :class:`TestGuidePage_ExtraPageShiftsEverythingByOneKeepingParity` already
+    do, where the two readings are 10 mm (118 px) apart. The Book 1
+    assertions are kept for the figures they still state, and the identity is
+    asserted explicitly so it cannot be mistaken for evidence.
     """
 
+    #: An **unequal**-margin book, for the two tests below that need the
+    #: miscount to be visible in the drawing's own x. A 20 mm gutter against a
+    #: 10 mm outside margin moves the drawing by 10 mm between the parities.
+    WIDE_GUTTER_MM = 20.0
+    NARROW_OUTSIDE_MM = 10.0
+
+    @classmethod
+    def _unequal_expected_left_mm(cls, *, right_hand: bool) -> float:
+        return _expected_left_mm(
+            15,
+            7,
+            STANDARD_CELL_MM,
+            right_hand=right_hand,
+            gutter_mm=cls.WIDE_GUTTER_MM,
+            outside_mm=cls.NARROW_OUTSIDE_MM,
+        )
+
+    @classmethod
+    def _unequal_pages(cls, count: int = 1):
+        book = _book(gutter_mm=cls.WIDE_GUTTER_MM, outside_mm=cls.NARROW_OUTSIDE_MM)
+        return _interior(
+            book,
+            [_puzzle(*_MIRRORED_PUZZLE, name=f"P{n}") for n in range(count)],
+        )
+
     def test_the_first_puzzle_page_is_right_hand(self):
+        """Interior page 5's drawing is at the right-hand position.
+
+        Asserted on both books: Book 1 for the figure AC-287 states, and the
+        unequal-margin book for the fact that it is the *right-hand* one
+        (CARD-224 review cycle 1, F-002 — on Book 1 the two positions are the
+        same number).
+        """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
         left_mm = _mm(drawing_of(pages[4]).left)
         expected = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
 
         assert abs(left_mm - expected) < EDGE_TOLERANCE_MM, (left_mm, expected)
+
+        unequal_mm = _mm(drawing_of(self._unequal_pages()[4]).left)
+
+        assert abs(unequal_mm - self._unequal_expected_left_mm(right_hand=True)) < (
+            EDGE_TOLERANCE_MM
+        ), unequal_mm
 
     def test_its_usable_area_starts_at_the_gutter_margin(self):
         """12.7 mm from the left trim edge: 0.5 in, the gutter margin (CON-018).
@@ -696,25 +794,52 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
     def test_it_is_not_the_left_hand_page_a_miscount_would_give_it(self):
         """Counting the cover as page 1 would make this page 4, outside margin left.
 
-        CARD-224: the gap between the right-hand and left-hand positions is
-        ``gutter - outside`` again (centring's own invariant, EC-032), which
-        on CON-018 as amended is **zero** — the two side margins are equal,
-        so a miscounted parity moves this drawing nowhere and the drawing's
-        own x cannot tell the two apart on this profile. The page's parity is
-        therefore asserted where it is still visible: the usable area's own
-        edges, which the drawing is centred in. The identity is asserted
-        explicitly rather than left to look like evidence.
+        **Measured on an unequal-margin book** (CARD-224 review cycle 1,
+        F-002): the gap between the right-hand and left-hand positions is
+        ``gutter - outside`` (centring's own invariant, EC-032), which on
+        CON-018 as amended is **zero** — so on Book 1 a miscounted parity
+        moves this drawing nowhere and the exclusion this test exists to make
+        is unmakeable there. On a 20 mm gutter against a 10 mm outside margin
+        the two readings are 10 mm apart, and the drawing is asserted to be at
+        the right-hand one and **not** at the left-hand one.
+        """
+        pages = self._unequal_pages()
+
+        left_mm = _mm(drawing_of(pages[4]).left)
+        right_hand = self._unequal_expected_left_mm(right_hand=True)
+        left_hand = self._unequal_expected_left_mm(right_hand=False)
+
+        assert abs(right_hand - left_hand) == pytest.approx(10.0), (
+            "this book must really move the drawing between the parities, or "
+            "the refutation below is an identity",
+            right_hand,
+            left_hand,
+        )
+        assert abs(left_mm - right_hand) < EDGE_TOLERANCE_MM, (left_mm, right_hand)
+        assert abs(left_mm - left_hand) > EDGE_TOLERANCE_MM, (
+            "interior page 5 is right-hand; a count that included the cover "
+            "would put this drawing at the left-hand position instead",
+            left_mm,
+            left_hand,
+        )
+
+    def test_on_book_1_the_miscount_is_invisible_in_the_drawing(self):
+        """Why the test above does not use this book, recorded as a measurement.
+
+        On CON-018 as amended the two side margins are equal, so the centred
+        drawing's left edge is the *same* number at either parity: the
+        identity is asserted here, where it is the subject, instead of being
+        left to look like evidence in a test named for a refutation.
         """
         pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE)])
 
         left_mm = _mm(drawing_of(pages[4]).left)
+        right_hand = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=True)
         left_hand = _expected_left_mm(15, 7, STANDARD_CELL_MM, right_hand=False)
 
-        assert abs(GUTTER_MM - OUTSIDE_MM) < 1e-9, (
-            "on an unequal-margin book this is where the miscount shows; on "
-            "the amended Book 1 profile it cannot, and that is recorded here"
-        )
-        assert abs(left_mm - left_hand) < EDGE_TOLERANCE_MM
+        assert abs(GUTTER_MM - OUTSIDE_MM) < 1e-9, "both side margins are 0.5 in"
+        assert right_hand == left_hand
+        assert abs(left_mm - right_hand) < EDGE_TOLERANCE_MM
 
     def test_the_divider_did_not_take_the_puzzle_pages_place(self):
         """Interior page 4 is the level divider, and carries no drawing at all.
@@ -732,17 +857,28 @@ class TestBookExport_FirstPuzzlePageParityCountsFromInteriorPage1:
     def test_the_parities_alternate_from_there(self):
         """Pages 5, 6, 7 are right, left, right — each page's own position.
 
-        CARD-224: pages 5 and 6 (both this puzzle, opposite parity) differ by
-        ``gutter - outside``, which is zero on the amended profile — see
-        ``TestBookPdf_DrawingCentredOnLeftHandPage``'s own equivalent test for
-        why that is an identity here and where the claim is swept with teeth.
+        **On the unequal-margin book** (CARD-224 review cycle 1, F-002), where
+        the alternation is a 10 mm move and not a zero one: pages 5 and 7 share
+        a left edge, page 6 sits 10 mm away from both. On the amended Book 1
+        profile all three numbers coincide, so the sequence there cannot tell
+        "right, left, right" from "right, right, right".
         """
-        pages = _interior(_book(), [_puzzle(*_MIRRORED_PUZZLE, name=f"P{n}") for n in range(3)])
+        pages = self._unequal_pages(count=3)
 
         lefts = [_mm(drawing_of(page).left) for page in pages[4:7]]
+        expected = {
+            hand: self._unequal_expected_left_mm(right_hand=hand) for hand in (True, False)
+        }
 
-        assert abs(lefts[0] - lefts[2]) < EDGE_TOLERANCE_MM
-        assert abs(lefts[0] - lefts[1] - (GUTTER_MM - OUTSIDE_MM)) < EDGE_TOLERANCE_MM
+        assert abs(expected[True] - expected[False]) == pytest.approx(10.0)
+        assert abs(lefts[0] - expected[True]) < EDGE_TOLERANCE_MM, lefts
+        assert abs(lefts[1] - expected[False]) < EDGE_TOLERANCE_MM, lefts
+        assert abs(lefts[2] - expected[True]) < EDGE_TOLERANCE_MM, lefts
+        assert abs(lefts[0] - lefts[2]) < EDGE_TOLERANCE_MM, lefts
+        # EC-032's own formula, on a profile where it is not an identity.
+        assert abs(
+            lefts[0] - lefts[1] - (self.WIDE_GUTTER_MM - self.NARROW_OUTSIDE_MM)
+        ) < EDGE_TOLERANCE_MM, lefts
 
 
 # --------------------------------------------------------------------------

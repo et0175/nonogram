@@ -2475,15 +2475,37 @@ def _placed_drawing_top(
     * ``"ratio"`` — the ordinary case: the area holds the drawing with room
       for its own stroke at both ends, and the gap above is
       ``GRID_SPARE_ABOVE x spare``.
-    * ``"footer"`` — the drawing is as deep as the area or deeper (the cell is
-      fitted against the usable height *less the band*, which is up to one
-      footer strip deeper than the puzzle area, so a height-bound drawing is
-      always in this regime), or this sheet has no puzzle area at all. The
-      ratio would put ink further past the footer rule than the alternative
-      does, so the drawing is held at the band's foot — exactly where every
-      placed drawing sat before this card — and the page's footer group is
-      omitted by the renderer that draws it, on the all-or-nothing condition
-      it has applied since CARD-222 (``book_pdf_generator._draw_page_frame``).
+    * ``"footer"`` — reached three ways, two of them obvious from the name.
+      (i) The drawing is as deep as the area or deeper (the cell is fitted
+      against the usable height *less the band*, which is up to one footer
+      strip deeper than the puzzle area, so a height-bound drawing is always
+      in this regime). (ii) This sheet has no puzzle area at all. (iii) **The
+      spare is positive but too small to pay the clearance below** — the area
+      does hold the drawing and the ratio is abandoned anyway, so the verdict
+      names the footer rule while what bound the placement is the *header*
+      rule's clearance. Case (iii) is reachable on every sheet (47 of the
+      extents Book 1 admits reach it at some clue depth) and is why the
+      footer group's omission is not merely a restatement of "the drawing is
+      too deep": the degraded placement leaves the drawing's bottom edge
+      ``INTERIOR_HEADER_RULE_LIFT x band - spare`` below the footer rule, so
+      the omission holds while the band's own lift outruns the threshold
+      (17.72 px against 14.29 px on Book 1's 12 mm band) — a ``band_mm``
+      coupling pinned by ``tests/test_book_puzzle_frame.py``'s
+      ``test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer``.
+
+      In all three cases the ratio is refused and the drawing is held at the
+      band's foot — exactly where every placed drawing sat before this card —
+      and the page's footer group is omitted by the renderer that draws it, on
+      the all-or-nothing condition it has applied since CARD-222
+      (``book_pdf_generator._draw_page_frame``). **What the two refusals are
+      for differs, and only one of them is about the footer rule.** In (i) and
+      (ii) the ratio would put ink further past the footer rule than the
+      band's foot does, so holding the drawing costs nothing and saves ink; in
+      (iii) the band's foot is the *lower* of the two rows, and it is taken
+      anyway because the ratio's own gap above would not clear the **header**
+      rule — the one rule that is drawn on such a page whatever happens.
+      Trading a clean header rule for a footer rule that will not be stroked
+      is the whole of the degraded regime's logic.
       This is the only regime in which any drawing ink crosses the footer
       rule's *row*, and in it that row is not stroked. The header rule stays
       clear of the band's foot by :data:`INTERIOR_HEADER_RULE_LIFT` of the
@@ -2499,10 +2521,30 @@ def _placed_drawing_top(
     *centred* on its boundary (:class:`PuzzleFrame`), so the drawing's topmost
     ink is half a heavy rule above ``drawing_top`` and its lowest half a heavy
     rule below ``drawing_bottom``, and the two furniture rules spread about
-    their own rows the same way. A spare that cannot pay that clearance twice
-    over is treated as no spare at all, which is what makes "no drawing or
-    clue ink crosses either rule" (EC-022) a property of the arithmetic rather
-    than of the trims that happen to be stored today.
+    their own rows the same way. **Each of the two gaps the split would leave
+    is tested against that clearance separately**, and a spare that cannot pay
+    it at both ends is treated as no spare at all — which is what makes "no
+    drawing or clue ink crosses either rule" (EC-022) a property of the
+    arithmetic rather than of the trims that happen to be stored today.
+
+    The pair of tests, rather than one on the spare, is this card's review
+    cycle 1 (F-001) and the correction is not cosmetic. The split is 42/58, so
+    a spare that pays ``2 x clearance`` leaves ``0.42 x 2 = 0.84`` of a
+    clearance above the drawing — *less* than the one clearance the sentence
+    above promises. That held only because ``clearance`` is a pixel more
+    generous than the ink actually needs (``thick_rule / 2 + furniture / 2``),
+    and ``0.84 x (need + 1) >= need`` fails once ``need`` passes 5.25 — a
+    heavy rule of 14 px, which :class:`PageSpec`'s own ``cell_cap`` can reach
+    (``cell_cap=18.0 mm`` put ratio-branch ink *on* the header rule on 126
+    (trim, extent) pairs) even though no stored :class:`PrintProfile` does.
+    Conditioning on ``gap_above`` and ``gap_below`` themselves makes the
+    promise hold for **every** heavy rule and every furniture weight, not for
+    the ones in the profiles stored today. The binding term is now the gap
+    above: ``spare >= clearance / GRID_SPARE_ABOVE``, i.e. 2.38 clearances
+    rather than 2 — which is why the threshold moved outward and why
+    :mod:`tests.test_book_puzzle_frame`'s
+    ``test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare``
+    walks a sheet across it in both directions.
 
     Args:
         page_spec: The sheet — a placed one (it carries a parity).
@@ -2524,9 +2566,15 @@ def _placed_drawing_top(
         _pt_to_px_at_least(INTERIOR_HEADER_RULE_PT), _pt_to_px_at_least(INTERIOR_FOOTER_RULE_PT)
     )
     clearance = -(-thick_rule // 2) + -(-furniture // 2) + 1
-    if spare < 2 * clearance:
+    # The two gaps the split would actually leave, each tested against the
+    # clearance it has to pay. Not `spare < 2 * clearance`: the split is 42/58,
+    # not 50/50, so a spare that pays twice over still leaves only 0.84 of a
+    # clearance above the drawing (CARD-224 review cycle 1, F-001).
+    gap_above = GRID_SPARE_ABOVE * spare
+    gap_below = spare - gap_above
+    if gap_above < clearance or gap_below < clearance:
         return band_bottom, "footer"
-    return Fraction(area_top) + GRID_SPARE_ABOVE * spare, "ratio"
+    return Fraction(area_top) + gap_above, "ratio"
 
 
 def _orientation_for(

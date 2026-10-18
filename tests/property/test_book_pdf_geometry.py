@@ -7,6 +7,12 @@
     EC-032 (PDF half)  PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity
         -> test_PropertyTest_BookPdf_MirroredMarginsCentreDrawingForEveryParity_pdf_pages
 
+The two-up half of EC-022's corpus also carries **AC-378** (a two-up page's
+upper slot does *not* share a single page's top row), whose own tests are in
+``tests/test_book_pdf_two_up.py``. **AC-252**, which claimed the two rows were
+equal, is RETIRED (2026-10-17/18) along with AC-190; **AC-379** — the two slots
+sharing the page's own puzzle area — is owed to CARD-226, not to this module.
+
 ``tests/property/test_book_layout.py`` holds CARD-114's layout halves of the
 same three properties — the same statements about ``compute_layout``'s numbers.
 These are the halves CARD-116 owes: the same statements about the **pages the
@@ -66,6 +72,17 @@ SPARE_ABOVE = 0.42
 #: the drawing takes: a few device pixels of stroke clearance, declared
 #: generously as 2 mm because the exact figure is the heavy rule's and this
 #: module imports no geometry (see :meth:`Sheet.drawing_top_mm`).
+#:
+#: **A tolerance, and not an oracle for the threshold** (CARD-224 review
+#: cycle 1, F-001). The real threshold is ``clearance / 0.42``, which is
+#: 14.29 px (1.21 mm) at Book 1's cell — *narrower* than this window, so
+#: nothing in this module can tell the right threshold from a halved one. The
+#: boundary's one oracle is
+#: ``tests/test_book_puzzle_frame.py::TestBookPuzzleFrame_GridClearsBothRules``
+#: ``::test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare``,
+#: which works in device pixels and derives the clearance from the three rule
+#: weights. This window exists only so that a corpus measured in millimetres
+#: does not have to guess at the edge.
 CLEARANCE_WINDOW_MM = 2.0
 
 TOP_MM = 0.55 * 25.4
@@ -174,15 +191,19 @@ class Sheet:
         one footer strip deeper than the area).
 
         **The window.** The implementation abandons the ratio a little before
-        the spare reaches zero: a spare too small to pay the drawing's own
-        half-heavy-rule clearance twice over would put grid ink on the header
-        or footer rule, so it is treated as no spare at all. That threshold is
-        a few device pixels and a function of the heavy rule at this cell,
-        which this module deliberately does not know — it measures in
-        millimetres and imports no geometry. So within
-        :data:`CLEARANCE_WINDOW_MM` of zero spare **both** rows are accepted,
-        and the callers count how often the window is used so it cannot
-        quietly become the whole corpus.
+        the spare reaches zero: each of the two gaps the split would leave has
+        to pay the drawing's own half-heavy-rule clearance, and because the
+        split is 42/58 the binding one is the gap *above* — the ratio is
+        refused below ``clearance / 0.42`` of spare. That threshold is a few
+        device pixels and a function of the heavy rule at this cell, which
+        this module deliberately does not know: it measures in millimetres and
+        imports no geometry. So within :data:`CLEARANCE_WINDOW_MM` of zero
+        spare **both** rows are accepted, and the callers count how often the
+        window is used so it cannot quietly become the whole corpus.
+
+        The window is **wider** than the threshold it brackets, so this method
+        cannot pin it and is not claimed to — see :data:`CLEARANCE_WINDOW_MM`
+        for where the boundary itself is pinned.
         """
         area_top, area_bottom = self.puzzle_area_mm()
         spare = (area_bottom - area_top) - down * self.cell_mm(across, down)
@@ -670,11 +691,13 @@ def test_PropertyTest_BookPdf_PortraitWithFixedTopEdgeForEveryExtent_two_up_page
     at its slot's band foot — splitting the page's area between two slots is
     CARD-226's, out of that card's scope. This corpus holds pages of both
     kinds, so the expected top edge is chosen per page kind below: the band's
-    foot for a two-up page, the sheet's own 42% figure for a single one. The
-    registry's AC-252 still asserts the two are *equal*; it is falsified by
-    CARD-224 and is reported as owed at the architect station (see
-    ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``,
-    whose strict xfail carries it).
+    foot for a two-up page, the sheet's own 42% figure for a single one.
+    **AC-252, which asserted the two were equal, is retired** (2026-10-17/18,
+    with AC-190): **AC-378** states that the two rows differ and is pinned by
+    ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``
+    — three positive tests of the measured gap, not an ``xfail`` — and
+    **AC-379**, the two slots sharing the page's own puzzle area, is owed to
+    CARD-226. Nothing here is owed at the architect station.
 
     The corpus is one book of small same-tier neighbours, so the walk pairs
     many of them; which pages it paired is read back off the ink rather than

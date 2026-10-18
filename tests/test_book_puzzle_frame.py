@@ -44,9 +44,16 @@ Where the frame is expected to be is worked out here from CON-018's profile in
 **inches**, the way ``tests/test_book_pdf.py`` and
 ``tests/test_book_pdf_two_up.py`` state a book page's arithmetic: the cell is
 ``min(7.5 mm, usable width / drawing columns, usable height / drawing rows)``,
-the drawing is centred across the usable width and hangs one band below the top
-margin. Nothing in :func:`_expected_box` reads ``compute_layout``, so a frame
-in the right place is two answers agreeing rather than one answer restated.
+the drawing is centred across the usable width, and its top edge **floats** at
+42% of CARD-222's puzzle-area spare height (FR-032 as amended 2026-10-17,
+CARD-224) — degrading to the band's foot, one band below the top margin, on a
+sheet whose area cannot hold the drawing clear of both of its rules. It hung at
+the band's foot unconditionally until CARD-224, and that fixed row survives
+here only as :func:`_fixed_top_mm`, the control the placement ACs need. A
+two-up slot and a packed answer tile still start at their own slot's band foot;
+only a *single* page's drawing floats. Nothing in :func:`_expected_box` reads
+``compute_layout``, so a frame in the right place is two answers agreeing
+rather than one answer restated.
 
 What the frame looks like on paper is then read off the **rendered raster**
 (:func:`~nonogram.export.png.render_image`), not off the ``PuzzleFrame`` that
@@ -296,14 +303,26 @@ def _expected_top_mm(spec: PageSpec, drawing_height_mm: float) -> float:
 
     The 42% float, or the band's foot when the puzzle area cannot hold the
     drawing clear of both of its rules. The implementation abandons the ratio a
-    little before the spare reaches zero — a spare too small to pay the
-    drawing's own half-heavy-rule clearance twice over would put grid ink on a
-    rule — and that threshold is a few device pixels of the heavy rule at this
-    cell. Every box this file checks is on a trim with tens of millimetres of
-    spare, so the two rules never disagree here; the boundary itself is
-    :mod:`tests.property.test_book_layout`'s (which sweeps the degraded
-    regime) and :mod:`tests.property.test_book_pdf_geometry`'s (which declares
-    the window explicitly).
+    little before the spare reaches zero: each of the two gaps the split would
+    leave has to pay the drawing's own half-heavy-rule clearance, and since the
+    split is 42/58 the binding one is the gap *above* — the ratio is refused
+    below ``clearance / 0.42`` of spare, which is 14.29 px (1.21 mm) at Book 1's
+    cell (CARD-224 review cycle 1, F-001).
+
+    **This helper deliberately does not model that threshold**, and the
+    simplification is ``spare <= 0``. Every box this file checks with it is on
+    a trim with tens of millimetres of spare, so the two rules cannot disagree
+    where it is used. **Nothing that reads this helper can therefore pin the
+    boundary, and no module that measures only in millimetres can**: the
+    threshold is a function of the heavy rule in device pixels.
+    :mod:`tests.property.test_book_pdf_geometry`'s ``CLEARANCE_WINDOW_MM`` is a
+    2.0 mm *tolerance* that accepts both candidate rows — it is wider than the
+    threshold itself and was never an oracle for it — and
+    :mod:`tests.property.test_book_layout` sweeps the degraded regime without
+    reaching its edge. The boundary's one oracle is
+    :meth:`TestBookPuzzleFrame_GridClearsBothRules.test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare`,
+    which walks one sheet's trim height across it in 0.05 mm steps and asserts
+    both gaps against a clearance derived from the three rule weights.
     """
     area_top, area_bottom = _puzzle_area_mm(spec)
     spare = (area_bottom - area_top) - drawing_height_mm
@@ -1426,9 +1445,14 @@ class TestPuzzleFrame_TwoUpGeometryIsUnmovedByTheFrame:
         alone.top``, AC-252's own claim) is false by that card's design: the
         single page floats at 42% of its puzzle area's spare, the slot does
         not. Both rows are still measured, and their *inequality* is asserted
-        — so a build that moved either one onto the other fails here. AC-252
-        itself is owed at the architect station; see
-        ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``.
+        — so a build that moved either one onto the other fails here.
+
+        **AC-252 is retired** (2026-10-17/18, with AC-190). **AC-378** states
+        the two rows differ and is pinned at the PDF level by
+        ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``
+        (a positive test, not an ``xfail``); **AC-379** — a two-up page's two
+        slots sharing the page's own puzzle area — is owed to CARD-226 and is
+        out of this card's scope. Nothing is owed at the architect station.
         """
         upper, lower = drawings_of(pages[TWO_UP_PAGE - 1])
         alone = drawing_of(pages[SINGLE_PAGE - 1])
@@ -2198,8 +2222,23 @@ class TestBookPuzzleFrame_GridSitsAtFortyTwoPercentOfTheSpare:
 
 class TestBookPuzzleFrame_GridClearsBothRules:
     """AC-3 (and EC-022's own last clause) — no grid or clue ink touches the
-    header rule or the footer rule, for every grid size the book admits and
-    every trim.
+    header rule or the footer rule.
+
+    **What is actually swept, which is narrower than AC-3's own wording.** The
+    card says "every grid size the book admits and every trim"; the sweep below
+    covers **extents 10..30 in steps of 2 on both axes** at two clue-depth
+    patterns on **four** sheets, which is 484 cases and not the admissible
+    space. CON-011 admits 5..40, the odd extents are not swept, and no stored
+    trim outside these four is. The gap is recorded here rather than closed:
+    growing the corpus is cost this card cannot justify, and the one thing the
+    unswept corner contains that the swept one does not is a *tighter* clearance
+    margin — the worst case found by this card's review cycle 1 is a 39x35 at
+    maximal clue depths, outside the range above. That corner is now covered by
+    arithmetic instead of by enumeration:
+    :meth:`test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare`
+    pins the threshold that makes the conclusion hold for *every* extent,
+    every trim and every rule weight, so the sweep is evidence over the stored
+    sheets and the threshold test is the reason it generalises.
 
     **Two layers, because one of them cannot be afforded 441 times.** The
     sweep below is on the layout and on the rules' own rows computed here in
@@ -2290,6 +2329,144 @@ class TestBookPuzzleFrame_GridClearsBothRules:
         # Neither regime may silently empty out of this sweep.
         assert floated >= 300, floated
         assert held >= 200, held
+
+    #: CARD-222's two furniture rules in points, written out here as this
+    #: file writes every other figure out, and the one rule the layout applies
+    #: to a weight in points: the fewest whole device pixels that measure at
+    #: least it. Neither is near a whole pixel (0.6 pt is 2.50 px, 0.4 pt is
+    #: 1.67 px), so the rounding needs no tolerance here.
+    HEADER_RULE_PT = 0.6
+    FOOTER_RULE_PT = 0.4
+
+    @staticmethod
+    def _rule_px(points: float) -> int:
+        """A rule weight in points as whole device pixels, rounded **up**."""
+        return int(-(-(points * 25.4 / 72 * PX_PER_MM) // 1))
+
+    @classmethod
+    def _clearance_px(cls, thick_rule: int) -> int:
+        """The clearance each of the two gaps has to pay, in device pixels.
+
+        Half the drawing's own heavy rule (its ink is stroked centred on the
+        boundary, so it overhangs by that much), plus half of the heavier
+        furniture rule (which spreads about its own row the same way), plus
+        the pixel that makes "clear" strict rather than "touching".
+
+        Derived here from the three rule weights — the drawing's heavy rule as
+        the layout committed it, the two furniture weights as points written
+        out above — and **not** imported from the implementation, so a build
+        that redefined its own clearance would not redefine this one.
+        """
+        furniture = max(cls._rule_px(cls.HEADER_RULE_PT), cls._rule_px(cls.FOOTER_RULE_PT))
+        return -(-thick_rule // 2) + -(-furniture // 2) + 1
+
+    #: The drawing the threshold test walks across the boundary: a 20x20
+    #: behind 8-deep gutters, 28 cells each way, on Book 1's own width.
+    STRADDLE = dict(columns=20, rows=20, row_depth=8, column_depth=8)
+    #: The trim heights it is walked on. 0.05 mm a step is 0.6 px of trim, and
+    #: the spare moves about 11.8 px per millimetre of height, so the scan
+    #: brackets the one place the verdict changes to within a pixel of spare.
+    #: The range is chosen to hold the boundary with both regimes either side
+    #: of it, which the test asserts rather than assumes.
+    STRADDLE_HEIGHTS_MM = tuple(round(257.0 + 0.05 * step, 3) for step in range(41))
+
+    def test_the_clearance_threshold_is_the_gap_above_and_not_half_the_spare(self) -> None:
+        """The boundary itself (CARD-224 review cycle 1, F-001).
+
+        AC-3's conclusion is supposed to be arithmetic rather than a property
+        of the trims stored today, and the arithmetic is a clearance term: the
+        ratio is abandoned when the spare cannot pay the drawing's own
+        half-heavy-rule clearance at **both** ends. Nothing pinned that term
+        until this test, and the implementation's first form of it
+        (``spare < 2 * clearance``) did not deliver what it claimed: the split
+        is 42/58, so a spare that pays two clearances leaves only ``0.42 x 2 =
+        0.84`` of one *above* the drawing. It survived on the stored profiles
+        because the clearance is a pixel more generous than the ink needs.
+
+        So the claim under test is **the gap, not the spare**: wherever the
+        page reports ``"ratio"``, each of the two gaps is at least one whole
+        clearance, and the drawing's outermost ink clears each rule's
+        outermost ink. The trim height is walked in 0.05 mm steps across the
+        one place the verdict changes, so both regimes are exercised and the
+        case immediately below the boundary — which still has a **positive**
+        spare, and is refused for the clearance's sake alone — is asserted
+        too. That last assertion is what a ``spare <= 0`` oracle cannot make,
+        and halving the threshold reds the loop below.
+        """
+        verdicts: list[tuple[float, str]] = []
+        straddle: list[tuple[float, str, int, int]] = []
+        for height_mm in self.STRADDLE_HEIGHTS_MM:
+            spec = _spec(height_mm=height_mm)
+            layout = compute_layout(*_clue_sets(**self.STRADDLE), spec)
+            placement = layout.page
+            area_top_mm, area_bottom_mm = _puzzle_area_mm(spec)
+            area_top = round(area_top_mm * PX_PER_MM)
+            area_bottom = round(area_bottom_mm * PX_PER_MM)
+            spare = (area_bottom - area_top) - (placement.drawing_bottom - placement.drawing_top)
+            gap_above = placement.drawing_top - area_top
+            gap_below = area_bottom - placement.drawing_bottom
+            clearance = self._clearance_px(layout.thick_rule)
+            where = (height_mm, placement.vertical_bound, spare, gap_above)
+            verdicts.append((height_mm, placement.vertical_bound))
+            straddle.append(where)
+            if placement.vertical_bound != "ratio":
+                # The degraded regime: held at the band's foot, and the
+                # renderer prints no footer group for the ink to cross.
+                assert placement.drawing_top == placement.band_bottom, where
+                assert qr_slot(layout) is None, where
+                continue
+            assert gap_above >= clearance, (
+                "the gap ABOVE the drawing must pay a whole clearance; "
+                "`spare < 2 * clearance` only buys 0.84 of one",
+                where,
+                clearance,
+            )
+            assert gap_below >= clearance, (
+                "the gap BELOW the drawing must pay a whole clearance too",
+                where,
+                gap_below,
+                clearance,
+            )
+            # And the ink itself, against each rule's own outermost ink row
+            # rather than against the row the rule is centred on.
+            overhang = -(-layout.thick_rule // 2)
+            header_ink_bottom = area_top + self._rule_px(self.HEADER_RULE_PT) // 2
+            footer_ink_top = area_bottom - (self._rule_px(self.FOOTER_RULE_PT) - 1) // 2
+            assert placement.drawing_top - overhang > header_ink_bottom, where
+            assert placement.drawing_bottom + overhang < footer_ink_top, where
+
+        kinds = {verdict for _, verdict in verdicts}
+        assert kinds == {"ratio", "footer"}, (
+            "the scan must hold the boundary, with both regimes either side",
+            sorted(kinds),
+        )
+        assert sum(1 for _, v in verdicts if v == "ratio") >= 15
+        assert sum(1 for _, v in verdicts if v == "footer") >= 15
+        flips = [
+            (straddle[n - 1], straddle[n])
+            for n in range(1, len(straddle))
+            if straddle[n - 1][1] != straddle[n][1]
+        ]
+        assert len(flips) == 1, ("the verdict must change exactly once", flips)
+        refused, floated = flips[0]
+        # The refused case is the point of the whole test: its puzzle area DOES
+        # hold the drawing (the spare is positive), and the ratio is abandoned
+        # anyway because 42% of that spare would not clear the header rule.
+        assert refused[1] == "footer" and floated[1] == "ratio", flips
+        assert refused[2] > 0, (
+            "the case below the boundary must have a positive spare, or this "
+            "test is pinning `spare <= 0` and not the clearance",
+            refused,
+        )
+        assert floated[3] == self._clearance_px(
+            compute_layout(
+                *_clue_sets(**self.STRADDLE), _spec(height_mm=floated[0])
+            ).thick_rule
+        ), (
+            "the first case that floats must sit exactly one clearance below "
+            "the header rule — the threshold is clearance / 0.42 of spare",
+            floated,
+        )
 
     def test_a_real_books_pages_keep_their_ink_off_both_drawn_rules(self) -> None:
         """The ink-level half: a real interior, with the frame's rules drawn.
@@ -2437,8 +2614,20 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
         overhang = -(-layout.thick_rule // 2)
 
         assert layout.page.drawing_top - overhang <= ink_top <= layout.page.drawing_top
-        assert ink_bottom / PX_PER_MM > area_bottom, (
-            "this page's drawing really is deeper than its puzzle area"
+        # The premise, read off the layout and NOT off ``ink_bottom``:
+        # :func:`_area_ink_box` crops the page at ``round(area_bottom *
+        # PX_PER_MM)``, so ``ink_bottom`` saturates on that row and would read
+        # as "deeper than the area" for a drawing that stopped exactly on the
+        # footer rule. Measured on this fixture: the crop row is 1396 while the
+        # drawing's own bottom edge is 1749 px, 30 mm below the rule — which is
+        # the number that makes the claim (CARD-224 review cycle 1, F-003).
+        assert ink_bottom == round(area_bottom * PX_PER_MM), (
+            "the crop saturates here, which is why the premise below is taken "
+            "from the layout and not from this number"
+        )
+        assert (layout.page.drawing_bottom + overhang) / PX_PER_MM > area_bottom + 25.0, (
+            "this page's drawing really is deeper than its puzzle area, by "
+            "tens of millimetres and not by the crop's own rounding"
         )
         # The ratio, had it been applied to a negative spare, would have
         # lifted the drawing *above* the header rule; "as low as it fits"
@@ -2453,6 +2642,70 @@ class TestBookPuzzleFrame_TallestGridYieldsToTheFooter:
 
         assert qr_slot(layout) is None
         assert layout.page.drawing_bottom / PX_PER_MM > _puzzle_area_mm(self.SHORT)[1]
+
+    #: Book 1's own trim and a 23x27 behind 11-deep gutters: the **third**
+    #: case, which neither of the two names ``vertical_bound`` carries
+    #: describes on its face. Its puzzle area *does* hold the drawing — the
+    #: spare is a positive 3 px — and the page still reports ``"footer"``,
+    #: because 42% of 3 px would not clear the header rule. Measured, not
+    #: contrived: 47 of the extents Book 1 admits at some clue depth land in
+    #: ``0 < spare < clearance / 0.42`` on this sheet alone.
+    THIRD_CASE = dict(columns=23, rows=27, row_depth=11, column_depth=11)
+
+    def test_a_positive_spare_too_small_to_clear_the_rule_also_reports_footer(self) -> None:
+        """The third case, named (CARD-224 review cycle 1, F-008).
+
+        ``"footer"`` is documented as "the drawing is as deep as the area or
+        deeper, or this sheet has no puzzle area at all". There is a third way
+        to reach it: a spare that is positive but smaller than
+        ``clearance / 0.42``, where the area holds the drawing and the ratio is
+        abandoned for the clearance's sake. AC-4's "the page says which rule
+        bound it" names the footer rule on such a page, and what actually bound
+        it is the **header** rule's clearance.
+
+        **Why that is still safe, and the coupling it rests on.** The degraded
+        placement puts the drawing's bottom edge
+        ``INTERIOR_HEADER_RULE_LIFT x band - spare`` below the footer rule, so
+        the renderer's all-or-nothing footer condition omits the whole footer
+        group and there is no rule on the page for the ink to cross. That holds
+        only while the threshold is smaller than the band's own lift, and both
+        are in device pixels: the lift is ``band_mm / 8``, 17.72 px on Book 1's
+        12 mm band, against a threshold of 14.29 px. ``band_mm`` is a
+        ``PrintProfile`` field, and **below about 9.7 mm the inequality flips**
+        — the drawing would then stop above the footer rule, the footer group
+        would be drawn, and this sheet's degraded pages would print a hairline
+        through nothing while AC-3's sweep lost its footer branch. No stored
+        profile is near it (Book 1 is the only one, at 12 mm), so the coupling
+        is pinned here rather than designed away.
+        """
+        spec = _spec()
+        layout = compute_layout(*_clue_sets(**self.THIRD_CASE), spec)
+        placement = layout.page
+        area_top_mm, area_bottom_mm = _puzzle_area_mm(spec)
+        area_top = round(area_top_mm * PX_PER_MM)
+        area_bottom = round(area_bottom_mm * PX_PER_MM)
+        spare = (area_bottom - area_top) - (placement.drawing_bottom - placement.drawing_top)
+
+        assert 0 < spare, ("the area does hold this drawing", spare)
+        assert placement.vertical_bound == "footer"
+        assert placement.drawing_top == placement.band_bottom
+        # What the verdict's own name would predict is false here.
+        assert placement.drawing_bottom - placement.drawing_top < area_bottom - area_top
+
+        # The coupling, in the sheet's own pixels: the band's lift has to be
+        # the larger of the two, or the degraded page keeps a footer rule that
+        # its drawing then crosses.
+        clearance = TestBookPuzzleFrame_GridClearsBothRules._clearance_px(layout.thick_rule)
+        threshold = clearance / SPARE_ABOVE
+        lift = HEADER_RULE_LIFT_SHARE * spec.band_mm * PX_PER_MM
+        assert lift > threshold, (
+            "band_mm is too shallow for the clearance threshold: a degraded "
+            "page would stop above the footer rule and print the footer group",
+            lift,
+            threshold,
+        )
+        assert placement.drawing_bottom > area_bottom, (lift, threshold, spare)
+        assert qr_slot(layout) is None
 
     def test_the_control_a_trim_that_can_hold_it_floats_instead(self) -> None:
         """The control that can fail (ADR-0039/R1): the same 45-cell drawing on

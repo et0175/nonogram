@@ -1457,6 +1457,52 @@ class TestBookProof_PortraitProofsAreByteIdentical:
         for key, digests in self.BASELINE["digests"].items():
             assert digests != self.CARD204_BASELINE["digests"][key], key
 
+    def test_the_recording_carries_a_control_that_did_not_move(self) -> None:
+        """The recording's own internal control (CARD-224 review cycle 1, F-009).
+
+        All nine digests above are new numbers, because every pixel of a proof
+        page is downstream of the single placed drawing it carries — so unlike
+        ``book_baseline_card224.json``, which keeps seven unmoved pages as its
+        control, this recording has no unmoved digest to offer. A recording in
+        which every number is new cannot by itself tell "the placement moved"
+        from "the recorder moved".
+
+        What the placement cannot reach is the **sheet**: each page's size in
+        device pixels is the stored trim at 300 DPI and nothing else, identical
+        on both pages of a trim and identical to what CARD-223's recorder
+        produced. Checked here against the pages this recorder returns *and*
+        against the trim arithmetic restated below, so a recorder that had
+        changed its DPI, its reading of the stored centimetres or its
+        orientation fails here while the digests would only say "everything
+        moved".
+        """
+        control = self.BASELINE["unmoved_control_page_px"]
+
+        assert set(control) == set(self.BASELINE["digests"])
+        assert set(control) == set(self.CARD223_BASELINE["digests"]), (
+            "a control is only a control while this recording covers the same "
+            "trims as the recording it is attributed against"
+        )
+        for width_cm, height_cm in CORPUS_TRIMS_CM:
+            key = f"{width_cm}x{height_cm}"
+            expected = [
+                round(float(width_cm) * 10 / 25.4 * 300),
+                round(float(height_cm) * 10 / 25.4 * 300),
+            ]
+
+            assert control[key] == expected, (key, control[key], expected)
+
+            book = _book_cm(
+                width_cm,
+                height_cm,
+                self.BASELINE["gutter_margin_cm"],
+                self.BASELINE["outside_margin_cm"],
+                f"control-{width_cm}x{height_cm}",
+            )
+            sizes = [list(page.size) for page in proof_pages(book)]
+
+            assert sizes == [expected, expected], (key, sizes)
+
     def test_the_baseline_covers_every_portrait_corpus_trim(self) -> None:
         assert set(self.BASELINE["digests"]) == {f"{w}x{h}" for w, h in CORPUS_TRIMS_CM}
 

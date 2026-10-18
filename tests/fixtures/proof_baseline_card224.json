@@ -19,6 +19,45 @@
     "21.59x27.94"
   ],
   "moved_from_card223_note": "All nine, measured trim by trim against CARD-223's recording before this file was written, not asserted from the change's intent. Nine of nine is the expected shape here: the placement change applies to every drawing on every sheet, so a trim that did NOT move would be the surprise \u2014 the opposite of CARD-223's own recording, where three pages moving and ten staying byte-identical was the evidence.",
+  "unmoved_control_page_px": {
+    "12.70x20.32": [
+      1500,
+      2400
+    ],
+    "13.34x20.32": [
+      1576,
+      2400
+    ],
+    "13.97x21.59": [
+      1650,
+      2550
+    ],
+    "15.24x22.86": [
+      1800,
+      2700
+    ],
+    "15.60x23.39": [
+      1843,
+      2763
+    ],
+    "17.78x25.40": [
+      2100,
+      3000
+    ],
+    "19.05x23.50": [
+      2250,
+      2776
+    ],
+    "20.32x25.40": [
+      2400,
+      3000
+    ],
+    "21.59x27.94": [
+      2550,
+      3300
+    ]
+  },
+  "unmoved_control_page_px_note": "THE RECORDING'S OWN INTERNAL CONTROL (added in CARD-224 review cycle 1, F-009). Every one of the nine digests above is a new number, because every pixel of a proof page is downstream of the one placed drawing it carries -- unlike book_baseline_card224.json, whose interior holds dividers, a guide, a table of contents and answer pages that carry no placed single-puzzle drawing and so supply seven unmoved digests as that recording's control. A recording in which every number is new cannot, on its own, tell 'the placement moved' from 'the recorder moved'. So this block records the one thing about each sheet that the placement cannot reach: the page's size in device pixels, both pages of a trim alike. It is the trim at 300 DPI and nothing else -- CARD-223's recorder produced these same eighteen numbers, and a recorder that had changed its DPI, its reading of the stored centimetres or its orientation would differ here while the digests alone would only say 'everything moved'. test_the_recording_carries_a_control_that_did_not_move checks them against the pages this recorder returns and against the trim arithmetic restated in the test.",
   "digests": {
     "12.70x20.32": [
       "25aa7daa80647e6c25c4b2bc90c9e95a138e60d8259d554b26e94f423e4042be",

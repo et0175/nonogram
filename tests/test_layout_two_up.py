@@ -6,7 +6,11 @@
     AC-245  TestPairLayout_JustBelowTwoUpMinimumIsNone
     AC-246  TestPairLayout_FifteenPlusTwelveIsNone
     AC-247  TestPairLayout_WidthFailureAtTwoUpMinimumIsNone
-    AC-252 (layout half)  TestPairLayout_UpperSlotSharesSinglePageTopRow
+    AC-378 (layout half)  TestPairLayout_UpperSlotSitsAtItsOwnBandFoot
+                          (AC-252, which that class carried as
+                          TestPairLayout_UpperSlotSharesSinglePageTopRow, is
+                          RETIRED 2026-10-17/18; AC-379 — the two slots
+                          sharing the page's puzzle area — is owed to CARD-226)
     The call's contract: TestPairLayout_RefusesSpecsThatNeverPair,
             TestPairLayout_RefusesMalformedClues, TestPairLayout_SlotGeometry,
             TestPairLayout_ValueObjectRefusesAnInvalidPair
@@ -41,6 +45,7 @@ from nonogram.export.layout import (
     compute_layout,
     compute_pair_layout,
     header_band,
+    interior_frame,
 )
 
 #: CON-018's Book 1 profile (the same literal as tests/test_layout_page_spec.py;
@@ -64,6 +69,11 @@ BOOK1_USABLE_WIDTH_MM = 193.675
 BOOK1_TWO_UP_HEIGHT_MM = 236.35
 PX_PER_MM = DPI / 25.4
 HALF_PIXEL_MM = 0.5 / PX_PER_MM
+
+#: CARD-224's split of the puzzle area's spare height: 42% above the drawing.
+#: Written out here, as this module writes every other figure out, rather than
+#: imported from ``layout``.
+SPARE_ABOVE = 0.42
 
 type Puzzle = tuple[tuple[tuple[int, ...], ...], tuple[tuple[int, ...], ...]]
 
@@ -193,9 +203,14 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
     stays at its slot's band foot — splitting the area between two slots is
     CARD-226's. The survivor of the retired assertion is
     :meth:`test_the_single_page_now_sits_lower_than_the_upper_slot` below,
-    which states the new relation between the two rows and would fail if
-    either one stopped moving as it does; the registry's own AC-252 is
-    falsified by this card and is reported as owed at the architect station.
+    which measures the gap between the two rows and would fail if either one
+    stopped moving as it does.
+
+    **AC-252 is retired** (2026-10-17/18), not owed: the amended registry adds
+    **AC-378** — the two rows differ, pinned at the PDF level by
+    ``tests/test_book_pdf_two_up.py::TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow``
+    as a positive test rather than an ``xfail`` — and **AC-379**, the two slots
+    sharing the page's own puzzle area, which is owed to CARD-226.
     """
 
     @pytest.mark.parametrize("spec", [BOOK1_ODD, BOOK1_EVEN], ids=["odd", "even"])
@@ -214,9 +229,15 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
         """CARD-224: the same two rows AC-252 asserted equal, now measured apart.
 
         The 20x20 alone floats in the page's puzzle area; the upper slot of a
-        two-up page does not. The gap is this page's own 0.42 x spare, so it
-        is not a tolerance: it is 112 px on Book 1's amended profile and would
-        be zero if either row went back to the other's rule."""
+        two-up page does not. The gap is this page's own 0.42 x spare, so it is
+        not a tolerance — and it is **asserted as a figure**, 113 px on this
+        module's own profile, twice over (CARD-224 review cycle 1, F-007): once
+        as the pinned number, and once derived from the two rules' own rows
+        through :func:`~nonogram.export.layout.interior_frame`, which is not
+        the function that placed the drawing. A bare inequality would stay
+        green on a float of 1% of the spare, which is what this test was until
+        that review.
+        """
         ten = _puzzle(10, 10, row_depth=4, column_depth=4)
         twenty = compute_layout(*_puzzle(20, 20, row_depth=8, column_depth=8), spec)
 
@@ -226,6 +247,26 @@ class TestPairLayout_UpperSlotSitsAtItsOwnBandFoot:
         assert twenty.page.vertical_bound == "ratio"
         assert twenty.page.drawing_top > pair.upper.page.drawing_top
         assert twenty.page.drawing_top > twenty.page.band_bottom
+
+        gap = twenty.page.drawing_top - pair.upper.page.drawing_top
+
+        assert gap == 113, (
+            "the single page's own float, in device pixels, on this module's "
+            "profile — not a tolerance",
+            gap,
+        )
+        # The same number from the rules' own rows: 0.42 of the puzzle area's
+        # spare height, measured down from the header rule, less the band's
+        # foot the slot still sits on. One pixel of slack, for the one
+        # rounding `_boundaries` makes.
+        frame = interior_frame(spec)
+        area_top, area_bottom = frame.header_rule.y, frame.footer_rule.y
+        spare = (area_bottom - area_top) - (
+            twenty.page.drawing_bottom - twenty.page.drawing_top
+        )
+        derived = area_top + SPARE_ABOVE * spare - pair.upper.page.drawing_top
+
+        assert abs(gap - derived) <= 1, (gap, derived, spare)
 
     @pytest.mark.parametrize("spec", [BOOK1_ODD, BOOK1_EVEN], ids=["odd", "even"])
     def test_at_the_same_cell_the_upper_slot_is_the_single_page_moved_down(
