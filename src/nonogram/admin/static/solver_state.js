@@ -132,6 +132,77 @@ export function withCell(board, row, col, state) {
 }
 
 // ---------------------------------------------------------------------------
+// A board and the ANSWER it holds (CARD-246 — the manual editor)
+//
+// The editor (templates/puzzle_edit.html, static/puzzle_edit.js) paints the
+// same board the player marks on, but the two mean different things by a
+// cell. In the player a mark is the solver's guess and "?" is a note to
+// self; in the editor a cell is either filled or empty IN THE ANSWER,
+// because Puzzle.grid is list[list[bool]] (ADR-0012's boundary type). These
+// two functions are that boundary, and they are here rather than in
+// solver.js because they are arithmetic over a board and nothing else
+// (ADR-0038/R4).
+// ---------------------------------------------------------------------------
+
+// The board a stored grid starts the editor on: FILLED where the grid is
+// true, EMPTY where it is false — never UNKNOWN, so the board the owner
+// opens is already a complete answer and every cell they leave alone stays
+// the cell that was stored. `grid` is a height x width array of booleans
+// (solver.js readPayload has already checked that much of the payload).
+export function boardOfGrid(grid) {
+  const height = grid.length;
+  const width = height > 0 ? grid[0].length : 0;
+  if (!isSide(width) || !isSide(height)) {
+    throw new RangeError(`a board needs positive integer sides, not ${width}x${height}`);
+  }
+  const cells = new Array(width * height);
+  for (let row = 0; row < height; row += 1) {
+    for (let col = 0; col < width; col += 1) {
+      cells[row * width + col] = grid[row][col] ? FILLED : EMPTY;
+    }
+  }
+  return Object.freeze({ width, height, cells: Object.freeze(cells) });
+}
+
+// What `board` says the answer is:
+//   { grid:      [[bool] * width] * height, or NULL,
+//     undecided: frozen [[row, col], ...] of every cell that is neither
+//                FILLED nor EMPTY, in row-major order }
+//
+// `grid` is null whenever `undecided` is non-empty, and that is the whole
+// point (CARD-246 AC-6). An answer has no third state, so a board carrying
+// UNKNOWN or MAYBE does not describe one — and the cheap thing to do with
+// such a cell is to call it `false`, which stores a white cell the owner
+// never chose and is the defect AC-6 exists to prevent. Returning no grid at
+// all means there is nothing for a caller to coerce: puzzle_edit.js names
+// the cells instead of sending anything, and a caller that ignored
+// `undecided` would post `null` and be refused by the store's own gate
+// rather than quietly storing a different picture.
+//
+// Hiding the Maybe and Undecided brushes (which puzzle_edit.html does) is
+// NOT this guarantee and cannot be: `clickedState`'s third step is "blank"
+// for both remaining brushes, and a confirmed Reset blanks every cell, so an
+// undecided cell stays reachable in edit mode with two brushes on offer.
+export function answerOfBoard(board) {
+  const { width, height, cells } = board;
+  const grid = [];
+  const undecided = [];
+  for (let row = 0; row < height; row += 1) {
+    const line = [];
+    for (let col = 0; col < width; col += 1) {
+      const state = cells[row * width + col];
+      if (state !== FILLED && state !== EMPTY) undecided.push(Object.freeze([row, col]));
+      line.push(state === FILLED);
+    }
+    grid.push(Object.freeze(line));
+  }
+  return Object.freeze({
+    grid: undecided.length === 0 ? Object.freeze(grid) : null,
+    undecided: Object.freeze(undecided),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Strokes and history (CARD-161, FR-044 AC-303..AC-311, EC-035)
 //
 // A stroke is what one click or one drag does, as a frozen value

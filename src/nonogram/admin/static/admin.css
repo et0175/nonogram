@@ -908,3 +908,18 @@ tr:hover .btn-rename, .btn-rename:focus-visible { opacity: 1; }
     calc(var(--player-cell) - (var(--player-rule-major) - var(--player-rule)) / 2 - var(--player-ring-gap)));
   left: calc(-1 * var(--player-ring) / 2);
 }
+
+/* The manual editor's save bar (CARD-246; templates/puzzle_edit.html).
+   Save, the role="status" message and the Approve/Cancel pair, under the
+   board. The message takes the free space so a long refusal wraps inside
+   the bar instead of pushing the buttons off the row, and both the bar and
+   the pair need their own [hidden] rule: `display: flex` beats the hidden
+   attribute's own UA `display: none`, and both of them start hidden — the
+   bar until puzzle_edit.js has wired it, the pair until a grid has been
+   verified. */
+.editor-note { max-width: 70ch; margin: 0 0 var(--space-4); color: var(--color-text-secondary); }
+.editor-save { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); margin-top: var(--space-4); }
+.editor-save[hidden] { display: none; }
+.editor-message { flex: 1 1 24rem; margin: 0; }
+.editor-decide { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.editor-decide[hidden] { display: none; }

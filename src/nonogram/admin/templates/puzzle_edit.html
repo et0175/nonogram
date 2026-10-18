@@ -1,0 +1,133 @@
+{#
+  The manual puzzle editor (CARD-246) — the page the owner paints a stored
+  puzzle's grid on, reached from the puzzle list and from a puzzle's own card.
+
+  It is the PLAYER'S BOARD, a second time. There is one grid renderer in this
+  panel (static/solver.js) and this page loads it, exactly as
+  puzzle_solve.html does, with the same payload plus "mode": "edit" — the one
+  flag solver.js reads (its EDIT MODE section is the contract). A second
+  renderer is what CARD-246 G-2 forbids, for the reason ADR-0036/R3 gives for
+  round marks: two implementations of one picture drift.
+
+  So the markup below is puzzle_solve.html's, minus the parts that are
+  statements about a SOLUTION — the error and progress counters, the hint
+  counter, the Hint button and the solved banner. In edit mode the grid being
+  painted IS the solution, so an error count would count departures from the
+  grid the owner is changing and the solved lock would fire before the first
+  stroke. solver.js leaves all of them off behind the same flag and asks for
+  none of their elements.
+
+  What stays, and is the player's own code unchanged: the brush trigger and
+  its menu, the Region toggle (aria-pressed, CARD-211), the visually hidden
+  role="status" announce line every toggle and every hint writes to, undo,
+  redo, reset with its role="alertdialog" confirmation, and zoom. The
+  toolbar starts hidden and solver.js shows it once the board is drawn, so a
+  page whose script never ran shows no dead buttons.
+
+  TWO BRUSHES, not four. Black and White are the only marks an answer can
+  hold — Puzzle.grid is list[list[bool]] (ADR-0012) — so Maybe and Undecided
+  are not offered here. That is a NARROWING OF THE TOOLS AND NOT A GUARANTEE,
+  and the difference matters: a repeat click's third step is "blank" for both
+  remaining brushes (solver_state.js clickedState) and a confirmed Reset
+  blanks every cell, so an undecided cell is still reachable. CARD-246 AC-6's
+  rule is therefore the refusal in static/puzzle_edit.js — Save names the
+  undecided cells and sends nothing — and the usage hint below says so.
+
+  THE SAVE BAR is this page's own (#puzzle-editor, static/puzzle_edit.js):
+  Save, then the owner's two-phase confirmation. #puzzle-editor-message is a
+  role="status" line that is ALWAYS present and never hidden (a live region
+  that only appears is not reliably read), and the Approve/Cancel pair
+  (#puzzle-editor-decide) is what appears and disappears. Which of the two
+  states this bar is in is written in ONE place (puzzle_edit.js tell(): the
+  message and the offer are written together or not at all), so a grid that
+  may not be stored is never shown an Approve button and a stroke made while
+  a grade is on screen takes the offer away — see THE INVARIANT in that
+  file. The bar starts hidden for the same reason the toolbar does.
+#}
+{% extends "base.html" %}
+
+{% block title %}Edit puzzle {{ extent[0] }}×{{ extent[1] }} - Nonogram admin{% endblock %}
+{% block section %}Puzzles{% endblock %}
+
+{% block content %}
+{#- NO TIER BADGE here, unlike the player's header (review cycle 1, F-008).
+    A badge is a fact about a stored grid; on this page the stored grid is
+    the thing being rewritten, so it went stale on the first stroke and was
+    still showing the pre-edit tier after Approve had stored another. The
+    difficulty is shown where it is true instead: in the save bar's message,
+    from the solve that graded the grid and then from the row that was
+    stored. -#}
+<div class="page-head player-head">
+    <h1>Edit puzzle {{ extent[0] }}×{{ extent[1] }}</h1>
+</div>
+
+<p class="editor-note">
+    Paint the answer: every cell is black or white. Press Save to have the
+    panel check the grid and recompute its difficulty — nothing is stored
+    until you press Approve. <strong>The clue numbers beside the board are
+    still the stored puzzle's</strong> and do not follow what you paint; Save
+    recomputes them from the grid it stores.
+</p>
+
+<div class="player-toolbar" id="puzzle-player-controls" hidden>
+    <div class="player-slot">
+    <div class="player-tools" role="group" aria-label="Marking tool">
+        <button type="button" class="btn btn-outline-secondary player-tool-trigger" id="puzzle-player-tool-trigger" aria-haspopup="menu" aria-expanded="false" aria-controls="puzzle-player-tool-menu" aria-label="Brush: Black">
+            <span class="player-swatch" data-state="filled" aria-hidden="true"></span>
+            <span class="player-tool-trigger-text" aria-hidden="true" data-player-trigger-text>Black</span>
+        </button>
+        <div class="player-tool-menu" id="puzzle-player-tool-menu" role="menu" aria-label="Brush" hidden>
+            <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="filled" aria-checked="true"><span class="player-swatch" data-state="filled" aria-hidden="true"></span>Black</button>
+            <button type="button" class="player-tool-item" role="menuitemradio" data-player-tool="empty" aria-checked="false"><span class="player-swatch" data-state="empty" aria-hidden="true"></span>White</button>
+        </div>
+        <button type="button" class="btn btn-outline-secondary player-region" id="puzzle-player-region" data-player-region aria-pressed="false">Region</button>
+    </div>
+    </div>
+    <p class="player-announce" id="puzzle-player-announce" role="status" aria-atomic="true"></p>
+    <div class="player-history" role="group" aria-label="History">
+        <button type="button" class="btn btn-outline-secondary" data-player-action="undo" aria-keyshortcuts="Control+Z Meta+Z" aria-disabled="true">Undo</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-action="redo" aria-keyshortcuts="Shift+Control+Z Shift+Meta+Z" aria-disabled="true">Redo</button>
+        <button type="button" class="btn btn-outline-secondary" data-player-action="reset" aria-disabled="true" aria-haspopup="dialog" aria-expanded="false" aria-controls="puzzle-player-confirm">Clear</button>
+        <div class="player-confirm" id="puzzle-player-confirm" role="alertdialog" aria-labelledby="puzzle-player-confirm-title" aria-describedby="puzzle-player-confirm-text" hidden>
+            <p class="player-confirm-title" id="puzzle-player-confirm-title">Clear the board?</p>
+            <p class="player-confirm-text" id="puzzle-player-confirm-text">Every cell goes back to undecided, and an undecided cell cannot be saved. Undo brings them back.</p>
+            <div class="player-confirm-actions">
+                <button type="button" class="btn btn-danger" data-player-confirm="accept">Clear board</button>
+                <button type="button" class="btn btn-outline-secondary" data-player-confirm="cancel">Keep marks</button>
+            </div>
+        </div>
+    </div>
+    <div class="player-zoom" role="group" aria-label="Zoom">
+        <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="out" aria-label="Zoom out" aria-disabled="true">&minus;</button>
+        <span class="player-zoom-readout" data-player-zoom-readout>100%</span>
+        <button type="button" class="btn btn-outline-secondary" data-player-zoom-action="in" aria-label="Zoom in" aria-disabled="false">+</button>
+    </div>
+</div>
+
+<div class="player-stage" id="puzzle-player">
+    <p class="player-fallback" data-player-fallback>
+        Drawing the board&hellip; If this message stays, the editor's board
+        script (static/solver.js) did not load.
+    </p>
+</div>
+
+<div class="editor-save" id="puzzle-editor" data-editor-puzzle="{{ puzzle_id }}" hidden>
+    <button type="button" class="btn btn-primary" id="puzzle-editor-save">Save</button>
+    <p class="editor-message" id="puzzle-editor-message" role="status" aria-atomic="true"></p>
+    <div class="editor-decide" id="puzzle-editor-decide" hidden>
+        <button type="button" class="btn btn-success" id="puzzle-editor-approve">Approve</button>
+        <button type="button" class="btn btn-outline-secondary" id="puzzle-editor-cancel">Cancel</button>
+    </div>
+</div>
+
+<p class="player-hint" id="puzzle-player-hint" hidden>Click a cell to give it the selected brush's mark; click it again to go on (Black: black, white, blank; White: white, blank, black). A blank cell is undecided, and Save will name it rather than guess: give every cell black or white. Open the brush menu to choose Black or White. Press Region, beside the brush, to make the next drag along a row or column mark with the brush; with Region off, a mouse drag still marks but a touch or pen drag scrolls the page instead. The clues beside the board are the stored puzzle's — as the note above the board says, Save recomputes them from what you painted.</p>
+
+<script type="application/json" id="puzzle-player-data">{{ payload|tojson }}</script>
+{% endblock %}
+
+{% block extra_js %}
+<script type="module" src="{{ url_for('static', filename='solver.js') }}"></script>
+{#- puzzle_edit.js runs after solver.js: module scripts execute in order, and
+    window.puzzlePlayer exists by the time the editor's own script starts. -#}
+<script type="module" src="{{ url_for('static', filename='puzzle_edit.js') }}"></script>
+{% endblock %}

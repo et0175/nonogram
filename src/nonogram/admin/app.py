@@ -1173,6 +1173,17 @@ def requested_tier_label(value: object) -> str | None:
     return tier.label if tier is not None else None
 
 
+#: Why a manual edit was refused, as a field of the refusal rather than as
+#: prose (CARD-245's two routes; CARD-246 review cycle 1, F-005). The editor
+#: has to act differently on the two 409s — "press Save again" is sound advice
+#: for a verification that has gone stale and an instruction that can never
+#: succeed for a puzzle a book now holds — and a client that told them apart
+#: by matching the message would break the moment the wording improved. The
+#: words stay beside the reason and are still the owner's sentence; the reason
+#: is only how the client picks which sentence to add to them.
+EDIT_REFUSAL_REASONS = ("not_unique", "not_verified", "in_a_book", "not_found")
+
+
 def create_app(debug=None):
     """Create and configure the Flask admin panel app."""
     app = Flask(__name__, template_folder="templates")
@@ -2444,6 +2455,80 @@ def create_app(debug=None):
     # not something a form field can carry honestly.
     # ------------------------------------------------------------------
 
+    @app.template_global()
+    def puzzle_is_editable(puzzle):
+        """Whether this row's grid may be hand-edited (CARD-246).
+
+        **One spelling of the rule, for the three surfaces that ask it**
+        (review cycle 1, F-010): the list row's Edit control, the puzzle
+        card's — built in JavaScript from ``/api/puzzle/<id>/details``, which
+        is why the answer travels as a field of that response rather than
+        being worked out again there — and the route the control leads to,
+        which refuses a booked puzzle whatever any page happened to show. The
+        rule itself stays the store's own ``_holds_a_book``: a ``book_id``
+        that is not ``None``, or the legacy ``in_book`` status.
+
+        The list row used to spell it as truthiness (``not puzzle.book_id``)
+        and the modal's script a third time, so a row carrying a
+        falsy-but-present book_id — ``""`` out of a migration — was offered
+        an Edit control that the route then refused with a 409.
+        """
+        return not PuzzleReviewService._holds_a_book(
+            puzzle.get("book_id"), puzzle.get("status")
+        )
+
+    def _board_page_payload(puzzle_id, mode=None):
+        """``(puzzle, grid, payload)`` for the panel's one board renderer.
+
+        Both pages that load ``static/solver.js`` — the player
+        (:func:`puzzle_solve`) and the editor (:func:`puzzle_edit_page`) —
+        read one puzzle, re-encode its clues through the one encoder
+        (``compute_clues``, ADR-0038/R3, so a stale row cannot show clues
+        that disagree with its own grid) and hand the renderer the payload
+        documented in solver.js's header. That block was written out twice
+        (review cycle 1, F-015), which is two copies of the renderer's
+        contract one level up from the renderer ADR-0036/R3 keeps single.
+
+        ``mode`` is the whole difference between the two callers: absent for
+        the player, whose payload stays exactly the six keys CARD-160
+        documented (CARD-246 G-1), and ``"edit"`` for the editor.
+
+        Aborts 404 for a puzzle that is not there and 500 for a row whose
+        grid cannot be read, which is what both routes did one at a time.
+        """
+        try:
+            puzzle = puzzle_review.get_puzzle(puzzle_id)
+        except ValueError:
+            # DB mode parses the id as a UUID; one that does not parse names
+            # no puzzle, which is a 404 like any other unknown id.
+            puzzle = None
+        if puzzle is None:
+            abort(404)
+
+        grid = PuzzleReviewService._as_readable_grid(puzzle.get("grid"))
+        if grid is None:
+            abort(500, description=f"Puzzle {puzzle_id} has no readable grid")
+
+        row_clues, column_clues = clues.compute_clues(grid)
+        payload = {"id": str(puzzle["id"])}
+        if mode is not None:
+            # The one key CARD-246 adds to CARD-160's payload.
+            payload["mode"] = mode
+        payload.update(
+            {
+                "width": len(grid[0]),
+                "height": len(grid),
+                "rows": row_clues,
+                "columns": column_clues,
+                # For the player this is the answer the board is measured
+                # against; in edit mode it is the stored grid the editor
+                # OPENS on (solver.js EDIT MODE). Validated as a grid either
+                # way, which is why it ships under the same key.
+                "solution": grid,
+            }
+        )
+        return puzzle, grid, payload
+
     def _submitted_grid():
         """The ``grid`` of a JSON body, or ``None`` if there is not one.
 
@@ -2466,10 +2551,16 @@ def create_app(debug=None):
         """
         if puzzle_review.in_a_book(puzzle_id):
             return (
-                jsonify({"ok": False, "message": "Cannot edit a puzzle that is in a book"}),
+                jsonify(
+                    {
+                        "ok": False,
+                        "reason": "in_a_book",
+                        "message": "Cannot edit a puzzle that is in a book",
+                    }
+                ),
                 409,
             )
-        return jsonify({"ok": False, "message": "Puzzle not found"}), 404
+        return jsonify({"ok": False, "reason": "not_found", "message": "Puzzle not found"}), 404
 
     @app.route("/puzzle/<puzzle_id>/edit/verify", methods=["POST"])
     def verify_puzzle_edit(puzzle_id):
@@ -2480,7 +2571,7 @@ def create_app(debug=None):
             # 422: the payload is a well-formed request about a grid that may
             # not be stored — which is a statement about the grid, not about
             # the route.
-            return jsonify({"ok": False, "message": str(refusal)}), 422
+            return jsonify({"ok": False, "reason": "not_unique", "message": str(refusal)}), 422
         if grade is None:
             return _edit_refusal(puzzle_id)
         return jsonify({"ok": True, "grade": grade}), 200
@@ -2491,18 +2582,75 @@ def create_app(debug=None):
         try:
             stored = puzzle_review.save_edited_grid(puzzle_id, _submitted_grid())
         except NotUniquelySolvable as refusal:
-            return jsonify({"ok": False, "message": str(refusal)}), 422
+            return jsonify({"ok": False, "reason": "not_unique", "message": str(refusal)}), 422
         except EditNotVerified as refusal:
             # 409, like the other conflicts the panel reports: the request is
             # fine and the grid may well be storable — it is just not the grid
             # whose difficulty was shown, so approving it would store a grade
-            # nobody saw.
-            return jsonify({"ok": False, "message": str(refusal)}), 409
+            # nobody saw. The reason tells this 409 from the booked one, which
+            # is the same code and the opposite advice (F-005).
+            return jsonify({"ok": False, "reason": "not_verified", "message": str(refusal)}), 409
         if stored is None:
             return _edit_refusal(puzzle_id)
         return jsonify(
             {"ok": True, "message": "Puzzle grid updated", "puzzle": stored}
         ), 200
+
+    @app.route("/puzzle/<puzzle_id>/editor", methods=["GET"])
+    def puzzle_edit_page(puzzle_id):
+        """The page the owner paints a stored puzzle's grid on (CARD-246).
+
+        Its own path, and not a GET of ``/puzzle/<id>/edit`` beside the two
+        POST routes above, on purpose: CARD-245 pinned a GET of the save path
+        as a 405 (``TestPuzzleEditRoutes_Refusals.test_a_get_is_not_allowed``),
+        which is the canary that says a write can never be reached by a GET —
+        by a prefetch, a crawler or a pasted link. Serving a page there would
+        have cost that canary its spelling for nothing: the editor is a
+        different resource from the write it posts, and says so in its URL.
+
+        It only *reads* one puzzle, exactly as :func:`puzzle_solve` does, and
+        hands it to ``static/solver.js`` — the panel's one grid renderer —
+        with ``mode: "edit"`` added to the payload. Everything else on the
+        page is that same player board; the editor's own script
+        (``static/puzzle_edit.js``) draws no cell and only turns the board
+        into an answer for the two routes above. Nothing is written here.
+
+        A puzzle a book holds is refused with the same 409 and the same words
+        the POST routes use (CARD-246 AC-7): the list and the card leave the
+        Edit control out for such a puzzle, and a disabled control is not a
+        guard — the route has to refuse the URL typed by hand too.
+
+        The clues come from the stored grid through the one encoder
+        (``compute_clues``, ADR-0038/R3), so the gutters are the stored
+        puzzle's own clues; they go stale as the owner paints, which the
+        page's own note above the board says, and the clues that get STORED
+        are the ones the save re-encodes from the submitted grid (CARD-245).
+
+        **This page shows no difficulty of its own** (review cycle 1,
+        F-008). The player's header badge is a fact about a stored grid, and
+        here the stored grid is what is being rewritten: the badge went stale
+        on the first stroke and staler still on Approve, which then pointed
+        the owner at it ("the difficulty shown above"). The difficulty is
+        shown where it is true instead — in the save bar's own message, from
+        the solve that graded the grid and then from the row that was stored.
+        The payload's ``mode`` is the same reason the counters, the banner,
+        the solved lock and the clue circles are off (solver.js EDIT MODE).
+        """
+        # Before the row is read for its grid, and in this order on purpose:
+        # `in_a_book` answers False for a puzzle that does not exist, so a
+        # missing id still lands on the 404 below, while a booked puzzle is
+        # refused for the reason that actually stopped the owner even if its
+        # grid is also unreadable.
+        if puzzle_review.in_a_book(puzzle_id):
+            abort(409, description="Cannot edit a puzzle that is in a book")
+
+        puzzle, _grid, payload = _board_page_payload(puzzle_id, mode="edit")
+        return render_template(
+            "puzzle_edit.html",
+            puzzle_id=str(puzzle["id"]),
+            extent=(payload["width"], payload["height"]),
+            payload=payload,
+        )
 
     # ------------------------------------------------------------------
     # CARD-130 (FR-038): the book workflow is re-enterable. A book that
@@ -5577,6 +5725,10 @@ def create_app(debug=None):
 
         return jsonify({
             "puzzle": puzzle,
+            # CARD-246 (F-010): the card's Edit control asks the same question
+            # the list row and the route ask, and gets the same answer rather
+            # than working it out again from the row's fields.
+            "editable": puzzle_is_editable(puzzle),
             "strategies": _strategy_view(puzzle_review.strategies_for(puzzle)),
             "books": [{"id": b.book_id, "title": b.metadata.title} for b in books],
         })
@@ -5663,32 +5815,13 @@ def create_app(debug=None):
         the grid's width x height and tier instead (FR-044 AC-322, AC-323);
         ``title`` reaches only the solved banner, which reveals it (AC-316).
         """
-        try:
-            puzzle = puzzle_review.get_puzzle(puzzle_id)
-        except ValueError:
-            # DB mode parses the id as a UUID; one that does not parse names
-            # no puzzle, which is a 404 like any other unknown id.
-            puzzle = None
-        if puzzle is None:
-            abort(404)
-
-        grid = PuzzleReviewService._as_readable_grid(puzzle.get("grid"))
-        if grid is None:
-            abort(500, description=f"Puzzle {puzzle_id} has no readable grid")
-
-        row_clues, column_clues = clues.compute_clues(grid)
+        # The read, the clue re-encoding and the payload are the editor
+        # page's too, and are written once (``_board_page_payload``; review
+        # cycle 1, F-015). No ``mode`` is passed, so this payload stays
+        # exactly the six keys solver.js's header documents (CARD-246 G-1).
+        puzzle, _grid, payload = _board_page_payload(puzzle_id)
         tier = tier_of_record(puzzle.get("difficulty_tier"))
         title = puzzle.get("puzzle_name") or puzzle.get("source_image") or str(puzzle["id"])[:8]
-        # The page's whole contract with solver.js; its shape is documented
-        # once, in solver.js's header.
-        payload = {
-            "id": str(puzzle["id"]),
-            "width": len(grid[0]),
-            "height": len(grid),
-            "rows": row_clues,
-            "columns": column_clues,
-            "solution": grid,
-        }
         return render_template(
             "puzzle_solve.html",
             title=title,
