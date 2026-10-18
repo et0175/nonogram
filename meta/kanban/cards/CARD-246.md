@@ -672,3 +672,251 @@ out-of-glob browser file declare anything).
 `Status: ready` with uncommitted notes because it reads the worktree's copy of `meta/`, branched
 before the dispatch stamp. Main's copy is correct. Second time this wave; the brief now says so
 explicitly so a reviewer does not spend a finding on it.
+
+### Implementation notes (CARD-246, 2026-10-18)
+
+- **AC-6's rule: "the save is refused and names the undecided cells".** The
+  brushes are *also* narrowed to Black and White in the editor's menu, but
+  hiding them could not be the guarantee and the code says why:
+  `solver_state.js clickedState` makes a repeat click's third step **blank**
+  for Black and for White alike, and a confirmed Clear blanks every cell, so
+  an undecided cell stays reachable with two brushes on offer. The refusal
+  therefore lives in `static/puzzle_edit.js` (it names the cells, 1-based, up
+  to six of them, and sends **no request**), resting on
+  `solver_state.js answerOfBoard`, which returns `grid: null` whenever any
+  cell is neither filled nor empty — there is no coerced grid for a caller to
+  send. Both are asserted, and the mutant that puts all four brushes back
+  kills only the narrowing test while the six refusal tests still pass, which
+  is the evidence that the rule is the refusal.
+- **The mode flag (G-2).** One grid renderer. `GET /puzzle/<id>/editor`
+  serves the player's payload with `"mode": "edit"` added; `solver.js` reads
+  that one flag (its `EDIT MODE` section is the contract) and it changes three
+  things: the board starts on the stored grid (`boardOfGrid`), the browser
+  save is off (the player's save is keyed by the puzzle id, so sharing it
+  would overwrite the solve-in-progress of the puzzle being edited), and
+  `showProgress` returns at once — no counters, no banner, no solved lock
+  (the board opens *equal* to the solution, so the lock would fire before the
+  first stroke) and no clue circles. The editor's page leaves out the elements
+  that go with them; `actions.hint` became optional (`?.`) and nothing else in
+  the player's code moved.
+- **The page is at `/puzzle/<id>/editor`, not a GET of `/puzzle/<id>/edit`.**
+  CARD-245 pinned a GET of the save path as a 405
+  (`TestPuzzleEditRoutes_Refusals.test_a_get_is_not_allowed`), which is the
+  canary that says a write can never be reached by a GET. Serving a page there
+  would have retired that canary's spelling for nothing, so the editor took
+  its own path and CARD-245's suite is untouched (G-6: no test retired).
+- **An `EditNotVerified` (409) is reported as a step, not an error:** the
+  message says nothing was stored, relays the store's own words and asks the
+  owner to press Save again, which costs one re-verify and no work. An
+  eviction of the memo is the same outcome and is tested by clearing the
+  store's `_verifications`.
+- **What AC-2 already had**, per the CARD-230 warning: the board, the four
+  brushes, drag painting, undo/redo/reset, Region's `aria-pressed`, the
+  `role="status"` announce line and zoom are all CARD-160..CARD-212's and were
+  reused unchanged. What is new on the page is the two-brush menu, the save
+  bar and the absence of the solution-relative controls.
+- Out of scope, deliberately: no "hand-edited" filter on the list (CARD-245
+  declared it too), no live re-derivation of the clue gutters as the owner
+  paints (they are the stored puzzle's clues and the page says so; the clues
+  that get *stored* are the ones the save re-encodes), and no change to
+  `quality_score`/`recognizability`, which CARD-245 settled.
+
+### Review cycle 1 — fix notes (2026-10-18)
+
+- **The invariant, rather than five symptoms.** The page may never offer
+  Approve for a grid other than the one whose grade is on screen, and may
+  never state a store state it has not been told. `static/puzzle_edit.js` now
+  names the four mechanisms that carry it (THE INVARIANT) and each has a test
+  that fails when that mechanism alone is taken out:
+  1. **`tell(text, offer)` is the one writer** of the message line and of the
+     Approve offer. The offer is an argument of the sentence that describes
+     it, so "a refusal standing beside a live Approve" (F-001) is no longer a
+     state this file can be in — there is no path that writes one without the
+     other. It used to take two paired calls and the refusal branch made only
+     one of them.
+  2. **`turn`.** Every request is asked in a turn; the turn advances on each
+     request and on every recorded board change, and an answer from a spent
+     turn is dropped instead of told.
+  3. **One request at a time** (and `aria-disabled` to say so), which closes
+     F-001's root cause and makes F-011's double-click safety this page's own
+     rather than a property of CARD-245 not consuming a verification.
+  4. **The board announces its own changes.** `solver.js` dispatches
+     `BOARD_CHANGE` in edit mode from `commit()` — the single place a change
+     is RECORDED, so the editor needs no list of controls to watch — and the
+     editor withdraws the offer and says so. Approve still sends the grid
+     captured at Save and never re-reads the board (F-002, F-004).
+- **The store's answer is the one thing never dropped**: it is the only report
+  of what the store did. `fetch` is wrapped; no answer at all is `code: 0`,
+  which on a save says that whether the grid was stored is not known here and
+  to reload — never "Saved", never silence (F-003). `refusalText`'s
+  "could not be reached" branch is reachable now and asserted.
+- **The two 409s are told apart on the wire** (F-005): CARD-245's refusals
+  carry `reason` (`not_unique` / `not_verified` / `in_a_book` / `not_found`,
+  declared as `EDIT_REFUSAL_REASONS`) beside their words, so the booked case
+  no longer gets "press Save again" — an instruction that can never succeed.
+  Branching on the server's prose was the alternative and is not a wire
+  contract.
+- **The editor page claims no difficulty of its own** (F-008): the header tier
+  badge was a fact about a stored grid on the one page where the stored grid
+  is being rewritten. The grade is said where it is true — in the save bar,
+  from the solve, then from the row that was stored.
+- One spelling of "editable" (F-010, `puzzle_is_editable` over the store's
+  `_holds_a_book`, read by the row, the card's payload and the route); one
+  payload builder for the two board pages (F-015); the stale-gutter disclosure
+  moved above the board (F-012); the G-2 guard derived from the page's script
+  set and from "builds grid nodes" rather than from one class name (F-007);
+  the vacuous localStorage control now seeds a real entry (F-006); this file's
+  page isolation declared and checked locally, because CARD-235's glob cannot
+  see it (F-014); the EDIT MODE contract counts its own branches (F-009).
+
+### Review cycle 2 — fix notes (2026-10-18)
+
+Cycle 2 scored 8.5 (PASS). One important, and it was a violation of the
+invariant cycle 1's own fix declared, reachable in the configuration
+production runs — so it is closed here with the rest of the cycle's nits.
+
+- **"Nothing was stored" is now an allow-list, not a default** (G-001). Cycle
+  1 threaded `{storing}` into `refusalText` and then read it in one branch, so
+  every other branch — the catch-all included — went on asserting "Nothing was
+  stored" on a save. The reviewer demonstrated it: the Approve reached the
+  panel, the store wrote the edited grid, the answer was replaced with a 200
+  carrying `text/html`, and the page said "Nothing was stored. The panel
+  answered with 200, which this page does not know how to act on." A 502 said
+  the same. For a panel behind a proxy that is not hypothetical — a gateway
+  that times out *after* the app committed answers 502, and the owner's next
+  act on that sentence is a second Save: a second solve and a second
+  `manually_edited_at` stamp for a grid that was already in.
+  The fix inverts the default instead of patching each branch.
+  `REFUSALS_THAT_NEVER_WRITE` names the four refusals CARD-245 answers
+  *before* it touches the store, `CODES_THAT_NEVER_WRITE` the bare
+  404/409/422 they arrive as, and `storeStateIsKnown(code, reason)` answers
+  "no" for everything else — a 5xx, a 2xx whose body will not parse, no answer
+  at all, or a reason this page has never been taught. On a save an unknown
+  answer says *whether it was stored is not known here* and asks for a reload,
+  with the server's own words still beside it; on a verify, where no route
+  ever writes, the definite sentence stays. Patching each branch with
+  `storing` would have left the fifth refusal reason lying; this way it fails
+  safe.
+- **The two sides of the vocabulary cannot drift** (G-007). `EDIT_REFUSAL_REASONS`
+  was read by no production code and by one test that iterated the four
+  reasons it already knew. It is load-bearing now: a test slices app.py's
+  manual-edit POST surface, asserts the reasons those routes emit are exactly
+  the tuple, and asserts the client's allow-list is that same set — so a fifth
+  refusal cannot join the routes without being looked at on both sides.
+- **The double-Approve redundancy's unasserted half** (G-002). The disclosure
+  named one survivor (`onApprove`'s `inFlight` term) and not the other: the
+  reviewer removed `tell`'s offer-clearing side effect instead and also passed
+  65/65. Both halves are kept — they are defence in depth, both taken on every
+  Approve, and the guard is what keeps the guarantee local to this file rather
+  than borrowed from CARD-245 — and the offer half is now asserted over the
+  bar's recorded states: no state that says "Storing this grid" has an Approve
+  beside it. The guard is the one unpinned half, which is the honest state for
+  a redundancy kept for readers.
+- **`getBoard()` sees the drag preview** (G-003), documented where
+  `BOARD_CHANGE` is dispatched and where `getBoard` is defined and read. The
+  window is bounded by the gesture and harmless as written — Approve sends the
+  captured grid, and the gesture's commit or revert both announce and spend
+  the turn — but it is the one gap in "the board announces its own changes",
+  and it is also what makes F-004's capture-phase test pin a reachable
+  property rather than an unreachable path.
+- **Cancel spends the turn** (G-008). It was the one writer-caller outside the
+  turn discipline. Not owner-reachable (the pair is `hidden`, which is
+  `display: none`) but safety that rests on another element's visibility is
+  not safety: forced mid-verify, the cancel was undone by the grade that
+  landed after it. A save's answer is still never dropped, so the store keeps
+  the last word over a Cancel that cannot stop it.
+- **The G-2 guard checks what it claims** (G-004). The predicate was
+  table-shaped, so a `<div class="shadow-cell">` grid built from a string
+  inside `puzzle_edit.js` survived while the declared limit said only "a
+  renderer no page loads". It now matches `createElement` of any element,
+  `createElementNS`, `cloneNode`, the DOM table API, `insertAdjacentHTML` and
+  `innerHTML`/`outerHTML` assignment — and the residual it still cannot see (a
+  builder that creates no node and writes no markup) is written out beside it
+  instead of being left as a claim of completeness.
+- **F-012's relocation is pinned** (G-006): the editor page's stale-gutter
+  sentence, its emphasis, its own `.editor-note` paragraph and its position
+  above both the board and the save bar.
+- Not closed, and not in this cycle's brief: **G-005** (no shipped test
+  withdraws the offer through a *history* control — Undo, Redo, a confirmed
+  Clear — so "`commit()` is the single place a change is recorded" is argued
+  from the code and from the reviewer's probe rather than asserted). One test
+  in the shape of
+  `test_a_stroke_after_the_grade_takes_the_approval_away_and_says_so`.
+- **G-009 is the worktree's own snapshot of `meta/`**, branched before the
+  dispatch stamp; main's copy of the card is stamped. The card is left
+  unstaged, as dispatched.
+
+#### For the backlog (G-010)
+
+> CARD-235's `PAGE_ISOLATION` glob cannot see browser-test files outside
+> `tests/test_puzzle_solver_*.py`, so nothing makes the next out-of-glob
+> browser file declare its page isolation at all (CARD-246 declared its own
+> locally; widening `_family_files()` would re-key CARD-235's collection-drift
+> baseline and its allowlist, which is that card's machinery).
+
+### [Fix 2/3] G-001 closed as an allow-list, and the fix caught the review's remedy under-delivering
+
+Commit `dbe9119` — 3 files, +408/−26.
+
+**Verified by the orchestrator rather than on report:** `storeStateIsKnown(code, reason)` consults
+**the reason first** and falls back to the bare code only when there is none — and **no server,
+template or CSS file is in the commit**, so the player's six-key payload is untouched *by
+construction* rather than by assertion.
+
+**It chose the allow-list over per-branch threading, and the third reason is the one that
+matters:** the knowable set is small, closed and already declared on the server; per-branch
+threading would have left the catch-all — **the branch the defect actually lived in** — correct
+only by having been remembered, which is exactly how cycle 1's F-003 became G-001; and a fifth
+refusal reason now **fails safe** instead of inheriting whichever branch it falls through to.
+
+**It verified the allow-list's own premise instead of taking it from the report**, which is the
+right instinct for a list whose whole value is that every member really never writes:
+`save_edited_grid` refuses in four places, all **strictly before** the write.
+
+#### ⚑ The review's suggested fix was narrower than its own claim — the fifth this wave
+
+G-001's `suggested_fix` said to key the definite sentence on **codes**: keep it for the three
+CARD-245 emits without writing, hedge for "any code the page has no refusal for (≥ 500 and the
+catch-all)". **Keyed on codes alone, a 422 carrying a foreign reason is still `422`, so it would
+have claimed** — and a foreign reason is precisely the fifth-reason case the *same review* raised
+as G-007. The report's prose ("everything else on a save is unknowable") was right; its remedy
+under-delivered on it. The implementation keys on the reason first, and
+`test_a_refusal_reason_this_page_was_never_taught_claims_nothing` is what holds it — with mutant
+G001c (merely *teaching* the client one extra reason) proving that assertion is live.
+
+**That is five suggested fixes in one wave that could not do what their own finding asked.** It
+is now the wave's second-strongest pattern after "a guard claiming completeness it does not
+have", and both belong in the retrospective.
+
+**The inverse control is the detail that makes this closable.** G-001 could have been "fixed" by
+hedging everywhere — which would be the opposite failure, a page that never commits to anything.
+So the definite sentences now additionally assert **`"not known" not in said`**, and the booked
+refusal asserts "Nothing was stored" is *present*. A mutant that hedged everywhere reds those two.
+**A fix for "it claims too much" needs a control against claiming too little**, or the next cycle
+cannot tell the difference.
+
+**M4 and M11 both die** (the offer surviving the "Storing this grid" sentence; a div/`innerHTML`
+builder inside `puzzle_edit.js`). **M5 still survives alone** and that is the disclosed, endorsed
+state — both halves kept, one pinned, the guard left as the half a reader of `onApprove` meets
+first. Eight new-control mutants, **all eight died**.
+
+**G-002, G-003, G-004, G-006, G-007, G-008 closed.** Two are worth naming: **G-004's predicate was
+widened AND its residual declared** — it now matches `createElement`/`createElementNS`/`cloneNode`,
+`insertRow`/`insertCell`/`insertAdjacentHTML`, `innerHTML`/`outerHTML`, table markup and
+`player-cell`, and it writes down beside the regex what a text predicate over one file still
+cannot see. **No claim of completeness** — which is the lesson this wave taught three times, taken
+without being told again. And **G-007 made the refusal vocabulary load-bearing in both
+directions**: a test slices `app.py`'s manual-edit POST surface by its own markers and asserts the
+`reason` literals those routes emit are *exactly* the declared tuple, and that the client's
+allow-list is that same set. Two mutants (a renamed route reason; a reason removed from the
+client) die on it.
+
+**G-005 is left open and recorded rather than quietly absorbed:** no shipped test withdraws the
+offer through a *history* control (Undo / Redo / confirmed Clear), so "`commit()` is the single
+recording site" is still argued from the code and from the reviewer's own browser probe rather
+than pinned by a shipped test. One test, in the shape of the stroke test that already exists.
+
+**One correction to cycle 2, accepted:** G-003's reachability clause named Approve, and **Approve
+cannot reach it** — `const grid = verified` is the captured grid, which is what cycle 2's own M12
+pins. So the drag preview can only leak into a **Save**. The finding's substance stands; one half
+of its sentence was not a path.
