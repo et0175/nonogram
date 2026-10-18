@@ -409,3 +409,97 @@ stale docstrings), F-013 (the card's own notes still claim the xfail exists and 
 trim" while the sweep covers 10..30 on four sheets, and the reviewer's worst-margin geometry is
 outside that range. The **claim** is to be narrowed to what is swept, with the gap noted — not the
 corpus grown. Growing a corpus to meet a sentence is how a cheap card becomes an expensive one.
+
+### [Fix 1/3] both importants closed; the clearance term now tests the quantity its claim is about
+
+Commit `85b6e45` — 8 files, +681/−87.
+
+**Three claims verified by the orchestrator rather than taken on report:**
+
+1. **`book_baseline_card224.json` is NOT in the commit**, so no book fixture was re-recorded;
+   `proof_baseline_card224.json` is **+39/−0** — the new control block only, formatting preserved.
+   G-5 holds without a re-recording, which is the right outcome for a cycle that was supposed to
+   fix a *claim*.
+2. **The new condition** is `gap_above = GRID_SPARE_ABOVE * spare; gap_below = spare - gap_above;
+   if gap_above < clearance or gap_below < clearance`. `gap_below` is spelled as the subtraction
+   rather than `(1 - GRID_SPARE_ABOVE) * spare` — identical in exact `Fraction` arithmetic, and it
+   keeps "the two gaps sum to the spare" true **by construction**. The binding threshold becomes
+   `clearance / 0.42` = **2.381** clearances (14.286 px at Book 1's cell), not 2.
+3. **`book_pdf_generator.py` and `book_proof.py` are STILL AST-identical to `cc4430b` with
+   docstrings normalised.** I verified this with my own AST comparison, stripping docstrings from
+   both trees and diffing `ast.dump` — not with the agent's script. So after four commits the
+   five-regression `_draw_solved_slot` trap is still **provably** clean, and that is the single
+   most reassuring fact about this card.
+
+**The headline result: cycle 1's surviving mutant now dies.** `spare < clearance` → `1 failed`.
+So do the halved form, the pre-fix `spare < 2 * clearance`, `spare <= 0`, dropping the
+clearance's `+ 1`, and the degraded branch. The new test walks a trim height in **0.05 mm steps**
+(41 specs over 2 mm), asserts **exactly one verdict flip**, derives the clearance **inside the
+test** from rule weights written out as points rather than importing the constant, and asserts
+the case immediately below the boundary has a **positive** spare — which is precisely what a
+`spare <= 0` oracle cannot say and why cycle 1's named oracles could not see the boundary.
+
+**`cell_cap = 18 mm`: the claim is now true rather than bounded.** 0 violations under the new
+condition where the retired one had some, and the arithmetic is unconditional — `clearance >=
+thick/2 + furniture/2 + 1` and `gap_above >= clearance`, so the ink clears for **every** rule
+weight after `_boundaries`' single half-pixel rounding. The docstrings that named two oracles
+incapable of seeing the boundary are corrected, and both now point at the new test.
+
+**F-002's miscount is caught again, and the red-check is recorded**: flipping `_parity` to
+`(page_number + 1) % 2` — the cover rejoining the numbering, the exact miscount the class is
+named for — gives **3 failed, 3 passed** where before the fix *all* passed. Book 1's identity
+moved to its own test, where it is the **subject** rather than the evidence. `book_page_spec.py`
+was restored and is not in the commit.
+
+#### The geometry this cycle moved, stated as a number and not as a reassurance
+
+**No stored page moves** — 0 of 33 baseline placements, 0 of 9 proof sheets. Across the whole
+admissible space, **28 of 55,140** placements change: spare 12.41–14.14 px, each drawing moving
+**down 12–13 px (1.0–1.1 mm)** from the 42% row onto the band's foot, and **all 28 omit their
+footer group** (`qr_slot(...) is None`, 0 exceptions) — so none of them gains a rule to cross,
+which is the only way this change could have created the defect it exists to prevent.
+
+#### Three corrections the fix makes to the review's figures, and one addition that matters more
+
+The corrections are all in the review's **numbers**, not its findings — the findings stood.
+
+- **F-007's "112 px" is 113 px.** The review repeated the docstring's own 112 without challenging
+  it, and asserting 112 would have been **red**. Measured on `test_layout_two_up.py`'s own
+  `BOOK1_ODD` (which stores `top_mm=9.525` — this module's profile, *not* CON-018 as amended):
+  single page 367, upper slot 254, gap **113** px at both parities. Now pinned *and* derived from
+  `interior_frame`'s rule rows, so the figure is checked two ways instead of restated. **A review
+  that inherits a figure from the docstring it is auditing is auditing nothing** — that is the
+  transferable lesson, and it is the same shape as the orchestrator's own CARD-248 trim error.
+- **F-008's "8.1 mm" is the `qr_slot` bound, not the sweep's.** The two predicates turn on
+  different quantities: the sweep's includes the drawing's 3 px heavy-rule overhang, `qr_slot`'s
+  does not. Retired threshold: 6.1 mm (sweep) / 8.13 mm (`qr_slot`); new threshold: 7.65 mm /
+  **9.68 mm**. The binding one is `qr_slot`'s. **And the fix narrows this margin itself** — from
+  5.7 px of headroom to **3.4 px** (17.72 px lift against a 14.29 px threshold) — which is why it
+  is pinned by an assertion rather than only documented. Flagged for cycle 2 to judge.
+- **The "126 (trim, extent) pairs" count was not reproduced**; a coarser scan found 4 violations
+  under the retired condition. The fix says it does not doubt the finer sweep and reports the 4
+  only so it is not read as a contradiction. Honest, and the direction is what mattered.
+
+**The addition is the one worth keeping.** The AC-3 sweep's `_clears` predicate compares
+`ink_top_mm > area_top` — against the rule's **row**, not its ink extent — so **the sweep could
+not have detected cycle 1's sub-pixel margins in either direction.** Cycle 1 measured 0.555 px
+against the rule's *ink*; that measurement was never in the sweep's reach. So the 484-case sweep
+is weaker than cycle 1's own numbers implied, and the new threshold test — which compares against
+each rule's outermost ink row — is strictly stronger than it. The fix deliberately left `_clears`
+alone, on the grounds that tightening it is a second geometry claim this cycle does not need.
+That is the right call and it is recorded as a residue rather than absorbed.
+
+**Also fixed:** F-003 (AC-4's premise now asserts *that the crop saturates*, so the reason is in
+the test, then measures depth off the layout with a 25 mm floor against a real ~30 mm), F-006 (a
+real parity premise from the footer QR block at each end), F-008 (case (iii) named with its
+`band_mm` coupling and pinned), F-009 (`unmoved_control_page_px`, checked against both the
+recorder's pages and trim arithmetic restated in the test, so a recorder that changed its DPI or
+its orientation fails there while the digests would only say "everything moved"),
+F-010..F-013, and **F-004/F-005 — the orchestrator's own incomplete pass** — with a sweep for
+`AC-252`, `xfail`, `twice over`, `2 * clearance` and both retired class names across `src/`,
+`tests/` and `docs/` rather than a fix of the listed lines.
+
+**The fix also found a logic error in the docstring it was extending**: it claimed the ratio is
+refused because it "would put ink further past the footer rule than the alternative does", which
+is **false for case (iii)** — there the band's foot is the *lower* row and is taken anyway, to
+keep the **header** rule clean. Now stated as the trade it actually is.
