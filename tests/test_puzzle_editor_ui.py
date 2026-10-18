@@ -688,11 +688,20 @@ def _posted(asked, end: str):
 
 
 def _settle(page) -> None:
-    """Let an answer that has already arrived be acted on.
+    """Wait until the answer in flight has been acted on, not merely received.
 
-    One turn of the page's own task queue, after ``expect_response`` says the
-    response is in — not a wait, and nothing load-sensitive to tune.
+    Save's ``aria-disabled`` goes back to "false" in the handler's ``finally``,
+    in the same continuation that then decides whether the answer still
+    belongs to this turn — so this is the page's own signal that it has
+    finished with the response. A sleep would be a guess; this is an
+    observation, and it is why the assertions after it cannot pass by being
+    read too early.
     """
+    page.wait_for_function(
+        "() => document.getElementById('puzzle-editor-save')"
+        ".getAttribute('aria-disabled') === 'false'",
+        timeout=20_000,
+    )
     page.evaluate("() => new Promise((resolve) => setTimeout(resolve, 0))")
 
 
