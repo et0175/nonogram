@@ -87,18 +87,38 @@ _PAYLOAD = re.compile(
     r'<script type="application/json" id="puzzle-player-data">(.*?)</script>', re.S
 )
 
-#: What makes a file a grid renderer, whatever it calls its cells: it builds
-#: grid nodes. Any of the three routes to that counts — ``createElement`` of a
-#: table node, the DOM table API, or table markup handed to ``innerHTML`` —
-#: because G-2 is "one renderer in this panel" and a second one is still a
-#: second one under new class names (review cycle 1, F-007). ``player-cell``
-#: stays as the panel's own cell class, which is what a FORK of solver.js
-#: would carry.
+#: What makes a file a grid renderer, whatever it calls its cells and
+#: whatever nodes it builds them out of: it puts cells into the page. Every
+#: route to that counts — ``createElement`` of ANY element, the DOM table
+#: API, table markup, markup of any kind handed to ``innerHTML`` /
+#: ``insertAdjacentHTML``, or a cloned node — because G-2 is "one renderer in
+#: this panel" and a second one is still a second one under new class names
+#: (review cycle 1, F-007) and in other tags (review cycle 2, G-004: a
+#: ``<div class="shadow-cell">`` grid built from a string walked past the
+#: table-shaped predicate). ``player-cell`` stays as the panel's own cell
+#: class, which is what a FORK of solver.js would carry.
+#:
+#: **What this does NOT check**, stated because a completeness guard that
+#: overstates itself is worse than none (review cycle 2, G-004): it is a text
+#: predicate over one file, so a builder that creates no node and writes no
+#: markup is outside it — one that only re-styles or re-labels cells
+#: ``solver.js`` already drew, or one that reaches the DOM through a name
+#: this pattern cannot see. The STRUCTURAL half of the guard covers the
+#: likelier case on its own: the editor page's script set is asserted
+#: exactly, so a renderer in a NEW file is caught by its file whatever it
+#: draws with.
 _BUILDS_A_GRID = re.compile(
-    r"""createElement\(\s*['"](?:table|thead|tbody|tr|td|th)['"]"""
-    r"""|insertRow|insertCell|<t(?:able|body|head|r|d|h)\b|player-cell""",
+    r"""createElement\(|createElementNS\(|cloneNode\("""
+    r"""|insertRow|insertCell|insertAdjacentHTML"""
+    r"""|innerHTML\s*=|outerHTML\s*=|<t(?:able|body|head|r|d|h)\b|player-cell""",
     re.I,
 )
+
+#: The markers that bound app.py's manual-edit POST surface — ``_edit_refusal``
+#: and CARD-245's two routes. Every refusal those routes emit is read off that
+#: slice, rather than from the four reasons a test already knows (review cycle
+#: 2, G-007).
+_EDIT_ROUTES = ("    def _edit_refusal(puzzle_id):", '@app.route("/puzzle/<puzzle_id>/editor"')
 
 EDITOR = "/puzzle/{}/editor"
 SAVE = "/puzzle/{}/edit"
@@ -386,10 +406,13 @@ class TestPuzzleEditor_Guardrails:
         ``player-cell``, so a renderer added under any other name — a
         ``static/editor_grid.js`` building ``<td class="editor-cell">`` and
         loaded by this page — passed it. What makes a file a renderer is that
-        it builds grid nodes, by whichever route (``createElement``,
-        ``insertRow``/``insertCell``, or table markup handed to
-        ``innerHTML``), and of every script this page serves itself exactly
-        one may do that.
+        it puts cells into the page, by whichever route (``createElement`` of
+        any element, the DOM table API, markup handed to ``innerHTML``, a
+        cloned node), and of every script this page serves itself exactly one
+        may do that. The predicate's own residual — a builder that creates no
+        node and writes no markup — is written out beside
+        :data:`_BUILDS_A_GRID` rather than left as a claim of completeness
+        the guard does not have (review cycle 2, G-004).
         """
         puzzle_id = seed(admin_app)
         html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
@@ -401,7 +424,11 @@ class TestPuzzleEditor_Guardrails:
         # The page loads the renderer itself, so "only one builds a grid" is
         # not satisfied by a page that draws no board at all.
         assert _BUILDS_A_GRID.search((_STATIC / "solver.js").read_text()) is not None
-        assert "createElement" not in (_STATIC / "puzzle_edit.js").read_text()
+        # And the editor's own script builds nothing at all — asked of the
+        # whole predicate rather than of ``createElement`` alone, which a
+        # div/``innerHTML`` grid inside this very file walked straight past
+        # (review cycle 2, G-004).
+        assert _BUILDS_A_GRID.search((_STATIC / "puzzle_edit.js").read_text()) is None
 
     def test_the_editor_decides_no_uniqueness_and_no_difficulty(self) -> None:
         """Documentation of G-3, and only that (review cycle 1, F-013).
@@ -525,6 +552,74 @@ class TestPuzzleEditor_Guardrails:
             assert body["message"]
             assert f'"{reason}"' in editor_js, reason
 
+    def test_the_refusal_vocabulary_is_load_bearing_on_both_sides(self) -> None:
+        """G-007, and the source half of G-001's allow-list.
+
+        ``EDIT_REFUSAL_REASONS`` was a declared vocabulary nothing read: the
+        routes wrote their reasons as literals, the client branched on
+        literals of its own, and the test above iterates the four reasons it
+        already knows — so a fifth refusal could join the routes without
+        joining either. That became load-bearing the moment "nothing was
+        stored" turned into an ALLOW-LIST of the refusals CARD-245 answers
+        WITHOUT writing (review cycle 2, G-001): a reason missing from one
+        side of that seam is a page that cannot say what the store did, and
+        a reason wrongly *present* on it is a page that says what it does
+        not know. So both sides are read off the source and held to the
+        tuple.
+
+        If a refusal that DOES write ever has to exist, this is the test
+        that stops it being added quietly: the tuple and the client's list
+        would have to be split, on purpose, with the reason written down.
+        """
+        from nonogram.admin.app import EDIT_REFUSAL_REASONS
+
+        start, stop = _EDIT_ROUTES
+        source = (_ADMIN / "app.py").read_text()
+        head = source.index(start)
+        edit_routes = source[head:source.index(stop, head)]
+        allow_list = re.search(
+            r"const REFUSALS_THAT_NEVER_WRITE = \[(.*?)\];",
+            (_STATIC / "puzzle_edit.js").read_text(),
+            re.S,
+        )
+
+        # Every reason the two POST routes emit is in the vocabulary, and the
+        # vocabulary has nothing the routes do not emit.
+        emitted = set(re.findall(r'"reason":\s*"([a-z_]+)"', edit_routes))
+        assert emitted == set(EDIT_REFUSAL_REASONS), emitted
+        # And the client's allow-list is that same set, so "nothing was
+        # stored" is said for exactly the refusals that never write.
+        assert allow_list is not None, "the client's allow-list was renamed"
+        assert set(re.findall(r'"([a-z_]+)"', allow_list.group(1))) == set(
+            EDIT_REFUSAL_REASONS)
+
+    def test_the_stale_clue_disclosure_stands_above_the_board(self, admin_app) -> None:
+        """F-012's relocation, pinned (review cycle 2, G-006).
+
+        The clue numbers beside the editor's board are the STORED puzzle's
+        and do not follow what the owner paints; Save recomputes them from
+        the grid it stores. That sentence spent cycle 1 in the last clause of
+        an eight-sentence usage hint BELOW the save bar, where an owner
+        reading the gutters would never meet it — and nothing but the diff
+        held it in its new place above the board, which is how it got into
+        the old one.
+        """
+        puzzle_id = seed(admin_app)
+        html = admin_app.test_client().get(EDITOR.format(puzzle_id)).get_data(as_text=True)
+        flat = re.sub(r"\s+", " ", html)
+
+        note = re.search(r'<p class="editor-note">(.*?)</p>', flat)
+        assert note is not None, "the disclosure's own paragraph is gone"
+        assert (
+            "<strong>The clue numbers beside the board are still the stored "
+            "puzzle's</strong>" in note.group(1)
+        ), note.group(1)
+        assert "do not follow what you paint" in note.group(1)
+        # Above the board it is about, and above the save bar it warns the
+        # owner before they reach.
+        assert flat.index('class="editor-note"') < flat.index('id="puzzle-player"')
+        assert flat.index('class="editor-note"') < flat.index('id="puzzle-editor"')
+
     def test_the_editor_adds_no_dependency_and_no_vendored_script(self) -> None:
         """G-5 / ADR-0038/R1. The baseline itself is pinned by
         ``TestDependencyBaseline_IsExactlyPillowAndNumpy`` (the named
@@ -646,6 +741,15 @@ _SAVE_THEN_PAINT = """([grid]) => {
   const height = grid.length, width = grid[0].length;
   const cells = Object.freeze(grid.flat().map((filled) => (filled ? 'filled' : 'empty')));
   window.puzzlePlayer.setBoard(Object.freeze({ width, height, cells }));
+}"""
+
+#: Press Save and then Cancel, in ONE task: the cancel therefore lands while
+#: the verify is still unanswered — the state an owner cannot reach, because
+#: the Approve/Cancel pair is ``hidden``, and the state a script reaches at
+#: once (review cycle 2, G-008).
+_SAVE_THEN_CANCEL = """() => {
+  document.getElementById('puzzle-editor-save').click();
+  document.getElementById('puzzle-editor-cancel').click();
 }"""
 
 #: Take the board's change announcement away from the editor, leaving the
@@ -1124,6 +1228,11 @@ class TestPuzzleEditor_WhatTheServerSays:
 
         assert "Nothing was stored" in said
         assert "verify it again" in said  # the store's own words, relayed
+        # The other half of G-001's allow-list: this refusal is one CARD-245
+        # answers WITHOUT writing, so the page is entitled to the DEFINITE
+        # sentence and must not hedge. A fix that said "not known" everywhere
+        # would close G-001 by making the page useless, and this fails on it.
+        assert "not known" not in said
         assert not _approve_offered(browser_page)
         _assert_stored(live, puzzle_id, STORED)
 
@@ -1356,6 +1465,17 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
        page then calls saved (F-002) — and Approve sends the grid it captured,
        which is pinned on its own below (F-004).
 
+    And one allow-list, which is how the second half of the invariant is
+    kept (review cycle 2, G-001): on a save the page says "nothing was
+    stored" for the refusals CARD-245 answers WITHOUT writing and for nothing
+    else. Three tests below give it an answer it cannot read — a 200 that
+    parses as nothing after the store has committed, a gateway's 502, a
+    reason this page has never been taught — and each asserts the page claims
+    nothing; the two refusals that DO license the definite sentence assert
+    that it is still said (``..._asks_to_verify_again``,
+    ``..._says_this_edit_cannot_be_stored``), so neither half can be closed
+    by abandoning the other.
+
     None of these defects could corrupt the store: CARD-245's gate held behind
     every one of them. What they did was tell the owner something that was not
     so, which is why the assertions here are about the words AND the control
@@ -1464,6 +1584,18 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         ``save_edited_grid``'s docstring). That made the safety a property of
         the other card, recorded nowhere here; it is one request now, and the
         two responses can no longer race to write the message.
+
+        TWO mechanisms make that true, and both are taken on every Approve:
+        the sentence that announces the store WITHDRAWS the offer (``tell``'s
+        one writer, so ``verified`` is null and the second press has nothing
+        to send), and the single-flight guard refuses the second press
+        outright. Review cycle 2 removed each alone and the file still passed,
+        so only the pair was pinned. The offer half is asserted here — no
+        state of the bar that says "Storing this grid" has an Approve beside
+        it — which leaves the guard as the one unpinned half, and that is the
+        honest state for a redundancy kept so a reader of ``onApprove`` need
+        not reason about ``tell``'s side effect to see that one request is
+        sent.
         """
         puzzle_id = _seed_live(live)
         _open_editor(browser_page, live, puzzle_id)
@@ -1472,6 +1604,7 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         _button(browser_page, "Save").click()
         _wait_for_message(browser_page, "Difficulty")
         errors, asked = _watch(browser_page)
+        browser_page.evaluate(_WATCH_BAR)
 
         browser_page.evaluate(_PRESS_TWICE, ["puzzle-editor-approve"])
         said = _wait_for_message(browser_page, "Saved")
@@ -1480,6 +1613,12 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         assert _stored_grid(live, puzzle_id) == EDITED
         assert "the grid you verified" in said
         assert errors == []
+        # The offer really is down for the whole of the store's write, which
+        # is the mechanism and not a by-product of the guard.
+        states = browser_page.evaluate(_BAR_STATES)
+        storing = [state for state in states if "Storing this grid" in state["text"]]
+        assert storing, states
+        assert not any(state["offered"] for state in storing), storing
 
     def test_a_stroke_while_the_grid_is_being_checked_is_not_graded(
         self, browser_page, live
@@ -1655,6 +1794,169 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
         # which the page is right not to claim either way.
         _assert_stored(live, puzzle_id, STORED)
 
+    def test_a_save_whose_answer_cannot_be_read_claims_nothing_about_the_store(
+        self, browser_page, live
+    ) -> None:
+        """G-001, and the one case where the page could be read as lying
+        about a write that really happened.
+
+        The save REACHES the panel and commits; only the ANSWER is replaced,
+        with a 200 carrying markup instead of JSON — a reverse proxy's error
+        page, a login wall, a panel mid-deploy. ``post()`` hands back that
+        code with ``body: null``, and the page used to narrate it as "Nothing
+        was stored. The panel answered with 200, which this page does not
+        know how to act on" while the stored grid was the edited one. The
+        owner's act on that sentence is a second Save: a second solve and a
+        second ``manually_edited_at`` stamp for a grid that was already in.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _tool(browser_page, "White")
+        _cell(browser_page, 0, 0).click()
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        errors, _asked = _watch(browser_page)
+
+        def answered_with_markup(route):
+            route.fetch()  # the panel really does get the save, and writes
+            route.fulfill(
+                status=200, content_type="text/html", body="<html>not json</html>")
+
+        browser_page.route(re.compile(r"/edit$"), answered_with_markup)
+        _button(browser_page, "Approve").click()
+        said = _wait_for_message(browser_page, "not known")
+
+        # The store DID write, which is exactly why the page may not say it
+        # did not — and may not say it did either.
+        assert _stored_grid(live, puzzle_id) == EDITED
+        assert "nothing was stored" not in said.lower(), said
+        assert "Saved" not in said
+        assert "Reload the page" in said
+        assert not _approve_offered(browser_page)
+        assert errors == [], errors
+
+    def test_a_gateway_error_on_a_save_claims_nothing_about_the_store(
+        self, browser_page, live
+    ) -> None:
+        """G-001 in the shape production actually runs: the panel is behind a
+        proxy, and a gateway that gives up AFTER the app committed answers
+        502 with no body the page can read. "Nothing was stored" is a claim
+        about a store this page has not been told about, whichever way the
+        timing fell, and the catch-all branch made it for every code outside
+        200/404/409/422.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _tool(browser_page, "White")
+        _cell(browser_page, 0, 0).click()
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        errors, _asked = _watch(browser_page)
+        browser_page.route(
+            re.compile(r"/edit$"),
+            lambda route: route.fulfill(
+                status=502, content_type="text/html", body="<html>Bad Gateway</html>"),
+        )
+
+        _button(browser_page, "Approve").click()
+        said = _wait_for_message(browser_page, "not known")
+
+        assert "502" in said
+        assert "nothing was stored" not in said.lower(), said
+        assert "Saved" not in said
+        assert "Reload the page" in said
+        assert not _approve_offered(browser_page)
+        assert errors == [], errors
+        # This save never reached the panel, so in fact nothing was stored —
+        # which the page is right not to claim either way.
+        _assert_stored(live, puzzle_id, STORED)
+
+    def test_a_refusal_reason_this_page_was_never_taught_claims_nothing(
+        self, browser_page, live
+    ) -> None:
+        """G-001's allow-list from the other end: the fifth reason.
+
+        "Nothing was stored" is said for the four refusals CARD-245 answers
+        without writing, named in ``puzzle_edit.js``'s
+        ``REFUSALS_THAT_NEVER_WRITE`` and tied to the server's
+        ``EDIT_REFUSAL_REASONS`` by
+        ``test_the_refusal_vocabulary_is_load_bearing_on_both_sides``. A
+        reason outside that list is one this page knows nothing about, so it
+        fails safe — it hedges, and still relays the server's own words —
+        rather than making the claim the invariant forbids. Patching each
+        branch with ``storing`` instead would have left this case claiming.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _tool(browser_page, "White")
+        _cell(browser_page, 0, 0).click()
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+        errors, _asked = _watch(browser_page)
+        browser_page.route(
+            re.compile(r"/edit$"),
+            lambda route: route.fulfill(
+                status=422,
+                content_type="application/json",
+                body=json.dumps({
+                    "ok": False,
+                    "reason": "too_large",
+                    "message": "a grid this big is not stored here",
+                }),
+            ),
+        )
+
+        _button(browser_page, "Approve").click()
+        said = _wait_for_message(browser_page, "not known")
+
+        assert "a grid this big is not stored here" in said  # still the server's words
+        assert "nothing was stored" not in said.lower(), said
+        assert "Saved" not in said
+        assert not _approve_offered(browser_page)
+        assert errors == [], errors
+
+    def test_a_cancel_taken_mid_flight_is_not_undone_by_the_answer(
+        self, browser_page, live
+    ) -> None:
+        """G-008. ``onCancel`` is a writer-caller like the others and spends
+        the turn.
+
+        An owner cannot reach Cancel while a request is in flight — the pair
+        it sits in is ``hidden``, and this panel's CSS makes that
+        ``display: none`` — so the guarantee rested on another element's
+        visibility, which is not a guarantee. Forced with a scripted click
+        during the verify, the cancel used to be silently undone by the grade
+        that landed after it: the message went back to a difficulty and the
+        Approve came back up, for a flow the owner had just abandoned.
+
+        A SAVE's answer is still never dropped, whatever turn it lands in,
+        because it is the only report of what the store did — so this spends
+        the turn without giving Cancel the power to silence the store.
+        """
+        puzzle_id = _seed_live(live)
+        _open_editor(browser_page, live, puzzle_id)
+        _tool(browser_page, "White")
+        _cell(browser_page, 0, 0).click()
+        errors, _asked = _watch(browser_page)
+
+        with browser_page.expect_response(
+            lambda response: response.url.endswith("/edit/verify")
+        ) as answer:
+            browser_page.evaluate(_SAVE_THEN_CANCEL)
+        # It really was a grade that got dropped, not a refusal.
+        assert answer.value.status == 200
+        _settle(browser_page)
+
+        said = _message(browser_page)
+        assert "your edit is still there" in said, said
+        assert "Difficulty" not in said
+        assert not _approve_offered(browser_page)
+        assert errors == [], errors
+        _assert_stored(live, puzzle_id, STORED)
+        # And the flow is still usable: Cancel abandoned a check, not the page.
+        _button(browser_page, "Save").click()
+        _wait_for_message(browser_page, "Difficulty")
+
     def test_a_puzzle_that_entered_a_book_says_this_edit_cannot_be_stored(
         self, browser_page, live
     ) -> None:
@@ -1679,6 +1981,8 @@ class TestPuzzleEditor_TheOfferAndTheWordsAgree:
 
         assert "in a book" in said
         assert "take it out of the book" in said.lower()
+        assert "Nothing was stored" in said
+        assert "not known" not in said  # a refusal that never writes is known
         # The advice that can never succeed is gone.
         assert "Press Save" not in said
         assert not _approve_offered(browser_page)

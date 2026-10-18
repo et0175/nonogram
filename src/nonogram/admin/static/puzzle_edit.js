@@ -48,9 +48,21 @@
 //      therefore withdraws the offer and says so, instead of being quietly
 //      left out of a store the page then calls saved.
 // The store's answer is the one thing that is never dropped: it is the only
-// report of what the store actually did. When it cannot be had at all, the
-// page says that whether the grid was stored is not known here — never that
-// it was saved, and never nothing.
+// report of what the store actually did. And what that answer licenses the
+// page to CLAIM is an allow-list, not a default (review cycle 2, G-001). On
+// a save this page may say "nothing was stored" only for the answers
+// CARD-245 gives WITHOUT writing: its four declared reasons, and the bare
+// 404/409/422 those refusals arrive as. Every other answer to a save — no
+// answer at all, a 2xx whose body will not parse, a 5xx from the panel or
+// from the proxy in front of it, a reason this page has never been taught —
+// leaves the store's state unknown here, and the page says exactly that and
+// asks for a reload. The default used to run the other way, and the cost of
+// that is not theoretical for a panel behind a gateway: a proxy that gives
+// up AFTER the app committed answers 502, the owner read "Nothing was
+// stored", and the owner's next act on that sentence is a second Save —
+// another solve and another manually_edited_at stamp for a grid that was
+// already in. Inverting the default also means the FIFTH refusal reason,
+// whenever it is added, fails safe instead of lying.
 //
 // WHAT THIS FILE NEVER DECIDES (G-3). Whether a grid is a puzzle, and how
 // hard it is, are the server's answers from one solve (ADR-0029/R2), and
@@ -148,22 +160,55 @@ export const CANCELLED =
   "Not saved, and nothing on the board was lost: your edit is still there. "
   + "Press Save when you want it checked again.";
 
+// THE REFUSALS THAT NEVER WRITE — the allow-list THE INVARIANT's last
+// paragraph rests on. Each of these is a decision CARD-245's two routes take
+// before they touch the store, which is what makes "nothing was stored" a
+// fact about them rather than a guess. The vocabulary is the server's own
+// (app.py EDIT_REFUSAL_REASONS) and a test reads both sides off the source
+// and holds them to that tuple, so the two cannot drift; a fifth reason
+// added to the routes has to be looked at here, and until it is, the page
+// does not know what the store did and says so.
+const REFUSALS_THAT_NEVER_WRITE = ["not_unique", "not_verified", "in_a_book", "not_found"];
+// The same refusals arriving with no reason on them — the codes CARD-245
+// gives them. `code: 0` (this page's own value for "no answer at all", see
+// post()) is deliberately not among them: no answer is no knowledge.
+const CODES_THAT_NEVER_WRITE = [404, 409, 422];
+
+// Can this page say what the store did? A reason it recognises answers for
+// itself; a bare code falls back to the codes those refusals use; anything
+// else — a code with a foreign reason, a 5xx, an answer that would not parse
+// — is unknown. The default is "no", which is the whole of the fix.
+export function storeStateIsKnown(code, reason) {
+  return reason
+    ? REFUSALS_THAT_NEVER_WRITE.includes(reason)
+    : CODES_THAT_NEVER_WRITE.includes(code);
+}
+
 // A refusal the owner can act on, from the server's own message and its
 // `reason` (AC-5: words, never an exception). CARD-245's reasons are
 // "not_unique" (422), "not_verified" and "in_a_book" (both 409) and
 // "not_found" (404); the codes are kept as the fallback so an answer without
-// a reason still reads as words. `code: 0` is this page's own value for "no
-// answer at all" — see post() — and on a save it is the one outcome where
-// the store's state is NOT known here.
+// a reason still reads as words.
+//
+// `storing` says whose answer this is. On a VERIFY nothing is stored whatever
+// comes back — that route writes nothing at all — so the definite sentence is
+// always true there. On a SAVE it is true only for the answers above, and
+// every other one gets the sentence that claims nothing.
 export function refusalText(code, message, reason, { storing = false } = {}) {
   const said = message ? ` ${message}.` : "";
-  if (code === 0) {
-    return storing
+  if (storing && !storeStateIsKnown(code, reason)) {
+    const how = code === 0
       ? "The panel could not be reached while this grid was being stored, so "
-        + "whether it was stored is not known here. Reload the page to see the "
-        + "stored puzzle, and press Save again if your edit is not in it."
-      : "Nothing was checked and nothing was stored: the panel could not be "
-        + "reached. Press Save to try again.";
+        + "whether it was stored is not known here."
+      : `The panel answered the save with ${code}, which this page does not `
+        + "know how to act on, so whether the grid was stored is not known "
+        + "here.";
+    return `${how}${said} Reload the page to see the stored puzzle, and press `
+      + "Save again if your edit is not in it.";
+  }
+  if (code === 0) {
+    return "Nothing was checked and nothing was stored: the panel could not be "
+      + "reached. Press Save to try again.";
   }
   if (reason === "in_a_book") {
     return `This edit cannot be stored.${said} A puzzle in a book keeps the `
@@ -265,6 +310,17 @@ function start() {
 
   async function onSave() {
     if (inFlight !== null) return; // one request at a time; the button says so
+    // The board AS DISPLAYED, which during an uncommitted drag is that
+    // drag's preview rather than a recorded board (review cycle 2, G-003;
+    // solver.js BOARD CHANGE announces commit(), not show()). So a Save
+    // taken mid-gesture — two pointers on a touch device — checks a grid the
+    // editor was never told about. It is harmless as this file stands:
+    // whatever is read here is the grid Approve sends, and the gesture's own
+    // pointerup/cancel either commits the preview or reverts it, both of
+    // which announce and so spend this turn and drop this answer. It is
+    // written down because it is the one gap in "the board announces its own
+    // changes", and the close, if it is ever wanted, is to read the recorded
+    // board here instead of the displayed one.
     const answer = answerOfBoard(player.getBoard());
     if (answer.grid === null) {
       // Nothing is sent: an undecided cell has no boolean to send, and
@@ -325,6 +381,15 @@ function start() {
   }
 
   function onCancel() {
+    // Cancel is a turn of its own (review cycle 2, G-008). An owner cannot
+    // reach this mid-flight — the pair is `hidden`, which is `display: none`
+    // — but safety that rests on another element's visibility is not safety:
+    // without this line a Cancel forced during a verify was silently undone
+    // by the grade that landed after it, offer and all. Spending the turn
+    // drops that grade. A SAVE's answer is still never dropped, because it
+    // is the only report of what the store did, so the store keeps the last
+    // word over a Cancel that cannot stop it.
+    turn += 1;
     tell(CANCELLED);
     save.focus();
   }

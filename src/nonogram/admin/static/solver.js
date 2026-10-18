@@ -70,6 +70,16 @@
 // what goes stale when the next control is added). An uncommitted mid-drag
 // preview (`show`) is deliberately not announced: nothing is recorded yet
 // and the drag's own commit follows.
+// What that silence costs, written down (CARD-246 review cycle 2, G-003):
+// `getBoard()` returns the DISPLAYED board, preview and all, so between a
+// drag's first move and its pointerup the board on screen is a board the
+// editor has not been told about and so is not the grid whose grade is on
+// offer. The window is bounded by the gesture — pointerup commits the
+// preview (announced) and beginPinch/pointercancel reverts to
+// `history.board` (announced) — and the editor spends its turn either way,
+// so no grade can outlive it. Closing it would mean handing the editor the
+// RECORDED board rather than the displayed one; it is a gap in the
+// announcement, not a defect in it.
 // The editor's page leaves out the elements that go with them (the counters,
 // the banner and Hint); everything else — the brush menu, Region, undo, redo,
 // reset, zoom, the announce line — is the player's own markup and its own
@@ -811,6 +821,9 @@ function start() {
 
   window.puzzlePlayer = Object.freeze({
     payload,
+    // The DISPLAYED board: mid-drag this is `show`'s preview and not the
+    // recorded one, which is the window BOARD CHANGE above documents for the
+    // editor that reads it (CARD-246 review cycle 2, G-003).
     getBoard: () => board,
     setBoard(next) {
       if (!isBoard(next)) {
