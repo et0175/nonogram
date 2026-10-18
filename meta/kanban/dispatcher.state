@@ -4,14 +4,8 @@ mode: interactive
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
 active:
-  - id: CARD-244
-    phase: implementation
-    branch: card/244-per-worktree-test-database
-    worktree: ../PythonProject4-card-244
-    started: 2026-10-17T22:41:59Z
-    note: "Owner's wave-45 decision: harden before resuming the interior chain. P1, architectural because it owns a DROP SCHEMA public CASCADE path and a name-derivation bug could reach nonogram_poc, which is the LIVE admin panel's database. Briefed to set TEST_DATABASE_URL to its own derived database from the first command, so it dogfoods the fix and cannot corrupt CARD-223's runs while building it."
   - id: CARD-223
-    phase: implementation
+    phase: merge_gate
     branch: card/223-qr-in-the-footer
     worktree: ../PythonProject4-card-223
     started: 2026-10-17T22:41:59Z
@@ -92,3 +86,15 @@ wave_45:
     - pair: [CARD-244, CARD-223]
       reason: "DISJOINT ON FILES (CARD-244: tests/conftest.py, the DB fixture's own tests, scripts/*.sh; CARD-223: export/layout.py, book_pdf_generator.py, the book test files) -- so no serialization on Touches. BUT a RUNTIME edge exists until CARD-244 lands: both trees still share nonogram_test, which is the very defect CARD-244 removes. Mitigated rather than ignored: CARD-244 isolates itself onto its own derived database from its first command, CARD-223 is told not to run DB selections, and full-suite gates are serialized by the orchestrator as always. This is the first conflict edge on this board that is about shared RUNTIME STATE rather than shared files -- the predictor models only the latter, which is why wave 44's CARD-222/CARD-243 collision was unpredicted too."
   note: "Does NOT unlock parallelism for CARD-224..CARD-233 -- those collide on export/layout.py and book_pdf_generator.py and serialise regardless. What it buys is gate integrity: wave 44 proved a concurrent sibling can manufacture both failures and skip counts, which cost one fix-agent attempt and produced a false finding that reached the owner."
+
+queued_next:
+  - id: CARD-248
+    reason: "Owner decision 2026-10-18 and approved merge plan: CARD-223 merges on a green re-gate, CARD-248 dispatches immediately after into the slot CARD-244 freed. It depends on CARD-223, so its worktree branches from main WITH CARD-223 merged, not from the current main."
+    interim_risk: "While main carries CARD-223 without CARD-248, a two-up page prints ONE link instead of two. No book is to be generated for KDP in that window. Stated on the card as well as here, because the owner's instruction was that the link definitely should not be lost."
+    note: "Two measurements to hand the agent rather than let it rediscover: folio_reserve_px reserves HORIZONTAL outer-margin room, not vertical (at 0/108/236/353 px the lower slot's bottom slack stays 0 and the cell does not move), and the 353 px strip is FREE for most pairs because the spare height already idles as a gap between the slots (1090 px on 25x10, 1046 on 15x10 and 10x10, 691 on 12x12; only the 15-row pairs are short, by 69 px). The ~2% cell cost for tall pairs is MY arithmetic and the card says it must be re-measured."
+
+gate_condition_change:
+  at: 2026-10-18
+  what: "Merge gates now run with DATABASE_URL SET, where the documented condition had it unset."
+  why: "Unset was never a preference -- it was forced, because every worktree shared nonogram_test and a concurrent card would corrupt the run. CARD-244 gave each worktree its own derived database, so the reason is gone. Measured on CARD-223's gate: skips fall 12 -> 1 (only the platform setrlimit skip remains) and 7998 tests pass, i.e. 11 db_required tests that the gate could never exercise are now exercised. This is the candidate fix in the backlog item 'the merge gate cannot evidence any AC whose test is db_required', demonstrated rather than proposed."
+  caveat: "The board's own documentation still describes the unset condition. Until that is updated, a gate line in suite-timing.log should say which condition it ran under -- a 1-skip run and a 12-skip run are not comparable, and reading them as a trend would be the same class of error as the phantom 48-skip regression."
