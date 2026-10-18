@@ -10,7 +10,8 @@
     AC-249 (INV-010)  TestBookPdf_PairingNeverReordersToFindAPartner
     AC-250 (INV-010)  TestBookPdf_OddPuzzleOutPrintsAlone
     AC-251            TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand
-    AC-252            TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge
+    AC-378            TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow
+                      (AC-252, which that class carried, is RETIRED 2026-10-18)
 
 Every verdict is read off the **rendered interior**, never asked of the code
 that produced it: how many pages the book has, how many drawings are on a page,
@@ -1009,35 +1010,86 @@ class TestBookPdf_TwoUpPageNumbersInOrderEachWithOwnBand:
 
 
 # --------------------------------------------------------------------------
-# AC-252 — the upper slot's drawing starts on a single page's top edge
+# AC-378 — the upper slot's drawing does NOT start on the single page's row
+# (AC-252, which claimed it did, is retired — see the class docstring)
 # --------------------------------------------------------------------------
 
 
-class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
-    """AC-252 — the upper puzzle's drawing starts on the 20x20's pixel row.
+class TestBookPdf_TwoUpUpperSlotDoesNotShareTheSinglePagesTopRow:
+    """AC-378 — the two top pixel rows differ **by design**, and the difference
+    is asserted rather than tolerated.
 
-    **AC-252 is falsified by CARD-224 and is owed an architect-station
-    decision.** Until that card, EC-022's fixed offset — top margin plus band
-    — was where every puzzle page of a book put its drawing's top edge, and a
-    two-up page's upper slot was not an exception. FR-032's amendment of
-    2026-10-17 made a *single* page's drawing float at 42% of its puzzle
-    area's spare height while a two-up slot's stayed at its own band foot
-    (splitting the area between two slots is CARD-226's, explicitly out of
-    CARD-224's scope — its G-4), so the two rows this AC compares are no
-    longer equal. The propagation pass that retired AC-190 and restated
-    EC-022 did not reach AC-252; CARD-224 reports it rather than editing the
-    registry from a worktree.
+    **What this replaces.** Until CARD-224, EC-022's fixed offset — top margin
+    plus band — was where every puzzle page of a book put its drawing's top
+    edge, and a two-up page's upper slot was not an exception; AC-252 stated
+    that coincidence. FR-032's amendment of 2026-10-17 made a *single* page's
+    drawing float at 42% of its puzzle area's spare height (AC-366/AC-367)
+    while a two-up slot's stayed at the foot of its own slot's band, so the two
+    rows cannot coincide except by accident. **AC-252 is RETIRED (2026-10-18):**
+    it is the same retired claim as AC-190, the fixed top edge, seen from the
+    two-up page — the 2026-10-17 propagation pass retired AC-190 under FR-032
+    but did not reach AC-252, which lives under FR-040. It cannot be rescued by
+    floating the upper slot in CARD-226 either: a slot's spare is not a page's
+    spare, so 42% of each still lands on different rows. The claim is wrong,
+    not merely early.
 
-    The first test below is therefore marked ``xfail(strict=True)``: it still
-    states AC-252 exactly, it fails, and it will fail *again* — loudly — if
-    someone "fixes" it by pinning a single page's drawing back to the band's
-    foot. Its two siblings are unaffected and still state the surviving truth:
-    the upper slot's own row is the top margin plus the band, and the two
-    pages print different cells. The gap between the two rows is measured in
+    **So this is a positive test, not an ``xfail`` of the retired claim.** A
+    strict ``xfail`` is *green* in a suite, which would let a merge gate pass
+    while the test still asserted the old geometry — the CARD-172 shape, a card
+    gated against a false claim. AC-378 names this class as the control that
+    the two rows are deliberately different today, and it fails loudly in both
+    directions a "fix" could take:
+
+    * pin a single page's drawing back to the band's foot (AC-190's retired
+      placement) and the gap measured below collapses to zero;
+    * float the upper slot *without* splitting the page and the gap shrinks
+      instead.
+
+    Each gets its own message, so a red test says which of the two happened.
+
+    **What will legitimately change this test: AC-379 and CARD-226.** That card
+    splits the two-up page into two slots with aligned bottoms, after which
+    each slot's drawing floats at 42% of *its own* spare — a different row
+    again, and still not the single page's, which is why AC-379 is owed to that
+    card rather than claimed here. A reader who finds this test red should first
+    check whether they are doing CARD-226's work; if not, one of the two
+    "fixes" above is what happened.
+
+    The two surviving siblings state the rest of AC-378: the upper slot's own
+    row is the top margin plus the band, and the two pages print different
+    cells. The same gap is measured from the *layout* rather than the ink in
     ``tests/test_layout_two_up.py::TestPairLayout_UpperSlotSitsAtItsOwnBandFoot``.
     """
 
     BIG = dict(columns=20, rows=20, depth=8, column_depth=8)
+
+    #: CARD-222's puzzle area on Book 1 — the header rule's row down to the
+    #: footer rule's — in millimetres, written out here as this file writes
+    #: every other figure out rather than read back from ``interior_frame``.
+    #: The header rule is drawn inside the band, an eighth of its depth above
+    #: its foot (the same 1.5 mm ``_BAND_FOOT_INSET_MM`` above is stated
+    #: against), and the footer hairline sits one footer strip above the bottom
+    #: margin.
+    AREA_TOP_MM = TOP_MM + BAND_MM * (1 - 1 / 8)
+    AREA_BOTTOM_MM = BOOK1_HEIGHT_MM - BOTTOM_MM - FOOTER_STRIP_PX / PX_PER_MM
+
+    #: FR-032's 42% as amended 2026-10-17 — the owner's optical figure ("which
+    #: looks centred once the header sits above it"), written out rather than
+    #: imported, so a build that "improved" it to 0.5 fails here too, exactly
+    #: as it does in AC-2's own class.
+    SPARE_ABOVE = 0.42
+
+    #: The gap between the two top rows on this fixture, in device pixels
+    #: (7.96 mm). Pinned as a literal *beside* the derivation in the test
+    #: below, so a drift has to move two independent answers to stay green.
+    ROW_GAP_PX = 94
+
+    #: How far inside each of the area's two rules the ink is read, in device
+    #: pixels. Each rule is stroked from its own boundary row, so a crop on the
+    #: boundary itself would report the rule as the drawing's ink; a heavy rule
+    #: is at most 6 px at 300 DPI, and AC-3's ink test pins every drawing on
+    #: these two pages clear of both rules by far more than that.
+    _AREA_INSET_PX = 6
 
     def _pages(self):
         """The two-up page (interior 5) and the single page after it (6).
@@ -1059,23 +1111,124 @@ class TestBookPdf_TwoUpUpperSlotSharesFixedTopEdge:
         assert _page_shapes(pages, 5, 2) == [[(10, 10), (10, 10)], [(20, 20)]]
         return pages
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "AC-252 is falsified by CARD-224: a single page's drawing floats "
-            "at 42% of the puzzle area's spare (FR-032 as amended "
-            "2026-10-17) while a two-up slot stays at its band foot. Owed "
-            "at the architect station - see this class's docstring."
-        ),
-    )
-    def test_the_upper_slot_and_the_single_page_share_a_top_pixel_row(self):
+    @classmethod
+    def _ink_bands(cls, page: Image.Image) -> tuple[float, float]:
+        """``(above, below)`` in millimetres — the empty bands the puzzle area
+        is left with above and below the drawing's outermost ink.
+
+        The book-page twin of ``tests/test_book_puzzle_frame.py``'s
+        ``_area_ink_box``, which AC-2 measures the same 42% with. That helper
+        reads a ``render_image`` page, which carries the drawing and nothing
+        else, so it can crop to the area's own boundaries; a *generated*
+        interior page really has the frame's two rules drawn on it, each
+        stroked from its boundary row, so the same crop would start on the
+        header rule and report the rule as the ink. Cropping
+        :data:`_AREA_INSET_PX` inside each rule removes both.
+
+        What comes back is the drawing's **ink**, stroke overhang included, on
+        both sides alike. ``drawing_of``'s ``top`` and ``grid_bottom`` are each
+        a rule's *first* ink row — deliberate there, because it makes the
+        printed cell a rule-to-rule pitch, and asymmetric here: it would
+        understate the span by one heavy rule, 2% of a 22 mm spare, against a
+        ratio stated to 0.5%.
+        """
+        top_px = round(cls.AREA_TOP_MM * PX_PER_MM) + cls._AREA_INSET_PX
+        bottom_px = round(cls.AREA_BOTTOM_MM * PX_PER_MM) - cls._AREA_INSET_PX
+        dark = np.asarray(page.convert("L")) < INK_LEVEL
+        rows = np.flatnonzero(dark[top_px : bottom_px + 1].any(axis=1))
+        assert rows.size, "the puzzle area carries no ink at all"
+        return (
+            _mm(top_px + int(rows.min())) - cls.AREA_TOP_MM,
+            cls.AREA_BOTTOM_MM - _mm(top_px + int(rows.max())),
+        )
+
+    def _predicted_gap_mm(self, single) -> float:
+        """The gap the two placements predict, in millimetres: the single
+        page's floated top edge less the upper slot's band foot.
+
+        Both terms are this file's own millimetres — CON-018's profile, the
+        42% and the cell read back off the drawn grid — with no layout
+        function on either side of the comparison.
+        """
+        depth_mm = _down(_puzzle(**self.BIG)) * _mm(single.cell)
+        spare_mm = (self.AREA_BOTTOM_MM - self.AREA_TOP_MM) - depth_mm
+        assert spare_mm > 20.0, (spare_mm, "this page must have real spare")
+        return self.AREA_TOP_MM + self.SPARE_ABOVE * spare_mm - (TOP_MM + BAND_MM)
+
+    def test_the_two_top_rows_differ_by_the_single_pages_own_float(self):
+        """AC-378's own claim: the two rows are 94 px — 7.96 mm — apart, which
+        is the figure the two placements predict, and not merely unequal."""
         pages = self._pages()
 
         upper, lower = drawings_of(pages[4])
         single = drawing_of(pages[5])
 
-        assert upper.top == single.top
         assert lower.top > upper.top, "the lower slot is a second drawing below it"
+
+        gap_px = single.top - upper.top
+        assert gap_px > 0, (
+            gap_px,
+            "the single page's drawing must sit BELOW the upper slot's: an "
+            "equal row means a single page was pinned back to the band's foot "
+            "- AC-190's retired placement, AC-252's claim - which AC-379's "
+            "slot split would not do, since that moves the SLOT, not the page",
+        )
+
+        predicted_mm = self._predicted_gap_mm(single)
+        assert _mm(gap_px) == pytest.approx(predicted_mm, abs=0.2), (
+            gap_px,
+            predicted_mm,
+            "the gap is not the one the two placements predict: a SMALLER gap "
+            "means the upper slot started floating without the page being "
+            "split - AC-379 / CARD-226 is the change that may legitimately do "
+            "that - and any other value that the single page's own ratio moved",
+        )
+        assert gap_px == pytest.approx(self.ROW_GAP_PX, abs=2), (gap_px, predicted_mm)
+
+    def test_the_single_page_floats_at_42_percent_of_its_own_spare(self):
+        """*Why* the single page's row is where it is — 0.42 of the puzzle
+        area's spare above the drawing and 0.58 below, measured off the ink the
+        way AC-2's own class measures it."""
+        pages = self._pages()
+
+        above, below = self._ink_bands(pages[5])
+        spare = above + below
+
+        assert spare > 20.0, (above, below, "this page must have real spare")
+        assert above / spare == pytest.approx(self.SPARE_ABOVE, abs=0.005), (above, below)
+        assert below / spare == pytest.approx(1 - self.SPARE_ABOVE, abs=0.005), (above, below)
+
+    def test_the_control_the_retired_fixed_top_edge_would_share_the_row(self):
+        """The control that can fail (ADR-0039/R1): AC-252's own geometry — a
+        single page's drawing at the band's foot, where every drawing sat
+        before this card — fails both assertions above.
+
+        Same two pages, same arithmetic, with only the single page's placement
+        replaced by the retired one, so what the greens above show is this
+        card's placement and not the checks' indifference.
+        """
+        pages = self._pages()
+        upper, _ = drawings_of(pages[4])
+        single = drawing_of(pages[5])
+
+        # AC-190's retired top edge: the band's foot, on every page and parity.
+        retired_gap_mm = (TOP_MM + BAND_MM) - _mm(upper.top)
+        assert abs(retired_gap_mm) < 0.2, (
+            retired_gap_mm,
+            "AC-252's placement really is the upper slot's own row",
+        )
+        assert retired_gap_mm != pytest.approx(self._predicted_gap_mm(single), abs=0.2), (
+            "the retired fixed top edge would pass the gap assertion"
+        )
+
+        # And the band it would leave above the drawing is 0.07 of the spare.
+        above, below = self._ink_bands(pages[5])
+        retired_above = (TOP_MM + BAND_MM) - self.AREA_TOP_MM
+        assert abs(retired_above / (above + below) - self.SPARE_ABOVE) > 0.1, (
+            retired_above,
+            above + below,
+            "the retired fixed top edge would pass the 42% assertion",
+        )
 
     def test_that_row_is_the_top_margin_plus_the_band(self):
         pages = self._pages()
