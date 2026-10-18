@@ -4,14 +4,22 @@ mode: interactive
 # SEQUENTIALLY and never with concurrent full suites.
 max_concurrent_override: 2
 active:
-  - id: CARD-223
-    phase: merge_gate
-    branch: card/223-qr-in-the-footer
-    worktree: ../PythonProject4-card-223
-    started: 2026-10-17T22:41:59Z
-    note: "P1, head of what remains of the interior chain: CARD-224 waits on it and CARD-226 waits on 224+225. Disjoint from CARD-244 on files. Briefed NOT to run DB selections while CARD-244 is active, because until CARD-244 lands both trees still share nonogram_test."
+  - id: CARD-248
+    phase: implementation
+    branch: card/248-two-up-shared-footer
+    worktree: ../PythonProject4-card-248
+    started: 2026-10-18T00:29:15Z
+    note: "Owner's chosen design for the two-up lower slot, dispatched immediately after CARD-223 merged so the interim window is as short as possible. Branched from main WITH CARD-223 (8be1f8c), since it builds on that card's footer and QR group. Briefed with the measurements rather than left to rediscover them, and told explicitly that the ~2% tall-pair cell cost is the orchestrator's arithmetic and must be re-measured."
 escalated: []
 merged_wave_45:
+  - id: CARD-223
+    merge_commit: 26a6601
+    at: 2026-10-18T00:29:15Z
+    actual: 0.2d
+    estimate: 1d
+    accuracy: 0.22x
+    gate: "7999 passed, 1 skipped, 0 failed in 796.11s -- the FIRST gate run with DATABASE_URL SET; skips 12 -> 1"
+    note: "Its own AC-1 was inverted and named the gutter; the implementation agent caught it against ADR-0036 and implemented OUTER. Its first gate was RED and the orchestrator's own summary line said FAILED count 0 -- a grep pattern that missed pytest's shape -- caught only by EXIT=1. Leaves the two-up lower slot without a link, which is CARD-248, dispatched on this merge."
   - id: CARD-244
     merge_commit: 007180d
     at: 2026-10-17T23:47:23Z

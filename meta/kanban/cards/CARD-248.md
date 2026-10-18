@@ -1,6 +1,6 @@
 # CARD-248: A two-up page gets one footer strip carrying both puzzles' links
 
-**Status:** ready
+**Status:** in_progress
 **Priority:** P1
 **Category:** feature
 **Complexity:** architectural
@@ -9,14 +9,14 @@
 **Skill:** python-pro
 **TDD:** true
 **Branch:** card/248-two-up-shared-footer
-**Worktree:** —
+**Worktree:** ../PythonProject4-card-248
 **Source:** owner decision 2026-10-18 — "about qr code in the two-up page's lower slot - it definitely should not be lost", then chose the shared-footer design from four measured options
 **Idea:** —
-**Wave:** —
+**Wave:** 45
 **Depends on:** CARD-223 (the footer strip and the QR group it builds; this card gives a two-up page one of them)
 **Touches:** src/nonogram/export/layout.py, src/nonogram/admin/book_pdf_generator.py, tests/test_book_qr_slot.py, tests/test_book_two_up.py, tests/test_book_page_numbers.py, tests/test_book_arrange_page_breaks.py, tests/property/test_book_pdf_geometry.py, tests/helpers/book_corpus.py, tests/helpers/two_up_ink.py, tests/fixtures/
 **Review score:** —
-**Started:** —
+**Started:** 2026-10-18T00:29:15Z
 **Closed:** —
 **Actual:** —
 **Merge commit:** —
